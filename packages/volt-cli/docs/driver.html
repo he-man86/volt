@@ -136,7 +136,7 @@ string? BodyLanguage(ItemRef item);</pre>
 </p>
 <p>
   The engine's own pre-flight already covers everything decidable from the source text — a malformed document,
-  network text that does not parse or is not canonical — and that is vendor-neutral by construction. What it
+  network text that does not parse or is incomplete — and that is vendor-neutral by construction. What it
   cannot cover is a shape one <i>vendor</i> cannot express. Being pure is the whole point: this was once called
   from inside the write, so a push whose second item carried such a shape left the first item in the project
   and told the caller it had failed.

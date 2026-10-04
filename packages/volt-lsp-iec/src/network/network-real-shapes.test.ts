@@ -247,7 +247,7 @@ test("several comment LINES before the first statement are NOT reported", () => 
 
 test("the label/comment ordering question no longer exists", () => {
   // The label is a header field and the comment the lines after the header, so neither can precede the other. The
-  // FIELD order is the gate's (NETWORK_NOT_CANONICAL, which needs the writer); the parser reads both.
+  // FIELD order is free: the push writes either and the canonical order comes back (bridge-refusal-review 2.12).
   const jumps = "\nNETWORK\n  JMP Guard;\nEND_NETWORK"
   const labelFirst = wrap('IMPLEMENTATION LD\nNETWORK LABEL: Guard TITLE: "t"\n  // why\n  out := a;\nEND_NETWORK' + jumps)
   const titleFirst = wrap('IMPLEMENTATION LD\nNETWORK TITLE: "t" LABEL: Guard\n  // why\n  out := a;\nEND_NETWORK' + jumps)

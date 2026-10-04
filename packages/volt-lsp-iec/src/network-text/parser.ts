@@ -12,7 +12,8 @@
  * a statement the push refuses, so the parser takes the same questions (`NetworkScopeView`) from its caller and raises
  * them where the bridge does — an instance's FB TYPE included, since an instance of a POU named R_EDGE is as
  * unspellable as the POU. A wire's declared type is held to its producer as the bridge reader holds it, from what the
- * text says (`checkWireTypes`); NETWORK_NOT_CANONICAL stays the gate's alone (it needs the writer).
+ * text says (`checkWireTypes`). Canonical form is no finding: the push writes any spelling that reads (bridge-refusal-review
+ * 2.12).
  *
  * Unlike the bridge, a finding does not discard the network it is in: the statements read before it are kept, so
  * hover, rename and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.

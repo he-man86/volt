@@ -464,7 +464,7 @@ public static class StReader
 		// ReadMethodOrAction keeps the whole block as declaration (marked: false).
 		var childRegion = SliceLines(bodyLines, interfaceHeaderLineIdx + 1, bodyLines.Count - 1);
 		// THE OWNER DECIDES THE MEMBER KIND, here exactly as it does on the IDE side
-		// (CodesysDriver.MemberKind). `SplitChildren` is shared with function blocks and can only see
+		// (ItemKind.MemberKind). `SplitChildren` is shared with function blocks and can only see
 		// `METHOD`/`PROPERTY`, so without this an interface read from TEXT reported `method` while the same
 		// interface read from the IDE reported `interface_method` - and StWriter, knowing only the latter,
 		// threw "No END keyword for POU child kind 'interface_method'". The whole interface then materialized

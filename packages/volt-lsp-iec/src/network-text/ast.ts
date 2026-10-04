@@ -250,7 +250,7 @@ export interface NetworkName {
 
 /**
  * The structural codes the LSP reports live — the bridge gate's `NETWORK_*` vocabulary (`ConflictCodes`), each raised
- * where the bridge reader raises it. `NETWORK_NOT_CANONICAL` is not among them: it needs the writer.
+ * where the bridge reader raises it. (`NETWORK_NOT_CANONICAL` is gone: canonical form is no refusal, bridge-refusal-review 2.12.)
  */
 export type NetworkDiagnosticCode =
   | "NETWORK_PARSE"

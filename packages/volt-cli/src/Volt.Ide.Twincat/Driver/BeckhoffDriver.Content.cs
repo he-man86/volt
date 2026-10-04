@@ -36,8 +36,9 @@ public sealed partial class BeckhoffDriver
         var (body, unsupported, stated) = ReadBody(item, declaration);
 
         var members = new List<Member>();
+        var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
-            members.Add(ReadMember(site, declaration));
+            members.Add(ReadMember(site, ownerIsInterface, declaration));
 
         return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
     }
@@ -98,7 +99,8 @@ public sealed partial class BeckhoffDriver
             .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         // Not held under this name AND kind: the reconciler creates it (a retyped member is deleted and created again).
-        if (!members.TryGetValue(name, out var member) || ItemKind.Map(member.Code) != site.MemberKind) return true;
+        if (!members.TryGetValue(name, out var member)
+            || ItemKind.MemberKind(member.Code, KindCode(item) == ItemKind.PlcItf, member.Name) != site.MemberKind) return true;
         if (site.Accessor is not { } accessor) return CreatesBody(_om.ReadImplementation(member.Ref.Native));
 
         var itf = site.MemberKind == ItemKind.Kinds.InterfaceProperty;
@@ -631,14 +633,11 @@ public sealed partial class BeckhoffDriver
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
 
-    internal Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, string? ownerDeclaration)
+    internal Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface, string? ownerDeclaration)
     {
-        // The member's kind is its tree CODE (its class), and a code with no kind is refused by name (openspec
-        // `push-without-header-check` 5.Q.7). `?? Kinds.Method` made any member TwinCAT reports under a code Volt does
-        // not know a "method" — the silent default `CodesysDriver.MemberKind` and `ItemKind.MemberCode` already refuse.
-        var kind = ItemKind.Map(site.Code)
-            ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"TwinCAT: member '{site.Name}' has tree item type {site.Code}, a member Volt has no kind for — refusing to treat it as a method");
+        // The member's kind is decided by its code AND its owner — the one map CODESYS asks too (ItemKind.MemberKind,
+        // openspec bridge-refusal-review D20); a code with no kind is refused by name (push-without-header-check 5.Q.7).
+        var kind = ItemKind.MemberKind(site.Code, ownerIsInterface, site.Name);
         var declaration = MemberDeclaration(site);
         // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
         var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);
@@ -747,7 +746,12 @@ public sealed partial class BeckhoffDriver
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body, bodies, site);
+            // Reached only with PlcPropGet / PlcPropSet (the interface pair returned above), both of which map; a code
+            // that does not is Volt's own broken invariant, never a kind-less write (openspec bridge-refusal-review D20).
+            var kind = ItemKind.Map(code)
+                ?? throw new BridgeException(BridgeErrorCodes.InternalError,
+                       $"TwinCAT: accessor code {code} of property '{Name(property)}' maps to no Volt kind");
+            WriteOne(child, kind, accessor.Declaration, accessor.Body, bodies, site);
             return;
         }
     }

@@ -164,9 +164,10 @@ public static class TaskDescriptorFormat
         (s ?? "").Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
 }
 
-/// <summary>A `.task` body Volt will not write. Carries the reason, and for a non-canonical body the exact text
-/// to use instead.</summary>
-public sealed class TaskDescriptorException : Exception
+/// <summary>A `.task` body that does not read: the reason, naming the line or the field. Coded BAD_REQUEST — a malformed
+/// descriptor is the request's grammar, not Volt's broken invariant (openspec bridge-refusal-review D14). Uncoded, it
+/// fell through <c>PushService.ConflictFor</c>'s coded-error check and reached the wire as INTERNAL_ERROR.</summary>
+public sealed class TaskDescriptorException : BridgeException
 {
-    public TaskDescriptorException(string message) : base(message) { }
+    public TaskDescriptorException(string message) : base(Volt.Contracts.BridgeErrorCodes.BadRequest, message) { }
 }

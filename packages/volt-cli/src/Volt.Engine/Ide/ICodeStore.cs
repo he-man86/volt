@@ -86,7 +86,7 @@ public interface ICodeStore
     /// decide WITHOUT touching the IDE. Called by the push PRE-FLIGHT, before any op has been applied.
     ///
     /// <para><b>Why the engine cannot do this itself.</b> Its own pre-flight covers everything decidable from
-    /// the source text alone — a malformed document, network text that does not parse or is not canonical — and
+    /// the source text alone — a malformed document, network text that does not parse or is incomplete — and
     /// that is vendor-neutral by construction. What it cannot cover is a shape one VENDOR cannot express:
     /// TwinCAT's PLCopen writer refuses an unconditional jump or return, an Execute box, and a box output pin
     /// wired straight to a variable, and it refuses them from a pure function of the parsed body. Being pure is

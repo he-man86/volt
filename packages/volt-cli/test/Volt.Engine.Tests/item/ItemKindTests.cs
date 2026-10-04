@@ -56,6 +56,36 @@ public class ItemKindTests
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.InternalError, ex.ErrorCode);
     }
 
+    /// <summary>ONE MEMBER-KIND MAP FOR BOTH VENDORS, DECIDED BY THE OWNER (openspec bridge-refusal-review D20). The
+    /// code alone cannot tell a method from an interface method on CODESYS — an FB property answers to
+    /// <c>IInterfacePropertyObject</c> — so the owner, the vendor-neutral IEC fact, decides; each code × owner.</summary>
+    [Theory]
+    [InlineData(ItemKind.PlcMethod, false, ItemKind.Kinds.Method)]
+    [InlineData(ItemKind.PlcMethod, true, ItemKind.Kinds.InterfaceMethod)]
+    [InlineData(ItemKind.PlcItfMeth, false, ItemKind.Kinds.Method)]
+    [InlineData(ItemKind.PlcItfMeth, true, ItemKind.Kinds.InterfaceMethod)]
+    [InlineData(ItemKind.PlcProp, false, ItemKind.Kinds.Property)]
+    [InlineData(ItemKind.PlcProp, true, ItemKind.Kinds.InterfaceProperty)]
+    [InlineData(ItemKind.PlcItfProp, false, ItemKind.Kinds.Property)]
+    [InlineData(ItemKind.PlcItfProp, true, ItemKind.Kinds.InterfaceProperty)]
+    [InlineData(ItemKind.PlcAction, false, ItemKind.Kinds.Action)]
+    [InlineData(ItemKind.PlcAction, true, ItemKind.Kinds.Action)]
+    public void A_members_kind_is_decided_by_its_code_and_its_owner(int code, bool ownerIsInterface, string expected)
+        => Assert.Equal(expected, ItemKind.MemberKind(code, ownerIsInterface, "M"));
+
+    /// <summary>A MEMBER CODE WITH NO VOLT KIND IS REFUSED BY NAME, never read as a method (the `?? Method` both
+    /// drivers once carried): UNSUPPORTED, naming the member and the code.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_member_code_with_no_kind_is_refused_by_name(bool ownerIsInterface)
+    {
+        var ex = Assert.Throws<BridgeException>(() => ItemKind.MemberKind(9999, ownerIsInterface, "Mystery"));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
+        Assert.Contains("member 'Mystery' has item type 9999, a member Volt has no kind for", ex.Message);
+        Assert.Contains("refusing to treat it as a method", ex.Message);
+    }
+
     /// <summary>AN UNMAPPED KIND HAS NO EXTENSION, and asking for one throws. A silent <c>""</c> produced a
     /// bare trailing dot (<c>"POUs."</c>) — a filename no lookup on either side of the vendor seam resolves.</summary>
     [Fact]

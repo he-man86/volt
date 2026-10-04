@@ -228,6 +228,9 @@ public class PushTaskTests
 
         Assert.False(resp.Accepted);
         Assert.Contains("CoreBinding", resp.Conflicts![0].Reason);
+        // The request's grammar, not Volt's broken invariant: BAD_REQUEST on the wire, never the INTERNAL_ERROR
+        // default an uncoded exception falls to (openspec bridge-refusal-review D14).
+        Assert.Equal(BridgeErrorCodes.BadRequest, resp.Conflicts![0].Code);
         Assert.Empty(ide.Recorded);
     }
 }

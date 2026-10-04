@@ -10,8 +10,11 @@ namespace Volt.Engine.Format.Network;
 /// on one side and relied on by the other: a token the writer leaves bare must lex as one token, a word the writer
 /// backticks must be refused bare, a box the writer writes infix must be the box the reader builds from a group,
 /// and a wire's type is read off its producer by the same rule on both sides. Two private copies would drift the
-/// first time one side learns a new literal form — and the drift would show up only as a body the gate refuses as
-/// not canonical, far from the rule that moved.
+/// first time one side learns a new literal form, far from the rule that moved. At push time the gate catches only
+/// the half of that drift where the writer's text does not read back at all (its INTERNAL_ERROR); a spelling that
+/// reads back cleanly into a DIFFERENT model passes the gate unseen (it re-reads, it does not compare models). That
+/// half is caught only offline, by the model oracle <c>Read(Write(m)) ≅ m</c> (<c>NetworkModelOracle</c>,
+/// <c>network-text.html</c> §gate) — the reason this table is shared rather than copied.
 /// </summary>
 internal static class NetworkSpelling
 {

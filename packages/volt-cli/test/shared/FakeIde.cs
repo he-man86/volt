@@ -856,22 +856,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             StatedOf(it));
     }
 
-    /// <summary>The item's kind, from its DECLARATION HEADER where it has one.
-    /// <para>A real driver has an authoritative kind code from the IDE; a fixture does not, and most of them are
-    /// built with the <c>TextualPou</c> helper, which stamps every item <c>program</c> regardless of what its
-    /// declaration says. Reading the header keeps those fixtures meaning what they read as — a
-    /// <c>FUNCTION_BLOCK FB_A</c> materializes as <c>FB_A.pou</c> — which is also what the document-based read
-    /// did, since the document carried the real POU type.</para></summary>
-    /// <summary>A member's kind, decided by its OWNER — the same rule `CodesysDriver.MemberKind` applies.</summary>
-    private static string MemberKind(int code, bool ownerIsInterface) => code switch
-    {
-        ItemKind.PlcMethod or ItemKind.PlcItfMeth =>
-            ownerIsInterface ? ItemKind.Kinds.InterfaceMethod : ItemKind.Kinds.Method,
-        ItemKind.PlcProp or ItemKind.PlcItfProp =>
-            ownerIsInterface ? ItemKind.Kinds.InterfaceProperty : ItemKind.Kinds.Property,
-        _ => ItemKind.Map(code) ?? throw new System.InvalidOperationException($"FakeIde: unmapped member code {code}"),
-    };
-
     /// <summary>An item's KIND, from its TREE CODE — never from its declaration text.
     ///
     /// <para>This used to parse the declaration's header and fall back to the code, which made the fake perform
@@ -968,7 +952,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             var child = FindOrNull(Ref(name));
             if (child is null || !ItemKind.IsMember(child.KindCode)) continue;   // a transition is not a member
             yield return new Member(
-                MemberKind(child.KindCode, ownerIsInterface),
+                ItemKind.MemberKind(child.KindCode, ownerIsInterface, child.Name),   // the drivers' one rule (D20)
                 child.Name,
                 child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
                 BodyTextOf(child),

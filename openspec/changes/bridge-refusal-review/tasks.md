@@ -707,9 +707,37 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       (baselines rewritten: known-divergence files −4 per vendor, push-refused-with-parse-error +2 per vendor, bare names
       resolved +6, no NEW finding, no ceiling rise); typecheck and lint clean; map regenerated (2 fixtures known →
       unaskable). Census vs HEAD: 571 → 576 (8 gone, 13 new: the 12 above + `RefuseActionDeclaration`).
-- [ ] 4.13 D13 — canonical gates gone (2.12, 2.13) and the reader's layout rules with them (2.7-2.11).
-- [ ] 4.14 D14 — `TaskDescriptorException` becomes a coded `BridgeException` (BAD_REQUEST); every re-code in §2
+- [x] 4.13 D13 — canonical gates gone (2.12, 2.13) and the reader's layout rules with them (2.7-2.11).
+      **Done (design D13).** Code already gone at HEAD (`NETWORK_NOT_CANONICAL`: 0 in `src`, `Volt.Contracts`, LSP code
+      list; `.task` `Gate` is `Read`). The comments that still stated the rule are rewritten: `NetworkTextReader.cs`
+      (:236 misordered header, :297 stored title/comment), `NetworkText.cs:28`, `NetworkSpelling.cs:14` (writer/reader
+      drift shows as the gate's read-back INTERNAL_ERROR), `ICodeStore.cs:89`, `PushService.cs:139`,
+      `docs/driver.html:139`, the `TaskDescriptorException` summary, and five LSP comments that still said
+      "NETWORK_NOT_CANONICAL stays the push's" (`network-analysis.ts`, `network-text/ast.ts`, `network-text/parser.ts`,
+      `network.test.ts` (+ test title), `network-real-shapes.test.ts`). History mentions kept (`NetworkTextGate.cs:21`,
+      `network-text.html` gate section, `PushService.cs:1216` "WAS refused"). V.2 ticked.
+      **Review 4c fixes (gate):** (medium) two LSP package docs still stated the refusal as a live invariant —
+      `docs/behavior.md` "The round trip is exact" requirement (SHALL refuse non-canonical text; scenario "refused with
+      NETWORK_NOT_CANONICAL") rewritten to the as-built rule (a complete, writable model is written whatever its
+      spelling and the canonical text comes back; refused only for the reader's `NETWORK_*` diagnostics or
+      `NETWORK_UNSUPPORTED`; scenario "a valid hand-spelled body is written"), and `docs/data-model.md:386` "stays the
+      push's" → "is gone". `git grep` outside openspec now finds the code only as history. (low) `NetworkSpelling.cs`'s
+      rewritten comment claimed every writer/reader drift surfaces as the gate's read-back INTERNAL_ERROR; the gate
+      re-reads, it does not compare models, so drift that reads back into a DIFFERENT model passes it. Comment corrected:
+      the gate catches only the does-not-read-back half; the other half only the offline `Read(Write(m)) ≅ m` oracle
+      (`NetworkModelOracle`). No runtime model comparison added (no doc/comment finding has a failing test; a runtime
+      check is a design change, not this step's).
+- [x] 4.14 D14 — `TaskDescriptorException` becomes a coded `BridgeException` (BAD_REQUEST); every re-code in §2
       covered by a code-asserting test. (Today it reaches `PushService.ConflictFor` uncoded → INTERNAL_ERROR.)
+      **Done (design D14).** `TaskDescriptorException : BridgeException`, code fixed at `BAD_REQUEST`; type, seven
+      messages and the `Assert.Throws` rows unchanged. Tests (red before): `TaskDescriptorFormatTests.
+      Every_refusal_is_coded_BAD_REQUEST` (7 rows, one per throw site), `PushTaskTests.A_FIELD_VOLT_CANNOT_ROUND_TRIP_
+      stops_the_push` asserts the conflict's `BAD_REQUEST`. §2 re-code audit: 2.14/2.15 (`PushKeepsWhatLandedTests`,
+      `PushDeleteGuardTests`), 2.16-2.18 (`PushKindInvariantTests`, `ItemKindTests`), 2.25 (`CodesysTaskKindTests`)
+      already asserted `ErrorCode`; the rows re-coded by exception CLASS (2.2 `ArgumentException`, 2.20/2.30/2.32/2.33
+      `InvalidOperationException`, 2.21 `NotSupportedException`, 2.35 coded INTERNAL_ERROR) asserted only the class —
+      `PushConflictCodeTests.Each_refusal_class_reaches_the_wire_with_its_code` (5 rows, incl. the `.task`) pins the
+      wire code each class gets. V.1's `.task` clause amended to BAD_REQUEST.
 - [x] 4.15 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D15 — one last-moment version helper on `Versioning.SafeVersion`; null folder/kind → ITEM_UNVERIFIED on
       both arms (`PushService.cs:520` throws on a null folder, `:542` returns).
 - [x] 4.16 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D16 — `currentFolder` nullable ("unknown") — `PushService.cs:578` still `inCache ? cached.Folder : ""`;
@@ -720,9 +748,33 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       content on push" comment rewritten (`ec0152fe0f`); `NoKindFromTextTests` repo gate (`a313c74b38`) keeps it out.
 - [x] 4.19 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D19 — compute the landing wire name once; the same one goes to the engine read and `ValidateSource`
       (`PushService.cs:208` reads `ToName ?? Name`, `:223` hands the driver `Name`).
-- [ ] 4.20 D20 — **Changed.** `?? Method` is gone (`15d421e57a`: `BeckhoffDriver.Content.cs:596` refuses an unknown
+- [x] 4.20 D20 — **Changed.** `?? Method` is gone (`15d421e57a`: `BeckhoffDriver.Content.cs:596` refuses an unknown
       member type by name, `:597`). Left: `?? ""` at `BeckhoffDriver.Content.cs:707`, and no shared
       `MemberKind(code, ownerIsInterface)` (CODESYS keeps a private one, `CodesysDriver.Content.cs:243`).
+      **Done (design D20; as-built: a third `member` argument so the refusal names the member on both vendors, as the
+      design's "stays refused" line asks).** `ItemKind.MemberKind(code, ownerIsInterface, member)` in the Engine, rule
+      unchanged (owner decides method/interface method and property/interface property; else `Map(code)`; else
+      UNSUPPORTED naming member and code). Asked by `CodesysDriver.ReadMember` (private map deleted), `BeckhoffDriver.
+      ReadMember` (takes `ownerIsInterface` = `KindCode(item) == PlcItf`, like CODESYS) and `BeckhoffDriver.Creates`
+      (the held member's kind, same rule), and `FakeIde.MembersOf` (its third private copy deleted). TwinCAT
+      `WriteAccessor`'s `?? ""` is `?? throw BridgeException(INTERNAL_ERROR)` naming the code and property. Tests:
+      `ItemKindTests` (+12: 10 code×owner rows, unknown code refused ×2), `TcMemberKindTests` (+4 owner rows — PlcMethod
+      under an interface and PlcItfMeth under an FB were red before; the unknown-code row asserts member + code). No
+      LSP fixture: no user-written text changes its answer.
+      **Step 4c numbers (before the gate):** C# Engine 2245 (+1 skipped; +24), Twincat 432 (+4), Codesys 298, Cli 260,
+      Connector 115, Contracts 39, Repo.Gates 108; `bun run check` 18/18. LSP (comments only): network src tests 109,
+      test/conformance 5958 pass / 337 todo / 0 fail, test/frontend 39/39, typecheck clean, rate:fixtures leaves
+      map.generated.ts unchanged. No recordings (nothing user-visible in the LSP).
+      **Review 4c fix (low):** the TwinCAT unknown-code test had been loosened to two `Contains` checks when the shared
+      message dropped "tree"; it now pins the shared rule's exact phrase ("member 'Mystery' has item type 9999, a member
+      Volt has no kind for"), and `ItemKindTests.A_member_code_with_no_kind_is_refused_by_name` pins the same phrase +
+      "refusing to treat it as a method" (was `'Mystery'` + `9999`). The vendor prefix ("CODESYS:" / "TwinCAT:") is NOT
+      restored, by decision: the rule is one vendor-neutral Engine map (D20), the answering bridge's pipe names the
+      vendor, and drivers cannot reach the branch (`MemberSites.Of` admits only `IsMember` codes).
+      **Step 4c gate numbers:** C# Engine 2245 (+1 skipped), Twincat 432, Codesys 298, Cli 260, Connector 115,
+      Contracts 39, Relay 49, Repo.Gates 108 — all green; `bun run check` 18/18; typecheck clean (cli, lsp-iec, vscode);
+      lint 0 errors. LSP full (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): 8060 pass / 34 skip / 381 todo / 0 fail
+      (8475 tests, 206 files; delta vs 4b gate: 0). No fixture or transpiler change → map not regenerated.
 - [x] 4.21 D21 — covered by 2.28.
       Done with 2.28.
 - [x] 4.22 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D22 — N21 stated once (engine), vendor fact as data; after 1.5 only the "cannot build what the text means"
@@ -823,16 +875,18 @@ BAD_REQUEST for an unknown op or malformed body, INTERNAL_ERROR fallback in `Pip
 
 - [ ] V.1 **Changed.** Codes on the wrong situation, at HEAD: a stale item version as `BAD_REQUEST`
       (`PushService.cs:534, 557`) → `STALE_ITEM_VERSION`; a refused `.task` (`TaskDescriptorException`, uncoded →
-      INTERNAL_ERROR) and known vendor limits as `INTERNAL_ERROR` (`CodesysObjectModel.Descriptors.cs:341`,
+      INTERNAL_ERROR) → `BAD_REQUEST` (amended by D14: a malformed descriptor is the request's grammar, not a vendor
+      limit — done in 4.14); known vendor limits as `INTERNAL_ERROR` (`CodesysObjectModel.Descriptors.cs:341`,
       `BeckhoffDriver.Content.cs:460`, `TcObjectModel.cs:576`, and the new C2i sites of 7.1) → `UNSUPPORTED`; Volt
       invariants as `BAD_REQUEST` / `INVALID_ST` / `UNSUPPORTED` (2.2, 2.16-2.18, 2.35); model errors worded "cannot
       express as PLCopen" (`TcPlcOpenWriter.cs:124`) → say what the model lacks. `INTERNAL_ERROR` is left for Volt's
       own broken invariants only. A request for a read-only descriptor (`PushService.cs:192`) and a move of a non-source
       item (`:952`) are request-shape answered `UNSUPPORTED` — decide whether that stays (a Volt rule, not a vendor
       limit) or becomes `BAD_REQUEST`.
-- [ ] V.2 `NETWORK_NOT_CANONICAL` goes with the layout-only gate (design issue 6): text that is complete and writable is
+- [x] V.2 `NETWORK_NOT_CANONICAL` goes with the layout-only gate (design issue 6): text that is complete and writable is
       written; the code is removed from Volt.Contracts, ConflictCodes, network-text.html and the LSP's network code list
       (5 TS files reference it today).
+      Done (2.12; 4.13): 0 as code anywhere; the five TS files now mention it only as gone. Stays in the 6.2 grep gate.
 - [ ] V.3 `NO_SIDECAR` (`FetchService.cs:51`, "supply knownItems … or run `volt init`") is named after an internal cache
       a client never sees: rename to a request-shape code or fold into `BAD_REQUEST` with the same message; update
       clients and wire.html. Unchanged at HEAD.

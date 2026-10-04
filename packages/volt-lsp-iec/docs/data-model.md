@@ -383,7 +383,8 @@ lines are ordinary ST, parsed with the ST statement parser into a `StatementList
 ```ts
 // The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them). The two the
 // LSP adds from the declarations (a wire named like a name in scope, a POU named like a construct) are
-// NETWORK_DUPLICATE_NAME / NETWORK_UNSUPPORTED from `network-analysis.ts`. NETWORK_NOT_CANONICAL stays the push's.
+// NETWORK_DUPLICATE_NAME / NETWORK_UNSUPPORTED from `network-analysis.ts`. (NETWORK_NOT_CANONICAL is gone: canonical
+// form is no refusal, bridge-refusal-review 2.12.)
 type NetworkDiagnosticCode =
   | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NAME"
   | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNSUPPORTED" | "NETWORK_UNKNOWN_OPERATOR"

@@ -167,8 +167,9 @@ END_FUNCTION_BLOCK`
   expect(n.disabled).toBe(true)
 })
 
-test("network text: LABEL and TITLE parse in either order (the order is the gate's)", () => {
-  // Header fields out of order are NETWORK_NOT_CANONICAL at the push, which needs the writer; the parser reads both
+test("network text: LABEL and TITLE parse in either order", () => {
+  // Header fields out of order are written by the push and come back canonical (bridge-refusal-review 2.12); the
+  // parser reads both
   // orders, so a hand-written header is still understood while it is being typed.
   const swapped = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR

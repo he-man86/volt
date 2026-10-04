@@ -136,7 +136,7 @@ public static class PushService
         // `Lenze_MID-S100`.
         //
         // Everything decidable from the SOURCE TEXT alone is decided here, where nothing has been touched yet:
-        // a malformed ST document, network text that does not parse or is not canonical, a duplicate child. That
+        // a malformed ST document, network text that does not parse or is incomplete, a duplicate child. That
         // is the class a real push fails on, and it is exactly the class that needs no IDE to detect. It used to
         // run per-op instead, just ahead of the rename inside `ApplySetItem` — which guarded that one step and
         // nothing before it; hoisting it here subsumed that guard, so the local copy is gone rather than left

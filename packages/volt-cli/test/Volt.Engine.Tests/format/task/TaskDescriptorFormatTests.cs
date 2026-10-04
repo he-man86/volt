@@ -110,6 +110,25 @@ public class TaskDescriptorFormatTests
         Assert.Contains(missing, Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Read(body)).Message);
     }
 
+    /// <summary>EVERY `.task` REFUSAL IS CODED BAD_REQUEST (openspec <c>bridge-refusal-review</c> D14). A malformed
+    /// descriptor is the request's grammar, not Volt's broken invariant; uncoded, it fell through
+    /// <c>PushService.ConflictFor</c>'s coded-error check and reached the wire as INTERNAL_ERROR. One row per throw site.</summary>
+    [Theory]
+    [InlineData("Type: Cyclic\nPriority 5\n", "line 2")]                                     // no colon
+    [InlineData("Type: Cyclic\nPriority: 5\nPriority: 6\n", "written twice")]                // repeated label
+    [InlineData("Type: Cyclic\nPriority: 5\nCoreBinding: 2\n", "CoreBinding")]               // unknown label
+    [InlineData("Priority: 5\n", "Type")]                                                    // no Type
+    [InlineData("Type: Cyclic\n", "Priority")]                                               // no Priority
+    [InlineData("Type: Cyclic\nPriority: 5\nWatchdog: 3200 µs\n", "sensitivity")]            // watchdog, no parens
+    [InlineData("Type: Cyclic\nPriority: 5\nWatchdog: 3200 µs (sens 2)\n", "(sens 2)")]      // watchdog, wrong word
+    public void Every_refusal_is_coded_BAD_REQUEST(string body, string named)
+    {
+        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Gate(body));
+        Assert.Contains(named, ex.Message);
+        var coded = Assert.IsAssignableFrom<Volt.Contracts.ICodedError>(ex);
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.BadRequest, coded.ErrorCode);
+    }
+
     [Fact]
     public void A_malformed_watchdog_says_what_it_expected()
     {

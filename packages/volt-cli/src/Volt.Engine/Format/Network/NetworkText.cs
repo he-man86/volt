@@ -25,7 +25,8 @@ public static class NetworkText
     /// left. Both vendors' readers trim these (the IDE keeps the newline an engineer typed after a title) and both
     /// writers compare ignoring trailing whitespace, so a trailing space, an empty title or a closing empty <c>//</c>
     /// line is no fact a push can write. The one rule: the vendor readers build the model by it, the text reader reads
-    /// by it — so the gate calls such a text not canonical — and the text writer refuses a model that breaks it.</summary>
+    /// by it — so such a text is written as the model and comes back canonical — and the text writer refuses a model that
+    /// breaks it.</summary>
     public static string? Stored(string? s) =>
         string.IsNullOrEmpty(s) ? null : s!.TrimEnd() is { Length: > 0 } t ? t : null;
 

@@ -221,7 +221,8 @@ public sealed partial class CodesysDriver
 
     private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface, string? ownerDeclaration)
     {
-        var kind = MemberKind(site.Code, ownerIsInterface);
+        // The owner decides method vs interface method, property vs interface property (ItemKind.MemberKind, D20).
+        var kind = ItemKind.MemberKind(site.Code, ownerIsInterface, site.Name);
         var iobj = _om.ReadObject(site.Ref.Native);
         var declaration = MemberDeclaration(site);
         // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
@@ -244,27 +245,6 @@ public sealed partial class CodesysDriver
         return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported,
                           Stated: stated);
     }
-
-    /// <summary>A member's kind, decided by its OWNER rather than by the object's interfaces alone.
-    /// <para>CODESYS's classification cannot separate the two on its own here: <c>CodesysTypeMap</c> tests
-    /// <c>IInterfacePropertyObject</c> before <c>IPropertyObject</c>, and on this build a property inside a
-    /// FUNCTION BLOCK answers to both — so every property came back as <c>interface_property</c> and the ST
-    /// writer refused it with "No END keyword for POU child kind 'interface_property'". It never showed before
-    /// because the member kind used to come from the PLCopen document, which nests a POU's properties under the
-    /// POU. The owner is the fact that settles it, and the tree walk already knows it.</para></summary>
-    private static string MemberKind(int code, bool ownerIsInterface) => code switch
-    {
-        ItemKind.PlcMethod or ItemKind.PlcItfMeth =>
-            ownerIsInterface ? ItemKind.Kinds.InterfaceMethod : ItemKind.Kinds.Method,
-        ItemKind.PlcProp or ItemKind.PlcItfProp =>
-            ownerIsInterface ? ItemKind.Kinds.InterfaceProperty : ItemKind.Kinds.Property,
-        // No fallback. `?? Kinds.Method` turned any live CODESYS code this map does not know into a "method",
-        // which then travels the whole write path as one - the same silent default `ItemKind.MemberCode` used to
-        // carry on the other side of the round trip.
-        _ => ItemKind.Map(code)
-             ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"CODESYS: item type {code} is a member Volt has no kind for — refusing to treat it as a method"),
-    };
 
     private ItemRef? FindAccessor(ItemRef property, int code)
     {

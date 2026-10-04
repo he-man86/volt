@@ -4,7 +4,7 @@
  * `PublishDiagnostics`:
  *   1. STRUCTURAL — the bridge gate's `NETWORK_*` findings (`network-text/parser`, a port of the bridge reader, which
  *      asks the POU's scope what the bridge reader asks it, and holds a wire's declared type to its producer as the
- *      reader does). NETWORK_NOT_CANONICAL stays the push's: it needs the writer.
+ *      reader does). Canonical form is no finding: the push writes any spelling that reads (bridge-refusal-review 2.12).
  *   2. CODE CORRECTNESS — an assign `target := value` is an assignment, so it runs the SAME assignment-type check as ST
  *      (`assignmentPairError`), against a scope where the network's `VAR_TEMP` wires are declared variables. Byte-identical
  *      wording per vendor; the corpus 0-FP gate covers it. The assignments inside EXECUTE boxes are checked too.

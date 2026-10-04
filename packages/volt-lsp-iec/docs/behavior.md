@@ -568,14 +568,19 @@ sees only the body.
 
 ### Requirement: The round trip is exact and the bridge is the source of truth
 
-The bridge SHALL round-trip the vendor's own graphical model ⇄ network text exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
-push whose network text is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
-structured diagnostic that returns the canonical text. So a graphical body can be read, edited, and
-written entirely as network text without drift.
+The bridge SHALL round-trip the vendor's own graphical model ⇄ network text without losing a fact
+(`Read(Write(m)) ≅ m` on models, the offline oracle). Canonical spelling is NOT a refusal (openspec
+`bridge-refusal-review` 2.12): a push whose network text reads into a complete model the writer can spell SHALL be
+written, whatever its layout or spelling, and the canonical text (`NetworkTextWriter(model)`) comes back — the next
+pull shows it. A push SHALL be refused before it reaches the IDE only for what the text does not say completely (the
+reader's `NETWORK_*` diagnostics) or a model the writer has no spelling for (`NETWORK_UNSUPPORTED`). So a graphical
+body can be read, edited, and written entirely as network text without drift.
 
-#### Scenario: A non-canonical body is refused with its canonical form
-- **WHEN** a push sends network text that is valid but not canonical (`NetworkTextWriter(NetworkTextReader(x)) != x`)
-- **THEN** the bridge refuses it with `NETWORK_NOT_CANONICAL` and returns the canonical text to paste
+#### Scenario: A valid hand-spelled body is written and its canonical form comes back
+- **WHEN** a push sends network text that is valid but not in canonical spelling (header fields in another order,
+  `AND(a, b)` where infix is canonical)
+- **THEN** the bridge writes the model it reads, raises no diagnostic, and returns the canonical text; there is no
+  `NETWORK_NOT_CANONICAL` (the code is gone)
 
 ### Requirement: The bridge owns format, the LSP owns code correctness
 

@@ -315,6 +315,26 @@ public static class ItemKind
         _ => throw new BridgeException(BridgeErrorCodes.InternalError, $"no create code for the member kind '{kind}'"),
     };
 
+    /// <summary>A member's kind, decided by its OWNER rather than by its code alone — the one map both drivers ask
+    /// (openspec bridge-refusal-review D20).
+    /// <para>The code cannot separate the two on CODESYS: <c>CodesysTypeMap</c> tests <c>IInterfacePropertyObject</c>
+    /// before <c>IPropertyObject</c>, and on SP21 a property inside a FUNCTION BLOCK answers to both — so every property
+    /// came back as <c>interface_property</c> and the ST writer refused it with "No END keyword for POU child kind
+    /// 'interface_property'". IEC makes the owner the vendor-neutral fact: a member of an INTERFACE is an interface
+    /// method or property, a member of anything else is not. TwinCAT asks the same question of the same fact, so one
+    /// IEC rule is not two vendor rules.</para>
+    /// <para>No fallback. <c>?? Kinds.Method</c> turned any live code this map does not know into a "method", which then
+    /// travelled the whole write path as one — the silent default <see cref="MemberCode"/> used to carry on the other
+    /// side of the round trip. A code with no Volt kind is refused by name: the member and its code.</para></summary>
+    public static string MemberKind(int code, bool ownerIsInterface, string member) => code switch
+    {
+        PlcMethod or PlcItfMeth => ownerIsInterface ? Kinds.InterfaceMethod : Kinds.Method,
+        PlcProp or PlcItfProp => ownerIsInterface ? Kinds.InterfaceProperty : Kinds.Property,
+        _ => Map(code)
+             ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"member '{member}' has item type {code}, a member Volt has no kind for — refusing to treat it as a method"),
+    };
+
     public static bool IsMember(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
 

@@ -233,7 +233,7 @@ public static class NetworkTextReader
             var disabled = false;
 
             // The header ends at its newline: a line after it that starts DISABLED, TITLE or LABEL is a statement.
-            // Fields are read in any order so a misordered header reaches the gate, which names the canonical one.
+            // Fields are read in any order: a misordered header is written, and the canonical order comes back (2.12).
             while (Peek() is var t && t.Kind != TokKind.Eof && Line(t) == hdrLine)
             {
                 if (t.Is("LABEL"))
@@ -294,7 +294,7 @@ public static class NetworkTextReader
             CheckWireTypes(trees);
 
             // Title and comment as the drivers store them (NetworkText.Stored): a trailing space, an empty title or a
-            // closing empty `//` line reads as what the IDE would hold, so the gate finds the text not canonical.
+            // closing empty `//` line reads as what the IDE would hold — written as the model, the canonical text comes back.
             return new Network(index, NetworkText.Stored(title), label,
                 NetworkText.Stored(comment.Count > 0 ? string.Join("\n", comment) : null), disabled, trees);
         }

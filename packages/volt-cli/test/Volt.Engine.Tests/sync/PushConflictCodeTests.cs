@@ -218,4 +218,35 @@ public class PushConflictCodeTests
         Assert.False(res.Accepted);
         Assert.Equal(BridgeErrorCodes.Unsupported, Assert.Single(res.Conflicts!).Code);
     }
+
+    /// <summary>EVERY RE-CODE OF openspec <c>bridge-refusal-review</c> §2 REACHES THE WIRE WITH ITS CODE (D14). The rows
+    /// that re-coded a refusal by its exception CLASS rely on this mapping, so it is asserted per class at the write:
+    /// a Volt invariant (<c>ArgumentException</c>, 2.2; <c>InvalidOperationException</c>, 2.20, 2.30, 2.32, 2.33; a
+    /// coded INTERNAL_ERROR, 2.35) is INTERNAL_ERROR, a vendor limit (<c>NotSupportedException</c>, 2.21) is UNSUPPORTED,
+    /// and a malformed `.task` (<c>TaskDescriptorException</c>, D14) is BAD_REQUEST — it was uncoded and fell to
+    /// INTERNAL_ERROR. (2.14/2.15, 2.16-2.18 and 2.25 assert their codes where they are raised.)</summary>
+    [Theory]
+    [InlineData("argument", BridgeErrorCodes.InternalError)]
+    [InlineData("invariant", BridgeErrorCodes.InternalError)]
+    [InlineData("coded-internal", BridgeErrorCodes.InternalError)]
+    [InlineData("vendor-limit", BridgeErrorCodes.Unsupported)]
+    [InlineData("task", BridgeErrorCodes.BadRequest)]
+    public void Each_refusal_class_reaches_the_wire_with_its_code(string refusal, string code)
+    {
+        System.Exception ex = refusal switch
+        {
+            "argument" => new System.ArgumentException("a kind with no composite shape"),
+            "invariant" => new System.InvalidOperationException("network model invariant — a Volt bug"),
+            "coded-internal" => new BridgeException(BridgeErrorCodes.InternalError, "moved item not found after the move"),
+            "vendor-limit" => new System.NotSupportedException("no Implementation aspect"),
+            "task" => new Volt.Engine.Format.Task.TaskDescriptorException("line 3: 'CoreBinding' is not a task field"),
+            _ => throw new System.ArgumentOutOfRangeException(nameof(refusal)),
+        };
+        var ide = new FakeIde { RefuseContentWrite = _ => ex };
+
+        var res = Push(ide, new SetItemOp { Name = "Shape.pou", SourceText = Prg("Shape"), IfVersion = null });
+
+        Assert.False(res.Accepted);
+        Assert.Equal(code, Assert.Single(res.Conflicts!).Code);
+    }
 }
