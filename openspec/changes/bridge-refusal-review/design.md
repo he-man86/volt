@@ -605,3 +605,46 @@ corpora): the reader maps it by its owner, as the IDE read does, and the vendor'
   `bare-hidden`); `opensKeywordLine` asks the grammar; the shape is read only by `lookalikeLine`, the hint of the server's
   "states no language" finding (the push's `Unmarked`). FMT8 still reports the identifier `implementation` itself — that
   is task 5.2 row (a), not this step.
+
+---
+
+## Step 4c — D13, D14, D20: canonical gates gone, a coded `.task` refusal, one member-kind map
+
+**D13 — target: no canonical-form refusal left, and no comment claiming one.** Measured at HEAD: the code is done
+(2.7–2.13: `NETWORK_NOT_CANONICAL` has 0 hits in `src`, `Volt.Contracts` and `packages/volt-lsp-iec`; the `.task`
+gate is `Read`). The canonical text already comes back with no new field — `newSources` on the push answer (route A,
+`067bc23a03`) and the next pull. Left: six comments that still state the rule — `NetworkTextReader.cs:297`,
+`NetworkText.cs:28` ("the gate calls such a text not canonical"), `ICodeStore.cs:89`, `PushService.cs:139`,
+`docs/driver.html:139`, and the `TaskDescriptorException` summary ("the exact text to use instead"). Choice: rewrite
+them; tick V.2 (the LSP list is already empty); `NETWORK_NOT_CANONICAL` stays in the 6.2 grep gate. Rejected: an
+optional `canonical` field on the push answer — `newSources` already carries the text.
+
+**D14 — target: a refused `.task` reaches the wire as `BAD_REQUEST`, not `INTERNAL_ERROR`.** Today
+`TaskDescriptorException : Exception` falls through `PushService.ConflictFor`'s `ICodedError` check to the
+`INTERNAL_ERROR` default (7 throw sites, `TaskDescriptorFormat.cs:84–158`). Choice: `TaskDescriptorException :
+BridgeException`, its code fixed at `BAD_REQUEST`. The type, the seven messages and the four `Assert.Throws` rows stay.
+`BAD_REQUEST` is already a `FromBridge` conflict code, so the push reports it per item. Rejected: a type switch in
+`ConflictFor` (a second code table); deleting the class and throwing `BridgeException` at 7 sites (churn, and it
+loses the named type); `UNSUPPORTED` as V.1 suggests (a malformed `.task` is the request's grammar, not a vendor
+limit — V.1's `.task` clause is amended to `BAD_REQUEST`). Also: every re-code in §2 gets a code-asserting test.
+Each §2 row is checked for an `ErrorCode` assertion, and a row without one gets one.
+
+**D20 — target: one member-kind map, no `?? ""`.** Choice: `ItemKind.MemberKind(int code, bool ownerIsInterface)` in
+the Engine, moved from `CodesysDriver.Content.cs:255` (rule unchanged). The OWNER decides method-vs-interface-method and
+property-vs-interface-property on both vendors. The code alone cannot decide on CODESYS: an FB property answers to
+`IInterfacePropertyObject` (measured, its doc comment). IEC makes the owner the vendor-neutral fact. TwinCAT's
+`ReadMember` passes its owner's code (`KindCode(item) == PlcItf`, like CODESYS `:36`) in place of `ItemKind.Map(site.Code)`.
+`BeckhoffDriver.Content.cs:750` `ItemKind.Map(code) ?? ""` is reached only with `PlcPropGet`/`PlcPropSet` (the
+interface pair returns at `:738`), so it becomes `?? throw BridgeException(INTERNAL_ERROR, …)`: Volt's own invariant.
+Rejected: a code-only shared map (wrong on CODESYS FB properties); keeping two private maps (the duplication D20
+names); trusting TwinCAT's code over its owner (two rules for one IEC fact).
+
+**Stays refused by name:** a malformed or repeated-label `.task` (now `BAD_REQUEST`, naming line and label); a member
+code with no Volt kind (`UNSUPPORTED`, naming the member and the code, both vendors); a late VAR_TEMP name already read
+as a variable (`NETWORK_DUPLICATE_NAME`, 2.7).
+
+**Migration.** Tests first, red before: an Engine table test for `ItemKind.MemberKind` (each member code × owner, plus
+an unknown code refused `UNSUPPORTED`); a `PushService` test where a malformed `.task` set gives a conflict coded
+`BAD_REQUEST`. Then the code: delete CODESYS's private map, point TwinCAT at the shared one, replace the `?? ""`,
+rebase `TaskDescriptorException`. Then the six comments. Regenerate `docs/assets/data.js` if the code census moves.
+No LSP fixture: nothing a user writes changes its answer, except the code of a malformed `.task`.
