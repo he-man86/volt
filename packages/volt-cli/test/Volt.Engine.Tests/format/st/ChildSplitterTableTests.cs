@@ -154,6 +154,16 @@ public class ChildSplitterTableTests
             "METHOD Foo END_METHOD\nIMPLEMENTATION ST\n;\nEND_METHOD\n", "!line 8|END_METHOD stands after code"),
         Row("END_PROPERTY after the name on a signature line with no colon", "pou",
             "PROPERTY P END_PROPERTY\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "!line 8|END_PROPERTY stands after code"),
+        // With NO colon a modifier TYPO before an END-keyword name is the same text as an END word after a name:
+        // `METHOD PUBLC end_method` and `METHOD Foo END_METHOD` differ only in letter case, which IEC does not read. The
+        // colon-less END exemption reads past the six measured modifier words only (HeaderNameAt), so the typo is refused
+        // by name as an END line after code, like the two rows above — not read as the method end_method the colon form
+        // names (gate 2, review finding 3: kept, not changed to the colon form's answer, which would undo those rows).
+        // Niche: 0 colon-less END-keyword names in the six corpora.
+        Row("a METHOD with a modifier typo named end_method and no colon", "pou",
+            M("METHOD PUBLC end_method"), "!line 8|END_METHOD stands after code"),
+        Row("a PROPERTY with a modifier typo named end_property and no colon", "pou",
+            "PROPERTY PUBLC end_property\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "!line 8|END_PROPERTY stands after code"),
         Row("END_GET after code on the same line", "pou",
             "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1; END_GET\nEND_PROPERTY\n", "!line 11|END_GET"),
         Row("END_ACTION after code on the same line", "pou",

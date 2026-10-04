@@ -976,7 +976,9 @@ public static class StReader
 		// identity — 1,420 of 1,420 corpus signatures with modifiers carry them BEFORE the name, so that is the realistic
 		// typo. A word AFTER the old name (`METHOD Run Walk`) renames the member by its header, as every header rename
 		// does (ReconcileMembers deletes and creates), and pull reads names from the IDE's objects, so the round trip is
-		// stable. A name the vendor refuses (`METHOD Run PUBLIC`) is the pre-flight's RefusedName. It refused every word
+		// stable. That is an ACCEPTED LOSS, not the vendor's answer: both IDEs name such a header by its FIRST word
+		// (`sig_unknown_word`), so over an existing Run this push deletes Run and creates Walk (D10 option 3; known divergence
+		// MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD, niche: 0 corpus lines; `MemberHeaderLastWordTests`). A name the vendor refuses (`METHOD Run PUBLIC`) is the pre-flight's RefusedName. It refused every word
 		// outside six modifiers — a code check on text the IDE takes.
 		var words = Words(clean);
 		if (words.Length < 2 || !string.Equals(words[0], keyword, StringComparison.OrdinalIgnoreCase))
@@ -1158,8 +1160,13 @@ public static class StReader
 		if (first is null || Array.FindIndex(keywords, k => string.Equals(k, first, StringComparison.OrdinalIgnoreCase)) < 0) return -1;
 		i += first.Length;
 		// A COLON on the line says where the name ends, and the name is the last word before it — the word ParseSignature
-		// reads (D10), with no vocabulary, so the two never disagree (review 4b: `METHOD PUBLC end_method : INT` was the
-		// method end_method to the signature and "END_METHOD stands after code" here). Only a colon-less line is ambiguous.
+		// reads (D10), with no vocabulary, so on such a line the two agree (review 4b: `METHOD PUBLC end_method : INT` was the
+		// method end_method to the signature and "END_METHOD stands after code" here). Only a colon-less line is ambiguous,
+		// and there they DO disagree: past the six measured modifiers this names the first other word, ParseSignature the
+		// last. `METHOD PUBLC end_method` and `METHOD Foo END_METHOD` are one text to IEC (case is not read), and both are
+		// refused here as an END line after code — by name, before ParseSignature reads either (gate 2, review finding 3;
+		// `ChildSplitterTableTests`). This is the one vocabulary D10 leaves, and it decides only that exemption, never a
+		// name. Niche: 0 colon-less END-keyword names in the six corpora.
 		var colon = OutsideBackticks(code).IndexOf(':', i);
 		if (colon >= 0)
 		{

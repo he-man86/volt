@@ -118,15 +118,42 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       PRE-FLIGHT through the new `ICodeStore.RefusedMemberCreate`, for every member the push would create (all of a new
       item's; on an update only one the IDE does not hold under that name and kind), so nothing lands before the
       refusal (`TcInterfaceMemberSeedTests` +6; engine tests in 2.6). Recording: 5.1.
-- [ ] 2.5 `StReader.cs:992` — no modifier vocabulary: the name is the last word before `:`, the line passes through
+- [x] 2.5 `StReader.cs:992` — no modifier vocabulary: the name is the last word before `:`, the line passes through
       (after 3.1). Record the build error for `METHOD FOO Bar`.
-      **Not done — blocked on 3.1 and the recording (review 1+2d, low).** Implemented early, it changed which member a
-      push writes: `METHOD Foo Bar : BOOL` over an existing method Foo read as member Bar, so the push deleted Foo and
-      created Bar with Foo's text. Reverted to the modifier vocabulary; `SignatureParseTests` pins the refusal (STATIC,
-      FOO, PUBLIK). Review 1+2d (low) on the same lines: `METHOD Foo END_METHOD` (no colon) is refused as an END line
-      after code again (`ChildSplitterTableTests` +2) — the early 2.5 had read it as a member named END_METHOD.
+      *History (step 2a, superseded by the "Done with 4.10" note below — no longer the state of the code):* ~~Not done —
+      blocked on 3.1 and the recording (review 1+2d, low). Implemented early, it changed which member a push writes:
+      `METHOD Foo Bar : BOOL` over an existing method Foo read as member Bar, so the push deleted Foo and created Bar
+      with Foo's text. Reverted to the modifier vocabulary; `SignatureParseTests` pins the refusal (STATIC, FOO,
+      PUBLIK).~~ That refusal is gone (4.10): `SignatureParseTests` now reads `METHOD PUBLC Run : BOOL` as `Run`. Still
+      true from 2a: `METHOD Foo END_METHOD` (no colon) is refused as an END line after code (`ChildSplitterTableTests` +2)
+      — the early 2.5 had read it as a member named END_METHOD.
       **Step 2a numbers:** Engine 1923 (+1 skipped), Twincat 341, Codesys 229, Repo.Gates 107; `data.js` regenerated
       (driver interface).
+      **Done with 4.10 (step 4b, `c974dba5ad`; 3.1 landed first).** `ParseSignature` takes the last word before the
+      colon as the name, `Modifiers` is gone; `METHOD FOO Bar` is recorded as `sig_unknown_word`'s `METHOD Run Walk : BOOL`
+      (with `METHOD PUBLC Run : BOOL`) on CODESYS SP21 and TwinCAT: both builds read the FIRST word as the name ("The name
+      used in the signature is not identical to the object name"); known divergence `MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD`
+      (niche: 0 corpus lines). Re-verified 2026-10-04: `SignatureParseTests` + `ChildSplitterTableTests` 125/125,
+      `VOLT_FIXTURES=sig_unknown_word,sig_empty_type` conformance 35 pass / 6 skip / 0 fail. No code change in this step.
+      **Review 1+2d's data case STANDS — accepted under D10 option 3, not resolved (gate 2, review finding 2).** Over an
+      existing method Run, `METHOD Run Walk : BOOL` is read as member Walk: `ReconcileMembers` deletes Run and creates
+      Walk with Run's text, nothing refused before it lands, while both IDEs name that header by its FIRST word (Run).
+      The `sig_unknown_word` recording does not settle the update case (recorded as sent on a fresh FB), so the delete
+      of an existing member is now pinned by `MemberHeaderLastWordTests` (engine, +1; green — it pins the accepted
+      behaviour, not a fix) and named in `ParseSignature`'s comment. Same divergence, `MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD`,
+      niche: 0 corpus lines (re-counted: 0 member headers with two non-modifier words before the colon in the six corpora).
+      **Colon-less headers (gate 2, review finding 3) — kept, the finding's expected answer skipped.** Without a colon,
+      `HeaderNameAt` reads past the six measured modifiers and names the first other word, `ParseSignature` the last, so
+      the two DO disagree there (the "never disagree" comment was wrong and is corrected). The finding's expected row
+      (`METHOD PUBLC end_method` → method end_method, like the colon form) is skipped: that text equals
+      `METHOD Foo END_METHOD` up to letter case, which IEC does not read, and the 1+2d rows pin that as an END line after
+      code — answering the colon form's way would undo them. Pinned instead as refused by name (`ChildSplitterTableTests`
+      +2: METHOD and PROPERTY). The six-word list survives only for this colon-less END exemption and decides no name.
+      Niche: 0 colon-less END-keyword names in the six corpora.
+      **Gate 2 numbers (2026-10-04):** Engine 2221/0/1 (+3: `MemberHeaderLastWordTests` 1, `ChildSplitterTableTests` 2),
+      Cli 260, Connector 115, Twincat 428, Codesys 297, Contracts 39, Repo.Gates 108; volt-cli `test/unit` 24; check 18/18;
+      typecheck clean; LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 8060 pass / 34 skip / 381 todo / 0 fail
+      (8475 tests, 206 files). No fixture or transpiler change, so no `rate:fixtures`.
 - [x] 2.6 `StReader.cs:1039` — "property must declare a type" goes for POU properties (build reports it); interface
       property on TwinCAT handled as 2.4.
       Done: a POU property with no type reads `DataType` null (`SignatureParseTests`). The TwinCAT pre-flight of 2.4
