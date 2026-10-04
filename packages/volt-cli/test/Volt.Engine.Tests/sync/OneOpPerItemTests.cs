@@ -139,6 +139,28 @@ public class OneOpPerItemTests
         Assert.True(ide.Exists("A"));
     }
 
+    /// <summary>THE RE-TYPE ROUTE STAYS REFUSED, and the refusal states the CLI remedy (openspec <c>bridge-refusal-review</c>
+    /// 4.32, owner default): git pairs the same edit as ONE renaming `set` when the texts are similar, which the re-type
+    /// guard refuses, so writing the unpaired form would make one intent succeed or fail on git's similarity score. The
+    /// CLI sends both rows of a re-typed file in one `volt push`, so the remedy is two commits, each pushed.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_re_type_refusal_states_the_two_push_remedy(bool deleteFirst)
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("A", "FUNCTION_BLOCK A\nVAR\nEND_VAR", "x := 1;"));
+        var resp = Push(ide, force: false, refs =>
+        {
+            PushOp del = new DeleteItemOp { Name = "A.pou", IfVersion = refs.Items["A.pou"] };
+            PushOp set = new SetItemOp { Name = "A.dut", IfVersion = null, SourceText = "TYPE A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n" };
+            return deleteFirst ? new List<PushOp> { del, set } : new List<PushOp> { set, del };
+        });
+
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Contains("A re-type in one push is not written: commit the deletion of 'A.pou' and `volt push`, then commit " +
+                        "'A.dut' and `volt push`.", conflict.Reason);
+    }
+
     /// <summary>The ordinary shapes are untouched: one op per item, and a rename+move+edit whose target no other op
     /// names.</summary>
     [Fact]

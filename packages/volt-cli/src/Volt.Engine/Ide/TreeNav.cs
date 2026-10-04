@@ -124,6 +124,77 @@ internal static class TreeNav
         return node;
     }
 
+    /// <summary>Why a MOVE into <paramref name="folder"/> (a full tree path, as <see cref="ResolveTopLevelFolder"/> takes it)
+    /// cannot land, or null when it can (openspec <c>bridge-refusal-review</c> 4.31). Read-only: the path is descended the
+    /// way the move will descend it (<see cref="DescendExisting"/>'s match), and only a target that EXISTS is judged: a
+    /// path naming folders the move would CREATE (under any node) is the vendor's to answer — what CODESYS does with a
+    /// folder created under <c>Device</c> is unmeasured (4d review), and the move's post-condition catches a move it
+    /// ignores.
+    ///
+    /// <para>The holders are MEASURED, not assumed (<c>scripts/move-holders.log</c>, CODESYS SP21: every top-level source
+    /// object of Pro2193, Bakon, AWA, Lenze and the CODESYS fixture sits at the tree root, in a folder or directly in an
+    /// Application; TwinCAT's, censused on the pulled <c>twincat-project14</c> corpus, at the PLC project root or in a
+    /// folder). Any other node — <c>Device</c>, <c>Plc
+    /// Logic</c>, <c>Task Configuration</c>, a library manager — is no holder: CODESYS accepts the move and leaves the object
+    /// where it was (<c>scripts/merged-classes.log</c> 225-229), so the push reported "moved" and the next pull moved the
+    /// file back (DIALECT C2q). A holder kind measured later joins <see cref="MoveHolders"/>; nothing is a holder by default.</para></summary>
+    internal static string? RefusedMoveTarget(IIdeDriver ide, string folder)
+    {
+        var node = ide.GetTreeRoot();
+        var atRoot = true;
+        foreach (var part in FolderPath.Segments(folder))
+        {
+            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)));
+            if (next is null) return null;   // a folder to create: not judged here (see the summary)
+            node = next.Value;
+            atRoot = false;
+        }
+        if (atRoot) return null;
+        var kind = ide.KindCode(node);
+        return MoveHolders.Contains(kind)
+            ? null
+            : $"'{ide.Name(node)}' is a {NodeKindName(kind)}, not a folder — an item can be moved only to the tree root, " +
+              "into a folder or into an Application.";
+    }
+
+    /// <summary>The node kinds that hold a top-level item, besides the tree root (measured: see <see cref="RefusedMoveTarget"/>).</summary>
+    private static readonly HashSet<int> MoveHolders = new() { ItemKind.PlcFolder, ItemKind.Application };
+
+    /// <summary>A node kind in words, for a refusal: the container names, else the wire kind, else the code itself.</summary>
+    private static string NodeKindName(int kind) => kind switch
+    {
+        ItemKind.Device => "device node",
+        ItemKind.PlcLogic => "PLC logic node",
+        ItemKind.TaskConfig => "task configuration node",
+        ItemKind.GenericContainer => "container node",
+        _ => ItemKind.Map(kind) is { } wire ? $"{wire} node" : $"tree node of item type {kind}",
+    };
+
+    /// <summary>Does <paramref name="folder"/> (a full tree path) exist and hold the item <paramref name="name"/> of wire
+    /// kind <paramref name="kind"/> (the name case-insensitive, as IEC names are)? Read-only — a move's post-condition.
+    /// NAME AND KIND, because the bare name is not the identity: an FB and its visualization share one
+    /// (<c>CM_Carrier.pou</c> / <c>CM_Carrier.visualization</c>), and a name alone let the visualization answer for an FB
+    /// the IDE never moved. A child the driver must not open (DIALECT C2i) is answered by its name and the kinds the
+    /// vendor states for it.</summary>
+    internal static bool FolderHolds(IIdeDriver ide, string folder, string name, string kind)
+    {
+        if (DescendExisting(ide, ide.GetTreeRoot(), folder) is not { } node) return false;
+        for (int i = 1, n = ide.ChildCount(node); i <= n; i++)
+        {
+            try
+            {
+                var child = ide.ChildAt(node, i);
+                if (NameIs(ide, child, name) && ItemKind.Map(ide.KindCode(child)) == kind) return true;
+            }
+            catch (UnreadableItemException untouchable)
+            {
+                if (string.Equals(untouchable.Name, name, StringComparison.OrdinalIgnoreCase)
+                    && untouchable.Kinds.Contains(kind)) return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>Resolve a folder path WITHOUT creating anything, for a lookup that only wants to READ.
     /// <para><see cref="ResolveFolder"/> is find-OR-CREATE, which is right on a create path and wrong on every
     /// other. Used for a read it made a real empty folder inside the engineer's POU whenever the pushed

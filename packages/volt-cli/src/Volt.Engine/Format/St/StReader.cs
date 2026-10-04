@@ -104,9 +104,10 @@ public static class StReader
 		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
 
 		// 1. A kind that is not composite (a DUT, a GVL: ItemKind.ShapeOf) is ONE declaration, written as sent. Nothing in
-		// it is Volt's to judge.
+		// it is Volt's to judge. It has no body slot, so it carries NO body — null, not "" (openspec bridge-refusal-review
+		// D26: a driver refuses a text at a slot its object lacks, so "" would be refused as a body the item cannot hold).
 		if (!ItemShape(kind).Composite)
-			return new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
+			return new ItemContent(kind, sourceText.TrimEnd('\n'), null, new List<Member>());
 
 		// An EMPTY or blank POU or interface text has no outer block, so it is refused as every text without one is
 		// (FindOuterBlock: "Missing END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION", or END_INTERFACE) — one condition, one
@@ -320,7 +321,7 @@ public static class StReader
 						$"{at.Line(i)}: nothing may follow END_INTERFACE (an interface's members sit inside its block), got: " +
 						Truncate(trailing[i].Trim(), 80));
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what, splitOnly);
-			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
+			return new ItemContent(kind, interfaceDecl, null, interfaceChildren);   // no body slot (D26)
 		}
 
 		// Split only: the POU's own declaration and body are no question of the split (SplitMembers).
@@ -766,7 +767,7 @@ public static class StReader
 			// whole block is declaration (see ItemKind.ShapeOf: an interface's members sit inside it).
 			// Its %FOLDER closes the declaration, where the writer puts it with no body to stand under.
 			var (itfFolder, itfDecl) = PeelFolderClosing(string.Join("\n", inner).TrimEnd('\n'));
-			return new Member(kind, name, itfDecl, "", Folder: itfFolder, ReturnType: returnType);
+			return new Member(kind, name, itfDecl, null, Folder: itfFolder, ReturnType: returnType);   // a signature: no body slot (D26)
 		}
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
 		if (kind == ItemKind.Kinds.Action) RefuseActionDeclaration(decl, blockStart, sigLine, name, at);
@@ -853,7 +854,7 @@ public static class StReader
 		}
 
 		return new Member(
-			ItemKind.Kinds.Property, name, propDecl, "",
+			ItemKind.Kinds.Property, name, propDecl, null,   // its code is in its accessors: no body slot (D26)
 			Getter: getter, Setter: setter,
 			Folder: folder, DataType: dataType);
 	}

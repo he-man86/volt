@@ -1,0 +1,20 @@
+﻿probe-tc-move-target.ps1 - 2026-10-04 03:41
+XAE pid 20992 (volt.bridge.twincat.20992): C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14.sln
+
+== move 'GVL_PackML' (GVLs) into 'POUs/POUexecute' - ItemType 602
+   ImportChild into the target: REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:ImportChild) failed: No elements imported. Please check content of the archive file 'C:\Users\marce\AppData\Local\Temp\volt_probe_move_666717038766485caaa1360be33d2e40.zip' for valid data and name conflicts!
+   target children afterwards: <none>
+   GVLs children afterwards:   <none>
+   restored from the archive into GVLs (the undo TcItemArchive.RoundTrip runs)
+   GVLs children after restore: GVL_PackML(615)
+
+== move 'GVL_PackML' (GVLs) into 'References' - ItemType 617
+   ImportChild into the target: REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:ImportChild) failed: No elements imported. Please check content of the archive file 'C:\Users\marce\AppData\Local\Temp\volt_probe_move_4608748d9d30403da808e2eab6d90320.zip' for valid data and name conflicts!
+   target children afterwards: Tc2_Standard(657), Tc2_System(657), Tc3_Module(657)
+   GVLs children afterwards:   <none>
+   restored from the archive into GVLs (the undo TcItemArchive.RoundTrip runs)
+   GVLs children after restore: GVL_PackML_1(615)
+
+== every 'GVL_PackML*' in the project afterwards
+   found GVLs/GVL_PackML_1 (615)
+   found GVL_PackML (615)

@@ -36,8 +36,24 @@ internal static class TcItemArchive
     /// target's subtree already holds), which opens a window where the item exists only inside the archive. If the
     /// import fails, the archive is imported back into the ORIGINAL parent before the failure is rethrown, so a
     /// refused move leaves the project as it was rather than one POU short. That restore is not a fallback hiding
-    /// a fault — the fault is still thrown; it is the undo for a step that already succeeded.</para></summary>
-    public static void Move(dynamic from, dynamic to, string name) => RoundTrip(from, to, name, rewrite: null);
+    /// a fault — the fault is still thrown; it is the undo for a step that already succeeded.</para>
+    /// <para><b>A refused import can still deposit the item</b> (DIALECT C2q, measured on TwinCAT: <c>ImportChild</c> into
+    /// <c>References</c> refused "No elements imported" and left the item at the PLC project root, so the undo's
+    /// re-import came back as <c>GVL_PackML_1</c> — the push said "refused" and the next pull showed two items). So the
+    /// undo first deletes a copy of the name the PLC project root (<paramref name="plcRoot"/>) did not hold before the
+    /// import, and an undo that restores the item under ANOTHER name is refused naming both — never reported as a
+    /// plain refusal. <paramref name="childNames"/> lists a node's child names (the object model's own walk, which never
+    /// opens a child Volt must not touch, DIALECT C2i).</para></summary>
+    public static void Move(dynamic from, dynamic to, string name, object plcRoot,
+                            Func<object, IReadOnlyCollection<string>> childNames) =>
+        RoundTrip(from, to, name, null, new Strays(plcRoot, childNames));
+
+    /// <summary>Where a refused import may have left a copy, and how to read a node's child names (see <see cref="Move"/>).</summary>
+    private sealed record Strays(object PlcRoot, Func<object, IReadOnlyCollection<string>> ChildNames)
+    {
+        public bool Holds(object node, string name) =>
+            ChildNames(node).Contains(name, StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <summary>Place <paramref name="memberName"/> — a POU MEMBER — into <paramref name="folderPath"/> inside its
     /// own POU, by rewriting the POU's archive and re-importing it into the SAME parent.
@@ -88,7 +104,7 @@ internal static class TcItemArchive
 
     /// <summary>Export <paramref name="name"/> out of <paramref name="from"/>, optionally rewrite the archive, and
     /// import it into <paramref name="to"/>. The one shape both relocations share.</summary>
-    private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite)
+    private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite, Strays? strays = null)
     {
         var zip = Path.Combine(Path.GetTempPath(), "volt_move_" + Guid.NewGuid().ToString("N") + ".zip");
         // Set when the archive becomes the ONLY surviving copy of the item — the source has been deleted and the
@@ -100,14 +116,23 @@ internal static class TcItemArchive
             Flatten(zip);
             rewrite?.Invoke(zip);
             from.DeleteChild(name);
+            // Asked BEFORE the import: a name the root holds already is another object, never the move's own copy.
+            var rootHeldName = strays is { } before && before.Holds(before.PlcRoot, name);
             try
             {
                 to.ImportChild(zip, Type.Missing, false, Type.Missing);
             }
-            catch
+            catch (Exception refused)
             {
+                // A REFUSED import that still deposited the item at the PLC project root (DIALECT C2q): that copy is
+                // the move's own, so it goes before the undo — else the undo's re-import clashes with it and the
+                // vendor renames the restored item.
+                if (strays is { } s && !rootHeldName && s.Holds(s.PlcRoot, name))
+                    ((dynamic)s.PlcRoot).DeleteChild(name);
+
                 // Put it back where it came from. If THIS throws too the original is genuinely gone, and the
                 // archive path is in the message so it can be re-imported by hand.
+                var fromBefore = strays?.ChildNames((object)from).ToList();
                 try { from.ImportChild(zip, Type.Missing, false, Type.Missing); }
                 catch (Exception restore)
                 {
@@ -119,6 +144,17 @@ internal static class TcItemArchive
                     throw new InvalidOperationException(
                         $"move of '{name}' failed AND could not be undone — the item is in the archive at {zip}, " +
                         $"import it manually ({restore.Message})", restore);
+                }
+
+                // RESTORED — but under its own name? The vendor renames an import that clashes (`GVL_PackML_1`), and
+                // a renamed restore is a NEW item to the next pull, not "the move was refused".
+                if (strays is { } r && !r.Holds((object)from, name))
+                {
+                    var appeared = r.ChildNames((object)from).Except(fromBefore!, StringComparer.OrdinalIgnoreCase).ToList();
+                    throw new InvalidOperationException(
+                        $"move of '{name}' was refused ({refused.Message}) and its undo restored the item as " +
+                        $"'{string.Join("', '", appeared)}', not '{name}' — rename it back to '{name}' in the IDE",
+                        refused);
                 }
                 throw;
             }

@@ -118,9 +118,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <see cref="InvalidatesHandlesOnMove"/> set, a handle older than the last move throws the way COM does.</para></summary>
     private sealed class Handle
     {
-        public Handle(string name, int gen) { Name = name; Gen = gen; }
+        public Handle(string name, int gen, int? kind = null) { Name = name; Gen = gen; Kind = kind; }
         public string Name { get; }
         public int Gen { get; }
+        /// <summary>The kind of the item a TREE child ref stands for, when the tree handed it out: two items may share a
+        /// bare name across kinds (an FB and its visualization), and a name alone would resolve the first.</summary>
+        public int? Kind { get; }
         public override string ToString() => Name;
     }
 
@@ -148,16 +151,20 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         return h.Name;
     }
 
-    private ItemRef Ref(string name) => new ItemRef(new Handle(name, _generation));
+    private ItemRef Ref(string name, int? kind = null) => new ItemRef(new Handle(name, _generation, kind));
+
+    /// <summary>Does <paramref name="i"/> answer for <paramref name="r"/>: its name, and its kind when the ref carries one.</summary>
+    private bool Answers(Item i, ItemRef r) =>
+        i.Name == NameOf(r) && (r.Native is not Handle { Kind: { } kind } || i.KindCode == kind);
 
     private Item Find(ItemRef r)
     {
         if (NameOf(r) is { } n && UnopenedItems.Contains(n)) OpenedUnopened.Add(n);
-        return _items.First(i => i.Name == NameOf(r));
+        return _items.First(i => Answers(i, r));
     }
     // Tolerant lookup: refs that never entered _items (a freshly CreateChild'd POU, a folder, "<root>") have
     // no children — return 0 rather than throw, matching the pre-children hard-coded ChildCount => 0.
-    private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => i.Name == NameOf(r));
+    private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => Answers(i, r));
 
     /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
     public List<string> Recorded { get; } = new();
@@ -288,9 +295,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// a task's create has to make, because the container's NAME is localized and its KIND is not.</summary>
     public readonly HashSet<string> TaskConfigFolders = new(StringComparer.Ordinal);
 
+    /// <summary>Folder paths that are a vendor CONTAINER of another kind — CODESYS's <c>Device</c> (692), <c>Plc Logic</c>
+    /// (691), <c>Application</c> (690) — by full path. Every other synthesized node reads as a folder. A move's target
+    /// is judged by its node's kind (openspec <c>bridge-refusal-review</c> 4.31), so a fake whose every node is a folder
+    /// could not tell <c>Device</c> from <c>POUs</c>.</summary>
+    public Dictionary<string, int> ContainerKinds { get; } = new(StringComparer.Ordinal);
+
     public int KindCode(ItemRef item) =>
         IsTreeNode(item)
-            ? (TaskConfigFolders.Contains(NameOf(item)) ? ItemKind.TaskConfig : ItemKind.PlcFolder)
+            ? (TaskConfigFolders.Contains(NameOf(item)) ? ItemKind.TaskConfig
+               : ContainerKinds.TryGetValue(NameOf(item)!, out var container) ? container : ItemKind.PlcFolder)
             : Find(item).KindCode;
     public int ChildCount(ItemRef item)
     {
@@ -301,7 +315,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     private int ChildCountCore(ItemRef item) =>
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) =>
-        IsTreeNode(item) ? LastSegment(NameOf(item)) : Find(item).Name;
+        // A folder ref is its ENCODED path (as an item's Folder is, FolderPath): its name is the decoded last segment, so a
+        // folder literally named "Interfaces / Data" is ONE node here as it is in the IDE.
+        IsTreeNode(item) ? FolderPath.Segments(NameOf(item)).Last() : Find(item).Name;
     public ItemRef ChildAt(ItemRef parent, int index1Based)
     {
         var child = IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
@@ -332,12 +348,6 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// a note of every folder the walk has ever synthesised from an item's path.</summary>
     private readonly HashSet<string> _explicitFolders = new(StringComparer.Ordinal);
 
-    private static string LastSegment(string path)
-    {
-        var i = path.LastIndexOf('/');
-        return i < 0 ? path : path.Substring(i + 1);
-    }
-
     /// <summary>The children of a root or folder node: the items sitting directly in it, plus one node per
     /// immediate sub-folder. Folder paths come from the items themselves, so the tree is exactly as deep as the
     /// items say it is — no folder is invented that holds nothing.</summary>
@@ -351,7 +361,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         {
             if (HiddenItems.Contains(it.Name)) continue;
             var folder = it.Folder ?? "";
-            if (folder == basePath) { kids.Add(Ref(it.Name)); continue; }
+            if (folder == basePath) { kids.Add(Ref(it.Name, it.KindCode)); continue; }
             if (basePath.Length > 0 && !folder.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
             var rest = basePath.Length == 0 ? folder : folder.Substring(basePath.Length + 1);
             if (rest.Length == 0) continue;
@@ -569,7 +579,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // path, so this is the whole of it.
         var parentPath = NameOf(parent) is { } pp && pp != PlcRootName && pp != TreeRootName ? pp : "";
         if (kindCode == ItemKind.PlcFolder)
-            _explicitFolders.Add(parentPath.Length == 0 ? name : parentPath + "/" + name);
+            _explicitFolders.Add(FolderPath.Append(parentPath, name));
         CreatedParents[name] = NameOf(parent);
         CreatedKinds[name] = kindCode;
         CreatedSeeds[name] = seed;
@@ -611,7 +621,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // rather than `Chain/Mid`, and a folder three deep was registered under a path nothing could
         // find. Harmless while no test looked below two levels.
         return kindCode == ItemKind.PlcFolder
-            ? Ref(parentPath.Length == 0 ? name : parentPath + "/" + name)
+            ? Ref(FolderPath.Append(parentPath, name))
             : Ref(name);
     }
 
@@ -644,8 +654,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // A FOLDER IS NOT AN ITEM, so it is not in `_items` and the item path below would silently no-op on
         // one. Deleting a folder is what `PruneEmptied` does, so the fake has to honour it — including the
         // descendants, which a real IDE removes with it.
-        var parentPath = NameOf(parent) is { } pn && pn != PlcRootName && pn != TreeRootName ? pn + "/" : "";
-        var folderPath = parentPath + name;
+        var parentPath = NameOf(parent) is { } pn && pn != PlcRootName && pn != TreeRootName ? pn : "";
+        var folderPath = FolderPath.Append(parentPath, name);
         if (_explicitFolders.Remove(folderPath))
             _explicitFolders.RemoveWhere(f => f.StartsWith(folderPath + "/", StringComparison.Ordinal));
 
@@ -666,10 +676,25 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// write landed (openspec <c>push-keeps-what-landed</c> gate step 2: the conflict must say the text stays).</summary>
     public Func<string, Exception?>? FailMove { get; init; }
 
+    /// <summary>Accept the move call and DO NOTHING — CODESYS's answer to a move into a node that is no folder
+    /// (<c>Device</c>, <c>Task Configuration</c>: the object stays, <c>scripts/merged-classes.log</c> 225-229). Models the
+    /// state the move's post-condition exists to catch (openspec <c>bridge-refusal-review</c> 4.31).</summary>
+    public bool IgnoreMoves { get; init; }
+
+    /// <summary>Accept the move call and lose the item: it is in no folder afterwards. Models the post-condition's other
+    /// branch (openspec <c>bridge-refusal-review</c> 4d review) — an IDE that answered the call and holds the item nowhere.</summary>
+    public bool DropsOnMove { get; set; }
+
     public void Move(ItemRef item, ItemRef target)
     {
         if (FailMove?.Invoke(NameOf(item)) is { } failure) throw failure;
         Recorded.Add($"move:{NameOf(item)}->{NameOf(target)}");
+        if (IgnoreMoves) return;
+        if (DropsOnMove)
+        {
+            if (FindOrNull(item) is { } lost) _items.Remove(lost);
+            return;
+        }
 
         // …AND THE ITEM IS ACTUALLY SOMEWHERE ELSE AFTERWARDS. This recorded the call and changed nothing, so
         // the fake still reported the item in the folder it had LEFT — which reads as a move that worked, and

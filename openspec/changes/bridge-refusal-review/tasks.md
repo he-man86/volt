@@ -785,8 +785,22 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       `TcEnoRefusal` already; any other `NotSupportedException` is still swallowed.)
 - [x] 4.25 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D25 — the in-place refusal travels as the inner exception / in the message when the rebuild also refuses;
       fix `TcNetworkWriter.cs:488`'s wording.
-- [ ] 4.26 D26 — a body pushed at an item with no body slot is refused by name on both vendors; ask the object, not a
+- [x] 4.26 D26 — a body pushed at an item with no body slot is refused by name on both vendors; ask the object, not a
       kind table (`CodesysObjectModel.cs:229` returns silently; `BeckhoffDriver.Content.cs:583` `HasBodySlot`).
+      **Done (step 4d, design D26).** Each object model's one text write asks the OBJECT for every slot it is sent a
+      text at, before either slot is written: CODESYS `WriteSourceText` → `RequireSlot` (`GetMember(iobj, aspect) == null`,
+      inside the checkout, so it rolls back), TwinCAT `WriteText` → `RequireSlot` (a binder miss or a COM missing-member
+      HRESULT, the classification `ReadImplementation` uses); a non-null text at a missing `Interface`/`Implementation`
+      (`DeclarationText`/`ImplementationText`) is `BridgeException(UNSUPPORTED)` naming the item and the slot.
+      `HasBodySlot` is deleted. **The producer was the gap the design anticipated:** `StReader` sent `""` (not null) as the
+      body of a GVL, a DUT, an interface, an interface member and a property — so with the object asked, every GVL push
+      would have been refused; it sends null now (nothing compared on it: Engine/Cli suites unchanged). Tests (red
+      before): `CodesysNoSlotTextTests` (+3: body at an object with no Implementation → UNSUPPORTED, 0 commits, 1
+      rollback, declaration untouched; declaration at no Interface → same; declaration alone lands),
+      `TcNoSlotTextTests` (+5: body / declaration at a missing member refused before either write; the driver's POU body
+      at an object without the slot — was a raw RuntimeBinderException; a body at a GVL — was DROPPED by the kind table;
+      a GVL as the reader sends it lands), `NoBodySlotIsNullTests` (+4, Engine: GVL/DUT/interface + its members/property
+      carry a null body). No LSP fixture: no text a user writes changes its answer.
 - [x] 4.27 D27 — covered by 2.23, 2.24, 2.29, 2.34; the marker grammar accepts a vendor-named unknown language.
       Done with 2.23, 2.24, 2.29, 2.34 and the grammar (bridge, LSP, VS Code).
 - [x] 4.28 D28 — covered by 3.6: refusal TwinCAT-only if CODESYS takes the write.
@@ -794,7 +808,7 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [x] 4.29 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
 - [x] 4.30 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D30 — `LibraryManifestFromXml` (`BeckhoffDriver.Content.cs:782`) requires the members the vendor XML always
       carries (measure which); a missing one makes the manifest unreadable (`?? name` at :788, :794).
-- [ ] 4.31 (from `push-without-header-check` 5Qb, live: `packages/volt-cli/scripts/merged-classes.log` lines 112, 229)
+- [x] 4.31 (from `push-without-header-check` 5Qb, live: `packages/volt-cli/scripts/merged-classes.log` lines 112, 229)
       A move into a tree node that is NOT a folder — `Device` on Pro2193, `Task Configuration` on Bakon Nano — is
       ACCEPTED as "moved" while the object stays where it was: the workspace says the new folder, the IDE disagrees,
       and the next pull moves the file back. CODESYS refuses such a move in its own UI. Test-first: a `set` whose
@@ -802,13 +816,67 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       has no `Task Configuration` node — measure what its move does with a non-folder target), and `MoveItem`'s
       post-condition (`PushService.cs:1005` "could not be found after being moved", and `BeckhoffDriver.Tree.cs:385`,
       2.35) catches an IDE that ignored the move. Still open at HEAD: no non-folder check exists.
-- [ ] 4.32 (from `push-without-header-check` 5Qb) THE RE-TYPE ROUTE in one push: `deleteItem X.pou` + `set X.dut`
+      **Done (step 4d).** Holders MEASURED first (`scripts/probe-move-holders.py` → `move-holders.log`, CODESYS SP21 on
+      copies): parents of every top-level source object — Pro2193 532 folder / 1 Application / 2 root, Bakon 128/2/0, AWA
+      51/2/1, Lenze 178/0/2, the fixture 0/4/0: root, folder, Application, nothing else. TwinCAT measured once
+      (`probe-tc-move-target.ps1` → `tc-move-target.log`, Project14 copy, Volt's own archive move): into a POU node (602)
+      and into `References` (617) both REFUSED ("No elements imported"), and the second refusal left the GVL at the PLC
+      project root, so the undo re-imported it as `GVL_PackML_1` (DIALECT C2q, new). (a) Pre-flight:
+      `TreeNav.RefusedMoveTarget` descends a move's `toFolder` read-only (the move's own match) and refuses `UNSUPPORTED`
+      "'X' cannot move into '<path>': '<node>' is a <kind> node, not a folder …" when the deepest existing node is not the
+      root, a `PlcFolder` or an `Application`; only a MOVE of an item the IDE holds (a create keeps the vendor's refusal);
+      collected like every pre-flight refusal, so no op of the batch lands. (b) Post-condition in `MoveItem`:
+      `TreeNav.FolderHolds(newFolder, name)` after `ide.Move`, else `UNSUPPORTED` "this IDE did not apply the move … the
+      item is still in '<folder>'" (from a walk, on the failure path only). FakeIde: `ContainerKinds` (Device / Plc Logic /
+      Application nodes) and `IgnoreMoves`; and its folder refs are now ENCODED paths with a decoded name (a folder named
+      "Interfaces / Data" was two nodes in the fake, which the post-condition exposed in
+      `Move_into_a_folder_whose_name_contains_a_slash_creates_ONE_decoded_folder`). Tests: `MoveIntoNonFolderTests` (+9:
+      Device, Task Configuration, Plc Logic, a new folder under Device → refused, nothing recorded, refs unchanged, a
+      fine second op not applied; Application, a folder, a new folder under the Application, the root → land; an IDE
+      that ignores the move → refused naming '<its folder>'). Live negatives are 8.2's.
+      **Gate 4d review fixes (all four taken, tests red first):** (1) MEDIUM — a vendor-refused archive move that
+      DEPOSITED the item at the PLC project root (C2q) was undone into a clash (`GVL_PackML_1`) and reported as a plain
+      refusal: `TcItemArchive.Move` now takes the PLC root and the object model's child-name walk (`ChildNames`, through
+      `ChildAt`, so a C2i child is never opened); the undo deletes a copy of the name the root did NOT hold before the
+      import, then restores, and a restore under another name is refused naming both ("… its undo restored the item as
+      'GVL_PackML_1', not 'GVL_PackML' — rename it back …"). `TcItemArchiveTests` +3 (deposit cleaned; a name the root
+      held before is untouched; renamed restore refused). (2) the holder rule judged a folder CREATED under a non-holder
+      (`Device/Brand New`), which nothing measured: `RefusedMoveTarget` now judges only a target that EXISTS (a path with
+      folders to create goes to the vendor; the post-condition answers); the row is removed with the reason, C2q says
+      "unmeasured". C2q's TwinCAT holder claim now cites a census: the pulled `twincat-project14` corpus (8 in the
+      folders DUTs/FBs/GVLs/POUs, 2 at the PLC root, none elsewhere outside References). (3) the post-condition matched
+      by BARE name: `FolderHolds(ide, folder, name, kind)` and the "stayed" walk match name AND wire kind (a C2i child by
+      its stated kinds); the pre-flight's `itemCache[Bare]` part of the finding is SKIPPED — the cache holds only
+      addressable items (`ItemKind.IsAddressableItem`: top-level source + writable references), so a visualization
+      never enters it. FakeIde: a tree child's handle carries its kind (two same-named items resolved the first),
+      `DropsOnMove`. (4) `MoveIntoNonFolderTests` +3: TwinCAT `References` (PlcLibMan 617) refused in the pre-flight; FB
+      `CM_Carrier` ignored-move with its visualization in the target → refused "still in 'A'" (red before); an item in
+      neither folder afterwards → refused saying so.
+- [x] 4.32 (from `push-without-header-check` 5Qb) THE RE-TYPE ROUTE in one push: `deleteItem X.pou` + `set X.dut`
       (either order). Two wire identities, one IDE object name; refused `BAD_REQUEST` in the pre-flight
       (`PushService.cs:745`, `RequireOneOpPerItem`, `OneOpPerItemTests`). Decide (owner) whether a re-type in one push
       is written instead — delete, drop the cache entry, create — or stays refused ("delete in one push, create in the
       next"; the CLI sends both rows of a re-typed file in one `volt push`, so today's remedy needs two commits). Either
       way the single-op re-type guard (`PushService.cs:1229`, "a push cannot re-type an object by its NAME") keeps its
       message.
+      **Done (step 4d, owner default per design: STAYS REFUSED).** `RequireOneOpPerItem` keeps `BAD_REQUEST`; the message
+      now states the CLI remedy: "… A re-type in one push is not written: commit the deletion of 'A.pou' and `volt push`,
+      then commit 'A.dut' and `volt push`." (which name is deleted and which created is read off the ops, either order).
+      The single-op re-type guard's message is unchanged. `OneOpPerItemTests` premise unchanged; +2 rows pin the wording
+      (red before).
+      **Step 4d numbers (before the gate):** C# Engine 2260 (+1 skipped; +15), Twincat 437 (+5), Codesys 301 (+3), Cli 260,
+      Connector 115, Contracts 39, Relay 49, Repo.Gates 108; volt-cli `bun test test/unit` 24; `bun run check` 18/18.
+      Census vs `cf455f6e1d`: 578 → 583 sites (1 gone: the old re-type wording; 6 new: the move pre-flight and
+      post-condition, the re-type wording, CODESYS `RequireSlot` + its INTERNAL "aspect vanished", TwinCAT `RequireSlot`);
+      vs `2d4a1a46f2`: 577 → 583 (66 gone, 72 new). No LSP code, fixture or recording changed (nothing a user writes
+      changes its answer), so test/conformance, test/frontend and rate:fixtures are not re-run here; map unchanged.
+      **Gate 4d numbers (after the review fixes):** C# Engine 2262 (+1 skipped; +2 vs before the gate: +3 rows, −1
+      `Device/Brand New`), Twincat 440 (+3), Codesys 301, Cli 260 (one run hung in the testhost for 10 min and was
+      killed; two re-runs with `--blame-hang` green in 68 s, no hang — not reproduced), Connector 115, Contracts 39,
+      Relay 49, Repo.Gates 108; volt-cli `bun test test/unit` 24/0; `bun run check` 18/18; `bun run typecheck` clean;
+      LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 8060 pass / 34 skip / 0 fail (unchanged; no LSP code,
+      fixture or recording changed, so the fixture map is not regenerated). Census 583 → 584 (+1: the TwinCAT
+      renamed-restore refusal in `TcItemArchive.RoundTrip`).
 
 ## 5. LSP parity (`packages/volt-lsp-iec`)
 

@@ -1,0 +1,16 @@
+==== Pro2193-94-95-96_COdesys.project
+  FOLDER (is_folder)                        532   e.g. Device/Plc Logic/Application/09 Misc/GVL_Exceptions; Device/Plc Logic/Application/09 Misc/eExceptionCodes; Device/Plc Logic/Application/05 Global Var Lists/GVL_ComponentHardware
+  IApplicationObject                          1   e.g. Device/Plc Logic/Application/GVL_ComponentHardwareCall
+  ROOT (the project)                          2   e.g. GVL_Errorlists; POUTab
+==== CodesysTestProject.project
+  IApplicationObject                          4   e.g. Device/Plc Logic/Application/PLC_PRG; Device/Plc Logic/Application/VltFixtureCfc; Device/Plc Logic/Application/VltFixtureSfc
+==== Bakon Nano new VISU v00_90.project
+  FOLDER (is_folder)                        128   e.g. Device/Plc Logic/Application/Data types/KinematicTransformations/Drivers/KC_AxisBasicsStatus; Device/Plc Logic/Application/Data types/KinematicTransformations/Drivers/sCYL_Status; Device/Plc Logic/Application/Data types/KinematicTransformations/Drivers/sCYL_Control
+  IApplicationObject                          2   e.g. Device/Plc Logic/Application/GVL_ComponentHardware; Device/Plc Logic/Application/GVL_ComponentHardwareCall
+==== AWA_Palletizer 09.project
+  FOLDER (is_folder)                         51   e.g. Device/Plc Logic/Application/130 PH_Picking/PH_Picking; Device/Plc Logic/Application/999 Library NextGen 01/999.002 Standard Objects/libObject; Device/Plc Logic/Application/999 Library NextGen 01/999.002 Standard Objects/libModuleHandler
+  IApplicationObject                          2   e.g. Device/Plc Logic/Application/GVL_ComponentHardware; Device/Plc Logic/Application/GVL_ComponentHardwareCall
+  ROOT (the project)                          1   e.g. GVL_Errorlists
+==== Lenze_MID-S100_V5_00_602_T51_Codesys.project
+  FOLDER (is_folder)                        178   e.g. Device/Plc Logic/Application/A70_MachineModuleSources/cUDTs/MachData_UDTs/cUDT_MachData_Dryer; Device/Plc Logic/Application/A70_MachineModuleSources/cUDTs/MachData_UDTs/cUDT_MachData_Timers; Device/Plc Logic/Application/A70_MachineModuleSources/cUDTs/MachData_UDTs/cUDT_MachData_CamControls
+  ROOT (the project)                          2   e.g. GVL_Errorlists; POE_SystemStart

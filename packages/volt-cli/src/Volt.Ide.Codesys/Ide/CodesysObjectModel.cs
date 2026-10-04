@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Volt.Contracts;
+using Volt.Engine;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
 
@@ -189,7 +190,12 @@ namespace Volt.Ide.Codesys
             var iobj = GetMember(meta, "Object");
             try
             {
+                // Every slot a text is sent at is asked of the OBJECT before anything is written (bridge-refusal-review
+                // D26): a missing one refuses the whole write, so no half of it commits. A fresh body aspect is the slot
+                // a body is written into, so the body's slot is asked after the swap, which a missing slot never reaches.
+                if (declaration != null) RequireSlot(node, iobj, "Interface");
                 if (newBodyAspect != null) PutNewBodyAspect(iobj, newBodyAspect);
+                if (implementation != null) RequireSlot(node, iobj, "Implementation");
                 if (declaration != null) SetAspectText(iobj, "Interface", declaration);
                 if (implementation != null) SetAspectText(iobj, "Implementation", implementation);
                 InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
@@ -246,16 +252,28 @@ namespace Volt.Ide.Codesys
             }
         }
 
-        /// <summary>Write one aspect's text (Interface = declaration, Implementation = body).
-        /// <para>A MISSING ASPECT is a legitimate answer — a GVL has no implementation — and the CALLER decides
-        /// that by passing null for a slot the kind does not have. But an aspect that EXISTS while its
-        /// TextDocument does not is a broken object-model contract, and returning quietly there made the write
-        /// land nothing while the enclosing transaction still committed and the push reported success. That is
-        /// the exact silent-no-op shape this codebase has shipped before.</para></summary>
+        /// <summary>A text is sent at <paramref name="aspectName"/>: the OBJECT must have that slot (openspec
+        /// <c>bridge-refusal-review</c> D26). A GVL, a DUT, an interface, a property and an interface member have no
+        /// <c>Implementation</c> — their readers send no body (null), so this is never asked for them. A non-null text at a
+        /// missing slot is refused by name: it used to RETURN, so the write landed nothing, the transaction committed and
+        /// the push reported "updated".</summary>
+        private void RequireSlot(object node, object? iobject, string aspectName)
+        {
+            if (GetMember(iobject, aspectName) != null) return;
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"CODESYS: '{GetName(node)}' has no {aspectName} — a {(aspectName == "Interface" ? "declaration" : "body")} " +
+                "was pushed at a slot this object does not have; refusing rather than dropping it.");
+        }
+
+        /// <summary>Write one aspect's text (Interface = declaration, Implementation = body). The slot was asked first
+        /// (<see cref="RequireSlot"/>). An aspect that EXISTS while its TextDocument does not is a broken object-model
+        /// contract, and returning quietly there made the write land nothing while the enclosing transaction still
+        /// committed and the push reported success. That is the exact silent-no-op shape this codebase has shipped
+        /// before.</summary>
         private static void SetAspectText(object? iobject, string aspectName, string text)
         {
-            var aspect = GetMember(iobject, aspectName);
-            if (aspect == null) return;                            // object has no such aspect (e.g. GVL has no impl)
+            var aspect = GetMember(iobject, aspectName)
+                ?? throw new InvalidOperationException($"CODESYS: the '{aspectName}' aspect vanished after it was asked for");
             var doc = GetMember(aspect, "TextDocument")
                 ?? throw new InvalidOperationException(
                     $"CODESYS: the '{aspectName}' aspect has no TextDocument — the write would be accepted and " +

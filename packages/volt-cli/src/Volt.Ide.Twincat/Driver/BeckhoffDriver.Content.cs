@@ -404,11 +404,11 @@ public sealed partial class BeckhoffDriver
         }
 
         // An UNSUPPORTED body is never written back over the live one (`ImplementationMarker.Written`).
-        // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
-        // TwinCAT's COM object does not expose the member at all — writing to it throws
-        // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
-        // make this decision from the item's kind code; it moved here with the rest of the write.
-        var written = HasBodySlot(kind) ? ImplementationMarker.Written(body) : null;
+        // A kind with no implementation slot (a DUT, a GVL, an interface, a property, an interface member) arrives
+        // with NO body — the reader sends null for it (StReader) — and a text sent at a slot the object does not
+        // expose is refused by name in `WriteText`, which asks the OBJECT (openspec bridge-refusal-review D26). The kind
+        // table that decided this here (`HasBodySlot`) dropped such a body in silence; it is deleted.
+        var written = ImplementationMarker.Written(body);
         if (written is not null) RefuseLanguageChange(kind, _om.ReadImplementation(item.Native), Languages.St);
         _om.WriteText(item.Native, declaration, written);
     }
@@ -617,18 +617,6 @@ public sealed partial class BeckhoffDriver
             _ => true,
         };
     }
-
-    /// <summary>Does this kind have an implementation-body slot at all? A DUT, a GVL and an interface do not -
-    /// their whole content is the declaration - and an interface METHOD has only a signature.
-    /// <para>A PROPERTY does not either, on either vendor: its code lives in the GET and SET accessors, which
-    /// travel as <c>Getter</c>/<c>Setter</c> and are written separately. Without it here, creating an FB with a
-    /// property crashed the push with "'System.__ComObject' does not contain a definition for
-    /// 'ImplementationText'" - the COM object does not expose the member at all, which is exactly what this
-    /// predicate exists to know.</para></summary>
-    private static bool HasBodySlot(string kind) =>
-        kind is not (ItemKind.Kinds.Dut or ItemKind.Kinds.Gvl or ItemKind.Kinds.Interface
-                     or ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty
-                     or ItemKind.Kinds.InterfaceMethod);
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 

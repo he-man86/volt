@@ -27,8 +27,14 @@ public class TcItemArchiveTests
     public sealed class FakeNode
     {
         public bool ThrowOnImport;
+        /// <summary>A refused import that still DEPOSITS the item here first — measured on TwinCAT: <c>ImportChild</c>
+        /// into <c>References</c> refused "No elements imported" and left the GVL at the PLC project root (DIALECT C2q).</summary>
+        public FakeNode? DepositOnRefusal;
+        /// <summary>The name an import gives a child this node already holds, the vendor's own way (<c>GVL_PackML_1</c>).</summary>
+        public bool SuffixOnClash;
         public List<string> Deleted { get; } = new();
         public List<string> Imported { get; } = new();
+        public List<string> Children { get; } = new();
 
         /// <summary>Writes a real zip, because <c>Flatten</c> opens and rewrites it — a stub that wrote nothing
         /// would make the test pass without exercising the archive handling at all.</summary>
@@ -40,13 +46,84 @@ public class TcItemArchiveTests
             w.Write("<TcPlcObject><POU Name=\"" + name + "\" /></TcPlcObject>");
         }
 
-        public void DeleteChild(string name) => Deleted.Add(name);
+        public void DeleteChild(string name) { Deleted.Add(name); Children.Remove(name); }
 
         public void ImportChild(string zipPath, object a, bool b, object c)
         {
-            if (ThrowOnImport) throw new InvalidOperationException("COM said no");
+            var name = ArchivedName(zipPath);
+            if (ThrowOnImport)
+            {
+                DepositOnRefusal?.Children.Add(name);
+                throw new InvalidOperationException("No elements imported. Please check content of the archive file");
+            }
             Imported.Add(zipPath);
+            Children.Add(SuffixOnClash ? name + "_1" : name);
         }
+
+        private static string ArchivedName(string zipPath)
+        {
+            using var zip = ZipFile.OpenRead(zipPath);
+            return Path.GetFileNameWithoutExtension(zip.Entries[0].Name);
+        }
+    }
+
+    /// <summary>The PLC project root the move is given, with nothing of the item's name in it.</summary>
+    private static readonly Func<object, IReadOnlyCollection<string>> Names = n => ((FakeNode)n).Children;
+
+    private static void Move(FakeNode from, FakeNode to, string name, FakeNode? root = null)
+    {
+        from.Children.Add(name);
+        TcItemArchive.Move(from, to, name, root ?? new FakeNode(), Names);
+    }
+
+    /// <summary>A REFUSED import that still deposited the item at the PLC project root is cleaned up before the undo
+    /// (openspec <c>bridge-refusal-review</c> 4d review, DIALECT C2q). Measured: <c>ImportChild</c> into <c>References</c>
+    /// refused, the GVL appeared at the root, and the undo's re-import into <c>GVLs</c> came back as
+    /// <c>GVL_PackML_1</c> — the push said "refused" and the next pull showed two items. The stray is the moved item's
+    /// own copy (the root did not hold the name before the import), so deleting it is the undo of a step the vendor took.</summary>
+    [Fact]
+    public void A_refused_import_that_deposited_the_item_at_the_PLC_root_leaves_no_copy_there()
+    {
+        var root = new FakeNode();
+        var from = new FakeNode();
+        var to = new FakeNode { ThrowOnImport = true, DepositOnRefusal = root };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Move(from, to, "GVL_PackML", root));
+
+        Assert.Contains("No elements imported", ex.Message);              // the vendor's refusal is what the push reports
+        Assert.Equal(new[] { "GVL_PackML" }, root.Deleted);               // the stray copy, deleted
+        Assert.Empty(root.Children);
+        Assert.Equal(new[] { "GVL_PackML" }, from.Children);              // back where it was, under its own name
+    }
+
+    /// <summary>A name the root ALREADY held before the import is not the move's copy and is never deleted.</summary>
+    [Fact]
+    public void A_name_the_PLC_root_held_before_the_import_is_not_touched()
+    {
+        var root = new FakeNode();
+        root.Children.Add("GVL_PackML");                                  // a different object, there before
+        var from = new FakeNode();
+        var to = new FakeNode { ThrowOnImport = true };
+
+        Assert.Throws<InvalidOperationException>(() => Move(from, to, "GVL_PackML", root));
+
+        Assert.Empty(root.Deleted);
+        Assert.Equal(new[] { "GVL_PackML" }, root.Children);
+    }
+
+    /// <summary>An undo that brings the item back under ANOTHER name is refused by name, not reported as a plain refusal:
+    /// the project now holds the item as <c>GVL_PackML_1</c>, and the next pull would show it as a new item.</summary>
+    [Fact]
+    public void An_undo_that_restores_the_item_under_another_name_is_refused_naming_both()
+    {
+        var from = new FakeNode { SuffixOnClash = true };
+        var to = new FakeNode { ThrowOnImport = true };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Move(from, to, "GVL_PackML"));
+
+        Assert.Contains("'GVL_PackML'", ex.Message);
+        Assert.Contains("'GVL_PackML_1'", ex.Message);
+        Assert.Contains("No elements imported", ex.Message);
     }
 
     /// <summary>When the move fails AND the undo fails, the archive named in the message must still EXIST.
@@ -60,7 +137,7 @@ public class TcItemArchiveTests
         var from = new FakeNode { ThrowOnImport = true };   // undo also fails
         var to = new FakeNode { ThrowOnImport = true };     // the move itself fails
 
-        var ex = Assert.Throws<InvalidOperationException>(() => TcItemArchive.Move(from, to, "FB_Orphan"));
+        var ex = Assert.Throws<InvalidOperationException>(() => Move(from, to, "FB_Orphan"));
 
         Assert.Contains("could not be undone", ex.Message);
         var path = ArchivePathFrom(ex.Message);
@@ -84,7 +161,7 @@ public class TcItemArchiveTests
         var from = new FakeNode();                          // undo succeeds
         var to = new FakeNode { ThrowOnImport = true };     // the move fails
 
-        Assert.Throws<InvalidOperationException>(() => TcItemArchive.Move(from, to, "FB_Restored"));
+        Assert.Throws<InvalidOperationException>(() => Move(from, to, "FB_Restored"));
 
         Assert.Single(from.Imported);                       // it really was put back
         Assert.False(File.Exists(from.Imported[0]), "a recovered move must not leave its archive behind");
@@ -97,7 +174,7 @@ public class TcItemArchiveTests
         var from = new FakeNode();
         var to = new FakeNode();
 
-        TcItemArchive.Move(from, to, "FB_Moved");
+        Move(from, to, "FB_Moved");
 
         Assert.Equal(new[] { "FB_Moved" }, from.Deleted);
         Assert.Single(to.Imported);

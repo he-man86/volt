@@ -203,7 +203,8 @@ public class TcHiddenBodyWriteTests
         var from = new ArchiveParent(before);
         var to = new ArchiveParent(Array.Empty<byte>());
 
-        TcItemArchive.Move(from, to, "VltProbe_Hidden");
+        TcItemArchive.Move(from, to, "VltProbe_Hidden", new ArchiveParent(Array.Empty<byte>()),
+                           (Func<object, IReadOnlyCollection<string>>)(_ => Array.Empty<string>()));
 
         Assert.Null(from.Imported);                                        // not restored: the move went through
         Assert.Equal(before, Assert.IsType<byte[]>(to.Imported));

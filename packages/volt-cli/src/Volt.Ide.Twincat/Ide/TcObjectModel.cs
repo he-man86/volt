@@ -422,7 +422,22 @@ internal sealed partial class TcObjectModel
     public void Move(object parent, object target, string name)
     {
         StructureChanged();
-        TcItemArchive.Move((dynamic)parent, (dynamic)target, name);
+        // Typed BEFORE the call: the dynamic arguments bind the whole invocation at runtime, where a method group has no type.
+        Func<object, IReadOnlyCollection<string>> childNames = ChildNames;
+        TcItemArchive.Move((dynamic)parent, (dynamic)target, name, PlcRoot(), childNames);
+    }
+
+    /// <summary>A node's child names, through <see cref="ChildAt"/> — so a child Volt must not open (DIALECT C2i) is
+    /// answered by the name its refusal carries, never touched. For <see cref="TcItemArchive.Move"/>'s undo.</summary>
+    private IReadOnlyCollection<string> ChildNames(object node)
+    {
+        var names = new List<string>();
+        for (int i = 1, n = ChildCount(node); i <= n; i++)
+        {
+            try { names.Add(GetName(ChildAt(node, i))); }
+            catch (UnreadableItemException untouchable) { names.Add(untouchable.Name); }
+        }
+        return names;
     }
 
     /// <summary>Place a POU MEMBER into a folder inside its own POU. Delegates to
@@ -506,9 +521,34 @@ internal sealed partial class TcObjectModel
         // EMPTY-STRING implementation is a REAL body value ("") and MUST be written to CLEAR the existing
         // body — skipping it (the old `!IsNullOrEmpty` guard) left a stale body when a POU was emptied,
         // diverging from CODESYS's `WriteSourceText` (which writes on `implementation != null`).
+        //
+        // Every slot a text is sent at is asked of the OBJECT first (openspec bridge-refusal-review D26): a member the
+        // COM object does not expose is refused by name before either slot is written, so no half of the write lands.
+        // It was a kind table (`HasBodySlot`) in the driver — a kind it called bodiless had its body DROPPED and the push
+        // said "updated" — and a raw binder throw (INTERNAL_ERROR) for an object of a body kind that lacked the member.
         dynamic n = node;
+        if (declaration != null) RequireSlot(node, "DeclarationText", "declaration");
+        if (implementation != null) RequireSlot(node, "ImplementationText", "body");
         if (declaration != null) n.DeclarationText = declaration;
         if (implementation != null) n.ImplementationText = implementation;
+    }
+
+    /// <summary>The object exposes <paramref name="member"/>, or the write is refused <c>UNSUPPORTED</c> naming the item and
+    /// the slot. Asked by READING it — the one probe <see cref="ReadImplementation"/> already classifies: a binder miss
+    /// (a .NET object) or a COM "no such member" HRESULT is a missing slot; any other failure is rethrown.</summary>
+    private void RequireSlot(object node, string member, string what)
+    {
+        try
+        {
+            dynamic n = node;
+            _ = member == "DeclarationText" ? (object?)n.DeclarationText : (object?)n.ImplementationText;
+            return;
+        }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { }
+        catch (System.Runtime.InteropServices.COMException ex) when (IsMissingMember(ex)) { }
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            $"TwinCAT: '{GetName(node)}' has no {member.Replace("Text", "")} — a {what} was pushed at a slot this object " +
+            "does not have; refusing rather than dropping it.");
     }
 
     /// <summary>The item's own XML, as TwinCAT itself would save it.

@@ -200,6 +200,20 @@ public static class PushService
                 continue;
             }
 
+            // A MOVE INTO A NODE THAT CANNOT HOLD AN ITEM (`Device`, `Task Configuration`) is refused here, before any op
+            // lands (openspec bridge-refusal-review 4.31): CODESYS accepts such a move and leaves the object where it was,
+            // so the push said "moved" and the next pull moved the file back. Only a MOVE of an item the IDE holds — a
+            // create keeps the vendor's own create refusal.
+            if (op is SetItemOp { ToFolder: { } toFolder } mover
+                && itemCache.TryGetValue(Materializer.Bare(mover.Name), out var placed)
+                && !string.Equals(toFolder, placed.Folder, StringComparison.OrdinalIgnoreCase)
+                && TreeNav.RefusedMoveTarget(ide, toFolder) is { } notAHolder)
+            {
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{Materializer.Bare(mover.Name)}' cannot move into '{toFolder}': {notAHolder}")));
+                continue;
+            }
+
             if (op is not SetItemOp { SourceText: { } text } set) continue;
             // A `.task` is a DESCRIPTOR, not assembled ST, so it is gated by its own format. Routing it
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
@@ -807,8 +821,8 @@ public static class PushService
     /// <para>Two kinds of one BARE name (<c>deleteItem X.pou</c> + <c>set X.dut</c>, either order) are two wire
     /// identities, but the apply's cache is keyed by the BARE name — the IDE's own lookup key — so the set resolved
     /// the handle of the POU the delete had just removed: a push REJECTED with one item already written. That pair
-    /// is refused here too, by name. Writing a re-type in one push is <c>bridge-refusal-review</c>'s (its 4.32
-    /// "re-type route"); two SETS of one bare name are not this rule's (a fb and its visualization are two IDE
+    /// is refused here too, by name — and STAYS refused (<c>bridge-refusal-review</c> 4.32, the "re-type route"): the
+    /// refusal states the two-push remedy. Two SETS of one bare name are not this rule's (a fb and its visualization are two IDE
     /// objects, and a set never touches a visualization).</para></summary>
     private static void RequireOneOpPerItem(IEnumerable<PushOp> ops)
     {
@@ -828,11 +842,19 @@ public static class PushService
 
                 var bare = Materializer.Bare(name);
                 var (mine, other) = op is DeleteItemOp ? (deletedBare, setBare) : (setBare, deletedBare);
+                // THE RE-TYPE ROUTE STAYS REFUSED (bridge-refusal-review 4.32, owner default): git pairs the same edit as
+                // ONE renaming `set` when the texts are similar, and that op is refused by the re-type guard — so writing
+                // this unpaired form would make one intent succeed or fail on git's similarity score. A re-type discards
+                // the object's identity, which is the engineer's call. The CLI sends both rows of a re-typed file in one
+                // `volt push`, so the refusal states the remedy: two commits, each pushed.
                 if (other.TryGetValue(bare, out var otherName))
+                {
+                    var (deleted, created) = op is DeleteItemOp ? (name, otherName) : (otherName, name);
                     throw new PushRefusal(op.Name,
                         $"'{otherName}' and '{name}' are one IDE object '{bare}' (the IDE names an object without its " +
                         "kind), and this push deletes one and sets the other. A re-type in one push is not written: " +
-                        "delete in one push, create in the next.");
+                        $"commit the deletion of '{deleted}' and `volt push`, then commit '{created}' and `volt push`.");
+                }
                 if (!mine.ContainsKey(bare)) mine[bare] = name;
             }
     }
@@ -1113,6 +1135,21 @@ public static class PushService
                         "replaced it and the move cannot proceed.");
             }
             ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, newFolder, newFolders));
+
+            // AND THE MOVE TOOK (openspec bridge-refusal-review 4.31). An IDE can accept the call and leave the object —
+            // CODESYS does for a target that is no folder — and "moved" would then be baked into the client's baseline
+            // while the IDE disagrees. The pre-flight refuses the targets known to do that; this catches any other.
+            if (!TreeNav.FolderHolds(ide, newFolder, name, kind))
+            {
+                // By name AND kind: a same-named item of another kind (an FB's visualization) is not the one that moved.
+                var stayed = ide.WalkItems().Items.FirstOrDefault(i =>
+                    string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase) && ItemKind.Map(i.KindCode) == kind);
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"this IDE did not apply the move of '{name}' to '{(newFolder.Length == 0 ? "<the tree root>" : newFolder)}': " +
+                    (stayed is null
+                        ? "the item is in neither folder afterwards."
+                        : $"the item is still in '{(stayed.Folder.Length == 0 ? "<the tree root>" : stayed.Folder)}'."));
+            }
             moved = true;
 
             // AND WRITE AGAIN, because a move can REPLACE the item rather than relocate it.
