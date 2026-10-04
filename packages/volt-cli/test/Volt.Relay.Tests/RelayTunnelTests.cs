@@ -33,7 +33,9 @@ public class RelayTunnelTests : IDisposable
         out string pipeName,
         FakeIde? ide = null,
         FakeDelay? delay = null,
-        LogCapture? log = null)
+        LogCapture? log = null,
+        TimeSpan? pingEvery = null,
+        TimeSpan? silenceLimit = null)
     {
         ide ??= new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
         {
@@ -50,7 +52,7 @@ public class RelayTunnelTests : IDisposable
         var config = RelaySidecar.Parse("{\"url\":\"wss://relay.test/bridge\",\"token\":\"t\"}", "test");
         var tunnel = new RelayTunnel(config, pipe, "codesys", "0.0.0-test", relay.NewSocket,
             delay == null ? null : delay.Delay,
-            log == null ? null : log.Write);
+            log == null ? null : log.Write, pingEvery, silenceLimit);
         _disposables.Add(tunnel);
         tunnel.Start();
 
@@ -399,6 +401,218 @@ public class RelayTunnelTests : IDisposable
         var health = await Task.Run(() => new PipeClient(pipe).Call(Ops.Health));
         Assert.True(health.TryGetProperty("projects", out var projects));
         Assert.Equal(1, projects.GetArrayLength());
+    }
+
+    // ── the log: one terminal line per request, one line per connection end ──
+    //
+    // openspec relay-request-logging. The bridge log is the only record of what a relayed request did and why a
+    // connection ended; before this a coded refusal and a BAD_REQUEST left only their `<-` line, and an end was
+    // three lines (one at Debug) with no age, no pipe and no in-flight ids.
+
+    private static IReadOnlyList<string> TerminalLines(LogCapture log, string id) =>
+        log.At(VoltLogLevel.Info).Where(l => l.StartsWith("relay: -> ") && l.Contains("(" + id + ")")).ToList();
+
+    private static IReadOnlyList<(VoltLogLevel Level, string Message)> EndLines(LogCapture log) =>
+        log.Lines.Where(l => l.Message.StartsWith("relay: connection on ")).ToList();
+
+    private static async Task<string> AwaitTerminalLine(LogCapture log, string id, int timeoutMs = 15_000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            var lines = TerminalLines(log, id);
+            if (lines.Count > 0)
+            {
+                // Settle, then assert ONE: a second terminal line would arrive right behind the first.
+                await Task.Delay(200);
+                lines = TerminalLines(log, id);
+                Assert.True(lines.Count == 1, $"expected one terminal line for {id}, got:\n" + log);
+                return lines[0];
+            }
+            await Task.Delay(25);
+        }
+        throw new TimeoutException($"no terminal line for {id} within {timeoutMs}ms:\n" + log);
+    }
+
+    [Fact]
+    public async Task A_coded_error_is_one_terminal_line_naming_its_code()
+    {
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, new FakeIde { HealthConnected = false }, log: log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("r1", Ops.Refs);
+        await relay.AwaitFrame("r1", "error");
+
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.StartsWith("relay: -> refs (r1) error " + BridgeErrorCodes.PlcDisconnected + " ", line);
+        Assert.DoesNotContain("delivered=no", line);
+    }
+
+    [Fact]
+    public async Task A_non_relayable_op_is_one_terminal_line_saying_refused()
+    {
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, log: log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("r1", "connect", new { project = "Other" });
+        await relay.AwaitFrame("r1", "error");
+
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.StartsWith("relay: -> connect (r1) refused " + BridgeErrorCodes.BadRequest + " ", line);
+        Assert.DoesNotContain("delivered=no", line);
+    }
+
+    [Fact]
+    public async Task A_served_op_is_one_terminal_line_with_its_duration()
+    {
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, log: log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("r1", Ops.Health);
+        await relay.AwaitFrame("r1", "result");
+
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.Matches(@"^relay: -> health \(r1\) ok \d+ms$", line);
+    }
+
+    /// <summary>The narrow case PLCAssist read right: the push LANDED, then the socket failed while its result
+    /// was sent on a connection still live. It used to be logged "'push' failed on pipe" at Error and answered a
+    /// second time with INTERNAL_ERROR.</summary>
+    [Fact]
+    public async Task A_push_whose_result_could_not_be_sent_is_ok_and_not_delivered()
+    {
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, log: log);
+        await relay.AwaitHello();
+
+        relay.FailSendWhen = frame => frame.StartsWith("{\"id\":\"r1\",\"result\"");
+        relay.SendRequest("r1", Ops.Push, new { ops = Array.Empty<object>() });
+
+        var line = await AwaitTerminalLine(log, "r1");
+        Assert.Matches(@"^relay: -> push \(r1\) ok accepted newProjectVersion=\S+ \d+ms delivered=no \(WebSocketException: .+\)$", line);
+        Assert.Empty(log.At(VoltLogLevel.Error));
+        // And no second terminal frame: the op succeeded, there is nothing to answer as an error.
+        Assert.DoesNotContain(relay.Received, f => f.StartsWith("{\"id\":\"r1\",\"error\""));
+    }
+
+    /// <summary>The connection goes while the op holds the IDE thread; the op completes afterwards. One line
+    /// says it was abandoned AND what it did, and the id is not answered on the next connection.</summary>
+    [Fact]
+    public async Task An_abandoned_request_is_one_terminal_line_with_its_own_outcome()
+    {
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var ide = new FakeIde(serializeSta: true, FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            ExtractEntered = entered,
+            ExtractBlock = release,
+            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+        };
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, ide, delay, log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("slow", Ops.Fetch, new { init = true });
+        Assert.True(entered.Wait(15_000), "the fetch never reached the blocking step");
+        relay.DieWithoutClose();
+        await delay.NextWait();
+
+        release.Set();
+        var line = await AwaitTerminalLine(log, "slow");
+        Assert.Matches(@"^relay: -> fetch \(slow\) abandoned ok \d+ms delivered=no$", line);
+        Assert.DoesNotContain(relay.Received, f => f.StartsWith("{\"id\":\"slow\",\"result\""));
+    }
+
+    [Fact]
+    public async Task A_relay_close_is_one_info_end_line_with_age_cause_in_flight_and_next_dial()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Close(1001, "going away");
+        var wait = await delay.NextWait();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Equal(VoltLogLevel.Info, ends[0].Level);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the relay closed the connection: 1001 ""going away"" \| in flight: none \| next dial in " +
+                       (int)wait.TotalSeconds + "s$", ends[0].Message);
+    }
+
+    [Fact]
+    public async Task A_drop_without_close_is_one_warn_end_line()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.DieWithoutClose();
+        var wait = await delay.NextWait();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Equal(VoltLogLevel.Warn, ends[0].Level);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — dropped without a close \(WebSocketException\): .+ \| in flight: none \| next dial in " +
+                       (int)wait.TotalSeconds + "s$", ends[0].Message);
+    }
+
+    [Fact]
+    public async Task The_watchdog_drop_is_one_end_line_naming_the_watchdog_and_both_ids_in_flight()
+    {
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var ide = new FakeIde(serializeSta: true, FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            ExtractEntered = entered,
+            ExtractBlock = release,
+            Projects = new List<ProjectEntry> { new("codesys", "0", "Proj", "healthy", false) },
+        };
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, ide, delay, log,
+            pingEvery: TimeSpan.FromMilliseconds(100), silenceLimit: TimeSpan.FromMilliseconds(600));
+        await relay.AwaitHello();
+
+        relay.SendRequest("a", Ops.Fetch, new { init = true });
+        relay.SendRequest("b", Ops.Fetch, new { init = true });
+        Assert.True(entered.Wait(15_000), "the fetch never reached the blocking step");
+        // Nothing more from the relay: the watchdog drops the socket.
+        var wait = await delay.NextWait();
+        release.Set();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 1, "expected one end line, got:\n" + log);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the watchdog dropped it \(no frame for \d+s\) \| in flight: a b \| next dial in " +
+                       (int)wait.TotalSeconds + "s$", ends[0].Message);
+        await AwaitTerminalLine(log, "a");
+        await AwaitTerminalLine(log, "b");
+    }
+
+    [Fact]
+    public async Task A_refused_upgrade_is_one_end_line_saying_it_never_connected()
+    {
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.RefuseConnect = true;
+        relay.DieWithoutClose();
+        await delay.NextWait();
+        delay.Release();
+        var wait = await delay.NextWait();
+
+        var ends = EndLines(log);
+        Assert.True(ends.Count == 2, "expected two end lines (the drop, then the refused dial), got:\n" + log);
+        Assert.Matches(@"^relay: connection on " + pipe + @" ended before it connected — could not connect \(InvalidOperationException\): relay refused \(test\) \| in flight: none \| next dial in " +
+                       (int)wait.TotalSeconds + "s$", ends[1].Message);
     }
 }
 

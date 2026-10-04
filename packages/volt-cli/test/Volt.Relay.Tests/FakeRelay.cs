@@ -27,6 +27,10 @@ public sealed class FakeRelay
     /// <summary>Set to refuse the next connect — for the reconnect tests.</summary>
     public volatile bool RefuseConnect;
 
+    /// <summary>Set to make a send fail, as a socket dying mid-send does, while the connection is otherwise live:
+    /// a frame matching it throws instead of arriving.</summary>
+    public volatile Func<string, bool>? FailSendWhen;
+
     /// <summary>How many times a socket has been opened. The reconnect assertion.</summary>
     public int ConnectAttempts;
 
@@ -115,6 +119,8 @@ public sealed class FakeRelay
         public Task SendTextAsync(string text, CancellationToken cancellation)
         {
             if (_aborted.IsCancellationRequested) throw new OperationCanceledException();
+            if (_relay.FailSendWhen?.Invoke(text) == true)
+                throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
             lock (_relay._gate) _relay._sentToRelay.Add(text);
             return Task.CompletedTask;
         }

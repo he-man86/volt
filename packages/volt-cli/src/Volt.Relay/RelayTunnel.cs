@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Linq;
 using System.Net.WebSockets;
+using System.Text.Json;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,8 +29,10 @@ namespace Volt.Relay
         // 25s ping / 60s silence, per the protocol. The watchdog is deliberately far longer than the ping: it is
         // there to notice a socket that is open but dead (a NAT or proxy that dropped the flow without an RST —
         // the common failure for a long-lived outbound connection through corporate kit), not to police latency.
-        private static readonly TimeSpan PingEvery = TimeSpan.FromSeconds(25);
-        private static readonly TimeSpan SilenceLimit = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan DefaultPingEvery = TimeSpan.FromSeconds(25);
+        private static readonly TimeSpan DefaultSilenceLimit = TimeSpan.FromSeconds(60);
+        private readonly TimeSpan _pingEvery;
+        private readonly TimeSpan _silenceLimit;
 
         private static readonly TimeSpan BackoffFloor = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan BackoffCeiling = TimeSpan.FromSeconds(30);
@@ -55,7 +61,23 @@ namespace Volt.Relay
         // must survive the connection ending in an exception (a 1006 after a week of service still earns the
         // backoff reset). Written and read only on the reconnect loop's own async flow.
         private bool _accepted;
+        // The connection being served (or dialed): what its end line reports. Replaced per dial on the reconnect
+        // loop's own flow; the heartbeat writes only its DropCause.
+        private Connection? _connection;
         private Task? _loop;
+
+        /// <summary>One dial's facts, for its end line (openspec relay-request-logging).</summary>
+        private sealed class Connection
+        {
+            public DateTime? ConnectedUtc;
+            // id -> op of every request read on THIS connection that has not yet logged its terminal line.
+            public readonly ConcurrentDictionary<string, string> InFlight = new ConcurrentDictionary<string, string>();
+            // InFlight at the moment the connection ended, before its abandoned requests drain.
+            public string[] InFlightAtEnd = new string[0];
+            // Set by the heartbeat when IT drops the socket, so the end line names the watchdog or the dead
+            // heartbeat rather than the receive exception the drop causes.
+            public volatile string? DropCause;
+        }
 
         public RelayTunnel(
             RelaySidecar config,
@@ -64,7 +86,9 @@ namespace Volt.Relay
             string? voltVersion,
             Func<IRelaySocket>? socketFactory = null,
             Func<TimeSpan, CancellationToken, Task>? reconnectDelay = null,
-            Action<VoltLogLevel, string>? log = null)
+            Action<VoltLogLevel, string>? log = null,
+            TimeSpan? pingEvery = null,
+            TimeSpan? silenceLimit = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _pipeName = pipeName;
@@ -80,6 +104,10 @@ namespace Volt.Relay
             // Injected because VoltLog is one process-wide file shared by every test running in parallel, and the
             // log line is the tunnel's only surface to the engineer: a test must be able to read exactly its own.
             _log = log ?? LogToVoltLog;
+            // Injected only so a test can watch the watchdog fire without waiting 60-85 s. The protocol's
+            // numbers are what every real tunnel runs.
+            _pingEvery = pingEvery ?? DefaultPingEvery;
+            _silenceLimit = silenceLimit ?? DefaultSilenceLimit;
         }
 
         private static void LogToVoltLog(VoltLogLevel level, string message)
@@ -113,6 +141,7 @@ namespace Volt.Relay
             while (!stopping.IsCancellationRequested)
             {
                 RelayClose? close = null;
+                Exception? ended = null;
                 try
                 {
                     close = await RunOneConnectionAsync(stopping).ConfigureAwait(false);
@@ -126,8 +155,8 @@ namespace Volt.Relay
                 catch (Exception ex)
                 {
                     // The host is NOT the place to surface this: a relay that is down must not stop a bridge
-                    // serving its local CLI. The log is the record.
-                    Log(VoltLogLevel.Warn, "relay: connection ended (" + ex.GetType().Name + "): " + ex.Message);
+                    // serving its local CLI. The log (the end line below) is the record.
+                    ended = ex;
                 }
 
                 if (stopping.IsCancellationRequested) return;
@@ -138,6 +167,9 @@ namespace Volt.Relay
                 if (_accepted) backoff = BackoffFloor;
 
                 TimeSpan baseWait;
+                VoltLogLevel level;
+                string cause;
+                var conn = _connection;
                 if (close != null && close.IsPolicyRefusal)
                 {
                     // The relay will not serve this bridge, and redialing cannot change its mind — only a new
@@ -145,21 +177,30 @@ namespace Volt.Relay
                     // runs in-proc, where "restart the bridge" means restarting the engineer's IDE, and one
                     // mistaken 1008 from a relay deploy must not strand every bridge until each user does that.
                     baseWait = RefusedCeiling;
-                    Log(VoltLogLevel.Error, RefusalLine(close));
+                    level = VoltLogLevel.Error;
+                    cause = RefusalLine(close);
                 }
                 else
                 {
-                    if (close != null) Log(VoltLogLevel.Info, "relay: the relay closed the connection: " + close);
                     baseWait = backoff;
                     var doubled = TimeSpan.FromTicks(backoff.Ticks * 2);
                     backoff = doubled > BackoffCeiling ? BackoffCeiling : doubled;
+                    level = VoltLogLevel.Warn;
+                    if (close != null) { level = VoltLogLevel.Info; cause = "the relay closed the connection: " + close; }
+                    else if (conn?.DropCause != null) cause = conn.DropCause;
+                    else if (ended == null) cause = "the receive loop ended with no close";
+                    else if (conn?.ConnectedUtc == null)
+                        // A refused upgrade (401/403) lands here; the platform's message names the HTTP status
+                        // where it reports one.
+                        cause = "could not connect (" + ended.GetType().Name + "): " + ended.Message;
+                    else cause = "dropped without a close (" + ended.GetType().Name + "): " + ended.Message;
                 }
 
                 // Jittered, because every bridge pointed at one relay would otherwise redial in lockstep after
                 // that relay restarts and arrive as a thundering herd.
                 var jitter = TimeSpan.FromMilliseconds(random.Next(0, 1000));
                 var wait = baseWait + jitter;
-                Log(VoltLogLevel.Debug, "relay: reconnecting in " + (int)wait.TotalSeconds + "s");
+                Log(level, EndLine(conn, cause, wait));
                 try { await _delay(wait, stopping).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
             }
@@ -177,14 +218,30 @@ namespace Volt.Relay
             return line + " Trying again in " + (int)RefusedCeiling.TotalMinutes + " minutes.";
         }
 
+        /// <summary>The ONE line a connection end gets: the pipe it served (the name embeds the pid, and one log
+        /// file holds every process of a vendor), its age, its cause, the ids it abandoned and the next dial.</summary>
+        private string EndLine(Connection? conn, string cause, TimeSpan nextDial)
+        {
+            var connected = conn?.ConnectedUtc;
+            var age = connected == null
+                ? "before it connected"
+                : "after " + (int)(DateTime.UtcNow - connected.Value).TotalSeconds + "s";
+            var inFlight = conn == null || conn.InFlightAtEnd.Length == 0 ? "none" : string.Join(" ", conn.InFlightAtEnd);
+            return "relay: connection on " + _pipeName + " ended " + age + " — " + cause +
+                   " | in flight: " + inFlight + " | next dial in " + (int)nextDial.TotalSeconds + "s";
+        }
+
         /// <summary>Serve one connection. Returns the relay's close, or null when it ended any other way.</summary>
         private async Task<RelayClose?> RunOneConnectionAsync(CancellationToken stopping)
         {
             _accepted = false;
+            var conn = new Connection();
+            _connection = conn;
             using (var socket = _socketFactory())
             {
                 _socket = socket;
                 await socket.ConnectAsync(new Uri(_config.Url), _config.Token, stopping).ConfigureAwait(false);
+                conn.ConnectedUtc = DateTime.UtcNow;
                 Log(VoltLogLevel.Info, "relay: connected to " + _config.SafeDescription);
 
                 _lastInboundUtc = DateTime.UtcNow;
@@ -195,10 +252,11 @@ namespace Volt.Relay
                     var pinger = PingLoopAsync(connectionDead.Token);
                     try
                     {
-                        return await ReceiveLoopAsync(socket, connectionDead.Token).ConfigureAwait(false);
+                        return await ReceiveLoopAsync(socket, conn, connectionDead.Token).ConfigureAwait(false);
                     }
                     finally
                     {
+                        conn.InFlightAtEnd = conn.InFlight.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray();
                         connectionDead.Cancel();
                         // The ping loop owns no state worth waiting on, but leaving it running would have two
                         // pingers on the next connection.
@@ -214,7 +272,7 @@ namespace Volt.Relay
         }
 
         /// <summary>Returns the relay's close; null when the token ended the loop instead.</summary>
-        private async Task<RelayClose?> ReceiveLoopAsync(IRelaySocket socket, CancellationToken token)
+        private async Task<RelayClose?> ReceiveLoopAsync(IRelaySocket socket, Connection conn, CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
@@ -243,63 +301,74 @@ namespace Volt.Relay
                         // Fire and forget, deliberately. Awaiting here would serialize the tunnel onto one
                         // request at a time and destroy the property the whole design exists for: `health`
                         // answering while a `push` holds the IDE thread.
-                        var _ = ServeAsync(frame, token);
+                        // Registered here, synchronously, so the end line lists it even when the connection
+                        // ends before the request's own task has run.
+                        conn.InFlight[frame.Id!] = frame.Op!;
+                        var _ = ServeAsync(frame, conn, token);
                         break;
                 }
             }
             return null;
         }
 
-        /// <summary>Serve one request: forward it to the local pipe and stream the frames back, tagged.</summary>
-        private async Task ServeAsync(RelayInbound request, CancellationToken token)
+        /// <summary>Serve one request: forward it to the local pipe and stream the frames back, tagged.
+        ///
+        /// <para>Ends in ONE terminal Info line, whatever ended it (openspec relay-request-logging):
+        /// <c>relay: -&gt; op (id) outcome Nms [delivered=no]</c>. The op's outcome and the delivery of its frame
+        /// are judged apart, so a push that landed and could not be answered reads <c>ok … delivered=no</c>, never
+        /// as a failure of the op.</para></summary>
+        private async Task ServeAsync(RelayInbound request, Connection conn, CancellationToken token)
         {
             // Both non-null by construction: ReceiveLoopAsync only routes a frame here when RelayFrames.Read
-            // classified it as a Request, and that arm sets them. Asserted once, so the four frame builders
-            // below are not each guarding a case that cannot happen.
+            // classified it as a Request, and that arm sets them.
             var id = request.Id!;
             var op = request.Op!;
+            var clock = Stopwatch.StartNew();
 
             Log(VoltLogLevel.Info, "relay: <- " + op + " (" + id + ")");
 
+            // 1. The op's own outcome, and the terminal frame that carries it. Both stay null when it never ran.
+            string? outcome = null;
+            string? frame = null;
             try
             {
                 if (!RelayFrames.Allowed.Contains(op))
                 {
                     // Refused WITHOUT touching the pipe. `connect`/`disconnect` land here: a remote party does
                     // not get to rebind which project an engineer's IDE serves.
-                    await SendAsync(RelayFrames.Error(id, BridgeErrorCodes.BadRequest,
-                        "op '" + op + "' is not relayable"), token).ConfigureAwait(false);
-                    return;
+                    var refused = BridgeErrorCodes.BadRequest;
+                    outcome = "refused " + refused;
+                    frame = RelayFrames.Error(id, refused, "op '" + op + "' is not relayable");
                 }
-
-                // One pipe connection per request id — the pipe's own concurrency, which is what lets `health`
-                // answer off the IDE thread while `push` holds it.
-                var client = new PipeClient(_pipeName);
-                var result = await Task.Run(() => client.Call(
-                    op,
-                    request.Body,
-                    progress =>
-                    {
-                        // Progress is best-effort: a failed progress send must not fail the REQUEST, whose
-                        // terminal frame is the thing the caller is waiting for.
-                        try { SendAsync(RelayFrames.Progress(id, progress), token).GetAwaiter().GetResult(); }
-                        catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: dropped a progress frame: " + ex.Message); }
-                    }), token).ConfigureAwait(false);
-
-                await SendAsync(RelayFrames.Result(id, result), token).ConfigureAwait(false);
-                Log(VoltLogLevel.Info, "relay: -> " + op + " (" + id + ") ok");
+                else
+                {
+                    // One pipe connection per request id — the pipe's own concurrency, which is what lets `health`
+                    // answer off the IDE thread while `push` holds it.
+                    var client = new PipeClient(_pipeName);
+                    var result = await Task.Run(() => client.Call(
+                        op,
+                        request.Body,
+                        progress =>
+                        {
+                            // Progress is best-effort: a failed progress send must not fail the REQUEST, whose
+                            // terminal frame is the thing the caller is waiting for.
+                            try { SendAsync(RelayFrames.Progress(id, progress), token).GetAwaiter().GetResult(); }
+                            catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: dropped a progress frame: " + ex.Message); }
+                        }), token).ConfigureAwait(false);
+                    outcome = "ok" + PushVerdict(op, result);
+                    frame = RelayFrames.Result(id, result);
+                }
             }
             catch (PipeCallException ex)
             {
                 // A coded bridge error crosses as its code, unchanged. This is the ordinary path for
                 // PLC_DISCONNECTED, WRONG_PROJECT and friends.
-                await TrySendAsync(RelayFrames.Error(id, ex.Code, ex.Message), token).ConfigureAwait(false);
+                outcome = "error " + ex.Code;
+                frame = RelayFrames.Error(id, ex.Code, ex.Message);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                // The socket went while this was running. The relay has already failed it to its caller;
-                // answering now would answer an id nobody is waiting on.
-                Log(VoltLogLevel.Debug, "relay: abandoned '" + op + "' — the connection went");
+                // The connection went before the pipe call started: abandoned, and it never ran.
             }
             catch (Exception ex)
             {
@@ -310,9 +379,41 @@ namespace Volt.Relay
                 // loaded at that moment; the remote client gets the type beside the message (openspec
                 // ide-identity-report 3.1).
                 Log(VoltLogLevel.Error, "relay: '" + op + "' failed on pipe " + _pipeName + " — " + CallFailure.LogText(ex));
-                await TrySendAsync(RelayFrames.Error(id, BridgeErrorCodes.InternalError,
-                    CallFailure.Message(ex)), token).ConfigureAwait(false);
+                var code = BridgeErrorCodes.InternalError;
+                outcome = "error " + code;
+                frame = RelayFrames.Error(id, code, CallFailure.Message(ex));
             }
+
+            // 2. Delivery. The connection having gone is "abandoned": the relay has already failed the id to its
+            // caller, and answering it on the next connection would answer an id nobody is waiting on. A send that
+            // fails on a connection still live is a delivery failure, named as one.
+            string? sendFailure = null;
+            if (frame != null && !token.IsCancellationRequested)
+            {
+                try { await SendAsync(frame, token).ConfigureAwait(false); }
+                catch (Exception ex) when (!token.IsCancellationRequested) { sendFailure = ex.GetType().Name + ": " + ex.Message; }
+                catch (Exception) { /* the connection went during the send: abandoned, below */ }
+            }
+            var abandoned = frame == null || (sendFailure == null && token.IsCancellationRequested);
+            var delivered = !abandoned && sendFailure == null;
+
+            conn.InFlight.TryRemove(id, out _);
+            Log(VoltLogLevel.Info, "relay: -> " + op + " (" + id + ") " +
+                (abandoned ? "abandoned" + (outcome == null ? "" : " " + outcome) : outcome) +
+                " " + clock.ElapsedMilliseconds + "ms" +
+                (delivered ? "" : " delivered=no") + (sendFailure == null ? "" : " (" + sendFailure + ")"));
+        }
+
+        /// <summary>A push's verdict and version, read from the result the tunnel already holds: what a client
+        /// whose push was abandoned cannot otherwise learn (openspec relay-outcome-ledger). Empty for other ops.</summary>
+        private static string PushVerdict(string op, JsonElement result)
+        {
+            if (op != Ops.Push) return "";
+            var accepted = result.TryGetProperty("accepted", out var a) && a.ValueKind == JsonValueKind.True;
+            var version = result.TryGetProperty("newProjectVersion", out var v) && v.ValueKind == JsonValueKind.String
+                ? " newProjectVersion=" + v.GetString()
+                : "";
+            return (accepted ? " accepted" : " rejected") + version;
         }
 
         private async Task PingLoopAsync(CancellationToken token)
@@ -326,6 +427,8 @@ namespace Volt.Relay
             catch (Exception ex)
             {
                 Log(VoltLogLevel.Error, "relay: the heartbeat died — " + ex);
+                var conn = _connection;
+                if (conn != null) conn.DropCause = "the heartbeat died (" + ex.GetType().Name + "): " + ex.Message;
                 // Take the socket with it. A connection with no heartbeat is not a connection; dropping it
                 // forces the reconnect that gets us a working one.
                 var socket = _socket;
@@ -337,15 +440,17 @@ namespace Volt.Relay
         {
             while (!token.IsCancellationRequested)
             {
-                try { await Task.Delay(PingEvery, token).ConfigureAwait(false); }
+                try { await Task.Delay(_pingEvery, token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
 
                 // Silence means the flow is dead even though the socket says otherwise. Dropping it here is
                 // what makes the reconnect happen; without this the tunnel sits "connected" forever against a
                 // relay that stopped listening.
-                if (DateTime.UtcNow - _lastInboundUtc > SilenceLimit)
+                if (DateTime.UtcNow - _lastInboundUtc > _silenceLimit)
                 {
-                    Log(VoltLogLevel.Warn, "relay: no frame for " + (int)SilenceLimit.TotalSeconds + "s — dropping the socket");
+                    Log(VoltLogLevel.Warn, "relay: no frame for " + (int)_silenceLimit.TotalSeconds + "s — dropping the socket");
+                    var conn = _connection;
+                    if (conn != null) conn.DropCause = "the watchdog dropped it (no frame for " + (int)_silenceLimit.TotalSeconds + "s)";
                     var socket = _socket;
                     if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
                     return;

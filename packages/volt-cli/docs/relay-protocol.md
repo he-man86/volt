@@ -151,12 +151,20 @@ and `expectedProjectVersion` make a repeated push either apply once or reject as
 Reconnecting is the bridge's job; a relay does nothing to encourage it. What the relay CAN choose is how it
 ends a connection, and the bridge reads that choice.
 
-| How the connection ended | Bridge log line | Next dial |
+Every end is ONE log line, whatever ended it:
+`relay: connection on <pipe> ended after <N>s — <cause> | in flight: <ids or none> | next dial in <N>s`
+(`ended before it connected` when the dial itself failed). The pipe name embeds the bridge's pid, which is what
+tells two processes apart in one vendor's log file. The ids are the requests still open when the connection went;
+each also gets its own `abandoned` terminal line (see "The bridge log" below).
+
+| How the connection ended | Level and `<cause>` | Next dial |
 | --- | --- | --- |
-| Close **1008** with a reason | ERROR: `relay: the relay refused this bridge (1008 "<reason>").` When the reason contains `protocol`, it adds: `This bridge speaks relay protocol 1, which the relay does not serve: download the latest bridge.` It ends `Trying again in 60 minutes.` | after **1 hour** (+ up to 1 s jitter) |
-| Close with any other status (1000, 1001, 1011, …) | INFO: `relay: the relay closed the connection: <status> "<description>"` | ordinary backoff |
-| No close at all (1006: the flow died, the relay restarted, or the watchdog dropped it) | WARN: `relay: connection ended (<exception>): <message>` | ordinary backoff |
-| Upgrade refused (HTTP 401/403) | WARN: `relay: connection ended (WebSocketException): <message>`. On .NET (the TwinCAT worker) the message names the HTTP status; the CODESYS host's .NET Framework socket may report only that it could not connect. | ordinary backoff |
+| Close **1008** with a reason | ERROR: `the relay refused this bridge (1008 "<reason>").` When the reason contains `protocol`, it adds: `This bridge speaks relay protocol 1, which the relay does not serve: download the latest bridge.` It ends `Trying again in 60 minutes.` | after **1 hour** (+ up to 1 s jitter) |
+| Close with any other status (1000, 1001, 1011, …) | INFO: `the relay closed the connection: <status> "<description>"` | ordinary backoff |
+| No close at all (1006: the flow died, the relay restarted) | WARN: `dropped without a close (<exception>): <message>` | ordinary backoff |
+| The silence watchdog dropped it | WARN: `the watchdog dropped it (no frame for 60s)` (the watchdog also logs its own WARN line the moment it fires) | ordinary backoff |
+| The heartbeat task died | WARN: `the heartbeat died (<exception>): <message>` (after its own ERROR line with the whole exception) | ordinary backoff |
+| Upgrade refused (HTTP 401/403), or any failed dial | WARN: `could not connect (<exception>): <message>`, with `ended before it connected`. On .NET (the TwinCAT worker) the message names the HTTP status; the CODESYS host's .NET Framework socket may report only that it could not connect. | ordinary backoff |
 
 **Ordinary backoff** is 1 s, doubling after each end, capped at **30 s**, with 0–1 s of jitter added to every
 wait so bridges do not redial a restarted relay in lockstep. A connection on which the relay sent **at least
@@ -215,6 +223,24 @@ measured against a live deployment**:
 A rejected `push` is **not** an error frame. It is a normal `result` with `accepted:false` and a `conflicts`
 list, because a version conflict is an expected outcome rather than a failure. A relay that treats
 `accepted:false` as an error will report every ordinary edit collision as a bridge fault.
+
+## The bridge log
+
+Local only (see the operational notes); the token is never in it. Per relayed request, exactly two Info lines:
+
+- `relay: <- <op> (<id>)` when the request is read;
+- ONE terminal line, whatever ended it: `relay: -> <op> (<id>) <outcome> <N>ms [delivered=no]`, where `<outcome>` is
+  - `ok` — for a `push`, `ok accepted newProjectVersion=<v>` or `ok rejected`;
+  - `error <CODE>` — the coded error the pipe answered (`PLC_DISCONNECTED`, `WRONG_PROJECT`, `IDE_BUSY`, …), or
+    `INTERNAL_ERROR` for a call that threw (that case also logs the whole exception at Error);
+  - `refused BAD_REQUEST` — an op not on the allowlist, refused before the pipe;
+  - `abandoned [<outcome>]` — the connection went before the terminal frame was sent; the op's own outcome follows
+    when it had completed (a push that landed reads `abandoned ok accepted newProjectVersion=<v>`).
+
+  `<N>ms` is the total time from read to terminal line; the wait for the IDE thread is not split out (the tunnel is
+  a pipe client and cannot see it). `delivered=no` is the op's frame not reaching the socket. A send that fails on a
+  connection still live is followed by its exception, `delivered=no (<Type>: <message>)`, and the op's outcome
+  stands: a push that landed is `ok … delivered=no`, never a failure.
 
 ## What a relay must not do
 

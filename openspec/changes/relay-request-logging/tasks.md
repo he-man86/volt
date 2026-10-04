@@ -11,14 +11,14 @@
 
 ## 1. Test red
 
-- [ ] 1.1 Tunnel tests with the injected log: a coded error, a non-relayable op, an abandoned request and a failed
+- [x] 1.1 Tunnel tests with the injected log: a coded error, a non-relayable op, an abandoned request and a failed
       result send each produce exactly one terminal line with the expected outcome and `delivered` value.
-- [ ] 1.2 Tunnel tests: a relay close, a drop, the watchdog and a refused upgrade each produce one connection-end line
+- [x] 1.2 (watchdog cadence injectable via optional `pingEvery`/`silenceLimit` ctor args, test-only; defaults are the protocol's 25 s / 60 s) Tunnel tests: a relay close, a drop, the watchdog and a refused upgrade each produce one connection-end line
       with cause, age, in-flight ids and next dial.
 
 ## 2. Build
 
-- [ ] 2.1 The terminal line, separate pipe and delivery outcomes, the connection-end line; `relay-protocol.md` lists
+- [x] 2.1 (also carries relay-outcome-ledger's push verdict: `ok accepted|rejected newProjectVersion=<v>`, on every push and inside `abandoned`) The terminal line, separate pipe and delivery outcomes, the connection-end line; `relay-protocol.md` lists
       the lines.
 
 ## 3. Verify
