@@ -1,0 +1,65 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\test\fixtures\CodesysTestProject.project
+build after authoring: CLEAN
+NWL editor assembly: 4.6.0.0; frame: MainForm
+
+=== VltVs_Ld: ViewAsFBD, then ViewAsLD ===
+   editor: _3S.CoDeSys.NWLEditor.NWLEditor, in front: True
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Ld-0-Ld.png
+   ViewAsFBD: executed (Enabled before=True, Checked after=True)
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Ld-1-Fbd.png
+   ViewAsFBD: view Ld -> Fbd; networks UNCHANGED; language model UNCHANGED
+      Ordinary: AND#34=False AND#46=False  ->  AND#34=True AND#46=True
+   ViewAsLD: executed (Enabled before=True, Checked after=True)
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Ld-2-Ld.png
+   ViewAsLD: view Fbd -> Ld; networks UNCHANGED; language model UNCHANGED
+      Ordinary: AND#34=True AND#46=True  ->  AND#34=False AND#46=False
+   round trip: view Ld -> Ld; networks UNCHANGED; language model UNCHANGED
+      Ordinary: AND#34=False AND#46=False  ->  AND#34=False AND#46=False
+   ViewAsFBD again: executed (Enabled before=True, Checked after=True)
+   CloseView: ok
+
+=== VltVs_Fbd: ViewAsLD, then ViewAsFBD ===
+   editor: _3S.CoDeSys.NWLEditor.NWLEditor, in front: True
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Fbd-0-Fbd.png
+   ViewAsLD: executed (Enabled before=True, Checked after=True)
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Fbd-1-Ld.png
+   ViewAsLD: view Fbd -> Ld; networks UNCHANGED; language model UNCHANGED
+      Ordinary: ADD#24=True GT#33=True ADD#35=True AND#46=True  ->  ADD#24=True GT#33=True ADD#35=True AND#46=False
+   ViewAsFBD: executed (Enabled before=True, Checked after=True)
+   picture: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots\VltVs_Fbd-2-Fbd.png
+   ViewAsFBD: view Ld -> Fbd; networks UNCHANGED; language model UNCHANGED
+      Ordinary: ADD#24=True GT#33=True ADD#35=True AND#46=False  ->  ADD#24=True GT#33=True ADD#35=True AND#46=True
+   round trip: view Fbd -> Fbd; networks UNCHANGED; language model UNCHANGED
+      Ordinary: ADD#24=True GT#33=True ADD#35=True AND#46=True  ->  ADD#24=True GT#33=True ADD#35=True AND#46=True
+   ViewAsLD again: executed (Enabled before=True, Checked after=True)
+   CloseView: ok
+
+=== build with both POUs switched ===
+   CLEAN
+
+=== saved, closed, reopened: what the IDE STORED ===
+   VltVs_Fbd (reopened vs. authored): view Fbd -> Ld; networks UNCHANGED; language model UNCHANGED
+      Ordinary: ADD#24=True GT#33=True ADD#35=True AND#46=True  ->  ADD#24=False GT#33=False ADD#35=False AND#46=False
+   VltVs_Fbd reopened == read in the editor session after the switch: True
+   VltVs_Ld (reopened vs. authored): view Ld -> Fbd; networks UNCHANGED; language model UNCHANGED
+      Ordinary: AND#34=False AND#46=False  ->  AND#34=False AND#46=False
+   VltVs_Ld reopened == read in the editor session after the switch: True
+   build after reopen: CLEAN
+
+skipped as editor-only, checked against the node's SerializableValueNames (True = serialized, the skip is WRONG):
+   BoxTreeAssign.GenericObjectService: False
+   BoxTreeBox.GenericObjectService: False
+   BoxTreeBox.Image: False
+   BoxTreeBox.Ordinary: False
+   BoxTreeOperand.GenericObjectService: False
+   BoxTreeParallel.GenericObjectService: False
+   Flags.GenericObjectService: False
+   Operand.GenericObjectService: False
+   Operand.TheAddress: False
+   Operand.TheSymbolComment: False
+   OutputItemList.GenericObjectService: False
+   ParamList.GenericObjectService: False
+
+members compared only by ToString or not readable (0; everything else compared by value):
+
+pictures in: C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\shots

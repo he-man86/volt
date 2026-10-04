@@ -8,7 +8,8 @@
  * is accepted, and the next pull states the new view — the IDE holds it, not just Volt's text.
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, pushOps, requireHealthy, BASE, VENDOR } from "../harness"
+import { ensureCompiles, withMainProgramRestored } from "../lib/compile"
 
 setDefaultTimeout(180_000)
 
@@ -46,5 +47,56 @@ END_FUNCTION_BLOCK
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			expect((await fetchItem(full)).sourceText).toBe(flipped)
 		}
+	})
+
+	/**
+	 * A VOLT FLIP OF AN LD BODY HOLDING A PARALLEL IS THE VENDOR'S FLIP (DIALECT N23; `bridge-refusal-review` 3.10, review
+	 * 3a). The vendor's own View command writes the view and nothing stored, a Parallel included, and draws it in FBD
+	 * (`scripts/probe-view-switch.py`). This is the same through the shipped push: both Parallels (fed `BoxShortCircuit`,
+	 * unfed `Sequential` under an AND) pull back unchanged under the flipped line, the project builds, and the flip back
+	 * restores the LD text. CODESYS only: TwinCAT's import cannot build a Parallel (D30), refused by name before the
+	 * import (`real-project-shapes.test.ts`).
+	 */
+	it.skipIf(VENDOR === "twincat")("an LD body holding a PARALLEL flips to FBD and back, unchanged, and builds", async () => {
+		const name = id("view_flip_par")
+		const full = fid("view_flip_par", "pou")
+		const src = `FUNCTION_BLOCK ${name}
+VAR
+	go : BOOL;
+	a : BOOL;
+	b : BOOL;
+	out : BOOL;
+	out2 : BOOL;
+END_VAR
+IMPLEMENTATION LD
+NETWORK
+  out := PARALLEL(IN := go, a, b);
+END_NETWORK
+NETWORK
+  out2 := (a AND PARALLEL(MODE := Sequential, b, go));
+END_NETWORK
+
+END_FUNCTION_BLOCK
+`
+		await createItem(fid("view_flip_par"), src, "")
+		const ld = (await fetchItem(full)).sourceText
+		expect(ld).toBe(src)
+
+		await withMainProgramRestored(async () => {
+			for (const [from, to] of [["LD", "FBD"], ["FBD", "LD"]] as const) {
+				const before = (await fetchItem(full)).sourceText
+				const flipped = before.replace(`IMPLEMENTATION ${from}
+`, `IMPLEMENTATION ${to}
+`)
+				expect(flipped, "the flip did not apply").not.toBe(before)
+
+				const refs = await bridge.refs()
+				const r = await pushOps([{ op: "set", name: full, sourceText: flipped, ifVersion: refs.items[full] }])
+				expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+				expect((await fetchItem(full)).sourceText).toBe(flipped)
+				await ensureCompiles(name)
+			}
+		})
+		expect((await fetchItem(full)).sourceText).toBe(ld)
 	})
 })

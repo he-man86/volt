@@ -467,13 +467,65 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       `rate:fixtures`: `map.generated.ts` unchanged; LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 8050 pass,
       382 todo, 34 skip, 0 fail. Census: the review fixes add no throw site (`ValidateInterfaceAccessor` routes the two
       existing `InterfaceAccessorGuard` refusals; `PriorityOf` and `StReader.Words` throw nothing).
-- [ ] 3.10 (review 2e+2g, medium — triaged niche) — what does the vendor's own View switch (LD ⇄ FBD) do with a network
+- [x] 3.10 (review 2e+2g, medium — triaged niche) — what does the vendor's own View switch (LD ⇄ FBD) do with a network
       the target view has no drawing for: convert it, refuse it, or show it as is? Both writers set `DefaultViewMode` and
       write the same network (network text has no per-view rule), so an LD body holding a `PARALLEL` branch flipped to
       `IMPLEMENTATION FBD` is accepted and pulls back FBD with the `PARALLEL` unchanged (DIALECT N23). Corpora 2026-10-03:
       0 of 10 FBD bodies hold a `PARALLEL`, 3 of 26 LD bodies do; no FBD-only shape is known (LD bodies hold boxes and
       wires). Measure live (CODESYS fixture IDE: View → FBD on an LD POU with a parallel branch; TwinCAT the same); a
       conversion or refusal there → refuse the flip in the pre-flight naming the shape, else record that the vendor holds it.
+      Done (step 3, 2026-10-04) — MEASURED, KEPT (no refusal added): the vendor's own switch neither converts nor refuses
+      between LD and FBD; it writes `DefaultViewMode`, the member Volt writes, and nothing else stored. DIALECT N23.
+      Static (decompiled with `ilspycmd`): `NWLEditor.View`'s setter, identical in CODESYS `NWLEditor.plugin` 4.6.0.0 and
+      TwinCAT's 3.5.13.23, sets `DefaultViewMode` and converts networks only on a transition to/from IL;
+      `BoxTreePainter.Visit(IBoxTreeParallel)` draws a Parallel whatever the view.
+      CODESYS (`scripts/probe-view-switch.py` -> `view-switch.log`, GUI SP21 Patch 4, the command's own `ExecuteBatch` on an
+      opened editor): 2 POUs x 3 switches (there, back, there again) = 6 switches + save/close/reopen. LD program:
+      `PARALLEL(IN := go, a, b)` (BoxShortCircuit), `a AND PARALLEL(MODE := Sequential, b, go)`, `a AND b`; FBD program:
+      `ADD(i1, i2)`, `GT(ADD(i1, i2), i3)`, `a AND b`. Every switch: view changed, networks UNCHANGED (node ids, operands,
+      Parallel modes), language model UNCHANGED; reopened == the session's read; build CLEAN before, switched, and after
+      reopen; the picture shows the Parallel drawn as a brace branch in FBD. The only member that moved is
+      `IBoxTreeBox4.Ordinary` on the AND boxes (2 in the LD program, 1 in the FBD one) — not serialized, recomputed by the
+      editor for the view in front.
+      TwinCAT (`scripts/probe-tc-view-switch.ps1` + `.ts` -> `tc-view-switch.log`, `ide.ps1 -Instance bridge-refusal-review
+      -Fixture 14`, DTE `FBDLDIL.Viewasfunctionblockdiagram` / `Viewasladderlogic`, the same command GUIDs): LD `(a OR b)` +
+      `(a AND b)` and FBD `(i1 + i2)` + `((i1 + i2) > i3)` + `(a AND b)`, 6 switches: each changed exactly 1 archive line
+      (`DefaultViewMode`) and the pull only in its `IMPLEMENTATION` line; round trips archive- and pull-IDENTICAL; build
+      success, 0 diagnostics naming the probe POUs. A Parallel is not measurable on TwinCAT — it cannot be created there
+      (D30) and no archive holds one. Side fact (no Volt impact): opening the editor and saving with NO command rewrites a
+      pushed POU's archive (24 / 42 lines: operand `Type` resolved, `LValue` true, the importer's empty `OutputItems`
+      dropped), the pull IDENTICAL — so the probe compares the switches against that opened state.
+      Numbers: 0 product files changed, 0 tests (no logic: a measurement); census unchanged (no throw site touched). The
+      niche triage's "accepted loss" is withdrawn: there is no loss — a Volt flip is the vendor's flip. Both IDEs this step
+      opened are closed (CODESYS probes exited; TwinCAT `ide.ps1 down`).
+      Review 3 (gate step 3, 2026-10-04) — 4 low findings, all fixed:
+      (a) "a Volt flip is the vendor's flip" rested on a code reading (the probe built its networks itself, not through
+      the push). Pinned: `CodesysViewFlipParallelTests` (Codesys.Tests +1) pushes an LD body holding a fed
+      `BoxShortCircuit` and an unfed `Sequential` Parallel through `CodesysNetworkWriter.Write`, pulls it, flips the
+      line to FBD and back — `DefaultViewMode` is the one member written, no network is torn down or rebuilt, the pull
+      is identical but its line, both modes kept; teeth: with the change gate disabled it fails (both networks torn
+      down). Live: `view-change.test.ts` +1 "an LD body holding a PARALLEL flips to FBD and back, unchanged, and
+      builds" — SP21 2/2 pass (accepted, pulled back as flipped, the project builds, each way); TwinCAT 1 pass 1 skip
+      (the case skips there: no Parallel can be created, D30). Green on first run, as it should be: it pins a
+      measured behaviour, not a fix.
+      (b) `probe-view-switch.py`'s dump dropped members unsaid (a throwing getter, a non-NWL value, a list with a non-NWL
+      element). Now every member is written (a throwing getter as its exception, a non-NWL value by its CLR
+      ToString) and anything not compared by value is listed at the end of the log. Re-run (GUI SP21): it found two
+      members the old dump had been dropping — `GenericObjectService` on every node (a service handle) and
+      `BoxTreeBox.Image` (the box picture the editor caches once drawn; null after the reopen, so it read every reopen
+      as CHANGED). Both are skipped as editor-only, and every skip (also `Ordinary`, `TheAddress`, `TheSymbolComment`)
+      is CHECKED absent from its node's `SerializableValueNames` on each run (all False). Result unchanged: 8 of 8
+      reports networks UNCHANGED and language model UNCHANGED, 0 members compared other than by value, reopened ==
+      session, builds CLEAN.
+      (c) `probe-tc-view-switch.ps1` hid the one diagnostic. It now logs every diagnostic and takes a baseline build
+      before the probe POUs exist. Re-run (`ide.ps1 -Instance bridge-refusal-review -Fixture 14`): the one diagnostic
+      is `info` "generate boot information...", in the baseline too; after == baseline: True; the switch results
+      unchanged (1 archive line each way, round trips identical).
+      (d) the dead `folder` command and `plcFolder` import are deleted from `probe-tc-view-switch.ts`.
+      DIALECT N23 and `scripts/README.md` updated. Numbers: Engine 2221/0/1, Cli 260, Connector 115, Twincat 428,
+      Codesys 298 (+1), Contracts 39, Repo.Gates 108, volt-cli unit 24, check 18/18, typecheck clean, LSP full suite
+      (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 8060 pass / 34 skip / 381 todo / 0 fail; `map.generated.ts`
+      unchanged (no fixture or transpiler change). Census unchanged (no `src` change). Both IDEs closed.
 
 ## 4. Design issues
 

@@ -1,0 +1,121 @@
+﻿probe-tc-view-switch.ps1 - 2026-10-04 02:41
+XAE pid 38984 (volt.bridge.twincat.38984): C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14.sln
+
+=== baseline build, before the probe POUs exist ===
+   build: success=true, 1 diagnostic(s), 0 naming the probe POUs
+   DIAG {"severity":"info","message":"generate boot information...","line":0,"column":0}
+
+VltE2E_vs_ld.pou created; pulled back IDENTICAL
+VltE2E_vs_fbd.pou created; pulled back IDENTICAL
+
+=== VltE2E_vs_ld: View as FBD, then LD (C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14\Untitled2\VltE2E_vs_ld.TcPOU) ===
+   editor: document VltE2E_vs_ld.TcPOU
+      archive authored -> opened+saved (no command): 24 line(s) differ
+        => <v n="Type">"BOOL"</v>
+        => <v n="LValue">true</v>
+        => <l2 n="OutputItems" />
+        => <v n="Type">"BOOL"</v>
+        => <v n="Type">"BOOL"</v>
+        => <v n="Type">"BOOL"</v>
+        => <v n="LValue">true</v>
+        => <l2 n="OutputItems" />
+        => <v n="Type">"BOOL"</v>
+        => <v n="Type">"BOOL"</v>
+        <= <v n="Type">""</v>
+        <= <v n="LValue">false</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= <v n="LValue">false</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= </l2>
+        <= </l2>
+      pull authored -> opened+saved (no command): IDENTICAL
+   ran FBDLDIL.Viewasfunctionblockdiagram; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Fbd"</v>
+   ran FBDLDIL.Viewasladderlogic; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Ld"</v>
+   ran FBDLDIL.Viewasfunctionblockdiagram; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Fbd"</v>
+      archive opened -> FBD: 2 line(s) differ
+        => <v n="DefaultViewMode">"Fbd"</v>
+        <= <v n="DefaultViewMode">"Ld"</v>
+      pull opened -> FBD: DIFFERENT
+        => IMPLEMENTATION FBD
+        <= IMPLEMENTATION LD
+      archive FBD -> LD: 2 line(s) differ
+        => <v n="DefaultViewMode">"Ld"</v>
+        <= <v n="DefaultViewMode">"Fbd"</v>
+      archive round trip (opened vs. back): IDENTICAL
+      pull round trip (opened vs. back): IDENTICAL
+      archive switched again == first switch: IDENTICAL
+
+=== VltE2E_vs_fbd: View as LD, then FBD (C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14\Untitled2\VltE2E_vs_fbd.TcPOU) ===
+   editor: document VltE2E_vs_fbd.TcPOU
+      archive authored -> opened+saved (no command): 42 line(s) differ
+        => <v n="Type">"INT"</v>
+        => <v n="LValue">true</v>
+        => <l2 n="OutputItems" />
+        => <v n="Type">"INT"</v>
+        => <v n="Type">"INT"</v>
+        => <v n="Type">"BOOL"</v>
+        => <v n="LValue">true</v>
+        => <l2 n="OutputItems" />
+        => <l2 n="OutputItems" />
+        => <v n="Type">"INT"</v>
+        => <v n="Type">"INT"</v>
+        => <v n="Type">"INT"</v>
+        => <v n="Type">"BOOL"</v>
+        => <v n="LValue">true</v>
+        => <l2 n="OutputItems" />
+        => <v n="Type">"BOOL"</v>
+        => <v n="Type">"BOOL"</v>
+        <= <v n="Type">""</v>
+        <= <v n="LValue">false</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= <v n="LValue">false</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= <v n="Type">""</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= </l2>
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= <v n="LValue">false</v>
+        <= <l2 n="OutputItems" cet="Operand">
+        <= 
+        <= </l2>
+        <= <v n="Type">""</v>
+        <= <v n="Type">""</v>
+        <= </l2>
+        <= </l2>
+      pull authored -> opened+saved (no command): IDENTICAL
+   ran FBDLDIL.Viewasladderlogic; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Ld"</v>
+   ran FBDLDIL.Viewasfunctionblockdiagram; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Fbd"</v>
+   ran FBDLDIL.Viewasladderlogic; saved; DefaultViewMode in the archive: <v n="DefaultViewMode">"Ld"</v>
+      archive opened -> LD: 2 line(s) differ
+        => <v n="DefaultViewMode">"Ld"</v>
+        <= <v n="DefaultViewMode">"Fbd"</v>
+      pull opened -> LD: DIFFERENT
+        => IMPLEMENTATION LD
+        <= IMPLEMENTATION FBD
+      archive LD -> FBD: 2 line(s) differ
+        => <v n="DefaultViewMode">"Fbd"</v>
+        <= <v n="DefaultViewMode">"Ld"</v>
+      archive round trip (opened vs. back): IDENTICAL
+      pull round trip (opened vs. back): IDENTICAL
+      archive switched again == first switch: IDENTICAL
+
+=== build with both POUs switched (the bridge's build op) ===
+   build: success=true, 1 diagnostic(s), 0 naming the probe POUs
+   DIAG {"severity":"info","message":"generate boot information...","line":0,"column":0}
+   the same diagnostics as the baseline build before the probe POUs existed: True
+cleaned

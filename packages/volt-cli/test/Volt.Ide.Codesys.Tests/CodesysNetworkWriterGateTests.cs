@@ -830,3 +830,100 @@ public class CodesysViewModeTests
         public System.Collections.Generic.List<object> NetworkList { get; } = new System.Collections.Generic.List<object>();
     }
 }
+
+/// <summary>VOLT'S FLIP OF AN LD BODY HOLDING A <c>PARALLEL</c> IS THE VENDOR'S FLIP (DIALECT N23; openspec
+/// <c>bridge-refusal-review</c> 3.10, review 3a). The vendor's own View command was measured live to write
+/// <c>DefaultViewMode</c> and nothing else stored, a Parallel included (<c>scripts/probe-view-switch.py</c>). That a Volt
+/// flip does the same rested on reading <c>WriteView</c> and the change gate; this pins it through the shipped write
+/// (<c>CodesysNetworkWriter.Write</c>): the LD body is pushed, pulled, its IMPLEMENTATION line flipped, pushed again —
+/// the view is the one member written, no network is torn down or rebuilt, and the pull states the same networks under
+/// the new line. Live, the same path is <c>test/e2e/graphical/view-change.test.ts</c>.</summary>
+public class CodesysViewFlipParallelTests
+{
+    private static readonly Network ShortCircuit = new(0, null, null, null, false, new Node[]
+    {
+        new Assign(new Volt.Engine.Format.Network.Parallel(new Leaf(new Operand("go"), Flags.None),
+                       new Node[] { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) },
+                       ParallelMode.BoxShortCircuit),
+                   new[] { new Operand("out", IsLValue: true) }, Flags.None),
+    });
+
+    private static readonly Network SequentialUnderAnd = new(1, null, null, null, false, new Node[]
+    {
+        new Assign(new Box("AND", null, CallKind.Operator,
+                       new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                               new Input(null, new Volt.Engine.Format.Network.Parallel(null,
+                                   new Node[] { new Leaf(new Operand("b"), Flags.None), new Leaf(new Operand("go"), Flags.None) },
+                                   ParallelMode.Sequential), Flags.None) },
+                       System.Array.Empty<Output>(), null, null, Flags.None),
+                   new[] { new Operand("out2", IsLValue: true) }, Flags.None),
+    });
+
+    private static NetworkScope ScopeOf(NetworkBody body) => Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body);
+
+    /// <summary>The live body as a pull reads it: its networks under the view the aspect holds.</summary>
+    private static NetworkBody Pull(Nwl.NWLImplementationObject impl)
+    {
+        var language = NetworkText.LanguageNamed(NetworkText.ViewLanguage(impl.DefaultViewMode))!.Value;
+        return new NetworkBody(language,
+            impl.NetworkList.Select((n, i) => CodesysNetworkReader.ReadNetwork((Nwl.Network)n, i)).ToArray());
+    }
+
+    [Fact]
+    public void An_LD_body_holding_a_PARALLEL_flipped_to_FBD_writes_only_the_view()
+    {
+        // Pushed as LD over two networks holding other logic, the way a create lands: rebuilt from the text.
+        var impl = new Nwl.NWLImplementationObject { DefaultViewMode = "Ld" };
+        impl.NetworkList.Add(Different());
+        impl.NetworkList.Add(Different());
+        var pou = new Pou(impl);
+        var ld = new NetworkBody(BodyLanguage.Ld, new[] { ShortCircuit, SequentialUnderAnd });
+        CodesysNetworkWriter.Write(pou, ld, ScopeOf(ld));
+
+        var pulled = Pull(impl);
+        Assert.Equal(BodyLanguage.Ld, pulled.Language);
+        var ldText = NetworkTextWriter.Write(pulled, ScopeOf(pulled));
+        Assert.Contains("PARALLEL", ldText);
+
+        // The flip: the pulled body under the other IMPLEMENTATION line, nothing else changed.
+        var nets = impl.NetworkList.Cast<Nwl.Network>().ToArray();
+        foreach (var n in nets) n.Calls.Clear();
+        var trees = nets.Select(n => n.GetTree(0)).ToArray();
+        var flipped = pulled with { Language = BodyLanguage.Fbd };
+        CodesysNetworkWriter.Write(pou, flipped, ScopeOf(flipped));
+
+        Assert.Equal("Fbd", impl.DefaultViewMode);
+        Assert.All(nets, n => Assert.Empty(n.Calls));
+        Assert.Equal(trees, nets.Select(n => n.GetTree(0)).ToArray());
+        var back = Pull(impl);
+        Assert.Equal(BodyLanguage.Fbd, back.Language);
+        Assert.Equal(ldText.Replace("IMPLEMENTATION LD", "IMPLEMENTATION FBD"), NetworkTextWriter.Write(back, ScopeOf(back)));
+        Assert.Equal(new[] { ParallelMode.BoxShortCircuit, ParallelMode.Sequential },
+            back.Networks.SelectMany(n => n.Trees).SelectMany(Walk).OfType<Volt.Engine.Format.Network.Parallel>().Select(p => p.Mode));
+
+        // ...and back to LD: the same, the other way.
+        CodesysNetworkWriter.Write(pou, back with { Language = BodyLanguage.Ld }, ScopeOf(back));
+        Assert.Equal("Ld", impl.DefaultViewMode);
+        Assert.All(nets, n => Assert.Empty(n.Calls));
+        Assert.Equal(ldText, NetworkTextWriter.Write(Pull(impl), ScopeOf(Pull(impl))));
+    }
+
+    private static System.Collections.Generic.IEnumerable<Node> Walk(Node n) => n.Children().SelectMany(Walk).Prepend(n);
+
+    private static Nwl.Network Different()
+    {
+        var assign = new Nwl.BoxTreeAssign
+        {
+            RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "TRUE" } },
+        };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "elsewhere", IsLValue = true });
+        return new Nwl.Network().With(assign);
+    }
+
+    /// <summary>The object the IDE hands out to modify: its <c>Implementation</c> aspect.</summary>
+    private sealed class Pou
+    {
+        public Pou(Nwl.NWLImplementationObject impl) => Implementation = impl;
+        public Nwl.NWLImplementationObject Implementation { get; }
+    }
+}
