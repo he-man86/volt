@@ -739,3 +739,48 @@ and the folder name — the existing `INTERNAL_ERROR` assertions change on the V
 `IdeLostItem = "IDE_LOST_ITEM"`, `FromBridge`, wire.html (both rows), `WireVocabularyGuardTests`, `DocDataTests`, the
 `PushModels`/`PushService`/`IProjectTree` comments; the tests pinning these sites take the new code. 7.3: record the
 fixture, then the message/code, `StReader` test pinned. No push-behaviour change in any of the three.
+
+## Step V — error-code vocabulary: one situation per code, `NO_SIDECAR` folded, a raised+documented gate
+
+**Target (V.1).** Each code means one situation, whatever phase meets it: `BAD_REQUEST` = the request breaks the wire's
+own rules (remedy: change the request); `UNSUPPORTED` = the IDE, or a documented Volt limit on a vendor shape, will not
+take it (remedy: change the text); `INTERNAL_ERROR` = Volt's own broken invariant only (remedy: report a bug).
+Measured at HEAD: the stale-version `BAD_REQUEST` (old `:534/557`) is already `STALE_ITEM_VERSION`
+(`StaleItemVersionException`, `PushService.cs:634, 658`) and `.task` is done (4.14). Re-coded:
+- `ItemLookup.cs:117, 141, 156` (the IDE refused a child read), `PushService.cs:627, 763` (folder unknown because the
+  walk skipped it) `INTERNAL_ERROR` → `ITEM_UNVERIFIED` — 7.1's situation, met at apply time.
+- `CodesysDriver.Content.cs:278` / `BeckhoffDriver.Content.cs:692` (the IDE holds no declaration for a member) → `UNREADABLE`.
+- `BeckhoffDriver.Tree.cs:414` (a placement that did not land after the archive round trip) → `IDE_LOST_ITEM` (7.2).
+- Uncoded vendor "cannot"s that fall to `INTERNAL_ERROR` via `ConflictFor` (`CodesysObjectModel.Descriptors.cs:330, 347,
+  375`; `TcObjectModel.cs:616, 626`, the PLCopen import that built nothing; `TcObjectModel.Build.cs:54`, the save the IDE
+  refused; `BeckhoffDriver.Content.cs:740`, an accessor code with no Volt kind) → `UNSUPPORTED`, as `:1411` already
+  answers "the IDE refused to create".
+- `TcPlcOpenWriter.Refuse` stays `UNSUPPORTED` but says what Volt's lowering lacks ("Volt's TwinCAT lowering has no
+  spelling for …"), not "cannot express as PLCopen"; its model-bug arm is already `Invariant` (2.33).
+- **The open decision:** a push of a read-only descriptor (`PushService.cs:197`) and a move of a non-source item
+  (`:1103`) → `BAD_REQUEST`. Both are Volt's wire rule, not the IDE's, and the CLI's advice for `UNSUPPORTED` ("the IDE
+  will not take this text", `Commands.cs:889`) is false for them. A move into a non-holder (`:212`, 4.31) stays
+  `UNSUPPORTED`: that is CODESYS ignoring the move.
+- Stays `INTERNAL_ERROR`: `PushService.cs:1284, 1333, 1356, 2016`, `ItemKind.cs:315`, `CodesysDriver.Content.cs:384`,
+  `BeckhoffDriver.Content.cs:761`, `FetchService.cs:115`, `TcPlcOpenWriter.Invariant`, and `ConflictFor`'s fallback
+  for an exception nobody coded. That fallback stays a bug signal: the fix is to code the exception, not to widen the fallback.
+
+**V.3 — `NO_SIDECAR` folds into `BAD_REQUEST`.** The message names the wire fields instead: "send `knownItems` or
+`onlyItems`, or `init: true` for a first pull". Measured: no client branches on it (0 matches in the CLI, volt-control,
+volt-vscode, volt-desktop). Rejected: a renamed code such as `NO_BASELINE` (that would be a second code for
+`BAD_REQUEST`'s situation, which V.4 fails); keeping it (it names a cache that clients never see).
+
+**V.4 — gate (`Volt.Repo.Gates/WireVocabularyTests`).** Every const in `BridgeErrorCodes`/`ConflictCodes` must be raised
+in `src` outside Contracts and must have a row naming its situation (wire.html for frame/gate codes, network-text.html
+for `NETWORK_*`). Raise sites per code are a census (file → count) with a situation class from the list above, so a new
+site fails until someone classifies it. `ConflictCodes.FromBridge` gains `INTERNAL_ERROR` (since push-keeps-what-landed,
+`ConflictFor` hands it to clients). Rejected: a hand-written review list, which drifts. Also rejected: inferring the
+situation from the message text, which is the content-scan pattern D9 removed.
+
+**Stays refused by name:** every site above. Only the code changes; no refusal becomes an accept, and no message loses the item.
+
+**Migration.** Tests first: one offline double per re-coded site asserts the new code and the item name. The
+assertions that change (`PipeTransportTests:193` NO_SIDECAR → BAD_REQUEST, the INTERNAL_ERROR pins) change because of
+this decision, not because of what the code does. Then remove `BridgeErrorCodes.NoSidecar`, update `FetchService.cs:51`,
+`RefsFetch.cs:61`, wire.html, `WireVocabularyGuardTests` and `DocDataTests`, and regenerate data.js/openrpc. No push
+lands differently. 8.1 then proves every surviving code live.
