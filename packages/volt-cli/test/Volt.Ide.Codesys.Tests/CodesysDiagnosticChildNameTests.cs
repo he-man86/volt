@@ -85,7 +85,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             private readonly List<Message> _messages;
             public MessageStore(params Message[] messages) => _messages = messages.ToList();
-            public IEnumerable<object> Categories => new object[] { "Build" };
+            public IEnumerable<object> Categories => new object[] { new BuildCategory() };   // the build's own category (codesys-build-own-messages-only)
             public IEnumerable<Message> GetMessages(object category) => _messages;
         }
 

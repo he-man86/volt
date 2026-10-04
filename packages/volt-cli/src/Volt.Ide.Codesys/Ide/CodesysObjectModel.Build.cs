@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Globalization;
 using System.Collections.Generic;
@@ -32,7 +32,6 @@ namespace Volt.Ide.Codesys
 
         public List<object> GetBuildDiagnostics()
         {
-            var outv = new List<object>();
             var store = GetStaticMember("_3S.CoDeSys.ScriptDriverSystem.APEnvironment", "MessageStorage");
             // "I could not READ the diagnostics" must never read as "there were NONE". Build() above derives
             // success from this list — no error-severity message means success — so an empty list from an
@@ -41,12 +40,43 @@ namespace Volt.Ide.Codesys
             // silent pass is most dangerous. So the failure to read becomes an ERROR diagnostic: visible in the
             // build output, and enough on its own to make Build() answer false.
             if (store == null) return Unreadable("CODESYS MessageStorage is unreachable");
-            // GetMessages takes an IMessageCategory; enumerate all categories.
             if (GetMember(store, "Categories") is not IEnumerable categories)
                 return Unreadable("CODESYS MessageStorage exposes no Categories");
+            return BuildMessages(categories, cat => InvokeMethod(store, "GetMessages", cat) as IEnumerable);
+        }
+
+        // THE BUILD'S OWN CATEGORIES, not the whole message view (openspec codesys-build-own-messages-only). This
+        // read used to take every category of MessageStorage, and the store is the IDE's whole message window: a
+        // script's stdout AND stderr land in it too ("Script Messages"), so one stderr line from any script made
+        // every later build of a clean project answer success: false, and the bridge's own start lines came back
+        // as build diagnostics. Measured on CODESYS 3.5.21.40 (CodesysTestProject, `get_message_categories`):
+        //   97f48d64-…  "Build"                   — "Build started", compile errors, "Compile complete -- N errors";
+        //                                           a build REPLACES this category's content, so no stale messages
+        //   220493a1-…  "Additional code checks"  — the static checks the build runs after the compile
+        //   194b48a9-…  "Script Messages"         — script stdout/stderr, the bridge's "Volt: loading …" — FOREIGN
+        //   05581bd1-…  "Offline Help"            — "No Offline Help installed" — FOREIGN
+        // A category is identified by the GUID on its type's `TypeGuidAttribute` (the display text is localized), read
+        // by NAME so this keeps no compile-time CODESYS reference. Categories are created on first write, so a store
+        // read after a build with no Build category is not "clean" — the build's messages are somewhere this cannot
+        // see — and reads as Unreadable, never as an empty list. (A missing library wrote NO message in any category:
+        // that is the compile's to report, not this read's.)
+        private static readonly Guid BuildCategory = new Guid("97f48d64-a2a3-4856-b640-75c046e37ea9");
+        private static readonly Guid AdditionalCodeChecksCategory = new Guid("220493a1-f49b-4416-9a3f-a545db707cbe");
+
+        /// <summary>The diagnostics of the build's own message categories (<see cref="BuildCategory"/>,
+        /// <see cref="AdditionalCodeChecksCategory"/>); every other category is skipped. No Build category at all is
+        /// the Unreadable error, not an empty list.</summary>
+        private static List<object> BuildMessages(IEnumerable categories, Func<object, IEnumerable?> messagesOf)
+        {
+            var outv = new List<object>();
+            var sawBuild = false;
             foreach (var cat in categories)
             {
-                if (InvokeMethod(store, "GetMessages", cat) is not IEnumerable msgs) continue;
+                if (cat == null) continue;
+                var id = CategoryGuid(cat);
+                if (id == BuildCategory) sawBuild = true;
+                else if (id != AdditionalCodeChecksCategory) continue;
+                if (messagesOf(cat) is not IEnumerable msgs) continue;
                 foreach (var m in msgs)
                 {
                     var text = GetMember(m, "Text") as string ?? "";
@@ -78,7 +108,18 @@ namespace Volt.Ide.Codesys
                     });
                 }
             }
+            if (!sawBuild)
+                return Unreadable("the build's message category " + BuildCategory + " was not found in MessageStorage");
             return outv;
+        }
+
+        /// <summary>The GUID on a message category's type (<c>_3S.CoDeSys.Core.Components.TypeGuidAttribute</c>,
+        /// matched by name, its <c>Guid</c> property), or null when the type carries none.</summary>
+        private static Guid? CategoryGuid(object category)
+        {
+            foreach (var a in category.GetType().GetCustomAttributes(true))
+                if (a.GetType().Name == "TypeGuidAttribute" && GetMember(a, "Guid") is Guid g) return g;
+            return null;
         }
 
         /// <summary>The vendor's own diagnostic number, rendered the way the IDE renders it (`C0032`).
