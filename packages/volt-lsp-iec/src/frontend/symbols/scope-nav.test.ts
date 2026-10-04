@@ -252,3 +252,28 @@ test("LB3: findScopeByName, given the asker, answers the asker's own library's s
   // no asker: the first by URI, as before
   expect(findScopeByName(project, "I_Thing")?.defUri).toBe(`${LM}/A/I_Thing.itf`)
 })
+
+test("a namespace two libraries declare is both libraries' — `CB` is CAA Callback's AND CAA Callback Extern's, whatever the manifests' order", () => {
+  // a real pair (every CODESYS corpus project but one): the CAA Callback placeholder materializes nothing and its resolution,
+  // CAA Callback Extern, the elements — both manifests say NAMESPACE CB. The first manifest bound took the namespace and the
+  // second's elements were not in it, so which `CB.x` resolved was the directory's enumeration order: NTFS sorts, ext4 does
+  // not, and CI (Linux) resolved 30 fewer library members than Windows (2026-10-04).
+  const files = [
+    file(`${LM}/CAA Callback Extern/EVENT.dut`, "TYPE EVENT :\n(\n\tEVT_NONE := 0\n);\nEND_TYPE"),
+    file(`${LM}/CAA Callback Ext2/CALLBACK.dut`, "TYPE CALLBACK :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE"),
+  ]
+  const placeholder = manifest("CAA Callback", "CB")
+  const extern = manifest("CAA Callback Extern", "CB")
+  const ext2 = manifest("CAA Callback Ext2", "CB")
+  for (const order of [[placeholder, extern, ext2], [ext2, extern, placeholder], [extern, placeholder, ext2]]) {
+    const cb = findChildScope(buildSymbolTable(files, order), "CB")!
+    expect(cb.kind).toBe("namespace")
+    expect(lookupMember(cb, "EVENT")?.uri).toBe(`${LM}/CAA Callback Extern/EVENT.dut`)
+    expect(lookupMember(cb, "CALLBACK")?.uri).toBe(`${LM}/CAA Callback Ext2/CALLBACK.dut`)
+    // ONE namespace scope and ONE namespace symbol, standing for the same manifest in every order: the first by URI
+    const first = [placeholder, extern, ext2].map((m) => m.uri).sort()[0]
+    const project = buildSymbolTable(files, order)
+    expect(project.children.filter((c) => c.kind === "namespace").map((c) => c.libraryUri)).toEqual([first])
+    expect((project.symbols.get("cb") ?? []).map((s) => s.uri)).toEqual([first])
+  }
+})

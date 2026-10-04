@@ -100,7 +100,8 @@ const topsByFile = new WeakMap<Scope, Map<string, Scope[]>>()
  * — since binding them is the cost of the whole project's libraries (~26 ms for the fixture project's 31), not an edit's.
  * Then canonical order once more: the namespace scopes are appended, and sort to the front.
  */
-export function relink(project: Scope, manifests: readonly LibraryManifest[] = []): void {
+export function relink(project: Scope, given: readonly LibraryManifest[] = []): void {
+  const manifests = canonicalManifests(given)
   canonicalize(project)
   if (namespacesStale(project, manifests)) {
     unbindLibraryNamespaces(project)
@@ -109,6 +110,19 @@ export function relink(project: Scope, manifests: readonly LibraryManifest[] = [
   }
   linkExtends(project, manifests)
 }
+
+/**
+ * The manifests in CANONICAL order, by URI — for the reason `canonicalize` gives for the files: they arrive in
+ * `readdirSync` order, which is the disk's (sorted on NTFS, hashed on ext4), and nothing downstream may inherit it.
+ * The same input array gives the same sorted array: `linkExtends` keeps its incremental path only while it is handed
+ * the very array it last linked with.
+ */
+function canonicalManifests(given: readonly LibraryManifest[]): readonly LibraryManifest[] {
+  let sorted = canonicalOf.get(given)
+  if (sorted === undefined) canonicalOf.set(given, (sorted = [...given].sort((a, b) => (a.uri < b.uri ? -1 : a.uri > b.uri ? 1 : 0))))
+  return sorted
+}
+const canonicalOf = new WeakMap<readonly LibraryManifest[], readonly LibraryManifest[]>()
 
 /** What was bound or unbound since the last `relink` that can change the library namespaces, per project. */
 interface NamespaceChange {

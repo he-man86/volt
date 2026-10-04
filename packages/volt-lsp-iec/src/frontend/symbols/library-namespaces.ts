@@ -121,19 +121,28 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
   // library's namespace symbol whatever the manifests' order — `DED.CommFB.IO_SYSTEM_TYPE` (rule LB8) reaches CommFB's
   // namespace through DED's, and DED's manifest sorts before CommFB's: a one-pass bind gave a namespace only the namespace
   // symbols of libraries bound before it.
-  const bound: { manifest: LibraryManifest; sym: Symbol; scopes: Scope[] }[] = []
+  const bound: { manifest: LibraryManifest; sym: Symbol; scopes: Scope[]; folders: Set<string> }[] = []
   const taken = new Set<string>()
   const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order
+  // ONE NAMESPACE, EVERY LIBRARY THAT DECLARES IT. Two manifests may name the same NAMESPACE — the CAA Callback placeholder
+  // (which materializes nothing) and its resolution CAA Callback Extern are both `CB`; SysTime and `SysTime, 3.5.9.0
+  // (System)` both `SysTime` — and the namespace covers what EVERY one of them sees, as `linkExtends`' qualified
+  // candidates already did. It was the FIRST manifest's alone, so which `CB.x` resolved was the order the directory
+  // walk met the manifests in: NTFS enumerates sorted, ext4 does not, and Linux CI resolved 30 fewer library members.
+  // The scope and symbol stand for the group's first manifest by URI — `relink` hands the manifests over in that order.
+  const sharing = new Map<string, LibraryManifest[]>()
+  for (const manifest of manifests) file(sharing, manifest.namespace.toLowerCase(), manifest)
   for (const manifest of manifests) {
     const { namespace } = manifest
     if (taken.has(namespace.toLowerCase()) || findChildScope(project, namespace) !== undefined) continue
     taken.add(namespace.toLowerCase())
+    const group = sharing.get(namespace.toLowerCase())!
     // WHICH LIBRARY A FILE BELONGS TO IS `libraryOf`'s QUESTION, and this had its own answer to it: a
     // `/library manager/<folder>/` substring on a whole-path-lowercased URI. Three normalizers for one fact —
     // `isLibrarySymbol`, `libraryOf` and this — with this one requiring a LEADING separator the other two do
     // not, so a repo-relative `Library Manager/Standard/LEN.pou` was a library symbol to both of them and not
     // to this. Live URIs all carry a separator, which is why nothing broke; the disagreement was real anyway.
-    const folders = visibleFolders(manifests, manifest, byTitle)
+    const folders = new Set(group.flatMap((m) => [...visibleFolders(manifests, m, byTitle)]))
     const scopes = [...folders].flatMap((f) => scopesOf.get(f) ?? []).sort(byOrder).map((o) => o.child)
     // A library that materialized nothing still has its namespace: the manifest says so, and a bare `Ns` is the library's
     // root in the search order (step 11, `types/names` `resolveBareName`) — it was skipped here, and a separate skip set of
@@ -148,10 +157,9 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     const sym: Symbol = { kind: "namespace", name: namespace, span, declarationSpan: span, owner: project, uri: manifest.uri, ast }
     // a namespace that sees this library sees its namespace symbol too, as the whole-project scan did
     own(namespace.toLowerCase(), sym)
-    bound.push({ manifest, sym, scopes })
+    bound.push({ manifest, sym, scopes, folders })
   }
-  for (const { manifest, sym, scopes } of bound) {
-    const folders = visibleFolders(manifests, manifest, byTitle)
+  for (const { manifest, sym, scopes, folders } of bound) {
     const symbols = new Map<string, Symbol[]>()
     for (const { key, sym: s } of [...folders].flatMap((f) => symbolsOf.get(f) ?? []).sort(byOrder)) {
       const list = symbols.get(key)
