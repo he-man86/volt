@@ -634,25 +634,4 @@ public class DirectedLibraryReadTests
 
     private static string[] WarnLines(string log) =>
         log.Split('\n').Where(l => l.Contains("[warn]", StringComparison.Ordinal)).ToArray();
-
-    /// <summary>VoltLog into a private directory for one test (the assembly runs serially, TestParallelism.cs).</summary>
-    private sealed class LogCapture : IDisposable
-    {
-        private readonly string _dir = Path.Combine(Path.GetTempPath(), "volt-log-test-" + Guid.NewGuid().ToString("N"));
-
-        public LogCapture()
-        {
-            VoltLog.Init("codesys", _dir);
-            VoltLog.Level = VoltLogLevel.Debug;
-        }
-
-        public string Read() =>
-            Directory.Exists(_dir) ? string.Concat(Directory.GetFiles(_dir, "codesys-*.log").Select(File.ReadAllText)) : "";
-
-        public void Dispose()
-        {
-            VoltLog.Level = VoltLogLevel.Info;
-            try { Directory.Delete(_dir, true); } catch { }
-        }
-    }
 }

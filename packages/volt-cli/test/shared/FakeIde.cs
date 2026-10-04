@@ -1301,7 +1301,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// push just made — and a no-op flush made that unobservable.</summary>
     public List<string> BuildSequence { get; } = new();
 
-    public override void FlushPendingWrites() => BuildSequence.Add("flush");
+    /// <summary>Hold a push or build IN FLIGHT at its first step, the flush: it signals <see cref="FlushEntered"/> and
+    /// blocks until <see cref="FlushBlock"/> is set.</summary>
+    public ManualResetEventSlim? FlushEntered { get; init; }
+    public ManualResetEventSlim? FlushBlock { get; init; }
+
+    public override void FlushPendingWrites()
+    {
+        BuildSequence.Add("flush");
+        FlushEntered?.Set();
+        FlushBlock?.Wait();
+    }
 
     // ── build knob: default to a clean build; a test sets BuildSucceeds=false + BuildDiagnostics to model errors ──
     public bool BuildSucceeds { get; init; } = true;

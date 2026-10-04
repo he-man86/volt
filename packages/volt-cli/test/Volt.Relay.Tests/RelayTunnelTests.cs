@@ -527,6 +527,40 @@ public class RelayTunnelTests : IDisposable
         Assert.DoesNotContain(relay.Received, f => f.StartsWith("{\"id\":\"slow\",\"result\""));
     }
 
+    /// <summary>The case PLCAssist asked about (openspec relay-outcome-ledger 1.2): the socket drops while a push
+    /// holds the IDE, the push is accepted afterwards, and the bridge redials. The one terminal line pairs the id
+    /// with the verdict and the new project version, and the redialled connection carries nothing for the id —
+    /// no report frame, no late result.</summary>
+    [Fact]
+    public async Task A_push_completed_after_the_connection_went_logs_its_verdict_and_is_never_answered()
+    {
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var ide = new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
+        {
+            FlushEntered = entered,
+            FlushBlock = release,
+        };
+        var log = new LogCapture();
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, ide, delay, log);
+        await relay.AwaitHello();
+
+        relay.SendRequest("r5", Ops.Push, new { ops = Array.Empty<object>() });
+        Assert.True(entered.Wait(15_000), "the push never reached the blocking step");
+        relay.DieWithoutClose();
+        await delay.NextWait();
+        delay.Release();
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (relay.Received.Count(f => f.Contains("\"hello\"")) < 2 && DateTime.UtcNow < deadline) await Task.Delay(25);
+        Assert.True(relay.Received.Count(f => f.Contains("\"hello\"")) == 2, "the tunnel did not redial:\n" + log);
+
+        release.Set();
+        var line = await AwaitTerminalLine(log, "r5");
+        Assert.Matches(@"^relay: -> push \(r5\) abandoned ok accepted newProjectVersion=\S+ \d+ms delivered=no$", line);
+        Assert.DoesNotContain(relay.Received, f => f.Contains("\"r5\""));
+    }
+
     [Fact]
     public async Task A_relay_close_is_one_info_end_line_with_age_cause_in_flight_and_next_dial()
     {
@@ -543,6 +577,8 @@ public class RelayTunnelTests : IDisposable
         Assert.Equal(VoltLogLevel.Info, ends[0].Level);
         Assert.Matches(@"^relay: connection on " + pipe + @" ended after \d+s — the relay closed the connection: 1001 ""going away"" \| in flight: none \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[0].Message);
+        // Nothing was in flight, so no request's terminal line is written.
+        Assert.DoesNotContain(log.At(VoltLogLevel.Info), l => l.StartsWith("relay: -> "));
     }
 
     [Fact]
