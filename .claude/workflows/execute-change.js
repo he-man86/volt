@@ -16,9 +16,16 @@ export const meta = {
 // Cost standard (memory: workflow-cost-standard): consecutive small steps of the same kind run in ONE agent (context read once),
 // each task still test-first with its own commit; one data review per group, a second only on a high finding.
 if (!args?.change) throw new Error('execute-change needs args.change (an openspec change name)')
-// LIGHT IS THE DEFAULT (owner 2026-10-04: over-heavy workflows are "a recurring theme"). The process is sized to the change:
-// <= 12 open tasks -> one agent; otherwise rounds of <= 25 tasks, one review, short designs, the gate fixes findings.
-// The heavier process (smaller rounds, a second review round on HIGH findings) only on request: args.thorough.
+// ── DEFAULTS: the one place the process is sized (owner 2026-10-04: "I like the flow, but most don't need small steps").
+// Edit these numbers to change every run. Per change: pass { thorough: true } (e.g. in run-queue's QUEUE entry) for the
+// heavier process. See .claude/workflows/README.md.
+const DEFAULTS = {
+  smallChange: 12,      // <= this many open tasks (and no model step): ONE agent does the whole change
+  roundTasks: 25,       // max tasks one implement/review/gate round carries (light)
+  roundTasksThorough: 15,
+  designLines: 40,      // a design section stays this short
+  secondReview: false,  // a second review round on HIGH findings — only when thorough
+}
 if (args.light === undefined) args.light = !args.thorough
 const CHANGE = `openspec/changes/${args.change}`
 const REQUIRES = args.requires ?? []
@@ -96,7 +103,7 @@ const GROUP_MAX = { structure: 8, measure: 4, fix: 5, lean: 5, conformance: 3 }
 // for changes like bridge-refusal-review where the gate's full suites are the safety net, not a second pair of eyes.
 if (args.light) for (const k of Object.keys(GROUP_MAX)) GROUP_MAX[k] *= 2
 // A round never carries more than TASK_CAP tasks, whatever the step counts say (one agent ran 41 on 2026-09-30).
-const TASK_CAP = args.light ? 25 : 15
+const TASK_CAP = args.light ? DEFAULTS.roundTasks : DEFAULTS.roundTasksThorough
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
@@ -128,7 +135,7 @@ const GATE = { type: 'object', properties: { committed: { type: 'boolean' }, has
 // SMALL change in light mode (owner 2026-10-04: "these are all pretty small features, we are overdoing it"): one agent does
 // the whole change — no design step, no separate review — tests first, the full gate, the commits, the close.
 const openTotal = steps.reduce((n, s) => n + s.openTasks.length, 0)
-if (args.light && openTotal > 0 && openTotal <= 12 && !steps.some(s => s.kind === 'model')) {
+if (args.light && openTotal > 0 && openTotal <= DEFAULTS.smallChange && !steps.some(s => s.kind === 'model')) {
   phase('Implement')
   const whole = await agent(`${RULES}
 
@@ -151,7 +158,7 @@ for (const s of steps) {
     done.push(await agent(`${RULES}
 
 DESIGN for step ${s.id} — ${s.title}. Write its section in ${CHANGE}/design.md (create it if missing). SHORT (owner 2026-10-03:
-"the workflow is a bit too heavy"): at most ~40 lines — the target, the choice and why (name the rejected options in one line each,
+"the workflow is a bit too heavy"): at most ~${DEFAULTS.designLines} lines — the target, the choice and why (name the rejected options in one line each,
 measure only what decides between them), what stays refused by name, the migration. No essays, no full option write-ups. Commit design.md alone as "docs(openspec): ${args.change} design — <topic>". No code.
 Return the choice in three lines.`, { label: `design:${s.id}`, phase: 'Design' }))
   }
@@ -176,7 +183,7 @@ ${impl}`, { label: `review:${s.id}`, phase: 'Review', schema: FIND }))?.findings
   // agent re-read the whole context and re-ran the tests the gate then ran again; the GATE now fixes ordinary findings itself.
   // Only a HIGH finding keeps the separate fix + second review (independent eyes on the risky change).
   let pending = findings
-  if (!args.light && findings.some(f => f.severity === 'high')) {
+  if ((DEFAULTS.secondReview || !args.light) && findings.some(f => f.severity === 'high')) {
     const fix = await agent(`${RULES}
 
 FIX the confirmed findings for step ${s.id} (failing test first; skip a wrong one with the reason). Do not commit.
