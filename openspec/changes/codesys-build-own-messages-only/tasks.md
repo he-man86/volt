@@ -1,30 +1,64 @@
 ## 0. Analyse
 
-- [ ] 0.1 Confirm or refute the reading in the proposal: `GetBuildDiagnostics` returns every category of
+- [x] 0.1 Confirm or refute the reading in the proposal: `GetBuildDiagnostics` returns every category of
       `MessageStorage`, and script output/stderr is one of them. If refuted, record why here and stop.
+      **Confirmed** (volt's assessment in proposal.md; measured in 1.2: script stdout and stderr are the
+      "Script Messages" category of the same store).
 
 ## 1. Reproduce
 
-- [ ] 1.1 Live CODESYS fixture copy, clean project: run a script that prints a line and writes a line to stderr, then
+- [x] 1.1 Live CODESYS fixture copy, clean project: run a script that prints a line and writes a line to stderr, then
       call `build`. Record the diagnostics and `success`. Expect the script lines among them and `success: false`.
-- [ ] 1.2 Record, per message, its category (name/guid) — script output, stderr, the build's own messages, and the
+      **Measured by PLCAssist** (live CODESYS 3.5.21.40, fixture `CodesysTestProject`, via the scripting API
+      `system.get_message_categories()` + `get_message_category_description(g)` + `get_messages(category=g)`):
+      script stdout and stderr lines sit in the same store the build read enumerated, so they came back as build
+      diagnostics (stderr as errors, failing the build) — the proposal's field observation, reproduced.
+- [x] 1.2 Record, per message, its category (name/guid) — script output, stderr, the build's own messages, and the
       messages a directed `.library` read leaves behind. Record whether the build command clears its own category
       before it runs.
+      **Measured** (same session):
+      - `194b48a9-ab51-43ae-b9a9-51d3edaaddf3` "Script Messages": script stdout AND stderr — also the bridge's own
+        `Volt: loading …` / `Volt bridge started on pipe …` (`start_volt_codesys.py`, `PipeHost`). FOREIGN.
+      - `05581bd1-66d3-4251-aff2-047cc8e9adf7` "Offline Help": "No Offline Help installed". FOREIGN.
+      - `97f48d64-a2a3-4856-b640-75c046e37ea9` "Build": "------ Build started …", "Typify code...", the compile errors
+        (a planted `nUndeclaredMeasure := 1;` in PLC_PRG gave "Identifier 'nUndeclaredMeasure' not defined" and
+        "'…' is no valid assignment target" HERE), "Compile complete -- N errors, M warnings". **The build REPLACES
+        this category's content** on each build (a second build: "The application is up to date") — so stale build
+        messages are not the issue, only foreign categories are; a category filter is exact and stateless.
+      - `220493a1-f49b-4416-9a3f-a545db707cbe` "Additional code checks": "Additional code checks ...",
+        "… complete -- 0 errors".
+      - A library reference that does not exist (`NoSuchLibraryMeasure, 9.9.9.9 (Nobody)`) wrote NO message in any
+        category on build. (Messages of a directed `.library` read were NOT separately recorded. Inferred, not
+        measured: that read runs the same application build, so it writes the Build category, which the next build
+        replaces.)
+      - Categories exist only once written: at startup only "Offline Help" is in `MessageStorage.Categories`.
+      - Identity: each category object's TYPE carries `_3S.CoDeSys.Core.Components.TypeGuidAttribute`, whose `Guid`
+        property is the GUID above (e.g. `_3S.CoDeSys.OnlineHelp.OfflineHelpMessageCategory` → 05581bd1…); the display
+        text (`Text`) is localized, so the GUID is the key.
 
 ## 2. Test red
 
-- [ ] 2.1 A test on a `MessageStorage` double: a foreign category holding an error plus a build category holding
+- [x] 2.1 A test on a `MessageStorage` double: a foreign category holding an error plus a build category holding
       only infos → `Build()` answers `true` and the diagnostics hold only the build's messages. Red before the fix.
-- [ ] 2.2 The same double with a real compile error in the build category → still `false`, error still reported.
-- [ ] 2.3 An unreadable store still yields the `Unreadable` error diagnostic (guard).
+      `CodesysBuildOwnMessagesTests`; red before the fix: `Build()` answered `false` (the two stderr errors).
+- [x] 2.2 The same double with a real compile error in the build category → still `false`, error still reported.
+      Red before the fix only because the foreign `Volt: loading …` line was listed too.
+- [x] 2.3 An unreadable store still yields the `Unreadable` error diagnostic (guard). Kept and
+      green. Added: no Build category at all → `Unreadable` naming the Build category's GUID (red before: an empty
+      list and `success: true`).
 
 ## 3. Fix
 
-- [ ] 3.1 Scope `GetBuildDiagnostics` to the build's own messages (categories or "added since the build started",
+- [x] 3.1 Scope `GetBuildDiagnostics` to the build's own messages (categories or "added since the build started",
       per 1.2). Diagnostic shape unchanged.
+      Built as a category filter: only categories whose type's `TypeGuidAttribute.Guid` is Build or Additional code
+      checks are read (`CodesysObjectModel.BuildMessages`); no Build category after a build → `Unreadable`. Tests:
+      `CodesysBuildOwnMessagesTests`.
 
 ## 4. Verify
 
 - [ ] 4.1 Repeat 1.1: script lines absent, `success: true`; a planted compile error still fails the build.
 - [ ] 4.2 TwinCAT: confirm the Build-pane read does not pick up foreign output (note or test).
-- [ ] 4.3 Full C# suites green; conformance recordings unchanged (shape untouched).
+- [x] 4.3 Full C# suites green; conformance recordings unchanged (shape untouched).
+      Release build green; Codesys 309, Twincat 449, Engine 2290 (+1 skipped), Cli 263, Connector 115, Contracts 39,
+      Repo.Gates 136 — all passed. No recording file changed (the shape is untouched).
