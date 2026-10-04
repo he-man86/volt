@@ -83,6 +83,12 @@ the end of the message before parsing.
 `id` is the relay's own, a JSON string; the bridge treats it as opaque and echoes it. Uniqueness is the relay's
 problem: a relay that reuses an id while the first is in flight gets two answers it cannot tell apart.
 
+A request field the bridge does not know is ignored, and the op is served exactly as without it. That includes a
+caller's budget (`budgetMs`): the bridge has no request deadline and never refuses an op for having waited. What
+keeps a write from starting late, for nobody, is that a `push` or `build` never waits behind another one — it is
+refused `IDE_BUSY` at once (see Concurrency). The only things it can queue behind are a read or the health probe's
+refresh, which take seconds.
+
 **Response** (bridge → relay): zero or more progress frames, then **exactly one** terminal frame.
 
 ```json

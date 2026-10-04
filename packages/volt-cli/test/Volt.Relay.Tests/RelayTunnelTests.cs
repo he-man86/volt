@@ -113,6 +113,25 @@ public class RelayTunnelTests : IDisposable
         Assert.Equal(BridgeErrorCodes.BadRequest, error.GetProperty("code").GetString());
     }
 
+    /// <summary>openspec relay-request-deadline: a request field the bridge does not know — a caller's budget
+    /// is the one a relay asked for — is ignored, and the op is served exactly as without it. There is no
+    /// deadline below the relay (IDE_BUSY is what keeps a write from waiting behind a write), so even a budget
+    /// that expired long ago refuses nothing: the push still applies.</summary>
+    [Fact]
+    public async Task A_request_with_a_budget_is_served_as_if_it_had_none()
+    {
+        var (relay, _, _) = Start();
+        await relay.AwaitHello();
+
+        relay.Send("{\"id\":\"plain\",\"op\":\"push\",\"body\":{\"ops\":[]}}");
+        var plain = await relay.AwaitFrame("plain", "result");
+        relay.Send("{\"id\":\"budget\",\"op\":\"push\",\"body\":{\"ops\":[]},\"budgetMs\":0}");
+        var budget = await relay.AwaitFrame("budget", "result");
+
+        Assert.Equal(plain.GetRawText(), budget.GetRawText());
+        Assert.DoesNotContain(relay.Received, f => f.StartsWith("{\"id\":\"budget\",\"error\""));
+    }
+
     // ── the happy path, and progress ─────────────────────────────
 
     [Fact]

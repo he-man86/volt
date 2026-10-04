@@ -25,3 +25,17 @@
 - [x] 3.1 **Not built** (superseded by codesys-build-nesting's `IDE_BUSY` refusal; no budget field, pipe deadline or `DEADLINE_EXCEEDED`.) Live on CODESYS: start a long build, send a push with a 5 s budget; it is refused and the project is
       unchanged.
 - [x] 3.2 **Not built** (superseded by codesys-build-nesting's `IDE_BUSY` refusal; no budget field, pipe deadline or `DEADLINE_EXCEEDED`.) Full C# suites and `bun run check` green.
+
+## Close-out (2026-10-04)
+
+- [x] codesys-build-nesting is archived (`2026-10-04-codesys-build-nesting`), so the guarantee this change's spec states
+      — a relayed write never waits behind another write; it is refused `IDE_BUSY` — is built.
+- [x] Final review (SPEC + LAYERING): the spec's second scenario ("a frame with a budget is served as without it") had
+      no test. Added `RelayTunnelTests.A_request_with_a_budget_is_served_as_if_it_had_none` (a push with
+      `budgetMs: 0` answers the same result as one without), and `docs/relay-protocol.md` now states under the
+      request frame that unknown fields (a budget included) are ignored and that there is no request deadline.
+      Layering: the field is ignored in `RelayFrames.Read` (the relay layer), the refusal lives in the pipe host's one
+      gate (`BridgePipeHost`) — no tunnel-side guard, nothing interprets the body.
+- [x] Full suites: all eight C# suites green (Relay 63, Contracts 39, Repo.Gates 136, Engine 2283+1 skip, Cli 263,
+      Connector 115, Twincat 449, Codesys 305); `bun run check` green; full LSP suite COLD (`VOLT_RUSTC_CACHE=0
+      VOLT_REQUIRE_FULL=1`) 8094 pass / 0 fail, 764 s.
