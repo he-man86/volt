@@ -181,6 +181,20 @@ until each user did that. A 1008 followed by an accepted connection is simply ov
 A refused tunnel never stops the bridge serving its local pipe. The tunnel is an addition to a bridge that
 already works on the machine it runs on.
 
+### The bridge's own closes
+
+The table above is closes the RELAY sends. The bridge sends one: **a deliberate stop closes with 1001 and the
+reason `bridge stopping`**, then drops the socket. That covers the CODESYS stop script, the CODESYS IDE exiting
+(its `ProcessExit`, measured on SP21), Ctrl+C on the TwinCAT worker, and closing the worker's console window. One
+reason for every stop: a relay needs "stopped on purpose" against "dropped", not which button stopped it. Never
+1008 — a redial after a restart is welcome. The bridge waits **at most about 1 s** for the Close frame to go out
+and does not wait for the relay's answer, so a stop never holds up an IDE that is closing; the bridge logs
+`relay: stopping — sent close 1001 bridge stopping` (or that the close did not go out within 1 s).
+
+Still **1006**, with no Close: the silence watchdog and a dead heartbeat (a handshake with a peer that stopped
+answering is a wait whose answer is known), a TwinCAT worker the connector stops (it kills the process tree, and no
+code runs in a killed process), and a crash.
+
 **A refused credential is a 401, not a 1008.** A bad bearer token fails the HTTP upgrade inside the connect
 call and never reaches a close frame, so it takes the ordinary backoff (a redial every 30 s). A relay that
 wanted a bad token treated as final would have to accept the upgrade and close with 1008, which the bridge

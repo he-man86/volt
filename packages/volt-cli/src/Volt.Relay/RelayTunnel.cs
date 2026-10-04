@@ -488,10 +488,41 @@ namespace Volt.Relay
             catch (Exception ex) { Log(VoltLogLevel.Debug, "relay: send failed: " + ex.Message); }
         }
 
+        /// <summary>A deliberate stop's Close frame: 1001 (going away), never 1008 — a redial after a restart is
+        /// welcome. One reason for every stop: the relay needs "stopped on purpose" vs "dropped", not which button.</summary>
+        internal const int StopStatus = 1001;
+        internal const string StopReason = "bridge stopping";
+        // The longest a stop waits for its Close frame to go out before it drops the socket as before. A stop
+        // runs while an IDE is closing, and must never hold that up on a relay that stopped reading.
+        private static readonly TimeSpan CloseBound = TimeSpan.FromSeconds(1);
+
+        private async Task SendCloseAsync(IRelaySocket socket, CancellationToken token)
+        {
+            // Under the send lock: a Close is a send, and ClientWebSocket permits one at a time.
+            await _sendLock.WaitAsync(token).ConfigureAwait(false);
+            try { await socket.CloseOutputAsync(StopStatus, StopReason, token).ConfigureAwait(false); }
+            finally { _sendLock.Release(); }
+        }
+
         public void Dispose()
         {
-            try { _stopping.Cancel(); } catch { /* already */ }
             var socket = _socket;
+            // The close goes out BEFORE the stop cancels: cancelling a pending ClientWebSocket receive aborts the
+            // socket, and the frame would never leave. Bounded twice — the token for a socket that honours it,
+            // the Wait for one that does not.
+            if (socket != null)
+            {
+                using (var bound = new CancellationTokenSource(CloseBound))
+                {
+                    bool sent;
+                    try { sent = SendCloseAsync(socket, bound.Token).Wait(CloseBound); }
+                    catch (Exception) { sent = false; }
+                    Log(VoltLogLevel.Info, sent
+                        ? "relay: stopping — sent close " + StopStatus + " " + StopReason
+                        : "relay: stopping — the close did not go out within " + CloseBound.TotalSeconds + "s, dropping the socket");
+                }
+            }
+            try { _stopping.Cancel(); } catch { /* already */ }
             if (socket != null) { try { socket.Abort(); } catch { /* going anyway */ } }
             try { _loop?.Wait(TimeSpan.FromSeconds(5)); } catch { /* best effort */ }
             _stopping.Dispose();

@@ -167,6 +167,7 @@ public static class PipeHost
     /// sidecar is still loud — it is named in the log — but it is not fatal.</para></summary>
     private static void StartTunnelIfConfigured()
     {
+        HookIdeExit();
         _tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
             Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)),
             _pipeName,
@@ -176,14 +177,36 @@ public static class PipeHost
             m => VoltLog.Error(m));
     }
 
+    private static int _exitHooked;
+
+    /// <summary>The IDE exiting closes the relay socket with 1001 `bridge stopping`, as the stop script does (openspec
+    /// bridge-close-frame) — otherwise the relay sees a 1006 it cannot tell from a platform drop. ProcessExit is the hook
+    /// an in-proc plugin has; the tunnel's close is bounded at ~1 s, inside the CLR's budget for exit handlers, so a
+    /// closing IDE is never held up. Only the tunnel: the pipe host and the driver go with the process. Lock-free on
+    /// purpose — an exit must not wait on <see cref="_gate"/>. Subscribed once per process (it outlives a Stop/Start).</summary>
+    private static void HookIdeExit()
+    {
+        if (Interlocked.Exchange(ref _exitHooked, 1) != 0) return;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            var tunnel = Interlocked.Exchange(ref _tunnel, null);
+            if (tunnel is null) return;
+            try
+            {
+                VoltLog.Info($"CODESYS exiting (pid {Pid}) — closing the relay tunnel");
+                tunnel.Dispose();
+            }
+            catch (Exception ex) { VoltLog.Warn("relay: close on exit failed: " + ex.Message); }
+        };
+    }
+
     public static string Stop()
     {
         lock (_gate)
         {
             if (_host is null) return "Volt bridge was not running";
             // Before the host: the tunnel's in-flight requests are pipe calls against it.
-            try { _tunnel?.Dispose(); } catch (Exception ex) { VoltLog.Warn("relay: stop failed: " + ex.Message); }
-            _tunnel = null;
+            try { Interlocked.Exchange(ref _tunnel, null)?.Dispose(); } catch (Exception ex) { VoltLog.Warn("relay: stop failed: " + ex.Message); }
             _host.Stop();
             // The in-proc detach. It clears the degraded flag and nothing else — there is nothing to release:
             // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager, contrary to what

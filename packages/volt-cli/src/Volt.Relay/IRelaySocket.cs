@@ -23,6 +23,9 @@ namespace Volt.Relay
         /// bare "gone": 1008 is how a relay turns a bridge away (`unsupported protocol N`), and a tunnel that
         /// only learns "closed" cannot tell that from a network blip.</summary>
         Task<RelayReceived> ReceiveAsync(CancellationToken cancellation);
+        /// <summary>Send a Close frame and do not wait for the relay's answer — a deliberate stop's goodbye, so
+        /// the relay can tell it from a drop (openspec bridge-close-frame). The caller bounds the wait.</summary>
+        Task CloseOutputAsync(int status, string reason, CancellationToken cancellation);
         /// <summary>Drop it now, without a close handshake. Used when the watchdog gives up — a handshake with
         /// a peer that has stopped answering is a wait we already know the answer to.</summary>
         void Abort();
@@ -85,6 +88,9 @@ namespace Volt.Relay
                 return RelayReceived.Frame(Encoding.UTF8.GetString(assembled.ToArray()));
             }
         }
+
+        public Task CloseOutputAsync(int status, string reason, CancellationToken cancellation) =>
+            _socket.CloseOutputAsync((WebSocketCloseStatus)status, reason, cancellation);
 
         public void Abort()
         {

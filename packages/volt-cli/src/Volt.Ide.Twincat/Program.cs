@@ -355,7 +355,7 @@ catch (Exception ex)
 VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid}), bridge {BridgePipeHost.Release ?? "(release unreadable)"}");
 // Said on the CONSOLE as well as in the log, because for a double-click launch this window is the entire user
 // interface: it is how someone knows the bridge is up, and closing it is how they stop it. Closing a console
-// window terminates its process group, so there is nothing to clean up afterwards and no tray icon to hunt for.
+// window ends the process (after the close handler below says goodbye to the relay); there is no tray icon to hunt for.
 Console.WriteLine($"Bridge connected to TwinCAT (pid {xaePid}). Close this window to stop it.");
 
 // The relay tunnel, exactly as CODESYS starts it — same Core helper, so the two vendors cannot drift. This was
@@ -370,12 +370,23 @@ using var tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
     m => VoltLog.Info(m),
     m => VoltLog.Error(m));
 
-// Keep the process alive; tear down the STA loop on exit. Two owners now: the connector, which kills the
-// process it spawned, and a person who closes the window (the OS ends the process group).
-// CancelKeyPress is the ONE reachable shutdown path: ProcessExit fires only once the runtime is ALREADY shutting
-// down, so it can never be what unblocks this Wait, and the connector's TerminateProcess raises no managed event.
+// Keep the process alive; tear down the STA loop on exit. Three ways to stop: the connector, which kills the
+// process it spawned (no managed code runs, so the relay sees 1006 — nothing can change that); Ctrl+C; and a
+// person who closes the window. ProcessExit fires only once the runtime is ALREADY shutting down, so it can never
+// be what unblocks this Wait.
+// The window close is CTRL_CLOSE_EVENT, which .NET surfaces as SIGHUP. Windows ends the process as soon as that
+// handler RETURNS, so the handler itself waits for the tunnel's close (openspec bridge-close-frame: the relay
+// gets 1001 `bridge stopping`, not a 1006 it cannot tell from a platform drop). Bounded: the tunnel's close
+// waits at most ~1 s, and the OS allows the handler ~5 s.
 var done = new ManualResetEventSlim(false);
+var stopped = new ManualResetEventSlim(false);
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; done.Set(); };
+using var windowClosing = System.Runtime.InteropServices.PosixSignalRegistration.Create(
+    System.Runtime.InteropServices.PosixSignal.SIGHUP,
+    ctx => { ctx.Cancel = true; done.Set(); stopped.Wait(TimeSpan.FromSeconds(4)); });
 done.Wait();
+VoltLog.Info($"twincat bridge stopping (pipe {pipe})");
+tunnel?.Dispose();
+stopped.Set();
 cts.Cancel();
 return 0;
