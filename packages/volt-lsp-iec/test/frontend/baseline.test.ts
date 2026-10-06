@@ -9,10 +9,14 @@
  */
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import { basename, join } from "node:path"
-import { allowanceOf, CEILING_EXCEPTIONS, CEILINGS_PATH, ceilingReport, ceilingRises, readCeilings, type Baseline, type Ceilings } from "./baseline.js"
+import { join } from "node:path"
+import { allowanceOf, CEILING_EXCEPTIONS, ceilingReport, ceilingRises, ceilingsPath, FRONTEND_BASELINES, readCeilings, type Baseline, type Ceilings } from "./baseline.js"
 
-const DIR = join(import.meta.dir, "baselines")
+/** Every baseline directory that keeps a ceilings file — the front-end's and the analysis census's
+ *  (openspec analysis-conformance 0.1). Each test below holds every one of them. */
+const BASELINE_DIRS: readonly string[] = [FRONTEND_BASELINES, join(import.meta.dir, "..", "analysis", "baselines")]
+/** A directory as an error names it. */
+const named = (dir: string): string => `${dir.split(/[\\/]/).slice(-2).join("/")}/ceilings.json`
 const at = (counts: Record<string, number>, findings: string[] = []): Baseline => ({ counts, findings })
 
 describe("ceilings — a measure may only fall", () => {
@@ -38,7 +42,7 @@ describe("ceilings — a measure may only fall", () => {
   })
 
   test("every named exception points at a ceiling its baseline has", () => {
-    const ceilings = readCeilings()
+    const ceilings: Ceilings = Object.assign({}, ...BASELINE_DIRS.map((d) => readCeilings(ceilingsPath(d))))
     expect(CEILING_EXCEPTIONS.filter((e) => ceilings[e.baseline]?.[e.measure] === undefined)).toEqual([])
   })
 
@@ -53,14 +57,14 @@ describe("ceilings — a measure may only fall", () => {
   })
 
   test("every ceiling equals the count its committed baseline pins", () => {
-    const ceilings = readCeilings()
     const problems: string[] = []
-    for (const [name, section] of Object.entries(ceilings)) {
-      if (name === "rules") continue // rules.test.ts holds these to rules.ts and the conversion matrix
-      const pinned = JSON.parse(readFileSync(join(DIR, `${name}.json`), "utf8")) as Baseline
-      const r = ceilingReport(section, pinned, allowanceOf(name), CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
-      problems.push(...r.rises, ...r.stale, ...r.missing.map((k) => `${name}: no measure ${k}`))
-    }
+    for (const dir of BASELINE_DIRS)
+      for (const [name, section] of Object.entries(readCeilings(ceilingsPath(dir)))) {
+        if (name === "rules") continue // rules.test.ts holds these to rules.ts and the conversion matrix
+        const pinned = JSON.parse(readFileSync(join(dir, `${name}.json`), "utf8")) as Baseline
+        const r = ceilingReport(section, pinned, allowanceOf(name), CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
+        problems.push(...[...r.rises, ...r.stale, ...r.missing.map((k) => `no measure ${k}`)].map((p) => `${named(dir)} ${name}: ${p}`))
+      }
     expect(problems).toEqual([])
   })
 
@@ -69,36 +73,39 @@ describe("ceilings — a measure may only fall", () => {
   // the vendor too", ", a refused expression", ", in a body that did not parse") is no disagreement; a literal's UNKNOWN
   // is not ceilinged (tasks.md 0.4: "UNKNOWN, not a literal").
   test("every disagreement count a baseline pins has a ceiling", () => {
-    const ceilings = readCeilings()
     const agreement =
       /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|no component on the vendor too|no structured variable on the vendor too|SUPER not allowed on the vendor too|a bit access refused on the vendor too|a refused expression|in a body that did not parse)$/
     const uncapped: string[] = []
-    for (const [name, section] of Object.entries(ceilings)) {
-      if (name === "rules") continue
-      const pinned = JSON.parse(readFileSync(join(DIR, `${name}.json`), "utf8")) as Baseline
-      for (const key of Object.keys(pinned.counts))
-        if (/ (UNKNOWN|NONE|NOSCOPE|NO-CALLEE)/.test(key) && !agreement.test(key) && !/: literal UNKNOWN$/.test(key) && !(key in section))
-          uncapped.push(`${name}: ${key}`)
-    }
+    for (const dir of BASELINE_DIRS)
+      for (const [name, section] of Object.entries(readCeilings(ceilingsPath(dir)))) {
+        if (name === "rules") continue
+        const pinned = JSON.parse(readFileSync(join(dir, `${name}.json`), "utf8")) as Baseline
+        for (const key of Object.keys(pinned.counts))
+          if (/ (UNKNOWN|NONE|NOSCOPE|NO-CALLEE)/.test(key) && !agreement.test(key) && !/: literal UNKNOWN$/.test(key) && !(key in section))
+            uncapped.push(`${named(dir)} ${name}: ${key}`)
+      }
     expect(uncapped).toEqual([])
   })
 
   test("the ceilings never rose against any committed version of themselves", () => {
-    const git = (...args: string[]) => {
-      const r = Bun.spawnSync(["git", ...args], { cwd: import.meta.dir })
+    const git = (cwd: string, ...args: string[]) => {
+      const r = Bun.spawnSync(["git", ...args], { cwd })
       if (r.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr.toString()}`)
       return r.stdout.toString()
     }
-    const rel = `${git("rev-parse", "--show-prefix").trim()}baselines/${basename(CEILINGS_PATH)}`
-    // newest first; a shallow clone (CI's `test` job) holds only its tip, so there the check is tip → working tree
-    const revs = git("log", "--format=%H", "--", `:/${rel}`).split("\n").filter(Boolean).reverse()
-    const versions = [
-      ...revs.map((rev) => ({ at: rev.slice(0, 10), c: JSON.parse(git("show", `${rev}:${rel}`)) as Ceilings })),
-      { at: "working tree", c: readCeilings() },
-    ]
     const problems: string[] = []
-    for (let i = 1; i < versions.length; i++)
-      problems.push(...ceilingRises(versions[i - 1].c, versions[i].c).map((p) => `${versions[i].at}: ${p}`))
+    for (const dir of BASELINE_DIRS) {
+      const file = ceilingsPath(dir)
+      const rel = `${git(dir, "rev-parse", "--show-prefix").trim()}ceilings.json`
+      // newest first; a shallow clone (CI's `test` job) holds only its tip, so there the check is tip → working tree
+      const revs = git(dir, "log", "--format=%H", "--", `:/${rel}`).split("\n").filter(Boolean).reverse()
+      const versions = [
+        ...revs.map((rev) => ({ at: rev.slice(0, 10), c: JSON.parse(git(dir, "show", `${rev}:${rel}`)) as Ceilings })),
+        { at: "working tree", c: readCeilings(file) },
+      ]
+      for (let i = 1; i < versions.length; i++)
+        problems.push(...ceilingRises(versions[i - 1].c, versions[i].c).map((p) => `${rel} ${versions[i].at}: ${p}`))
+    }
     expect(problems).toEqual([])
   })
 })

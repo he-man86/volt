@@ -75,6 +75,11 @@ test/
                              baseline of findings in baselines/ and a ceiling per disagreement measure in
                              baselines/ceilings.json (baseline.test.ts: may only fall, against git history);
                              rules.ts + rules.test.ts, the rule catalogue as data
+  analysis/                  the analysis MEASURED against the recordings (openspec analysis-conformance phase 0):
+                             diagnostic-census.test.ts — every registry check and message builder over every fixture
+                             (both vendors, the replay's composition) and the six corpora: TP / SEV / FP / GAP, pinned in
+                             baselines/ with a ceiling per open FP, GAP, unowned GAP and never-fired builder
+                             (VOLT_CENSUS_REPORT=1 prints the per-check table)
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two
@@ -134,6 +139,8 @@ VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/fixtu
 # one front-end baseline file (test/frontend): census, resolution, type, fold, fixed point, rules
 bun test test/frontend/parse-census.test.ts
 bun test test/frontend/type-dump.test.ts test/frontend/fold-dump.test.ts test/frontend/resolution-dump.test.ts
+# the diagnostic census (test/analysis) — every check over every fixture and corpus, ~2.5 min
+bun test test/analysis
 ```
 
 - **`VOLT_FIXTURES=<name,name,…>`** (`test/conformance/support/selection.ts`) — exact names; an unknown one throws, so a

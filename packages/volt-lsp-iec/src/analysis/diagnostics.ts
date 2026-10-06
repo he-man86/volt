@@ -116,7 +116,7 @@ export interface CheckContext {
   tokens: () => readonly Token[]
 }
 
-type Check = (ctx: CheckContext, out: DiagnosticItem[]) => void
+export type Check = (ctx: CheckContext, out: DiagnosticItem[]) => void
 
 /** The check registry — grouped by concern (types/ · declarations/ · names/ · oop/ · pragmas/). */
 const CHECKS: readonly Check[] = [
@@ -300,6 +300,21 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     messages: messagesFor(config.vendor),
     tokens: () => args.parseResult.tokens,
   }
+  return runRegistry(ctx)
+}
+
+/** The check registry in run order, READ-ONLY — exported for the diagnostic census (`test/analysis/census.ts`), which
+ *  counts per entry. Nothing else reads it. */
+export const CHECK_REGISTRY: readonly Check[] = CHECKS
+
+/**
+ * Run the registry's checks for `ctx`'s vendor and apply the policy (configurable severity / off, TwinCAT's per-line
+ * dedupe) — the whole of `computeSemanticDiagnostics` after its dialect assertions. `onCheck` sees each check that ran,
+ * with the findings it appended (its slice of `out`, before the policy): the census attributes every finding to its check
+ * through it.
+ */
+export function runRegistry(ctx: CheckContext, onCheck?: (check: Check, emitted: readonly DiagnosticItem[]) => void): DiagnosticItem[] {
+  const config = ctx.config
   const out: DiagnosticItem[] = []
   // ONE PLACE DECIDES WHICH CHECKS RUN FOR WHICH VENDOR, in both directions. A check that opens with its own
   // whole-body `if (vendor !== …) return` is the shape C6 removed, and it grew back the moment a rule ran the
@@ -309,11 +324,17 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
   if (CHECK_TIMING !== undefined) {
     for (const check of active) {
       const t = Number(process.hrtime.bigint())
+      const from = out.length
       check(ctx, out)
+      onCheck?.(check, out.slice(from))
       CHECK_TIMING[check.name] = (CHECK_TIMING[check.name] ?? 0) + (Number(process.hrtime.bigint()) - t) / 1e6
     }
   } else {
-    for (const check of active) check(ctx, out)
+    for (const check of active) {
+      const from = out.length
+      check(ctx, out)
+      onCheck?.(check, out.slice(from))
+    }
   }
   // CODESYS "Compiler warnings" dialog: each configurable code is off / warning / error. Drop it when off,
   // else FORCE the configured severity (so a code the check emits as error but CODESYS defaults to warning is
@@ -328,7 +349,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     if (state === "off") continue
     result.push(it.severity === state ? it : { ...it, severity: state })
   }
-  return config.vendor === "twincat" ? dedupePerLine(result, args.source) : result
+  return config.vendor === "twincat" ? dedupePerLine(result, ctx.source) : result
 }
 
 /**

@@ -11,11 +11,17 @@
  */
 import { expect } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { join, relative } from "node:path"
 import { EXPLICIT_PAIR_TESTS } from "../conformance/fixtures/conversions/explicit-pairs.js"
 
-const DIR = join(import.meta.dir, "baselines")
-export const CEILINGS_PATH = join(DIR, "ceilings.json")
+/** The front-end's baselines — the default directory. A measurement elsewhere (`test/analysis/baselines/`) passes its own:
+ *  the discipline, the ceilings and the history check are shared, not copied. */
+export const FRONTEND_BASELINES = join(import.meta.dir, "baselines")
+export const CEILINGS_PATH = join(FRONTEND_BASELINES, "ceilings.json")
+/** A baseline directory's ceilings file. */
+export const ceilingsPath = (dir: string): string => join(dir, "ceilings.json")
+/** A path as an error names it: package-relative, slash-separated. */
+const pkgPath = (path: string): string => relative(join(import.meta.dir, "..", ".."), path).split("\\").join("/")
 
 export interface Baseline {
   /** Pinned numbers: a count that moves, either way, is a change to explain. */
@@ -27,15 +33,15 @@ export interface Baseline {
 /** Per baseline name, per measure: the most it may be. `findings` names the baseline's finding count. */
 export type Ceilings = Record<string, Record<string, number>>
 
-export function readCeilings(): Ceilings {
-  if (!existsSync(CEILINGS_PATH)) throw new Error(`no ${CEILINGS_PATH}`)
-  return JSON.parse(readFileSync(CEILINGS_PATH, "utf8")) as Ceilings
+export function readCeilings(path: string = CEILINGS_PATH): Ceilings {
+  if (!existsSync(path)) throw new Error(`no ${pkgPath(path)}`)
+  return JSON.parse(readFileSync(path, "utf8")) as Ceilings
 }
 
 /** One baseline's ceiling section — a baseline without one is refused: every measurement names what may not rise. */
-export function ceilingsOf(name: string, ceilings: Ceilings = readCeilings()): Record<string, number> {
+export function ceilingsOf(name: string, ceilings: Ceilings = readCeilings(), path: string = CEILINGS_PATH): Record<string, number> {
   const section = ceilings[name]
-  if (section === undefined) throw new Error(`baselines/ceilings.json has no section "${name}"`)
+  if (section === undefined) throw new Error(`${pkgPath(path)} has no section "${name}"`)
   return section
 }
 
@@ -202,31 +208,32 @@ export function ceilingRises(older: Ceilings, newer: Ceilings): string[] {
   return out.sort()
 }
 
-export function checkBaseline(name: string, actual: Baseline): void {
-  const path = join(DIR, `${name}.json`)
+export function checkBaseline(name: string, actual: Baseline, dir: string = FRONTEND_BASELINES): void {
+  const path = join(dir, `${name}.json`)
+  const cpath = ceilingsPath(dir)
   const sorted: Baseline = { counts: sortKeys(actual.counts), findings: [...actual.findings].sort() }
-  const ceilings = readCeilings()
+  const ceilings = readCeilings(cpath)
   const allow = allowanceOf(name)
-  const ceiling = ceilingReport(ceilingsOf(name, ceilings), sorted, allow, CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
+  const ceiling = ceilingReport(ceilingsOf(name, ceilings, cpath), sorted, allow, CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
   if (process.env.VOLT_WRITE_BASELINE === "1") {
     if (ceiling.rises.length > 0 || ceiling.missing.length > 0)
       throw new Error(
         [
-          `refusing to write baselines/${name}.json — a measure may only fall (tasks.md 0.6):`,
+          `refusing to write ${pkgPath(path)} — a measure may only fall (tasks.md 0.6):`,
           ...ceiling.rises.map((r) => `  RISE    ${r}`),
           ...ceiling.missing.map((k) => `  MISSING ${k} (the ceiling names a measure this measurement lacks)`),
         ].join("\n"),
       )
-    mkdirSync(DIR, { recursive: true })
+    mkdirSync(dir, { recursive: true })
     writeFileSync(path, `${JSON.stringify(sorted, null, 2)}\n`)
     // the ratchet: every ceiling comes down to what was measured
     const lowered = Object.fromEntries(
       Object.keys(ceilings[name]).map((k) => [k, (k === "findings" ? sorted.findings.length : sorted.counts[k]) - (allow[k] ?? 0)]),
     )
-    writeFileSync(CEILINGS_PATH, `${JSON.stringify({ ...ceilings, [name]: lowered }, null, 2)}\n`)
+    writeFileSync(cpath, `${JSON.stringify({ ...ceilings, [name]: lowered }, null, 2)}\n`)
     return
   }
-  if (!existsSync(path)) throw new Error(`no baseline ${name}.json — measure with VOLT_WRITE_BASELINE=1 and commit it`)
+  if (!existsSync(path)) throw new Error(`no baseline ${pkgPath(path)} — measure with VOLT_WRITE_BASELINE=1 and commit it`)
   const pinned = JSON.parse(readFileSync(path, "utf8")) as Baseline
   const known = new Set(pinned.findings)
   const now = new Set(sorted.findings)
@@ -237,11 +244,11 @@ export function checkBaseline(name: string, actual: Baseline): void {
     .map((k) => `${k}: ${pinned.counts[k] ?? "—"} → ${sorted.counts[k] ?? "—"}`)
   const report = [
     ...added.map((f) => `NEW   ${f}`),
-    ...gone.map((f) => `GONE  ${f} (remove it from baselines/${name}.json)`),
+    ...gone.map((f) => `GONE  ${f} (remove it from ${pkgPath(path)})`),
     ...moved.map((m) => `COUNT ${m}`),
-    ...ceiling.rises.map((r) => `RISE  ${r} (above its ceiling in baselines/ceilings.json)`),
+    ...ceiling.rises.map((r) => `RISE  ${r} (above its ceiling in ${pkgPath(cpath)})`),
     ...ceiling.stale.map((r) => `STALE ${r} (lower the ceiling: rewrite with VOLT_WRITE_BASELINE=1)`),
-    ...ceiling.missing.map((k) => `MISSING ${k} (baselines/ceilings.json names a measure this measurement lacks)`),
+    ...ceiling.missing.map((k) => `MISSING ${k} (${pkgPath(cpath)} names a measure this measurement lacks)`),
   ]
   expect(report).toEqual([])
 }

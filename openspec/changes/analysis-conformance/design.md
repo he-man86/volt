@@ -157,6 +157,15 @@ analysis/
 only move a candidate to `syntax/` (or record that frontend-conformance deleted it); it never invents a third home. Every
 candidate is reviewed in exactly one 3.x group whatever 0.5 decides (tasks.md §3 names each).
 
+**0.5 measured (2026-10-06).** Four of the seven are GONE — frontend-conformance deleted `unsupported-operator`,
+`partial-access`, `refused-name` and `system-initializer` (no file, no registry entry; their wording reaches the editor as
+the parser's, through `parse-errors`). The other three STAY in their folder, each failing both halves of the test:
+`at-address` (builder `directAddressMalformed`, a type/symbol builder; 14 findings, 0 on a line with a parse error),
+`conditional-call` (`parenExpectedInsteadOf` and `expressionExpectedInsteadOf` are parser wording, but
+`conditionalCallSecondParameter` and `notSupportedInDeclaration` are not; 28 findings, 0 on a parse-error line) and
+`call-result-access` (`callResultAccess`, a type builder; 6 findings, 0 on a parse-error line). `checks/syntax/` therefore
+receives none: 1.15 is skipped with that note.
+
 **Parser-cascade test (0.5, mechanical).** A candidate moves to `syntax/` only if BOTH hold on the census:
 
 1. every builder it calls is parser wording (`unexpectedToken`, `*ExpectedInsteadOf`, `percentNotAMember`, or
@@ -374,6 +383,14 @@ ST-only (S8). Inside a network body they see no ST statements and return nothing
 R = output-neutral (snapshot A identical). N = an output change that snapshot A lists class by class, with the
 recordings deciding.
 
+**What frontend-conformance left (0.5, measured 2026-10-06).** `resync` — gone (one word in a test comment,
+`no-op-statement.test.ts`). `nameResolves` — present in `resolution.ts`, now a two-line wording of the front-end's
+`resolveBareName` (callers `inheritance`, `assignment`, `unknown-type`); it moves with `resolution.ts` to `shared/` (1.8).
+Operator tables — present as three local sets: `MATH_OPS` (`intrinsic-operands`), `CMP_OPS` (`comparison`),
+`PASS_THROUGH_CALLS` (`hole`). Attribute and conditional pragma parsing — gone (`pragmas` and `attribute-placement` call the
+front-end's `readAttribute` / `directiveOf`). `compilerArrayText` — present in `messages.ts` (caller `comparison`). The
+parser-cascade row above moves nothing (§2, 0.5).
+
 **Review claim not taken.** A review said `lost-declaration.ts` has four importers (external-global, call-result-access,
 partial-access, unsupported-operator). Measured on 2026-10-01: `reportLostUses` has ONE caller, `external-global.ts`.
 It moves to `shared/` anyway (P2), which is correct for one caller and for four.
@@ -510,9 +527,107 @@ Columns:
 | parse-errors | unexpectedToken, directAddressExpectedAt, operatorNeedsAtLeast, operatorNeedsExactly, varConfigOnlyInList, sectionNotAllowed, + the templates 1.11 moves into `messages.ts` (named builders, so the census can attribute them) | 474 / 20 | 547 / 117 | all front-end recovery: re-measure after frontend archive |
 | network-text (seam only) | undefinedIdentifier, notAMember, unresolvedOperand, unresolvedOperandToken, unresolvedAssignTarget, jumpLabel*, rules.* | 14 / 0 | 14 / 0 | not reviewed (P6); census rows kept so 5.3 hands the numbers off |
 
-**Checks without a fixture: 4** — bit-usage, obsolete-usage, ambiguous-global, method-signature (each fires on 0
-recorded fixtures; 0.3 confirms the list, and 3.3/3.5/3.7 give each one fixtures). Builders without a fixture are a
-longer list that 0.3 writes.
+**Measured (tasks 0.1–0.3, 2026-10-06; the rows above are the 2026-10-01 scratch census, kept as the design's
+starting shape).** `test/analysis/diagnostic-census.test.ts` over 4,768 CODESYS and 4,757 TwinCAT recorded fixtures (every fixture the
+replay compares, the 139 per vendor whose code sits only in PLC_PRG among them; the replay's composition, network text
+ON). Every FP but one is on a fixture the replay already pins (open FP: 1 CODESYS, 0 TwinCAT), so the FP column below is
+the divergence backlog. The one open FP: `refdecl_target_undeclared` — the LSP gives `Cannot convert type 'Unknown type:
+'nope'' to type 'REFERENCE TO INT'` twice where CODESYS recorded it once; the replay compares as a set, so it sees that
+fixture only as a disagreement, the census as a multiset. GAP counts only the IDE-only messages whose builder ONE check
+can emit, resolved through the helpers that call a builder for several checks (`rules.ts` `conversionWarning`,
+`storeConversionError`, …): 293 CODESYS / 566 TwinCAT more sit on a builder several checks share, 70 / 115 are
+unowned. The registry has
+changed since the rows above: `unsupported-operator`, `partial-access`, `refused-name` and `system-initializer` are gone
+(frontend-conformance), `constant-cycle` is new. `—`: the registry does not run the check for that vendor.
+
+| group | check | cs fired / TP / SEV / FP / GAP | tc fired / TP / SEV / FP / GAP |
+|---|---|---|---|
+| types | checkAssignmentTypes | 463 / 709 / 0 / 3 / 0 | 445 / 688 / 0 / 2 / 0 |
+| types | checkNarrowingConversion | 272 / 411 / 0 / 0 / 0 | 281 / 360 / 0 / 1 / 0 |
+| types | checkBinaryOperators | 31 / 41 / 0 / 0 / 0 | 31 / 39 / 0 / 0 / 0 |
+| types | checkConversionCalls | 3 / 3 / 0 / 0 / 0 | 3 / 3 / 0 / 0 / 0 |
+| types | checkDeref | 3 / 3 / 0 / 0 / 0 | 3 / 3 / 0 / 0 / 0 |
+| types | checkSubrange | 7 / 8 / 0 / 0 / 0 | 7 / 8 / 0 / 0 / 0 |
+| types | checkArrayBounds | 42 / 42 / 0 / 0 / 3 | 42 / 41 / 0 / 1 / 2 |
+| types | checkConstantOverflow | 19 / 19 / 0 / 0 / 0 | 19 / 19 / 0 / 0 / 0 |
+| types | checkBitNumber | 3 / 3 / 0 / 0 / 0 | 3 / 3 / 0 / 0 / 0 |
+| types | checkIndexing | 4 / 7 / 0 / 0 / 0 | 4 / 6 / 0 / 1 / 3 |
+| types | checkComparison | 6 / 10 / 0 / 0 / 1 | 6 / 10 / 0 / 0 / 0 |
+| types | checkArrayInit | 2 / 1 / 0 / 1 / 0 | 2 / 2 / 0 / 0 / 0 |
+| types | checkStructInit | 6 / 16 / 0 / 0 / 0 | 6 / 16 / 0 / 0 / 0 |
+| types | checkPointerConversion | 11 / 0 / 19 / 0 / 0 | 11 / 0 / 19 / 0 / 0 |
+| types | checkStringConstant | 42 / 78 / 0 / 3 / 0 | 33 / 37 / 0 / 2 / 0 |
+| types | checkReferenceAssign | 10 / 15 / 0 / 0 / 0 | 10 / 15 / 0 / 0 / 0 |
+| types | checkDataRecursion | 2 / 2 / 0 / 0 / 0 | 2 / 2 / 0 / 0 / 0 |
+| types | checkEnumInit | 1 / 2 / 0 / 0 / 3 | 1 / 2 / 0 / 0 / 1 |
+| types | checkUnaryOperand | 19 / 20 / 0 / 0 / 0 | 19 / 20 / 0 / 0 / 0 |
+| types | checkTypedLiteral | 18 / 18 / 0 / 0 / 0 | 0 / 0 / 0 / 0 / 0 |
+| types | checkUnknownSource | 102 / 119 / 0 / 10 / 0 | 257 / 275 / 0 / 24 / 0 |
+| declarations | checkConstantContext | 3 / 3 / 0 / 0 / 2 | 3 / 3 / 0 / 0 / 3 |
+| declarations | checkDeclaredType | 15 / 15 / 0 / 0 / 0 | 15 / 15 / 0 / 0 / 0 |
+| declarations | checkConstantInitializer | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| declarations | checkConstantCycle | 3 / 4 / 0 / 0 / 1 | — |
+| declarations | checkExternalInitializer | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| declarations | checkExternalGlobal | 2 / 3 / 0 / 0 / 2 | 2 / 3 / 0 / 0 / 1 |
+| declarations | checkInputDefault | 1 / 1 / 0 / 0 / 0 | — |
+| declarations | checkBitUsage | 6 / 6 / 0 / 0 / 0 | 6 / 6 / 0 / 0 / 0 |
+| declarations | checkOutputRules | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| declarations | checkNonInstantiable | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| declarations | checkObsoleteUsage | 7 / 12 / 0 / 0 / 0 | 7 / 12 / 0 / 0 / 0 |
+| declarations | checkAtAddress | 7 / 7 / 0 / 0 / 0 | 7 / 7 / 0 / 0 / 0 |
+| declarations | checkHeaderRules | 31 / 34 / 0 / 2 / 4 | 26 / 29 / 0 / 2 / 4 |
+| declarations | checkAttributePlacement | 1 / 1 / 0 / 0 / 0 | — |
+| declarations | checkVarSectionPlacement | 3 / 4 / 0 / 0 / 0 | 3 / 4 / 0 / 0 / 0 |
+| declarations | checkInoutInitializer | 1 / 2 / 0 / 0 / 1 | 1 / 2 / 0 / 0 / 1 |
+| declarations | checkUnknownType | 15 / 15 / 0 / 0 / 0 | 152 / 177 / 0 / 0 / 0 |
+| declarations | checkRefusedInitializer | 13 / 15 / 0 / 0 / 0 | 67 / 71 / 0 / 0 / 0 |
+| declarations | checkDynamicCreation | 2 / 2 / 0 / 0 / 0 | 2 / 2 / 0 / 0 / 0 |
+| declarations | checkSignatureName | 4 / 3 / 0 / 1 / 9 | 4 / 3 / 0 / 1 / 9 |
+| names | checkDuplicateDeclarations | 9 / 8 / 0 / 1 / 1 | 9 / 8 / 0 / 1 / 1 |
+| names | checkUnresolvedIdentifiers | 76 / 92 / 0 / 7 / 0 | 244 / 415 / 0 / 27 / 0 |
+| names | checkAmbiguousGlobal | 10 / 9 / 0 / 1 / 7 | 10 / 9 / 0 / 1 / 3 |
+| names | checkTypeAsValue | 5 / 6 / 0 / 0 / 0 | 5 / 6 / 0 / 0 / 0 |
+| names | checkReservedKeyword | 2 / 3 / 0 / 0 / 0 | — |
+| names | checkConditionalCall | 5 / 14 / 0 / 0 / 2 | 5 / 14 / 0 / 0 / 0 |
+| oop | checkInheritance | 12 / 19 / 0 / 0 / 0 | 12 / 13 / 0 / 0 / 0 |
+| oop | checkPropertyAccess | 2 / 2 / 0 / 0 / 0 | 2 / 2 / 0 / 0 / 0 |
+| oop | checkMethodReference | 2 / 3 / 0 / 0 / 0 | 2 / 3 / 0 / 0 / 0 |
+| oop | checkInheritedVariable | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| oop | checkExternalNonInputWrite | 17 / 19 / 0 / 0 / 0 | 17 / 19 / 0 / 0 / 0 |
+| oop | checkInoutExternalAccess | 1 / 4 / 0 / 0 / 0 | 1 / 4 / 0 / 0 / 0 |
+| oop | checkInoutOwnAccess | 10 / 19 / 0 / 0 / 0 | 10 / 10 / 0 / 0 / 0 |
+| oop | checkFbInitInout | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| oop | checkFbInitInstantiation | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 1 |
+| oop | checkGenericInstantiation | 4 / 4 / 0 / 0 / 0 | 0 / 0 / 0 / 0 / 0 |
+| oop | checkAbstractAssign | 1 / 1 / 0 / 0 / 0 | — |
+| oop | checkLifecycleSignatures | 3 / 3 / 0 / 0 / 0 | 2 / 2 / 0 / 0 / 0 |
+| oop | checkAbstractInstantiation | 2 / 3 / 0 / 0 / 0 | 2 / 3 / 0 / 0 / 0 |
+| oop | checkInterfaceImplementations | 3 / 3 / 0 / 0 / 1 | 3 / 3 / 0 / 0 / 1 |
+| oop | checkMethodSignatures | 12 / 19 / 0 / 0 / 6 | 12 / 17 / 0 / 0 / 0 |
+| oop | checkAbstractOutputDefault | 1 / 1 / 0 / 0 / 0 | — |
+| calls | checkCallArguments | 68 / 95 / 0 / 0 / 4 | 67 / 92 / 0 / 1 / 4 |
+| calls | checkCallResultAccess | 3 / 3 / 0 / 0 / 0 | 3 / 3 / 0 / 0 / 0 |
+| calls | checkRecursiveCall | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| calls | checkNonCallableCall | 9 / 10 / 0 / 0 / 0 | 6 / 7 / 0 / 0 / 0 |
+| calls | checkIntrinsicOperands | 28 / 30 / 0 / 0 / 2 | 22 / 25 / 0 / 0 / 2 |
+| calls | checkFbInstantiation | 6 / 8 / 0 / 0 / 1 | 6 / 8 / 0 / 0 / 1 |
+| flow | checkCaseLabels | 7 / 7 / 0 / 0 / 0 | 6 / 6 / 0 / 0 / 0 |
+| flow | checkStatementRules | 15 / 16 / 0 / 0 / 0 | 14 / 15 / 0 / 0 / 0 |
+| flow | checkNewInExpression | 1 / 0 / 0 / 1 / 0 | — |
+| flow | checkJumpLabels | 8 / 9 / 0 / 4 / 0 | 17 / 9 / 0 / 23 / 0 |
+| flow | checkNoOpStatement | 148 / 178 / 0 / 4 / 10 | 156 / 185 / 0 / 7 / 16 |
+| flow | checkEmptyBlock | 8 / 10 / 0 / 0 / 0 | 8 / 9 / 0 / 0 / 1 |
+| flow | checkLoopExit | 1 / 1 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 |
+| flow | checkThisSuperContext | 9 / 13 / 0 / 0 / 0 | 9 / 12 / 0 / 0 / 0 |
+| pragmas | checkPragmas | 37 / 38 / 0 / 0 / 0 | 4 / 3 / 0 / 1 / 0 |
+| syntax | checkParseErrors | 793 / 2893 / 0 / 70 / 33 | 920 / 3629 / 0 / 240 / 70 |
+| network | network-text | 17 / 24 / 0 / 0 / 3 | 15 / 22 / 0 / 0 / 2 |
+
+**Checks firing on no fixture: 0** — `loop-exit` fires on one PLC_PRG fixture per vendor (its builder
+`loopExitConstantFalse` has 1 TP each). bit-usage, obsolete-usage, ambiguous-global and method-signature, the four the
+scratch census listed, all fire now (6 / 7 / 10 / 12 CODESYS fixtures). Builders with 0 TP: 21 on CODESYS, 43 on TwinCAT,
+19 of them on both (`test/analysis/baselines/coverage.json`, written under task 0.3; `semicolonExpectedInsteadOf` is called by no
+check at all since frontend-conformance moved its callers into the parser).
 
 **Out of census: server policy.** These are LSP-emitted findings outside the registry, so the fixture census (which runs
 `runRegistry`) never sees them: missing language (`missingLanguage`, the push's `StReader.Unmarked` wording), retired

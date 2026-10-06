@@ -32,7 +32,7 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
 
 ### 0 Measure
 
-- [ ] 0.1 Fixture census, both vendors, network text ON: per check, per message builder: fired, TP, FP, div, GAP, SEV
+- [x] 0.1 Fixture census, both vendors, network text ON: per check, per message builder: fired, TP, FP, div, GAP, SEV
       (design.md §6), and a test that census rows == registry entries. `runRegistry(ctx, onCheck)` and `CHECK_REGISTRY`
       are exported read-only from the orchestrator for this; nothing else in product code changes.
       `test/frontend/baseline.ts` takes a baseline directory; `baseline.test.ts`'s history check covers both ceilings
@@ -43,17 +43,114 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
       Acceptance: snapshot F identical; `bun scripts/suite-snapshot.ts --compare` identical; `test/frontend/baselines/*.json`
       byte-identical; baselines committed; per-group table written here (unsupported-operator and partial-access counted
       apart). Depends on: frontend-conformance archived
-- [ ] 0.2 Corpus census: the five CODESYS and one TwinCAT projects through `projectDocuments` vs their recorded builds, per
+      **Measured 2026-10-06** (`test/analysis/{census.ts,diagnostic-census.test.ts}`; baselines
+      `test/analysis/baselines/{fixtures.codesys,fixtures.twincat,ceilings}.json`). `runRegistry(ctx, onCheck)` and
+      `CHECK_REGISTRY` are exported from `analysis/diagnostics.ts` (`computeSemanticDiagnostics` = its dialect assertions +
+      `runRegistry(ctx)`; output-neutral). The census binds every fixture through `test/conformance/support/replay.ts` — the
+      replay's composition moved out of `fixtures.test.ts` unchanged, so the gate and the census measure one project.
+      `baseline.ts` takes a directory; `baseline.test.ts` holds both ceilings files to their history, and every error names
+      the file it read. Snapshot F (`check --base HEAD`): identical, 483,583 aspects. `suite-snapshot --compare`: identical,
+      6,319 tests. `test/frontend/baselines/*.json` unchanged. Census rows = the 79 registry entries + `network-text` (the pass
+      outside the registry while §3 is parked) — a test. Fixtures measured: 4,768 CODESYS, 4,757 TwinCAT — every fixture the
+      replay compares (re-measured at the gate, see "Gate review" below). Per group (checks firing / TP / SEV / FP / GAP
+      owned by one check / never-fired builders):
+
+      | group | CODESYS | TwinCAT |
+      |---|---|---|
+      | types | 21 / 1527 / 19 / 17 / 7 / 8 | 20 / 1549 / 19 / 31 / 6 / 8 |
+      | declarations | 20 / 131 / 0 / 3 / 19 / 2 | 17 / 338 / 0 / 3 / 18 / 8 |
+      | names | 6 / 132 / 0 / 9 / 10 / 1 | 5 / 452 / 0 / 29 / 4 / 2 |
+      | oop | 16 / 103 / 0 / 0 / 7 / 0 | 13 / 79 / 0 / 0 / 2 / 6 |
+      | calls | 6 / 147 / 0 / 0 / 7 / 8 | 6 / 136 / 0 / 1 / 7 / 9 |
+      | flow | 8 / 234 / 0 / 9 / 10 / 1 | 7 / 237 / 0 / 30 / 17 / 3 |
+      | pragmas | 1 / 38 / 0 / 0 / 0 / 0 | 1 / 3 / 0 / 1 / 0 / 5 |
+      | syntax (parse-errors) | 1 / 2893 / 0 / 70 / 33 / 0 | 1 / 3629 / 0 / 240 / 70 / 0 |
+      | network (outside the registry) | 1 / 24 / 0 / 0 / 3 / 1 | 1 / 22 / 0 / 0 / 2 / 3 |
+      | **total** | TP 5229, SEV 19, FP 108 (open 1), GAP 459 | TP 6445, SEV 19, FP 335 (open 0), GAP 807 |
+
+      Every FP but one sits on a fixture the replay already pins (KNOWN_DIVERGENCES / triage). The one open FP (CODESYS):
+      `refdecl_target_undeclared` (inProgram) — the LSP gives `Cannot convert type 'Unknown type: 'nope'' to type
+      'REFERENCE TO INT'` twice, CODESYS once; the replay compares as a set and sees only a disagreement, the census
+      counts the extra copy (a 3.x types finding). Of the GAP, 293 CODESYS / 566 TwinCAT sit on a builder several checks
+      share (`cannotConvert`, `narrowing` / `enumConversion` through `rules.ts` `conversionWarning`, `undefinedIdentifier`,
+      `parenExpectedInsteadOf` from both the parser and `conditional-call`, …) and 70 / 115 are unowned (0.2). SEV 19 on each
+      vendor is all `pointer-conversion` (C0033 recorded at the other severity; `pointerNotConvertible` has 0 TP). The
+      per-check table is design.md §5 "Measured". unsupported-operator and partial-access: both checks are GONE from the
+      registry (frontend-conformance 2.5.3 / 2.5.4); their wording now reaches the editor as the parser's, through
+      `parse-errors`, and no fact on `ParseError` tells those errors apart, so they can no longer be counted apart (0 / 0).
+- [x] 0.2 Corpus census: the five CODESYS and one TwinCAT projects through `projectDocuments` vs their recorded builds, per
       project and per code (server-policy findings as `server:<code>`); plus the unowned-gap shape classification
       (owned-by-frontend / project-config / missing-rule) over fixtures and corpora.
       Where: test/analysis/census.ts, baselines/corpus.json. Acceptance: corpus.json committed; the table and the
       classification (every unowned shape in exactly one class, counts summing to the unowned total) written here.
       Depends on: 0.1
-- [ ] 0.3 Coverage: builders with 0 TP on either vendor, and registry checks firing on 0 fixtures (expected: bit-usage,
+      **Measured 2026-10-06** (baseline `test/analysis/baselines/corpus.json`: the server's `projectDocuments`, normalized
+      as the corpus gate normalizes, a severity-aware multiset; codeless server findings as `server:missing-language` /
+      `server:parse-raw`).
+
+      | project | vendor | TP | SEV | FP | GAP (attributed) |
+      |---|---|---|---|---|---|
+      | CodesysTestProject | CODESYS | 0 | 0 | 0 | 0 |
+      | awa-palletizer | CODESYS | 0 | 0 | 0 | 0 |
+      | bakon-nano | CODESYS | 23 | 0 | 0 | 4 (`narrowing`, shared: call-arguments, intrinsic-operands, narrowing) |
+      | lenze-mid | CODESYS | 5 | 0 | 0 | 1 (`narrowing`, shared) |
+      | pro2193 | CODESYS | 0 | 0 | 0 | 7 (1 `pragmas`, 6 unowned) |
+      | twincat-project14 | TwinCAT | 0 | 0 | **216 `server:missing-language`** | 0 |
+
+      No recording is incomplete (none failed, none truncated). FINDING: every TwinCAT-corpus FP is server policy — the
+      project's files carry no `IMPLEMENTATION <LANG>` line (materialized before implementation-keyword), so the server flags
+      each body "states no language" and quiets every analysis finding inside it: the TwinCAT corpus is effectively
+      unanalysed by the server path. The answer is re-pulling `twincat-project14` (a corpus refresh, not analysis work);
+      `corpus.test.ts` cannot see it, since it gates only the CODESYS recordings.
+
+      Unowned-gap shapes (`census.ts` `unownedClass`: each shape in exactly one class, by its wording; the counts sum to the
+      unowned totals):
+
+      | | owned-by-frontend | project-config | missing-rule | unowned total |
+      |---|---|---|---|---|
+      | fixtures CODESYS | 3 | 27 | 40 | 70 |
+      | fixtures TwinCAT | 46 | 17 | 52 | 115 |
+      | corpora | 0 | 3 | 3 | 6 |
+      | **all** | 49 | 47 | 95 | 191 |
+
+      owned-by-frontend: "… expected instead of …" (TwinCAT's `VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of
+      x:INT;` family, `Variable declaration expected instead of VAR_*`), "Counter initialisation expected", an array border that
+      does not evaluate. project-config: no memory for dynamic object creation (20), no VAR_PERSISTENT list, no structured
+      exception handling on the code generator (10), device description missing, stack size / stack usage, SymbolConfig, the
+      vendor's internal errors. missing-rule (3.11's list): access to PRIVATE / PROTECTED / INTERNAL members (18 CODESYS / 15 TwinCAT, the largest family),
+      "Expression of type '…' expected in this place" (2 / 17), an uninitialized variable used to initialize another
+      (TwinCAT, `initprg_reads_later`, found once the PLC_PRG fixtures were measured), FINAL override, ABSTRACT method not implemented, interface
+      method must be PUBLIC, the global scope operator on an expression, lazy-typed variable, operator not allowed in this
+      statement, an interface not extending `__System.IQueryInterface`, a duplicate enum value, references to bits,
+      VAR_IN_OUT CONSTANT needs a variable, address granularity alignment, initialization from an uninitialized reference
+      (corpus, 3).
+- [x] 0.3 Coverage: builders with 0 TP on either vendor, and registry checks firing on 0 fixtures (expected: bit-usage,
       obsolete-usage, ambiguous-global, method-signature; case-labels 5/6 builders). This becomes the catalogue's GAP list.
       Where: baselines/coverage.json; design.md §5 updated with the measured numbers. Acceptance: coverage.json committed
       and generated by the census (not hand-written); the GAP list written here. Depends on: 0.1
-- [ ] 0.4 Seam measures (design.md §6): raw `parseResult.errors` ⊆ checkParseErrors (corpora + fixtures); server
+      **Measured 2026-10-06** (baseline `test/analysis/baselines/coverage.json`, generated by the census; design.md §5
+      "Measured" holds the per-check table). Builders with 0 TP: **21 on CODESYS, 43 on TwinCAT (19 of them on both)**.
+      Registry checks firing on 0 fixtures: **0** — `loop-exit` fires on one PLC_PRG fixture per vendor once those are
+      measured (it read 1 before the gate review). The four the design expected (bit-usage,
+      obsolete-usage, ambiguous-global, method-signature) all fire now; case-labels has one builder at 0 TP
+      (`caseOverlappingRanges`), not five. The GAP list:
+      - 0 TP on both: `adrOnBit`, `arrayInitCountNonConst`, `arrayInitExpected`, `initListExpected`, `bitInWrongBlock`,
+        `caseOverlappingRanges`, `compareNotPossible`, `compareNotPossibleTwo`, `defaultNotConstant`, `duplicateMethod`,
+        `iniNeedsInstance`, `newInExpression`, `pointerNotConvertible` (fires, but at the other
+        severity: the 19 SEV), `queryInterfaceFirst`, `queryInterfaceSecond`, `queryPointerSecond`, `subrangeAssignTarget`,
+        `unknownNamedOutput`, and `semicolonExpectedInsteadOf` — called by no check since frontend-conformance moved its
+        callers into the parser (a dead builder for 1.11 / 4.4).
+      - 0 TP on CODESYS only: `boundsNeedVariableLength`, `unexpectedArrayInit`.
+      - 0 TP on TwinCAT only: `abstractAssignTarget`, `abstractKeywordMissing`, `assignmentSourceIncorrect`,
+        `attributeOnlyOnVariables`, `defaultOutputUnused`, `fbReInitShape`, `functionRequiresInputRange`, `genericCount`,
+        `inOutConstantNeedsVariable`, `inputInPropertyAccessor`, `interfaceParamCountMismatch`, `interfaceVariableMismatch`,
+        `invalidAttributeValue`, `invalidSymbolAttributeValue`, `missingEnPin`, `multipleAssignmentNew`, `noDefaultForType`,
+        `packModeNotAllowed`, `pointerIndexArity`, `recursiveConstant`, `reservedKeyword`, `unionInheritance`,
+        `unknownAttribute`, `vectorBaseType` (several by rule: their check does not run for TwinCAT).
+      - Checks firing on 0 TwinCAT fixtures: `typed-literal`, `generic-instantiation` (they run there); `abstract-assign`,
+        `abstract-output-default`, `attribute-placement`, `constant-cycle`, `input-default`, `new-in-expression`,
+        `reserved-keyword` (CODESYS-only in the registry).
+- [x] 0.4 Seam measures (design.md §6): raw `parseResult.errors` ⊆ checkParseErrors (corpora + fixtures); server
       duplicate parse errors per corpus; network findings with configurable codes per corpus project and how many the
       project's settings turn off; the four compositions (server, runLsp, evidence, agreement-residue) diffed per fixture;
       parseNetworkText calls per edit and ms over the corpus graphical bodies, as a % of one documentDiagnostics pass;
@@ -61,13 +158,85 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
       the cost of a `groups: ["syntax"]` run on dead POUs vs today's skip.
       Where: a scratch script (not committed) + numbers here. Acceptance: each number written; any raw parse error without
       a partner is listed as a finding for 2.5. Depends on: 0.1
-- [ ] 0.5 What frontend-conformance left: which P6/P7 items still live in src/analysis (resync, nameResolves, operator
+      **Measured 2026-10-06** (scratch script, not committed):
+      - raw `parseResult.errors` ⊆ `checkParseErrors`: fixtures 19,368 documents (both vendors; own item, PLC_PRG, lists),
+        1,079 raw errors, **0 without a partner**; corpora: 0 raw parse errors in all six. No finding for 2.5.
+      - server duplicate (codeless) parse errors: **0** on every corpus project (no corpus file has a parse error).
+      - network findings with a configurable code: lenze-mid 1 (`sign-change-conversion`, a TP), twincat-project14 2
+        (`jump-label-unreferenced`), the other four 0; the projects' settings turn off **0** of them. (lenze-mid's network pass
+        also gives 8 `NETWORK_UNRESOLVED_BOX`, none of which reaches the server's output.)
+      - the four compositions, CODESYS, every 10th fixture (479), against the replay: evidence `lspMessagesOn` differs on 1
+        (`decl_array_single_bound_used`); evidence `lspErrors` (`diagnosed`) on **18** (parse errors counted twice:
+        `identifier_consecutive_underscores`, `lex_*_as_name*`, …); `agreement-residue` on 2
+        (`cc5_deprecated_functionblock_keyword`, `unit_namespace_method_after_fb`: it parses with `parseSource` under a `.st`
+        uri, not as the object's document); the server's `documentDiagnostics` on **479 of 479** — a fixture source states no
+        `IMPLEMENTATION` line, so the server reads every body as unstated (missing-language + `quiet`): the server's
+        composition is not comparable on fixture sources until they are given in workspace format (input for 2.6).
+      - `parseNetworkText` per edit: up to 4 per graphical body (diagnostics and semantic tokens through `analyzeNetworkText`,
+        folding and document symbols `STRUCTURE_ONLY`), plus 1 `analyzeNetworkText` per position query in a network body.
+        Over the corpus graphical bodies (34): lenze-mid 29 bodies, structure parse 24 ms + analyze 25 ms against a 547 ms
+        `documentDiagnostics` pass = **17.8 %** at four parses; twincat-project14 5.2 %; awa-palletizer and bakon-nano 0.4 %;
+        pro2193 0.01 %. Above §3's 5 % line on two projects — the parse-memo condition holds (parked: handed off in 5.3).
+      - a shared `out`, both directions: hole's sets hold `network-undeclared-identifier` (both sets) and
+        `network-unknown-member` (RESOLUTION_FAILURE); ST findings with a hole code inside a graphical body: **0**; network
+        findings outside one: **0** (corpora) — "network last + local slice" changes nothing.
+      - `groups: ["syntax"]` on dead POUs vs today's skip: dead POU documents 2 / 10 / 12 / 20 / 40 / 219 per project,
+        `checkParseErrors` over them 0–1 ms in all — **≈ 0** against passes of 22–3,061 ms. (twincat-project14: 219 of 244
+        documents dead — it has no IMPLEMENTATION lines, see 0.2.)
+- [x] 0.5 What frontend-conformance left: which P6/P7 items still live in src/analysis (resync, nameResolves, operator
       tables, attribute/conditional parsing, compilerArrayText) and, for each of the seven parser-cascade candidates
       (unsupported-operator, partial-access, at-address, system-initializer, refused-name, conditional-call,
       call-result-access), the result of design.md §2's parser-cascade test (builder wording + spans on recorded
       errors/refusals, from the 0.1 census): move to syntax/, stay, or deleted by frontend-conformance.
       Where: design.md §2/§4 (amended in the same commit). Acceptance: the per-candidate verdict with its two measured
       facts written here; §4 rows marked present/gone. Depends on: 0.1
+      **Measured 2026-10-06** (design.md §2 "0.5 measured" and §4 "What frontend-conformance left", amended). Left in
+      src/analysis: `resync` gone (a test comment only); `nameResolves` present (`resolution.ts`, a wording of the front-end's
+      `resolveBareName`); operator tables present as three local sets (`MATH_OPS`, `CMP_OPS`, `PASS_THROUGH_CALLS`);
+      attribute / conditional parsing gone (the front-end's `readAttribute` / `directiveOf`); `compilerArrayText` present
+      (`messages.ts`). The seven candidates (fact 1: the builders called; fact 2: findings on the fixtures, and of them on a
+      line where the parse recorded an error):
+
+      | candidate | verdict | builders | findings / on a parse-error line |
+      |---|---|---|---|
+      | unsupported-operator | deleted by frontend-conformance | — | — |
+      | partial-access | deleted by frontend-conformance | — | — |
+      | system-initializer | deleted by frontend-conformance | — | — |
+      | refused-name | deleted by frontend-conformance | — | — |
+      | at-address | stay (declarations/) | directAddressMalformed (type) | 14 / 0 |
+      | conditional-call | stay (names/) | parenExpectedInsteadOf, expressionExpectedInsteadOf, conditionalCallSecondParameter, notSupportedInDeclaration | 28 / 0 |
+      | call-result-access | stay (calls/) | callResultAccess (type) | 6 / 0 |
+
+      None moves to `syntax/`: 1.15 is skipped with this note.
+
+      **Gate review (step 0, 2026-10-06)** — four census findings, each fixed test-first in `test/analysis/census.ts`
+      (the red tests are in `diagnostic-census.test.ts`), the baselines rewritten, the numbers in 0.1–0.3 and design.md §5
+      re-measured:
+      1. *(medium)* the census dropped every fixture with an empty own source — the 139 `inProgram` fixtures per vendor
+         whose code sits only in PLC_PRG, which the replay compares. The `t.source === ""` skip is gone; fixtures measured
+         4,629 → 4,768 CODESYS, 4,618 → 4,757 TwinCAT (= every recorded fixture, a test). Effect: TP 5176 → 5229 /
+         6386 → 6445; TwinCAT GAP 802 → 807 (unowned 114 → 115, `initprg_reads_later`); `loop-exit` now fires (1 / 1), so
+         checks firing on 0 fixtures 1 → 0 and `loopExitConstantFalse` leaves the 0-TP list; and one CODESYS open FP
+         0 → 1 (`refdecl_target_undeclared`, see 0.1).
+      2. *(low)* builder owners are resolved transitively through the helpers that call a builder for several checks
+         (`builderOwners`: every top-level declaration that calls `.<builder>(`, up through every declaration that refers
+         to it in its own file or in a file importing it by name). `narrowing` / `enumConversion` (`rules.ts`
+         `conversionWarning`) are now owned by call-arguments, intrinsic-operands and narrowing; `subrangeAssignTarget` by
+         assignment, intrinsic-operands, narrowing, subrange and network-text. GAP on a shared builder 284 → 293 /
+         554 → 566; group types GAP 16 → 7 / 14 → 6; the corpus `narrowing` GAPs (bakon-nano 4, lenze-mid 1) are `shared`,
+         no longer charged to `checkNarrowingConversion`. Never-fired builders per group re-attributed (types 6 → 8, calls
+         +1, network +1, flow −1; totals 19 → 18 / 42 → 41).
+      3. *(low)* builder attribution is per WINDOW (`recordingMessages().take()`): one check's run on one document, or the
+         network pass on one. A finding is attributed only to a builder its own emitter called in that window, so fixture
+         order no longer moves a parser text between `(parser)` and a builder. Measured: no finding line changed builder.
+      4. *(low)* the corpus census refuses by name: a diagnostic with no severity throws (`corpusSeverity`); a codeless
+         one is `server:missing-language` only on that finding's wording, `server:parse-raw` only when it is one of the
+         document's own parse errors (`projectDocuments` now returns each document's `parseErrors`), and anything else
+         throws (`corpusCode`). Corpus counts unchanged.
+      The ceilings in `baselines/ceilings.json` were re-seeded at this measurement (first commit of the file, so it has
+      no history to rise against): the rises are the four corrections above, not a regression. Gate: typecheck clean;
+      `VOLT_REQUIRE_FULL=1 bun test` (packages/volt-lsp-iec) 8,109 pass / 0 fail / 34 skip / 381 todo (8,524 tests,
+      696 s); `bun run check` and `bun run lint` pass. No fixture or transpiler change, so no `rate:fixtures`.
 
 ## 1. Restructure (design first, output-neutral, one task per move)
 

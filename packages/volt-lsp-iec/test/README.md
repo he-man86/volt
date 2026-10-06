@@ -30,6 +30,15 @@ ceilings file that rose against any committed version of itself; `rules.test.ts`
 fixtures and recordings that exist. The dump builders (`dumps.ts`) are shared with snapshot F. `bound-census.ts` walks
 everything bound ONCE for 0.3 and 0.4.
 
+Plus `analysis/` — the ANALYSIS MEASURED (openspec `analysis-conformance`, phase 0): does every diagnostic the LSP's
+analysis gives say what the vendor's build said? `diagnostic-census.test.ts` runs every registry check over every
+conformance fixture as the replay binds it (`conformance/support/replay.ts`, the composition `fixtures.test.ts` gates), on
+both vendors, and over the six corpora as the server analyses them, and attributes each finding to its check and its
+message builder: TP, SEV, FP (`div` where the replay pins a divergence) and GAP (IDE-only, attributed by shape, or
+`unowned`). The builder is `census.ts`; the counts and findings are pinned in `analysis/baselines/` (`fixtures.codesys`,
+`fixtures.twincat`, `corpus`, `coverage`) with their own `ceilings.json`, held by the same discipline as `frontend/`
+(`frontend/baseline.ts` takes the directory; `frontend/baseline.test.ts` holds both ceilings files to their history).
+
 ## Why these four, and not more
 
 They divide by **what could be wrong**, which is the only division that makes a hole visible:
