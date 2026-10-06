@@ -5,7 +5,7 @@
  * struct/FB/composite/library type never false-positives.
  */
 import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
-import { bodies, forEachDecl, hasUnresolvedBase, type Scope } from "../../../frontend/symbols/index.js"
+import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, literalErrorType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -61,17 +61,9 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
     // code that the corpus happens not to contain in this shape.
     if (resolved.kind === "reference") {
       const referenced = resolved.target
-      if (decl.init.kind === "ident_expr" && !nameResolves(decl.init.name, scope)) {
-        if (hasUnresolvedBase(scope)) continue // the base could declare it; `resolution.ts` skips for the same reason
-        out.push({
-          severity: "error",
-          span: decl.init.span,
-          source: SOURCE,
-          code: "assignment-type-mismatch",
-          message: ctx.messages.cannotConvert(ctx.messages.unknownType(decl.init.name), renderType(resolved, { form: "compiler" })),
-        })
-        continue
-      }
+      // an UNDECLARED target is a hole, reported once by `unknown-source` beside "Identifier … not defined" — this said it
+      // too, and CODESYS says it once (`refdecl_target_undeclared`, analysis-conformance 3.2.3)
+      if (decl.init.kind === "ident_expr" && !nameResolves(decl.init.name, scope)) continue
       const rhs = checkableType(decl.init, scope, ctx.project)
       // EXACT: the referenced type must BE the reference's own. `checkable` on both sides keeps the conservative
       // default — a composite or library type on either side skips, as everywhere else in this file.

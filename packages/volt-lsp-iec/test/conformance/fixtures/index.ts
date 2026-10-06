@@ -78,6 +78,8 @@ import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
 import { INITIALIZER_TESTS } from "./declarations/initializers.js"
+import { ARRAY_INIT_SHAPE_TESTS } from "./declarations/array-init-shapes.js"
+import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
 import { INOUT_CONSTANT_TESTS } from "./calls/inout-constant.js"
@@ -224,6 +226,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "routine-state", tests: ROUTINE_STATE_TESTS },
   // ── aggregate initializers: structs by field, nested, arrays of structs, FB instances (phase 3½) ──
   { name: "initializers", tests: INITIALIZER_TESTS },
+  { name: "array-init-shapes", tests: ARRAY_INIT_SHAPE_TESTS },
+  { name: "types-enum-init-values", tests: ENUM_INIT_VALUE_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },

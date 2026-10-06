@@ -46,10 +46,14 @@ import { corpusProjects, fixtureSources, messagePool, unanswered, type RecordedB
  *     _parens`, with "Cannot convert type 'VALUE' …" beside it), answered by the analysis (`type-as-value`);
  *   "Unexpected structure initialisation" / "Unexpected array initialisation" — an aggregate for a type that is no struct /
  *     no array (`cc3_unexpected_struct_init` with six more messages beside it, `decl_nested_aggregate`), answered by the
- *     analysis (`struct-init`, `array-init`); "Unexpected" matched the pattern's "expected".
+ *     analysis (`struct-init`, `array-init`); "Unexpected" matched the pattern's "expected";
+ *   "Array initialisation expected" / "Initialisation list for X expected" — a scalar where an ARRAY OF ARRAY / an ARRAY OF a
+ *     struct needs a list, beside its conversion (`arrinit_flat_into_nested`, `arrinit_scalar_into_struct_array`, analysis-
+ *     conformance 3.2), answered by the analysis (`array-init`, C0232 / C0233).
  */
 const SYNTAX_MESSAGE = /expected|unexpected token/i
-const NAME_OR_TYPE_MESSAGES = /^Type name '[^']*' not expected in this place$|^Unexpected (structure|array) initialisation$/
+const NAME_OR_TYPE_MESSAGES =
+  /^Type name '[^']*' not expected in this place$|^Unexpected (structure|array) initialisation$|^Array initialisation expected$|^Initialisation list for \S+ expected$/
 const isSyntaxMessage = (message: string): boolean =>
   SYNTAX_MESSAGE.test(message) &&
   !message.startsWith("Program name, function or function block instance expected") &&

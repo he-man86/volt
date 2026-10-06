@@ -123,9 +123,17 @@ test("a reference declaration type-checks its target, and a valid bind stays sil
   expect(mismatches(decl("REF= v"), ";")).toEqual([])
   expect(mismatches(decl(":= v"), ";")).toEqual([]) // both spellings bind, and both are legal
   expect(mismatches(decl("REF= sx"), ";")).toEqual(["Cannot convert type 'STRING' to type 'REFERENCE TO INT'"])
-  expect(mismatches(decl("REF= nope"), ";")).toEqual([
-    "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'",
-  ])
+  // an UNDECLARED target is the hole's (`unknown-source`): the conversion is said ONCE, beside "Identifier 'nope' not
+  // defined" — both checks said it, and CODESYS says it once (`refdecl_target_undeclared`, the census's open FP, 3.2.3)
+  expect(mismatches(decl("REF= nope"), ";")).toEqual([])
+  const src = `PROGRAM PLC_PRG\nVAR\n${decl("REF= nope")}\nEND_VAR\n;\nEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
+      .map((d) => d.message),
+  ).toEqual(["Identifier 'nope' not defined", "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'"])
   // EXACT TYPE, not assignability — the rule `checks/types/reference-assign.ts` measured for the statement form
   // (`cc3_reference_assign`). Using `isAssignable` made this inconsistent with itself: it flagged a DINT and
   // stayed silent on a SINT, though CODESYS refuses both.

@@ -579,16 +579,67 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.2 types B
 
-- [ ] 3.2.1 types B (deref, subrange, array-bounds, bit-number, indexing, array-init, struct-init, reference-assign,
+- [x] 3.2.1 types B (deref, subrange, array-bounds, bit-number, indexing, array-init, struct-init, reference-assign,
       data-recursion, enum-init, typed-literal, unsupported-operator, partial-access, unknown-source): fixtures for GAP
       builders (array-init ×3 first). Where: fixtures/. Acceptance: list here. Depends on: 3.1.5
-- [ ] 3.2.2 Record 3.2.1, both vendors. Where: recordings/. Acceptance: CA.1. Depends on: 3.2.1
-- [ ] 3.2.3 FPs: cc3_pointer_conversions, cc3_reference_assign (one cell: niche test), decl_nested_aggregate,
+      **Fixtures (2026-10-06), 23:** `declarations/array-init-shapes.ts` (11, `arrinit_*`): a repeat count that is a
+      variable and one that is a VAR CONSTANT; a flat and a nested list on an ARRAY OF ARRAY; scalars and struct lists on an
+      ARRAY OF a struct; an array literal on an INT and on a struct; too many values through a repeat count and over two
+      dimensions; a short list. `types/enum-init-values.ts` (12, `eninit_*`): an enum member initialized with a REAL, a
+      STRING, TRUE, T#1S, INT#5, a sibling plus one, another enum's member, a global variable, a global CONSTANT; and the
+      duplicate-value warning three of them drew — two members written 0, the first member refused, a refused member beside
+      members written 5 and 6. The other builders of the group fire already (0.3); `subrangeAssignTarget`, read at 0 TP, is
+      composed inside `cannotConvert` (the census attributes the message to the outer builder) — it agrees on
+      `subrange_assign_const_out` and `dt_subrange_assign_variable`; it stays on the 0-TP list as a census artifact, not a gap.
+      unsupported-operator and partial-access: no longer checks (0.1), nothing to ask.
+- [x] 3.2.2 Record 3.2.1, both vendors. Where: recordings/. Acceptance: CA.1. Depends on: 3.2.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 20 per vendor, then one of 4
+      per vendor the answers asked for (`arrinit_on_struct` re-asked with `s` renamed — an IL operator; the three duplicate
+      probes). `record:exec` CODESYS for the nine that build (unasked 0). Both vendors agree on every cell but TwinCAT's
+      one copy per line (`arrinit_flat_into_nested`, `arrinit_scalar_into_struct_array`).
+- [x] 3.2.3 FPs: cc3_pointer_conversions, cc3_reference_assign (one cell: niche test), decl_nested_aggregate,
       unknown-source ×13 (itf_var_section_inherited, xf_l*_to_* LDATE, decl_array_single_bound_used,
       decl_implicit_enum_in_struct), and the census FPs of unsupported-operator/partial-access. Where: checks/types,
       checks/syntax, shared/hole. Acceptance: CA. Depends on: 3.2.2
-- [ ] 3.2.4 Gaps attributed to these checks. Where: checks/types. Acceptance: CA. Depends on: 3.2.2
-- [ ] 3.2.5 Close types B. Acceptance: CA.3–4. Depends on: 3.2.3, 3.2.4
+      **Done 2026-10-06.** The one OPEN FP, `refdecl_target_undeclared` (CODESYS: the conversion said twice): FIXED — an
+      undeclared `REF=` target is a hole, said once by `unknown-source` beside "Identifier … not defined"; `assignment` no
+      longer says it too (colocated test: the two messages, once each). `cc3_reference_assign` agrees on both vendors (it
+      left the TwinCAT triage in frontend-conformance; re-measured). `cc3_pointer_conversions` (TwinCAT prints the index
+      where the type belongs, "Variable of type '1' …") stays a divergence: a vendor defect, not parity. `decl_nested_aggregate`
+      (CODESYS) stays `CODESYS_DECLARATION_DIVERGENCES`: CODESYS SP21's compiler throws a NullReferenceException where
+      TwinCAT and the LSP say "Unexpected array initialisation". unknown-source: every census FP re-run and each still
+      diverges for its recorded reason — the implicit enum's type name (`IMPLICIT_ENUM_TYPE_NAME`), the LDATE family and
+      TwinCAT's named-argument echo, the refused-type and declaration-recovery cascades (`AFTER_A_REFUSED_TYPE`,
+      `DECLARATION_RECOVERY`), an interface's VAR section (the header-rules FP, 3.4), library enums (LB, 3.5); `cp_xsizeof`,
+      `enum_library_*`, `xf_date_to_ldate_call_once`, `ar_sizeof_into_narrow` and `dt_namespace_static_base` agree on CODESYS
+      and diverge on TwinCAT only, as marked. unsupported-operator / partial-access: gone (0.1), no FPs to count.
+- [x] 3.2.4 Gaps attributed to these checks. Where: checks/types. Acceptance: CA. Depends on: 3.2.2
+      **Done 2026-10-06.** array-init (`checks/types/array-init.ts`, colocated tests): C0232 and C0233 are said for EACH
+      scalar with its conversion into the element type (0/1 BIT, by `types/literal` `literalErrorType`); C0075 counts every
+      dimension (`elementCapacity`) and is said beside C0232 (a flat list counts each scalar once); C0074 on a scalar or a
+      struct adds "Cannot convert type 'Unknown type: '[1, 2]'' …" (`shared/expr-echo` `arrayEcho`). enum-init
+      (`checks/types/enum-init.ts`): each value kind as recorded — REAL, STRING (`STRING(INT#n)`), BOOL: "no valid
+      initialisation" + the conversion; TIME: the conversion only; a non-constant variable: "Initialisation of constant
+      variable … not constant" + "no valid initialisation"; another enum's member: the enum-change warning. The run harness's
+      `enumsOf` numbered a member written as an expression as its predecessor plus one — a guess the run recording
+      contradicted (`eninit_other_enum_member`, `eninit_gvl_constant`); it folds the expression in the fixture's project now.
+      NOT done here: "The constant 0 is assigned to more than one enumeration" — a WARNING both vendors give for two members
+      written alike (`eninit_explicit_duplicate`) and for the 0 a refused member leaves beside one written 0; it is the
+      duplicate-value rule 0.2 classed missing-rule, 3.11's check (5 cells per vendor, named exceptions in
+      `test/frontend/baseline.ts`). The census GAPs of the group's own builders: `ce_cycle_enum` (a cycle through an enum
+      member and a global CONSTANT) niche: accepted loss (0 occurrences in the corpora — no corpus build reports "no valid
+      initialisation for an enumeration"); `ce_fold_*_untyped` already `UNTYPED_OPERAND_AS_A_BOUND` (niche, 0);
+      `dt_library_enum_storage` already `LIBRARY_ENUM_BASE_NOT_MATERIALIZED` (the bridge's); `lit_char_typed_in_enum_value`
+      already `COMPONENT_CARRIED_ON_IN_A_DUT`; `decl_array_star_*` (TwinCAT) already `AFTER_A_REFUSED_TYPE` (niche, 0).
+- [x] 3.2.5 Close types B. Acceptance: CA.3–4. Depends on: 3.2.3, 3.2.4
+      **Closed 2026-10-06.** Census rewritten: CODESYS TP 5296 → 5330, FP 109 → 108, open FP 1 → 0 (group types open FP
+      1 → 0), GAP 457 → 462 (+5 unowned: the duplicate-enum warnings, excepted by name for 3.11), never-fired builders
+      15 → 12; TwinCAT TP 6513 → 6541, GAP 804 → 809 (+5 unowned, likewise), never-fired 38 → 35. Group types never-fired
+      builders 6 → 4 per vendor; checkArrayInit TP 1 → 21 / 2 → 16, checkEnumInit TP 2 → 16 / 2 → 16. Coverage: builders
+      with 0 TP 17 → 13 (CODESYS), 40 → 37 (TwinCAT). Divergences opened / closed: none. `rate:fixtures`: +23 fixtures —
+      refused 1827 → 1841, confirmed 2727 → 2736. Frontend baselines: the new fixtures' counts; the parse census now reads
+      C0232/C0233 as type messages (`NAME_OR_TYPE_MESSAGES`), and the bound census's 14 element conversions are a named
+      exception. design.md §5 rows updated (array-init, enum-init, unknown-source).
 
 ### 3.3 declarations A
 

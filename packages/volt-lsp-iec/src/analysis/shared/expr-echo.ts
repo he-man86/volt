@@ -70,3 +70,11 @@ export function structEcho(init: Initializer): string {
   if (init.kind === "paren" && init.inner.kind === "assign_expr") return `STRUCT(${exprText(init.inner)})`
   return "STRUCT(?)"
 }
+
+/** `[1, 2]` — the compiler's name for an ARRAY literal it could not attach to a type (`arrinit_on_scalar`, both vendors
+ *  2026-10-06); undefined unless every element is a plain literal, the only shape recorded. */
+export function arrayEcho(init: Initializer): string | undefined {
+  if (init.kind !== "aggregate_init" || init.form !== "array") return undefined
+  const texts = init.elements.map((el) => (el.kind === "value" && el.expr.kind === "literal" ? el.expr.text : undefined))
+  return texts.every((t): t is string => t !== undefined) ? `[${texts.join(", ")}]` : undefined
+}
