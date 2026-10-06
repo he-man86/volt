@@ -36,10 +36,27 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // so the FB's attribute never reached the IDE. Re-recorded 2026-10-02 with it there.
   // CODESYS ONLY, measured: TwinCAT builds all three CLEAN (2026-10-02). It warns about a spelling Beckhoff never
   // deprecated, so it is one rule of several in this check rather than a check to scope to CODESYS in the registry (`pipeline/registry`).
+  // On a PROPERTY and a FUNCTION as well (`prag_rule_abstract_attribute_on_property`, `_on_function`, analysis-conformance
+  // 3.10, CODESYS; TwinCAT clean): a FUNCTION takes no ABSTRACT keyword at all, and CODESYS still says it is missing.
+  // On a PROGRAM and on an INTERFACE's METHOD too (`prag_rule_abstract_attribute_on_program`, `_on_interface_method`, the
+  // 3.10 gate review, CODESYS; TwinCAT clean): the warning does not depend on the POU kind. An interface member carries no
+  // attributes of its own — the pragma attaches to the interface — so it is found by position: the member it stands above.
   if (ctx.config.vendor === "codesys")
     for (const unit of ctx.parseResult.units) {
-      if (unit.kind !== "method" && unit.kind !== "function_block") continue
-      if (!(unit.attributes ?? []).some((a) => a.name.toLowerCase() === "abstract") || unit.modifiers.includes("ABSTRACT")) continue
+      const isAbstract = (a: { name: string }) => a.name.toLowerCase() === "abstract"
+      if (unit.kind === "interface") {
+        const members = [...unit.methods, ...unit.properties]
+        for (const a of (unit.attributes ?? []).filter(isAbstract)) {
+          if (a.span.start < unit.span.start) continue // above the INTERFACE itself: unmeasured
+          const member = members.filter((m) => m.span.start >= a.span.end).sort((x, y) => x.span.start - y.span.start)[0]
+          if (member === undefined || member.modifiers.includes("ABSTRACT")) continue
+          out.push({ severity: "warning", span: member.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() })
+        }
+        continue
+      }
+      if (unit.kind !== "method" && unit.kind !== "function_block" && unit.kind !== "property" && unit.kind !== "function" && unit.kind !== "program") continue
+      if (!(unit.attributes ?? []).some(isAbstract)) continue
+      if ((unit.kind === "method" || unit.kind === "function_block" || unit.kind === "property") && unit.modifiers.includes("ABSTRACT")) continue
       out.push({ severity: "warning", span: unit.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() })
     }
 
@@ -92,7 +109,11 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A DUT was skipped too, "verified live" on pro2193's enum: wrong — every DUT kind warns
   // (`prag_unknown_attribute_on_{struct,enum,alias,union}`, `tc_global_data_type`, `tc_hide_sub_items`, 2026-10-02;
   // the recorder had been dropping every pragma above a top-level unit, frontend-conformance 2.7.2).
+  // …above the LIST, that is: an unknown attribute on one of a GVL's VARIABLES warns (`prag_rule_unknown_attribute_on_gvl_variable`,
+  // analysis-conformance 3.10), so what is skipped is a list's pragma outside its sections.
   const isGvl = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "global_var_list")
+  const inGvlSection = (p: { span: DiagnosticItem["span"] }): boolean =>
+    ctx.parseResult.units.some((u) => u.kind === "global_var_list" && u.varSections.some((v) => v.span.start <= p.span.start && p.span.end <= v.span.end))
   /**
    * `{attribute 'hide'}` on the SAME declaration silences the value check: a hidden variable is not monitored, so
    * the compiler never validates how it would be displayed. Measured — `monitoring_encoding` warns about 'UTF8' and
@@ -105,13 +126,17 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
         q.attributeName?.toLowerCase() === "hide" &&
         ctx.source.slice(Math.min(q.span.end, p.span.end), Math.max(q.span.start, p.span.start)).trim().length === 0,
     )
-  if (ctx.config.vendor === "codesys" && !isGvl) {
+  if (ctx.config.vendor === "codesys") {
     for (const p of pragmas) {
+      if (isGvl && !inGvlSection(p)) continue
+      // an attribute written as a STATEMENT in a body attaches to nothing and CODESYS says nothing of it
+      // (`prag_rule_unknown_attribute_in_body`, analysis-conformance 3.10)
+      if (!outOfBody(p)) continue
       // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
       // a typo (`'noe'`) is a real C0351 that also cascades downstream (the PROGRAM's export breaks → C0564 init
       // warnings). Same C0351 code + toggle as the unknown-NAME case, distinct wording. Only `symbol` has a
       // published closed value set, so it's the only one checked (zero-FP: every other attribute is skipped).
-      if (p.attributeName?.toLowerCase() === "symbol" && p.attributeValue !== undefined && !SYMBOL_VALUES.has(p.attributeValue.toLowerCase())) {
+      if (p.attributeName?.toLowerCase() === "symbol" && p.attributeValue !== undefined && !SYMBOL_VALUES.has(p.attributeValue)) {
         out.push({
           severity: "warning",
           span: p.span,
@@ -124,7 +149,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
       // The same rule for every OTHER attribute with a published closed value set, in that message's own wording
       // (conformance `monitoring_encoding`).
       const closed = p.attributeName === undefined ? undefined : CLOSED_VALUE_SETS[p.attributeName.toLowerCase()]
-      if (closed !== undefined && p.attributeValue !== undefined && !closed.includes(p.attributeValue) && !isHidden(p)) {
+      if (closed !== undefined && p.attributeValue !== undefined && !closed.some((c) => c.toLowerCase() === p.attributeValue!.toLowerCase()) && !isHidden(p)) {
         out.push({
           severity: "warning",
           span: p.span,
@@ -147,11 +172,14 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   }
 }
 
-/** The legal access modes for `{attribute 'symbol'}` (symbol-table export). CODESYS: none/read/write/readwrite. */
+/** The legal access modes for `{attribute 'symbol'}` (symbol-table export). CODESYS: none/read/write/readwrite, in lower
+ *  case only — `'READ'` warns (`prag_rule_symbol_value_upper_case`, analysis-conformance 3.10). */
 const SYMBOL_VALUES: ReadonlySet<string> = new Set(["none", "read", "write", "readwrite"])
 
 /**
- * Attributes whose legal values are a published closed set, in the compiler's own order (it prints the set). Only
+ * Attributes whose legal values are a published closed set, in the compiler's own order (it prints the set), compared
+ * WITHOUT case — `monitoring_encoding := 'utf-8'` builds clean (`prag_rule_monitoring_encoding_lower_case`, analysis-conformance
+ * 3.10; `symbol`'s set is the case-sensitive one). Only
  * an attribute whose set is CLOSED and documented belongs here — every other attribute is skipped, so an unusual
  * but legal value never false-positives. `symbol` is handled above: its message has a different shape.
  */
@@ -168,8 +196,7 @@ function parsePragma(text: string): { directive: string; messageText?: string; a
   if (said?.kind === "message") return { directive: said.severity, messageText: said.text }
   const m = /^\{\s*([^\s}]+)/.exec(text)
   const directive = m?.[1] ?? ""
-  const dir = directive.toLowerCase()
-  if (dir === "attribute") {
+  if (directive === "attribute") {
     // the front-end's one reading of an attribute (`syntax/pragmas/attributes` `parseAttribute`): an UNQUOTED value
     // (`:= readwrite`) is the empty string to the compiler — "Invalid value ''" (`cc4_attribute_value_string`)
     const a = readAttribute(text)

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../parse/parser.js"
-import { declarationAttributes, memberAttributes, unitAttributes } from "./attributes.js"
+import { declarationAttributes, memberAttributes, readAttribute, unitAttributes } from "./attributes.js"
 
 // An `instance-path` STRING is set from the project tree (user decision 2026-09-15) — lowering has to know WHICH variable
 // carries the attribute, which the folded map cannot say.
@@ -65,4 +65,30 @@ END_FUNCTION_BLOCK
   expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "call_after_global_init_slot=50000", "instance-path", "reflection"])
   expect(byName.has("FB_B")).toBe(false)
   expect(byName.has("AfterInit")).toBe(false)
+})
+
+// The pragma word is case-sensitive, as every other pragma word is: `{ATTRIBUTE 'volt_bogus'}` is no attribute — CODESYS
+// does not warn about the unknown name it would carry (`prag_rule_unknown_attribute_upper_case`, analysis-conformance 3.10).
+test("an attribute is spelled `attribute` in lower case; `{ATTRIBUTE '…'}` is none", () => {
+  expect(readAttribute("{attribute 'volt_x' := 'v'}")).toEqual({ name: "volt_x", value: "v" })
+  expect(readAttribute("{ATTRIBUTE 'volt_x'}")).toBeUndefined()
+  expect(readAttribute("{Attribute 'volt_x'}")).toBeUndefined()
+})
+
+// …and one written as a STATEMENT in a body belongs to nothing: CODESYS does not warn about the unknown name it carries
+// (`prag_rule_unknown_attribute_in_body`, analysis-conformance 3.10), and attached to the unit the printer wrote it above
+// the unit a second time.
+test("an attribute in a body is attached to no node", () => {
+  const parseResult = parseSource("FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{attribute 'volt_x'}\nout := 1;\nEND_FUNCTION_BLOCK\n", { networkText: true })
+  expect(parseResult.units[0]!.attributes).toBeUndefined()
+  expect([...unitAttributes(parseResult).values()]).toEqual([])
+})
+
+// …a KNOWN name included (the 3.10 gate review): `{ATTRIBUTE 'qualified_only'}` above a GVL leaves its global readable
+// bare — both vendors build `out := g_…;` clean (`prag_rule_qualified_only_upper_case`) — so it attaches as nothing.
+test("`{ATTRIBUTE 'qualified_only'}` is no attribute of the list", () => {
+  const parseResult = parseSource("{ATTRIBUTE 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true })
+  expect(parseResult.units[0]!.attributes).toBeUndefined()
+  const lower = parseSource("{attribute 'qualified_only'}\nVAR_GLOBAL\n\tg : INT;\nEND_VAR\n", { networkText: true })
+  expect(lower.units[0]!.attributes?.map((a) => a.name)).toEqual(["qualified_only"])
 })

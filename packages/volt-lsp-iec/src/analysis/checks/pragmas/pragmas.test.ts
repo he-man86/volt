@@ -67,6 +67,50 @@ END_VAR`
   expect(attrs(gvl("totally_bogus"), true)).toEqual([])
 })
 
+// …the LIST's pragma. One on a VARIABLE of the list warns as anywhere else (`prag_rule_unknown_attribute_on_gvl_variable`,
+// analysis-conformance 3.10, CODESYS; TwinCAT clean).
+test("an unknown attribute on a GVL's variable is flagged", () => {
+  expect(attrs(`VAR_GLOBAL
+	{attribute 'volt_bogus'}
+	v : INT := 1;
+END_VAR`, true).map((d) => d.message)).toEqual([
+    "The attribute volt_bogus is unknown and will be ignored by the  compiler.",
+  ])
+})
+
+// Measured, analysis-conformance 3.10 (CODESYS; TwinCAT silent on both): an attribute written as a STATEMENT in a body
+// attaches to nothing (`prag_rule_unknown_attribute_in_body`), and `{ATTRIBUTE '…'}` is no attribute — the word is
+// case-sensitive like every other pragma word (`prag_rule_unknown_attribute_upper_case`).
+test("an attribute in a body, and the ATTRIBUTE word in upper case, are not checked", () => {
+  expect(attrs(`FUNCTION_BLOCK F
+VAR
+	out : INT;
+END_VAR
+{attribute 'volt_bogus'}
+out := 1;
+END_FUNCTION_BLOCK`, true)).toEqual([])
+  expect(attrs(`FUNCTION_BLOCK F
+VAR
+	{ATTRIBUTE 'volt_bogus'}
+	v : INT;
+END_VAR
+END_FUNCTION_BLOCK`, true)).toEqual([])
+})
+
+// `monitoring_encoding := 'utf-8'` builds clean (`prag_rule_monitoring_encoding_lower_case`, analysis-conformance 3.10):
+// the published set is compared without case (`symbol`'s is the case-sensitive one, above).
+test("a closed value set is compared without case", () => {
+  const enc = (v: string) => `FUNCTION_BLOCK F
+VAR
+	{attribute 'monitoring_encoding' := '${v}'}
+	s : STRING;
+END_VAR
+END_FUNCTION_BLOCK`
+  expect(attrs(enc("utf-8"), true)).toEqual([])
+  expect(attrs(enc("UnicodeCharacter"), true)).toEqual([])
+  expect(attrs(enc("UTF8"), true)).toHaveLength(1)
+})
+
 test("the C0351 warning can be turned OFF (toggle) — then a typo is not flagged", () => {
   expect(attrs(withAttr("qualifid_only"), false)).toEqual([])
 })
@@ -98,8 +142,13 @@ test("a typo'd 'symbol' value ('noe') is flagged with the SymbolConfig wording",
   expect(d[0]?.message).toBe("SymbolConfig: Invalid value 'noe' for attribute 'symbol'. Should be one of: none, read, write, readwrite")
 })
 
-test("every legal 'symbol' value is accepted (zero-FP), case-insensitively", () => {
-  for (const v of ["none", "read", "write", "readwrite", "None", "ReadWrite"]) expect(attrs(prog(v), true)).toEqual([])
+// This said "case-insensitively" and accepted `'None'` / `'ReadWrite'`, unrecorded: CODESYS warns about `'READ'`
+// (`prag_rule_symbol_value_upper_case`, analysis-conformance 3.10 — TwinCAT builds it clean). The set is lower case.
+test("every legal 'symbol' value is accepted (zero-FP), in lower case only", () => {
+  for (const v of ["none", "read", "write", "readwrite"]) expect(attrs(prog(v), true)).toEqual([])
+  expect(attrs(prog("READ"), true).map((d) => d.message)).toEqual([
+    "SymbolConfig: Invalid value 'READ' for attribute 'symbol'. Should be one of: none, read, write, readwrite",
+  ])
 })
 
 test("the invalid-value warning rides the SAME C0351 toggle (off ⇒ silent) and is CODESYS-only", () => {
@@ -249,6 +298,17 @@ test("the same attribute on a FUNCTION_BLOCK warns too, and not on TwinCAT", () 
   expect(abstractWarnings("{attribute 'abstract'}\n" + FB, "twincat")).toEqual([])
 })
 
+// …and on a PROPERTY and a FUNCTION (`prag_rule_abstract_attribute_on_property`, `_on_function`, analysis-conformance 3.10;
+// TwinCAT clean): a FUNCTION takes no ABSTRACT keyword, and CODESYS still says it is missing.
+test("the same attribute on a PROPERTY and on a FUNCTION warns, and not on TwinCAT", () => {
+  const property = FB + "\n{attribute 'abstract'}\nPROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n"
+  const fn = "{attribute 'abstract'}\nFUNCTION G : INT\nG := 1;\nEND_FUNCTION\n"
+  for (const src of [property, fn]) {
+    expect(abstractWarnings(src)).toEqual(["The ABSTRACT keyword is missing"])
+    expect(abstractWarnings(src, "twincat")).toEqual([])
+  }
+})
+
 test("a method carrying the KEYWORD as well is silent", () => {
   expect(
     abstractWarnings(FB + "\n{attribute 'abstract'}\nMETHOD ABSTRACT Shape : INT\nEND_METHOD\n"),
@@ -280,4 +340,24 @@ test("a message pragma's word in upper or mixed case is no message pragma, in a 
       "warning:body",
     ])
   }
+})
+
+// The 3.10 gate review asked the kinds the rule had not been put to: a PROGRAM warns, and so does a METHOD of an INTERFACE
+// (`prag_rule_abstract_attribute_on_program`, `_on_interface_method`, CODESYS; TwinCAT clean) — the warning does not
+// depend on the POU kind. (An ACTION cannot carry the attribute: the push refuses a pragma above `ACTION`.)
+test("the same attribute on a PROGRAM and on an INTERFACE's METHOD warns, and not on TwinCAT", () => {
+  const program = "{attribute 'abstract'}\nPROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := 1;\nEND_PROGRAM\n"
+  const itfMethod = "INTERFACE I\n{attribute 'abstract'}\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n"
+  for (const src of [program, itfMethod]) {
+    expect(abstractWarnings(src)).toEqual(["The ABSTRACT keyword is missing"])
+    expect(abstractWarnings(src, "twincat")).toEqual([])
+  }
+})
+
+// `{ATTRIBUTE 'hide'}` (the word in upper case) does not silence the value check: CODESYS still warns about 'UTF8' beside
+// it (`prag_rule_hide_upper_case`, the 3.10 gate review; TwinCAT clean) — the upper-case word is no attribute at all.
+test("`{ATTRIBUTE 'hide'}` does not silence monitoring_encoding's value check", () => {
+  const src = "FUNCTION_BLOCK F\nVAR\n\t{ATTRIBUTE 'hide'}\n\t{attribute 'monitoring_encoding' := 'UTF8'}\n\ts : STRING;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  expect(attrs(src, true)).toHaveLength(1)
+  expect(attrs(src, true, "twincat")).toEqual([])
 })

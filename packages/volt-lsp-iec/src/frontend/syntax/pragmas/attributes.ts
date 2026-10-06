@@ -26,7 +26,9 @@ export function hasFrontendAttribute(node: { attributes?: readonly Attribute[] }
 /** `text` (a whole pragma token) read as an attribute's name and value — undefined for any other pragma. The one
  *  reading of an attribute: the analysis checks ask this, the parser attaches `parseAttribute`'s. */
 export function readAttribute(text: string): { name: string; value?: string } | undefined {
-  const m = /^\{\s*attribute\s+'([^']*)'/i.exec(text)
+  // the word in lower case only: `{ATTRIBUTE '…'}` is no attribute (`prag_rule_unknown_attribute_upper_case`,
+  // analysis-conformance 3.10 — CODESYS does not warn about the unknown name it would carry), as every pragma word is
+  const m = /^\{\s*attribute\s+'([^']*)'/.exec(text)
   if (m === null) return undefined
   const quoted = /:=\s*'([^']*)'/.exec(text)?.[1]
   // `:= readwrite` — an unquoted value is the empty string to the compiler (`cc4_attribute_value_string`)
@@ -62,10 +64,22 @@ export function attachAttributes(units: readonly TopLevel[], tokens: readonly To
     // a unit's span stops before its END_ keyword, so the first unit ending at or after the pragma holds or follows it
     const unit = units.find((u) => u.span.end >= token.span.end)
     if (unit === undefined) continue
+    // one written as a STATEMENT, in a body, belongs to nothing — CODESYS says nothing of an unknown name there
+    // (`prag_rule_unknown_attribute_in_body`, analysis-conformance 3.10), and the printer re-wrote it above the unit
+    if (bodySpans(unit).some((b) => b.start <= token.span.start && token.span.end <= b.end)) continue
     const list = declarationLists(unit).find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
     const decl = list?.decls.find((d) => d.span.start >= token.span.end)
     add(decl ?? unit, attribute)
   }
+}
+
+/** The spans of a unit's own bodies — its statement part, a property's accessors' (read from the AST: `format/bodies`
+ *  `unitBodies` is a layer above this one). */
+function bodySpans(unit: TopLevel): Attribute["span"][] {
+  if (unit.kind === "property") return [unit.getter?.body.span, unit.setter?.body.span].filter((s) => s !== undefined)
+  if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "function" || unit.kind === "method" || unit.kind === "action")
+    return [unit.body.span]
+  return []
 }
 
 /** The name, and — when the attribute carries one — `name=value` beside it, so a consumer that needs the VALUE has it
