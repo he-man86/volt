@@ -90,7 +90,11 @@ if (status?.blockedBy?.length) {
 
 let steps = status?.steps ?? []
 if (args.only?.length) steps = steps.filter(s => args.only.includes(s.id))
+// sections: run only the steps of these tasks.md sections (the id's leading number), e.g. ['0', '1'] -- step ids are
+// named by the status agent at run time, so a section is the only boundary a launch can name in advance.
+if (args.sections?.length) steps = steps.filter(s => args.sections.includes(String(parseInt(s.id, 10))))
 const stopAt = args.stopAfter ? steps.findIndex(s => s.id === args.stopAfter) : -1
+if (args.stopAfter && stopAt < 0) throw new Error(`stopAfter '${args.stopAfter}' names no step (${steps.map(s => s.id).join(', ')})`)
 if (stopAt >= 0) steps = steps.slice(0, stopAt + 1)
 if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
 // Group consecutive structure/fix/lean/measure steps (never model, conformance or design-first steps).
@@ -225,7 +229,7 @@ if (stopped) return { change: args.change, stoppedAt: stopped, blockedBy: [`${ar
 // Close whenever the run got through without a red stop — a change whose last section is not a 'close' step was left
 // unarchived with every task ticked (three PLCAssist changes + lsp-sfc-step-names, 2026-10-03/04). The close agent checks
 // for open tasks itself and stops if one remains.
-if (!args.stopAfter && !args.maxSteps && !args.only?.length) {
+if (!args.stopAfter && !args.maxSteps && !args.only?.length && !args.sections?.length) {
   phase('Close')
   done.push(await agent(`${RULES}
 
