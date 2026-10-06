@@ -49,6 +49,10 @@ export interface Reported {
   refused: readonly Span[]
   /** C0230's spans — a hole only where one is a call's callee (`TYPE_CALLED`). */
   typeNames: readonly Span[]
+  /** C0035's spans — a call whose callee is refused as no call target has no type, whatever the callee's own type: a VAR
+   *  CONSTANT called in a body (`calls_constant_called`, both vendors 2026-10-06), which the type layer still types as its
+   *  value because an aggregate's repeat count `c(-1)` reads as such a call (`types/infer` `callReturnType`). */
+  callTargets: readonly Span[]
 }
 
 export function reported(out: readonly DiagnosticItem[]): Reported {
@@ -56,6 +60,7 @@ export function reported(out: readonly DiagnosticItem[]): Reported {
     explained: out.filter((d) => RESOLUTION_FAILURE.has(d.code)).map((d) => d.span),
     refused: out.filter((d) => REFUSED_OUTRIGHT.has(d.code)).map((d) => d.span),
     typeNames: out.filter((d) => d.code === TYPE_CALLED).map((d) => d.span),
+    callTargets: out.filter((d) => d.code === "invalid-call-target").map((d) => d.span),
   }
 }
 
@@ -153,6 +158,7 @@ export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): b
   // 2026-10-06). A STRUCT's name CALLED is (`dt_struct_type_name_called`).
   if (e.kind === "ident_expr" && lookup(scope, e.name)?.symbol.kind === "type") return false
   if (unknown && e.kind === "call" && within(seen.typeNames, e.callee.span)) return true
+  if (e.kind === "call" && seen.callTargets.some((s) => s.start === e.callee.span.start && s.end === e.callee.span.end)) return true
   if (!within(seen.explained, e.span)) return false
   if (unknown) return true
   // For a CALL only the CALLEE counts: the result is the callee's declared return type, which the compiler knows

@@ -20,7 +20,8 @@ import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkRecursiveCall(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    if (unit.kind !== "function") continue
+    // …and a METHOD calling itself, refused alike (`calls_method_recursive`, both vendors 2026-10-06)
+    if (unit.kind !== "function" && unit.kind !== "method") continue
     const self = unit.name.text.toLowerCase()
     walkAllExprs(statements, (e) => {
       if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.callee.name.toLowerCase() !== self) return

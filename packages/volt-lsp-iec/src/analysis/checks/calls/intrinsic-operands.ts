@@ -14,7 +14,7 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { atomicOperand, inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
+import { atomicOperand, elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
 import { conversionWarning, storeConversionError } from "../../shared/rules.js"
 import { type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
@@ -22,8 +22,9 @@ import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { literalHole } from "../../shared/hole.js"
 
-/** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
-const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+/** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. Not SQRT: it takes an LREAL, and its
+ *  operand is CONVERTED to it (`calls_sqrt_of_bool`, below); the rest of this list is unmeasured. */
+const MATH_OPS = new Set(["ABS", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
 /** Intrinsic-operator operand-count rules (C0022 exact / C0023 at-least). Only IEC-standard operators with an
  *  unambiguous arity — a real project's correct usage never fires (the corpus gate validates the table). */
 const OP_ARITY: Record<string, { exact?: number; atLeast?: number }> = {
@@ -60,6 +61,13 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind === "elementary" && !inTypeGroup("ANY_NUM", t.elem))
         emit(out, arg.span, "operator-not-possible", ctx.messages.operatorNotPossible(titleCase(name), t.name)) // C0072
+    }
+    // SQRT TAKES AN LREAL, and its operand is converted to it as a store would convert it: a BOOL is "Cannot convert type
+    // 'BOOL' to type 'LREAL'" (`calls_sqrt_of_bool`, both vendors 2026-10-06), where C0072's "Operation 'Sqrt' is not
+    // possible" was a guess no recording held
+    if (name === "SQRT" && lookup(scope, e.callee.name) === undefined) {
+      const refused = storeConversionError(elementaryTypeRef(elementaryType("LREAL")!), arg, arg.span, scope, ctx.project, ctx.messages, "argument")
+      if (refused !== undefined) out.push({ ...refused, code: "call-argument-type" })
     }
     // THE ARRAY BOUNDS OPERATORS WANT A VARIABLE-LENGTH ARRAY — on TwinCAT. `LOWER_BOUND(grid, 1)` where `grid`
     // is `ARRAY[-1..1, 3..9] OF INT` is refused there and folded by CODESYS, which is a real difference and not a
@@ -105,7 +113,9 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
         emit(out, arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131
       } else {
         const t = inferExprType(arg, scope, ctx.project)
-        if (t.kind === "elementary" && t.name === "BIT") emit(out, arg.span, "adr-on-bit", ctx.messages.adrOnBit(), "warning") // C0355
+        // …and a bit ACCESS `w.3` on CODESYS, which TwinCAT takes in silence (`calls_adr_on_bit_access`, 2026-10-06)
+        const bitAccess = ctx.project.dialect === "codesys" && arg.kind === "member" && /^\d+$/.test(arg.member.name)
+        if ((t.kind === "elementary" && t.name === "BIT") || bitAccess) emit(out, arg.span, "adr-on-bit", ctx.messages.adrOnBit(), "warning") // C0355
       }
     }
     // THE ATOMICS WANT A POINTER, AND A FIXED ONE. `__XADD` names `POINTER TO DINT` whatever it was handed and

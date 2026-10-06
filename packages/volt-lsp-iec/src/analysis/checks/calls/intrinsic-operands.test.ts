@@ -57,7 +57,11 @@ test("C0070: INI of a non-instance is flagged; INI of an FB instance is not", ()
 test("C0072: a math operator on a non-numeric type is flagged; on a numeric type is not", () => {
   const op = run("operator-not-possible")
   expect(op(`rv := ABS(sv);`)).toEqual(["Operation 'Abs' is not possible on type 'STRING'"])
-  expect(op(`rv := SQRT(sv);`)).toEqual(["Operation 'Sqrt' is not possible on type 'STRING'"])
+  // SQRT is no operation on its operand's type but a FUNCTION taking an LREAL: its operand is converted, and a BOOL is
+  // "Cannot convert type 'BOOL' to type 'LREAL'" (`calls_sqrt_of_bool`, both vendors 2026-10-06) — this asserted the
+  // C0072 sentence for SQRT(STRING), a shape no recording held; recorded since (`calls_sqrt_of_string`, both vendors, gate
+  // 3.7+3.9): "Cannot convert type 'STRING' to type 'LREAL'" — the conversion, not this sentence
+  expect(op(`rv := SQRT(sv);`)).toEqual([])
   expect(op(`rv := ABS(i);`)).toEqual([])
 })
 
@@ -146,4 +150,36 @@ END_FUNCTION_BLOCK`
     "'DINT_TO_DWORD(flag)' is not allowed as operand for ADR",
     "Implicit conversion from signed Type 'DINT' to unsigned Type 'DWORD' : possible change of sign",
   ])
+})
+
+test("SQRT converts its operand to LREAL: a BOOL or a STRING is refused as that conversion (calls_sqrt_of_bool, _of_string)", () => {
+  for (const [type, name] of [["BOOL", "BOOL"], ["STRING", "STRING"]] as const) {
+    const src = `FUNCTION_BLOCK F\nVAR\n operand : ${type};\n x : LREAL;\nEND_VAR\nx := SQRT(operand);\nEND_FUNCTION_BLOCK`
+    for (const vendor of ["codesys", "twincat"] as const) {
+      const pr = parseSource(src, { networkText: true }, vendor)
+      const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+      expect(computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)).toEqual([
+        `Cannot convert type '${name}' to type 'LREAL'`,
+      ])
+    }
+  }
+})
+
+// `calls_adr_on_bit_access` (2026-10-06): ADR of a bit access `w.3` is the single-bit warning on CODESYS, as of a BIT
+// field; TwinCAT says nothing of it (and warns for the BIT field, `calls_adr_on_bit_field`)
+test("ADR of a bit access is CODESYS's single-bit warning; TwinCAT's silence", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+ w : WORD;
+ p : POINTER TO BYTE;
+END_VAR
+p := ADR(w.3);
+END_FUNCTION_BLOCK`
+  const got = (vendor: "codesys" | "twincat") => {
+    const pr = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+  }
+  expect(got("codesys")).toEqual(["A single bit cannot be referenced. A reference to the complete byte will be stored."])
+  expect(got("twincat")).toEqual([])
 })

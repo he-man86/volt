@@ -325,8 +325,12 @@ export interface Messages {
    *  `lt_literal_any_int_argument` (frontend-conformance 4.2, 2026-10-03). */
   anyNeedsWritable(param: string, callee: string): string
   /** A VAR_IN_OUT CONSTANT parameter passed an integer literal or constant (conformance `inout_const_bound_forms_1`,
-   *  `inout_const_fb_literal_6`). CODESYS only — TwinCAT is not recorded, so undefined there and the check stays silent. */
-  inOutConstantNeedsVariable(param: string, callee: string): string | undefined
+   *  `inout_const_fb_literal_6`). Both vendors, identical (TwinCAT's recording of both, read in analysis-conformance 3.8 —
+   *  this said TwinCAT was not recorded and stayed silent there). */
+  inOutConstantNeedsVariable(param: string, callee: string): string
+  /** A property bound to a VAR_IN_OUT — CODESYS's own sentence (`calls_inout_bound_to_property`, 2026-10-06); TwinCAT says
+   *  `inOutNeedsWritable`'s, so undefined there. */
+  propertyBoundToInOut(): string | undefined
   /** A VAR_IN_OUT parameter left unassigned in a call (C0039). verified both vendors. */
   inOutMustBeAssigned(param: string, callee: string): string
   /** A VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201). verified both vendors. */
@@ -720,7 +724,8 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `VAR_IN_OUT parameter '${param}' of '${callee}' needs variable with write access as input`
         : `VAR_IN_OUT respectively REFERENCE parameter '${param}' of '${callee}' needs variable with write access as input`,
-    inOutConstantNeedsVariable: (param, callee) => (tc ? undefined : `VAR_IN_OUT CONSTANT parameter '${param}' of '${callee}' needs variable as input`),
+    inOutConstantNeedsVariable: (param, callee) => `VAR_IN_OUT CONSTANT parameter '${param}' of '${callee}' needs variable as input`,
+    propertyBoundToInOut: () => (tc ? undefined : `Properties can't be assigned to VAR_IN_OUT.`),
     inOutMustBeAssigned: (param, callee) => `VAR_IN_OUT '${param}' must be assigned in call of '${callee}'`,
     inOutTypeMismatch: (argType, paramType, param) =>
       tc

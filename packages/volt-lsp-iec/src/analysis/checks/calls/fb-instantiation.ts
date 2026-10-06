@@ -12,6 +12,7 @@
  */
 import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachExpr, isLibrarySymbol, lookup, type Scope } from "../../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -26,6 +27,16 @@ export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): 
     // (conformance `cc5_type_invoked_directly`). Reaching into one for a member says only the first.
     if (kind === "interface" && e.kind === "call")
       out.push({ severity: "error", span: name.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.cannotCallObjectOfType("INTERFACE") })
+    // …and the type name passed as a call's ARGUMENT (`calls_fb_type_as_argument`, `calls_itf_type_as_argument`, both
+    // vendors 2026-10-06; `op_sys_queryinterface` names an interface as an operand the same way)
+    // — of a routine (FUNCTION, METHOD, FB) or __QUERYINTERFACE: the operators that TAKE a type (`__NEW(FB_X)`,
+    // `INDEXOF(FB_X)`, `SIZEOF`) are other questions (`newdel_*`, `operand_indexof`)
+    if (e.kind === "call" && (takesArguments(e.callee, scope, ctx) || (e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "__QUERYINTERFACE")))
+      for (const arg of e.args) {
+        if (arg.value?.kind !== "ident_expr" || arg.output) continue
+        const argKind = typeNamed(arg.value, scope)
+        if (argKind !== undefined) out.push(notInstantiated(argKind, arg.value, ctx))
+      }
   })
   // …and the type name stored as an assignment's value
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -47,4 +58,13 @@ function notInstantiated(kind: "function_block" | "interface", name: Extract<Exp
   return kind === "function_block"
     ? { severity: "error", span: name.span, source: SOURCE, code: "fb-not-instantiated", message: ctx.messages.fbMustBeInstantiated(name.name) } // C0080
     : { severity: "error", span: name.span, source: SOURCE, code: "interface-not-instantiated", message: ctx.messages.interfaceMustBeInstantiated(name.name) } // C0199
+}
+
+/** Does the callee resolve to a routine whose arguments are values — a FUNCTION, a METHOD or an FB instance? */
+function takesArguments(callee: Expr, scope: Scope, ctx: CheckContext): boolean {
+  const sym = resolveMemberChain(callee, scope, ctx.project)
+  if (sym === undefined) return false
+  if (sym.kind === "function" || sym.kind === "method" || sym.kind === "interface_method") return true
+  const t = inferExprType(callee, scope, ctx.project)
+  return t.kind === "function_block"
 }

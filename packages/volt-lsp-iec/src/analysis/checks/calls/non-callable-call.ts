@@ -11,8 +11,8 @@
  * Corpus-verified zero-FP.
  */
 import { walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
+import { bodies, type Scope } from "../../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain, resolveNamedType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { unknownTypeName } from "../../shared/resolution.js"
@@ -24,10 +24,13 @@ const CALLABLE_KINDS = new Set(["function_block", "function", "method", "program
 const NON_CALLABLE_TYPE = new Set(["elementary", "enum", "struct", "array", "pointer", "reference"])
 
 /** The invoked name for the C0035 message (`i` in `i()`, the member in `a.b()`, `.g` as written in `.g()`). */
-function calleeName(e: Expr): string {
+function calleeName(e: Expr, scope?: Scope, ctx?: CheckContext): string {
+  // an ENUM type's value is named as written, the type with it: 'E.Busy' (`calls_enum_value_called`, both vendors 2026-10-06)
+  if (e.kind === "member" && scope !== undefined && ctx !== undefined && e.base.kind === "ident_expr" && resolveNamedType(e.base.name, ctx.project).kind === "enum")
+    return ctx.source.slice(e.span.start, e.span.end)
   // `.gCall(1)` is "… instead of '.gCall'", the dot kept (`expr_global_namespace_call_non_callable`, both vendors)
   if (e.kind === "global_expr") return `.${e.name.name}`
-  return e.kind === "ident_expr" ? e.name : e.kind === "member" ? e.member.name : e.kind === "paren" ? calleeName(e.inner) : "?"
+  return e.kind === "ident_expr" ? e.name : e.kind === "member" ? e.member.name : e.kind === "paren" ? calleeName(e.inner, scope, ctx) : "?"
 }
 
 export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -64,8 +67,14 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
         out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("TYPE") })
         return
       }
+      // …and so is an INSTANCE of a STRUCT called: "Cannot call object of type 'TYPE'" (`calls_struct_instance_called`, both
+      // vendors 2026-10-06)
+      if (target.kind === "struct" && type.kind === "struct") {
+        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("TYPE") })
+        return
+      }
       if (NON_CALLABLE_TYPE.has(target.kind) || (target.kind === "static" && target.denotes === "namespace"))
-        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee)) })
+        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee, scope, ctx)) })
     })
   }
 }

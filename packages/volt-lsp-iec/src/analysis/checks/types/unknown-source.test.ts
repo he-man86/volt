@@ -133,3 +133,11 @@ test("an initializer's named destination is the resolved type, upper-cased like 
   const src = "TYPE E_a : (ea_x := 3, ea_y := 4);\nEND_TYPE\n\n" + fb("e : E_a := nope;\n\td : dint := nope;", "")
   expect(msgs(src)).toEqual(["Cannot convert type 'Unknown type: 'nope'' to type 'E_A'", "Cannot convert type 'Unknown type: 'nope'' to type 'DINT'"])
 })
+
+// analysis-conformance 3.8 (`calls_constant_called`, both vendors 2026-10-06): a call the vendor refuses as no call target
+// has no type — a VAR CONSTANT called in a body too — and its store says so
+test("a VAR CONSTANT called in a body is no call target, and the call has no type", () => {
+  const src = `FUNCTION_BLOCK F\nVAR CONSTANT\n\tc : INT := 4;\nEND_VAR\nVAR\n\tout : INT;\nEND_VAR\nout := c();\nEND_FUNCTION_BLOCK`
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(msgs(src, vendor)).toContain("Cannot convert type 'Unknown type: 'c()'' to type 'INT'")
+})

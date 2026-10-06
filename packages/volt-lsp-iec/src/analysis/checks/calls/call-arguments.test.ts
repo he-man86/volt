@@ -126,7 +126,9 @@ test("4.3d C0039: a VAR_IN_OUT left unbound in a call is flagged; a bound one is
   expect(codes(fb, call(`inst();`))).toContain("in-out-not-assigned")
   expect(codes(fb, call(`inst(n := 1);`))).toContain("in-out-not-assigned") // inout still unbound
   expect(codes(fb, call(`inst(inout := x);`))).not.toContain("in-out-not-assigned") // bound by name
-  expect(codes(fb, call(`inst(x, 1);`))).not.toContain("in-out-not-assigned") // bound by position (slot 0 = inout)
+  // an FB takes no positional argument, so a positional one binds no VAR_IN_OUT: `cg_fb_positional` records "VAR_IN_OUT
+  // 'touched' must be assigned" beside each positional refusal (both vendors) — this said "bound by position"
+  expect(codes(fb, call(`inst(x, 1);`))).toContain("in-out-not-assigned")
 })
 
 test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the same type is not", () => {
@@ -693,4 +695,116 @@ test("a PROGRAM called positionally is refused, one error per argument (dt_progr
     .filter((d) => d.code === "input-assignment-missing")
     .map((d) => d.message)
   expect(msgs).toEqual(["Assignment to input missing for parameter '5' in call of 'PRG_T'"])
+})
+
+// ─── analysis-conformance 3.8 (`calls_*`, both vendors 2026-10-06) ──────────────────────────────────────────────────
+/** Every message of every source, `[severity] message`, on `vendor`. */
+function messagesOf(vendor: "codesys" | "twincat", ...sources: string[]): string[] {
+  const files = sources.map((source, i) => {
+    const parseResult = parseSource(source, { networkText: true }, vendor)
+    const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
+    return { uri: `${first?.name?.text ?? `u${i}`}.pou`, source, parseResult }
+  })
+  const project = build.buildSymbolTable(files, [], vendor)
+  const config = resolveConfig({ vendor })
+  return files.flatMap((f) =>
+    computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `[${d.severity}] ${d.message}`),
+  )
+}
+const FB_OUT = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ti : INT;\nEND_VAR\nVAR_OUTPUT\n\to : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+const outCaller = (body: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tres : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
+
+test("an output binding naming nothing is no output AND no identifier; naming an INPUT, no output (calls_unknown_output_*, calls_output_names_input)", () => {
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(messagesOf(vendor, FB_OUT, outCaller("fb(nope => res);"))).toEqual([
+      "[error] 'nope' is no output of 'FB_T'",
+      "[error] Identifier 'nope' not defined",
+    ])
+    expect(messagesOf(vendor, FB_OUT, outCaller("fb(i => res);"))).toEqual(["[error] 'i' is no output of 'FB_T'"])
+  }
+})
+
+test("a FUNCTION's or METHOD's VAR_IN_OUT left out is its input COUNT; an FB's positional arguments bind no VAR_IN_OUT", () => {
+  const fn = `FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nF_T := a;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_T(a := 1);\nEND_PROGRAM`
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(messagesOf(vendor, fn, prg)).toEqual(["[error] Function 'F_T' requires exactly '2' inputs"])
+  // `cg_fb_positional`: `target(1, 2, mark)` on an FB binds nothing, so its VAR_IN_OUT is unassigned too
+  const fbIo = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\nEND_VAR\nVAR_IN_OUT\n\ttouched : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const fbPrg = `PROGRAM P\nVAR\n\tfb : FB_T;\nEND_VAR\nfb(1);\nEND_PROGRAM`
+  expect(messagesOf("codesys", fbIo, fbPrg)).toContain("[error] VAR_IN_OUT 'touched' must be assigned in call of 'FB_T'")
+})
+
+test("the in-outs count among a FUNCTION's inputs whichever is missing, in a mixed call, beside an unknown name (gate 3.7+3.9)", () => {
+  const fn = `FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nF_T := a;\nEND_FUNCTION`
+  const fn2 = `FUNCTION F_M : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nF_M := a + b;\nEND_FUNCTION`
+  const prg = (call: string) => `PROGRAM P\nVAR\n\tv : INT;\n\tout : INT;\nEND_VAR\nout := ${call};\nEND_PROGRAM`
+  for (const vendor of ["codesys", "twincat"] as const) {
+    // the in-out given, the input left out: the same count (`calls_inout_given_input_missing`)
+    expect(messagesOf(vendor, fn, prg("F_T(io := v)"))).toEqual(["[error] Function 'F_T' requires exactly '2' inputs"])
+    // an in-out left out of a mixed call (`calls_inout_unbound_mixed`)
+    expect(messagesOf(vendor, fn2, prg("F_M(1, b := 2)"))).toEqual(["[error] Function 'F_M' requires exactly '3' inputs"])
+    // beside an unknown named input, the unknown name alone (`calls_inout_unbound_unknown_named`)
+    expect(messagesOf(vendor, fn, prg("F_T(a := 1, zz := 2)"))).toEqual([
+      "[error] 'zz' is no input of 'F_T'",
+      "[error] Identifier 'zz' not defined",
+    ])
+  }
+})
+
+test("an INTERFACE method's in-out left out is its input count (calls_inout_unbound_interface_method, gate 3.7+3.9)", () => {
+  const itf = `INTERFACE ITF_Y\nMETHOD M : INT\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nEND_METHOD\nEND_INTERFACE`
+  const prg = `PROGRAM P\nVAR\n\tref1 : ITF_Y;\n\tout : INT;\nEND_VAR\nout := ref1.M();\nEND_PROGRAM`
+  expect(messagesOf("codesys", itf, prg)).toEqual(["[error] Function 'M' requires exactly '1' inputs"])
+})
+
+test("a VAR_IN_OUT bound to a call's result needs a variable; to a property, CODESYS says so of properties (calls_inout_bound_to_*)", () => {
+  const fbIo = `FUNCTION_BLOCK FB_T\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const fn = `FUNCTION F_V : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nF_V := a;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n\tfb : FB_T;\nEND_VAR\nfb(io := F_V(a := 2));\nEND_PROGRAM`
+  expect(messagesOf("codesys", fbIo, fn, prg)).toEqual([
+    "[error] VAR_IN_OUT respectively REFERENCE parameter 'io' of 'FB_T' needs variable with write access as input",
+  ])
+  expect(messagesOf("twincat", fbIo, fn, prg)).toEqual(["[error] VAR_IN_OUT parameter 'io' of 'FB_T' needs variable with write access as input"])
+  const owner = `FUNCTION_BLOCK FB_P\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nGET\nP := stored;\nEND_GET\nSET\nstored := P;\nEND_SET\nEND_PROPERTY`
+  const prg2 = `PROGRAM P\nVAR\n\tfb : FB_T;\n\tow : FB_P;\nEND_VAR\nfb(io := ow.P);\nEND_PROGRAM`
+  expect(messagesOf("codesys", fbIo, owner, prg2)).toEqual(["[error] Properties can't be assigned to VAR_IN_OUT."])
+  expect(messagesOf("twincat", fbIo, owner, prg2)).toEqual(["[error] VAR_IN_OUT parameter 'io' of 'FB_T' needs variable with write access as input"])
+})
+
+test("a FUNCTION input defaulted with a VARIABLE is required on CODESYS (callarg_no_argument_variable_default)", () => {
+  const gvl = `VAR_GLOBAL\n\tg : INT := 3;\nEND_VAR`
+  const fn = `FUNCTION F_D : INT\nVAR_INPUT\n\ti : INT := g;\nEND_VAR\nF_D := i;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_D();\nEND_PROGRAM`
+  expect(messagesOf("codesys", gvl, fn, prg)).toContain("[error] Function 'F_D' requires exactly '1' inputs")
+})
+
+test("a default naming the callee's own CONSTANT is constant, though a global VARIABLE shares its name (gate 3.7+3.9)", () => {
+  // the default is read in the CALLEE's scope: its VAR CONSTANT shadows the global (`calls_default_local_constant_shadows_global`)
+  const gvl = `VAR_GLOBAL\n\tg : INT := 3;\nEND_VAR`
+  const fn = `FUNCTION F_D : INT\nVAR CONSTANT\n\tg : INT := 1;\nEND_VAR\nVAR_INPUT\n\ti : INT := g;\nEND_VAR\nF_D := i;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_D();\nEND_PROGRAM`
+  expect(messagesOf("codesys", gvl, fn, prg).filter((m) => m.includes("requires"))).toEqual([])
+})
+
+test("a VAR_IN_OUT CONSTANT given an integer literal is refused on both vendors, a VAR CONSTANT on CODESYS alone (inout_const_bound_forms_1)", () => {
+  const fn = `FUNCTION F_C : INT
+VAR_IN_OUT CONSTANT
+	value : INT;
+END_VAR
+F_C := value;
+END_FUNCTION`
+  const prg = (arg: string) => `PROGRAM P
+VAR CONSTANT
+	seven : INT := 7;
+END_VAR
+VAR
+	out : INT;
+END_VAR
+out := F_C(value := ${arg});
+END_PROGRAM`
+  const said = (vendor: "codesys" | "twincat", arg: string) => messagesOf(vendor, fn, prg(arg)).filter((m) => m.includes("CONSTANT parameter"))
+  for (const vendor of ["codesys", "twincat"] as const) expect(said(vendor, "5")).toHaveLength(1)
+  expect(said("codesys", "seven")).toHaveLength(1)
+  expect(said("twincat", "seven")).toEqual([])
 })

@@ -64,3 +64,15 @@ test("an FB or interface type name stored as a value must be instantiated (dt_st
     .map((d) => d.message)
   expect(msgs).toEqual(["Function block 'FB' must be instantiated to be accessed", "Interface 'ITF' must be instantiated to be accessed"])
 })
+
+// analysis-conformance 3.8 (`calls_fb_type_as_argument`, `calls_itf_type_as_argument`, both vendors 2026-10-06; and
+// `op_sys_queryinterface`'s interface named as __QUERYINTERFACE's operand): a type's name passed as a call's ARGUMENT
+test("an FB's or an interface's type name passed as an argument must be instantiated", () => {
+  const src = `INTERFACE ITF\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION F : INT\nVAR_INPUT\n\ta : FB;\n\tb : ITF;\nEND_VAR\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\tn : INT;\nEND_VAR\nn := F(a := FB, b := ITF);\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")
+    .map((d) => d.message)
+  expect(got).toEqual(["Function block 'FB' must be instantiated to be accessed", "Interface 'ITF' must be instantiated to be accessed"])
+})

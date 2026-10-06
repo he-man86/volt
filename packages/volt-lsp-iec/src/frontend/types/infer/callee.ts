@@ -6,6 +6,7 @@ import { extendsChain, extendsCycle, hasUnresolvedBase, isLibrarySymbol, lookupL
 import type {
   CallExpr,
   Identifier,
+  Initializer,
   Method,
   TypeExpr,
   VarSection,
@@ -18,7 +19,7 @@ export interface CalleeInfo {
   sym: Symbol
   /** VAR_INPUT parameters in declared order, base-first through the EXTENDS chain. `hasDefault` marks the ones a
    *  call may leave out — for a FUNCTION, every input WITHOUT one is required. */
-  params: { name: Identifier; type: TypeExpr; hasDefault: boolean }[]
+  params: { name: Identifier; type: TypeExpr; hasDefault: boolean; default?: Initializer }[]
   /** Positionally-bindable parameters (VAR_INPUT + VAR_IN_OUT) in binding order, base-first, each tagged with
    *  whether it is a VAR_IN_OUT (which must receive a writable variable). `positional.length` === `positionalArity`. */
   positional: { name: Identifier; type: TypeExpr; inOut: boolean; constant: boolean }[]
@@ -111,7 +112,7 @@ function calleeInfo(
   scope: Scope | undefined,
 ): CalleeInfo {
   const paramNames = new Set<string>()
-  const params: { name: Identifier; type: TypeExpr; hasDefault: boolean }[] = []
+  const params: CalleeInfo["params"] = []
   const positional: { name: Identifier; type: TypeExpr; inOut: boolean; constant: boolean }[] = []
   for (const sec of sections) {
     if (!PARAM_SECTIONS.has(sec.sectionKind)) continue // VAR/VAR_TEMP/VAR_STAT locals aren't parameters
@@ -125,7 +126,7 @@ function calleeInfo(
         paramNames.add(id.text.toLowerCase())
         if (POSITIONAL_SECTIONS.has(sec.sectionKind))
           positional.push({ name: id, type: d.type, inOut: sec.sectionKind === "VAR_IN_OUT", constant: sec.constant === true })
-        if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type, hasDefault: d.init !== undefined })
+        if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type, hasDefault: d.init !== undefined, default: d.init })
       }
   }
   // AN FB TAKES NO POSITIONAL ARGUMENTS AT ALL. Not "as many as it has inputs" — none. `target(1, 2, mark)` on an FB

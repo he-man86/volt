@@ -89,3 +89,16 @@ FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nDut_s();\nn := Dut_s();\nEND_FUNCTION_
     "Type name 'Dut_s' not expected in this place",
   ])
 })
+
+// analysis-conformance 3.8 (both vendors 2026-10-06): a STRUCT instance called is "Cannot call object of type 'TYPE'", as
+// its type's name is (`calls_struct_instance_called`); an enum value called is named as written, type and all
+// (`calls_enum_value_called`)
+test("a STRUCT instance called calls a TYPE; an enum value called is named as written", () => {
+  const ds = one(
+    "TYPE S :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\n\nTYPE E :\n(\n Idle := 0,\n Busy := 1\n);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n rec : S;\nEND_VAR\nrec();\nE.Busy();\nEND_PROGRAM",
+  ).filter((d) => d.code === "non-callable-call" || d.code === "invalid-call-target")
+  expect(ds.map((d) => d.message)).toEqual([
+    "Cannot call object of type 'TYPE'",
+    "Program name, function or function block instance expected instead of 'E.Busy'",
+  ])
+})
