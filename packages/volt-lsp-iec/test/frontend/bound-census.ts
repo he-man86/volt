@@ -87,10 +87,15 @@ import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, undecidedExprCount, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, unanswered, type FixtureSources } from "./sources.js"
 import { compilerTypeText, type Dialect, type TypeExpr } from "../../src/frontend/syntax/index.js"
-import { compilerExprText } from "../../src/analysis/expr-echo.js"
-import { bareConversionArgument } from "../../src/analysis/hole.js"
-import { isStructInit, structEcho } from "../../src/analysis/checks/types/struct-init.js"
-import { initializerWarnedTwice, messagesFor, stringLiteralMessageType } from "../../src/analysis/index.js"
+import {
+  bareConversionArgument,
+  compilerExprText,
+  initializerWarnedTwice,
+  isStructInit,
+  messagesFor,
+  stringLiteralMessageType,
+  structEcho,
+} from "../../src/analysis/index.js"
 
 export interface BoundCensus {
   resolution: Record<string, number>

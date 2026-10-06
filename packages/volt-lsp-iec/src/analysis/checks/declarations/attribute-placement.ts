@@ -9,8 +9,8 @@
  * owned unit is a FUNCTION/METHOD, so a pack_mode on a struct/var (its legal home) is never flagged.
  */
 import { isTrivia, readAttribute } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]): void {
   // Map each FUNCTION/METHOD unit's start offset → the POU-kind name the message uses.

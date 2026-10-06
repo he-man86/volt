@@ -161,7 +161,7 @@ export function namespaceOf(qualifiers: readonly string[], project: Scope, asker
  * not carry (rule LB2). Every one of them is a LIBRARY's element, so only a library's answers: `Util.AppStruct`, an
  * APPLICATION type behind a library's namespace, is UNKNOWN (unrecorded; it had resolved silently to the project's type).
  * The compiler's own `__SYSTEM` namespace holds compiler names, read bare.
- * A qualifier naming nothing (`NoSuchLib.T`) is UNKNOWN — "Unknown type" (`analysis/resolution` `unknownQualifiedTypeName`).</p>
+ * A qualifier naming nothing (`NoSuchLib.T`) is UNKNOWN — "Unknown type" (`analysis/shared/resolution` `unknownQualifiedTypeName`).</p>
  */
 function resolveQualifiedType(qualifiers: readonly string[], name: string, project: Scope, depth: number, askerUri: string | undefined): Type {
   if (qualifiers[0]!.startsWith("__")) return resolveNamedType(name, project, depth, askerUri)

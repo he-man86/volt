@@ -18,8 +18,8 @@
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const HAS_COMMENT = /\/\/|\(\*|\/\*/
 

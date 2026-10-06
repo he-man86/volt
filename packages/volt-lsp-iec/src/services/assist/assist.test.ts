@@ -146,6 +146,7 @@ test("code-actions: 'wrap in TO_<type>' quick fix for an assignment type mismatc
   const src = `FUNCTION_BLOCK F\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
   const { doc, project } = setup(src)
   const diags = computeSemanticDiagnostics({
+    uri: doc.uri,
     parseResult: doc.parseResult,
     source: src,
     project,

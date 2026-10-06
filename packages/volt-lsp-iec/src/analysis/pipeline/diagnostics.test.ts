@@ -1,13 +1,14 @@
 import { test, expect } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
-import { parseSource } from "../frontend/syntax/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "./index.js"
-import { build } from "../frontend/symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
+import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "../index.js"
+import { build } from "../../frontend/symbols/index.js"
+import { uriFor } from "../test-uri.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 
 const codes = (src: string, v: Vendor): string[] =>
@@ -353,7 +354,7 @@ test("message pragmas surface the author's text at matching severity", () => {
 // gate and stays. The difference is positional, so that is what this reads: the first statement of the exported
 // check function. Found by a review of `consolidate-lsp-structure`.
 test("no check opens with a whole-body vendor early return — the registry decides that", () => {
-  const dir = new URL("./checks/", import.meta.url)
+  const dir = new URL("../checks/", import.meta.url)
   const files = Array.from(readdirSync(dir, { recursive: true, encoding: "utf8" }))
     .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
     .map((f) => new URL(f.split("\\").join("/"), dir))
@@ -376,6 +377,6 @@ test("a parse lexed as one vendor is refused by name when analysed as the other"
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "codesys")
   expect(() =>
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
   ).toThrow(/dialect mismatch: the source was parsed as 'twincat'/)
 })

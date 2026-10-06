@@ -10,8 +10,8 @@
 import { walkAllExprs } from "../../../frontend/syntax/index.js"
 import { bodies, targetOf } from "../../../frontend/symbols/index.js"
 import { elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

@@ -4,11 +4,11 @@
  * wording. The rules lived inside check files, so the network layer imported three check files through the analysis
  * index (consolidate-lsp-structure C3).
  */
-import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../frontend/syntax/index.js"
-import { targetOf, type Scope } from "../frontend/symbols/index.js"
-import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN, untypedNumberValue } from "../frontend/types/index.js"
+import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../../frontend/syntax/index.js"
+import { targetOf, type Scope } from "../../frontend/symbols/index.js"
+import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN, untypedNumberValue } from "../../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
-import { compilerStringLiteralText, type Messages } from "./messages.js"
+import { compilerStringLiteralText, type Messages } from "../messages.js"
 
 // ─── checkable types ─────────────────────────────────────────────────────────
 

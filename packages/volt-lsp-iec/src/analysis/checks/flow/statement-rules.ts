@@ -18,10 +18,10 @@
 import { walkStatements, stmtChildLists, type Expr, type StatementList } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import { constancyOf, inferExprType } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { compilerExprText } from "../../expr-echo.js"
-import { isRefusedCounter } from "../../rules.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
+import { isRefusedCounter } from "../../shared/rules.js"
 
 export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

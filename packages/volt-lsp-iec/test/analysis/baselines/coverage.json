@@ -1,10 +1,10 @@
 {
   "counts": {
-    "builders with 0 TP on both vendors": 19,
-    "builders with 0 TP on codesys": 21,
+    "builders with 0 TP on both vendors": 18,
+    "builders with 0 TP on codesys": 20,
     "builders with 0 TP on codesys only": 2,
     "builders with 0 TP on twincat": 43,
-    "builders with 0 TP on twincat only": 24,
+    "builders with 0 TP on twincat only": 25,
     "checks firing on 0 fixtures": 0
   },
   "findings": [
@@ -46,12 +46,12 @@
     "builder queryPointerSecond: 0 TP on both vendors (called by checkIntrinsicOperands)",
     "builder recursiveConstant: 0 TP on twincat (called by checkConstantCycle)",
     "builder reservedKeyword: 0 TP on twincat (called by checkReservedKeyword)",
-    "builder semicolonExpectedInsteadOf: 0 TP on both vendors (called by no check file)",
     "builder subrangeAssignTarget: 0 TP on both vendors (called by checkAssignmentTypes, checkIntrinsicOperands, checkNarrowingConversion, checkSubrange, network-text)",
     "builder unexpectedArrayInit: 0 TP on codesys (called by checkArrayInit)",
     "builder unionInheritance: 0 TP on twincat (called by checkHeaderRules)",
     "builder unknownAttribute: 0 TP on twincat (called by checkPragmas)",
     "builder unknownNamedOutput: 0 TP on both vendors (called by checkCallArguments)",
+    "builder variableDeclarationExpectedInsteadOf: 0 TP on twincat (called by checkParseErrors)",
     "builder vectorBaseType: 0 TP on twincat (called by checkDeclaredType)",
     "check checkAbstractAssign (oop): fires on 0 fixtures on twincat (not run for it)",
     "check checkAbstractOutputDefault (oop): fires on 0 fixtures on twincat (not run for it)",

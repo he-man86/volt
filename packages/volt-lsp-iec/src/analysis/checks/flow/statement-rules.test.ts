@@ -5,6 +5,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
+import { uriFor } from "../../test-uri.js"
 
 const run =
   (code: string) =>
@@ -12,7 +13,7 @@ const run =
     const src = `PROGRAM P\nVAR i:INT; ii:INT;\nEND_VAR\nVAR CONSTANT j:INT:=0;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -34,7 +35,7 @@ test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", (
   const nw = (b: string) => {
     const pr = parseSource(src(b), { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(b) }])
-    return computeSemanticDiagnostics({ parseResult: pr, source: src(b), project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(b), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "multiple-assignment-new")
       .map((d) => d.message)
   }
@@ -47,7 +48,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
   const src = `FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nn := 1;\nEXIT;\nCONTINUE;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "exit-outside-loop")
     .map((d) => d.message)
   expect(msgs).toEqual(["No enclosing loop of which to exit", "No enclosing loop of which to continue"])
@@ -56,6 +57,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
   const okParse = parseSource(ok, { networkText: true })
   expect(
     computeSemanticDiagnostics({
+      uri: uriFor(okParse),
       parseResult: okParse,
       source: ok,
       project: build.buildSymbolTable([{ uri: "F.pou", parseResult: okParse, source: ok }]),
@@ -70,7 +72,7 @@ test("C0018: a CONSTANT global written as `.g` is flagged as written (expr_globa
   const src = `VAR_GLOBAL CONSTANT\ngc : INT := 7;\nEND_VAR\nVAR_GLOBAL\ngv : INT;\nEND_VAR\nFUNCTION_BLOCK F\nVAR gc : INT;\nEND_VAR\n.gc := 5;\n.gv := 5;\ngc := 5;\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "not-assignment-target")
     .map((d) => d.message)
   // the local `gc` shadows the global for the bare spelling only
@@ -96,7 +98,7 @@ test("a FOR counts in an integer: a REAL or a BOOL control variable does not con
     const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\n${loop}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "for-control-type" || d.code === "loop-exit-constant")
       .map((d) => d.message)
   }

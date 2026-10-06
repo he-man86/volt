@@ -10,10 +10,9 @@
  * and FB VAR_INPUT/VAR_OUTPUT/VAR are the legal cases and are never visited/flagged.
  */
 import type { TypeExpr } from "../../../frontend/syntax/index.js"
-import type { Span } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const BIT_OK_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR"])
 const BIT_C0203_POUS = new Set(["program", "function", "method", "global_var_list"])
@@ -25,20 +24,17 @@ export function checkBitUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
     const t = decl.type
     const span = t.span
     if (t.kind === "pointer_type" && isBit(t.target)) {
-      push(out, span, "pointer-to-bit", ctx.messages.pointerToBit()) // C0205
+      emit(out, span, "pointer-to-bit", ctx.messages.pointerToBit()) // C0205
     } else if (t.kind === "array_type" && isBit(t.element)) {
-      push(out, span, "bit-array-base", ctx.messages.bitArrayBase()) // C0206
+      emit(out, span, "bit-array-base", ctx.messages.bitArrayBase()) // C0206
     } else if (isBit(t)) {
       if (unit.kind === "function_block") {
         if (!BIT_OK_SECTIONS.has(section.sectionKind))
-          push(out, span, "bit-wrong-block", ctx.messages.bitInWrongBlock()) // C0204
+          emit(out, span, "bit-wrong-block", ctx.messages.bitInWrongBlock()) // C0204
       } else if (BIT_C0203_POUS.has(unit.kind)) {
-        push(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
+        emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
       }
     }
   }
 }
 
-function push(out: DiagnosticItem[], span: Span, code: string, message: string): void {
-  out.push({ severity: "error", span, source: SOURCE, code, message })
-}

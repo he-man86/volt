@@ -27,9 +27,10 @@ import {
   walkStatements,
 } from "../frontend/syntax/index.js"
 import { inferExprType, renderType, resolveCallee } from "../frontend/types/index.js"
-import { compilerExprText } from "../analysis/expr-echo.js"
-import { isHole, reported } from "../analysis/hole.js"
 import {
+  compilerExprText,
+  isHole,
+  reported,
   assignmentPairError,
   narrowingPairError,
   conversionArgError,
@@ -427,7 +428,7 @@ type Assignment = { readonly targets: readonly Expr[]; readonly value: Expr }
 
 /**
  * network-unknown-source: an assignment whose SOURCE the compiler could not type carries the hole to the destination,
- * exactly as an ST assignment does (conformance `cc_vg_undeclared`, `cc_vg_unknown_member`). `analysis/hole` holds
+ * exactly as an ST assignment does (conformance `cc_vg_undeclared`, `cc_vg_unknown_member`). `analysis/shared/hole` holds
  * the one definition of "could not type", and it reads the evidence the earlier checks left in `out` — so this runs
  * LAST, after `checkUndeclared`, for the same reason `unknown-source` is the last ST check.
  *

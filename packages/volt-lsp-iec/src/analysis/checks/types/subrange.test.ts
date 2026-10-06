@@ -7,6 +7,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 
 test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the lower bound, TwinCAT does not", () => {
@@ -15,7 +16,7 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
   const run = (vendor: "codesys" | "twincat") => {
     const parseResult = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "subrange-out-of-range")
       .map((d) => d.message)
   }
@@ -28,7 +29,7 @@ test("an assignment INSIDE the subrange is silent", () => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "subrange-out-of-range"),
   ).toEqual([])
 })
@@ -37,7 +38,7 @@ test("an assignment INSIDE the subrange is silent", () => {
 function subrangeMessages(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "subrange-out-of-range")
     .map((d) => d.message)
 }

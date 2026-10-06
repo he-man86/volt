@@ -2,7 +2,7 @@
  * The diagnostic an analysis produces and the source tag it carries — a leaf the checks, the shared rules and the
  * orchestrator all import without a cycle. It lived in `checks/_shared.ts` (consolidate-lsp-structure C3).
  */
-import type { Span } from "../frontend/syntax/index.js"
+import type { Span } from "../../frontend/syntax/index.js"
 
 export interface DiagnosticItem {
   severity: "error" | "warning" | "information" | "hint"
@@ -14,6 +14,17 @@ export interface DiagnosticItem {
 
 /** Source tag on every DiagnosticItem this LSP emits. */
 export const SOURCE = "volt-lsp-iec"
+
+/** Append one finding — the one helper every check uses instead of a local `push()` of its own (analysis-conformance 1.9). */
+export function emit(
+  out: DiagnosticItem[],
+  span: Span,
+  code: string,
+  message: string,
+  severity: DiagnosticItem["severity"] = "error",
+): void {
+  out.push({ severity, span, source: SOURCE, code, message })
+}
 
 /**
  * Push a diagnostic about a DECLARATION'S INITIALIZER, as often as the IDE reports it.

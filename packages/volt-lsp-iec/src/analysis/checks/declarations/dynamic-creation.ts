@@ -20,8 +20,8 @@
  */
 import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { unitAttributes, type TopLevel } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const ATTRIBUTE = "enable_dynamic_creation"
 

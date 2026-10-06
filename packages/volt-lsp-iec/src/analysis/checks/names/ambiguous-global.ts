@@ -16,8 +16,8 @@
  */
 import { forEachExpr, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import { resolveBareName } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
  *  file, so compute it once per project and reuse; without this a 10k-symbol project rescans per file. Memoized per

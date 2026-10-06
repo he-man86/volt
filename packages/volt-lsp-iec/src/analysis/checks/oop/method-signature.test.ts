@@ -2,15 +2,16 @@
  * method-signature — C0089 (FB method vs implemented interface method) and C0094/C0568 (override vs base FB method or
  * property), rule H10. The signature is the whole parameter list — name, type and section of each, and their count — and
  * the result type, as both vendors measure it (`fixtures/names/inheritance.ts`, 2026-10-02); every name in the sentence
- * is UPPER-CASED. Only an FB the vendor compiles is checked (`analysis/compiled.ts`).
+ * is UPPER-CASED. Only an FB the vendor compiles is checked (`analysis/shared/compiled.ts`).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 /** The messages of `codes` (one, or several) — every FB of the source INSTANCED by a program, as the vendor compiles only
- *  an instanced FB (`analysis/compiled.ts`). */
+ *  an instanced FB (`analysis/shared/compiled.ts`). */
 const msgs = (src0: string, codes: string | readonly string[], vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const fbs = [...src0.matchAll(/^FUNCTION_BLOCK (?:ABSTRACT )?(\w+)/gm)].map((m) => m[1])
   const vars = fbs.map((n, i) => `\tinst${i} : ${n};`).join("\n")
@@ -18,7 +19,7 @@ const msgs = (src0: string, codes: string | readonly string[], vendor: "codesys"
   const wanted = typeof codes === "string" ? [codes] : codes
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => wanted.includes(d.code))
     .map((d) => d.message)
 }
@@ -118,7 +119,7 @@ test("an FB nothing instances is not checked — the vendor compiles it not (pro
   const src = base("METHOD Fetch : INT\nEND_METHOD") + "METHOD Fetch : DINT\nEND_METHOD"
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const found = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const found = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(found.filter((d) => d.code === "override-mismatch-base")).toEqual([])
 })
 test("an FB reached only through a POINTER TO it is checked (`inh_override_pointer_only`); one instanced only in an FB nothing reaches is not", () => {
@@ -127,7 +128,7 @@ test("an FB reached only through a POINTER TO it is checked (`inh_override_point
     const src = `${src0}\n\n${tail}`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "override-mismatch-base")
       .map((d) => d.message)
   }

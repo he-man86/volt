@@ -17,7 +17,7 @@
  * signatures are lossy) are skipped, as is a type nothing resolves (a library type's text is compared as written).
  *
  * ONLY AN FB THE VENDOR COMPILES is checked — reached from a PROGRAM, a FUNCTION or a GVL by an instance, a POINTER or a
- * REFERENCE TO it, or a base of one (`analysis/compiled.ts`): an FB nothing reaches builds whatever its overrides say
+ * REFERENCE TO it, or a base of one (`analysis/shared/compiled.ts`): an FB nothing reaches builds whatever its overrides say
  * (`inh_override_uninstanced`, `_instanced_in_uninstanced_fb`, `inh_interface_method_signature_mismatch_uninstanced`;
  * pro2193). The lifecycle methods (FB_init, FB_exit, FB_reinit) are each
  * FB's own and override nothing (a derived FB_init adds the inputs its instance is declared with).
@@ -40,9 +40,9 @@ import {
 } from "../../../frontend/symbols/index.js"
 import { renderTypeExpr, type Identifier, type InterfaceMethod, type Span, type Method, type Property, type TypeExpr, type VarSection } from "../../../frontend/syntax/index.js"
 import { isSameType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
-import { compiledFbs } from "../../compiled.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { compiledFbs } from "../../shared/compiled.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

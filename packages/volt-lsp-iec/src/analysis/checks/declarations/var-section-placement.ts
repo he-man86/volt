@@ -8,8 +8,8 @@
  * it opens — `parse/declarations` `refuseNameAfterName`, frontend-conformance 2.3.2.)
  */
 import type { TopLevel, VarSection } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const POU_KINDS = new Set(["program", "function", "function_block", "method", "action"])
 

@@ -119,7 +119,7 @@ export interface StaticType {
   kind: "static"
   denotes: "gvl" | "namespace" | "struct" | "interface" | "function" | "method"
   /** The name as declared; a type the compiler prints names it upper-cased (`render`), a member-not-found message as
-   *  declared (`analysis/resolution` `checkMember`). */
+   *  declared (`analysis/shared/resolution` `checkMember`). */
   name: string
   /** The declaration's member scope, when it has one. */
   scope?: Scope

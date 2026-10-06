@@ -9,7 +9,7 @@
  * 'M' defined in function block '<BASE>'", `inh_abstract_method_not_implemented`, both vendors) — a known divergence: a
  * wire diagnostic needs its CODESYS `Cnnnn`, which the build message does not carry (`server/diagnostic-codes.ts`).
  *
- * ONLY AN FB THE VENDOR COMPILES owes anything (`analysis/compiled.ts`): an FB nothing reaches builds without the method
+ * ONLY AN FB THE VENDOR COMPILES owes anything (`analysis/shared/compiled.ts`): an FB nothing reaches builds without the method
  * its derived interface inherits (`inh_implements_derived_missing_base_method_uninstanced`, both vendors 2026-10-02) — the
  * same set `method-signature` answers for.
  *
@@ -22,7 +22,7 @@
  *     abstract). A flat presence-check can't model that, so don't guess.
  * Only the PRESENCE check is ported; per-signature mismatch is `method-signature`'s.
  */
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import {
   ancestry,
   findScopeByName,
@@ -34,8 +34,8 @@ import {
   type Scope,
 } from "../../../frontend/symbols/index.js"
 import type { FunctionBlock } from "../../../frontend/syntax/index.js"
-import { compiledFbs } from "../../compiled.js"
-import type { CheckContext } from "../../diagnostics.js"
+import { compiledFbs } from "../../shared/compiled.js"
+import type { CheckContext } from "../../pipeline/context.js"
 
 export function checkInterfaceImplementations(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

@@ -8,7 +8,7 @@
  * (`depth - 1` with `depth : INT` comes back `(depth - INT#1)`, conformance `cc2_call_recursion`) — `typeOf` supplies
  * that. It does NOT do so elsewhere: an index echoes `plain[1]` and an aggregate `STRUCT(x := 1, y := 2)`.
  */
-import { addressShape, exprText, type Expr } from "../frontend/syntax/index.js"
+import { addressShape, exprText, type AggregateElement, type Expr, type Initializer } from "../../frontend/syntax/index.js"
 
 /** The type of the zero a negation of an UNTYPED operand is echoed with — measured, not a default (`lit_enum_typed_under_minus`). */
 const UNTYPED_NEGATION_ZERO = "INT"
@@ -56,4 +56,17 @@ export function compilerExprText(e: Expr, typeOf: (e: Expr) => string | undefine
     default:
       return exprText(e)
   }
+}
+
+/** `STRUCT(x := 1, y := 2)` — the compiler's name for an initializer it could not attach to a type. */
+export function structEcho(init: Initializer): string {
+  const element = (el: AggregateElement): string => {
+    if (el.kind === "field") return `${el.name} := ${element(el.value)}`
+    if (el.kind === "value") return el.expr.kind === "literal" ? el.expr.text : "?"
+    return "?"
+  }
+  if (init.kind === "aggregate_init") return `STRUCT(${init.elements.map(element).join(", ")})`
+  // the single-field form parses as a paren-wrapped assignment; the compiler names it the same way
+  if (init.kind === "paren" && init.inner.kind === "assign_expr") return `STRUCT(${exprText(init.inner)})`
+  return "STRUCT(?)"
 }

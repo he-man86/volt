@@ -20,10 +20,10 @@
 import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
 import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, takesNoPositionalArguments, type Type } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../rules.js"
-import { bindableMember } from "../../resolution.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../shared/rules.js"
+import { bindableMember } from "../../shared/resolution.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

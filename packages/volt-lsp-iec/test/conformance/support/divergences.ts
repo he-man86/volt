@@ -878,6 +878,9 @@ const TWINCAT_DRIVER_CUTS_THE_ECHO: readonly string[] = [
   "decl_var_inst_inside_struct",
   "decl_var_global_inside_struct",
   "decl_var_config_inside_struct",
+  // …and VAR_EXTERNAL's, recorded cut the same way ("… instead of VAR_EXTERNAL"); its other divergence, the global lookup
+  // the vendors still run, is EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION's (analysis-conformance 1a+1c review)
+  "decl_var_external_inside_struct",
 ]
 
 /**

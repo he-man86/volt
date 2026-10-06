@@ -6,8 +6,8 @@
  * type resolves to another kind (or nothing) and is skipped.
  */
 import { forEachDecl, lookupUnit } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkNonInstantiable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {

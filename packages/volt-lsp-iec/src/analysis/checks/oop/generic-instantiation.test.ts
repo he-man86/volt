@@ -6,6 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const FB = `FUNCTION_BLOCK FB_G\nVAR_GENERIC CONSTANT\n\tN : UDINT := 4;\nEND_VAR\nVAR\n\ta : ARRAY[0..N] OF INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
 
@@ -13,7 +14,7 @@ const errors = (decl: string): string[] => {
   const src = `${FB}\nPROGRAM P\nVAR\n\t${decl}\nEND_VAR\nEND_PROGRAM\n`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }

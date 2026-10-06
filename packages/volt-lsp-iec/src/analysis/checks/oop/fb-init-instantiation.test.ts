@@ -7,6 +7,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
+import { uriFor } from "../../test-uri.js"
 
 const FB = `FUNCTION_BLOCK FB_Needs
 VAR
@@ -38,7 +39,7 @@ function diagnose(plc: string, vendor: Vendor = "codesys") {
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[2]!
-  return computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "fb-init-argument-missing")
     .map((d) => d.message)
 }

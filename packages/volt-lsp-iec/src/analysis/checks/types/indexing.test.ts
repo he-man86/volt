@@ -5,12 +5,13 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const idx = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT; re : REAL; str : STRING;\n  arr : ARRAY[0..2] OF INT; pt : POINTER TO INT;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "indexing-non-array")
     .map((d) => d.message)
 }
@@ -31,7 +32,7 @@ test("C0126: a pointer indexed with a count other than 1 is flagged; one index i
     const src = `PROGRAM PLC_PRG\nVAR\n  pt : POINTER TO INT; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "pointer-index-arity")
       .map((d) => d.message)
   }
@@ -44,7 +45,7 @@ test("C0048: a multi-dim array indexed with the wrong number of indices is flagg
     const src = `FUNCTION_BLOCK F\nVAR ${decl} i : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "array-index-count")
       .map((d) => d.message)
   }

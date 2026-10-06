@@ -13,7 +13,7 @@ const diag = (decls: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM${FB}`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 const codes = (decls: string): string[] => diag(decls).map((d) => d.code)
 
@@ -39,6 +39,6 @@ test("a struct (non-FB) init is left alone — no FP", () => {
   const main = `PROGRAM PLC_PRG\nVAR\n stIo : ST_Io := (io := 3);\nEND_VAR\nEND_PROGRAM`
   const p2 = parseSource(main, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "s.dut", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }])
-  const ds = computeSemanticDiagnostics({ parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeSemanticDiagnostics({ uri: uriFor(p2), parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.code)).toEqual([])
 })

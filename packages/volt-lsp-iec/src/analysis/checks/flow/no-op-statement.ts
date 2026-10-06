@@ -20,9 +20,9 @@ import { isStBody, KEYWORDS, bodyStatements, unitBodies, walkStatements, walkExp
 import { bodies, bodyConditionWorld, lookup } from "../../../frontend/symbols/index.js"
 import { inferExprType } from "../../../frontend/types/index.js"
 import type { Expr, Statement } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { compilerExprText } from "../../expr-echo.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
 
 export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): void {
   const warn = (s: Extract<Statement, { kind: "expr_stmt" }>): void => {

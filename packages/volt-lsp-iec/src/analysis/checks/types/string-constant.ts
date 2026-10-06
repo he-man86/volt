@@ -13,9 +13,9 @@
  */
 import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
 import { constEval, inferExprType, renderType } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
-import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {

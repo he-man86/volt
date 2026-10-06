@@ -6,6 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const MSG =
   "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
@@ -14,7 +15,7 @@ const msgs = (body: string): string[] => {
   const src = `TYPE stv : STRUCT\n x:INT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n p : POINTER TO stv;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "new-in-expression")
     .map((d) => d.message)
 }

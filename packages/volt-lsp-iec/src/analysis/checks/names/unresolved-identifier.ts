@@ -11,7 +11,7 @@
  * Emits two codes: `unresolved-identifier` (a bare name — `undefinedIdentifier`) and `unknown-member`
  * (`a.b` where `b` is not on `a`'s type — `unresolvedMembers`/`notAMember`). Member access is conservative:
  * only a PROJECT (non-library) struct/FB/enum base with a fully-resolved EXTENDS chain is checked, so
- * library-typed and namespace-qualified refs never false-positive (see `analysis/resolution.ts`).
+ * library-typed and namespace-qualified refs never false-positive (see `analysis/shared/resolution.ts`).
  *
  * A body is the tree its conditional pragmas compile (`bodies()`): a branch not taken is not in it, so a name only
  * that branch uses is never asked (frontend-conformance 2.7.1 — this check used to skip every body holding an `{IF}`).
@@ -19,10 +19,10 @@
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { compilerExprText } from "../../expr-echo.js"
-import { pointerMemberBases, unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
+import { pointerMemberBases, unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
 
 export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A NAME WHOSE DECLARATION FAILED TO PARSE IS NOT UNDEFINED — it is unparsed, and the parse error already said so.

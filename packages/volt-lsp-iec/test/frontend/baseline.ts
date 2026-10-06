@@ -119,6 +119,23 @@ const UNTYPED_CALL_ROWS: readonly [string, "call" | "unary"][] = [
   ["ce_fold_untyped_shl_in_context_values", "call"],
 ]
 
+const SECTION_ECHO =
+  "the TwinCAT RECORDING of a VAR section inside a STRUCT is cut at its first line break (\"Variable declaration expected instead of VAR\", the declarations CODESYS quotes lost) — divergences.ts TWINCAT_DRIVER_CUTS_THE_ECHO, a bridge bug; the LSP words the whole echo on both vendors, as the compiler does. Not regressed: since 1.11 the census attributes the gap to the builder that words it, so it moved from unowned to group syntax with the total GAP unchanged"
+/** The TwinCAT fixtures whose recorded "Variable declaration expected instead of …" is cut by the driver (TWINCAT_DRIVER_CUTS_THE_ECHO). */
+const SECTION_ECHO_ROWS: readonly string[] = [
+  "decl_var_inside_struct",
+  "decl_var_inside_struct_init",
+  "decl_var_inside_struct_names",
+  "decl_var_input_inside_struct",
+  "decl_var_output_inside_struct",
+  "decl_var_in_out_inside_struct",
+  "decl_var_temp_inside_struct",
+  "decl_var_stat_inside_struct",
+  "decl_var_external_inside_struct",
+  "decl_var_global_inside_struct",
+  "rec_unterminated_var_before_section",
+]
+
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ...UNTYPED_CALL_ROWS.flatMap(([fixture, kind]) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
@@ -160,6 +177,20 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   },
   { baseline: "resolution-dump", measure: "fixtures codesys: member NONE", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "type-dump", measure: "fixtures codesys: member UNKNOWN", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
+  // the diagnostic census: a VAR section inside a STRUCT is echoed by `parse-errors` through a NAMED builder since
+  // analysis-conformance 1.11 (`variableDeclarationExpectedInsteadOf`, an inline template before), so the gap against
+  // TwinCAT's CUT recording of that echo (divergences.ts TWINCAT_DRIVER_CUTS_THE_ECHO: the driver drops everything after
+  // the message's first line break) is attributed to the syntax group instead of `unowned` (unowned GAP 115 → 104, group
+  // syntax GAP 70 → 81): the same eleven recorded messages, moved between classes, no diagnostic changed. The fix is the
+  // BRIDGE's and a re-record, never the LSP matching the cut text; each exception goes when its fixture is re-recorded.
+  ...SECTION_ECHO_ROWS.map((fixture) => ({
+    baseline: "fixtures.twincat",
+    measure: "group syntax: GAP",
+    by: 1,
+    fixture,
+    task: "the TwinCAT driver: keep a message whole past its first line break, then re-record these fixtures (divergences.ts TWINCAT_DRIVER_CUTS_THE_ECHO)",
+    why: SECTION_ECHO,
+  })),
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */

@@ -1,9 +1,9 @@
 /**
  * Incremental dead-code support (Layer G) — lets the workspace store skip the O(project) reachability fixpoints when an
- * edit changes nothing they depend on. Only the live server caches dead sets; the computation itself stays in
- * `analysis/reachability`. It lived there too (consolidate-lsp-structure C10).
+ * edit changes nothing they depend on. Only the live server caches dead sets; the computation itself is
+ * `reachability.ts` beside it (server suppression policy; it left `analysis/` in analysis-conformance 1.4).
  */
-import type { FileReachInfo } from "../analysis/index.js"
+import type { FileReachInfo } from "./reachability.js"
 
 
 /** The names that are reachability graph NODES — a bare ref to one can move the dead set (a POU/interface, or a

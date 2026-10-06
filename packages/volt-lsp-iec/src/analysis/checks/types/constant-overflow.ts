@@ -10,9 +10,9 @@
  * literal's own text (`INT#123456`, `10E500`), matching the compiler.
  */
 import { literalCapacityType } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 
 export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]): void {

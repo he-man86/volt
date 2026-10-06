@@ -11,10 +11,10 @@
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
 import { classifyConversion, inferExprType, isEnumValueRef, isSameType, pointerFits, renderType, type Type } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { compilerArrayText } from "../../messages.js"
 import { forEachExpr, targetOf } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
 

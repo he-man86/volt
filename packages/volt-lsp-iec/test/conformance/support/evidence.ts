@@ -13,8 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
-import type { AnalysisInitOptions } from "../../../src/analysis/config.js"
+import { computeSemanticDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
@@ -106,7 +105,7 @@ export function lspMessagesOn(
   return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
     const config = resolveConfig({ vendor, diagnostics })
     const diags = [
-      ...files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config })),
+      ...files.flatMap((f) => computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
       ...computeNetworkTextDiagnostics(own, project, messagesFor(vendor)),
     ]
     return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
@@ -163,7 +162,7 @@ type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof
 function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
   const config = resolveConfig({ vendor })
   const semantic = files.flatMap((f) =>
-    computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
+    computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }),
   )
   const network = computeNetworkTextDiagnostics(own, project, messagesFor(vendor))
   return [

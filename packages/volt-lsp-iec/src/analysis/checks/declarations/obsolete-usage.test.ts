@@ -11,6 +11,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { DiagnosticState } from "../../config.js"
+import { uriFor } from "../../test-uri.js"
 
 const OLD = `{attribute 'obsolete' := 'use NewFB instead'}
 FUNCTION_BLOCK OldFB
@@ -32,7 +33,7 @@ function obs(src: string, state: DiagnosticState = "warning") {
     { uri: "Old.pou", parseResult: old, source: OLD },
   ])
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "obsolete-usage": state } })
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config }).filter((d) => d.code === "obsolete-usage")
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config }).filter((d) => d.code === "obsolete-usage")
 }
 
 test("a variable typed with an obsolete FB is flagged, byte-identical to CODESYS", () => {

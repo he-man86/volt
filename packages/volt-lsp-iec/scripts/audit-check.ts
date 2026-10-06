@@ -29,7 +29,7 @@ const key = (d: any): string => `[${d.severity}] ${d.message}`
 // LSP side (offline).
 const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, VENDOR)
 const project = build.buildSymbolTable([{ uri: "S.pou", parseResult: pr, source }], [], VENDOR)
-const lsp = computeSemanticDiagnostics({ parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
+const lsp = computeSemanticDiagnostics({ uri: "S.pou", parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
   .filter((d) => d.severity === "error" || d.severity === "warning")
   .map(key)
   .sort()

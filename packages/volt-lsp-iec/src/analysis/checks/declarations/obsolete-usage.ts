@@ -11,9 +11,9 @@
  * the check was never measured, and the recorder's dropped pragmas (fixed in 2.7.2) could not show it was right.
  */
 import type { Attribute, Span } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, forEachExpr, lookup, lookupUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const INSTANCE_KINDS = new Set(["function_block", "program", "interface"])
 const CALLED_KINDS = new Set(["function", "method", "action"])

@@ -3,9 +3,9 @@
  * numeric. The rule is `rules.binaryOpError`, shared with the network-text operand check; this walks every binary node.
  */
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import type { DiagnosticItem } from "../../diagnostic-item.js"
-import { binaryOpError, shortCircuitErrors } from "../../rules.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import type { DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { binaryOpError, shortCircuitErrors } from "../../shared/rules.js"
 
 export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {

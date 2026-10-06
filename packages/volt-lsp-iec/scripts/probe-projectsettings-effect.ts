@@ -14,8 +14,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { WorkspaceStore } from "../src/server/workspace-store.js"
-import { resolveConfig } from "../src/analysis/config.js"
-import { messagesFor } from "../src/analysis/index.js"
+import { messagesFor, resolveConfig } from "../src/analysis/index.js"
 import { documentDiagnostics } from "../src/server/diagnostics.js"
 import { loadWorkspaceRefs, loadTaskRoots, scanWorkspace } from "../src/workspace-refs.js"
 

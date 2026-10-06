@@ -7,11 +7,12 @@ import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 function cycleMessages(src: string): string[] {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "constant-cycle")
     .map((d) => d.message)
 }
@@ -45,7 +46,7 @@ test("a recursive constant is refused on CODESYS only — TwinCAT has no recorde
   const src = fb("\tcs : INT := cs + 1;")
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
-  const tc = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "constant-cycle")
+  const tc = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "constant-cycle")
   expect(tc).toEqual([])
 })
 
@@ -54,7 +55,7 @@ function errorsOf(files: readonly { uri: string; source: string }[]): string[] {
   const all = files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(all, [], "codesys")
   return all.flatMap((f) =>
-    computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "error")
       .map((d) => `${d.code}: ${d.message}`),
   )

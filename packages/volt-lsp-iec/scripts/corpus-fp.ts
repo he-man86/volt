@@ -13,14 +13,8 @@ import { readdirSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseDocument } from "../src/frontend/syntax/index.js"
 import { build, isLibrarySymbol } from "../src/frontend/symbols/index.js"
-import {
-  computeSemanticDiagnostics,
-  resolveConfig,
-  deadPous,
-  deadMemberSpans,
-  inDeadMember,
-  ownerPou,
-} from "../src/analysis/index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { deadPous, deadMemberSpans, inDeadMember, ownerPou } from "../src/server/reachability.js"
 import { loadTaskRoots, loadWorkspaceRefs, readSourceText, workspaceEnvironment } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
@@ -61,7 +55,7 @@ for (const project of readdirSync(CORPUS)) {
     const owner = ownerPou(f.parseResult)
     if (owner !== undefined && dead.has(owner)) continue
     const dm = deadMembers.get(f.uri)
-    for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project: scope, config }))
+    for (const d of computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project: scope, config }))
       if (d.severity === "error" && !inDeadMember(d.span, dm))
         (byCode[d.code] ??= []).push(`${project}${f.uri.slice(dir.length)}: ${d.message}`)
   }

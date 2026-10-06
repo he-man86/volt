@@ -9,7 +9,7 @@
  *   - a member read off a BASE that has none →  'THIS^' is no structured variable
  *   - an OPERAND of an operator that has none →  Unknown type: 'two'
  *
- * Zero-FP rests entirely on `analysis/hole` — see it for WHY the LSP's "unknown" is not the IDE's. This check runs
+ * Zero-FP rests entirely on `analysis/shared/hole` — see it for WHY the LSP's "unknown" is not the IDE's. This check runs
  * LAST and adds nothing on its own evidence: every message needs an earlier check to have named the failure.
  *
  * Deliberately not a resolution failure: `array-index-count` and `pointer-index-arity`. `grid[1]` on a 2-D array is a
@@ -19,14 +19,14 @@
  * Both vendors. It was CODESYS-only on the grounds that "TwinCAT is unmeasured", which the recording then settled:
  * TwinCAT propagates the same way, in its own words. See `targetTypeName` for the one place the two diverge.
  */
-import { compilerExprText } from "../../expr-echo.js"
-import { bareConversionArgument, isHole, literalHoleWithin, passThroughOperand, reported } from "../../hole.js"
-import { dialectMissingType } from "../../resolution.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
+import { bareConversionArgument, isHole, literalHoleWithin, passThroughOperand, reported } from "../../shared/hole.js"
+import { dialectMissingType } from "../../shared/resolution.js"
 import { compilerTypeText, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
 import { inferExprType, renderType, resolveTypeExpr, UNKNOWN } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): void {
   const seen = reported(out)

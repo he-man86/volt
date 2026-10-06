@@ -1,5 +1,5 @@
 /**
- * Project-level dead-code detection (Layer D). A top-level POU (FUNCTION_BLOCK / FUNCTION / PROGRAM)
+ * Project-level dead-code detection (Layer G — server suppression policy; it lived in `analysis/` until analysis-conformance 1.4). A top-level POU (FUNCTION_BLOCK / FUNCTION / PROGRAM)
  * that is structurally unreachable from any PROGRAM entry point — and not kept live by a global
  * instance or interface dispatch — is "dead". When `diagnoseDeadCode` is off (the default), the
  * server suppresses diagnostics on dead units, matching the compiler, which never checks code it

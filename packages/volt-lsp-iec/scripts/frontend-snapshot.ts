@@ -3,8 +3,8 @@
  * SNAPSHOT F — THE FRONT-END'S WHOLE OUTPUT, BEFORE AND AFTER A MOVE (openspec frontend-conformance design.md P9, §5,
  * task 1.3). A phase-1 task is output-neutral when this compares identical.
  *
- *   bun scripts/frontend-snapshot.ts write [--out <dir>] [--graphical 0|1]
- *   bun scripts/frontend-snapshot.ts check [--base <rev>] [--graphical 0|1]
+ *   bun scripts/frontend-snapshot.ts write [--out <dir>] [--graphical 0|1] [--aspects a,b]
+ *   bun scripts/frontend-snapshot.ts check [--base <rev>] [--graphical 0|1] [--aspects a,b]
  *   bun scripts/frontend-snapshot.ts show <id> <aspect> [--base <rev>] [--graphical 0|1]
  *
  * WHAT IT HOLDS, per source (`test/frontend/sources.ts`: every corpus file, fixture source and library body):
@@ -14,7 +14,16 @@
  *            `types` and `folds` dumps of `test/frontend/dumps.ts` (fixtures bound once per vendor); plus `diagnostics`,
  *            the LSP's own over the six corpora (the server's `documentDiagnostics`);
  *   F-back   each conformance fixture's lowering diagnostics, emitted Rust (`rust`) and interpreter values (`interp`, every
- *            run path after the fixture's cycles).
+ *            run path after the fixture's cycles);
+ *   A        `fixture-diagnostics` (openspec analysis-conformance design.md §6, task 1.1): every `DiagnosticItem` (code,
+ *            severity, span, message) the analysis gives each conformance fixture × vendor in the conformance composition
+ *            (`test/conformance/support/replay.ts`: the fixture's own item, its PLC_PRG and its global lists, each with its
+ *            uri, then the network-text pass over the fixture's own item), network text as `--graphical` says (default ON).
+ *            SNAPSHOT A is `check --aspects diagnostics,fixture-diagnostics`: the analysis's whole output, corpora and
+ *            fixtures.
+ *
+ * `--aspects` limits a run to the aspects it names and computes only those (snapshot A skips the front-end dumps and the
+ * transpiler); a limited snapshot is cached apart from the full one.
  *
  * Each aspect is stored as a hash (the whole corpus as text is gigabytes); `show` prints one aspect of one source in full,
  * from the working tree or from `--base`, to read a difference `check` names.
@@ -44,6 +53,32 @@ const option = (name: string): string | undefined => {
   return i < 0 ? undefined : args[i + 1]
 }
 const graphical = option("--graphical") ?? "1"
+const ASPECTS = [
+  "ast",
+  "errors",
+  "failed",
+  "tokens",
+  "stmts",
+  "active",
+  "resolution",
+  "types",
+  "folds",
+  "diagnostics",
+  "fixture-diagnostics",
+  "lowering",
+  "rust",
+  "interp",
+] as const
+const aspectsOption = option("--aspects")
+const aspects: ReadonlySet<string> | undefined =
+  aspectsOption === undefined ? undefined : new Set(aspectsOption.split(",").map((a) => a.trim()).filter((a) => a !== ""))
+for (const a of aspects ?? [])
+  if (!(ASPECTS as readonly string[]).includes(a)) throw new Error(`--aspects: no aspect '${a}' (${ASPECTS.join(", ")})`)
+/** Is any of these aspects part of this run? */
+const wants = (...names: string[]): boolean => aspects === undefined || names.some((n) => aspects.has(n))
+/** The cache directory suffix of a limited run: its aspects, sorted. */
+const aspectsTag = aspects === undefined ? "" : `-a${[...aspects].sort().join("+")}`
+const aspectArgs = aspectsOption === undefined ? [] : ["--aspects", aspectsOption]
 if (graphical !== "0" && graphical !== "1") throw new Error(`--graphical takes 0 or 1, not ${graphical}`)
 if (graphical === "1") process.env.VOLT_GRAPHICAL = "1"
 else delete process.env.VOLT_GRAPHICAL
@@ -81,15 +116,20 @@ const hash = (text: string): string => new Bun.CryptoHasher("sha1").update(text)
 /** One source's aspects, as text. `only` limits the work to one id (for `show`). */
 type Sink = (id: string, aspect: string, text: string) => void
 
-async function snapshot(sink: Sink, only?: string): Promise<void> {
+async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
   const want = (id: string): boolean => only === undefined || id === only
+  const sink: Sink = (id, aspect, text) => {
+    if (aspects === undefined || aspects.has(aspect)) sinkAll(id, aspect, text)
+  }
+  const FRONT = ["ast", "errors", "failed", "tokens", "stmts", "active"]
+  const BOUND = ["resolution", "types", "folds"]
   const syntax = await load<Record<string, any>>(syntaxIndex)
   const sources = await load<typeof import("../test/frontend/sources.ts")>("test/frontend/sources.ts")
   const dumps = await load<typeof import("../test/frontend/dumps.ts")>("test/frontend/dumps.ts")
   const bound = await load<typeof import("../test/frontend/bound.ts")>("test/frontend/bound.ts")
 
   const front = (p: { id: string; source: string; dialect: string; parseResult: any }, key = p.id): void => {
-    if (!want(key)) return
+    if (!want(key) || !wants(...FRONT)) return
     const r = p.parseResult
     sink(key, "ast", json(r.units))
     sink(key, "errors", json(r.errors))
@@ -123,7 +163,7 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
     sink(key, "active", active.join("\n"))
   }
   const boundAspects = (b: any, key: string): void => {
-    if (!want(key)) return
+    if (!want(key) || !wants(...BOUND)) return
     sink(key, "resolution", dumps.resolutionDump(b).join("\n"))
     sink(key, "types", dumps.typeDump(b).join("\n"))
     sink(key, "folds", dumps.foldDump(b).join("\n"))
@@ -135,10 +175,12 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
   )
   for (const project of sources.corpusProjects()) {
     if (only !== undefined && !project.files.some((f) => f.id === only)) continue
-    for (const b of bound.boundCorpus(project)) {
-      front(b.parsed)
-      boundAspects(b, b.parsed.id)
-    }
+    if (wants(...FRONT, ...BOUND))
+      for (const b of bound.boundCorpus(project)) {
+        front(b.parsed)
+        boundAspects(b, b.parsed.id)
+      }
+    if (!wants("diagnostics")) continue
     const ids = new Map(project.files.map((f) => [f.uri, f.id]))
     for (const d of projectDocuments(project.dir, project.vendor as never)) {
       const id = ids.get(d.uri) ?? `corpus/${project.name}/${relative(project.dir, d.uri).split("\\").join("/")}`
@@ -147,7 +189,7 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
   }
 
   // ── fixtures: parsed as each vendor, bound as each vendor ──
-  for (const f of sources.fixtureSources()) {
+  if (wants(...FRONT, ...BOUND)) for (const f of sources.fixtureSources()) {
     if (only !== undefined && only !== f.own.id && only !== f.plc.id && !only.startsWith(`fixture/${f.test.name}/`))
       continue
     for (const vendor of ["codesys", "twincat"] as const)
@@ -160,12 +202,16 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
   }
 
   // ── the library repo ──
-  for (const b of bound.boundLibrary()) {
+  if (wants(...FRONT, ...BOUND)) for (const b of bound.boundLibrary()) {
     front(b.parsed)
     boundAspects(b, b.parsed.id)
   }
 
+  // ── A: the analysis's diagnostics per fixture × vendor, in the conformance composition ──
+  if (wants("fixture-diagnostics")) await fixtureDiagnostics(sink, want)
+
   // ── F-back: every fixture lowered, emitted and run ──
+  if (!wants("lowering", "rust", "interp")) return
   const transpile = await load<Record<string, any>>("src/transpile/index.ts")
   const { ALL_TESTS } = await load<typeof import("../test/conformance/fixtures/index.ts")>(
     "test/conformance/fixtures/index.ts",
@@ -218,6 +264,44 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
       values.push(failure(e))
     }
     sink(key, "interp", values.join("\n"))
+  }
+}
+
+/**
+ * SNAPSHOT A's fixture half: what the analysis says about each conformance fixture, per vendor, as the replay composes it
+ * (`test/conformance/support/replay.ts`) — every document the replay analyses, through the analysis's one entry (whichever
+ * of `computeDiagnostics` and its former name `computeSemanticDiagnostics` the tree has), each with its own uri, then the
+ * network-text pass over the fixture's own item. Every item whole (code, severity, span, message), in emission order.
+ */
+async function fixtureDiagnostics(sink: Sink, want: (id: string) => boolean): Promise<void> {
+  const analysis = await load<Record<string, any>>("src/analysis/index.ts")
+  const network = await load<Record<string, any>>("src/network/index.ts")
+  const { ALL_TESTS } = await load<typeof import("../test/conformance/fixtures/index.ts")>("test/conformance/fixtures/index.ts")
+  const { withReplayFixture } = await load<typeof import("../test/conformance/support/replay.ts")>(
+    "test/conformance/support/replay.ts",
+  )
+  const diagnose = (analysis.computeDiagnostics ?? analysis.computeSemanticDiagnostics) as (args: unknown) => unknown[]
+  for (const vendor of ["codesys", "twincat"] as const) {
+    const config = analysis.resolveConfig({ vendor })
+    const messages = analysis.messagesFor(vendor)
+    for (let i = 0; i < ALL_TESTS.length; i++) {
+      const key = `fixture/${ALL_TESTS[i]!.name}@${vendor}`
+      if (!want(key)) continue
+      const text = withReplayFixture(i, vendor, ({ own, plc, lists }, project) => {
+        const docs = [own, ...(plc === undefined ? [] : [plc]), ...lists]
+        const documents = docs.map((d) => ({
+          uri: d.uri,
+          items: diagnose({ parseResult: d.parseResult, source: d.source, project, config, uri: d.uri }),
+        }))
+        const net = network.computeNetworkTextDiagnostics(
+          { uri: own.uri, source: own.source, parseResult: own.parseResult },
+          project,
+          messages,
+        ) as unknown[]
+        return json({ documents, network: net })
+      })
+      sink(key, "fixture-diagnostics", text)
+    }
   }
 }
 
@@ -283,7 +367,7 @@ function inWorktree(sha: string, argv: string[], stdout: "inherit" | "pipe"): st
 async function main(): Promise<void> {
   const [verb] = args
   if (verb === "write") {
-    await write(option("--out") ?? join(SNAPSHOTS, `worktree-g${graphical}`))
+    await write(option("--out") ?? join(SNAPSHOTS, `worktree-g${graphical}${aspectsTag}`))
     return
   }
   if (verb === "show") {
@@ -306,13 +390,13 @@ async function main(): Promise<void> {
   }
   if (verb === "check") {
     const sha = git("rev-parse", option("--base") ?? "HEAD~1")
-    const baseDir = join(SNAPSHOTS, `${sha}-g${graphical}`)
+    const baseDir = join(SNAPSHOTS, `${sha}-g${graphical}${aspectsTag}`)
     const started = performance.now()
     if (!existsSync(join(baseDir, "done"))) {
       rmSync(baseDir, { recursive: true, force: true })
-      inWorktree(sha, ["write", "--out", baseDir, "--graphical", graphical], "inherit")
+      inWorktree(sha, ["write", "--out", baseDir, "--graphical", graphical, ...aspectArgs], "inherit")
     } else console.log(`base ${sha.slice(0, 12)}: cached`)
-    const hereDir = join(SNAPSHOTS, `worktree-g${graphical}`)
+    const hereDir = join(SNAPSHOTS, `worktree-g${graphical}${aspectsTag}`)
     await write(hereDir)
     const read = (dir: string): Map<string, string> =>
       new Map(
@@ -331,7 +415,8 @@ async function main(): Promise<void> {
     for (const k of after.keys()) if (!before.has(k)) differ.push(`+ ${k}`)
     const files = new Set(differ.map((d) => d.slice(2).split("\t")[0]))
     const seconds = Math.round((performance.now() - started) / 1000)
-    console.log(`base ${sha.slice(0, 12)} vs working tree (VOLT_GRAPHICAL=${graphical}): ${before.size} aspects, ${seconds} s`)
+    const limited = aspects === undefined ? "" : `, aspects ${[...aspects].sort().join(",")}`
+    console.log(`base ${sha.slice(0, 12)} vs working tree (VOLT_GRAPHICAL=${graphical}${limited}): ${before.size} aspects, ${seconds} s`)
     if (differ.length === 0) {
       console.log("✓ identical")
       return

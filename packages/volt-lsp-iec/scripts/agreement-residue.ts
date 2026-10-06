@@ -101,7 +101,7 @@ for (const t of ALL_TESTS) {
   // to another (`interface_with_property_impl` inherited the interface fixture's accessor-less property).
   const analyzed = files.filter((f) => f.name === t.name || f.name === `${t.name}__plcprg`)
   for (const f of analyzed)
-    for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
+    for (const d of computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
       if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   // Graphical bodies: the semantic pass skips them, so the replay runs the network-text checks too. Without this the
   // script reports every NETWORK fixture as answering nothing.

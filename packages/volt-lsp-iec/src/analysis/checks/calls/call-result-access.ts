@@ -12,9 +12,9 @@
  * ("Bit access on function call is not allowed", `bit-access-on-call`) and reports only that one — so reporting
  * both made `cc3_bit_access_and_call_result` say this twice where the IDE says it once.
  */
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkCallResultAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e) => {

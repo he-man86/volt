@@ -7,7 +7,7 @@
  * one error, whatever the target, the word and the operand as written (`lit_char_typed*`, `lit_wchar_typed*`,
  * `lit_unknown_prefix_quoted*`, `lit_uchar_double_quote`, `lit_utf8_double_quote`, CODESYS 2026-10-01). Which pairs
  * these are is `syntax/literal/value`'s `typedLiteralForm`. An ENUM type's `Type#Value` is not one of them: it is a
- * value of unknown type (`analysis/hole`). TwinCAT refuses every such word in its lexer, so it never reaches here.
+ * value of unknown type (`analysis/shared/hole`). TwinCAT refuses every such word in its lexer, so it never reaches here.
  *
  * Wherever an expression stands: a body, a declaration's initializer and every element of an aggregate one, a STRUCT
  * field's initializer, an enum value's (`lit_char_typed_in_array_init`, `_in_struct_field`, `_in_enum_value`, CODESYS
@@ -15,9 +15,9 @@
  */
 import { stmtExprs, typedLiteralForm, walkExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
-import { enumTypedLiteral } from "../../hole.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { enumTypedLiteral } from "../../shared/hole.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkTypedLiteral(ctx: CheckContext, out: DiagnosticItem[]): void {
   const visit = (x: Expr): void => {

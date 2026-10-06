@@ -13,11 +13,12 @@
  * then has no type, which the declaration's destination cannot take (conformance `cc3_unexpected_struct_init`:
  * `otherWay : INT := (x := 1, y := 2)` is six errors, of which the LSP had one).
  */
-import { exprText, compilerTypeText, type AggregateElement, type Initializer, type Span } from "../../../frontend/syntax/index.js"
+import { compilerTypeText, type AggregateElement, type Initializer, type Span } from "../../../frontend/syntax/index.js"
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { structEcho } from "../../shared/expr-echo.js"
 
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -123,19 +124,6 @@ function fieldsOf(init: Initializer): { name: string; span: Span; value?: Initia
   if (init.kind === "paren" && init.inner.kind === "assign_expr" && init.inner.target.kind === "ident_expr")
     return [{ name: init.inner.target.name, span: init.inner.target.span, value: init.inner.value }]
   return []
-}
-
-/** `STRUCT(x := 1, y := 2)` — the compiler's name for an initializer it could not attach to a type. */
-export function structEcho(init: Initializer): string {
-  const element = (el: AggregateElement): string => {
-    if (el.kind === "field") return `${el.name} := ${element(el.value)}`
-    if (el.kind === "value") return el.expr.kind === "literal" ? el.expr.text : "?"
-    return "?"
-  }
-  if (init.kind === "aggregate_init") return `STRUCT(${init.elements.map(element).join(", ")})`
-  // the single-field form parses as a paren-wrapped assignment; the compiler names it the same way
-  if (init.kind === "paren" && init.inner.kind === "assign_expr") return `STRUCT(${exprText(init.inner)})`
-  return "STRUCT(?)"
 }
 
 function isArrayInit(init: Initializer): boolean {

@@ -15,8 +15,8 @@ import { forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { constancyOf, constEval, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { AggregateElement } from "../../../frontend/syntax/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -25,7 +25,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
     // C0162 — a repeat count `n(v)` that is a non-constant variable (independent of the declared type).
     for (const e of init.elements)
       if (e.kind === "repeat" && constancyOf(e.count, scope) === "variable")
-        push(
+        emit(
           out,
           e.count.span,
           "array-init-count-non-const",
@@ -34,7 +34,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
     const t = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     if (t.kind === "unknown") continue
     if (t.kind !== "array") {
-      push(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
+      emit(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
       continue
     }
     // C0074 again — a MULTI-dimensional array is initialized flat (`decl_nested_aggregate_flat` builds), so a nested list
@@ -42,17 +42,17 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
     // `decl_nested_aggregate`, 2026-10-01; CODESYS SP21's compiler throws a NullReferenceException on it instead).
     const nested = t.dims.length > 1 ? init.elements.find((e) => e.kind === "nested" && e.init.form === "array") : undefined
     if (nested !== undefined) {
-      push(out, nested.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
+      emit(out, nested.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
       continue
     }
     // C0232 / C0233 — a scalar literal where a nested array / struct-init is required (takes precedence over count).
     const scalar = firstScalarLiteral(init.elements)
     if (scalar !== undefined && t.element.kind === "array") {
-      push(out, scalar.span, "array-init-nesting", ctx.messages.arrayInitExpected()) // C0232
+      emit(out, scalar.span, "array-init-nesting", ctx.messages.arrayInitExpected()) // C0232
       continue
     }
     if (scalar !== undefined && t.element.kind === "struct") {
-      push(out, scalar.span, "array-init-element", ctx.messages.initListExpected(t.element.name)) // C0233
+      emit(out, scalar.span, "array-init-element", ctx.messages.initListExpected(t.element.name)) // C0233
       continue
     }
     // C0075 — too many values for a single dimension.
@@ -64,7 +64,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
     if (typeof lo !== "bigint" || typeof hi !== "bigint") continue
     const count = elementCount(init.elements, scope)
     if (count === undefined || BigInt(count) <= hi - lo + 1n) continue // indeterminate or fits → skip
-    push(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
+    emit(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
   }
 }
 
@@ -90,10 +90,6 @@ function elementCount(elements: readonly AggregateElement[], scope: Scope): numb
     } else n += 1
   }
   return n
-}
-
-function push(out: DiagnosticItem[], span: Span, code: string, message: string): void {
-  out.push({ severity: "error", span, source: SOURCE, code, message })
 }
 
 const text = (source: string, span: Span): string => source.slice(span.start, span.end)

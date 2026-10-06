@@ -19,11 +19,11 @@
  * `time-literal-unit` and `wstring-escape`, analysis checks that re-lexed the tokens to find the literal the lexer now
  * refuses itself (frontend-conformance 2.2.3, 2.2.5; design.md P7).
  */
-import { compilerExprText } from "../../expr-echo.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
 import { REFUSED_PLACEHOLDER, compilerTypeText, walkExpr, type Expr } from "../../../frontend/syntax/index.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const isPlaceholder = (e: Expr): boolean => e.kind === "ident_expr" && e.name === REFUSED_PLACEHOLDER
 

@@ -49,6 +49,7 @@ function lspMessagesForCode(
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   return computeSemanticDiagnostics({
+    uri: "R.pou",
     parseResult: pr,
     source: repro,
     project,

@@ -10,8 +10,8 @@
  */
 import { scopeForUnit } from "../../../frontend/symbols/index.js"
 import { constEval, REAL_LITERAL_TYPE } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkEnumInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -23,7 +23,7 @@ export function checkEnumInit(ctx: CheckContext, out: DiagnosticItem[]): void {
       for (const message of [
         // the VALUE as written, then the conversion — UPPER-cased, as the IDE prints an enum's name
         ctx.messages.invalidEnumInitialisation(ctx.source.slice(member.value.span.start, member.value.span.end)),
-        ctx.messages.enumInitNotConvertible(REAL_LITERAL_TYPE, unit.name.text.toUpperCase()),
+        ctx.messages.cannotConvert(REAL_LITERAL_TYPE, unit.name.text.toUpperCase()),
       ])
         out.push({ severity: "error", span: member.value.span, source: SOURCE, code: "enum-init-not-convertible", message })
     }

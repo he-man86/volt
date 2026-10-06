@@ -5,11 +5,12 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const ni = (src: string): string[] => {
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "not-instantiable")
     .map((d) => d.message)
 }
@@ -30,7 +31,7 @@ test("a FUNCTION type is flagged past a same-named global, in either file order"
     const pr = parseSource(prg, { networkText: true })
     const gvl = "VAR_GLOBAL\n  pou : INT;\nEND_VAR"
     const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }), source: gvl }])
-    const got = computeSemanticDiagnostics({ parseResult: pr, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+    const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "not-instantiable")
       .map((d) => d.message)
     expect(got).toEqual(["'POU' is of type FUNCTION and cannot be instantiated"])

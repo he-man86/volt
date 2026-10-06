@@ -16,8 +16,8 @@
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, scopeForUnit } from "../../../frontend/symbols/index.js"
 import { constEval, inferExprType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

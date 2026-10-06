@@ -14,10 +14,10 @@
  * false positive.
  */
 import { selfRefKind, walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
-import { compilerExprText } from "../../expr-echo.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
 import { bodies, enclosingPou, type Scope } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /** `THIS` or `SUPER` itself, not dereferenced. */
 const bareSelf = (e: Expr): boolean => e.kind === "ident_expr" && selfRefKind(e.name) !== undefined

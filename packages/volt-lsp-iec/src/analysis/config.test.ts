@@ -1,8 +1,10 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../frontend/syntax/index.js"
 import { build } from "../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom, CONFIGURABLE_CHECKS } from "./index.js"
+import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
+import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
+import { uriFor } from "./test-uri.js"
 
 /**
  * CODESYS's "Compiler warnings" dialog model: each configurable code is a 3-state control (off / warning /
@@ -12,7 +14,7 @@ import { CODESYS_CODE_MAP } from "./error-code-map.js"
 const diag = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig(opts) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig(opts) })
 }
 
 // C0139 no-op-statement: `i;` (a bare expression) has no effect — a configurable code Volt emits as warning.
@@ -139,7 +141,7 @@ test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], undefined, "twincat")
   const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
   expect(run({}), "the trigger must fire without the project's settings").toEqual(["inout-own-access"])
   expect(projectDiagnosticsFrom(pulled)).toEqual({ "inout-own-access": "off" })
   expect(run(projectDiagnosticsFrom(pulled))).toEqual([])

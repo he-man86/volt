@@ -7,12 +7,13 @@ import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -26,7 +27,7 @@ const enumInto = (target: string, base = ""): string[] => {
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -52,7 +53,7 @@ const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -134,7 +135,7 @@ test("a reference declaration type-checks its target, and a valid bind stays sil
 })
 
 /**
- * THE NAMES A BARE `lookup` WOULD CALL UNDECLARED. `analysis/resolution.ts` owns that question and excuses a long
+ * THE NAMES A BARE `lookup` WOULD CALL UNDECLARED. `analysis/shared/resolution.ts` owns that question and excuses a long
  * list: a member inherited from an EXTENDS base that did not materialize, `SUPER`, a library namespace, a device
  * instance, a bare enum member. The first cut of the reference check asked `lookup` directly and reported
  * "Unknown type" for every one of them — a false positive on real code the corpus happens not to contain in this
@@ -146,7 +147,7 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
   const codes = (src: string): string[] => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)
   }
@@ -166,7 +167,7 @@ const storeDiagnostics = (enums: string, vars: string, body: string): string[] =
   const src = `${enums}\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
 }
@@ -240,7 +241,7 @@ test("a variable stored into a subrange names the target in its assignment form"
 const mismatchesIn = (units: string): string[] => {
   const parseResult = parseSource(units, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
-  return computeSemanticDiagnostics({ parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -300,7 +301,7 @@ txt := a.Value;
 END_METHOD`
   const parseResult = parseSource(units, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
-  const messages = computeSemanticDiagnostics({ parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+  const messages = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.message.startsWith("Cannot convert"))
     .map((d) => d.message)
   expect(messages).toEqual(["Cannot convert type 'VALUE' to type 'STRING'", "Cannot convert type 'VALUE' to type 'STRING'"])

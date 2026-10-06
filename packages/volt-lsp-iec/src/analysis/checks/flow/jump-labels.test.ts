@@ -6,12 +6,13 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const codes = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
 }
 
 test("C0114 — JMP to a non-label destination", () => {
@@ -44,7 +45,7 @@ test("a keyword or a refused word as the destination: invalid, and the label 'IN
       const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
       const parseResult = parseSource(src, { networkText: true }, vendor)
       const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], vendor)
-      return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+      return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
     }
     const dot = vendor === "twincat" ? "." : ""
     expect(msgs("JMP ld;\ni := 1;")).toEqual([`Invalid destination ld for ${jmp}`, `No such label 'INVALID: LD' within the scope of the JMP statement${dot}`])

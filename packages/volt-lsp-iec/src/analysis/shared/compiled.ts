@@ -21,12 +21,12 @@
  * (no fixture leaves one uncalled); a `__NEW(D)` whose result is held only as a `POINTER TO` a base of D does not reach D.
  *
  * The checks of an FB's own declaration against its bases' and interfaces' (`method-signature`,
- * `interface-implementation`) answer only for an FB in this set. Dead-code suppression (`reachability.ts`) cannot answer
+ * `interface-implementation`) answer only for an FB in this set. Dead-code suppression (`server/reachability.ts`) cannot answer
  * this: it keeps an FB that implements a referenced interface live, which is the safe direction for hiding diagnostics
  * and the wrong one for raising them.
  */
-import { basesOf, memoByProject, type Scope, type Symbol } from "../frontend/symbols/index.js"
-import type { TypeExpr } from "../frontend/syntax/index.js"
+import { basesOf, memoByProject, type Scope, type Symbol } from "../../frontend/symbols/index.js"
+import type { TypeExpr } from "../../frontend/syntax/index.js"
 
 /** The declarations whose type a compiled scope holds — a variable, a GVL's, a parameter, a STRUCT field. An FB
  *  symbol's or a PROPERTY's typeExpr holds nothing. */

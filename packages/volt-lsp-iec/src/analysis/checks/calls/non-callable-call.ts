@@ -13,9 +13,9 @@
 import { walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { unknownTypeName } from "../../resolution.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { unknownTypeName } from "../../shared/resolution.js"
 
 // `interface` is here so C0035 cedes the INTERFACE case to `fb-instantiation`, which has the IDE's own two messages
 // for it — "Cannot call object of type 'INTERFACE'" and "Interface '…' must be instantiated to be accessed"

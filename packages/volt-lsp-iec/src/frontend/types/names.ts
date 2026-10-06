@@ -1,7 +1,7 @@
 /**
  * THE BARE-NAME SEARCH ORDER — what a bare identifier names, in the order CODESYS searches (rule Y23,
  * `docs/codesys-reference/09-shadowing.md`): the one home of the question. The analysis words what it answers (an
- * undefined name, `analysis/resolution.ts`); the binder supplies what it searches (`symbols/`); nothing else decides it.
+ * undefined name, `analysis/shared/resolution.ts`); the binder supplies what it searches (`symbols/`); nothing else decides it.
  *
  *   the compiler's own names   a system operator, a conversion, a compiler implicit, an operator or standard function,
  *                              an elementary type (`builtins.ts` `builtinName`) — none can be declared over: the

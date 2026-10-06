@@ -15,6 +15,8 @@
 //   F4. no sanctioned upward edge exists (there is no ALLOWED_UPWARD);
 //   F5. the front-end reads no environment (`process.env`);
 //   F6. no import cycle inside `syntax`.
+// and the ANALYSIS rules A1–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
+// shrinking list, KNOWN_ANALYSIS_VIOLATIONS.
 //
 // A violation this change has not yet removed is named in KNOWN_FRONTEND_VIOLATIONS; `test/frontend/layering.test.ts`
 // fails on a violation not listed AND on a listed one that no longer occurs, so the list can only shrink.
@@ -86,6 +88,13 @@ export const KNOWN_FRONTEND_VIOLATIONS: readonly string[] = [
  */
 export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
   "services/structure/semantic-tokens.ts → network/network-analyze.ts: upward import (services must not import network)",
+]
+
+/**
+ * The analysis-rule violations (A1–A6 below) that openspec analysis-conformance has not removed yet, measured by the
+ * rule itself (task 1.2). Each entry names the task that removes it; the list may only shrink.
+ */
+export const KNOWN_ANALYSIS_VIOLATIONS: readonly string[] = [
 ]
 
 const slash = (p: string): string => p.split("\\").join("/")
@@ -292,13 +301,105 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
     }
     for (const node of [...g.keys()].sort()) visit(node)
   }
+  violations.push(...analysisViolations(pkg))
   return violations
 }
+
+/** A static `import … from "x"` / `export … from "x"` / `import "x"`, or a dynamic `import("x")` — the A rules count both. */
+const ANY_IMPORT_RE = /(?:(?:import|export)\s+(?:[^'"`;]*?\bfrom\s*)?|\bimport\(\s*)["']([^"']+)["']/g
+
+/**
+ * THE ANALYSIS RULES (openspec analysis-conformance design.md §2 "Import rules", P4), over src/, test/ and scripts/ —
+ * tests included, a dynamic `import()` counted:
+ *
+ *   A1  analysis reaches the reference catalog only through `reference/index.js` (the front-end through its indexes is
+ *       F2's; the network-text clause is parked with design.md §3);
+ *   A2  outside `src/analysis/`, the only analysis file anyone imports is `analysis/index.js`;
+ *   A3  a check imports no other check and never `pipeline/registry` or `pipeline/diagnostics`; a colocated test imports
+ *       only its own subject in `checks/` (the pipeline through `analysis/index.js`);
+ *   A4  nothing in analysis but the registry and the pipeline imports a check (`shared/`, `messages`, `config`,
+ *       `pipeline/context` and the rest);
+ *   A5  no analysis TEST imports a rank above analysis (production is rule 1's);
+ *   A6  every `checks/<group>/<name>.ts` has `<name>.test.ts` beside it, and every such test has its subject beside it.
+ *
+ * Spelled like the other rules: src/ paths relative to src/, the rest relative to the package.
+ */
+function analysisViolations(pkg: string): string[] {
+  const out: string[] = []
+  const SRC = join(pkg, "src")
+  for (const root of ROOTS)
+    for (const file of walk(join(pkg, root))) {
+      const relPkg = slash(relative(pkg, file))
+      const inSrc = relPkg.startsWith("src/")
+      const relFrom = inSrc ? relPkg.slice(4) : relPkg
+      const isTest = file.endsWith(".test.ts")
+      const fromAnalysis = relFrom.startsWith("analysis/") && inSrc
+      const fromCheck = fromAnalysis && relFrom.startsWith("analysis/checks/")
+      const text = readFileSync(file, "utf8")
+      for (const m of text.matchAll(ANY_IMPORT_RE)) {
+        const spec = m[1]!
+        if (!spec.startsWith(".")) continue
+        const tsTarget = slash(relative(pkg, resolve(dirname(file), spec))).replace(/\.js$/, ".ts")
+        if (!tsTarget.startsWith("src/")) continue
+        const relTo = tsTarget.slice(4)
+        const toAnalysis = relTo.startsWith("analysis/")
+        const toCheck = relTo.startsWith("analysis/checks/")
+        const toPipelineRun = relTo === "analysis/pipeline/registry.ts" || relTo === "analysis/pipeline/diagnostics.ts"
+        if (!fromAnalysis) {
+          // the front-end importing analysis at all is F1's
+          if (toAnalysis && relTo !== "analysis/index.ts" && !(inSrc && inFrontend(placeOf(relFrom))))
+            out.push(`A2 ${relFrom} → ${relTo}: deep import (outside analysis, only analysis/index.js)`)
+          continue
+        }
+        if (relTo.startsWith("reference/") && relTo !== "reference/index.ts")
+          out.push(`A1 ${relFrom} → ${relTo}: deep import (analysis reads the reference catalog through reference/index.js)`)
+        if (fromCheck && (toCheck || toPipelineRun)) {
+          const subject = relFrom.replace(/\.test\.ts$/, ".ts")
+          if (!isTest && toCheck && relTo !== relFrom) out.push(`A3 ${relFrom} → ${relTo}: a check imports no other check`)
+          else if (isTest && toCheck && relTo !== subject)
+            out.push(`A3 ${relFrom} → ${relTo}: a check's test imports only its own subject in checks/`)
+          else if (toPipelineRun)
+            out.push(`A3 ${relFrom} → ${relTo}: a check never imports the registry or the pipeline (its test goes through analysis/index.js)`)
+        }
+        if (!fromCheck && !isTest && toCheck && !isRegistryOrPipeline(relFrom))
+          out.push(`A4 ${relFrom} → ${relTo}: only the registry and the pipeline import a check`)
+        if (isTest && !toAnalysis) {
+          const layer = placeOf(relTo).layer
+          const rank = layer === null ? undefined : layer === "frontend" ? RANK.types : RANK[layer]
+          if (rank !== undefined && rank > RANK.analysis!)
+            out.push(`A5 ${relFrom} → ${relTo}: an analysis test imports a rank above analysis (${layer})`)
+        }
+      }
+    }
+  // A6, both directions
+  const CHECKS = join(SRC, "analysis", "checks")
+  if (existsSync(CHECKS))
+    for (const group of readdirSync(CHECKS)) {
+      const dir = join(CHECKS, group)
+      if (!statSync(dir).isDirectory()) continue
+      const names = new Set(readdirSync(dir).filter((n) => n.endsWith(".ts")))
+      for (const n of [...names].sort()) {
+        if (n.endsWith(".test.ts")) {
+          if (!names.has(n.replace(/\.test\.ts$/, ".ts")))
+            out.push(`A6 analysis/checks/${group}/${n}: no subject ${n.replace(/\.test\.ts$/, ".ts")} beside it`)
+        } else if (!names.has(n.replace(/\.ts$/, ".test.ts")))
+          out.push(`A6 analysis/checks/${group}/${n}: no colocated ${n.replace(/\.ts$/, ".test.ts")}`)
+      }
+    }
+  return out
+}
+
+/** The analysis files that may import a check: the registry and the pipeline, and the index (which re-exports a
+ *  check's helper the server reads, `parseErrorMessage`). */
+const isRegistryOrPipeline = (relFrom: string): boolean =>
+  relFrom === "analysis/pipeline/registry.ts" ||
+  relFrom === "analysis/pipeline/diagnostics.ts" ||
+  relFrom === "analysis/index.ts"
 
 /** The scan against the two known lists: what is new, and what is listed but no longer occurs. */
 export function layeringReport(): { unexpected: string[]; stale: string[] } {
   const found = layeringViolations()
-  const known = new Set([...KNOWN_FRONTEND_VIOLATIONS, ...KNOWN_OTHER_VIOLATIONS])
+  const known = new Set([...KNOWN_FRONTEND_VIOLATIONS, ...KNOWN_OTHER_VIOLATIONS, ...KNOWN_ANALYSIS_VIOLATIONS])
   const foundSet = new Set(found)
   return {
     unexpected: [...new Set(found)].filter((v) => !known.has(v)),
@@ -315,7 +416,7 @@ if (import.meta.main) {
     for (const v of stale) console.error(`  ${v}`)
     process.exit(1)
   }
-  const pending = KNOWN_FRONTEND_VIOLATIONS.length + KNOWN_OTHER_VIOLATIONS.length
+  const pending = KNOWN_FRONTEND_VIOLATIONS.length + KNOWN_OTHER_VIOLATIONS.length + KNOWN_ANALYSIS_VIOLATIONS.length
   console.log(
     `✓ layering: every folder ranked, imports point downward only, no cross-layer cycle` +
       (pending ? ` (${pending} known violation(s) listed)` : ""),

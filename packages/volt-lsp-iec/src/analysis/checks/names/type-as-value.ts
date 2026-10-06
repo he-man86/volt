@@ -12,8 +12,8 @@
 import { walkAllExprs, walkStatements, type Expr, type TypeDecl } from "../../../frontend/syntax/index.js"
 import { bodies, lookup, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkTypeAsValue(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

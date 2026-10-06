@@ -23,8 +23,8 @@
  */
 import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
 import { scopeForUnit } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /**
  * The kinds CODESYS holds to the rule, each measured with the object REFERENCED so the compiler actually looks:

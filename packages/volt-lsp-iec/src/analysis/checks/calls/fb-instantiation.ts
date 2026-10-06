@@ -12,8 +12,8 @@
  */
 import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachExpr, isLibrarySymbol, lookup, type Scope } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {

@@ -6,8 +6,8 @@
  * (`inh_override_pointer_only`, `_reference_only` refuse the override).
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../frontend/syntax/index.js"
-import { build } from "../frontend/symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
+import { build } from "../../frontend/symbols/index.js"
 import { compiledFbs } from "./compiled.js"
 
 const compiled = (src: string): string[] => {

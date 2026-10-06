@@ -24,10 +24,10 @@
  * `implementsMisused` / `extendsMisused`), so the check is a pure presence test — zero-FP
  * by construction (the corpus, which compiles clean, never sets them).
  */
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { compilerTypeText, type TypeDecl } from "../../../frontend/syntax/index.js"
 import { lookupLocal } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

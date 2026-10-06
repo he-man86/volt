@@ -9,8 +9,8 @@
  * legal override, not a duplicate variable. The nearest base that declares the name is the one reported.
  */
 import { extendsChain, isLibrarySymbol, lookup, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

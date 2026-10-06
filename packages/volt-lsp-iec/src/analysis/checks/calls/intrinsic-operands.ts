@@ -15,12 +15,12 @@
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
 import { atomicOperand, inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
-import { conversionWarning, storeConversionError } from "../../rules.js"
+import { conversionWarning, storeConversionError } from "../../shared/rules.js"
 import { type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { literalHole } from "../../hole.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { literalHole } from "../../shared/hole.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
 const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
@@ -49,9 +49,9 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if (arity !== undefined && lookup(scope, e.callee.name) === undefined) {
       const n = e.args.length
       if (arity.exact !== undefined && n !== arity.exact)
-        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsExactly(name, arity.exact)) // C0022
+        emit(out, e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsExactly(name, arity.exact)) // C0022
       else if (arity.atLeast !== undefined && n < arity.atLeast)
-        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsAtLeast(name, arity.atLeast)) // C0023
+        emit(out, e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsAtLeast(name, arity.atLeast)) // C0023
     }
 
     const arg = e.args[0]?.value
@@ -59,7 +59,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if (MATH_OPS.has(name) && lookup(scope, e.callee.name) === undefined) {
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind === "elementary" && !inTypeGroup("ANY_NUM", t.elem))
-        push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible(titleCase(name), t.name)) // C0072
+        emit(out, arg.span, "operator-not-possible", ctx.messages.operatorNotPossible(titleCase(name), t.name)) // C0072
     }
     // THE ARRAY BOUNDS OPERATORS WANT A VARIABLE-LENGTH ARRAY — on TwinCAT. `LOWER_BOUND(grid, 1)` where `grid`
     // is `ARRAY[-1..1, 3..9] OF INT` is refused there and folded by CODESYS, which is a real difference and not a
@@ -69,7 +69,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if ((name === "LOWER_BOUND" || name === "UPPER_BOUND") && ctx.project.dialect === "twincat") {
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind === "array" && t.dims.length > 0 && t.dims.every((d) => !d.dynamic))
-        push(out, "error", e.callee.span, "bounds-fixed-array", ctx.messages.boundsNeedVariableLength())
+        emit(out, e.callee.span, "bounds-fixed-array", ctx.messages.boundsNeedVariableLength())
     }
     // `TEST_AND_SET` TAKES A DWORD BY ADDRESS, and the operand is converted into one exactly as an assignment
     // would convert it. Eleven operand types, identical on both vendors (`calls/atomic-operands.ts`, 2026-09-21),
@@ -93,19 +93,19 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const elem = t.kind === "elementary" ? t.elem : undefined
       if (refused !== undefined) out.push({ ...refused, code: "test-and-set-operand" })
       else if (elem !== undefined && !(elem.bits === 32 && !elem.signed)) {
-        push(out, "error", arg.span, "test-and-set-operand", ctx.messages.invalidAdrOperand(`${elem.name}_TO_DWORD(${text(ctx.source, arg.span)})`))
+        emit(out, arg.span, "test-and-set-operand", ctx.messages.invalidAdrOperand(`${elem.name}_TO_DWORD(${text(ctx.source, arg.span)})`))
         const warn = conversionWarning(dword, t, arg, ctx.messages)
         if (warn !== undefined) out.push(warn)
       }
     }
     if (name === "ADR") {
       // a literal HOLE (a malformed address, an enum `Type#Value`) is not refused as an operand: it has no type, and
-      // CODESYS reports that instead (`lit_address_unsized_under_adr`, `analysis/hole`)
+      // CODESYS reports that instead (`lit_address_unsized_under_adr`, `analysis/shared/hole`)
       if (arg.kind === "literal" && !literalHole(arg, ctx.project)) {
-        push(out, "error", arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131
+        emit(out, arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131
       } else {
         const t = inferExprType(arg, scope, ctx.project)
-        if (t.kind === "elementary" && t.name === "BIT") push(out, "warning", arg.span, "adr-on-bit", ctx.messages.adrOnBit()) // C0355
+        if (t.kind === "elementary" && t.name === "BIT") emit(out, arg.span, "adr-on-bit", ctx.messages.adrOnBit(), "warning") // C0355
       }
     }
     // THE ATOMICS WANT A POINTER, AND A FIXED ONE. `__XADD` names `POINTER TO DINT` whatever it was handed and
@@ -122,11 +122,11 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if (atomic?.store === false) {
       const t = inferExprType(arg, scope, ctx.project)
       if (atomic.refuses(t))
-        push(out, "error", arg.span, "call-argument-type", ctx.messages.cannotConvert(renderType(t, { form: "compiler" }), renderType(atomic.type, { form: "compiler" })))
+        emit(out, arg.span, "call-argument-type", ctx.messages.cannotConvert(renderType(t, { form: "compiler" }), renderType(atomic.type, { form: "compiler" })))
     }
     // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,
     // `atomic_indexof_variable`). It is not an operand rule — the operator is simply gone.
-    if (name === "INDEXOF") push(out, "error", e.callee.span, "indexof-removed", ctx.messages.indexofRemoved())
+    if (name === "INDEXOF") emit(out, e.callee.span, "indexof-removed", ctx.messages.indexofRemoved())
     // BITADR IS REFUSED ON EVERY TYPE MEASURED — a BIT, a WORD and a BOOL, three different families, and nothing
     // recorded it succeeding. Same wording as C0072, with the vendor's own camel spelling of the name.
     if (name === "BITADR") {
@@ -138,17 +138,17 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       // …EXCEPT A VARIABLE LOCATED AT A BIT ADDRESS, which is what BITADR is for: `x AT %MX4.3 : BOOL` builds on both
       // vendors and BITADR(x) is a DWORD (`ar_bitadr_type`, 2026-10-03). Only that was measured — a located WORD is not.
       if (named !== undefined && !locatedAtBitAddress(arg, scope))
-        push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible("BitAdr", named))
+        emit(out, arg.span, "operator-not-possible", ctx.messages.operatorNotPossible("BitAdr", named))
     }
     if (name === "__DELETE") {
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind !== "pointer" && t.kind !== "unknown")
-        push(out, "error", arg.span, "delete-non-pointer", ctx.messages.deleteOperandNotPointer()) // C0242
+        emit(out, arg.span, "delete-non-pointer", ctx.messages.deleteOperandNotPointer()) // C0242
     }
     if (name === "INI") {
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind !== "function_block" && t.kind !== "struct" && t.kind !== "unknown")
-        push(out, "error", e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
+        emit(out, e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
     }
     if (name === "__QUERYPOINTER" && e.args.length === 2) {
       // Conservative: fire only where the operand is UNAMBIGUOUSLY wrong — an interface ref / FB instance reads as
@@ -161,26 +161,22 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const first = e.args[0]?.value
       const firstKind = first === undefined ? undefined : inferExprType(first, scope, ctx.project).kind
       if (first !== undefined && (firstKind === "elementary" || firstKind === "pointer"))
-        push(out, "error", first.span, "query-pointer-operand", ctx.messages.queryPointerFirst()) // C0240
+        emit(out, first.span, "query-pointer-operand", ctx.messages.queryPointerFirst()) // C0240
       const second = e.args[1]?.value
       if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
-        push(out, "error", second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
+        emit(out, second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
     }
     if (name === "__QUERYINTERFACE" && e.args.length === 2) {
       // Same conservative rule (twin of __QueryPointer), but the second operand must be an interface reference,
       // not a pointer — a KNOWN ELEMENTARY is unambiguously wrong for either operand.
       const first = e.args[0]?.value
       if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
-        push(out, "error", first.span, "query-interface-operand", ctx.messages.queryInterfaceFirst()) // C0234
+        emit(out, first.span, "query-interface-operand", ctx.messages.queryInterfaceFirst()) // C0234
       const second = e.args[1]?.value
       if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
-        push(out, "error", second.span, "query-interface-operand", ctx.messages.queryInterfaceSecond()) // C0235
+        emit(out, second.span, "query-interface-operand", ctx.messages.queryInterfaceSecond()) // C0235
     }
   })
-}
-
-function push(out: DiagnosticItem[], severity: DiagnosticItem["severity"], span: Span, code: string, message: string): void {
-  out.push({ severity, span, source: SOURCE, code, message })
 }
 
 const text = (source: string, span: Span): string => source.slice(span.start, span.end)

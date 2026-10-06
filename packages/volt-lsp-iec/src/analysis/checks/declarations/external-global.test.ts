@@ -6,6 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const run = (prg: string, gvl?: string) => {
   const inputs = [
@@ -13,7 +14,7 @@ const run = (prg: string, gvl?: string) => {
     ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) }] : []),
   ]
   const project = build.buildSymbolTable(inputs)
-  return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code.startsWith("external-"))
 }
 const codes = (prg: string, gvl?: string) => run(prg, gvl).map((d) => d.code)

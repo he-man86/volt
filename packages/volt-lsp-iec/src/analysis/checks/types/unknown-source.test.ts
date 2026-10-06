@@ -7,6 +7,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
+import { uriFor } from "../../test-uri.js"
 
 // THE VENDOR HAS TO REACH ALL THREE. The dialect is read when LEXING (a CODESYS-only keyword is an ordinary
 // identifier on TwinCAT), when RESOLVING (`project.dialect` is what makes `LDATE` unresolvable there) and when
@@ -15,7 +16,7 @@ import type { Vendor } from "../../config.js"
 function msgs(src: string, vendor: Vendor = "codesys"): string[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unknown-source")
     .map((d) => d.message)
 }

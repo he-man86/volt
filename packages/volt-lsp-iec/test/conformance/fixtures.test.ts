@@ -1024,7 +1024,7 @@ describe("lines — TwinCAT's, for this change's ST row", () => {
     const project = build.buildSymbolTable([{ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source }], [], "twincat")
     const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
       ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)
-    const lsp = computeSemanticDiagnostics({ parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
+    const lsp = computeSemanticDiagnostics({ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
     // the file's 1-based line, less the IMPLEMENTATION line the push takes off
     return {
       lsp: at(lsp.map((d) => ({ severity: d.severity, message: d.message, line: d.span.startLine - 1 }))),
@@ -2128,9 +2128,9 @@ function runLspNow(testIdx: number, vendor: Vendor): string[] {
   // the replay's project, with this fixture swapped in (`support/replay.ts`, shared with the diagnostic census)
   return withReplayFixture(testIdx, vendor, ({ own, plc, lists }, project) => {
     const config = resolveConfig({ vendor })
-    const diags = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config })
-    if (plc) diags.push(...computeSemanticDiagnostics({ parseResult: plc.parseResult, source: plc.source, project, config }))
-    for (const list of lists) diags.push(...computeSemanticDiagnostics({ parseResult: list.parseResult, source: list.source, project, config }))
+    const diags = computeSemanticDiagnostics({ uri: own.uri, parseResult: own.parseResult, source: own.source, project, config })
+    if (plc) diags.push(...computeSemanticDiagnostics({ uri: plc.uri, parseResult: plc.parseResult, source: plc.source, project, config }))
+    for (const list of lists) diags.push(...computeSemanticDiagnostics({ uri: list.uri, parseResult: list.parseResult, source: list.source, project, config }))
     // Graphical (network text) bodies: the semantic pass skips them; run the network text checks too so network text fixtures are covered.
     diags.push(...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
     // No separate `parseResult.errors` here: `checkParseErrors` already reports them. Pushing them again counted every

@@ -12,7 +12,7 @@ const diag = (decls: string, body: string): { code: string; message: string }[] 
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 const codes = (decls: string, body: string): string[] => diag(decls, body).map((d) => d.code)
 
@@ -54,7 +54,7 @@ test("a bound beyond the counter that needs a wider type, or a typed constant, k
     const src = `PROGRAM PLC_PRG\nVAR CONSTANT\n cMax : DINT := 40000;\n cB : INT := 300;\nEND_VAR\nVAR\n i : INT;\n bt : BYTE;\nEND_VAR\n${body}\nEND_PROGRAM`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
   }
   expect(constants("FOR i := 0 TO cMax DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
   expect(constants("FOR bt := 0 TO cB DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])

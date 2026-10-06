@@ -7,10 +7,10 @@
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, hasUnresolvedBase } from "../../../frontend/symbols/index.js"
 import { elementaryRef, literalErrorType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { nameResolves } from "../../resolution.js"
-import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../rules.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { nameResolves } from "../../shared/resolution.js"
+import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../shared/rules.js"
 
 /** What `S=` and `R=` set and read. */
 const BOOL = elementaryRef("BOOL")

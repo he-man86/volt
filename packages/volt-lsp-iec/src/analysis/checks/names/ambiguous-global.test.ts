@@ -6,6 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const GVL2 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
@@ -16,7 +17,7 @@ const run = (prg: string, extraGvl2 = true) => {
     ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) }] : []),
   ]
   const project = build.buildSymbolTable(inputs)
-  return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "ambiguous-global")
 }
 
@@ -44,7 +45,7 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
     { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
   ])
   const ambiguous = () =>
-    computeSemanticDiagnostics({ parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
+    computeSemanticDiagnostics({ uri: uriFor(prgParse), parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
   expect(ambiguous()).toBe(0)
   build.bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) })
   expect(ambiguous()).toBe(1)
@@ -60,7 +61,7 @@ const inEnumProject = (prg: string) => {
     { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
     { uri: "E.dut", source: TWO_ENUMS, parseResult: parseSource(TWO_ENUMS, { networkText: true }) },
   ]
-  return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
     .map((d) => `${d.code}: ${d.message}`)
 }
 
@@ -87,7 +88,7 @@ const runWithF = (prg: string) => {
     { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) },
   ]
   const project = build.buildSymbolTable(inputs)
-  return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "ambiguous-global")
     .map((d) => d.message)
 }

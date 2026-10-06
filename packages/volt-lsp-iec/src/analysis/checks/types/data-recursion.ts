@@ -14,8 +14,8 @@
  */
 import type { Identifier, TopLevel, TypeExpr } from "../../../frontend/syntax/index.js"
 import { childScopesByName, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 interface Node {
   display: string

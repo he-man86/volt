@@ -82,7 +82,7 @@ services ← server), lint-enforced. See [`docs/architecture.md`](./docs/archite
 | `src/frontend/symbols/` | binder · scope-nav · `scoped-bodies` (the one shared "walk every ST body" iterator). |
 | `src/frontend/types/` | elementary type facts · the `Type` model · resolve · const · infer · compat · arith · render. |
 | `src/frontend/library/` | the Volt library format: path layout · manifest · materialization format. |
-| `src/analysis/` | diagnostics orchestrator (vendor-keyed) · per-vendor messages · the `checks/`. |
+| `src/analysis/` | `pipeline/` (the one diagnostics pipeline, the check registry as data, the policy) · per-vendor messages · `shared/` rules · the `checks/`. |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
 | `src/reference/` | language-data catalogs (types · operators · conversions · pragmas · standard fns/fbs · lifecycle). |
 | `src/network-text/` · `src/network/` | the network-text (FBD/LD) lexer · parser · AST · its analysis and services (reusing the shared core). |

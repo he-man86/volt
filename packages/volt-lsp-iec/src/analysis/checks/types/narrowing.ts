@@ -2,15 +2,15 @@
  * implicit-conversion (D.2 · types/). The WARNINGs both compilers emit that a plain assignment otherwise
  * doesn't: an implicit lossy narrowing ("possible loss of information", e.g. `LREAL`→`REAL`) and a same-width
  * signed↔unsigned crossing ("change of sign", e.g. `WORD`→`INT`). Both derive from the ONE `classifyConversion`
- * relation, through the shared rules in `analysis/rules` — this check only walks the places they apply.
+ * relation, through the shared rules in `analysis/shared/rules` — this check only walks the places they apply.
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
-import { checkableType, conversionArgError, conversionWarning, narrowingPairError } from "../../rules.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { pushForDeclaration, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { checkableType, conversionArgError, conversionWarning, narrowingPairError } from "../../shared/rules.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=

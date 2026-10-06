@@ -314,6 +314,7 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
       const ctx: CheckContext = {
         parseResult: doc.parseResult,
         source: doc.source,
+        uri: doc.uri,
         project,
         config,
         messages: rec.messages,
@@ -377,7 +378,7 @@ function fixtureCensus(vendor: Vendor, gaps: Gaps): VendorCensus {
   const probe = withReplayFixture(0, vendor, (_, project) => {
     const names = new Set<string>()
     runRegistry(
-      { parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: vendor }, source: "", project, config: resolveConfig({ vendor }), messages: messagesFor(vendor), tokens: () => [] },
+      { parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: vendor }, source: "", uri: "probe.st", project, config: resolveConfig({ vendor }), messages: messagesFor(vendor), tokens: () => [] },
       (check) => names.add(check.name),
     )
     return names

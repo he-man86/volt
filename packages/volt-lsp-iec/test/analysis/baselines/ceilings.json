@@ -29,7 +29,7 @@
     "group types: open FP": 1,
     "total: FP": 108,
     "total: GAP": 459,
-    "total: never-fired builders": 18,
+    "total: never-fired builders": 17,
     "total: open FP": 1,
     "total: unowned GAP": 70
   },
@@ -63,9 +63,9 @@
     "group types: open FP": 0,
     "total: FP": 335,
     "total: GAP": 807,
-    "total: never-fired builders": 41,
+    "total: never-fired builders": 40,
     "total: open FP": 0,
-    "total: unowned GAP": 115
+    "total: unowned GAP": 104
   },
   "corpus": {
     "total: FP": 216,
@@ -73,7 +73,7 @@
     "total: unowned GAP": 6
   },
   "coverage": {
-    "builders with 0 TP on codesys": 21,
+    "builders with 0 TP on codesys": 20,
     "builders with 0 TP on twincat": 43,
     "checks firing on 0 fixtures": 0
   }

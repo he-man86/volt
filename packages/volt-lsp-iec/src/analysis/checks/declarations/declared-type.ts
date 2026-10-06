@@ -20,8 +20,8 @@ import { forEachDecl } from "../../../frontend/symbols/index.js"
 import type { Expr, TypeExpr, Span, VarDecl, VarSectionKind } from "../../../frontend/syntax/index.js"
 import { constEval, isElementaryTypeName } from "../../../frontend/types/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): void {
   const push = (span: Span, code: string, message: string) => out.push({ severity: "error", span, source: SOURCE, code, message })

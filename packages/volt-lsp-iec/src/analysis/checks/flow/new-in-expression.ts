@@ -7,9 +7,9 @@
  * Zero-FP: `__NEW` allocation on a bare statement (`p := __NEW(T);`) is an `Assignment`, never an `assign_expr`,
  * so it never fires. Distinct from C0509 (a chained `a := b := __NEW(...)` statement).
  */
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachExpr } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkNewInExpression(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e) => {

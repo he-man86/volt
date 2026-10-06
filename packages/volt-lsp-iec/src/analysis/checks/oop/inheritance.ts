@@ -12,9 +12,9 @@
  */
 import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
 import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { nameResolves } from "../../resolution.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { nameResolves } from "../../shared/resolution.js"
 
 /** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface". */
 const NOT_AN_INTERFACE: ReadonlySet<string> = new Set(["function_block", "function", "program", "dut"])

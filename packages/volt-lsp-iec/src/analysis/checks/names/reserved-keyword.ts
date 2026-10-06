@@ -9,9 +9,9 @@
  * we flag ONLY these exact reserved names. Zero corpus surface (a clean project wouldn't
  * name a var after a reserved word). Scoped to VAR-section names (the verified case).
  */
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 const RESERVED = new Set(["char", "wchar", "using"])
 

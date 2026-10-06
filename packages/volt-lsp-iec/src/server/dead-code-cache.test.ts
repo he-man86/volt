@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
 import { WorkspaceStore } from "./workspace-store.js"
-import { resolveConfig, deadPous, deadMemberSpans } from "../analysis/index.js"
+import { resolveConfig } from "../analysis/index.js"
+import { deadPous, deadMemberSpans } from "./reachability.js"
 import { parseSource } from "../frontend/syntax/index.js"
 
 // A tiny multi-POU project: MAIN (task root) calls A; B is dead; A has a called + an uncalled method.

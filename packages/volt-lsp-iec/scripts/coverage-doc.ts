@@ -9,7 +9,7 @@
  * by their `gap` field (needs-live-verify / wont-fix / blocked) or, for build-dependent ones, status "ide-only".
  */
 import { readFileSync, writeFileSync } from "node:fs"
-import { CONFIGURABLE_CODES } from "../src/analysis/config.js"
+import { CONFIGURABLE_CODES } from "../src/analysis/index.js"
 
 // The ~66 codes shown in the CODESYS project-settings "Compiler warnings" dialog (harvested from screenshots).
 const DIALOG = [

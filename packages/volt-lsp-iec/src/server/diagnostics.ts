@@ -9,16 +9,15 @@
  */
 import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-protocol/node"
 import {
+  codesysCodeFor,
   computeSemanticDiagnostics,
-  inDeadMember,
-  ownerPou,
   parseErrorMessage,
   vendorReportsParseError,
   type DiagnosticItem,
   type Messages,
 } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../network/index.js"
-import { codesysCodeFor } from "../analysis/error-code-map.js"
+import { inDeadMember, ownerPou } from "./reachability.js"
 import {
   isLibrarySymbol,
 } from "../frontend/symbols/index.js"

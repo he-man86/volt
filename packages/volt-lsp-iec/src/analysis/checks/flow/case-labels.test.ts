@@ -15,7 +15,7 @@ const cs = (arms: string, vendor: "codesys" | "twincat" = "codesys"): string[] =
     `CASE i OF\n${arms}\nEND_CASE\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }
@@ -47,7 +47,7 @@ test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
-  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "case-label-non-const")
     .map((d) => d.message)
   expect(msgs).toEqual([])
@@ -65,7 +65,7 @@ const sint = (arms: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  sv : SINT;\n  res : INT;\nEND_VAR\nCASE sv OF\n${arms}\nELSE res := 2;\nEND_CASE\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }
@@ -91,7 +91,7 @@ test("a typed integer label is a label; an enum `Type#Value` label is no constan
   const pr = parseSource(src, { networkText: true })
   const er = parseSource(enumSrc, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }, { uri: "file:///E_Mode.dut", parseResult: er, source: enumSrc }], [], "codesys")
-  const errs = [...pr.errors.map((e) => e.message), ...computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const errs = [...pr.errors.map((e) => e.message), ...computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error").map((d) => d.message)]
   expect(errs).toEqual(["CASE label requires literal or symbolic integer constant"])
 })
@@ -114,6 +114,6 @@ test("C0218: a label two enums declare is no constant", () => {
     "PROGRAM PLC_PRG\nVAR\n  e : E_B;\nEND_VAR\nCASE e OF\n  en_x: e := E_B.en_z;\n  en_z: ;\nEND_CASE\nEND_PROGRAM"
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
-  const said = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+  const said = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
   expect(said.filter((m) => m.startsWith("CASE label"))).toEqual(["CASE label requires literal or symbolic integer constant"])
 })

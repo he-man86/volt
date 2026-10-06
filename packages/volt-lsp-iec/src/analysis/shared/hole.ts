@@ -8,9 +8,9 @@
  * compiler types without trouble. Only the first counts — gating on "any diagnostic was reported inside" produced 30
  * false positives on the arithmetic fixtures alone.
  */
-import { addressShape, typedLiteralForm, type Expr, type Span } from "../frontend/syntax/index.js"
-import type { Scope } from "../frontend/symbols/index.js"
-import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../frontend/types/index.js"
+import { addressShape, typedLiteralForm, type Expr, type Span } from "../../frontend/syntax/index.js"
+import type { Scope } from "../../frontend/symbols/index.js"
+import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
 /** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */
@@ -34,6 +34,9 @@ const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
 const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
   "this-not-allowed", "super-not-allowed", "self-not-structured", "unresolved-identifier", "call-recursion", "network-undeclared-identifier",
 ])
+
+/** Every code `reported` reads from earlier findings — the `reads` of a check that calls it (`pipeline/registry.ts`). */
+export const HOLE_EVIDENCE_CODES: ReadonlySet<string> = new Set([...RESOLUTION_FAILURE, ...REFUSED_OUTRIGHT])
 
 /** A view of what the earlier checks found, which is the only evidence a hole is reported on. */
 export interface Reported {

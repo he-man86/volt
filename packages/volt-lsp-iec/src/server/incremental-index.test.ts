@@ -8,8 +8,8 @@
  */
 import { test, expect } from "bun:test"
 import { build, type Scope } from "../frontend/symbols/index.js"
-import { resolveConfig } from "./index.js"
-import { WorkspaceStore } from "../server/workspace-store.js"
+import { resolveConfig } from "../analysis/index.js"
+import { WorkspaceStore } from "./workspace-store.js"
 
 /** Order-insensitive structural key for a scope tree. baseScope is a pointer into a top-level child, so it's
  *  keyed by its identity (name+span), not recursed, to avoid cycles. */

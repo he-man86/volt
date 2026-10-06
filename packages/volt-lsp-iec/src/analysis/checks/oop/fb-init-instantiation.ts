@@ -22,8 +22,8 @@
 import { compilerTypeText, varInputParams, type Method } from "../../../frontend/syntax/index.js"
 import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../frontend/symbols/index.js"
 import { resolveTypeExpr } from "../../../frontend/types/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 /** The two the compiler passes itself — everything after them is the caller's to supply. */
 const IMPLICIT_INPUTS = 2

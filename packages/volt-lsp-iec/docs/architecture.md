@@ -45,7 +45,7 @@ A  syntax        vocabulary · lexer · complete AST · parser · literals · pr
 ```
 src/
   frontend/      A–C — syntax · symbols · types, and library (the Volt library format); one index per sub-layer
-  analysis/      D — the diagnostics orchestrator, messages, rules, and checks/ by concern
+  analysis/      D — the diagnostics pipeline/ and registry, messages, shared/ rules, and checks/ by concern
   services/      E — the LSP features over the layers below
   reference/     F — the language data catalogs
   network-text/  F — the network-text (FBD/LD) lexer, parser and AST
@@ -166,13 +166,20 @@ a declared `TypeExpr` or an expression prints through `syntax/print`). Powers di
 navigation, and codegen alike.
 
 ### D — `analysis/`
-`diagnostics` (the orchestrator, vendor-keyed config, the CODESYS-only check list), `messages` (per-vendor builders
-and the compiler-exact type text), `diagnostic-item`, `rules` (the diagnostics more than one checker applies — the
-store, narrowing, conversion-argument and binary-operator rules the ST checks and the network-text checks share),
-`resolution` (identifier resolution, likewise shared), `error-code-map` (slug → `Cnnnn`), and `checks/` — thin walks
-over those rules, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` · `pragmas/`. Every
-body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each check traces to a
-conformance fixture recorded against the live compiler.
+`index` (the public API, an explicit export list — nothing outside `analysis/` imports any other analysis file),
+`pipeline/` (`context` — what a check is handed; `registry` — every check as data, `{ check, group, vendors, reads?,
+note }`, in its stated run order; `policy` — configurable severity / off and TwinCAT's per-line dedupe; `diagnostics` —
+`computeDiagnostics`, the one pipeline, optionally restricted to some groups), `config` (vendor-keyed configuration),
+`messages` (EVERY message text, per vendor, ordered like `checks/`, and the compiler-exact type text),
+`error-code-map` (slug → `Cnnnn`), `shared/` (the rules more than one check applies: `diagnostic-item` and its
+`emit`, `rules` — the store, narrowing, conversion-argument and binary-operator rules the ST checks and the
+network-text checks share — `resolution`, `hole`, `expr-echo`, `body-context`, `compiled`), and `checks/` — thin
+walks over those rules, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` · `flow/` ·
+`pragmas/` · `syntax/`. A check imports `shared/`, `messages`, `config` and `pipeline/context`, never another check or
+the registry, and has its test beside it (`scripts/check-layering.ts`, rules A1–A6; openspec analysis-conformance
+design.md §2). Every body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each
+check traces to a conformance fixture recorded against the live compiler. Dead-code reachability is server
+suppression policy and lives in `server/reachability`.
 
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,

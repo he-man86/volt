@@ -5,8 +5,8 @@
  */
 import type { FunctionBlock } from "../../../frontend/syntax/index.js"
 import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

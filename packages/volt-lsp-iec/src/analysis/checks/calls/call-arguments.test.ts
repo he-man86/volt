@@ -8,6 +8,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
+import { uriFor } from "../../test-uri.js"
 
 /** All diagnostic codes emitted across the given source units (project built from all of them). */
 function codes(...sources: string[]): string[] {
@@ -24,7 +25,7 @@ function codes(...sources: string[]): string[] {
   const project = build.buildSymbolTable(files, [], "codesys")
   const config = resolveConfig({ vendor: "codesys" })
   return files.flatMap((f) =>
-    computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => d.code),
+    computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => d.code),
   )
 }
 
@@ -46,7 +47,7 @@ test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given
   const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
   const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(files, [], "codesys")
-  const messages = computeSemanticDiagnostics({ parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
+  const messages = computeSemanticDiagnostics({ uri: files[1]!.uri, parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-argument-type")
     .map((d) => d.message)
   expect(messages).toEqual(["Cannot convert type 'WSTRING' to type 'STRING(255)'"])
@@ -69,7 +70,7 @@ test("4.2b too-many wording is vendor-mirrored per callee kind: C0040 (function)
     const files = s.map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
-      computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
+      computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
     )
   }
   const fn = `FUNCTION TEST : INT\nVAR_INPUT a : INT; END_VAR\nTEST := a;\nEND_FUNCTION`
@@ -135,7 +136,7 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
     const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
-      computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+      computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
         .filter((d) => d.code === "in-out-type-mismatch")
         .map((d) => d.message),
     )
@@ -252,7 +253,7 @@ test("an enum VALUE argument converts as INT, like an assignment — into a SINT
   const messages = (target: string): string[] => {
     const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
     const project = build.buildSymbolTable(files, [], "codesys")
-    return computeSemanticDiagnostics({ parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: files[2]!.uri, parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
       .map((d) => d.message)
   }
@@ -344,7 +345,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "in-out-type-mismatch")
     .map((d) => d.message)
   expect(msgs).toEqual(["Type 'SINT' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'value'"])
@@ -355,7 +356,7 @@ test("a literal whose narrowest type MATCHES the parameter stays silent", () => 
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "in-out-type-mismatch"),
   ).toEqual([])
 })
@@ -367,7 +368,7 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
     const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(${args});\nEND_FUNCTION_BLOCK`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -386,7 +387,7 @@ test("the range wording is CODESYS's; TwinCAT says exactly", () => {
   const of = (vendor: "codesys" | "twincat") => {
     const parseResult = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -398,7 +399,7 @@ test("an FB's inputs are NOT required — they are retained between calls", () =
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "function-argument-count"),
   ).toEqual([])
 })
@@ -429,7 +430,7 @@ END_FUNCTION_BLOCK`
   const of = (vendor: "codesys" | "twincat") => {
     const parseResult = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -459,7 +460,7 @@ END_FUNCTION_BLOCK`
   const of = (vendor: "codesys" | "twincat") => {
     const parseResult = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
   }
@@ -495,7 +496,7 @@ test("the callee is upper-cased at a call site, as both vendors print it", () =>
 	})
 	const project = build.buildSymbolTable(files, [], "codesys")
 	const messages = files.flatMap((f) =>
-		computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+		computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
 			.filter((d) => d.code === "unknown-named-argument")
 			.map((d) => d.message),
 	)
@@ -531,7 +532,7 @@ test("an unknown named argument the callee declares nothing of is also 'Identifi
     })
     const project = build.buildSymbolTable(files, [], "codesys")
     const config = resolveConfig({ vendor: "codesys" })
-    return files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
+    return files.flatMap((f) => computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
   }
   // each sentence carries ITS rule's code: "is no input of" is C0037's, "Identifier not defined" C0046's
   const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tn : INT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\tloc2 : INT;\nEND_VAR\nEND_METHOD`
@@ -562,7 +563,7 @@ function codedMessages(...sources: string[]): string[] {
   })
   const project = build.buildSymbolTable(files, [], "codesys")
   const config = resolveConfig({ vendor: "codesys" })
-  return files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
+  return files.flatMap((f) => computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
 }
 
 // A FUNCTION's or METHOD's named arguments are COUNTED before they are named: more `name := value` arguments than the
@@ -627,7 +628,7 @@ function genericCall(group: string, decls: string, arg: string, vendor: "codesys
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[1]!
-  return computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "call-argument-type" || d.code === "in-out-needs-writable")
     .map((d) => d.message)
 }
@@ -688,7 +689,7 @@ test("a PROGRAM called positionally is refused, one error per argument (dt_progr
   const src = `${prg}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nPrg_t(5);\nPrg_t(k := 5);\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "input-assignment-missing")
     .map((d) => d.message)
   expect(msgs).toEqual(["Assignment to input missing for parameter '5' in call of 'PRG_T'"])

@@ -1,7 +1,7 @@
 /**
  * THE COMPILER'S OWN STRUCTS — the named types both vendors build without any library declaring them, written out here
  * as the declarations they stand for, so a member read through one is typed and an unknown member is refused like any
- * struct's (frontend-conformance 4.1.3; `analysis/resolution` `BUILTIN_NAMED_TYPES` lists the names):
+ * struct's (frontend-conformance 4.1.3; `analysis/shared/resolution` `BUILTIN_NAMED_TYPES` lists the names):
  *
  *   VERSION              rule TY15 — `docs/codesys-reference/06-data-types.md` "VERSION": four UINT components. Recorded
  *                        2026-10-03 on both vendors: the components are UINT (`ty_version_component_type`: "Cannot
@@ -13,7 +13,7 @@
  *                        real` to 4), `pValue` its address as raw bytes (`tr_17_any_pvalue_*`: read through a POINTER TO
  *                        REAL it is the bits), `TypeClass` the compiler's `__SYSTEM.TYPE_CLASS` — which is declared
  *                        nowhere here, so that component is untyped rather than given a guessed member list. An UNKNOWN
- *                        component is unrecorded (the vendor may name AnyType, not the group), so `analysis/resolution`
+ *                        component is unrecorded (the vendor may name AnyType, not the group), so `analysis/shared/resolution`
  *                        does not refuse one (step 4a review).
  *   IecSfc.SFCStepType   what an SFC chart's step IS (openspec lsp-sfc-step-names 2.1, `infer/sfc-step`): the library's
  *                        own declaration (`IecSfc/SFCSTEPTYPE.dut` in the CodesysTestProject corpus: X, T, _X, _T), spelled

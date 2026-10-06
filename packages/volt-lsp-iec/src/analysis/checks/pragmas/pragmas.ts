@@ -16,8 +16,8 @@
 import { isKnownAttribute } from "../../../reference/index.js"
 import { allUnits, bodyStatements, directiveOf, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
-import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { CheckContext } from "../../pipeline/context.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   const message = (directive: string, text: string, span: DiagnosticItem["span"]): void => {
@@ -35,7 +35,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // rule, the FB records NOTHING": the recorder dropped every pragma above a top-level unit (frontend-conformance 2.7.2),
   // so the FB's attribute never reached the IDE. Re-recorded 2026-10-02 with it there.
   // CODESYS ONLY, measured: TwinCAT builds all three CLEAN (2026-10-02). It warns about a spelling Beckhoff never
-  // deprecated, so it is one rule of several in this check rather than a check to move into CODESYS_ONLY.
+  // deprecated, so it is one rule of several in this check rather than a check to scope to CODESYS in the registry (`pipeline/registry`).
   if (ctx.config.vendor === "codesys")
     for (const unit of ctx.parseResult.units) {
       if (unit.kind !== "method" && unit.kind !== "function_block") continue

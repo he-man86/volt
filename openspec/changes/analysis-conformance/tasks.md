@@ -242,67 +242,166 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
 
 ### 1a Gates and boundaries
 
-- [ ] 1.1 Snapshot A: the `fixture-diagnostics` aspect in frontend-snapshot (per fixture × vendor, conformance composition,
+- [x] 1.1 Snapshot A: the `fixture-diagnostics` aspect in frontend-snapshot (per fixture × vendor, conformance composition,
       network text ON).
       Where: scripts/frontend-snapshot.ts. Acceptance: `check` on an unchanged tree is identical; a deliberately changed
       message is reported, then reverted. Depends on: 0.1
-- [ ] 1.2 Layering rules A1–A6 (design.md §2, A3's test exception, A6 in both directions, dynamic `import()` counted) in
+      **Done 2026-10-06** (step 1a). `scripts/frontend-snapshot.ts` gains the `fixture-diagnostics` aspect (every
+      `DiagnosticItem` of the replay's composition — own item, PLC_PRG, lists, each with its uri, then the network-text pass
+      over the own item — per fixture × vendor, network text as `--graphical` says, default ON) and `--aspects a,b`, which
+      computes only the named aspects and caches apart (`<sha>-g1-a<aspects>`). Snapshot A on the unchanged tree: identical,
+      39,188 aspects (base 162 s cold, working tree ~130 s). A deliberate change (`cannotConvert` "Cannot KONVERT type")
+      was reported — 1,468 aspects over 1,468 sources — and reverted.
+- [x] 1.2 Layering rules A1–A6 (design.md §2, A3's test exception, A6 in both directions, dynamic `import()` counted) in
       check-layering, with an allow-list of today's violations measured by the rule itself (the six deep importers of
       design.md §4, incremental-index.test, obsolete-usage.test, the two untested checks, the two subject-less tests,
       network's deep imports).
       Where: scripts/check-layering.ts, test/frontend/layering.test.ts. Acceptance: G (allow-list = the measured list,
       printed here); A. Depends on: 1.1
-- [ ] 1.3 analysis/index.ts becomes an explicit export list; every measured deep importer goes through it:
+      **Done 2026-10-06** (step 1a). `scripts/check-layering.ts` `analysisViolations` (A1–A6, tests included, a dynamic
+      `import()` counted) with `KNOWN_ANALYSIS_VIOLATIONS`; one planted-violation test per rule in
+      `test/frontend/layering.test.ts`. The allow-list as the rule measured it — **16 entries**: A2 ×10
+      (network-analysis → expr-echo, hole; server/diagnostics → error-code-map; catalog.test → error-code-map (dynamic);
+      evidence.ts → config; bound-census → expr-echo, hole, checks/types/struct-init; coverage-doc → config;
+      probe-projectsettings-effect → config), A5 ×1 (incremental-index.test → server/workspace-store), A6 ×5
+      (abstract-instantiation.ts, external-write.ts untested; implicit-conversion.test, negation-sign-change.test,
+      initializer-names.test subject-less). A1, A3, A4: 0. Differences from design.md §4's list: obsolete-usage.test has no
+      upward import any more (frontend-conformance removed it), and three were measured that the list lacked (evidence.ts
+      → config, bound-census → struct-init, initializer-names.test). A3 names `pipeline/registry` / `pipeline/diagnostics`;
+      before 1.6 the checks imported `CheckContext` from the old `analysis/diagnostics.ts`, which the rule does not name.
+      Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.3 analysis/index.ts becomes an explicit export list; every measured deep importer goes through it:
       src/network/network-analysis.ts (expr-echo, hole), src/server/diagnostics.ts (error-code-map),
       test/frontend/bound-census.ts (expr-echo, hole), test/catalog/catalog.test.ts (error-code-map, dynamic import),
       scripts/coverage-doc.ts and scripts/probe-projectsettings-effect.ts (config); error-code-map, expr-echo and hole
       are exported.
       Where: src/analysis/index.ts + those files. Acceptance: A; G (every A2 entry removed). Depends on: 1.2
-- [ ] 1.4 reachability.ts (+ test) → server/reachability.ts; incremental-index.test.ts → server/; reachability leaves the
+      **Done 2026-10-06** (step 1a). `analysis/index.ts` is an explicit export list (no `export *`); every measured
+      outside importer goes through it (`isStructInit`/`structEcho` exported for bound-census, `AnalysisInitOptions` for
+      evidence). The package barrel no longer re-exports analysis internals no consumer used (`compilerArrayText`,
+      `CONFIGURABLE_CHECKS`, `configurableCodeFor`, …; `@volt/lsp-iec` is imported by no other package's TS). G: the 10
+      A2 entries removed. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.4 reachability.ts (+ test) → server/reachability.ts; incremental-index.test.ts → server/; reachability leaves the
       analysis index; scripts/corpus-fp imports from server.
       Where: src/analysis → src/server. Acceptance: A; G (A5 entry removed). Depends on: 1.3
-- [ ] 1.5 obsolete-usage.test's upward import (workspace-refs) replaced by a WorkspaceRefs literal built in the test.
+      **Done 2026-10-06** (step 1a). `reachability.ts` (+ test) and `incremental-index.test.ts` → `src/server/`;
+      reachability left the analysis index; the server, dead-code-equivalence, dead-code-cache.test and
+      `scripts/corpus-fp.ts` import `server/reachability`. G: the A5 entry removed. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.5 obsolete-usage.test's upward import (workspace-refs) replaced by a WorkspaceRefs literal built in the test.
       Where: src/analysis/checks/declarations/obsolete-usage.test.ts. Acceptance: A; G (A5 entry removed). Depends on: 1.2
+      **Nothing to do (measured 2026-10-06, step 1a)**: `obsolete-usage.test.ts` no longer imports `workspace-refs`
+      (frontend-conformance 2.7.2 read the attribute from the AST), so the rule measured no A5 entry for it.
 
 ### 1b Pipeline and shared
 
-- [ ] 1.6 pipeline/: context.ts (CheckContext, Check), registry.ts (CHECKS), policy.ts (severity forcing, dedupePerLine),
+- [x] 1.6 pipeline/: context.ts (CheckContext, Check), registry.ts (CHECKS), policy.ts (severity forcing, dedupePerLine),
       diagnostics.ts (computeDiagnostics with the optional `groups` restriction; computeSemanticDiagnostics kept as an
       alias until 4.4).
       Where: src/analysis/pipeline/. Acceptance: A; the registry's order byte-identical (a test lists it); `groups`
       unset = every check (a test). Depends on: 1.3
-- [ ] 1.7 The registry becomes data: `{ check, group, vendors, reads?, note }`, group comments corrected (signature-name
+      **Done 2026-10-06** (step 1b). `pipeline/{context,registry,policy,diagnostics}.ts`; `analysis/diagnostics.ts`
+      deleted; the 79 checks import `CheckContext` from `pipeline/context`. `computeDiagnostics({ …, groups? })`;
+      `computeSemanticDiagnostics` is its alias; `runRegistry(ctx, onCheck?, groups?)` and `CHECK_REGISTRY` unchanged for
+      the census. `pipeline/registry.test.ts`: the run order (79 names) is a listed contract; `groups` unset = every check,
+      a list = only those groups'. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.7 The registry becomes data: `{ check, group, vendors, reads?, note }`, group comments corrected (signature-name
       out of the syntax block); the CODESYS_ONLY and TWINCAT_ONLY sets fold into `vendors`; generic-instantiation and
       system-initializer get a note naming their rule gate. A test asserts every producer of a `reads` code runs before
       its reader (unknown-source now).
       Where: pipeline/registry.ts, pipeline/registry.test.ts. Acceptance: A. Depends on: 1.6
-- [ ] 1.8 shared/: rules, resolution, hole, expr-echo, body-context, diagnostic-item, lost-declaration move under it;
+      **Done 2026-10-06** (step 1b). `REGISTRY: { check, group, vendors, reads?, note? }[]`; CODESYS_ONLY / TWINCAT_ONLY folded
+      into `vendors` (7 CODESYS-only entries, each with its measured note; 0 TwinCAT-only); signature-name's group is
+      `declarations`; generic-instantiation and typed-literal carry a `rule gate:` note (system-initializer is gone —
+      frontend-conformance). `unknown-source` `reads` hole's 12 evidence codes (`HOLE_EVIDENCE_CODES`, exported from
+      `shared/hole`); the test asserts every registry producer of each runs before it — the two network codes are produced
+      by the network pass only (after the registry, its own `out`). Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.8 shared/: rules, resolution, hole, expr-echo, body-context, diagnostic-item, lost-declaration move under it;
       imports updated.
       Where: src/analysis/shared/. Acceptance: A; G (A3/A4 hold). Depends on: 1.6
-- [ ] 1.9 shared/diagnostic-item `emit()` replaces every local push() helper (measured 2026-10-01: four —
+      **Done 2026-10-06** (step 1b). `shared/`: rules, resolution, hole, expr-echo, body-context, diagnostic-item, and
+      `compiled` (+ test) — not in design.md §2's list, but used by two checks (interface-implementation, method-signature),
+      so P2 puts it here. `lost-declaration.ts` was already deleted. Every import rewritten (92 files). G: A3/A4 hold.
+      Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.9 shared/diagnostic-item `emit()` replaces every local push() helper (measured 2026-10-01: four —
       intrinsic-operands, bit-usage, const-context, array-init; re-grep at the task, the frontend run edits const-context).
       Where: those checks. Acceptance: A; `grep -rn "function push(" src/analysis` empty. Depends on: 1.8
-- [ ] 1.10 The registry entry ↔ file half of A6: every entry's `group` matches its file's folder; a test fails otherwise.
+      **Done 2026-10-06** (step 1b). `shared/diagnostic-item` `emit(out, span, code, message, severity = "error")` replaces
+      the four local `push()` helpers (intrinsic-operands, bit-usage, const-context, array-init — re-grepped, still four).
+      `grep -rn "function push(" src/analysis`: empty. (Local `const push = …` closures over a check's own state —
+      declared-type, case-labels, jump-labels, conditional-call, comparison, unknown-source — stay.) Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.10 The registry entry ↔ file half of A6: every entry's `group` matches its file's folder; a test fails otherwise.
       Where: pipeline/registry.test.ts. Acceptance: A; G. Depends on: 1.7, 1.8
+      **Done 2026-10-06** (step 1b). `pipeline/registry.test.ts`: every entry's function is defined in exactly one file,
+      under `checks/<its group>/`. G passes. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
 
 ### 1c Messages, files and tests
 
-- [ ] 1.11 messages.ts: fbInitNoOutput and enumInitNotConvertible deleted (callers use noInput / cannotConvert); the two
+- [x] 1.11 messages.ts: fbInitNoOutput and enumInitNotConvertible deleted (callers use noInput / cannotConvert); the two
       inline templates of parse-errors.ts become named builders in messages.ts, and struct-init's STRUCT echo moves to
       shared/expr-echo; the misattached JSDoc of the three network builders fixed; sections ordered by group.
       Where: messages.ts, checks/syntax/parse-errors.ts, checks/types/struct-init.ts. Acceptance: A. Depends on: 1.8
-- [ ] 1.12 oop/inout-external-access + oop/inout-own-access → oop/inout-access.ts (both functions, registry slots unchanged).
+      **Done 2026-10-06** (step 1c). Deleted `fbInitNoOutput` (→ `noInput`), `enumInitNotConvertible` (→
+      `cannotConvert`) and the dead `semicolonExpectedInsteadOf` (no caller, 0.3). New builders
+      `parameterSectionNotAllowed`, `variableDeclarationExpectedInsteadOf` (parse-errors' two inline templates; the echo
+      text stays in parse-errors); `structEcho` → `shared/expr-echo`; the JSDoc of `undefinedIdentifier`,
+      `unresolvedAssignTarget`, `unresolvedOperandToken` reattached; interface and implementation ordered shared → types →
+      declarations → names → oop → calls → flow → pragmas → syntax → network (a builder's section = the group of every
+      check that calls it, `census.ts` `builderOwners`). Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects. Census (attribution only, no diagnostic changed): TP/FP/GAP
+      totals unchanged; never-fired builders 18 → 17 / 41 → 40; TwinCAT unowned GAP 115 → 104 and group syntax GAP 70 → 81 —
+      the same eleven recorded "Variable declaration expected instead of …" messages now owned by the new builder. That
+      group ceiling would rise, so it is held by eleven named exceptions (`test/frontend/baseline.ts` SECTION_ECHO_ROWS,
+      each fixture already a TwinCAT divergence), not by raising the file; baselines rewritten with
+      `VOLT_WRITE_BASELINE=1`.
+      **Review (gate 1a+1c, 2026-10-06):** the exceptions gave the wrong cause and pointed the fix at parse-errors. Their
+      `why`/`task` now cite `TWINCAT_DRIVER_CUTS_THE_ECHO` (divergences.ts): the TwinCAT RECORDING is cut at the message's
+      first line break — a bridge bug, fixed by the driver and a re-record, never by the LSP matching the cut text; each
+      exception goes when its fixture is re-recorded. `decl_var_external_inside_struct`, recorded cut the same way but
+      named only under `EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION`, joins `TWINCAT_DRIVER_CUTS_THE_ECHO` (a set it was already
+      in through the other list: no verdict changes).
+- [x] 1.12 oop/inout-external-access + oop/inout-own-access → oop/inout-access.ts (both functions, registry slots unchanged).
       Where: checks/oop/. Acceptance: A. Depends on: 1.7
-- [ ] 1.13 CheckContext.uri required: every computeSemanticDiagnostics/computeDiagnostics call site passes a uri
+      **Done 2026-10-06** (step 1c). `oop/inout-access.ts` holds both functions (registry slots unchanged, adjacent);
+      `inout-access.test.ts` holds both former test files, each in its own `describe`. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+- [x] 1.13 CheckContext.uri required: every computeSemanticDiagnostics/computeDiagnostics call site passes a uri
       (tests: `uriFor`), mechanically (call-site count measured and written here; the ~92 is a grep estimate).
       Where: pipeline/context.ts + call sites (src, test, scripts). Acceptance: A; typecheck. Depends on: 1.6
-- [ ] 1.14 Tests: conversion-name.test.ts merges into checks/types/conversion.test.ts; implicit-conversion.test.ts and
+      **Done 2026-10-06** (step 1c). `CheckContext.uri` and `DiagnosticsArgs.uri` required. Call sites measured by the
+      compiler: **228** without a uri (of 230 pipeline calls, 93 files) — 204 analysis tests given `uriFor(parseResult)`
+      mechanically, 21 by hand (the file the test or harness bound: `files[i].uri`, `own.uri`, `f.uri`, …), 3
+      `CheckContext` literals (census ×2, registry.test). Output-neutral by construction: the asker's uri decides only
+      through its `Library Manager/` folder (`symbols/precedence`), and no inserted uri is a library's. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects;
+      suite-snapshot identical.
+- [x] 1.14 Tests: conversion-name.test.ts merges into checks/types/conversion.test.ts; implicit-conversion.test.ts and
       negation-sign-change.test.ts merge into checks/types/narrowing.test.ts; analysis.test.ts → pipeline/diagnostics.test.ts;
       colocated tests for abstract-instantiation and external-write (from their existing fixtures' sources).
       Where: src/analysis. Acceptance: A; G (A6 entries in both directions removed); test count not lower. Depends on: 1.2, 1.6
-- [ ] 1.15 checks/syntax/ receives the candidates 0.5's parser-cascade test moved; the registry group of each is updated.
+      **Done 2026-10-06** (step 1c). conversion-name.test → `checks/types/conversion.test.ts`; implicit-conversion.test and
+      negation-sign-change.test → `checks/types/narrowing.test.ts`; analysis.test → `pipeline/diagnostics.test.ts`;
+      initializer-names.test (measured at 1.2) → `checks/declarations/refused-initializer.test.ts` — each merged file's tests
+      in a `describe` of their own, none dropped (50 → 50 across the merged files). New: `oop/abstract-instantiation.test.ts`
+      (`oop_abstract_instantiated`, both vendors' wording, 3 tests) and `oop/external-write.test.ts` (`hide_var`, 2 tests).
+      G: `KNOWN_ANALYSIS_VIOLATIONS` is empty. Snapshot A (`check --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,188 aspects.
+      **Review (gate 1a+1c, 2026-10-06):** two of the new tests asserted what no recording covers, and were removed:
+      external-write's added `VAR_INPUT iIn` (the `hide_var` FB has none) with its "input written / internal member read
+      is no finding" test, and abstract-instantiation's "one finding per declared name" (no fixture declares two abstract
+      instances). The POINTER TO test now cites `unit_method_abstract_final` / `unit_fb_abstract_final` (an ABSTRACT FB
+      reached by pointer, no "cannot be instantiated" on either vendor) and asserts both vendors. New tests: 3 (2 + 1).
+      **Review, 1.6's `groups`:** a subset that holds a check with `reads` (unknown-source, group types) but leaves out
+      any group is now refused by name (`runRegistry`): run without its producers it dropped the types finding CODESYS
+      reports (`groups: ["types"]` returned [] where the full run gives unknown-source). Test first in
+      `pipeline/registry.test.ts`; a list of every group equals the unset run. 2.5's `["syntax"]` holds no reader.
+- [x] 1.15 checks/syntax/ receives the candidates 0.5's parser-cascade test moved; the registry group of each is updated.
       Candidates that stay are untouched. Skipped with a note if 0.5 moved none.
       Where: checks/syntax/. Acceptance: A; G. Depends on: 0.5, 1.10
+      **Skipped (0.5):** the parser-cascade test moved none of the candidates — four are gone (frontend-conformance), three stay
+      in their group (design.md §2 "0.5 measured").
+
+**Gate 1a+1b+1c (2026-10-06):** typecheck, `bun run lint` (A1–A6, allow-list empty) and `bun run check` pass; the full
+suite (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES, rustc cache on): **8128 pass, 34 skip, 381 todo, 0 fail** over
+8543 tests in 205 files (507 s). No fixture or transpiler file changed, so the map was not regenerated. ONE commit for the
+three steps, not one per step: their edits share files throughout (1.8 rewrote every check's imports after 1.6 had,
+1.13 rewrote the call sites 1.3/1.4 had moved, in scripts and tests alike), and the working tree holds only the end state —
+a per-step split would be commits that were never built or measured.
 
 ## 2. Parse-error and composition seams (design.md §3 is PARKED)
 

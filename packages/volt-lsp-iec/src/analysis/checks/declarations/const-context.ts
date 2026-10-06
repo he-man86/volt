@@ -9,20 +9,20 @@
  */
 import { constancyOf } from "../../../frontend/types/index.js"
 import type { Expr, Span } from "../../../frontend/syntax/index.js"
-import type { CheckContext } from "../../diagnostics.js"
+import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     const bound = (e: Expr | undefined) => {
       if (e !== undefined && constancyOf(e, scope) === "variable")
-        push(out, e.span, "array-bound-non-const", ctx.messages.arrayBoundNonConst(text(ctx.source, e.span)))
+        emit(out, e.span, "array-bound-non-const", ctx.messages.arrayBoundNonConst(text(ctx.source, e.span)))
     }
     // a STRING/WSTRING length is a constant as a bound is: "String length 'n' is no constant value"
     // (`decl_string_length_variable`, both vendors 2026-10-01)
     if (decl.type.kind === "string_type" && decl.type.length !== undefined && constancyOf(decl.type.length, scope) === "variable")
-      push(out, decl.type.length.span, "string-length-non-const", ctx.messages.stringLengthNonConst(text(ctx.source, decl.type.length.span)))
+      emit(out, decl.type.length.span, "string-length-non-const", ctx.messages.stringLengthNonConst(text(ctx.source, decl.type.length.span)))
     if (decl.type.kind === "array_type")
       for (const dim of decl.type.dims) {
         bound(dim.lower) // C0161
@@ -35,7 +35,7 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
       constancyOf(decl.init, scope) === "variable"
     )
       for (const name of decl.names)
-        push(out, name.span, "const-init-non-const", ctx.messages.constInitNonConst(name.text)) // C0227
+        emit(out, name.span, "const-init-non-const", ctx.messages.constInitNonConst(name.text)) // C0227
     // C0526 — a VAR_INPUT default that is a mutable variable. NOT a plain "is it a call" test: `STRUCT(…)`,
     // `SIZEOF(…)`, `ADR(…)` are compile-time constants that also parse as calls, so only a `variable`
     // constancy (a definite mutable reference) is flagged; call/unknown defaults are left alone (zero-FP).
@@ -46,12 +46,8 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
       decl.init.kind !== "aggregate_init" &&
       constancyOf(decl.init, scope) === "variable"
     )
-      push(out, decl.init.span, "default-not-constant", ctx.messages.defaultNotConstant())
+      emit(out, decl.init.span, "default-not-constant", ctx.messages.defaultNotConstant())
   }
-}
-
-function push(out: DiagnosticItem[], span: Span, code: string, message: string): void {
-  out.push({ severity: "error", span, source: SOURCE, code, message })
 }
 
 const text = (source: string, span: Span): string => source.slice(span.start, span.end)
