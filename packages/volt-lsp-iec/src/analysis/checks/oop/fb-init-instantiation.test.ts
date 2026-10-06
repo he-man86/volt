@@ -91,3 +91,19 @@ test("FB_Init given the wrong count of arguments is the same message; an ARRAY o
 test("an ARRAY of an FB_Init FB in a FUNCTION's VAR_INPUT is not counted (unmeasured)", () => {
   expect(diagnose(`FUNCTION F : INT\nVAR_INPUT\n\ta : ARRAY[0..1] OF FB_Needs;\nEND_VAR\nF := 1;\nEND_FUNCTION\n`).filter((m) => m.startsWith("The number"))).toEqual([])
 })
+
+// analysis-conformance 3.7 (`oopb_fb_init_extra_input_first`, CODESYS 2026-10-06): the extra inputs are the ones not
+// NAMED bInitRetains / bInCopyCode, wherever they stand — an INT declared first is "(INT)", not the BOOL in its slot
+test("the extra inputs are those not named bInitRetains / bInCopyCode, wherever declared", () => {
+  const fb = `FUNCTION_BLOCK FB_First\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tstartValue : INT;\n\tbInitRetains : BOOL;\n\tbInCopyCode : BOOL;\nEND_VAR\nEND_METHOD\n`
+  const plc = program("\tx : FB_First;")
+  const files = [fb, plc].map((source, i) => ({ uri: `file:///c/U${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(files, [], "codesys")
+  const f = files[1]!
+  const got = computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "fb-init-argument-missing")
+    .map((d) => d.message)
+  expect(got).toEqual([
+    "No matching 'FB_Init' method found for instantiation of FB_First. Specified 'FB_Init' method requires exactly 1 inputs. Check syntax 'x : FB_First(INT)'",
+  ])
+})

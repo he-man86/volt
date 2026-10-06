@@ -33,7 +33,7 @@ import {
   scopeUri,
   type Scope,
 } from "../../../frontend/symbols/index.js"
-import type { FunctionBlock } from "../../../frontend/syntax/index.js"
+import type { FunctionBlock, InterfaceProperty } from "../../../frontend/syntax/index.js"
 import { compiledFbs } from "../../shared/compiled.js"
 import type { CheckContext } from "../../pipeline/context.js"
 
@@ -59,6 +59,9 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
         for (const symbols of declaring.symbols.values())
           for (const m of symbols) {
             if (m.kind !== "interface_method" && m.kind !== "interface_property") continue
+            // a property declaring neither accessor declares nothing to implement (`oopb_itf_property_missing`, both
+            // vendors 2026-10-06: they warn about the interface and never ask the FB)
+            if (m.kind === "interface_property" && !(m.ast as InterfaceProperty).hasGetter && !(m.ast as InterfaceProperty).hasSetter) continue
             if (provided.has(m.name.toLowerCase())) continue
             out.push({
               severity: "error",

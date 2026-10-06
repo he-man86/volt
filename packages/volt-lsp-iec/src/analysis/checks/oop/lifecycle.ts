@@ -1,12 +1,13 @@
 /**
  * fb-lifecycle-signature (D.2 · oop/). A method named for a lifecycle hook (FB_Init/FB_Exit/FB_ReInit)
- * must declare the required VAR_INPUT params, in order. Mirrors the compilers: they error when a
- * required param is missing but permit deviating return types / extra params. One canned message per
+ * must declare the required VAR_INPUT params, in order, each a BOOL. Mirrors the compilers: they error when a
+ * required param is missing or of another type, and permit deviating return types and FB_Init's extra params —
+ * not FB_Exit's, which takes its one input alone (analysis-conformance 3.7). One canned message per
  * method (per-vendor wording via `messages.lifecycle`), flagged once.
  *
  * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
-import { varInputParams } from "../../../frontend/syntax/index.js"
+import { varInputParams, type TypeExpr } from "../../../frontend/syntax/index.js"
 import type { LifecycleMethod } from "../../messages.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -52,8 +53,14 @@ export function checkLifecycleSignatures(ctx: CheckContext, out: DiagnosticItem[
     const required = REQUIRED[method]
     if (required.length === 0) continue
 
-    const inputs = varInputParams(unit.varSections).map((p) => p.name.text)
-    const violated = required.some((name, i) => (inputs[i] ?? "").toLowerCase() !== name.toLowerCase())
+    // each required input in its slot, of type BOOL (an INT `bInitRetains` is the same refusal); FB_Exit takes its one
+    // input ALONE, where FB_Init takes extra inputs after the two (`oopb_fb_init_input_wrong_type`,
+    // `oopb_fb_exit_extra_input`, both vendors 2026-10-06)
+    const inputs = varInputParams(unit.varSections)
+    const isBool = (t: TypeExpr | undefined) => t?.kind === "named_type" && t.name.text.toUpperCase() === "BOOL"
+    const violated =
+      required.some((name, i) => (inputs[i]?.name.text ?? "").toLowerCase() !== name.toLowerCase() || !isBool(inputs[i]?.type)) ||
+      (method === "FB_Exit" && inputs.length > required.length)
     if (violated) {
       out.push({
         severity: "error",

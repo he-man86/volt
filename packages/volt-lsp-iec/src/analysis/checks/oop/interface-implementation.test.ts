@@ -72,3 +72,10 @@ test("H4: a base interface nothing declares is unprovable — no obligation is g
   const src = `INTERFACE I_D EXTENDS I_Missing\nMETHOD Md : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK F IMPLEMENTS I_D\nEND_FUNCTION_BLOCK\n\nMETHOD Md : INT\nEND_METHOD`
   expect(missing(src)).toEqual([])
 })
+
+// analysis-conformance 3.7 (`oopb_itf_property_missing`, `oopb_itf_property_getter_only`, both vendors 2026-10-06): an
+// interface PROPERTY declaring neither accessor declares nothing to implement — the vendors warn about the interface
+// ("The property defines neither a get nor a set accessor.") and never ask the FB for it
+test("an interface property with neither accessor owes nothing (oopb_itf_property_missing)", () => {
+  expect(missing(`INTERFACE IP\nPROPERTY P : INT\nEND_PROPERTY\nEND_INTERFACE\n\nFUNCTION_BLOCK F IMPLEMENTS IP\nEND_FUNCTION_BLOCK`)).toEqual([])
+})

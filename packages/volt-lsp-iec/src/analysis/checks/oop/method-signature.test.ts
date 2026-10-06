@@ -141,3 +141,69 @@ test("FB_init overrides nothing: a derived FB_init with inputs of its own is no 
     "METHOD FB_init : BOOL\nVAR_INPUT\n bInitRetains : BOOL;\n bInCopyCode : BOOL;\n n : INT;\nEND_VAR\nEND_METHOD"
   expect(msgs(src, "override-mismatch-base")).toEqual([])
 })
+
+// ─── analysis-conformance 3.7 (`oopb_*`, both vendors 2026-10-06) ───────────────────────────────────────────────────
+const ITF_M = `INTERFACE XY\nMETHOD M : INT\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\n`
+const IMPL = (method: string, header = " IMPLEMENTS XY") => `${ITF_M}FUNCTION_BLOCK FB${header}\nEND_FUNCTION_BLOCK\n\n${method}`
+const FIRST = "Interface of overridden method 'M' of interface 'XY' doesn't match declaration"
+const COUNT = "The number of inputs/outputs of the method 'M' does not correspond to the interface 'XY'."
+
+test("C0089: another SECTION is a COUNT difference — the inputs, outputs and inouts are counted apart (oopb_itf_section_mismatch)", () => {
+  const src = IMPL("METHOD M : INT\nVAR_IN_OUT\n a : INT;\nEND_VAR\nEND_METHOD")
+  expect(msgs(src, "override-mismatch-interface")).toEqual([FIRST, COUNT])
+  expect(msgs(src, "override-mismatch-interface", "twincat")).toEqual([FIRST])
+})
+
+test("C0089: another result type names the method as the variable; no result is a COUNT difference (oopb_itf_return_*)", () => {
+  expect(msgs(IMPL("METHOD M : DINT\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD"), "override-mismatch-interface")).toEqual([
+    FIRST,
+    "The variable 'M' of the method 'M' does not correspond to the interface 'XY'.",
+  ])
+  expect(msgs(IMPL("METHOD M\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD"), "override-mismatch-interface")).toEqual([FIRST, COUNT])
+})
+
+test("C0089: the interface's method provided by the FB's BASE is compared too (oopb_itf_method_in_base_mismatch)", () => {
+  const src =
+    `${ITF_M}FUNCTION_BLOCK B\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR_INPUT\n a : DINT;\nEND_VAR\nEND_METHOD\n\n` +
+    `FUNCTION_BLOCK FB EXTENDS B IMPLEMENTS XY\nEND_FUNCTION_BLOCK`
+  expect(msgs(src, "override-mismatch-interface")).toEqual([FIRST, "The variable 'a' of the method 'M' does not correspond to the interface 'XY'."])
+  expect(msgs(src, "override-mismatch-interface", "twincat")).toEqual([FIRST])
+})
+
+test("C0094: a PROPERTY whose SET overrides another type converts its value; a VAR_OUTPUT of another type converts nothing", () => {
+  const prop =
+    `FUNCTION_BLOCK B\nVAR\n b : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nGET\nP := b;\nEND_GET\nSET\nb := P;\nEND_SET\nEND_PROPERTY\n\n` +
+    `FUNCTION_BLOCK D EXTENDS B\nVAR\n s : DINT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : DINT\nGET\nP := s;\nEND_GET\nSET\ns := P;\nEND_SET\nEND_PROPERTY`
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(msgs(prop, CONVERSION, vendor)).toEqual([
+      "Interface of overridden method '__GETP' of base 'B' doesn't match declaration",
+      "Interface of overridden method '__SETP' of base 'B' doesn't match declaration",
+      "Cannot convert type 'DINT' to type 'INT'",
+    ])
+  const out =
+    `FUNCTION_BLOCK B\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR_OUTPUT\n o : INT;\nEND_VAR\nEND_METHOD\n\n` +
+    `FUNCTION_BLOCK D EXTENDS B\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR_OUTPUT\n o : DINT;\nEND_VAR\nEND_METHOD`
+  expect(msgs(out, CONVERSION)).toEqual(["Interface of overridden method 'M' of base 'B' doesn't match declaration"])
+})
+
+test("C0089: an interface method INHERITED from the base is said at the FB's IMPLEMENTS, in the FB's own file (gate 3.7+3.9)", () => {
+  // one item per file: the base's method and parameter live in FB_Base.pou — the derived FB's finding cannot carry their
+  // offsets into FB_D.pou (CODESYS records the finding without a position, line 0)
+  const files = {
+    "ITF_X.itf": `INTERFACE ITF_X\nMETHOD M : INT\nVAR_INPUT\n a : INT;\nEND_VAR\nEND_METHOD\nEND_INTERFACE`,
+    "FB_Base.pou": `FUNCTION_BLOCK FB_Base\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR_INPUT\n a : DINT;\nEND_VAR\nEND_METHOD`,
+    "FB_D.pou": `FUNCTION_BLOCK FB_D EXTENDS FB_Base IMPLEMENTS ITF_X\nVAR\n out : INT;\nEND_VAR\nout := M(a := 3);\nEND_FUNCTION_BLOCK`,
+    "P.pou": `PROGRAM P\nVAR\n d : FB_D;\nEND_VAR\nEND_PROGRAM`,
+  }
+  const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(parsed, [], "codesys")
+  const d = parsed.find((f) => f.uri === "FB_D.pou")!
+  const found = computeSemanticDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((x) => x.code === "override-mismatch-interface")
+  const at = d.source.indexOf("ITF_X")
+  expect(found.map((x) => [x.message, d.source.slice(x.span.start, x.span.end)])).toEqual([
+    ["Interface of overridden method 'M' of interface 'ITF_X' doesn't match declaration", "ITF_X"],
+    ["The variable 'a' of the method 'M' does not correspond to the interface 'ITF_X'.", "ITF_X"],
+  ])
+  expect(found.every((x) => x.span.start === at)).toBe(true)
+})

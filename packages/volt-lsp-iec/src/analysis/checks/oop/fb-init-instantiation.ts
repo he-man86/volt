@@ -28,8 +28,9 @@ import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
-/** The two the compiler passes itself — everything after them is the caller's to supply. */
-const IMPLICIT_INPUTS = 2
+/** The two the compiler passes itself, by NAME — every other input is the caller's to supply, wherever it is declared: an
+ *  INT declared ahead of them is "(INT)" (`oopb_fb_init_extra_input_first`, CODESYS 2026-10-06), not the BOOL in its slot. */
+const IMPLICIT_INPUTS: ReadonlySet<string> = new Set(["binitretains", "bincopycode"])
 
 export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -73,5 +74,5 @@ function extraInputs(type: Type): ReturnType<typeof varInputParams> {
   if (type.kind !== "function_block" || type.scope === undefined) return []
   const init = lookupLocal(type.scope, "FB_Init").find((s) => s.kind === "method")
   if (init === undefined || isLibrarySymbol(init)) return []
-  return varInputParams((init.ast as Method).varSections).slice(IMPLICIT_INPUTS)
+  return varInputParams((init.ast as Method).varSections).filter((p) => !IMPLICIT_INPUTS.has(p.name.text.toLowerCase()))
 }

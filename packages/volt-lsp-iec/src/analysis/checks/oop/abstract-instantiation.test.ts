@@ -58,3 +58,31 @@ test("a pointer to an ABSTRACT FB instantiates nothing (unit_method_abstract_fin
   expect(findings(prg, "codesys")).toEqual([])
   expect(findings(prg, "twincat")).toEqual([])
 })
+
+// analysis-conformance 3.7 (`oopb_abstract_array`, `oopb_abstract_assign_inout`, `oopb_abstract_as_input`, CODESYS
+// 2026-10-06): an ARRAY's element is an instance, a VAR_INPUT is one, a VAR_IN_OUT binds somebody else's
+const inFb = (sections: string) => `FUNCTION_BLOCK FB_LANG_user\n${sections}\nEND_FUNCTION_BLOCK\n`
+function fbFindings(sections: string, vendor: Vendor): string[] {
+  const files = [FB, inFb(sections)].map((source) => {
+    const parseResult = parseSource(source, { networkText: true }, vendor)
+    return { uri: uriFor(parseResult), source, parseResult }
+  })
+  const project = build.buildSymbolTable(files, [], vendor)
+  const at = files[1]!
+  return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
+    .filter((d) => d.code === "abstract-instantiation")
+    .map((d) => d.message)
+}
+const REFUSED = "Function block FB_LANG_oop_abstract_instantiated is ABSTRACT and cannot be instantiated"
+
+test("an ARRAY OF an ABSTRACT FB instantiates its elements (oopb_abstract_array)", () => {
+  expect(fbFindings("VAR\n\tarr : ARRAY[1..2] OF FB_LANG_oop_abstract_instantiated;\nEND_VAR", "codesys")).toEqual([REFUSED])
+})
+
+test("a VAR_INPUT of an ABSTRACT FB's type is an instance (oopb_abstract_as_input)", () => {
+  expect(fbFindings("VAR_INPUT\n\tsrc : FB_LANG_oop_abstract_instantiated;\nEND_VAR", "codesys")).toEqual([REFUSED])
+})
+
+test("a VAR_IN_OUT of an ABSTRACT FB's type instantiates nothing (oopb_abstract_assign_inout)", () => {
+  expect(fbFindings("VAR_IN_OUT\n\ta : FB_LANG_oop_abstract_instantiated;\nEND_VAR", "codesys")).toEqual([])
+})

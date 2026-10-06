@@ -11,6 +11,11 @@
  * as legal overrides. Every name in the sentence is UPPER-CASED, the method's and the base's (`'FETCH'`, recorded with a
  * method written `Fetch`).
  *
+ * analysis-conformance 3.7 (`fixtures/oop/oop-rules-b.ts`, both vendors 2026-10-06): CODESYS counts the inputs, outputs and
+ * inouts APART, the result among the outputs — another section or a result left out is its COUNT sentence, another result
+ * type names the method as "the variable"; an interface method the FB INHERITS from its base is compared too; a PROPERTY's
+ * SET of another type converts its value once; two VAR_OUTPUTs of other types convert nothing.
+ *
  * The base is the one the symbol table LINKED (`extends.ts` — by precedence among same-named candidates, rule H8), the
  * nearest in the chain that declares the method; it was looked up by NAME, which under a project FB shadowing a
  * library's (`inh_extends_ambiguous_library_base`) is the library's. Library bases and interfaces (whose materialized
@@ -55,31 +60,36 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
     const ownProps = ownMembers(fbScope, "property")
 
     // C0089 — vs each implemented interface's methods, its inherited ones included (rule H4)
+    const bases = ancestry(fbScope).slice(1)
     for (const ifaceName of unit.implements ?? []) {
       if (isLibraryName(ctx, ifaceName.text)) continue
       const ifaceScope = findScopeByName(ctx.project, ifaceName.text, scopeUri(fbScope))
       if (ifaceScope === undefined || ifaceScope.kind !== "interface") continue
       for (const declaring of ancestry(ifaceScope))
         for (const im of ownMembers(declaring, "interface_method").values()) {
-          const mine = own.get(im.name.toLowerCase())
-          if (mine === undefined) continue // not implemented here → C0087's concern
+          // the FB's own method, or the one its nearest BASE declares — an inherited method implements the interface too,
+          // and is compared alike (`oopb_itf_method_in_base_mismatch`, both vendors 2026-10-06)
+          const mine = own.get(im.name.toLowerCase()) ?? nearest(bases, "method", im.name)
+          if (mine === undefined || isLibrarySymbol(mine)) continue // not implemented → C0087's concern
           const theirs = im.ast as InterfaceMethod
           const cmp = compare(mine.ast as Method, theirs, mine.owner, im.owner, ctx)
           if (cmp === undefined) continue
           const [method, iface] = [im.name.toUpperCase(), declaring.name.toUpperCase()]
-          const span = (mine.ast as Method).name.span
+          // an INHERITED method's spans are the BASE's unit — in a workspace another file — so the finding is said at this
+          // FB's IMPLEMENTS name instead (CODESYS records it without a position, line 0; gate 3.7+3.9)
+          const inherited = mine.owner !== fbScope
+          const span = inherited ? ifaceName.span : (mine.ast as Method).name.span
           out.push(diag(span, "override-mismatch-interface", ctx.messages.overrideMismatchInterface(method, iface)))
           // CODESYS says which part differs, in a second sentence TwinCAT does not have (`inh_interface_method_*`): at the
           // differing parameter, or — a parameter COUNT — at the method's declaration
           if (ctx.config.vendor === "codesys" && cmp.kind === "count")
-            out.push(diag((mine.ast as Method).span, "override-mismatch-interface", ctx.messages.interfaceParamCountMismatch(method, iface)))
+            out.push(diag(inherited ? span : (mine.ast as Method).span, "override-mismatch-interface", ctx.messages.interfaceParamCountMismatch(method, iface)))
           else if (ctx.config.vendor === "codesys" && cmp.variable !== undefined)
-            out.push(diag(cmp.variable.span, "override-mismatch-interface", ctx.messages.interfaceVariableMismatch(cmp.variable.text, method, iface)))
+            out.push(diag(inherited ? span : cmp.variable.span, "override-mismatch-interface", ctx.messages.interfaceVariableMismatch(cmp.variable.text, method, iface)))
         }
     }
 
     // C0094 / C0568 — vs the nearest base FB declaring the method (the chain the symbol table linked)
-    const bases = ancestry(fbScope).slice(1)
     for (const mine of own.values()) {
       const theirs = nearest(bases, "method", mine.name)
       if (theirs === undefined || isLibrarySymbol(theirs) || LIFECYCLE.has(mine.name.toLowerCase())) continue
@@ -104,6 +114,11 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
       for (const a of accessors)
         if (a !== undefined)
           out.push(diag(p.name.span, "override-mismatch-base", ctx.messages.overrideMismatchBase(`${a}${mine.name.toUpperCase()}`, theirs.owner.name.toUpperCase())))
+      // …and the SET's value passed in is converted from the override's type to the base's, once
+      // (`oopb_base_property_get_set_mismatch`, both vendors 2026-10-06; a GET's result converts nothing)
+      const [from, to] = [resolved(mine.typeExpr, mine.owner, ctx), resolved(theirs.typeExpr, theirs.owner, ctx)]
+      if (accessors[1] !== undefined && from !== undefined && to !== undefined)
+        out.push(diag(p.name.span, "assignment-type-mismatch", ctx.messages.cannotConvert(renderType(from), renderType(to))))
     }
   }
 }
@@ -163,14 +178,21 @@ function compare(mine: Method | InterfaceMethod, theirs: Method | InterfaceMetho
     // a conversion only where the type PASSED differs: another type, or a VAR_IN_OUT (by reference) against a parameter
     // passed by value — not a VAR_OUTPUT for a VAR_INPUT of the same type (`inh_override_input_as_output`: the mismatch
     // alone; "Cannot convert type 'INT' to type 'INT'" was the LSP's own)
+    // …nor for two VAR_OUTPUTs of other types, which pass nothing in (`oopb_base_output_type_mismatch`, both vendors)
     const [from, to] = [passed(x, myScope, ctx), passed(y, theirScope, ctx)]
-    if ((typeDiffers || x.section !== y.section) && from !== undefined && to !== undefined && from !== to) conversions.push({ from, to, span: x.type.span })
+    const bothOut = x.section === "VAR_OUTPUT" && y.section === "VAR_OUTPUT"
+    if (!bothOut && (typeDiffers || x.section !== y.section) && from !== undefined && to !== undefined && from !== to) conversions.push({ from, to, span: x.type.span })
   }
-  if (a.length !== b.length) return { kind: "count", conversions }
-  if (variable !== undefined) return { kind: "variable", variable, conversions }
+  // THE INPUTS, OUTPUTS AND INOUTS ARE COUNTED APART, the result among the outputs: a VAR_INPUT declared VAR_IN_OUT, and a
+  // result left out, are COUNT differences (`oopb_itf_section_mismatch`, `oopb_itf_return_missing`, CODESYS 2026-10-06)
   const [r, s] = [mine.returnType, theirs.returnType]
-  if ((r === undefined) !== (s === undefined) || (r !== undefined && s !== undefined && !sameType(r, s, myScope, theirScope, ctx)))
-    return { kind: "result", conversions }
+  const count = (ps: readonly Param[], section: string) => ps.filter((p) => p.section === section).length
+  const sections = ["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"]
+  if (a.length !== b.length || sections.some((k) => count(a, k) !== count(b, k)) || (r === undefined) !== (s === undefined))
+    return { kind: "count", conversions }
+  if (variable !== undefined) return { kind: "variable", variable, conversions }
+  // …and another result type is the variable named as the method (`oopb_itf_return_type_mismatch`: "The variable 'M'")
+  if (r !== undefined && s !== undefined && !sameType(r, s, myScope, theirScope, ctx)) return { kind: "result", variable: mine.name, conversions }
   return undefined
 }
 
