@@ -19,7 +19,7 @@
  *
  * In `types/` because one step asks about built-in TYPE names (design.md "Why no member resolution in symbols").
  */
-import { isLibrarySymbol, lookup, lookupGlobal, resolveBareEnumMember, rootOf, type Scope, type Symbol } from "../symbols/index.js"
+import { isLibrarySymbol, lookup, lookupGlobal, lookupLocal, memoByProject, resolveBareEnumMember, rootOf, type Scope, type Symbol } from "../symbols/index.js"
 import { builtinName, type BuiltinName } from "./builtins.js"
 
 /** What a bare name names. */
@@ -40,7 +40,11 @@ export function resolveBareName(scope: Scope, name: string): BareName {
   const builtin = builtinName(name, project.dialect)
   if (builtin !== undefined) return { kind: "builtin", builtin }
   const found = lookup(scope, name)
-  if (found !== undefined) return tagged(found.symbol, found.foundIn)
+  if (found !== undefined) {
+    const clash = found.symbol.kind === "gvl_var" ? globalClash(scope, found.symbol, name) : undefined
+    if (clash !== undefined) return { kind: "ambiguous", candidates: clash, said: true }
+    return tagged(found.symbol, found.foundIn)
+  }
   const member = resolveBareEnumMember(scope, name)
   if (member === undefined) return NONE
   return member.kind === "member" ? { kind: "enum-member", symbol: member.symbol } : { kind: "ambiguous", candidates: member.candidates, said: member.said }
@@ -54,6 +58,35 @@ export function resolveGlobalName(project: Scope, name: string): BareName {
   const symbol = lookupGlobal(project, name)
   return symbol === undefined ? NONE : tagged(symbol, project)
 }
+
+/**
+ * WHAT A GLOBAL `name` CLASHES WITH, so that written bare it names nothing — the declarations it is ambiguous among, or
+ * undefined when it is the one thing the name means. Both vendors say "Ambiguous use of name" and "Identifier not
+ * defined", and answer its use as a hole's (analysis-conformance 3.5, 2026-10-06):
+ *   - two of the project's own lists declare it bare (rule Y14, `ambg_*`) — a `qualified_only` list's and a library's
+ *     variable are no candidates (`symbols/scope-nav` `lookupGlobal`);
+ *   - a project global and a member of one of the project's own enums share it (rule EN5, `enum_member_vs_global`): the
+ *     members sit at the globals' step of the search order. A library's global beside a library's member is only "not
+ *     defined" (`enum_library_member_vs_library_global`, a divergence: a qualified-access fact the manifest lacks), and
+ *     the mixed pairs are unmeasured — neither is answered here.
+ * Asked for every bare global read, so the enum half is filtered by the project's member names first.
+ */
+export function globalClash(scope: Scope, global: Symbol, name: string): readonly Symbol[] | undefined {
+  const project = rootOf(scope)
+  if (lookupGlobal(project, name) === undefined)
+    return lookupLocal(project, name).filter((s) => s.kind === "gvl_var" && s.qualifiedOnly !== true && !isLibrarySymbol(s))
+  if (isLibrarySymbol(global) || !enumMemberNames(project).has(name.toLowerCase())) return undefined
+  const member = resolveBareEnumMember(scope, name)
+  const own = member?.kind === "member" ? [member.symbol] : (member?.candidates ?? [])
+  return own.length > 0 && own.every((m) => !isLibrarySymbol(m)) ? [global, ...own] : undefined
+}
+
+/** Every name a bare enum member could be (lower-cased), once per project generation. */
+const enumMemberNames = memoByProject((project: Scope): ReadonlySet<string> => {
+  const names = new Set<string>()
+  for (const child of project.children) if (child.kind === "enum" && child.qualifiedOnly !== true) for (const key of child.symbols.keys()) names.add(key)
+  return names
+})
 
 function tagged(symbol: Symbol, foundIn: Scope): BareName {
   if (symbol.kind === "device") return { kind: "device", symbol }

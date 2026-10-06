@@ -9,7 +9,7 @@
  * false positives on the arithmetic fixtures alone.
  */
 import { addressShape, typedLiteralForm, type Expr, type Span } from "../../frontend/syntax/index.js"
-import type { Scope } from "../../frontend/symbols/index.js"
+import { lookup, type Scope } from "../../frontend/symbols/index.js"
 import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
@@ -21,10 +21,15 @@ const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
   // .gCall(1)` is "Cannot convert type 'Unknown type: '.gCall(1)'' to type 'INT'" beside it
   // (`expr_global_namespace_call_non_callable`, both vendors 2026-10-02)
   "invalid-call-target",
-  // …and so has a STRUCT type's name called, whose C0230 names why: `n := S()` is "Cannot convert type 'Unknown type:
-  // 'S()'' to type 'INT'" beside it (`dt_struct_type_name_called`, CODESYS 2026-10-03)
-  "type-name-as-value",
 ])
+
+/**
+ * …and so has a STRUCT type's name CALLED, whose C0230 names why: `n := S()` is "Cannot convert type 'Unknown type: 'S()''
+ * to type 'INT'" beside it (`dt_struct_type_name_called`, CODESYS 2026-10-03). Only the call: a type's name written as a
+ * VALUE or an OPERAND is typed as the type by both vendors, no hole (`tav_*`, analysis-conformance 3.5) — so C0230
+ * explains a call whose callee it sits on, and nothing else.
+ */
+const TYPE_CALLED = "type-name-as-value"
 
 /**
  * The names the compiler refuses OUTRIGHT, so nothing built on one has a type either however well the LSP resolves
@@ -36,18 +41,21 @@ const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
 ])
 
 /** Every code `reported` reads from earlier findings — the `reads` of a check that calls it (`pipeline/registry.ts`). */
-export const HOLE_EVIDENCE_CODES: ReadonlySet<string> = new Set([...RESOLUTION_FAILURE, ...REFUSED_OUTRIGHT])
+export const HOLE_EVIDENCE_CODES: ReadonlySet<string> = new Set([...RESOLUTION_FAILURE, ...REFUSED_OUTRIGHT, TYPE_CALLED])
 
 /** A view of what the earlier checks found, which is the only evidence a hole is reported on. */
 export interface Reported {
   explained: readonly Span[]
   refused: readonly Span[]
+  /** C0230's spans — a hole only where one is a call's callee (`TYPE_CALLED`). */
+  typeNames: readonly Span[]
 }
 
 export function reported(out: readonly DiagnosticItem[]): Reported {
   return {
     explained: out.filter((d) => RESOLUTION_FAILURE.has(d.code)).map((d) => d.span),
     refused: out.filter((d) => REFUSED_OUTRIGHT.has(d.code)).map((d) => d.span),
+    typeNames: out.filter((d) => d.code === TYPE_CALLED).map((d) => d.span),
   }
 }
 
@@ -140,6 +148,11 @@ export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): b
   // (`literalHole`) — and so is an operation that passes such a hole's type through (`passThroughOperand`).
   if (e.kind === "literal") return literalHole(e, project)
   if (passesLiteralHole(e, project)) return true
+  // A TYPE'S NAME written as a value is no hole: C0230 names it, and the vendors type it as the type itself — `out :=
+  // T_Alias` is that one message, no conversion of an unknown beside it (`tav_alias_as_value`, `_as_target`, both vendors
+  // 2026-10-06). A STRUCT's name CALLED is (`dt_struct_type_name_called`).
+  if (e.kind === "ident_expr" && lookup(scope, e.name)?.symbol.kind === "type") return false
+  if (unknown && e.kind === "call" && within(seen.typeNames, e.callee.span)) return true
   if (!within(seen.explained, e.span)) return false
   if (unknown) return true
   // For a CALL only the CALLEE counts: the result is the callee's declared return type, which the compiler knows

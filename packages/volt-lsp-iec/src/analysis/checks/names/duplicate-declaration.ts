@@ -16,6 +16,25 @@ import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of allUnits(ctx.parseResult.units)) {
+    // A GLOBAL LIST's variables live in the project scope, flat with every other list's — so its duplicates are the
+    // names the binder bound from THIS list (a VAR_ACCESS section binds nothing, a refused-AT declaration is dropped —
+    // `ingestGlobalVarList`, one rule), named as the binder names the list (its `gvl_block` symbol, `gvlName`), which its
+    // text never names (`dupn_gvl_variable_twice`, both vendors 2026-10-06: "… already defined in 'GVL_…'").
+    if (unit.kind === "global_var_list") {
+      const decls = new Set<unknown>(unit.varSections.flatMap((section) => section.decls))
+      let list: string | undefined
+      const bound: Symbol[][] = []
+      for (const [, symbols] of ctx.project.symbols) {
+        list ??= symbols.find((s) => s.kind === "gvl_block" && s.ast === unit)?.name
+        const own = symbols.filter((s) => s.kind === "gvl_var" && decls.has(s.ast))
+        if (own.length > 1) bound.push(own)
+      }
+      if (list === undefined) continue
+      for (const own of bound)
+        for (const sym of own.slice(1))
+          out.push({ severity: "error", span: sym.span, source: SOURCE, code: "duplicate-declaration", message: ctx.messages.duplicateDeclaration(sym.name, list) })
+      continue
+    }
     const scope = scopeForUnit(ctx.project, unit)
     if (scope === undefined) continue
     walkScopeForDuplicates(scope, ctx, out)
@@ -39,11 +58,17 @@ export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticIte
 function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const [, symbols] of scope.symbols) {
     const bareName: Symbol[] = symbols.filter((s) => !s.qualifiedOnly)
+    // a METHOD and a VARIABLE of one name do not collide: both vendors build it and warn "Ambiguous use of name" where the
+    // name is written bare (`dupn_method_named_as_variable`, analysis-conformance 3.5) — ambiguous-global's to say. Every
+    // other pair collides (a METHOD beside an ACTION or a PROPERTY of its name stays a duplicate). Each declaration is said
+    // once, against the first earlier one it collides with.
     for (let i = 1; i < bareName.length; i++) {
-      const sym = bareName[i]
+      const sym = bareName[i]!
+      const prior = bareName.slice(0, i).find((s) => !methodBesideVariable(s, sym))
+      if (prior === undefined) continue
       // Two methods sharing a name is an unmarked overload (C0582) — a distinct error from a duplicate var, and
       // one Volt can't push at all (the bridge's CreateChild rejects the second child). Use its own wording.
-      const isMethod = sym.kind === "method" && bareName[i - 1].kind === "method"
+      const isMethod = sym.kind === "method" && prior.kind === "method"
       out.push({
         severity: "error",
         span: sym.span,
@@ -58,4 +83,9 @@ function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: Diagnostic
   // A property's accessor scopes belong to no unit: the property's walk takes them.
   if (scope.kind === "accessor")
     for (const child of scope.children) if (child.kind === "accessor") walkScopeForDuplicates(child, ctx, out)
+}
+
+/** A METHOD and a variable of the FB (`var`) — the one pair of one name both vendors build (`dupn_method_named_as_variable`). */
+function methodBesideVariable(a: Symbol, b: Symbol): boolean {
+  return (a.kind === "method" && b.kind === "var") || (a.kind === "var" && b.kind === "method")
 }

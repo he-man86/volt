@@ -39,3 +39,19 @@ test("a STRUCT type's name called, or reached into for a member it lacks, is a t
   expect(st(`value := Dut_s.nope;`)).toEqual(["Type name 'Dut_s' not expected in this place"])
   expect(tv(`value := MyEnum();`)).toEqual([]) // an enum type called is unrecorded
 })
+
+// analysis-conformance 3.5 (both vendors, recorded 2026-10-06, `tav_*`): an ALIAS type's name as a value or a target is the
+// one message — it has no scope to type it by, and the hole's conversion is not said beside it; a type's name as an
+// OPERAND or a CONDITION is the message too (the vendors' further conversions of the type there are a divergence, niche)
+test("an ALIAS type's name as a value or a target is that one message", () => {
+  const all = (body: string): string[] => {
+    const src = `PROGRAM P\nVAR value : INT;\nEND_VAR\n${body}\nEND_PROGRAM\nTYPE T_Al : INT;\nEND_TYPE\nTYPE MyEnum : (RED, GREEN); END_TYPE`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "P.pou", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ uri: "P.pou", parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+  }
+  expect(all(`value := T_Al;`)).toEqual(["Type name 'T_Al' not expected in this place"])
+  expect(all(`T_Al := 3;`)).toEqual(["Type name 'T_Al' not expected in this place"])
+  expect(all(`value := T_Al + 1;`)).toContain("Type name 'T_Al' not expected in this place")
+  expect(all(`IF MyEnum THEN\n value := 1;\nEND_IF`)).toContain("Type name 'MyEnum' not expected in this place")
+})

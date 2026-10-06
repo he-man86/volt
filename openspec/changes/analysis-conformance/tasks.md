@@ -762,15 +762,72 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.5 names
 
-- [ ] 3.5.1 names (duplicate-declaration, unresolved-identifier, ambiguous-global, type-as-value, reserved-keyword,
+- [x] 3.5.1 names (duplicate-declaration, unresolved-identifier, ambiguous-global, type-as-value, reserved-keyword,
       refused-name, conditional-call): fixtures for ambiguous-global (two GVLs, bare use). Where: fixtures/.
       Acceptance: list here. Depends on: 3.4.5
-- [ ] 3.5.2 Record 3.5.1, both vendors. Acceptance: CA.1. Depends on: 3.5.1
-- [ ] 3.5.3 FPs: decl_implicit_enum_duplicate, unresolved-identifier ×16 (LDATE family: confirm divergence still holds;
+      **Fixtures (2026-10-06), 22** — `names/name-rules.ts`: ambiguous-global, two lists, bare: `ambg_read_bare`,
+      `ambg_write_bare`, `ambg_initializer`, `ambg_in_method`, `ambg_in_condition`, `ambg_fb_instance_call`,
+      `ambg_different_types`, legal `ambg_qualified_read`, `ambg_local_shadow`; duplicate-declaration `dupn_two_methods`,
+      `dupn_method_named_as_action` (both refused by Volt's push, DUPLICATE_CHILD — `vendorRefuses`, `execSkip`),
+      `dupn_method_named_as_variable`, `dupn_gvl_variable_twice`, `dupn_struct_field_twice`, `dupn_name_list_twice`;
+      type-as-value `tav_alias_as_value`, `tav_alias_as_target`, `tav_type_as_operand`, `tav_type_as_condition`,
+      `tav_fb_type_as_value`; reserved-keyword `rkw_struct_field_char`, `rkw_method_input_using`. (A 23rd,
+      `rkw_global_wchar`, was recorded and deleted with its rows: a global named WCHAR became a dependency of
+      `cc5_reserved_keyword_names`, whose text uses the word as a local — the recorder pushes every fixture whose names
+      another fixture's text mentions.) unresolved-identifier and conditional-call fire on their recorded fixtures (0.3);
+      refused-name is gone (0.5).
+- [x] 3.5.2 Record 3.5.1, both vendors. Acceptance: CA.1. Depends on: 3.5.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 23 per vendor (2 refused by
+      the push). `record:exec` CODESYS: the 5 that build.
+- [x] 3.5.3 FPs: decl_implicit_enum_duplicate, unresolved-identifier ×16 (LDATE family: confirm divergence still holds;
       itf_var_section_inherited), and the census FPs of refused-name/conditional-call. Where: checks/names,
       checks/syntax, shared/resolution. Acceptance: CA. Depends on: 3.5.2
-- [ ] 3.5.4 Gaps of the group. Acceptance: CA. Depends on: 3.5.2
-- [ ] 3.5.5 Close names. Acceptance: CA.3–4. Depends on: 3.5.3, 3.5.4
+      **Done 2026-10-06.** Re-confirmed, each still a divergence with its reason: `decl_implicit_enum_duplicate` (the
+      implicit enum's type name, `IMPLICIT_ENUM_TYPE_NAME` — NOT niche, the binder's owner name, DT10); the TwinCAT
+      LDATE family (`xf_l*_call_once`: TwinCAT has no LDATE, the call cascades); `itf_var_section_inherited` (the vendor
+      stops at the interface error). refused-name has no census row (gone, 0.5), conditional-call 0 FP. Found by the cells
+      and FIXED test-first (colocated tests): `duplicate-declaration` called a METHOD named as the FB's variable a duplicate
+      (`dupn_method_named_as_variable`: both vendors build it; CODESYS warns "Ambiguous use of name 'M'" at the bare use —
+      `ambiguous-global`, a warning, not inside the method where the name is its result; TwinCAT silent); `type-as-value` +
+      `shared/hole`: an ALIAS's name as a value or target was C0230 and a hole's conversion beside it — a type's name is no
+      hole (the vendors type it as the type), C0230 explains only a STRUCT's name CALLED (`tav_alias_*`); `reserved-keyword`
+      lost a STRUCT field (`rkw_struct_field_char`).
+- [x] 3.5.4 Gaps of the group. Acceptance: CA. Depends on: 3.5.2
+      **Done 2026-10-06** (colocated tests each). The root cause of the ambiguous-global GAPs: an ambiguous global was
+      RESOLVED (to the first list's) — `types/names` `globalClash` makes a global two of the project's lists declare, and a
+      project global beside an own enum's member (EN5), name nothing: "Identifier not defined", the hole's conversion /
+      "is no valid assignment target" / "Program name … expected" follow (`ambg_*`; `expr_global_namespace_ambiguous_bare`
+      and `enum_member_vs_global` agree now and lose their marks — EXPRESSION_NICHE_DIVERGENCES, ENUM_DIVERGENCES, the
+      deferral). `duplicate-declaration`: a name twice in one GVL, named after the list's OBJECT (as the binder
+      names it, `gvlName` — gate review). `type-as-value`: a type's name as an operand or a condition.
+      Left, named: the vendors' further conversions of a type's name (`tav_type_as_*`, niche: accepted loss, 0 in the
+      corpora), "Expression of type 'BOOL' expected" for an untyped condition (`ambg_in_condition`, 3.11's), and the
+      remaining group GAPs — `lib_ns_library_gvl_shared_list_name_bare` (two libraries' lists named CONSTANTS, a
+      library fact), and the niche divergences `sym_var_external_of_ambiguous_global`, `sig_unknown_word`,
+      `unit_method_override*`, the declaration `{IF}` cells.
+- [x] 3.5.5 Close names. Acceptance: CA.3–4. Depends on: 3.5.3, 3.5.4
+      **Closed 2026-10-06** (numbers against the 3.4 state). Group names: open FP 0 → 0 (FP(div) unchanged), GAP 11 → 10
+      CODESYS, 4 → 3 TwinCAT, never-fired builders 1 / 2 unchanged (`duplicateMethod` unmeasurable through the push;
+      TwinCAT's `reservedKeyword` by rule). checkAmbiguousGlobal TP 9 → 18 / 9 → 17 (GAP 7 → 6 / 3 → 2),
+      checkUnresolvedIdentifiers TP 92 → 102 / 415 → 425, checkDuplicateDeclarations 8 → 11, checkTypeAsValue 6 → 10,
+      checkReservedKeyword 3 → 5. Totals: TP 5379 → 5417 / 6585 → 6620, FP 117 / 346 unchanged, open FP 0, GAP 470 → 469 /
+      813 → 812, unowned 78 → 79 / 111 → 112 (`ambg_in_condition`, a named exception). Divergences closed:
+      `expr_global_namespace_ambiguous_bare`, `enum_member_vs_global` (both vendors); opened: none. `rate:fixtures`:
+      confirmed 2750 → 2755, refused 1873 → 1889, lsp-gap 75 → 74, unaskable 85 → 87. Frontend baselines: the new
+      fixtures' counts, resolution agreements +9 per vendor; named exceptions for the type's-name cells (type-dump) and the
+      condition (parse census; `namesFixture` now reads the parse census's finding form). `test/conformance` 6042 pass, 0
+      fail; agreement CODESYS 4698, TwinCAT 4603 of 5159. design.md §5 rows updated.
+      **Gate review (3.4+3.6, 2026-10-06)**, each test-first: `duplicate-declaration` exempted a METHOD from every other
+      declaration, so a METHOD beside an ACTION or a PROPERTY of its name stopped being a duplicate — only a METHOD beside a
+      VARIABLE is exempt now (the measured pair). Its GVL scan counts the names the BINDER bound from the list (a
+      VAR_ACCESS section and a refused-AT declaration bind nothing, one rule), and names the list by the binder's
+      `gvl_block` (`gvlName`) instead of a second uri rule (`objectNameOf` stays `signature-name`'s). A name in each
+      branch of a GVL's declaration `{IF}` is still counted twice — niche: accepted loss (0 GVLs with `{IF}` in the
+      corpora), as the POU declaration `{IF}` cells. `ambiguous-global`'s method-beside-variable warning is the measured
+      shape only: a bare READ in the POU's own body — no longer in another METHOD's body or at a call `M()` (the call's
+      own resolution to the variable, "Program name … expected", stays: niche: accepted loss, 0 FBs in the corpora name a
+      METHOD as a variable — they built clean while this was a duplicate error). `reserved-keyword`: a UNION's fields are
+      not scanned (only a STRUCT field recorded), and the header no longer cites the deleted `rkw_global_wchar`.
 
 ### 3.6 oop A
 

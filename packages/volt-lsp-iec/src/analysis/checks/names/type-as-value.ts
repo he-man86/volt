@@ -5,7 +5,9 @@
  * `dt_static_base_unknown_member`, CODESYS 2026-10-03).
  *
  * Zero-FP: only a BARE identifier resolving to a `type` symbol (a DUT: enum/struct/alias) in the assignment's
- * target/value slot fires, and a STRUCT's in the two recorded shapes. `MyEnum.RED` is a member (not a bare ident) and
+ * target/value slot, an IF / WHILE / UNTIL condition or an operator's operand fires (analysis-conformance 3.5: `tav_*`,
+ * both vendors — what the vendors further say of the type there, "Operation 'Plus' is not possible on type 'T'" and its
+ * conversion, is a niche divergence), and a STRUCT's in the two recorded shapes. `MyEnum.RED` is a member (not a bare ident) and
  * `SIZEOF(MyEnum)` is a call argument, so both are naturally excluded. FB/interface type names have their own codes
  * (C0080/C0199).
  */
@@ -18,11 +20,21 @@ import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 export function checkTypeAsValue(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
-      if (s.kind !== "assign") return
-      flagIfType(s.target, scope, ctx, out)
-      flagIfType(s.value, scope, ctx, out)
+      if (s.kind === "assign") {
+        flagIfType(s.target, scope, ctx, out)
+        flagIfType(s.value, scope, ctx, out)
+      }
+      // …a condition (`tav_type_as_condition`, both vendors 2026-10-06)
+      else if (s.kind === "if") for (const b of s.branches) flagIfType(b.cond, scope, ctx, out)
+      else if (s.kind === "while") flagIfType(s.cond, scope, ctx, out)
+      else if (s.kind === "repeat") flagIfType(s.until, scope, ctx, out)
     })
     walkAllExprs(statements, (e) => {
+      // …an operator's operand (`tav_type_as_operand`, both vendors 2026-10-06)
+      if (e.kind === "binary") {
+        flagIfType(e.left, scope, ctx, out)
+        flagIfType(e.right, scope, ctx, out)
+      } else if (e.kind === "unary") flagIfType(e.operand, scope, ctx, out)
       if (e.kind === "call" && isStructTypeName(e.callee, scope)) flag(e.callee, ctx, out)
       else if (e.kind === "member" && isStructTypeName(e.base, scope)) {
         const base = inferExprType(e.base, scope, ctx.project)

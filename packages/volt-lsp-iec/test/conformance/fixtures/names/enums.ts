@@ -132,9 +132,10 @@ export const ENUM_RULE_TESTS: readonly LanguageTest[] = [
   // ─── EN5 an enum member against a variable of the same name ──────────────────────────────────────────────────────
   fb("enum_member_vs_variable", "EN5 — `x` bare where the FB declares a VAR `x : INT := 5` and an enum declares member `x := 3`: the variable (out 5)?",
     "\temvv_x : INT := 5;\n\tout : INT;", "out := emvv_x;", enumType("enum_member_vs_variable", "a", ["emvv_x := 3", "emvv_y := 4"])),
-  deferLsp(withList(fb("enum_member_vs_global", "EN5 — `x` bare where a global `x : INT := 5` and an enum member `x := 3` share the name: the global (out 5)?",
+  // both vendors: "Ambiguous use of name", "Identifier not defined" and the hole's conversion — the members sit at the
+  // globals' step of the search order (answered since analysis-conformance 3.5, `types/names` `globalClash`)
+  withList(fb("enum_member_vs_global", "EN5 — `x` bare where a global `x : INT := 5` and an enum member `x := 3` share the name: the global (out 5)?",
     "\tout : INT;", "out := emvg_x;", enumType("enum_member_vs_global", "a", ["emvg_x := 3", "emvg_y := 4"])), "\temvg_x : INT := 5;"),
-    "2026-10-02 niche: accepted loss (0 occurrences in the corpora): a project global and a project enum member of one name are \"Ambiguous use of name\" on both vendors — the members sit at the globals' step of the search order; the LSP's lookup answers the global (`support/divergences.ts` `ENUM_DIVERGENCES`)"),
   fb("enum_member_vs_variable_enum_store", "EN5 — `x` bare stored to an enum-typed variable, where a local INT `x` and the enum's member `x` share the name",
     "\temve_x : INT := 4;\n\te : DUT_LANG_enum_member_vs_variable_enum_store_a;\n\tout : INT;",
     "e := emve_x;\nIF e = DUT_LANG_enum_member_vs_variable_enum_store_a.emve_x THEN\n\tout := INT#3;\nELSE\n\tout := INT#4;\nEND_IF",

@@ -100,3 +100,77 @@ test("a named argument's parameter of the ambiguous name — silent", () => {
 test("the ambiguous name as a named argument's VALUE — still ambiguous", () => {
   expect(runWithF("PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni := F(g_i := g_i);\nEND_PROGRAM")).toEqual([`Ambiguous use of name 'g_i'`])
 })
+
+// analysis-conformance 3.5 (both vendors, recorded 2026-10-06, `ambg_*`): a global two lists declare, written bare, names
+// NOTHING — besides "Ambiguous use of name" the vendors say "Identifier not defined" and answer its use as a hole's:
+// "Cannot convert type 'Unknown type: 'g'' …" (read, initializer), "'g' is no valid assignment target" (written),
+// "Program name, function or function block instance expected instead of 'g'" (called)
+const inTwoLists = (prg: string, gvl = GVL1) => {
+  const inputs = [
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
+    { uri: "GVL2.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
+  ]
+  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+    .map((d) => d.message)
+    .sort()
+}
+
+test("a global two lists declare names nothing: read, written, in an initializer", () => {
+  expect(inTwoLists("PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni := g_i;\nEND_PROGRAM")).toEqual(
+    ["Ambiguous use of name 'g_i'", "Cannot convert type 'Unknown type: 'g_i'' to type 'INT'", "Identifier 'g_i' not defined"].sort(),
+  )
+  expect(inTwoLists("PROGRAM PLC_PRG\ng_i := 4;\nEND_PROGRAM")).toEqual(
+    ["'g_i' is no valid assignment target", "Ambiguous use of name 'g_i'", "Identifier 'g_i' not defined"].sort(),
+  )
+  expect(inTwoLists("PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM")).toEqual(
+    ["Ambiguous use of name 'g_i'", "Cannot convert type 'Unknown type: 'g_i'' to type 'INT'", "Identifier 'g_i' not defined"].sort(),
+  )
+})
+
+test("an FB instance two lists declare, called bare, names nothing", () => {
+  const fbGvl = "VAR_GLOBAL\n g_f : FB_T;\nEND_VAR"
+  const prg = "PROGRAM PLC_PRG\ng_f();\nEND_PROGRAM\nFUNCTION_BLOCK FB_T\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  expect(inTwoLists(prg, fbGvl)).toEqual(
+    ["Ambiguous use of name 'g_f'", "Identifier 'g_f' not defined", "Program name, function or function block instance expected instead of 'g_f'"].sort(),
+  )
+})
+
+// …and a METHOD named as the FB's variable (`dupn_method_named_as_variable`, both vendors): no duplicate declaration — the
+// vendors build it and WARN "Ambiguous use of name 'M'" where the name is written bare
+test("a bare name that is both the FB's variable and its METHOD warns ambiguous", () => {
+  const src = "FUNCTION_BLOCK FB\nVAR\n M : INT;\n out : INT;\nEND_VAR\nout := M;\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nM := 1;\nEND_METHOD"
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "FB.pou", source: src, parseResult }])
+  const ds = computeSemanticDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.map((d) => `${d.severity} ${d.message}`)).toEqual(["warning Ambiguous use of name 'M'"])
+})
+
+// …and a project GLOBAL beside a member of one of the project's own enums (rule EN5, `enum_member_vs_global`, both vendors
+// 2026-10-02): the members sit at the globals' step of the search order, so the name is ambiguous and names nothing
+test("a global and an own enum's member of one name: ambiguous, not defined, a hole", () => {
+  const gvl = "VAR_GLOBAL\n emvg : INT := 5;\nEND_VAR"
+  const dut = "TYPE E_M : (emvg := 3, other := 4);\nEND_TYPE"
+  const prg = "PROGRAM PLC_PRG\nVAR\n i : INT;\nEND_VAR\ni := emvg;\nEND_PROGRAM"
+  const inputs = [
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
+    { uri: "E_M.dut", source: dut, parseResult: parseSource(dut, { networkText: true }) },
+  ]
+  const ds = computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.map((d) => d.message).sort()).toEqual(["Ambiguous use of name 'emvg'", "Cannot convert type 'Unknown type: 'emvg'' to type 'INT'", "Identifier 'emvg' not defined"].sort())
+})
+
+// gate review (3.4+3.6): the warning is the measured shape only — a bare READ in the FB's own body. Another METHOD's body
+// and a CALL `M()` are unmeasured (0 such FBs in the corpora): no ambiguous-global there
+test("a variable named as its FB's METHOD: no warning in another METHOD's body, nor at a call", () => {
+  const amb = (src: string) => {
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "FB_A.pou", source: src, parseResult }])
+    return computeSemanticDiagnostics({ uri: "FB_A.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "ambiguous-global")
+  }
+  const decl = "FUNCTION_BLOCK FB_A\nVAR\n M : INT;\n i : INT;\nEND_VAR\n"
+  expect(amb(`${decl}END_FUNCTION_BLOCK\nMETHOD M : INT\nM := 1;\nEND_METHOD\nMETHOD N : INT\nN := M;\nEND_METHOD`)).toEqual([])
+  expect(amb(`${decl}i := M();\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nM := 1;\nEND_METHOD`)).toEqual([])
+})

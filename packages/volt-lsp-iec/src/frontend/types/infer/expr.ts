@@ -7,6 +7,7 @@
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
 import { bareEnumMember, isLibrarySymbol, lookup, targetOf, type Scope } from "../../symbols/index.js"
+import { globalClash } from "../names.js"
 import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { bitwiseLiteralOperandType, checkedMeetType, checkedNegationType, literalOperandType } from "../arith/checked.js"
 import { temporalArithmeticType } from "../arith/temporal.js"
@@ -51,6 +52,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       const bare = bareBuiltinType(expr.name, project.dialect)
       if (bare !== undefined) return bare
       const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
+      // a global that clashes — two of the project's lists, or a global and an own enum's member — names nothing, so it
+      // has no type (`names.ts` `globalClash`)
+      if (sym?.kind === "gvl_var" && globalClash(scope, sym, expr.name) !== undefined) return UNKNOWN
       // a GVL's name, and a FUNCTION's or METHOD's where it is no call, denote the declaration (rule DT8)
       const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
       if (denoted !== undefined) return denoted
