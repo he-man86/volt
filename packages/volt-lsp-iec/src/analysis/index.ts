@@ -31,8 +31,9 @@ export {
 // wording
 export { messagesFor, type Messages } from "./messages.js"
 export { codesysCodeFor, CODESYS_CODE_MAP } from "./error-code-map.js"
-// the server's raw parse-error stream (leaves with it, task 2.5)
-export { parseErrorMessage, vendorReportsParseError } from "./checks/syntax/parse-errors.js"
+// the parse-error codes the server keeps in a dead member (task 2.5); the wording and the vendor rule the front-end's
+// parse-error dumps read (`test/frontend/dumps.ts`) — the server's raw stream that also read them is gone (2.5)
+export { PARSE_ERROR_CODES, parseErrorMessage, vendorReportsParseError } from "./checks/syntax/parse-errors.js"
 // the shared rules the network-text check and the census tools read
 export { assignmentPairError, binaryOpError, conversionArgError, narrowingPairError, stringLiteralMessageType } from "./shared/rules.js"
 export { unresolvedInExprs, unresolvedMembers, type BareRef, type MemberRef } from "./shared/resolution.js"

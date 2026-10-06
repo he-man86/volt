@@ -192,7 +192,9 @@ pull suppresses every push for that client.
 ### Requirement: Every semantic diagnostic carries its compiler code
 
 A diagnostic from a semantic check SHALL expose the CODESYS `Cnnnn` it mirrors as its LSP `code`, with a
-`codeDescription` link to that code's docs. Codes with no catalog mapping — graphical `NETWORK_*`, raw parse errors
+`codeDescription` link to that code's docs (a parse error is C0002, an orphan conditional directive C0081, an unquoted
+`hasattribute` attribute C0051; an unterminated conditional pragma has no `Cnnnn` yet and rides as its slug
+`unterminated-conditional-pragma`, listed in `KNOWN_UNMAPPED`). Codes with no catalog mapping — graphical `NETWORK_*`, a body that states no language
 (no code), and the handful of semantic slugs not yet mapped to a `Cnnnn` (tracked as `KNOWN_UNMAPPED` in
 `src/server/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
 diagnostics on one document SHALL share the same `(range, code)`.
@@ -361,7 +363,7 @@ Dead (uncalled/unreachable) code IS delivered to the workspace as ordinary sourc
 
 Reachability SHALL be computed project-wide: the ROOTS are the PROGRAM POUs (IEC entry points — tasks invoke programs), and a unit is REACHABLE if it is in the transitive closure from a root via calls, FB instantiations (`inst : FB_A;` declarations count), `EXTENDS`/`IMPLEMENTS`, and declared-type references. A top-level POU not reachable is DEAD.
 
-When `diagnoseDeadCode` is `false` (the default, matching the CODESYS compiler, which never compiles dead code), the LSP SHALL suppress ALL diagnostics whose owning top-level unit is dead. When `true`, the LSP SHALL diagnose every unit, dead or not.
+When `diagnoseDeadCode` is `false` (the default, matching the CODESYS compiler, which never compiles dead code), the LSP SHALL suppress ALL diagnostics whose owning top-level unit is dead — parse errors included: an FB nothing reaches builds clean on both vendors whatever syntax error it holds (conformance `dead_fb_missing_then`, `dead_fb_declaration_parse_error`, recorded 2026-10-06). An uncalled METHOD inside a LIVE unit is different: its semantic findings are suppressed, its parse errors (C0002, C0081, C0051, `unterminated-conditional-pragma`) are NOT — both vendors report a parse error there (`dead_method_missing_then`, `sig_empty_type`), and CODESYS reports the unquoted-`hasattribute` C0051 there too (`dead_method_hasattribute_unquoted`). When `true`, the LSP SHALL diagnose every unit, dead or not.
 
 The reachability analysis SHALL be conservative: when reachability is UNCERTAIN — dynamic dispatch, an interface-typed or pointer assignment, or any edge the analysis cannot resolve — the unit SHALL be treated as LIVE. Marking a reachable unit dead would suppress real diagnostics; over-including is the only safe bias. Consequently the coverage invariant "a clean-compiling project yields zero ERROR diagnostics" holds with `diagnoseDeadCode` off, because genuinely dead code (which the compiler never checked) is suppressed while every reachable unit is fully checked.
 

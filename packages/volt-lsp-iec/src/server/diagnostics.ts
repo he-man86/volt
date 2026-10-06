@@ -4,17 +4,19 @@
  * (`textDocument/diagnostic` · `workspace/diagnostic`). Keeping it here means push and pull can never
  * diverge: both call `documentDiagnostics`.
  *
- * Suppression rules (mirroring the compiler): a structurally-dead unit emits no semantic diagnostics, and
- * excluded/uncalled members inside a live unit are filtered out. Parse errors always ride through.
+ * Suppression rules (mirroring the compiler, recorded): a structurally-dead unit emits NOTHING, parse errors included,
+ * and the semantic findings of excluded/uncalled members inside a live unit are filtered out while their parse errors
+ * stay. Parse errors are the pipeline's own findings (`checkParseErrors`), once each: the server adds no parse-error
+ * stream of its own (analysis-conformance 2.5; it used to append the raw `parseResult.errors` beside them, so every
+ * top-level parse error reached a client twice, once as C0002 and once with no code).
  */
 import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-protocol/node"
 import {
   codesysCodeFor,
-  computeSemanticDiagnostics,
-  parseErrorMessage,
-  vendorReportsParseError,
+  computeDiagnostics,
+  messagesFor,
+  PARSE_ERROR_CODES,
   type DiagnosticItem,
-  type Messages,
 } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { inDeadMember, ownerPou } from "./reachability.js"
@@ -66,7 +68,7 @@ function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
  * narrow it back at each use. */
 export type VoltDiagnostic = Diagnostic & { message: string }
 
-export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d: Document): VoltDiagnostic[] {
+export function documentDiagnostics(store: WorkspaceStore, d: Document): VoltDiagnostic[] {
   // ROOT gate for the whole library-FP class: a referenced library is a precompiled blob the consuming
   // project never recompiles, so CODESYS runs no check on its materialized source — any error we emit on it is
   // a false positive the user can't act on. Library files are marked by their `Library Manager/` path (the
@@ -91,31 +93,24 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   const missing = otherFormat ? [] : unstated.map(missingLanguage)
   const inUnstated = (span: Span): boolean =>
     unstated.some(({ body }) => span.start >= body.span.start && span.end <= body.span.end)
-  const quiet = (span: Span): boolean => inDeadMember(span, dm) || inUnstated(span)
+  // ONE quiet() FOR EVERY ITEM, semantic and network alike. A dead member keeps its parse errors: both vendors report a
+  // parse error in a method nothing calls inside a live FB (conformance `dead_method_missing_then`, `sig_empty_type`,
+  // recorded 2026-10-06), so the codes a parse error is given are exempt — C0051 included, whichever check gave it: the
+  // out-of-body `hasattribute` scan's C0051 is reported in a dead member too (`dead_method_hasattribute_unquoted`,
+  // CODESYS; TwinCAT is silent there as it is in a live one, `prag_hasattribute_unquoted_in_declaration`). An unstated
+  // body quiets everything, parse errors included: no reader read it, and `missingLanguage` names it once.
+  const quiet = (it: DiagnosticItem): boolean =>
+    (inDeadMember(it.span, dm) && !PARSE_ERROR_CODES.has(it.code)) || inUnstated(it.span)
+  // A DEAD POU gives nothing at all, parse errors included: an FB nothing reaches builds clean on both vendors whatever
+  // syntax error it holds (`dead_fb_missing_then`, `dead_fb_declaration_parse_error`, recorded 2026-10-06) — the build
+  // never reads it.
   const items = dead
     ? []
-    : computeSemanticDiagnostics({
-        parseResult: d.parseResult,
-        source: d.source,
-        project: store.project(),
-        config: store.config,
-        uri: d.uri,
-      }).filter((it) => !quiet(it.span))
-  return [
-    ...items.map(toLspDiagnostic),
-    ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages))
-      .filter((it) => !inDeadMember(it.span, dm))
-      .map(toLspDiagnostic),
-    ...d.parseResult.errors
-      .filter((e) => !inUnstated(e.span) && vendorReportsParseError(e, store.config.vendor))
-      .map((e) => ({
-        range: rangeFromSpan(e.span),
-        severity: DiagnosticSeverity.Error,
-        source: "volt-lsp-iec",
-        message: parseErrorMessage(e, messages),
-      })),
-    ...missing,
-  ]
+    : computeDiagnostics({ parseResult: d.parseResult, source: d.source, project: store.project(), config: store.config, uri: d.uri })
+  // The network pass stays its own call (analysis-conformance §3 is parked: network text is not rewired here).
+  const network =
+    dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messagesFor(store.config.vendor))
+  return [...[...items, ...network].filter((it) => !quiet(it)).map(toLspDiagnostic), ...missing]
 }
 
 /** The bodies that state no language — no `IMPLEMENTATION` line opens them — each with the item it belongs to, as

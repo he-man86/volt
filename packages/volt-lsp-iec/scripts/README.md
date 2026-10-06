@@ -76,7 +76,7 @@ openspec tasks — see the Measure table.
 
 | File | Measures |
 |---|---|
-| `corpus-fp.ts` | the zero-FP corpus oracle in debuggable, grouped-by-code form (no test timeout) |
+| `corpus-fp.ts` | the zero-FP corpus oracle in debuggable, grouped-by-code form (no test timeout), over the server's own `projectDocuments` |
 | `corpus-census.ts` | what the CORPUS contains that the FIXTURES do not — the work list for new fixtures |
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |

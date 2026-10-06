@@ -389,8 +389,8 @@ function analysisViolations(pkg: string): string[] {
   return out
 }
 
-/** The analysis files that may import a check: the registry and the pipeline, and the index (which re-exports a
- *  check's helper the server reads, `parseErrorMessage`). */
+/** The analysis files that may import a check: the registry and the pipeline, and the index (which re-exports the
+ *  syntax check's surface: `PARSE_ERROR_CODES` the server reads, `parseErrorMessage` the front-end dumps read). */
 const isRegistryOrPipeline = (relFrom: string): boolean =>
   relFrom === "analysis/pipeline/registry.ts" ||
   relFrom === "analysis/pipeline/diagnostics.ts" ||

@@ -207,7 +207,7 @@ three server modules:
   reference-crawl state. Backs the eager whole-workspace index (crawled on `initialized`) and stays fresh via
   `workspace/didChangeWatchedFiles` (freshness comes from watched-file events, **not** file-operation events —
   those are out of scope; one item per file makes a rename just a delete+create the watcher already reports).
-- `diagnostics` — the one `documentDiagnostics(store, messages, doc)` compute shared by the **push** transport
+- `diagnostics` — the one `documentDiagnostics(store, doc)` compute shared by the **push** transport
   (`publishDiagnostics` on open/change) and the **pull** transport (`textDocument/diagnostic` ·
   `workspace/diagnostic`), so the two can never diverge.
 - `server` — the dispatch itself: incremental document sync, semantic tokens (full · range · delta),

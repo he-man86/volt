@@ -17,7 +17,7 @@ import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics } from "./diagnostics.js"
-import { messagesFor, resolveConfig } from "../analysis/index.js"
+import { resolveConfig } from "../analysis/index.js"
 import { definition } from "../services/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../source-extensions.js"
@@ -73,7 +73,6 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
     console.log(`[bench] project=${dir.split(/[\\/]/).pop()} files=${files.length}`)
 
     const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
-    const messages = messagesFor("codesys")
     store.workspaceRefs = loadWorkspaceRefs(dir)
     store.taskRoots = loadTaskRoots(dir)
     store.seedDisk(files.map((p) => ({ uri: pathToFileURL(p).href, source: readFileSync(p, "utf8") })))
@@ -96,7 +95,7 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
       store.changeDocument(uri, i + 2, [{ range: rangeAt(store.doc(uri)!.source, end), text: " " }])
 
       let t = performance.now()
-      documentDiagnostics(store, messages, store.doc(uri)!)
+      documentDiagnostics(store, store.doc(uri)!)
       diagMs.push(performance.now() - t)
 
       t = performance.now()

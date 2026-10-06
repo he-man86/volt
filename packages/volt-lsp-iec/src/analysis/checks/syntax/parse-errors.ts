@@ -26,7 +26,7 @@ import type { Vendor } from "../../config.js"
  * Whether `vendor`'s compiler reports this parse error at all. The parser has no vendor, so a shape the two compilers
  * answer differently arrives as a FACT: a global missing its `;` (`globalMissingSemicolon`) is reported by TwinCAT and
  * passed over in silence by CODESYS (`pwh_gvl_missing_semicolon`, 2026-09-30). Every path that hands a parse error to a
- * client asks this — the semantic pass here and the server's own parse-error stream.
+ * client asks this — the semantic pass here and the front-end's parse-error dumps (`test/frontend/dumps.ts`).
  */
 export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean {
   return !(e.globalMissingSemicolon === true && vendor === "codesys")
@@ -81,6 +81,16 @@ function sectionEcho(keyword: string, decls: readonly VarDecl[]): string {
   })
   return `${keyword}\r\n${lines.join("")}END_VAR\r\n`
 }
+
+/** Every code a parse error is given (`parseErrorCode`) — what the server keeps in a dead member (analysis-conformance
+ *  2.5: both vendors report a parse error in a method nothing calls, `dead_method_missing_then`; not in a dead POU, which
+ *  the build never reads, `dead_fb_*`). */
+export const PARSE_ERROR_CODES: ReadonlySet<string> = new Set([
+  "syntax-error",
+  "orphan-conditional-pragma",
+  "unterminated-conditional-pragma",
+  "attribute-value-string",
+])
 
 /** A parse error's diagnostic code: the conditional-pragma structure keeps the codes its catalog entries name (C0081 for
  *  an orphan directive), every other shape is a syntax error. */

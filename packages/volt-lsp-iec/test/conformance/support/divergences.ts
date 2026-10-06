@@ -912,8 +912,23 @@ const CODESYS_DECLARATION_DIVERGENCES: readonly string[] = ["decl_nested_aggrega
  *        in a VAR section: CODESYS adds "This code is not supported in declaration part" to the unquoted-attribute error,
  *        TwinCAT builds it clean (it checks the operand only in a body); the LSP's out-of-body scan says the attribute
  *        error on both. Niche: accepted loss (0 occurrences in the corpora — no `hasattribute` at all).
+ *        `dead_method_hasattribute_unquoted` (analysis-conformance 2.5) is the same shape in a method NOTHING CALLS, and
+ *        both vendors answer exactly as they do for the live one: CODESYS reports it in the dead member too (so the
+ *        server keeps C0051 there, `src/server/diagnostics.ts`), TwinCAT builds it clean. Same accepted loss.
  */
-const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_value", "prag_project_defined_in_declaration", "prag_hasattribute_unquoted_in_declaration"]
+const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_value", "prag_project_defined_in_declaration", "prag_hasattribute_unquoted_in_declaration", "dead_method_hasattribute_unquoted"]
+
+/**
+ * ANALYSIS-CONFORMANCE 2.5 (recorded 2026-10-06) — A POU NOTHING REACHES IS NOT EVEN PARSED BY THE BUILD. An FB no
+ * PROGRAM instantiates, holding a statement parse error (`dead_fb_missing_then`) or a declaration parse error
+ * (`dead_fb_declaration_parse_error`), builds CLEAN on both vendors: the compiler reports no syntax error in code it
+ * does not compile. (A method nothing calls inside a LIVE FB is different: its parse errors ARE reported on both —
+ * `dead_method_missing_then`, `sig_empty_type` — and agree.) The replay analyses each fixture's file with no
+ * reachability, so it reports the parse error the build did not; the SERVER suppresses it (`diagnoseDeadCode` off,
+ * `src/server/diagnostics.ts`, tested in `src/server/diagnostics.test.ts`). Not a check to change: the replay has no
+ * reachability, the same cause as `sn_dut_mismatch` and `cc2_var_in_interface`.
+ */
+const DEAD_POU_NOT_IN_THE_REPLAY: readonly string[] = ["dead_fb_missing_then", "dead_fb_declaration_parse_error"]
 const CODESYS_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_forbidden_construct", "prag_if_defined_in_declaration"]
 const TWINCAT_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_not_in_declaration"]
 
@@ -1415,6 +1430,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...STATEMENT_DIVERGENCES,
     ...PRAGMA_DIVERGENCES,
     ...TWINCAT_PRAGMA_DIVERGENCES,
+    ...DEAD_POU_NOT_IN_THE_REPLAY,
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
     ...MEMBER_DIVERGENCES,
@@ -1562,6 +1578,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...STATEMENT_DIVERGENCES,
     ...PRAGMA_DIVERGENCES,
     ...CODESYS_PRAGMA_DIVERGENCES,
+    ...DEAD_POU_NOT_IN_THE_REPLAY,
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
     ...MEMBER_DIVERGENCES,

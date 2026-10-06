@@ -9,7 +9,7 @@
  */
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
 import { call, landedInFull, VENDOR as V } from "./bridge.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -29,7 +29,7 @@ const key = (d: any): string => `[${d.severity}] ${d.message}`
 // LSP side (offline).
 const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, VENDOR)
 const project = build.buildSymbolTable([{ uri: "S.pou", parseResult: pr, source }], [], VENDOR)
-const lsp = computeSemanticDiagnostics({ uri: "S.pou", parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
+const lsp = computeDiagnostics({ uri: "S.pou", parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
   .filter((d) => d.severity === "error" || d.severity === "warning")
   .map(key)
   .sort()

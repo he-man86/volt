@@ -42,8 +42,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral, parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
 import { CODESYS_TRIAGE, CREATE_REFUSAL_BY_NAME_NOT_MODELLED, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
@@ -54,7 +53,7 @@ import { PROJECT_LIBRARY, PROJECT_BASE } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache.js"
 import { selectFixtures } from "./support/selection.js"
-import { withReplayFixture } from "./support/replay.js"
+import { replayDiagnostics, withReplayFixture } from "./support/replay.js"
 
 /** The fixtures this run covers — all of them, or the ones `VOLT_FIXTURES` names (`support/selection.ts`). Every
  *  per-fixture row walks THIS; `ALL_TESTS` stays the universe a fixture is assembled, rated and bound in, so a named
@@ -1024,7 +1023,7 @@ describe("lines — TwinCAT's, for this change's ST row", () => {
     const project = build.buildSymbolTable([{ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source }], [], "twincat")
     const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
       ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)
-    const lsp = computeSemanticDiagnostics({ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
+    const lsp = computeDiagnostics({ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
     // the file's 1-based line, less the IMPLEMENTATION line the push takes off
     return {
       lsp: at(lsp.map((d) => ({ severity: d.severity, message: d.message, line: d.span.startLine - 1 }))),
@@ -2125,21 +2124,14 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   return hit
 }
 function runLspNow(testIdx: number, vendor: Vendor): string[] {
-  // the replay's project, with this fixture swapped in (`support/replay.ts`, shared with the diagnostic census)
-  return withReplayFixture(testIdx, vendor, ({ own, plc, lists }, project) => {
-    const config = resolveConfig({ vendor })
-    const diags = computeSemanticDiagnostics({ uri: own.uri, parseResult: own.parseResult, source: own.source, project, config })
-    if (plc) diags.push(...computeSemanticDiagnostics({ uri: plc.uri, parseResult: plc.parseResult, source: plc.source, project, config }))
-    for (const list of lists) diags.push(...computeSemanticDiagnostics({ uri: list.uri, parseResult: list.parseResult, source: list.source, project, config }))
-    // Graphical (network text) bodies: the semantic pass skips them; run the network text checks too so network text fixtures are covered.
-    diags.push(...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
-    // No separate `parseResult.errors` here: `checkParseErrors` already reports them. Pushing them again counted every
-    // DECLARATION parse error twice, so a fixture like `cc_decl_init_trailing_ident` could never agree exactly.
-    return diags
+  // the replay's project, with this fixture swapped in, and the one composition over it (`support/replay.ts`, shared with
+  // the diagnostic census and the agreement residue)
+  return withReplayFixture(testIdx, vendor, (files, project) =>
+    replayDiagnostics(files, project, vendor)
       .filter((d) => d.severity === "error" || d.severity === "warning")
       .map((d) => `[${d.severity}] ${comparable(d.message)}`)
-      .sort()
-  })
+      .sort(),
+  )
 }
 
 function ideMsgs(ds: readonly RecordedDiagnostic[]): string[] {

@@ -15,14 +15,14 @@
  *
  *   evidence
  *     confirmed     2725
- *     refused       1788
+ *     refused       1790
  *     not-lowered    337
  *     lsp-gap         74
  *     diverges         5
- *     unaskable       80
+ *     unaskable       82
  *
  *   tier                     lowered    clean
- *     decl                    692      692
+ *     decl                    695      695
  *     arith                  1537     1535
  *     control                 138      133
  *     aggregate               114      114
@@ -56,16 +56,16 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2888
+ *     agree         2890
  *     disagree         0
- *     not-run        162
+ *     not-run        163
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: the emitted Rust does not build                 57
- *       not-run: no elementary variable to seed or compare       34
+ *       not-run: no elementary variable to seed or compare       35
 
  *
- *   pedantic — 30204 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7450
+ *   pedantic — 30209 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7455
  *     clippy::cast_possible_truncation         4802
  *     clippy::cast_lossless                    4220
  *     clippy::cast_sign_loss                   3362
@@ -88,8 +88,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1646 distinct emission shapes over 3050 lowered fixtures, 1764 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2882 fixtures are improvable, 2797 touch a construct with alternatives.
+ *   shape — 1647 distinct emission shapes over 3053 lowered fixtures, 1764 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2884 fixtures are improvable, 2799 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
@@ -1087,6 +1087,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   date_plus_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 4.2, shape: "bc58396a0a", notes: ["e8954e2b0d"] },
   date_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "6c8db21845", notes: ["e8954e2b0d"] },
   date_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "bc58396a0a", notes: ["e8954e2b0d"] },
+  dead_fb_declaration_parse_error: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
+  dead_fb_missing_then: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.5, shape: "a50ba5e42d", diverges: { codesys: "known", twincat: "known" } },
+  dead_method_hasattribute_unquoted: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "4ea18c96e6", notes: ["0e0d715a81", "1307e33bbf", "687428cc81", "de132e5019"], diverges: { codesys: "known", twincat: "known" } },
+  dead_method_missing_then: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "4ea18c96e6", notes: ["0e0d715a81", "1307e33bbf", "687428cc81", "de132e5019"] },
   decl_array_both_negative: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "08545d651d", notes: ["1307e33bbf"] },
   decl_array_bound_constant_expression: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.7, shape: "b9ead99f5a", notes: ["1307e33bbf", "abe3ae1f0b"] },
   decl_array_bound_variable: { evidence: "refused" },

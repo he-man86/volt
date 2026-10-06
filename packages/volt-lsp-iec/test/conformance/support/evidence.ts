@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { computeSemanticDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
+import { computeDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
@@ -60,9 +60,10 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  * Three things a naive version got wrong, each of which turned a covered fixture into a phantom gap:
  *
  *   PARSE ERRORS COUNT. A reserved word in name position is reported by `cursor.ts` with CODESYS's own wording, not
- *   by a semantic check. Reading only semantic diagnostics sees half of what the LSP says.
+ *   by a semantic check — and the pipeline reports it (`checkParseErrors`), ONCE: this walk added each file's raw
+ *   `parseResult.errors` beside it, so every declaration parse error counted twice (analysis-conformance 2.6).
  *
- *   NETWORK TEXT HAS ITS OWN PASS. `computeSemanticDiagnostics` SKIPS a graphical body; `computeNetworkTextDiagnostics`
+ *   NETWORK TEXT HAS ITS OWN PASS. `computeDiagnostics` SKIPS a graphical body; `computeNetworkTextDiagnostics`
  *   is what reads it (`fixtures.test.ts` runs both for exactly this reason). Without it, eleven network fixtures read as
  *   gaps when the LSP flags every one.
  *
@@ -105,7 +106,7 @@ export function lspMessagesOn(
   return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
     const config = resolveConfig({ vendor, diagnostics })
     const diags = [
-      ...files.flatMap((f) => computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
+      ...files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config })),
       ...computeNetworkTextDiagnostics(own, project, messagesFor(vendor)),
     ]
     return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
@@ -161,16 +162,9 @@ type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof
 
 function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
   const config = resolveConfig({ vendor })
-  const semantic = files.flatMap((f) =>
-    computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }),
-  )
+  const analysed = files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
   const network = computeNetworkTextDiagnostics(own, project, messagesFor(vendor))
-  return [
-    ...files.flatMap((f) => f.parseResult.errors.map((e) => e.message)),
-    ...[...semantic, ...network]
-      .filter((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code))
-      .map((d) => d.message),
-  ]
+  return [...analysed, ...network].filter((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code)).map((d) => d.message)
 }
 
 /** Whether the LSP objects at all — a parse error counts, and so does a check the PROJECT could configure louder. */

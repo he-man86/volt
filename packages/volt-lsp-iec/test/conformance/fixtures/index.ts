@@ -105,6 +105,7 @@ import { EXPRESSION_RULE_TESTS } from "./grammar/expressions.js"
 import { STATEMENT_RULE_TESTS } from "./grammar/statements.js"
 import { PRAGMA_RULE_TESTS } from "./grammar/pragmas.js"
 import { RECOVERY_TESTS } from "./grammar/recovery.js"
+import { DEAD_CODE_TESTS } from "./grammar/dead-code.js"
 import { SCOPE_RULE_TESTS } from "./names/scopes.js"
 import { INHERITANCE_RULE_TESTS } from "./names/inheritance.js"
 import { ENUM_RULE_TESTS } from "./names/enums.js"
@@ -236,6 +237,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "grammar-statements", tests: STATEMENT_RULE_TESTS },
   { name: "grammar-pragmas", tests: PRAGMA_RULE_TESTS },
   { name: "grammar-recovery", tests: RECOVERY_TESTS },
+  { name: "grammar-dead-code", tests: DEAD_CODE_TESTS },
   { name: "names-scopes", tests: SCOPE_RULE_TESTS },
   { name: "names-inheritance", tests: INHERITANCE_RULE_TESTS },
   { name: "names-enums", tests: ENUM_RULE_TESTS },

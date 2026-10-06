@@ -27,7 +27,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { computeDiagnostics, resolveConfig } from "../src/analysis/index.js"
 import { call, target } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
@@ -48,7 +48,7 @@ function lspMessagesForCode(
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor) })),
   ]
   const project = build.buildSymbolTable(files, [], vendor)
-  return computeSemanticDiagnostics({
+  return computeDiagnostics({
     uri: "R.pou",
     parseResult: pr,
     source: repro,

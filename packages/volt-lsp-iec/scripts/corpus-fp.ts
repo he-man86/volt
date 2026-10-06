@@ -1,65 +1,32 @@
 /**
  * Corpus false-positive tally, grouped by check code — the zero-FP oracle in a debuggable form.
  *
- * The corpus (`test-corpus/`) compiles clean in the IDE, so EVERY error-severity diagnostic the analysis emits
- * here is a false positive. `corpus.test.ts` asserts the total is zero; this script is what you run when it
- * isn't — it groups the FPs by `code` and shows the first few offenders per code with their file, so you can
- * see which check over-fires and on what (dead-member / task-root suppression matches the server).
+ * The corpus (`test-corpus/`) compiles clean in the IDE, so EVERY error-severity diagnostic the LSP gives here is a
+ * false positive. `corpus.test.ts` asserts the total is zero; this script is what you run when it isn't — it groups the
+ * FPs by the code a client sees and shows the first few offenders per code with their file, so you can see which check
+ * over-fires and on what.
+ *
+ * It asks the SERVER's function (`test/corpus/support/diagnostics.ts` `projectDocuments` — `documentDiagnostics` with
+ * the project's own settings, each project as its own vendor), the one composition `corpus.test.ts` gates (analysis-
+ * conformance 2.6). It used to re-implement the server's suppression beside the analysis — the library gate, dead POUs
+ * and members — on a CODESYS analysis of every project, without network text or the project's settings: a second
+ * answer that could drift from the one a user sees.
  *
  *   bun scripts/corpus-fp.ts            # all checks
- *   bun scripts/corpus-fp.ts array      # only codes containing "array"
+ *   bun scripts/corpus-fp.ts C0032      # only codes containing "C0032"
  */
-import { readdirSync, statSync } from "node:fs"
-import { join, extname } from "node:path"
-import { parseDocument } from "../src/frontend/syntax/index.js"
-import { build, isLibrarySymbol } from "../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
-import { deadPous, deadMemberSpans, inDeadMember, ownerPou } from "../src/server/reachability.js"
-import { loadTaskRoots, loadWorkspaceRefs, readSourceText, workspaceEnvironment } from "../src/workspace-refs.js"
-import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
+import { corpusProjects } from "../test/frontend/sources.js"
+import { projectDocuments } from "../test/corpus/support/diagnostics.js"
+import { DiagnosticSeverity } from "vscode-languageserver-protocol/node"
 
-const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const filter = process.argv[2]
 
-const walk = (d: string): string[] => {
-  const out: string[] = []
-  for (const n of readdirSync(d)) {
-    const p = join(d, n)
-    if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
-  }
-  return out
-}
-
-const config = resolveConfig({ vendor: "codesys" })
 const byCode: Record<string, string[]> = {}
-for (const project of readdirSync(CORPUS)) {
-  const dir = join(CORPUS, project)
-  if (!statSync(dir).isDirectory()) continue
-  const inputs = walk(dir).map((uri) => {
-    const source = readSourceText(uri)
-    return { uri, source, parseResult: parseDocument(uri, source, { networkText: NETWORK_TEXT_ENABLED }) }
-  })
-  const references = loadWorkspaceRefs(dir)
-  const scope = build.buildSymbolTable(inputs, references.libraryManifests, "codesys", workspaceEnvironment(references), references.devices)
-  const dead = deadPous(inputs, loadTaskRoots(dir))
-  const deadMembers = deadMemberSpans(inputs, dead)
-  for (const f of inputs) {
-    // The server's ROOT gate (`server/diagnostics.ts`): a referenced library is a precompiled blob the project
-    // never recompiles, so NOTHING under `Library Manager/` is diagnosed. Without the same skip this script
-    // reports diagnostics no user can ever see — and library materialization legitimately carries patterns
-    // source never would (a base class's methods flattened into the derived FB's file, so `FB_init` appears
-    // twice → a phantom C0582).
-    if (isLibrarySymbol({ uri: f.uri })) continue
-    const owner = ownerPou(f.parseResult)
-    if (owner !== undefined && dead.has(owner)) continue
-    const dm = deadMembers.get(f.uri)
-    for (const d of computeSemanticDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project: scope, config }))
-      if (d.severity === "error" && !inDeadMember(d.span, dm))
-        (byCode[d.code] ??= []).push(`${project}${f.uri.slice(dir.length)}: ${d.message}`)
-  }
-}
+for (const p of corpusProjects())
+  for (const d of projectDocuments(p.dir, p.vendor))
+    for (const diag of d.diagnostics)
+      if (diag.severity === DiagnosticSeverity.Error)
+        (byCode[String(diag.code ?? "(no code: a body that states no language)")] ??= []).push(`${p.name}${d.uri.slice(p.dir.length)}: ${diag.message}`)
 
 const codes = Object.keys(byCode)
   .filter((c) => !filter || c.includes(filter))

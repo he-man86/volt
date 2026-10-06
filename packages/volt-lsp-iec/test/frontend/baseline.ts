@@ -70,7 +70,12 @@ const LIB_REFERENCE_FACTS =
 const TWO_LIBRARIES_ERROR =
   "bare `ERROR` (Util's, CAA Device Diagnosis') is Util's on CODESYS — DED's is no candidate, a qualified-access fact the manifest does not carry; the LSP ranks the two alike and binds DED's by the URI tiebreak, so `.WRONG_CONFIGURATION` is unresolved. Not a regression: the same input gave the same answer before 3.4, which made it measurable"
 
-const LITERAL_TYPING = "frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
+const DEAD_CODE_TASK =
+  "none planned: the replay/census analyse a fixture's file with no reachability (divergences.ts DEAD_POU_NOT_IN_THE_REPLAY, PRAGMA_DIVERGENCES' accepted loss); remove with the fixtures"
+const DEAD_CODE_WHY =
+  "analysis-conformance gate 2's dead-code fixtures (fixtures/grammar/dead-code.ts), recorded 2026-10-06 to settle what the server shows in dead code"
+
+const LITERAL_TYPING ="frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
 const NEGATED_LITERAL_CELLS =
   "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator; 4c's negative enum literals and the negative SOURCE value of every explicit-pair cell over SINT, INT, DINT, LINT and LREAL) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
 /** The 4.1.3 / 4.2 / 4.3 / 4b fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
@@ -191,6 +196,26 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "the TwinCAT driver: keep a message whole past its first line break, then re-record these fixtures (divergences.ts TWINCAT_DRIVER_CUTS_THE_ECHO)",
     why: SECTION_ECHO,
   })),
+  // the diagnostic census: analysis-conformance gate 2 RECORDED what the server does with parse errors in dead code
+  // (`fixtures/grammar/dead-code.ts`). The two dead-FB fixtures build clean on both vendors — the build never reads a POU
+  // nothing reaches — while the census, analysing each fixture's file as the replay does, has no reachability and counts
+  // their parse error as FP(div) (divergences.ts DEAD_POU_NOT_IN_THE_REPLAY; the SERVER suppresses it, src/server/
+  // diagnostics.test.ts). The dead-method `hasattribute` fixture repeats `prag_hasattribute_unquoted_in_declaration`'s
+  // accepted loss in a method nothing calls (CODESYS's extra "not supported in declaration part" GAP, TwinCAT's silence
+  // FP(div)). New ground measured, not a regression: no existing finding changed.
+  ...(["dead_fb_missing_then", "dead_fb_declaration_parse_error"] as const).flatMap((fixture) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: `fixtures.${vendor}`,
+      measure: "total: FP",
+      by: 1,
+      fixture,
+      task: DEAD_CODE_TASK,
+      why: DEAD_CODE_WHY,
+    })),
+  ),
+  { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
+  { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
+  { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */

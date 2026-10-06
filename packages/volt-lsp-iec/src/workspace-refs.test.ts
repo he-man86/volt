@@ -10,7 +10,7 @@ import { join } from "node:path"
 import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
 import { WorkspaceStore } from "./server/workspace-store.js"
 import { documentDiagnostics } from "./server/diagnostics.js"
-import { messagesFor, resolveConfig } from "./analysis/index.js"
+import { resolveConfig } from "./analysis/index.js"
 
 let root: string
 
@@ -125,7 +125,7 @@ test("the workspace scan reads a file saved with a BOM as the push sends it — 
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     const messages = store
       .workspace()
-      .flatMap((d) => documentDiagnostics(store, messagesFor("codesys"), d).map((x) => `${d.uri}: ${x.message}`))
+      .flatMap((d) => documentDiagnostics(store, d).map((x) => `${d.uri}: ${x.message}`))
     expect(messages).toEqual([])
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -170,7 +170,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     let n = 0
     for (const d of store.workspace())
-      for (const diag of documentDiagnostics(store, messagesFor("codesys"), d))
+      for (const diag of documentDiagnostics(store, d))
         // the WIRE code, which is what a client sees: `documentDiagnostics` stamps the catalog `Cnnnn`
         // over the internal slug, so filtering on "no-op-statement" here matches nothing and passes vacuously.
         if (String(diag.code) === "C0139") n++

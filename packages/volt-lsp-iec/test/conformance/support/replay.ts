@@ -6,11 +6,13 @@
  * It lived inside `fixtures.test.ts` (`runLsp`) and moved here unchanged so the diagnostic census
  * (`test/analysis/census.ts`, openspec analysis-conformance 0.1) measures the SAME composition the replay gates — a census
  * over a project of its own would count findings the replay never sees. What each caller then ASKS of the bound fixture
- * (the replay its messages, the census each check's slice) is the caller's.
+ * (the replay its messages, the census each check's slice) is the caller's — and "what the LSP says about it" is ONE
+ * answer, `replayDiagnostics` (analysis-conformance 2.6).
  */
 import { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
-import type { Vendor } from "../../../src/analysis/index.js"
+import { computeDiagnostics, messagesFor, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
+import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
@@ -179,4 +181,21 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
   build.relink(project, PROJECT_MANIFESTS)
   pending = { project, idx: testIdx, plcUri: plc?.uri }
   return ask({ own, plc, lists }, project)
+}
+
+/**
+ * WHAT THE LSP SAYS ABOUT ONE BOUND FIXTURE — the conformance composition, in ONE place (analysis-conformance P1, task 2.6):
+ * the pipeline (`computeDiagnostics`) over each document the replay analyses — its own item, its PLC_PRG, its global
+ * lists, each under its own uri — then the network-text pass over its own item, which stays a call of its own while
+ * design.md §3 is parked. No parse error is added beside the pipeline's: `checkParseErrors` reports each one. The replay
+ * gate (`fixtures.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
+ * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
+ */
+export function replayDiagnostics({ own, plc, lists }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
+  const config = resolveConfig({ vendor })
+  const docs = [own, ...(plc === undefined ? [] : [plc]), ...lists]
+  return [
+    ...docs.flatMap((d) => computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config })),
+    ...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)),
+  ]
 }

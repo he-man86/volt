@@ -308,8 +308,8 @@ The server policy, exhaustively:
 | Policy | Today | Target |
 |---|---|---|
 | library-file gate | `isLibrarySymbol` → `[]` | unchanged |
-| dead POU | semantic pass skipped; raw parse errors still shown | `computeDiagnostics({ …, groups: ["syntax"] })`: only `checkParseErrors` (and any syntax survivor) runs. Same cost as today; parse errors still ride. |
-| dead member | `inDeadMember` filters ST findings and network findings, not raw parse errors | one `quiet()` over every item, exempting code `syntax-error` |
+| dead POU | semantic pass skipped; raw parse errors still shown | nothing at all, parse errors included (recorded: `dead_fb_*`, see "Recorded" below; the `groups: ["syntax"]` plan was wrong) |
+| dead member | `inDeadMember` filters ST findings and network findings, not raw parse errors | one `quiet()` over every item, exempting the parse-error codes (`PARSE_ERROR_CODES`, see below) |
 | unstated body | `inUnstated` filters ST findings and raw parse errors, not network findings | the same `quiet()`, so network findings inside an unstated body go too (class 3) |
 | other materialization (`materializationMismatch`) | drops all network findings, keeps ST findings | `groups` excludes `"network"` when it holds — the same output as today; 2.4 pins it with a test |
 | missing language, retired comments, manifest findings | appended | unchanged |
@@ -318,6 +318,30 @@ The server policy, exhaustively:
 The raw stream is the confirmed duplicate: every top-level parse error is shown once with code C0002 and once with no
 code. Task 0.4 first proves that the raw stream ⊆ `checkParseErrors` output on the corpora and fixtures. If any raw
 error has no partner, that is a finding fixed in `parse-errors.ts` before the stream goes.
+
+**As built (2.5, 2026-10-06): the dead-member exemption is every parse-error code, not `syntax-error` alone.**
+`checkParseErrors` gives a parse error one of four codes (`syntax-error`, and the three a conditional pragma or a
+`hasattribute` operand keeps: `orphan-conditional-pragma`, `unterminated-conditional-pragma`, `attribute-value-string`).
+The raw stream showed all four in a dead member; exempting `syntax-error` alone would have quieted the other three
+there, a silent loss the "parse errors still shown" rule does not allow. So `parse-errors.ts` exports
+`PARSE_ERROR_CODES` (the set `parseErrorCode` draws from) and the server exempts it. One side effect, named:
+`attribute-value-string` is also the pragmas check's code for an unquoted `hasattribute` operand OUTSIDE a body, which
+is therefore shown in a dead member too (0 occurrences in the six corpora, none of which has a parse error at all).
+`parseErrorMessage` and `vendorReportsParseError` stay in the index: the server no longer reads them, but the
+front-end's parse-error dumps (`test/frontend/dumps.ts`) do.
+
+**Recorded (gate 2, 2026-10-06) — the dead POU row above was WRONG, the dead member row right.** The first build ran
+`groups: ["syntax"]` on a dead POU and showed its parse errors, with no recording behind it. Four fixtures
+(`test/conformance/fixtures/grammar/dead-code.ts`) asked both vendors: an FB nothing instantiates builds CLEAN with a
+statement parse error (`dead_fb_missing_then`) and with a declaration parse error (`dead_fb_declaration_parse_error`) —
+the build never reads a dead POU, so the server gives it nothing (`dead ? []`, as before 2.5 for the semantic pass;
+HEAD's raw-stream copy of its top-level parse errors was a false positive too). A method nothing calls inside a live FB
+IS read: its statement parse error is reported on both (`dead_method_missing_then`), as its declaration parse error was
+(`sig_empty_type`) — so the dead-member exemption stands. The C0051 side effect is right as well: an unquoted
+`hasattribute` operand in the declaration of a method nothing calls is reported by CODESYS exactly as in a live one
+(`dead_method_hasattribute_unquoted` vs `prag_hasattribute_unquoted_in_declaration`); TwinCAT is silent in both, the
+existing accepted loss. So the exemption stays keyed by code, which here coincides with what the vendor shows. In the
+replay (no reachability) the two dead-FB fixtures are a known divergence (`DEAD_POU_NOT_IN_THE_REPLAY`).
 
 **Services** (owner: "maybe the way it is integrated in the LSP might need improving"). Kept small:
 
@@ -377,8 +401,8 @@ ST-only (S8). Inside a network body they see no ST statements and return nothing
 | `network/network-analysis.ts` (`computeNetworkTextDiagnostics`) + its three test files | `analysis/checks/network/network-text.ts` (`checkNetworkText`, last in the registry) + tests beside it | 2.4 | N |
 | `hole.ts` network code literals | `shared/codes.ts` | 2.4 | R |
 | server `otherFormat` drop of network findings | `computeDiagnostics({ groups })` without `"network"` | 2.4 | R |
-| server `documentDiagnostics` raw parse stream; split quiet/inDeadMember; `messages` parameter; semantic skip on dead | dropped; one `quiet` with the `syntax-error` exemption; parameter gone; `groups: ["syntax"]` on dead | 2.5 | N |
-| `evidence.ts diagnosed`, `fixtures.test.ts runLsp` network call, `agreement-residue.ts`, `audit-check.ts`, `corpus-fp.ts`, `verify-catalog.ts` | call `computeDiagnostics` only | 2.6 | N |
+| server `documentDiagnostics` raw parse stream; split quiet/inDeadMember; `messages` parameter; semantic skip on dead | dropped; one `quiet` exempting the parse-error codes (`PARSE_ERROR_CODES`, §3 "as built"); parameter gone; nothing on a dead POU (recorded, gate 2) | 2.5 | N |
+| `evidence.ts diagnosed`, `fixtures.test.ts runLsp` network call, `agreement-residue.ts`, `audit-check.ts`, `corpus-fp.ts`, `verify-catalog.ts` | call `computeDiagnostics` only; `runLsp` and `agreement-residue.ts` share one composition, `support/replay.ts` `replayDiagnostics`; `corpus-fp.ts` asks the server's `projectDocuments` | 2.6 | N |
 
 R = output-neutral (snapshot A identical). N = an output change that snapshot A lists class by class, with the
 recordings deciding.
@@ -451,7 +475,7 @@ Columns:
 | bit-usage | pointerToBit, bitArrayBase, bitInWrongBlock, bitInWrongContainer | 0 | 0 | **GAP: no fixture** (unit test only) |
 | output-rules | outputCantBeReference | 1 / 0 | 1 / 0 | OK |
 | non-instantiable | notInstantiable | 1 / 0 | 1 / 0 | OK |
-| obsolete-usage | pouObsolete | 0 | 0 | **GAP: no fixture**; cannot fire until 2.6 (harnesses pass EMPTY_WORKSPACE_REFS) |
+| obsolete-usage | pouObsolete | 0 | 0 | **GAP: no fixture**; cannot fire until 2.6 (harnesses pass EMPTY_WORKSPACE_REFS) — stale since frontend-conformance 2.7.2: the check reads the POU's `obsolete` attribute from the AST, no longer from `WorkspaceRefs`, and fires on 7 CODESYS fixtures (0.3); 2.6 passes no refs for it |
 | at-address° | directAddressMalformed | 7 / 0 | 7 / 0 | OK; frontend P6 parser move, so check whether it survives (0.5) |
 | header-rules | propertyWithoutAccessor, multipleInheritance, returnTypeNotAllowed, interfaceImplementsMisused, varInInterface, functionImplements, baseClassNotFound, unionInheritance, inheritanceNotAllowed | 9 / 2 | 9 / 2 | FP cc2_var_in_interface, itf_var_section_declaration; builders GAP (0.3) |
 | attribute-placement (CODESYS) | packModeNotAllowed | 1 / 0 | — | OK |

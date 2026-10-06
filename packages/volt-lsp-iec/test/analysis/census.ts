@@ -573,14 +573,14 @@ export function corpusSeverity(severity: number | undefined): string {
 /** The server's finding for a body with no `IMPLEMENTATION` line (`server/diagnostics.ts` `missingLanguage`). */
 const MISSING_LANGUAGE = /^'[^']*' states no language: its body opens with no 'IMPLEMENTATION <ST\|LD\|FBD>' line/
 /**
- * A server diagnostic's census key: its code, or — for the two findings the server gives without one — its name: a body
- * that states no language (`server:missing-language`), or one of the document's own parse errors as the server words
- * them (`server:parse-raw`). Any other codeless finding is refused by name, never counted as one of those.
+ * A server diagnostic's census key: its code, or — for the one finding the server gives without one — its name: a body
+ * that states no language (`server:missing-language`). Any other codeless finding is refused by name. (A parse error
+ * reached the server's output codeless too, `server:parse-raw`, until analysis-conformance 2.5 dropped that duplicate
+ * stream: it is the pipeline's C0002 finding now.)
  */
-export function corpusCode(diag: { code?: number | string; message: string }, parseErrors: readonly string[]): string {
+export function corpusCode(diag: { code?: number | string; message: string }): string {
   if (diag.code !== undefined) return String(diag.code)
   if (MISSING_LANGUAGE.test(diag.message)) return "server:missing-language"
-  if (parseErrors.includes(diag.message)) return "server:parse-raw"
   throw new Error(`a codeless server finding the census does not know: ${diag.message}`)
 }
 
@@ -602,7 +602,7 @@ function corpusCensus(attributors: Record<Vendor, (m: string) => Attribution>): 
       for (const diag of d.diagnostics) {
         const severity = corpusSeverity(diag.severity)
         if (severity !== "error" && severity !== "warning") continue
-        lsp.push({ severity, message: diag.message, code: corpusCode(diag, d.parseErrors), doc: d.uri })
+        lsp.push({ severity, message: diag.message, code: corpusCode(diag), doc: d.uri })
       }
     const ide = p.build.diagnostics.filter(isReported)
     const { tp, sev, fp, gap } = matchMultiset(lsp, ide, normMessage)

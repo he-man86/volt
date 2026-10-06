@@ -3,7 +3,7 @@
  * `codeDescription`, and uniqueness — is what a client shows the user, and no analysis test asserts it
  * (they test `DiagnosticItem`, pre-wire). Two invariants, checked over the server's real responses:
  *   1. Every diagnostic `code` is the CODESYS `Cnnnn` the check mirrors (recognisable, cross-referable to
- *      the IDE), OR a documented exception (network-text `NETWORK_*`, a parse error with no code, or a semantic
+ *      the IDE), OR a documented exception (network-text `NETWORK_*`, a body that states no language, or a semantic
  *      slug not yet mapped to a catalog code — see KNOWN_UNMAPPED).
  *   2. No two diagnostics on one document share `(range, code)` — the duplicate that PR #86 fixed at the
  *      transport now can't silently return via the compute path.

@@ -410,7 +410,7 @@ network-text/index.ts, no routing rewrite, no rename, no move of network-analysi
 former 2.1–2.4 and 2.7). src/network and src/network-text stay exactly where and as they are; their integration is
 handed to the LD/FBD coverage change (5.3). Only the two seams below, which are not network work, stay.
 
-- [ ] 2.5 Server merge: the raw parseResult.errors stream is dropped (the duplicate C0002/no-code pair); one quiet() for all
+- [x] 2.5 Server merge: the raw parseResult.errors stream is dropped (the duplicate C0002/no-code pair); one quiet() for all
       items; `syntax-error` exempt from the dead-member suppression; a dead POU runs `computeDiagnostics({ groups:
       ["syntax"] })` (parse errors still ride, cost as today); documentDiagnostics' `messages` parameter removed (callers
       server.ts, bench.test.ts, diagnostics.test.ts); parseErrorMessage and vendorReportsParseError leave the index if
@@ -418,11 +418,73 @@ handed to the LD/FBD coverage change (5.3). Only the two seams below, which are 
       Where: src/server/diagnostics.ts (+ tests: one parse error → one diagnostic; a parse error in a dead POU and in a
       dead member still shown). Acceptance: N (only the codeless duplicates vanish on the corpora; 0.4's unpartnered
       errors fixed first). The network diagnostics call stays as it is (parked). Depends on: 1.7, 0.4
-- [ ] 2.6 One composition: fixtures.test runLsp, support/evidence diagnosed (no re-added parse errors; the network call stays as it is),
+      **Done 2026-10-06.** `documentDiagnostics(store, d)`: the raw `parseResult.errors` stream is gone (0.4: 0 unpartnered
+      errors, nothing to fix first); one `quiet()` over the pipeline's and the network pass's items; a dead POU runs
+      `computeDiagnostics({ groups: ["syntax"] })`; the `messages` parameter is gone (callers server.ts, bench.test.ts,
+      diagnostics.test.ts, workspace-refs.test.ts, scripts/probe-projectsettings-effect.ts, test/corpus/support/diagnostics.ts;
+      the network call asks `messagesFor(store.config.vendor)`). **Deviation (design.md §3 "As built"):** the dead-member
+      exemption is every parse-error code (`PARSE_ERROR_CODES`, exported from `checks/syntax/parse-errors.ts`), not
+      `syntax-error` alone — the raw stream also carried the conditional-pragma / `hasattribute` codes in a dead member.
+      `parseErrorMessage` / `vendorReportsParseError` stay in the index (read by `test/frontend/dumps.ts`). The census's
+      `server:parse-raw` key and `projectDocuments`' `parseErrors` field went with the stream (a codeless parse error is
+      now refused by name, `diagnostic-census.test.ts`). Tests first, in `src/server/diagnostics.test.ts` (3, each with a
+      `diagnoseDeadCode` control): one parse error → one diagnostic (C0002); a dead POU keeps its declaration and
+      statement parse errors and loses its C0032; a dead member the same. Before: `[C0002, —]` (twice), the dead POU
+      `[—]` only, the dead member `[—]` only (its statement parse error quieted).
+      N (snapshot A, `check --base HEAD --aspects diagnostics,fixture-diagnostics`): **identical**, 39,188 aspects — the
+      corpora carry no parse error (0.4), so no codeless duplicate and no dead-code parse error existed to change; the
+      fixture composition does not run the server. Changed classes: none measurable on the corpora; on a parse error in
+      a source: the codeless copy (−1 per top-level parse error), statement parse errors now shown in dead POUs/members.
+      **Corrected at gate 2 (recorded, see "Gate 2" below):** a dead POU shows NOTHING, parse errors included (`dead ? []`
+      again); the dead-member exemption stays. The dead-POU half of the test above was the design's answer, not an oracle's.
+- [x] 2.6 One composition: fixtures.test runLsp, support/evidence diagnosed (no re-added parse errors; the network call stays as it is),
       scripts/agreement-residue, audit-check, corpus-fp and verify-catalog call computeDiagnostics only; the conformance
       composition passes WorkspaceRefs computed from the fixture sources (so obsolete-usage can fire).
       Where: test/conformance/{fixtures.test.ts,support/evidence.ts}, scripts/. Acceptance: N (evidence's double count
       gone; ratings recomputed by rate:fixtures, changes listed). Depends on: 2.5
+      **Done 2026-10-06.** One composition, `test/conformance/support/replay.ts` `replayDiagnostics` (`computeDiagnostics`
+      over own item, PLC_PRG, lists; then the network call, unchanged): `fixtures.test.ts` `runLsp` and
+      `scripts/agreement-residue.ts` ask it — the residue no longer builds its own `.st`-parsed project (0.4's two
+      differing fixtures) and no longer skips the empty-source PLC_PRG fixtures. `evidence.ts`: `diagnosed` drops the
+      re-added raw `parseResult.errors` (≈481 CODESYS / 602 TwinCAT raw top-level errors over the fixtures' own items,
+      each counted twice before), `diagnosed` and `lspMessagesOn` call `computeDiagnostics`. `audit-check.ts`,
+      `verify-catalog.ts` call `computeDiagnostics`; `corpus-fp.ts` asks the server's `projectDocuments` (each project as
+      its own vendor, its settings, network text, the server's suppression) instead of re-implementing the suppression on
+      a CODESYS-only analysis (it now lists twincat-project14's 216 missing-language findings, 0.2's known shape).
+      **WorkspaceRefs:** nothing to pass — the premise is stale. obsolete-usage reads the POU's `obsolete` attribute from
+      the AST since frontend-conformance 2.7.2 (not `WorkspaceRefs`) and already fires on 7 CODESYS fixtures (0.3); the
+      replay's project already binds the refs `WorkspaceRefs` holds (`PROJECT_MANIFESTS`, `projectDevices`,
+      `RECORDING_ENVIRONMENT`'s target). design.md §5's row says so.
+      N: `rate:fixtures` — **0 rating changes** (map.generated.ts byte-identical: confirmed 2725, refused 1788,
+      not-lowered 337, lsp-gap 74, diverges 5, unaskable 80); snapshot A identical (the snapshot's fixture aspect already
+      composed as `replayDiagnostics` does); no known divergence started agreeing (test/conformance 5982 pass / 0 fail);
+      `resolution-dump` messages unchanged (it compares resolution messages, which no parse error carries).
+
+**Gate 2 (2026-10-06).** Three review findings, each settled before the gate:
+- *Parse errors in dead code had no oracle* (medium) — **fixed, recorded.** Four fixtures,
+  `test/conformance/fixtures/grammar/dead-code.ts`, one recorder batch per vendor (CODESYS SP21 and TwinCAT Project13,
+  own `-Instance analysis-conformance` IDEs): an FB nothing instantiates builds CLEAN on both with a statement parse error
+  (`dead_fb_missing_then`) and with a declaration parse error (`dead_fb_declaration_parse_error`); a method nothing calls
+  in a live FB reports its statement parse error on both (`dead_method_missing_then`, as `sig_empty_type` already did for
+  a declaration). So `documentDiagnostics` gives a dead POU nothing (it had run `groups: ["syntax"]`; HEAD before 2.5 also
+  showed its top-level parse errors — both wrong), keeps parse errors in a dead member; test first
+  (`src/server/diagnostics.test.ts` "a dead POU shows nothing…": red `[C0002, 4], [C0002, 11]` → green `[]`).
+  behavior.md's dead-code requirement now states both recorded facts; design.md §3 "Recorded". The two dead-FB fixtures
+  are a known divergence of the replay (`DEAD_POU_NOT_IN_THE_REPLAY`: it has no reachability) and carry named ceiling
+  exceptions in the census (`test/frontend/baseline.ts`).
+- *The dead-member exemption is keyed by code, so the pragmas check's out-of-body C0051 passes too* (low) — **skipped,
+  the recording says it is right:** an unquoted `hasattribute` operand in the declaration of a method nothing calls is
+  reported by CODESYS exactly as in a live one (`dead_method_hasattribute_unquoted` = `prag_hasattribute_unquoted_in_declaration`:
+  C0051 + "not supported in declaration part"); TwinCAT is silent in both. Keying on origin would have quieted a C0051
+  CODESYS shows. The new fixture joins `PRAGMA_DIVERGENCES` (the same niche accepted loss, 0 `hasattribute` in the corpora).
+- *behavior.md misstated the parse-error codes* (low) — **fixed:** C0002, C0081 (orphan directive), C0051, and the
+  unterminated conditional pragma as its slug (`KNOWN_UNMAPPED`).
+Numbers: `rate:fixtures` — +4 fixtures: refused 1788 → 1790 (`dead_method_*`), unaskable 80 → 82 (`dead_fb_*`, execSkip:
+nothing instantiates them), no existing rating changed. Census baselines rewritten for the new fixtures only (codesys:
+TP 5229 → 5231, FP 108 → 110 (2 div), GAP 459 → 460; twincat: TP 6445 → 6446, FP 335 → 338 (3 div); ceilings unchanged,
+the rises held by named exceptions); frontend baselines: counts of the four new fixtures only. Typecheck and `bun run lint`
+clean; full suite (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES, rustc cache on): **8131 pass, 34 skip, 381 todo,
+0 fail** over 8546 tests in 205 files (469 s).
 
 ## 3. Conformance per check group (gaps first; one recorder batch per vendor per step; niche rule)
 

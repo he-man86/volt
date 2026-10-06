@@ -71,7 +71,6 @@ import {
 } from "vscode-languageserver-protocol/node"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import {
-  messagesFor,
   resolveConfig,
   type AnalysisInitOptions,
   type ConfigurableCode,
@@ -141,7 +140,6 @@ function workspaceRoot(rootUri: string | null | undefined, rootPath: string | nu
 
 export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys", version = "(dev)"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  const messages = messagesFor(vendor)
   const store = new WorkspaceStore(resolveConfig({ vendor }))
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
@@ -218,7 +216,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     if (d === undefined) return
     void conn.sendNotification(PublishDiagnosticsNotification.type, {
       uri,
-      diagnostics: documentDiagnostics(store, messages, d),
+      diagnostics: documentDiagnostics(store, d),
     })
   }
 
@@ -400,7 +398,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     const manifest = () => [...manifestDiagnostics()].find(([uri]) => sameDocument(uri, p.textDocument.uri))?.[1] ?? []
     return {
       kind: DocumentDiagnosticReportKind.Full,
-      items: !indexed ? [] : d !== undefined ? documentDiagnostics(store, messages, d) : manifest(),
+      items: !indexed ? [] : d !== undefined ? documentDiagnostics(store, d) : manifest(),
     }
   })
   conn.onRequest(
@@ -412,7 +410,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
               kind: DocumentDiagnosticReportKind.Full,
               uri: d.uri,
               version: null,
-              items: documentDiagnostics(store, messages, d),
+              items: documentDiagnostics(store, d),
             })),
             ...[...manifestDiagnostics()].map(([uri, items]): WorkspaceDocumentDiagnosticReport => ({ kind: DocumentDiagnosticReportKind.Full, uri, version: null, items })),
           ]

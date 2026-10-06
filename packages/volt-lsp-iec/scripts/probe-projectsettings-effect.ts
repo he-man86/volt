@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { WorkspaceStore } from "../src/server/workspace-store.js"
-import { messagesFor, resolveConfig } from "../src/analysis/index.js"
+import { resolveConfig } from "../src/analysis/index.js"
 import { documentDiagnostics } from "../src/server/diagnostics.js"
 import { loadWorkspaceRefs, loadTaskRoots, scanWorkspace } from "../src/workspace-refs.js"
 
@@ -37,10 +37,9 @@ function countsFor(dir: string, diagnostics: ReturnType<typeof scanWorkspace>["p
 	store.workspaceRefs = loadWorkspaceRefs(dir)
 	store.taskRoots = loadTaskRoots(dir)
 	store.seedDisk(files.map((p) => ({ uri: p, source: readFileSync(p, "utf8") })))
-	const messages = messagesFor("codesys")
 	const counts = new Map<string, number>()
 	for (const d of store.workspace())
-		for (const diag of documentDiagnostics(store, messages, d)) {
+		for (const diag of documentDiagnostics(store, d)) {
 			const code = String(diag.code ?? "(parse)")
 			counts.set(code, (counts.get(code) ?? 0) + 1)
 		}
