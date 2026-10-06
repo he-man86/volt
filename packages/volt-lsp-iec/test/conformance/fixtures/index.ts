@@ -80,6 +80,9 @@ import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
 import { INITIALIZER_TESTS } from "./declarations/initializers.js"
 import { ARRAY_INIT_SHAPE_TESTS } from "./declarations/array-init-shapes.js"
 import { DECLARATION_CHECK_TESTS } from "./declarations/declaration-rules.js"
+import { DECLARATION_B_TESTS } from "./declarations/declaration-rules-b.js"
+import { NAME_RULE_CHECK_TESTS } from "./names/name-rules.js"
+import { OOP_RULE_A_TESTS } from "./oop/oop-rules-a.js"
 import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
@@ -230,6 +233,9 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "initializers", tests: INITIALIZER_TESTS },
   { name: "array-init-shapes", tests: ARRAY_INIT_SHAPE_TESTS },
   { name: "declaration-rules", tests: DECLARATION_CHECK_TESTS },
+  { name: "declaration-rules-b", tests: DECLARATION_B_TESTS },
+  { name: "name-rules", tests: NAME_RULE_CHECK_TESTS },
+  { name: "oop-rules-a", tests: OOP_RULE_A_TESTS },
   { name: "types-enum-init-values", tests: ENUM_INIT_VALUE_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },

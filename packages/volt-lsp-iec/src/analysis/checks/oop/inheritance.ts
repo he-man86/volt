@@ -10,14 +10,29 @@
  * self-cycle (C0091) is flagged before the not-found check so `EXTENDS FB` on `FB` reports the cycle, not a
  * spurious not-found.
  */
-import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
+import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
+import type { Identifier, TopLevel, TypeDecl } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { nameResolves } from "../../shared/resolution.js"
 
-/** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface". */
-const NOT_AN_INTERFACE: ReadonlySet<string> = new Set(["function_block", "function", "program", "dut"])
+/** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface"; a STRUCT does too
+ *  (`isMeasuredStruct`). */
+const NOT_AN_INTERFACE: ReadonlySet<string> = new Set(["function_block", "function", "program"])
+
+/** A project STRUCT — the one DUT measured in an inheritance clause: in IMPLEMENTS "No definition found for interface"
+ *  (`oopa_implements_struct`), in an FB's EXTENDS "No definition found for base class" (`oopa_extends_struct`), both
+ *  vendors 2026-10-06. An ALIAS (even of an FB), an ENUM and a UNION there were not asked (gate review 3.4+3.6). */
+function isMeasuredStruct(sym: Symbol): boolean {
+  return sym.kind === "type" && (sym.ast as TypeDecl | undefined)?.body.kind === "struct"
+}
+
+/** Whether an FB's `EXTENDS` names a project symbol that EXISTS and is no function block, as measured: an INTERFACE or a
+ *  STRUCT is "No definition found for base class", and only that, on both vendors (`oopa_extends_interface`,
+ *  `oopa_extends_struct`, 2026-10-06). A FUNCTION, a PROGRAM or an ALIAS base was not asked. */
+function isMeasuredNonFbBase(sym: Symbol): boolean {
+  return sym.kind === "interface" || isMeasuredStruct(sym)
+}
 
 /** The first base a unit's EXTENDS names, written: an FB's, a STRUCT's, an interface's list's first. */
 function firstBase(unit: TopLevel): Identifier | undefined {
@@ -99,7 +114,11 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
     const sym = lookupUnit(ctx.project, unit.name.text)?.symbol
     if (sym !== undefined && isLibrarySymbol(sym)) continue
     const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
-    if (unit.extends !== undefined) {
+    // a base that EXISTS but is no function block — a project INTERFACE or STRUCT: the one message, no "Unknown type"
+    const baseSym = unit.extends === undefined ? undefined : lookupUnit(scope, unit.extends.text)?.symbol
+    if (unit.extends !== undefined && baseSym !== undefined && !isLibrarySymbol(baseSym) && isMeasuredNonFbBase(baseSym)) {
+      out.push({ severity: "error", span: unit.extends.span, source: SOURCE, code: "base-class-not-found", message: ctx.messages.baseClassNotFound(unit.extends.text) })
+    } else if (unit.extends !== undefined) {
       // a cycle (`checkCycles`) is reported as the whole path, and no unresolved base besides — an indirect cycle
       // that fell through came out as nonsense: a duplicate-variable error naming the FB as its OWN base
       if (!inCycle.has(scope) && scope.baseScope === undefined && !nameResolves(unit.extends.text, scope)) {
@@ -117,7 +136,7 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       // interface 'FB_Something'" all the same (conformance `cc3_interface_misuse`). Only a PROJECT symbol of a POU
       // kind counts as the disproof — a library symbol's kind is flattened and would false-positive.
       const sym = lookupUnit(scope, iface.text)?.symbol
-      const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && NOT_AN_INTERFACE.has(sym.kind)
+      const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && (NOT_AN_INTERFACE.has(sym.kind) || isMeasuredStruct(sym))
       if (notAnInterface || !nameResolves(iface.text, scope))
         out.push({
           severity: "error",

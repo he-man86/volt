@@ -20,6 +20,7 @@ import { walkStatements, walkAllExprs, type Expr } from "../../../frontend/synta
 import { bodies, isLibrarySymbol, lookup, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkPropertyAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -27,7 +28,20 @@ export function checkPropertyAccess(ctx: CheckContext, out: DiagnosticItem[]): v
     const ownAccessorOf = unit.kind === "property" ? unit.name.text.toLowerCase() : undefined
     const writeTargets = new Set<Expr>()
     walkStatements(statements, (s) => {
-      if (s.kind === "assign") writeTargets.add(s.target)
+      if (s.kind !== "assign") return
+      writeTargets.add(s.target)
+      // …and a property WRITTEN through its instance that has no SET accessor: "'t.P' is no valid assignment target"
+      // (`oopa_getonly_written`, both vendors 2026-10-06). Only through a member: a bare name in its own FB is unmeasured.
+      if (s.op !== undefined || s.target.kind !== "member") return
+      const written = propertyRef(s.target, scope, ctx.project)
+      if (written === undefined || written.ast?.kind !== "property" || written.ast.setter !== undefined || isLibrarySymbol(written)) return
+      out.push({
+        severity: "error",
+        span: s.target.span,
+        source: SOURCE,
+        code: "not-assignment-target",
+        message: ctx.messages.notAssignmentTarget(compilerExprText(s.target)),
+      })
     })
     walkAllExprs(statements, (e) => {
       if (writeTargets.has(e)) return // the LHS itself is a write, not a read

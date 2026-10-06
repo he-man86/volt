@@ -123,3 +123,32 @@ describe("inout-own-access (C0371)", () => {
     expect(msgs).toEqual(["Access to VAR_IN_OUT 'book' declared in 'FB_inner' from external context 'Deeper'"])
   })
 })
+
+// analysis-conformance 3.6 (both vendors, recorded 2026-10-06): an INITIALIZER is an access too — an FB instance
+// initialized through its FB's VAR_IN_OUT from the POU that declares it (`ioinit_fb_instance_literal`,
+// `oopa_fb_init_inout_other_type`: "… from external context '<that POU>'"), and an ARRAY / STRUCT initializer reading the
+// FB's own VAR_IN_OUT from FB_INIT (`ioinit_array_initializer`, `ioinit_struct_initializer`); a plain initializer
+// reading it draws no such warning (`cc4_inout_in_initializer`)
+describe("an initializer's access to a VAR_IN_OUT (C0371)", () => {
+  const run = (src: string): string[] => {
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "inout-own-access")
+      .map((d) => d.message)
+  }
+  test("an FB instance initialized through its FB's VAR_IN_OUT, from the declaring POU", () => {
+    const src = `FUNCTION_BLOCK B\nVAR_IN_OUT\n target : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK A\nVAR\n own : INT;\n w : B := (target := own);\nEND_VAR\nEND_FUNCTION_BLOCK`
+    expect(run(src)).toEqual(["Access to VAR_IN_OUT 'target' declared in 'B' from external context 'A'"])
+  })
+  test("an ARRAY or STRUCT initializer reading the FB's own VAR_IN_OUT, from FB_INIT; a plain one not", () => {
+    const st = `TYPE S :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\n`
+    expect(run(`FUNCTION_BLOCK F\nVAR_IN_OUT\n src : INT;\nEND_VAR\nVAR\n c : ARRAY[0..1] OF INT := [src, 1];\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
+      "Access to VAR_IN_OUT 'src' declared in 'F' from external context 'FB_INIT'",
+    ])
+    expect(run(`${st}FUNCTION_BLOCK F\nVAR_IN_OUT\n src : INT;\nEND_VAR\nVAR\n v : S := (x := src);\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
+      "Access to VAR_IN_OUT 'src' declared in 'F' from external context 'FB_INIT'",
+    ])
+    expect(run(`FUNCTION_BLOCK F\nVAR_IN_OUT\n src : INT;\nEND_VAR\nVAR\n c : INT := src;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+  })
+})

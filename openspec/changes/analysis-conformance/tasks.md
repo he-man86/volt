@@ -831,13 +831,65 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.6 oop A
 
-- [ ] 3.6.1 oop A (inheritance, property-access, method-reference, inherited-variable, external-write, inout-access,
+- [x] 3.6.1 oop A (inheritance, property-access, method-reference, inherited-variable, external-write, inout-access,
       fb-init-inout, fb-init-instantiation): fixtures for unfired builders (0.3). Where: fixtures/. Acceptance: list here.
       Depends on: 3.5.5
-- [ ] 3.6.2 Record 3.6.1, both vendors. Acceptance: CA.1. Depends on: 3.6.1
-- [ ] 3.6.3 FPs of the group. Where: checks/oop. Acceptance: CA. Depends on: 3.6.2
-- [ ] 3.6.4 Gaps of the group. Acceptance: CA. Depends on: 3.6.2
-- [ ] 3.6.5 Close oop A. Acceptance: CA.3–4. Depends on: 3.6.3, 3.6.4
+      **Fixtures (2026-10-06), 18** — `oop/oop-rules-a.ts`. No oop-A builder is at 0 TP (0.3: the group's TwinCAT ones are
+      oop B's), so the cells are each rule's unmeasured sides: inheritance `oopa_extends_interface`, `oopa_extends_struct`,
+      `oopa_implements_struct`, `oopa_implements_one_unknown`; property-access `oopa_setonly_in_condition`,
+      `oopa_setonly_as_argument`, `oopa_getonly_written`; method-reference `oopa_method_ref_in_operand`; inherited-variable
+      `oopa_inherited_var_grandparent`, `oopa_inherited_input_as_var`; external-write `oopa_read_internal_var` (legal),
+      `oopa_write_var_temp`, `oopa_write_output`; inout-access `oopa_inout_read_external`, `oopa_inout_in_property`;
+      fb-init-inout `oopa_fb_init_inout_other_type`; fb-init-instantiation `oopa_fb_init_two_arguments`,
+      `oopa_fb_init_array_left_out`.
+- [x] 3.6.2 Record 3.6.1, both vendors. Acceptance: CA.1. Depends on: 3.6.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 18 per vendor, then
+      `oopa_inherited_input_as_var` and `oopa_read_internal_var` again on both (their first text named a variable `limit` /
+      `internal`, a word both vendors refuse as a name, so the cells asked a parse error). `record:exec` CODESYS: the 2 that
+      build.
+- [x] 3.6.3 FPs of the group. Where: checks/oop. Acceptance: CA. Depends on: 3.6.2
+      **Done 2026-10-06.** The group had no FP in the census (open 0, div 0). Found by the cells and FIXED test-first
+      (colocated tests): `external-write` named an instance's VAR_TEMP's owner as the FB where both vendors say
+      "'scratch' is no input of '__MAIN'" (`oopa_write_var_temp`) — the body; and it let a VAR_OUTPUT be written from
+      outside, which both refuse as "no input" (`oopa_write_output`). Divergences opened: none.
+- [x] 3.6.4 Gaps of the group. Acceptance: CA. Depends on: 3.6.2
+      **Done 2026-10-06** (colocated tests each). `inheritance`: a base that exists and is no FB (an INTERFACE, a STRUCT) is
+      "No definition found for base class", alone; a STRUCT in IMPLEMENTS is no interface (the kinds list named `dut`, a kind
+      no symbol has — `type`). `property-access`: a get-only property written is "'t.P' is no valid assignment target".
+      `inout-access`: an initializer is an access — an FB instance initialized through its FB's VAR_IN_OUT, from the
+      declaring FB; an ARRAY / STRUCT initializer reading the FB's own VAR_IN_OUT, from 'FB_INIT' (3.4's `ioinit_*`
+      exceptions closed). `fb-init-inout`: the value binds the parameter's REFERENCE — a literal or a variable of another
+      type is "Cannot convert type 'SINT' / 'BOOL' to type 'REFERENCE TO INT'", TwinCAT the pair reversed, as for a REF=
+      statement; the exact-type rule moved out of `reference-assign` into `shared/reference-bind` (two checks apply it), and
+      the initializer reading into `shared/initializer` (three do). `fb-init-instantiation`: a wrong argument COUNT is the
+      same message as none; an ARRAY of such an FB with no initializer counts its initializers ("The number of 'FB_Init'
+      initializers (0) does not match the number of array elements (2)", a new builder, both vendors' wording) — never for
+      `ARRAY[..] OF FB_X(args)`, which gives every element its arguments (the first run said it 17 times on pro2193, which
+      builds: measured before the census was written, fixed test-first). Left, named: `oopa_method_ref_in_operand` — both
+      vendors type a method named without its call as a type of its own name ("Operation 'Plus' is not possible on type
+      'VALUE'"), deferred, niche: accepted loss (0 in the corpora, which build); `decl_subrange_on_alias` (TwinCAT: its
+      parse-error recovery reads `T(0` as an FB_Init instantiation, "No matching FB_init method found") — niche: accepted
+      loss (0 subranges of an alias in the corpora), a recovery cascade, no check's.
+- [x] 3.6.5 Close oop A. Acceptance: CA.3–4. Depends on: 3.6.3, 3.6.4
+      **Closed 2026-10-06** (numbers against the 3.5 state). Group oop: open FP 0 → 0, GAP 7 → 7 CODESYS, 2 → 2 TwinCAT (both
+      oop B's but `decl_subrange_on_alias`), never-fired builders 0 / 6 unchanged (TwinCAT's oop-B builders by rule). TP:
+      checkInheritance 19 → 23 / 13 → 17, checkPropertyAccess 2 → 5, checkInheritedVariable 1 → 3, checkExternalNonInputWrite
+      19 → 21, checkInoutExternalAccess 4 → 6, checkInoutOwnAccess 19 → 25 / 10 → 16, checkFbInitInout 2 → 5,
+      checkFbInitInstantiation 1 → 3 (`fbInitArrayCount` 1 TP each). Totals: TP 5417 → 5442 / 6620 → 6645, FP 117 / 346
+      unchanged, open FP 0, GAP 469 → 466 / 812 → 809, unowned 79 / 112 unchanged; corpus unchanged (FP 216, all
+      `server:missing-language`). Divergences: none opened or closed; one deferral (`oopa_method_ref_in_operand`).
+      `rate:fixtures`: confirmed 2755 → 2756, refused 1889 → 1904, not-lowered 349 → 350 (`oopa_inout_in_property`, an
+      accessor has no frame slot for the FB's VAR_IN_OUT — ceiling named), lsp-gap 74 → 75. Frontend baselines: the new
+      fixtures' counts; type-dump exceptions for `oopa_fb_init_inout_other_type` and `oopa_method_ref_in_operand`.
+      `test/conformance` 6045 pass, 0 fail; agreement CODESYS 4717, TwinCAT 4624 of 5177. design.md §5 rows updated.
+      **Gate review (3.4+3.6, 2026-10-06)**, each test-first: `inheritance` says "No definition found for base class" for an
+      existing non-FB base only where measured — an INTERFACE or a STRUCT (an ALIAS, even of an FB, a FUNCTION or a PROGRAM
+      base is unasked and silent as before); IMPLEMENTS's disproof likewise takes a STRUCT, not every DUT.
+      `fbInitArrayCount` counts in an FB's or a PROGRAM's VAR only (a FUNCTION's VAR_INPUT array is unasked).
+      `fb-init-inout.test`'s PROGRAM cases no longer expect inout-initializer's warning (measured in an FB, 3.4's gate
+      fix). **Gate numbers** (full suite, `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 8243 pass, 0 fail, 35 skip, 394
+      todo (8672 tests, 205 files); agreement CODESYS 4717, TwinCAT 4624 of 5177 — unchanged by the gate fixes; census
+      and frontend baselines unchanged (no fixture's answer moved); fixture map untouched (no fixture or transpiler change).
 
 ### 3.7 oop B
 

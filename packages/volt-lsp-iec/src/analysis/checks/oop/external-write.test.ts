@@ -45,3 +45,25 @@ test("each write of an internal member from outside is refused, the same words o
   expect(findings(body, "codesys")).toEqual(expected)
   expect(findings(body, "twincat")).toEqual(expected)
 })
+
+// analysis-conformance 3.6 (both vendors, recorded 2026-10-06): a VAR_OUTPUT is not writable from outside either —
+// "'o' is no input of 'FB'" (`oopa_write_output`) — and a VAR_TEMP lives in the FB's BODY, which the message names:
+// "'scratch' is no input of '__MAIN'" (`oopa_write_var_temp`). Reading a plain VAR from outside builds (`oopa_read_internal_var`).
+test("a VAR_OUTPUT written from outside is no input; a VAR_TEMP is no input of the body, __MAIN", () => {
+  const fb = `FUNCTION_BLOCK FB_W\nVAR_OUTPUT\n\to : INT;\nEND_VAR\nVAR_TEMP\n\tscratch : INT;\nEND_VAR\nVAR\n\thidden : INT;\nEND_VAR\nscratch := 1;\nEND_FUNCTION_BLOCK\n`
+  const prg = (body: string) => `PROGRAM PLC_PRG\nVAR\n\tw : FB_W;\n\tn : INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
+  const run = (body: string, vendor: Vendor) => {
+    const files = [fb, prg(body)].map((source) => {
+      const parseResult = parseSource(source, { networkText: true }, vendor)
+      return { uri: uriFor(parseResult), source, parseResult }
+    })
+    const project = build.buildSymbolTable(files, [], vendor)
+    const at = files[1]!
+    return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+  }
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(run("w.o := 2;", vendor)).toEqual(["'o' is no input of 'FB_W'"])
+    expect(run("w.scratch := 2;", vendor)).toEqual(["'scratch' is no input of '__MAIN'"])
+    expect(run("n := w.hidden;\nn := w.o;", vendor)).toEqual([])
+  }
+})

@@ -75,6 +75,13 @@ const DEAD_CODE_TASK =
 const DEAD_CODE_WHY =
   "analysis-conformance gate 2's dead-code fixtures (fixtures/grammar/dead-code.ts), recorded 2026-10-06 to settle what the server shows in dead code"
 
+const TYPE_NAME_VALUE_TASK =
+  "none planned — niche: accepted loss (0 in the corpora, which build): a value type for a type's name, so the vendors' \"Operation … is not possible on type 'T'\" and \"Cannot convert type 'T' …\" could be said beside C0230"
+const TYPE_NAME_VALUE_WHY = "a type's name written as a value, an operand or a condition, measured 2026-10-06 (analysis-conformance 3.5, `tav_*`)"
+const METHOD_NAME_VALUE_WHY = "a METHOD named without its call as an operand, measured 2026-10-06 (analysis-conformance 3.6, `oopa_method_ref_in_operand`)"
+const CONDITION_TYPE_TASK = "analysis-conformance 3.11 — \"Expression of type 'BOOL' expected in this place\" for an untyped condition (no catalog code yet)"
+const CONDITION_TYPE_WHY = "an ambiguous global as an IF condition, measured 2026-10-06 (analysis-conformance 3.5)"
+
 const LITERAL_TYPING ="frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
 const NEGATED_LITERAL_CELLS =
   "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator; 4c's negative enum literals and the negative SOURCE value of every explicit-pair cell over SINT, INT, DINT, LINT and LREAL) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
@@ -307,6 +314,148 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "analysis-conformance 3.8 — a refused default leaves a FUNCTION input required on CODESYS (`call-arguments`)",
     why: "found by analysis-conformance 3.3's first recording (a defaulted input called with no argument), measured 2026-10-06",
   })),
+  // analysis-conformance 3.4 asked an FB instance initialized with a LITERAL for its VAR_IN_OUT (`ioinit_fb_instance_literal`):
+  // both vendors convert the value into the parameter's REFERENCE ("Cannot convert type 'SINT' to type 'REFERENCE TO INT'",
+  // TwinCAT the pair reversed). The bound census reads assignments and initial values, not an FB initializer's fields as
+  // stores — one finding per vendor. New ground measured, not a regression.
+  {
+    baseline: "type-dump",
+    measure: "findings",
+    by: 2,
+    fixture: "ioinit_fb_instance_literal",
+    task: "the front-end's stores of an FB instance initializer's fields (the bound census reads assignments and initial values)",
+    why: "an FB initializer's VAR_IN_OUT field given a literal, measured 2026-10-06 (analysis-conformance 3.4) — a store the bound census does not see",
+  },
+  // the diagnostic census: analysis-conformance 3.4 asked an access modifier on a FUNCTION and on a PROGRAM (`fixtures/
+  // declarations/declaration-rules-b.ts`, divergences.ts ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM, niche): the LSP's header
+  // grammar refuses the word and loses the unit (its parse errors and the call's fallout, FP(div)), where both vendors
+  // take the header and give the access message (a declarations GAP) and "Cannot access private method ???.F" at the call
+  // (unowned: the access rule family, 3.11's). New ground measured, not a regression.
+  ...(
+    [
+      ["hdr_function_private", 5],
+      ["hdr_program_protected", 4],
+    ] as const
+  ).flatMap(([fixture, fp]) =>
+    (["codesys", "twincat"] as const).flatMap((vendor) =>
+      (
+        [
+          ["total: FP", fp],
+          ["total: GAP", 2],
+          ["total: unowned GAP", 1],
+        ] as const
+      ).map(([measure, by]) => ({
+        baseline: `fixtures.${vendor}`,
+        measure,
+        by,
+        fixture,
+        task: "analysis-conformance 3.11 — the access rule family (\"Cannot access private method …\"), and a header grammar that takes an access modifier on a FUNCTION or a PROGRAM",
+        why: "an access modifier on a FUNCTION / PROGRAM, measured 2026-10-06 (analysis-conformance 3.4) — niche: accepted loss (0 in the corpora)",
+      })),
+    ),
+  ),
+  // …and an ARRAY / STRUCT initializer reading the FB's own VAR_IN_OUT (`ioinit_array_initializer`, `_struct_`): CODESYS
+  // records the uninitialized-access warning TWICE there (TwinCAT once); inout-initializer says it once. (The external
+  // access from FB_INIT and the FB instance's conversion into the REFERENCE are said since 3.6.)
+  ...(["ioinit_array_initializer", "ioinit_struct_initializer"] as const).map((fixture) => ({
+    baseline: "fixtures.codesys",
+    measure: "total: GAP",
+    by: 1,
+    fixture,
+    task: "none planned: CODESYS repeats the warning for an aggregate initializer (FB_INIT), TwinCAT does not — said once",
+    why: "an aggregate initializer reading a VAR_IN_OUT, measured 2026-10-06 (analysis-conformance 3.4)",
+  })),
+  // analysis-conformance 3.5 asked a TYPE's name as a value (`fixtures/names/name-rules.ts` `tav_*`): both vendors type it
+  // as the type itself — "Operation 'Plus' is not possible on type 'T'", "Cannot convert type 'T' to type 'BOOL'" — where
+  // the front-end has no value type for a type's name (an ALIAS's is UNKNOWN; the enum's and struct's are its scope). C0230
+  // is said; the conversions are a niche divergence (0 in the corpora, which build). New ground measured, not a regression.
+  ...(["tav_alias_as_value", "tav_alias_as_target", "tav_type_as_operand"] as const).flatMap((fixture) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: ident_expr UNKNOWN`,
+      by: 1,
+      fixture,
+      task: TYPE_NAME_VALUE_TASK,
+      why: TYPE_NAME_VALUE_WHY,
+    })),
+  ),
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "type-dump",
+    measure: `fixtures ${vendor}: binary UNKNOWN`,
+    by: 1,
+    fixture: "tav_type_as_operand",
+    task: TYPE_NAME_VALUE_TASK,
+    why: TYPE_NAME_VALUE_WHY,
+  })),
+  // (the census attributes "Operation 'Plus' is not possible on type 'T'" to the one check that says that wording, the calls
+  // group's intrinsic-operands)
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: `fixtures.${vendor}`,
+    measure: "group calls: GAP",
+    by: 1,
+    fixture: "tav_type_as_operand",
+    task: TYPE_NAME_VALUE_TASK,
+    why: TYPE_NAME_VALUE_WHY,
+  })),
+  ...(["tav_type_as_operand", "tav_type_as_condition"] as const).map((fixture) => ({
+    baseline: "type-dump",
+    measure: "findings",
+    by: 2,
+    fixture,
+    task: TYPE_NAME_VALUE_TASK,
+    why: TYPE_NAME_VALUE_WHY,
+  })),
+  // …and a global two lists declare as an IF condition (`ambg_in_condition`): both vendors add "Expression of type 'BOOL'
+  // expected in this place" for the hole the name leaves — no catalog code, 0.2's missing-rule class (3.11's, as for
+  // `enum_same_member_comparison`); the parse census classes the wording as a syntax message
+  ...(["codesys", "twincat"] as const).flatMap((vendor) => [
+    {
+      baseline: "parse-census",
+      measure: `fixtures ${vendor}: refused with a syntax message, no LSP parse error`,
+      by: 1,
+      fixture: "ambg_in_condition",
+      task: CONDITION_TYPE_TASK,
+      why: CONDITION_TYPE_WHY,
+    },
+    {
+      baseline: `fixtures.${vendor}`,
+      measure: "total: unowned GAP",
+      by: 1,
+      fixture: "ambg_in_condition",
+      task: CONDITION_TYPE_TASK,
+      why: CONDITION_TYPE_WHY,
+    },
+  ]),
+  { baseline: "parse-census", measure: "findings", by: 2, fixture: "ambg_in_condition", task: CONDITION_TYPE_TASK, why: CONDITION_TYPE_WHY },
+  // analysis-conformance 3.6: an FB instance's VAR_IN_OUT field given a BOOL variable (`oopa_fb_init_inout_other_type`) —
+  // the same store the bound census does not see as `ioinit_fb_instance_literal`'s — and a METHOD named without its call as
+  // an operand (`oopa_method_ref_in_operand`, deferred niche): both vendors type it as a type of its own name ('VALUE'),
+  // which the front-end has no value type for, so the operation is UNKNOWN. New ground measured, not a regression.
+  {
+    baseline: "type-dump",
+    measure: "findings",
+    by: 2,
+    fixture: "oopa_fb_init_inout_other_type",
+    task: "the front-end's stores of an FB instance initializer's fields (the bound census reads assignments and initial values)",
+    why: "an FB initializer's VAR_IN_OUT field given a variable of another type, measured 2026-10-06 (analysis-conformance 3.6)",
+  },
+  { baseline: "type-dump", measure: "findings", by: 2, fixture: "oopa_method_ref_in_operand", task: TYPE_NAME_VALUE_TASK, why: METHOD_NAME_VALUE_WHY },
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ["group calls: GAP", 1],
+        ["total: GAP", 2],
+      ] as const
+    ).map(([measure, by]) => ({ baseline: `fixtures.${vendor}`, measure, by, fixture: "oopa_method_ref_in_operand", task: TYPE_NAME_VALUE_TASK, why: METHOD_NAME_VALUE_WHY })),
+  ),
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "type-dump",
+    measure: `fixtures ${vendor}: binary UNKNOWN`,
+    by: 1,
+    fixture: "oopa_method_ref_in_operand",
+    task: TYPE_NAME_VALUE_TASK,
+    why: METHOD_NAME_VALUE_WHY,
+  })),
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
@@ -321,7 +470,8 @@ export function allowanceOf(name: string, exceptions: readonly CeilingException[
 
 /** Does finding `f` name `fixture` — by its file (`…/fixture/F.pou …`, the dumps) or as `<vendor> <fixture>: …` (the bound census)? */
 function namesFixture(f: string, fixture: string): boolean {
-  return f.includes(`/${fixture}/`) || new RegExp(`^(codesys|twincat) ${fixture}: `).test(f)
+  // a dump's site (`fixture/<name>/<file>`), a census line (`codesys <name>: …`), the parse census's (`codesys fixture/<name> — …`)
+  return f.includes(`/${fixture}/`) || new RegExp(`^(codesys|twincat) ${fixture}: `).test(f) || f.includes(`fixture/${fixture} `)
 }
 
 /** Held against a measurement: what rose above its ceiling (plus a named exception's allowance), what fell below it

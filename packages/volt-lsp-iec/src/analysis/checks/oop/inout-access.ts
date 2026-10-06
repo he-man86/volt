@@ -5,10 +5,11 @@
  * run order, as they were when they were two files. The two never overlap on WHICH access they describe: the external
  * one requires a non-THIS FB-typed base, the own one a bare/own reference.
  */
-import { isSelfRef, walkAllExprs, type IdentExpr } from "../../../frontend/syntax/index.js"
-import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
+import { isSelfRef, walkAllExprs, walkExpr, type IdentExpr } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl, isLibrarySymbol, lookupLocal } from "../../../frontend/symbols/index.js"
 import { bodyContext, MAIN_BODY } from "../../shared/body-context.js"
-import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
+import { inferExprType, resolveMemberChain, resolveTypeExpr } from "../../../frontend/types/index.js"
+import { initializerFields, initializerValues, isListInitializer } from "../../shared/initializer.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -70,6 +71,7 @@ export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[
  * The two never overlap (that check requires a non-THIS FB-typed base; this requires a bare/own reference).
  */
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
+  initializerAccess(ctx, out)
   for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     const context = bodyContext(scope, unit, body)
     if (context === MAIN_BODY) continue // the FB's own body — VAR_IN_OUT lives there, which is normal
@@ -94,3 +96,43 @@ export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): v
     })
   }
 }
+
+/**
+ * AN INITIALIZER IS AN ACCESS TOO (both vendors, recorded 2026-10-06, analysis-conformance 3.6), of an FB's own unit:
+ *   - an FB INSTANCE initialized through its FB's VAR_IN_OUT, `w : B := (target := x)`, is an access from the POU that
+ *     declares it — "… declared in 'B' from external context '<that FB>'" (`ioinit_fb_instance_literal`,
+ *     `oopa_fb_init_inout_other_type`, `cc5_fb_init_inout`);
+ *   - an ARRAY or STRUCT initializer reading the FB's OWN VAR_IN_OUT is compiled into FB_INIT, and accesses it from there —
+ *     "… from external context 'FB_INIT'" (`ioinit_array_initializer`, `ioinit_struct_initializer`). A plain initializer
+ *     reading it draws no such warning (`cc4_inout_in_initializer`, only the uninitialized access).
+ * Measured in a FUNCTION_BLOCK's declarations only; a PROGRAM's or a METHOD's are not asked.
+ */
+function initializerAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const warn = (span: DiagnosticItem["span"], param: string, fb: string, context: string) =>
+    out.push({ severity: "warning", span, source: SOURCE, code: "inout-own-access", message: ctx.messages.inoutOwnAccess(param, fb, context) })
+  for (const { unit, section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (unit.kind !== "function_block" || decl.init === undefined || section.sectionKind === "VAR_IN_OUT") continue
+    const type = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
+    if (type.kind === "function_block" && type.scope !== undefined) {
+      const fbScope = type.scope
+      for (const f of initializerFields(decl.init)) {
+        const param = lookupLocal(fbScope, f.name).find((s) => s.varSection === "VAR_IN_OUT")
+        if (param !== undefined) warn(f.span, param.name, fbScope.name, unit.name.text)
+      }
+      continue
+    }
+    if (!isListInitializer(decl.init)) continue
+    const own = new Map<string, string>()
+    for (const s of unit.varSections) if (s.sectionKind === "VAR_IN_OUT") for (const d of s.decls) for (const n of d.names) own.set(n.text.toLowerCase(), n.text)
+    if (own.size === 0) continue
+    for (const value of initializerValues(decl.init))
+      walkExpr(value, (e) => {
+        const name = e.kind === "ident_expr" ? own.get(e.name.toLowerCase()) : undefined
+        if (name !== undefined) warn(e.span, name, unit.name.text, FB_INIT)
+      })
+  }
+}
+
+/** The body an FB's initializers are compiled into, as the vendors name it. */
+const FB_INIT = "FB_INIT"
+

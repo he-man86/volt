@@ -105,3 +105,26 @@ test("H4: an INTERFACE EXTENDS a name nothing declares — CODESYS twice, TwinCA
   expect(baseMsgs(src, "twincat")).toEqual([NOT_FOUND("I_Missing")])
   expect(baseMsgs(`INTERFACE I_B\nEND_INTERFACE\n\nINTERFACE I_D EXTENDS I_B\nEND_INTERFACE`)).toEqual([])
 })
+
+// analysis-conformance 3.6 (both vendors, recorded 2026-10-06, `oopa_*`): a base that EXISTS but is no function block —
+// an INTERFACE, a STRUCT — is "No definition found for base class", and only that (no "Unknown type" on CODESYS); a
+// STRUCT named in IMPLEMENTS is "No definition found for interface", as an FB is
+test("EXTENDS an interface or a struct is no base class found; IMPLEMENTS a struct no interface", () => {
+  const itf = "INTERFACE I_X\nEND_INTERFACE\nFUNCTION_BLOCK FB EXTENDS I_X\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const st = "TYPE S_X :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nFUNCTION_BLOCK FB EXTENDS S_X\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(baseMsgs(itf, vendor)).toEqual([NOT_FOUND("I_X")])
+    expect(baseMsgs(st, vendor)).toEqual([NOT_FOUND("S_X")])
+  }
+  const impl = "TYPE S_Y :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nFUNCTION_BLOCK FB IMPLEMENTS S_Y\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  expect(msgs(impl, "interface-not-found")).toEqual(["No definition found for interface 'S_Y'"])
+})
+
+// gate review (3.4+3.6): only an INTERFACE and a STRUCT base were measured — an ALIAS (even of an FB), a FUNCTION and a
+// PROGRAM in EXTENDS were not asked, so the existing-but-no-FB message is not given for them
+test("EXTENDS an ALIAS, a FUNCTION or a PROGRAM: no 'No definition found for base class' (unmeasured)", () => {
+  const fbx = `FUNCTION_BLOCK FB_X\nEND_FUNCTION_BLOCK\n`
+  expect(msgs(`${fbx}TYPE T : FB_X;\nEND_TYPE\nFUNCTION_BLOCK FB_A EXTENDS T\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([])
+  expect(msgs(`FUNCTION F : INT\nF := 1;\nEND_FUNCTION\nFUNCTION_BLOCK FB_A EXTENDS F\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([])
+  expect(msgs(`PROGRAM PR\nEND_PROGRAM\nFUNCTION_BLOCK FB_A EXTENDS PR\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([])
+})

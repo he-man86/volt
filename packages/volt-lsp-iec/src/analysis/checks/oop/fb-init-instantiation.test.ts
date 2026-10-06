@@ -70,3 +70,24 @@ test("TwinCAT reports it, and stops at the name", () => {
     "No matching FB_init method found for instantiation of FB_Needs",
   ])
 })
+
+// analysis-conformance 3.6 (both vendors, recorded 2026-10-06): a WRONG COUNT of FB_Init arguments is the same message as
+// none (`oopa_fb_init_two_arguments`), and an ARRAY of such an FB with no initializers counts them against its elements
+// (`oopa_fb_init_array_left_out`)
+test("FB_Init given the wrong count of arguments is the same message; an ARRAY of it counts its initializers", () => {
+  expect(diagnose(program("\tt : FB_Needs(3, 4);"))).toEqual([
+    "No matching 'FB_Init' method found for instantiation of FB_Needs. Specified 'FB_Init' method requires exactly 1 inputs. Check syntax 't : FB_Needs(INT)'",
+  ])
+  expect(diagnose(program("\tt : FB_Needs(3, 4);"), "twincat")).toEqual(["No matching FB_init method found for instantiation of FB_Needs"])
+  expect(diagnose(program("\tts : ARRAY[1..2] OF FB_Needs;"))).toEqual(["The number of 'FB_Init' initializers (0) does not match the number of array elements (2)"])
+  expect(diagnose(program("\tts : ARRAY[1..2] OF FB_Needs;"), "twincat")).toEqual(["The number of FB_Init-Initializers (0) does not match the number of Array-Elements (2)"])
+  expect(diagnose(program("\tps : ARRAY[1..2] OF FB_Plain;"))).toEqual([])
+  // the element's arguments written once, for every element (pro2193 builds `ARRAY[1..3] OF GuardRealFB(moduleHandler := …)`)
+  expect(diagnose(program("\tts : ARRAY[1..2] OF FB_Needs(startValue := 4);"))).toEqual([])
+})
+
+// gate review (3.4+3.6): the array count is measured in an FB's (and a PROGRAM's) VAR only — a FUNCTION's VAR_INPUT array
+// of such an FB was not asked, so no count there
+test("an ARRAY of an FB_Init FB in a FUNCTION's VAR_INPUT is not counted (unmeasured)", () => {
+  expect(diagnose(`FUNCTION F : INT\nVAR_INPUT\n\ta : ARRAY[0..1] OF FB_Needs;\nEND_VAR\nF := 1;\nEND_FUNCTION\n`).filter((m) => m.startsWith("The number"))).toEqual([])
+})

@@ -1692,7 +1692,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `cmpop_pointer_vs_xint` (a POINTER stored into and compared with an __XINT — the pointer–integer mix the transpiler
   // does not lower) and `dflt_method_input_from_variable` (a METHOD input defaulted with a global variable, as the
   // FUNCTION's above).
-  "not-lowered": 349,
+  // 349 -> 350, FOR MEASUREMENT. analysis-conformance 3.6 (2026-10-06): `oopa_inout_in_property` — a property's GET reading
+  // its FB's VAR_IN_OUT (CODESYS warns, builds and runs it); the transpiler gives an accessor no frame slot for the
+  // parameter ("io is a var, which has no frame slot yet", `place-not-local`).
+  "not-lowered": 350,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

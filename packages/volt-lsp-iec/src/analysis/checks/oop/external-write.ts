@@ -1,17 +1,18 @@
 /**
  * external-non-input-write (D.2 · oop/). Flags `fb.internalVar := x` — writing an FB instance's
- * member that is not externally writable. Per doc 02-variables, only VAR_INPUT/VAR_OUTPUT are
- * reachable via `fb.x`; a plain VAR (or VAR_STAT/TEMP/INST) is internal. BOTH vendors reject with
- * the identical `'X' is no input of '<FB>'` (verified live 2026-07-05).
+ * member that is not externally writable: only a VAR_INPUT is — a VAR_OUTPUT is read from outside, not written
+ * (`oopa_write_output`, analysis-conformance 3.6) — and a plain VAR (or VAR_STAT/TEMP/INST) is internal. BOTH vendors
+ * reject with the identical `'X' is no input of '<FB>'` (verified live 2026-07-05), a VAR_TEMP's naming the body.
  *
  * Conservative: flags only a member write whose base infers to an FB, whose member is project-local
- * (library sections flatten — unreliable), and whose section is neither input nor output. Anything
+ * (library sections flatten — unreliable), and whose section is no VAR_INPUT. Anything
  * uncertain skips → zero FP.
  */
 import { isSelfRef, walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
 import { inferExprType, isSfcStepBase, memberScopeOf, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
+import { MAIN_BODY } from "../../shared/body-context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -37,17 +38,20 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
       const sym = resolveMemberChain(s.target, scope, ctx.project)
       if (sym === undefined || isLibrarySymbol(sym)) return // library sections are lossy → can't decide
       const section = sym.varSection
-      // VAR_INPUT / VAR_OUTPUT are externally writable; no section = not a variable; everything else internal.
-      if (section === undefined || section === "VAR_INPUT" || section === "VAR_OUTPUT") return
+      // VAR_INPUT alone is externally writable — a VAR_OUTPUT is "no input" too (`oopa_write_output`, both vendors
+      // 2026-10-06); no section = not a variable; everything else internal.
+      if (section === undefined || section === "VAR_INPUT") return
       // VAR_IN_OUT external access (read OR write) is owned by inout-external-access (C0178) — cede it here.
       if (section === "VAR_IN_OUT") return
-      const fbName = baseType.scope?.name ?? baseType.name
+      // a VAR_TEMP lives in the FB's BODY, and the message names it: "'scratch' is no input of '__MAIN'"
+      // (`oopa_write_var_temp`, both vendors 2026-10-06)
+      const owner = section === "VAR_TEMP" ? MAIN_BODY : (baseType.scope?.name ?? baseType.name)
       out.push({
         severity: "error",
         span: s.target.span,
         source: SOURCE,
         code: "external-non-input-write",
-        message: ctx.messages.noInput(s.target.member.name, fbName),
+        message: ctx.messages.noInput(s.target.member.name, owner),
       })
     })
   }

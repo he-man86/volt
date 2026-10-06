@@ -249,11 +249,8 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            access (silent) and refuses the type at parse. Niche: accepted loss (0 occurrences of
  *                            `__POOL` in the corpora, in any position).
  *   (`expr_inline_assign_operand` left 2026-10-02, task 2.6: a chain's inner target that is no name is refused, ST4.)
- *   `expr_global_namespace_ambiguous_bare` — a bare `gAmb` two lists declare is "Ambiguous use of name 'gAmb'" AND
- *                            "Identifier 'gAmb' not defined" and the conversion of the hole on both vendors (2026-10-02):
- *                            the name resolves to nothing. The LSP says the first (`names/ambiguous-global`) and resolves
- *                            the name to the first list's, so it types it — the `.gAmb` beside it agrees (`lookupGlobal`).
- *                            Missing-only; niche: accepted loss (0 occurrences in the corpora, which build).
+ *   (`expr_global_namespace_ambiguous_bare` left 2026-10-06, analysis-conformance 3.5: a global two lists declare names
+ *                            nothing — `types/names` `globalClash` — so it is "not defined" and its use a hole's.)
  */
 const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "expr_trailing_comma_conversion_call",
@@ -263,7 +260,6 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "expr_pool_qualified_call",
   "expr_pool_qualified_global",
   "expr_pool_qualified_fb_type",
-  "expr_global_namespace_ambiguous_bare",
 ]
 
 /**
@@ -660,6 +656,17 @@ const UNIT_HEADER_RECOVERY: readonly string[] = [
  * gives parse errors of its own. Both vendors; niche: accepted loss (0 occurrences in the corpora — no signature line
  * holds a word between its keyword and its name that is not one of the six modifiers, 1,420 of 1,420 with modifiers).
  */
+/**
+ * ANALYSIS-CONFORMANCE 3.4 (recorded 2026-10-06, both vendors) — an ACCESS MODIFIER on a FUNCTION or a PROGRAM
+ * (`FUNCTION PRIVATE F`, `PROGRAM PROTECTED P`): both vendors take the header, say "PRIVATE and PROTECTED may only be
+ * applied on methods of function blocks", and refuse the call from PLC_PRG as "Cannot access private method ???.F" /
+ * "Cannot access protected method ???.P" (TwinCAT capitalizes "Method"). The LSP's header grammar has no modifier on a
+ * FUNCTION or a PROGRAM, so it refuses the word and loses the unit; the call message belongs to the access rule family
+ * no check has (task 3.11's missing-rule list). Niche: accepted loss (0 occurrences in the corpora — no FUNCTION or
+ * PROGRAM header carries an access modifier).
+ */
+const ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM: readonly string[] = ["hdr_function_private", "hdr_program_protected"]
+
 const MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD: readonly string[] = [
   "sig_unknown_word",
   "unit_method_override",
@@ -1028,10 +1035,8 @@ const MEMBER_DIVERGENCES: readonly string[] = [
  *        misses "Expression of type 'BOOL' expected in this place" for the condition the hole leaves untyped. Not trivial:
  *        a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) and the message has none
  *        in the catalog. Niche: accepted loss (0 occurrences in the corpora — they build).
- *   `enum_member_vs_global` — a project global and a project enum member of one name: "Ambiguous use of name", "Identifier
- *        not defined" and the hole's conversion — the members sit at the globals' step of the search order, where the
- *        LSP's `lookup` answers the global before the members are asked (`types/names` `resolveBareName`). Niche: accepted
- *        loss (0 occurrences in the corpora of a project global named like a project enum's member).
+ *   (`enum_member_vs_global` left 2026-10-06, analysis-conformance 3.5: a project global and an own enum's member of one
+ *        name clash at the globals' step of the search order — `types/names` `globalClash`.)
  *   `enum_member_vs_function_name` — `F()` where an enum member is named `F` too: the member is what the name means ("Program
  *        name, function or function block instance expected instead of 'F'"), before the POU name; the LSP calls the
  *        FUNCTION. Niche: accepted loss (0 occurrences in the corpora of a project POU named like a project enum's member).
@@ -1059,7 +1064,6 @@ const MEMBER_DIVERGENCES: readonly string[] = [
 const ENUM_DIVERGENCES: readonly string[] = [
   "enum_same_member_comparison",
   "enum_implicit_member_in_other_pou",
-  "enum_member_vs_global",
   "enum_member_vs_function_name",
   "enum_undeclared_name_uninstanced",
   "enum_same_member_call_argument",
@@ -1370,6 +1374,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
     ...RECOVERY_DIVERGENCES,
+    ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...CALC_CONDITIONAL_CALL,
     ...TWINCAT_RECOVERY_DIVERGENCES,
     ...TWINCAT_STRUCT_EXTENDS_RECOVERY,
@@ -1499,25 +1504,15 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //   (`cc5_pointer_not_convertible` moved to `C0033_CONFIGURED_AS_AN_ERROR`, both vendors — frontend-conformance 4.1.1.)
   //   `cc5_new_in_expression` — the recording device has no memory configured for dynamic creation, so the IDE
   //                            reports that instead and never reaches the nesting rule.
-  //   `sn_dut_mismatch_used` — THE RECORDING IS OF A PROJECT BUILD; A DIAGNOSTIC IS PER FILE. The fixture is an FB
-  //                            holding `held : DUT_SN_signature`, and its recorded error — "The name used in the
-  //                            signature is not identical to the object name" — is about the DUT, which is a
-  //                            DIFFERENT OBJECT in a different file. `record:language` builds the fixture with
-  //                            `withDependencies` and collects everything the build says, so the error lands under
-  //                            this fixture's name; the LSP computes diagnostics for the file it is given, where
-  //                            there is nothing wrong.
-  //                            Analysing the dependencies too was tried and does close this one — and costs more
-  //                            than it pays: `interface_with_property_impl` then reports the interface's
-  //                            accessorless property, which CODESYS does NOT record, because that fixture sets no
-  //                            `plcPrgVar` so nothing is instantiated and nothing is compiled. One gained, one
-  //                            lost, plus a TwinCAT ratchet point. The rule "an implemented interface property is
-  //                            silent" was written to explain it and is WRONG: `interface_with_property` has the
-  //                            same interface AND an implementer in the project and still records the warning —
-  //                            it instantiates the FB and reads the property, and the other does not.
-  //                            What actually separates every one of these is REACHABILITY, which a per-file
-  //                            analysis does not have and should not guess at.
+  //   (`sn_dut_mismatch_used` LEFT 2026-10-06, analysis-conformance 3.4. Its recorded error is about the DUT it uses — a
+  //                            different object, pushed with it by `withDependencies` — and the replay now analyses the
+  //                            files of every fixture a fixture depends on, as the build compiles them. The note here
+  //                            said that cost more than it paid, because `interface_with_property_impl` set no
+  //                            `plcPrgVar` and recorded nothing; it instances the FB now and records the interface's
+  //                            warning, so the measurement is 3 fixtures gained on each vendor and none lost.)
   codesys: new Set<string>([
     ...RECOVERY_DIVERGENCES,
+    ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...SFC_STEPS_NOT_IN_SCOPE,
     ...CALC_CONDITIONAL_CALL,
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
@@ -1579,7 +1574,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "pwh_gvl_then_prose",
     "hdr_function_extends",
     "hdr_function_implements",
-    "sn_dut_mismatch_used",
+    //   (`sn_dut_mismatch_used` left 2026-10-06, analysis-conformance 3.4: the replay analyses the files of the fixtures
+    //                            a fixture depends on, as the build compiles them — `support/replay.ts` `dependencies`.)
     "cc5_new_in_expression",
     //   C0149, three fixtures, one cause — the compiler only looks at what it REACHES:
     //   `cc2_var_in_interface`, `itf_var_section_declaration` — an interface NOBODY IMPLEMENTS is never compiled,
@@ -1588,7 +1584,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //                            `itf_var_section_inherited` adds an implementer and the error appears.
     //   `itf_var_section_inherited` — CODESYS reports the interface error and STOPS, never type-checking the FB
     //                            body, so `held` is never called undefined. An editor cannot stop: the body is
-    //                            in front of the engineer and `held` is genuinely not there.
+    //                            in front of the engineer and `held` is genuinely not there. (The interface error
+    //                            itself the LSP says now, from the dependency's file — analysis-conformance 3.4.)
     "cc2_var_in_interface",
     "itf_var_section_declaration",
     "itf_var_section_inherited",

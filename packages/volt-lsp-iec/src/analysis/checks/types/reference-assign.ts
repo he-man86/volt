@@ -29,7 +29,8 @@
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
-import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr, withoutSubrange, type Type } from "../../../frontend/types/index.js"
+import { constancyOf, constEval, inferExprType, resolveTypeExpr } from "../../../frontend/types/index.js"
+import { literalBind, variableBind } from "../../shared/reference-bind.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -56,19 +57,15 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
       if (s.value.kind === "literal") {
         // Does the literal's OWN type ALREADY equal the referenced one? Then the store is accepted and the
         // compiler goes on to the write-access rule — fall through. Anything else keeps the conversion error.
-        const referenced = target.kind === "reference" ? target.target : undefined
-        const own = literalOwnType(s.value)
-        const exact =
-          own !== undefined && referenced?.kind === "elementary" && referenced.elem.name === own.name
-        if (!exact) {
-          const from = literalErrorType(s.value, target)
-          if (from !== undefined)
+        const bind = literalBind(s.value, target)
+        if (bind !== "exact") {
+          if (bind !== undefined)
             out.push({
               severity: "error",
               span: s.value.span,
               source: SOURCE,
               code: "assignment-type-mismatch",
-              message: ctx.messages.refAssignCannotConvert(renderType(from), renderType(target)),
+              message: ctx.messages.refAssignCannotConvert(bind.from, bind.to),
             })
           return
         }
@@ -92,42 +89,15 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
       // for are compared; a struct, an FB or an unknown type is skipped. An array is compared by its FOLDED bounds
       // (`ARRAY[0..N]` with N = 2 is `ARRAY[0..2]`), never by the text it is written with.
       if (target.kind !== "reference" || s.value.kind !== "ident_expr") return
-      const value = inferExprType(s.value, scope, ctx.project)
-      const bound = value.kind === "reference" ? value.target : value
-      if (!comparable(bound) || !comparable(target.target)) return
-      // A SUBRANGE VARIABLE binds a reference to its base: a REFERENCE TO INT binds an INT(0..10), a REFERENCE TO UINT a
-      // UINT(1..10) (`dt_subrange_ref_bind`, both vendors build it, step 4d review). Only that was measured, so only the
-      // variable's own top-level type loses its range — never the reference's, an array's element or a reference's target.
-      if (sameExactType(bound, target.target)) return
-      if (value.kind !== "reference" && sameExactType(withoutSubrange(bound), target.target)) return
+      const bind = variableBind(s.value, target, scope, ctx.project)
+      if (bind === undefined) return
       out.push({
         severity: "error",
         span: s.value.span,
         source: SOURCE,
         code: "assignment-type-mismatch",
-        message: ctx.messages.refAssignCannotConvert(renderType(value, { form: "compiler" }), renderType(target, { form: "compiler" })),
+        message: ctx.messages.refAssignCannotConvert(bind.from, bind.to),
       })
     })
   }
-}
-
-/** A type whose compiler rendering is measured — elementary, enum, pointer, array of one whose bounds fold — so two
- *  compare. A string is not: its capacity is written or the default, and `STRING` against `STRING(80)` was never asked. */
-function comparable(t: Type): boolean {
-  if (t.kind === "array") return t.bounds !== undefined && comparable(t.element)
-  if (t.kind === "pointer") return comparable(t.target)
-  return (t.kind === "elementary" && t.elem.family !== "string") || t.kind === "enum"
-}
-
-/** Two `comparable` types are the same type: an array by its folded bounds and element, a pointer by its target, the
- *  rest by the compiler's rendering. */
-function sameExactType(a: Type, b: Type): boolean {
-  if (a.kind === "array" && b.kind === "array")
-    return (
-      a.bounds!.length === b.bounds!.length &&
-      a.bounds!.every((d, i) => d.lower === b.bounds![i]!.lower && d.upper === b.bounds![i]!.upper) &&
-      sameExactType(a.element, b.element)
-    )
-  if (a.kind === "pointer" && b.kind === "pointer") return sameExactType(a.target, b.target)
-  return renderType(a, { form: "compiler" }) === renderType(b, { form: "compiler" })
 }

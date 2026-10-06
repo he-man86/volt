@@ -56,3 +56,16 @@ test("the owning FB's own body names its property BARE — but the accessor's ow
   // the bare read in the FB body is flagged; the bare name inside SET is the incoming value, not a read
   expect(run(setOnly)).toEqual(["The property 'Level' cannot be used in this context because it lacks the get accessor"])
 })
+
+// analysis-conformance 3.6 (both vendors, recorded 2026-10-06, `oopa_getonly_written`): a get-only property WRITTEN
+// through its instance is "'f.GetOnly' is no valid assignment target"
+test("writing a get-only property is no valid assignment target", () => {
+  const all = (body: string): string[] => {
+    const src = `FUNCTION_BLOCK FB\nVAR v:INT; END_VAR\nEND_FUNCTION_BLOCK\nPROPERTY GetOnly : INT\nGET\nGetOnly := 1;\nEND_GET\nEND_PROPERTY\nPROPERTY Both : INT\nGET\nBoth := v;\nEND_GET\nSET\nv := Both;\nEND_SET\nEND_PROPERTY\nPROGRAM PLC_PRG\nVAR f : FB; y : INT; END_VAR\n${body}\nEND_PROGRAM`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+  }
+  expect(all("f.GetOnly := 3;")).toEqual(["'f.GetOnly' is no valid assignment target"])
+  expect(all("f.Both := 3;")).toEqual([])
+})

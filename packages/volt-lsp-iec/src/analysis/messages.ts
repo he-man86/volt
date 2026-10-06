@@ -300,6 +300,8 @@ export interface Messages {
   inoutOwnAccess(param: string, fb: string, context: string): string
   /** An FB whose FB_Init takes extra inputs, instantiated without them. CODESYS-measured; TwinCAT unasked. */
   fbInitInstantiation(fb: string, inputs: number, syntax: string): string
+  /** An ARRAY of an FB whose FB_Init takes extra inputs, given fewer initializers than elements. Both vendors measured. */
+  fbInitArrayCount(initializers: number, elements: number): string
   // ─── calls/ ───
   /** A math operator (`ABS`, `SQRT`, …) applied to a non-numeric type (C0072). verified both vendors. */
   operatorNotPossible(op: string, type: string): string
@@ -653,6 +655,11 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `No matching FB_init method found for instantiation of ${fb}`
         : `No matching 'FB_Init' method found for instantiation of ${fb}. Specified 'FB_Init' method requires exactly ${inputs} inputs. Check syntax '${syntax}'`,
+    // both vendors, measured (`oopa_fb_init_array_left_out`, analysis-conformance 3.6, 2026-10-06), each in its own words
+    fbInitArrayCount: (initializers, elements) =>
+      tc
+        ? `The number of FB_Init-Initializers (${initializers}) does not match the number of Array-Elements (${elements})`
+        : `The number of 'FB_Init' initializers (${initializers}) does not match the number of array elements (${elements})`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc

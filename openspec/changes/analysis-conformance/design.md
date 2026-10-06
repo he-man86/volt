@@ -477,40 +477,40 @@ Columns:
 | non-instantiable | notInstantiable | 1 / 0 | 1 / 0 | OK |
 | obsolete-usage | pouObsolete | 9 / 0 | 9 / 0 | 3.3: an obsolete STRUCT as a type and an obsolete FB in an EXTENDS are uses (`obs_*`); no value, no warning |
 | at-address° | directAddressMalformed | 7 / 0 | 7 / 0 | OK; frontend P6 parser move, so check whether it survives (0.5) |
-| header-rules | propertyWithoutAccessor, multipleInheritance, returnTypeNotAllowed, interfaceImplementsMisused, varInInterface, functionImplements, baseClassNotFound, unionInheritance, inheritanceNotAllowed | 9 / 2 | 9 / 2 | FP cc2_var_in_interface, itf_var_section_declaration; builders GAP (0.3) |
-| attribute-placement (CODESYS) | packModeNotAllowed | 1 / 0 | — | OK |
-| var-section-placement | varConfigOnlyInList, retainNotAllowedHere, sectionNotAllowed | 3 / 0 | 3 / 0 | OK |
-| inout-initializer | notAssignmentTarget, inoutInInitializer | 1 / 0 | 1 / 0 | OK |
+| header-rules | propertyWithoutAccessor, multipleInheritance, returnTypeNotAllowed, interfaceImplementsMisused, varInInterface, functionImplements, baseClassNotFound, unionInheritance, inheritanceNotAllowed | 9 / 2 | 9 / 2 | 3.4: C0182 on an FB too (`hdr_fb_return_type`: the parser reads an FB's return type), three bases, an FB PROPERTY with no accessor, VAR_OUTPUT in an implemented interface, two interface bases legal (`hdr_*`); FP cc2_var_in_interface, itf_var_section_declaration (reachability, div); an access modifier on a FUNCTION / PROGRAM niche (`hdr_function_private`, `hdr_program_protected`, 0 in the corpora) |
+| attribute-placement (CODESYS) | packModeNotAllowed | 1 / 0 | — | 3.4: on a FUNCTION (CODESYS; TwinCAT builds it), a PROGRAM legal (`attrp_*`) |
+| var-section-placement | varConfigOnlyInList, retainNotAllowedHere, sectionNotAllowed | 3 / 0 | 3 / 0 | 3.4: VAR_GLOBAL in an FB / PROGRAM, RETAIN in a FUNCTION's VAR and VAR_INPUT, VAR_CONFIG in a FUNCTION, VAR_OUTPUT RETAIN in an FB legal (`vsp_*`) — all agree |
+| inout-initializer | notAssignmentTarget, inoutInInitializer | 1 / 0 | 1 / 0 | 3.4: a VAR_IN_OUT read inside an ARRAY or STRUCT initializer, and an FB instance initialized through its FB's VAR_IN_OUT (`ioinit_*`, `cc5_fb_init_inout`); CODESYS records the aggregate case twice, said once |
 | unknown-type | unknownType | 8 / 0 | 40 / 0 | OK |
 | system-initializer° | semicolonExpectedInsteadOf, expressionExpectedInsteadOf, cannotConvert, unknownType | — | 2 / 0 | TwinCAT by rule, but in no vendor table → registry note (1.7) |
 | refused-initializer | cannotConvert, unknownType | 9 / 0 | 9 / 0 | OK |
 | dynamic-creation | dynamicCreationPragma | 2 / 0 | 2 / 0 | OK |
-| signature-name | signatureNameMismatch | 4 / 1 | 4 / 1 | FP sn_dut_mismatch (sits in the registry's syntax comment block today; 1.7 corrects its group) |
+| signature-name | signatureNameMismatch | 4 / 1 | 4 / 1 | 3.4: an ENUM, ALIAS, UNION mismatch (the object read from the document's uri — an alias has no scope), case alone silent (`sn_*`); `sn_dut_mismatch_used` agrees (the replay analyses a fixture's dependencies); FP sn_dut_mismatch (reachability, div) |
 
 ### names/
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| duplicate-declaration | duplicateMethod, duplicateDeclaration | 2 / 1 | 2 / 1 | FP decl_implicit_enum_duplicate |
-| unresolved-identifier | undefinedIdentifier, callTargetExpected, notAMember | 30 / 1 | 75 / 15 | FP xf_l*_to_* (div LDATE), itf_var_section_inherited |
-| ambiguous-global | ambiguousGlobalName | 0 | 0 | **GAP: no fixture** |
-| type-as-value | typeNameNotExpected | 1 / 0 | 1 / 0 | OK |
-| reserved-keyword (CODESYS) | reservedKeyword | 2 / 0 | — | OK |
-| refused-name° | unexpectedToken, expressionExpectedInsteadOf, semicolonExpectedInsteadOf, codeHasNoEffect | 23 / 0 (347 diags) | 23 / 0 | frontend 2.8.3; reviewed in 3.5 |
-| conditional-call° | parenExpectedInsteadOf, notSupportedInDeclaration, conditionalCallSecondParameter, expressionExpectedInsteadOf | 5 / 0 | 5 / 0 | frontend 2.5.5; reviewed in 3.5 |
+| duplicate-declaration | duplicateMethod, duplicateDeclaration | 2 / 1 | 2 / 1 | 3.5: a name twice in one GVL, named after the list's object; a METHOD and a variable of one name no duplicate (`dupn_*`); two methods / a method and an action of one name are refused by Volt's push (DUPLICATE_CHILD), so `duplicateMethod` is unmeasurable; FP decl_implicit_enum_duplicate (div, the implicit enum's type name) |
+| unresolved-identifier | undefinedIdentifier, callTargetExpected, notAMember | 30 / 1 | 75 / 15 | 3.5: a global two lists declare, and a global beside an own enum's member, name nothing (`types/names` `globalClash`: not defined, a hole); FP xf_l*_to_* (div LDATE, re-confirmed), itf_var_section_inherited (div, the vendor stops) |
+| ambiguous-global | ambiguousGlobalName | 0 | 0 | 3.5: two lists, bare, in every position (`ambg_*`, legal when qualified or shadowed); a global beside an own enum's member (EN5); CODESYS warns a bare name that is both a variable and a METHOD of its POU (`dupn_method_named_as_variable`) |
+| type-as-value | typeNameNotExpected | 1 / 0 | 1 / 0 | 3.5: an ALIAS's name (no hole beside it), and a type's name as an operand or a condition (`tav_*`); the vendors' further conversions of the type there are niche (0 in the corpora) |
+| reserved-keyword (CODESYS) | reservedKeyword | 2 / 0 | — | 3.5: a STRUCT field and a METHOD's input (`rkw_*`); a global of the name cannot be a fixture (every fixture using the word as a local would depend on it) |
+| refused-name° | unexpectedToken, expressionExpectedInsteadOf, semicolonExpectedInsteadOf, codeHasNoEffect | 23 / 0 (347 diags) | 23 / 0 | gone (frontend-conformance, 0.5); 3.5: no census row, no FP |
+| conditional-call° | parenExpectedInsteadOf, notSupportedInDeclaration, conditionalCallSecondParameter, expressionExpectedInsteadOf | 5 / 0 | 5 / 0 | 3.5: 0 FP; its 2 CODESYS GAPs (`notSupportedInDeclaration` in a declaration's `{IF}`) are the niche PRAGMA_DIVERGENCES |
 
 ### oop/
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| inheritance | circularInheritance, baseClassNotFound, unknownType, interfaceNotFound | 3 / 0 | 3 / 0 | OK |
-| property-access | propertyLacksGetter | 2 / 0 | 2 / 0 | OK |
-| method-reference | cannotConvert | 1 / 0 | 1 / 0 | OK |
-| inherited-variable | duplicateInheritedVariable | 1 / 0 | 1 / 0 | OK |
-| external-write | noInput | 15 / 0 | 15 / 0 | OK; no colocated test (A6, 1.14) |
-| inout-access (external + own) | inoutNoExternalAccess, inoutOwnAccess | 10 / 0 | 10 / 0 | OK |
-| fb-init-inout | noInput (was fbInitNoOutput) | 1 / 0 | 1 / 0 | OK |
-| fb-init-instantiation | fbInitInstantiation | 1 / 0 | 1 / 0 | OK |
+| inheritance | circularInheritance, baseClassNotFound, unknownType, interfaceNotFound | 3 / 0 | 3 / 0 | 3.6: EXTENDS an INTERFACE / STRUCT is no base found (alone), IMPLEMENTS a STRUCT no interface (`oopa_*`) |
+| property-access | propertyLacksGetter | 2 / 0 | 2 / 0 | 3.6: a set-only property in a condition and as an argument; a get-only property written is no valid assignment target |
+| method-reference | cannotConvert | 1 / 0 | 1 / 0 | 3.6: as an operand both vendors type the method as a type ('VALUE') — deferred, niche (`oopa_method_ref_in_operand`) |
+| inherited-variable | duplicateInheritedVariable | 1 / 0 | 1 / 0 | 3.6: a grandparent's variable, a base's VAR_INPUT redeclared as a VAR — agree |
+| external-write | noInput | 15 / 0 | 15 / 0 | 3.6: a VAR_OUTPUT is not writable from outside; a VAR_TEMP is no input of '__MAIN'; a VAR read from outside builds |
+| inout-access (external + own) | inoutNoExternalAccess, inoutOwnAccess | 10 / 0 | 10 / 0 | 3.6: an initializer is an access — an FB instance's VAR_IN_OUT field from the declaring FB, an aggregate reading the own VAR_IN_OUT from 'FB_INIT'; a read alone, a property GET |
+| fb-init-inout | noInput (was fbInitNoOutput) | 1 / 0 | 1 / 0 | 3.6: the value binds the parameter's REFERENCE — another type is "Cannot convert … to type 'REFERENCE TO T'" (TwinCAT reversed; `shared/reference-bind`) |
+| fb-init-instantiation | fbInitInstantiation, fbInitArrayCount | 1 / 0 | 1 / 0 | 3.6: a wrong argument count is the same message; an ARRAY with no initializers counts them (not `ARRAY OF FB(args)`) |
 | generic-instantiation | genericCount | 4 / 0 | — | CODESYS by rule, but in no vendor table → registry note |
 | abstract-assign (CODESYS) | abstractAssignTarget | 1 / 0 | — | OK |
 | lifecycle | fbReInitShape, lifecycle | 3 / 0 | 3 / 0 | OK |
