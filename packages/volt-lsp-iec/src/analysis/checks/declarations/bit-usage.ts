@@ -4,7 +4,9 @@
  *   C0206 bit-array-base  — `ARRAY[…] OF BIT`.
  *   C0203 bit-wrong-container — a plain `BIT` var in a PROGRAM/FUNCTION/METHOD or a global list (only structs/FBs may
  *                               hold BIT; a GVL's `ty_bit_in_gvl`, both vendors 2026-10-03).
- *   C0204 bit-wrong-block     — a plain `BIT` var in an FB but a disallowed block (only VAR_INPUT/VAR_OUTPUT/VAR).
+ *   C0204 bit-wrong-block     — a plain `BIT` var in an FB but a disallowed block (only VAR_INPUT/VAR_OUTPUT/VAR); in a
+ *                               VAR_TEMP CODESYS adds C0203 beside it, TwinCAT does not (`bitu_fb_var_temp`, 2026-10-06 —
+ *                               VAR_IN_OUT, VAR_STAT and VAR CONSTANT measured too: the section alone, or legal).
  *
  * Zero-FP: `BIT` in any of these positions is always an error; struct fields (a DUT body, not a var section)
  * and FB VAR_INPUT/VAR_OUTPUT/VAR are the legal cases and are never visited/flagged.
@@ -29,8 +31,11 @@ export function checkBitUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
       emit(out, span, "bit-array-base", ctx.messages.bitArrayBase()) // C0206
     } else if (isBit(t)) {
       if (unit.kind === "function_block") {
-        if (!BIT_OK_SECTIONS.has(section.sectionKind))
+        if (!BIT_OK_SECTIONS.has(section.sectionKind)) {
           emit(out, span, "bit-wrong-block", ctx.messages.bitInWrongBlock()) // C0204
+          if (section.sectionKind === "VAR_TEMP" && ctx.config.vendor === "codesys")
+            emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
+        }
       } else if (BIT_C0203_POUS.has(unit.kind)) {
         emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
       }

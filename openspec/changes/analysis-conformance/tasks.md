@@ -643,14 +643,59 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.3 declarations A
 
-- [ ] 3.3.1 declarations A (const-context, declared-type, constant-initializer, external-initializer, external-global,
+- [x] 3.3.1 declarations A (const-context, declared-type, constant-initializer, external-initializer, external-global,
       input-default, bit-usage, output-rules, non-instantiable, obsolete-usage): fixtures for bit-usage (all 4 builders),
       obsolete-usage (now reachable via 2.6), const-context's unfired builders. Where: fixtures/. Acceptance: list here.
       Depends on: 3.2.5
-- [ ] 3.3.2 Record 3.3.1, both vendors. Acceptance: CA.1. Depends on: 3.3.1
-- [ ] 3.3.3 FPs of the group (census). Where: checks/declarations. Acceptance: CA. Depends on: 3.3.2
-- [ ] 3.3.4 Gaps of the group (census). Acceptance: CA. Depends on: 3.3.2
-- [ ] 3.3.5 Close declarations A. Acceptance: CA.3–4. Depends on: 3.3.3, 3.3.4
+      **Fixtures (2026-10-06), 17:** `declarations/declaration-rules.ts` (15): bit-usage in an FB's VAR_IN_OUT, VAR_TEMP,
+      VAR_STAT, VAR CONSTANT and its legal sections, in a FUNCTION, a METHOD and a PROGRAM (`bitu_*`); a VAR_INPUT
+      defaulted with a global variable in an FB and in a FUNCTION (`dflt_*`, `defaultNotConstant`); a FUNCTION's struct
+      input and a METHOD's array input defaulted (`indf_*`); an obsolete STRUCT as a type, an obsolete FB extended, the
+      attribute with no value (`obs_*` — obsolete-usage fired on 7 fixtures already, 0.3; these are the shapes not asked).
+      `calls/argument-count.ts` (2, `callarg_*`), found by the first recording, which called the defaulted functions with
+      no argument: a constant default called with none (silent on CODESYS) and a variable default called with none. The
+      other checks of the group fire on their recorded fixtures (0.3) and have no unasked builder.
+- [x] 3.3.2 Record 3.3.1, both vendors. Acceptance: CA.1. Depends on: 3.3.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 15 per vendor (a first run
+      recorded nothing: the export name clashed with `grammar/declarations.ts`'s and the fixtures were not in ALL_TESTS),
+      then one of 4 per vendor with the functions called with their arguments plus `callarg_no_argument_defaulted_input`,
+      and `callarg_no_argument_variable_default` alone. `record:exec` CODESYS for the ten that build; `bitu_fb_var_constant`
+      reads "Invalid value" there (a BIT constant) and carries `execSkip` (unaskable 82 → 83).
+- [x] 3.3.3 FPs of the group (census). Where: checks/declarations. Acceptance: CA. Depends on: 3.3.2
+      **Done 2026-10-06.** The census had 3 FPs in the group per vendor, all `header-rules` / `signature-name` (3.4's): none
+      in this step's checks. One found by the cells and FIXED: C0526 "Default value is not constant" on an FB's input
+      (`dflt_fb_input_from_variable`: CODESYS builds it silently; a FUNCTION's warns) — `const-context` no longer says it for
+      a function block (colocated test). Gate review (2026-10-06): `dflt_program_input_from_variable` is SILENT on CODESYS too
+      (FIXED test-first: no C0526 for a PROGRAM's input) and `dflt_method_input_from_variable` warns (the rule kept, now
+      measured); TwinCAT silent on both.
+- [x] 3.3.4 Gaps of the group (census). Acceptance: CA. Depends on: 3.3.2
+      **Done 2026-10-06** (colocated tests each): `bit-usage` — CODESYS adds "Only structures and function blocks can
+      contain variables of type BIT" to an FB's VAR_TEMP (TwinCAT does not); `input-default` — a STRUCT default is refused
+      too, and a METHOD's input as a FUNCTION's; `obsolete-usage` — an obsolete STRUCT used as a type and an obsolete FB
+      named in an EXTENDS are uses. Not done here, with named census exceptions: "References to bits are not possible"
+      (CODESYS, a BIT in a VAR_IN_OUT — 0.2's missing-rule, 3.11) and `callarg_no_argument_variable_default` (CODESYS: a
+      refused default leaves the input required — `call-arguments`, 3.8; MEASURED_SILENT, lsp-gap 74 → 75). The census
+      GAPs owned by the group: `externalNoGlobal` ×2 — `sym_var_external_of_ambiguous_global` follows the ambiguous name
+      (names, 3.5), `decl_var_external_inside_struct` a VAR_EXTERNAL inside a STRUCT, niche: accepted loss (0 occurrences in
+      the corpora: no corpus build says "No global definition found"); `arrayBoundNonConst` ×2 / ×3 — the parse-recovery
+      cascades of `decl_subrange_one_bound`, `lit_malformed_subrange_bound` and TwinCAT's `decl_var_generic`, niche: accepted
+      loss (0 occurrences: no corpus build says "is no constant value").
+- [x] 3.3.5 Close declarations A. Acceptance: CA.3–4. Depends on: 3.3.3, 3.3.4
+      **Closed 2026-10-06.** Census rewritten: CODESYS TP 5330 → 5344, GAP 462 → 464 (+1 unowned "References to bits",
+      +1 calls `callarg_no_argument_variable_default`, both excepted by name), never-fired builders 12 → 10; TwinCAT TP
+      6541 → 6552, never-fired 35 → 34. Group declarations: never-fired builders 2 → 0 (CODESYS), 8 → 7 (TwinCAT —
+      `defaultNotConstant` is CODESYS's by rule); open FP 0, GAP unchanged. checkBitUsage TP 6 → 13 / 6 → 12,
+      checkConstantContext 3 → 5 (CODESYS), checkInputDefault 1 → 3, checkObsoleteUsage 12 → 14 / 12 → 14. Coverage:
+      builders with 0 TP 13 → 11 (CODESYS), 37 → 36 (TwinCAT). Divergences opened / closed: none. `rate:fixtures`: +17 —
+      confirmed 2736 → 2744, refused 1841 → 1847, not-lowered 345 → 346 (`dflt_function_input_from_variable`, ceiling
+      named), lsp-gap 74 → 75, unaskable 82 → 83. Frontend baselines: the new fixtures' counts; one more literal of LT14's
+      "into BIT" class (`bitu_fb_var_constant`), a named exception. design.md §5 rows updated (const-context, input-default,
+      bit-usage, obsolete-usage).
+      **Gate review (3.1+3.3, 2026-10-06):** one finding, measured (`dflt_program_input_from_variable`,
+      `dflt_method_input_from_variable`, both vendors, recorded in 3.1's gate batch): a PROGRAM's input defaulted with a
+      variable builds silently on CODESYS — `const-context` exempts it as it does an FB's; a METHOD's warns as a FUNCTION's.
+      checkConstantContext TP 5 → 6 (CODESYS), defaultNotConstant TP 2 → 3; `rate:fixtures`: confirmed +1 (the PROGRAM), not-lowered
+      +1 (the METHOD, counted under 3.1's gate note).
 
 ### 3.4 declarations B
 

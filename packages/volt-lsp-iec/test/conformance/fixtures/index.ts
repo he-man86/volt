@@ -79,6 +79,7 @@ import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
 import { INITIALIZER_TESTS } from "./declarations/initializers.js"
 import { ARRAY_INIT_SHAPE_TESTS } from "./declarations/array-init-shapes.js"
+import { DECLARATION_CHECK_TESTS } from "./declarations/declaration-rules.js"
 import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
@@ -86,6 +87,7 @@ import { INOUT_CONSTANT_TESTS } from "./calls/inout-constant.js"
 import { ATOMIC_OPERAND_TESTS } from "./calls/atomic-operands.js"
 import { CALL_GRID_TESTS } from "./calls/call-grid.js"
 import { CALL_SHAPE_TESTS } from "./calls/call-shapes.js"
+import { ARGUMENT_COUNT_TESTS } from "./calls/argument-count.js"
 import { CROSS_OBJECT_TESTS } from "./cross-object/cross-object.js"
 import { CROSS_OBJECT_TWO_TESTS } from "./cross-object/cross-object-two.js"
 import { CROSS_OBJECT_THREE_TESTS } from "./cross-object/cross-object-three.js"
@@ -227,11 +229,13 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   // ── aggregate initializers: structs by field, nested, arrays of structs, FB instances (phase 3½) ──
   { name: "initializers", tests: INITIALIZER_TESTS },
   { name: "array-init-shapes", tests: ARRAY_INIT_SHAPE_TESTS },
+  { name: "declaration-rules", tests: DECLARATION_CHECK_TESTS },
   { name: "types-enum-init-values", tests: ENUM_INIT_VALUE_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },
   { name: "call-shapes", tests: CALL_SHAPE_TESTS },
+  { name: "argument-count", tests: ARGUMENT_COUNT_TESTS },
   { name: "call-grid", tests: CALL_GRID_TESTS },
   { name: "atomic-operands", tests: ATOMIC_OPERAND_TESTS },
   // ── implicit check functions a project defines (CheckBounds, CheckDiv…): what CODESYS calls, with what ──

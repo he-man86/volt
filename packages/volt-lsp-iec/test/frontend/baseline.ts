@@ -213,6 +213,100 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why: DEAD_CODE_WHY,
     })),
   ),
+  // analysis-conformance 3.1 measured a POINTER compared with a SIGNED integer: both vendors meet the two at LINT and warn
+  // the pointer's change of sign (`cmpop_pointer_vs_*`). The analysis says so (`types/compat` `pointerComparison`); the
+  // front-end's type model has no meet of a pointer and an integer, so the bound census finds no store it types POINTER TO
+  // INT → LINT. New ground measured, not a regression.
+  // `cmpop_pointer_vs_xint` (the 3.1+3.3 gate review) is the same meet, an __XINT being LINT on the 64-bit target.
+  ...(["cmpop_pointer_vs_lint", "cmpop_pointer_vs_sint", "cmpop_pointer_vs_int_ordered", "cmpop_pointer_vs_xint"] as const).map((fixture) => ({
+    baseline: "type-dump",
+    measure: "findings",
+    by: 1,
+    fixture,
+    task: "the front-end's meet of a pointer and an integer (`arith/checked` `checkedMeetType`), which `pointerComparison` states for the analysis",
+    why: "a comparison's pointer–integer meet, measured 2026-10-06 (analysis-conformance 3.1), that the type model does not carry",
+  })),
+  // …and `rec : S := (1)` (`litc_struct_init_one_in_parens`): an untyped literal in parentheses whose context is a STRUCT has
+  // no type of its own — the analysis names it BIT as the vendors do (`types/literal` `literalErrorType`), the type dump
+  // counts the parenthesis UNKNOWN, as it does every context-typed literal it cannot place
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "type-dump",
+    measure: `fixtures ${vendor}: paren UNKNOWN`,
+    by: 1,
+    fixture: "litc_struct_init_one_in_parens",
+    task: LITERAL_TYPING,
+    why: "a parenthesized untyped literal stored into a STRUCT (analysis-conformance 3.1) — context-typed, with no elementary context",
+  })),
+  // analysis-conformance 3.2 measured an array initializer against its declared type (`fixtures/declarations/array-init-
+  // shapes.ts`): each scalar where an ARRAY OF ARRAY or an ARRAY OF a struct needs a list converts into the element type
+  // ("Cannot convert type 'SINT' to type 'ARRAY [0..1] OF INT'"), and an array literal on a scalar or a struct is "Cannot
+  // convert type 'Unknown type: '[1, 2]'' …". The analysis says so (`array-init`); the bound census finds no store the
+  // front-end types for an aggregate's element. New ground measured, not a regression.
+  ...(
+    [
+      ["arrinit_flat_into_nested", 6],
+      ["arrinit_scalar_into_struct_array", 4],
+      ["arrinit_on_scalar", 2],
+      ["arrinit_on_struct", 2],
+    ] as const
+  ).map(([fixture, by]) => ({
+    baseline: "type-dump",
+    measure: "findings",
+    by,
+    fixture,
+    task: "the front-end's stores of an aggregate initializer's elements (the bound census reads assignments and initial values)",
+    why: "an array initializer's element conversions, measured 2026-10-06 (analysis-conformance 3.2), that the bound census does not see as stores",
+  })),
+  // the diagnostic census: analysis-conformance 3.2 asked what an enum member may be initialized with (`fixtures/types/
+  // enum-init-values.ts`). A refused value leaves the member 0, and both vendors then WARN "The constant 0 is assigned to
+  // more than one enumeration" beside a member written 0 — as they do for two members written alike
+  // (`eninit_explicit_duplicate`). That is the duplicate-value rule 0.2 classed missing-rule, 3.11's to add as a check;
+  // each fixture is one unowned GAP per vendor until it does. New ground measured, not a regression.
+  ...(["eninit_real_literal", "eninit_string_literal", "eninit_bool_literal", "eninit_gvl_variable", "eninit_explicit_duplicate"] as const).flatMap(
+    (fixture) =>
+      (["codesys", "twincat"] as const).flatMap((vendor) =>
+        (["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
+          baseline: `fixtures.${vendor}`,
+          measure,
+          by: 1,
+          fixture,
+          task: "analysis-conformance 3.11 — the duplicate enum value (\"The constant … is assigned to more than one enumeration\")",
+          why: "a duplicate enum value, measured 2026-10-06 (analysis-conformance 3.2) — 0.2's missing-rule class",
+        })),
+      ),
+  ),
+  // the diagnostic census: analysis-conformance 3.3 asked a BIT in every FB section (`fixtures/declarations/declaration-
+  // rules.ts`). In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — a reference rule 0.2 classed
+  // missing-rule (3.11's) — one unowned GAP. And a FUNCTION called with no argument whose one input's default CODESYS refuses
+  // (not constant) is "requires exactly '1' inputs" there (`callarg_no_argument_variable_default`, MEASURED_SILENT in fixtures.test.ts):
+  // the call check reads only that a default is written, the calls group's to refine (3.8) — one calls GAP. New ground
+  // measured, not a regression.
+  // …and `b : BIT := 1` in a VAR CONSTANT (`bitu_fb_var_constant`, legal on both): one more literal of LT14's existing class
+  // "into BIT — transpiler SINT, checker BIT", the transpiler's context literal type (task 5.3)
+  {
+    baseline: "literal-agreement",
+    measure: "fixtures: literals the two disagree on",
+    by: 1,
+    fixture: "bitu_fb_var_constant",
+    task: LITERAL_TYPING,
+    why: "a BIT constant initialized with 1 (analysis-conformance 3.3) — LT14's class 'into BIT', one literal more",
+  },
+  ...(["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
+    baseline: "fixtures.codesys",
+    measure,
+    by: 1,
+    fixture: "bitu_fb_var_in_out",
+    task: "analysis-conformance 3.11 — references to bits (\"References to bits are not possible\")",
+    why: "a BIT in a VAR_IN_OUT, measured 2026-10-06 (analysis-conformance 3.3) — 0.2's missing-rule class",
+  })),
+  ...(["total: GAP", "group calls: GAP"] as const).map((measure) => ({
+    baseline: "fixtures.codesys",
+    measure,
+    by: 1,
+    fixture: "callarg_no_argument_variable_default",
+    task: "analysis-conformance 3.8 — a refused default leaves a FUNCTION input required on CODESYS (`call-arguments`)",
+    why: "found by analysis-conformance 3.3's first recording (a defaulted input called with no argument), measured 2026-10-06",
+  })),
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
@@ -223,6 +317,11 @@ export function allowanceOf(name: string, exceptions: readonly CeilingException[
   const out: Record<string, number> = {}
   for (const e of exceptions) if (e.baseline === name) out[e.measure] = (out[e.measure] ?? 0) + e.by
   return out
+}
+
+/** Does finding `f` name `fixture` — by its file (`…/fixture/F.pou …`, the dumps) or as `<vendor> <fixture>: …` (the bound census)? */
+function namesFixture(f: string, fixture: string): boolean {
+  return f.includes(`/${fixture}/`) || new RegExp(`^(codesys|twincat) ${fixture}: `).test(f)
 }
 
 /** Held against a measurement: what rose above its ceiling (plus a named exception's allowance), what fell below it
@@ -246,7 +345,7 @@ export function ceilingReport(
     else if (now < max) stale.push(`${key}: ${shown} → ${now}`)
   }
   for (const e of exceptions)
-    if (e.measure === "findings" && !actual.findings.some((f) => f.includes(`/${e.fixture}/`)))
+    if (e.measure === "findings" && !actual.findings.some((f) => namesFixture(f, e.fixture)))
       stale.push(`exception for ${e.fixture} (${e.measure}): no finding names it — remove it`)
   return { rises, stale, missing }
 }

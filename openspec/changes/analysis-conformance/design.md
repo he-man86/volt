@@ -438,44 +438,44 @@ Columns:
 
 | Check | Messages (builders) | cs | tc | Status |
 |---|---|---|---|---|
-| assignment | cannotConvert, unknownType | 314 / 3 | 299 / 1 | FP sysop_position_* ×2 (CODESYS triage), decl_struct_init_positional (div LITERAL_ONE_IS_BIT) |
+| assignment | cannotConvert, unknownType | 475 / 2 | 457 / 1 | 3.1: a literal 0/1 into a STRUCT/FB/ARRAY is BIT (`litc_*`, LITERAL_ONE_IS_BIT closed), a literal into an ARRAY and by a STATEMENT checked; FP sysop_position_* ×2 niche (0 `__POSITION` in the corpora) |
 | narrowing | narrowing, signChange, cannotConvert (via rules) | 231 / 0 | 242 / 0 | OK |
 | binary-operators | modNotDefined, cannotConvert (via rules) | 22 / 0 | 22 / 0 | OK. meet_bool_mod_int is CODESYS triage; re-measure |
 | conversion | cannotConvert | 3 / 0 | 3 / 0 | OK |
 | unary-operand | cannotConvert | 19 / 0 | 19 / 0 | OK |
-| comparison | compareNotPossible, compareNotPossibleTwo, enumComparison, cannotCompare | 2 / 0 | 2 / 0 | builders: GAP for those never fired (0.3) |
+| comparison | compareNotPossible, compareNotPossibleTwo, enumComparison, cannotCompare, signChange | 34 / 0 | 34 / 0 | 3.1: every builder fires (`cmpop_*`, 33 cells); two arrays one type by FOLDED bounds, each named as written with an operation in a bound parenthesized (gate review), array/struct/FB vs a named operand = C0066, enum variable vs another enum's value warns, pointer vs integer by width (`compat` `pointerComparison`) |
 | constant-overflow | constantTooLarge | 19 / 0 | 19 / 0 | OK |
-| string-constant | stringConstantTooLong | 35 / 3 | 26 / 3 | FP ir_initializer_warning_no_instance, decl_string_length_expression (div STRING_LENGTH_AS_WRITTEN) |
-| pointer-conversion | pointerNotConvertible | 1 (severity only, C0033) | 0 | OK (configurable) |
+| string-constant | stringConstantTooLong | 35 / 3 | 26 / 3 | FP ir_initializer_warning_no_instance (div DEAD_POU_NOT_IN_THE_REPLAY), decl_string_length_expression (div STRING_LENGTH_AS_WRITTEN, 3.1: niche, 0 operation-lengths in the corpora) |
+| pointer-conversion | cannotConvert, signChange | 25 / 0 | 27 / 0 | 3.1: NOT C0033 — the ordinary conversion ERROR (SEV 19 → 0 per vendor); signed LINT (and __XINT) = change of sign, REAL silent on CODESYS / refused on TwinCAT, every other elementary refused (DATE/DT/TOD/LTIME/WSTRING measured in the gate review), initial values checked, a REFERENCE's too (`compat` `pointerIntoElementary`) |
 | deref | dereferenceRequiresPointer | 2 / 0 | 2 / 0 | OK |
 | subrange | cannotConvert, subrangeAssignTarget | 3 / 0 | 3 / 0 | OK |
 | array-bounds | arrayIndexOutOfBounds | 2 / 0 | 2 / 0 | OK |
 | bit-number | bitAccessOnCall, invalidBitNumber | 3 / 0 | 3 / 0 | OK |
 | indexing | pointerIndexArity, arrayIndexCount, indexingNonArray | 3 / 0 | 3 / 1 | FP tc cc3_pointer_conversions |
-| array-init | arrayInitCountNonConst, unexpectedArrayInit, arrayInitExpected, initListExpected, tooManyArrayInit | 2 / 1 | 2 / 0 | FP cs decl_nested_aggregate (div); 3 builders GAP |
+| array-init | arrayInitCountNonConst, unexpectedArrayInit, arrayInitExpected, initListExpected, tooManyArrayInit, cannotConvert | 9 / 1 | 9 / 0 | 3.2: every builder fires (`arrinit_*`, 11 cells); C0232/C0233 per scalar with its conversion, C0075 over every dimension and beside C0232, C0074 with the `'[1, 2]'` conversion; FP cs decl_nested_aggregate (div: CODESYS's compiler throws) |
 | struct-init | unexpectedStructInit, undefinedIdentifier, notAssignmentTarget, cannotConvert, unknownType | 6 / 0 | 6 / 0 | OK |
 | reference-assign | refInitNeedsReference, referenceAssignTarget, cannotConvert, referenceAssignWriteAccess | 4 / 0 | 4 / 1 | FP tc cc3_reference_assign (TwinCAT triage) |
 | data-recursion | dataRecursion | 2 / 0 | 2 / 0 | OK |
-| enum-init | invalidEnumInitialisation, (enumInitNotConvertible → cannotConvert) | 1 / 0 | 1 / 0 | OK |
+| enum-init | invalidEnumInitialisation, cannotConvert, constInitNonConst, enumConversion | 9 / 0 | 9 / 0 | 3.2: each value kind (`eninit_*`, 12 cells: REAL, STRING, BOOL, TIME, non-constant global, another enum's member; taken: typed INT, sibling expression, global CONSTANT); the duplicate-value warning a refused value leaves is 3.11's |
 | typed-literal | notAMember | 17 / 0 | — | CODESYS only by rule (the TwinCAT lexer refuses first) |
 | unsupported-operator° | semicolonExpectedInsteadOf, unexpectedToken, codeHasNoEffect | 4 / 0 (with partial-access) | 4 / 0 (with partial-access) | frontend 2.5.3; 0.5 decides syntax/ or stay; reviewed in 3.2 |
 | partial-access° (TwinCAT) | percentNotAMember, unexpectedToken | (counted with unsupported-operator) | (idem) | frontend 2.5.4; 0.1 splits the count; reviewed in 3.2 |
-| unknown-source (LAST of the ST checks) | cannotConvert, unknownType, notAssignmentTarget, notStructuredVariable | 50 / 3 | 88 / 10 | FP itf_var_section_inherited, xf_l*_to_* (div LDATE), decl_array_single_bound_used, decl_implicit_enum_in_struct |
+| unknown-source (LAST of the ST checks) | cannotConvert, unknownType, notAssignmentTarget, notStructuredVariable | 50 / 9 (div) | 88 / 10 (div) | 3.2: an undeclared REF= target said once (`refdecl_target_undeclared`, the open FP; `assignment` no longer says it too); every FP re-confirmed a divergence with its reason |
 
 ### declarations/
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| const-context | arrayBoundNonConst, stringLengthNonConst, constInitNonConst, defaultNotConstant | 2 / 0 | 2 / 0 | 2 builders GAP; being edited by the frontend run, so re-measure |
+| const-context | arrayBoundNonConst, stringLengthNonConst, constInitNonConst, defaultNotConstant | 6 / 0 | 2 / 0 | 3.3: every builder fires; C0526 not for an FB's or a PROGRAM's input (`dflt_fb_*`, `dflt_program_*` silent), a FUNCTION's and a METHOD's warn; the arrayBoundNonConst GAPs are recovery cascades (niche, 0 in the corpora) |
 | declared-type | referenceAsBaseType, borderOrder, vectorBaseType, variableLengthPlacement, variableLengthNested | 14 / 0 | 14 / 0 | OK |
 | constant-initializer | constantNoInitialValue | 1 / 0 | 1 / 0 | OK |
 | external-initializer | noInitForExternal | 1 / 0 | 1 / 0 | OK |
 | external-global | externalNoGlobal, undefinedIdentifier (via shared/lost-declaration) | 1 / 0 | 1 / 0 | OK |
-| input-default (CODESYS) | noDefaultForType | 1 / 0 | — | OK |
-| bit-usage | pointerToBit, bitArrayBase, bitInWrongBlock, bitInWrongContainer | 0 | 0 | **GAP: no fixture** (unit test only) |
+| input-default (CODESYS) | noDefaultForType | 3 / 0 | — | 3.3: a STRUCT default too, and a METHOD's input as a FUNCTION's (`indf_*`) |
+| bit-usage | pointerToBit, bitArrayBase, bitInWrongBlock, bitInWrongContainer | 12 / 0 | 12 / 0 | 3.3: every FB section, FUNCTION, METHOD, PROGRAM (`bitu_*`); CODESYS adds C0203 to an FB's VAR_TEMP; "References to bits" (VAR_IN_OUT) is 3.11's |
 | output-rules | outputCantBeReference | 1 / 0 | 1 / 0 | OK |
 | non-instantiable | notInstantiable | 1 / 0 | 1 / 0 | OK |
-| obsolete-usage | pouObsolete | 0 | 0 | **GAP: no fixture**; cannot fire until 2.6 (harnesses pass EMPTY_WORKSPACE_REFS) — stale since frontend-conformance 2.7.2: the check reads the POU's `obsolete` attribute from the AST, no longer from `WorkspaceRefs`, and fires on 7 CODESYS fixtures (0.3); 2.6 passes no refs for it |
+| obsolete-usage | pouObsolete | 9 / 0 | 9 / 0 | 3.3: an obsolete STRUCT as a type and an obsolete FB in an EXTENDS are uses (`obs_*`); no value, no warning |
 | at-address° | directAddressMalformed | 7 / 0 | 7 / 0 | OK; frontend P6 parser move, so check whether it survives (0.5) |
 | header-rules | propertyWithoutAccessor, multipleInheritance, returnTypeNotAllowed, interfaceImplementsMisused, varInInterface, functionImplements, baseClassNotFound, unionInheritance, inheritanceNotAllowed | 9 / 2 | 9 / 2 | FP cc2_var_in_interface, itf_var_section_declaration; builders GAP (0.3) |
 | attribute-placement (CODESYS) | packModeNotAllowed | 1 / 0 | — | OK |

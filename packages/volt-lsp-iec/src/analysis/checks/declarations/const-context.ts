@@ -14,7 +14,7 @@ import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const { section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { unit, section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     const bound = (e: Expr | undefined) => {
       if (e !== undefined && constancyOf(e, scope) === "variable")
         emit(out, e.span, "array-bound-non-const", ctx.messages.arrayBoundNonConst(text(ctx.source, e.span)))
@@ -41,6 +41,11 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
     // constancy (a definite mutable reference) is flagged; call/unknown defaults are left alone (zero-FP).
     if (
       ctx.config.vendor === "codesys" && // C0526 — live /build shows TwinCAT silently accepts a non-constant VAR_INPUT default
+      // …and so does CODESYS for a FUNCTION BLOCK's and a PROGRAM's input, whose value the instance keeps between calls
+      // (`dflt_fb_input_from_variable`, `dflt_program_input_from_variable` silent; `dflt_function_input_from_variable`
+      // and `dflt_method_input_from_variable` warn — 2026-10-06)
+      unit.kind !== "function_block" &&
+      unit.kind !== "program" &&
       section.sectionKind === "VAR_INPUT" &&
       decl.init !== undefined &&
       decl.init.kind !== "aggregate_init" &&

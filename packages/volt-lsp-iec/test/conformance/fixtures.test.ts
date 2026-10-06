@@ -40,8 +40,8 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { decodeStringLiteral, parseSource } from "../../src/frontend/syntax/index.js"
-import { build } from "../../src/frontend/symbols/index.js"
+import { decodeStringLiteral, parseSource, type Expr, type TopLevel } from "../../src/frontend/syntax/index.js"
+import { build, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
@@ -93,7 +93,7 @@ import {
 } from "./support/transpile-confidence.js"
 import type { EdgeVerdict } from "./fixtures/map-row.js"
 import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
-import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
+import { constEval, elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
@@ -157,7 +157,17 @@ function runSource(c: LanguageTest): string {
  *  and a fixture's own enum of a library enum's name is the one it means. */
 function enumsOf(c: LanguageTest): Map<string, bigint> {
   const out = new Map<string, bigint>(libraryEnums())
-  numberEnums(out, parseSource(runSource(c), { networkText: true }).units)
+  // a member written as an expression — another enum's member, a global CONSTANT (`eninit_other_enum_member`,
+  // `eninit_gvl_constant`) — is the value it folds to in the fixture's own project; it was numbered as the member before
+  // it plus one, a guess the run recording contradicted
+  const source = runSource(c)
+  const parseResult = parseSource(source, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "file:///run.st", parseResult, source }])
+  const fold = (unit: TopLevel, e: Expr): bigint | undefined => {
+    const v = constEval(e, scopeForUnit(project, unit) ?? project)
+    return typeof v === "bigint" ? v : undefined
+  }
+  numberEnums(out, parseResult.units, fold)
   return out
 }
 
@@ -171,21 +181,23 @@ const libraryEnums = (): ReadonlyMap<string, bigint> => {
   return libraryEnumsCache
 }
 
-function numberEnums(out: Map<string, bigint>, units: readonly import("../../src/frontend/syntax/index.js").TopLevel[]): void {
-  const number = (prefix: string, values: readonly { name: { text: string }; value?: import("../../src/frontend/syntax/index.js").Expr }[]) => {
+function numberEnums(out: Map<string, bigint>, units: readonly TopLevel[], fold?: (unit: TopLevel, e: Expr) => bigint | undefined): void {
+  let unit: TopLevel | undefined
+  const number = (prefix: string, values: readonly { name: { text: string }; value?: Expr }[]) => {
     let next = 0n
     for (const v of values) {
       // `Cold := -1` is a unary minus over a literal — reading literals only numbered it as the value before it plus one
       const negated = v.value?.kind === "unary" && v.value.op === "-" ? v.value.operand : undefined
       const literal = negated ?? v.value
       const magnitude = literal?.kind === "literal" && typeof literal.value === "bigint" ? literal.value : undefined
-      const written = magnitude === undefined ? undefined : negated === undefined ? magnitude : -magnitude
+      const written = magnitude !== undefined ? (negated === undefined ? magnitude : -magnitude) : v.value !== undefined && fold !== undefined && unit !== undefined ? fold(unit, v.value) : undefined
       const value = written ?? next
       out.set(`${prefix}.${v.name.text}`.toUpperCase(), value)
       next = value + 1n
     }
   }
-  for (const unit of units) {
+  for (const u of units) {
+    unit = u
     if (unit.kind === "type_decl" && unit.body.kind === "enum") number(unit.name.text, unit.body.values)
     // an implicit enumeration displays under a name of the IDE's making: `Implicit_Enum__FB_LANG_implicit_enum__eState.Running`
     if ("varSections" in unit && "name" in unit && unit.name !== undefined)
@@ -965,6 +977,11 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // `CODESYS_ENUM_DIVERGENCES`)
     "enum_library_member_vs_project_function",
     "enum_library_member_vs_project_program",
+    // analysis-conformance 3.3 (2026-10-06), found by its first recording: a FUNCTION called with no argument whose one
+    // input's default CODESYS refuses (a global VARIABLE, "Default value is not constant") is "requires exactly '1' inputs"
+    // there — a refused default does not make the input optional. `call-arguments` reads only that a default is written;
+    // TwinCAT, where no default makes an input optional, agrees with the LSP. The calls group's to refine (3.8).
+    "callarg_no_argument_variable_default",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1483,7 +1500,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // self-qualified shape with a typo (`PRG.S_Bot.x` in the SFC program's own action), which CODESYS refuses ("'S_Bot' is no
   // component of 'PRG…'") and the bet takes for a step, as from outside (`sfc_step_typo_qualified`) — niche: accepted loss
   // (0 occurrences in the corpora). No fixture moved.
-  "lsp-gap": 74,
+  // 74 -> 75, FOR MEASUREMENT. analysis-conformance 3.3 (2026-10-06): `callarg_no_argument_variable_default` (MEASURED_SILENT
+  // above), 3.8's to close. No fixture moved.
+  "lsp-gap": 75,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1663,7 +1682,17 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 337 -> 338, FOR MEASUREMENT. lsp-sfc-step-names gate 3 (2026-10-03): S3 `sfc_step_qualified_self` — a step read
   // SELF-qualified in its SFC program's own action (the field's shape), which CODESYS builds and runs. Same reason: an SFC
   // body has no ST to lower.
-  "not-lowered": 338,
+  // 338 -> 345, FOR MEASUREMENT. analysis-conformance 3.1 (2026-10-06): 8 cells both vendors build and CODESYS runs, a
+  // POINTER compared with a narrow or a signed integer (`cmpop_pointer_vs_{byte,uint,sint,lint,int_ordered}`) and stored
+  // into a LINT, an LREAL and a REAL (`ptrsc_into_{lint,real,real32}`) — asked for the analysis's pointer rules
+  // (`types/compat` `pointerComparison`, `pointerIntoElementary`); the transpiler lowers no pointer–integer mix.
+  // 345 -> 346, FOR MEASUREMENT. analysis-conformance 3.3 (2026-10-06): `dflt_function_input_from_variable` — a FUNCTION input
+  // defaulted with a global variable (CODESYS warns, builds and runs it), which the transpiler does not lower.
+  // 346 -> 349, FOR MEASUREMENT. analysis-conformance 3.1+3.3 gate review (2026-10-06): `ptrsc_into_xint` and
+  // `cmpop_pointer_vs_xint` (a POINTER stored into and compared with an __XINT — the pointer–integer mix the transpiler
+  // does not lower) and `dflt_method_input_from_variable` (a METHOD input defaulted with a global variable, as the
+  // FUNCTION's above).
+  "not-lowered": 349,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

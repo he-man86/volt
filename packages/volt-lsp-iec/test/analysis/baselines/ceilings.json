@@ -4,7 +4,7 @@
     "group calls: never-fired builders": 8,
     "group calls: open FP": 0,
     "group declarations: GAP": 19,
-    "group declarations: never-fired builders": 2,
+    "group declarations: never-fired builders": 0,
     "group declarations: open FP": 0,
     "group flow: GAP": 10,
     "group flow: never-fired builders": 1,
@@ -25,12 +25,12 @@
     "group syntax: never-fired builders": 0,
     "group syntax: open FP": 0,
     "group types: GAP": 7,
-    "group types: never-fired builders": 8,
-    "group types: open FP": 1,
-    "total: FP": 108,
-    "total: GAP": 459,
-    "total: never-fired builders": 17,
-    "total: open FP": 1,
+    "group types: never-fired builders": 4,
+    "group types: open FP": 0,
+    "total: FP": 106,
+    "total: GAP": 456,
+    "total: never-fired builders": 10,
+    "total: open FP": 0,
     "total: unowned GAP": 70
   },
   "fixtures.twincat": {
@@ -38,7 +38,7 @@
     "group calls: never-fired builders": 9,
     "group calls: open FP": 0,
     "group declarations: GAP": 18,
-    "group declarations: never-fired builders": 8,
+    "group declarations: never-fired builders": 7,
     "group declarations: open FP": 0,
     "group flow: GAP": 17,
     "group flow: never-fired builders": 3,
@@ -59,11 +59,11 @@
     "group syntax: never-fired builders": 0,
     "group syntax: open FP": 0,
     "group types: GAP": 6,
-    "group types: never-fired builders": 8,
+    "group types: never-fired builders": 4,
     "group types: open FP": 0,
-    "total: FP": 335,
-    "total: GAP": 807,
-    "total: never-fired builders": 40,
+    "total: FP": 334,
+    "total: GAP": 804,
+    "total: never-fired builders": 34,
     "total: open FP": 0,
     "total: unowned GAP": 104
   },
@@ -73,8 +73,8 @@
     "total: unowned GAP": 6
   },
   "coverage": {
-    "builders with 0 TP on codesys": 20,
-    "builders with 0 TP on twincat": 43,
+    "builders with 0 TP on codesys": 11,
+    "builders with 0 TP on twincat": 36,
     "checks firing on 0 fixtures": 0
   }
 }

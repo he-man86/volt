@@ -9,9 +9,9 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const run =
-  (code: string) =>
+  (code: string, open = "PROGRAM P", close = "END_PROGRAM") =>
   (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
-    const src = `PROGRAM P\n${body}\nEND_PROGRAM`
+    const src = `${open}\n${body}\n${close}`
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
     return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
@@ -20,7 +20,8 @@ const run =
   }
 const bound = run("array-bound-non-const")
 const cinit = run("const-init-non-const")
-const dflt = run("default-not-constant")
+// C0526 is a FUNCTION's (and a METHOD's): a PROGRAM's and a FUNCTION BLOCK's input builds silently (`dflt_*`, 2026-10-06)
+const dflt = run("default-not-constant", "FUNCTION F : INT", "END_FUNCTION")
 const strlen = run("string-length-non-const")
 
 test("C0161: a variable array bound is flagged; literals and constants are not", () => {
@@ -71,4 +72,31 @@ test("C0227: a VAR CONSTANT initialised from `.g` — a variable global flagged,
     .filter((d) => d.code === "const-init-non-const")
     .map((d) => d.message)
   expect(msgs).toEqual(["Initialisation of constant variable 'k' not constant"])
+})
+
+test("C0526 is not said for a FUNCTION BLOCK's input: an FB input defaulted with a variable builds silently (dflt_fb_input_from_variable)", () => {
+  const src = `FUNCTION_BLOCK FB\nVAR_INPUT p:INT:=g;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION F : INT\nVAR_INPUT q:INT:=g;\nEND_VAR\nF := q;\nEND_FUNCTION\nVAR_GLOBAL\n g : INT;\nEND_VAR`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "default-not-constant")
+      .map((d) => d.message),
+  ).toEqual(["Default value is not constant"]) // the FUNCTION's only (dflt_function_input_from_variable)
+})
+
+test("C0526 is not said for a PROGRAM's input, and is for a METHOD's (dflt_program_input_from_variable, dflt_method_input_from_variable)", () => {
+  const src =
+    `PROGRAM PR\nVAR_INPUT p:INT:=g;\nEND_VAR\nEND_PROGRAM\n` +
+    `FUNCTION_BLOCK FB\nVAR\n o : INT;\nEND_VAR\no := M(q := 1);\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nVAR_INPUT q:INT:=g;\nEND_VAR\nM := q;\nEND_METHOD\n` +
+    `VAR_GLOBAL\n g : INT;\nEND_VAR`
+  const said = (vendor: "codesys" | "twincat") => {
+    const pr = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "default-not-constant")
+      .map((d) => d.message)
+  }
+  expect(said("codesys")).toEqual(["Default value is not constant"]) // the METHOD's only
+  expect(said("twincat")).toEqual([])
 })

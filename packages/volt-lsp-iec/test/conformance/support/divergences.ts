@@ -60,8 +60,8 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *
  * Each is a real LSP-only message — an invented error, by `lsp-parity-not-better` — and small enough to name:
  *
- *   meet_bool_mod_int        the LSP says "MOD is not defined for BOOL"; CODESYS compiles it. The meet-type
- *                            table refuses a pair the vendor accepts.
+ *   meet_bool_mod_int        the LSP said "MOD is not defined for BOOL"; CODESYS compiles it. (Agrees on both
+ *                            vendors — re-measured 2026-10-06, analysis-conformance 3.1.3.)
  *   sysop_position_call_form  `__POSITION` typed as plain STRING where CODESYS names a SIZED one —
  *                             "Cannot convert type 'STRING(INT#23)' to type 'DINT'" in an implementation and
  *                             `STRING(INT#13)` in a declaration (`sysop_position_initializer`, a known divergence since
@@ -532,6 +532,9 @@ const IMPLICIT_ENUM_TYPE_NAME: readonly string[] = [
  * (`decl_string_length_constant`, `_brackets` left 2026-10-03, frontend-conformance 4.6.2: a variable's type folds in its
  * declaring POU, rule CE8, and a capacity written as a name is named by it, `types/type` `lengthText`. An EXPRESSION is
  * printed in the compiler's own form, 'STRING((2 + 3))', which `exprText` does not write — the render, task 4.7.4.)
+ * Analysis-conformance 3.1.3 (2026-10-06): the compiler's form is `shared/expr-echo` `compilerExprText`, an analysis
+ * module the type render (front-end) may not import. Niche: accepted loss (0 occurrences in the corpora — no string
+ * length there is written as an operation).
  */
 const STRING_LENGTH_AS_WRITTEN: readonly string[] = ["decl_string_length_expression"]
 
@@ -756,20 +759,19 @@ const TWINCAT_UNIT_DIVERGENCES: readonly string[] = [
  *     "Cannot convert type 'Unknown type: 'a[1]''";
  *   `decl_vector_constant_size` (TwinCAT, which has no __VECTOR) — "Cannot convert type 'Unknown type: 'v[2]'' to type
  *     'REAL'" for the undefined vector passed to REAL_TO_INT;
- *   `decl_array_of_array_comma_index` (both) — `a[1, 2] := 5` on an ARRAY OF ARRAY: after "Array requires exactly 1
- *     indexes" the target is typed as `a[1]`, "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'".
+ *   (`decl_array_of_array_comma_index` left 2026-10-06, analysis-conformance 3.1: a literal stored into an ARRAY is typed by
+ *     `assignment` now — "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'" — and both vendors agree.)
  * Niche: accepted loss (0 occurrences in the corpora — no reversed bound, subrange of an alias, variable-length input of
  * a function or method on TwinCAT, __VECTOR or comma index into an array of arrays in any of the six).
  */
 const AFTER_A_REFUSED_TYPE: Record<Vendor, readonly string[]> = {
-  codesys: ["decl_array_reversed_bounds", "decl_array_of_array_comma_index"],
+  codesys: ["decl_array_reversed_bounds"],
   twincat: [
     "decl_subrange_reversed",
     "decl_subrange_on_alias",
     "decl_array_star_in_function_input",
     "decl_array_star_in_method_input",
     "decl_vector_constant_size",
-    "decl_array_of_array_comma_index",
   ],
 }
 
@@ -794,15 +796,8 @@ const DECLARATION_RECOVERY: readonly string[] = [
   ...TYPE_EXPRESSION_RECOVERY,
 ]
 
-/**
- * FRONTEND-CONFORMANCE 2.3.4 (2026-10-01) — `rec : DUT := (1, 2);`: both vendors keep `1` and type it BIT ("Cannot
- * convert type 'BIT' to type 'DUT_…'"); the LSP types an untyped 1 as every other one, SINT. `(5, 2)` says SINT on both
- * and agrees (`decl_struct_init_positional_five`). On an ARRAY the same BIT ("Cannot convert type 'BIT' to type 'ARRAY
- * [0..1] OF INT'", `decl_array_init_positional`, both vendors), where the LSP says nothing past the two parse errors.
- * Which literals are BIT, and where, is the literal typing rule's (area 4, task 4.1.3), and two cells are too little to
- * read it from.
- */
-const LITERAL_ONE_IS_BIT: readonly string[] = ["decl_struct_init_positional", "decl_array_init_positional"]
+// (`LITERAL_ONE_IS_BIT` closed 2026-10-06, analysis-conformance 3.1: into a struct, a function block or an array an untyped
+// 0 or 1 is BIT, any other integer its own type — `litc_*`, ten cells on both vendors; `types/literal` `literalErrorType`.)
 
 /**
  * FRONTEND-CONFORMANCE 2.3.5 (2026-10-01) — a VAR_EXTERNAL section inside a STRUCT: both vendors refuse the section as the
@@ -1181,46 +1176,17 @@ const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
   "lib_ns_library_gvl_shared_list_name_bare",
 ]
 
-/**
- * C0033 IS CONFIGURED AS AN ERROR in both recording projects (frontend-conformance 2.10, 2026-10-02). T6's refusal cell
- * `decl_pointer_to_pointer_deref_once_into_int` (`x := pp^;`, a POINTER TO POINTER read once into an INT) is answered
- * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
- * from `pointer-conversion`, at the severity C0033 ships with (a warning). The difference is the project's setting, as
- * `cc5_pointer_not_convertible` already records on CODESYS; what the cell decides — that one `^` of a POINTER TO
- * POINTER leaves a POINTER TO INT — agrees. `ty_pointer_size_twincat` (frontend-conformance 4.1.1, 2026-10-03) is the same
- * setting: the three refused targets (WORD, DWORD, UDINT on the 64-bit target) agree word for word, the LWORD, ULINT and
- * `__XWORD` the pointer fits are silent on both sides — and so is `cc5_pointer_not_convertible` (a pointer into a DWORD)
- * on TwinCAT now, where the LSP was silent while the pointer rule was a vendor split (`types/compat` `pointerFits`);
- * it was CODESYS's alone.
- */
-const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
-  "decl_pointer_to_pointer_deref_once_into_int",
-  "ty_pointer_size_twincat",
-  "cc5_pointer_not_convertible",
-  // frontend-conformance 4.3.4 (2026-10-03): ADR's result into a STRING — "Cannot convert type 'POINTER TO INT' to type
-  // 'STRING'" and 'POINTER TO ARRAY [0..3] OF BYTE', word for word from `pointer-conversion` at C0033's shipped severity
-  "ar_adr_type",
-  // frontend-conformance 4.4/4.5.2 (2026-10-03): a pointer stored into what a REFERENCE TO INT refers to (`rf := p`), into an
-  // INT, and POINTER ± integer into a STRING — "Cannot convert type 'POINTER TO INT' to type 'REFERENCE TO INT'" / 'INT' /
-  // 'STRING', word for word from `pointer-conversion` at C0033's shipped severity
-  "cv_pointer_assigned_to_reference",
-  "cv_pointer_and_pointee",
-  "dt_pointer_plus_int",
-  // frontend-conformance 4.7.4 (2026-10-03): THIS and SUPER (pointers to the FB and its base) and three pointer types stored
-  // into a STRING / an INT — "Cannot convert type 'POINTER TO FB_LANG_DT_THIS_TYPE' to type 'STRING'", 'POINTER TO POINTER
-  // TO INT', 'POINTER TO ARRAY [0..1] OF REAL', word for word from `pointer-conversion` at C0033's shipped severity
-  "dt_this_type",
-  "dt_super_type",
-  "dt_render_pointer_names",
-]
+// (`C0033_CONFIGURED_AS_AN_ERROR` closed 2026-10-06, analysis-conformance 3.1: its premise was false — neither recording
+// project's settings raise a warning to an error, and C0033's own wording appears in no recording. A pointer refused by
+// its target is the compiler's ordinary conversion ERROR, which `pointer-conversion` now gives: its ten fixtures agree on
+// both vendors, `ar_new_type` on TwinCAT.)
 
 /**
  * FRONTEND-CONFORMANCE 4.3 (2026-10-03) — the built-in result-type fixtures (`fixtures/types/arithmetic-results.ts`) whose
  * answer the LSP does not give, each for a reason that is not a rule this step could close:
- *   `ar_new_type` — `__NEW(T)` is typed POINTER TO T and the store into a STRING is reported word for word, at C0033's
- *                            shipped severity (a warning; both projects configure it an error, as `ar_adr_type`). On
- *                            CODESYS the recording project also has no memory for dynamic creation ("No memory for
- *                            dynamic object creation defined…", the `newdel_*` wall) and states the conversion twice.
+ *   `ar_new_type` — CODESYS only: `__NEW(T)` is typed POINTER TO T and the store into a STRING agrees word for word
+ *                            (analysis-conformance 3.1 closed the severity), but the recording project has no memory for
+ *                            dynamic creation ("No memory for dynamic object creation defined…", the `newdel_*` wall).
  *   `ar_varinfo_type` — "Cannot convert type '__SYSTEM.VAR_INFO' to type 'STRING'": `__VARINFO` is the compiler's
  *                            VAR_INFO struct, whose members no recording names (so `types/system` binds none), and a
  *                            struct stored into an elementary target is unchecked for every struct — task 4.5.3, as
@@ -1232,7 +1198,8 @@ const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
  *                            context literal type is LT14's / the transpiler's (`contextLiteralType`, task 5.3). Beside a
  *                            REAL or an LREAL the literal is the real's, and those four cells agree. Both vendors.
  */
-const ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_new_type", "ar_varinfo_type", "ar_real_literal_operand_types"]
+const ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_varinfo_type", "ar_real_literal_operand_types"]
+const CODESYS_ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_new_type"]
 
 /**
  * FRONTEND-CONFORMANCE 4.5.1 (2026-10-03) — a LIBRARY enum stored into a scalar (`cv_library_enum_into_int`,
@@ -1419,7 +1386,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,
     ...TWINCAT_UNIT_DIVERGENCES,
-    ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
     ...CALL_IN_AN_AGGREGATE_INITIALIZER,
     ...TWINCAT_NON_RETAIN_RECOVERY,
@@ -1444,7 +1410,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_MALFORMED_ADDRESS_ALIGNMENT,
     ...TWINCAT_REFUSED_LDATE_LITERAL_STOPS,
     ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
-    ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
     ...ARITHMETIC_RESULT_DIVERGENCES,
     ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
@@ -1568,7 +1533,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...IMPLICIT_ENUM_TYPE_NAME,
     ...STRING_LENGTH_AS_WRITTEN,
     ...AFTER_A_REFUSED_TYPE.codesys,
-    ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
     ...CALL_IN_AN_AGGREGATE_INITIALIZER,
     ...CODESYS_DECLARATION_DIVERGENCES,
@@ -1588,9 +1552,9 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_LIBRARY_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
-    ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
     ...ARITHMETIC_RESULT_DIVERGENCES,
+    ...CODESYS_ARITHMETIC_RESULT_DIVERGENCES,
     ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
     ...CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY,
     ...UNTYPED_OPERAND_AS_A_BOUND,

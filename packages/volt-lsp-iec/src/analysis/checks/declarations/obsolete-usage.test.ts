@@ -79,3 +79,14 @@ test("state 'off' drops it; 'error' forces error severity", () => {
   expect(obs(src, "off")).toEqual([])
   expect(obs(src, "error")[0]?.severity).toBe("error")
 })
+
+test("an obsolete STRUCT used as a type, and an obsolete FB EXTENDED, are uses (obs_struct_as_type, obs_fb_extended)", () => {
+  const src =
+    `{attribute 'obsolete' := 'use another'}\nTYPE OldS : STRUCT x : INT; END_STRUCT END_TYPE\n` +
+    `FUNCTION_BLOCK Use\nVAR\n  s1 : OldS;\nEND_VAR\nEND_FUNCTION_BLOCK\n` +
+    `FUNCTION_BLOCK Derived EXTENDS OldFB\nEND_FUNCTION_BLOCK`
+  expect(obs(src).map((d) => d.message)).toEqual([
+    "POU 'OldS' has been marked as obsolete: use another",
+    "POU 'OldFB' has been marked as obsolete: use NewFB instead",
+  ])
+})

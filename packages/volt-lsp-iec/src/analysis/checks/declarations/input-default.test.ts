@@ -35,3 +35,12 @@ test("a scalar input default and an array LOCAL default are not flagged", () => 
   expect(msgs(`FUNCTION F : INT\nVAR_INPUT\n i : INT := 5;\nEND_VAR\nF := 0;\nEND_FUNCTION`)).toEqual([])
   expect(msgs(`FUNCTION F : INT\nVAR\n a : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nF := 0;\nEND_FUNCTION`)).toEqual([])
 })
+
+test("C0525 names a STRUCT default too, and a METHOD's input is refused as a FUNCTION's is (indf_function_input_struct_default, indf_method_input_array_default)", () => {
+  expect(msgs(`TYPE S : STRUCT x : INT; END_STRUCT END_TYPE\nFUNCTION F : INT\nVAR_INPUT\n s1 : S := (x := 1);\nEND_VAR\nF := 0;\nEND_FUNCTION`)).toEqual([
+    "The type S cannot have a default value in this context",
+  ])
+  expect(msgs(`FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nVAR_INPUT\n a : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nM := 0;\nEND_METHOD`)).toEqual([
+    "The type ARRAY [0..1] OF INT cannot have a default value in this context",
+  ])
+})

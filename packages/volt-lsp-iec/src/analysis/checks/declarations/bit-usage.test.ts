@@ -41,3 +41,22 @@ test("a BIT struct field stays quiet (structs allow BIT)", () => {
 test("C0203: a BIT global variable is flagged — a global list is no structure (`ty_bit_in_gvl`, both vendors 2026-10-03)", () => {
   expect(errs(`VAR_GLOBAL\n\tg : BIT;\nEND_VAR\n`)).toEqual(["Only structures and function blocks can contain variables of type BIT"])
 })
+
+test("a BIT in an FB's VAR_TEMP: CODESYS says the section AND the container, TwinCAT the section (bitu_fb_var_temp)", () => {
+  const src = `FUNCTION_BLOCK F\nVAR_TEMP b:BIT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  expect(errs(src)).toEqual([
+    "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
+    "Only structures and function blocks can contain variables of type BIT",
+  ])
+  const pr = parseSource(src, { networkText: true }, "twincat")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "twincat")
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+      .filter((d) => d.code.startsWith("bit-"))
+      .map((d) => d.message),
+  ).toEqual(["Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block"])
+  // VAR_STAT is the section alone on both (bitu_fb_var_stat)
+  expect(errs(`FUNCTION_BLOCK F\nVAR_STAT b:BIT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
+    "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
+  ])
+})
