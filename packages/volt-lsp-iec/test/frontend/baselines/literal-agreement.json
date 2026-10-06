@@ -2,8 +2,8 @@
   "counts": {
     "corpus: literals stored": 14934,
     "corpus: literals the two disagree on": 78,
-    "fixtures: literals stored": 4443,
-    "fixtures: literals the two disagree on": 80,
+    "fixtures: literals stored": 4593,
+    "fixtures: literals the two disagree on": 82,
     "library: literals stored": 46,
     "library: literals the two disagree on": 0
   },
@@ -13,7 +13,7 @@
     "corpus: into USINT — transpiler USINT, checker SINT (3)",
     "fixtures: into BIT — transpiler SINT, checker BIT (3)",
     "fixtures: into BOOL — transpiler SINT, checker BOOL (15)",
-    "fixtures: into BYTE — transpiler BYTE, checker INT (4)",
+    "fixtures: into BYTE — transpiler BYTE, checker INT (5)",
     "fixtures: into BYTE — transpiler BYTE, checker SINT (2)",
     "fixtures: into DINT — transpiler DINT, checker LINT (1)",
     "fixtures: into DINT — transpiler DINT, checker UDINT (3)",
@@ -21,7 +21,7 @@
     "fixtures: into DWORD — transpiler DWORD, checker SINT (1)",
     "fixtures: into INT — transpiler INT, checker DINT (2)",
     "fixtures: into INT — transpiler INT, checker UINT (5)",
-    "fixtures: into INT — transpiler LREAL, checker INT (2)",
+    "fixtures: into INT — transpiler LREAL, checker INT (3)",
     "fixtures: into LINT — transpiler LINT, checker ULINT (1)",
     "fixtures: into LWORD — transpiler LWORD, checker SINT (1)",
     "fixtures: into REAL — transpiler REAL, checker LREAL (4)",

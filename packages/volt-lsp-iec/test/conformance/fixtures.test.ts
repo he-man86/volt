@@ -925,13 +925,8 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // text at all — see `network/network-analysis.ts`.
     "network_unnamed_target_of_void_call",
     "network_unnamed_target_of_valued_call",
-    // `__QUERYINTERFACE`, measured for the first time on 2026-09-20. The fixture had always named an interface
-    // another fixture declares, in a METHOD BODY — which `withDependencies` does not scan — so it was never
-    // pushed and the vendor only ever answered `Unknown type`. Given its own interface, CODESYS refuses it with
-    // three specific errors (the FB must extend `__System.IQueryInterface`; the operand must be an INSTANCE, not
-    // a type) and the LSP says nothing about any of them. A real gap, newly visible because the question is now
-    // real.
-    "op_sys_queryinterface",
+    // (`op_sys_queryinterface` left 2026-10-06, analysis-conformance 3.8: the interface named as an operand must be
+    // instantiated, `fb-instantiation` says so now; its two other errors stay GAPs — niche, task 3.8.4.)
     // a FOR limit WIDER than an INT counter (a DINT variable, a DINT expression, UPPER_BOUND), measured 2026-09-29
     // for transpile-review task 13: CODESYS refuses each with "Cannot convert type 'DINT' to type 'INT'" and the LSP
     // says nothing. A UINT counter's `n - 1` limit it compiles (`for_limit_wider_than_counter_uint_expr`, confirmed).
@@ -977,11 +972,8 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // `CODESYS_ENUM_DIVERGENCES`)
     "enum_library_member_vs_project_function",
     "enum_library_member_vs_project_program",
-    // analysis-conformance 3.3 (2026-10-06), found by its first recording: a FUNCTION called with no argument whose one
-    // input's default CODESYS refuses (a global VARIABLE, "Default value is not constant") is "requires exactly '1' inputs"
-    // there — a refused default does not make the input optional. `call-arguments` reads only that a default is written;
-    // TwinCAT, where no default makes an input optional, agrees with the LSP. The calls group's to refine (3.8).
-    "callarg_no_argument_variable_default",
+    // (`callarg_no_argument_variable_default` left 2026-10-06, analysis-conformance 3.8: a VARIABLE default is no default
+    // on CODESYS, `call-arguments` 4b.)
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1695,7 +1687,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 349 -> 350, FOR MEASUREMENT. analysis-conformance 3.6 (2026-10-06): `oopa_inout_in_property` — a property's GET reading
   // its FB's VAR_IN_OUT (CODESYS warns, builds and runs it); the transpiler gives an accessor no frame slot for the
   // parameter ("io is a var, which has no frame slot yet", `place-not-local`).
-  "not-lowered": 350,
+  // 350 -> 367, FOR MEASUREMENT. analysis-conformance 3.7–3.9 (2026-10-06): seventeen new rule cells CODESYS builds and
+  // runs, each a refusal the transpiler states — a JMP and its labels (3: "jmp/label is not lowered yet"), a bare
+  // expression statement (4: "expr_stmt is not lowered yet"), INI and __QUERYPOINTER (no project FUNCTION, 2), the address
+  // of a bit, of a BIT field, of a derived FB through a base's pointer (4), a method's output bound to the variable
+  // the call holds (3: `out := M(o => res)`), and two FUNCTIONs calling each other (1). No fixture moved.
+  "not-lowered": 367,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

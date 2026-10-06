@@ -1,13 +1,13 @@
 {
   "fixtures.codesys": {
-    "group calls: GAP": 7,
-    "group calls: never-fired builders": 8,
+    "group calls: GAP": 4,
+    "group calls: never-fired builders": 2,
     "group calls: open FP": 0,
     "group declarations: GAP": 19,
     "group declarations: never-fired builders": 0,
     "group declarations: open FP": 0,
     "group flow: GAP": 10,
-    "group flow: never-fired builders": 1,
+    "group flow: never-fired builders": 0,
     "group flow: open FP": 0,
     "group names: GAP": 9,
     "group names: never-fired builders": 1,
@@ -28,20 +28,20 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 106,
-    "total: GAP": 450,
-    "total: never-fired builders": 10,
+    "total: GAP": 447,
+    "total: never-fired builders": 3,
     "total: open FP": 0,
     "total: unowned GAP": 70
   },
   "fixtures.twincat": {
-    "group calls: GAP": 7,
-    "group calls: never-fired builders": 9,
+    "group calls: GAP": 4,
+    "group calls: never-fired builders": 3,
     "group calls: open FP": 0,
     "group declarations: GAP": 16,
     "group declarations: never-fired builders": 7,
     "group declarations: open FP": 0,
-    "group flow: GAP": 17,
-    "group flow: never-fired builders": 3,
+    "group flow: GAP": 16,
+    "group flow: never-fired builders": 2,
     "group flow: open FP": 0,
     "group names: GAP": 3,
     "group names: never-fired builders": 2,
@@ -62,10 +62,10 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 334,
-    "total: GAP": 798,
-    "total: never-fired builders": 34,
+    "total: GAP": 792,
+    "total: never-fired builders": 27,
     "total: open FP": 0,
-    "total: unowned GAP": 104
+    "total: unowned GAP": 102
   },
   "corpus": {
     "total: FP": 216,
@@ -73,8 +73,8 @@
     "total: unowned GAP": 6
   },
   "coverage": {
-    "builders with 0 TP on codesys": 11,
-    "builders with 0 TP on twincat": 36,
+    "builders with 0 TP on codesys": 4,
+    "builders with 0 TP on twincat": 29,
     "checks firing on 0 fixtures": 0
   }
 }

@@ -893,35 +893,204 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.7 oop B
 
-- [ ] 3.7.1 oop B (generic-instantiation, abstract-assign, lifecycle, abstract-instantiation, interface-implementation,
+- [x] 3.7.1 oop B (generic-instantiation, abstract-assign, lifecycle, abstract-instantiation, interface-implementation,
       method-signature, abstract-output-default): fixtures for method-signature (base and interface mismatch) and
       generic-instantiation on TwinCAT. Where: fixtures/. Acceptance: list here. Depends on: 3.6.5
-- [ ] 3.7.2 Record 3.7.1, both vendors. Acceptance: CA.1. Depends on: 3.7.1
-- [ ] 3.7.3 FPs of the group. Where: checks/oop. Acceptance: CA. Depends on: 3.7.2
-- [ ] 3.7.4 Gaps of the group. Acceptance: CA. Depends on: 3.7.2
-- [ ] 3.7.5 Close oop B. Acceptance: CA.3–4. Depends on: 3.7.3, 3.7.4
+      **Fixtures (2026-10-06), 30** — `oop/oop-rules-b.ts`. method-signature (it had cells already — `inh_override_*`,
+      `inh_interface_method_*`; these are the unmeasured sides): against an INTERFACE `oopb_itf_param_name_mismatch`,
+      `_section_mismatch`, `_return_type_mismatch`, `_return_missing`, `_property_type_mismatch`,
+      `_inherited_method_mismatch`, `_method_in_base_mismatch`; against a BASE `oopb_base_grandparent_mismatch`,
+      `_property_get_set_mismatch`, `_output_type_mismatch`. generic-instantiation (TwinCAT measures its refusal, no
+      VAR_GENERIC there) `oopb_generic_two_constants_one_value`, `_as_input`. abstract-assign `oopb_abstract_assign_inout`,
+      `_assign_reference`, `_ref_rebind` (legal), `_pointer_deref_assign`. lifecycle `oopb_fb_init_swapped_inputs`,
+      `_extra_input_first`, `_input_wrong_type`, `oopb_fb_reinit_no_return`, `oopb_fb_exit_extra_input`.
+      abstract-instantiation `oopb_abstract_array`, `_pointer` (legal), `_as_input`. interface-implementation
+      `oopb_itf_property_missing`, `_method_from_base` (legal), `_property_getter_only`. abstract-output-default
+      `oopb_abstract_method_output_default`, `oopb_concrete_method_output_default` (legal),
+      `oopb_implicit_abstract_output_default`.
+- [x] 3.7.2 Record 3.7.1, both vendors. Acceptance: CA.1. Depends on: 3.7.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`, TwinCAT on Project13): one batch of 30
+      per vendor; on CODESYS six again (`oopb_base_output_type_mismatch`, `oopb_abstract_assign_reference`, `_ref_rebind`,
+      `oopb_*_method_output_default` ×3) — their first text named a variable `r`, an IL operator both vendors refuse as a
+      name, so the cells asked a parse error (TwinCAT was recorded after the rename). `record:exec` CODESYS: the 10 that build.
+- [x] 3.7.3 FPs of the group. Where: checks/oop. Acceptance: CA. Depends on: 3.7.2
+      **Done 2026-10-06.** The group had no FP in the census (open 0, div 0). Found by the cells and FIXED test-first
+      (colocated tests): `abstract-instantiation` called a VAR_IN_OUT of an ABSTRACT FB's type an instance (both vendors
+      refuse only the assignment through it, `oopb_abstract_assign_inout`); `method-signature` converted a VAR_OUTPUT of
+      another type (`oopb_base_output_type_mismatch`: the mismatch alone, both vendors) and named a section change vs an
+      interface as "the variable" where CODESYS counts sections apart; `interface-implementation` asked the FB for an
+      interface PROPERTY that declares neither accessor (`oopb_itf_property_missing`: the vendors only warn about the
+      interface); `fb-init-instantiation` took FB_Init's extra inputs by POSITION — an INT declared first is "(INT)"
+      (`oopb_fb_init_extra_input_first`, by NAME now). Divergences opened: none.
+- [x] 3.7.4 Gaps of the group. Acceptance: CA. Depends on: 3.7.2
+      **Done 2026-10-06** (colocated tests each). `method-signature`: CODESYS counts inputs, outputs and inouts APART, the
+      result among the outputs (a section change, a result left out: the COUNT sentence), another result type names the
+      method as "the variable 'M'"; an interface method the FB INHERITS from its base is compared too
+      (`oopb_itf_method_in_base_mismatch`, both vendors); a PROPERTY whose SET overrides another type converts its value once
+      (`oopb_base_property_get_set_mismatch`, both). `lifecycle`: the required inputs are BOOL (`oopb_fb_init_input_wrong_type`)
+      and FB_Exit takes its input ALONE (`oopb_fb_exit_extra_input`), both vendors. `abstract-instantiation`: an ARRAY's element
+      is an instance (`oopb_abstract_array`). Left, named — each niche: accepted loss, counted:
+      `oopb_abstract_pointer_deref_assign` (both vendors' "The instance p^ points to will be reinitialized…" warning and
+      CODESYS's ABSTRACT target refusal through `p^`: 0 FB copies through a pointer in the corpora, `deferred.lsp`,
+      ANALYSIS_NICHE); `oopb_abstract_method_output_default`, `oopb_implicit_abstract_output_default` (CODESYS warns the
+      default twice where the abstract FB is extended, and for a body-less method without the keyword: 0 VAR_OUTPUT defaults
+      in a method of an ABSTRACT FB in the corpora, CODESYS_ANALYSIS_NICHE); `oopb_generic_*` on TwinCAT (no VAR_GENERIC —
+      TWINCAT_NO_VAR_GENERIC, the recovery's); the census GAPs `unit_interface_property_accessor_var_*` (an interface
+      accessor's VAR_INPUT/OUTPUT/IN_OUT: 0 in the corpora) and `unit_interface_method_final_public_order` (`METHOD FINAL
+      PUBLIC` in an interface: 0 in the corpora) stay GAPs. generic-instantiation on TwinCAT: by rule (never fires there).
+- [x] 3.7.5 Close oop B. Acceptance: CA.3–4. Depends on: 3.7.3, 3.7.4
+      **Closed 2026-10-06** (numbers against the 3.6 state; the census of 3.7–3.9 was measured once, the group's rows are
+      its own). Group oop: open FP 0 → 0, GAP 7 → 11 CODESYS (the four niche cells above, named ceiling exceptions —
+      ceiling unchanged at 7), 2 → 2 TwinCAT; never-fired builders 0 / 6 unchanged (TwinCAT's oop-B builders by rule).
+      TP: checkMethodSignatures 19 → 37 / 17 → 29, checkLifecycleSignatures 3 → 8 / 2 → 6, checkAbstractInstantiation 3 → 5
+      / 3 → 5, checkAbstractAssign 1 → 3, checkGenericInstantiation 4 → 6, checkAbstractOutputDefault 1 → 2,
+      checkFbInitInstantiation 3 → 4 (oop A's, the extra-input fix), checkHeaderRules 40 → 43 / 35 → 38 (the interface
+      properties' warning). Divergences: opened `oopb_abstract_pointer_deref_assign` (both), the two output defaults
+      (CODESYS), `oopb_generic_*` (TwinCAT); closed none. design.md §5 rows updated.
 
 ### 3.8 calls
 
-- [ ] 3.8.1 calls (call-arguments, call-result-access, fb-instantiation, intrinsic-operands, non-callable-call,
+- [x] 3.8.1 calls (call-arguments, call-result-access, fb-instantiation, intrinsic-operands, non-callable-call,
       recursive-call): fixtures for unfired builders of call-arguments and intrinsic-operands. Where: fixtures/.
       Acceptance: list here. Depends on: 3.7.5
-- [ ] 3.8.2 Record 3.8.1, both vendors. Acceptance: CA.1. Depends on: 3.8.1
-- [ ] 3.8.3 FPs: lex_vector_twincat_return_type (confirm divergence) and the census list. Where: checks/calls.
+      **Fixtures (2026-10-06), 30** — `calls/call-rules.ts`. call-arguments: `unknownNamedOutput` (0 TP) on an FB, a FUNCTION,
+      a METHOD — `calls_unknown_output_fb`, `_function`, `_method` — and naming an INPUT, `calls_output_names_input`; counts
+      `calls_function_too_few_positional`, `calls_function_defaults_none_given` (legal on CODESYS); a VAR_IN_OUT unbound
+      `calls_inout_unbound_method`, `_function`; a VAR_IN_OUT bound to `calls_inout_bound_to_constant`, `_expression`,
+      `_call_result`, `_property`. call-result-access `calls_index_on_method_result`. fb-instantiation
+      `calls_fb_type_as_argument`, `calls_itf_type_as_argument`. intrinsic-operands (0-TP builders): `calls_adr_on_bit_field`,
+      `_bit_access` (`adrOnBit`), `calls_ini_on_int`, `calls_ini_on_fb_instance` (`iniNeedsInstance`),
+      `calls_queryinterface_int_first`, `_int_second`, `_legal`, `calls_querypointer_int_second`, `_legal`
+      (`queryInterfaceFirst/Second`, `queryPointerSecond`), `calls_sqrt_of_bool`. non-callable-call `calls_enum_value_called`,
+      `calls_struct_instance_called`, `calls_constant_called`. recursive-call `calls_method_recursive`,
+      `calls_functions_mutually_recursive`.
+- [x] 3.8.2 Record 3.8.1, both vendors. Acceptance: CA.1. Depends on: 3.8.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 30 per vendor; on CODESYS
+      seven again (`calls_unknown_output_*` ×3, `calls_output_names_input`, `calls_sqrt_of_bool`, `calls_adr_on_bit_field`,
+      `calls_struct_instance_called`) — their first text named variables `r`, `s` and then `st`, IL operators both vendors
+      refuse as names (TwinCAT recorded after the renames). `record:exec` CODESYS: the 7 that build.
+- [x] 3.8.3 FPs: lex_vector_twincat_return_type (confirm divergence) and the census list. Where: checks/calls.
       Acceptance: CA. Depends on: 3.8.2
-- [ ] 3.8.4 Gaps of the group. Acceptance: CA. Depends on: 3.8.2
-- [ ] 3.8.5 Close calls. Acceptance: CA.3–4. Depends on: 3.8.3, 3.8.4
+      **Done 2026-10-06.** `lex_vector_twincat_return_type` re-confirmed (TwinCAT refuses `__VECTOR` as a return type and its
+      recovery cascades — TWINCAT_VECTOR_REFUSAL_CASCADE). The census list had no other calls FP (open 0). Found by the cells
+      and FIXED test-first (colocated tests): `call-arguments` said "VAR_IN_OUT 'io' must be assigned" for a FUNCTION's or
+      METHOD's call, where both vendors say its input COUNT, the in-outs among the inputs ("requires exactly '2' inputs",
+      `calls_inout_unbound_*`); `intrinsic-operands` said "Operation 'Sqrt' is not possible on type 'BOOL'" where both vendors
+      convert SQRT's operand to LREAL ("Cannot convert type 'BOOL' to type 'LREAL'", `calls_sqrt_of_bool`; the old test's
+      SQRT(STRING) premise was never recorded); `non-callable-call` named a STRUCT instance's call as no call target where both
+      vendors say "Cannot call object of type 'TYPE'", and an enum value by its member alone where they write 'E.Busy'; the
+      TwinCAT `inOutConstantNeedsVariable` is said of a LITERAL only there (`inout_const_bound_forms_1`: TwinCAT binds the VAR
+      CONSTANT). A first form of the type-name-as-argument rule fired on `__NEW(FB)`/`INDEXOF(FB)` (8 FPs, `newdel_*`,
+      `operand_indexof`, seen by the census before it was written) — restricted to a routine's arguments and
+      __QUERYINTERFACE, test-first. Divergences opened: `calls_method_recursive` (niche, below).
+- [x] 3.8.4 Gaps of the group. Acceptance: CA. Depends on: 3.8.2
+      **Done 2026-10-06** (colocated tests each). `call-arguments`: an output binding naming nothing is also "Identifier not
+      defined", naming an INPUT "'i' is no output" (`calls_unknown_output_*`, `calls_output_names_input`); an FB's positional
+      arguments bind no VAR_IN_OUT (`cg_fb_positional` closes; the old test's "bound by position" premise contradicted it); a
+      VAR_IN_OUT bound to a call's result or a BIT access needs a variable (`calls_inout_bound_to_call_result`,
+      `refuse_inout_bound_to_bit` close), to a property CODESYS's own "Properties can't be assigned to VAR_IN_OUT." (a new
+      builder, `propertyBoundToInOut`; TwinCAT the needs-variable sentence); a CODESYS default that is a VARIABLE is none
+      (`callarg_no_argument_variable_default` closes, leaves MEASURED_SILENT and its ceiling exceptions);
+      `inOutConstantNeedsVariable` is TwinCAT's too (both `inout_const_*` close). `fb-instantiation`: a type's name passed as an
+      argument (`calls_fb_type_as_argument`, `_itf_`; `op_sys_queryinterface`'s interface, which leaves MEASURED_SILENT).
+      `intrinsic-operands`: ADR of a bit access is CODESYS's single-bit warning (`calls_adr_on_bit_access`; TwinCAT silent).
+      `recursive-call`: a METHOD calling itself (`calls_method_recursive`). `shared/hole`: a call refused as no call target has
+      no type (`calls_constant_called`'s conversion). Left, named: `calls_method_recursive`'s echo — the vendors leave the
+      literal beside a hole untyped, "'(M(n := (n - INT#1)) + 1)'" (niche: accepted loss, 0 recursive calls in the corpora,
+      ANALYSIS_NICHE); `calls_functions_mutually_recursive` — CODESYS's "Call recursion: A -> B -> A" warning (niche: accepted
+      loss, 0 recursive calls in the corpora); `op_sys_queryinterface`'s "does not extend __System.IQueryInterface" and
+      "Operation '__QueryInterface' is not possible on type …" (niche: accepted loss, 0 of the corpora's 35 __QUERYINTERFACE
+      calls name a type); the parse-recovery GAPs `unit_function_*` (UNIT_HEADER_RECOVERY) and `lex_keyword_operand_indexof`
+      (0 INDEXOF in the corpora); `tav_type_as_operand` and `oopa_method_ref_in_operand` as named in 3.5/3.6.
+- [x] 3.8.5 Close calls. Acceptance: CA.3–4. Depends on: 3.8.3, 3.8.4
+      **Closed 2026-10-06** (numbers against the 3.7 state). Group calls: open FP 0 → 0, GAP 10 → 6 CODESYS, 9 → 6 TwinCAT
+      (ceilings 7 → 4 / 7 → 4), never-fired builders 8 → 2 / 9 → 3 (`adrOnBit`, `iniNeedsInstance`, `queryInterfaceFirst`,
+      `queryInterfaceSecond`, `queryPointerSecond`, `unknownNamedOutput` fire now; TwinCAT's `propertyBoundToInOut` and
+      `functionRequiresInputRange` and CODESYS's `boundsNeedVariableLength` by rule). TP: checkCallArguments 96 → 113 /
+      95 → 114 (GAP 5 → 2 / 4 → 2), checkIntrinsicOperands 30 → 37 / 25 → 31, checkFbInstantiation 9 → 12 (GAP 1 → 0),
+      checkNonCallableCall 10 → 13 / 7 → 10, checkRecursiveCall 1 → 2, checkCallResultAccess 3 → 4, checkUnknownSource
+      128 → 133 / 284 → 289 (the holes the call rules explain). Coverage: builders with 0 TP 11 → 4 CODESYS, 36 → 29 TwinCAT.
+      Divergences: opened `calls_method_recursive` (both); closed none; MEASURED_SILENT −2. design.md §5 rows updated.
 
 ### 3.9 flow
 
-- [ ] 3.9.1 flow (case-labels, statement-rules, new-in-expression, jump-labels, no-op-statement, empty-block, loop-exit,
+- [x] 3.9.1 flow (case-labels, statement-rules, new-in-expression, jump-labels, no-op-statement, empty-block, loop-exit,
       this-super-context): fixtures for case-labels' 5 unfired builders and jump-labels' 2. Where: fixtures/.
       Acceptance: list here. Depends on: 3.8.5
-- [ ] 3.9.2 Record 3.9.1, both vendors. Acceptance: CA.1. Depends on: 3.9.1
-- [ ] 3.9.3 FPs: lit_time_fraction_ms, cc6_loop_cannot_exit, cc5_new_in_expression (still unmeasurable on CODESYS:
+      **Fixtures (2026-10-06), 35** — `semantics/flow-rules.ts`. Of the scratch census's unfired builders only
+      `caseOverlappingRanges` was still at 0 TP (0.3; jump-labels' fire). case-labels `flw_case_overlapping_ranges`,
+      `_ranges_touching`, `_range_inside_range`, `_label_before_range`, `_duplicate_in_list`, `_constant_beside_value`,
+      `_enum_duplicate`, `_label_beyond_byte`, `_variable_range_bound`, `_real_label`; jump-labels `flw_jmp_label_duplicate`,
+      `flw_jmp_undefined`, `flw_jmp_to_variable`, `flw_jmp_into_loop`, `flw_jmp_label_other_case`, `flw_label_unreferenced_two`;
+      statement-rules `flw_assign_input_constant`, `flw_exit_in_if_outside_loop`, `flw_continue_in_case_in_loop`; no-op
+      `flw_noop_array_element`, `_this_member`, `_typed_literal`, `_property_read`, `_enum_value`; empty-block `flw_empty_else`,
+      `_elsif`, `_semicolon_body`, `_comment_body`; loop-exit `flw_for_byte_to_255`, `flw_for_int_down_to_min`,
+      `flw_for_usint_by_two_to_255` (`execSkip`: an endless loop never finishes its scan); this-super `flw_this_in_function`,
+      `flw_super_in_program`, `flw_super_in_method_no_base`, `flw_this_in_action`. new-in-expression stays unmeasurable on
+      CODESYS (the recording device has no memory for dynamic creation).
+- [x] 3.9.2 Record 3.9.1, both vendors. Acceptance: CA.1. Depends on: 3.9.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): one batch of 35 per vendor; on CODESYS
+      `flw_case_enum_duplicate` again (its selector was named `s`, then `st` — IL operators). `record:exec` CODESYS: 13 of the
+      15 that build (`flw_for_byte_to_255`'s "done flag never rose" removed; the three loops are `execSkip`).
+- [x] 3.9.3 FPs: lit_time_fraction_ms, cc6_loop_cannot_exit, cc5_new_in_expression (still unmeasurable on CODESYS:
       keep the divergence). Where: checks/flow. Acceptance: CA. Depends on: 3.9.2
-- [ ] 3.9.4 Gaps of the group. Acceptance: CA. Depends on: 3.9.2
-- [ ] 3.9.5 Close flow. Acceptance: CA.3–4. Depends on: 3.9.3, 3.9.4
+      **Done 2026-10-06.** `lit_time_fraction_ms` and `cc6_loop_cannot_exit` left their divergences in frontend-conformance
+      (2.8.3, 4.2) and agree; `cc5_new_in_expression` kept (the device has no memory configured for dynamic creation, the IDE
+      says that instead). The census had no other flow FP (open 0; the FP(div) of `sig_unknown_word`, `unit_method_override*`,
+      `decl_var_generic*`, `lit_enum_typed_*`, `lex_vector_twincat_return_type` are the names/recovery steps' divergences).
+      Found by the cells and FIXED test-first: `statement-rules` called a VAR_INPUT CONSTANT written in the body "no valid
+      assignment target" — both vendors build it (`flw_assign_input_constant`). Divergences opened: none.
+- [x] 3.9.4 Gaps of the group. Acceptance: CA. Depends on: 3.9.2
+      **Done 2026-10-06** (colocated tests each). `this-super-context`: SUPER^ CALLED in a PROGRAM is also no call target,
+      "… instead of 'SUPER^'" (`flw_super_in_program`, both vendors). `empty-block`: an empty ELSE is said AT the ELSE —
+      anchored at the IF, TwinCAT's one-message-per-line policy folded it into the empty THEN's (`cc3_empty_and_noop`'s TwinCAT
+      GAP closes). Every case-label, jump-label, no-op, loop-exit cell agreed as recorded (`caseOverlappingRanges` fires,
+      1 TP each vendor). Left, named: `flw_case_real_label` — both parsers refuse a REAL CASE label ("No CASE label found")
+      and resync; the LSP's CASE parser takes any literal (niche: accepted loss, 0 REAL case labels in the corpora,
+      `deferred.lsp`); the census no-op GAPs on IL and refused-word recovery (`cc_il_name_calc`, `ilc_calc_*`,
+      `lex_keyword_*_sys_*`, `sysop_*_bare_statement`, `rec_refused_name_cascade_il_word` — the frontend's named niche
+      recovery divergences).
+- [x] 3.9.5 Close flow. Acceptance: CA.3–4. Depends on: 3.9.3, 3.9.4
+      **Closed 2026-10-06** (numbers against the 3.8 state). Group flow: open FP 0 → 0, GAP 10 → 10 CODESYS, 17 → 16
+      TwinCAT (ceiling 17 → 16), never-fired builders 1 → 0 / 3 → 2. TP: checkCaseLabels 7 → 16 / 6 → 15, checkJumpLabels 9 →
+      14, checkThisSuperContext 13 → 18 / 12 → 17, checkNoOpStatement 178 → 182 / 185 → 189, checkLoopExit 1 → 4,
+      checkEmptyBlock 10 → 12 / 9 → 12 (GAP TwinCAT 1 → 0), checkStatementRules 16 → 17 / 15 → 16. Group syntax GAP 33 → 34 /
+      81 → 84 (`flw_case_real_label`, `oopb_generic_as_input`: named exceptions, ceilings unchanged).
+      **The three steps' shared measurement (3.7–3.9, 2026-10-06).** Totals: TP 5442 → 5544 / 6645 → 6739, FP 117 → 119 /
+      346 → 383 (every new one a divergence: `calls_method_recursive`, TwinCAT's `oopb_generic_*`), open FP 0, GAP 466 → 479 /
+      809 → 829, unowned 79 → 81 / 112 → 114 (each rise a new niche cell, a named ceiling exception in `test/frontend/baseline.ts`);
+      corpus unchanged. `rate:fixtures`: confirmed 2756 → 2768, refused 1904 → 1967, not-lowered 350 → 367 (ceiling named:
+      JMP/label, bare expression statements, INI/__QUERYPOINTER, addresses of bits, a method's output bound to the call's
+      own variable, mutual recursion), lsp-gap 75 → 75 (−`op_sys_queryinterface`, −`callarg_no_argument_variable_default`,
+      +`flw_case_real_label`, +`oopb_abstract_pointer_deref_assign`), unaskable 87 → 90. Frontend baselines: the new
+      fixtures' counts, named type-dump / parse-census / literal-agreement exceptions for the cells above; source map
+      RENAMED_TARGETS 38 → 41 (`calls_queryinterface_legal`, the documented `match` class). `test/conformance` 6069 pass,
+      0 fail; agreement CODESYS 4809, TwinCAT 4719 of 5272. design.md §5 rows updated.
+      **Gate review (3.7+3.9, 2026-10-06)**, each test-first; the unmeasured shapes recorded first, one batch of 7 per
+      vendor (`record:language`, instance `analysis-conformance`, TwinCAT on Project13; `record:exec` CODESYS: the 1 that
+      builds) — `calls_inout_unbound_unknown_named`, `_mixed`, `calls_inout_given_input_missing`,
+      `calls_inout_unbound_interface_method`, `calls_default_local_constant_shadows_global`, `calls_sqrt_of_string`
+      (`calls/call-rules.ts`), `flw_super_in_function` (`semantics/flow-rules.ts`). Findings:
+      (1) `method-signature`: an interface method INHERITED from the base put its findings at the BASE unit's spans — in a
+      workspace another file's offsets; said now at the derived FB's IMPLEMENTS name (CODESYS records them unpositioned,
+      line 0). The duplicate risk (the base implementing the same interface reports at its own method too) is unmeasured
+      and left: the two findings now sit in different files. (2) `call-arguments`, in-out beside an unknown named input:
+      both vendors say only the unknown name — the LSP already did; HEAD's "must be assigned" was the wrong one. A MIXED
+      call's in-out left out is the count ("exactly '3'", both) — fires now; a mixed call's missing input alone stays
+      unasked/silent. (3) the in-outs count among a FUNCTION's inputs whichever argument is missing (`F(io := v)`: "exactly
+      '2'", both) — fixed; with defaults beside an in-out the range bounds count them alike (unasked). (4) an INTERFACE
+      method's in-out left out is the count too ("Function 'M' requires exactly '1' inputs", both — the review's "probe"
+      was the LSP's own answer) — fixed. (5) a default is judged in the CALLEE's scope: its VAR CONSTANT shadowing a global
+      VARIABLE builds on CODESYS (TwinCAT requires every input anyway) — fixed. (6) SQRT(STRING): "Cannot convert type
+      'STRING' to type 'LREAL'", both vendors — the test cites the recording now. (7) SUPER^ called in a FUNCTION: both
+      messages, both vendors — as implemented; a colocated test added. (8) `empty-block` looks the ELSE keyword up only for
+      an empty ELSE; `declaresAnything`'s doc comment back on it; the ANALYSIS_NICHE comments joined.
+      **Gate numbers** (full suite, `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 8299 pass, 0 fail, 35 skip, 411 todo (8745
+      tests, 205 files); agreement CODESYS 4816, TwinCAT 4726 of 5279 (all 7 new cells agree). Census: TP 5544 → 5552 /
+      6739 → 6748, FP and GAP unchanged (checkCallArguments 113 → 118 / 114 → 120, checkThisSuperContext 18 → 20 / 17 → 19,
+      checkIntrinsicOperands 37 → 38 / 31 → 32). `rate:fixtures`: confirmed 2768 → 2769, refused 1967 → 1973, not-lowered
+      367, lsp-gap 75, unaskable 90 unchanged. Frontend baselines: the new fixtures' counts; type-dump's named exception
+      takes `calls_sqrt_of_string` beside `calls_sqrt_of_bool`.
 
 ### 3.10 pragmas + parse errors
 

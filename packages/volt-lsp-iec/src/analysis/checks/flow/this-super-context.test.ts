@@ -93,3 +93,24 @@ test("SUPER.Get() in a base-less function block: one call-target message, no str
     "Program name, function or function block instance expected instead of 'SUPER.Get'",
   ])
 })
+
+// analysis-conformance 3.9 (`flw_super_in_program`, both vendors 2026-10-06): SUPER^ CALLED in a PROGRAM is also no call
+// target, named as written
+test("SUPER^() in a PROGRAM is no call target too", () => {
+  const src = `PROGRAM P\nVAR t:INT;\nEND_VAR\nSUPER^();\nEND_PROGRAM`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message).sort(),
+  ).toEqual(["Expression SUPER is not allowed in this context", "Program name, function or function block instance expected instead of 'SUPER^'"])
+})
+
+// gate 3.7+3.9 (`flw_super_in_function`, both vendors 2026-10-06): the program/function branch's FUNCTION side says the same
+test("SUPER^() in a FUNCTION is no call target too", () => {
+  const src = `FUNCTION F_S : INT\nSUPER^();\nF_S := 1;\nEND_FUNCTION`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F_S", parseResult: pr, source: src }])
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message).sort(),
+  ).toEqual(["Expression SUPER is not allowed in this context", "Program name, function or function block instance expected instead of 'SUPER^'"])
+})

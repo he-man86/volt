@@ -83,6 +83,9 @@ import { DECLARATION_CHECK_TESTS } from "./declarations/declaration-rules.js"
 import { DECLARATION_B_TESTS } from "./declarations/declaration-rules-b.js"
 import { NAME_RULE_CHECK_TESTS } from "./names/name-rules.js"
 import { OOP_RULE_A_TESTS } from "./oop/oop-rules-a.js"
+import { OOP_RULE_B_TESTS } from "./oop/oop-rules-b.js"
+import { CALL_RULE_TESTS } from "./calls/call-rules.js"
+import { FLOW_RULE_TESTS } from "./semantics/flow-rules.js"
 import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
@@ -236,6 +239,9 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "declaration-rules-b", tests: DECLARATION_B_TESTS },
   { name: "name-rules", tests: NAME_RULE_CHECK_TESTS },
   { name: "oop-rules-a", tests: OOP_RULE_A_TESTS },
+  { name: "oop-rules-b", tests: OOP_RULE_B_TESTS },
+  { name: "call-rules", tests: CALL_RULE_TESTS },
+  { name: "flow-rules", tests: FLOW_RULE_TESTS },
   { name: "types-enum-init-values", tests: ENUM_INIT_VALUE_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },

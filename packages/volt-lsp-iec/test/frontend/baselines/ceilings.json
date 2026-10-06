@@ -96,6 +96,7 @@
     "fixtures twincat: call UNKNOWN": 83,
     "fixtures twincat: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 26,
     "fixtures twincat: call UNKNOWN, __NEW or __DELETE (no result type yet, task 4.3.4)": 9,
+    "fixtures twincat: call UNKNOWN, on an untyped operand": 0,
     "fixtures twincat: deref UNKNOWN": 4,
     "fixtures twincat: global_expr UNKNOWN": 0,
     "fixtures twincat: ident_expr UNKNOWN": 5,

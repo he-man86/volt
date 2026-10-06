@@ -858,6 +858,10 @@ const TWINCAT_NO_VAR_GENERIC: readonly string[] = [
   "decl_var_generic_in_array",
   "decl_var_generic_in_array_no_argument",
   "decl_var_generic_in_array_two_values",
+  // …and the two of analysis-conformance 3.7 (two constants given one value; a VAR_INPUT of the FB's type), whose
+  // TwinCAT recovery goes on to type the body's `N`/`K` as names nothing declares
+  "oopb_generic_two_constants_one_value",
+  "oopb_generic_as_input",
 ]
 
 /**
@@ -1332,6 +1336,33 @@ const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
 ]
 
 /**
+ * ANALYSIS-CONFORMANCE 3.7–3.9 (2026-10-06) — the rule cells of oop B, calls and flow whose disagreement is NICHE: about
+ * zero occurrences in the six corpora, and not trivial. Each names its count.
+ *   3.7 `oopb_abstract_pointer_deref_assign` — an ABSTRACT FB's instance value-assigned THROUGH A POINTER (`p^ := c2`):
+ *                            both vendors warn "The instance p^ points to will be reinitialized for virtual function
+ *                            calls. Make sure p^ doesn't point to a type derived from <FB>", CODESYS refuses the target
+ *                            too; whether the warning holds for every FB copied through a pointer is unmeasured. Niche:
+ *                            accepted loss (0 FB instances assigned through a pointer in the corpora — every `x^ :=` of
+ *                            the 32 stores a scalar or a string, and the corpus builds record no such warning).
+ *   3.8 `calls_method_recursive` — a METHOD calling itself is refused as a FUNCTION is (`recursive-call`, agreed), but the
+ *                            vendors echo the hole's operation with the literal beside it UNTYPED — "'(M(n := (n - INT#1))
+ *                            + 1)'", and "Unknown type: 'M(n := (n - 1))'" with none typed — where the LSP's echo types
+ *                            every integer literal of an operation (`expr-echo`). Niche: accepted loss (0 recursive calls in
+ *                            the corpora, which build).
+ */
+const ANALYSIS_NICHE: readonly string[] = ["oopb_abstract_pointer_deref_assign", "calls_method_recursive"]
+/**
+ *   3.7 `oopb_abstract_method_output_default`, `oopb_implicit_abstract_output_default` — CODESYS warns "The default value
+ *                            for a VAR_OUTPUT is not used in abstract or interface methods" TWICE where the abstract FB is
+ *                            extended (once in `cc5_abstract_assign_and_output`, which nothing extends), and for a
+ *                            body-less method of an ABSTRACT FB without the keyword too; TwinCAT says nothing. Niche:
+ *                            accepted loss (0 VAR_OUTPUT defaults in a method of an ABSTRACT FB in the corpora).
+ */
+const CODESYS_ANALYSIS_NICHE: readonly string[] = ["oopb_abstract_method_output_default", "oopb_implicit_abstract_output_default"]
+/** …and TwinCAT's own: none yet (its `oopb_generic_*` are TWINCAT_NO_VAR_GENERIC's, the recovery's). */
+const TWINCAT_ANALYSIS_NICHE: readonly string[] = []
+
+/**
  * A NAME THE IDE REFUSES TO CREATE, AND THE LSP DOES NOT SAY SO — openspec bridge-refusal-review 3.1 / DIALECT C28
  * (review 5+6). The push no longer judges a name (`StReader.IsIdentifier` went); each driver's `RefusedName` answers the
  * vendors' measured create rule: no ASCII identifier is refused by both IDEs for a POU and every member kind, and CODESYS
@@ -1374,6 +1405,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
     ...RECOVERY_DIVERGENCES,
+    ...ANALYSIS_NICHE,
+    ...TWINCAT_ANALYSIS_NICHE,
     ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...CALC_CONDITIONAL_CALL,
     ...TWINCAT_RECOVERY_DIVERGENCES,
@@ -1512,6 +1545,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            warning, so the measurement is 3 fixtures gained on each vendor and none lost.)
   codesys: new Set<string>([
     ...RECOVERY_DIVERGENCES,
+    ...ANALYSIS_NICHE,
+    ...CODESYS_ANALYSIS_NICHE,
     ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...SFC_STEPS_NOT_IN_SCOPE,
     ...CALC_CONDITIONAL_CALL,

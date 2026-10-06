@@ -17,7 +17,7 @@
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
-import type { Span } from "../../../frontend/syntax/index.js"
+import type { Span, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -36,7 +36,10 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
     walkStatements(statements, (s) => {
       if (s.kind === "if") {
         for (const b of s.branches) flag(b.body, b.span, s.span)
-        if (s.elseBody !== undefined) flag(s.elseBody, s.span, s.span)
+        // an empty ELSE is said AT the ELSE, on its own line: anchored at the IF, TwinCAT's one-message-per-line policy
+        // folded it into the empty THEN's (`cc3_empty_and_noop`, TwinCAT; analysis-conformance 3.9)
+        // (the keyword is looked up only for an EMPTY ELSE: a token scan per IF was O(IFs × tokens) per file — gate 3.7+3.9)
+        if (s.elseBody !== undefined && s.elseBody.length === 0) flag(s.elseBody, elseKeyword(ctx, s) ?? s.span, s.span)
       } else if (s.kind === "case") {
         for (const arm of s.arms) flag(arm.body, arm.span, s.span, "warning")
       } else if (s.kind === "for" || s.kind === "while" || s.kind === "repeat") {
@@ -44,4 +47,12 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
       }
     })
   }
+}
+
+/** The span of an IF's ELSE keyword: the last ELSE token after its last branch, before its end. */
+function elseKeyword(ctx: CheckContext, s: Extract<Statement, { kind: "if" }>): Span | undefined {
+  const last = s.branches[s.branches.length - 1]
+  const from = Math.max(last?.span.end ?? s.span.start, ...(last?.body ?? []).map((st: Statement) => st.span.end))
+  const elses = ctx.tokens().filter((t) => t.kind === "keyword" && t.text.toUpperCase() === "ELSE" && t.span.start >= from && t.span.end <= s.span.end)
+  return elses[elses.length - 1]?.span
 }

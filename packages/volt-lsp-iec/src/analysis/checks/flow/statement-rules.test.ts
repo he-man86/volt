@@ -111,3 +111,16 @@ test("a FOR counts in an integer: a REAL or a BOOL control variable does not con
 test("C0018: a direct address is a target, no literal refused (lit_address_in_body, ca_direct_address_expression)", () => {
   expect(assign(`%MW6 := i;\n%MX7.3 := TRUE;`)).toEqual([])
 })
+
+// analysis-conformance 3.9 (`flw_assign_input_constant`, both vendors 2026-10-06): a VAR_INPUT CONSTANT is written in the
+// body without a word from either vendor — CONSTANT there forbids nothing the body does
+test("a VAR_INPUT CONSTANT assigned in the body is no constant target", () => {
+  const src = `FUNCTION_BLOCK F\nVAR_INPUT CONSTANT\n\tlimit_ : INT := 4;\nEND_VAR\nlimit_ := 5;\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "not-assignment-target")
+      .map((d) => d.message),
+  ).toEqual([])
+})

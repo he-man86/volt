@@ -56,3 +56,14 @@ test("an empty CASE arm is a WARNING — it builds and runs — where an empty b
   for (const body of ["CASE i OF\n1:\n2: i := 1;\nEND_CASE", "CASE i OF\n1: i := 1;\n2:\nEND_CASE", "CASE i OF\n1: i := 1;\n2:\nELSE\n\ti := 3;\nEND_CASE"])
     expect(eb(body).map((d) => d.severity)).toEqual(["warning"])
 })
+
+// analysis-conformance 3.9 (`cc3_empty_and_noop`'s TwinCAT recording): an empty ELSE is said at the ELSE, on its own line —
+// TwinCAT says nothing twice on one line, so anchored at the IF it vanished beside the empty THEN's
+test("an empty THEN and an empty ELSE are two findings on TwinCAT too", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n\tflag : BOOL;\nEND_VAR\nIF flag THEN\nELSE\nEND_IF\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
+  expect(
+    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "empty-block"),
+  ).toHaveLength(2)
+})

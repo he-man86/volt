@@ -70,6 +70,16 @@ const LIB_REFERENCE_FACTS =
 const TWO_LIBRARIES_ERROR =
   "bare `ERROR` (Util's, CAA Device Diagnosis') is Util's on CODESYS — DED's is no candidate, a qualified-access fact the manifest does not carry; the LSP ranks the two alike and binds DED's by the URI tiebreak, so `.WRONG_CONFIGURATION` is unresolved. Not a regression: the same input gave the same answer before 3.4, which made it measurable"
 
+/** Why each analysis-conformance 3.7–3.9 niche cell is excepted (counts: tasks.md 3.7.4, 3.8.4, 3.9.4). */
+const ANALYSIS_NICHE_WHY = {
+  deref: "an ABSTRACT FB value-assigned through a pointer (`p^ := c2`): the vendors' reinitialization warning and CODESYS's target refusal — niche: accepted loss (0 FB copies through a pointer in the corpora)",
+  outputDefault: "CODESYS warns an abstract method's VAR_OUTPUT default twice where the FB is extended, and for a body-less method of an ABSTRACT FB — niche: accepted loss (0 such defaults in the corpora)",
+  generic: "TwinCAT has no VAR_GENERIC: its declaration-area recovery (TWINCAT_NO_VAR_GENERIC, frontend-conformance 2.8.2)",
+  recursion: "a recursive METHOD's hole echoed with its literal untyped beside the hole — niche: accepted loss (0 recursive calls in the corpora)",
+  callRecursion: "CODESYS's 'Call recursion: A -> B -> A' warning for two FUNCTIONs calling each other — niche: accepted loss (0 recursive calls in the corpora)",
+  realLabel: "a REAL literal as a CASE label: the vendors' parser refuses it ('No CASE label found') and recovers — niche: accepted loss (0 REAL case labels in the corpora)",
+} as const
+
 const DEAD_CODE_TASK =
   "none planned: the replay/census analyse a fixture's file with no reachability (divergences.ts DEAD_POU_NOT_IN_THE_REPLAY, PRAGMA_DIVERGENCES' accepted loss); remove with the fixtures"
 const DEAD_CODE_WHY =
@@ -306,14 +316,8 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "analysis-conformance 3.11 — references to bits (\"References to bits are not possible\")",
     why: "a BIT in a VAR_IN_OUT, measured 2026-10-06 (analysis-conformance 3.3) — 0.2's missing-rule class",
   })),
-  ...(["total: GAP", "group calls: GAP"] as const).map((measure) => ({
-    baseline: "fixtures.codesys",
-    measure,
-    by: 1,
-    fixture: "callarg_no_argument_variable_default",
-    task: "analysis-conformance 3.8 — a refused default leaves a FUNCTION input required on CODESYS (`call-arguments`)",
-    why: "found by analysis-conformance 3.3's first recording (a defaulted input called with no argument), measured 2026-10-06",
-  })),
+  // (`callarg_no_argument_variable_default`'s two left 2026-10-06, analysis-conformance 3.8: a VARIABLE default leaves a
+  // FUNCTION input required on CODESYS, `call-arguments` says so.)
   // analysis-conformance 3.4 asked an FB instance initialized with a LITERAL for its VAR_IN_OUT (`ioinit_fb_instance_literal`):
   // both vendors convert the value into the parameter's REFERENCE ("Cannot convert type 'SINT' to type 'REFERENCE TO INT'",
   // TwinCAT the pair reversed). The bound census reads assignments and initial values, not an FB initializer's fields as
@@ -456,6 +460,74 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: TYPE_NAME_VALUE_TASK,
     why: METHOD_NAME_VALUE_WHY,
   })),
+  // analysis-conformance 3.7–3.9: the rule cells of oop B, calls and flow whose answer the LSP does not give — each a
+  // NICHE divergence or a named GAP (tasks.md 3.7.4, 3.8.4, 3.9.4; `support/divergences.ts` ANALYSIS_NICHE,
+  // TWINCAT_NO_VAR_GENERIC). New ground measured, not a regression: every count below is one fixture's own findings.
+  ...(
+    [
+      ["codesys", "oopb_abstract_pointer_deref_assign", { "total: GAP": 2, "group oop: GAP": 1, "total: unowned GAP": 1 }, ANALYSIS_NICHE_WHY.deref],
+      ["twincat", "oopb_abstract_pointer_deref_assign", { "total: GAP": 1, "total: unowned GAP": 1 }, ANALYSIS_NICHE_WHY.deref],
+      ["codesys", "oopb_abstract_method_output_default", { "total: GAP": 1, "group oop: GAP": 1 }, ANALYSIS_NICHE_WHY.outputDefault],
+      ["codesys", "oopb_implicit_abstract_output_default", { "total: GAP": 2, "group oop: GAP": 2 }, ANALYSIS_NICHE_WHY.outputDefault],
+      ["twincat", "oopb_generic_two_constants_one_value", { "total: FP": 20, "total: GAP": 10, "total: unowned GAP": 1 }, ANALYSIS_NICHE_WHY.generic],
+      ["twincat", "oopb_generic_as_input", { "total: FP": 15, "total: GAP": 8, "total: unowned GAP": 2, "group syntax: GAP": 2 }, ANALYSIS_NICHE_WHY.generic],
+      ["codesys", "calls_method_recursive", { "total: FP": 2, "total: GAP": 2 }, ANALYSIS_NICHE_WHY.recursion],
+      ["twincat", "calls_method_recursive", { "total: FP": 2, "total: GAP": 2 }, ANALYSIS_NICHE_WHY.recursion],
+      ["codesys", "calls_functions_mutually_recursive", { "total: GAP": 1, "total: unowned GAP": 1 }, ANALYSIS_NICHE_WHY.callRecursion],
+      ["codesys", "flw_case_real_label", { "total: GAP": 9, "group syntax: GAP": 1 }, ANALYSIS_NICHE_WHY.realLabel],
+      ["twincat", "flw_case_real_label", { "total: GAP": 5, "group syntax: GAP": 1 }, ANALYSIS_NICHE_WHY.realLabel],
+    ] as const
+  ).flatMap(([vendor, fixture, counts, why]) =>
+    Object.entries(counts).map(([measure, by]) => ({ baseline: `fixtures.${vendor}`, measure, by, fixture, task: "none: niche, accepted loss (analysis-conformance 3.7–3.9)", why })),
+  ),
+  // …and the front-end dumps over the same new cells (analysis-conformance 3.7–3.9, 2026-10-06), each a type the front-end
+  // does not give where the vendor answers: INI has no result type, a STRUCT instance or THIS/SUPER out of place called or
+  // dereferenced is untyped where the vendor refuses it, a bit access's address, a negated number as a FOR bound, a REAL
+  // CASE label the parser takes (`flw_case_real_label`, niche), and two stores the bound census does not see (a refused
+  // call's result, SQRT's operand). New ground measured, not a regression.
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ["call UNKNOWN", 1, "calls_ini_on_int", "INI has no result type in the front-end"],
+        ["call UNKNOWN", 1, "calls_ini_on_fb_instance", "INI has no result type in the front-end"],
+        ["call UNKNOWN", 1, "calls_struct_instance_called", "a STRUCT instance called — 'Cannot call object of type 'TYPE'' on the vendor"],
+        ["deref UNKNOWN", 1, "flw_super_in_method_no_base", "SUPER^ in an FB extending nothing — refused by the vendor"],
+        ["deref UNKNOWN", 1, "flw_this_in_function", "THIS^ in a FUNCTION — refused by the vendor"],
+        ["ident_expr UNKNOWN", 1, "flw_this_in_function", "THIS in a FUNCTION — refused by the vendor"],
+        ["member UNKNOWN", 1, "flw_this_in_function", "THIS^.a in a FUNCTION — refused by the vendor"],
+        ["member UNKNOWN", 1, "calls_adr_on_bit_access", "a bit access `w.3` as ADR's operand"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 2, "flw_for_int_down_to_min", "the FOR bounds -32768 and -1, negated untyped numbers (LT14's)"],
+      ] as const
+    ).map(([kind, by, fixture, why]) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: ${kind}`,
+      by,
+      fixture,
+      task: "the front-end's types of refused and operator-only expressions (analysis-conformance 3.7–3.9 measured)",
+      why,
+    })),
+  ),
+  { baseline: "type-dump", measure: "fixtures twincat: call UNKNOWN, on an untyped operand", by: 1, fixture: "calls_adr_on_bit_access", task: "ADR of a bit access (the front-end types no bit access, by design: `call-arguments` `isBitAccess`)", why: "ADR(w.3), which TwinCAT builds, measured 2026-10-06" },
+  { baseline: "type-dump", measure: "fixtures codesys: call UNKNOWN, on an untyped operand", by: 1, fixture: "calls_adr_on_bit_access", task: "ADR of a bit access (the front-end types no bit access, by design: `call-arguments` `isBitAccess`)", why: "ADR(w.3), CODESYS's single-bit warning measured 2026-10-06" },
+  ...(["calls_constant_called", "calls_sqrt_of_bool", "calls_sqrt_of_string"] as const).map((fixture) => ({
+    baseline: "type-dump",
+    measure: "findings",
+    by: 2,
+    fixture,
+    task: "the bound census reads assignments and initial values, not a refused call's result nor a FUNCTION's operand conversion",
+    why: "a VAR CONSTANT called ('Unknown type: 'c()''), SQRT of a BOOL ('BOOL' to 'LREAL') and of a STRING ('STRING' to 'LREAL', gate 3.7+3.9) — both vendors, measured 2026-10-06 (analysis-conformance 3.8)",
+  })),
+  { baseline: "parse-census", measure: "findings", by: 2, fixture: "flw_case_real_label", task: "none: niche, accepted loss (analysis-conformance 3.9)", why: ANALYSIS_NICHE_WHY.realLabel },
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "parse-census",
+    measure: `fixtures ${vendor}: refused with a syntax message, no LSP parse error`,
+    by: 1,
+    fixture: "flw_case_real_label",
+    task: "none: niche, accepted loss (analysis-conformance 3.9)",
+    why: ANALYSIS_NICHE_WHY.realLabel,
+  })),
+  { baseline: "literal-agreement", measure: "fixtures: literals the two disagree on", by: 1, fixture: "flw_case_real_label", task: LITERAL_TYPING, why: "a REAL CASE label on an INT selector (analysis-conformance 3.9, niche) — 'into INT', the transpiler's LREAL" },
+  { baseline: "literal-agreement", measure: "fixtures: literals the two disagree on", by: 1, fixture: "flw_case_label_beyond_byte", task: LITERAL_TYPING, why: "a CASE label 300 on a BYTE selector (analysis-conformance 3.9) — LT14's class 'into BYTE', one literal more" },
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },

@@ -16,7 +16,7 @@
  *          `cc2_exit_outside_loop`, which records both).
  */
 import { walkStatements, stmtChildLists, type Expr, type StatementList } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
+import { bodies, lookup } from "../../../frontend/symbols/index.js"
 import { constancyOf, inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -57,7 +57,10 @@ export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): v
       for (const inner of s.chained ?? []) noName(inner)
       // C0018 — writing to a constant.
       // …a bare name or one through the global-namespace dot, quoted as written (`expr_global_namespace_constant_target`)
-      if ((s.target.kind === "ident_expr" || s.target.kind === "global_expr") && constancyOf(s.target, scope) === "constant")
+      // …not a VAR_INPUT CONSTANT, which the body writes without a word from either vendor (`flw_assign_input_constant`,
+      // analysis-conformance 3.9, 2026-10-06)
+      const inputConstant = s.target.kind === "ident_expr" && lookup(scope, s.target.name)?.symbol.varSection === "VAR_INPUT"
+      if ((s.target.kind === "ident_expr" || s.target.kind === "global_expr") && !inputConstant && constancyOf(s.target, scope) === "constant")
         out.push({
           severity: "error",
           span: s.target.span,

@@ -14,66 +14,67 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2756
- *     refused       1904
- *     not-lowered    350
+ *     confirmed     2769
+ *     refused       1973
+ *     not-lowered    367
  *     lsp-gap         75
  *     diverges         5
- *     unaskable       87
+ *     unaskable       90
  *
  *   tier                     lowered    clean
- *     decl                    721      721
- *     arith                  1539     1537
- *     control                 138      133
+ *     decl                    730      730
+ *     arith                  1541     1539
+ *     control                 155      144
  *     aggregate               136      136
- *     call                    262      260
- *     indirect                332      328
+ *     call                    268      266
+ *     indirect                344      340
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
+ *     unreachable_patterns                       6
+ *     clippy::match_overlapping_arm              5
  *     clippy::collapsible_if                     4
  *     clippy::match_single_binding               2
  *     clippy::too_many_arguments                 2
- *     unreachable_patterns                       2
  *     clippy::assign_op_pattern                  1
  *     clippy::identity_op                        1
- *     clippy::match_overlapping_arm              1
  *     clippy::neg_cmp_op_on_partial_ord          1
  *     clippy::nonminimal_bool                    1
+ *     overlapping_range_endpoints                1
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5204
+ *     dead_code                               5218
  *     clippy::self_assignment                   34
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
  *     clippy::approx_constant                    6
+ *     clippy::absurd_extreme_comparisons         3
+ *     unused_comparisons                         3
  *     unreachable_code                           2
- *     clippy::absurd_extreme_comparisons         1
  *     clippy::manual_clamp                       1
  *     clippy::manual_range_patterns              1
  *     clippy::never_loop                         1
- *     unused_comparisons                         1
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2955
+ *     agree         2999
  *     disagree         0
- *     not-run        173
+ *     not-run        175
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: the emitted Rust does not build                 63
+ *       not-run: the emitted Rust does not build                 65
  *       not-run: no elementary variable to seed or compare       39
 
  *
- *   pedantic — 30414 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7622
- *     clippy::cast_possible_truncation         4814
- *     clippy::cast_lossless                    4235
- *     clippy::cast_sign_loss                   3371
- *     clippy::uninlined_format_args            3186
- *     clippy::unreadable_literal               2794
- *     clippy::missing_panics_doc               1052
- *     clippy::manual_assert                     810
- *     clippy::format_push_string                708
+ *   pedantic — 30597 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7727
+ *     clippy::cast_possible_truncation         4833
+ *     clippy::cast_lossless                    4257
+ *     clippy::cast_sign_loss                   3378
+ *     clippy::uninlined_format_args            3195
+ *     clippy::unreadable_literal               2798
+ *     clippy::missing_panics_doc               1059
+ *     clippy::manual_assert                     812
+ *     clippy::format_push_string                710
  *     clippy::cast_possible_wrap                364
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
@@ -88,8 +89,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1674 distinct emission shapes over 3128 lowered fixtures, 1777 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2959 fixtures are improvable, 2874 touch a construct with alternatives.
+ *   shape — 1701 distinct emission shapes over 3174 lowered fixtures, 1786 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 3005 fixtures are improvable, 2920 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
@@ -536,7 +537,43 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   call_ldate_instance: { evidence: "refused" },
   call_on_type_change: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "198ab55c44", notes: ["1307e33bbf"] },
   callarg_no_argument_defaulted_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
-  callarg_no_argument_variable_default: { evidence: "lsp-gap" },
+  callarg_no_argument_variable_default: { evidence: "refused" },
+  calls_adr_on_bit_access: { evidence: "not-lowered" },
+  calls_adr_on_bit_field: { evidence: "not-lowered" },
+  calls_constant_called: { evidence: "refused" },
+  calls_default_local_constant_shadows_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "0db31cdebd", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  calls_enum_value_called: { evidence: "refused" },
+  calls_fb_type_as_argument: { evidence: "refused" },
+  calls_function_defaults_none_given: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.5, shape: "c5f332adcc", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "a5c4faeebd"] },
+  calls_function_too_few_positional: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 6, edge: "agree", size: 2.5, shape: "c5f332adcc", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "a5c4faeebd"] },
+  calls_functions_mutually_recursive: { evidence: "not-lowered" },
+  calls_index_on_method_result: { evidence: "refused" },
+  calls_ini_on_fb_instance: { evidence: "not-lowered" },
+  calls_ini_on_int: { evidence: "refused" },
+  calls_inout_bound_to_call_result: { evidence: "refused" },
+  calls_inout_bound_to_constant: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 3, shape: "3b57c586ef", notes: ["1307e33bbf"] },
+  calls_inout_bound_to_expression: { evidence: "refused" },
+  calls_inout_bound_to_property: { evidence: "refused" },
+  calls_inout_given_input_missing: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 2.2, shape: "ca1abd24f9", notes: ["11f6ad8ec5", "1307e33bbf", "7ab9128afd", "a29db6178b"] },
+  calls_inout_unbound_function: { evidence: "refused" },
+  calls_inout_unbound_interface_method: { evidence: "refused" },
+  calls_inout_unbound_method: { evidence: "refused" },
+  calls_inout_unbound_mixed: { evidence: "refused" },
+  calls_inout_unbound_unknown_named: { evidence: "refused" },
+  calls_itf_type_as_argument: { evidence: "refused" },
+  calls_method_recursive: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  calls_output_names_input: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 3, shape: "19d43abeff", notes: ["1307e33bbf"] },
+  calls_queryinterface_int_first: { evidence: "refused" },
+  calls_queryinterface_int_second: { evidence: "refused" },
+  calls_queryinterface_legal: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2.6, shape: "4a3a856799", notes: ["1307e33bbf", "4edbb4135a", "687428cc81", "73505351ad", "a497507b30", "ad25627749", "de132e5019", "fbde4d6e1e"] },
+  calls_querypointer_int_second: { evidence: "refused" },
+  calls_querypointer_legal: { evidence: "not-lowered" },
+  calls_sqrt_of_bool: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 5, edge: "agree", size: 3.3, shape: "21dd6d2baa", notes: ["5c9bb13706", "687428cc81", "74845f98c6", "de132e5019"] },
+  calls_sqrt_of_string: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "6b84e54429", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
+  calls_struct_instance_called: { evidence: "refused" },
+  calls_unknown_output_fb: { evidence: "refused" },
+  calls_unknown_output_function: { evidence: "refused" },
+  calls_unknown_output_method: { evidence: "refused" },
   callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.2, shape: "c8b7af740f", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "63d29bd1a0", "6dd22a92d0", "a5c4faeebd"] },
   callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "deffbe80ec", notes: ["054b93382f", "11f6ad8ec5", "4a6baf16b3", "56c1a77525", "870b70e195", "e37b53617c", "fedbbc431c"] },
   callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "7179479ea3", notes: ["11f6ad8ec5", "1307e33bbf", "26a81a085d", "521ba042ac", "58edc15c64", "5d3437b284", "62caf55aa5", "fedbbc431c"] },
@@ -1717,6 +1754,42 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fbcall_state_across_calls: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3, shape: "2426bd2124", notes: ["1307e33bbf", "8d8ff2c804"] },
   fbcall_this_in_program: { evidence: "refused" },
   fbcall_two_instances: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3, shape: "e867aed571", notes: ["1307e33bbf", "8d8ff2c804"] },
+  flw_assign_input_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_constant_beside_value: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "unreachable_patterns"], pedantic: 2, edge: "agree", size: 2.9, shape: "59e7929aa6", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_duplicate_in_list: { evidence: "refused", tier: "control", rust: "compiles", lints: ["unreachable_patterns"], pedantic: 2, edge: "agree", size: 3.3, shape: "76c0ebb813", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_enum_duplicate: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "unreachable_patterns"], pedantic: 2, edge: "agree", size: 2.4, shape: "ef25a87878", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_label_before_range: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "f7504f7401", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_label_beyond_byte: { evidence: "refused" },
+  flw_case_overlapping_ranges: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm"], pedantic: 2, edge: "agree", size: 3.3, shape: "b29d3681b8", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_range_inside_range: { evidence: "refused", tier: "control", rust: "compiles", lints: ["unreachable_patterns"], pedantic: 2, edge: "agree", size: 3.3, shape: "b29d3681b8", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_ranges_touching: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "overlapping_range_endpoints"], pedantic: 2, edge: "agree", size: 3.3, shape: "b29d3681b8", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_real_label: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.3, shape: "ef25a87878", notes: ["0e0d715a81", "1307e33bbf"] },
+  flw_case_variable_range_bound: { evidence: "refused" },
+  flw_continue_in_case_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 7, edge: "agree", size: 3.2, shape: "8e7362257c", notes: ["0e0d715a81", "1307e33bbf", "204a887600", "46c17ef7d3", "521ba042ac", "95094bd48a", "c9cd63632c"] },
+  flw_empty_comment_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "92ac98d938", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  flw_empty_else: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.8, shape: "92ac98d938", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  flw_empty_elsif: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", size: 2.8, shape: "1150d26a3e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  flw_empty_semicolon_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "c9d15d7249", notes: ["0e0d715a81", "1307e33bbf", "521ba042ac", "e2e0d67858"] },
+  flw_exit_in_if_outside_loop: { evidence: "refused" },
+  flw_for_byte_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", size: 3.3, shape: "529cad753a", notes: ["1307e33bbf", "4979768984", "521ba042ac"] },
+  flw_for_int_down_to_min: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", size: 3.3, shape: "e766583ae6", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac"] },
+  flw_for_usint_by_two_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", size: 3.3, shape: "529cad753a", notes: ["1307e33bbf", "4979768984", "521ba042ac"] },
+  flw_jmp_into_loop: { evidence: "not-lowered" },
+  flw_jmp_label_duplicate: { evidence: "refused" },
+  flw_jmp_label_other_case: { evidence: "not-lowered" },
+  flw_jmp_to_variable: { evidence: "refused" },
+  flw_jmp_undefined: { evidence: "refused" },
+  flw_label_unreferenced_two: { evidence: "not-lowered" },
+  flw_noop_array_element: { evidence: "not-lowered" },
+  flw_noop_enum_value: { evidence: "not-lowered" },
+  flw_noop_property_read: { evidence: "not-lowered" },
+  flw_noop_this_member: { evidence: "not-lowered" },
+  flw_noop_typed_literal: { evidence: "refused" },
+  flw_super_in_function: { evidence: "refused" },
+  flw_super_in_method_no_base: { evidence: "refused" },
+  flw_super_in_program: { evidence: "refused" },
+  flw_this_in_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  flw_this_in_function: { evidence: "refused" },
   fmt_lreal_down_1e_1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
   fmt_lreal_down_1e_10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
   fmt_lreal_down_1e_2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
@@ -3277,6 +3350,36 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopa_setonly_in_condition: { evidence: "refused" },
   oopa_write_output: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 3, edge: "agree", size: 3.2, shape: "77e902665d", notes: ["1307e33bbf"] },
   oopa_write_var_temp: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "80fb058536", notes: ["0e0d715a81", "1307e33bbf"] },
+  oopb_abstract_array: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "dadcdd86e6", notes: ["0e0d715a81", "1307e33bbf", "c9c77500c6"] },
+  oopb_abstract_as_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.4, shape: "d41335477f", notes: ["0e0d715a81", "1307e33bbf"] },
+  oopb_abstract_assign_inout: { evidence: "refused" },
+  oopb_abstract_assign_reference: { evidence: "refused" },
+  oopb_abstract_method_output_default: { evidence: "not-lowered", diverges: { codesys: "known" } },
+  oopb_abstract_pointer: { evidence: "not-lowered" },
+  oopb_abstract_pointer_deref_assign: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  oopb_abstract_ref_rebind: { evidence: "not-lowered" },
+  oopb_base_grandparent_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 5, edge: "agree", size: 2.6, shape: "e4fe68197d", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  oopb_base_output_type_mismatch: { evidence: "refused" },
+  oopb_base_property_get_set_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2, shape: "89bc26573c", notes: ["06bb3a6005", "1307e33bbf", "63d29bd1a0"] },
+  oopb_concrete_method_output_default: { evidence: "not-lowered" },
+  oopb_fb_exit_extra_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  oopb_fb_init_extra_input_first: { evidence: "refused" },
+  oopb_fb_init_input_wrong_type: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.8, shape: "436bc58647", notes: ["0e0d715a81", "1307e33bbf", "8a9bb48ddb", "fa7d5f176f"] },
+  oopb_fb_init_swapped_inputs: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "d557dec2ca", notes: ["0e0d715a81", "1307e33bbf", "49346d6299", "8a9bb48ddb", "fa7d5f176f"] },
+  oopb_fb_reinit_no_return: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  oopb_generic_as_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.5, shape: "d41335477f", notes: ["0e0d715a81", "1307e33bbf"], diverges: { twincat: "known" } },
+  oopb_generic_two_constants_one_value: { evidence: "refused", diverges: { twincat: "known" } },
+  oopb_implicit_abstract_output_default: { evidence: "not-lowered", diverges: { codesys: "known" } },
+  oopb_itf_inherited_method_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 1.7, shape: "8b6c41bb4c", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  oopb_itf_method_from_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "94dcf992a8", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  oopb_itf_method_in_base_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.2, shape: "2ac211b5d1", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  oopb_itf_param_name_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.9, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  oopb_itf_property_getter_only: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  oopb_itf_property_missing: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  oopb_itf_property_type_mismatch: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "46fc6e416c", notes: ["06bb3a6005", "63d29bd1a0"] },
+  oopb_itf_return_missing: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "e31cdfafa4", notes: ["0e0d715a81", "1307e33bbf", "a01f00db76"] },
+  oopb_itf_return_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 1.9, shape: "adf987b86d", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0"] },
+  oopb_itf_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "5bd46f215c", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   op_arithmetic_bool_plus_int: { evidence: "refused" },
   op_arithmetic_int_plus_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "4dfa86f4a4", notes: ["06bb3a6005", "1307e33bbf", "3d737b5821", "63d29bd1a0"] },
   op_arithmetic_int_plus_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "d0a8c11e76", notes: ["1307e33bbf", "3d737b5821", "5c9bb13706", "74845f98c6"] },
@@ -3304,7 +3407,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   op_sys_currenttask: { evidence: "refused" },
   op_sys_isvalidref: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "35ce3ed7c6", notes: ["1307e33bbf", "3d737b5821", "687428cc81", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   op_sys_new_delete: { evidence: "unaskable", diverges: { codesys: "known" } },
-  op_sys_queryinterface: { evidence: "lsp-gap" },
+  op_sys_queryinterface: { evidence: "refused" },
   op_sys_try_catch: { evidence: "refused", diverges: { twincat: "known" } },
   op_sys_type_class_bare: { evidence: "not-lowered" },
   op_sys_varinfo: { evidence: "refused" },

@@ -59,6 +59,9 @@ export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]):
       continue
     }
     walkAllExprs(statements, (e) => {
+      // SUPER^ CALLED here is also no call target, named as written (`flw_super_in_program`, both vendors 2026-10-06)
+      if (e.kind === "call" && rootedAtSuper(e.callee))
+        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(e.callee)) })
       if (e.kind !== "ident_expr") return
       // Case-insensitive, as ST names are: a lower-case `this`/`super` is the same error (conformance `cc_self_this_*`,
       // `cc_self_super_*`). An exact `=== "THIS"` let them through (consolidate-lsp-structure A8).

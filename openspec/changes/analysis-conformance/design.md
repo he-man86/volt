@@ -511,37 +511,37 @@ Columns:
 | inout-access (external + own) | inoutNoExternalAccess, inoutOwnAccess | 10 / 0 | 10 / 0 | 3.6: an initializer is an access — an FB instance's VAR_IN_OUT field from the declaring FB, an aggregate reading the own VAR_IN_OUT from 'FB_INIT'; a read alone, a property GET |
 | fb-init-inout | noInput (was fbInitNoOutput) | 1 / 0 | 1 / 0 | 3.6: the value binds the parameter's REFERENCE — another type is "Cannot convert … to type 'REFERENCE TO T'" (TwinCAT reversed; `shared/reference-bind`) |
 | fb-init-instantiation | fbInitInstantiation, fbInitArrayCount | 1 / 0 | 1 / 0 | 3.6: a wrong argument count is the same message; an ARRAY with no initializers counts them (not `ARRAY OF FB(args)`) |
-| generic-instantiation | genericCount | 4 / 0 | — | CODESYS by rule, but in no vendor table → registry note |
-| abstract-assign (CODESYS) | abstractAssignTarget | 1 / 0 | — | OK |
-| lifecycle | fbReInitShape, lifecycle | 3 / 0 | 3 / 0 | OK |
-| abstract-instantiation | abstractInstantiation | 2 / 0 | 2 / 0 | OK; no colocated test (A6, 1.14) |
-| interface-implementation | missingInterfaceImpl | 1 / 0 | 1 / 0 | OK |
-| method-signature | overrideMismatchInterface, overrideMismatchBase | 0 | 0 | **GAP: no fixture** |
-| abstract-output-default (CODESYS) | defaultOutputUnused | 1 / 0 | — | OK |
+| generic-instantiation | genericCount | 6 / 0 | — | 3.7: two constants given one value, a VAR_INPUT of the FB's type — agree; TwinCAT has no VAR_GENERIC (its recovery: TWINCAT_NO_VAR_GENERIC) |
+| abstract-assign (CODESYS) | abstractAssignTarget | 3 / 0 | — | 3.7: through a VAR_IN_OUT and a REFERENCE TO; REF= legal; through `p^` niche (`oopb_abstract_pointer_deref_assign`) |
+| lifecycle | fbReInitShape, lifecycle | 8 / 0 | 6 / 0 | 3.7: the required inputs are BOOL; FB_Exit takes its input alone; FB_Init's extra inputs anywhere |
+| abstract-instantiation | abstractInstantiation | 4 / 0 | 4 / 0 | 3.7: an ARRAY's element and a VAR_INPUT are instances, a VAR_IN_OUT is none |
+| interface-implementation | missingInterfaceImpl | 1 / 0 | 1 / 0 | 3.7: an interface property with neither accessor owes nothing; a method the base provides counts |
+| method-signature | overrideMismatchInterface, overrideMismatchBase, interfaceParamCountMismatch, interfaceVariableMismatch | 21 / 0 | 21 / 0 | 3.7: CODESYS counts inputs/outputs/inouts apart (the result an output); the base's method implements the interface too; a property's SET converts, two outputs do not |
+| abstract-output-default (CODESYS) | defaultOutputUnused | 2 / 0 | — | 3.7: said twice where the FB is extended, and for a keyword-less body-less method — niche |
 
 ### calls/
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| call-arguments | inputAssignmentMissing, functionRequiresInputs, unknownNamedOutput, unknownNamedArgument, functionRequiresInputRange, inOutMustBeAssigned, inOutNeedsWritable, inOutConstantNeedsVariable, inOutTypeMismatch, cannotConvert, signChange | 44 / 0 | 44 / 1 | FP tc lex_vector_twincat_return_type (div); builders GAP (0.3) |
-| call-result-access° | semicolonExpectedInsteadOf, codeHasNoEffect, callResultAccess | 2 / 0 | 2 / 0 | frontend 2.5.4; reviewed in 3.8 |
-| fb-instantiation | fbMustBeInstantiated, interfaceMustBeInstantiated, cannotCallObjectOfType | 2 / 0 | 2 / 0 | OK |
-| intrinsic-operands | 14 builders (operatorNeedsExactly … queryInterfaceSecond) | 25 / 0 | 25 / 0 | builders GAP (0.3) |
-| non-callable-call | cannotCallType, callTargetExpected | 5 / 0 | 5 / 0 | OK |
-| recursive-call | callTargetExpected | 1 / 0 | 1 / 0 | OK |
+| call-arguments | inputAssignmentMissing, functionRequiresInputs, unknownNamedOutput, unknownNamedArgument, functionRequiresInputRange, inOutMustBeAssigned, inOutNeedsWritable, inOutConstantNeedsVariable, propertyBoundToInOut, inOutTypeMismatch, cannotConvert, signChange | 81 / 0 | 82 / 1 | 3.8: a FUNCTION's/METHOD's/interface method's in-outs count among its inputs, whichever is missing (gate 3.7+3.9); an output binding's unknown name; call results, bits and properties need a variable; a CODESYS variable default is none (read in the callee's scope); FP tc lex_vector_twincat_return_type (div) |
+| call-result-access° | semicolonExpectedInsteadOf, codeHasNoEffect, callResultAccess | 4 / 0 | 4 / 0 | 3.8: an index on a METHOD's result — agree |
+| fb-instantiation | fbMustBeInstantiated, interfaceMustBeInstantiated, cannotCallObjectOfType | 10 / 0 | 10 / 0 | 3.8: a type's name as a routine's (or __QUERYINTERFACE's) argument |
+| intrinsic-operands | 14 builders (operatorNeedsExactly … queryInterfaceSecond) | 35 / 0 | 28 / 0 | 3.8: every builder fired but `boundsNeedVariableLength` on CODESYS (by rule); SQRT converts its operand to LREAL; ADR of a bit access warns on CODESYS |
+| non-callable-call | cannotCallType, callTargetExpected | 12 / 0 | 9 / 0 | 3.8: a STRUCT instance called calls a 'TYPE'; an enum value is named as written; a refused call has no type |
+| recursive-call | callTargetExpected | 2 / 0 | 2 / 0 | 3.8: a METHOD calling itself too (its echo niche); CODESYS's mutual-recursion warning niche |
 
 ### flow/
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| case-labels | caseLabelNonConst, cannotConvert, caseRangeInverted, caseLabelDuplicate, caseLabelInRange, caseOverlappingRanges | 1 / 0 | 0 | 5 of 6 builders **GAP** |
-| statement-rules | notAssignmentTarget, multipleAssignmentNew, noEnclosingLoop | 3 / 0 | 3 / 0 | OK |
+| case-labels | caseLabelNonConst, cannotConvert, caseRangeInverted, caseLabelDuplicate, caseLabelInRange, caseOverlappingRanges | 16 / 0 | 15 / 0 | 3.9: every builder fires and agrees; a REAL label is the parser's (niche) |
+| statement-rules | notAssignmentTarget, multipleAssignmentNew, noEnclosingLoop | 16 / 0 | 15 / 0 | 3.9: a VAR_INPUT CONSTANT is written in the body without a word |
 | new-in-expression (CODESYS) | newInExpression | 1 / 1 | — | div cc5_new_in_expression (rule unmeasured on CODESYS) |
-| jump-labels | jumpLabelDuplicate, jumpLabelUndefined, jumpInvalidDestination, jumpLabelUnreferenced | 1 / 0 | 1 / 0 | 2 builders GAP |
-| no-op-statement | codeHasNoEffect | 16 / 1 | 16 / 1 | FP lit_time_fraction_ms |
-| empty-block | emptyStatementBlock | 1 / 0 | 1 / 0 | OK |
-| loop-exit | loopExitConstantFalse | 2 / 1 | 2 / 1 | FP cc6_loop_cannot_exit |
-| this-super-context | superWithoutBase, thisNotAllowed, superNotAllowed | 5 / 0 | 5 / 0 | OK |
+| jump-labels | jumpLabelDuplicate, jumpLabelUndefined, jumpInvalidDestination, jumpLabelUnreferenced | 12 / 0 | 23 / 0 | 3.9: every builder fires and agrees (TwinCAT's FP all recovery divergences) |
+| no-op-statement | codeHasNoEffect | 152 / 0 | 160 / 0 | 3.9: `lit_time_fraction_ms` agrees (frontend 2.8.3); array element, THIS^ member, typed literal, property, enum value agree |
+| empty-block | emptyStatementBlock | 10 / 0 | 10 / 0 | 3.9: an empty ELSE is said at the ELSE (TwinCAT's one-per-line) |
+| loop-exit | loopExitConstantFalse | 4 / 0 | 4 / 0 | 3.9: `cc6_loop_cannot_exit` agrees (frontend 4.2); BYTE/USINT/INT down-to-min loops agree |
+| this-super-context | superWithoutBase, thisNotAllowed, superNotAllowed | 12 / 0 | 12 / 0 | 3.9: SUPER^ called in a PROGRAM (and a FUNCTION, gate 3.7+3.9) is no call target too |
 
 ### pragmas/, syntax/, network/
 

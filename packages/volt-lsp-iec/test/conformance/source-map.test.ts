@@ -52,7 +52,9 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // (`self.v = …`) — the VAR_IN_OUT substitution, as `callshape_*`.
 // 35 -> 38 (2026-10-03, frontend-conformance 4.3.4), read, the documented `match` class: `ar_queryinterface_type`'s
 // `out1 := __QUERYINTERFACE(ia, ib)` (refused by both vendors — it stores a BOOL into a STRING — and lowered all the same).
-const RENAMED_TARGETS = 38
+// 38 -> 41 (2026-10-06, analysis-conformance 3.8), read, the documented `match` class: `calls_queryinterface_legal`'s
+// `ok := __QUERYINTERFACE(src, dst)` (built and run by CODESYS), whose three arms set `dst`.
+const RENAMED_TARGETS = 41
 
 interface Program {
   name: string
