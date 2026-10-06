@@ -16,7 +16,7 @@ import { FB_MODIFIERS } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readHeaderName, readModifiers, readNameList, refusedAccessModifier } from "../names.js"
 import { collectVarSections } from "../declarations.js"
-import { readImplements, refuseLateClauses } from "./header.js"
+import { parseReturnTypeClause, readImplements, refuseLateClauses } from "./header.js"
 
 export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   const start = c.expectKeyword("FUNCTION_BLOCK")
@@ -41,6 +41,11 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
+
+  // A return type on a FUNCTION_BLOCK (`FUNCTION_BLOCK X : INT`) is illegal — captured as a PROGRAM's is, so a check
+  // emits C0182 and the declarations under it stay the FB's (`hdr_fb_return_type`, both vendors 2026-10-06: that one
+  // message and nothing else).
+  const returnType = parseReturnTypeClause(c)
 
   // Optional EXTENDS X. FBs are single-inheritance, but a stray `EXTENDS A, B` appears in error cases —
   // capture the illegal extra bases (rather than leaving `, B` to corrupt the following var-sections) so a
@@ -72,6 +77,7 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
     name,
     modifiers,
     ...(refused !== undefined ? { headerRefused: true as const } : {}),
+    ...returnType,
     ...(extendsName !== undefined ? { extends: extendsName } : {}),
     ...(extendsExtra !== undefined ? { extendsExtra } : {}),
     ...(implementsList !== undefined ? { implements: implementsList } : {}),

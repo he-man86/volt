@@ -3,7 +3,7 @@
  * CODESYS SP21 (2026-09-30, conformance `objects/written-as-sent.ts`, push-without-header-check 4.1/4.2).
  */
 import { expect, test } from "bun:test"
-import { parseDocument, parseSource, sourceObjectOf } from "../index.js"
+import { objectNameOf, parseDocument, parseSource, sourceObjectOf } from "../index.js"
 
 const read = (uri: string, source: string) => {
   const r = parseDocument(uri, source, { networkText: true })
@@ -70,4 +70,11 @@ test("the object is read from a URI's path, not its query or fragment", () => {
 test("a GVL whose text opens with VAR_ACCESS is a global variable list", () => {
   const source = "VAR_ACCESS\n\taccD : PLC_PRG.d : INT READ_WRITE;\nEND_VAR\n"
   expect(read("GVL_A.gvl", source)).toEqual({ units: ["global_var_list"], errors: [] })
+})
+
+test("the object's name is the file's base name without its kind extension, and a non-source text names none", () => {
+  expect(objectNameOf("file:///w/Application/GVL_Main.gvl")).toBe("GVL_Main")
+  expect(objectNameOf(String.raw`C:\w\FB_A.pou`)).toBe("FB_A")
+  expect(objectNameOf("DUT_A.dut")).toBe("DUT_A")
+  expect(objectNameOf("unit.st")).toBeUndefined()
 })

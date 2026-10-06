@@ -42,7 +42,7 @@ import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { comparable } from "../conformance/support/compare-message.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "../conformance/support/divergences.js"
-import { withReplayFixture } from "../conformance/support/replay.js"
+import { networkDocuments, replayDocuments, withReplayFixture } from "../conformance/support/replay.js"
 import { projectDocuments } from "../corpus/support/diagnostics.js"
 import { corpusProjects, normMessage, PACKAGE } from "../frontend/sources.js"
 import type { Baseline } from "../frontend/baseline.js"
@@ -308,9 +308,9 @@ const isReported = (d: { severity: string }): d is { severity: "error" | "warnin
 /** Every finding the analysis emits for fixture `i`, attributed — the replay's documents, the replay's project. */
 function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recordingMessages>): Finding[] {
   const config = resolveConfig({ vendor })
-  return withReplayFixture(i, vendor, ({ own, plc, lists }, project) => {
+  return withReplayFixture(i, vendor, (files, project) => {
     const out: Finding[] = []
-    for (const doc of [own, ...(plc === undefined ? [] : [plc]), ...lists]) {
+    for (const doc of replayDocuments(files)) {
       const ctx: CheckContext = {
         parseResult: doc.parseResult,
         source: doc.source,
@@ -340,11 +340,13 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
         out.push({ severity: it.severity, message: it.message, ...who })
       }
     }
-    rec.take()
-    const network = computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, rec.messages)
-    const window = rec.take()
-    for (const it of network)
-      if (isReported(it)) out.push({ severity: it.severity, message: it.message, row: NETWORK_ROW, builder: window.get(it.message) ?? INLINE })
+    for (const doc of networkDocuments(files)) {
+      rec.take()
+      const network = computeNetworkTextDiagnostics({ uri: doc.uri, source: doc.source, parseResult: doc.parseResult }, project, rec.messages)
+      const window = rec.take()
+      for (const it of network)
+        if (isReported(it)) out.push({ severity: it.severity, message: it.message, row: NETWORK_ROW, builder: window.get(it.message) ?? INLINE })
+    }
     return out
   })
 }

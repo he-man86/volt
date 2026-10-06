@@ -1,7 +1,8 @@
 /**
  * header-rules (declarations/) — POU-header shape rules that a single additive parser field makes visible:
  *   C0096 multiple-inheritance      — an FB `EXTENDS A, B` names more than one base (single inheritance only).
- *   C0182 return-type-not-allowed   — a return type on a POU that isn't a FUNCTION/METHOD (e.g. `PROGRAM P : BOOL`).
+ *   C0182 return-type-not-allowed   — a return type on a POU that isn't a FUNCTION/METHOD (`PROGRAM P : BOOL`, and
+ *          `FUNCTION_BLOCK X : INT` — `hdr_fb_return_type`, both vendors 2026-10-06).
  *   C0421 interface-implements       — an INTERFACE using `IMPLEMENTS` where interface inheritance needs `EXTENDS`.
  *   C0149 var-in-interface           — a VAR section placed directly in an INTERFACE body (signatures only).
  *   C0144 inheritance-not-allowed    — `EXTENDS` on an alias (with "Keyword EXTENDS not applicable"), or on an enum
@@ -52,7 +53,7 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
         code: "multiple-inheritance",
         message: ctx.messages.multipleInheritance(),
       })
-    } else if (unit.kind === "program" && unit.returnType !== undefined) {
+    } else if ((unit.kind === "program" || unit.kind === "function_block") && unit.returnType !== undefined) {
       out.push({
         severity: "error",
         span: unit.returnType.span,

@@ -178,7 +178,7 @@ function printUnitItself(unit: TopLevel): string {
 // second base) is still the file's text: reprinted without it, formatting deleted it (conformance 2.4).
 function fbHeader(fb: Extract<TopLevel, { kind: "function_block" }>): string {
   const bases = fb.extends ? [fb.extends, ...(fb.extendsExtra ?? [])] : []
-  return `FUNCTION_BLOCK ${modifierText(fb.modifiers)}${fb.name.text}${namesClause("EXTENDS", bases)}${namesClause("IMPLEMENTS", fb.implements)}`
+  return `FUNCTION_BLOCK ${modifierText(fb.modifiers)}${fb.name.text}${returnTypeText(fb.returnType)}${namesClause("EXTENDS", bases)}${namesClause("IMPLEMENTS", fb.implements)}`
 }
 
 /** ` KEYWORD a, b` for a header's name list, or nothing when it has none. */

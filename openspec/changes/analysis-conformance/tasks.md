@@ -699,14 +699,66 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.4 declarations B
 
-- [ ] 3.4.1 declarations B (at-address, header-rules, attribute-placement, var-section-placement, inout-initializer,
+- [x] 3.4.1 declarations B (at-address, header-rules, attribute-placement, var-section-placement, inout-initializer,
       unknown-type, system-initializer, refused-initializer, dynamic-creation, signature-name): fixtures for header-rules'
       unfired builders. Where: fixtures/. Acceptance: list here. Depends on: 3.3.5
-- [ ] 3.4.2 Record 3.4.1, both vendors. Acceptance: CA.1. Depends on: 3.4.1
-- [ ] 3.4.3 FPs: cc2_var_in_interface, itf_var_section_declaration, sn_dut_mismatch. Where: checks/declarations.
+      **Fixtures (2026-10-06), 22** — `declarations/declaration-rules-b.ts`, rule by rule. header-rules' two 0-TP builders
+      (TwinCAT `unionInheritance`, `inputInPropertyAccessor`) are CODESYS's by rule (measured: `unit_type_extends_on_union`
+      builds on TwinCAT; the push refuses an accessor's text there), so the cells are the rules no fixture asked:
+      `hdr_fb_return_type`, `hdr_fb_extends_three`, `hdr_interface_extends_two` (legal), `hdr_function_private`,
+      `hdr_program_protected`, `hdr_fb_property_no_accessor`, `hdr_interface_var_output_used`; var-section-placement
+      `vsp_var_global_in_fb`, `_in_program`, `vsp_retain_in_function`, `vsp_retain_input_in_function`,
+      `vsp_var_config_in_function`, `vsp_retain_output_in_fb` (legal); inout-initializer `ioinit_fb_instance_literal`,
+      `ioinit_array_initializer`, `ioinit_struct_initializer`; signature-name `sn_enum_mismatch_used`,
+      `sn_alias_mismatch_used`, `sn_union_mismatch_used`, `sn_fb_case_only` (silent); attribute-placement
+      `attrp_pack_mode_on_function`, `attrp_pack_mode_on_program` (legal). at-address, unknown-type, refused-initializer and
+      dynamic-creation fire on their recorded fixtures with no unasked rule (system-initializer is gone, 0.5).
+- [x] 3.4.2 Record 3.4.1, both vendors. Acceptance: CA.1. Depends on: 3.4.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`, TwinCAT `-Fixture 13`): one batch of 22
+      per vendor (three header fixtures pushed AS SENT — the parser misreads their header, so its split could not mark the
+      body). `record:exec` CODESYS: 7 that build; `ioinit_array_initializer` and `ioinit_struct_initializer` answer "Login
+      failed..." alone each (an FB_INIT reading an unbound VAR_IN_OUT — the application does not start) and carry `execSkip`
+      (unaskable 83 → 85).
+- [x] 3.4.3 FPs: cc2_var_in_interface, itf_var_section_declaration, sn_dut_mismatch. Where: checks/declarations.
       Acceptance: CA. Depends on: 3.4.2
-- [ ] 3.4.4 Gaps of the group. Acceptance: CA. Depends on: 3.4.2
-- [ ] 3.4.5 Close declarations B. Acceptance: CA.3–4. Depends on: 3.4.3, 3.4.4
+      **Done 2026-10-06.** The three stay divergences, re-confirmed: each is an object NOTHING reaches (an interface no one
+      implements, a DUT no one uses) — both vendors build it clean and the replay has no reachability;
+      `hdr_interface_var_output_used` and `sn_*_mismatch_used` measure the same rules reached, and agree. Found by the cells
+      and FIXED test-first (colocated tests): `signature-name` reads the object's name from the document's uri — an ALIAS has
+      no scope to ask, so `sn_alias_mismatch_used` was silent (a `.st` text names no object, `sourceObjectOf`); the parser
+      reads a FUNCTION_BLOCK's return type and `header-rules` says C0182 for it as for a PROGRAM (`hdr_fb_return_type`: one
+      message on both vendors, the LSP gave a 13-error cascade; the printer keeps the clause). Divergence opened:
+      `hdr_function_private`, `hdr_program_protected` — niche: accepted loss (0 occurrences in the corpora; the header
+      grammar has no access modifier on a FUNCTION / PROGRAM, and "Cannot access private method ???.F" is the access rule
+      family, 3.11's) — `ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM`.
+- [x] 3.4.4 Gaps of the group. Acceptance: CA. Depends on: 3.4.2
+      **Done 2026-10-06.** Three of the group's GAPs were ONE cause outside the checks: the build compiles a fixture's
+      dependencies and records their errors under the fixture, the replay analysed only the fixture's own files. The replay
+      now analyses the items and lists of every fixture a fixture depends on (`support/replay.ts` `dependencies`, the census
+      the same documents) — measured first, both vendors: 3 fixtures gain the dependency's recorded message, none gains an
+      unrecorded one (`sn_dut_mismatch_used` agrees and leaves KNOWN_DIVERGENCES.codesys; `interface_with_property_impl`
+      agrees; `itf_var_section_inherited` gets its interface error, still a divergence for the body the vendor never checks).
+      inout-initializer (test-first): a VAR_IN_OUT read in an ARRAY / STRUCT initializer, and an FB instance initialized
+      through its FB's VAR_IN_OUT, are the uninitialized access (`ioinit_*`, `cc5_fb_init_inout`'s GAP closed). Left with
+      named census exceptions: the external-access warning from FB_INIT and the literal's conversion into the REFERENCE
+      (`ioinit_*` — inout-access / fb-init-inout, 3.6), CODESYS's second copy of the aggregate warning (said once), the two
+      access-modifier fixtures (3.11). The remaining signature-name GAPs (8) are the member-header niche divergences.
+- [x] 3.4.5 Close declarations B. Acceptance: CA.3–4. Depends on: 3.4.3, 3.4.4
+      **Closed 2026-10-06.** Census rewritten: group declarations open FP 0 → 0 (FP(div) 3 → 3, both vendors), GAP 19 → 19
+      CODESYS (−4 closed, +2 access-modifier niche, +2 CODESYS's double aggregate warning), 18 → 16 TwinCAT; never-fired
+      builders 0 / 7 unchanged (TwinCAT's by rule). checkHeaderRules TP 34 → 40 / 29 → 35, checkVarSectionPlacement 4 → 9,
+      checkInoutInitializer 2 → 6 (GAP 1 → 2 / 1 → 0), checkSignatureName 3 → 7 (GAP 9 → 8), checkAttributePlacement
+      1 → 2 (CODESYS). Totals: TP 5358 → 5379 / 6565 → 6585; FP 108 → 117 / 337 → 346 (all FP(div): the two
+      access-modifier fixtures), open FP 0; GAP 464 → 470 / 809 → 813, unowned 76 → 78 / 109 → 111 (each rise a named
+      exception in `test/frontend/baseline.ts`). Coverage unchanged (0-TP builders 11 / 36). Divergences: opened
+      `hdr_function_private`, `hdr_program_protected` (both vendors); closed `sn_dut_mismatch_used` (CODESYS). `rate:fixtures`:
+      confirmed 2745 → 2750, refused 1858 → 1873, unaskable 83 → 85. Frontend baselines: the new fixtures' counts; one
+      type-dump exception (`ioinit_fb_instance_literal`: an FB initializer's field is no store the bound census reads).
+      `test/conformance` 6033 pass, 0 fail; agreement CODESYS 4679, TwinCAT 4584 of 5137. design.md §5 rows updated.
+      **Gate review (3.4+3.6, 2026-10-06):** `inout-initializer`'s FB-instance branch (`w : B := (target := x)`) ran in
+      every unit kind; both recordings declare the instance in a FUNCTION_BLOCK and its sibling inout-access
+      `initializerAccess` refuses the rest — now FB declarations only (test-first; a PROGRAM's gives `fb-init-inout`
+      alone, as before 3.4).
 
 ### 3.5 names
 

@@ -231,3 +231,14 @@ test("an interface METHOD's local sections: each is refused, in each vendor's wo
   )
   expect(all(itf("VAR_IN_OUT")).concat(all(itf("VAR_OUTPUT"), "twincat"))).toEqual([])
 })
+
+// analysis-conformance 3.4 (`hdr_fb_return_type`, both vendors 2026-10-06): a FUNCTION_BLOCK's return type is C0182 as a
+// PROGRAM's is — the one message, and the rest of the FB read as written
+test("C0182: a return type on a FUNCTION_BLOCK is flagged, and nothing else", () => {
+  const src = `FUNCTION_BLOCK FB : INT\nVAR\n\tout : INT;\nEND_VAR\nout := 1;\nEND_FUNCTION_BLOCK`
+  expect(msgs(src, "return-type-not-allowed")).toEqual(["Return type is only possible for POUs of type FUNCTION and METHOD"])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source: src }])
+  const all = computeSemanticDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(all.map((d) => d.code)).toEqual(["return-type-not-allowed"])
+})

@@ -8,12 +8,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
-import { uriFor } from "../../test-uri.js"
 
 const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] => {
   const parseResult = parseSource(source, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor }) })
+  return computeSemanticDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "signature-name-mismatch")
     .map((d) => d.message)
 }
@@ -45,4 +44,14 @@ test("a file packing SEVERAL items is not a workspace file, so it is skipped", (
 // records on neither: that is reachability, and it is in `KNOWN_DIVERGENCES` on both sides.)
 test("TwinCAT reports it too", () => {
   expect(at("FB_Object.pou", `FUNCTION_BLOCK FB_Signature\nEND_FUNCTION_BLOCK`, "twincat")).toEqual(MISMATCH)
+})
+
+// analysis-conformance 3.4 (both vendors, recorded 2026-10-06, `sn_alias_mismatch_used`, `sn_enum_mismatch_used`,
+// `sn_union_mismatch_used`): every DUT body is held to it — an ALIAS too, which has no scope of its own, so the object's
+// name is read from the document's uri, not from a scope's
+test("an ALIAS, an ENUM and a UNION whose signature names another object", () => {
+  expect(at("DUT_AliasObject.dut", `TYPE DUT_AliasSignature : INT;\nEND_TYPE`)).toEqual(MISMATCH)
+  expect(at("DUT_EnumObject.dut", `TYPE DUT_EnumSignature :\n(\n\ta,\n\tb\n);\nEND_TYPE`)).toEqual(MISMATCH)
+  expect(at("DUT_UnionObject.dut", `TYPE DUT_UnionSignature :\nUNION\n\ti : INT;\n\tw : WORD;\nEND_UNION\nEND_TYPE`)).toEqual(MISMATCH)
+  expect(at("DUT_AliasSame.dut", `TYPE DUT_AliasSame : INT;\nEND_TYPE`)).toEqual([])
 })

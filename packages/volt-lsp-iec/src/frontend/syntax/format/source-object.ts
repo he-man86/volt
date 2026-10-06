@@ -47,6 +47,18 @@ export function sourceObjectOf(uri: string): SourceObject | undefined {
 }
 
 /**
+ * The OBJECT's name a workspace file holds: its base name without the kind extension (`GVL_Main.gvl` → `GVL_Main`) — the
+ * name the IDE gives the object, which its text may disagree with (`signature-name`) or not state at all (a GVL). Undefined
+ * for text that is no workspace source file (`sourceObjectOf`): a `.st` scratch text names no object.
+ */
+export function objectNameOf(uri: string): string | undefined {
+  if (sourceObjectOf(uri) === undefined) return undefined
+  const path = pathOf(uri)
+  const base = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1)
+  return base.slice(0, base.lastIndexOf("."))
+}
+
+/**
  * The PATH a document is named by. A URI's object is its path's, never the last `.` of the whole string: the client's
  * selector is language-only, so an SCM diff's HEAD side arrives as `git:/…/DUT_A.dut?{"path":…,"ref":"HEAD"}`,
  * whose query ends inside encoded JSON. A scheme is two or more characters, so a drive letter (`C:\w\X.pou`) and a

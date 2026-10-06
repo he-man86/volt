@@ -648,6 +648,10 @@ export interface FunctionBlock {
    *  FB at all and say nothing about the header — only "Unknown type" where it is used (`unit_fb_final_public_order`,
    *  `unit_fb_public_internal`, 2026-10-01). The binder declares no symbol for it. */
   headerRefused?: true
+  /** A return type illegally declared on a FUNCTION_BLOCK (`FUNCTION_BLOCK X : INT`) — drives C0182, as a PROGRAM's. */
+  returnType?: TypeExpr
+  /** A `: <type>` the parser refused — `returnType` is then absent, and this says one was declared. */
+  returnTypeRefused?: true
   extends?: Identifier
   /** The illegal 2nd+ bases when the EXTENDS list has more than one (single inheritance only) — drives C0096. */
   extendsExtra?: Identifier[]

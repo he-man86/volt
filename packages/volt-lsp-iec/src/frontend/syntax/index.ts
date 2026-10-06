@@ -101,7 +101,7 @@ export {
   statedLine,
 } from "./format/implementation-line.js"
 export { retiredCommentIn } from "./format/retired-comments.js"
-export { sourceObjectOf } from "./format/source-object.js"
+export { objectNameOf, sourceObjectOf } from "./format/source-object.js"
 export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isStBody, unitBodies } from "./format/bodies.js"
 
 // printing a declared type or an expression

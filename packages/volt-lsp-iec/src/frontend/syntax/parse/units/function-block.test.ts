@@ -44,3 +44,12 @@ test("an IMPLEMENTS list ending in a comma: the name it wants is an identifier, 
     "Identifier expected instead of 'VAR'",
   )
 })
+
+test("a return type after the FB's name is read as one (C0182 is the check's), not left to the body", () => {
+  // `hdr_fb_return_type`, both vendors 2026-10-06: "Return type is only possible for POUs of type FUNCTION and METHOD", and
+  // nothing else — the declarations under it are the FB's
+  const r = fb("FUNCTION_BLOCK X : INT\nVAR\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK")
+  expect(r.errors).toEqual([])
+  expect(r.unit.returnType?.kind).toBe("named_type")
+  expect(r.unit.varSections).toHaveLength(1)
+})

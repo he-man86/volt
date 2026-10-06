@@ -18,11 +18,10 @@
  * one and the build is still clean. Measuring it UNREFERENCED would have proved nothing — that is the mistake
  * that deleted C0149 for a day.
  *
- * CODESYS-only: TwinCAT is unmeasured. The rule is structural and almost certainly shared, but "almost
- * certainly" is how a false positive gets written.
+ * BOTH VENDORS, measured: TwinCAT answers every `sn_*` fixture as CODESYS does (an ENUM, an ALIAS, a UNION and a STRUCT
+ * mismatch reached from PLC_PRG, analysis-conformance 3.4, 2026-10-06).
  */
-import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
-import { scopeForUnit } from "../../../frontend/symbols/index.js"
+import { objectNameOf, type Identifier, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -46,9 +45,8 @@ export function checkSignatureName(ctx: CheckContext, out: DiagnosticItem[]): vo
   const unit = tops[0]!
   if (!NAMED_POU.has(unit.kind) || !("name" in unit)) return
   const named = unit as TopLevel & { name: Identifier }
-  const uri = scopeForUnit(ctx.project, named)?.defUri
-  if (uri === undefined) return
-  const object = objectName(uri)
+  // the DOCUMENT is the object: its uri names it (an alias has no scope to ask, `sn_alias_mismatch_used`)
+  const object = objectNameOf(ctx.uri)
   if (object === undefined || object.toLowerCase() === named.name.text.toLowerCase()) return
   out.push({
     severity: "error",
@@ -57,12 +55,4 @@ export function checkSignatureName(ctx: CheckContext, out: DiagnosticItem[]): vo
     code: "signature-name-mismatch",
     message: ctx.messages.signatureNameMismatch(),
   })
-}
-
-/** The object's name: the file's base name without its kind extension. */
-function objectName(uri: string): string | undefined {
-  const base = uri.split(/[\\/]/).pop()
-  if (base === undefined || base.length === 0) return undefined
-  const dot = base.lastIndexOf(".")
-  return dot <= 0 ? base : base.slice(0, dot)
 }

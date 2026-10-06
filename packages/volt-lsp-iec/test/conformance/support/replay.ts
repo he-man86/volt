@@ -14,7 +14,7 @@ import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { computeDiagnostics, messagesFor, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
-import { splitLists } from "./fixture-units.js"
+import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { RECORDING_ENVIRONMENT } from "./recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./project-libraries.js"
@@ -100,7 +100,7 @@ const DIALECT_SENSITIVE = {
   test: (source: string): boolean =>
     DIALECT_WORDS.test(source) || [...source.matchAll(LITERAL_PREFIX)].some((m) => !TWINCAT_LITERAL_PREFIXES.has(m[1].toUpperCase())),
 }
-type ReplayDoc = { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }
+export type ReplayDoc = { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }
 // By the document, not its uri: fixtures share a POU name, so two fixtures' files can share a uri.
 const TC_PARSE = new WeakMap<object, ReplayDoc>()
 function asVendor<T extends ReplayDoc>(doc: T, vendor: Vendor): T | ReplayDoc {
@@ -150,11 +150,35 @@ function restore(): void {
   pending = undefined
 }
 
-/** One fixture's files as the replay analyses them: its own item, its PLC_PRG (when it has one) and its global lists. */
+/** One fixture's files as the replay analyses them: its own item, its PLC_PRG (when it has one), its global lists, and
+ *  the items and lists of every fixture it depends on. */
 export interface ReplayFiles {
   own: ReplayDoc
   plc: ReplayDoc | undefined
   lists: readonly ReplayDoc[]
+  /**
+   * THE BUILD COMPILES WHAT THE FIXTURE USES. `record:language` pushes every fixture this one depends on
+   * (`withDependencies`: a base FB, an interface, a DUT, a global) and records everything the build says — a
+   * dependency's own error lands under this fixture's name (`sn_dut_mismatch_used`, `interface_with_property_impl`,
+   * `itf_var_section_inherited`). So the replay analyses those files too. Measured 2026-10-06 (analysis-conformance
+   * 3.4), both vendors: 3 fixtures gain the dependency's recorded message, none gains one the build did not record.
+   */
+  dependencies: readonly ReplayDoc[]
+}
+
+/** Per fixture index, the indices of the fixtures it depends on (not itself), once. */
+const DEPENDENCIES = new Map<number, readonly number[]>()
+const INDEX_OF = new Map(ALL_TESTS.map((t, i) => [t.name, i]))
+function dependencyIndices(testIdx: number): readonly number[] {
+  let hit = DEPENDENCIES.get(testIdx)
+  if (hit === undefined) {
+    const t = ALL_TESTS[testIdx]!
+    hit = withDependencies(t, ALL_TESTS)
+      .filter((f) => f.name !== t.name && f.source !== "")
+      .map((f) => INDEX_OF.get(f.name)!)
+    DEPENDENCIES.set(testIdx, hit)
+  }
+  return hit
 }
 
 /**
@@ -180,7 +204,13 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
   // every fixture after the first resolved an ambiguous library name as if no library could see another
   build.relink(project, PROJECT_MANIFESTS)
   pending = { project, idx: testIdx, plcUri: plc?.uri }
-  return ask({ own, plc, lists }, project)
+  // each dependency's own files, as bound (its declaration-only copy holds the same units, so its checks resolve as in
+  // its own replay)
+  const dependencies = dependencyIndices(testIdx).flatMap((j) => {
+    const split = splitLists(ALL_TESTS[j]!, asVendor(PARSED[j] as (typeof PARSED)[number], vendor))
+    return [split.item, ...split.lists]
+  })
+  return ask({ own, plc, lists, dependencies }, project)
 }
 
 /**
@@ -191,11 +221,23 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
  * gate (`fixtures.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
  * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
  */
-export function replayDiagnostics({ own, plc, lists }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
+export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {
   const config = resolveConfig({ vendor })
-  const docs = [own, ...(plc === undefined ? [] : [plc]), ...lists]
+  const docs = replayDocuments({ own, plc, lists, dependencies })
   return [
     ...docs.flatMap((d) => computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config })),
-    ...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)),
+    ...networkDocuments({ own, plc, lists, dependencies }).flatMap((d) =>
+      computeNetworkTextDiagnostics({ uri: d.uri, source: d.source, parseResult: d.parseResult }, project, messagesFor(vendor)),
+    ),
   ]
+}
+
+/** The documents the pipeline runs over: the fixture's item, its PLC_PRG, its lists, and its dependencies' files. */
+export function replayDocuments({ own, plc, lists, dependencies }: ReplayFiles): ReplayDoc[] {
+  return [own, ...(plc === undefined ? [] : [plc]), ...lists, ...dependencies]
+}
+
+/** The documents the network-text pass runs over: the fixture's own item and its dependencies' files. */
+export function networkDocuments({ own, dependencies }: ReplayFiles): ReplayDoc[] {
+  return [own, ...dependencies]
 }
