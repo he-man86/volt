@@ -4,7 +4,8 @@
  *   border-order               a subrange or array dimension whose lower bound folds above its upper (`INT(10..0)`,
  *                              `ARRAY[5..1]`) — "Lower border must be lower than upper border";
  *   reference-base-type        a REFERENCE as the base of an array, a pointer or a reference (`ARRAY OF REFERENCE TO
- *                              INT`, `POINTER TO REFERENCE TO INT`, `REFERENCE TO REFERENCE TO INT`);
+ *                              INT`, `POINTER TO REFERENCE TO INT`, `REFERENCE TO REFERENCE TO INT`), a STRUCT's component's
+ *                              too;
  *   vector-base-type           a `__VECTOR` of an elementary type other than REAL/LREAL (CODESYS; TwinCAT has none);
  *   variable-length-placement  an `ARRAY[*]` outside the sections each vendor's own sentence names: VAR_IN_OUT
  *                              anywhere, and on CODESYS a function's or a method's VAR_INPUT too — a STRUCT field is
@@ -27,9 +28,16 @@ export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): voi
   const push = (span: Span, code: string, message: string) => out.push({ severity: "error", span, source: SOURCE, code, message })
   // a STRUCT field holds a declared type too, and takes no ARRAY[*]: no call lends it (forEachDecl walks
   // var sections only, so the fields are walked here)
+  // …and a REFERENCE as an array's, a pointer's or a reference's base type there too (`refbit_struct_array_component`, the
+  // analysis-conformance 3.11 gate review, both vendors)
   for (const unit of ctx.parseResult.units)
     if (unit.kind === "type_decl" && unit.body.kind === "struct")
-      for (const decl of unit.body.fields) checkVariableLength(ctx, decl, false, push)
+      for (const decl of unit.body.fields) {
+        checkVariableLength(ctx, decl, false, push)
+        walk(decl.type, (t, base) => {
+          if (base && t.kind === "reference_type") push(t.span, "reference-base-type", ctx.messages.referenceAsBaseType())
+        })
+      }
   for (const { unit, section, decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     checkVariableLength(ctx, decl, takesVariableLength(ctx.config.vendor, unit.kind, section.sectionKind), push)
     walk(decl.type, (t, base) => {

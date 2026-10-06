@@ -73,6 +73,8 @@ describe("the census's own rules", () => {
     expect(unownedClass("';' expected instead of '…'")).toBe("owned-by-frontend")
     expect(unownedClass("No memory for dynamic object creation")).toBe("project-config")
     expect(unownedClass("Some rule nobody wrote a check for")).toBe("missing-rule")
+    // the device's memory segment (task 3.11 reclassified it from missing-rule)
+    expect(unownedClass("The variable '…' is too large. (variable size: 2147483647, segment size: 2147483647)")).toBe("project-config")
   })
 })
 

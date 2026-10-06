@@ -28,10 +28,10 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 106,
-    "total: GAP": 447,
+    "total: GAP": 446,
     "total: never-fired builders": 3,
     "total: open FP": 0,
-    "total: unowned GAP": 70
+    "total: unowned GAP": 68
   },
   "fixtures.twincat": {
     "group calls: GAP": 4,
@@ -62,10 +62,10 @@
     "group types: never-fired builders": 4,
     "group types: open FP": 0,
     "total: FP": 334,
-    "total: GAP": 792,
+    "total: GAP": 791,
     "total: never-fired builders": 27,
     "total: open FP": 0,
-    "total: unowned GAP": 102
+    "total: unowned GAP": 101
   },
   "corpus": {
     "total: FP": 216,

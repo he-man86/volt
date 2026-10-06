@@ -1094,21 +1094,175 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.10 pragmas + parse errors
 
-- [ ] 3.10.1 pragmas + parse-errors (pragmas, parse-errors; the 1.15 candidates are reviewed in their named groups, not
+- [x] 3.10.1 pragmas + parse-errors (pragmas, parse-errors; the 1.15 candidates are reviewed in their named groups, not
       here): fixtures for the pragma builders unfired on TwinCAT (27 CODESYS vs 5 TwinCAT fixtures). Where: fixtures/.
       Acceptance: list here. Depends on: 3.9.5
-- [ ] 3.10.2 Record 3.10.1, both vendors. Acceptance: CA.1. Depends on: 3.10.1
-- [ ] 3.10.3 FPs: parse-errors on the archived front-end (re-measured; parser-owned ones: a divergence naming the
+      **Fixtures (2026-10-06), 22** — `pragmas/pragma-check-rules.ts`. The five builders unfired on TwinCAT
+      (`abstractKeywordMissing`, `attributeOnlyOnVariables`, `invalidAttributeValue`, `invalidSymbolAttributeValue`,
+      `unknownAttribute`) are CODESYS-only by measurement, so `checks/pragmas` was put to both vendors rule by rule on the
+      placements and spellings no fixture had asked: abstract-keyword-missing `prag_rule_abstract_attribute_on_property`,
+      `_on_function`; attribute placement `prag_rule_pingroup_on_method`, `_on_function`, `_on_struct`; symbol value
+      `prag_rule_symbol_value_typo` (quoted), `_upper_case`, `_typo_on_fb`; closed value sets
+      `prag_rule_monitoring_encoding_lower_case`, `_unicode`; unknown attribute `prag_rule_unknown_attribute_on_method`,
+      `_on_function`, `_on_interface`, `_on_method_variable`, `_on_gvl_variable`, `_in_body`, `_upper_case`; message pragmas
+      (lower case, out of a body) `prag_rule_warning_in_var_section`, `prag_rule_error_in_var_section`,
+      `prag_rule_warning_above_unit`, `prag_rule_warning_in_gvl`, `prag_rule_warning_in_struct`.
+- [x] 3.10.2 Record 3.10.1, both vendors. Acceptance: CA.1. Depends on: 3.10.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`, TwinCAT on Project13): one batch of 22
+      per vendor; the two GVL cells again on both (their variable was `v`, which bound the list into every fixture naming a
+      `v`; then their initializer, which put them in the frontend dumps' NOSCOPE class — now `g_<name> : INT;`).
+      `record:exec` CODESYS: the 21 that build. TwinCAT: every attribute cell builds clean (the five builders stay
+      CODESYS-only, by rule); the message pragmas warn / fail as on CODESYS.
+- [x] 3.10.3 FPs: parse-errors on the archived front-end (re-measured; parser-owned ones: a divergence naming the
       frontend rule, or fixed in parse/errors if cheap). Where: checks/syntax, checks/pragmas. Acceptance: CA. Depends on: 3.10.2
-- [ ] 3.10.4 Gaps of the group. Acceptance: CA. Depends on: 3.10.2
-- [ ] 3.10.5 Close pragmas + parse errors. Acceptance: CA.3–4. Depends on: 3.10.3, 3.10.4
+      **Done 2026-10-06.** Re-measured: `checkParseErrors` FP 76 CODESYS / 276 TwinCAT, open FP 0 — every one on a fixture a
+      named frontend divergence holds (CODESYS: MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD 25, STATEMENT_DIVERGENCES 12,
+      DECLARATION_RECOVERY 6, SYSTEM_OPERAND_AT_STATEMENT_START 4, RECOVERY_DIVERGENCES 4, IMPLICIT_ENUM_LIST_RECOVERY 3,
+      ACCESSOR_TEXT_DROPPED_BY_THE_PUSH 3, …; TwinCAT: TWINCAT_NO_VAR_GENERIC 126, MEMBER_HEADER_… 25,
+      TWINCAT_VECTOR_REFUSAL_CASCADE 13, TWINCAT_DRIVER_CUTS_THE_ECHO 12, TWINCAT_REFUSED_LDATE_LITERAL_STOPS 11,
+      TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST 10, …; `pwh_*_then_prose` in KNOWN_DIVERGENCES with its reason) — none parser-owned
+      and cheap. `checkPragmas`: FP 0 / 2 (TwinCAT's `dead_method_hasattribute_unquoted`, PRAGMA_DIVERGENCES). Found by the
+      cells and FIXED test-first (colocated tests): `symbol`'s value set is lower case only (`'READ'` warns — the old test
+      accepted `'None'`/`'ReadWrite'` unrecorded); `monitoring_encoding`'s set is compared without case (`'utf-8'` builds
+      clean); an attribute written as a statement in a body is no attribute (CODESYS silent) — the front-end attached it to
+      the unit and the printer wrote it above the unit a second time (`attachAttributes` skips a POU's bodies now);
+      `{ATTRIBUTE '…'}` is no attribute — the word is case-sensitive like every pragma word (`readAttribute`).
+      Divergences opened: none.
+- [x] 3.10.4 Gaps of the group. Acceptance: CA. Depends on: 3.10.2
+      **Done 2026-10-06** (colocated tests). `checks/pragmas`: the abstract attribute without the keyword warns on a
+      PROPERTY and a FUNCTION too (CODESYS); an unknown attribute on a GVL's VARIABLE warns — only the LIST's pragma is
+      skipped. Census syntax GAP 34 / 84: every one on a fixture a named frontend divergence holds but one —
+      `sysop_position_as_argument` (CODESYS: `ABS(__POSITION);`, the argument list's recovery after `__POSITION` eats the
+      `)` takes the `;` too, "';' expected instead of end of POU"), pinned `CODESYS_POSITION_EATS_THE_CLOSING_PARENTHESIS`,
+      niche: accepted loss (0 `__POSITION` in the corpora). `flw_case_real_label`'s GAP is its `deferred.lsp` (3.9.4). The corpus's one pragmas GAP (pro2193, "SymbolConfig: Invalid value 'noe' …") has no source: 0 `'noe'` in the materialized files — the attribute sits in an object Volt does not pull (a corpus fact, not the rule).
+- [x] 3.10.5 Close pragmas + parse errors. Acceptance: CA.3–4. Depends on: 3.10.3, 3.10.4
+      **Closed 2026-10-06** (numbers against the 3.9 state). Group pragmas: open FP 0 → 0, GAP 0 → 0 both vendors,
+      never-fired builders 0 / 5 → 0 / 5 (TwinCAT's five CODESYS-only by rule, measured on 22 cells more);
+      checkPragmas TP 39 → 57 CODESYS, 3 → 8 TwinCAT (fired 38 → 56 / 5 → 10). Group syntax: open FP 0, FP 76 / 276 (all
+      divergence), GAP 34 → 34 / 84 → 84 (ceilings unchanged: nothing pre-existing closed; the one unnamed GAP pinned).
+      Totals: TP 5552 → 5570 / 6748 → 6753, FP and GAP unchanged; fixtures measured 5036 → 5058 / 5025 → 5047.
+      Divergences: opened `sysop_position_as_argument` (CODESYS, niche); closed none. `rate:fixtures`: confirmed
+      2769 → 2790, refused 1973 → 1974, not-lowered 367, lsp-gap 75, unaskable 90 unchanged. `test/conformance`: agreement
+      CODESYS 4816 → 4838, TwinCAT 4726 → 4748 of 5279 → 5301. Frontend baselines: the new fixtures' counts.
+      **Gate review (2026-10-06), its 3.10 findings**, each answered by a recording (4 cells in
+      `pragmas/pragma-check-rules.ts`, `record:language` both vendors in one batch with 3.11's, instance
+      `analysis-conformance`, TwinCAT on Project13; `record:exec` CODESYS for the ones that build):
+      - the abstract-keyword rule's unasked kinds: a PROGRAM warns (`prag_rule_abstract_attribute_on_program`) and so does a
+        METHOD of an INTERFACE (`_on_interface_method`, CODESYS; TwinCAT clean) — the warning does not depend on the POU
+        kind. FIXED test-first: the rule takes a PROGRAM, and an interface member by position (it carries no attributes of
+        its own; the pragma attaches to the interface). The LSP said nothing on the interface method (the finding's
+        "warns without a recording" no longer held). An ACTION cannot be asked: the push refuses an attribute above
+        `ACTION` (no declaration the IDE stores) — the cell was dropped, the reason in the file's header.
+      - `{ATTRIBUTE '…'}` on a KNOWN name: `qualified_only` in upper case leaves the global readable bare (both vendors build
+        `out := g_…;` clean, `prag_rule_qualified_only_upper_case`) and `hide` in upper case does not silence
+        monitoring_encoding's value check (CODESYS still warns 'UTF8', `prag_rule_hide_upper_case`) — the upper-case word is
+        no attribute for any consumer, as `readAttribute` reads it. Pinned (colocated tests in `attributes.test.ts`,
+        `pragmas.test.ts`); no code change.
+      Numbers (against the 3.11 state): checkPragmas TP 57 → 60 CODESYS, 8 → 8 TwinCAT; `abstractKeywordMissing` TP 8;
+      group pragmas open FP 0, GAP 0 both vendors.
 
 ### 3.11 Unowned gaps
 
-- [ ] 3.11 Unowned gaps (0.2's missing-rule class): each shape gets a new check in its group home (fixture + recording +
+- [x] 3.11 Unowned gaps (0.2's missing-rule class): each shape gets a new check in its group home (fixture + recording +
       src test), or `niche: accepted loss (N)`, or is reclassified project-config (a divergence category). The
       unowned-GAP ceiling is lowered.
       Where: checks/<group>, fixtures/, divergences.ts. Acceptance: CA; the classification table written here. Depends on: 3.10.5
+      **Done 2026-10-06.** Fixtures, 14 — `types/missing-rules.ts`: the duplicate enum value `enumdup_three_alike`,
+      `_two_pairs`, `_implicit_meets_written`, `_negative`, `_after_refused_implicit`, `_byte_base`, `_constant_and_literal`,
+      `_other_enum_member`, `_sibling_name`, `_inline_enum`; references to bits `refbit_struct_field`, `refbit_var_input`,
+      `refbit_inout_constant_bit`, `refbit_function_inout_bit`. Recorded (`record:language`, instance `analysis-conformance`,
+      TwinCAT on Project13) in one batch of 14 per vendor; `refbit_struct_field` and `refbit_var_input` again on both (their
+      variables `s` / `r` are IL operators both vendors refuse as names). `record:exec` CODESYS: the 9 that build.
+      **Two new rules**, test-first (colocated tests):
+      - C0125 `enum-duplicate-value` (`types/enum-init`; catalog C0125 → implemented, verified both — its old "option-gated,
+        corpus FPs" note was about LIBRARY enums the server does not analyse): "The constant <n> is assigned to more than one
+        enumeration", a warning at every member whose value an earlier member holds (three alike: two), written, implicit or
+        folded (a global CONSTANT, another enum's member, a sibling's name), on an inline enum too; a refused value is 0 and
+        the member after it no fact (`enumdup_after_refused_implicit` silent). The old enum-init test that left the warning
+        out of the refused kinds now carries it (the `eninit_*` recordings do).
+      - "References to bits are not possible" (`declarations/bit-usage`, under C0205 `pointer-to-bit`'s switch — the
+        reference half of the pointer rule): REFERENCE TO BIT anywhere, a STRUCT's component too (both vendors); a BIT in a
+        VAR_IN_OUT (CONSTANT or not, FB or FUNCTION) on CODESYS beside the section's message (TwinCAT: the section's only).
+        `ty_reference_to_bit` leaves its deferral and ELEMENTARY_RULE_DIVERGENCES (lsp-gap 75 → 74); the old C0204 test
+        gains the CODESYS sentence `bitu_fb_var_in_out` records.
+      **The classification** (every missing-rule shape the census holds; cells CODESYS / TwinCAT; N = occurrences of the
+      construct in the six corpora):
+
+      | shape | cells | decision |
+      |---|---|---|
+      | The constant <n> is assigned to more than one enumeration | 6 / 5 | NEW CHECK C0125 (`lit_char_typed_in_enum_value` keeps its GAP — COMPONENT_CARRIED_ON_IN_A_DUT — now owned by the builder: a named exception) |
+      | References to bits are not possible | 2 / 1 | NEW RULE in bit-usage |
+      | Cannot access private / protected method / property … (incl. `???.` on a FUNCTION / PROGRAM / FB header) | 16 / 16 | niche: accepted loss (0 refused accesses in the corpora; MEMBER_DIVERGENCES, ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM, FB_ACCESS_AT_THE_CALL — no catalog code for a METHOD's refusal) |
+      | Implementation of interface method … must be PUBLIC | 1 / 1 | niche: accepted loss (0; MEMBER_DIVERGENCES) |
+      | Expression of type 'BOOL' expected in this place | 3 / 18 | niche: accepted loss (0 in the corpora: a condition a hole leaves untyped — ENUM_DIVERGENCES, TWINCAT_ENUM / LIBRARY_DIVERGENCES; the frontend baseline's task text now "none planned") |
+      | Global scope operation '.' is not valid on expression '!!!ERROR!!!' | 4 / 4 | niche: accepted loss (0 `__POOL` in the corpora — SYSTEM_OPERAND_AT_STATEMENT_START; `lit_real_no_leading_digit` LITERAL_FOLLOW_ON_RULES) |
+      | The usage of the operator '__Delete' is not allowed in this statement | 2 / 2 | niche: accepted loss (0 `__DELETE` in the corpora; `lex_keyword_*_sys_delete`, rated refused, no FP) |
+      | String constant … too long for 'STRING((2 + 3))' | 1 / 1 | niche (STRING_LENGTH_AS_WRITTEN, frontend) |
+      | Type of lazy typed variable … could not be resolved | 2 / 2 | niche: network text, out of scope (P6; listed in fixtures.test.ts) |
+      | The instance p^ points to will be reinitialized … | 1 / 1 | niche (ANALYSIS_NICHE, 3.7) |
+      | Interface … does not extend __System.IQueryInterface | 1 / 1 | niche (3.8.4: 0 of the corpora's 35 __QUERYINTERFACE calls name a type) |
+      | Call recursion: A -> B -> A | 1 / 0 | niche (3.8.4: 0 recursive calls in the corpora) |
+      | There is no implementation for ABSTRACT method … / No override possible on method … FINAL | 2 / 2 | niche (INHERITANCE_DIVERGENCES: 0; no catalog code) |
+      | No matching 'FB_Init' method found … | 1 / 0 | niche (CODESYS_DECLARATION_DIVERGENCES) |
+      | Cannot access internal object / variable … of library util | 3 / 0 | niche (CODESYS_LIBRARY_DIVERGENCES) |
+      | The condition 'project_defined' is not supported for this syntax … | 1 / 0 | niche (CODESYS_PRAGMA_DIVERGENCES) |
+      | '…' contains no definition for '…' | 1 / 0 | niche (CODESYS_SCOPE_DIVERGENCES) |
+      | Variables of type 'ANY_NUM' only allowed as input of functions | 1 / 1 | niche: accepted loss (0 generic types outside a function's VAR_INPUT — 9 generic declarations, all inputs; ELEMENTARY_RULE_DIVERGENCES) |
+      | The uninitialized variable … is used for initialization of … (C0572) | 0 / 1 | niche: accepted loss (0 C0572 in the corpora) — `initprg_reads_later` pinned in TWINCAT_ANALYSIS_NICHE |
+      | Variable … has a granularity of 2 but is located at … not aligned | 0 / 2 | niche (TWINCAT_MALFORMED_ADDRESS_ALIGNMENT) |
+      | The variable 'a' is too large. (variable size: …, segment size: …) | 1 / 0 | RECLASSIFIED project-config (the device's memory segment; `census.ts` `UNOWNED_CLASSES`, a test) |
+      | corpus: A reference to uninitialized variable Unit is used for initialization of Unit (C0564) | pro2193 ×3 | LEFT, not niche (3 occurrences): an interface input initialized with ANOTHER program's FB instance (`resetCondition1 := XiUnits.Unit[1]`) — the vendor's initialization order of PROGRAMs decides it, unmeasured; a follow-up needs that order recorded |
+
+      **Numbers** (against the 3.10 state): unowned GAP 81 → 73 CODESYS, 114 → 108 TwinCAT (missing-rule 51 → 42 / 59 → 53,
+      project-config 27 → 28 / 17); total GAP 479 → 472 / 829 → 823; TP 5570 → 5599 / 6753 → 6779; FP unchanged, open FP 0.
+      checkEnumInit TP 16 → 35 (both), checkBitUsage TP 13 → 21 / 12 → 17; `enumDuplicateValue` 16 TP each, `referenceToBit`
+      6 / 3. Ceilings: total unowned GAP 70 → 68 / 102 → 101, total GAP 447 → 446 / 792 → 791. The frontend baseline's 3.11
+      exceptions for `eninit_*` and `bitu_fb_var_in_out` left; one added (`lit_char_typed_in_enum_value`'s re-attributed GAP).
+      Corpus: unchanged (no FP from either rule; `bun test test/corpus` green). Divergences: opened `initprg_reads_later`
+      (TwinCAT, niche); closed `ty_reference_to_bit` (both). `rate:fixtures`: confirmed 2790 → 2799, refused 1974 → 1980,
+      lsp-gap 75 → 74, not-lowered 367, unaskable 90.
+      **Gate review (2026-10-06), its 3.11 findings** — 14 cells more in `types/missing-rules.ts` (recorded with 3.10's in one
+      batch per vendor; `record:exec` CODESYS for the two that build), test-first (colocated tests):
+      - C0125 extrapolations now recorded, both vendors: a LATER sibling's name folds (`enumdup_forward_sibling` warns "The
+        constant 1"); a refused member BEFORE one written 0 is 0 (`enumdup_refused_then_zero` warns "The constant 0"); two
+        refused members meet at 0 (`enumdup_two_refused`, one warning). All three were the LSP's answer already — pinned.
+      - an inline enum as a STRUCT's component warns (`enumdup_struct_inline_enum`, both): FIXED (`enum-init` walks a
+        STRUCT's components; the exec harness names its member values `Implicit_Enum__<DUT>__<field>`).
+      - references to bits: a BIT in a PROGRAM's and a METHOD's VAR_IN_OUT says both sentences on CODESYS, the section's
+        alone on TwinCAT (`refbit_program_inout_bit` — called with a STRUCT's BIT component: an uncalled PROGRAM is not
+        compiled, the first recording was silent for that reason — `refbit_method_inout_bit`); REFERENCE TO BIT in a GVL,
+        a PROGRAM's VAR and a FUNCTION's VAR says the reference sentence alone (`refbit_gvl_reference`,
+        `_program_var_reference`, `_function_var_reference`) — all the LSP's answer already, pinned. As an ARRAY's
+        element (`refbit_struct_array_component`, `refbit_var_array_reference`, both): the reference sentence beside "A
+        reference type is not allowed as base type…" — FIXED (`bit-usage` reads an array's element; `declared-type` reads a
+        STRUCT component's base types). An ALIAS of REFERENCE TO BIT is refused only once a variable of it exists
+        (`refbit_alias_unused` builds clean; `refbit_alias`, `refbit_alias_variable_unread`: CODESYS three times without a
+        position, TwinCAT once at the alias) — pinned REFERENCE_TO_BIT_ALIAS, niche: accepted loss (0 REFERENCE TO BIT in the
+        corpora; the rule needs the alias's uses across objects).
+      - the wire code: the reference sentence travels under a slug of its own, `reference-to-bit`, stamped with no catalog
+        code (it was C0205 `pointer-to-bit`, an attribution CODESYS never states).
+      - the `__DELETE` cells 3.11's table classed niche are marked now: DELETE_NOT_ALLOWED_IN_A_STATEMENT
+        (`lex_keyword_before_name_sys_delete`, `lex_keyword_operand_sys_delete`, both vendors; niche: accepted loss, 0
+        `__DELETE` in the corpora). The `__POSITION` cell was marked in 3.10.4 (`sysop_position_as_argument`).
+      - the corpus's C0564 (pro2193 ×3) is not niche: it gets task 3.12 below.
+      Numbers (against the 3.11 state): TP 5599 → 5623 CODESYS, 6779 → 6798 TwinCAT; FP unchanged, open FP 0; GAP 472 →
+      478 / 823 → 825 (+6 / +2, all the alias's, named exceptions in `frontend/baseline.ts`); unowned GAP 73 / 108
+      unchanged; checkBitUsage TP 21 → 30 / 17 → 24, checkEnumInit 35 → 45 both, `enumDuplicateValue` 16 → 20,
+      `referenceToBit` 6 → 13 / 3 → 8, checkDeclaredType TP 17 both. Ceilings unchanged (total unowned GAP 68 / 101, total
+      GAP 446 / 791). Fixtures measured 5090 / 5079. `rate:fixtures`: confirmed 2799 → 2806, refused 1980 → 1989, lsp-gap
+      74 → 76 (the evidence ceiling 75 → 76, named), not-lowered 367, unaskable 90. `test/conformance`: agreement CODESYS
+      4875, TwinCAT 4784 of 5333. Divergences opened: REFERENCE_TO_BIT_ALIAS (2 cells, both vendors),
+      DELETE_NOT_ALLOWED_IN_A_STATEMENT (2 cells, both vendors); closed none.
+
+### 3.12 Initialization order of PROGRAMs (the corpus's C0564)
+
+- [ ] 3.12 pro2193's three "A reference to uninitialized variable Unit is used for initialization of Unit" (C0564,
+      `test-corpus/pro2193/expected-build.codesys.json`): an interface input initialized with ANOTHER program's FB instance
+      (`resetCondition1 := XiUnits.Unit[1]`). Record the vendors' initialization order of PROGRAMs (fixtures: a PROGRAM's
+      initializer reading another PROGRAM's instance, both orders of declaration/task; the `global_init_slot` attribute),
+      then a check in its group home, or a divergence with the measured reason. Not niche (3 corpus occurrences — the
+      3.11 gate review). Where: checks/<group>, fixtures/. Acceptance: CA; the corpus's three C0564 GAP closed or named.
+      Depends on: 3.11
 
 ## 4. Downstream
 

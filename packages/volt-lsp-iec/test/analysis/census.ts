@@ -468,7 +468,9 @@ export type UnownedClass = "owned-by-frontend" | "project-config" | "missing-rul
  * WHY NO BUILDER PRODUCES A SHAPE (task 0.2) — each unowned shape in exactly one class, by its wording (the first class
  * whose pattern matches; `missing-rule` is what neither names):
  *   project-config     a fact of the recording environment, not of the source: the device (no memory for dynamic objects,
- *                      no structured exception handling on its code generator, no description, its stack size), the
+ *                      no structured exception handling on its code generator, no description, its stack size, the
+ *                      memory segment a variable must fit — `decl_array_reversed_bounds`' "The variable 'a' is too large.
+ *                      (variable size: …, segment size: …)", reclassified from missing-rule by task 3.11), the
  *                      application (no VAR_PERSISTENT list, symbol configuration) or the toolchain itself (an internal
  *                      error, an exception text) — no check can know it from the text;
  *   owned-by-frontend  the vendor's PARSER (a token or declaration expected instead of what was found, an unexpected token
@@ -479,7 +481,7 @@ export type UnownedClass = "owned-by-frontend" | "project-config" | "missing-rul
 const UNOWNED_CLASSES: readonly [Exclude<UnownedClass, "missing-rule">, RegExp][] = [
   [
     "project-config",
-    /No memory for dynamic object creation|No VAR_PERSISTENT list|does not support structured exception handling|Device description for .* is missing|maximal stack size|Calculation of stack usage|^SymbolConfig:|^Internal error|^Exception text:/i,
+    /No memory for dynamic object creation|No VAR_PERSISTENT list|does not support structured exception handling|Device description for .* is missing|maximal stack size|Calculation of stack usage|is too large\. \(variable size:|^SymbolConfig:|^Internal error|^Exception text:/i,
   ],
   ["owned-by-frontend", /expected instead of|^Counter initialisation expected$|^Unexpected (token|end|pragma)|end-of-file|does not evaluate to a valid/i],
 ]

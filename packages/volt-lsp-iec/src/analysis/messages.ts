@@ -139,6 +139,12 @@ export interface Messages {
   referenceAssignWriteAccess(): string
   /** An enumeration member's initial value the compiler will not take, named as written (CODESYS SP21). */
   invalidEnumInitialisation(value: string): string
+  /** An enumeration member holding a value an earlier member holds (C0125, a warning) — both vendors alike, no full stop
+   *  (`enumdup_*`, `eninit_explicit_duplicate`, analysis-conformance 3.11). */
+  enumDuplicateValue(value: string): string
+  /** A REFERENCE TO BIT, or (CODESYS) a BIT in a VAR_IN_OUT — both vendors alike (`ty_reference_to_bit`, `refbit_*`,
+   *  analysis-conformance 3.11). */
+  referenceToBit(): string
   /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). verified both vendors. */
   dataRecursion(path: string): string
   /** A comparison between two different enumeration types (C0354). verified both vendors. */
@@ -557,6 +563,8 @@ export function messagesFor(vendor: Vendor): Messages {
     arrayIndexCount: (dims) => `Array requires exactly ${dims} indexes`,
     referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
     invalidEnumInitialisation: (value) => `${value} is no valid initialisation for an enumeration`,
+    enumDuplicateValue: (value) => `The constant ${value} is assigned to more than one enumeration`,
+    referenceToBit: () => `References to bits are not possible`,
     dataRecursion: (path) => (tc ? `Data Recursion: ${path}` : `Data recursion: ${path}`),
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
     // ─── declarations/ ───

@@ -112,8 +112,8 @@ const BIT_PLACES: LanguageTest[] = [
       "VAR_GLOBAL\n\tgBit_ty_bit_in_gvl : BIT;\nEND_VAR\n\nFUNCTION_BLOCK FB_LANG_ty_bit_in_gvl\nVAR\n\tout : BOOL;\nEND_VAR\ngBit_ty_bit_in_gvl := TRUE;\nout := gBit_ty_bit_in_gvl;\nEND_FUNCTION_BLOCK\n",
   },
   fb("ty_pointer_to_bit", "POINTER TO BIT", "\tp : POINTER TO BIT;\n\tout : BOOL;", "out := p = 0;"),
-  deferLsp(fb("ty_reference_to_bit", "REFERENCE TO BIT", "\trb : REFERENCE TO BIT;\n\tout : BOOL;", "out := __ISVALIDREF(rb);"),
-    noCatalogCode("\"References to bits are not possible\"", "0 occurrences of REFERENCE TO BIT in the corpora")),
+  // "References to bits are not possible" — said by `bit-usage` since analysis-conformance 3.11 (the deferral left)
+  fb("ty_reference_to_bit", "REFERENCE TO BIT", "\trb : REFERENCE TO BIT;\n\tout : BOOL;", "out := __ISVALIDREF(rb);"),
   fb("ty_array_of_bit", "ARRAY OF BIT", "\ta : ARRAY[1..8] OF BIT;\n\tout : BOOL;", "a[1] := TRUE;\nout := a[1];"),
 ]
 

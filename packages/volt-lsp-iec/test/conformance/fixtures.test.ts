@@ -209,6 +209,14 @@ function numberEnums(out: Map<string, bigint>, units: readonly TopLevel[], fold?
           while (type.kind === "array_type") type = type.element
           if (type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, type.values)
         }
+    // …and one as a STRUCT's component, under the DUT's name (`enumdup_struct_inline_enum`:
+    // `Implicit_Enum__DUT_LANG_enumdup_struct_inline_enum__e.A`)
+    if (unit.kind === "type_decl" && unit.body.kind === "struct")
+      for (const decl of unit.body.fields) {
+        let type = decl.type
+        while (type.kind === "array_type") type = type.element
+        if (type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, type.values)
+      }
   }
 }
 
@@ -1494,7 +1502,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // (0 occurrences in the corpora). No fixture moved.
   // 74 -> 75, FOR MEASUREMENT. analysis-conformance 3.3 (2026-10-06): `callarg_no_argument_variable_default` (MEASURED_SILENT
   // above), 3.8's to close. No fixture moved.
-  "lsp-gap": 75,
+  // 75 -> 76, FOR MEASUREMENT. analysis-conformance 3.11 closed `ty_reference_to_bit` (-1); its gate review (2026-10-06)
+  // measured an alias of REFERENCE TO BIT, `refbit_alias` and `refbit_alias_variable_unread` (+2), which both vendors refuse
+  // and the LSP passes — REFERENCE_TO_BIT_ALIAS, niche: accepted loss (0 REFERENCE TO BIT in the corpora). No fixture moved.
+  "lsp-gap": 76,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

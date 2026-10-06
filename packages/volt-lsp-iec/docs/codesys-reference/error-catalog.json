@@ -1894,26 +1894,24 @@
   {
     "code": "C0125",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0125.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "duplicate enum value",
     "cause": "Two enumeration members in the same enum type are initialized with the same underlying constant value.",
-    "message": "The constant <constant value> is assigned to more than one enumeration.",
+    "message": "The constant <constant value> is assigned to more than one enumeration",
     "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\nEND_PROGRAM\nTYPE DUT :\n(\n    enum_member := 0,\n    enum_member2 := 0\n);\nEND_TYPE",
     "expect": [
-      "The constant 0 is assigned to more than one enumeration."
+      "The constant 0 is assigned to more than one enumeration"
     ],
-    "note": "CODESYS accepts duplicate enum values by default — proven 5+ corpus FPs (TYPECLASS/BUS_TYPE/DEVICE_TYPE sentinel aliases). Only fires under an unseen strict-enums option.",
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "A WARNING on both vendors, at every member whose value an earlier member holds (analysis-conformance 3.11: enumdup_*, eninit_explicit_duplicate; recorded without the full stop the help page prints). The earlier note — accepted by default, 5+ corpus FPs on TYPECLASS/BUS_TYPE/DEVICE_TYPE — was about LIBRARY enums the server does not analyse (Library Manager/), not a project option.",
+    "status": "implemented",
+    "ourCheck": "checkEnumInit",
+    "ourCode": "enum-duplicate-value",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "triage": "optionGated",
-    "gap": "wont-fix"
+    "fix": null
   },
   {
     "code": "C0126",

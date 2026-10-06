@@ -105,7 +105,7 @@
     "fixtures twincat: member UNKNOWN": 26,
     "fixtures twincat: paren UNKNOWN": 1,
     "fixtures twincat: unary UNKNOWN": 0,
-    "fixtures twincat: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 252,
+    "fixtures twincat: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 251,
     "library: assign_expr UNKNOWN": 0,
     "library: binary UNKNOWN": 2,
     "library: call UNKNOWN": 13,

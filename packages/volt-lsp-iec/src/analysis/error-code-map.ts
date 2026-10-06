@@ -59,6 +59,7 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "fb-lifecycle-signature": ["C0119", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0119.html"],
   "super-not-allowed": ["C0122", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0122.html"],
   "enum-init-not-convertible": ["C0124", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0124.html"],
+  "enum-duplicate-value": ["C0125", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0125.html"],
   "pointer-index-arity": ["C0126", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0126.html"],
   "method-referenced-without-parens": ["C0130", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0130.html"],
   "invalid-adr-operand": ["C0131", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0131.html"],

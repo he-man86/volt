@@ -456,7 +456,7 @@ Columns:
 | struct-init | unexpectedStructInit, undefinedIdentifier, notAssignmentTarget, cannotConvert, unknownType | 6 / 0 | 6 / 0 | OK |
 | reference-assign | refInitNeedsReference, referenceAssignTarget, cannotConvert, referenceAssignWriteAccess | 4 / 0 | 4 / 1 | FP tc cc3_reference_assign (TwinCAT triage) |
 | data-recursion | dataRecursion | 2 / 0 | 2 / 0 | OK |
-| enum-init | invalidEnumInitialisation, cannotConvert, constInitNonConst, enumConversion | 9 / 0 | 9 / 0 | 3.2: each value kind (`eninit_*`, 12 cells: REAL, STRING, BOOL, TIME, non-constant global, another enum's member; taken: typed INT, sibling expression, global CONSTANT); the duplicate-value warning a refused value leaves is 3.11's |
+| enum-init | invalidEnumInitialisation, cannotConvert, constInitNonConst, enumConversion, enumDuplicateValue | 35 / 4 | 35 / 0 | 3.2: each value kind (`eninit_*`, 12 cells: REAL, STRING, BOOL, TIME, non-constant global, another enum's member; taken: typed INT, sibling expression, global CONSTANT); 3.11: the duplicate value C0125 (`enumdup_*`, 10 cells) |
 | typed-literal | notAMember | 17 / 0 | — | CODESYS only by rule (the TwinCAT lexer refuses first) |
 | unsupported-operator° | semicolonExpectedInsteadOf, unexpectedToken, codeHasNoEffect | 4 / 0 (with partial-access) | 4 / 0 (with partial-access) | frontend 2.5.3; 0.5 decides syntax/ or stay; reviewed in 3.2 |
 | partial-access° (TwinCAT) | percentNotAMember, unexpectedToken | (counted with unsupported-operator) | (idem) | frontend 2.5.4; 0.1 splits the count; reviewed in 3.2 |
@@ -472,7 +472,7 @@ Columns:
 | external-initializer | noInitForExternal | 1 / 0 | 1 / 0 | OK |
 | external-global | externalNoGlobal, undefinedIdentifier (via shared/lost-declaration) | 1 / 0 | 1 / 0 | OK |
 | input-default (CODESYS) | noDefaultForType | 3 / 0 | — | 3.3: a STRUCT default too, and a METHOD's input as a FUNCTION's (`indf_*`) |
-| bit-usage | pointerToBit, bitArrayBase, bitInWrongBlock, bitInWrongContainer | 12 / 0 | 12 / 0 | 3.3: every FB section, FUNCTION, METHOD, PROGRAM (`bitu_*`); CODESYS adds C0203 to an FB's VAR_TEMP; "References to bits" (VAR_IN_OUT) is 3.11's |
+| bit-usage | pointerToBit, bitArrayBase, bitInWrongBlock, bitInWrongContainer, referenceToBit | 21 / 0 | 17 / 0 | 3.3: every FB section, FUNCTION, METHOD, PROGRAM (`bitu_*`); CODESYS adds C0203 to an FB's VAR_TEMP; 3.11: "References to bits" — REFERENCE TO BIT (both), a BIT in a VAR_IN_OUT (CODESYS) (`refbit_*`) |
 | output-rules | outputCantBeReference | 1 / 0 | 1 / 0 | OK |
 | non-instantiable | notInstantiable | 1 / 0 | 1 / 0 | OK |
 | obsolete-usage | pouObsolete | 9 / 0 | 9 / 0 | 3.3: an obsolete STRUCT as a type and an obsolete FB in an EXTENDS are uses (`obs_*`); no value, no warning |
@@ -547,8 +547,8 @@ Columns:
 
 | Check | Messages | cs | tc | Status |
 |---|---|---|---|---|
-| pragmas | abstractKeywordMissing, attributeValueString, unterminatedConditional, invalidSymbolAttributeValue, invalidAttributeValue, unknownAttribute, orphanPragma, message pragmas | 27 / 0 | 5 / 0 | builders GAP (0.3) |
-| parse-errors | unexpectedToken, directAddressExpectedAt, operatorNeedsAtLeast, operatorNeedsExactly, varConfigOnlyInList, sectionNotAllowed, + the templates 1.11 moves into `messages.ts` (named builders, so the census can attribute them) | 474 / 20 | 547 / 117 | all front-end recovery: re-measure after frontend archive |
+| pragmas | abstractKeywordMissing, attributeValueString, unterminatedConditional, invalidSymbolAttributeValue, invalidAttributeValue, unknownAttribute, orphanPragma, message pragmas | 57 / 0 | 8 / 0 | 3.10: rule by rule on both vendors (22 cells); `symbol`'s set lower case, `monitoring_encoding`'s without case, the abstract attribute on a PROPERTY / FUNCTION, a GVL variable's attribute, none in a body or spelled `ATTRIBUTE`; TwinCAT's five builders CODESYS-only by rule |
+| parse-errors | unexpectedToken, directAddressExpectedAt, operatorNeedsAtLeast, operatorNeedsExactly, varConfigOnlyInList, sectionNotAllowed, + the templates 1.11 moves into `messages.ts` (named builders, so the census can attribute them) | 2895 / 34 | 3633 / 84 | 3.10: re-measured on the archived front-end — every FP (76 / 276) and GAP a named frontend divergence (`sysop_position_as_argument` pinned, niche) |
 | network-text (seam only) | undefinedIdentifier, notAMember, unresolvedOperand, unresolvedOperandToken, unresolvedAssignTarget, jumpLabel*, rules.* | 14 / 0 | 14 / 0 | not reviewed (P6); census rows kept so 5.3 hands the numbers off |
 
 **Measured (tasks 0.1–0.3, 2026-10-06; the rows above are the 2026-10-01 scratch census, kept as the design's

@@ -94,3 +94,11 @@ test("T4 — a variable-length ARRAY inside another type is refused in every sec
   }
   expect(run("variable-length-nested", inVar("a : ARRAY[*] OF INT;"))).toEqual([])
 })
+
+// …in a STRUCT's component too (`refbit_struct_array_component`, analysis-conformance 3.11 gate review, both vendors —
+// beside "References to bits are not possible"): a component holds a declared type as a variable does.
+test("T7 — a REFERENCE as an array's base type in a STRUCT's component is refused", () => {
+  const struct = "TYPE S :\nSTRUCT\n\ta : ARRAY[0..1] OF REFERENCE TO INT;\nEND_STRUCT\nEND_TYPE"
+  expect(run("reference-base-type", struct)).toEqual(["A reference type is not allowed as base type of an array, pointer, or reference"])
+  expect(run("reference-base-type", struct, "twincat")).toEqual(["A reference type is not allowed as base type of an array, pointer or reference"])
+})

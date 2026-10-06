@@ -630,6 +630,15 @@ const CALC_CONDITIONAL_CALL: readonly string[] = [
  * digits(column)`, `probe-position-length.ts` (deleted; `git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-position-length.ts`)), which the type layer does not have.
  */
 const CODESYS_POSITION_IN_AN_INITIALIZER: readonly string[] = ["sysop_position_initializer", "sysop_position_call_form"]
+/**
+ * ANALYSIS-CONFORMANCE 3.10.4 (2026-10-06) — CODESYS, `here := ABS(__POSITION);` (`sysop_position_as_argument`): the
+ * operator without its `(` eats the next token as it does where a statement starts (the system operands' rules E30/E34, as
+ * `sysop_position_then_statement`), here the `)` — "',' or ')' expected instead of ';'", which the LSP says — and the
+ * argument list's recovery then takes the `;` too: "';' expected instead of end of POU", which it does not. The only
+ * recorded instance of that recovery after a call's argument list (the census, syntax GAP). Niche: accepted loss
+ * (0 `__POSITION` in the corpora).
+ */
+const CODESYS_POSITION_EATS_THE_CLOSING_PARENTHESIS: readonly string[] = ["sysop_position_as_argument"]
 const TWINCAT_RECOVERY_DIVERGENCES: readonly string[] = ["rec_interface_stray", "rec_refused_name_declared_fb_type"]
 
 const UNIT_HEADER_RECOVERY: readonly string[] = [
@@ -1313,9 +1322,8 @@ const TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER: readonly string[] = ["cc_fp_o
 /**
  * FRONTEND-CONFORMANCE 4.1.3 (2026-10-03) — elementary-type fixtures (`fixtures/types/elementary-rules.ts`, rules TY12,
  * TY14, TY15) whose refusal the LSP does not make, both vendors alike (TwinCAT's capitals and full stop aside):
- *   `ty_reference_to_bit` — "References to bits are not possible". No catalog code carries the sentence (C0205 is
- *                            POINTER TO BIT's), and a wire diagnostic is a catalog `Cnnnn`. Niche: accepted loss (0
- *                            occurrences of REFERENCE TO BIT in the corpora).
+ *   (`ty_reference_to_bit` left 2026-10-06, analysis-conformance 3.11: "References to bits are not possible" is said by
+ *                            `bit-usage`, under C0205's switch — the reference half of the pointer rule.)
  *   `ty_any_num_as_local_variable` — "Variables of type 'ANY_NUM' only allowed as input of functions": no catalog code
  *                            either. Niche: accepted loss (0 occurrences in the corpora of a generic type outside a
  *                            function's VAR_INPUT — 9 generic declarations, every one an input).
@@ -1329,7 +1337,6 @@ const TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER: readonly string[] = ["cc_fp_o
  *                            refused, named as the struct — `analysis/rules` `storeConversionError`.)
  */
 const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
-  "ty_reference_to_bit",
   "ty_any_num_as_local_variable",
   "ty_any_elementary_parameter_rejects_struct",
   "ty_any_magnitude_parameter_accepts_time",
@@ -1360,7 +1367,32 @@ const ANALYSIS_NICHE: readonly string[] = ["oopb_abstract_pointer_deref_assign",
  */
 const CODESYS_ANALYSIS_NICHE: readonly string[] = ["oopb_abstract_method_output_default", "oopb_implicit_abstract_output_default"]
 /** …and TwinCAT's own: none yet (its `oopb_generic_*` are TWINCAT_NO_VAR_GENERIC's, the recovery's). */
-const TWINCAT_ANALYSIS_NICHE: readonly string[] = []
+/**
+ * ANALYSIS-CONFORMANCE 3.11 (2026-10-06) — TwinCAT, a PROGRAM's initializer reading a variable declared AFTER it
+ * (`initprg_reads_later`, `ilate : INT := ABS(other2)` above `other2 : INT := -7`): "The uninitialized variable other2 is
+ * used for initialization of ilate. Use the attribute 'global_init_slot' to change the order of initialisation." (C0572;
+ * CODESYS builds it, and its application then does not start). The one recorded cell of an initialization-order rule —
+ * which reads count (ADR of a later one is legal, `initprg_adr_of_later`), in which POU kinds, through which calls — is
+ * unmeasured. Niche: accepted loss (0 occurrences in the corpora: no corpus build says C0572).
+ */
+const TWINCAT_ANALYSIS_NICHE: readonly string[] = ["initprg_reads_later"]
+/**
+ * ANALYSIS-CONFORMANCE 3.11, the gate review (2026-10-06) — both vendors, `__DELETE` where a statement starts and is not
+ * called (`__delete n := 2;`, `n := __delete;`): beside the call's parse errors, which the LSP says, "The usage of the
+ * operator '__Delete' is not allowed in this statement". The LSP reads the parse errors only. Classified niche in 3.11's
+ * table and listed there without a mark, so nothing went red if they began to match. Niche: accepted loss (0 `__DELETE`
+ * in the corpora).
+ */
+const DELETE_NOT_ALLOWED_IN_A_STATEMENT: readonly string[] = ["lex_keyword_before_name_sys_delete", "lex_keyword_operand_sys_delete"]
+/**
+ * ANALYSIS-CONFORMANCE 3.11, the gate review (2026-10-06) — both vendors, an ALIAS of REFERENCE TO BIT
+ * (`TYPE R : REFERENCE TO BIT; END_TYPE`): "References to bits are not possible" only once a variable of the alias exists
+ * (`refbit_alias_unused` builds clean on both), TwinCAT at the alias's line, CODESYS three times with no position
+ * (`refbit_alias`, `refbit_alias_variable_unread` — reading the variable or not). The rule would need the alias's uses
+ * across objects, and CODESYS's two further copies have no position to place them at. Niche: accepted loss
+ * (0 occurrences in the corpora: no REFERENCE TO BIT at all).
+ */
+const REFERENCE_TO_BIT_ALIAS: readonly string[] = ["refbit_alias", "refbit_alias_variable_unread"]
 
 /**
  * A NAME THE IDE REFUSES TO CREATE, AND THE LSP DOES NOT SAY SO — openspec bridge-refusal-review 3.1 / DIALECT C28
@@ -1406,6 +1438,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   twincat: new Set<string>([
     ...RECOVERY_DIVERGENCES,
     ...ANALYSIS_NICHE,
+    ...DELETE_NOT_ALLOWED_IN_A_STATEMENT,
+    ...REFERENCE_TO_BIT_ALIAS,
     ...TWINCAT_ANALYSIS_NICHE,
     ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...CALC_CONDITIONAL_CALL,
@@ -1546,11 +1580,14 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   codesys: new Set<string>([
     ...RECOVERY_DIVERGENCES,
     ...ANALYSIS_NICHE,
+    ...DELETE_NOT_ALLOWED_IN_A_STATEMENT,
+    ...REFERENCE_TO_BIT_ALIAS,
     ...CODESYS_ANALYSIS_NICHE,
     ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...SFC_STEPS_NOT_IN_SCOPE,
     ...CALC_CONDITIONAL_CALL,
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
+    ...CODESYS_POSITION_EATS_THE_CLOSING_PARENTHESIS,
     ...UNIT_HEADER_RECOVERY,
     ...MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
     ...PROPERTY_WITHOUT_A_TYPE,

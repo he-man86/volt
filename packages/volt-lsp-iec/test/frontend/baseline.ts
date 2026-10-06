@@ -89,7 +89,8 @@ const TYPE_NAME_VALUE_TASK =
   "none planned — niche: accepted loss (0 in the corpora, which build): a value type for a type's name, so the vendors' \"Operation … is not possible on type 'T'\" and \"Cannot convert type 'T' …\" could be said beside C0230"
 const TYPE_NAME_VALUE_WHY = "a type's name written as a value, an operand or a condition, measured 2026-10-06 (analysis-conformance 3.5, `tav_*`)"
 const METHOD_NAME_VALUE_WHY = "a METHOD named without its call as an operand, measured 2026-10-06 (analysis-conformance 3.6, `oopa_method_ref_in_operand`)"
-const CONDITION_TYPE_TASK = "analysis-conformance 3.11 — \"Expression of type 'BOOL' expected in this place\" for an untyped condition (no catalog code yet)"
+const CONDITION_TYPE_TASK =
+  "none planned — niche: accepted loss (analysis-conformance 3.11; 0 in the corpora, which build): \"Expression of type 'BOOL' expected in this place\" for a condition a hole leaves untyped"
 const CONDITION_TYPE_WHY = "an ambiguous global as an IF condition, measured 2026-10-06 (analysis-conformance 3.5)"
 
 const LITERAL_TYPING ="frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
@@ -124,6 +125,8 @@ const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["dt_subrange_assign_negative_lower", 1],
   // 4.5.3: each explicit-pair cell whose source value is negative (`v : SINT := -5`, `conversions/explicit-pairs.ts`)
   ...EXPLICIT_PAIR_TESTS.filter((t) => /:= -/.test(t.source)).map((t): [string, number] => [t.name, 1]),
+  // analysis-conformance 3.11: two enum members written -1 (the duplicate value's negative cell)
+  ["enumdup_negative", 2],
 ]
 
 const UNTYPED_CALL_CELLS =
@@ -274,27 +277,44 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "the front-end's stores of an aggregate initializer's elements (the bound census reads assignments and initial values)",
     why: "an array initializer's element conversions, measured 2026-10-06 (analysis-conformance 3.2), that the bound census does not see as stores",
   })),
-  // the diagnostic census: analysis-conformance 3.2 asked what an enum member may be initialized with (`fixtures/types/
-  // enum-init-values.ts`). A refused value leaves the member 0, and both vendors then WARN "The constant 0 is assigned to
-  // more than one enumeration" beside a member written 0 — as they do for two members written alike
-  // (`eninit_explicit_duplicate`). That is the duplicate-value rule 0.2 classed missing-rule, 3.11's to add as a check;
-  // each fixture is one unowned GAP per vendor until it does. New ground measured, not a regression.
-  ...(["eninit_real_literal", "eninit_string_literal", "eninit_bool_literal", "eninit_gvl_variable", "eninit_explicit_duplicate"] as const).flatMap(
-    (fixture) =>
-      (["codesys", "twincat"] as const).flatMap((vendor) =>
-        (["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
-          baseline: `fixtures.${vendor}`,
-          measure,
-          by: 1,
-          fixture,
-          task: "analysis-conformance 3.11 — the duplicate enum value (\"The constant … is assigned to more than one enumeration\")",
-          why: "a duplicate enum value, measured 2026-10-06 (analysis-conformance 3.2) — 0.2's missing-rule class",
-        })),
-      ),
+  // (the duplicate enum values — `eninit_real_literal`, `_string_literal`, `_bool_literal`, `_gvl_variable`,
+  // `_explicit_duplicate`, one unowned GAP each per vendor — left 2026-10-06: analysis-conformance 3.11 gave the rule a
+  // check, C0125 in `types/enum-init`.) …which owns the warning now where it stays a GAP: `lit_char_typed_in_enum_value`
+  // (CODESYS), whose two members CODESYS refuses as `CHAR#'null'` and `(CHAR#'null' + 1)` — both 0, so the warning — where the
+  // LSP reads `'A' is no component of 'CHAR'` and refuses neither (COMPONENT_CARRIED_ON_IN_A_DUT, a known divergence). The
+  // same GAP, moved from `unowned` (−1) into the types group (+1). New attribution, not a regression.
+  {
+    baseline: "fixtures.codesys",
+    measure: "group types: GAP",
+    by: 1,
+    fixture: "lit_char_typed_in_enum_value",
+    task: "none planned — the divergence COMPONENT_CARRIED_ON_IN_A_DUT (niche: accepted loss, frontend-conformance)",
+    why: "the duplicate-value warning attributed to `enumDuplicateValue` since analysis-conformance 3.11, on a fixture the LSP reads otherwise",
+  },
+  // the 3.11 gate review asked an ALIAS of REFERENCE TO BIT (`types/missing-rules.ts`): "References to bits are not
+  // possible" once a variable of the alias exists — CODESYS three times without a position, TwinCAT once at the alias —
+  // which the reference rule does not say (REFERENCE_TO_BIT_ALIAS, a known divergence). New ground measured, not a
+  // regression.
+  ...(
+    [
+      ["fixtures.codesys", "refbit_alias", 3],
+      ["fixtures.codesys", "refbit_alias_variable_unread", 3],
+      ["fixtures.twincat", "refbit_alias", 1],
+      ["fixtures.twincat", "refbit_alias_variable_unread", 1],
+    ] as const
+  ).flatMap(([baseline, fixture, by]) =>
+    ["group declarations: GAP", "total: GAP"].map((measure) => ({
+      baseline,
+      measure,
+      by,
+      fixture,
+      task: "none planned — the divergence REFERENCE_TO_BIT_ALIAS (niche: accepted loss, 0 REFERENCE TO BIT in the corpora)",
+      why: "an alias of REFERENCE TO BIT with a variable of it, measured 2026-10-06 (the analysis-conformance 3.11 gate review)",
+    })),
   ),
   // the diagnostic census: analysis-conformance 3.3 asked a BIT in every FB section (`fixtures/declarations/declaration-
-  // rules.ts`). In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — a reference rule 0.2 classed
-  // missing-rule (3.11's) — one unowned GAP. And a FUNCTION called with no argument whose one input's default CODESYS refuses
+  // rules.ts`). (In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — its unowned GAP left 2026-10-06,
+  // analysis-conformance 3.11: `bit-usage` says it.) And a FUNCTION called with no argument whose one input's default CODESYS refuses
   // (not constant) is "requires exactly '1' inputs" there (`callarg_no_argument_variable_default`, MEASURED_SILENT in fixtures.test.ts):
   // the call check reads only that a default is written, the calls group's to refine (3.8) — one calls GAP. New ground
   // measured, not a regression.
@@ -308,14 +328,6 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: LITERAL_TYPING,
     why: "a BIT constant initialized with 1 (analysis-conformance 3.3) — LT14's class 'into BIT', one literal more",
   },
-  ...(["total: GAP", "total: unowned GAP"] as const).map((measure) => ({
-    baseline: "fixtures.codesys",
-    measure,
-    by: 1,
-    fixture: "bitu_fb_var_in_out",
-    task: "analysis-conformance 3.11 — references to bits (\"References to bits are not possible\")",
-    why: "a BIT in a VAR_IN_OUT, measured 2026-10-06 (analysis-conformance 3.3) — 0.2's missing-rule class",
-  })),
   // (`callarg_no_argument_variable_default`'s two left 2026-10-06, analysis-conformance 3.8: a VARIABLE default leaves a
   // FUNCTION input required on CODESYS, `call-arguments` says so.)
   // analysis-conformance 3.4 asked an FB instance initialized with a LITERAL for its VAR_IN_OUT (`ioinit_fb_instance_literal`):
@@ -353,7 +365,7 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
         measure,
         by,
         fixture,
-        task: "analysis-conformance 3.11 — the access rule family (\"Cannot access private method …\"), and a header grammar that takes an access modifier on a FUNCTION or a PROGRAM",
+        task: "none planned — niche: accepted loss (analysis-conformance 3.11): the access rule family (\"Cannot access private method …\", MEMBER_DIVERGENCES), and a header grammar that takes an access modifier on a FUNCTION or a PROGRAM",
         why: "an access modifier on a FUNCTION / PROGRAM, measured 2026-10-06 (analysis-conformance 3.4) — niche: accepted loss (0 in the corpora)",
       })),
     ),
