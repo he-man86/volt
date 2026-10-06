@@ -500,15 +500,82 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.1 types A
 
-- [ ] 3.1.1 types A (assignment, narrowing, binary-operators, conversion, unary-operand, comparison, constant-overflow,
+- [x] 3.1.1 types A (assignment, narrowing, binary-operators, conversion, unary-operand, comparison, constant-overflow,
       string-constant, pointer-conversion): fixtures for the 0.3 GAP builders (comparison's unfired builders first).
       Where: test/conformance/fixtures/. Acceptance: fixture list written here. Depends on: 2.6
-- [ ] 3.1.2 Record 3.1.1, both vendors (one batch each). Where: recordings/. Acceptance: CA.1. Depends on: 3.1.1
-- [ ] 3.1.3 FPs: sysop_position_* (CODESYS triage: the sized-STRING seam — niche test), meet_bool_mod_int,
+      **Fixtures (2026-10-06), 47:** `operators/comparison-operands.ts` (27, `cmpop_*`): the comparison check rule by rule —
+      two arrays of one type (=, <, <>, itself, two dimensions, of a struct, bounded by a VAR CONSTANT), of two types (bounds,
+      element), an array against a scalar either side; a pointer against DINT, LINT, SINT, BYTE, UINT, UDINT and an INT on
+      the left; STRING/WSTRING, TIME/INT, BOOL/INT, DATE/TIME, REAL/STRING; an enum variable against another enum's value; a
+      struct against itself and an INT; two FB instances. `memory/pointer-into-scalar.ts` (10, `ptrsc_*`): a pointer stored
+      into DINT, LINT, LREAL, REAL, SINT, WORD + BYTE, BOOL, TIME, another pointer, and as a DWORD's initial value.
+      `types/literal-into-composite.ts` (10, `litc_*`, asked for 3.1.3's `decl_struct_init_positional`): 0, 1, 2 and (1) into
+      a struct as an initial value and by a statement, 1 and 2 into an array.
+- [x] 3.1.2 Record 3.1.1, both vendors (one batch each). Where: recordings/. Acceptance: CA.1. Depends on: 3.1.1
+      **Recorded 2026-10-06** (`record:language`, instance `analysis-conformance`): CODESYS one batch of 30, TwinCAT one of 31,
+      then the cells the answers asked for in one batch per vendor (three fixtures re-asked with `s`/`r`/`by` renamed —
+      IL operators and a keyword, which cascaded; three more pointer widths; `ptrsc_into_real32`/`_sint`/`_word`; the ten
+      `litc_*`). `record:exec` CODESYS for the ten that build (unasked 0). Both vendors agree on every comparison cell; they
+      differ on one store: a pointer into a REAL or an LREAL is SILENT on CODESYS and refused on TwinCAT.
+- [x] 3.1.3 FPs: sysop_position_* (CODESYS triage: the sized-STRING seam — niche test), meet_bool_mod_int,
       decl_struct_init_positional, string-constant ×3 (STRING_LENGTH_AS_WRITTEN). Where: checks/types, shared/rules.
       Acceptance: CA. Depends on: 3.1.2
-- [ ] 3.1.4 Gaps attributed to these checks (census). Where: checks/types. Acceptance: CA. Depends on: 3.1.2
-- [ ] 3.1.5 Close types A. Where: test/analysis/baselines, design.md §5. Acceptance: CA.3–4. Depends on: 3.1.3, 3.1.4
+      **Done 2026-10-06.** `meet_bool_mod_int`: agrees on both vendors (re-measured; the triage note is corrected).
+      `sysop_position_*`: niche: accepted loss (0 occurrences of `__POSITION` in the corpora) — the divergence
+      `CODESYS_POSITION_IN_AN_INITIALIZER` already said so; re-counted. `decl_struct_init_positional`: FIXED — an untyped 0
+      or 1 stored into a STRUCT, an FB or an ARRAY is BIT, 2 is SINT, in an initial value and in a statement (`litc_*`,
+      both vendors); `types/literal` `literalErrorType` + `checks/types/assignment` (`compositeLiteralInto`, ARRAY added,
+      the statement form added); `LITERAL_ONE_IS_BIT` closed (`decl_struct_init_positional`, `decl_array_init_positional`),
+      and `decl_array_of_array_comma_index` left `AFTER_A_REFUSED_TYPE` on both vendors. string-constant ×3:
+      `ir_initializer_warning_no_instance` stays `DEAD_POU_NOT_IN_THE_REPLAY` (reachability, not the check);
+      `decl_string_length_expression` niche: accepted loss (0 occurrences in the corpora: no string length is written as
+      an operation; the compiler's form is `shared/expr-echo`'s, which the front-end's type render may not import).
+      FOUND and fixed (pointer-conversion, the census's 19 SEV per vendor): the C0033 model was FALSE. Both recording
+      projects' settings were read over the bridge — neither raises a warning to an error — and C0033's own wording appears
+      in no recording: a pointer refused by its target is the ordinary conversion ERROR (C0032). `pointer-conversion` now
+      emits `assignment-type-mismatch` errors by `types/compat` `pointerIntoElementary` (signed LINT a change of sign,
+      REAL/LREAL silent on CODESYS and refused on TwinCAT, every other non-integer refused) and checks initial values;
+      `pointer-not-convertible` left `CONFIGURABLE_CHECKS`, the code map, the catalog (C0033 → ide-only, with the reason)
+      and the VS Code settings; `C0033_CONFIGURED_AS_AN_ERROR` closed (10 fixtures agree on both vendors, `ar_new_type` on
+      TwinCAT; CODESYS keeps it for the dynamic-memory wall).
+- [x] 3.1.4 Gaps attributed to these checks (census). Where: checks/types. Acceptance: CA. Depends on: 3.1.2
+      **Done 2026-10-06.** The comparison check, rule by rule from 3.1.1's cells (`checks/types/comparison.ts`, colocated
+      tests): an array is named as its declaration writes it (`renderType`: `ARRAY [1..2, 0..1]`, `ARRAY [0..N]` unfolded —
+      `messages.ts` `compilerArrayText` deleted, the P6/P7 item 0.5 listed); one array, a struct or an FB instance against a
+      named operand is C0066 naming both; an enum variable against another enum's VALUE warns (only two values are silent);
+      a pointer against an integer by `types/compat` `pointerComparison` (32 bits refused, a signed one meets at LINT and the
+      POINTER warns its change of sign, a narrow unsigned one silent; the 64-bit target only). The one census GAP owned by
+      a types-A builder, `lib_ns_type_name_two_libraries_other_member`'s enumComparison (CODESYS), follows a name the
+      LSP cannot resolve (two libraries' `ERROR`): it is the names group's (LB, 3.5), not the comparison's.
+- [x] 3.1.5 Close types A. Where: test/analysis/baselines, design.md §5. Acceptance: CA.3–4. Depends on: 3.1.3, 3.1.4
+      **Closed 2026-10-06.** Census rewritten (`VOLT_WRITE_BASELINE=1`): CODESYS TP 5231 → 5296, SEV 19 → 0, FP 110 → 109
+      (open 1, unchanged), GAP 460 → 457, never-fired builders 17 → 15; TwinCAT TP 6446 → 6513, SEV 19 → 0, FP 338 → 337,
+      GAP 807 → 804, never-fired 40 → 38. Group types per vendor: never-fired builders 8 → 6 (compareNotPossible,
+      compareNotPossibleTwo fire; pointerNotConvertible deleted), group FP/GAP unchanged (types FP is held by unknown-source,
+      3.2). checkComparison TP 10 → 35, checkPointerConversion TP 0 → 27 / 29, checkAssignmentTypes FP 3 → 2 / 2 → 1.
+      Coverage: builders with 0 TP 20 → 17 (CODESYS), 43 → 40 (TwinCAT). Divergences closed: `C0033_CONFIGURED_AS_AN_ERROR`
+      (10 fixtures × 2 vendors, `ar_new_type` TwinCAT), `LITERAL_ONE_IS_BIT` (2 × 2), `decl_array_of_array_comma_index`
+      (both); opened: none. `rate:fixtures`: +47 fixtures — refused 1790 → 1827, confirmed 2725 → 2727, not-lowered
+      337 → 345 (the eight pointer–integer cells the transpiler does not lower; ceiling 338 → 345, named). Frontend
+      baselines: counts of the new fixtures, plus three bound-census findings (the front-end has no pointer–integer meet)
+      and one paren UNKNOWN per vendor (`(1)` into a struct), each a named exception in `test/frontend/baseline.ts`.
+      design.md §5 rows updated (assignment, comparison, string-constant, pointer-conversion).
+      **Gate review (3.1+3.3, 2026-10-06), four findings, each MEASURED** — 13 cells, one batch per vendor
+      (`record:language`, instance `analysis-conformance`; `record:exec` CODESYS for the 4 that build): (1) a literal into a
+      FUNCTION BLOCK instance was BIT without a cell — `litc_fb_init_one`, `litc_fb_assign_one` (BIT) and `litc_fb_assign_two`
+      (SINT) agree with the rule on both vendors; colocated test. (2) two arrays of one type with two bound spellings —
+      `cmpop_array_bound_spellings`: both vendors give the ONE-type C0068 naming the left operand as written, and a bound
+      written as an operation is echoed parenthesized, 'ARRAY [0..(N - 1)] OF INT' (`cmpop_array_bound_expression`). FIXED
+      test-first: `checks/types/comparison` `operandText` (bounds by `shared/expr-echo`) + `sameArray` (folded bounds,
+      `ArrayTypeInfo.bounds`). (3) `pointerIntoElementary`'s generalization — `ptrsc_into_{date,dt,tod,ltime,wstring}` are
+      refused and `ptrsc_into_xint`, `cmpop_pointer_vs_xint` warn the change of sign at LINT, on both vendors: the rule
+      stands, its comment cites the cells; colocated test. (4) a REFERENCE declared with a pointer — `ptrsc_reference_initializer`:
+      refused in the same words on both vendors; colocated test. Numbers: census CODESYS TP 5344 → 5358, TwinCAT 6552 → 6565
+      (fixtures measured +15 each), FP / GAP unchanged; checkComparison TP 35 → 38, checkPointerConversion 27 → 34 / 29 → 36,
+      checkAssignmentTypes 721 → 724 / 700 → 703. `rate:fixtures` +15: confirmed 2744 → 2745, refused 1847 → 1858, not-lowered
+      346 → 349 (`ptrsc_into_xint`, `cmpop_pointer_vs_xint`, `dflt_method_input_from_variable`; ceiling named). Frontend
+      baselines: counts; `cmpop_pointer_vs_xint` joins the named pointer–integer-meet exception. Full suite
+      (VOLT_REQUIRE_FULL=1): 8193 pass, 0 fail; typecheck, layering lint and `bun run check` green.
 
 ### 3.2 types B
 

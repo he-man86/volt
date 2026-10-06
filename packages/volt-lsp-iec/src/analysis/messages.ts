@@ -8,26 +8,12 @@
  * implementation are ordered like `checks/` (analysis-conformance 1.11): first the builders several groups' checks call,
  * then one section per group, the group being that of every check that calls the builder.
  */
-import type { Scope } from "../frontend/symbols/index.js"
-import { constEval, renderType, type ArrayTypeInfo, type Type } from "../frontend/types/index.js"
 import type { Vendor } from "./config.js"
 
 // ─── type text as the COMPILERS print it inside a message ─────────────────────────────────────────────────────────
 // Distinct from `types/renderType`, which keeps a user's spelling for hover. Each was built inline by the check that
-// needed it (consolidate-lsp-structure B7).
-
-/** An array type: `ARRAY [1..2] OF INT` (CODESYS-verified), or undefined when a bound does not fold. */
-export function compilerArrayText(t: ArrayTypeInfo, scope: Scope): string | undefined {
-  const parts: string[] = []
-  for (const d of t.dims) {
-    if (d.lower === undefined || d.upper === undefined) return undefined
-    const lo = constEval(d.lower, scope)
-    const hi = constEval(d.upper, scope)
-    if (typeof lo !== "bigint" || typeof hi !== "bigint") return undefined
-    parts.push(`${lo}..${hi}`)
-  }
-  return `ARRAY [${parts.join(",")}] OF ${renderType(t.element)}`
-}
+// needed it (consolidate-lsp-structure B7). An array is named by `types/renderType` itself, bounds as written (`ARRAY [0..N]
+// OF INT`, analysis-conformance 3.1 `cmpop_array_constant_bound`) — the folding `compilerArrayText` that stood here is gone.
 
 /** A string LITERAL's type: `STRING(INT#3)`, sized by its DECODED length (conformance `cc_string_escape_literal_into_int`). */
 export function compilerStringLiteralText(length: number, wide: boolean): string {
@@ -125,8 +111,6 @@ export interface Messages {
   initListExpected(type: string): string
   /** An array-initializer repeat count `n(v)` where `n` is a non-constant variable (C0162). verified both vendors. */
   arrayInitCountNonConst(count: string): string
-  /** A pointer value implicitly assigned to a non-pointer type — a WARNING (C0033). verified both vendors. */
-  pointerNotConvertible(from: string, to: string): string
   /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). verified both vendors. */
   referenceAssignTarget(): string
   refInitNeedsReference(): string
@@ -552,7 +536,6 @@ export function messagesFor(vendor: Vendor): Messages {
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     // Mirror the IDE: it reports a non-convertible pointer with the same "Cannot convert" wording as C0032
     // (both vendors, live-verified) — not a distinct "possibly not convertible" phrasing.
-    pointerNotConvertible: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
     // a declaration's `REF=` on a type that is no reference — both vendors, the same words (`decl_ref_init_on_value`)
     refInitNeedsReference: () => `Initialisation with REF= is only allowed for variables of type REFERENCE TO`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),

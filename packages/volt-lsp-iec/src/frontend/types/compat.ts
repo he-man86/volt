@@ -157,17 +157,46 @@ export function genericParameterAccepts(group: string, arg: Type, dialect: Diale
 }
 
 /**
- * Does a pointer FIT this elementary target — is a pointer assigned to it silently (C0033 otherwise)? An unsigned integer
- * or bit string at least as wide as the TARGET's pointer, one rule on both vendors (frontend-conformance 4.1.1,
- * `ty_pointer_size_twincat`): on a 64-bit target LWORD, ULINT and `__XWORD` fit and WORD, DWORD, UDINT are refused
- * (CODESYS Control Win V3 x64); on a 32-bit one DWORD and UDINT fit too (TwinCAT CE7). It was a VENDOR split — "CODESYS
- * warns for every elementary target, TwinCAT only below 32 bits" — which was the two recording projects' targets read
- * as vendors. Undefined where the target decides and is unknown (a 32-bit integer, no target); a signed integer never
- * fits (only the unsigned widths are recorded; the rule before 4.1.1).
+ * HOW A POINTER STORES INTO AN ELEMENTARY TYPE — `fits` (silent), `sign-change` (the warning: the pointer is the unsigned
+ * integer of its width), `incompatible` ("Cannot convert type 'POINTER TO INT' to type '<T>'", an ERROR at the default
+ * settings of both recording projects), or undefined where what decides it is unknown or unmeasured. One rule on both
+ * vendors but for one family:
+ *
+ *   an unsigned integer or bit string at least as wide as the TARGET's pointer fits (frontend-conformance 4.1.1,
+ *   `ty_pointer_size_twincat`: on a 64-bit target LWORD, ULINT and `__XWORD` fit, BYTE, WORD, DWORD, UDINT are refused;
+ *   on a 32-bit one DWORD and UDINT fit too, WORD refused); a SIGNED one is refused below the pointer's width (SINT, INT,
+ *   DINT) and a change of sign at it — LINT on the 64-bit target (`ptrsc_into_lint`, analysis-conformance 3.1, both
+ *   vendors); a signed integer at a 32-bit target's width is unmeasured;
+ *   a REAL or an LREAL is silent on CODESYS and refused on TwinCAT (`ptrsc_into_real`, `ptrsc_into_real32`, both
+ *   recorded 2026-10-06);
+ *   every other elementary type is refused — BOOL, TIME, LTIME, DATE, DT, TOD, STRING, WSTRING (`ptrsc_into_bool`,
+ *   `ptrsc_into_time`, `ptrsc_into_ltime`, `ptrsc_into_date`, `ptrsc_into_dt`, `ptrsc_into_tod`, `ar_adr_type`,
+ *   `ptrsc_into_wstring`, both vendors). The platform integer `__XINT` is LINT on the 64-bit target and changes sign as
+ *   LINT does (`ptrsc_into_xint`, `cmpop_pointer_vs_xint`).
  */
-export function pointerFits(t: ElementaryTypeRef, target: Target | undefined): boolean | undefined {
-  if (t.elem.signed || (t.elem.family !== "int" && t.elem.family !== "bitstring")) return false
-  if (t.elem.bits >= 64) return true
-  if (t.elem.bits < 32) return false
-  return target === undefined ? undefined : t.elem.bits >= target.pointerBits
+export function pointerIntoElementary(t: ElementaryTypeRef, target: Target | undefined, dialect: Dialect | undefined): "fits" | "sign-change" | "incompatible" | undefined {
+  const e = t.elem
+  if (e.family === "real") return dialect === undefined ? undefined : dialect === "codesys" ? "fits" : "incompatible"
+  if (e.family !== "int" && e.family !== "bitstring") return "incompatible"
+  if (e.bits < 32) return "incompatible"
+  if (e.signed) {
+    if (target?.pointerBits !== 64) return undefined
+    return e.bits >= 64 ? "sign-change" : "incompatible"
+  }
+  if (e.bits >= 64) return "fits"
+  return target === undefined ? undefined : e.bits >= target.pointerBits ? "fits" : "incompatible"
+}
+
+/**
+ * HOW A POINTER COMPARES WITH AN INTEGER on the 64-bit target (`cb_compare_pointers`, `cmpop_pointer_vs_*`, both vendors
+ * 2026-10-03 / 2026-10-06): a 32-bit integer of either sign is refused ("Cannot compare type 'POINTER TO INT' with type
+ * 'DINT'"); a signed one of any other width meets the pointer at LINT and the POINTER warns its change of sign — SINT,
+ * INT and LINT alike; an unsigned one of any other width is silent (BYTE, UINT, LWORD, ULINT). Undefined on any other
+ * target — it is unmeasured there — and for an operand that is no integer.
+ */
+export function pointerComparison(t: ElementaryTypeRef, target: Target | undefined): "fits" | "sign-change" | "incompatible" | undefined {
+  const e = t.elem
+  if ((e.family !== "int" && e.family !== "bitstring") || target?.pointerBits !== 64) return undefined
+  if (e.bits === 32) return "incompatible"
+  return e.signed ? "sign-change" : "fits"
 }

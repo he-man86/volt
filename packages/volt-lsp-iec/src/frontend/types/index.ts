@@ -57,7 +57,7 @@ export { isSfcStepBase } from "./infer/sfc-step.js"
 export { sfcStepTypeScope } from "./system.js"
 
 // compatibility, constants, arithmetic, operators, built-ins
-export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerFits, type ConversionKind } from "./compat.js"
+export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerComparison, pointerIntoElementary, type ConversionKind } from "./compat.js"
 export { constantSlotType, constEval, declaredValue, isRecursiveConstant, type ConstValue } from "./const/fold.js"
 export { constancyOf } from "./const/constancy.js"
 export { commonType, promoteForRuntime } from "./arith/runtime.js"

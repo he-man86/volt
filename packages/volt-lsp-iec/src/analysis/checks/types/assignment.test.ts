@@ -306,3 +306,39 @@ END_METHOD`
     .map((d) => d.message)
   expect(messages).toEqual(["Cannot convert type 'VALUE' to type 'STRING'", "Cannot convert type 'VALUE' to type 'STRING'"])
 })
+
+/** Every `assignment-type-mismatch` message for `body`, beside a struct `S_Lit`. */
+const composite = (vars: string, body = ""): string[] => {
+  const src = `TYPE S_Lit :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "assignment-type-mismatch")
+    .map((d) => d.message)
+}
+
+test("an untyped 0 or 1 into a struct or an array is named BIT, any other integer by its own type — in an initial value and a statement (litc_*, both vendors)", () => {
+  expect(composite("rec : S_Lit := 0;")).toEqual(["Cannot convert type 'BIT' to type 'S_Lit'"])
+  expect(composite("rec : S_Lit := 1;")).toEqual(["Cannot convert type 'BIT' to type 'S_Lit'"])
+  expect(composite("rec : S_Lit := (1);")).toEqual(["Cannot convert type 'BIT' to type 'S_Lit'"])
+  expect(composite("rec : S_Lit := 2;")).toEqual(["Cannot convert type 'SINT' to type 'S_Lit'"])
+  expect(composite("rec : S_Lit;", "rec := 1;")).toEqual(["Cannot convert type 'BIT' to type 'S_Lit'"])
+  expect(composite("rec : S_Lit;", "rec := 2;")).toEqual(["Cannot convert type 'SINT' to type 'S_Lit'"])
+  expect(composite("arr : ARRAY[0..1] OF INT := 1;")).toEqual(["Cannot convert type 'BIT' to type 'ARRAY [0..1] OF INT'"])
+  expect(composite("arr : ARRAY[0..1] OF INT := 2;")).toEqual(["Cannot convert type 'SINT' to type 'ARRAY [0..1] OF INT'"])
+  expect(composite("arr : ARRAY[0..1] OF INT;", "arr := 1;")).toEqual(["Cannot convert type 'BIT' to type 'ARRAY [0..1] OF INT'"])
+})
+
+test("…and so into a FUNCTION BLOCK instance: 1 is BIT, 2 SINT, in an initial value and a statement (litc_fb_*, both vendors)", () => {
+  const fbInto = (vars: string, body = ""): string[] => {
+    const src = `FUNCTION_BLOCK FB_Lit\nVAR\n\ta : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "assignment-type-mismatch")
+      .map((d) => d.message)
+  }
+  expect(fbInto("fbv : FB_Lit := 1;")).toEqual(["Cannot convert type 'BIT' to type 'FB_Lit'"])
+  expect(fbInto("fbv : FB_Lit;", "fbv := 1;")).toEqual(["Cannot convert type 'BIT' to type 'FB_Lit'"])
+  expect(fbInto("fbv : FB_Lit;", "fbv := 2;")).toEqual(["Cannot convert type 'SINT' to type 'FB_Lit'"])
+})

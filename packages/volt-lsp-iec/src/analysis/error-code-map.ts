@@ -16,7 +16,6 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "operator-operand-count": ["C0022", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0022.html"],
   "at-address": ["C0030", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0030.html"],
   "assignment-type-mismatch": ["C0032", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0032.html"],
-  "pointer-not-convertible": ["C0033", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0033.html"],
   "invalid-call-target": ["C0035", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0035.html"],
   "unknown-named-argument": ["C0037", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0037.html"],
   "unknown-named-output": ["C0038", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0038.html"],

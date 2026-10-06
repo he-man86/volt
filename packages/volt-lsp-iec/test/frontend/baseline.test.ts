@@ -39,6 +39,8 @@ describe("ceilings — a measure may only fall", () => {
     expect(ceilingReport({ findings: 1 }, at({}, ["a", "codesys fixture/fx/F.pou 1:1 .m -> NONE"]), allowanceOf("b", ex), ex)).toEqual({ rises: [], stale: [], missing: [] })
     expect(ceilingReport({ findings: 1 }, at({}, ["a", "b", "c"]), allowanceOf("b", ex), ex).rises).toEqual(["findings: 1 + 1 excepted → 3"])
     expect(ceilingReport({ findings: 1 }, at({}, ["a", "b"]), allowanceOf("b", ex), ex).stale).toEqual(["exception for fx (findings): no finding names it — remove it"])
+    // …and a bound-census finding names its fixture as `<vendor> <fixture>: …`
+    expect(ceilingReport({ findings: 1 }, at({}, ["a", "codesys fx: build says …"]), allowanceOf("b", ex), ex)).toEqual({ rises: [], stale: [], missing: [] })
   })
 
   test("every named exception points at a ceiling its baseline has", () => {

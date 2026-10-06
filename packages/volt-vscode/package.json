@@ -289,16 +289,6 @@
           "default": false,
           "description": "Report unreachable (dead) code — units no direct/indirect task-called path reaches. Off by default, matching the compiler, which never checks code it doesn't compile."
         },
-        "volt.iec.diagnostics.pointer-not-convertible": {
-          "type": "string",
-          "enum": [
-            "off",
-            "warning",
-            "error"
-          ],
-          "default": "warning",
-          "description": "C0033 — Type possibly not convertible to the target type. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
-        },
         "volt.iec.diagnostics.jump-label-unreferenced": {
           "type": "string",
           "enum": [

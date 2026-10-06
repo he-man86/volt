@@ -20,7 +20,6 @@ const LANGUAGE_IDS = ["structured-text"]
 // error), default "warning" — CODESYS's default. Non-configurable errors are never here. Kept in sync by hand:
 // adding a configurable check adds a row here + a `volt.iec.diagnostics.<code>` setting in package.json.
 const CONFIGURABLE_CODES = [
-	"pointer-not-convertible",
 	"jump-label-unreferenced",
 	"no-op-statement",
 	"sign-change-conversion",

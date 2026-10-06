@@ -4,7 +4,7 @@
  * environment.ts`). TwinCAT Project14 builds for TwinCAT CE7 (ARMV7), a 32-bit target, and its recording is a file of its
  * own, `recordings/twincat-32.build.json` (`VOLT_RECORDING_TARGET=32 RECORD_ONLY=… bun run record:language`, frontend-
  * conformance 4.8): the fixtures that name a platform integer or store a pointer, asked there. The LSP replays each on a
- * project of THAT target, with C0033 an error as the recording project configures it, and must give exactly the build's
+ * project of THAT target, and must give exactly the build's
  * messages — the agreement the 64-bit oracles are held to (`fixtures.test.ts`).
  */
 import { describe, expect, test } from "bun:test"
@@ -18,8 +18,8 @@ import { TARGET_PROBE, THIRTY_TWO_BIT_WIDTH, targetWidth } from "../../scripts/r
 import { expectStillDiverges } from "./support/expected-failure.js"
 
 /**
- * THE KNOWN DIVERGENCES ON THIS TARGET, each run as an expected failure. Not `KNOWN_DIVERGENCES.twincat` wholesale: its
- * C0033 marks are the 64-bit replay's shipped severity, and here C0033 is an error, as the project configures it.
+ * THE KNOWN DIVERGENCES ON THIS TARGET, each run as an expected failure. Not `KNOWN_DIVERGENCES.twincat` wholesale: those
+ * are the 64-bit replay's.
  *   `cp_xsizeof` — XSIZEOF is no TwinCAT keyword, on this target as on the 64-bit one (`TWINCAT_XSIZEOF_IS_NO_KEYWORD`).
  *
  * The batch of 2026-10-03T08:00Z ran while another session opened its own Project14 XAE on the same project and recorded
@@ -53,7 +53,7 @@ describe("a 32-bit target (rule TY6): the LSP against TwinCAT's build on TwinCAT
         .filter((d) => d.severity === "error" || d.severity === "warning")
         .map((d) => `[${d.severity}] ${comparable(d.message)}`)
         .sort()
-      const lsp = lspMessagesOn(t, ALL_TESTS, "twincat", THIRTY_TWO_BIT, { "pointer-not-convertible": "error" })
+      const lsp = lspMessagesOn(t, ALL_TESTS, "twincat", THIRTY_TWO_BIT, undefined)
       const mark = TARGET_32_DIVERGENCES[name]
       if (mark !== undefined) expectStillDiverges(name, mark, [() => expect(lsp).toEqual(ide)], "TwinCAT's 32-bit build")
       else expect(lsp).toEqual(ide)

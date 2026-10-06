@@ -520,9 +520,10 @@
     "expect": [
       "Cannot convert type 'POINTER TO INT' to type 'INT'"
     ],
-    "status": "implemented",
-    "ourCheck": "pointer-conversion",
-    "ourCode": "pointer-not-convertible",
+    "status": "ide-only",
+    "ideOnlyReason": "Never seen: measured 2026-10-06 (openspec analysis-conformance 3.1) — no CODESYS or TwinCAT recording shows this warning's wording, and both recording projects (default warning settings) answer a pointer stored into a target it does not fit with the ordinary conversion ERROR \"Cannot convert type …\" (C0032), which `pointer-conversion` gives as `assignment-type-mismatch`.",
+    "ourCheck": null,
+    "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": true,

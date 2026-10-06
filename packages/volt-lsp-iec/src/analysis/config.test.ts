@@ -73,8 +73,8 @@ test("a disabled warning from the project turns its check off", () => {
 })
 
 test("warnings-as-errors raise severity", () => {
-  expect(projectDiagnosticsFrom("Warnings as errors:    C0033, C0139")).toEqual({
-    "pointer-not-convertible": "error",
+  expect(projectDiagnosticsFrom("Warnings as errors:    C0118, C0139")).toEqual({
+    "jump-label-unreferenced": "error",
     "no-op-statement": "error",
   })
 })

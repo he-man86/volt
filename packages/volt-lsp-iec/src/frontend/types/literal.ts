@@ -143,17 +143,25 @@ export function literalContextConversion(value: Expr, target: Type): Type | unde
  *     (`b := 1` is silent, `b := 2` is "Cannot convert type 'SINT' to type 'BOOL'");
  *   - any other integer is its narrowest type (`integerLiteralType`) — `t := 5` is "Cannot convert type 'SINT' to type 'TIME'";
  *   - a real literal is LREAL — `i := 1.5` is "Cannot convert type 'LREAL' to type 'INT'", and into REAL or LREAL it
- *     converts silently (a narrowing, never an error).
+ *     converts silently (a narrowing, never an error);
+ *   - into a STRUCT, a function block or an ARRAY, 0 and 1 are BIT — `rec := 1` and `arr : ARRAY[0..1] OF INT := 0` are
+ *     "Cannot convert type 'BIT' to type '…'", where 2 is SINT (`litc_struct_*`, `litc_array_*`, `litc_fb_*`, both vendors
+ *     2026-10-06, analysis-conformance 3.1 and its gate review).
+ * Into a composite, a parenthesized literal is the literal (`rec : S := (1)`, `litc_struct_init_one_in_parens`).
  * The WARNING checks keep `literalCheckType`: a literal's sign-change and loss warnings are measured only for integer
  * targets.
  */
-export function literalErrorType(value: Expr, target: Type): Type | undefined {
-  const negated = value.kind === "unary" && value.op === "-"
-  const lit = negated ? value.operand : value
+export function literalErrorType(value0: Expr, target: Type): Type | undefined {
+  const composite = target.kind === "struct" || target.kind === "function_block" || target.kind === "array"
+  let value = value0
+  if (composite) while (value.kind === "paren") value = value.inner
+  const lit = value.kind === "unary" && value.op === "-" ? value.operand : value
+  const negated = lit !== value
   if (lit.kind !== "literal") return undefined
   if (lit.literalKind === "real" && typeof lit.value === "number") return elementaryRef(REAL_LITERAL_TYPE)
   if (lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
   const v = negated ? -lit.value : lit.value
+  if (composite && (v === 0n || v === 1n)) return elementaryRef("BIT")
   if (target.kind === "elementary" && target.elem.family === "bool") {
     if (v === 0n || v === 1n) return undefined
   } else {

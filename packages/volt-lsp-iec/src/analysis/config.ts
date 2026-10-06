@@ -22,11 +22,10 @@ export type DiagnosticState = "off" | "warning" | "error"
  * own severity no longer matters for a configurable code.) Codes NOT here are non-configurable — errors always
  * error, exactly as CODESYS gives them no dialog control.
  *
- * This is 22 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
+ * This is 21 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
  * are still gaps, and why the un-closeable ones can't be — is `docs/codesys-reference/compiler-warnings-coverage.md`.
  */
 export const CONFIGURABLE_CHECKS = [
-  { code: "pointer-not-convertible", c: "C0033", label: "Type possibly not convertible to the target type" },
   { code: "jump-label-unreferenced", c: "C0118", label: "A label has not been referenced" },
   { code: "no-op-statement", c: "C0139", label: "The code has no effect — is this the intent?" },
   { code: "sign-change-conversion", c: "C0195/C0196", label: "Implicit conversion changes the sign" },
@@ -116,7 +115,7 @@ export function configurableCodeFor(cnnnn: string): ConfigurableCode | undefined
  * Read the per-code states out of a `.projectsettings` body. Two lines matter:
  *
  *     Disabled warnings:     C0371, C0139
- *     Warnings as errors:    C0033
+ *     Warnings as errors:    C0139
  *
  * Anything else in the file is compile options, which the analysis does not consume (yet). A code Volt
  * does not implement is skipped rather than rejected: the file lists the PROJECT's configuration, and a

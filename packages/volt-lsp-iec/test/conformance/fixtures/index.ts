@@ -26,6 +26,7 @@ import { SELECTION_TESTS } from "./operators/selection.js"
 import { ESCAPE_TESTS } from "./strings/escapes.js"
 import { STRING_EDGE_TESTS, TRANSPILE_REVIEW_STRING_TESTS } from "./strings/string-edges.js"
 import { COMPARISON_TESTS } from "./operators/comparison.js"
+import { COMPARISON_OPERAND_TESTS } from "./operators/comparison-operands.js"
 import { MIXED_TYPE_TESTS } from "./operators/mixed-type.js"
 import { MATH_DOMAIN_TESTS } from "./operators/math-domain.js"
 import { REAL_OVERFLOW_TESTS } from "./operators/real-overflow.js"
@@ -72,6 +73,7 @@ import { ERROR_CATALOG_TESTS } from "./semantics/error-catalog.js"
 import { EXECUTION_TESTS } from "./semantics/execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory/memory-model.js"
 import { POINTER_PARAMETER_TESTS } from "./memory/pointer-parameters.js"
+import { POINTER_INTO_SCALAR_TESTS } from "./memory/pointer-into-scalar.js"
 import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
@@ -114,6 +116,7 @@ import { MEMBER_RULE_TESTS } from "./names/members.js"
 import { SFC_STEP_TESTS } from "./names/sfc-steps.js"
 import { ELEMENTARY_RULE_TESTS } from "./types/elementary-rules.js"
 import { LITERAL_CONTEXT_TESTS } from "./types/literal-contexts.js"
+import { LITERAL_INTO_COMPOSITE_TESTS } from "./types/literal-into-composite.js"
 import { ARITHMETIC_RESULT_TESTS } from "./types/arithmetic-results.js"
 import { COMPARISON_BOOL_TESTS } from "./types/comparisons-bool.js"
 import { ENUM_CONVERSION_TESTS } from "./types/enum-conversions.js"
@@ -182,6 +185,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "math-domain", tests: MATH_DOMAIN_TESTS },
   { name: "arithmetic-edges", tests: ARITHMETIC_EDGE_TESTS },
   { name: "comparison", tests: COMPARISON_TESTS },
+  { name: "comparison-operands", tests: COMPARISON_OPERAND_TESTS },
   { name: "bitwise", tests: BITWISE_TESTS },
   { name: "selection", tests: SELECTION_TESTS },
   { name: "string-edges", tests: [...STRING_EDGE_TESTS, ...TRANSPILE_REVIEW_STRING_TESTS] },
@@ -211,6 +215,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   // ── the facts the transpiler's memory model is built on (transpile-st-to-rust design §9) — run in the simulator ──
   { name: "memory-model", tests: MEMORY_MODEL_TESTS },
   { name: "pointer-parameters", tests: POINTER_PARAMETER_TESTS },
+  { name: "pointer-into-scalar", tests: POINTER_INTO_SCALAR_TESTS },
   // ── call semantics: FB instances, methods, actions, functions, a program and a global (phase 3) ──
   { name: "fb-call", tests: FB_CALL_TESTS },
   // ── inheritance: which bodies and methods EXTENDS and SUPER^ run (phase 3½) ──
@@ -246,6 +251,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "names-sfc-steps", tests: SFC_STEP_TESTS },
   { name: "types-elementary-rules", tests: ELEMENTARY_RULE_TESTS },
   { name: "types-literal-contexts", tests: LITERAL_CONTEXT_TESTS },
+  { name: "types-literal-into-composite", tests: LITERAL_INTO_COMPOSITE_TESTS },
   { name: "types-arithmetic-results", tests: ARITHMETIC_RESULT_TESTS },
   { name: "types-comparisons-bool", tests: COMPARISON_BOOL_TESTS },
   { name: "types-enum-conversions", tests: ENUM_CONVERSION_TESTS },

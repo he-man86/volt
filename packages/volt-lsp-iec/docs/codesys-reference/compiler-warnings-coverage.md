@@ -7,7 +7,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 
 | CODESYS | Volt status | our code / setting | description |
 |---|---|---|---|
-| C0033 | ✅ **3-state setting** | `pointer-not-convertible` | unsafe pointer conversion warning |
+| C0033 | ⬜ ide-only | — | unsafe pointer conversion warning |
 | C0100 | ⬜ absent | — | — |
 | C0118 | ✅ **3-state setting** | `jump-label-unreferenced` | unused jump label |
 | C0125 | ⬜ wont-fix | — | duplicate enum value |
@@ -74,7 +74,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 | C0561 | ⬜ needs-live-verify | — | recursive call warning |
 | C0564 | ⬜ needs-live-verify | — | initialization order |
 
-**23 of 66** dialog codes are implemented (22 as toggleable 3-state settings, 1 as fixed errors). The other **43** are gaps — grouped by why below.
+**22 of 66** dialog codes are implemented (21 as toggleable 3-state settings, 1 as fixed errors). The other **44** are gaps — grouped by why below.
 
 ## Closing the gaps
 
@@ -91,12 +91,13 @@ Offline-feasible in principle, but the exact trigger/wording is unverified and/o
 | C0561 | recursive call warning | The function self-recursion ERROR (C0224) already ships. C0561 is the configurable-warning variant; the mutual-recursion repro could NOT be built on the bridge (the positive control never appeared — pushing two mutually-recursive FUNCTIONs corrupts PLC_PRG parsing), so it is un-verifiable in the current harness. Needs a project-wide call graph + dedicated live investigation. Zero corpus surface. |
 | C0564 | initialization order | Probed live (CODESYS 3.5.21) in a tasked PLC_PRG with a positive control proving compilation: a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred. |
 
-### Needs IDE build/runtime data — cannot be done offline (11)
+### Needs IDE build/runtime data — cannot be done offline (12)
 
 These need device/library metadata, codegen, memory layout, or a project option the bridge does not expose.
 
 | CODESYS | what it flags | why Volt cannot |
 |---|---|---|
+| C0033 | unsafe pointer conversion warning | Never seen: measured 2026-10-06 (openspec analysis-conformance 3.1) — no CODESYS or TwinCAT recording shows this warning's wording, and both recording projects (default warning settings) answer a pointer stored into a target it does not fit with the ordinary conversion ERROR "Cannot convert type …" (C0032), which `pointer-conversion` gives as `assignment-type-mismatch`. |
 | C0209 | Too many applications for device | Needs the device repository / compiler-version metadata (installed devices, withdrawn versions, AddOns). |
 | C0269 | pointer reinit virtual dispatch risk | Virtual-dispatch FB reinitialization is a codegen/memory-layout concern — not decidable from offline source. |
 | C0298 | stack usage undecidable | Stack-usage calculation is a build-time computation over the full resolved call tree. |

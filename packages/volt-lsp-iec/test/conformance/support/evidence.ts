@@ -164,7 +164,7 @@ function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<t
   const config = resolveConfig({ vendor })
   const analysed = files.flatMap((f) => computeDiagnostics({ uri: f.uri, parseResult: f.parseResult, source: f.source, project, config }))
   const network = computeNetworkTextDiagnostics(own, project, messagesFor(vendor))
-  return [...analysed, ...network].filter((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code)).map((d) => d.message)
+  return [...analysed, ...network].filter((d) => d.severity === "error").map((d) => d.message)
 }
 
 /** Whether the LSP objects at all — a parse error counts, and so does a check the PROJECT could configure louder. */
@@ -188,13 +188,6 @@ function onlyProjectConfiguration(error: string): boolean {
   return lines.length > 0 && lines.every((line) => PROJECT_CONFIGURATION.some((p) => p.test(line)))
 }
 
-/**
- * Checks whose SEVERITY the project decides, not the language. C0033 (`dw := ptr`) is configurable in CODESYS: the
- * recording project has it as an error, this LSP ships the vendor's default — a warning — and the MESSAGE is
- * identical either way (`cc5_pointer_not_convertible`). Reading severity alone filed that as a silent gap when the
- * LSP objects in the vendor's own words; the two differ by configuration, not by behaviour.
- */
-const CONFIGURABLE_SEVERITY: ReadonlySet<string> = new Set(["pointer-not-convertible"])
 
 /** The file extension a fixture's kind materializes as — one object per file, as the wire keys them. */
 function extFor(kind: LanguageTest["kind"]): string {
