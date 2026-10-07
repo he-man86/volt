@@ -1062,6 +1062,38 @@ are fixed in the move.
 - See §2.7.
 - `libraries/index.ts` takes the manifest's `folder` instead of slicing the URI (l.70).
 
+### 4.9 Names added after 2026-09-29 (task 0.1 inventory, 2026-10-07, at 3f42db0e71)
+
+Task 0.1 re-ran the inventory (every top-level `function`/`const`/`let`/`class`/`interface`/`type` of `src/transpile/**`, tests
+excluded) against the backticked names of §4.1-§4.8. The IR node types of `ir/ir.ts` (`Access`, `Place`, `IrExpr` … `IrPou`) are
+placed by §4.5's line ranges and are not repeated here. Three names §4 lists no longer exist: `LOOP_ITERATION_CAP` and
+`LOOP_CAP_MESSAGE` (deleted by RC 27, f052467157 — the cap is a harness-only `loopGuard` now) and `defaultOfValues` (now
+`src/frontend/types/enums.ts`, frontend-conformance). Every other name found, by the file it lives in today:
+
+- **emit/rust/emit.ts:** `emittedFamily` (RC 31's one place a BIT becomes "bool") → `types.ts`; `isReal` → `src/frontend/types/predicates.ts`
+  `isReal` (1.1.5, the emitter's copy deleted); `EmitOptions` (the harness's `loopGuard`) → `module.ts` beside `emitRust`.
+- **interp/interp.ts:** `LoopGuardError`, `RunOptions` → `runner.ts`; the closure compiler `Run`, `exprs`, `blocks`, `compiledExpr`,
+  `compiledBlock`, `compileExpr`, `compileBlock`, `compileStmt` → `machine.ts`; `compileRead`, `compileWrite` → `frame.ts`; `shown`
+  (a value as the IDE shows it) → `runner.ts`.
+- **ir/evaluate.ts:** `selectedArg` (RC 41, the one argument SEL/MUX evaluates) → `semantics/builtins.ts`.
+- **ir/values.ts:** `expt`, `integerPower`, `significand`, `Scaled`, `bitLength`, `cut`, `power`, `reciprocal`, `toDouble` (RC 46) →
+  `semantics/math.ts`; `visible`, `held` (RC 34/45, the buffer behind the terminator) → `semantics/string.ts`; `longCalendarText`
+  (RC 12) → `semantics/text.ts`; `compared` → `semantics/arith.ts` (with `eq`/`ord`); `lowest`, `highest`, `inWidth` →
+  `semantics/store.ts` (with `fit`); `toSingle` (RC 47) → `semantics/convert.ts`.
+- **lower/bindings.ts:** `registerWholeCopy` (RC 16) → `calls/last-binding.ts`.
+- **lower/conditions.ts** (new file, frontend-conformance 2.7.1/4.1.1): `EXEC_ORACLE_DEVICE`, `EXEC_ORACLE_TARGET`,
+  `EXEC_ORACLE_PROJECT`, `execWorlds`, `execBodyStatements` → `project/conditions.ts` (the exec oracle's world; `prepare.ts` and
+  `entry/lower-unit.ts` read it).
+- **lower/constants.ts:** `enumeratorValue` → `values/enums.ts`.
+- **lower/convert.ts:** `beside` (RC 6), `ownIntegerType` → `values/promote.ts` (with the meet, 1.7.15).
+- **lower/init-sequence.ts:** `lowerPendingInit` (RC 24) → `init/sequence.ts`; `readsLaterTemp` → `init/temp-resets.ts`.
+- **lower/interfaces.ts:** `SymbolAst` → `interfaces/dispatch.ts` (private); `foreignWrite` (RC 18) → `interfaces/query.ts`.
+- **lower/lower.ts:** `TRANSPILE_PARSE` → `project/prepare.ts`; `reversedArray` → `entry/checks.ts` (with `representable`).
+- **lower/pointers.ts:** `ELEMENT_TAG_BIAS` (RC 44) → `core/tags.ts` (1.7.19); `charsOf`, `charsThrough` (RC 34) → `pointers/cursor.ts`.
+- **lower/statements.ts:** `loopBody` (RC 39) → `statements/loops.ts`; `anySize` (RC 17) → `pointers/any.ts`; `holdsOwnAddress`
+  (RC 15) → `statements/assign.ts`.
+- **lower/storage.ts:** `constantSlot` (RC 2.3) → `storage/declare.ts`; `elementDefaults` (RC 25) → `init/initial-values.ts`.
+
 ---
 
 ## 5. Test structure
@@ -1112,6 +1144,45 @@ are fixed in the move.
 | 2114 | `builtins/conversions.test.ts` |
 
 A describe at a line this table does not name (added by `transpile-fix-all` after 2026-09-29) is placed by task 0.1 before 1.8.1.
+
+Placed by task 0.1 (2026-10-07, at 3f42db0e71). The lines are TODAY's `lower.test.ts` (2645 lines); the rows above keep their
+2026-09-29 lines. A test nested in an existing describe moves with that describe's row (the REFERENCE-TO-a-struct/array/FB reads
+at 1844-1850 with "a reference is stepped THROUGH", the clock key at 1978 with the clock describe, 1315-1348 with "total, never
+silently wrong"), except the nested describe at 2073:
+
+| lower.test.ts line (2026-10-07) | Test (RC) | New file |
+|---|---|---|
+| 276 | `__QUERYINTERFACE` into a global is a foreign write (RC 18) | `interfaces/query.test.ts` |
+| 2073 | describe "an implicit string-kind conversion CODESYS refuses is refused while lowering" (RC 38) | `statements/assign.test.ts` |
+| 2259 | a METHOD's own VAR_IN_OUT shadows the FB field and VAR_STAT (RC 19) | `places/names.test.ts` |
+| 2273 | EXIT and CONTINUE outside a loop are refused (RC 39) | `statements/loops.test.ts` |
+| 2286 | S= and R= through a multi-target pointer latch the target (RC 14) | `pointers/deref.test.ts` |
+| 2299 | a VAR_TEMP's non-constant initializer re-evaluates every run (RC 24) | `init/temp-resets.test.ts` |
+| 2326 | an array's elements start at their element type's default (RC 25) | `init/initial-values.test.ts` |
+| 2341 | SIZEOF of an FB skips a replaced VAR CONSTANT, adds a pointer per interface (RC 26) | `builtins/sizeof.test.ts` |
+| 2366 | a string conversion keeps the operand's capacity past 80 (RC 11) | `builtins/conversions.test.ts` |
+| 2387 | a constant FOR step wraps to the counter's width (RC 35) | `statements/loops.test.ts` |
+| 2407 | a whole-value store of an FB whose pointer targets its own member is refused (RC 15) | `statements/assign.test.ts` |
+| 2422 | an ANY input's pValue through a pointer of another type is refused (RC 17) | `pointers/any.test.ts` |
+| 2437 | an integer literal that does not fit its neighbour meets it wider (RC 6) | `values/promote.test.ts` |
+| 2459 | a literal FOR limit the counter cannot hold is compared unnarrowed (RC 36) | `statements/loops.test.ts` |
+| 2472 | a CASE label outside the selector's type or an inverted range is refused (RC 37) | `statements/case.test.ts` |
+| 2484 | a 32-bit date ± an LTIME is refused (RC 40) | `expressions/calendar.test.ts` |
+| 2497, 2514 | an FB output binding converts (RC 43); a routine's output is copied out after the call (RC 20) | `calls/outputs.test.ts` |
+| 2535 | a namespace-qualified FUNCTION and a project FUNCTION are two routines (RC 21) | `calls/namespace.test.ts` |
+| 2554 | an instance's field initializers run before its FB_Init (RC 22) | `init/fb-init.test.ts` |
+| 2569 | initializers and FB_Init interleave in declaration order (RC 23) | `init/step.test.ts` |
+| 2590 | a pointer stepped below its array's first element is not NULL (RC 44) | `pointers/address.test.ts` |
+| 2604 | the bytes behind a STRING's terminator survive; a POINTER TO BYTE reaches them (RC 34) | `pointers/cursor.test.ts` |
+| 2620 | a `to_string` enum's STRING conversion is refused by name | `builtins/conversions.test.ts` |
+| 2641 | a compiler struct lowering cannot lay out is refused at its declaration | `storage/layout.test.ts` |
+
+`emit.test.ts` describes §4.6 does not name (2026-10-07 lines): 418 "no iteration cap" (RC 27; it replaced "the iteration cap both
+backends share", so 2.3 has nothing left to delete there) → `loops.test.ts`; 426 "no iteration cap, compiled", 912 "LREAL_TO_STRING
+rounds a tie half-up" (RC 33) and 941 "LDT/LDATE/LTOD_TO_STRING" (RC 12) → `test/conformance/emit-build.test.ts` (their helper
+cells → `text.cases.ts` under the twin harness, 1.5.15); 877 "a BIT converts as a BOOL" (RC 31) and 895 "LTIME_TO_STRING is
+unsigned" (RC 32) → `convert.test.ts`; the two RC 28/41 tests inside "emit/rust" (REAL MAX/MIN/LIMIT compare-select, LIMIT/MUX
+evaluation order) → `builtins.test.ts`.
 
 - `calls.test.ts` → `calls/routines.test.ts` (self-containing types) and `calls/binding.test.ts` ("what a call may bind").
 - `init-sequence.test.ts` → `init/sequence.test.ts`.

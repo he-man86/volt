@@ -3710,7 +3710,7 @@ fn __volt_edge() {
   return `${edgeFns}fn main() {\n    if std::env::args().nth(1).as_deref() == Some("${EDGE_ARG}") { __volt_edge(); return; }\n${body}}\n`
 }
 
-interface Outcome {
+export interface EdgeOutcome {
   faulted: boolean
   /** The harness's loop guard gave up — no answer, so nothing to compare. */
   gaveUp?: boolean
@@ -3744,7 +3744,8 @@ function rustRender(raw: string, t: Type): string {
   return nan ? "NaN" : raw
 }
 
-function interpOutcome(pou: IrPou, plan: Extract<EdgePlan, { paths: unknown }>, k: number): Outcome {
+/** One variant of an edge plan, run by the interpreter (its guard lower than the Rust's, see `EDGE_INTERP_GUARD`). */
+export function interpOutcome(pou: IrPou, plan: Extract<EdgePlan, { paths: unknown }>, k: number): EdgeOutcome {
   const v = plan.variants[k]!
   let runner: Runner
   try {
@@ -3760,9 +3761,9 @@ function interpOutcome(pou: IrPou, plan: Extract<EdgePlan, { paths: unknown }>, 
   return { faulted: false, done: true, values: new Map(plan.paths.map((p) => [p.path, interpRender(runner.get(p.path), p.type)])) }
 }
 
-function parseEdge(stdout: string): Map<number, Outcome> {
-  const out = new Map<number, Outcome>()
-  let current: Outcome | undefined
+function parseEdge(stdout: string): Map<number, EdgeOutcome> {
+  const out = new Map<number, EdgeOutcome>()
+  let current: EdgeOutcome | undefined
   for (const line of stdout.split(/\r?\n/)) {
     const parts = line.split("\t")
     if (parts[0] === "#") {
@@ -3802,6 +3803,12 @@ export async function edgeVerdict(
   pou: IrPou,
   plan: Extract<EdgePlan, { paths: unknown }>,
 ): Promise<{ verdict: "agree" | "disagree"; first?: string }> {
+  return compareEdge(pou, plan, await rustEdgeRun(exe, plan))
+}
+
+/** What a built harness's edge run printed, per variant — the Rust half of `edgeVerdict`, and the Rust outputs the
+ *  transpile snapshot (`support/snapshot.ts`) records. */
+export async function rustEdgeRun(exe: string, plan: Extract<EdgePlan, { paths: unknown }>): Promise<Map<number, EdgeOutcome>> {
   const all = await spawnEdge([exe, EDGE_ARG], 120_000)
   if (all.killed) throw new Error(`${exe}: the edge run did not finish in 120s — a hang in the emitted Rust`)
   let outcomes = parseEdge(all.stdout)
@@ -3816,16 +3823,27 @@ export async function edgeVerdict(
       outcomes.set(k, o)
     }
   }
+  return outcomes
+}
+
+/** The edge verdict from the Rust's outcomes and the interpreter's — `interp` answers one variant (the snapshot hands a
+ *  memo of the ones it already ran; the default runs it here). Stops at the first difference. */
+export function compareEdge(
+  pou: IrPou,
+  plan: Extract<EdgePlan, { paths: unknown }>,
+  outcomes: ReadonlyMap<number, EdgeOutcome>,
+  interp: (k: number) => EdgeOutcome = (k) => interpOutcome(pou, plan, k),
+): { verdict: "agree" | "disagree"; first?: string } {
   for (let k = 0; k < plan.variants.length; k++) {
-    const interp = interpOutcome(pou, plan, k)
-    if (interp.gaveUp) continue
+    const mine = interp(k)
+    if (mine.gaveUp) continue
     const rust = outcomes.get(k) ?? { faulted: true, done: false, values: new Map() }
     const label = plan.variants[k]!.label
-    if (interp.faulted !== rust.faulted)
-      return { verdict: "disagree", first: `${label}: interpreter ${interp.faulted ? "faults" : "runs"}, Rust ${rust.faulted ? "panics" : "runs"}` }
-    if (interp.faulted) continue
+    if (mine.faulted !== rust.faulted)
+      return { verdict: "disagree", first: `${label}: interpreter ${mine.faulted ? "faults" : "runs"}, Rust ${rust.faulted ? "panics" : "runs"}` }
+    if (mine.faulted) continue
     for (const p of plan.paths) {
-      const want = interp.values.get(p.path)
+      const want = mine.values.get(p.path)
       const raw = rust.values.get(p.path)
       if (raw === undefined) return { verdict: "disagree", first: `${label}: Rust printed no ${p.path}` }
       const got = rustRender(raw, p.type)

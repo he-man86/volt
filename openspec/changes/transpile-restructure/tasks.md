@@ -32,12 +32,21 @@ its RC or lean id in this file.
 
 ## 0. Baseline
 
-- [ ] 0.0 Gate: `transpile-fix-all` has finished and its changes are committed; `frontend-conformance` is archived.
+- [x] 0.0 Gate: `transpile-fix-all` has finished and its changes are committed; `frontend-conformance` is archived.
   - Where: the git tree; `openspec/changes/archive/`.
   - Accept: `git status` is clean under `packages/volt-lsp-iec/` (including `fixtures.test.ts` and `support/expected-failure.ts`);
     `openspec/changes/archive/<date>-frontend-conformance` exists; `bun test` is green.
   - Depends: none.
-- [ ] 0.1 Reconcile root causes and re-read the code.
+  - Done 2026-10-07 at 3f42db0e71. `transpile-fix-all` was the run that executed `transpile-review-2026-09-29`; that change is
+    archived (`archive/2026-09-30-transpile-review-2026-09-29`, f731d97181: "all 48 root causes fixed or verified"). `git status`
+    was clean under `packages/volt-lsp-iec/` (the only untracked path in the repo was another change's
+    `openspec/changes/codesys-single-load-dependencies/`); `archive/2026-10-03-frontend-conformance` exists (and
+    `archive/2026-10-07-analysis-conformance`, which the owner's order put before this change). `bun test` in the package: 8392
+    pass, 35 skip, 432 todo, 0 fail — 8859 tests across 205 files, 685 s. CAVEAT (review 0a): that run overlapped the 0.3
+    implementer's own edits — the `transpile-confidence.ts` split landed mid-run and a deliberate `emit.ts` literal mutation sat
+    in the tree for ~8 s — so it measured neither 3f42db0e71 nor the final tree; its end-of-step re-run covered only
+    `test/conformance` + `test/frontend`. The full suite on the final tree, cold, is gate 0a's (below).
+- [x] 0.1 Reconcile root causes and re-read the code.
   - What: for every RC (1-48, incl. 2.3) and every Appendix A/B line, record open, closed-upstream (commit), or closed-by-frontend-
     conformance (its task 5.2 report). Known on 2026-09-29: RC 1-5, 7-10, 13 (transpiler half), 29 (3dd773b9d7) and 30 (e06405f97c)
     closed. A closed RC's task below becomes "verify in the new home" (its src test moves with its module; its fixture stays
@@ -46,14 +55,167 @@ its RC or lean id in this file.
   - Where: this file (a table under 0.1); design.md §4, §5.
   - Accept: every RC and appendix line has a status and a commit or "open"; design.md §4 lists every top-level declaration found.
   - Depends: 0.0.
-- [ ] 0.2 Baseline numbers.
+  - Done 2026-10-07 at 3f42db0e71. Every RC was closed UPSTREAM by `transpile-review-2026-09-29` (one commit each, below);
+    frontend-conformance closed none (design.md §6.2). "closed" means the recorded fixture is confirmed, or refused as CODESYS
+    refuses it. Where the fix was a REFUSAL pending a model, or left an LSP or a routine half, "left here" says so and names the task
+    that carries it. Every phase-6 task whose RC is closed below is a "verify in the new home" task: its src test moves with its
+    module and its fixture stays as recorded — its F(...) is already met (the divergence mark is gone), nothing else is owed.
+
+    | RC | Status | Commit | Left here (task) |
+    |---|---|---|---|
+    | 1 | closed upstream | 3bbf2ac145 | — |
+    | 2 | closed upstream | 4bb196101a | — |
+    | 2.3 | closed upstream | cf95980537 | 6.1 verify (`named_const_expression_keeps` confirmed) |
+    | 3 | closed upstream | 1dd58e5855 | — |
+    | 4 | closed upstream | 3ab2a93eb3 | — |
+    | 5 | closed upstream | 0f306e7385 | — |
+    | 6 | closed upstream (lowering's `beside`) | ec3ffc5df8 | 6.2 verify; the shared `contextLiteralType` home open (design.md §6.1 row 7, H5) |
+    | 7 | closed upstream | 01eda5b771 | — |
+    | 8 | closed upstream | e467766eb3 | — |
+    | 9 | closed upstream | ee11cb732f | — |
+    | 10 | closed upstream | d912af0662 | — |
+    | 11 | closed upstream | 5d4df92e5b | model 2 (3.x) keeps the storage decision |
+    | 12 | closed upstream | 2564e50b83 | 6.3 verify |
+    | 13 | transpiler half closed upstream | 106a7b660c | LSP half open (`for_limit_wider_than_counter_{dint_var,dint_expr,upper_bound}` lsp-gap) → 0.7; model 1 guard |
+    | 14 | closed upstream | 968a1e3828 | model 3 (4.x) |
+    | 15 | closed upstream by a REFUSAL (`copy-instance-pointer`) | 73ed52a95e | model gap: `tr_15_fb_copy_keeps_pointer_address` not-lowered → model 3 |
+    | 16 | closed upstream by a REFUSAL (`call-fb-inout`) | 8f9c88460b | model gap: `tr_16_fb_copy_carries_inout_binding` not-lowered → model 3 |
+    | 17 | closed upstream by a REFUSAL (`pointer-type`) | b411c6b5a4 | model gap: the four `tr_17_any_pvalue_*` not-lowered → model 3 |
+    | 18 | closed upstream by a REFUSAL (`interface-instance-relative`) | d8b344b239 | model gap: `tr_18_queryinterface_into_global` not-lowered → model 3 |
+    | 19 | closed upstream | ad6825592f | 6.4 verify |
+    | 20 | the routine output's copy-out closed upstream | 8ce61e47f8 | LSP false positive open (`KNOWN_DIVERGENCES.codesys` `tr_20_output_index_moved_by_callee`) → 0.7; a converting routine output → 4.11 / 6.17 |
+    | 21 | closed upstream | cf64cc0ba2 | 6.5: the required asker of `resolveNamedType` open (design.md §6.1 row 14) |
+    | 22 | closed upstream | d6e9c1a060 | `tr_22_fb_init_reads_this_field` not-lowered (`place-not-local`) → model 4 |
+    | 23 | closed upstream | fb7adf8c48 | model 4 (5.x) |
+    | 24 | closed upstream | 06d5b9122b | model 4 (5.x) |
+    | 25 | closed upstream | e171078be2 | model 4 (5.x) |
+    | 26 | closed upstream | 381a1810ed | 4.0 verify |
+    | 27 | closed upstream (no cap; a harness-only `loopGuard`) | f052467157 | model 1 (2.x) |
+    | 28 | closed upstream in both backends | 7da3814d3d | 6.7: both `tr_28_*` not-lowered (`pointer-type`, the bit readback) until 4.12 |
+    | 29 | closed upstream | 3dd773b9d7 | 6.8 verify |
+    | 30 | closed upstream | e06405f97c | 5.4 verify |
+    | 31 | closed upstream | 149d15cb41 | 6.9 verify |
+    | 32 | closed upstream | 2bb72d5428 | 6.10 verify |
+    | 33 | closed upstream | 69caa32921 | 6.11 verify |
+    | 34 | closed upstream | 5c1e7e00df | model 2 (3.x) |
+    | 35 | transpiler half closed upstream | 8f6ae481e6 | LSP half open (`tr_35_for_byte_runtime_int_step`, `tr_35_for_sint_step_300` lsp-gap) → 0.7; model 1 |
+    | 36 | closed upstream | 7a69d45643 | model 1 (2.x) |
+    | 37 | closed upstream, LSP and lowering | 194319e648 | 6.12 verify (the four `tr_37_*` refused) |
+    | 38 | closed upstream | 8531164eca | 6.13: the store through a REFERENCE (appendix) open |
+    | 39 | closed upstream | 514418a4c0 | model 1 (2.x) |
+    | 40 | closed upstream, LSP and lowering | 1d84643239 | 6.14 verify (the four `tr_40_*` refused) |
+    | 41 | closed upstream | 03b9de81e9 | 6.15 verify |
+    | 42 | closed upstream | 62ebd765b1 | 6.16 verify |
+    | 43 | the FB path closed upstream | 900c8c30b6 | the routine path → 4.11 / 6.17 (`tr_43_output_dint_to_int` refused) |
+    | 44 | closed upstream | bb31088a35 | model 3 (4.x) |
+    | 45 | closed upstream (landed with 34) | 5c1e7e00df, bc89e6b7b5, fdbc7cbc75 | model 2 (3.x) |
+    | 46 | closed upstream | c581ac19e3 | 6.18 verify |
+    | 47 | closed upstream | bc17d0a441 | 6.19 verify |
+    | 48 | closed upstream (the rating) | 0ca79f7bae | 6.20 verify |
+
+    Appendix A (LOW, unverified), in its order:
+
+    | Line | Status | Commit / task |
+    |---|---|---|
+    | FOR with an unsigned counter and a negative constant step emits `-1u8` | closed upstream (absorbed into RC 35) | 8f6ae481e6; 6.A.27 closes by reference |
+    | an unbound FB VAR_IN_OUT reached from a METHOD panics with the "interface" message | open | 6.A.28 |
+    | REAL intermediates rounded to f32 per step | open | 6.A.2 |
+    | LTIME_TO_TIME / LDT_TO_DT sub-unit truncation | open | 6.A.1 |
+    | UDINT op DINT fixtures run only on zeros | closed upstream by the rating (RC 48: an all-default recording rates `compiles`) | 0ca79f7bae; 6.20 |
+    | DINT/LINT MIN MOD -1 | open | 6.A.3 |
+    | the interpreter's SHL/SHR/ROL count goes through `Number()` | open (`ir/evaluate.ts:81`) | 6.A.4 |
+    | LEN(WSTRING) lowers through an implicit narrow | closed upstream (`standard_len_wstring_rejected` refused, no tier) | 8531164eca (RC 38) |
+    | StrReplaceA panics past LEN | open | 3.11 |
+    | `x := F(o => x)`: which write wins | open | 6.A.5 |
+    | `hasStatementAfterReturn` misses EXIT/CONTINUE and all-return IFs | open | 1.5.9 moves it as `exitsAfter` with today's behaviour; 7.5.11 fixes it |
+    | const-generic in-out names collide | open | 6.A.6 |
+    | emitted helpers collide with a user FUNCTION | open | 7.1.5 |
+    | `ir/codes.ts` exact codes contradict their prefix families | open | 6.A.8 |
+    | `constantValue` swallows every non-LoweringBug throw | open | 6.A.9 |
+    | STRING_TO_<int> of '16#FF' / '2#101' / 'INT#5' | open | 6.A.10 |
+    | a whole-string cursor store is cut to the caller's capacity | open | 3.10 |
+    | `overridesCalled` resolves SUPER^.M() against the frame | open | 6.A.11 |
+    | a bare METHOD call with an unconnected VAR_OUTPUT in an FB body is refused | open | 6.A.12 |
+    | `calledLayout`'s doc about VAR_TEMP | open (it still reads "Refused, until recorded: an FB with VAR_TEMP") | 6.A.13 |
+    | SHL/SHR of an untyped literal into a 64-bit destination | open | 6.A.14 |
+    | `0 = p` / `0 <> p` refused | open | 4.13 (c) |
+    | the init-sequence read walk skips `select` and an invoke's freezes | open | 5.9 |
+    | `insideInstance` refuses `holder.started`, allows `holder.Get()` | open | 5.8 |
+    | an FB instance in a GVL is never callable through an interface (`lendPlace`) | open | 4.13 (f) |
+    | `r.3` on a REFERENCE refused | open | 4.13 (d) |
+    | an assignment chain and a store through a REFERENCE skip the implicit STRING→number refusal | the chain closed upstream (RC 38); the REFERENCE store open | 8531164eca; 6.13 |
+    | `commonType` treats a sizeless STRING as capacity 0 | open | 3.3 |
+    | a huge repeat count builds every leaf before the size check | open | 6.A.15 |
+    | a bit index above 7 in an X address | open | 6.A.16 |
+    | the const fold accepts `**`, `&` and REAL MOD | `**` and `&` closed by frontend-conformance 2.5a; REAL MOD open | 58de5afeb0; 6.A.20 |
+    | REAL_MAX_MAGNITUDE below f32::MAX | open (both constants in `src/frontend/types/literal.ts`) | 6.A.21 |
+    | inferred STRING(N)/ARRAY[1..N] fold N in project scope | closed by frontend-conformance 4.6.2 | 62bcb30d65; 6.A.22 verify |
+    | a negated or parenthesised untyped real literal in SIN/SQRT infers UNKNOWN | open | 6.A.23 |
+    | `enumValueType` resolves without the asker | open | 6.5 |
+    | (grouped) a STRUCT field's FB_Init arguments folded in the declaring POU's scope | open | 5.8 |
+    | (grouped) a pointer's target set read while still growing | open | 4.13 (a) |
+    | (grouped) a null source copied into a multi-target pointer becomes non-null | open | 4.13 (b) |
+    | (grouped) GVL1.x and GVL2.x in two plain lists share one slot | open | 6.A.17 |
+    | (grouped) member access does not walk EXTENDS | closed by frontend-conformance 3.2.3 | 461b70fc4d; 6.A.24 verify |
+    | (grouped) subrange bounds dropped | the front-end closed by frontend-conformance 4.7.1; lowering open (`decl_subrange_unsigned` diverges) | 62bcb30d65; 6.A.25 |
+    | (grouped) a qualified `Lib.T` resolves by its bare name | closed by frontend-conformance 3.4.2 | 1bdaf58172; 6.A.26 verify |
+    | (grouped) an FB body call stores its inputs before binding its in-outs | open | 6.A.19 |
+    | (grouped) an ANY input given a REFERENCE TO fails E0308 | open | 4.13 (e) |
+    | (grouped) a named DINT/LINT constant folds unbounded in an initializer | the front-end half closed by frontend-conformance 4.6.1; the lowering half open | 62bcb30d65; 6.A.29 |
+
+    Appendix B (refuted groups): mod-min-by-minus-one — open (6.A.3); rotate-in-promoted-width — open (6.A.30);
+    const-eval-ignores-declared-int-width — closed upstream (its halves are RC 35, 8f6ae481e6, and RC 25, e171078be2);
+    refused-fixture-rust-rejected-expected — closed upstream (RC 38, 8531164eca; RC 46, c581ac19e3).
+
+    The code re-read: the top-level inventory of `src/transpile/**` found 47 names §4 did not place (the IR node types aside, which
+    §4.5 places by line range), and the describe/test list found 6 `emit.test.ts` describes and 25 `lower.test.ts` tests or describes
+    §4.6/§5 did not place; all are placed now (design.md §4.9; §5 "Placed by task 0.1"). Three names §4 listed are gone
+    (`LOOP_ITERATION_CAP`, `LOOP_CAP_MESSAGE`, `defaultOfValues`). New file since 2026-09-29: `lower/conditions.ts` (→
+    `project/conditions.ts`).
+- [x] 0.2 Baseline numbers.
   - What: copy the map header (evidence counts, tier lowered/clean, surviving and allowed lints with excused counts, edge
     agree/disagree/not-run and each disagreement, the pedantic top ten and total, the size median and top ten, shapes and constructs,
     notes and improvable fixtures) and the open divergence marks per RC.
   - Where: this file, under 0.2.
   - Accept: the numbers match `map.generated.ts` at the 0.0 commit.
   - Depends: 0.0.
-- [ ] 0.3 Snapshot tool (S).
+  - Done 2026-10-07: the header of `map.generated.ts` at 3f42db0e71 (unchanged since; `rate:fixtures` regenerates it identically).
+    - evidence: confirmed 2806, refused 1989, not-lowered 389, lsp-gap 76, diverges 5, unaskable 92 (5357 fixtures).
+    - tier (lowered / clean): decl 755 / 755, arith 1545 / 1543, control 155 / 144, aggregate 142 / 142, call 268 / 266,
+      indirect 360 / 356 — 3225 lowered, 3206 clean.
+    - surviving lints: unreachable_patterns 6, clippy::match_overlapping_arm 5, clippy::collapsible_if 4,
+      clippy::match_single_binding 2, clippy::too_many_arguments 2, clippy::assign_op_pattern 1, clippy::identity_op 1,
+      clippy::neg_cmp_op_on_partial_ord 1, clippy::nonminimal_bool 1, overlapping_range_endpoints 1.
+    - allowed (11), with the fixtures each excuses: dead_code 5263, clippy::self_assignment 34, clippy::eq_op 17,
+      clippy::unnecessary_min_or_max 10, clippy::approx_constant 6, clippy::absurd_extreme_comparisons 3, unused_comparisons 3,
+      unreachable_code 2, clippy::manual_clamp 1, clippy::manual_range_patterns 1, clippy::never_loop 1.
+    - edge: agree 3046, disagree 0, not-run 179 (reaches the platform's libm 71, the emitted Rust does not build 65, no elementary
+      variable to seed or compare 43). No disagreement to list.
+    - pedantic: 30845 findings; the top ten: clippy::must_use_candidate 7854, clippy::cast_possible_truncation 4856,
+      clippy::cast_lossless 4266, clippy::cast_sign_loss 3401, clippy::uninlined_format_args 3222, clippy::unreadable_literal 2810,
+      clippy::missing_panics_doc 1065, clippy::manual_assert 818, clippy::format_push_string 716, clippy::cast_possible_wrap 364.
+    - size: median 3.1; the ten largest: string_positions_low 33.5, string_positions_high 31.7,
+      string_insert_delete_replace_find 25.7, string_edge_positions 24, string_conversions_formats 18.3, string_len_left_right_mid 18,
+      string_input_truncation 13.3, string_escapes_named 13, tr_14_set_reset_through_multi_target_pointer 12.2,
+      string_to_real_parse 11.
+    - shape: 1716 distinct emission shapes over 3225 lowered fixtures, 1798 distinct constructs.
+    - notes: 723 constructs carry a review note; 3056 fixtures are improvable, 2971 touch a construct with alternatives.
+      (design.md's "776 notes" was the 2026-09-29 count; 0.6 tags these 723.)
+
+    Open divergence marks by RC. The transpiler's own marks are the five `diverges` rows (each an expected failure carrying
+    `deferred.transpile`); none belongs to an RC:
+    - `op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large` — the x87 argument reduction, not emulated (design.md §7.2, task 6.21).
+    - `decl_subrange_unsigned` — a subrange's default is its lower bound (CODESYS 1, both backends 0): the lowering half of the
+      appendix line "subrange bounds dropped" (6.A.25; the default itself is `typeDefault`'s, 1.1.4).
+    - `lt_literal_negative_in_comparison_unsigned` — `ui > -1` converts the literal into UDINT (CODESYS FALSE, lowering TRUE); no RC
+      names it (recorded 2026-10-03 by frontend-conformance, rule LT12; its home is literal typing, hand-off H5). Filed by 0a: task
+      6.2's Accept carries F(`lt_literal_negative_in_comparison_unsigned`), and H5 names it.
+    Marks that belong to an RC are LSP-side only: `tr_20_output_index_moved_by_callee` (`KNOWN_DIVERGENCES.codesys`, RC 20's LSP false
+    positive). The RC fixtures not confirmed are refusals, not marks: not-lowered `tr_15_*`, `tr_16_*`, `tr_17_*` (4), `tr_18_*`,
+    `tr_22_fb_init_reads_this_field`, `tr_28_*` (2); lsp-gap `tr_35_for_byte_runtime_int_step`, `tr_35_for_sint_step_300` and the three `for_limit_wider_than_counter_{dint_var,dint_expr,upper_bound}` (RC 13; they lower and run, CODESYS refuses); refused
+    `tr_37_*` (4), `tr_40_*` (4), `tr_43_output_dint_to_int`. The other 328 `diverges: {…}` entries of the map are LSP replay marks
+    (`KNOWN_DIVERGENCES` per vendor), owned by the LSP review, none by an RC.
+- [x] 0.3 Snapshot tool (S).
   - What: `scripts/transpile-snapshot.ts` (`write [--baseline] | check [--layers ir,rust,outputs,edge]`) with
     `test/conformance/support/snapshot.ts`, as design.md §8 defines S. Rust outputs are built through `support/rustc.ts`'s batch path
     (the one `fixtures.test.ts` uses today). Files go to `test/conformance/.snapshot/`; `check` prints the first difference per fixture.
@@ -62,12 +224,59 @@ its RC or lean id in this file.
   - Accept: write then check on an unchanged tree reports identical; a deliberate one-character change to one emitted literal is
     reported with its fixture name; `git status` shows no `.snapshot` file; the run time is written here.
   - Depends: 0.0.
-- [ ] 0.4 Test-move gate (T).
+  - Done 2026-10-07. Layers `ir` (canonical IR; a fixture that does not lower records its diagnostics), `rust` (code, source map,
+    `usesGlobals`/`usesPrograms`), `outputs` (the interpreter on the declared inputs — every recorder path after the scans — then per
+    edge variant the interpreter's and the compiled Rust's values) and `edge` (the verdict as `rate:fixtures` orders it: the build,
+    libm, nothing to seed, the comparison). S-out is `--layers outputs,edge`. One `<layer>.jsonl` per layer under
+    `test/conformance/.snapshot/{baseline,current}/` (a case-insensitive file system cannot hold a file per fixture); gitignored
+    at the repo root. The Rust is built by `buildRust` (the rustc cache) with the suite's argv, and for every fixture that does not
+    reach libm from the very source `rate:fixtures` builds, so a snapshot after a regeneration compiles nothing; a libm fixture is
+    built from a harness seeding the same variants, so its Rust's values are snapshotted too. `edgeVerdict` was split, behaviour
+    kept, into `rustEdgeRun` + `compareEdge` (`support/transpile-confidence.ts`) so the snapshot reads both backends' outcomes and
+    the verdict from one run. A clocked fixture scans on the edge run's 10 ms per scan in both halves. `VOLT_FIXTURES` narrows a
+    run (inner loop only). Tests: `support/snapshot.test.ts` (canonical form, the first-difference report, `--layers`).
+    Measured: `write --baseline` of all 5357 fixtures 171 s (3225 lowered; the edge layer reproduces the map: 3046 agree, not-run
+    71 libm / 65 does not build / 43 nothing to seed); `check` on the unchanged tree 180 s, "✓ identical"; `check --layers ir,rust`
+    3 s. A deliberate one-character change to one emitted literal (`$1.0$2` → `$1.5$2` in `emit.ts` `literal`, reverted) was
+    reported per fixture, e.g. `abs_values: rust line 24: baseline "            abs_real: 0.0f32,", now "            abs_real:
+    0.5f32,"`. `git status` shows no `.snapshot` file. Baseline size 37 MB.
+- [x] 0.4 Test-move gate (T).
   - What: `scripts/suite-snapshot.ts` gains `--dirs` and a default set that includes `src/transpile`, `src/types`, `src/symbols`,
     `src/syntax` and `test/libraries` beside `test/conformance` and `test/exec`.
   - Where: `scripts/suite-snapshot.ts`, `scripts/README.md`.
   - Accept: write then `--compare` on an unchanged tree is identical; renaming one test title in a scratch copy is reported.
   - Depends: 0.0.
+  - Done 2026-10-07. `--dirs a,b` (each must exist, a typo refused by name); the default set is `test/conformance`, `test/exec`,
+    `src/transpile`, `src/frontend/types`, `src/frontend/symbols`, `src/frontend/syntax`, `test/libraries`, as far as the tree has
+    them (`test/exec` does not exist today) — `src/{types,symbols,syntax}` are under `src/frontend/` since frontend-conformance
+    (design.md §6.1). The pure parts (`suiteDirs`, `junitLines`, `compareLines`) are exported and tested in
+    `scripts/suite-snapshot.test.ts`; the script runs only as `import.meta.main`. Live, with a scratch copy of
+    `ir/values.test.ts` beside it: a write then `--compare` of `--dirs src/transpile/ir` printed "✓ identical" (16 tests); with one
+    title renamed in the copy, `--compare` printed that title's `-` and `+` lines and exited 1 (the copy deleted afterwards).
+- [x] 0a Gate: the review of 0.0-0.4 (five findings, each fixed with a failing test first or written into its task).
+  - Done 2026-10-07.
+    - S-out false red (medium): `compareSnapshots` treats a fixture with none of the requested layers as equal to one the
+      stored set has no line for (a not-lowered fixture has only `ir`, so an `outputs,edge` set holds no line for it and a take
+      gives `{}`); a fixture that stops lowering still differs in its `outputs` layer. Live: `VOLT_FIXTURES=addr_bit_inside_byte,
+      abs_values … check --layers outputs,edge` "✓ identical" (exit 0; it exited 1 before).
+    - The canonical IR's `Type` now carries the facts its rendered name hides and a backend reads (`typeText`): a folded
+      `length` (also behind a `lengthText`), `unfoldedLength`, a subrange, an enum's `base`, a `union`, an array's folded
+      `bounds`, nested under an array element or a pointer/reference target.
+    - The `rust` layer holds the user's emission (`emitRust(pou)`, no loop guard — what `rate:fixtures` rates as `shown`) beside
+      the harness's (`rustLayer`).
+    - `lt_literal_negative_in_comparison_unsigned` filed: F in 6.2's Accept, named in H5 (and the 0.2 note).
+    - The 0.0 suite numbers carry their caveat (the run overlapped 0.3's edits); the full suite on the final tree is below.
+    - Tests: `support/snapshot.test.ts` 14 pass (4 new: the type facts, the absent-layer equality, the user's emission, the
+      "starts being snapshotted" case given a requested layer — its old form asserted the false red).
+    - Baseline rewritten in the new format (`write --baseline` 182 s, 5357 fixtures); on the unchanged transpiler `check
+      --layers outputs,edge` 193 s "✓ identical", `check` (all layers) 233 s "✓ identical". (0.5 still records the baseline's
+      hashes.)
+    - The gate's first full cold run (`VOLT_REQUIRE_FULL=1 VOLT_RUSTC_CACHE=0 bun test`, 1294 s) failed ONE test:
+      `test/frontend/baseline.test.ts` "the ceilings never rose…" timed out at 5 s (a `git show` per committed revision, ~30
+      spawns, under the cold suite's load; 2 s alone). Root fix: every version read by one `git cat-file --batch` (1 s alone).
+    - Full suite, cold, final tree: 8410 pass, 35 skip, 432 todo, 0 fail — 8877 tests across 207 files, 1200 s.
+      `bun typecheck` clean; `bun run lint` (layering) green; `bun run check` (repo root) green. Fixtures and the transpiler
+      unchanged, so `map.generated.ts` is not regenerated.
 - [ ] 0.5 Baseline snapshots.
   - What: `snapshot:transpile write --baseline` and `suite-snapshot.ts <file>` at the 0.0 commit; both hashes recorded here.
   - Where: `test/conformance/.snapshot/baseline/` (untracked); this file.
@@ -1051,6 +1260,8 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
 - [ ] 6.2 RC 6: an out-of-range literal keeps its own type.
   - Where: `types/literal.ts` `contextLiteralType` (range rule), `values/convert.adopt`, `values/promote.meet`.
   - Accept: F(`tr_6_literal_beyond_dint_neighbour`) (gNegLint TRUE, sumNegLint -2999999995, sumUdLint 5000000005, …);
+    F(`lt_literal_negative_in_comparison_unsigned`) (`ui > -1` FALSE as CODESYS records it: an untyped negative literal beside
+    an unsigned operand is not converted into the unsigned type — rule LT12; filed by 0a, see 0.2);
     `cc_literal_3e9_into_dint` stays confirmed; G+LSP.
   - Depends: 1.9.4.
 - [ ] 6.3 RC 12: LDT/LDATE/LTOD → STRING.
@@ -1983,7 +2194,8 @@ task that owns each is in brackets.
   → `types/literal.ts` (`literalCheckType`, `literalContextConversion`, `integerLiteralType`). NOT value-identical: LT14
   (`test/frontend/literal-agreement.test.ts`, `baselines/literal-agreement.json`) pins 29 classes, corpus 78 / fixtures 79
   stores, where the two answer differently (a 0/1 into BOOL/BIT/TIME, an integer the target cannot hold, a real beyond REAL,
-  a real into an integer); each class needs a recording before the switch, and the baseline may only fall. [1.1.7, 6.2]
+  a real into an integer); each class needs a recording before the switch, and the baseline may only fall. The transpiler's
+  own mark here is `lt_literal_negative_in_comparison_unsigned` (rule LT12, `diverges`; F in 6.2). [1.1.7, 6.2]
 - **H6 — width ladder and wrap** (P6 `stored`/`fit`/`integerFoldType`; §3.3 "Integer width ladder", "Wrap to width").
   `lower/convert.ts` `stored` :132, `integerFoldType` :67; `ir/values.ts` `fit` :416; `ir/evaluate.ts` `widthOf` →
   `types/width.ts` `wrapToWidth` (export it from the types index first) and `integerOfWidth`; the fold width is the

@@ -40,6 +40,7 @@
     "audit:check": "bun run scripts/audit-check.ts",
     "rate:fixtures": "bun run scripts/rate-fixtures.ts",
     "snapshot:frontend": "bun run scripts/frontend-snapshot.ts",
+    "snapshot:transpile": "bun run scripts/transpile-snapshot.ts",
     "bench": "LSP_BENCH=1 bun test src/server/bench.test.ts"
   },
   "devDependencies": {

@@ -19,6 +19,26 @@ const BASELINE_DIRS: readonly string[] = [FRONTEND_BASELINES, join(import.meta.d
 const named = (dir: string): string => `${dir.split(/[\\/]/).slice(-2).join("/")}/ceilings.json`
 const at = (counts: Record<string, number>, findings: string[] = []): Baseline => ({ counts, findings })
 
+/** The contents of each `<rev>:<path>`, read by one `git cat-file --batch` — refusing an object git does not have. */
+function showAll(cwd: string, objects: readonly string[]): string[] {
+  if (objects.length === 0) return []
+  const r = Bun.spawnSync(["git", "cat-file", "--batch"], { cwd, stdin: Buffer.from(`${objects.join("\n")}\n`) })
+  if (r.exitCode !== 0) throw new Error(`git cat-file --batch: ${r.stderr.toString()}`)
+  const out = r.stdout
+  const texts: string[] = []
+  let pos = 0
+  for (const object of objects) {
+    const eol = out.indexOf(10, pos)
+    const header = out.subarray(pos, eol).toString()
+    const m = /^[0-9a-f]+ blob (\d+)$/.exec(header)
+    if (m === null) throw new Error(`git cat-file --batch: ${object}: ${header}`)
+    const size = Number(m[1])
+    texts.push(out.subarray(eol + 1, eol + 1 + size).toString())
+    pos = eol + 1 + size + 1
+  }
+  return texts
+}
+
 describe("ceilings — a measure may only fall", () => {
   test("a count above its ceiling is a rise; below it the ceiling is stale; a ceiling the measurement lacks is missing", () => {
     expect(ceilingReport({ "x NONE": 3, findings: 2 }, at({ "x NONE": 4 }, ["a", "b"]))).toEqual({
@@ -101,8 +121,9 @@ describe("ceilings — a measure may only fall", () => {
       const rel = `${git(dir, "rev-parse", "--show-prefix").trim()}ceilings.json`
       // newest first; a shallow clone (CI's `test` job) holds only its tip, so there the check is tip → working tree
       const revs = git(dir, "log", "--format=%H", "--", `:/${rel}`).split("\n").filter(Boolean).reverse()
+      // every version in ONE `git cat-file --batch` (a `git show` per revision timed out under a loaded full suite, gate 0a)
       const versions = [
-        ...revs.map((rev) => ({ at: rev.slice(0, 10), c: JSON.parse(git(dir, "show", `${rev}:${rel}`)) as Ceilings })),
+        ...showAll(dir, revs.map((rev) => `${rev}:${rel}`)).map((text, i) => ({ at: revs[i]!.slice(0, 10), c: JSON.parse(text) as Ceilings })),
         { at: "working tree", c: readCeilings(file) },
       ]
       for (let i = 1; i < versions.length; i++)

@@ -44,3 +44,5 @@ packages/volt-lsp-iec/test/conformance/recordings/*.new.json
 
 # snapshot F (openspec frontend-conformance, scripts/frontend-snapshot.ts): per-commit aspect hashes, rebuilt on demand.
 packages/volt-lsp-iec/test/frontend/.snapshot/
+# snapshot S (openspec transpile-restructure, scripts/transpile-snapshot.ts): the baseline and the working tree's, rebuilt on demand.
+packages/volt-lsp-iec/test/conformance/.snapshot/
