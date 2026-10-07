@@ -44,6 +44,23 @@ value is wrong is a fallback, so it goes. What PLCAssist sees:
 
 **TwinCAT** stays out of scope: measured above, nothing of Volt's is resolved by a foreign handler in the worker.
 
+**Verified live (4.1), each run its own fixture IDE (`ide.ps1 -Instance single-assembly`), started from a download-style
+folder (`…\PLCAssistBridge-CODESYS\codesys-scriptcommands`, holding the bundle and the scripts) that is FIRST on
+`sys.path`, `VOLT_BRIDGE_DLL` unset:**
+
+| CODESYS | bridge | Volt/STJ assemblies loaded | `health.loadConflicts` | `refs` / `build` |
+|---|---|---|---|---|
+| 3.5.21.40 (SP21) | merged (`3003317785`) | `Volt.Ide.Codesys` once, staged; no `System.Text.Json` assembly | absent | served; e2e 292 pass / 0 fail (push, fetch, build included) |
+| 3.5.22.40 (SP22) | shipped 0.1.17381 (`4e968f52b9`) | SP22's own STJ 8.0.0.5 + 10.0.0.2, Volt's 10.0.0.12 from download AND staged folder; Volt.* from the download folder | STJ loaded 4 times | served (the customer's 3.5.22.10 failure did not reproduce on .40) |
+| 3.5.22.40 (SP22) | predecessor fix (`65578d1e58`) | Volt's own once, staged; SP22's own STJ 8.0.0.5 + 10.0.0.2 beside it | STJ loaded 3 times | **refused: `IDE_UNSUPPORTED` on every call** |
+| 3.5.22.40 (SP22) | merged | `Volt.Ide.Codesys` once, staged; SP22's own STJ untouched | absent | served |
+
+The SP22 row for the predecessor is the strongest case for this change: **SP22 loads `System.Text.Json` itself**
+(8.0.0.5 and 10.0.0.2 from its `LacBinaries\GAC_MSIL`, before Volt starts), so the predecessor's name-based conflict
+rule refused every call on every SP22 install even though Volt's own copy was loaded once. The merged bridge has no
+such rule and no such dependency. DIALECT V6 records all of it. To target SP22 at all, `ide.ps1` gained an explicit
+`-CodesysVersion` (default `3.5.21.40`, never the newest installed: recordings stay SP21).
+
 ## Why
 
 `codesys-single-load-dependencies` (archived 2026-10-07) fixed a customer's double `System.Text.Json` load by making

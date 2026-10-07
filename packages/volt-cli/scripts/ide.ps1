@@ -43,6 +43,10 @@
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
                     probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
+.PARAMETER CodesysVersion codesys only: which installed CODESYS to launch, by its folder version
+                    (`C:\Program Files\CODESYS <version>`). Default 3.5.21.40 (SP21 Patch 4), the one every recording
+                    and suite is measured on. Explicit on purpose: never the newest installed — a second install
+                    (3.5.22.40, the customer's SP22) must not silently move the recordings.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
@@ -62,6 +66,7 @@ param(
     [switch]$InPlace,
     [switch]$Production,
     [string]$RunScript = "",
+    [string]$CodesysVersion = "3.5.21.40",
     [switch]$NoBuild,
     [switch]$Wait,
     [switch]$DryRun
@@ -585,7 +590,7 @@ function Save-Projects([string[]]$paths) {
 # ── codesys: in-proc host ──────────────────────────────────────────────────────────────────────────────────
 
 function Up-Codesys {
-    $install = "C:\Program Files\CODESYS 3.5.21.40"
+    $install = "C:\Program Files\CODESYS $CodesysVersion"
     $exe     = Join-Path $install "CODESYS\Common\CODESYS.exe"
     # The SHIPPED bridge: the merged one-assembly bundle (Volt.Ide.Codesys.csproj, target VoltBundle), never the
     # build output beside it, whose loose Volt/System.Text.Json DLLs no user ever receives.
@@ -616,6 +621,7 @@ function Up-Codesys {
     # the pipe. NO stdout/stderr redirect either — CODESYS's UI process wants its own console handles and
     # redirecting them can wedge startup, which is why the host script writes its own file log (see `logs`).
     $argline = '--profile="{0}" --runscript="{1}"' -f $profileName, (Resolve-Path $scriptPy).Path
+    Write-Host "CODESYS: $exe"
     Write-Host "Profile: $profileName"
     Write-Host "DLL:     $($env:VOLT_BRIDGE_DLL)"
     Write-Host "Project: $($env:VOLT_FIXTURE_PROJECT)"

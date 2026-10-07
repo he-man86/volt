@@ -19,6 +19,10 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Live on CODESYS SP21 (own `ide.ps1 -Instance`): started from a download-style folder first on sys.path,
+- [x] 4.1 Live on CODESYS SP21 (own `ide.ps1 -Instance`): started from a download-style folder first on sys.path,
       health/refs/build/push work; the CODESYS e2e suite green.
-- [ ] 4.2 Full C# suites, `bun run check`, the install gate's packaging checks green. DIALECT V6 updated to the merge.
+- [x] 4.2 Full C# suites, `bun run check`, the install gate's packaging checks green. DIALECT V6 updated to the merge.
+      (Done: all eight C# suites + Volt.Repo.Gates, `bun run check`, `build-cli.ps1` — `dist\Codesys` and the
+      connector's `codesys-scriptcommands` hold `Volt.Ide.Codesys.dll` + the two scripts only; `build-payload.ts` copies
+      that connector folder verbatim. The install gate's version check now reads the merged DLL
+      (`scripts/test-install.ts`); `bun run test:install` itself installs onto this machine and was not run here.)
