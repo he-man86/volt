@@ -267,6 +267,32 @@ ST); **codegen diagnostics** (`LowerDiagnostic` — lowering is total and never 
 reported, never silently wrong); **deterministic numerics** (IEC integers wrap at the declared width, so
 arithmetic emits `wrapping_*` rather than Rust's panicking defaults; widths come from `frontend/types/width`).
 
+**`__TRY` is measured and not yet lowered**, which is a different thing from unmeasured — the model is complete
+and written down here (the lowering of statements points here) so whoever builds it is not asked to guess. Measured on SP21
+(`semantics/try-catch.ts`, 2026-09-19), and it CHANGES THE FAULT MODEL for the code inside the block:
+
+```
+  no fault              the body runs, the catch is skipped, __FINALLY runs, and so does what follows __ENDTRY
+  a divide by zero      the catch RUNS, its operand receives 258, the faulting statement did not complete,
+                        and THE SCAN FINISHES — outside a __TRY the same division ends the application
+  LN of a run-time 0    the same, with 338
+  __FINALLY             runs either way
+  nested                the INNER block catches; the outer never sees it
+```
+
+`__CATCH`'s operand is an EXISTING variable of `__SYSTEM.ExceptionCode` that receives the code — pro2193
+declares `ARRAY[0..50] OF __SYSTEM.ExceptionCode` for exactly this and wraps every top-level call in one.
+
+What it needs: an IR statement carrying the three blocks and the catch place, a `try` in the interpreter, and
+a Rust form — the emitter's faults are `panic!`, so `catch_unwind` or a `Result`-shaped rewrite is the open
+design question. Six corpus POUs are blocked by this, three of them by nothing else.
+
+AND IT IS BLOCKED ON THE FRONTEND FIRST, measured 2026-09-24: `__SYSTEM.ExceptionCode` — the type every
+`__CATCH` operand is declared with — does not resolve, so `ec` is `type-unknown` before lowering reaches the
+statement at all. The eight fixtures give its VALUES (258, 338) and that `ANY_TO_DWORD` takes it; they do not
+give its base type or its enumerators. Inferring DWORD from two observed values is a guess of exactly the
+kind `refused` exists to prevent, so the type has to be READ from a live CODESYS before any of this is built.
+
 Coverage is measured, not asserted: `scripts/lower-completeness.ts` lowers the whole corpus and ranks the
 constructs blocking it, so the next thing to build is a number. Its denominator is POUs **with a body** — most
 units in a real project are empty-bodied, with their logic in separate METHOD/ACTION units, and counting those

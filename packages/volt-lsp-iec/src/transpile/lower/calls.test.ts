@@ -11,8 +11,8 @@
  * lowering. A guard that refuses everything would pass the first half alone.
  */
 import { describe, expect, test } from "bun:test"
-import { lowerSource } from "./lower.js"
 import { run } from "../interp/index.js"
+import { lowerSource } from "./entry/lower-source.js"
 
 const st = (...lines: string[]): string => lines.join("\n") + "\n"
 const T = "\t"

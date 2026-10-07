@@ -325,7 +325,7 @@ export const LITERAL_RULE_TESTS: readonly LanguageTest[] = [
   // …and one where the byte and its Windows-1252 character differ (`$80` is `€`, U+20AC): which does UCHAR# give?
   assign("lit_uchar_escape_80", "S10 — `UCHAR#'$80'`: the byte 128, or CP1252's `€` (8364)?", "UDINT", "UCHAR#'$80'"),
   // A2: AN INCOMPLETE ADDRESS IN A GVL, INITIALIZED, IS NOT A FIXTURE, and needs the owner — as the `__VECTOR` alias
-  // (`support/divergences.ts` `TWINCAT_VECTOR_REFUSAL_CASCADE`). It is the shape `transpile/lower/init-sequence.test.ts`
+  // (`support/divergences.ts` `TWINCAT_VECTOR_REFUSAL_CASCADE`). It is the shape `transpile/lower/init/sequence.test.ts`
   // stands on: `VAR_GLOBAL gIncompleteAddressed AT %I* : BYTE := 2; END_VAR` (GVL_LANG_lit_address_incomplete), read in
   // PLC_PRG, was recorded 2026-10-01 as `lit_address_incomplete_in_gvl_with_init`: CODESYS and TwinCAT both BUILD it
   // clean, and the LSP agrees on both; CODESYS's run is "Login failed..." recorded alone (no VAR_CONFIG, as

@@ -97,7 +97,7 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   const instance = place(p, s.instance, slots)
   const lets = lentCopies(p, s.inouts, slots)
   const back = copiesBack(p, s.inouts, slots)
-  // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
+  // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
   if (s.bind !== undefined)
     push(p, `${place(p, s.bind.place, slots)} = ${expr(p, { kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots)};`, indent, s.span)
   // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it

@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import type { IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
 import type { IrLoop, IrStmt } from "./stmt.js"
-import { blocksOf, childrenOf, exitsAfter, forEachExpr, forEachStmt, holdsCall, type IrNode, loopUses, mapPlaces, somePlace } from "./walk.js"
+import { blocksOf, callsIn, childrenOf, exitsAfter, forEachExpr, forEachStmt, holdsCall, type IrNode, loopUses, mapPlaces, somePlace } from "./walk.js"
 
 const INT = elementaryRef("INT")
 const span = { uri: "f", start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } as never
@@ -88,6 +88,21 @@ describe("the walks", () => {
     expect(holdsCall([assign(place(0), c(1n))])).toBe(false)
     expect(holdsCall(load(place(0, KINDS.invoke![0] as IrExpr)))).toBe(true)
   })
+  test("callsIn: every FB call and invoke, pre-order, dispatch arms included — and only what childrenOf names", () => {
+    const inner = invoke(c(1n))
+    const outer = invoke(inner)
+    const call: IrStmt = { kind: "call", instance: place(0), fb: "FB", inouts: [], span }
+    const arm = invoke()
+    const body: IrStmt[] = [
+      { kind: "eval", value: outer, span },
+      { kind: "if", cond: { kind: "dispatch", tag: c(1n), arms: [{ tag: 1n, call: arm }], type: INT, span }, then: [call], else: [], span },
+    ]
+    expect(callsIn(body)).toEqual([outer, inner, arm, call])
+    // a key childrenOf does not name is not walked: a future field holding a Type or a scope can never be followed
+    const stray = { kind: "eval", value: c(1n), span, extra: invoke() } as unknown as IrStmt
+    expect(callsIn([stray])).toEqual([])
+  })
+
   test("mapPlaces rewrites every place, innermost first, and copies the rest", () => {
     const seen: number[] = []
     const out = mapPlaces(body[0]!, (p) => (seen.push(p.slot), { ...p, slot: p.slot + 10 }))

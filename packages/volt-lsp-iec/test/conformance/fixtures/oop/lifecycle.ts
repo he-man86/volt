@@ -673,7 +673,7 @@ END_METHOD
     kind: "function_block",
     feature: "an FB instance assigned whole to another; its POINTER field was initialized to ADR(its own member)",
     fromDoc: "07-pragmas.md#no_assign",
-    note: "transpile-review-2026-09-29 task 15 (lower/statements.ts whole-value assign; lower/pointers.ts frame-relative targets).",
+    note: "transpile-review-2026-09-29 task 15 (lower/statements/assign.ts whole-value assign; lower/pointers/state.ts frame-relative targets).",
     plcPrgVar: "a : FB_LANG_tr15_ptrcopy; b : FB_LANG_tr15_ptrcopy; rb : INT; ra : INT; sameA : BOOL; sameB : BOOL;",
     plcPrgBody: [
       "b := a;",
@@ -711,7 +711,7 @@ END_FUNCTION_BLOCK
     feature:
       "an FB instance with a VAR_IN_OUT, called, then assigned whole from an instance bound elsewhere; its METHOD writes the in-out",
     fromDoc: "07-pragmas.md#no_assign",
-    note: "transpile-review-2026-09-29 task 16 (lower/bindings.ts arms dispatch only for tags this instance's own calls wrote). Cf. callshape_inout_in_method_after_call.",
+    note: "transpile-review-2026-09-29 task 16 (lower/calls/last-binding.ts arms dispatch only for tags this instance's own calls wrote). Cf. callshape_inout_in_method_after_call.",
     plcPrgVar: "w : FB_LANG_tr16_worker; w2 : FB_LANG_tr16_worker; first : INT := 1; second : INT := 100;",
     plcPrgBody: ["w(shared := first);", "w2(shared := second);", "w2 := w;", "w2.AddTen();"].join("\n"),
     source: `FUNCTION_BLOCK FB_LANG_tr16_worker
@@ -734,7 +734,7 @@ END_METHOD
     kind: "function_block",
     feature: "FB_Init dereferencing a POINTER field initialized to ADR(a member with an initial value)",
     fromDoc: "11-fb-lifecycle.md#critical-rules",
-    note: "transpile-review-2026-09-29 task 22 (lower/lower.ts pushed the FB_Init invokes before the <FB>.__INIT invokes; fixed).",
+    note: "transpile-review-2026-09-29 task 22 (lower/init/fb-init.ts pushed the FB_Init invokes before the <FB>.__INIT invokes; fixed).",
     plcPrgVar: "inst : FB_LANG_tr22_adr;",
     plcPrgBody: "inst();",
     source: `FUNCTION_BLOCK FB_LANG_tr22_adr
@@ -823,7 +823,7 @@ END_METHOD
     kind: "function_block",
     feature: "an FB_Init argument naming a variable declared before the instance, whose initializer is a FUNCTION call",
     fromDoc: "11-fb-lifecycle.md#fb_init",
-    note: "transpile-review-2026-09-29 task 23 (lower/lower.ts recordedArgument never checks pendingInits).",
+    note: "transpile-review-2026-09-29 task 23 (lower/init/fb-init.ts recordedArgument never checks pendingInits).",
     plcPrgVar: "holder : FB_LANG_tr23_holder;",
     plcPrgBody: "holder();",
     source: `FUNCTION F_LANG_tr23_inc : INT

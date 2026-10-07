@@ -1,0 +1,100 @@
+/**
+ * AST visitors the lowering folders share.
+ */
+
+import type { Expr } from "../../../frontend/syntax/index.js"
+import type { FbType, RoutineSymbol } from "./lowering.js"
+import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
+import type { Lowering } from "../lowering.js"
+
+/** Only try the lowering path for an expression that actually HOLDS a call — everything else `constEval` covers. */
+export function exprHoldsCall(e: Expr): boolean {
+  switch (e.kind) {
+    case "call":
+      return true
+    case "paren":
+      return exprHoldsCall(e.inner)
+    case "unary":
+      return exprHoldsCall(e.operand)
+    case "binary":
+      return exprHoldsCall(e.left) || exprHoldsCall(e.right)
+    default:
+      return false
+  }
+}
+
+/** Whether a body calls — `M()`, `THIS^.M()`, `SUPER^.M()` — a METHOD or ACTION that `frame` overrides below `chain`: a
+ *  routine of that chain run on the frame then reaches the frame's own in-outs through the override. */
+export function overridesCalled(frame: FbType, chain: ReadonlySet<string>, statements: readonly unknown[]): boolean {
+  const scope = frame.scope
+  if (scope === undefined) return false
+  let found = false
+  const walk = (node: unknown): void => {
+    if (found || node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const n = node as { kind?: string; callee?: { kind: string; name?: string; base?: { kind: string }; member?: { name: string } } }
+    const callee = n.kind === "call" ? n.callee : undefined
+    const name = callee?.kind === "ident_expr" ? callee.name : callee?.kind === "member" && callee.base?.kind === "deref" ? callee.member?.name : undefined
+    const member = name === undefined ? undefined : lookupMember(scope, name)
+    if ((member?.kind === "method" || member?.kind === "action") && !chain.has((member as RoutineSymbol).owner.name.toUpperCase())) found = true
+    Object.values(node).forEach(walk)
+  }
+  walk(statements)
+  return found
+}
+
+/**
+ * The bare names a body reads — or "all" when it calls a METHOD or ACTION of its own instance (`M()`, `THIS^.M()`,
+ * `SUPER^()`), which may reach any of the FB's in-outs. ponytail: "all" over-approximates; a call graph would narrow it.
+ */
+export function reachedNames(r: Lowering, statements: readonly unknown[]): Set<string> | "all" {
+  const names = new Set<string>()
+  let all = false
+  const walk = (node: unknown): void => {
+    if (all || node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const n = node as { kind?: string; name?: string; callee?: { kind: string; name?: string; base?: { kind: string } } }
+    if (n.kind === "ident_expr") names.add(n.name!.toUpperCase())
+    if (n.kind === "call" && n.callee !== undefined) {
+      const callee = n.callee
+      const kind = callee.kind === "ident_expr" ? lookup(r.scope, callee.name!)?.symbol.kind : undefined
+      if (kind === "method" || kind === "action" || callee.kind === "deref" || (callee.kind === "member" && callee.base?.kind === "deref")) all = true
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child)
+  }
+  walk(statements)
+  return all ? "all" : names
+}
+
+/**
+ * FORM 2's TEST (`pointer-model.md` §4): which `POINTER TO` parameters this body only DEREFERENCES.
+ *
+ * A parameter's form is decided by the CALLEE, not by the call sites — whether a borrow is sound depends on whether
+ * the callee keeps the pointer past the call, which is a property of its own body. §4 measured it that way over the
+ * corpus's 99 pointer parameters: 62 are used only in the callee's own body.
+ *
+ * The test here is the strict half of that: every occurrence of the name is the BASE OF A `^`. That admits
+ * `p^`, `p^.field` and `p^[i]`, and rejects everything that could let the address outlive the call — storing it
+ * (`held := p`), comparing it, taking `ADR` of it, or handing it on to another callee (`f(q := p)`, a REBORROW,
+ * which is sound and is simply not this step: `ptrparam_passed_on` stays refused and says so).
+ *
+ * Conservative by construction: a name this cannot see through — a call that could reach anything — disqualifies
+ * every parameter, the same way `reachedNames` answers `"all"`.
+ */
+export function borrowedPointerNames(r: Lowering, statements: readonly unknown[], candidates: ReadonlySet<string>): Set<string> {
+  const borrowed = new Set(candidates)
+  const walk = (node: unknown, derefBase: boolean): void => {
+    if (node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return void node.forEach((x) => walk(x, false))
+    const n = node as { kind?: string; name?: string; base?: unknown }
+    // the one accepted position: `<name>^`, however the result is then indexed or fielded
+    if (n.kind === "deref") return walk(n.base, true)
+    if (n.kind === "ident_expr") {
+      if (!derefBase) borrowed.delete(n.name!.toUpperCase())
+      return
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child, false)
+  }
+  walk(statements, false)
+  return borrowed
+}

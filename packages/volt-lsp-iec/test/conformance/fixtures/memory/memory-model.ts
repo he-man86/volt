@@ -139,7 +139,7 @@ END_FUNCTION_BLOCK
 `,
   },
   // ─── DOES A VAR_TEMP OR VAR_STAT TAKE ROOM IN THE INSTANCE? ────────────────────────────────────────
-  // `storage.ts` gives both a FRAME SLOT while `bytes.ts` skips both when it lays an instance out, and the two files
+  // `storage/declare.ts` gives both a FRAME SLOT while `storage/bytes.ts` skips both when it lays an instance out, and the two files
   // described that in words that read as a contradiction. Nothing measured which the vendor agrees with, and SIZEOF
   // is the question that tells: the baseline holds one DINT, and the other two add a temp and a static to it.
   {
@@ -211,7 +211,7 @@ END_FUNCTION_BLOCK
     source: "{attribute 'pack_mode' := '1'}\nTYPE DUT_MEM_packed :\nSTRUCT\n\tflag : BOOL;\n\twide : DINT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_MEM_fb_pack_mode_struct_control\nVAR\n\theld : DUT_MEM_packed;\nEND_VAR\nheld.wide := held.wide + 1;\nEND_FUNCTION_BLOCK\n",
   },
   // ─── transpile-review-2026-09-29 task 17: AN ANY INPUT'S pValue IS A RAW BYTE ADDRESS ──────────────────
-  // `lower/pointers.ts` binds `v.pValue` to the whole argument AT THE ARGUMENT'S TYPE, so a pointer of another declared
+  // `lower/pointers/` binds `v.pValue` to the whole argument AT THE ARGUMENT'S TYPE, so a pointer of another declared
   // type reads (or writes) the argument as if it were its own type. CODESYS reinterprets the bytes (little-endian).
   // One fixture per mismatch; each passes the edge values that make the reinterpretation visible.
   {
@@ -264,7 +264,7 @@ END_FUNCTION_BLOCK
       "FUNCTION F_MEM_tr17_dint_write_via_byte : BOOL\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR\n\tpb : POINTER TO BYTE;\nEND_VAR\npb := v.pValue;\npb^ := 16#FF;\nF_MEM_tr17_dint_write_via_byte := TRUE;\nEND_FUNCTION\n",
   },
   // ─── transpile-review-2026-09-29 task 26: WHAT A VAR CONSTANT AND AN IMPLEMENTS ADD TO SIZEOF(FB) ─────
-  // `lower/bytes.ts` lays out every VAR CONSTANT (the section's `constant` flag is not in its skip list) and never
+  // `lower/storage/bytes.ts` lays out every VAR CONSTANT (the section's `constant` flag is not in its skip list) and never
   // reads `unit.implements`. The baseline is `mem_sizeof_fb_baseline_one_dint`; each variant below adds ONE thing to
   // that same one-DINT FB: a replaced scalar constant, a const_non_replaced one, a struct constant, one interface, two.
   {
@@ -324,7 +324,7 @@ END_FUNCTION_BLOCK
       "INTERFACE I_MEM_impl_two_a\nMETHOD Ma : DINT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_MEM_impl_two_b\nMETHOD Mb : DINT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_MEM_fb_implements_two IMPLEMENTS I_MEM_impl_two_a, I_MEM_impl_two_b\nVAR\n\tkept : DINT;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n\nMETHOD Ma : DINT\nMa := kept;\nEND_METHOD\n\nMETHOD Mb : DINT\nMb := kept + 1;\nEND_METHOD\n",
   },
   // ─── transpile-review-2026-09-29 task 44: A POINTER STEPPED BELOW ITS ARRAY'S FIRST ELEMENT ───────────
-  // `lower/pointers.ts` tags array element k as k+1 and 0 as NULL, and a backwards step has no floor: ADR(arr[0])
+  // `lower/pointers/state.ts` tags array element k as k+1 and 0 as NULL, and a backwards step has no floor: ADR(arr[0])
   // minus one element lands on tag 0 and reads as NULL. In CODESYS a pointer is a byte address, so it is not NULL.
   // Also stepped two elements below and back, so a fix cannot bias only the first step.
   {

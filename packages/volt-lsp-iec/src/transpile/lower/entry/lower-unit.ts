@@ -1,0 +1,187 @@
+/**
+ * AST → IR for one bound unit: the per-POU pipeline — its frame or its root instance, the body, the init step, the
+ * post-POU finish and the storage checks.
+ *
+ * Lowering is **total**: it never throws. A construct it cannot represent becomes a `LowerDiagnostic` with a stable
+ * code and the POU lowers to nothing — so an untestable POU is reported, never silently wrong, and
+ * `scripts/lower-completeness.ts` can count exactly what blocks the corpus. Its input is code CODESYS COMPILES (the
+ * contract in `../../index.ts`): a rule here exists for valid programs only.
+ */
+
+import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
+import type { Scope } from "../../../frontend/symbols/index.js"
+import type { LoweringProject } from "../project/prepare.js"
+import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
+import { Lowering, newShared } from "../lowering.js"
+import { initStep } from "../init/step.js"
+import { finishInterfaces } from "./finish.js"
+import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import { openDims } from "../places/bounds.js"
+import { declareVars } from "../storage/declare.js"
+import { buildInitSequence } from "../init/sequence.js"
+import { execBodyStatements } from "../conditions.js"
+import { tempResets } from "../init/temp-resets.js"
+import { lowerBlock } from "../statements/statements.js"
+import { addressSharedByInstances } from "../storage/addresses.js"
+import { representable, reversedArray } from "./checks.js"
+import { storageOf } from "../storage/layout.js"
+import { resolveNamedType } from "../../../frontend/types/index.js"
+import { calledLayout } from "../calls/routines.js"
+
+/** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
+export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, libraryUnits }: LoweringProject): LoweredPou {
+  if (unit.kind !== "program" && unit.kind !== "function_block")
+    return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
+
+  // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
+  // a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the backend through network text, not
+  // through here.
+  if (!isStBody(unit.body))
+    return { diagnostics: [lowerDiagnostic("graphical-body", "a body that is not ST is not lowered here", unit.span)] }
+
+  const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text, libraryUnits))
+  lowering.isRoot = true
+  lowering.displayName = unit.name.text
+  lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
+  const asInstance = runsAsInstance(unit, scope)
+  const body = asInstance ? rootInstance(lowering, unit) : programBody(lowering, unit)
+  if (!Array.isArray(body)) return body
+  if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
+  const init = initStep(lowering, unit.span)
+  // every store into an interface has lowered by now: each call through one gets its instances (`finish.ts`)
+  finishInterfaces(lowering, [...body, ...(init ?? [])])
+  if (init === undefined || lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
+  // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
+  // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering
+  // accepts (transpiler review 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's
+  // category in the coverage report.
+  const layouts = [...lowering.layouts.values()]
+  const routines = [...lowering.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
+  const refused = slotRefusal(lowering, unit, layouts, routines)
+  if (refused !== undefined) return refused
+  // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
+  const name = asInstance ? `${unit.name.text}__root` : unit.name.text
+  const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
+  return { pou, diagnostics: [] }
+}
+
+/**
+ * Whether a PROGRAM has METHODs, ACTIONs or PROPERTIES of its own. A PROGRAM with METHODs, ACTIONs or PROPERTIES runs them
+ * on its one instance (conformance `fbcall_program_own_members`), so it lowers as one, as an FB does — its bare `M()` was
+ * `call-this`, having no instance to run on. Others keep their slots. A PROPERTY counts for exactly the reason a METHOD
+ * does: its accessor is a routine that runs on the instance. Leaving it out meant a PROGRAM whose ONLY own member is a
+ * property was not an instance, and reading that property from its body reported `place-not-local` — while adding any
+ * METHOD beside it made the same program lower.
+ */
+function ownMembers(unit: Extract<TopLevel, { kind: "function_block" | "program" }>, scope: Scope): boolean {
+  return unit.kind === "program" && [...scope.symbols.values()].flat().some((s) => s.kind === "method" || s.kind === "action" || s.kind === "property")
+}
+
+/** Whether the unit lowers as an instance the POU holds (`rootInstance`): an FB, or a PROGRAM with members of its own. */
+function runsAsInstance(unit: Extract<TopLevel, { kind: "function_block" | "program" }>, scope: Scope): boolean {
+  return unit.kind === "function_block" || ownMembers(unit, scope)
+}
+
+/**
+ * A PROGRAM's ARRAY[*] VAR_IN_OUT, if it has one. A PROGRAM's VAR_IN_OUT is the caller's variable — and a root has no
+ * caller, so the harness owns it, as a root FB's in-outs are owned beside its instance (`rootInstance`). `declareVars`
+ * gives it an ordinary slot. Only an `ARRAY[*]` stays refused: its size comes from the caller's array, and there is none.
+ */
+function open(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>) {
+  return unit.varSections
+    .filter((s) => s.sectionKind === "VAR_IN_OUT")
+    .flatMap((s) => s.decls)
+    .find((d) => openDims(lowering.resolve(d.type)) > 0)
+}
+
+/** A PROGRAM lowered as its own frame: its variables declared, its init sequence built, its body lowered behind the reset
+ *  of its VAR_TEMP — or the refusal that stopped it. */
+function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] | LoweredPou {
+  const array = open(lowering, unit)
+  if (array !== undefined)
+    return {
+      diagnostics: [
+        lowerDiagnostic(
+          "root-inout",
+          `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${array.names.map((n) => n.text).join(", ")}, whose size only a caller's array gives`,
+          array.span,
+        ),
+      ],
+    }
+  // the POU's own frame is the one place an initializer that is not a constant can become an init-step statement
+  declareVars(lowering, unit.varSections, true)
+  // Lowered HERE, before the body, though they RUN in the init step: `p : POINTER TO INT := ADR(x)` stores an
+  // address, and the body's `p^` is only allowed because that store is known (`shared.pointers`). The statements
+  // are kept for `initStep` to place; only the order they are BUILT in moves.
+  if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
+  const parsed = execBodyStatements(lowering.project, unit, unit.body)
+  if (!parsed.ok)
+    return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
+  // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
+  return [...(tempResets(lowering, unit.varSections, unit.span) ?? []), ...lowerBlock(lowering, parsed.statements)]
+}
+
+/** The refusal of a lowered POU whose storage a backend cannot hold: an address shared by instances, a reversed array, or a
+ *  slot with no runtime representation. */
+function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>, layouts: readonly IrLayout[], routines: readonly IrRoutine[]): LoweredPou | undefined {
+  const sharedAddress = addressSharedByInstances(lowering, [...lowering.frame, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
+  if (sharedAddress !== undefined)
+    return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
+  // WHICH SLOTS A CALL LENDS: a VAR_IN_OUT, and a routine's VAR_INPUT (a function's or a method's — CODESYS takes an
+  // `ARRAY[*]` there and builds it, `decl_array_star_in_function_input`). An FB's frame, fields and globals are its own
+  // storage, where an `ARRAY[*]` has no size: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse
+  // them) lowered as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot.
+  const slots = [
+    ...lowering.frame.map((s) => ({ s, lent: false })),
+    ...layouts.flatMap((l) => [...l.fields.map((s) => ({ s, lent: false })), ...(l.inouts ?? []).map((s) => ({ s, lent: true }))]),
+    ...routines.flatMap((r) => [...r.locals.map((s) => ({ s, lent: s.section === "VAR_INPUT" })), ...r.inouts.map((s) => ({ s, lent: true }))]),
+    ...lowering.globals.map((s) => ({ s, lent: false })),
+  ]
+  // A REVERSED ARRAY is refused by name: both vendors refuse it ("Lower border must be lower than upper border",
+  // `decl_array_reversed_bounds`), and lowered it was a negative length the Rust compiler rejected
+  const reversed = slots.find(({ s }) => reversedArray(s.type))?.s
+  if (reversed !== undefined)
+    return { diagnostics: [lowerDiagnostic("array-reversed", `${reversed.name} is an ARRAY whose lower bound is above its upper`, unit.span)] }
+  const unrepresentable = slots.find(({ s, lent }) => !representable(s.type, lent))?.s
+  if (unrepresentable !== undefined) {
+    const kind = unrepresentable.type.kind
+    return { diagnostics: [lowerDiagnostic(`slot-${kind}`, `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, unit.span)] }
+  }
+  return undefined
+}
+
+/**
+ * An FB lowered on its own runs as what it only ever is — an instance: the POU holds one, named as the FB, and each scan
+ * calls it. Its body then sees THIS^, its bases' fields, SUPER^ and its own methods exactly as a called instance's does
+ * (phase 3½). It was lowered as if it were a PROGRAM, where none of those exist, so every derived FB the corpus holds
+ * stopped at its `SUPER^()` (128 of them).
+ *
+ * Its VAR_IN_OUT is the CALLER's variable, and a root has no caller — so the harness is the caller: one variable per
+ * in-out, owned by the POU frame beside the instance and bound to every scan's call. That is the same binding a real
+ * caller makes (the recorded semantics are unchanged: the callee reads and writes the caller's storage), and it is what
+ * a test needs — write the variable, run a scan, read it back. An `ARRAY[*]` has no size to own, so it stays refused.
+ */
+function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
+  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project), unit.name.span)
+  // A POU THAT SUCCEEDS AND DOES NOTHING IS THE ONE OUTCOME THIS FILE REFUSES EVERYWHERE ELSE. An empty body was
+  // returned with no diagnostic when the unit resolved to something that is not an FB — which cannot happen for a
+  // PROGRAM or FUNCTION_BLOCK that bound, so it is a lowering bug, and it was reported as a clean run.
+  // `calledLayout` bails for itself; only the non-FB arm was silent.
+  if (type.kind !== "function_block") {
+    lw.bail("root-type", `${unit.name.text} resolves to a ${type.kind}, not a function block lowering can instance`, unit.span)
+    return []
+  }
+  const layout = calledLayout(lw, type.name, unit.span)
+  if (layout === undefined) return []
+  const open = (layout.inouts ?? []).find((s) => openDims(s.type) > 0)
+  if (open !== undefined) {
+    lw.bail("root-inout", `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${open.name}, whose size only a caller's array gives`, unit.span)
+    return []
+  }
+  const inouts: Place[] = (layout.inouts ?? []).map((slot) => {
+    lw.slot({ ...unit.name, text: slot.name }, slot.type, "VAR")
+    return { slot: lw.frame.length - 1, path: [], type: slot.type, span: unit.span }
+  })
+  lw.slot(unit.name, type, "VAR")
+  return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts, span: unit.span }]
+}

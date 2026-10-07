@@ -1,7 +1,7 @@
 /**
  * DIRECT ADDRESSES AND `CONSTANT` — the last of the declaration topic that a running scan can actually answer.
  *
- * `memory/corpus-addresses.ts` has three fixtures and `storage.ts` has one address rule (`parseAddress`,
+ * `memory/corpus-addresses.ts` has three fixtures and `storage/addresses.ts` has one address rule (`parseAddress`,
  * `addressClash`, `claimAddress`). What none of them record is what a variable AT an address DOES:
  *
  *   %M    the marker area, which a simulation has and which a scan can therefore write and read back

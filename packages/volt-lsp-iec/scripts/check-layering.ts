@@ -101,7 +101,25 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * Violations of rules 4, 4b and 6 (the transpiler's own, openspec transpile-restructure task 1.0.1) that the change has
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
-export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = []
+export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
+  // the `Lowering` frame lives in lower/lowering.ts until task 1.6.21 makes it core/lowering.ts
+  "4b transpile/lower/values/enums.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
+  "4b transpile/lower/core/ast-walk.ts → transpile/lower/lowering.ts: lower/core is a leaf and must not import lower/(root)",
+  "4b transpile/lower/core/chain.ts → transpile/lower/lowering.ts: lower/core is a leaf and must not import lower/(root)",
+  "4b transpile/lower/values/fold.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
+  "4b transpile/lower/values/literals.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
+  // an enum's storage reads the string capacity default (`withStringCapacity`), which task 3.3 deletes
+  "4b transpile/lower/values/enums.ts → transpile/lower/storage/layout.ts: lower/values is a leaf and must not import lower/storage",
+  // design.md §4.2 puts `AttributeLookup` in project/prepare.ts, and the shared state the frame holds (`Shared.attributes`)
+  // reads it: the design's placement and rule 4b disagree — reported to the gate (step 1.6d)
+  "4b transpile/lower/lowering.ts → transpile/lower/project/prepare.ts: only lower/entry imports lower/project",
+  // the exec oracle's world (lower/conditions.ts) is read by project/prepare.ts and by calls/ (`calledRoutine`,
+  // `propertyRoutine`): as §4.9's project/conditions.ts, calls/ would import project/ — reported to the gate (step 1.6d)
+  "4b transpile/lower/project/prepare.ts → transpile/lower/conditions.ts: lower/project is a leaf and must not import lower/(root)",
+  // design.md §2.4 puts `foldedCall` (an initializer holding a call, folded through its lowering) in values/fold.ts, and
+  // it lowers through `lowerExpr`: the design's placement and rule 4b disagree — reported to the gate (step 1.6c)
+  "4b transpile/lower/values/fold.ts → transpile/lower/expressions/expressions.ts: lower/values is a leaf and must not import lower/expressions",
+]
 
 /**
  * The analysis-rule violations (A1–A6 below) that openspec analysis-conformance has not removed yet, measured by the
@@ -342,6 +360,13 @@ const LOWER_LEAVES: Record<string, readonly string[]> = {
   project: ["diagnostics"],
 }
 
+/**
+ * Files of a non-leaf folder that are leaves themselves (design.md §2.4): any lower/ file may import one, and it imports no
+ * lower/ folder. `builtins/arity.ts` is the constant fold's view of the builtins — the leaf that breaks the
+ * constants ↔ builtins cycle (`values/fold.ts` asks it which callees fold).
+ */
+const LOWER_LEAF_FILES: readonly string[] = ["builtins/arity.ts"]
+
 /** Rules 4 and 4b for one production import inside `transpile/` (both paths relative to `src/`), or undefined. */
 export function transpileViolation(relFrom: string, relTo: string): string | undefined {
   const from = relFrom.split("/")
@@ -360,7 +385,10 @@ export function transpileViolation(relFrom: string, relTo: string): string | und
     const folderOf = (parts: string[]): string => (parts.length > 3 ? parts[2]! : "(root)")
     const ff = folderOf(from)
     const tf = folderOf(to)
-    if (ff === tf) return undefined
+    const fromFile = from.slice(2).join("/")
+    if (LOWER_LEAF_FILES.includes(fromFile) && ff !== tf)
+      return `4b ${relFrom} → ${relTo}: lower/${fromFile} is a leaf file and must not import lower/${tf}`
+    if (ff === tf || LOWER_LEAF_FILES.includes(to.slice(2).join("/"))) return undefined
     const leaf = LOWER_LEAVES[ff]
     if (leaf !== undefined && !leaf.includes(tf))
       return `4b ${relFrom} → ${relTo}: lower/${ff} is a leaf and must not import lower/${tf}`

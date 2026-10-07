@@ -177,7 +177,7 @@ export const TYPE_EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   //   decl_pointer_to_pointer_deref         `x : INT; p : POINTER TO INT; pp : POINTER TO POINTER TO INT;` /
   //                                         `p := ADR(x); pp := ADR(p); pp^^ := 5; out := x;` — both build, CODESYS runs
   //                                         x = out = 5; the LSP agrees; lowering REFUSED it ("the address of a variable of
-  //                                         another type", fixed in `pointers.ts`, `lower.test.ts`) and then confirmed it.
+  //                                         another type", fixed in `pointers/address.ts`, `lower.test.ts`) and then confirmed it.
   //                                         Rises `call UNKNOWN, SIZEOF or ADR` by 2 (ADR's result type, task 4.3.4).
   // Until then T6's POINTER TO POINTER is an open GAP (`test/frontend/rules.ts`): a declaration alone decides nothing.
 

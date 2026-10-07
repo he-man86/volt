@@ -130,7 +130,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "pointer-shape": "unclassified",
   // Not a construct gap and not unmeasured: the CALLER hands `ADR(x)` to another instance's pointer field, and the
   // callee cannot reach x — its body is lowered once per FB type, so the target must be LENT per call the way
-  // `interfaces.ts` lends an instance. Form 3's foreign half (`pointer-model.md` §5). Kept apart from
+  // `interfaces/lend.ts` lends an instance. Form 3's foreign half (`pointer-model.md` §5). Kept apart from
   // `pointer-order`, whose message — "before any address was stored into it" — was false here: one is stored.
   "pointer-foreign": "unclassified",
   // Not a construct and not a gap: the POU being lowered is the ROOT, so its `POINTER TO T` VAR_INPUT has no

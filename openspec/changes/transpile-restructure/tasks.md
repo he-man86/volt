@@ -1259,54 +1259,123 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ### 1.6 `lower/` (split giant functions in place first, then move leaves first; each file moves with its tests from 1.8.1)
 
-- [ ] 1.6.1 Split `lowerInvoke` in place.
+- [x] 1.6.1 Split `lowerInvoke` in place.
   - What: design.md §4.0: the ANY binding, the cursor binding, the form-2 borrowed binding, output bindings, the program move-in/out and
     argument binding become named functions in calls.ts with explicit parameters.
   - Where: `lower/calls.ts`.
   - Accept: G, S; `lowerInvoke` is 80 lines or less.
   - Depends: 1.2.2.
-- [ ] 1.6.2 Split `lowerCallStatement` and `lowerSuperCall` in place (input stores, in-out binding, open bounds, output copy).
+  - Done 2026-10-07 (step 1.6a). `lowerInvoke` 341 → 26 lines over `InvokeBindings` (the routine, the instance, the inputs,
+    the in-outs, the order they are written in, the ANY places) and `callHolds` (its held places): `invokeTarget` (which
+    routine on which instance, or the interface dispatch) with `memberTarget` (`inst.M(…)`, the PROGRAM move-in/out checks),
+    `positionalArguments`, `bindArgument` (one named argument) over `bindOutputArgument` (output bindings),
+    `bindAnyArgument` (the ANY binding), `bindCursorArgument` (the cursor binding), `bindBorrowedArgument` (the form-2
+    borrowed binding); then `bindOpenBounds`, `defaultInputs`, `bindInstanceInOuts`, `bindAnyTargets`,
+    `bindUnconnectedOutputs` and `bindWhereWritten` (the freezes). Each returns `true | undefined` (undefined = refused,
+    the diagnostic already pushed), so the body reads as the sequence it is; every comment moved with its code.
+- [x] 1.6.2 Split `lowerCallStatement` and `lowerSuperCall` in place (input stores, in-out binding, open bounds, output copy).
   - Where: `lower/calls.ts`.
   - Accept: G, S; each 80 lines or less.
   - Depends: 1.6.1.
-- [ ] 1.6.3 Split `lowerExpr` in place, one function per arm.
+  - Done 2026-10-07 (step 1.6a). `lowerSuperCall` 21 lines over `superArguments` (input stores and in-out binding),
+    `passOnDerivedInOuts`, `superOpenBounds`; `lowerCallStatement` 129 → 23 over `routineCallStatement` (a routine called
+    as a statement — `null` when it calls an instance), `calledInstance` (the instance, its layout, the PROGRAM checks),
+    `fbArguments` (in-out binding) over `fbInputStore` (input stores) and `fbOutputCopy` (output copy); `storeOpenBounds`
+    and `movedInOut` unchanged.
+- [x] 1.6.3 Split `lowerExpr` in place, one function per arm.
   - Where: `lower/expressions.ts`.
   - Accept: G, S; the dispatch is 80 lines or less.
   - Depends: 1.2.2.
-- [ ] 1.6.4 Split `lowerStmt` in place, one function per arm.
+  - Done 2026-10-07 (step 1.6a). `lowerExpr` 271 → a 23-line dispatch over `lowerLiteral`, `lowerName`, `lowerDeref`,
+    `lowerUnary` (56), `lowerBinary` (over `pointerNullCompare`, `stringCompare` with `isStringValue`, and `arithmetic` —
+    duration scaling, constant retyping, the meet, the REAL fold), `lowerMember` (over `anyDiSize` — the ANY `.diSize`
+    read — and `partialAccess`); `call` stays `lowerBuiltin`.
+- [x] 1.6.4 Split `lowerStmt` in place, one function per arm.
   - Where: `lower/statements.ts`.
   - Accept: G, S.
   - Depends: 1.2.2.
-- [ ] 1.6.5 Split `lowerBuiltin` in place, one function per builtin group.
+  - Done 2026-10-07 (step 1.6a). `lowerStmt` 192 → a 50-line dispatch (the `__TRY` note stays beside `default` until 1.6.16
+    moves it) over `lowerAssign` (over `storeChar`, `lowerLatch`, `storeValue`), `lowerIf`, `lowerCase`, `lowerWhile`,
+    `lowerRepeat`, `lowerExit`; `lowerFor` unchanged.
+- [x] 1.6.5 Split `lowerBuiltin` in place, one function per builtin group.
   - Where: `lower/builtins.ts`.
   - Accept: G, S.
   - Depends: 1.2.2.
-- [ ] 1.6.6 `initStep`'s closures become module functions taking `lw` (design.md §4.1 list).
+  - Done 2026-10-07 (step 1.6a). `lowerBuiltin` 177 → 29 lines over `lowerSystemCall` (SIZEOF, MOVE, `__POUNAME`,
+    `__QUERYINTERFACE`, LOWER_BOUND/UPPER_BOUND, `__ISVALIDREF`), `lowerClock` (TIME(), LTIME()), the conversion names, the
+    routine call, and `lowerValueFunction` (TRUNC, ABS, unary math) over `lowerShift`, `lowerMux`, `lowerExpt`,
+    `lowerSelection` (MAX/MIN/LIMIT/SEL).
+  - Step 1.6a end: `bun typecheck` clean; `bun run lint` green — the size ratchet's ceilings RAISED for the four files the
+    splits grew (`lower/calls.ts` 1657 → 1803, `builtins.ts` 490 → 521, `statements.ts` 437 → 471, `expressions.ts` new at
+    443; a split in place adds signatures and docs, and each file is dissolved by 1.6.14-1.6.18 — the reason is written on
+    `CEILINGS`); functions over 80 lines 13 → 8 (`lowerInvoke`, `lowerExpr`, `lowerStmt`, `lowerBuiltin`,
+    `lowerCallStatement` off the list); `bun test src/transpile scripts` 382 pass, 0 fail; S ✓ identical, 5357 fixtures,
+    155 s.
+- [x] 1.6.6 `initStep`'s closures become module functions taking `lw` (design.md §4.1 list).
   - Where: `lower/lower.ts`.
   - Accept: G, S; no closure over `lw` is left inside `initStep`.
   - Depends: 1.2.2.
-- [ ] 1.6.7 `lowerUnit`'s and `lowerSource`'s closures become module functions.
+  - Done 2026-10-07 (step 1.6b). `initStep` 383 → 60 lines; no closure over `lw` is left in it. Its shared state is one
+    record, `InitStep` (the lowering, the span, the root's symbol and project-tree application, the `globalArguments` set,
+    the `fbInitHeld` and `known` memos, the four statement lists `out`/`fbInitCalls`/`reapplied`/`slotCalls`, and
+    `declaredInits`), handed to module functions: `initMethod(lw, fb)`, `pathFields(lw, fb)`, `fbInits(fb)`,
+    `holdsFbInit(st, t)`, `ownProgram(st, place)`, `recordedArgument(st, …)`, `writesGlobal(lw, node, seen)`,
+    `declaredArgs(lw, owner, name)`, `reaches(st, t)`, `unreached(st, where)`, and `visit(st, …)` (203 → 17) over
+    `programFbInitsQuiet`, `callFbInits` (37) with `fbInitInput` (69, one FB_Init input incl. `rootsOwn`), `instancePaths`,
+    `slotMethodCall`, `visitFields` (53, the field initializers interleaved, `layoutFields`) and `initializeUpTo` (its
+    `from` cursor an explicit `{ from }`). `type Fb` is module-level. Every comment moved with its code.
+- [x] 1.6.7 `lowerUnit`'s and `lowerSource`'s closures become module functions.
   - Where: `lower/lower.ts`.
   - Accept: G, S.
   - Depends: 1.6.6.
-- [ ] 1.6.8 `core/build.ts`.
+  - Done 2026-10-07 (step 1.6b). `lowerUnit` 95 → 35 lines over `ownMembers(unit, scope)`, `runsAsInstance(unit, scope)`
+    (the old `asInstance`), `open(lowering, unit)` (the PROGRAM's ARRAY[*] in-out), `programBody` (a PROGRAM lowered as its
+    own frame) and `slotRefusal` (shared address, reversed array, unrepresentable slot); `lowerSource` 45 → 21 over
+    `lowerOnBase` (bind, lower, unbind); `lowerPrepared`'s `runnable` closure is `isRunnable`.
+- [x] 1.6.8 `core/build.ts`.
   - What: `cast`, `binaryOf` (convert.ts 102-109) and `ZERO_SPAN` (lowering.ts 372; the inline re-spelling at lower.ts 766 is deleted).
   - Where: `lower/core/build.ts`.
   - Accept: G, S.
   - Depends: 1.6.7.
-- [ ] 1.6.9 `builtins/arity.ts`, a leaf.
+  - Done 2026-10-07 (step 1.6b). `lower/core/build.ts`: `cast`, `binaryOf` (from `convert.ts`), `ZERO_SPAN` (from
+    `lowering.ts`, now with a doc and `= {`); `lowerPrepared`'s inline re-spelling of it deleted. `load`/`constOf` are not
+    built (no task here names them; 1.7's consolidations). Moved by a tool (`mover.ts`, scratch): each declaration cut with
+    its attached comments, a checker resolving which outer names it reads, every importer re-pointed, an import statement
+    rewritten only when its names change — run for 1.6.8-1.6.10.
+- [x] 1.6.9 `builtins/arity.ts`, a leaf.
   - What: `BUILTIN_ARITY`, `isConstantCallee`, `oneArgument`, which breaks the constants↔builtins import cycle.
   - Where: `lower/builtins/arity.ts`.
   - Accept: G, S; no cycle reported.
   - Depends: 1.6.8.
-- [ ] 1.6.10 `values/`.
+  - Done 2026-10-07 (step 1.6b). `lower/builtins/arity.ts`: `BUILTIN_ARITY` (builtins.ts), `isConstantCallee`
+    (constants.ts) and `oneArgument(call)` — new, the one-positional-argument test four sites spelled out (MOVE and the three
+    conversion checks in `lowerConversion`; `__ISVALIDREF` and SIZEOF test something else and keep their own). It imports no
+    `lower/` file; `constants.ts` no longer imports `builtins.ts` (the cycle is gone). Rule 4b gains `LOWER_LEAF_FILES`
+    (`builtins/arity.ts`): a leaf file of a non-leaf folder, open to the leaves, importing no `lower/` folder itself —
+    design.md §2.4 makes arity "a leaf" that `values/fold.ts` asks, which the folder table alone would refuse.
+    `scripts/check-layering.test.ts` +1 (the open edge clean, arity → core and values → builtins/builtins.ts named).
+- [x] 1.6.10 `values/`.
   - What: `constants.ts` → `values/literals.ts` (incl. `inTicks`, `TEMPORAL_LITERAL_KINDS`), `values/fold.ts` (incl. `enumValueOf`),
     `values/enums.ts` (the orphan calendarOf doc at 249-254 fixed); `convert.ts` → `values/convert.ts`, `LINT_MAX` and
     `integerFoldType` → `fold.ts`, `stored` → `types/width` (1.1.6); `meetOperands` not yet (1.7.15).
   - Where: `lower/values/*`.
   - Accept: G, S.
   - Depends: 1.6.9, 1.1.6, 1.1.12.
-- [ ] 1.6.11 `storage/`.
+  - Done 2026-10-07 (step 1.6b). `lower/values/`: `literals.ts` (`stringLiteralText`, `durationOf`, `TEMPORAL_LITERAL_KINDS`,
+    `calendarOf` — its orphan doc, stacked above `TEMPORAL_LITERAL_KINDS`, now on it — `typedRealOf`, `inTicks`,
+    `contextLiteralType`), `fold.ts` (`foldConstant`, `foldsToConstant`, `convertedConstant`, `enumValueOf`, `LINT_MAX`,
+    `integerFoldType`), `enums.ts` (`enumStorage`, `enumeratorValue`, `enumConstant`), `convert.ts` (`convert`, `retype`,
+    `adopt`, `valueAs`, `stored`, and — until their tasks move them — `beside`/`ownIntegerType` (1.7.15) and
+    `refuseImplicitString` (1.6.16)). `stored` stays a `values/convert.ts` function: its core has been `types/width`
+    `wrapToWidth` since 1.1.6, its guards are its callers' until 6.B.2, and `types/` cannot name `IrValue`. `constants.ts` and
+    `convert.ts` deleted; `constants.test.ts` → `values/fold.test.ts`; `test/frontend/literal-agreement.ts` re-pointed.
+    Known rule-4b edges (listed, each with its task): `values/*` → `lower/lowering.ts` (the `Lowering` type, until 1.6.21),
+    `values/enums.ts` → `storage.ts` (`withStringCapacity`, deleted by 3.3).
+  - Step 1.6b end: `bun typecheck` clean; `bun run lint` green (layering 6 known; size 9 ceilings — `lower/lower.ts`
+    raised 849 → 986 by the module functions, `pointers.ts` 543 and `storage.ts` 657 by an import line each, `builtins.ts`
+    lowered to 504, `expressions.ts` to 442; functions over 80 lines 8 → 5); `bun test src/transpile scripts` 383 pass,
+    `test/frontend/literal-agreement.test.ts` pass; S ✓ identical, 5357 fixtures, 168 s.
+- [x] 1.6.11 `storage/`.
   - What: `storage.ts` → `layout.ts`, `declare.ts`, `statics.ts`, `addresses.ts` (+ `addressSharedByInstances` from lower.ts); the init
     parts → `init/initial-values.ts` (incl. `runnableInit`) and `init/temp-resets.ts`; `bytes.ts`, `unions.ts` → `storage/`; `sizeOf`,
     `adrDifference` → `builtins/sizeof.ts`; `rootType` → `places/path.ts`; `foldedCall` → `values/fold.ts`; storage's `holdsCall` →
@@ -1314,14 +1383,35 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `lower/storage/*`, `lower/init/*`, `lower/builtins/sizeof.ts`, `lower/places/path.ts`, `lower/core/ast-walk.ts`.
   - Accept: G, S.
   - Depends: 1.6.10.
-- [ ] 1.6.12 `places/`.
+  - Done 2026-10-07 (step 1.6c; 1.6.11-1.6.15 moved by the 1.6.8 tool, declaration by declaration with their docs).
+    `storage/layout.ts` (`INSTANCE_STORAGE`, `withStringCapacity`, `storageOf`, `buildLayout`, `holdsInstance`),
+    `storage/declare.ts` (`declareVars`, `constantSlot`, `declareInOuts`, `declareOpenBounds`), `storage/statics.ts`
+    (`declareStatics`), `storage/addresses.ts` (`parseAddress` … `bindAddress`, + `addressSharedByInstances` from lower.ts),
+    `storage/bytes.ts` (`byteSize`, `fieldBytes`, `byteOffset`, `alignUp`), `storage/unions.ts` (all of unions.ts);
+    `init/initial-values.ts` (`runnableInit`, `scalarInit`, `aggregateInit`, `elementDefaults`, `aliasInit`),
+    `init/temp-resets.ts` (`tempResets` — the name `resetTemps` is 1.7.17's, with its one call site); `builtins/sizeof.ts`
+    (`sizeOf`, `adrDifference`); `places/path.ts` (`rootType`); `values/fold.ts` (`foldedCall`); `core/ast-walk.ts`
+    (`exprHoldsCall`, storage's `holdsCall` renamed — its only callers were in storage.ts). The duplicate doc above
+    `addressClash` is one doc. `storage.ts`, `bytes.ts`, `unions.ts` deleted. Known rule-4b edge (listed):
+    `values/fold.ts` → `expressions/expressions.ts` — design.md §2.4 puts `foldedCall` in `values/fold.ts`, and it lowers the
+    initializer through `lowerExpr`; the placement and rule 4b disagree (for the gate). Citations to the deleted files in
+    `src/` and fixture comments re-pointed (`init-sequence.ts`, `lowering.ts`, `storage/addresses.ts`, `values/fold.ts`,
+    `fixtures/declarations/addresses.ts`, `fixtures/memory/memory-model.ts`); `diagnostics/codes.ts`'s `layout-` note
+    still names `storage.ts` — it is registry data, not a comment.
+- [x] 1.6.12 `places/`.
   - What: `places.ts` → `places.ts` (+`Indexed`), `names.ts` (precedence as it is; `ownMember`, `methodOf` from calls.ts), `self.ts`
     (`selfFb`, `thisPlace`, `instancePlace` from calls.ts), `globals.ts`, `bounds.ts` (+`openDims`/`boundName` from lowering.ts),
     `path.ts`; `throughReference` → `pointers/deref.ts` (created here, completed in 1.6.13).
   - Where: `lower/places/*`.
   - Accept: G, S.
   - Depends: 1.6.11.
-- [ ] 1.6.13 `pointers/`.
+  - Done 2026-10-07 (step 1.6c). `places/places.ts` (`lowerPlace`, `Indexed`, `lowerAccess`, `bitPlace`), `places/names.ts`
+    (`namePlace` — the name precedence, extracted in place from `lowerPlace`'s tail, unchanged — with `ownMember` and
+    `methodOf` from calls.ts), `places/self.ts` (`selfFb`, `thisPlace`, `instancePlace` from calls.ts), `places/globals.ts`
+    (`globalPlace`, `declareGlobal`, `qualifiedGlobal`, `listVariableShadows`), `places/bounds.ts` (`boundOf`,
+    `refuseOpenArray`, + `openDims`/`boundName` from lowering.ts); `throughReference` → `pointers/deref.ts`. `places.ts`
+    deleted. (`holding`'s doc, stacked above `instancePlace`'s, moved onto `holding` first.)
+- [x] 1.6.13 `pointers/`.
   - What: `pointers.ts` → `state.ts` (+`PointerTarget`, `Cursor` and the pointer maps from lowering.ts), `address.ts`, `store.ts`,
     `deref.ts` (+`storeThrough` from statements.ts, `describePointer`, `unsuppliedInput`, `nullDeref`), `cursor.ts`, `borrowed.ts`
     (`borrowedInOut`); `through`, `refuseConstantWrite`, `loadValue` → `places/access-guards.ts`; `sameStorage`, `sameTarget` →
@@ -1329,25 +1419,56 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `lower/pointers/*`, `lower/places/*`.
   - Accept: G, S.
   - Depends: 1.6.12.
-- [ ] 1.6.14 `expressions/`.
+  - Done 2026-10-07 (step 1.6c). `pointers/state.ts` (`PointerTarget`, `Cursor` from lowering.ts; `pointerKey`,
+    `recordTarget`, `ELEMENT_TAG_BIAS` — to `core/tags.ts` in 1.7.19), `pointers/address.ts` (`addressOf`, `pointerValue`),
+    `pointers/store.ts` (`storePointer`, `bindReference`), `pointers/deref.ts` (`pointeePlace`, `pointerArms`,
+    `selectThrough`, `nullDeref`, `describePointer`, `unsuppliedInput`, + `storeThrough` from statements.ts),
+    `pointers/cursor.ts` (`charsOf`, `cursorOf`, `cursorChar`, `charsThrough`, `cursorStringChar`, `cursorCharAt`,
+    `cursorString`), `pointers/borrowed.ts` (`borrowedInOut`); `through`, `refuseConstantWrite`, `loadValue` →
+    `places/access-guards.ts`; `sameStorage`, `sameTarget` → `places/path.ts`. `pointers.ts` deleted. NOT moved: the pointer
+    MAPS (`boundPointers`, `anyInputs`, `anyTargets`, `borrowedPointers`, `cursors`) are fields of the `Lowering` class and
+    `Shared.pointers` — taking them out of the frame is 1.6.21's slimming of `Lowering` (its "holds the frame, bail, slots,
+    modes and resolve only"); only their types moved.
+- [x] 1.6.14 `expressions/`.
   - What: the dispatch, `operators.ts` (+`BIN_OPS`, `COMPARISONS`, `LIFTED`), `calendar.ts`, `partial-access.ts`; the `.diSize` read →
     a new `pointers/any.ts`.
   - Where: `lower/expressions/*`, `lower/pointers/any.ts`.
   - Accept: G, S.
   - Depends: 1.6.13, 1.6.3.
-- [ ] 1.6.15 `builtins/`.
+  - Done 2026-10-07 (step 1.6c). `expressions/expressions.ts` (`lowerExpr` and its arms `lowerLiteral`, `lowerName`,
+    `lowerDeref`, `lowerMember`), `expressions/operators.ts` (`BIN_OPS`, `COMPARISONS`, `LIFTED`, `lowerUnary`,
+    `lowerBinary`, `pointerNullCompare`, `isStringValue`, `stringCompare`, `arithmetic`), `expressions/calendar.ts`
+    (`calendarArithmetic`), `expressions/partial-access.ts` (`partialAccess`); the `.diSize` read (`anyDiSize`) →
+    `pointers/any.ts` (new). `expressions.ts` deleted.
+- [x] 1.6.15 `builtins/`.
   - What: `builtins.ts`, `value-functions.ts` (+`checkedBits`, `UNARY_MATH`), `system.ts`, `clock.ts` (+`CLOCK_KEY`), `conversions.ts`;
     `lower/index.ts` takes `CLOCK` from `clock.ts`.
   - Where: `lower/builtins/*`.
   - Accept: G, S.
   - Depends: 1.6.14, 1.6.5.
-- [ ] 1.6.16 `statements/`.
+  - Done 2026-10-07 (step 1.6c). `builtins/builtins.ts` (`lowerBuiltin`, with the old file's header), `value-functions.ts`
+    (`checkedBits`, `UNARY_MATH`, `lowerValueFunction`, `lowerShift`, `lowerMux`, `lowerExpt`, `lowerSelection`, and
+    `meetOperands` until 1.7.15 makes it `values/promote.ts`), `system.ts` (`lowerSystemCall`), `clock.ts` (`CLOCK`,
+    `CLOCK_KEY`, `lowerClock`), `conversions.ts` (`lowerConversion`, `DATE_PART`); `lower/index.ts` re-exports `CLOCK` from
+    `builtins/clock.js`. `builtins.ts` deleted. Re-pointed: fixture comments `operators/selection.ts`,
+    `grammar/type-expressions.ts`, `memory/memory-model.ts`, and `oop/lifecycle.ts`'s task-15 note (`lower/pointers/state.ts`).
+  - Step 1.6c end: `bun typecheck` clean; `bun run lint` green (layering 7 known; size 5 ceilings — `storage.ts`,
+    `builtins.ts`, `expressions.ts`, `pointers.ts` gone, `calls.ts` 1779, `lower.ts` 964, `statements.ts` 424, `interfaces.ts`
+    481 (+1, an import line; dissolved by 1.6.17); every new `lower/*/` file ≤ 234 lines; citations 604 missing, warning);
+    `bun test src/transpile scripts` 383 pass, 0 fail; S ✓ identical, 5357 fixtures, 177 s.
+- [x] 1.6.16 `statements/`.
   - What: `statements.ts`, `assign.ts`, `loops.ts`, `case.ts`. The `__TRY` note (249-271) moves to docs/architecture.md; the empty banner
     at 348 is deleted.
   - Where: `lower/statements/*`, `docs/architecture.md`.
   - Accept: G, S.
   - Depends: 1.6.15, 1.6.4.
-- [ ] 1.6.17 `interfaces/`.
+  - Done 2026-10-07 (step 1.6d; 1.6.16-1.6.20 moved by the 1.6.8 tool). `statements/statements.ts` (`lowerBlock`,
+    `lowerStmt`, `lowerIf`), `statements/assign.ts` (`lowerChain`, `lowerAssign`, `storeChar`, `lowerLatch`, `storeValue`,
+    `holdsOwnAddress`, + `refuseImplicitString` from `values/convert.ts`), `statements/loops.ts` (`loopBody`, `lowerFor`,
+    `lowerWhile`, `lowerRepeat`, `lowerExit`), `statements/case.ts` (`lowerCase`); `anySize` (RC 17) → `pointers/any.ts`.
+    The `__TRY` note is a paragraph of docs/architecture.md ("Backend — `transpile/`"), a one-line pointer left beside
+    `default`; the empty "type helpers" banner deleted. `statements.ts` deleted.
+- [x] 1.6.17 `interfaces/`.
   - What: `tags.ts` (the doc at 85-89 reattached to `interfaceKey`), `lend.ts` (`heldAt`, `instanceRelative`, `lendPlace`,
     `refusedLends`, per-callee lend), `dispatch.ts` (+`interfaceProperty`, `accessorCall`), `query.ts` (+`isQuery`), `state.ts`;
     `finishInterfaces`, `onEachTag`, `bodiesOf` and the lend driver → `entry/finish.ts`, which runs the bindings' dispatches too;
@@ -1355,7 +1476,17 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `lower/interfaces/*`, `lower/entry/finish.ts`, `ir/walk.ts`.
   - Accept: G, S.
   - Depends: 1.6.16.
-- [ ] 1.6.18 `calls/`.
+  - Done 2026-10-07 (step 1.6d). First, in place: `interfaceKey`'s doc (stacked above `elementOfArray`'s) put on it, and
+    `lendToCallees` split into the driver (the loop over `callsIn`) and `lendToCall` (one call's lend). Then:
+    `interfaces/tags.ts` (`FbType`, `interfaceChain` — `core/chain.ts`'s in 1.7.3 — `implementsInterface`, `tagOf`,
+    `elementOfArray`, `interfaceKey`, `heldBy`, `tagsOf`, `storeInterface`, `interfaceArgument`), `interfaces/lend.ts`
+    (`heldAt`, `instanceRelative`, `lendPlace`, `refusedLends`, `lendToCall`), `interfaces/dispatch.ts` (`SymbolAst`,
+    `dispatch`, `interfaceCall`, `interfaceProperty`, `accessorCall`, `interfacePropertyGet`/`Set`), `interfaces/query.ts`
+    (`lowerQueryInterface`, `isQuery`, `queryInto`, `queryCondition`, `foreignWrite`); `entry/finish.ts`
+    (`finishInterfaces`, `onEachTag`, `bodiesOf`, `lendToCallees` — the bindings' dispatches already run through
+    `shared.dispatches` there); `callsIn` → `ir/walk.ts`. No `interfaces/state.ts`: the lends and the hoisted queries are
+    `Lowering` fields, which 1.6.21 takes out of the frame. `interfaces.ts` deleted.
+- [x] 1.6.18 `calls/`.
   - What: `routines.ts`, `facts.ts`, `variants.ts`, `parameters.ts`, `invoke.ts`, `fb-call.ts`, `outputs.ts`, `binding.ts`, `super.ts`
     (+`isSuper`), `property.ts`, `specialize.ts` (from specialize.ts), `last-binding.ts` (from bindings.ts), `reentrancy.ts`
     (+`touchesOf`), `namespace.ts`; the ANY, cursor and borrowed functions extracted in 1.6.1 → `pointers/{any,cursor,borrowed}.ts`;
@@ -1364,18 +1495,95 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `lower/calls/*`, `lower/pointers/*`.
   - Accept: G, S; no `calls/*` file over 400 lines.
   - Depends: 1.6.17, 1.6.2.
-- [ ] 1.6.19 `init/`.
+  - Done 2026-10-07 (step 1.6d). `calls/routines.ts` (381: `once`, `routineLowering`, `keptVariables`, `declareOutputs`,
+    `isBodylessLibrary`, `calledRoutine`, `baseBody`, `calledLayout`; calls.ts's header), `calls/facts.ts` (`routineFacts`),
+    `calls/variants.ts` (`typeKey`), `calls/parameters.ts` (`inOutSections`, `prefixed`, `positionalParameters`,
+    `positionalOf`), `calls/invoke.ts` (`InvokeBindings`, `callHolds`, `lowerInvoke`, `invokeTarget`, `memberTarget`,
+    `positionalArguments`, `bindArgument`, `bindOpenBounds`, `defaultInputs`, `bindInstanceInOuts`), `calls/outputs.ts`
+    (`bindOutputArgument`, `bindUnconnectedOutputs`, `fbOutputCopy`), `calls/fb-call.ts` (`lowerCallStatement`,
+    `routineCallStatement`, `calledInstance`, `fbArguments`, `fbInputStore`, `storeOpenBounds`), `calls/binding.ts`
+    (`holding`, `bindInOut`, `bindPlace`, `lendGuards`, `bindWhereWritten` — the freeze — `movedInOut`, `aliases`),
+    `calls/super.ts` (`isSuper`, `lowerSuperCall` and its three parts), `calls/property.ts` (`propertyRoutine`,
+    `propertyAccess`, `lowerPropertyGet`/`Set`), `calls/reentrancy.ts` (`programReentrant`, `touchesOf`, `inGlobals`,
+    `reachesDispatch`, and `touchesOnlyItsOwn`/`writesOnlyLocals` until 1.7.4 makes them `ir/walk.ts` predicates),
+    `calls/namespace.ts` (`namespaceOf`), `calls/specialize.ts` (specialize.ts and its header; `callsNothing`/`mapPlaces`
+    kept for 1.7.4), `calls/last-binding.ts` (bindings.ts: `FIELD`, `DINT`, `registerWholeCopy`, `registerBodyCall`,
+    `lastBinding`); the ANY, cursor and borrowed parts 1.6.1 extracted → `pointers/any.ts` (`anyInputsOf`, `ANY_TARGET`,
+    `anyArgumentTypes`, `bindAnyArgument`, `bindAnyTargets`), `pointers/cursor.ts` (`cursorInputsOf`, `CURSOR`, `TEXT_OF`,
+    `cursorArgumentTypes`, `CursorArgument`, `cursorArgument`, `pointedString`, `bindCursorArgument`),
+    `pointers/borrowed.ts` (`borrowedInputsOf`, `BORROWED`, `borrowedPointerSlots`, `bindBorrowedArgument`); `adrArgument` →
+    `pointers/address.ts` (`adrOperand` is 1.7.9's); `chainOf`, `chainNames` → `core/chain.ts`; `overridesCalled`,
+    `reachedNames`, `borrowedPointerNames` → `core/ast-walk.ts`; `stringIdentity`, `staticPath`, specialize's `sameStep`/
+    `suffixOf` and bindings' `placeKey`/`throughInstance`/`instanceKey` → `places/path.ts`; `FbType`, `RoutineSymbol` →
+    `core/lowering.ts` (created with them; the `Lowering` frame joins in 1.6.21). Orphan docs: `anyArgumentTypes`'s
+    (stacked on `positionalParameters`) put on it; "A binding that is the caller's place…" (no declaration) went with
+    calls.ts. No `calls/*` file over 400 lines. `calls.ts`, `specialize.ts`, `bindings.ts` deleted; `calls.test.ts` stays
+    for 1.8.1. Known rule-4b edges (listed, to 1.6.21): `core/chain.ts`, `core/ast-walk.ts` → `lower/lowering.ts`.
+- [x] 1.6.19 `init/`.
   - What: `init-sequence.ts` → `init/sequence.ts`; `initStep` → `init/step.ts`, `fb-init.ts`, `instance-init.ts`, `attributes.ts`
     (+`INIT_ATTRIBUTE`); `ownProgram` → `calls/reentrancy.ts`; `writesGlobal` → `ir/walk.ts`; the init state → `init/state.ts`.
   - Where: `lower/init/*`.
   - Accept: G, S.
   - Depends: 1.6.18, 1.6.6.
-- [ ] 1.6.20 `entry/` and `project/`.
+  - Done 2026-10-07 (step 1.6d). `init/state.ts` (`Fb`, `InitStep` — the init step under construction; `pendingInits`/
+    `initSequence` are `Lowering` fields, 1.6.21's), `init/attributes.ts` (`INIT_ATTRIBUTE`, `initMethod`, `pathFields`,
+    `instancePaths`, `slotMethodCall`), `init/instance-init.ts` (`instanceInitRoutine`), `init/step.ts` (`initStep`, 79),
+    `init/fb-init.ts` (355: `fbInits`, `holdsFbInit`, `recordedArgument`, `declaredArgs`, `reaches`, `unreached`, `visit`,
+    `programFbInitsQuiet`, `callFbInits`, `fbInitInput`, `visitFields`, `initializeUpTo`, and `writesGlobal`),
+    `init/sequence.ts` (init-sequence.ts: `buildInitSequence`, `lowerPendingInit`, `reads`, `readsInvoke`, `readsPlace`,
+    `laterThan`); `ownProgram` → `calls/reentrancy.ts`; `chainNamesOf` → `core/chain.ts`; `readsLaterTemp` →
+    `init/temp-resets.ts`; `insideInstance` → `places/path.ts` (`typeAlong` is 1.7.10's). NOT to `ir/walk.ts`:
+    `writesGlobal` and `reads*` read the lowering's routine and layout tables, which `ir/` cannot name — an IR predicate
+    over a resolver is 1.7.4's ("one IR walker"). `init-sequence.ts` deleted; `init-sequence.test.ts` →
+    `init/sequence.test.ts`.
+- [x] 1.6.20 `entry/` and `project/`.
   - What: the rest of `lower.ts` → `entry/lower-unit.ts`, `entry/lower-source.ts`, `entry/checks.ts`, `project/prepare.ts`
     (+`LoweringProject`, `AttributeLookup`), `project/library-base.ts`. `lower/index.ts` gets explicit exports; `lower.ts` is deleted.
   - Where: `lower/entry/*`, `lower/project/*`, `lower/index.ts`.
   - Accept: G, S.
   - Depends: 1.6.19.
+  - Done 2026-10-07 (step 1.6d). `entry/lower-unit.ts` (`lowerUnit`, `ownMembers`, `runsAsInstance`, `open`,
+    `programBody`, `slotRefusal`, `rootInstance`), `entry/lower-source.ts` (`lowerSource`, `lowerOnBase`, `isRunnable`,
+    `lowerPrepared`), `entry/checks.ts` (`representable`, `reversedArray`), `project/prepare.ts` (`TRANSPILE_PARSE`,
+    `LibraryFile`, `LoweringProject`, `prepareProject`, `attributeCache`, `attributesOf`, `ParsedFile`, `readFiles`, +
+    `AttributeLookup` from lowering.ts), `project/library-base.ts` (`LibraryBase`, `libraryBase`). `lower/index.ts` has
+    explicit exports (the same runtime surface — `index.test.ts` unchanged — and a doc naming the folders; the old header
+    table went with `lower.ts`). `lower.ts` deleted. NOT moved: `conditions.ts` (§4.9's `project/conditions.ts`): calls/
+    reads it too (`calledRoutine`, `propertyRoutine`), which "only entry imports project" refuses. Known rule-4b edges
+    (listed, for the gate — design.md's placement vs rule 4b): `lowering.ts` → `project/prepare.ts` (`Shared.attributes`
+    is an `AttributeLookup`), `project/prepare.ts` → `conditions.ts` (the exec oracle's target). Citations re-pointed in
+    `src/` (`ir/stmt.ts`, `interp/calls.ts`, `emit/rust/calls.ts`, `lowering.ts`, `pointers/deref.ts`, `calls/fb-call.ts`,
+    `calls/super.ts`, `entry/lower-unit.ts`, `diagnostics/codes.ts`'s comment) and fixtures (`grammar/literals.ts`,
+    `oop/lifecycle.ts`'s task-16/22/23 notes); in `src/transpile` only `runtime/string.ts`'s Rust text (output) and
+    `codes.ts`'s `layout-` registry note still cite a missing file.
+  - Step 1.6d end (and the end of the 1.5c-1.6d run): `bun typecheck` clean; `bun run lint` green (layering 10 known —
+    the frontend's one and nine rule-4b edges, each named with its task or as a design conflict for the gate; size 1
+    ceiling left, `lower/lower.test.ts` (1.8.1), every other `src/transpile` file ≤ 400 lines — the largest
+    `calls/routines.ts` 381, `init/fb-init.ts` 355; 5 functions over 80 lines, `lowerConversion`, `calledRoutine` and its
+    closure, `declareVars`, `builtinValue`; citations 562 missing, warning); `bun test src/transpile scripts` 383 pass,
+    0 fail; S ✓ identical, 5357 fixtures, 163 s. Run once at the end (VOLT_FIXTURES unset): `bun test test/conformance
+    test/libraries` 6206 pass, 389 todo, 0 fail (6595 tests, 21 files, 339 s); `bun test test/frontend` 45 pass, 0 fail;
+    `bun run rate:fixtures` — `map.generated.ts` unchanged (edge agree 3046, disagree 0, not-run 179); `bun run check`
+    (repo root) 18 passed. `lower/` is now `index.ts`, `lowering.ts` (1.6.21), `conditions.ts` (see above) and the three
+    test files 1.8.1 dissolves (`lower.test.ts`, `calls.test.ts`, `totality.test.ts`) beside the folders.
+  - Gate 1.5c-1.6d (2026-10-07). The finding on 1.6d — low, structure only, fixed failing test first: `callsIn` moved
+    verbatim into `ir/walk.ts` was still a skip-list walk (every own key but `type`/`of`/`span`/`lent`), against the file's
+    own "every other walk over the IR is built on `childrenOf`". It is now `some` over `childrenOf`, collecting each
+    `call`/`invoke` pre-order. Red first: `walk.test.ts` "callsIn … only what childrenOf names" (a key `childrenOf` does not
+    name — a stray `extra` holding an invoke — is not walked; the old walk followed it). Equivalence on the real IR:
+    `test/conformance/ir-walk.test.ts` keeps the old walk verbatim as an oracle and requires the same calls, same nodes,
+    same order, on every body of every lowered fixture (green), and S is byte-identical. The two findings on 1.5c are
+    written under 1.5.15.
+    Numbers: `bun typecheck` clean; `bun run lint` green (layering 10 known; size 1 ceiling; citations 562 missing,
+    warning); FULL `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) 8491 pass, 35 skip, 432 todo, 0 fail, 8958 tests
+    in 246 files, 540 s; S (`snapshot:transpile check`, ir/rust/outputs/edge) ✓ identical, 5357 fixtures, 168 s;
+    `rate:fixtures` — `map.generated.ts` unchanged (edge agree 3046, disagree 0, not-run 179); `bun run check` (repo root)
+    18 passed. Committed in two commits, not five: 1.5c stands alone (its tree rebuilt from the last commit — the
+    `holdsCall` import of `lower/{calls,bindings,lower,statements}.ts` re-pointed to `ir/walk.js` in the old files, the
+    `emit.test.ts` ceiling and layering entries removed — and typechecked and tested on its own), but 1.6a, 1.6b, 1.6c and
+    1.6d share files (`lower/calls.ts` is split in place by 1.6a and dissolved by 1.6d; `lower.ts`, `storage.ts`,
+    `lowering.ts` likewise) and no intermediate tree of them was kept — so the second commit is 1.6a-1.6d with this gate's
+    `callsIn` fix.
 - [ ] 1.6.21 `core/lowering.ts` and `core/shared.ts` slimmed.
   - What: `Lowering` holds the frame, `bail`, slots, modes and `resolve` only; `Shared`, `newShared`, `PendingBody`, `CalledRoutine` →
     `core/shared.ts`; `tempPlace`/`temp` → `core/temps.ts`; `fail` → `calls/routines.ts`; `baseOf` → `core/chain.ts`. The `frame` getter

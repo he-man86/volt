@@ -1,7 +1,7 @@
 /**
  * `MIN`, `MAX`, `LIMIT`, `SEL` and `MUX` — per type, and at the edges where each one has a real question.
  *
- * These have fixtures (`max_*`, `limit_*`, `sel_basic`) and the rules in `lower/builtins.ts` say they are measured,
+ * These have fixtures (`max_*`, `limit_*`, `sel_basic`) and the rules in `lower/builtins/value-functions.ts` say they are measured,
  * which they are — for the handful of cases somebody wrote. The edges are not:
  *
  *   MIN / MAX   per type at its own extremes, where the answer has to survive the promotion to DINT that

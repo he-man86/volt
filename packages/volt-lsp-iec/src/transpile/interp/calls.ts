@@ -55,7 +55,7 @@ export function invoke(m: Caller, e: IrInvoke): Val {
 /** An FB call: the FB's body runs on the instance itself — its fields are the frame, the bound places its VAR_IN_OUT. */
 export function call(m: Caller, s: IrCall): void {
   const instance = instanceAt(m, s.instance)
-  // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
+  // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
   if (s.bind !== undefined) m.write(s.bind.place, s.bind.tag)
   const bound = s.inouts.map((b) => m.bind(b))
   enter(m, instance, s.fb, s.inouts, bound, s.lent ?? [], [], m.layouts.get(s.fb.toUpperCase())!.body!)

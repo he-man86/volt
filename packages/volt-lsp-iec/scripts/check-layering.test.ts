@@ -93,6 +93,24 @@ test("rule 4b: each lower/ leaf importing past its table is named; the allowed e
   )
 })
 
+test("rule 4b: a leaf FILE of a non-leaf folder (builtins/arity.ts) is open to a leaf, and imports no lower/ folder itself", () => {
+  const found = transpileRules({
+    ...leaf("src/transpile/lower/core/lowering.ts"),
+    ...leaf("src/transpile/lower/builtins/builtins.ts"),
+    "src/transpile/lower/builtins/arity.ts": `import { x } from "../core/lowering.js"
+`,
+    "src/transpile/lower/values/fold.ts": `import { x } from "../builtins/arity.js"
+import { y } from "../builtins/builtins.js"
+`,
+  })
+  expect(found.sort()).toEqual(
+    [
+      "4b transpile/lower/builtins/arity.ts → transpile/lower/core/lowering.ts: lower/builtins/arity.ts is a leaf file and must not import lower/core",
+      "4b transpile/lower/values/fold.ts → transpile/lower/builtins/builtins.ts: lower/values is a leaf and must not import lower/builtins",
+    ].sort(),
+  )
+})
+
 test("rule 4b: only lower/entry (and the lower barrel) imports lower/project", () => {
   const found = transpileRules({
     ...leaf("src/transpile/lower/project/prepare.ts"),

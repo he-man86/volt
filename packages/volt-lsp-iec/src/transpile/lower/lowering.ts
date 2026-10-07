@@ -17,19 +17,8 @@ import {
 } from "../ir/index.js"
 import { lowerCodeKind } from "./diagnostics/codes.js"
 import type { LowerDiagnostic } from "./diagnostics/diagnostic.js"
-
-/** A unit's, member's or declaration's attribute names, by its AST node. */
-export interface AttributeLookup {
-  get(node: object): ReadonlySet<string> | undefined
-}
-
-/** A STRING CURSOR parameter (`Lowering.cursors`): its hidden VAR_IN_OUT, what it points at, and whether it may stand
- *  past its string's first character. */
-export interface Cursor {
-  inout: number
-  unit: Type
-  offset: boolean
-}
+import type { Cursor, PointerTarget } from "./pointers/state.js"
+import type { AttributeLookup } from "./project/prepare.js"
 
 /** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
 export interface PendingBody {
@@ -67,23 +56,23 @@ export interface Shared {
   pointers: Map<string, PointerTarget[]>
   /** The layouts that are a UNION's, by upper-cased name — their members overlay one another (`unions.ts`). */
   unions: Set<string>
-  /** Every FB instance stored into an interface, at its tag - 1, with the frame its place indexes (`interfaces.ts`). */
+  /** Every FB instance stored into an interface, at its tag - 1, with the frame its place indexes (`interfaces/tags.ts`). */
   instances: { place: Place; context: string; fb: Extract<Type, { kind: "function_block" }> }[]
   /** What each interface variable may hold, by `pointerKey`: the tags stored into it, and the variables copied into it
    *  (`only`: through __QUERYINTERFACE, the instances implementing that interface). */
   //  `foreign`: the value arrived through a write reached through another instance (an in-out, a lent instance, a global)
-  //  — which instance an instance-relative tag names is then not tracked (`interfaces.ts`).
+  //  — which instance an instance-relative tag names is then not tracked (`interfaces/lend.ts`).
   interfaces: Map<string, { tags: Map<number, boolean>; from: { key: string; only?: string; foreign: boolean }[] }>
   /** Each call through an interface, finished once the POU has lowered (`finishInterfaces`) — true when it reached more. */
   dispatches: ((root: Lowering) => boolean)[]
   /** Every variable bound AT an address, and every bare address, as the BIT RANGE it covers — one interpretation, the
    *  measured one (`addressBits`): its area, its range under byte and under word addressing, and the frame that
-   *  declares it (`storage.ts` `bindAddress`). */
+   *  declares it (`storage/addresses.ts` `bindAddress`). */
   addressed: { area: string; bits: readonly [number, number]; name: string; owner: string }[]
   /** Each routine's lowering, by key — whose `lends` a call of the routine must fill. */
   routineLowerings: Map<string, Lowering>
   /** Every call of an FB with VAR_IN_OUT, its instance and binding keyed — what a METHOD called from outside the FB's run
-   *  dispatches over (`bindings.ts`). */
+   *  dispatches over (`calls/last-binding.ts`). */
   bodyCalls: { call: IrCall; instance: string | undefined; binding: string | undefined; context: string }[]
   /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
    *  refuses, as what the instance then holds is not recorded. */
@@ -126,24 +115,6 @@ export function newShared(
   }
 }
 
-/**
- * A pointer's or reference's ONE target (design §9 form 1): every address stored into the variable names the same place, or
- * elements of the same array. The pointer's value is 0 when null, 1 for its variable, and k + ELEMENT_TAG_BIAS (2^32) for
- * element k (from 0), so a step below the first element does not reach 0 (`pointers.ts`) — so `p = 0` and `__ISVALIDREF`
- * are plain comparisons, and `p[i]` / `p + n·SIZEOF(T)` step whole elements.
- */
-export interface PointerTarget {
-  /** The variable — or the array whose elements the value indexes. */
-  base: Place
-  /** The array's first dimension, when the pointer points at its elements. */
-  element?: { lower: bigint; length: number; type: Type }
-  /** A POINTER TO BYTE over a STRING (TO WORD over a WSTRING): the value is a byte offset + 1 into its buffer, and `p^` /
-   *  `p[i]` are its characters — a string cursor over a variable (`cursorChar`). */
-  chars?: Type
-  /** A place in a VAR_IN_OUT: the FB body binding it — the one body that may dereference it (`recordTarget`). */
-  scopedTo?: Lowering
-}
-
 export class Lowering {
   readonly diagnostics: LowerDiagnostic[] = []
   readonly slots: IrSlot[] = []
@@ -179,7 +150,7 @@ export class Lowering {
   loops = 0
   /** The pointers and references this body stores at depth 0, by `pointerKey` — so far, in source order. */
   readonly boundPointers = new Set<string>()
-  /** The FB instances of other frames this body is lent per call, by tag — its `lent` places (`interfaces.ts`). */
+  /** The FB instances of other frames this body is lent per call, by tag — its `lent` places (`interfaces/lend.ts`). */
   readonly lends: { tag: number; type: Extract<Type, { kind: "function_block" }> }[] = []
 
   // ─── byte layout (design §9 — the on-demand byte view) ─────────────────────
@@ -320,7 +291,7 @@ export class Lowering {
     // THE TAXONOMY IS RESOLVED HERE, not at the call site. 98 literal codes and six templated families reach
     // this one method, so one lookup keeps every refusal classified consistently; a field each call site had to
     // remember is a field that ends up disagreeing with itself. An unregistered code answers "unclassified"
-    // and `ir/codes.test.ts` fails on it by name — total, as lowering must be, and loud, as the registry is.
+    // and `diagnostics/codes.test.ts` fails on it by name — total, as lowering must be, and loud, as the registry is.
     this.diagnostics.push({ code, kind: lowerCodeKind(code) ?? "unclassified", message, span })
     return undefined
   }
@@ -381,13 +352,5 @@ export class Lowering {
   // ─── statements ────────────────────────────────────────────────────────────
 
 }
-
-export const ZERO_SPAN: Span ={ start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-
-/** How many open dimensions an `ARRAY[*]` has — 0 for any other type, a sized array whose bounds did not fold included. */
-export const openDims = (t: Type): number => (t.kind === "array" && t.bounds === undefined && t.dims.every((d) => d.lower === undefined && d.upper === undefined) ? t.dims.length : 0)
-
-/** The hidden slot holding one bound of an `ARRAY[*]` in-out's dimension (design §26) — `__`, which CODESYS reserves. */
-export const boundName = (inout: string, which: "lower" | "upper", dim: number): string => `__${inout}_${which}_${dim}`
 
 // ─── entry points ────────────────────────────────────────────────────────────

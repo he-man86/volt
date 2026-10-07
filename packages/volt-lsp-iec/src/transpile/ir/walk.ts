@@ -6,8 +6,8 @@
  * key but `type`/`span`/`of`) followed whatever a node happened to carry — a `Type`'s scope included, had the skip list
  * missed one key. Every other walk over the IR is built on `childrenOf`.
  */
-import type { IrCopy, IrExpr, IrFreeze, Place } from "./expr.js"
-import type { IrLoop, IrStmt } from "./stmt.js"
+import type { IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
+import type { IrCall, IrLoop, IrStmt } from "./stmt.js"
 
 /** Every node a walk visits: an expression, a statement, a place, and the two binding forms a call carries. */
 export type IrNode = IrExpr | IrStmt | Place | IrCopy | IrFreeze
@@ -236,4 +236,12 @@ export function loopUses(loop: IrLoop): { exits: boolean; continues: boolean } {
   }
   visit(loop.body)
   return uses
+}
+
+/** Every call in a body — FB calls, and invokes wherever they sit, dispatch arms included — pre-order, on `childrenOf`
+ *  like every other walk here (it was the last reflective one, a skip list over every key but `type`/`of`/`span`/`lent`). */
+export function callsIn(root: IrNode | readonly IrNode[]): (IrInvoke | IrCall)[] {
+  const out: (IrInvoke | IrCall)[] = []
+  some(root, (n) => (!isPlace(n) && (n.kind === "call" || n.kind === "invoke") && out.push(n), false))
+  return out
 }
