@@ -1,0 +1,239 @@
+/**
+ * WALKS OVER THE IR — the one place that knows which nodes a node holds (transpile-restructure design.md §2.2, P1).
+ *
+ * `childrenOf` is an EXHAUSTIVE switch over the node kinds: a node kind added to the IR fails to compile here until it
+ * says what it holds, so no walk can silently skip it. The reflective walks this replaces (`Object.entries` over every
+ * key but `type`/`span`/`of`) followed whatever a node happened to carry — a `Type`'s scope included, had the skip list
+ * missed one key. Every other walk over the IR is built on `childrenOf`.
+ */
+import type { IrCopy, IrExpr, IrFreeze, Place } from "./expr.js"
+import type { IrLoop, IrStmt } from "./stmt.js"
+
+/** Every node a walk visits: an expression, a statement, a place, and the two binding forms a call carries. */
+export type IrNode = IrExpr | IrStmt | Place | IrCopy | IrFreeze
+
+/** A place is the one node without a `kind`: a slot and a path. */
+export const isPlace = (n: IrNode): n is Place => !("kind" in n)
+
+/** The nodes `node` holds directly, in evaluation order where it has one. */
+export function childrenOf(node: IrNode): IrNode[] {
+  if (isPlace(node)) {
+    const out: IrNode[] = node.path.flatMap((step) => (step.kind === "index" ? [step.index] : []))
+    if (node.guard !== undefined) out.push(node.guard)
+    return out
+  }
+  switch (node.kind) {
+    case "const":
+    case "fresh":
+      return []
+    case "load":
+      return [node.place]
+    case "binary":
+      return [node.left, node.right]
+    case "unary":
+      return [node.operand]
+    case "convert":
+      return [node.value]
+    case "builtin":
+      return [...node.args]
+    case "invoke":
+      return [
+        ...(node.instance === undefined ? [] : [node.instance]),
+        ...node.inputs,
+        ...(node.order ?? []).filter((o): o is IrFreeze => typeof o !== "number"),
+        ...node.inouts,
+        ...(node.lent ?? []),
+      ]
+    case "dispatch":
+      return [node.tag, ...node.arms.map((a) => a.call)]
+    case "select":
+      return [node.tag, ...node.arms.map((a) => a.place)]
+    case "freeze":
+      return [node.temp, node.value]
+    case "copy":
+      return node.back === undefined ? [node.value] : [node.value, node.back]
+    case "assign":
+      return [node.target, node.value]
+    case "if":
+      return [node.cond, ...node.then, ...node.else]
+    case "switch":
+      return [node.selector, ...node.arms.flatMap((a) => a.body), ...node.else]
+    case "loop":
+      return [...node.init, ...(node.test === undefined ? [] : [node.test.cond]), ...node.body, ...node.step]
+    case "break":
+    case "continue":
+    case "return":
+      return []
+    case "call":
+      return [node.instance, ...node.inouts, ...(node.lent ?? []), ...(node.bind === undefined ? [] : [node.bind.place])]
+    case "eval":
+      return [node.value]
+    default: {
+      const unknown: never = node
+      throw new Error(`ir/walk: no children for node ${JSON.stringify((unknown as { kind?: string }).kind)}`)
+    }
+  }
+}
+
+const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select"])
+const STMT_KINDS: ReadonlySet<string> = new Set(["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"])
+const isExpr = (n: IrNode): n is IrExpr => !isPlace(n) && EXPR_KINDS.has(n.kind)
+const isStmt = (n: IrNode): n is IrStmt => !isPlace(n) && STMT_KINDS.has(n.kind)
+
+/** Does `visit` answer true for `root` or any node under it (pre-order, stopping at the first)? */
+function some(root: IrNode | readonly IrNode[], visit: (n: IrNode) => boolean): boolean {
+  const stack: IrNode[] = Array.isArray(root) ? [...(root as readonly IrNode[])].reverse() : [root as IrNode]
+  while (stack.length > 0) {
+    const n = stack.pop()!
+    if (visit(n)) return true
+    const children = childrenOf(n)
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]!)
+  }
+  return false
+}
+
+/** Every expression under `root`, `root` included, pre-order. */
+export function forEachExpr(root: IrNode | readonly IrNode[], f: (e: IrExpr) => void): void {
+  some(root, (n) => (isExpr(n) && f(n), false))
+}
+
+/** Every statement under `root`, `root` included, pre-order. */
+export function forEachStmt(root: IrNode | readonly IrNode[], f: (s: IrStmt) => void): void {
+  some(root, (n) => (isStmt(n) && f(n), false))
+}
+
+/** Does any place under `root` (a path's index and a guard included) satisfy `test`? */
+export function somePlace(root: IrNode | readonly IrNode[], test: (p: Place) => boolean): boolean {
+  return some(root, (n) => isPlace(n) && test(n))
+}
+
+/**
+ * Whether an IR node holds a call — an invoke, an interface dispatch, or an FB instance's body (`call`) — whose place in
+ * the evaluation order then shows. `call` BELONGS HERE: running an FB instance's body is a call, as much as an `invoke`
+ * of a FUNCTION or METHOD and a `dispatch` through an interface. Leaving it out made `fb-init-program` blind to the
+ * plainest case it exists to refuse — a PROGRAM whose FB_Init runs another FB's body lowered with no diagnostic at all,
+ * while the same FB_Init calling a METHOD was refused. The expression callers (a FOR limit or step, an invoke's inputs)
+ * are unaffected: a `call` is a statement and never appears inside one.
+ */
+export function holdsCall(root: IrNode | readonly IrNode[]): boolean {
+  return some(root, (n) => !isPlace(n) && (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call"))
+}
+
+/** `node` with every place in it rewritten by `f`, innermost first: a path's indices and a guard are mapped before the
+ *  place that holds them. Nothing else changes; a node without a place in it comes back as a copy. */
+export function mapPlaces<T extends IrNode>(node: T, f: (p: Place) => Place): T {
+  return mapNode(node, f) as T
+}
+
+function mapNode(n: IrNode, f: (p: Place) => Place): IrNode {
+  const m = <U extends IrNode>(x: U): U => mapNode(x, f) as U
+  const ms = <U extends IrNode>(xs: readonly U[]): U[] => xs.map(m)
+  if (isPlace(n)) {
+    const path = n.path.map((step) => (step.kind === "index" ? { ...step, index: m(step.index) } : step))
+    return f({ ...n, path, ...(n.guard === undefined ? {} : { guard: m(n.guard) }) })
+  }
+  switch (n.kind) {
+    case "const":
+    case "fresh":
+    case "break":
+    case "continue":
+    case "return":
+      return { ...n }
+    case "load":
+      return { ...n, place: m(n.place) }
+    case "binary":
+      return { ...n, left: m(n.left), right: m(n.right) }
+    case "unary":
+      return { ...n, operand: m(n.operand) }
+    case "convert":
+      return { ...n, value: m(n.value) }
+    case "builtin":
+      return { ...n, args: ms(n.args) }
+    case "invoke":
+      return {
+        ...n,
+        ...(n.instance === undefined ? {} : { instance: m(n.instance) }),
+        inputs: ms(n.inputs),
+        ...(n.order === undefined ? {} : { order: n.order.map((o) => (typeof o === "number" ? o : m(o))) }),
+        inouts: ms(n.inouts),
+        ...(n.lent === undefined ? {} : { lent: ms(n.lent) }),
+      }
+    case "dispatch":
+      return { ...n, tag: m(n.tag), arms: n.arms.map((a) => ({ ...a, call: m(a.call) })) }
+    case "select":
+      return { ...n, tag: m(n.tag), arms: n.arms.map((a) => ({ ...a, place: m(a.place) })) }
+    case "freeze":
+      return { ...n, temp: m(n.temp), value: m(n.value) }
+    case "copy":
+      return { ...n, value: m(n.value), ...(n.back === undefined ? {} : { back: m(n.back) }) }
+    case "assign":
+      return { ...n, target: m(n.target), value: m(n.value) }
+    case "if":
+      return { ...n, cond: m(n.cond), then: ms(n.then), else: ms(n.else) }
+    case "switch":
+      return { ...n, selector: m(n.selector), arms: n.arms.map((a) => ({ ...a, body: ms(a.body) })), else: ms(n.else) }
+    case "loop":
+      return {
+        ...n,
+        init: ms(n.init),
+        ...(n.test === undefined ? {} : { test: { ...n.test, cond: m(n.test.cond) } }),
+        body: ms(n.body),
+        step: ms(n.step),
+      }
+    case "call":
+      return {
+        ...n,
+        instance: m(n.instance),
+        inouts: ms(n.inouts),
+        ...(n.lent === undefined ? {} : { lent: ms(n.lent) }),
+        ...(n.bind === undefined ? {} : { bind: { ...n.bind, place: m(n.bind.place) } }),
+      }
+    case "eval":
+      return { ...n, value: m(n.value) }
+    default: {
+      const unknown: never = n
+      throw new Error(`ir/walk: cannot map node ${JSON.stringify((unknown as { kind?: string }).kind)}`)
+    }
+  }
+}
+
+/** Every statement list a statement holds directly: an IF's two branches, a CASE's arms and ELSE, a loop's init, body
+ *  and step. */
+export function blocksOf(s: IrStmt): readonly (readonly IrStmt[])[] {
+  switch (s.kind) {
+    case "if":
+      return [s.then, s.else]
+    case "switch":
+      return [...s.arms.map((a) => a.body), s.else]
+    case "loop":
+      return [s.init, s.body, s.step]
+    default:
+      return []
+  }
+}
+
+/** Does any block in this body put a statement AFTER a `return`? Only then is the dead tail the ST's own doing (the
+ *  emitter allows `unreachable_code` for that routine alone). */
+export function exitsAfter(body: readonly IrStmt[]): boolean {
+  for (let i = 0; i < body.length; i++) {
+    const s = body[i]!
+    if (s.kind === "return" && i < body.length - 1) return true
+    for (const nested of blocksOf(s)) if (exitsAfter(nested)) return true
+  }
+  return false
+}
+
+/** Which of a loop's two labels its body uses: an EXIT (`exits`) or a CONTINUE (`continues`) of THIS loop — one inside
+ *  a nested loop is that loop's. A label no statement names is a rustc warning. */
+export function loopUses(loop: IrLoop): { exits: boolean; continues: boolean } {
+  const uses = { exits: false, continues: false }
+  const visit = (stmts: readonly IrStmt[]): void => {
+    for (const s of stmts) {
+      if (s.kind === "break") uses.exits = true
+      else if (s.kind === "continue") uses.continues = true
+      else if (s.kind !== "loop") for (const nested of blocksOf(s)) visit(nested)
+    }
+  }
+  visit(loop.body)
+  return uses
+}

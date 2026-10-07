@@ -2,8 +2,8 @@
  * POINTER and REFERENCE (design §9 form 1): each variable's one target, the value naming it, and dereference.
  */
 import type { Expr, Span, Statement } from "../../frontend/syntax/index.js"
-import { elemOf, elementaryRef, type Type } from "../../frontend/types/index.js"
-import { type IrExpr, type IrSelect, type IrStmt, peelArray, type Place } from "../ir/index.js"
+import { elementaryRef, elemOf, peelArray, type Type } from "../../frontend/types/index.js"
+import { type IrExpr, type IrSelect, type IrStmt, type Place } from "../ir/index.js"
 import type { Cursor, Lowering, PointerTarget } from "./lowering.js"
 import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"

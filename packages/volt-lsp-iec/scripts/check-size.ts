@@ -28,12 +28,11 @@ export const FUNCTION_LIMIT = 80
  */
 export const CEILINGS: Readonly<Record<string, number>> = {
   "lower/calls.ts": 1657,
-  "emit/rust/emit.ts": 1369,
-  "lower/lower.ts": 860,
+  "emit/rust/emit.ts": 1366,
+  "lower/lower.ts": 857,
   "lower/storage.ts": 655,
-  "ir/values.ts": 641,
-  "ir/ir.ts": 551,
-  "interp/interp.ts": 544,
+  "ir/values.ts": 639,
+  "interp/interp.ts": 538,
   "lower/pointers.ts": 542,
   "lower/builtins.ts": 490,
   "lower/interfaces.ts": 480,

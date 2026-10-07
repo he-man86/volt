@@ -4,7 +4,7 @@
  *     AST ──lower/──> IR ──┬── interp/       runs it (the oracle)
  *                          └── emit/rust/    prints it (+ source map)
  *
- * `lower/` owns every ST semantic; the backends are printers. See `ir/ir.ts` for the two decisions that
+ * `lower/` owns every ST semantic; the backends are printers. See `ir/index.ts` for the two decisions that
  * shape all of it — places-not-names, and semantics-in-the-IR.
  *
  * **The input contract: code CODESYS compiles.** The transpiler is defined only for a program the vendor's compiler

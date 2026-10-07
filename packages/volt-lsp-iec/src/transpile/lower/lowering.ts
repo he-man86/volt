@@ -4,9 +4,8 @@
  */
 import type { Expr, Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../frontend/syntax/index.js"
 import type { Scope } from "../../frontend/symbols/index.js"
-import { resolveTypeExpr, type Type } from "../../frontend/types/index.js"
+import { resolveTypeExpr, type Type, typeZero } from "../../frontend/types/index.js"
 import {
-  defaultValueOf,
   type IrCall,
   type IrExpr,
   type IrInit,
@@ -14,10 +13,10 @@ import {
   type IrRoutine,
   type IrSlot,
   type IrStmt,
-  type LowerDiagnostic,
   type Place,
-  lowerCodeKind,
 } from "../ir/index.js"
+import { lowerCodeKind } from "./diagnostics/codes.js"
+import type { LowerDiagnostic } from "./diagnostics/diagnostic.js"
 
 /** A unit's, member's or declaration's attribute names, by its AST node. */
 export interface AttributeLookup {
@@ -268,7 +267,7 @@ export class Lowering {
   /** A temp as a place — a per-call local inside a routine, a field or slot elsewhere. */
   tempPlace(purpose: string, type: Type, span: Span): Place {
     if (!this.routineMode) return { slot: this.temp(purpose, type), path: [], type, span }
-    this.localSlots.push({ name: `__${purpose}_${this.localSlots.length}`, type, section: "temp", init: defaultValueOf(type) })
+    this.localSlots.push({ name: `__${purpose}_${this.localSlots.length}`, type, section: "temp", init: typeZero(type) })
     return { slot: this.localSlots.length - 1, path: [], type, span, root: "local" }
   }
 
@@ -339,7 +338,7 @@ export class Lowering {
    * `for_limit` would have collided with the temp. The interpreter reads slots by index, so only the emitter noticed.
    */
   temp(name: string, type: Type): number {
-    this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp", init: defaultValueOf(type) })
+    this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp", init: typeZero(type) })
     return this.slots.length - 1
   }
 
@@ -353,16 +352,16 @@ export class Lowering {
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit): void {
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
-      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
+      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
       return
     }
     if (this.routineMode) {
       this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
-      this.localSlots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
+      this.localSlots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
       return
     }
     this.byName.set(name.text.toUpperCase(), this.slots.length)
-    this.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
+    this.slots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
   }
 
   /** `where` is the scope the declaration belongs to — this one by default; a type declared by another POU (an

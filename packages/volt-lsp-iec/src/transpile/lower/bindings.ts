@@ -12,8 +12,8 @@
  * too), bound to places this frame can lend again. Anything else is refused (`call-fb-inout`).
  */
 import type { Span } from "../../frontend/syntax/index.js"
-import { elementaryRef, type Type } from "../../frontend/types/index.js"
-import { defaultValueOf, holdsCall, type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, peelArray, type Place } from "../ir/index.js"
+import { elementaryRef, peelArray, type Type, typeZero } from "../../frontend/types/index.js"
+import { holdsCall, type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, type Place } from "../ir/index.js"
 import { aliases } from "./calls.js"
 import type { Lowering } from "./lowering.js"
 
@@ -79,7 +79,7 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
   // the FB's layout as it stands when read: its in-outs are set once its body lowers, which can follow this call
   const layoutNow = () => {
     const layout = lw.layouts.get(fb)
-    if (layout !== undefined && !layout.fields.some((f) => f.name === FIELD)) (layout.fields as IrSlot[]).push({ name: FIELD, type: DINT, section: "VAR", init: defaultValueOf(DINT) })
+    if (layout !== undefined && !layout.fields.some((f) => f.name === FIELD)) (layout.fields as IrSlot[]).push({ name: FIELD, type: DINT, section: "VAR", init: typeZero(DINT) })
     return layout
   }
   if (layoutNow() === undefined) return refuse("on an FB whose layout is not known")

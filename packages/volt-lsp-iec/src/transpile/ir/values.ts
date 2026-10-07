@@ -3,16 +3,14 @@
  * one (`coerce`), the operators on them, one character of a string, and a fresh value of a type.
  */
 import {
-  defaultValueOf,
   type IrLayout,
   type IrMathName,
   type IrInit,
   type IrValue,
-  peelArray,
 } from "../ir/index.js"
-import { elemOf, type Type } from "../../frontend/types/index.js"
+import { elemOf, holdsIntegerBits, isBit, peelArray, type Type, typeZero, wrapToWidth } from "../../frontend/types/index.js"
 import { DURATION_UNITS_NS } from "../../frontend/syntax/index.js"
-import { isBit } from "./ir.js"
+import { characterOutOfRange, FAULT_TEXT } from "./faults.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
  *  REAL is `number`; STRING and WSTRING are `string`; a struct or FB instance is a record keyed by its fields'
@@ -37,7 +35,7 @@ export type Val = IrValue | Val[] | { [field: string]: Val }
 const logarithm =
   (f: (x: number) => number) =>
   (x: number): number => {
-    if (x === 0) throw new RangeError("the logarithm of zero stops the task on CODESYS")
+    if (x === 0) throw new RangeError(FAULT_TEXT["logarithm-of-zero"])
     return f(x)
   }
 
@@ -90,7 +88,7 @@ export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
  * divide by zero, as `/` and LN(0) are. EXPT(0, -inf) is +inf and runs.
  */
 export function expt(x: number, y: number): number {
-  if (x === 0 && y < 0 && y !== -Infinity) throw new RangeError("zero to a negative power stops the task on CODESYS")
+  if (x === 0 && y < 0 && y !== -Infinity) throw new RangeError(FAULT_TEXT["zero-to-negative-power"])
   if (x === 1 || y === 0) return 1
   if (x === -1 && (y === Infinity || y === -Infinity)) return 1
   if (Number.isInteger(y) && Number.isFinite(x) && x !== 0) return integerPower(x, y)
@@ -198,13 +196,13 @@ function toDouble({ m, e }: Scaled): number {
  */
 export function charAt(s: string, i: bigint, capacity: number): bigint {
   const at = Number(i)
-  if (at < 0 || at > capacity) throw new RangeError(`character ${at} of a string of capacity ${capacity}`)
+  if (at < 0 || at > capacity) throw new RangeError(characterOutOfRange(at, capacity))
   return at >= s.length ? 0n : BigInt(s.charCodeAt(at))
 }
 
 export function setChar(s: string, i: bigint, c: bigint, capacity: number): string {
   const at = Number(i)
-  if (at < 0 || at > capacity || (at === capacity && c !== 0n)) throw new RangeError(`character ${at} of a string of capacity ${capacity}`)
+  if (at < 0 || at > capacity || (at === capacity && c !== 0n)) throw new RangeError(characterOutOfRange(at, capacity))
   return held(s.padEnd(at, "\0").slice(0, at) + String.fromCharCode(Number(c)) + s.slice(at + 1))
 }
 
@@ -345,7 +343,7 @@ export function arith(op: string, a: Val, b: Val, type?: Type): Val {
   if (typeof l === "bigint" && typeof r === "bigint") {
     // `/` by zero stops the application (the recorder's read times out); MOD by zero is 0 in every width and signedness,
     // the dividend's sign regardless (conformance `mod_by_zero`, `cc_mod_udint_dint`)
-    if (op === "div" && r === 0n) throw new RangeError("division by zero")
+    if (op === "div" && r === 0n) throw new RangeError(FAULT_TEXT["division-by-zero"])
     if (op === "mod" && r === 0n) return 0n
     // A DIVISION WHOSE RESULT DOES NOT FIT THE COMPUTATION WIDTH STOPS THE TASK — `MIN / -1`, and nothing else can
     // reach it. This is the CPU's divide-overflow trap, not a wrap, and the measurements say exactly that
@@ -362,7 +360,7 @@ export function arith(op: string, a: Val, b: Val, type?: Type): Val {
     if (op === "div" && elem?.signed === true && elem.bits !== undefined) {
       const quotient = l / r
       if (BigInt.asIntN(elem.bits, quotient) !== quotient)
-        throw new RangeError("a division overflowed its type, which stops the task on CODESYS")
+        throw new RangeError(FAULT_TEXT["division-overflow"])
     }
     switch (op) {
       case "add":
@@ -383,7 +381,7 @@ export function arith(op: string, a: Val, b: Val, type?: Type): Val {
   // not: `realovf_divide_by_computed_zero` never finishes its scan while `realovf_divide_small_by_smaller`, which
   // overflows to the same infinity without a zero divisor, finishes fine. The divisor is what matters, not the
   // result. `-0.0 === 0` in JS, so a negative zero divisor is caught by the same test.
-  if (op === "div" && y === 0) throw new RangeError("division by zero")
+  if (op === "div" && y === 0) throw new RangeError(FAULT_TEXT["division-by-zero"])
   switch (op) {
     case "add":
       return x + y
@@ -437,7 +435,7 @@ export function fit(v: Val, type: Type): Val {
     return bits === 32 && typeof v === "number" ? Math.fround(v) : v
   }
   // A BIT HOLDS A BOOLEAN. It is `bitstring` in the type table because it is one bit of LAYOUT, and everything else
-  // already knew better — `defaultValueOf` starts it `false` and the emitter maps it to Rust `bool` — but an
+  // already knew better — `typeZero` starts it `false` and the emitter maps it to Rust `bool` — but an
   // explicit initializer took the integer path below and stored `0n`, so `x : BIT := 0` read back as 0 where CODESYS
   // says FALSE (`bound_bit_at_min` / `_at_max`, 2026-09-18; and `:= -1` or `:= 2` is refused outright, "Cannot
   // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it.
@@ -447,8 +445,8 @@ export function fit(v: Val, type: Type): Val {
   if (family === "string") return typeof v === "string" && type.length !== undefined ? held(v.slice(0, type.length)) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
   // the L variants 64-bit nanoseconds (design §16, §17)
-  if ((family === "int" || family === "bitstring" || family === "time" || family === "date") && typeof v === "bigint")
-    return inWidth(v, bits, signed) ? v : signed ? BigInt.asIntN(bits, v) : BigInt.asUintN(bits, v)
+  if (holdsIntegerBits(type) && typeof v === "bigint")
+    return inWidth(v, bits, signed) ? v : wrapToWidth(v, type.elem)
   return v
 }
 
@@ -631,7 +629,7 @@ export function instantiate(type: Type, init: IrInit, layouts: ReadonlyMap<strin
   // every element starts at its OWN type's zero — a BOOL array's is FALSE, not the array slot's placeholder — unless an
   // aggregate initializer gave it one
   const elements = typeof init === "object" && "elements" in init ? init.elements : []
-  if (array !== undefined) return Array.from({ length: array.length }, (_, i) => instantiate(array.element, elements[i] ?? defaultValueOf(array.element), layouts))
+  if (array !== undefined) return Array.from({ length: array.length }, (_, i) => instantiate(array.element, elements[i] ?? typeZero(array.element), layouts))
   return fit(init as IrValue, type)
 }
 

@@ -3,8 +3,8 @@
  */
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../frontend/syntax/index.js"
 import { lookup } from "../../frontend/symbols/index.js"
-import { constantSlotType, DEFAULT_STRING_LENGTH, elementaryRef, elementaryTypeRef, elemOf, enumDefault, inlineEnumDefault, resolveNamedType, type Type } from "../../frontend/types/index.js"
-import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
+import { constantSlotType, DEFAULT_STRING_LENGTH, elementaryRef, elementaryTypeRef, elementOf, elemOf, enumDefault, inlineEnumDefault, resolveNamedType, type Type, typeZero } from "../../frontend/types/index.js"
+import { type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumeratorValue, enumStorage, foldsToConstant, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
@@ -379,7 +379,7 @@ export function addressPlace(lw: Lowering, text: string, span: Span): Place | un
   if (known !== undefined) return { slot: known, path: [], type, span, root: "global" }
   if (!reserveAddress(lw, text, m, key, span)) return undefined
   lw.shared.globals.byName.set(key, lw.shared.globals.slots.length)
-  lw.shared.globals.slots.push({ name: key, type, section: "VAR", init: defaultValueOf(type) })
+  lw.shared.globals.slots.push({ name: key, type, section: "VAR", init: typeZero(type) })
   return { slot: lw.shared.globals.slots.length - 1, path: [], type, span, root: "global" }
 }
 
@@ -591,7 +591,7 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
       for (const name of decl.names) {
         lw.inoutByName.set(name.text.toUpperCase(), lw.inoutSlots.length)
         const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}
-        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: defaultValueOf(type), ...constant })
+        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: typeZero(type), ...constant })
       }
     }
 }
@@ -622,7 +622,7 @@ export function holdsInstance(lw: Lowering, t: Type): boolean {
  * own `:=`, an initialized alias-of-array's for each element (conformance `array_element_type_default`: `ARRAY OF E` with
  * `E : (A := 3, B := 4)` is 3, `ARRAY OF MyInt` with `MyInt : INT := 5` is 5 — transpile-review 25). Only for an array
  * declared WITHOUT an initializer: a partial `[7]`'s tail stays 0 (`r_alias_part2`), which `aggregateInit` already does.
- * Undefined when the element's default is its zero, so the slot keeps `defaultValueOf`.
+ * Undefined when the element's default is its zero, so the slot keeps `typeZero`.
  */
 function elementDefaults(lw: Lowering, written: TypeExpr, type: Type): IrInit | undefined {
   if (written.kind !== "array_type" || type.kind !== "array" || type.bounds === undefined) return undefined
@@ -639,7 +639,7 @@ function elementDefaults(lw: Lowering, written: TypeExpr, type: Type): IrInit | 
         : enumStart === undefined
           ? undefined
           : stored(enumStart, element)
-  if (one === undefined || one === defaultValueOf(element)) return undefined
+  if (one === undefined || one === typeZero(element)) return undefined
   const lengths = type.bounds.map((b) => Number(b.upper - b.lower + 1n))
   const fill = (level: number): IrInit => (level === lengths.length ? one : { elements: Array.from({ length: lengths[level]! }, () => fill(level + 1)) })
   return fill(0)

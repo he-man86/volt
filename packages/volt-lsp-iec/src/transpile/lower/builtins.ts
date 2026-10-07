@@ -8,21 +8,22 @@ import { lookup } from "../../frontend/symbols/index.js"
 import {
   commonType,
   elementaryRef,
-  PLATFORM_ALIASES,
   elemOf,
   exptResultType,
   inferExprType,
+  isBoolValued,
+  isReal,
   isTemporal,
   literalCheckType,
   parseConversionName,
+  PLATFORM_ALIASES,
   promoteForRuntime,
+  stringKind,
   type Type,
   UNKNOWN,
 } from "../../frontend/types/index.js"
 import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-
-import { isBit } from "../ir/index.js"
 import { convert, integerFoldType, ownIntegerType } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
@@ -232,7 +233,7 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
     // A REAL argument computes in REAL — SQRT(REAL 2.0) is float32's 1.4142135381698608 — an LREAL in LREAL, and an
     // INTEGER in LREAL: SQRT(INT 2) is 1.4142135623730951 (conformance `sqrt_precision`, `exp_log_precision`,
     // `trig_precision`).
-    const type = elemOf(arg.type)?.family === "real" ? arg.type : elementaryRef("LREAL")
+    const type = isReal(arg.type) ? arg.type : elementaryRef("LREAL")
     const math = name.toLowerCase() as IrBuiltinName
     return { kind: "builtin", name: math, args: [convert(arg, type)], type, span: e.span }
   }
@@ -274,14 +275,13 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // `BOOL_TO_BIT` and `BIT_TO_BOOL` change nothing: a BIT holds a BOOLEAN and is one bit only in the LAYOUT (`isBit`,
   // design §9). Typed as the 1-bit bit string it is declared as, each printed a comparison against a Rust `bool`
   // (conformance `ct_bit_fields`).
-  const boolLike = (t: Type | undefined): boolean => t !== undefined && (isBit(t) || elemOf(t)?.family === "bool")
-  if (boolLike(to) && (from === undefined || boolLike(from))) {
+  if (isBoolValued(to) && (from === undefined || isBoolValued(from))) {
     const only = e.args[0]
     if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
       return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
     const arg = lowerExpr(lw, only.value, elementaryRef("BOOL"))
     if (arg === undefined) return undefined
-    return boolLike(arg.type) ? arg : convert(arg, elementaryRef("BOOL"))
+    return isBoolValued(arg.type) ? arg : convert(arg, elementaryRef("BOOL"))
   }
   // STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
   // REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
@@ -290,7 +290,7 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // `tr_11_string_conversion_beyond_80`: 90 spaces then '5' is 5, a WSTRING of 100 narrows to 100 characters).
   const isInt = (t: Type | undefined, orBits = false): boolean =>
     t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
-  const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
+  const isString = (t: Type | undefined): boolean => t !== undefined && stringKind(t) !== undefined
   // `{attribute 'to_string'}` ON AN ENUM makes its STRING conversions print the MEMBER'S NAME — TO_STRING, INT_TO_STRING
   // and TO_WSTRING of `On` are 'On' (P15, conformance `prag_to_string_*`, CODESYS 2026-10-02), where the same enum without
   // the attribute prints '1'. Printed as the number it was a silent wrong answer; there is no member-name table yet
@@ -312,7 +312,7 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
     const name = t === undefined ? undefined : elemOf(t)?.name
     return isInt(t, true) || (name !== undefined && (name === "BOOL" || name === "LREAL" || isTemporal(name)))
   }
-  const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
+  const parses = (t: Type): boolean => isInt(t) || isReal(t)
   // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
   // Measured on ASCII only. A STRING can hold bytes past 0x7F (a `$C3` escape, a `s[i]` store), and what the vendor

@@ -397,7 +397,7 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
       ? binary(step === undefined || Number(step) >= 0 ? "le" : "ge", current, limit)
       : binary("or", binary("and", binary("ge", stepExpr, zero), binary("le", current, limit)), binary("and", binary("lt", stepExpr, zero), binary("ge", current, limit)))
 
-  if (holdsCall(by) || (holdsCall(to) && step === undefined && !unsigned))
+  if ((by !== undefined && holdsCall(by)) || (holdsCall(to) && step === undefined && !unsigned))
     return lw.bail("for-bound-call", "a FOR step holding a call, or a limit holding one tested on both arms of a runtime step — how often it runs is not recorded", s.span)
 
   return {

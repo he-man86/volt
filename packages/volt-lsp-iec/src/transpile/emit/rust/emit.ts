@@ -18,9 +18,11 @@
  * diagnostics use — there is no second table of type sizes here.
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { defaultValueOf, elementOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
+import { rustFaultLiteral } from "../../ir/faults.js"
+import { namesVariable, parsePath } from "../../ir/path.js"
+import { holdsCall } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { isTemporal, type Type } from "../../../frontend/types/index.js"
+import { elementOf, floatBits, holdsIntegerBits, isBit, isBoolValued, isReal, isTemporal, peelArray, stringKind, type Type, typeZero } from "../../../frontend/types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
 
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */
@@ -57,18 +59,18 @@ export function rustType(t: Type): string {
   if (t.kind === "interface") return "u64"
   if (t.kind !== "elementary") throw new Error(`no Rust mapping for a ${t.kind} type`)
   const { bits, signed } = t.elem
-  const family = emittedFamily(t)
-  if (family === "bool") return "bool"
-  if (family === "real") return bits === 32 ? "f32" : "f64"
+  if (isBoolValued(t)) return "bool"
+  const float = floatBits(t)
+  if (float !== undefined) return `f${float}`
   // A fixed-capacity string, generated into the output (STRING_PRELUDE) — not Rust `String`, which neither truncates
   // nor copies: `a := b` MOVED a String out of `self`, and no emitted program had ever held a string to find out.
-  if (family === "string") {
+  if (stringKind(t) !== undefined) {
     const s = stringType(t)
     return `${s.name}<${s.capacity}>`
   }
   // A duration or date is the integer it is measured to be: TIME/TOD a u32 of MILLISECONDS, DATE/DT a u32 of SECONDS,
   // LTIME/LDATE/LDT/LTOD a u64 of nanoseconds (design §16, §17). This used to print every one of them as an i64.
-  if (family === "int" || family === "bitstring" || family === "time" || family === "date") return `${signed ? "i" : "u"}${bits}`
+  if (holdsIntegerBits(t)) return `${signed ? "i" : "u"}${bits}`
   throw new Error(`no Rust mapping for ${t.name}`)
 }
 
@@ -111,7 +113,7 @@ function initOf(t: Type, init: IrValue): string {
   if (t.kind === "struct" || t.kind === "function_block") return `${rustName(t.name)}::new()`
   const array = peelArray(t)
   if (array === undefined) return literal(init, t)
-  const element = initOf(array.element, defaultValueOf(array.element))
+  const element = initOf(array.element, typeZero(array.element))
   return array.element.kind === "elementary" ? `[${element}; ${array.length}]` : `std::array::from_fn(|_| ${element})`
 }
 
@@ -209,11 +211,6 @@ function byteString(text: string): string {
     out += code >= 0x20 && code < 0x7f && ch !== '"' && ch !== "\\" ? ch : `\\x${code.toString(16).padStart(2, "0")}`
   }
   return `b"${out}"`
-}
-
-/** True for a REAL or LREAL type — the operands whose MAX / MIN is a compare-select, not f32::max. */
-function isReal(t: Type): boolean {
-  return t.kind === "elementary" && t.elem.family === "real"
 }
 
 /** True for a STRING or WSTRING type — the operands that need `iec_max`/`iec_min` rather than `Ord`. */
@@ -440,7 +437,7 @@ class Printer {
     const array = peelArray(t)
     const elements = typeof init === "object" && "elements" in init ? init.elements : undefined
     if (array === undefined || elements === undefined) return initOf(t, init as IrValue)
-    return `[${Array.from({ length: array.length }, (_, i) => this.initOf(array.element, elements[i] ?? defaultValueOf(array.element))).join(", ")}]`
+    return `[${Array.from({ length: array.length }, (_, i) => this.initOf(array.element, elements[i] ?? typeZero(array.element))).join(", ")}]`
   }
 
   /** The parameters every generated body declares for them. */
@@ -641,7 +638,7 @@ class Printer {
         // type fixes that, and it was applied to EVERY dispatch, which is 19 `clippy::redundant_closure_call`.
         const arms = e.arms.map((a) => `${a.tag} => ${this.expr(a.call, slots)},`).join(" ")
         const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
-        const nothing = `panic!("call through an interface that holds no instance")`
+        const nothing = `panic!(${rustFaultLiteral("no-instance")})`
         const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
         return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${none} })`
       }
@@ -653,7 +650,7 @@ class Printer {
           const field = this.place(p, slots)
           return isCopy(p.type) ? field : `${field}.clone()`
         }
-        const nothing = `panic!("dereference of a null pointer")`
+        const nothing = `panic!(${rustFaultLiteral("null-dereference")})`
         // NO ARM AT ALL IS JUST THE PANIC. A select with no arms is how lowering spells "this tag can only be 0",
         // and wrapping it in `match tag { _ => … }` is a match on nothing — `clippy::match_single_binding`, plus
         // the closure `dispatch` needs only because a `!` match cannot be CAST. Here it is assigned, and `!`
@@ -1136,25 +1133,25 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
  * reaches an FB's VAR_STAT through an instance, and `expr` is then under the `Globals` value.
  */
 export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type; global: boolean } {
-  // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
-  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
-    m[2] === undefined ? [m] : m[2].split(",").map((index) => [m[0], undefined, index.trim()] as unknown as RegExpExecArray),
-  )
-  const bare = (n: string | undefined): string | undefined => n?.replace(/^`|`$/g, "").toUpperCase()
-  const slot = pou.slots.findIndex((s) => bare(s.name) === bare(parts[0]?.[1]))
+  // the IDE's path grammar (`ir/path.ts`), the one the interpreter's `get` reads
+  const parts = parsePath(path)
+  const head = parts[0]
+  const first = head?.kind === "name" ? head.name : undefined
+  const names = (declared: string): boolean => first !== undefined && namesVariable(declared, first)
+  const slot = pou.slots.findIndex((s) => names(s.name))
   // not the POU's own: a GVL variable, or the `__clock` a harness sets — a field of `Globals`, as the interpreter finds it
   const variables = pou.globals.filter((s) => s.section !== "program")
-  const named = slot < 0 ? variables.findIndex((s) => bare(s.name) === bare(parts[0]?.[1])) : -1
+  const named = slot < 0 ? variables.findIndex((s) => names(s.name)) : -1
   if (slot < 0 && named < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let expr = named >= 0 ? fieldNames(variables)[named]! : fieldNames(pou.slots)[slot]!
   let type = named >= 0 ? variables[named]!.type : pou.slots[slot]!.type
   let global = named >= 0
   for (const part of parts.slice(1)) {
-    if (part[1] !== undefined) {
+    if (part.kind === "name") {
       const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
       const layout = pou.layouts.find((l) => l.name.toUpperCase() === typeName)
-      const i = layout?.fields.findIndex((f) => bare(f.name) === bare(part[1])) ?? -1
-      const shared = i < 0 ? layout?.statics?.find((s) => bare(s.name) === bare(part[1])) : undefined
+      const i = layout?.fields.findIndex((f) => namesVariable(f.name, part.name)) ?? -1
+      const shared = i < 0 ? layout?.statics?.find((s) => namesVariable(s.name, part.name)) : undefined
       if (shared !== undefined) {
         // an FB's VAR_STAT is a field of `Globals`, named as `emitRust` names the GVL variables
         const variables = pou.globals.filter((s) => s.section !== "program")
@@ -1169,7 +1166,7 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
     } else {
       const array = peelArray(type)
       if (array === undefined) throw new Error(`${path} indexes a non-array`)
-      expr += `[${BigInt(part[2]!) - array.lower}]`
+      expr += `[${part.index - array.lower}]`
       type = array.element
     }
   }
@@ -1302,7 +1299,7 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   // the one check every dereference makes: a null pointer stops the program, as it stops the CODESYS application
   if (p.code.includes("iec_deref(")) {
     p.push("", 0)
-    p.push('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }', 0)
+    p.push(`fn iec_deref(at: usize) { if at == 0 { panic!(${rustFaultLiteral("null-dereference")}); } }`, 0)
   }
   // The emitted twin of `arith`'s zero-divisor check. Gated on its OWN use, not on `iec_deref`'s — a program can
   // divide by zero without ever dereferencing a pointer, and attaching it to the wrong condition left the helper
@@ -1338,19 +1335,19 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   }
   if (p.code.includes("iec_log(")) {
     p.push("", 0)
-    p.push('fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!("the logarithm of zero stops the task on CODESYS"); } x }', 0)
+    p.push(`fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!(${rustFaultLiteral("logarithm-of-zero")}); } x }`, 0)
   }
   if (p.code.includes("iec_pow(")) {
     p.push("", 0)
     p.push(
-      'fn iec_pow(x: f64, y: f64) -> f64 { if x == 0.0 && y < 0.0 && y.is_finite() { panic!("zero to a negative power stops the task on CODESYS"); } x.powf(y) }',
+      `fn iec_pow(x: f64, y: f64) -> f64 { if x == 0.0 && y < 0.0 && y.is_finite() { panic!(${rustFaultLiteral("zero-to-negative-power")}); } x.powf(y) }`,
       0,
     )
   }
   if (p.code.includes("iec_div(")) {
     p.push("", 0)
     p.push(
-      'fn iec_div<T: Copy + PartialEq + Default + std::ops::Div<Output = T>>(a: T, b: T) -> T { if b == T::default() { panic!("division by zero"); } a / b }',
+      `fn iec_div<T: Copy + PartialEq + Default + std::ops::Div<Output = T>>(a: T, b: T) -> T { if b == T::default() { panic!(${rustFaultLiteral("division-by-zero")}); } a / b }`,
       0,
     )
   }

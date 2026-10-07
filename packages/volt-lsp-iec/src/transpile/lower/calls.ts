@@ -15,6 +15,7 @@ import {
   type CallArg,
   type Expr,
   isStBody,
+  selfRefKind,
   type Property,
   type Span,
   type Statement,
@@ -22,10 +23,9 @@ import {
   type VarSection,
 } from "../../frontend/syntax/index.js"
 import { childScopesByName, findChildScope, lookup, lookupLocal, lookupMember, pickForAsker, type Scope, scopeUri } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, isAssignable, type Type, UNKNOWN } from "../../frontend/types/index.js"
+import { ANY_FAMILIES, elementaryRef, elemOf, inferExprType, isAssignable, type Type, typeZero, UNKNOWN } from "../../frontend/types/index.js"
 import { byteSize } from "./bytes.js"
 import {
-  defaultValueOf,
   type IrBinding,
   type IrDispatch,
   type IrExpr,
@@ -81,7 +81,7 @@ const holding = (instance: Place | undefined, bindings: readonly (IrBinding | In
   ...bindings.flatMap((b) => (b === undefined || isInFrame(b) ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),
 ]
 
-const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "SUPER"
+const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && selfRefKind(e.base.name) === "SUPER"
 
 /** A METHOD or ACTION a bare name inside an FB names — `M()` is `THIS^.M()` (conformance `fbcall_bare_method_call`). */
 function ownMember(lw: Lowering, name: string): RoutineSymbol | undefined {
@@ -575,7 +575,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (ast.kind !== "action" && ast.returnType !== undefined) {
       const type = storageOf(r, r.resolve(ast.returnType), ast.returnType.span)
       r.localByName.set(sym.name.toUpperCase(), 0)
-      r.localSlots.push({ name: sym.name, type, section: "VAR", init: defaultValueOf(type) })
+      r.localSlots.push({ name: sym.name, type, section: "VAR", init: typeZero(type) })
       result = 0
     }
     const firstInput = r.localSlots.length
@@ -605,7 +605,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     // the ANY inputs this variant was given a variable for: one hidden VAR_IN_OUT each, which `pValue` names
     for (const [input, type] of targets) {
       r.anyTargets.set(input, r.inoutSlots.length)
-      r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: defaultValueOf(type) })
+      r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: typeZero(type) })
     }
     // FORM 2: a `POINTER TO T` parameter this body only dereferences becomes a hidden VAR_IN_OUT of T, and every
     // `p^` becomes the place the CALL binds to it. One lowering serves every call site — which is the whole point,
@@ -620,7 +620,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       r.inoutByName.set(`${input}^`, inout)
       cursorByInput.set(local, inout)
       if (shares === undefined)
-        r.inoutSlots.push({ name: `${CURSOR}${r.localSlots[local]!.name}`, type: text, section: "VAR_IN_OUT", init: defaultValueOf(text) })
+        r.inoutSlots.push({ name: `${CURSOR}${r.localSlots[local]!.name}`, type: text, section: "VAR_IN_OUT", init: typeZero(text) })
     }
     cursorInputsOf(lw).set(key, cursorByInput)
     const borrowedByInput = new Map<number, number>()
@@ -629,7 +629,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
       r.borrowedPointers.set(name, r.inoutSlots.length)
       borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)
-      r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: defaultValueOf(pointee) })
+      r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: typeZero(pointee) })
     }
     borrowedInputsOf(lw).set(key, borrowedByInput)
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
@@ -710,7 +710,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)
     r.localByName.set(sym.name.toUpperCase(), 0)
-    r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: defaultValueOf(type) })
+    r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: typeZero(type) })
     declareVars(r, part.varSections)
     const body = lowerBlock(r, parsed.statements)
     if (r.diagnostics.length > 0) {
@@ -1270,7 +1270,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       written.push(entry)
       continue
     }
-    if (!order.slice(at + 1).some((later) => typeof later === "number" && holdsCall(inputs[later]))) continue
+    if (!order.slice(at + 1).some((later) => typeof later === "number" && inputs[later] !== undefined && holdsCall(inputs[later]))) continue
     const binding = inouts[entry.inout]!
     // an output copied out after the call reads its index then, whatever a later argument did to it
     if (entry.output === true && "kind" in binding && binding.kind === "copy" && binding.back !== undefined) continue
@@ -1626,7 +1626,7 @@ function storeOpenBounds(lw: Lowering, instance: Place, fields: readonly IrSlot[
  * CODESYS binds each in-out where it is written (conformance `callshape_inout_binding_order`: 201 written after the call,
  * 101 before it); both backends bind every in-out after the inputs, which differs exactly there — so it is refused.
  */
-function movedInOut(call: { args: readonly CallArg[] }, binding: (name: string) => IrBinding | undefined, input: (arg: CallArg, position: number) => unknown): string | undefined {
+function movedInOut(call: { args: readonly CallArg[] }, binding: (name: string) => IrBinding | undefined, input: (arg: CallArg, position: number) => readonly IrStmt[]): string | undefined {
   let callLater = false
   for (let position = call.args.length - 1; position >= 0; position--) {
     const arg = call.args[position]!

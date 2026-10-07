@@ -1,10 +1,10 @@
 /**
  * Places — where a name, a field, an element or a bit lives: in the frame, a local, a VAR_IN_OUT, or the globals.
  */
-import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../frontend/syntax/index.js"
+import { type Expr, isSelfRef, selfRefKind, type Span, type TopLevel, type VarDecl, type VarSection } from "../../frontend/syntax/index.js"
 import { lookup } from "../../frontend/symbols/index.js"
-import { elementaryRef, resolveNamedType, type Type } from "../../frontend/types/index.js"
-import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from "../ir/index.js"
+import { elementaryRef, elementOf, peelArray, resolveNamedType, type Type, typeZero } from "../../frontend/types/index.js"
+import { type IrExpr, type Place } from "../ir/index.js"
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { addressPlace, declareVars, storageOf, withStringCapacity } from "./storage.js"
@@ -37,7 +37,7 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   else if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
     const type = storageOf(lw, resolveNamedType(sym.name, lw.project), sym.span)
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
-    lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
+    lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: typeZero(type) })
     lw.touched.add(lw.shared.globals.slots.length - 1)
   } else return undefined
   const slot = lw.shared.globals.byName.get(upper)
@@ -153,7 +153,7 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   }
   // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). `SUPER^` is
   // no place of its own: `SUPER^()` and `SUPER^.M()` are calls, lowered in `calls.ts`.
-  if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && lw.selfType !== undefined) {
+  if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && selfRefKind(e.base.name) === "THIS" && lw.selfType !== undefined) {
     // a PROGRAM lowered as its one instance has a self type too, but CODESYS refuses THIS there (`fbcall_this_in_program`)
     if (lw.selfType.kind === "function_block" && lw.bodies.get(lw.selfType.name.toUpperCase())?.unit.kind === "program")
       return lw.bail("this-in-program", "THIS in a PROGRAM, which CODESYS does not compile", e.span)

@@ -16,8 +16,8 @@
  * Built EARLY — while the layout is, before any body lowers — because a body may dereference a pointer this step
  * fills, and `pointer-order` only allows that once the store is known (`shared.pointers`).
  */
-import { peelArray, type IrExpr, type IrInvoke, type IrStmt, type Place } from "../ir/index.js"
-import type { Type } from "../../frontend/types/index.js"
+import { type IrExpr, type IrInvoke, type IrStmt, type Place } from "../ir/index.js"
+import { peelArray, type Type } from "../../frontend/types/index.js"
 import type { Lowering } from "./lowering.js"
 import { lowerStmt } from "./statements.js"
 

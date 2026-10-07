@@ -14,15 +14,16 @@
  * It lives in `ir/` because that is the only folder inside `transpile/` that lowering and the backends share — and
  * because a node's meaning belongs with the node, not with one of the things that executes it.
  */
-import type { IrBuiltinName, IrExpr } from "./ir.js"
-import type { Type } from "../../frontend/types/index.js"
+import type { IrBuiltinName, IrExpr } from "./expr.js"
+import { type Type, widthOf as typeWidth } from "../../frontend/types/index.js"
 import { arith, bool, coerce, eq, expt, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
 function widthOf(type: Type, op: string): number {
-  if (type.kind !== "elementary") throw new LoweringBug(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
-  return type.elem.bits
+  const bits = typeWidth(type)
+  if (bits === undefined) throw new LoweringBug(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
+  return bits
 }
 
 /**

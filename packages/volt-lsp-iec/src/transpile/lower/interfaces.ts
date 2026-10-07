@@ -29,8 +29,8 @@
  */
 import type { Expr, Interface, Span, Statement } from "../../frontend/syntax/index.js"
 import { lookup, lookupMember } from "../../frontend/symbols/index.js"
-import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../frontend/types/index.js"
-import { type IrArm, type IrCall, type IrDispatch, type IrExpr, type IrInvoke, type IrStmt, peelArray, type Place } from "../ir/index.js"
+import { ANY_FAMILIES, elementaryRef, inferExprType, peelArray, type Type, UNKNOWN } from "../../frontend/types/index.js"
+import { type IrArm, type IrCall, type IrDispatch, type IrExpr, type IrInvoke, type IrStmt, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { storageOf } from "./storage.js"

@@ -7,8 +7,8 @@
  * chain link, a FOR variable, an address taken — is refused: it would change one member without the copy.
  */
 import type { Span } from "../../frontend/syntax/index.js"
-import { elementaryRef, elemOf, type Type } from "../../frontend/types/index.js"
-import { elementOf, type IrExpr, type IrStmt, peelArray, type Place } from "../ir/index.js"
+import { elementaryRef, elementOf, elemOf, peelArray, type Type } from "../../frontend/types/index.js"
+import { type IrExpr, type IrStmt, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { rootType } from "./bytes.js"

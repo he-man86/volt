@@ -38,6 +38,7 @@ import {
 } from "../../frontend/syntax/index.js"
 import {
   build,
+  extendsChain,
   isLibrarySymbol,
   lookup,
   lookupMember,
@@ -49,8 +50,8 @@ import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { buildInitSequence } from "./init-sequence.js"
-import { resolveNamedType, type Type, UNKNOWN } from "../../frontend/types/index.js"
-import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
+import { peelArray, resolveNamedType, type Type, typeZero, UNKNOWN } from "../../frontend/types/index.js"
+import { holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type Place } from "../ir/index.js"
 import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
@@ -58,6 +59,7 @@ import { EXEC_ORACLE_TARGET, execBodyStatements } from "./conditions.js"
 import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../frontend/library/index.js"
+import { lowerDiagnostic, type LoweredPou } from "./diagnostics/diagnostic.js"
 
 /** How the transpiler reads the text it is handed: the language as Volt defines it, LD/FBD bodies as network text — which
  *  reaches the backend through network text, never through `lowerUnit`, which refuses a body that is not ST (`isStBody`).
@@ -208,16 +210,11 @@ function addressSharedByInstances(lw: Lowering, slots: readonly { type: Type }[]
 
 const INIT_ATTRIBUTE = "call_after_global_init_slot"
 
-/** An FB's EXTENDS chain, BASE FIRST — the order its fields are laid out in, and its FB_Inits run in. */
-function extendsChain(lw: Lowering, fb: string): string[] {
-  const chain: string[] = []
-  for (let name: string | undefined = fb; name !== undefined; ) {
-    if (chain.includes(name)) break // a cycle is somebody else's diagnostic; not looping here is this one's job
-    chain.unshift(name)
-    const unit: TopLevel | undefined = lw.bodies.get(name.toUpperCase())?.unit
-    name = unit !== undefined && unit.kind === "function_block" ? unit.extends?.text : undefined
-  }
-  return chain
+/** An FB type's EXTENDS chain by name, BASE FIRST — the order its fields are laid out in, and its FB_Inits run in. The
+ *  chain is the front-end's (`symbols` `extendsChain`: the bases the binder linked, a cycle ending it). */
+function chainNamesOf(t: Extract<Type, { kind: "function_block" }>): string[] {
+  if (t.scope === undefined) throw new Error(`lowering bug: the FB type ${t.name} carries no scope`)
+  return extendsChain(t.scope).map((s) => s.name)
 }
 
 /**
@@ -395,7 +392,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
         // A field whose initial value RUNS — the walk has to reach the instance to run it there. The whole EXTENDS
         // chain, for the same reason the invoke below walks it: a DERIVED FB whose own fields all fold still has to
         // be reached, or its base's initializers never run on it and the field silently keeps its default.
-        extendsChain(lw, t.name).some((name) => (lw.bodies.get(name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0))
+        chainNamesOf(t).some((name) => (lw.bodies.get(name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0))
     const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
     known.set(key, result)
     return result
@@ -580,7 +577,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     // INTERLEAVED with the instances inside it, by declaration (transpile-review 23): a field running FB_Init does so at
     // its own position, so the initializers declared before it have run and those after it have not
     // (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). The sequence is split there, one routine per part.
-    const chain = t.kind === "function_block" ? extendsChain(lw, t.name) : []
+    const chain = t.kind === "function_block" ? chainNamesOf(t) : []
     // the depth of the most basic FB_Init in the chain — a type below it initializes after a base's FB_Init could run
     const firstFbInit = Math.min(...inits.map((sym) => chain.findIndex((name) => name.toUpperCase() === sym.owner.name.toUpperCase())))
     const initialized = chain.filter((type) => (lw.bodies.get(type.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0)
@@ -604,7 +601,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const declared = declaredInits.get(t.name.toUpperCase()) ?? layoutFields.map((f) => f.init)
     declaredInits.set(t.name.toUpperCase(), declared)
     for (const [i, field] of [...layoutFields].entries()) {
-      const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: defaultValueOf(field.type) })
+      const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: typeZero(field.type) })
       const start = fbInitCalls.length
       if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, declared[i]!, clear, place)) return false
       const inside = fbInitCalls.splice(start)
@@ -623,7 +620,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const ownInits = lw.initSequence?.bySlot ?? []
   let ownRun = 0
   for (const [slot, frameSlot] of [...frame].entries()) {
-    const clear = () => void (frame[slot] = { ...frame[slot]!, init: defaultValueOf(frameSlot.type) })
+    const clear = () => void (frame[slot] = { ...frame[slot]!, init: typeZero(frameSlot.type) })
     const start = fbInitCalls.length
     if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, frameSlot.init, clear)) return undefined
     const inside = fbInitCalls.splice(start)
@@ -639,7 +636,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   for (let slot = 0; slot < globals.length; slot++) {
     const global = globals[slot]!
     if (global.section !== "program") continue
-    const clear = () => void (globals[slot] = { ...globals[slot]!, init: defaultValueOf(global.type) })
+    const clear = () => void (globals[slot] = { ...globals[slot]!, init: typeZero(global.type) })
     if (!visit({ slot, path: [], type: global.type, span, root: "global" }, [], lw, global.init, clear)) return undefined
   }
   if (lw.globals.some((g) => g.section !== "program" && reaches(g.type))) return unreached("the globals")

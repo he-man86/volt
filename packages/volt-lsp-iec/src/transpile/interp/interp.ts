@@ -17,10 +17,9 @@ import {
   type IrPou,
   type IrRoutine,
   type IrStmt,
-  peelArray,
   type Place,
 } from "../ir/index.js"
-import type { Type } from "../../frontend/types/index.js"
+import { peelArray, type Type } from "../../frontend/types/index.js"
 import {
   bool,
   coerce,
@@ -34,6 +33,8 @@ import {
   visible,
 } from "../ir/values.js"
 import { binaryValue, builtinValue, selectedArg, unaryValue } from "../ir/evaluate.js"
+import { FAULT_TEXT, indexOutOfBounds } from "../ir/faults.js"
+import { namesVariable, parsePath } from "../ir/path.js"
 export type { Val } from "../ir/values.js"
 
 type Signal = "none" | "break" | "continue" | "return"
@@ -166,7 +167,7 @@ class Machine {
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
   private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit: Extract<Access, { kind: "bit" }> | undefined } {
     // a dereference: the pointer holds 0 when null, and CODESYS stops the application on that access — so does this
-    if (place.guard !== undefined && this.read(place.guard) === 0n) throw new RangeError("dereference of a null pointer")
+    if (place.guard !== undefined && this.read(place.guard) === 0n) throw new RangeError(FAULT_TEXT["null-dereference"])
     const steps = place.path
     const last = steps.at(-1)
     const bit = last?.kind === "bit" ? last : undefined
@@ -180,7 +181,7 @@ class Machine {
       else if (step.kind === "index") {
         const i = Number(num(this.expr(step.index)) as bigint) - Number(step.lower)
         // ponytail: what an out-of-bounds index does in CODESYS is unmeasured (no CheckBounds: it writes past the array) — refused loudly
-        if (i < 0 || i >= (step.length ?? (next as Val[]).length)) throw new RangeError(`array index ${i + Number(step.lower)} is outside its bounds`)
+        if (i < 0 || i >= (step.length ?? (next as Val[]).length)) throw new RangeError(indexOutOfBounds(i + Number(step.lower)))
         key = i
       }
       container = next
@@ -288,7 +289,7 @@ function compileExpr(e: IrExpr): Run<Val> {
       return (m) => {
         const t = tag(m)
         const arm = e.arms.find((a) => a.tag === t)
-        if (arm === undefined) throw new RangeError("call through an interface that holds no instance")
+        if (arm === undefined) throw new RangeError(FAULT_TEXT["no-instance"])
         return m.invoke(arm.call)
       }
     }
@@ -299,7 +300,7 @@ function compileExpr(e: IrExpr): Run<Val> {
       return (m) => {
         const t = tag(m)
         const arm = e.arms.find((a) => a.tag === t)
-        if (arm === undefined) throw new RangeError("dereference of a null pointer")
+        if (arm === undefined) throw new RangeError(FAULT_TEXT["null-dereference"])
         return m.read(arm.place)
       }
     }
@@ -463,35 +464,28 @@ export interface Runner {
   scan(): void
 }
 
-/** Two ST names for one variable: case-insensitive, a backtick quote (`` `TYPE` ``) not part of the name. */
-export function sameName(a: string, b: string): boolean {
-  const bare = (n: string): string => n.replace(/^`|`$/g, "").toUpperCase()
-  return bare(a) === bare(b)
-}
 
 /** A variable path's container, key and type — `inst.q` walks the slot `inst`, then its field `Q`; `arr[2]` subtracts
  *  the dimension's lower bound. Shared by `get` and `set`, so a test reads exactly where the program writes. */
 function resolvePath(pou: IrPou, frame: Val[], globals: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
-  // a name may be backtick-quoted — ``fb.`TYPE` `` is how CODESYS names a variable declared `` `TYPE` ``
-  // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
-  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
-    m[2] === undefined ? [m] : m[2].split(",").map((index) => [m[0], undefined, index.trim()] as unknown as RegExpExecArray),
-  )
-  const first = parts[0]?.[1]
-  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => sameName(s.name, first))
+  // the IDE's path grammar (`ir/path.ts`): a quoted name unquoted, `a[1, 2]` one index segment per dimension
+  const parts = parsePath(path)
+  const head = parts[0]
+  const first = head?.kind === "name" ? head.name : undefined
+  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => namesVariable(s.name, first))
   // not the POU's own: a global by its name — a GVL variable, or the `__clock` a harness sets before a scan
-  const global = slot < 0 && first !== undefined ? pou.globals.findIndex((s) => s.section !== "program" && sameName(s.name, first)) : -1
+  const global = slot < 0 && first !== undefined ? pou.globals.findIndex((s) => s.section !== "program" && namesVariable(s.name, first)) : -1
   if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let container = (global >= 0 ? globals : frame) as unknown as Record<string | number, Val>
   let key: string | number = global >= 0 ? global : slot
   let type: Type = global >= 0 ? pou.globals[global]!.type : pou.slots[slot]!.type
   for (const part of parts.slice(1)) {
     container = container[key] as Record<string | number, Val>
-    if (part[1] !== undefined) {
+    if (part.kind === "name") {
       const layout = type.kind === "struct" || type.kind === "function_block" ? layouts.get(type.name.toUpperCase()) : undefined
-      const field = layout?.fields.find((f) => sameName(f.name, part[1]!))
+      const field = layout?.fields.find((f) => namesVariable(f.name, part.name))
       // an FB's VAR_STAT, named through an instance, is the one global every instance shares
-      const shared = field === undefined ? layout?.statics?.find((s) => sameName(s.name, part[1]!)) : undefined
+      const shared = field === undefined ? layout?.statics?.find((s) => namesVariable(s.name, part.name)) : undefined
       if (shared !== undefined) {
         container = globals as unknown as Record<string | number, Val>
         key = shared.global
@@ -504,7 +498,7 @@ function resolvePath(pou: IrPou, frame: Val[], globals: Val[], layouts: Readonly
     } else {
       const array = peelArray(type)
       if (array === undefined) throw new Error(`${path} indexes a non-array`)
-      key = Number(BigInt(part[2]!) - array.lower)
+      key = Number(part.index - array.lower)
       type = array.element
     }
   }

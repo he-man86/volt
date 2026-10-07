@@ -44,7 +44,9 @@
  * NO FALLBACK HIDES A MISS: a corrupt or partial entry is reported once, removed, and a miss; a cache I/O error is
  * reported once and the build is a real compile. Entries are written to a temp directory and renamed into place, so
  * no reader sees half of one. `VOLT_RUSTC_CACHE=0` turns the cache off; `VOLT_RUSTC_CACHE_MAX_MB` (default 4096)
- * caps it, pruned least-recently-used. `VOLT_RUSTC_TRACE=<file>` appends one JSON line per build — what the
+ * caps it, pruned least-recently-used. The size is read from a LEDGER (`<key> <bytes>` per stored entry), not by
+ * stat-ing every entry: that walk, once per process, cost 5.7 s with 17,199 entries and timed out the first Rust
+ * test of a file whose build was a hit. Only a ledger past the cap (or a missing one) pays the walk, which rewrites it. `VOLT_RUSTC_TRACE=<file>` appends one JSON line per build — what the
  * equivalence proof diffs.
  */
 import { createHash, randomBytes } from "node:crypto"
@@ -424,16 +426,19 @@ async function placeExecutable(stored: string, exe: string): Promise<void> {
 async function store(root: string, key: string, entry: Entry, exe: string | undefined): Promise<void> {
   const tmp = join(root, `.tmp-${randomBytes(8).toString("hex")}`)
   await mkdir(tmp, { recursive: true })
+  let bytesOut: number | undefined
   try {
     if (exe !== undefined) {
       const bytes = await readFile(exe)
+      bytesOut = bytes.byteLength
       entry.exe = createHash("sha256").update(bytes).digest("hex")
       // EXECUTABLE ON POSIX: a hit hard-links (or copies, which keeps the mode) THIS file to the caller's `exe`, so
       // its mode is the hit's mode — written with the default 0666 & ~umask, every hit was spawned to EACCES on
       // Linux. Windows has no execute bit and ignores the mode, which is why it passed there.
       await writeFile(join(tmp, "out.bin"), bytes, { mode: 0o755 })
     }
-    await writeFile(join(tmp, "entry.json"), JSON.stringify(entry)) // written last: its presence means complete
+    const json = JSON.stringify(entry)
+    await writeFile(join(tmp, "entry.json"), json) // written last: its presence means complete
     // WINDOWS REFUSES A RENAME while something holds a file inside the directory — the virus scanner opens every new
     // executable — so EPERM/EBUSY are retried briefly (measured: one store in ~2,300 hit it) before it is a fault.
     for (let attempt = 0; ; attempt++) {
@@ -447,14 +452,39 @@ async function store(root: string, key: string, entry: Entry, exe: string | unde
         await Bun.sleep(25 * 2 ** attempt)
       }
     }
+    await appendFile(join(root, LEDGER), `${key} ${Buffer.byteLength(json) + (bytesOut ?? 0)}` + EOL)
   } finally {
     await rm(tmp, { recursive: true, force: true })
   }
 }
 
+/** One line per stored entry, `<key> <bytes>`, appended by `store` — what `prune` reads instead of every entry. */
+const LEDGER = ".ledger"
+const EOL = "\n"
+
+/** The cache's size by its ledger (a key stored twice counts once), or undefined when there is no ledger to read.
+ *  An evicted entry stays in it until the next walk: the ledger can only OVERstate the size, which prunes early. */
+export async function ledgerSize(root: string): Promise<number | undefined> {
+  let raw: string
+  try {
+    raw = await readFile(join(root, LEDGER), "utf8")
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw error
+  }
+  const sizes = new Map<string, number>()
+  for (const line of raw.split(EOL)) {
+    const [key, size] = line.split(" ")
+    if (key && size !== undefined) sizes.set(key, Number(size))
+  }
+  let total = 0
+  for (const n of sizes.values()) total += n
+  return total
+}
+
 const pruned = new Map<string, Promise<void>>()
 /** Once per process and root: past the cap, the least recently used entries go until it is at 3/4 of it. */
-function prune(root: string): Promise<void> {
+export function prune(root: string): Promise<void> {
   let p = pruned.get(root)
   if (p === undefined) pruned.set(root, (p = pruneNow(root)))
   return p
@@ -462,28 +492,44 @@ function prune(root: string): Promise<void> {
 async function pruneNow(root: string): Promise<void> {
   const cap = Number(process.env.VOLT_RUSTC_CACHE_MAX_MB ?? 4096) * 1024 * 1024
   await mkdir(root, { recursive: true })
-  const entries: { dir: string; used: number; size: number }[] = []
-  for (const name of await readdir(root)) {
-    const dir = join(root, name)
+  const names = await readdir(root)
+  for (const name of names)
     if (name.startsWith(".tmp-")) {
       // a writer that died mid-store; a live one finishes in well under an hour
+      const dir = join(root, name)
       if (Date.now() - (await stat(dir)).mtimeMs > 3_600_000) await rm(dir, { recursive: true, force: true })
-      continue
     }
+  const recorded = await ledgerSize(root)
+  if (recorded !== undefined && recorded <= cap) return
+  // no ledger (a cache older than it) or past the cap: the walk measures every entry and rewrites the ledger
+  const entries: { key: string; dir: string; used: number; size: number }[] = []
+  for (const name of names) {
+    if (name.startsWith(".")) continue
+    const dir = join(root, name)
     let size = 0
     let used = 0
-    for (const f of await readdir(dir)) {
-      const s = await stat(join(dir, f))
-      size += s.size
-      if (f === "entry.json") used = s.mtimeMs
+    try {
+      for (const f of await readdir(dir)) {
+        const s = await stat(join(dir, f))
+        size += s.size
+        if (f === "entry.json") used = s.mtimeMs
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue // evicted by another process meanwhile
+      throw error
     }
-    entries.push({ dir, used, size })
+    entries.push({ key: name, dir, used, size })
   }
   let total = entries.reduce((n, e) => n + e.size, 0)
-  if (total <= cap) return
-  for (const e of entries.sort((a, b) => a.used - b.used)) {
-    if (total <= cap * 0.75) break
-    await rm(e.dir, { recursive: true, force: true })
-    total -= e.size
-  }
+  const kept = new Set(entries)
+  if (total > cap)
+    for (const e of [...entries].sort((a, b) => a.used - b.used)) {
+      if (total <= cap * 0.75) break
+      await rm(e.dir, { recursive: true, force: true })
+      kept.delete(e)
+      total -= e.size
+    }
+  const tmp = join(root, `${LEDGER}.${randomBytes(4).toString("hex")}`)
+  await writeFile(tmp, [...kept].map((e) => `${e.key} ${e.size}` + EOL).join(""))
+  await rename(tmp, join(root, LEDGER))
 }

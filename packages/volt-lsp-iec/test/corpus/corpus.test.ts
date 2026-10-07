@@ -52,8 +52,7 @@ import {
 } from "../../src/frontend/syntax/index.js"
 import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { libraryRank } from "../../src/frontend/symbols/index.js"
-import { lowerUnit } from "../../src/transpile/index.js"
-import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
+import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerUnit } from "../../src/transpile/index.js"
 import type { IrBuiltinName, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
@@ -606,7 +605,7 @@ const REACH = { bodies: 304, lowered: 54 }
 // that lowered as empty ST.
 const ROUTINES = { routines: 14, routinesFromRunning: 14 }
 
-/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
+/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
 const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const
 const BUILTINS = [

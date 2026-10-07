@@ -12,11 +12,11 @@
  * is already correct, or to wait for a release that will never mention their case.
  */
 import { describe, expect, test } from "bun:test"
-import { readdirSync, readFileSync } from "node:fs"
+import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./codes.js"
 
-const LOWER_DIR = join(import.meta.dir, "..", "lower")
+const LOWER_DIR = join(import.meta.dir, "..")
 
 /**
  * Every literal code that appears in a `bail(…)` / `fail(…)` / `code:` position under `lower/`.
@@ -26,11 +26,17 @@ const LOWER_DIR = join(import.meta.dir, "..", "lower")
  * saw neither. Both were unregistered, and this gate — whose entire job is to catch that — passed. A computed code is
  * exactly the kind that gets forgotten, so it is the kind this must read.
  */
+function lowerSources(dir: string = LOWER_DIR): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) return lowerSources(path)
+    return name.endsWith(".ts") && !name.endsWith(".test.ts") ? [readFileSync(path, "utf8")] : []
+  })
+}
+
 function emittedCodes(): string[] {
   const found = new Set<string>()
-  for (const name of readdirSync(LOWER_DIR)) {
-    if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue
-    const src = readFileSync(join(LOWER_DIR, name), "utf8")
+  for (const src of lowerSources()) {
     // the first argument of each call, up to the comma that ends it — then every quoted slug inside it
     for (const m of src.matchAll(/(?:bail|fail|lowerDiagnostic)\(\s*(?:pending,\s*)?([^,\n]*)/g))
       for (const lit of m[1]!.matchAll(/"([a-z0-9_-]+)"/g)) found.add(lit[1]!)
@@ -42,9 +48,7 @@ function emittedCodes(): string[] {
 /** Every TEMPLATED code, as its prefix — `bail(\`expr-${e.kind}\`, …)` is a family, not a code. */
 function emittedPrefixes(): string[] {
   const found = new Set<string>()
-  for (const name of readdirSync(LOWER_DIR)) {
-    if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue
-    const src = readFileSync(join(LOWER_DIR, name), "utf8")
+  for (const src of lowerSources()) {
     for (const m of src.matchAll(/(?:bail|fail|lowerDiagnostic)\(\s*(?:pending,\s*)?`([a-z0-9-]+?)-\$\{/g)) found.add(`${m[1]!}-`)
     for (const m of src.matchAll(/code:\s*`([a-z0-9-]+?)-\$\{/g)) found.add(`${m[1]!}-`)
   }

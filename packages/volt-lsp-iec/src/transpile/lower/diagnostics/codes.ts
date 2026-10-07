@@ -3,7 +3,7 @@
  *
  * **Why this exists.** 82% of corpus bodies end in a refusal (`lower-completeness.ts`: blocked 249 of 304), so
  * for anyone who did not write this compiler **the refusal IS the product**. It was a bare `string` on
- * `LowerDiagnostic` with no registry, ~98 literal codes and five templated families, and — worse — nothing
+ * `LowerDiagnostic` with no registry, ~98 literal codes and its templated families, and — worse — nothing
  * carried the three-way taxonomy `index.ts` declares as the whole contract:
  *
  *   - **invalid** — the ST does not compile in CODESYS either. Fix the code.
@@ -15,7 +15,7 @@
  * **`unclassified` is deliberate, and it is counted.** Classifying 98 codes by reading their call sites would
  * be exactly the confident guessing this component keeps paying for; a code is classified here only where
  * `index.ts` names it or the refusal is unambiguous. The rest say so, the count is a ratchet in
- * `lower-codes.test.ts`, and it may only go down. An honest "not yet sorted" beats a plausible wrong answer,
+ * `codes.test.ts` beside this, and it may only go down. An honest "not yet sorted" beats a plausible wrong answer,
  * because a wrong `kind` sends a user to fix ST that is already correct.
  *
  * **Generated once from the call sites, maintained by hand.** The gate is that every code lowering actually
@@ -23,8 +23,6 @@
  * unregistered code.
  */
 
-import type { Span } from "../../frontend/syntax/index.js"
-import type { LowerDiagnostic } from "./ir.js"
 
 /** What a refusal asks of the person who hit it. */
 export type LowerCodeKind = "invalid" | "not-modelled" | "not-measured" | "unclassified"
@@ -130,16 +128,16 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "pointer-place": "unclassified",
   "pointer-runtime-index": "unclassified",
   "pointer-shape": "unclassified",
-  // Not a construct and not a gap: the POU being lowered is the ROOT, so its `POINTER TO T` VAR_INPUT has no
-  // caller to fill it. A harness limit, exactly like `fb-init-argument` — kept apart from `pointer-order` so the
-  // work list does not count it as a pointer the model cannot follow (pointer-model.md D5). `fb-init-root` is
-  // the same split, made 2026-09-24 — this note said "exactly like `fb-init-argument`" while that one still
-  // carried both meanings.
   // Not a construct gap and not unmeasured: the CALLER hands `ADR(x)` to another instance's pointer field, and the
   // callee cannot reach x — its body is lowered once per FB type, so the target must be LENT per call the way
   // `interfaces.ts` lends an instance. Form 3's foreign half (`pointer-model.md` §5). Kept apart from
   // `pointer-order`, whose message — "before any address was stored into it" — was false here: one is stored.
   "pointer-foreign": "unclassified",
+  // Not a construct and not a gap: the POU being lowered is the ROOT, so its `POINTER TO T` VAR_INPUT has no
+  // caller to fill it. A harness limit, exactly like `fb-init-argument` — kept apart from `pointer-order` so the
+  // work list does not count it as a pointer the model cannot follow (pointer-model.md D5). `fb-init-root` is
+  // the same split, made 2026-09-24 — this note said "exactly like `fb-init-argument`" while that one still
+  // carried both meanings.
   "pointer-root-input": "not-measured",
   "pointer-step": "unclassified",
   "pointer-targets": "unclassified",
@@ -180,16 +178,6 @@ export const LOWER_CODE_PREFIXES: ReadonlyArray<{ prefix: string; kind: LowerCod
   { prefix: "layout-", kind: "not-modelled", note: "a type kind with no declaration lowering can lay out (storage.ts)" },
 ]
 
-/**
- * A refusal, with its taxonomy filled in from the registry.
- *
- * Every `LowerDiagnostic` in the transpiler is built here or by `Lowering.bail`, which calls the same lookup.
- * That is the whole point: `kind` answers a question the user asks ("is this my bug or yours?"), and a field
- * assembled independently at a hundred call sites answers it a hundred slightly different ways.
- */
-export function lowerDiagnostic(code: string, message: string, span: Span): LowerDiagnostic {
-  return { code, kind: lowerCodeKind(code) ?? "unclassified", message, span }
-}
 
 /** The kind for one code, or undefined when it is registered nowhere — which is a gate failure, not a default. */
 export function lowerCodeKind(code: string): LowerCodeKind | undefined {

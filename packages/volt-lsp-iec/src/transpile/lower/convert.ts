@@ -2,8 +2,8 @@
  * Conversions as IR nodes, and how a constant is stored at a type — the one place a value changes type.
  */
 import type { Span } from "../../frontend/syntax/index.js"
-import { commonType, elementaryRef, elemOf, integerLiteralType, type Type } from "../../frontend/types/index.js"
-import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
+import { commonType, elementaryRef, elemOf, holdsIntegerBits, integerLiteralType, isBit, isBoolValued, isReal, type Type, wrapToWidth } from "../../frontend/types/index.js"
+import { type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 
 /**
@@ -32,8 +32,7 @@ export function convert(e: IrExpr, to: Type): IrExpr {
   // value and neither `BOOL_TO_BIT` nor a plain store between them converts anything; typed as the 1-bit bit string it
   // is declared as, every crossing printed `!= 0` against a Rust `bool` (conformance `ct_bit_fields`).
   if (isBit(e.type) || isBit(to)) {
-    const bool = (t: Type) => isBit(t) || elemOf(t)?.family === "bool"
-    if (bool(e.type) && bool(to)) return e
+    if (isBoolValued(e.type) && isBoolValued(to)) return e
   }
   // A constant lands at the target's width even when context already typed it so: `si := 128` types the literal SINT
   // on the way in, and this returned it unchanged below — the emitter printed `128i8`, which rustc rejects.
@@ -75,7 +74,7 @@ export function integerFoldType(operands: readonly IrExpr[]): Type {
  * and the division integral. A REAL constant keeps its type, and `wider` meets the pair in REAL.
  */
 function adopt(c: IrExpr, to: Type): IrExpr {
-  return elemOf(c.type)?.family === "real" && elemOf(to)?.family !== "real" ? c : retype(c, to)
+  return isReal(c.type) && !isReal(to) ? c : retype(c, to)
 }
 
 /**
@@ -114,12 +113,12 @@ export function ownIntegerType(c: IrExpr, to: Type): Type | undefined {
 export function valueAs(v: IrValue, to: Type): IrValue {
   const target = elemOf(to)
   if (target === undefined) return v
-  if (target.family === "real" && typeof v === "bigint") return Number(v)
+  if (isReal(to) && typeof v === "bigint") return Number(v)
   // A BIT holds a BOOLEAN, and it is `bitstring` in the type table only because it is one bit of LAYOUT. Without
   // `isBit` here, `x : BIT := 0` stored `0n` and the emitted Rust printed an integer into a `bool` field
   // (`bound_bit_at_min` / `_at_max`, measured 2026-09-18 — CODESYS reads them back FALSE and TRUE).
-  if ((target.family === "bool" || isBit(to)) && typeof v === "bigint") return v !== 0n
-  if (target.family !== "real" && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
+  if (isBoolValued(to) && typeof v === "bigint") return v !== 0n
+  if (!isReal(to) && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
   return v
 }
 
@@ -138,8 +137,8 @@ export function stored(v: IrValue, to: Type): IrValue {
   // and does wrap them, so an over-range TIME initializer wrapped in the interpreter and printed as an
   // out-of-range `u32` literal from the emitter — two backends, one program, two answers.
   if (isBit(to)) return v
-  if (!["int", "bitstring", "time", "date"].includes(target.family)) return v
-  return target.signed ? BigInt.asIntN(target.bits, v) : BigInt.asUintN(target.bits, v)
+  if (!holdsIntegerBits(to)) return v
+  return wrapToWidth(v, target)
 }
 
 /** An explicit conversion node, even between a pointer and an integer — `convert` returns the value unchanged when either

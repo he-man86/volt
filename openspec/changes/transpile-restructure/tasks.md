@@ -436,7 +436,7 @@ behind a named parameter, listed under the task, and its removal is the task nam
 
 ### 1.0 Tooling
 
-- [ ] 1.0.1 Amend layering rule 4 and add rules 4b and 6.
+- [x] 1.0.1 Amend layering rule 4 and add rules 4b and 6.
   - What: design.md P2. Among transpile folders: `ir/` imports only itself; `semantics/` imports `ir/`; `lower/` imports `ir/` and
     `semantics/`; `interp/` imports `ir/` and `semantics/`; `emit/` imports `ir/`; `pipeline/` and `index.ts` are composition roots.
     Frontend imports stay governed by rule 3 (syntax, symbols, types only; `semantics/` and `interp/`/`emit/` may import `types`,
@@ -446,7 +446,18 @@ behind a named parameter, listed under the task, and its removal is the task nam
   - Accept: lint green on today's tree except the known `emit.test.ts → test/…/rustc.ts` edge, listed as a temporary exception that
     1.5.13 removes; the fixture test shows each new rule catching a planted violation.
   - Depends: 0.5.
-- [ ] 1.0.2 Size ratchet.
+  - Done 2026-10-07 (step 1.0). `scripts/check-layering.ts`: rule 4 is the folder table (`TRANSPILE_MAY_IMPORT`: `ir` itself
+    only, `semantics` → `ir`, `lower`/`interp` → `ir` + `semantics`, `emit` → `ir`; `pipeline/` and `index.ts` import anything; only
+    the barrel imports `pipeline/`), rule 4b the `lower/` leaves (`LOWER_LEAVES`; a file directly in `lower/` is its own folder;
+    only `entry/` and the `lower/` barrel import `project/`), rule 6 a `src/` file (tests included) importing `test/`. Rules 4/4b
+    cover production files, rule 6 every file. The front-end column of P2 stays rule 3's, unchanged (front-end only, through the
+    indexes): today `emit/rust/emit.ts` imports `Span` from syntax and three `lower/` files import `frontend/library`, which P2's
+    column does not list — tightening rule 3 per folder is not this task's. `KNOWN_TRANSPILE_VIOLATIONS` holds the two `emit.test.ts`
+    imports (`test/conformance/support/rustc-cache.ts` and `rustc.ts`, both removed by 1.5.13). Lint green on today's tree.
+    Tests: `scripts/check-layering.test.ts` 6 pass — each rule catches a planted violation in a scratch package (emit → semantics,
+    ir → semantics, semantics → lower, emit → interp, a non-barrel → pipeline, the four leaves past their tables, a non-entry →
+    project, a src test and a src file → test/), the allowed edges beside them clean.
+- [x] 1.0.2 Size ratchet.
   - What: design.md §8. The 12 oversize files of 2026-09-29 (`lower/calls.ts`, `emit/rust/emit.ts`, `lower/lower.ts`,
     `lower/storage.ts`, `ir/ir.ts`, `lower/pointers.ts`, `lower/interfaces.ts`, `ir/values.ts`, `lower/builtins.ts`; tests
     `lower/lower.test.ts`, `interp/interp.test.ts`, `emit/rust/emit.test.ts`) are ceilings at their current line counts; functions over
@@ -454,45 +465,97 @@ behind a named parameter, listed under the task, and its removal is the task nam
   - Where: `scripts/check-size.ts`, `package.json` `lint`.
   - Accept: green with 12 entries; a new 401-line file fails; the function list is printed.
   - Depends: 1.0.1.
-- [ ] 1.0.3 Citation check.
+  - Done 2026-10-07 (step 1.0). `scripts/check-size.ts` (`sizeReport`, `CEILINGS`), in `package.json` `lint`. 14 entries, not
+    12: design.md's twelve at today's counts (`lower/calls.ts` 1657, `emit/rust/emit.ts` 1369, `lower/lower.ts` 860,
+    `lower/storage.ts` 655, `ir/values.ts` 641, `ir/ir.ts` 551, `lower/pointers.ts` 542, `lower/builtins.ts` 490,
+    `lower/interfaces.ts` 480; tests `lower/lower.test.ts` 2645, `interp/interp.test.ts` 1349, `emit/rust/emit.test.ts` 969) plus two
+    that grew past 400 since 2026-09-29: `interp/interp.ts` 544 and `lower/statements.ts` 437. A file over its ceiling fails, a
+    stale entry (gone, or within the limit) fails, a shrunk one is printed with its new ceiling. Functions over 80 lines (17
+    today, printed as warnings): `initStep` 383, `lowerInvoke` 341, `Printer.expr` 278, `lowerExpr` 271, an `initStep` closure
+    (lower.ts:417) 203, `lowerStmt` 192, `lowerConversion` 186, `emitRust` 183, `lowerBuiltin` 177, `calledRoutine` 139,
+    `Printer.stmt` 135, `lowerCallStatement` 129, a `calledRoutine` closure (calls.ts:556) 124, `declareVars` 102, `lowerUnit` 95,
+    `coerce` 89, `builtinValue` 86. The function scan is its own small lexer (`codeOnly`): the package's TypeScript is the native
+    7.0 compiler, which has no JS API. Tests: `scripts/check-size.test.ts` 6 pass (the real tree green with 14; a new 401-line
+    file fails and 400 passes; a 601-line test fails; a risen, a stale and a shrunk ceiling; functions found by name and first
+    line; braces in strings, templates, comments and regexes are not code).
+- [x] 1.0.3 Citation check.
   - What: design.md §8: report `file.ts:NNN` / `file.ts` citations in `src/**` comments, fixture comments, the authored NOTES and
     LEAN texts, `docs/*.md` and open openspec changes' `tasks.md` whose file does not exist. Warning-only until 1.9.3.
   - Where: `scripts/check-citations.ts`, `package.json` `lint`, `scripts/README.md`.
   - Accept: runs in lint; prints today's count (expected ≈ 0 missing today, since no file has moved yet).
   - Depends: 1.0.1.
-- [ ] 1.0.4 Dead-export scope and exclusion.
+  - Done 2026-10-07 (step 1.0). `scripts/check-citations.ts` (warning-only; `--strict` for 1.9.3, `--all` lists each), in
+    `package.json` `lint`; `scripts/README.md`. A citation resolves when a `.ts` file of the repo ends with it at a `/`.
+    Today's count is NOT ≈ 0: 661 missing before this note (669 with the paths it names), 0.7 s. 577 were in this file — mostly the target files of later tasks
+    (`ir/walk.ts` 13, `emit/rust/values.ts` 11, `lower/statements/loops.ts` 8, …) and the pre-frontend-conformance front-end
+    paths (`types/infer.ts`, `infer.ts`); 15 in `lsp-package-structure/tasks.md`, 2 in `vendor-fact-probe/tasks.md`; 67 in
+    the package: 23 in `src/` comments, 43 in fixture comments (`pragma-tests.ts`, `var-section.ts`, `check-deref.ts`, …: files
+    moved or deleted before this change), 1 in `transpile-confidence.ts`. Phase 1's steps re-point what they move; 1.9.3 makes the
+    rest an error. Tests: `scripts/check-citations.test.ts` 3 pass (what a citation is — URLs, globs, `<…>` placeholders and
+    `.d.ts` are not; resolution by tail; a scratch repo reports exactly the five missing citations, one per kind of text, and
+    ignores the archive).
+- [x] 1.0.4 Dead-export scope and exclusion.
   - What: `scripts/dead-exports.ts` gains `--scope <dir>` and excludes the IR union members and the §2.1.1 barrel names (design.md §8).
   - Where: `scripts/dead-exports.ts`.
   - Accept: `--scope src/transpile` prints the filtered NOBODY list; the list is written here as the starting point for 1.7.20.
   - Depends: 1.0.1.
-
+  - Done 2026-10-07 (step 1.0). `scripts/dead-exports.ts`: `--scope <dir>`; under `src/transpile` it leaves out the members
+    of `IrExpr`/`IrStmt` (read from their declarations), `ir/`'s exported types and the §2.1.1 names (`TRANSPILE_SURFACE`).
+    Tests: `scripts/dead-exports.test.ts` 2 pass. The starting point for 1.7.20 (`--scope src/transpile`, 24 names):
+    `EmitOptions` (emit.ts), `RunOptions` (interp.ts), `LoweringBug` (ir/evaluate.ts), `calendarText` (ir/values.ts),
+    `UNARY_MATH`, `lowerConversion`, `meetOperands` (lower/builtins.ts), `byteOffset` (lower/bytes.ts), `ANY_TARGET`, `BORROWED`,
+    `inGlobals` (lower/calls.ts), `inTicks` (lower/constants.ts), `BIN_OPS`, `LIFTED` (lower/expressions.ts),
+    `implementsInterface` (lower/interfaces.ts), `CalledRoutine`, `ZERO_SPAN` (lower/lowering.ts), `bitPlace` (lower/places.ts),
+    `pointerValue` (lower/pointers.ts), `lowerChain`, `lowerFor` (lower/statements.ts), `INSTANCE_STORAGE`, `holdsInstance`,
+    `aliasInit` (lower/storage.ts) — each exported and used only in its own file (the `export` is what is redundant).
 ### 1.1 Front-end facts the transpiler shares (built only where 0.9 says "unmet"; else verified)
 
 Each task below: if 0.9 found the home already built, the task is "the transpiler uses that home and no copy of its own", accepted
 by G+LSP and S. Otherwise it builds the home in the front-end structure, accepted as written.
 
-- [ ] 1.1.1 `sameName` in the identifier module.
+- [x] 1.1.1 `sameName` in the identifier module.
   - What: move it from `interp.ts:289-292`; `types/compat.ts:107` uses it.
   - Where: `syntax/identifier.ts`, `interp/interp.ts`, `types/compat.ts`.
   - Accept: G+LSP, S.
   - Depends: 1.0.1, 0.9.
-- [ ] 1.1.2 `extendsChain(scope)` for FBs and interfaces.
+  - Done 2026-10-07 (step 1.1a; 0.9: met). `interp/interp.ts` drops its `sameName`: the IDE path names a quoted variable
+    with or without its backticks, so `resolvePath` unquotes both sides (`unquoted`, the path grammar's fact — 1.2.5 moves it to
+    `ir/path.ts`) and compares through `syntax` `sameName`. `sameName` leaves the transpile surface (`index.test.ts`); no consumer
+    outside `src/transpile` imported it. H10's self-reference spellings use `selfRefKind`: `lower/calls.ts` `isSuper`,
+    `lower/places.ts` THIS. `syntax/identifier.ts`'s doc says where the unquoting lives. S identical (all layers, 169 s, after 1.1.5).
+- [x] 1.1.2 `extendsChain(scope)` for FBs and interfaces.
   - What: base first, cycle guarded, reports incomplete; one function for FB and interface EXTENDS. Re-export `precedence.ts` from
     the symbols barrel; `types/resolve.ts` imports it through the barrel.
   - Where: `symbols/scope-nav.ts`, `symbols/index.ts`, `symbols/scope-nav.test.ts`.
   - Accept: G+LSP; unit tests for a cycle, an unresolved base and an interface chain.
   - Depends: 1.0.1, 0.9.
-- [ ] 1.1.3 `peelArray` and `elementOf` into `types/arrays.ts`.
+  - Done 2026-10-07 (step 1.1a; 0.9: met). `precedence.ts` is on the symbols barrel (`libraryRank`, `pickForAsker`,
+    `scopeUri`) and `types/resolve.ts` reaches symbols only through it — already so. `lower/lower.ts`'s by-NAME `extendsChain(lw, fb)`
+    (walked `lw.bodies` through `unit.extends?.text`) is gone: `chainNamesOf(t)` reads `symbols` `extendsChain(t.scope)` (the bases
+    the binder linked, a cycle ending it; an FB type without a scope throws — a lowering bug, never a guess). S identical. NOT done
+    here: `lower/lowering.ts` `baseOf` (the AST `extends` token, not a chain) and its four by-name walks (`calls.ts:98`,
+    `storage.ts:112`, `bytes.ts:64`, `lower.ts:200`) — each is a site of 1.7.3's list, which moves them onto `core/chain.ts` over
+    `extendsChain` together with the other EXTENDS walks (H1). Tests: `symbols/extends.test.ts` "extendsChain" 4 new (base first; a
+    cycle and a self-EXTENDS end the chain, each scope once; an unresolved base ends it and `hasUnresolvedBase` reports every scope
+    above it; an interface chain through `ancestry`, an unresolved interface base reported).
+- [x] 1.1.3 `peelArray` and `elementOf` into `types/arrays.ts`.
   - What: from `ir/ir.ts:66-81`; every caller updated (interp, emit, about 20 in lower).
   - Where: `types/arrays.ts`, `ir/ir.ts`, callers.
   - Accept: G, S.
   - Depends: 1.0.1, 0.9.
-- [ ] 1.1.4 `typeZero` in `types/defaults.ts`.
+  - Done 2026-10-07 (step 1.1a). `src/frontend/types/arrays.ts` (`peelArray`, `elementOf`, verbatim), on the types index;
+    `ir/ir.ts` loses both; 16 transpile files import them from the types index. They leave the transpile surface (`index.test.ts`);
+    no consumer outside `src/transpile` imported them. Tests: `types/arrays.test.ts` 3 new. S identical.
+- [x] 1.1.4 `typeZero` in `types/defaults.ts`.
   - What: `defaultValueOf` from `ir/ir.ts:49-58`, same behaviour, renamed.
   - Where: `types/defaults.ts`, `ir/ir.ts`, callers.
   - Accept: G, S.
   - Depends: 1.1.3.
-- [ ] 1.1.5 Type predicates.
+  - Done 2026-10-07 (step 1.1a). `types/defaults.ts` `typeZero` (was `ir/ir.ts` `defaultValueOf`, same body; its return type
+    spelled `bigint | number | boolean | string`, since `types/` cannot import `IrValue`), on the types index; every caller renamed
+    (bindings, calls, lower, lowering, places, storage, values, emit). `defaultValueOf` leaves the surface. Test: `types/predicates.test.ts`
+    "typeZero" (one row per family). S identical.
+- [x] 1.1.5 Type predicates.
   - What: `isBit`, `isBoolValued` (= isBit || BOOL), `isIntegral`, `holdsIntegerBits`, `stringKind`, `isReal`/`floatBits`,
     `hasTextFormat` (= today's `isTemporal` text part, same answer). Only call sites whose result is identical switch: `lower/convert.ts`
     16-19, 76, 95; `builtins.ts:276`; `values.ts` `fit`; `emit.ts:52` `rustType`. Every site that does not switch is listed here with
@@ -500,71 +563,155 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `types/predicates.ts`, `types/predicates.test.ts`, the listed sites.
   - Accept: G+LSP, S; predicate unit tests; the not-switched list is written here.
   - Depends: 1.1.4.
-- [ ] 1.1.6 Widths in `types/width.ts`.
+  - Done 2026-10-07 (step 1.1a). `types/predicates.ts`: `isBit`, `isBoolValued`, `isIntegral` (int, or a bit string that is not
+    a BIT), `holdsIntegerBits` (`isIntegral`, time, date), `stringKind`, `isReal`, `floatBits`, `hasTextFormat` (`isTemporal` of the
+    elem name), all on the types index. `isBit` leaves the transpile surface; its two test consumers import from the types index
+    (`fixtures.test.ts` asks `isBoolValued`, `transpile-confidence.ts` `isBit`). Switched (identical answers): `lower/convert.ts`
+    `convert`'s BIT/BOOL pair, `adopt`, `valueAs` (×3), `stored`'s family list; `lower/builtins.ts` `lowerConversion`'s `boolLike`
+    (inlined), `isString`, the math argument type, `parses`; `ir/values.ts` `fit`'s integer families; `emit/rust/emit.ts` `rustType`
+    (bool, float width, string, integer families) and its private `isReal` (deleted). Tests: `types/predicates.test.ts` (every
+    predicate × 14 types). S identical (all layers). Not switched (6.B.1's input), with why:
+    - the predicate itself or its rule: `lower/convert.ts` 44, 149 (`isBit`), `ir/values.ts` 441 (`fit`'s BIT); `emit.ts` 57
+      `emittedFamily` (RC 31, task 6.9);
+    - a different question (includes a BIT, or a width/rank/range): `lower/builtins.ts` 56 and `ir/values.ts` 475 (int or bit string
+      incl. BIT, with bits), `lower/constants.ts` 135, `lower/expressions.ts` 169-170, 182, 315 (operator operand families),
+      `lower/places.ts` 290 (bit-addressable: rank), `lower/statements.ts` 239 (a CASE selector's range), `lower/unions.ts` 21
+      (unsigned ≥ 8 bits), `lower/bytes.ts` 37-40, 98, 114 (byte sizes: a BIT has none, a STRING needs its capacity);
+    - STRING vs WSTRING by name (the character unit, a cursor's text): `lower/builtins.ts` 336-337, 383; `lower/calls.ts` 466, 475,
+      495, 501; `lower/places.ts` 236; `lower/pointers.ts` 112, 330, 350-352, 374, 388; `emit.ts` 213, 228, 240 (`Type.name`, not
+      the elem's family — the same answer only if every string Type's name is its kind, not verified here);
+    - time/date as a family where `hasTextFormat` asks by name (same answer not proven): `lower/builtins.ts` 423-424, 447,
+      `lower/expressions.ts` 257;
+    - identical rewrites outside the listed set, left to the move of their file (1.3, 1.5, 1.6) or 6.B.1: `emit.ts` 99, 244, 264,
+      589, 802, 835, 847, 894; `ir/values.ts` 416, 444, 534, 546, 569, 574, 577; `lower/builtins.ts` 275, 294, 482-483;
+      `lower/constants.ts` 239, 258; `lower/convert.ts` 31; `lower/expressions.ts` 273-274, 284; `lower/lower.ts` 540;
+      `lower/storage.ts` 536. (Line numbers on this step's tree.)
+- [x] 1.1.6 Widths in `types/width.ts`.
   - What: `integerOfWidth` (from `arith.ts:84-87`), `widthOf` (from `ir/evaluate.ts:23`), `wrapToWidth(value, elem)` as the core of
     `heldAs`, `stored` and `fit`. Each caller keeps its own family guard; the guards are listed here (6.B.2's input). The three
     `infer.ts` ladder spellings (95, 426, 471) use `integerOfWidth`.
   - Where: `types/width.ts`, `types/width.test.ts`, `types/const-eval.ts`, `lower/convert.ts`, `ir/values.ts`, `ir/evaluate.ts`, `types/infer.ts`.
   - Accept: G+LSP, S; the guard list is written here.
   - Depends: 1.1.5.
-- [ ] 1.1.7 Literal typing in `types/literal.ts`.
+  - Done 2026-10-07 (step 1.1b; 0.9: met for `integerOfWidth`, `wrapToWidth`). `wrapToWidth` goes on the types index;
+    `widthOf(t)` is built in `types/width.ts` (an elementary type's bits, else undefined) and `ir/evaluate.ts`'s shift/rotate width
+    reads it, keeping its own `LoweringBug` when lowering left a non-elementary type. `wrapToWidth` is now the core of the three
+    store wraps: `lower/convert.ts` `stored`, `ir/values.ts` `fit` (its no-allocation `inWidth` fast path kept in front), and the
+    front-end's `const/fold.ts` `declaredValue` (`heldAs`; already so). The three `infer.ts` ladder spellings are gone (frontend-
+    conformance's infer split uses `integerOfWidth`). The guards each caller keeps (6.B.2's input): `stored` — not a bigint, not
+    elementary, a BIT (holds a BOOLEAN), not `holdsIntegerBits`; `fit` — not elementary, REAL (fround), BIT, STRING (capacity cut),
+    then `holdsIntegerBits` and a bigint; `declaredValue` — a STRING literal (capacity cut), a CONSTANT (the fold as named, CE2), a
+    declared type that is no integer (`integerType` undefined), a REAL (`Math.fround` at 32 bits). The rotate (`ir/evaluate.ts`
+    94-95) wraps by itself (P1's fourth copy; 6.B.2). H9 (`conditions.ts` `EXEC_ORACLE_TARGET`, `bytes.ts` `elementaryTypeOn`) is
+    left to 6.B. Tests: `types/width.test.ts` 3 new (the ladder, the wrap, `widthOf`). S identical.
+- [x] 1.1.7 Literal typing in `types/literal.ts`.
   - What: `literalType`, `literalCheckType`, `literalErrorType` (infer.ts 323-374, the duplicated negated-literal unwrap merged),
     `integerLiteralType` (elementary.ts 245), `contextLiteralType` (lower `constants.ts:316-329`, rule unchanged).
     `literal-check.test.ts` becomes `literal.test.ts`.
   - Where: `types/literal.ts`, `types/literal.test.ts`, `types/infer.ts`, `types/elementary.ts`, `lower/constants.ts`.
   - Accept: G+LSP, S, T.
   - Depends: 1.1.6.
-- [ ] 1.1.8 Split `types/arith.ts` into `arith/runtime.ts`, `arith/checked.ts`, `arith/temporal.ts`.
+  - Done 2026-10-07 (step 1.1b; 0.9: met but `contextLiteralType`). Verified: the transpiler types a literal only through the
+    types index (`integerLiteralType`, `literalCheckType`, `REAL_LITERAL_TYPE`); `literal-check.test.ts` is `types/literal.test.ts`
+    already; `contextLiteralType` stays in `lower/constants.ts` until 6.2 (H5: LT14 pins 29 classes where the two rules answer
+    differently). No code change.
+- [x] 1.1.8 Split `types/arith.ts` into `arith/runtime.ts`, `arith/checked.ts`, `arith/temporal.ts`.
   - What: also move the NOT and bitwise result rules (infer.ts 87-96, 420-429), the typed-literal sum (465-474) and `exptResultType`
     into `checked.ts`. `arith.test.ts` becomes `arith/runtime.test.ts`; `checked.test.ts` and `temporal.test.ts` gain the missing
     cases (`promoteForRuntime`, `checkedNegationType`, `temporalResultType`, `exptResultType`).
   - Where: `types/arith/*`, `types/infer.ts`.
   - Accept: G+LSP, S, T (plus the new cases).
   - Depends: 1.1.7.
-- [ ] 1.1.9 Split `types/const-eval.ts` into `const/constancy.ts` and `const/fold.ts`.
+  - Done 2026-10-07 (step 1.1b; 0.9: met). The split is frontend-conformance's (`arith/{runtime,checked,temporal,operators}.ts`,
+    `exptResultType` in `types/builtins.ts`). The missing cases: `arith/runtime.test.ts` `promoteForRuntime` (+1), new
+    `arith/checked.test.ts` (`checkedMeetType` ×2, `checkedNegationType`), `arith/temporal.test.ts` `temporalResultType` (+1), new
+    `types/builtins.test.ts` (`exptResultType`) — each the measured answers the functions' docs cite. H4's two lowering
+    re-decisions are NOT output-neutral and are filed as 6.B.5: `NOT` of a signed integer (lowering stamps the bit string BYTE,
+    `notResultType` the unsigned integer USINT — same value, another IR type) and duration × integer (`durationScaleConversion`
+    makes a 64-bit integer beside a TIME the integer).
+- [x] 1.1.9 Split `types/const-eval.ts` into `const/constancy.ts` and `const/fold.ts`.
   - What: no merge yet; `heldAs` sits on `width.wrapToWidth`. `const-eval.test.ts` plus `types.test.ts:103-148` become
     `const/fold.test.ts`, keeping every case (the `**` case at 113 stays until 6.A.20).
   - Where: `types/const/*`.
   - Accept: G+LSP, S, T.
   - Depends: 1.1.8.
-- [ ] 1.1.10 `parseConversionName` into `types/conversion-name.ts`.
+  - Done 2026-10-07 (step 1.1b; 0.9: met). `const/constancy.ts` and `const/fold.ts` are frontend-conformance's; `declaredValue`
+    (`heldAs`) wraps through `wrapToWidth`. `types.test.ts`'s two "const-eval:" tests (and their `evalConst` helper) move to
+    `const/fold.test.ts`, every case kept (the `**` case went with frontend-conformance 2.5a: the parser refuses it). H7 (lowering's
+    `foldConstant`/`foldsToConstant`/`convertedConstant` → `const/fold`) is 1.7.14's and 7.2's. T: titles kept (checked with
+    1.1.11's move, below).
+- [x] 1.1.10 `parseConversionName` into `types/conversion-name.ts`.
   - What: from `elementary.ts:260`; `conversion-name.test.ts` follows it.
   - Where: `types/conversion-name.ts`, `types/elementary.ts`.
   - Accept: G+LSP, T.
   - Depends: 1.1.9.
-- [ ] 1.1.11 Dissolve `types/types.test.ts`.
+  - Done 2026-10-07 (step 1.1b; 0.9: met, target required). `conversion-name.test.ts` already sits beside it. H4's platform
+    names are NOT switched anywhere in this step — every site keeps `undefined` and moves with 6.B.5. `lower/builtins.ts`'s rewrite
+    (`PLATFORM_ALIASES` on the left side, then `undefined`): measured, `parseConversionName(name, targetOf(project))` also reads the
+    platform side on the right, so `ty_dint_to_uxint` starts lowering and `ty_xint_to_dint_result_type`'s refusal code moves
+    (`expr-call` → `assign-string`). `lower/constants.ts` `convertedConstant` and `isConstantCallee` were first switched to the
+    target here (S identical), but the gate's review found it changes answers S has no fixture for: a platform conversion in an FB
+    VAR initializer went from refused (`expr-call`, as in a body) to lowered, and `5 + __XINT_TO_DINT(5)` from a deferred runtime
+    init to a static fold of 10 — the body and the initializer disagreed, with no recording behind the new answer (0 such
+    conversions in the corpora). Reverted to `undefined` (gate 1.0-1.2); `lower/constants.test.ts` pins that the initializer
+    refuses exactly as the body does and is not folded (both red on the switched tree). All three sites are 6.B.5's.
+- [x] 1.1.11 Dissolve `types/types.test.ts`.
   - What: into `resolve.test.ts`, `compat.test.ts` and `elementary.test.ts` (its 103-148 already went in 1.1.9).
   - Where: `types/*.test.ts`.
   - Accept: G, T.
   - Depends: 1.1.10.
-- [ ] 1.1.12 `calendarNanoseconds` into the literal valuation module.
+  - Done 2026-10-07 (step 1.1c). `types/types.test.ts` (711 lines, 42 tests) is gone, each test beside its subject with the
+    helpers it uses: `elementary.test.ts` (3, new), `resolve.test.ts` (+1), `compat.test.ts` (7, new), `render.test.ts` (1, new),
+    `infer/expr.test.ts` (25, new — the "infer:" tests; `inferExprType` lives in `infer/expr.ts`), `arith/operators.test.ts` (3,
+    new: `operatorFunctionResult`, `shortCircuitType`, `pointerArithmeticType`); its two "const-eval:" tests went to
+    `const/fold.test.ts` in 1.1.9. T (narrowed to `src/frontend/types` for the inner loop): every one of the 42 titles present
+    and passing, 131 tests in the folder, all pass; the gate's full T is the check.
+- [x] 1.1.12 `calendarNanoseconds` into the literal valuation module.
   - What: from lower `constants.ts:294-313`. `inTicks` stays in lowering (it reads `types/` `tickNs`) and moves to
     `values/literals.ts` in 1.6.10.
   - Where: `syntax/literal-value.ts`, `lower/constants.ts`.
   - Accept: G+LSP, S.
   - Depends: 1.0.1, 0.9.
-- [ ] 1.1.13 Split `types/infer.ts` into `infer/expr.ts`, `infer/member.ts`, `infer/callee.ts`.
+  - Done 2026-10-07 (step 1.1c; 0.9: met). Verified: `calendarNanoseconds` lives in `src/frontend/syntax/literal/calendar.ts`
+    (syntax index) and `lower/constants.ts` imports it; the transpiler has no copy. `inTicks` stays in lowering (1.6.10). No change.
+- [x] 1.1.13 Split `types/infer.ts` into `infer/expr.ts`, `infer/member.ts`, `infer/callee.ts`.
   - What: mandatory (no other plan claims it). `fbChainSections` goes on `extendsChain`; the orphan doc at infer.ts:258 (lean 10.4) is
     deleted; `resolveCallee` exported for lowering's parameter view (6.B.4).
   - Where: `types/infer/*`.
   - Accept: G+LSP, S.
   - Depends: 1.1.2, 1.1.8.
-- [ ] 1.1.14 The types barrel exports every new module.
+  - Done 2026-10-07 (step 1.1c; 0.9: met). Verified: `types/infer/{expr,member,callee}.ts`; `fbChainSections` (private,
+    `infer/callee.ts`) walks `symbols` `extendsChain`; `resolveCallee` is on the types index for lowering's parameter view (6.B.4).
+    No code change.
+- [x] 1.1.14 The types barrel exports every new module.
   - What: `types/index.ts` re-exports predicates, width, arrays, defaults, literal, conversion-name, arith, const, infer (and enums
     after 1.7.14); every consumer imports from the barrel, never a deep path (architecture.md mechanism 2).
   - Where: `types/index.ts`, consumers.
   - Accept: G+LSP; a grep finds no deep `types/<module>` import outside `types/`.
   - Depends: 1.1.13.
-
+  - Done 2026-10-07 (step 1.1c). The types index now also carries `isBit`, `isBoolValued`, `isIntegral`, `holdsIntegerBits`,
+    `stringKind`, `isReal`, `floatBits`, `hasTextFormat` (1.1.5), `typeZero` (1.1.4), `peelArray`, `elementOf` (1.1.3), `widthOf`,
+    `wrapToWidth` (1.1.6); literal, conversion-name, arith, const and infer were on it already. The other names 0.9 found off the
+    index (`durationScaleResultType`, `compileTimeConstant`, `constancyIn`, `enumMemberValue`, `enumStorage`, `enumValueStorage`,
+    `enumBase`, `mathResultType`, `MATH_ARG_TYPED`) are added by the task that first imports them in the transpiler (1.7.14, 6.B.5,
+    1.6.15). Grep: no import of a `frontend/types/<module>` other than the index outside `src/frontend/types/` (the one hit is
+    `test/frontend/layering.test.ts`'s planted violation, a string). Lint (F2) enforces it.
 ### 1.2 `ir/`
 
-- [ ] 1.2.1 Split `ir/ir.ts` into `ir/expr.ts`, `ir/stmt.ts` and `ir/program.ts`.
+- [x] 1.2.1 Split `ir/ir.ts` into `ir/expr.ts`, `ir/stmt.ts` and `ir/program.ts`.
   - What: a pure move. `holdsCall` moves verbatim into a new `ir/walk.ts` (rebuilt in 1.2.3); `IrValue` into `program.ts`. Move the
     misplaced `import type { Type }` (line 41) to the top, delete the orphan doc at 252-254, and drop the abandoned sentence at 320-322.
   - Where: `transpile/ir/*`.
   - Accept: G, S.
   - Depends: 1.1.5.
-- [ ] 1.2.2 Codes and lowering results leave `ir/`.
+  - Done 2026-10-07 (step 1.2). `ir/ir.ts` (517 lines after 1.1) is split: `ir/expr.ts` (places and expressions, 271),
+    `ir/stmt.ts` (85), `ir/program.ts` (`IrValue` and the frame, 106), `ir/walk.ts` (`holdsCall`, moved verbatim, then rebuilt by
+    1.2.3); the lowering results stayed in `ir.ts` for 1.2.2. The two-decisions doc heads `ir/index.ts`, which every citation of
+    "see `ir.ts`" now names (`transpile/index.ts`, `test/corpus/corpus.test.ts`). The type imports sit at the top of each file
+    (the misplaced `import type { Type }` is gone with the file). The orphan doc before `IrBuiltinName` became the `trunc`
+    member's own comment (its one fact, TRUNC's rounding, kept); the abandoned "`conversions`… no:" in `IrFresh`'s doc is
+    dropped. `ir/ir.ts`'s ceiling is removed from `scripts/check-size.ts`. S identical.
+- [x] 1.2.2 Codes and lowering results leave `ir/`.
   - What: `ir/codes.ts` and `ir.ts` 548-575 move to `lower/diagnostics/codes.ts` and `diagnostic.ts`, `codes.test.ts` beside them. The
     transpile barrel exports `LOWER_CODES`, `LOWER_CODE_PREFIXES`, `lowerCodeKind`. The deep-path consumers change in the same commit:
     `test/corpus/corpus.test.ts:55`, `test/conformance/fixtures.test.ts:48`. Fix the stale header (test name, "six families") and the
@@ -572,24 +719,90 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `transpile/lower/diagnostics/*`, `transpile/ir/*`, `transpile/index.ts`, the two consumers.
   - Accept: G, S, T; a grep finds no `transpile/ir/codes` import.
   - Depends: 1.2.1.
-- [ ] 1.2.3 `ir/walk.ts` rebuilt on an exhaustive `childrenOf`.
+  - Done 2026-10-07 (step 1.2). `lower/diagnostics/codes.ts` (the registry: `LowerCodeKind`, `LOWER_CODES`,
+    `LOWER_CODE_PREFIXES`, `lowerCodeKind`), `lower/diagnostics/diagnostic.ts` (`LowerDiagnostic`, `LoweredPou`, `lowerDiagnostic`)
+    and `codes.test.ts` beside them (it now reads every source file under `lower/`, recursively — `lower/` gets folders in 1.6).
+    `ir/` no longer knows lowering's results; `lower/index.ts` exports both files, so the transpile barrel's surface is unchanged
+    (`LOWER_CODES`, `LOWER_CODE_PREFIXES`, `lowerCodeKind`, `lowerDiagnostic`). The deep-path consumers use the barrel:
+    `test/corpus/corpus.test.ts`, `test/conformance/fixtures.test.ts`. The stale header reads `codes.test.ts` (not
+    `lower-codes.test.ts`) and no longer counts the families ("five" was stale: there are six); the note that belongs to
+    `pointer-root-input` stands above it, not above `pointer-foreign`. Grep: no `transpile/ir/codes` import. S identical; T: the
+    `codes.test.ts` titles moved with the file.
+- [x] 1.2.3 `ir/walk.ts` rebuilt on an exhaustive `childrenOf`.
   - What: `childrenOf(node)` as a switch over node kinds; `forEachExpr`, `forEachStmt`, `somePlace`, `holdsCall`, `mapPlaces`,
     `blocksOf`, `exitsAfter`, `loopUses`.
   - Where: `transpile/ir/walk.ts`, `walk.test.ts`.
   - Accept: G, S; `walk.test.ts` checks totality over every node kind and that the new `holdsCall` equals the old reflective one on
     every lowered fixture's IR.
   - Depends: 1.2.1.
-- [ ] 1.2.4 `ir/faults.ts`.
+  - Done 2026-10-07 (step 1.2). `ir/walk.ts`: `childrenOf(node)` an exhaustive switch over the 21 node kinds plus a place
+    (`never` in the default: a new kind is a compile error; an unknown one at run time throws by name); `forEachExpr`,
+    `forEachStmt`, `somePlace`, `holdsCall`, `mapPlaces` (typed, innermost first), `blocksOf`, `exitsAfter`, `loopUses` on it.
+    Only `holdsCall` is on the ir barrel (the public surface keeps exactly its names; the walks are imported by path). Two
+    callers of `holdsCall` passed a possibly-undefined node (`lower/calls.ts` 1273, `lower/statements.ts` 400 — the reflective
+    walk answered false for `undefined`), now guarded explicitly; `movedInOut`'s `input` is typed `readonly IrStmt[]`. The
+    emitter's `hasStatementAfterReturn`/`nestedBlocks` and the other walkers move onto it in 1.7.4. Tests: `ir/walk.test.ts` 7
+    (totality: one node of every kind and exactly its children; the walks), `test/conformance/ir-walk.test.ts` (the new
+    `holdsCall` equals the old reflective one — kept there as the oracle — on every expression, statement and body of every
+    lowered fixture; 2.6 s; it lives under `test/` because `src/` may not import the fixtures, rule 6). S identical.
+- [x] 1.2.4 `ir/faults.ts`.
   - What: fault kinds plus message texts. The interpreter's literals (interp.ts 117, 185, 193; values.ts 40, 203, 241) and the emitter's
     panic texts (emit.ts 640, 1266 and others) import them; strings byte-identical.
   - Where: `transpile/ir/faults.ts`, interp, emit.
   - Accept: G, S.
   - Depends: 1.2.1.
-- [ ] 1.2.5 `ir/path.ts`: the IDE path grammar; `Runner.get` and `rustAccess` both parse through it.
+  - Done 2026-10-07 (step 1.2). `ir/faults.ts`: `FaultKind` and `FAULT_TEXT` (null dereference, no instance, division by
+    zero, division overflow, logarithm of zero, zero to a negative power), `indexOutOfBounds`, `characterOutOfRange`, and
+    `rustFaultLiteral` for a `panic!`. The interpreter's literals (`interp.ts` null dereference ×2, index out of bounds, no
+    instance; `values.ts` LN, EXPT, character ×2, division by zero ×2, division overflow) and the emitter's panics (`emit.ts` no
+    instance, null dereference in `select`, `iec_deref`, `iec_log`, `iec_pow`, `iec_div`) read them; byte-identical (S `rust`
+    and `outputs` identical). The prelude's `IecString` panic keeps its Rust format string (`runtime/string.ts`, 1.5.11). Not on
+    the ir barrel (kept off the public surface).
+- [x] 1.2.5 `ir/path.ts`: the IDE path grammar; `Runner.get` and `rustAccess` both parse through it.
   - Where: `transpile/ir/path.ts`, `path.test.ts`, `interp/interp.ts`, `emit/rust/emit.ts`.
   - Accept: G, S; `path.test.ts`.
   - Depends: 1.2.1.
-
+  - Done 2026-10-07 (step 1.2). `ir/path.ts`: `parsePath` (names unquoted, one index segment per dimension) and
+    `namesVariable(declared, segment)` (a quoted declaration named with or without its backticks, through `syntax` `sameName`).
+    `interp/interp.ts` `resolvePath` (Runner.get/set) and `emit/rust/emit.ts` `rustAccess` both walk its segments; 1.1.1's
+    interim `unquoted`/`pathNames` in interp are gone, and so is `rustAccess`'s own `bare`. Tests: `ir/path.test.ts` 3. S
+    identical.
+  - Step 1.2 end (also the end of this agent's run, steps 1.0-1.2): `bun typecheck` clean; `bun run lint` green (layering, size
+    13 ceilings — lowered to today's counts: emit.ts 1366, interp.ts 538, values.ts 639, lower.ts 857 — citations 645 missing,
+    warning); `bun test src scripts` 2050 tests, 0 fail; `bun test test/frontend` 45/45 after re-pointing three rule-inventory
+    entries (`test/frontend/rules.ts` LB8, M3 ×2: `types/types.test.ts` → `types/infer/expr.test.ts`, 1.1.11); `bun test
+    test/conformance` 6168 pass, 389 todo, 0 fail (308 s); `bun run test:corpus` green; `rate:fixtures` regenerated — no change
+    to `map.generated.ts`; S (`snapshot:transpile check`, all layers) "✓ identical" after each of 1.1a, 1.1b and 1.2 (161-169 s);
+    `bun run check` (repo root) 18 passed. One red outside the touched code: `test/libraries/standard.test.ts` "a TON transpiled
+    from the repo runs in Rust exactly as the interpreter runs it" times out at 5 s — measured: lowering, emission, `rustAccess`
+    and the interpreter take 30 ms together, the build is a rustc-cache HIT (`VOLT_RUSTC_TRACE`: `cached: true`) and the
+    emitted Rust is S-identical, so the 6.5 s is spent restoring and spawning the cached exe on this machine; passes with a
+    longer timeout. Left for the gate's full run to confirm (not raised: a timeout is a bug to root-cause).
+  - Gate 1.0-1.2 (2026-10-07). The review's three findings, each failing test first:
+    - `lower/constants.ts` (medium, fixed): 1.1.10's switch of `convertedConstant`/`isConstantCallee` to the project's
+      target was not neutral (an FB VAR initializer `DINT_TO___XINT(5)` lowered where the body refuses `expr-call`;
+      `5 + __XINT_TO_DINT(5)` folded statically to 10). Reverted to `undefined`, owned by 6.B.5 (written there and under
+      1.1.10); `src/transpile/lower/constants.test.ts` 2 tests, both red before the revert.
+    - the TON timeout (low, fixed in the cache, not the test): `test/conformance/support/rustc-cache.ts` `prune` stat-ed every
+      entry once per process — 5.7 s at 17,199 entries (3.8 GB), on the critical path of a file's first build even on a HIT.
+      The size now comes from a LEDGER (`.cache/rustc/.ledger`, `<key> <bytes>` appended per store; a key counted once; an
+      eviction only overstates it); only a missing ledger or one past the cap pays the walk, which rewrites it. Tests:
+      `rustc-cache.test.ts` "pruning reads the size ledger" 3 (the first red before: a 2 MB entry under a 10-byte ledger was
+      pruned). `test/libraries/standard.test.ts` green (4.7 s for the file; the first run after the change paid the one walk
+      that wrote the ledger).
+    - a VAR initializer LEADING with a platform conversion (`d : LINT := __XINT_TO_DINT(5);`) is refused "';' expected
+      instead of '__XINT_TO_DINT'" (low, pre-existing): `parse/initializer.ts` `isUnknownSystemName` refuses any `__`
+      identifier leading an initializer (`cc_decl_init_dunder_unknown`, measured for a name neither vendor has). Whether
+      CODESYS takes a platform conversion there is not recorded (TY11's fixtures convert in a body), so the fix needs a
+      recording first. Niche: accepted loss (0 occurrences in the corpora — no `__U?X(INT|WORD)_TO_` / `_TO___U?X…` anywhere
+      in the six projects). Not worked on.
+    Numbers: `bun typecheck` clean; `bun run lint` green (layering 3 known, size 13 ceilings + 17 functions warned,
+    citations 652 missing, warning); FULL `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) 8468 pass, 35 skip, 432
+    todo, 0 fail, 8935 tests in 224 files, 566 s; S (`snapshot:transpile check`, ir/rust/outputs/edge) ✓ identical, 5357
+    fixtures, 158 s; `rate:fixtures` regenerated — `map.generated.ts` unchanged (edge agree 3046, disagree 0, not-run 179);
+    `bun run check` (repo root) 18 passed. Committed one commit per step: 1.0 (the tooling, its ceilings as of 1.0), 1.1 (the
+    front-end homes and tests), 1.2 (the `ir/` split and EVERY transpile-side edit of 1.1 and 1.2 — they share files, so
+    1.1's switches in `src/transpile/` ride with 1.2), plus this gate's fixes with 1.2.
 ### 1.3 `semantics/`
 
 - [ ] 1.3.1 Move `ir/values.ts` and `ir/evaluate.ts` to `semantics/` as they are.
@@ -1620,6 +1833,25 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - Where: `lower/calls/parameters.ts`, `types/infer/callee.ts`.
   - Accept: S-out; G+LSP; the differential test of 1.7.18 reports only reasoned differences.
   - Depends: 1.9.4.
+- [ ] 6.B.5 Lowering's NOT, duration-scaling and platform-conversion rules read the front-end (hand-off H4, split from 1.1.8
+  and 1.1.10: not output-neutral).
+  - What: `NOT` of a signed integer (`lower/values` / today `lower/expressions.ts` 181-185) types as `types/arith/operators`
+    `notResultType` — the unsigned INTEGER of the width (`NOT sint` USINT, recorded `uop_not_*`) where lowering stamps the bit
+    string (BYTE): the same value, a different IR type (S's `ir` layer moves; S-out must not). Duration × / ÷ integer (today
+    `lower/expressions.ts` 257-261) converts through `types/arith/temporal` `durationScaleConversion`: a 64-bit integer beside a
+    TIME is the INTEGER there (AR18) where lowering converts it to TIME — a value change, so its fixtures are named first and
+    recorded if missing (with 6.14). The platform conversion rewrite (today `lower/builtins.ts` 152-157: `__U?X…_TO_` replaced
+    through `PLATFORM_ALIASES`, then `parseConversionName(…, undefined)`) becomes `parseConversionName(name, targetOf(project))`:
+    measured by 1.1.10, that also reads the platform side on the RIGHT (`DINT_TO___UXINT`), so `ty_dint_to_uxint` starts
+    lowering and `ty_xint_to_dint_result_type`'s refusal moves from `expr-call` to `assign-string` — both rate today as
+    not-lowered/refused, so the change is decided against their recordings, not taken as a structure move. The constant
+    folder (`lower/constants.ts` `convertedConstant`, `isConstantCallee`, today `undefined`) switches in the SAME step as the
+    body, so an initializer and a body never answer differently (gate 1.0-1.2; `lower/constants.test.ts` pins today's refusal and
+    is rewritten with the recorded answer — a TY11 conversion in a VAR initializer is recorded first).
+  - Where: `lower/expressions/operators.ts`, `lower/builtins/conversions.ts` (after 1.6.14, 1.6.15), `lower/constants.ts`, `types/arith/*`.
+  - Accept: S-out for NOT; for duration scaling and the platform names F(each fixture whose answer changes) or the recording
+    that shows none does; G+LSP.
+  - Depends: 1.9.4, 6.14.
 
 ## 7. Lean groups (same program output, less Rust: every step S-out + M)
 

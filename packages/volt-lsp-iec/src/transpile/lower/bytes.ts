@@ -3,8 +3,8 @@
  */
 import type { Expr } from "../../frontend/syntax/index.js"
 import { lookup, targetOf } from "../../frontend/symbols/index.js"
-import { elementaryRef, elementaryTypeOn, resolveNamedType, type Type } from "../../frontend/types/index.js"
-import { type IrExpr, peelArray, type Place } from "../ir/index.js"
+import { elementaryRef, elementaryTypeOn, peelArray, resolveNamedType, type Type } from "../../frontend/types/index.js"
+import { type IrExpr, type Place } from "../ir/index.js"
 import { baseOf, type Lowering } from "./lowering.js"
 import { storageOf } from "./storage.js"
 import { lowerPlace } from "./places.js"

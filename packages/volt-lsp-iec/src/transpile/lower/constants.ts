@@ -128,7 +128,8 @@ function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undef
   // `i` flag, so a lower-case `int_to_byte(5)` was not a conversion at all where ST is case-insensitive; and no
   // check on the SOURCE, so a project function named `FOO_TO_INT(5)` folded as though it converted, silently
   // yielding its argument. `parseConversionName` rejects both (`GO_TO_START` is the case its own doc names).
-  // no target: the platform-alias names are handed to transpile-restructure (frontend-conformance 4.1.2, task 5.3)
+  // no target: the platform-alias names are lowered together with the body's (`lower/builtins.ts`), task 6.B.5 (H4);
+  // folding them here alone lowered an initializer the body refuses (`constants.test.ts`)
   const conversion = parseConversionName(e.callee.name, undefined)
   if (written === undefined || conversion === undefined) return undefined
   const elem = conversion.to
@@ -180,6 +181,7 @@ export function foldsToConstant(lw: Lowering, e: Expr): boolean {
 /** The callees whose result is decided at compile time: a conversion, `SIZEOF`, and the pure value functions. */
 function isConstantCallee(name: string): boolean {
   const upper = name.toUpperCase()
+  // no target: as `convertedConstant` (6.B.5)
   return upper === "SIZEOF" || upper === "XSIZEOF" || BUILTIN_ARITY[upper] !== undefined || parseConversionName(upper, undefined) !== undefined
 }
 

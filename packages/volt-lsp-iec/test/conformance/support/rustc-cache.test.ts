@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -7,6 +7,8 @@ import {
   buildRust,
   environmentIdentity,
   KEYED_ENV,
+  ledgerSize,
+  prune,
   sampled,
   StaleCacheError,
   toolchainIdentity,
@@ -132,6 +134,53 @@ describe("sampled verification — which hits are re-proved", () => {
     const rate = keys.filter((k) => sampled(k, "s", 0.02)).length / keys.length
     expect(rate).toBeGreaterThan(0.015)
     expect(rate).toBeLessThan(0.025)
+  })
+})
+
+describe("pruning reads the size ledger, not every entry", () => {
+  // stat-ing every entry once per process cost 5.7 s at 17,199 entries — the first Rust test of a file whose build
+  // was a cache HIT timed out on it (`test/libraries/standard.test.ts`, gate 1.0-1.2)
+  const entry = (root: string, key: string, bytes: number, usedAgoMs: number) => {
+    mkdirSync(join(root, key), { recursive: true })
+    writeFileSync(join(root, key, "out.bin"), Buffer.alloc(bytes))
+    writeFileSync(join(root, key, "entry.json"), "{}")
+    const t = new Date(Date.now() - usedAgoMs)
+    utimesSync(join(root, key, "entry.json"), t, t)
+  }
+  const withCap = async (mb: string, fn: () => Promise<void>) => {
+    const was = process.env.VOLT_RUSTC_CACHE_MAX_MB
+    process.env.VOLT_RUSTC_CACHE_MAX_MB = mb
+    try {
+      await fn()
+    } finally {
+      if (was === undefined) delete process.env.VOLT_RUSTC_CACHE_MAX_MB
+      else process.env.VOLT_RUSTC_CACHE_MAX_MB = was
+    }
+  }
+  test("a ledger under the cap is the whole check: no entry is measured or removed", async () => {
+    const root = mkdtempSync(join(tmpdir(), "volt-rustc-ledger-"))
+    entry(root, "a", 2 * 1024 * 1024, 1000) // 2 MB on disk, but the ledger says otherwise: nothing walks to see it
+    writeFileSync(join(root, ".ledger"), "a 10\n")
+    await withCap("1", () => prune(root))
+    expect(existsSync(join(root, "a"))).toBe(true)
+    rmSync(root, { recursive: true, force: true })
+  })
+  test("no ledger: the walk measures, prunes least-recently-used to 3/4 of the cap, and writes the ledger", async () => {
+    const root = mkdtempSync(join(tmpdir(), "volt-rustc-ledger-"))
+    entry(root, "old", 400_000, 3000)
+    entry(root, "mid", 400_000, 2000)
+    entry(root, "new", 400_000, 1000)
+    await withCap("1", () => prune(root)) // 1 MiB cap, 1.2 MB stored → down to 786 KiB: the two oldest go
+    expect(readdirSync(root).filter((n) => !n.startsWith(".")).sort()).toEqual(["new"])
+    expect(await ledgerSize(root)).toBe(400_002)
+    rmSync(root, { recursive: true, force: true })
+  })
+  test("a key stored twice counts once; no ledger reads as undefined", async () => {
+    const root = mkdtempSync(join(tmpdir(), "volt-rustc-ledger-"))
+    expect(await ledgerSize(root)).toBeUndefined()
+    writeFileSync(join(root, ".ledger"), "a 10\nb 5\na 10\n")
+    expect(await ledgerSize(root)).toBe(15)
+    rmSync(root, { recursive: true, force: true })
   })
 })
 
