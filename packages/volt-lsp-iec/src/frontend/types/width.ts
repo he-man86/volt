@@ -4,6 +4,7 @@
  * would not on a fifth.
  */
 import { elementaryType, type ElementaryType } from "./elementary.js"
+import type { Type } from "./type.js"
 
 /**
  * THE INTEGER LADDER: the narrowest {signed, unsigned} type that holds `bits`.
@@ -17,4 +18,9 @@ export function integerOfWidth(bits: number, signed: boolean): ElementaryType {
  *  when it is signed. */
 export function wrapToWidth(v: bigint, e: ElementaryType): bigint {
   return e.signed ? BigInt.asIntN(e.bits, v) : BigInt.asUintN(e.bits, v)
+}
+
+/** An elementary type's width in bits — what a shift or a rotate on it counts in — or undefined for any other type. */
+export function widthOf(t: Type): number | undefined {
+  return t.kind === "elementary" ? t.elem.bits : undefined
 }

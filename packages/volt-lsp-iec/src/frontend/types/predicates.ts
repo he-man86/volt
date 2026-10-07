@@ -4,6 +4,7 @@
  */
 import { ANY_FAMILIES, elementaryType } from "./elementary.js"
 import { isElementaryTypeName } from "./platform.js"
+import { elemOf, type Type } from "./type.js"
 
 /** Numeric widening rank (was `NUMERIC_RANK` in check-assignment-types), or undefined for non-numeric. */
 export function numericRank(name: string): number | undefined {
@@ -56,4 +57,55 @@ export function isTemporal(name: string): boolean {
 export function isKnownPrimitive(name: string): boolean {
   const u = name.toUpperCase()
   return isElementaryTypeName(u) || ANY_FAMILIES.has(u) || u === "POINTER"
+}
+
+// ─── predicates over a resolved `Type` (openspec transpile-restructure design.md §6 need 5) ───────────────────────────
+// The questions the transpiler asks of a type, answered once: lowering and both backends ask here and decide nothing of
+// their own (design.md P4). `emit/rust` maps a type to Rust through these alone.
+
+/** A BIT (a struct field of one bit) holds a BOOLEAN: CODESYS reads `dut.bFlag` as TRUE/FALSE, starting at FALSE
+ *  (conformance `type_dut_struct_with_bit_fields`) — so both backends store it as their boolean. */
+export function isBit(t: Type): boolean {
+  return t.kind === "elementary" && t.elem.name === "BIT"
+}
+
+/** A type whose value is a BOOLEAN: BOOL, and a BIT (`isBit`) — the same value; a BIT is one bit only in the LAYOUT. */
+export function isBoolValued(t: Type): boolean {
+  return isBit(t) || elemOf(t)?.family === "bool"
+}
+
+/** An integer or a bit string held as an integer (ANY_INT and BYTE…LWORD) — not a BIT, which holds a BOOLEAN. */
+export function isIntegral(t: Type): boolean {
+  const family = elemOf(t)?.family
+  return family === "int" || (family === "bitstring" && !isBit(t))
+}
+
+/** A type held as an integer of its `bits`: `isIntegral`, and a duration or a date — TIME/TOD 32-bit milliseconds,
+ *  DATE/DT 32-bit seconds, the L variants 64-bit nanoseconds (transpile design §16, §17). */
+export function holdsIntegerBits(t: Type): boolean {
+  const family = elemOf(t)?.family
+  return isIntegral(t) || family === "time" || family === "date"
+}
+
+/** A string type's kind — `"STRING"` or `"WSTRING"` — or undefined for anything else. */
+export function stringKind(t: Type): "STRING" | "WSTRING" | undefined {
+  const elem = elemOf(t)
+  return elem?.family !== "string" ? undefined : elem.name === "WSTRING" ? "WSTRING" : "STRING"
+}
+
+/** A REAL or an LREAL. */
+export function isReal(t: Type): boolean {
+  return elemOf(t)?.family === "real"
+}
+
+/** A real type's width — 32 for REAL, 64 for LREAL — or undefined for anything else. */
+export function floatBits(t: Type): 32 | 64 | undefined {
+  const elem = elemOf(t)
+  return elem?.family !== "real" ? undefined : elem.bits === 32 ? 32 : 64
+}
+
+/** A type whose text is a LITERAL (`T#1s500ms`, `DT#…`) — a duration or a date (`isTemporal`, asked of a `Type`). */
+export function hasTextFormat(t: Type): boolean {
+  const elem = elemOf(t)
+  return elem !== undefined && isTemporal(elem.name)
 }

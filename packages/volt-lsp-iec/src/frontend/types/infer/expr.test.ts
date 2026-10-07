@@ -1,135 +1,8 @@
-import { test, expect } from "bun:test"
-import { type Expr, type FunctionBlock, parseSource, bodyStatements, renderTypeExpr, type TypeExpr } from "../syntax/index.js"
-import { build, findChildScope, type Scope } from "../symbols/index.js"
-import {
-  constEval,
-  ELEMENTARY_TYPES,
-  elementaryType,
-  inferExprType,
-  isAssignable,
-  isIntegerType,
-  classifyConversion,
-  isNumericType,
-  renderType,
-  resolveNamedType,
-  resolveTypeExpr,
-  UNKNOWN,
-  type Type,
-} from "./index.js"
-import { isIsolated, numericRank } from "./predicates.js"
-
-// ─── C.1 elementary — golden test: derived views reproduce the known sets exactly ───
-
-test("elementary facts: ranges, bits, signedness", () => {
-  expect(elementaryType("INT")).toMatchObject({ family: "int", bits: 16, signed: true })
-  expect(elementaryType("INT")?.range).toEqual({ min: -32768n, max: 32767n })
-  expect(elementaryType("BYTE")?.range).toEqual({ min: 0n, max: 255n })
-  expect(elementaryType("LWORD")?.range).toEqual({ min: 0n, max: 18446744073709551615n })
-  expect(elementaryType("TIME_OF_DAY")?.name).toBe("TOD") // alias canonicalization
-  expect(elementaryType("NotAType")).toBeUndefined()
-})
-
-test("derived views match the legacy explicit sets", () => {
-  const names = [...ELEMENTARY_TYPES.keys()]
-  // Integer types = int/bitstring with a rank (BIT excluded — no rank).
-  expect(names.filter(isIntegerType).sort()).toEqual(
-    ["BYTE", "DINT", "DWORD", "INT", "LINT", "LWORD", "SINT", "UDINT", "UINT", "ULINT", "USINT", "WORD"].sort(),
-  )
-  // Numeric = everything with a widening rank (integers + REAL/LREAL).
-  expect(names.filter(isNumericType).sort()).toEqual(
-    [
-      "BYTE",
-      "DINT",
-      "DWORD",
-      "INT",
-      "LINT",
-      "LREAL",
-      "LWORD",
-      "REAL",
-      "SINT",
-      "UDINT",
-      "UINT",
-      "ULINT",
-      "USINT",
-      "WORD",
-    ].sort(),
-  )
-  // Widening rank lattice: SINT..LREAL = 1..6.
-  expect([numericRank("SINT"), numericRank("INT"), numericRank("DINT"), numericRank("LINT")]).toEqual([1, 2, 3, 4])
-  expect([numericRank("REAL"), numericRank("LREAL")]).toEqual([5, 6])
-  // Isolated families (no cross-family implicit conversion).
-  expect(isIsolated("BOOL")).toBe(true)
-  expect(isIsolated("STRING")).toBe(true)
-  expect(isIsolated("TIME")).toBe(true)
-  expect(isIsolated("INT")).toBe(false)
-})
-
-// ─── C.2 resolve ───
-
-function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
-}
-
-test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {
-  const p = proj(`
-TYPE MyAlias : INT; END_TYPE
-TYPE Color : (Red, Green); END_TYPE
-TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
-FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
-  const intT = resolveNamedType("INT", p)
-  expect(intT.kind).toBe("elementary")
-  expect(intT.kind === "elementary" && intT.elem.bits).toBe(16)
-  expect(resolveNamedType("MyAlias", p)).toMatchObject({ kind: "elementary", name: "INT" })
-  expect(resolveNamedType("Color", p).kind).toBe("enum")
-  expect(resolveNamedType("Pt", p)).toMatchObject({ kind: "struct" })
-  expect(resolveNamedType("FB_A", p).kind).toBe("function_block")
-  expect(resolveNamedType("SomeLibType", p)).toEqual(UNKNOWN) // unresolvable → skip
-})
-
-// ─── C.3 const-eval ───
-
-// The expression is carried as an assignment's VALUE: a bare expression is no statement on either vendor (a literal or `(`
-// opening one is refused, a binary operation is "no valid statement" — frontend-conformance 2.6, ST5).
-function evalConst(varDecls: string, exprSrc: string) {
-  const src = `FUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-  const scope = findChildScope(project, "F")!
-  const e = lastExpr(pr.units[0] as FunctionBlock)
-  return constEval(e, scope)
-}
-
-test("const-eval: literals, arithmetic, const-ref folding, non-const → undefined", () => {
-  expect(evalConst("", "2 + 3 * 4")).toBe(14n)
-  expect(evalConst("", "(10 - 4) / 2")).toBe(3n)
-  expect(evalConst("", "1.5 * 2.0")).toBe(3)
-  expect(evalConst("", "5 > 3")).toBe(true)
-  expect(evalConst("VAR CONSTANT\n Cap : INT := 100;\nEND_VAR", "Cap + 1")).toBe(101n)
-  expect(evalConst("VAR\n v : INT;\nEND_VAR", "v + 1")).toBeUndefined() // non-const var
-  expect(evalConst("", "10 / 0")).toBeUndefined() // div by zero
-})
-
-test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
-  // unary
-  expect(evalConst("", "-(2 + 3)")).toBe(-5n)
-  expect(evalConst("", "NOT (5 > 3)")).toBe(false)
-  expect(evalConst("", "+(4)")).toBe(4n)
-  // integer MOD (+ its undefined case). `**` is no operator on either vendor, so there is no tree to fold: the parse
-  // refuses it (`cc_power_operator`; `parse/expression.test.ts`)
-  expect(evalConst("", "10 MOD 3")).toBe(1n)
-  expect(evalConst("", "10 MOD 0")).toBeUndefined()
-  // comparisons across the operator set
-  expect(evalConst("", "5 = 5")).toBe(true)
-  expect(evalConst("", "4 <> 4")).toBe(false)
-  expect(evalConst("", "3 <= 3")).toBe(true)
-  expect(evalConst("", "5 >= 9")).toBe(false)
-  expect(evalConst("", "2 < 1")).toBe(false)
-  // real arithmetic
-  expect(evalConst("", "7.5 - 2.5")).toBe(5)
-  expect(evalConst("", "9.0 / 2.0")).toBe(4.5)
-})
-
-// ─── C.4 infer ───
+/** An expression's type (from `types.test.ts`, transpile-restructure 1.1.11). */
+import { expect, test } from "bun:test"
+import { bodyStatements, type Expr, type FunctionBlock, parseSource } from "../../syntax/index.js"
+import { build, findChildScope } from "../../symbols/index.js"
+import { inferExprType, renderType, type Type, UNKNOWN } from "../index.js"
 
 function lastExpr(fb: FunctionBlock): Expr {
   const stmts = bodyStatements(fb.body).statements
@@ -144,6 +17,8 @@ function inferExpr(unitsBefore: string, varDecls: string, exprSrc: string): Type
   const scope = findChildScope(project, "F")!
   return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), scope, project)
 }
+
+const E_PLAIN = "TYPE E :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"
 
 test("infer: literals and variables", () => {
   expect(inferExpr("", "", "TRUE")).toMatchObject({ kind: "elementary", name: "BOOL" })
@@ -391,64 +266,6 @@ END_VAR`, "tmp := SIZEOF(s1)")
   expect(renderType(sized("s1 : STRING(300);"), { form: "compiler" })).toBe("UINT")
 })
 
-// ─── C.5 compat ───
-
-test("isAssignable: widening, narrowing, isolation, enums", () => {
-  const p = proj(`TYPE Color : (Red, Green); END_TYPE\nTYPE Mode : (A, B); END_TYPE`)
-  const T = (n: string) => resolveNamedType(n, p)
-  expect(isAssignable(T("INT"), T("SINT"))).toBe(true) // widening up the rank
-  expect(isAssignable(T("INT"), T("DINT"))).toBe(false) // narrowing — not implicit
-  expect(isAssignable(T("BOOL"), T("INT"))).toBe(false) // BOOL isolated
-  expect(isAssignable(T("REAL"), T("LREAL"))).toBe(true) // both ways (narrowing is a warning, not error)
-  expect(isAssignable(T("Color"), T("Color"))).toBe(true)
-  // different enums: a WARNING, not a refusal — "Implicit conversion from one enumeration type (MODE) to another (COLOR)"
-  // (`cv_enum_into_other_enum`, `unit_enum_extends_enum`, both vendors; this said "not assignable" from no recording)
-  expect(classifyConversion(T("Color"), T("Mode"))).toBe("enum-change")
-  expect(isAssignable(T("Color"), T("INT"))).toBe(true) // enum↔int allowed
-  expect(isAssignable(T("Color"), T("STRING"))).toBe(false) // enum↔string rejected
-  expect(isAssignable(T("INT"), UNKNOWN)).toBe(true) // unknown → skip
-})
-
-test("classifyConversion: identity / widen / narrow / sign-change / incompatible", () => {
-  const p = proj("")
-  const T = (n: string) => resolveNamedType(n, p)
-  expect(classifyConversion(T("INT"), T("INT"))).toBe("identity")
-  expect(classifyConversion(T("INT"), T("SINT"))).toBe("widen") // narrower rank → wider
-  expect(classifyConversion(T("REAL"), T("INT"))).toBe("widen") // int → real is implicit
-  expect(classifyConversion(T("REAL"), T("LREAL"))).toBe("narrow") // real narrowing warns
-  expect(classifyConversion(T("INT"), T("WORD"))).toBe("sign-change") // 16-bit unsigned → signed
-  expect(classifyConversion(T("UINT"), T("INT"))).toBe("sign-change") // 16-bit signed → unsigned
-  // Oracle-calibrated (scripts/conversion-matrix.ts, live CODESYS): signed → WIDER unsigned still changes sign
-  // (negatives don't fit), but a wider SIGNED target holds every unsigned value, so that one stays a safe widen.
-  expect(classifyConversion(T("UINT"), T("SINT"))).toBe("sign-change") // signed → wider unsigned
-  expect(classifyConversion(T("DINT"), T("USINT"))).toBe("widen") // unsigned → wider signed: fits
-  // integer → real is safe until the integer needs more bits than the mantissa holds (REAL 24, LREAL 53).
-  expect(classifyConversion(T("REAL"), T("DINT"))).toBe("narrow") // 32-bit int > 24-bit mantissa → loss
-  expect(classifyConversion(T("LREAL"), T("DINT"))).toBe("widen") // 32-bit int fits the 53-bit mantissa
-  expect(classifyConversion(T("LREAL"), T("LINT"))).toBe("narrow") // 64-bit int > 53-bit mantissa → loss
-  expect(classifyConversion(T("INT"), T("DINT"))).toBe("incompatible") // integer narrowing → error
-  expect(classifyConversion(T("INT"), T("REAL"))).toBe("incompatible") // real → int needs explicit
-  expect(classifyConversion(T("BOOL"), T("INT"))).toBe("incompatible") // BOOL isolated
-  expect(classifyConversion(T("INT"), UNKNOWN)).toBe("identity") // conservative skip
-})
-
-// ─── C.5 render ───
-
-function declType(src: string): TypeExpr {
-  const fb = parseSource(`FUNCTION_BLOCK F\nVAR\n ${src}\nEND_VAR\nEND_FUNCTION_BLOCK`, { networkText: true }).units[0] as FunctionBlock
-  return fb.varSections[0].decls[0].type
-}
-
-test("renderType / renderTypeExpr", () => {
-  const p = proj("")
-  expect(renderType(resolveNamedType("INT", p))).toBe("INT")
-  expect(renderType(resolveTypeExpr(declType("a : ARRAY[0..9] OF INT;"), p))).toBe("ARRAY [0..9] OF INT") // the IDE's spelling (conformance `cc6_function_input_array_default`)
-  expect(renderType(resolveTypeExpr(declType("q : POINTER TO REAL;"), p))).toBe("POINTER TO REAL")
-  expect(renderTypeExpr(declType("sx : STRING(80);"))).toBe("STRING(80)")
-  expect(renderTypeExpr(declType("x : INT(0..100);"))).toBe("INT(0..100)")
-  expect(renderTypeExpr(declType("p : POINTER TO INT;"))).toBe("POINTER TO INT")
-})
-
 // An FB instance called types as its FB (`callReturnType`, the instance's declared type); an ELEMENT of an array of
 // them, called, is the same instance reached through an index (`decl_var_generic_in_array`: `inst[0]();`) — it had no
 // symbol of its own, so it was UNKNOWN where `inst()` was the FB.
@@ -472,16 +289,6 @@ test("infer: a CODESYS partial access is of the part it names (operand_partial_*
 // would be USINT, which `R=` refuses.
 test("infer: NOT of a BIT stays a BIT, as NOT of a BOOL stays a BOOL (pro2193 ModuleWithStateFB, ST2)", () => {
   expect(inferExpr("", "VAR\n b : BIT;\nEND_VAR", "NOT b")).toMatchObject({ kind: "elementary", name: "BIT" })
-})
-
-test("the parser's elementary type words are every name an elementary type answers to (frontend-conformance 2.8.3, R6)", async () => {
-  // `syntax/lex/vocabulary.ts` `ELEMENTARY_TYPE_WORDS` is what the parser refuses where a name belongs; the syntax layer
-  // may not import this one, so the two lists are held to each other here
-  const { ELEMENTARY_TYPE_WORDS } = await import("../syntax/index.js")
-  const { ELEMENTARY_TYPES, ELEM_ALIASES } = await import("./elementary.js")
-  const { PLATFORM_ALIASES } = await import("./platform.js")
-  const names = [...ELEMENTARY_TYPES.keys(), ...ELEM_ALIASES.keys(), ...PLATFORM_ALIASES.keys()].sort()
-  expect([...ELEMENTARY_TYPE_WORDS].sort()).toEqual(names)
 })
 
 // rule H2: `inst.baseMember` types through the instance's FB AND its bases (`callshape_inout_base_method_from_outside_derived`
@@ -579,74 +386,12 @@ test("infer: a dependency's namespace through a library's namespace is a static 
   expect(typed("Util.Standard.LEN('abcd')")).toBe("INT")
 })
 
-// ─── 4.4 the function-form operator boxes (the network-text reader's wire typing) ───
-
-test("operatorFunctionResult: a comparison box is BOOL, a bit-operator box a type of ANY_BIT, any other box nothing", async () => {
-  const { operatorFunctionResult, isBitOperatorWireType } = await import("./index.js")
-  for (const box of ["GT", "ge", "LT", "LE", "EQ", "NE"]) expect(operatorFunctionResult(box)).toEqual({ exact: "BOOL" })
-  for (const box of ["AND", "or", "XOR", "NOT"]) expect(operatorFunctionResult(box)).toEqual({ group: "ANY_BIT" })
-  expect(operatorFunctionResult("ADD")).toBeUndefined()
-  expect(operatorFunctionResult("TON")).toBeUndefined()
-  // a bit-operator box's wire is BOOL or a bit string — ANY_BIT without BIT, as the bridge's gate (`NetworkSpelling.BitStrings`)
-  for (const t of ["BOOL", "BYTE", "WORD", "DWORD", "LWORD"]) expect(isBitOperatorWireType(t)).toBe(true)
-  for (const t of ["BIT", "INT", "UDINT", "REAL", "TIME", "STRING", "NotAType"]) expect(isBitOperatorWireType(t)).toBe(false)
-})
-
-// ─── 4.5.1 enum conversions (CV3–CV5) ───
-
-const E_PLAIN = "TYPE E :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"
-const E_BYTE = "TYPE EB :\n(\n\tOff := 0,\n\tOn := 1\n) BYTE;\nEND_TYPE"
-
 test("infer: an enum operand of arithmetic computes in its base — INT without one (cv_enum_arithmetic_type, CODESYS 2026-10-03)", () => {
   const vars = "VAR\n e : E;\n d : DINT;\nEND_VAR"
   expect(inferExpr(E_PLAIN, vars, "e + INT#1")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(inferExpr(E_PLAIN, vars, "e + 1")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(inferExpr(E_PLAIN, vars, "e + e")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(inferExpr(E_PLAIN, vars, "e * d")).toMatchObject({ kind: "elementary", name: "DINT" })
-})
-
-test("compat: an enum with a written base converts as that base, both ways (cv_enum_base_*_into_scalars, cv_scalars_into_enum_with_base)", () => {
-  const enumOf = (src: string, name: string): Type => resolveNamedType(name, proj(src))
-  const eb = enumOf(E_BYTE, "EB")
-  expect(eb).toMatchObject({ kind: "enum", base: { name: "BYTE" } })
-  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
-  expect(classifyConversion(el("SINT"), eb)).toBe("sign-change")
-  expect(classifyConversion(el("INT"), eb)).toBe("widen")
-  expect(classifyConversion(eb, el("INT"))).toBe("incompatible")
-  expect(classifyConversion(eb, el("USINT"))).toBe("widen")
-  // …and a project enum WITHOUT one converts as INT INTO it too (cv_scalars_into_enum: DINT, REAL, BOOL refused; UINT taken)
-  const e = enumOf(E_PLAIN, "E")
-  expect(classifyConversion(e, el("DINT"))).toBe("incompatible")
-  expect(classifyConversion(e, el("REAL"))).toBe("incompatible")
-  expect(classifyConversion(e, el("BOOL"))).toBe("incompatible")
-  expect(classifyConversion(e, el("SINT"))).toBe("widen")
-})
-
-test("compat: a value of another enum converts with a warning, not an error (cv_enum_into_other_enum, unit_enum_extends_enum)", () => {
-  const src = `${E_PLAIN}\n${E_BYTE}`
-  const p = proj(src)
-  expect(classifyConversion(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe("enum-change")
-  expect(isAssignable(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe(true)
-})
-
-// ─── 4.4 / 4.5.2 short-circuit operators, pointers, references ───
-
-test("shortCircuitType: two BOOLs are BOOL, integers meet in the unsigned integer of their width (cb_and_then_*, CB5)", async () => {
-  const { shortCircuitType } = await import("./index.js")
-  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
-  expect(shortCircuitType(el("BOOL"), el("BOOL"))).toMatchObject({ name: "BOOL" })
-  expect(shortCircuitType(el("INT"), el("INT"))).toMatchObject({ name: "UINT" })
-  expect(shortCircuitType(el("WORD"), el("WORD"))).toMatchObject({ name: "UINT" })
-  expect(shortCircuitType(el("BOOL"), el("INT"))).toMatchObject({ name: "UINT" })
-  expect(shortCircuitType(el("INT"), el("DINT"))).toBeUndefined() // two widths: unmeasured
-  expect(shortCircuitType(el("REAL"), el("BOOL"))).toBeUndefined()
-  // a BIT is a 1-bit boolean: beside a BIT or a BOOL it is BOOL logic; beside an integer unmeasured
-  expect(shortCircuitType(el("BIT"), el("BIT"))).toMatchObject({ name: "BOOL" })
-  expect(shortCircuitType(el("BOOL"), el("BIT"))).toMatchObject({ name: "BOOL" })
-  expect(shortCircuitType(el("BIT"), el("INT"))).toBeUndefined()
-  // only 16 bits were recorded: every other width is unmeasured
-  for (const [a, b] of [["BYTE", "BYTE"], ["DINT", "DINT"], ["LINT", "LINT"], ["BOOL", "DINT"], ["SINT", "BOOL"]] as const)
-    expect(shortCircuitType(el(a), el(b))).toBeUndefined()
 })
 
 test("infer: POINTER ± integer is the pointer, pointer − pointer a DWORD; a reference reads as its target (dt_pointer_*, dt_reference_auto_deref_type)", () => {
@@ -658,48 +403,6 @@ test("infer: POINTER ± integer is the pointer, pointer − pointer a DWORD; a r
   expect(inferExpr("", vars, "ri")).toMatchObject({ kind: "reference" })
   expect(inferExpr("", vars, "ri + 1")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(inferExpr("", vars, "ri * rr")).toMatchObject({ kind: "elementary", name: "REAL" })
-})
-
-test("compat: an integer into a pointer on a 64-bit target — 32 bits refused, signed a change of sign, the rest silent (cv_integers_into_pointer)", () => {
-  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
-  const ptr: Type = { kind: "pointer", target: el("INT") }
-  const x64 = { pointerBits: 64 } as Parameters<typeof classifyConversion>[2]
-  for (const t of ["DWORD", "UDINT", "DINT"]) expect(classifyConversion(ptr, el(t), x64)).toBe("incompatible")
-  for (const t of ["INT", "LINT"]) expect(classifyConversion(ptr, el(t), x64)).toBe("sign-change")
-  for (const t of ["BYTE", "WORD", "UINT", "LWORD", "ULINT"]) expect(["widen", "identity"]).toContain(classifyConversion(ptr, el(t), x64))
-  expect(classifyConversion(ptr, el("REAL"), x64)).toBe("incompatible")
-  expect(classifyConversion(ptr, el("DWORD"))).toBe("identity") // no target: unjudged
-})
-
-// …and on a 32-bit target the mirror: a 64-bit integer is refused, the rest converts as into a UDINT — TwinCAT CE7
-// (`recordings/twincat-32.build.json` `cv_integers_into_pointer`, 2026-10-03, re-recorded on an XAE of its own; the first
-// batch, made beside another session's XAE on the same project, recorded it clean)
-test("compat: an integer into a pointer on a 32-bit target — 64 bits refused, signed a change of sign, the rest silent (cv_integers_into_pointer)", () => {
-  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
-  const ptr: Type = { kind: "pointer", target: el("INT") }
-  const x32 = { pointerBits: 32 } as Parameters<typeof classifyConversion>[2]
-  for (const t of ["LWORD", "ULINT", "LINT"]) expect(classifyConversion(ptr, el(t), x32)).toBe("incompatible")
-  for (const t of ["INT", "DINT"]) expect(classifyConversion(ptr, el(t), x32)).toBe("sign-change")
-  for (const t of ["BYTE", "WORD", "UINT", "DWORD", "UDINT"]) expect(["widen", "identity"]).toContain(classifyConversion(ptr, el(t), x32))
-})
-
-test("compat: a reference converts as its target on either side (dt_reference_into_narrower, cv_reference_to_other_reference)", () => {
-  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
-  const ri: Type = { kind: "reference", target: el("INT") }
-  const rr: Type = { kind: "reference", target: el("REAL") }
-  expect(classifyConversion(el("SINT"), ri)).toBe("incompatible")
-  expect(classifyConversion(el("UINT"), ri)).toBe("sign-change")
-  expect(classifyConversion(ri, rr)).toBe("incompatible")
-  expect(classifyConversion(el("DINT"), ri)).toBe("widen")
-})
-
-test("pointerArithmeticType: a pointer minus a REAL computes in the pointer on CODESYS, in the REAL on TwinCAT (dt_pointer_arithmetic_refused)", async () => {
-  const { pointerArithmeticType } = await import("./index.js")
-  const real: Type = { kind: "elementary", name: "REAL", elem: elementaryType("REAL")! } as Type
-  const ptr: Type = { kind: "pointer", target: { kind: "elementary", name: "INT", elem: elementaryType("INT")! } as Type }
-  expect(pointerArithmeticType("-", ptr, real, false, false, "codesys")).toBe(ptr)
-  expect(pointerArithmeticType("-", ptr, real, false, false, "twincat")).toBe(real)
-  expect(pointerArithmeticType("*", ptr, real, false, true, "codesys")).toBeUndefined()
 })
 
 test("infer: a FUNCTION called inside its own body has no result (cc2_call_recursion, Y20)", () => {

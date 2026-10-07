@@ -15,10 +15,25 @@ export {
   type ElementaryType,
 } from "./elementary.js"
 export { canonicalElem, elementaryTypeOn, isElementaryTypeName, isPlatformInteger, PLATFORM_ALIASES, type Target } from "./platform.js"
-export { isDuration, isIntegerType, isKnownPrimitive, isNumericType, isTemporal } from "./predicates.js"
+export {
+  floatBits,
+  hasTextFormat,
+  holdsIntegerBits,
+  isBit,
+  isBoolValued,
+  isDuration,
+  isIntegerType,
+  isIntegral,
+  isKnownPrimitive,
+  isNumericType,
+  isReal,
+  isTemporal,
+  stringKind,
+} from "./predicates.js"
 export { conversionSides, isConversionName, parseConversionName } from "./conversion-name.js"
-export { DEFAULT_STRING_LENGTH } from "./defaults.js"
-export { integerOfWidth } from "./width.js"
+export { DEFAULT_STRING_LENGTH, typeZero } from "./defaults.js"
+export { elementOf, peelArray } from "./arrays.js"
+export { integerOfWidth, widthOf, wrapToWidth } from "./width.js"
 export {
   integerLiteralType,
   isIntLiteral,

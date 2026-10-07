@@ -14,7 +14,8 @@ import { parseSource } from "../syntax/index.js"
 import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { enumDefault } from "./enums.js"
 import type { LibraryManifest } from "../library/index.js"
-import { build } from "../symbols/index.js"
+import { build, type Scope } from "../symbols/index.js"
+import { UNKNOWN } from "./index.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 
@@ -209,4 +210,26 @@ test("SIZEOF of a STRUCT or a UNION is a UINT; of an enum, an alias or an array 
   const [body] = [...bodies(files.at(-1)!.parseResult.units, project)]
   const types = body!.statements.map((s) => (s.kind === "assign" ? renderType(inferExprType(s.value, body!.scope, project)) : ""))
   expect(types).toEqual(["UINT", "UINT", "USINT", "USINT", "USINT", "USINT"])
+})
+
+// ─── from types.test.ts (transpile-restructure 1.1.11) ───
+
+function proj(src: string): Scope {
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
+}
+
+test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {
+  const p = proj(`
+TYPE MyAlias : INT; END_TYPE
+TYPE Color : (Red, Green); END_TYPE
+TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
+  const intT = resolveNamedType("INT", p)
+  expect(intT.kind).toBe("elementary")
+  expect(intT.kind === "elementary" && intT.elem.bits).toBe(16)
+  expect(resolveNamedType("MyAlias", p)).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(resolveNamedType("Color", p).kind).toBe("enum")
+  expect(resolveNamedType("Pt", p)).toMatchObject({ kind: "struct" })
+  expect(resolveNamedType("FB_A", p).kind).toBe("function_block")
+  expect(resolveNamedType("SomeLibType", p)).toEqual(UNKNOWN) // unresolvable → skip
 })

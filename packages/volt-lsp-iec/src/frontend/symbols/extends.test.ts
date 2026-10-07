@@ -18,7 +18,8 @@ import { describe, expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import type { LibraryManifest } from "../library/index.js"
 import { buildSymbolTable } from "./incremental.js"
-import { ancestry, extendsCycle } from "./extends.js"
+import { ancestry, extendsChain, extendsCycle } from "./extends.js"
+import { hasUnresolvedBase } from "./scope-nav.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 
@@ -160,5 +161,61 @@ describe("extendsCycle", () => {
   test("ancestry walks an interface's whole list, nearest first, each once", () => {
     const d = top(`INTERFACE I_R\nEND_INTERFACE\nINTERFACE I_A EXTENDS I_R\nEND_INTERFACE\nINTERFACE I_B EXTENDS I_R\nEND_INTERFACE\nINTERFACE I_D EXTENDS I_A, I_B\nEND_INTERFACE`, "I_D")
     expect(ancestry(d).map((s) => s.name)).toEqual(["I_D", "I_A", "I_R", "I_B"])
+  })
+})
+
+/**
+ * `extendsChain` — the one EXTENDS walk the transpiler reads (openspec transpile-restructure 1.1.2, design.md §6 need 2):
+ * base first, each scope once, a cycle ending it, an unresolved base reported as incomplete by `hasUnresolvedBase`; an
+ * interface's list is `ancestry`'s (a graph, not a chain).
+ */
+describe("extendsChain", () => {
+  const top = (src: string, name: string) => {
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }])
+    return project.children.find((c) => c.name === name)!
+  }
+  test("base first, the scope itself last", () => {
+    const src = `FUNCTION_BLOCK A
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK B EXTENDS A
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK C EXTENDS B
+END_FUNCTION_BLOCK`
+    expect(extendsChain(top(src, "C")).map((s) => s.name)).toEqual(["A", "B", "C"])
+    expect(extendsChain(top(src, "A")).map((s) => s.name)).toEqual(["A"])
+  })
+  test("a cycle ends the chain where it closes: each scope once", () => {
+    const src = `FUNCTION_BLOCK A EXTENDS B
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK B EXTENDS A
+END_FUNCTION_BLOCK`
+    expect(extendsChain(top(src, "A")).map((s) => s.name)).toEqual(["B", "A"])
+    expect(extendsChain(top(`FUNCTION_BLOCK A EXTENDS A
+END_FUNCTION_BLOCK`, "A")).map((s) => s.name)).toEqual(["A"])
+  })
+  test("an unresolved base ends the chain, and every scope above it reports its chain incomplete", () => {
+    const src = `FUNCTION_BLOCK B EXTENDS MISSING
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK C EXTENDS B
+END_FUNCTION_BLOCK`
+    expect(extendsChain(top(src, "C")).map((s) => s.name)).toEqual(["B", "C"])
+    expect(hasUnresolvedBase(top(src, "B"))).toBe(true)
+    expect(hasUnresolvedBase(top(src, "C"))).toBe(true)
+    expect(hasUnresolvedBase(top(`FUNCTION_BLOCK A
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK D EXTENDS A
+END_FUNCTION_BLOCK`, "D"))).toBe(false)
+  })
+  test("an interface chain: its bases nearest first through ancestry, base first through extendsChain for one base", () => {
+    const src = `INTERFACE I_A
+END_INTERFACE
+INTERFACE I_B EXTENDS I_A
+END_INTERFACE
+INTERFACE I_C EXTENDS I_B
+END_INTERFACE`
+    expect(ancestry(top(src, "I_C")).map((s) => s.name)).toEqual(["I_C", "I_B", "I_A"])
+    expect(hasUnresolvedBase(top(src, "I_C"))).toBe(false)
+    expect(hasUnresolvedBase(top(`INTERFACE I_D EXTENDS I_MISSING
+END_INTERFACE`, "I_D"))).toBe(true)
   })
 })

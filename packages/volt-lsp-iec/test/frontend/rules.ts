@@ -3408,7 +3408,7 @@ export const RULES: readonly Rule[] = [
     ],
     tests: [
       { file: "src/frontend/types/resolve.test.ts", title: "LB8: `Ns.Dep.T` reaches the type through the namespace of a library `Ns` depends on" },
-      { file: "src/frontend/types/types.test.ts", title: "infer: a dependency's namespace through a library's namespace is a static base (`DED.CommFB.E.m`, `Util.Standard.F()`)" },
+      { file: "src/frontend/types/infer/expr.test.ts", title: "infer: a dependency's namespace through a library's namespace is a static base (`DED.CommFB.E.m`, `Util.Standard.F()`)" },
     ],
     design: "**GAP**",
     recheck:
@@ -3513,8 +3513,8 @@ export const RULES: readonly Rule[] = [
       "mem_function_unknown_param_no_input",
     ],
     tests: [
-      { file: "src/frontend/types/types.test.ts", title: "M3: an index of a POINTER is its target — `p[2].x` has the field's type" },
-      { file: "src/frontend/types/types.test.ts", title: "M3: a dereferenced FB instance called has the FB's type" },
+      { file: "src/frontend/types/infer/expr.test.ts", title: "M3: an index of a POINTER is its target — `p[2].x` has the field's type" },
+      { file: "src/frontend/types/infer/expr.test.ts", title: "M3: a dereferenced FB instance called has the FB's type" },
       { file: "src/analysis/checks/calls/call-arguments.test.ts", title: "M3: an FB instance called through a REFERENCE, an array element or SUPER^ binds its inputs" },
       { file: "src/analysis/checks/calls/call-arguments.test.ts", title: "M3/E21: a FUNCTION's or METHOD's named arguments past its input count are 'requires exactly', not 'no input of'" },
       { file: "src/analysis/checks/names/unresolved-identifier.test.ts", title: "M3: a member read off a POINTER without `^` — the pointer is no structured variable" },

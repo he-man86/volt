@@ -315,7 +315,7 @@ export const IL_OPERATOR_WORDS: ReadonlySet<string> = new Set([
 ])
 
 /** The elementary type names — their short and long forms, and the platform integers. `types/elementary.ts` holds what
- *  each type is; `types/types.test.ts` holds the two lists to each other. */
+ *  each type is; `types/elementary.test.ts` holds the two lists to each other. */
 export const ELEMENTARY_TYPE_WORDS: ReadonlySet<string> = new Set([
   "BOOL", "BIT", "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
   "REAL", "LREAL", "TIME", "LTIME", "DATE", "TOD", "DT", "LDATE", "LTOD", "LDT", "STRING", "WSTRING",

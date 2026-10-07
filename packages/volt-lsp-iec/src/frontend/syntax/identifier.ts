@@ -6,9 +6,9 @@
 import type { Expr } from "./ast/nodes.js"
 
 /**
- * Two ST names for the same thing: names are case-insensitive. (A backtick-quoted name is compared as written — the
- * interpreter's own copy strips the quotes; which is right is the conformance work's to decide, transpile-restructure
- * owns that copy.)
+ * Two ST names for the same thing: names are case-insensitive. A backtick-quoted name is compared as written (the quotes
+ * are part of the identifier); an IDE path that names a quoted variable without its quotes is the path grammar's to
+ * unquote before it asks (the transpiler's interpreter does, transpile-restructure 1.1.1).
  */
 export function sameName(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()

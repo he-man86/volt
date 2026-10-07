@@ -4,8 +4,8 @@
  * no value (transpiler corpus: `init-not-constant`, "an index on something that is not a sized array").
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../../syntax/index.js"
-import { bodies, build } from "../../symbols/index.js"
+import { bodyStatements, type Expr, type FunctionBlock, parseSource } from "../../syntax/index.js"
+import { bodies, build, findChildScope } from "../../symbols/index.js"
 import { constantSlotType, constEval, elementaryType } from "../index.js"
 
 const LISTS = [
@@ -339,3 +339,51 @@ test("the context type does not reach a conversion's argument or a NOT under a s
   expect(folded("INT_TO_USINT(300)", files)).toBe(44n)
 })
 
+// ─── from types.test.ts (transpile-restructure 1.1.9): folding an expression in an FB ───
+
+// The expression is carried as an assignment's VALUE: a bare expression is no statement on either vendor (a literal or `(`
+// opening one is refused, a binary operation is "no valid statement" — frontend-conformance 2.6, ST5).
+function evalConst(varDecls: string, exprSrc: string) {
+  const src = `FUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+  const scope = findChildScope(project, "F")!
+  const e = lastExpr(pr.units[0] as FunctionBlock)
+  return constEval(e, scope)
+}
+
+function lastExpr(fb: FunctionBlock): Expr {
+  const stmts = bodyStatements(fb.body).statements
+  const last = stmts[stmts.length - 1] as { expr?: Expr; value?: Expr }
+  return (last.expr ?? last.value) as Expr
+}
+
+test("const-eval: literals, arithmetic, const-ref folding, non-const → undefined", () => {
+  expect(evalConst("", "2 + 3 * 4")).toBe(14n)
+  expect(evalConst("", "(10 - 4) / 2")).toBe(3n)
+  expect(evalConst("", "1.5 * 2.0")).toBe(3)
+  expect(evalConst("", "5 > 3")).toBe(true)
+  expect(evalConst("VAR CONSTANT\n Cap : INT := 100;\nEND_VAR", "Cap + 1")).toBe(101n)
+  expect(evalConst("VAR\n v : INT;\nEND_VAR", "v + 1")).toBeUndefined() // non-const var
+  expect(evalConst("", "10 / 0")).toBeUndefined() // div by zero
+})
+
+test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
+  // unary
+  expect(evalConst("", "-(2 + 3)")).toBe(-5n)
+  expect(evalConst("", "NOT (5 > 3)")).toBe(false)
+  expect(evalConst("", "+(4)")).toBe(4n)
+  // integer MOD (+ its undefined case). `**` is no operator on either vendor, so there is no tree to fold: the parse
+  // refuses it (`cc_power_operator`; `parse/expression.test.ts`)
+  expect(evalConst("", "10 MOD 3")).toBe(1n)
+  expect(evalConst("", "10 MOD 0")).toBeUndefined()
+  // comparisons across the operator set
+  expect(evalConst("", "5 = 5")).toBe(true)
+  expect(evalConst("", "4 <> 4")).toBe(false)
+  expect(evalConst("", "3 <= 3")).toBe(true)
+  expect(evalConst("", "5 >= 9")).toBe(false)
+  expect(evalConst("", "2 < 1")).toBe(false)
+  // real arithmetic
+  expect(evalConst("", "7.5 - 2.5")).toBe(5)
+  expect(evalConst("", "9.0 / 2.0")).toBe(4.5)
+})

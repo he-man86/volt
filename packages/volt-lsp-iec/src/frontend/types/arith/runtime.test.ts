@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { commonType } from "./runtime.js"
+import { commonType, promoteForRuntime } from "./runtime.js"
 import { elementaryRef, elemOf } from "../type.js"
 
 const meet = (a: string, b: string): string | undefined => elemOf(commonType(elementaryRef(a), elementaryRef(b)))?.name
@@ -21,4 +21,13 @@ test("same-sign and signed-wider pairs keep the wider type", () => {
   expect(meet("LINT", "UDINT")).toBe("LINT")
   expect(meet("DINT", "UDINT")).toBe("DINT")
   expect(meet("UDINT", "DINT")).toBe("DINT")
+})
+
+// transpile-restructure 1.1.8 (conformance `arithmetic_width`, `bit_string_arithmetic`): an integer or bit string narrower
+// than 32 bits computes in DINT — signed, USINT 0 - 1 is -1; DINT is not promoted further; a BIT has no rank.
+test("promoteForRuntime: below 32 bits an integer or a bit string computes in DINT; the rest keep their type", () => {
+  const promoted = (n: string): string | undefined => elemOf(promoteForRuntime(elementaryRef(n)))?.name
+  expect(["SINT", "USINT", "INT", "UINT", "BYTE", "WORD"].map(promoted)).toEqual(["DINT", "DINT", "DINT", "DINT", "DINT", "DINT"])
+  expect(["DINT", "UDINT", "LINT", "ULINT", "DWORD", "LWORD"].map(promoted)).toEqual(["DINT", "UDINT", "LINT", "ULINT", "DWORD", "LWORD"])
+  expect(["BIT", "BOOL", "REAL", "TIME"].map(promoted)).toEqual(["BIT", "BOOL", "REAL", "TIME"])
 })
