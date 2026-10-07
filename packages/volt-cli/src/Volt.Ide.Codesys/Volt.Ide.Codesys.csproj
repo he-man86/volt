@@ -18,5 +18,47 @@
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
     <ProjectReference Include="..\Volt.Relay\Volt.Relay.csproj" />
+    <PackageReference Include="ILRepack" PrivateAssets="all" />
   </ItemGroup>
+
+  <!--
+    THE SHIPPED BRIDGE IS ONE ASSEMBLY (openspec codesys-bridge-single-assembly).
+
+    Everything this project loads into CODESYS.exe — Volt.*, System.Text.Json and its net48 dependencies — is merged
+    into Volt.Ide.Codesys.dll and internalized, so the CODESYS process is asked to resolve NOTHING of Volt's. Before,
+    every dependency reached the IDE through an AssemblyResolve handler (Volt's netstandard assemblies referenced
+    System.Text.Json 10.0.0.0 while 10.0.0.12 shipped, and .NET Framework binds strong names by exact version), and
+    IronPython's handler, registered first and probing sys.path, could answer from another folder than Volt's own:
+    two System.Text.Json in one process, every call failing (DIALECT V6). An internalized copy is part of this
+    assembly's identity and cannot meet any other copy in the process.
+
+    The merged assembly goes to $(VoltBundleDir), NOT over $(TargetPath): projects referencing this one (the tests)
+    reach Volt's internals across assembly boundaries, which the merge removes. Its references are the framework's
+    only (BridgePackagingTests pins that); dotnet runs ILRepack, a build tool that ships nothing.
+  -->
+  <Target Name="_VoltBundleInputs">
+    <PropertyGroup>
+      <!-- What ships: build-cli.ps1 copies this folder to dist\Codesys. Set here, not at the top: $(OutDir) is not
+           defined yet while this file's own properties are evaluated. -->
+      <VoltBundleDir>$(OutDir)bundle\</VoltBundleDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_VoltMerged Include="@(ReferenceCopyLocalPaths)" Condition="'%(Extension)' == '.dll'" />
+      <_VoltLibDir Include="@(ReferencePath->'%(RootDir)%(Directory).')" />
+    </ItemGroup>
+  </Target>
+  <Target Name="VoltBundle" AfterTargets="Build" DependsOnTargets="_VoltBundleInputs"
+          Inputs="$(TargetPath);@(_VoltMerged)" Outputs="$(VoltBundleDir)$(TargetFileName)">
+    <Error Condition="'$(DOTNET_HOST_PATH)' == ''" Text="DOTNET_HOST_PATH is unset: build with the dotnet CLI, which names the dotnet that runs ILRepack." />
+    <RemoveDir Directories="$(VoltBundleDir)" />
+    <MakeDir Directories="$(VoltBundleDir)" />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(ILRepack)&quot; /internalize /ndebug @(_VoltLibDir->Distinct()->'&quot;/lib:%(Identity)&quot;', ' ') &quot;/out:$(VoltBundleDir)$(TargetFileName)&quot; &quot;$(TargetPath)&quot; @(_VoltMerged->'&quot;%(FullPath)&quot;', ' ')"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_VoltRepackExit" />
+      <Output TaskParameter="ConsoleOutput" ItemName="_VoltRepackLog" />
+    </Exec>
+    <!-- Its WARNING lines are not ours to raise: the merged libraries each carry an ILLink.Substitutions.xml (trimmer
+         data, inert on net48), which ILRepack reports as a duplicate resource. A failed merge is an error, with its log. -->
+    <Error Condition="'$(_VoltRepackExit)' != '0'" Text="ILRepack failed (exit $(_VoltRepackExit)):%0A@(_VoltRepackLog, '%0A')" />
+  </Target>
 </Project>

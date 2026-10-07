@@ -224,9 +224,9 @@ public sealed class PipeServer : IDisposable
             {
                 // Carry a real code when the op threw one (Engine's BridgeException implements ICodedError);
                 // anything else is a genuine INTERNAL_ERROR.
-                // An uncoded failure is a bug or a binding failure, never an answer: it is LOGGED (the whole exception,
-                // and for a binding failure every copy loaded at that moment — openspec ide-identity-report 3.1) BEFORE
-                // the error frame, whose write uses the very WireJson.Write a binding failure can take away. The client
+                // An uncoded failure is a bug or a binding failure, never an answer: it is LOGGED (the whole exception —
+                // openspec ide-identity-report 3.1) BEFORE the error frame, whose write uses the very WireJson.Write a
+                // binding failure can take away. The client
                 // gets the exception's TYPE beside its message: the message is OS-localized (the 3.5.17 one was), the
                 // type name is not. A coded refusal is the caller's ordinary answer: unchanged, and not logged here.
                 string code, message;

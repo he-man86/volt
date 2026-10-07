@@ -587,7 +587,9 @@ function Save-Projects([string[]]$paths) {
 function Up-Codesys {
     $install = "C:\Program Files\CODESYS 3.5.21.40"
     $exe     = Join-Path $install "CODESYS\Common\CODESYS.exe"
-    $dll     = Join-Path $ROOT "src\Volt.Ide.Codesys\bin\Release\net48\Volt.Ide.Codesys.dll"
+    # The SHIPPED bridge: the merged one-assembly bundle (Volt.Ide.Codesys.csproj, target VoltBundle), never the
+    # build output beside it, whose loose Volt/System.Text.Json DLLs no user ever receives.
+    $dll     = Join-Path $ROOT "src\Volt.Ide.Codesys\bin\Release\net48\bundle\Volt.Ide.Codesys.dll"
     $scriptPy = if ($RunScript) { $RunScript } else { Join-Path $PSScriptRoot "run_pipe_production.py" }
     $project = if ($Fixture) { $Fixture } else { Join-Path $FIXTURES "CodesysTestProject.project" }
 

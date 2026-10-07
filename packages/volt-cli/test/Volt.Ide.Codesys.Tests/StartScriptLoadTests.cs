@@ -4,37 +4,30 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Volt.Contracts;
 using Xunit;
 
 namespace Volt.Ide.Codesys.Tests
 {
     /// <summary>
-    /// ONE COPY OF EVERY VOLT DEPENDENCY, FROM ONE FOLDER, HOWEVER THE BRIDGE IS STARTED (openspec
-    /// <c>codesys-single-load-dependencies</c>).
+    /// THE BRIDGE IS ONE ASSEMBLY, AND NOTHING IS LEFT TO RESOLVE, HOWEVER THE START SCRIPT IS RUN (openspec
+    /// <c>codesys-bridge-single-assembly</c>).
     ///
-    /// <para>A customer's CODESYS 3.5.22.10 failed every bridge call with <c>MissingMethodException … PipeRequest.get_Body()</c>
-    /// and <c>health.loadConflicts</c> named <c>System.Text.Json</c> loaded twice: from the download folder the user ran
-    /// <c>start_volt_codesys.py</c> from, and from the per-session staged copy in <c>%TEMP%\Volt\codesys-bridge\&lt;pid&gt;</c>.
-    /// Measured live on 3.5.21.40 (2026-10-07) with an assembly-load trace: CODESYS puts the running script's folder on
-    /// IronPython's <c>sys.path</c>; <c>clr.AddReferenceToFileAndPath(staged)</c> loaded the bridge with IronPython's own
-    /// <c>LoadFile</c>, which makes IronPython's <c>AssemblyResolve</c> handler (registered before the bridge's own) answer
-    /// every dependency the bridge asks for — and every request with NO requesting assembly, which the CLR raises while
-    /// reading a member's signature — by probing <c>sys.path</c> IN ORDER, the download folder first. So
-    /// <c>Volt.Wire</c>, <c>Volt.Contracts</c>, <c>Volt.Engine*</c> and one <c>System.Text.Json</c> came from the download
-    /// folder (<c>PythonContext.CurrentDomain_AssemblyResolve → Assembly.LoadFile</c>), while the requests IronPython
-    /// declines reached <c>BridgeAssemblyResolver</c> and loaded a second <c>System.Text.Json</c> from the staged folder
-    /// (<c>Assembly.LoadFrom</c>). Two <c>JsonElement</c> types; every request failed at <c>WireJson.Read</c>. A second run
-    /// of the script found a second route: its <c>_prune</c> deleted the running bridge's not-yet-loaded dependencies.</para>
+    /// <para>The field failure this guards (openspec <c>codesys-single-load-dependencies</c>, DIALECT V6): Volt's
+    /// assemblies referenced <c>System.Text.Json</c> 10.0.0.0 while 10.0.0.12 shipped, so every dependency reached
+    /// <c>CODESYS.exe</c> through an <c>AssemblyResolve</c> handler — and IronPython's, registered first and probing
+    /// <c>sys.path</c> (where CODESYS puts the running script's folder), answered some requests from the download folder
+    /// while the bridge's own answered others from the staged copy: two <c>System.Text.Json</c>, two <c>JsonElement</c>
+    /// types, every call failing. The bundle is now ONE assembly with <c>Volt.*</c> and <c>System.Text.Json</c> (and its
+    /// net48 dependencies) merged and internalized at build, so no handler is asked for anything of Volt's.</para>
     ///
-    /// <para>This runs the SHIPPED script, verbatim, in the IronPython CODESYS runs scripts in (2.7.12, from NuGet), with
-    /// the script's own folder on <c>sys.path</c> the way CODESYS's <i>Execute Script File</i> puts it there, in an
-    /// AppDomain of its own whose base folder holds no Volt assembly (as CODESYS's does not). The script is run without
-    /// <c>projects</c> — so it stops at the <c>PipeHost.Start</c> call, which would open a pipe and write the machine's
-    /// Volt log; <c>PipeHost</c>'s bodies are then COMPILED (what the JIT binds before <c>Start</c> runs) and the bindings
-    /// <c>Start</c> makes first are made by the bridge's own <see cref="BoundAssemblies"/>, the code that writes the start
-    /// log's <c>bound:</c> lines. Then every watched assembly loaded in that domain must be ONE copy, loaded from the folder
-    /// the bridge itself was loaded from.</para>
+    /// <para>This runs the SHIPPED script, verbatim, in the IronPython CODESYS runs scripts in (2.7.12, from NuGet), over
+    /// the SHIPPED bundle (the merged build output, copied in as <c>codesys-bundle</c> by this project), with the script's
+    /// own folder on <c>sys.path</c> the way CODESYS's <i>Execute Script File</i> puts it there, in an AppDomain of its own
+    /// whose base folder holds no Volt assembly (as CODESYS's does not). The script is run without <c>projects</c> — so it
+    /// stops at the <c>PipeHost.Start</c> call, which would open a pipe and write the machine's Volt log; <c>PipeHost</c>'s
+    /// bodies are then COMPILED (what the JIT binds before <c>Start</c> runs) and the members whose signatures carry
+    /// <c>System.Text.Json</c> types are read. A handler of the test's own, registered before IronPython's, records every
+    /// <c>AssemblyResolve</c> request in the domain.</para>
     /// </summary>
     public class StartScriptLoadTests
     {
@@ -44,32 +37,38 @@ namespace Volt.Ide.Codesys.Tests
         /// <summary>The build output (CodeBase): xunit shadow-copies each assembly into a folder of its own.</summary>
         private static string Bin => Path.GetDirectoryName(new Uri(typeof(StartScriptLoadTests).Assembly.CodeBase).LocalPath)!;
 
-        /// <summary>What the bridge bundle ships beside the script (build-cli.ps1: the Volt.Ide.Codesys build output).</summary>
-        private static bool Shipped(string file)
+        /// <summary>The shipped bundle: what <c>build-cli.ps1</c> lays beside the script — the Volt.Ide.Codesys build's
+        /// <c>bundle</c> folder, copied here by this test project.</summary>
+        private static string Bundle => Path.Combine(Bin, "codesys-bundle");
+
+        /// <summary>What the merge took in: every assembly the unmerged build copies beside the bridge (this test project
+        /// references the bridge's project, so they are here too). None of them may be loaded, or asked for, at all.</summary>
+        private static readonly string[] Merged =
         {
-            var name = Path.GetFileNameWithoutExtension(file);
-            return Path.GetExtension(file) == ".dll"
-                   && ((name.StartsWith("Volt.", StringComparison.Ordinal) && !name.EndsWith(".Tests", StringComparison.Ordinal))
-                       || name.StartsWith("System.", StringComparison.Ordinal)
-                       || name.StartsWith("Microsoft.Bcl.", StringComparison.Ordinal));
-        }
+            "Volt.Contracts", "Volt.Engine", "Volt.Engine.Host", "Volt.Relay", "Volt.Wire",
+            "System.Text.Json", "System.Text.Encodings.Web", "System.IO.Pipelines", "Microsoft.Bcl.AsyncInterfaces",
+            "System.Memory", "System.Buffers", "System.Numerics.Vectors", "System.Runtime.CompilerServices.Unsafe",
+            "System.Threading.Tasks.Extensions",
+        };
 
         /// <summary>Once; twice in one IDE session (the user runs it again: a fresh script engine whose sys.path holds the
-        /// folder again, while the first engine's resolver is still hooked — and the second run's staging prunes the
-        /// temp folder the first run's bridge is loaded from); and with staging failing, so the bridge loads from the
-        /// download folder itself.</summary>
+        /// folder again, while the first engine's resolver is still hooked); with staging failing, so the bridge loads from
+        /// the download folder itself; and in a process that already holds ANOTHER <c>System.Text.Json</c> (another plugin's
+        /// copy, loaded before Volt).</summary>
         [Theory]
-        [InlineData(1, false)]
-        [InlineData(2, false)]
-        [InlineData(1, true)]
-        public void Started_from_its_own_folder_on_sys_path_the_bridge_loads_each_dependency_once_from_one_folder(int runs, bool stagingFails)
+        [InlineData(1, false, false)]
+        [InlineData(2, false, false)]
+        [InlineData(1, true, false)]
+        [InlineData(1, false, true)]
+        public void Started_from_its_own_folder_on_sys_path_the_bridge_is_one_assembly_and_asks_for_nothing(int runs, bool stagingFails, bool otherJson)
         {
+            Assert.True(Directory.Exists(Bundle), $"no shipped bundle at {Bundle}: the Volt.Ide.Codesys build did not produce one");
             var root = Path.Combine(Path.GetTempPath(), "volt-single-load-" + Guid.NewGuid().ToString("N"));
             var download = Path.Combine(root, "PLCAssistBridge-CODESYS", "codesys-scriptcommands");
             var temp = Path.Combine(root, "temp");
             var hostBase = Path.Combine(root, "host");   // the IDE's own base folder: no Volt assembly in it
             foreach (var d in new[] { download, temp, hostBase }) Directory.CreateDirectory(d);
-            foreach (var f in Directory.GetFiles(Bin).Where(Shipped)) File.Copy(f, Path.Combine(download, Path.GetFileName(f)));
+            foreach (var f in Directory.GetFiles(Bundle)) File.Copy(f, Path.Combine(download, Path.GetFileName(f)));
             var script = Path.Combine(download, "start_volt_codesys.py");
             File.Copy(Path.Combine(Root(), "scripts", "start_volt_codesys.py"), script);
             if (stagingFails)
@@ -79,6 +78,8 @@ namespace Volt.Ide.Codesys.Tests
                 Directory.CreateDirectory(staging);
                 File.WriteAllText(Path.Combine(staging, System.Diagnostics.Process.GetCurrentProcess().Id.ToString()), "");
             }
+            // Another plugin's System.Text.Json: the unmerged one this project's build copies beside the tests.
+            var foreignJson = otherJson ? Path.Combine(Bin, "System.Text.Json.dll") : null;
 
             var domain = AppDomain.CreateDomain("volt-ide-" + Guid.NewGuid().ToString("N"), null,
                 new AppDomainSetup { ApplicationBase = hostBase });
@@ -87,27 +88,33 @@ namespace Volt.Ide.Codesys.Tests
                 var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
                     new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
                 // CODESYS's order: its ScriptLib (here the standard library the script imports), then the script's folder.
-                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, foreignJson);
                 var said = string.Join("\n", run.Printed);
-
-                var bridge = run.Loaded.SingleOrDefault(c => c.Name == "Volt.Ide.Codesys");
-                Assert.True(bridge != null, "the script did not load the bridge. It printed:\n" + said);
-                var folder = Path.GetDirectoryName(bridge!.Location)!;
-                Assert.True(string.Equals(folder, download, StringComparison.OrdinalIgnoreCase) == stagingFails,
-                    $"the bridge loaded from {folder} (staging {(stagingFails ? "failed" : "succeeded")}). It printed:\n" + said);
-
-                var report = "\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} {c.Version} at {c.Location}"))
+                var report = "\nloaded:\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} {c.Version} at {c.Location}"))
+                             + "\nasked for:\n" + string.Join("\n", run.Asked)
                              + "\nbound:\n" + string.Join("\n", run.Bound) + "\nprinted:\n" + said;
-                var copies = run.Loaded.Select(c => new LoadedCopies.Copy(c.Name, c.Version, null, null, c.Location, false)).ToList();
-                Assert.True(LoadedCopies.Conflicts(copies).Count == 0, "load conflict: " + string.Join("; ", LoadedCopies.Conflicts(copies)) + report);
-                foreach (var name in new[] { "Volt.Wire", "Volt.Contracts", "Volt.Engine", "Volt.Engine.Host", "System.Text.Json" })
-                {
-                    var copy = run.Loaded.Where(c => c.Name == name).ToList();
-                    Assert.True(copy.Count == 1, $"{name} loaded {copy.Count} times" + report);
-                    Assert.True(string.Equals(Path.GetDirectoryName(copy[0].Location), folder, StringComparison.OrdinalIgnoreCase),
-                        $"{name} loaded from {copy[0].Location}, not from the bridge's folder {folder}" + report);
-                }
-                Assert.DoesNotContain(run.Bound, l => l.Contains("could not be bound") || l.Contains("does not bind"));
+
+                // ONE Volt assembly, from the folder staging decided.
+                var volt = run.Loaded.Where(c => c.Name.StartsWith("Volt.", StringComparison.Ordinal)).ToList();
+                var bridge = Assert.Single(volt);
+                Assert.True(bridge.Name == "Volt.Ide.Codesys", "the one Volt assembly loaded is not the bridge" + report);
+                var folder = Path.GetDirectoryName(bridge.Location)!;
+                Assert.True(string.Equals(folder, download, StringComparison.OrdinalIgnoreCase) == stagingFails,
+                    $"the bridge loaded from {folder} (staging {(stagingFails ? "failed" : "succeeded")})" + report);
+
+                // Nothing merged is loaded on its own — except the foreign copy the case put there, which is not ours.
+                foreach (var c in run.Loaded.Where(c => Merged.Contains(c.Name)))
+                    Assert.True(foreignJson != null && c.Name == "System.Text.Json"
+                                && string.Equals(c.Location, foreignJson, StringComparison.OrdinalIgnoreCase),
+                        $"{c.Name} loaded on its own from {c.Location}" + report);
+
+                // No resolver was asked for anything of Volt's: nothing is left to resolve, so no handler can answer wrong.
+                Assert.True(!run.Asked.Any(a => Merged.Contains(a) || a.StartsWith("Volt.", StringComparison.Ordinal)),
+                    "AssemblyResolve was asked for a Volt dependency" + report);
+
+                // The members whose signatures carry System.Text.Json types bind the bridge's OWN copy.
+                Assert.True(run.Bound.Length > 0 && run.Bound.All(l => l.EndsWith(" binds Volt.Ide.Codesys", StringComparison.Ordinal)),
+                    "a wire member binds something other than the bridge itself" + report);
             }
             finally
             {
@@ -128,8 +135,13 @@ namespace Volt.Ide.Codesys.Tests
         [Serializable]
         public sealed class Result
         {
-            public Result(string[] printed, string[] bound, Copy[] loaded) { Printed = printed; Bound = bound; Loaded = loaded; }
+            public Result(string[] printed, string[] asked, string[] bound, Copy[] loaded)
+            { Printed = printed; Asked = asked; Bound = bound; Loaded = loaded; }
             public string[] Printed { get; }
+            /// <summary>The simple name of every <c>AssemblyResolve</c> request raised in the domain.</summary>
+            public string[] Asked { get; }
+            /// <summary><c>&lt;member&gt; binds &lt;assembly&gt;</c>: where the System.Text.Json type in a wire member's
+            /// signature comes from.</summary>
             public string[] Bound { get; }
             public Copy[] Loaded { get; }
         }
@@ -138,8 +150,18 @@ namespace Volt.Ide.Codesys.Tests
         /// every Volt assembly in the domain is one the script and the bridge loaded.</summary>
         public sealed class ScriptHost : MarshalByRefObject
         {
-            public Result Run(string script, string[] sysPath, string temp, int runs)
+            private readonly List<string> _asked = new();
+
+            public Result Run(string script, string[] sysPath, string temp, int runs, string? foreignJson)
             {
+                // Registered BEFORE any IronPython engine, so it sees every request first; it answers none.
+                AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
+                {
+                    lock (_asked) _asked.Add(new AssemblyName(e.Name).Name ?? e.Name);
+                    return null;
+                };
+                if (foreignJson != null) Assembly.LoadFrom(foreignJson);
+
                 var output = new MemoryStream();
                 var engines = new List<Microsoft.Scripting.Hosting.ScriptEngine>();   // kept alive: each hooks its resolver
                 for (var i = 0; i < runs; i++)
@@ -161,25 +183,30 @@ namespace Volt.Ide.Codesys.Tests
                 if (bridge != null)
                 {
                     // Compile what Start would run, without running it: the JIT resolves every assembly a body
-                    // references (Volt.Wire, Volt.Contracts, Volt.Engine.Host, …) exactly as the first call would.
+                    // references exactly as the first call would.
                     foreach (var m in bridge.GetType("Volt.Ide.Codesys.PipeHost", true)!
                                  .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
                         System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(m.MethodHandle);
-                    var describe = bridge.GetType("Volt.Ide.Codesys.BoundAssemblies", true)!
-                        .GetMethod("Describe", BindingFlags.Public | BindingFlags.Static)!;
-                    bound.AddRange((IEnumerable<string>)describe.Invoke(null, null)!);
+                    // The two members the field failures named (DIALECT V3), read off the bridge by name: where the
+                    // System.Text.Json type in each signature comes from.
+                    const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+                    var call = bridge.GetType("Volt.Wire.PipeClient", true)!.GetMethods(any).First(m => m.Name == "Call");
+                    bound.Add("Volt.Wire.PipeClient.Call binds " + call.ReturnType.Assembly.GetName().Name);
+                    var write = bridge.GetType("Volt.Contracts.WireJson", true)!.GetField("Write", any)!;
+                    bound.Add("Volt.Contracts.WireJson.Write binds " + write.FieldType.Assembly.GetName().Name);
                 }
 
                 var loaded = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
                     .Select(a => new Copy(a.GetName().Name!, a.GetName().Version?.ToString(), a.Location))
-                    .Where(c => c.Name.StartsWith("Volt.", StringComparison.Ordinal) && c.Name != typeof(ScriptHost).Assembly.GetName().Name
-                                || c.Name == "System.Text.Json")
+                    .Where(c => c.Name != typeof(ScriptHost).Assembly.GetName().Name)
                     .ToArray();
                 var printed = Encoding.UTF8.GetString(output.ToArray()).Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(l => l.TrimEnd('\r')).ToArray();
                 GC.KeepAlive(engines);
-                return new Result(printed, bound.ToArray(), loaded);
+                string[] asked;
+                lock (_asked) asked = _asked.Distinct().ToArray();
+                return new Result(printed, asked, bound.ToArray(), loaded);
             }
         }
     }

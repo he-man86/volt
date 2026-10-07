@@ -86,9 +86,7 @@ public class DocDataTests
             + "nothing is the aggregate status `unavailable` instead.",
             "Answers even when the IDE lacks what the bridge needs: `unsupported` then carries the fixed reason "
             + "every other op answers with as IDE_UNSUPPORTED, `ideVersion` the IDE version, and every row is idle. "
-            + "Never a version floor — an IDE is refused for what it lacks, not for its number. The same refusal "
-            + "when the CODESYS bridge found its own assemblies loaded twice in the IDE process at start "
-            + "(`loadConflicts` lists them): the reason names every copy, and the remedy is to restart the IDE.",
+            + "Never a version floor — an IDE is refused for what it lacks, not for its number.",
             "Always states the bridge identity at top level, rows or not, refused or not: `productName`, "
             + "`productVersion` and `productVendor` (what the user runs, its own number and its maker), `ideVersion` "
             + "(the platform under it — the CODESYS framework version, or the TwinCAT build) and `bridgeVersion` (the "

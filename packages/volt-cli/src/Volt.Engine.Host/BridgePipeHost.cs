@@ -37,9 +37,10 @@ public sealed class BridgePipeHost : IDisposable
     // queued. Reads and health are not gated: they change nothing (openspec codesys-build-nesting).
     private int _writing;
 
-    /// <summary>This bridge's release (<see cref="BridgeRelease"/>, design D3), read once off the shared host's own file
-    /// — <c>Volt.Engine.Host.dll</c>, stamped by the same <c>build-cli.ps1</c> pass as every binary — so both vendors
-    /// answer through one read. Stamped on <c>health</c> and handed to the relay <c>hello</c>, so the two never
+    /// <summary>This bridge's release (<see cref="BridgeRelease"/>, design D3), read once off the file the shared host
+    /// was loaded from — <c>Volt.Engine.Host.dll</c> beside the TwinCAT worker, the merged <c>Volt.Ide.Codesys.dll</c>
+    /// in CODESYS (openspec codesys-bridge-single-assembly), each stamped by the same <c>build-cli.ps1</c> pass as every
+    /// binary — so both vendors answer through one read. Stamped on <c>health</c> and handed to the relay <c>hello</c>, so the two never
     /// disagree. Null only when that file cannot be read; the log names why, once.</summary>
     public static string? Release => _release.Value;
 
@@ -50,19 +51,9 @@ public sealed class BridgePipeHost : IDisposable
         return r;
     });
 
-    // Why this host serves nothing although its IDE has every capability: the host process could not be served as it
-    // stands (CODESYS: a Volt assembly or System.Text.Json loaded twice at start — openspec
-    // codesys-single-load-dependencies). Answered exactly like a missing capability — IDE_UNSUPPORTED, the sentence on
-    // health's `unsupported`, every row idle — because it is the same situation for a client: no call cures it, the
-    // IDE has to change (here: be restarted). Null for a host that can serve.
-    private readonly string? _cannotServe;
-
-    public BridgePipeHost(IIdeDriver ide, string pipeName) : this(ide, pipeName, null) { }
-
-    public BridgePipeHost(IIdeDriver ide, string pipeName, string? cannotServe)
+    public BridgePipeHost(IIdeDriver ide, string pipeName)
     {
         _ide = ide;
-        _cannotServe = cannotServe;
         _server = new PipeServer(pipeName, Dispatch);
     }
 
@@ -81,9 +72,7 @@ public sealed class BridgePipeHost : IDisposable
         // would otherwise answer ok and leave a client believing it can sync. The driver decided it once at attach
         // and names what is missing; the refusal is here, once, so both vendors answer it identically. Checked
         // BEFORE the pause gate: "unsupported" is the truer answer, and pressing Reconnect cannot cure it.
-        // A process the host cannot serve (`_cannotServe`) is refused the same way, after the IDE's own reason: a
-        // missing capability outlives a restart, so it is the truer answer when both hold.
-        var unsupported = _ide.Unsupported ?? _cannotServe;
+        var unsupported = _ide.Unsupported;
         if (unsupported != null && req.Op != Ops.Health)
             throw new BridgeException(BridgeErrorCodes.IdeUnsupported, unsupported);
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.Paused();
@@ -120,10 +109,6 @@ public sealed class BridgePipeHost : IDisposable
                 h.ProductVendor = _ide.ProductVendor;
                 h.BridgeVersion = Release;
                 h.Unsupported = unsupported;
-                // Read per poll, not at start: a second copy can load later (3.2). Cheap — one scan of the loaded
-                // assemblies, each copy's version-info read once per process (LoadedCopies caches it).
-                var conflicts = LoadedCopies.Conflicts();
-                h.LoadConflicts = conflicts.Count == 0 ? null : conflicts.ToList();
                 return h;
             }
             case Ops.Connect:

@@ -242,11 +242,12 @@ function assertInstalled(step: string): void {
     join(current, "VoltBridgeTwincat.exe"),
     join(current, "bin", "volt.exe"),
     // The file each bridge reads its `health.bridgeVersion` (and the relay `hello.volt`) from — `BridgeRelease` off
-    // Volt.Engine.Host.dll, NOT the exe — once beside the TwinCAT worker and once in the CODESYS bridge folder. An
-    // unstamped one reports `(dev) <commit>` on a release install, which is how PLCAssist saw `1.0.0.0` on every chat
-    // (openspec ide-identity-report 1.4); the exes above passing says nothing about this DLL.
+    // the file the shared host was loaded from, NOT the exe: Volt.Engine.Host.dll beside the TwinCAT worker, and the
+    // CODESYS bridge itself, which is ONE assembly with the host merged in (openspec codesys-bridge-single-assembly).
+    // An unstamped one reports `(dev) <commit>` on a release install, which is how PLCAssist saw `1.0.0.0` on every
+    // chat (openspec ide-identity-report 1.4); the exes above passing says nothing about these DLLs.
     join(current, "Volt.Engine.Host.dll"),
-    join(current, "codesys-scriptcommands", "Volt.Engine.Host.dll"),
+    join(current, "codesys-scriptcommands", "Volt.Ide.Codesys.dll"),
   ]
   const missing = exes.filter((e) => !existsSync(e))
   for (const e of missing) fail(step, `${e.replace(installDir, "")} missing`)

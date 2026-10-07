@@ -16,11 +16,13 @@ namespace Volt.Cli.Tests;
 /// pins the PACKAGING: for each shipped bridge bundle it runs THE LINE OF <c>build-cli.ps1</c> THAT PRODUCES IT — verb,
 /// project and flags read from the script, <c>@VERARGS</c> expanded from the script's own <c>$VERARGS</c> definition;
 /// only the configuration and the output folder are redirected — so the stamp has to travel the way it does in a
-/// release: through the bundle project's ProjectReference into <c>Volt.Engine.Host</c>. It then loads the
-/// <c>Volt.Engine.Host.dll</c> that landed in that bundle into its own load context, serves <c>health</c> from it over
-/// a real pipe and reads <c>bridgeVersion</c> back. Dropping <c>@VERARGS</c> from a bundle line, dropping
-/// <c>/p:FileVersion</c> from <c>$VERARGS</c>, or cutting the global-property flow on the host's ProjectReference
-/// (<c>GlobalPropertiesToRemove</c>) each fails here.</para>
+/// release: through the bundle project's ProjectReference into <c>Volt.Engine.Host</c>. It then loads the file the
+/// shared host ships in — <c>Volt.Engine.Host.dll</c> in the TwinCAT bundle, the merged <c>Volt.Ide.Codesys.dll</c>
+/// in the CODESYS one (openspec codesys-bridge-single-assembly: that bundle is one assembly, and the release is read off
+/// it) — into its own load context, serves <c>health</c> from it over a real pipe and reads <c>bridgeVersion</c> back.
+/// Dropping <c>@VERARGS</c> from a bundle line, dropping <c>/p:FileVersion</c> from <c>$VERARGS</c>, cutting the
+/// global-property flow on the host's ProjectReference (<c>GlobalPropertiesToRemove</c>), or a merge that loses the
+/// bridge's version resource each fails here.</para>
 ///
 /// <list type="bullet">
 /// <item>stamped (<c>VOLT_VERSION</c> set) → exactly that version;</item>
@@ -118,7 +120,6 @@ public class BridgePackagingTests
             SweepEarlierOutputs();
             var outDir = Path.Combine(PackagingTemp, $"{Environment.ProcessId}-{configuration}-{project}-{Guid.NewGuid():N}");
             Run(Dotnet(), BundleCommand(project, configuration, outDir, verArgs), Root());
-            Assert.True(File.Exists(Path.Combine(outDir, "Volt.Engine.Host.dll")), $"the {project} bundle carries no Volt.Engine.Host.dll");
             return outDir;
         }
         finally { gate.ReleaseMutex(); }
@@ -145,14 +146,27 @@ public class BridgePackagingTests
         catch (ArgumentException) { return false; }   // no such process
     }
 
-    /// <summary>Serves <c>health</c> from the BUILT host (its own load context, its own static release read) over a real
-    /// pipe; the driver is a proxy over the built <c>IIdeDriver</c> that answers only what health asks.</summary>
-    private static JsonElement HealthFrom(string outDir)
+    /// <summary>What a bundle ships, out of its build's output folder, and the file in it that carries the shared host:
+    /// the CODESYS bundle is the merged <c>bundle</c> folder, one assembly (build-cli.ps1 copies exactly that; pinned by
+    /// <see cref="The_codesys_bundle_ships_one_assembly_that_references_nothing_it_merged"/>), the TwinCAT one the
+    /// output itself.</summary>
+    private static (string Dir, string HostFile) Shipped(string bundle, string outDir) =>
+        bundle == "Volt.Ide.Codesys"
+            ? (Path.Combine(outDir, "bundle"), "Volt.Ide.Codesys.dll")
+            : (outDir, "Volt.Engine.Host.dll");
+
+    /// <summary>Serves <c>health</c> from the SHIPPED host (its own load context, its own static release read) over a real
+    /// pipe; the driver is a proxy over the shipped <c>IIdeDriver</c> that answers only what health asks.</summary>
+    private static JsonElement HealthFrom(string bundle, string outDir)
     {
-        var alc = new BundleContext(outDir);
-        var host = alc.LoadFromAssemblyPath(Path.Combine(outDir, "Volt.Engine.Host.dll"));
-        var engine = alc.LoadFromAssemblyName(new AssemblyName("Volt.Engine"));
-        var contracts = alc.LoadFromAssemblyName(new AssemblyName("Volt.Contracts"));
+        var (dir, hostFile) = Shipped(bundle, outDir);
+        Assert.True(File.Exists(Path.Combine(dir, hostFile)), $"the {bundle} bundle carries no {hostFile}");
+        var alc = new BundleContext(dir);
+        var host = alc.LoadFromAssemblyPath(Path.Combine(dir, hostFile));
+        // Merged, the host's assembly IS Volt.Engine and Volt.Contracts as well.
+        Assembly Volt(string name) => hostFile == "Volt.Engine.Host.dll" ? alc.LoadFromAssemblyName(new AssemblyName(name)) : host;
+        var engine = Volt("Volt.Engine");
+        var contracts = Volt("Volt.Contracts");
         var driverType = engine.GetType("Volt.Engine.Ide.IIdeDriver", throwOnError: true)!;
         var healthType = contracts.GetType("Volt.Contracts.HealthResponse", throwOnError: true)!;
 
@@ -212,7 +226,7 @@ public class BridgePackagingTests
     [MemberData(nameof(Bundles))]
     public void A_stamped_bundle_reports_the_version_it_was_stamped_with(string bundle)
     {
-        Assert.Equal(Stamp, BridgeVersion(HealthFrom(Build(bundle, "PackagingStamped", VerArgs(Stamp)))));
+        Assert.Equal(Stamp, BridgeVersion(HealthFrom(bundle, Build(bundle, "PackagingStamped", VerArgs(Stamp)))));
     }
 
     [Theory]
@@ -220,9 +234,45 @@ public class BridgePackagingTests
     public void An_unstamped_bundle_reports_dev_and_the_commit_it_was_built_from(string bundle)
     {
         var head = Run("git", new[] { "rev-parse", "HEAD" }, Root());
-        var v = BridgeVersion(HealthFrom(Build(bundle, "PackagingDev", Array.Empty<string>())));
+        var v = BridgeVersion(HealthFrom(bundle, Build(bundle, "PackagingDev", Array.Empty<string>())));
 
         Assert.Equal("(dev) " + head, v);
         Assert.NotEqual("1.0.0.0", v);
+    }
+
+    /// <summary>The .NET Framework's own assemblies — what CODESYS.exe's runtime binds without any resolver (net48's
+    /// GAC and its netstandard/ValueTuple unification). Anything else the shipped bridge references would have to be
+    /// FOUND at runtime, by a resolver, which is the race openspec codesys-bridge-single-assembly removed.</summary>
+    private static readonly string[] Net48 = { "mscorlib", "System", "System.Core", "System.Numerics", "netstandard", "System.ValueTuple" };
+
+    /// <summary>ONE ASSEMBLY, NOTHING LEFT TO RESOLVE (openspec codesys-bridge-single-assembly 2.1). The CODESYS bridge is
+    /// built by <c>build-cli.ps1</c>'s own line; the folder it ships (<c>bundle</c>, what the script copies to
+    /// <c>dist\Codesys</c>) holds exactly one assembly, <c>Volt.Ide.Codesys.dll</c>, which references none of the
+    /// assemblies the plain build copies beside it (Volt.*, System.Text.Json and its net48 dependencies — all merged
+    /// and internalized) and nothing outside the framework.</summary>
+    [Fact]
+    public void The_codesys_bundle_ships_one_assembly_that_references_nothing_it_merged()
+    {
+        Assert.Matches(new Regex(@"Copy-Item\s+""\$DIST\\CodesysBuild\\bundle\\\*""\s+-Destination\s+""\$DIST\\Codesys\\?"""), Script());
+        var outDir = Build("Volt.Ide.Codesys", "PackagingBundle", Array.Empty<string>());
+        var shipped = Path.Combine(outDir, "bundle");
+
+        Assert.True(Directory.Exists(shipped), $"the Volt.Ide.Codesys build produced no bundle folder at {shipped}");
+        var assemblies = Directory.GetFiles(shipped).Where(f => f.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                                                             || f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                  .Select(Path.GetFileName).ToList();
+        Assert.Equal(new[] { "Volt.Ide.Codesys.dll" }, assemblies);
+
+        // What the merge took in: every assembly the plain build copied beside the bridge.
+        var merged = Directory.GetFiles(outDir, "*.dll").Select(Path.GetFileNameWithoutExtension)
+                              .Where(n => n != "Volt.Ide.Codesys").ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("System.Text.Json", merged);
+        Assert.Contains("Volt.Wire", merged);
+
+        using var pe = new System.Reflection.PortableExecutable.PEReader(File.OpenRead(Path.Combine(shipped, "Volt.Ide.Codesys.dll")));
+        var md = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader(pe);
+        var refs = md.AssemblyReferences.Select(h => md.GetString(md.GetAssemblyReference(h).Name)).ToList();
+        Assert.Empty(refs.Where(merged.Contains));
+        Assert.Empty(refs.Where(r => !Net48.Contains(r)));
     }
 }

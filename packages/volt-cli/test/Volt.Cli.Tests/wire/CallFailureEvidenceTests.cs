@@ -15,10 +15,14 @@ namespace Volt.Cli.Tests;
 ///
 /// <para>The 3.5.17 field failure is a member that failed to bind AT CALL TIME (the bridge had printed "connected to
 /// IDE"). Before this, <c>PipeServer</c> wrote such a failure to the client as its bare message and logged nothing — no
-/// type, no stack, nothing about which copies were loaded — and its error frame is written with the very
+/// type, no stack — and its error frame is written with the very
 /// <c>WireJson.Write</c> the 3.5.21.50 failure names, so in that case the client got nothing either and the failure
 /// left no trace at all. It is deliberately NOT <c>IDE_UNSUPPORTED</c>: that refusal is decided once, at attach, by a
-/// missing CODESYS capability; a Volt member missing at call time is a load conflict, and it is reported as one.</para>
+/// missing CODESYS capability.</para>
+/// <para>The client's message used to end with which copies of Volt's assemblies were loaded, and the log listed them:
+/// evidence for a second copy in the CODESYS process. The bridge now ships as ONE assembly with those merged in
+/// (openspec codesys-bridge-single-assembly), so that evidence has nothing left to name and is gone; the type, the
+/// member and the stack remain.</para>
 /// </summary>
 public class CallFailureEvidenceTests
 {
@@ -41,7 +45,7 @@ public class CallFailureEvidenceTests
     }
 
     [Fact]
-    public void A_member_missing_at_call_time_reaches_the_client_with_its_type_and_the_log_with_stack_and_copies()
+    public void A_member_missing_at_call_time_reaches_the_client_with_its_type_and_the_log_with_its_stack()
     {
         var pipe = Pipe();
         PipeCallException? ex = null;
@@ -55,23 +59,17 @@ public class CallFailureEvidenceTests
             ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(Ops.Refs));
         });
 
-        // The client: uncoded → INTERNAL_ERROR, never IDE_UNSUPPORTED; the type and the member, verbatim; and what was
-        // loaded at that moment.
+        // The client: uncoded → INTERNAL_ERROR, never IDE_UNSUPPORTED; the type and the member, verbatim.
         Assert.Equal(BridgeErrorCodes.InternalError, ex!.Code);
-        Assert.StartsWith("MissingMethodException: " + Field + " [", ex.Message);
-        Assert.Matches(@"\[(loaded: one copy of each|load conflict: )", ex.Message);
+        Assert.Equal("MissingMethodException: " + Field, ex.Message);
 
-        // The log: the op, the whole exception with its stack, every watched copy with its build.
+        // The log: the op, the whole exception with its stack.
         Assert.Contains($"pipe {pipe}: 'refs' failed — System.MissingMethodException: {Field}", log);
         Assert.Contains("   at ", log);
-        Assert.Contains("  loaded at the failure:", log);
-        var wire = typeof(PipeClient).Assembly;
-        Assert.Contains($"    Volt.Wire {LoadedCopies.Of(wire).Describe()}", log);
-        Assert.Contains("  load conflicts:", log);
     }
 
     [Fact]
-    public void An_ordinary_uncoded_failure_names_its_type_and_is_logged_once_without_load_evidence()
+    public void An_ordinary_uncoded_failure_names_its_type_and_is_logged_once()
     {
         var pipe = Pipe();
         PipeCallException? ex = null;
@@ -88,7 +86,6 @@ public class CallFailureEvidenceTests
         Assert.Equal(BridgeErrorCodes.InternalError, ex!.Code);
         Assert.Equal("InvalidOperationException: the IDE thread faulted", ex.Message);
         Assert.Contains($"pipe {pipe}: 'refs' failed — System.InvalidOperationException: the IDE thread faulted", log);
-        Assert.DoesNotContain("loaded at the failure", log);
     }
 
     /// <summary>A CODED refusal is the caller's ordinary answer, not a failure: its message is unchanged and the log

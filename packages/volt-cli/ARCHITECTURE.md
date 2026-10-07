@@ -258,7 +258,11 @@ the bridge's `Driver/` is the bridge between them.**
 These are irreducible differences between how the two IDEs are reached, **not** drift to be refactored away:
 
 - **Hosting.** CODESYS = net48 library loaded *in-process* by reflection (no compile-time refs → loads in any
-  3.5.x); Beckhoff = net10 exe *attaching* to a separate XAE over COM. This dictates each `Ide/` layer.
+  3.5.x); Beckhoff = net10 exe *attaching* to a separate XAE over COM. This dictates each `Ide/` layer. And it
+  dictates packaging: the CODESYS bridge ships as ONE assembly, `Volt.*` and `System.Text.Json` (with its net48
+  dependencies) merged in and internalized at build (the csproj's `VoltBundle` target, ILRepack), because anything
+  it left to resolve would be resolved inside `CODESYS.exe` by whichever `AssemblyResolve` handler answers first
+  (DIALECT V6). The TwinCAT worker is its own process with ordinary probing, so it ships its folder as built.
 - **How a graphical body is reached — and this one is ACCESS, not model.** The two vendors ship the SAME
   `NWLObject` model, member for member (DIALECT N1). CODESYS hands over the live objects, so its writer builds a
   typed tree and a wrong member name throws. TwinCAT hands over the serialization, so its writer edits the

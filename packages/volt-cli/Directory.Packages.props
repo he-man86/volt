@@ -6,10 +6,9 @@
     Every version below was hand-copied into two or three csprojs, so a bump was a multi-file edit that had to be
     done consistently by hand — and the one version that MUST not drift was among them.
 
-    System.Text.Json 8.0.5 is load-bearing, not routine. The in-process CODESYS bridge is net48 and binds this
-    assembly by exact identity; PipeHost installs an AssemblyResolve handler specifically so the host process can
-    find it. Two projects declaring that version separately is one edit away from a bridge that loads in the IDE
-    and then fails to deserialize. One declaration removes that failure mode.
+    The System.Text.Json version is not load-bearing for the CODESYS bridge: the in-process bridge ships as ONE
+    assembly with System.Text.Json merged in and internalized (Volt.Ide.Codesys.csproj, target VoltBundle), so CODESYS
+    binds nothing of it at runtime, whatever version this says.
   -->
 
   <PropertyGroup>
@@ -17,9 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Wire serialization. ONE declaration because the net48 in-proc CODESYS bridge loads this beside itself
-         (see above); 10.0.x still ships netstandard2.0 and net462 assets, and PipeHost's resolver matches by
-         SIMPLE NAME, not by version, so the bind survives the major. -->
+    <!-- Wire serialization. -->
     <PackageVersion Include="System.Text.Json" Version="10.0.12" />
 
     <!-- netstandard2.0 needs this for ValueTuple; net10.0 has it in the BCL. -->
@@ -30,6 +27,10 @@
          imports (os, shutil). Test-only. -->
     <PackageVersion Include="IronPython" Version="2.7.12" />
     <PackageVersion Include="IronPython.StdLib" Version="2.7.12" />
+
+    <!-- Build-time only: merges the CODESYS bridge and its dependencies into one assembly (Volt.Ide.Codesys.csproj,
+         target VoltBundle). Nothing of it ships. -->
+    <PackageVersion Include="ILRepack" Version="2.0.48" />
 
     <!-- Test tooling — one version across all three test projects. -->
     <PackageVersion Include="xunit" Version="2.9.3" />

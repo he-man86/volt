@@ -32,4 +32,18 @@
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
   </ItemGroup>
+
+  <!-- The SHIPPED bundle (the bridge's merged single assembly, Volt.Ide.Codesys.csproj's VoltBundle target), copied in
+       as codesys-bundle\ for StartScriptLoadTests. Everything else here tests the unmerged build this project
+       references: the merge internalizes Volt.*, so the doubles could not reach the internals they test through it. -->
+  <Target Name="CopyCodesysBundle" AfterTargets="Build">
+    <MSBuild Projects="..\..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_CodesysBridge" />
+    </MSBuild>
+    <ItemGroup>
+      <_CodesysBundle Include="%(_CodesysBridge.RootDir)%(_CodesysBridge.Directory)bundle\*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(OutDir)codesys-bundle" />
+    <Copy SourceFiles="@(_CodesysBundle)" DestinationFolder="$(OutDir)codesys-bundle" />
+  </Target>
 </Project>

@@ -2,7 +2,8 @@
 # Build the unified Volt CLI toolchain + the user-facing Connector (pipe transport):
 #   - volt.exe:            the PLC CLI (Volt.Cli) — git-native sync over the named pipe.
 #   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.twincat`.
-#   - Volt.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys`.
+#   - Volt.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys` -
+#                          ONE assembly, its dependencies merged in at build (the csproj's VoltBundle target).
 #   - Connector:           the one system-tray app that supervises every worker (probes `health` over the pipe).
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path $PSScriptRoot -Parent           # the volt-cli package dir
@@ -68,11 +69,15 @@ Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
 Write-Output "`n[3/4] Volt.Ide.Codesys (in-proc DLL)"
-& $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\Codesys" --nologo -v q
+& $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\CodesysBuild" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
+# What ships is the merged bundle\ folder (one assembly), never the build output beside it: that holds every Volt and
+# System.Text.Json DLL the merge took in, which CODESYS must not be offered (openspec codesys-bridge-single-assembly).
+Copy-Item "$DIST\CodesysBuild\bundle\*" -Destination "$DIST\Codesys\" -Force
+Remove-Item -Recurse -Force "$DIST\CodesysBuild"
 # Ship only the user-facing activation scripts; run_pipe_production.py is the dev/test launcher around them.
 Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
-Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll + deps + pipe scripts)"
+Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll, one assembly + pipe scripts)"
 
 # --- Connector (the one tray app) — bundle the workers next to it --
 Write-Output "`n[4/4] Volt.Connector"
@@ -80,7 +85,7 @@ Write-Output "`n[4/4] Volt.Connector"
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
-# start_volt_codesys.py loads "<this folder>/Volt.Ide.Codesys.dll"; dist\Codesys already holds DLL + deps + scripts.
+# start_volt_codesys.py loads "<this folder>/Volt.Ide.Codesys.dll"; dist\Codesys already holds the DLL + scripts.
 Copy-Item "$DIST\Codesys\*" -Destination "$DIST\Connector\codesys-scriptcommands\" -Recurse -Force
 Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ pipe workers + CODESYS DLL)"
 

@@ -22,8 +22,11 @@ import os
 import shutil
 
 _DLL_NAME = "Volt.Ide.Codesys.dll"
-# What to copy beside the bridge DLL when staging it (below): everything the CLR probes for as a dependency.
-_STAGE_EXTS = (".dll", ".config", ".json")
+# The bridge is ONE assembly: Volt.* and System.Text.Json (with its net48 dependencies) are merged into it and
+# internalized at build, so CODESYS is asked to resolve nothing of Volt's (openspec codesys-bridge-single-assembly).
+# Staging copies that one file, and the relay sidecars the bridge reads from its own folder (setup.json,
+# volt-relay.json).
+_SIDECAR_EXT = ".json"
 
 # The default per-user install dir subfolder that holds the bridge DLLs (installer/Volt.iss lays it here). Lets
 # the visible Documents\Volt copy of this script find the DLLs that stay in the (hidden) install dir.
@@ -75,12 +78,8 @@ def _temp_root():
 
 def _prune(root):
     # Drop copies left by CLOSED sessions, and ONLY those. The bridge DLL goes first: a running session holds it loaded,
-    # so its removal fails and the folder is left whole. It used to be a bare rmtree, on the theory that a running
-    # session's locks make it fail — but rmtree deletes file by file, and only the assemblies ALREADY loaded are
-    # locked: it stripped every dependency a running bridge had not loaded yet (this session's own on a second run,
-    # another IDE's when a second CODESYS started Volt). The next lazy load of one then had no file beside the bridge,
-    # and was answered from wherever else one was found — a second copy (openspec codesys-single-load-dependencies).
-    # Best-effort; never let cleanup break activation.
+    # so its removal fails and the folder is left whole (its relay sidecars with it). Best-effort; never let cleanup
+    # break activation.
     try:
         for name in os.listdir(root):
             d = os.path.join(root, name)
@@ -116,26 +115,29 @@ def _unblock(path):
         return False
 
 
+def _staged_files(d):
+    """What staging copies out of `d`: the bridge DLL and the relay sidecars."""
+    return [n for n in os.listdir(d) if n == _DLL_NAME or os.path.splitext(n)[1].lower() == _SIDECAR_EXT]
+
+
 def _unblock_dir(d):
     """Unblock every file we might load out of `d`. Returns how many streams were removed (0 is the normal case
     for an install that was not downloaded, and is not an error)."""
     removed = 0
     try:
-        for name in os.listdir(d):
-            if os.path.splitext(name)[1].lower() in _STAGE_EXTS:
-                if _unblock(os.path.join(d, name)):
-                    removed += 1
+        for name in _staged_files(d):
+            if _unblock(os.path.join(d, name)):
+                removed += 1
     except Exception:
         pass
     return removed
 
 
 def _stage(src):
-    """Copy the bridge DLL + its sibling deps to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
-    file-locks the copy — never the install-dir originals. That is what lets Volt UPDATE IN PLACE while CODESYS is
+    """Copy the bridge DLL (and the relay sidecars) to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
+    file-locks the copy — never the install-dir original. That is what lets Volt UPDATE IN PLACE while CODESYS is
     open: loading straight from the install dir was why in-place updates hit 'DeleteFile failed; Access denied' on
-    codesys-scriptcommands\\*.dll. The bridge's own AssemblyResolve keys off this DLL's load location, so its deps
-    resolve from the copy too. Best-effort: on ANY failure, fall back to loading the original (old behaviour)."""
+    codesys-scriptcommands\\*.dll. Best-effort: on ANY failure, load the original instead."""
     try:
         src_dir = os.path.dirname(src)
         root = _temp_root()
@@ -146,15 +148,14 @@ def _stage(src):
             return dst  # already staged for this session (script re-run) — don't recopy a DLL we hold open
         if not os.path.isdir(dst_dir):
             os.makedirs(dst_dir)
-        wanted = [n for n in os.listdir(src_dir) if os.path.splitext(n)[1].lower() in _STAGE_EXTS]
+        wanted = _staged_files(src_dir)
         for name in wanted:
             try:
                 shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
             except Exception:
                 pass
-        # Every wanted file, not just the main DLL. A per-file copy can fail on its own (antivirus holds a
-        # freshly downloaded DLL open), and checking only _DLL_NAME declared success over a half-copied folder -
-        # which then failed later, at PipeHost.Start, naming whichever dependency was missing.
+        # Every wanted file, not just the DLL: a per-file copy can fail on its own (antivirus holds a freshly
+        # downloaded file open), and a staged bridge without its relay sidecar would start without its tunnel.
         missing = [n for n in wanted if not os.path.exists(os.path.join(dst_dir, n))]
         if missing:
             print("Volt: staging incomplete (%s); loading from %s instead" % (", ".join(missing), src_dir))
@@ -164,33 +165,8 @@ def _stage(src):
         return src
 
 
-def _off_sys_path():
-    """Take every folder holding the bridge DLL off IronPython's sys.path, so IronPython can never load a Volt
-    dependency itself.
-
-    CODESYS puts the running script's folder on sys.path, and IronPython's AssemblyResolve handler, which runs before
-    the bridge's own, answers a request that names no requesting assembly — the CLR raises those while reading a
-    member's signature, e.g. Volt.Wire's System.Text.Json types — by LoadFile from the first sys.path folder holding
-    the file. Run from the folder holding the DLLs (a downloaded bundle, the install dir), that loaded a SECOND
-    System.Text.Json beside the bridge's own: two JsonElement types, and every call failed (openspec
-    codesys-single-load-dependencies, measured 2026-10-07). With the folder off sys.path IronPython finds nothing and
-    the bridge's resolver answers, from the folder the bridge was loaded from. Only the folders holding the bridge
-    DLL: nothing of CODESYS's own (ScriptLib) is touched. Returns the folders removed."""
-    import sys
-    removed = []
-    for p in list(sys.path):
-        try:
-            if os.path.exists(os.path.join(p, _DLL_NAME)):
-                sys.path.remove(p)
-                removed.append(p)
-        except Exception:
-            pass
-    return removed
-
-
 try:
     import clr
-    _off_sys_path()
     dll = _find_dll()
     if not dll:
         print("Volt: DLL not found. Looked in:")
@@ -205,18 +181,9 @@ try:
         staged = _stage(dll)  # load a per-session COPY so the install-dir DLLs stay unlocked (in-place updates)
         _unblock_dir(os.path.dirname(staged))
         print("Volt: loading %s" % staged)
-        # Assembly.LoadFrom, then hand the loaded assembly to clr — NOT clr.AddReferenceToFileAndPath. That call loads
-        # with IronPython's own LoadFile, and IronPython then answers every dependency of an assembly IT loaded from
-        # its AssemblyResolve handler (registered before the bridge's), probing sys.path IN ORDER. CODESYS puts the
-        # running script's folder on sys.path, so a user who runs this file from the folder holding the DLLs (a
-        # downloaded bundle, the install dir) got Volt.Wire, Volt.Contracts and one System.Text.Json from THAT folder
-        # and another System.Text.Json from the staged one: two JsonElement types, every call failing with
-        # MissingMethodException / MissingFieldException (measured live on 3.5.21.40, 2026-10-07; openspec
-        # codesys-single-load-dependencies). Loaded here, the bridge is not IronPython's, so IronPython leaves the
-        # requests the bridge's assemblies make alone, and the ones that name no requester find nothing on sys.path
-        # (_off_sys_path): every dependency binds next to the bridge or through its own resolver, from the bridge's
-        # folder — one copy, one folder. A second run of this script in the same IDE gets the copy already loaded
-        # (LoadFrom returns it for the same identity).
+        # Assembly.LoadFrom, then hand the loaded assembly to clr. A second run of this script in the same IDE (from
+        # this folder or another) then gets the copy already loaded: LoadFrom returns it for the same identity, where
+        # clr.AddReferenceToFileAndPath (IronPython's own LoadFile) loads a file from a NEW path as a second copy.
         from System.Reflection import Assembly
         clr.AddReference(Assembly.LoadFrom(staged))
         from Volt.Ide.Codesys import PipeHost
