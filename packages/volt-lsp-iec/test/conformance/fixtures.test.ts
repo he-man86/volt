@@ -1703,7 +1703,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // expression statement (4: "expr_stmt is not lowered yet"), INI and __QUERYPOINTER (no project FUNCTION, 2), the address
   // of a bit, of a BIT field, of a derived FB through a base's pointer (4), a method's output bound to the variable
   // the call holds (3: `out := M(o => res)`), and two FUNCTIONs calling each other (1). No fixture moved.
-  "not-lowered": 367,
+  // 367 -> 389, FOR MEASUREMENT. analysis-conformance 3.12 (2026-10-07): the 22 `initord_*` cells CODESYS builds and runs
+  // (`fixtures/cross-object/init-order.ts`) — every one initializes an FB instance's input with another PROGRAM's instance
+  // (or its own later instance), which lowering refuses as "an initial value that is not a compile-time constant". No
+  // fixture moved.
+  "not-lowered": 389,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

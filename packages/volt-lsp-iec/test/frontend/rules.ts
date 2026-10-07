@@ -3433,6 +3433,21 @@ export const RULES: readonly Rule[] = [
     recheck:
       "3.4.2: closed — `Util.DAY_FLAGS.TUESDAY` (out 2) and `Util.CONSTANTS.GC_AUSIWEEKDAY[1]`, a list name five libraries carry, qualified by Util's namespace (out 3); the LSP agreed (3.1's `gvlBlockOf`). Bare `CONSTANTS.…` is ambiguous on CODESYS (LB6's divergence).",
   },
+  {
+    id: "LB10",
+    area: 3,
+    section: "3.4",
+    rule: "a NAMESPACE two library manifests declare (a placeholder and its resolution: CAA Callback / CAA Callback Extern `CB`) is every declaring library's",
+    home: "library-namespaces.bindLibraryNamespaces",
+    gap: false,
+    fixtures: [],
+    tests: [
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "a namespace two libraries declare is both libraries' — `CB` is CAA Callback's AND CAA Callback Extern's, whatever the manifests' order" },
+    ],
+    design: "— (analysis-conformance H.1, the hand-in of the CI fix c4f4b66e02)",
+    recheck:
+      "H.1 (2026-10-07), measured by a single-use headless probe, NOT a conformance fixture: the recording project references neither pair, and adding a reference changes the project all 5357 fixtures are recorded against. On a copy with the placeholder `CAA Callback` (resolution CAA Callback Extern 3.5.17.0) added, `CB.CB_CALLBACK` and `CB.EVENT_CLASS.NO_CLASS` build and `CB.GETNUMBERACTIVECALLBACKS(ADR(e))` types as ULINT — the namespace reaches the resolution's elements, which the placeholder's own manifest (materializing nothing) cannot contradict: the union the binder builds is CODESYS's answer, binder unchanged. Bare `CB_CALLBACK` is \"Unknown type\" (qualified-only access, LB2's class — the manifest does not carry it). Two DIFFERENT libraries of one namespace (the placeholder `CmpErrors` 3.3.1.40 added beside the dependency CmpErrors2 Interfaces): CODESYS names the application reference's library as the scope (\"'CMPERRORS, 3.3.1.40 (SYSTEM)' contains no definition for 'ERR_OK'\"), but no element the materialization holds tells the two apart (both carry an ERRORS list), so that cell decides nothing; the corpora's project code names no shared namespace (0 uses — pro2193's `CmpErrors.Errors.…` and `SysTypes.RTS_…` are namespaces one manifest declares there); the libraries' own references through one are what the clean corpus builds back.",
+  },
   // ── 3.5 ──
   {
     id: "M1",

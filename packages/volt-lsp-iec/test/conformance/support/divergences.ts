@@ -1395,6 +1395,33 @@ const DELETE_NOT_ALLOWED_IN_A_STATEMENT: readonly string[] = ["lex_keyword_befor
 const REFERENCE_TO_BIT_ALIAS: readonly string[] = ["refbit_alias", "refbit_alias_variable_unread"]
 
 /**
+ * ANALYSIS-CONFORMANCE 3.12 (2026-10-07), TwinCAT — an initializer reading a PROGRAM initialized LATER (and C0564's own
+ * repro, an instance initialized with one declared after it in its VAR block): "The uninitialized variable <read> is used
+ * for initialization of <target>. Use the attribute 'global_init_slot' to change the order of initialisation.", an ERROR
+ * at build on the reader's declaration line. The order is the TASK's call order with `global_init_slot` before it (lower
+ * first) — `initord_reads_later_name_called_second` is silent, `_declared_second` is not (`fixtures/cross-object/init-order.ts`).
+ * CODESYS says the same only at CODE GENERATION (C0564, a warning for an FB instance read, this sentence as an error for a
+ * value; measured by a single-use `app.generate_code()` probe) — never at the bridge's build, so its recordings are clean
+ * and agree with the LSP; pro2193's three C0564 are those code-generation warnings. Not modelled: the rule needs the
+ * task configuration and the call order across every program (a whole-project fact no check holds), and its CODESYS
+ * evidence is out of every build recording's reach. Not niche (pro2193 ×3) — a divergence with that measured reason.
+ */
+const INIT_ORDER_OF_PROGRAMS: readonly string[] = [
+  "initord_reads_later_name",
+  "initord_reads_later_name_declared_second",
+  "initord_slot_on_read",
+  "initord_array_later_name",
+  "initord_interface_var_later_name",
+  "initord_read_uninitialized",
+  "initord_read_type_default",
+  "initord_value_later_name",
+  "initord_chain3_asc",
+  "initord_chain4_asc",
+  "initord_chain5_asc",
+  "initord_same_block_later_instance",
+]
+
+/**
  * A NAME THE IDE REFUSES TO CREATE, AND THE LSP DOES NOT SAY SO — openspec bridge-refusal-review 3.1 / DIALECT C28
  * (review 5+6). The push no longer judges a name (`StReader.IsIdentifier` went); each driver's `RefusedName` answers the
  * vendors' measured create rule: no ASCII identifier is refused by both IDEs for a POU and every member kind, and CODESYS
@@ -1440,6 +1467,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...ANALYSIS_NICHE,
     ...DELETE_NOT_ALLOWED_IN_A_STATEMENT,
     ...REFERENCE_TO_BIT_ALIAS,
+    ...INIT_ORDER_OF_PROGRAMS,
     ...TWINCAT_ANALYSIS_NICHE,
     ...ACCESS_MODIFIER_ON_A_FUNCTION_OR_PROGRAM,
     ...CALC_CONDITIONAL_CALL,

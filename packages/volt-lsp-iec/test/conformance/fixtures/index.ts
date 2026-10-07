@@ -88,6 +88,7 @@ import { CALL_RULE_TESTS } from "./calls/call-rules.js"
 import { FLOW_RULE_TESTS } from "./semantics/flow-rules.js"
 import { PRAGMA_CHECK_RULE_TESTS } from "./pragmas/pragma-check-rules.js"
 import { MISSING_RULE_TESTS } from "./types/missing-rules.js"
+import { INIT_ORDER_TESTS } from "./cross-object/init-order.js"
 import { ENUM_INIT_VALUE_TESTS } from "./types/enum-init-values.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
@@ -246,6 +247,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "flow-rules", tests: FLOW_RULE_TESTS },
   { name: "pragma-check-rules", tests: PRAGMA_CHECK_RULE_TESTS },
   { name: "missing-rules", tests: MISSING_RULE_TESTS },
+  { name: "init-order", tests: INIT_ORDER_TESTS },
   { name: "types-enum-init-values", tests: ENUM_INIT_VALUE_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },

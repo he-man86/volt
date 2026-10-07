@@ -409,8 +409,8 @@ export interface Messages {
    */
   unknownAttribute(name: string): string
   /** An invalid VALUE for the `{attribute 'symbol'}` pragma — C0351, the symbol-export access mode. Only
-   *  `none/read/write/readwrite` are legal; a typo (`'noe'`) breaks the whole PROGRAM's symbol export, so
-   *  downstream C0564 init warnings cascade from it. Verified live CODESYS (SymbolConfig-prefixed wording). */
+   *  `none/read/write/readwrite` are legal; a typo (`'noe'`) says this once per attribute and nothing more (no C0564 —
+   *  `initord_chain4_symbol_noe`, analysis-conformance 3.12). Verified live CODESYS (SymbolConfig-prefixed wording). */
   invalidSymbolAttributeValue(value: string): string
   abstractKeywordMissing(): string
   /** An attribute that belongs on a variable declaration written on a unit (`pingroup`, `pragma_conflicting_pair`). CODESYS. */

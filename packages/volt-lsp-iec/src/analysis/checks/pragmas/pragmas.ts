@@ -133,8 +133,8 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
       // (`prag_rule_unknown_attribute_in_body`, analysis-conformance 3.10)
       if (!outOfBody(p)) continue
       // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
-      // a typo (`'noe'`) is a real C0351 that also cascades downstream (the PROGRAM's export breaks → C0564 init
-      // warnings). Same C0351 code + toggle as the unknown-NAME case, distinct wording. Only `symbol` has a
+      // a typo (`'noe'`) is a real C0351 (pro2193's C0564 beside it are the initialization order of its PROGRAMs, not a
+      // cascade of this — `initord_chain4_symbol_noe`, analysis-conformance 3.12). Same C0351 code + toggle as the unknown-NAME case, distinct wording. Only `symbol` has a
       // published closed value set, so it's the only one checked (zero-FP: every other attribute is skipped).
       if (p.attributeName?.toLowerCase() === "symbol" && p.attributeValue !== undefined && !SYMBOL_VALUES.has(p.attributeValue)) {
         out.push({

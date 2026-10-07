@@ -312,6 +312,35 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why: "an alias of REFERENCE TO BIT with a variable of it, measured 2026-10-06 (the analysis-conformance 3.11 gate review)",
     })),
   ),
+  // analysis-conformance 3.12 asked the initialization order of PROGRAMs (`fixtures/cross-object/init-order.ts`): TwinCAT
+  // refuses an initializer reading a program initialized later — once per late read — which no check says
+  // (INIT_ORDER_OF_PROGRAMS, a known divergence: the order is the tasks' call order, a whole-project fact, and CODESYS says
+  // it only at code generation). New ground measured, not a regression.
+  ...(
+    [
+      ["initord_reads_later_name", 1],
+      ["initord_reads_later_name_declared_second", 1],
+      ["initord_slot_on_read", 1],
+      ["initord_array_later_name", 1],
+      ["initord_interface_var_later_name", 1],
+      ["initord_read_uninitialized", 1],
+      ["initord_read_type_default", 1],
+      ["initord_value_later_name", 1],
+      ["initord_chain3_asc", 2],
+      ["initord_chain4_asc", 3],
+      ["initord_chain5_asc", 4],
+      ["initord_same_block_later_instance", 1],
+    ] as const
+  ).flatMap(([fixture, by]) =>
+    ["total: GAP", "total: unowned GAP"].map((measure) => ({
+      baseline: "fixtures.twincat",
+      measure,
+      by,
+      fixture,
+      task: "none planned — the divergence INIT_ORDER_OF_PROGRAMS (analysis-conformance 3.12: the tasks' call order, and CODESYS's code generation)",
+      why: "an initializer reading a PROGRAM initialized later, measured 2026-10-07 (analysis-conformance 3.12)",
+    })),
+  ),
   // the diagnostic census: analysis-conformance 3.3 asked a BIT in every FB section (`fixtures/declarations/declaration-
   // rules.ts`). (In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — its unowned GAP left 2026-10-06,
   // analysis-conformance 3.11: `bit-usage` says it.) And a FUNCTION called with no argument whose one input's default CODESYS refuses

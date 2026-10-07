@@ -4621,7 +4621,7 @@
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
     "triage": "resolution",
-    "note": "Probed live (CODESYS 3.5.21) in a tasked PLC_PRG with a positive control proving compilation: a var initialized from a later, not-yet-initialized var built with NO diagnostic — C0564 not reproduced (likely gated on a project option). Deferred.",
+    "note": "A CODE-GENERATION message, not a build one (analysis-conformance 3.12, 2026-10-07): every cell of fixtures/cross-object/init-order.ts builds clean (app.build(), the bridge build), and app.generate_code() says C0564 for an FB instance read before its PROGRAM (or its later VAR-block neighbour) is initialized. PROGRAMs initialize in the task's call order, global_init_slot first. Not checked: the bridge build cannot record it (known divergence INIT_ORDER_OF_PROGRAMS).",
     "gap": "needs-live-verify"
   },
   {

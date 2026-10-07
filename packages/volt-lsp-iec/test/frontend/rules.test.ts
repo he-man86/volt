@@ -35,7 +35,7 @@ const MISSING_CONVERSION_PAIRS = pinned("CV7 explicit pairs no recorded fixture 
  * shrinking — so the number of rules and of explicit pairs is pinned too. Either may move only with the reason: a rule the
  * design adds, a type the type table gains.
  */
-const RULE_COUNT = 352
+const RULE_COUNT = 353 // 352 → 353: LB10, the shared library namespace (analysis-conformance H.1)
 const CONVERSION_PAIRS = 600
 
 const PACKAGE = join(import.meta.dir, "..", "..")

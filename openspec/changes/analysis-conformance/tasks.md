@@ -1256,13 +1256,48 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 3.12 Initialization order of PROGRAMs (the corpus's C0564)
 
-- [ ] 3.12 pro2193's three "A reference to uninitialized variable Unit is used for initialization of Unit" (C0564,
+- [x] 3.12 pro2193's three "A reference to uninitialized variable Unit is used for initialization of Unit" (C0564,
       `test-corpus/pro2193/expected-build.codesys.json`): an interface input initialized with ANOTHER program's FB instance
       (`resetCondition1 := XiUnits.Unit[1]`). Record the vendors' initialization order of PROGRAMs (fixtures: a PROGRAM's
       initializer reading another PROGRAM's instance, both orders of declaration/task; the `global_init_slot` attribute),
       then a check in its group home, or a divergence with the measured reason. Not niche (3 corpus occurrences — the
       3.11 gate review). Where: checks/<group>, fixtures/. Acceptance: CA; the corpus's three C0564 GAP closed or named.
       Depends on: 3.11
+      **Done 2026-10-07 — a divergence with the measured reason, no check.** 24 fixtures
+      (`fixtures/cross-object/init-order.ts`), recorded on both vendors in one run each and on `record:exec`: the reader's
+      name before / after the read program's, its declaration first / second, PLC_PRG calling it first / second,
+      `global_init_slot` on the reader / on the read program (50002, 49999), the read instance initialized at its
+      declaration / not at all / by its FB type's default, pro2193's shape (an FB instance's interface input, and the
+      ARRAY of them exactly), an interface variable, a plain INT, chains of 3–5 programs both ways, pro2193's symbol
+      attributes on a chain (and its `'noe'` typo), and C0564's help-page repro in one VAR block. What they answered:
+      - the order is the TASK's call order, `global_init_slot` first (lower first): `initord_reads_later_name_called_second`
+        is silent where `initord_reads_later_name` is not, `_declared_second` is not silent, and a slot on the read
+        program makes an earlier read late (`initord_slot_on_read`). One message per late read (chains: 2, 3, 4).
+      - TwinCAT refuses each late read AT BUILD, an error on the reader's declaration line: "The uninitialized variable
+        <read> is used for initialization of <target>. Use the attribute 'global_init_slot' to change the order of
+        initialisation." (12 cells; the other 12 build clean).
+      - CODESYS builds ALL 24 clean through the bridge (`app.build()`). A single-use headless probe (deleted) found where it
+        answers: at CODE GENERATION (`app.generate_code()`) — C0564 as a WARNING for an FB instance read (every cell
+        TwinCAT refuses, the same ones), TwinCAT's sentence as an ERROR for a value read (`initord_value_later_name`) and an
+        instance read into an interface variable (`_interface_var_later_name`). Those two never start: `record:exec`
+        "Login failed..." — `execSkip`, as `initprg_reads_later` already was for the same reason. So pro2193's three C0564
+        are code-generation warnings, which the bridge's build (and so every fixture recording) cannot carry (the corpus
+        recording of 2026-07-22 holds them; how that build reached code generation is not recorded).
+      - the `'noe'` typo cascades into nothing (`initord_chain4_symbol_noe`: four SymbolConfig warnings, no C0564): the
+        cascade claimed in `pragmas.ts` / `messages.ts` was wrong, corrected there; the error catalog's C0564 note says
+        what was measured.
+      Not checked, by decision (design.md §7): the rule needs the task configuration and the call order across every
+      program — a whole-project fact no check holds — and its CODESYS side is out of every build recording's reach, so a
+      check could only be measured against TwinCAT. Divergences opened: INIT_ORDER_OF_PROGRAMS (TwinCAT, the 12 refused
+      cells); closed none. The corpus's three C0564 GAP (pro2193, `unowned`/missing-rule in `analysis/baselines/corpus.json`)
+      are NAMED: that divergence, code-generation-only. Not niche (3 occurrences) — not worked on for the reason above.
+      Numbers: census TP 5623 → 5627 CODESYS (the `'noe'` cell's four, `invalidSymbolAttributeValue` 4 → 8), FP unchanged
+      (open FP 0); TwinCAT GAP 825 → 843, unowned GAP 108 → 126 (missing-rule 53 → 71) — all 18 the new cells', named
+      ceiling exceptions in `frontend/baseline.ts`; ceilings unchanged. Fixtures measured 5090 → 5114 / 5079 → 5103.
+      `rate:fixtures`: confirmed 2806, refused 1989, not-lowered 367 → 389 (the 22 new cells the transpiler does not lower:
+      a PROGRAM's instance read in another's initializer — "an initial value that is not a compile-time constant"; the
+      evidence ceiling 367 → 389, named in `fixtures.test.ts`), lsp-gap 76, diverges 5, unaskable 90 → 92 (the two `execSkip`).
+      `test/conformance`: agreement CODESYS 4875 → 4899, TwinCAT 4784 → 4796 of 5333 → 5357.
 
 ## 4. Downstream
 
@@ -1362,32 +1397,75 @@ partial-run child lost its junit file — 1 pass alone); re-run awake, green.
 
 ### 5 Close
 
-- [ ] 5.1 Cold full suite once: `VOLT_RUSTC_CACHE=0 bun test` in packages/volt-lsp-iec, and `bun run check` at the root.
+- [x] 5.1 Cold full suite once: `VOLT_RUSTC_CACHE=0 bun test` in packages/volt-lsp-iec, and `bun run check` at the root.
       Where: —. Acceptance: green; durations written here. Depends on: 4.4
-- [ ] 5.2 Docs: architecture.md D (pipeline/, shared/, checks/ groups, the one pipeline, rules A1–A6) (network text's
+      **Done 2026-10-07** (it was also the gate of 3.12 + H.1 + 5.2–5.4): `VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1 bun test`,
+      no VOLT_FIXTURES — 966 s, 8391 pass, 1 fail, 35 skip, 432 todo (8859 tests, 205 files). The one failure was 3.12's own:
+      the not-lowered evidence ceiling (389 > 367), named and raised for measurement in `fixtures.test.ts`; that test then
+      passed, and a second full run (rustc cache on, `VOLT_REQUIRE_FULL=1`) is green: 8392 pass, 0 fail, 35 skip, 432 todo, 559 s. Root `bun run check`: 18 passed, 0 failed. Typecheck
+      (volt-lsp-iec) and `bun run lint` (layering: 1 known violation, the parked network import; A1–A6 none) pass.
+- [x] 5.2 Docs: architecture.md D (pipeline/, shared/, checks/ groups, the one pipeline, rules A1–A6) (network text's
       integration unchanged and marked as parked for the LD/FBD change); data-model.md "analysis"
       (the stale DiagnosticConfig flag list replaced by the real config, CheckContext, registry entry); TESTING.md and
       test/README.md (the census, beyond 0.1's listing); scripts/README.md.
       Where: docs/, TESTING.md, test/README.md, scripts/README.md. Acceptance: every path named exists. Depends on: 5.1
-- [ ] 5.3 Hand-off notes: to the LD/FBD coverage change (the whole parked network seam of design.md §3 — one
+      **Done 2026-10-07.** `docs/architecture.md` D gains the registry's order contract, the census, and network text
+      stated as NOT in the one pipeline — its own pass merged by `server/diagnostics`, the semantic-tokens import as the one
+      `KNOWN_OTHER_VIOLATIONS` — unchanged and PARKED for the LD/FBD change (the rest of D already described pipeline/,
+      shared/, checks/ and A1–A6). `docs/data-model.md` "analysis": the stale ~30-flag `DiagnosticConfig` replaced by the
+      real `AnalysisInitOptions` / `ResolvedConfig` (3-state `CONFIGURABLE_CHECKS` codes, `diagnoseDeadCode`),
+      `CheckContext`, `Check`, `RegistryEntry`, `CheckGroup` and `computeDiagnostics`' arguments. `TESTING.md` and
+      `test/README.md`: the census's write discipline (`VOLT_WRITE_BASELINE=1`), the named `CEILING_EXCEPTIONS`, census rows
+      == registry, the unowned classes. `scripts/README.md`: `check-layering.ts` states A1–A6 and the empty
+      `KNOWN_ANALYSIS_VIOLATIONS`. Every path named exists (checked by listing).
+- [x] 5.3 Hand-off notes: to the LD/FBD coverage change (the whole parked network seam of design.md §3 — one
       network-text interface, routing, one pipeline for network findings, the parse memo — plus the duplicate jump-label rule, NETWORK_* code spelling,
       Cnnnn entries for network codes, the `NetworkTextAnalysis.vg` field name, the network check's own conformance with
       its census rows) and to lsp-package-structure (network-text/, what is left of network/, and analysis/checks/network/
       final homes, test/analysis's root, the baseline.ts directory).
       Where: openspec/changes/{lsp-package-structure,<the LD/FBD change if it exists>}/proposal.md or a hand-off section
       in their tasks.md. Acceptance: each item named once, with its file. Depends on: 5.2
-- [ ] 5.4 Spec delta: specs/analysis-conformance/spec.md gains the requirements of what was BUILT — one pipeline and the
+      **Done 2026-10-07.** No LD/FBD coverage change exists, so both hand-ins are one section, "Hand-in from
+      analysis-conformance", at the end of `openspec/changes/lsp-package-structure/tasks.md` (whichever change dissolves
+      `src/network*` takes the network half over): the network-text interface, routing (`bodyAtOffset`), one pipeline for
+      network findings (`checkNetworkText`, the semantic-tokens violation), the parse memo, the duplicate jump-label rule,
+      the `NETWORK_*` spelling, `Cnnnn` for network codes, `NetworkTextAnalysis.vg`, the network check's census row
+      (`NETWORK_ROW`); and for lsp-package-structure: `network-text/` + the rest of `network/`, `analysis/checks/network/`,
+      `test/analysis/`'s root, `test/frontend/baseline.ts`'s directory — each once, with its file.
+- [x] 5.4 Spec delta: specs/analysis-conformance/spec.md gains the requirements of what was BUILT — one pipeline and the
       registry's order contract (P1, P3), the layering rules A1–A6 — each with a scenario; anything the work measured and rejected is not asserted.
       Where: openspec/changes/analysis-conformance/specs/analysis-conformance/spec.md. Acceptance: `npx --yes openspec
       validate analysis-conformance` passes. Depends on: 5.3
-- [ ] 5.5 Final review (spec + layering: A1–A6 allow-list empty or each remaining entry justified); fix;
+      **Done 2026-10-07.** Three requirements added beside the original one, each with scenarios: one pipeline (P1, as
+      built: the ST checks — network text's pass stays parked, so it is NOT asserted; one diagnostic per parse error; a
+      starving group subset refused by name), the registry as data with its order contract (P3: a reorder before a producer
+      fails `registry.test.ts`; a vendor's run is the registry minus the other vendor's entries), and the A1–A6 gate with
+      an empty `KNOWN_ANALYSIS_VIOLATIONS`. Measured and rejected, so not asserted: §3's network seam (parked), the
+      `groups: ["syntax"]` dead-POU plan (gate 2). `npx --yes openspec validate analysis-conformance`: valid.
+- [x] 5.5 Final review (spec + layering: A1–A6 allow-list empty or each remaining entry justified); fix;
       `openspec archive analysis-conformance`; delete the recreated openspec/specs/.
       Where: openspec/. Acceptance: archived; `openspec list` no longer shows it. Depends on: 5.4
+      **Done 2026-10-07.** Spec: the delta asserts only what was built (5.4). Layering: `KNOWN_ANALYSIS_VIOLATIONS` (A1–A6)
+      is EMPTY; the one remaining `KNOWN_OTHER_VIOLATIONS` entry (`services/structure/semantic-tokens.ts →
+      network/network-analyze.ts`) is not an A-rule and is the parked network seam's (5.3 hand-in). No fix needed.
+      Archived with `npx --yes openspec archive analysis-conformance -y`; the recreated `openspec/specs/` deleted.
 
 ## Hand-in (2026-10-04, from the CI fix c4f4b66e02)
 
-- [ ] H.1 Record a CODESYS fixture for a namespace declared by TWO referenced libraries (e.g. CAA Callback placeholder +
+- [x] H.1 Record a CODESYS fixture for a namespace declared by TWO referenced libraries (e.g. CAA Callback placeholder +
       CAA Callback Extern, both `CB`; SysTime twice): which library's members does `CB.X` / a bare member reach? The CI
       fix made a shared namespace cover every declaring library (consistent with `linkExtends`, backed by the clean
       corpus builds) — the recording is the oracle; adjust the binder if CODESYS answers otherwise. Add the rule row
       to test/frontend/rules.ts.
+      **Done 2026-10-07 — measured by a single-use headless probe (deleted), not a conformance fixture; binder unchanged.**
+      The recording project (CodesysTestProject) references neither pair, and a reference added to it changes the project
+      all 5357 fixtures are recorded against (new library names in scope for every replay), so the question went to a COPY:
+      the placeholder `CAA Callback` (resolution CAA Callback Extern 3.5.17.0) added, then `CB.CB_CALLBACK` and
+      `CB.EVENT_CLASS.NO_CLASS` build, `CB.GETNUMBERACTIVECALLBACKS(ADR(e))` types as ULINT — the namespace reaches the
+      resolution's elements, which the placeholder's manifest (materializing nothing) cannot contradict: the union is
+      CODESYS's answer. Bare `CB_CALLBACK` is "Unknown type" (qualified-only access, LB2's known class). Two DIFFERENT
+      libraries of one namespace (the placeholder `CmpErrors` 3.3.1.40 beside the dependency CmpErrors2 Interfaces):
+      CODESYS scopes `CmpErrors.` to the application's reference ("'CMPERRORS, 3.3.1.40 (SYSTEM)' contains no definition
+      for 'ERR_OK'"), but no element the materialization holds tells the two apart, so that cell decides nothing; the
+      corpora's project code names no shared namespace (0 uses). Rule row LB10 in `test/frontend/rules.ts` (its unit test
+      the CI fix's `scope-nav.test.ts` case; `RULE_COUNT` 352 → 353).

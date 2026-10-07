@@ -744,3 +744,10 @@ by 2.2's named routing tests.
 - Folder moves `lsp-package-structure` will make (`network-text/` → `frontend/syntax/network/`, network checks'
   final home, what is left of `network/`). The homes chosen here are already the ones that change names:
   `analysis/checks/network/`.
+- The initialization order of PROGRAMs (3.12, decided 2026-10-07): no check. The order is the task's call order with
+  `global_init_slot` first — a whole-project fact (task configuration + the call graph) — and CODESYS states it only at
+  CODE GENERATION (C0564), which the bridge's build never runs, so no build recording can hold its CODESYS side. TwinCAT's
+  build error is pinned as the known divergence `INIT_ORDER_OF_PROGRAMS` instead.
+- The shared library namespace (H.1): the binder's union stands. The CODESYS answer came from a single-use probe, not a
+  conformance fixture, because a recorded fixture needs the recording project to reference the pair, and that would move
+  the project every other fixture is recorded against.

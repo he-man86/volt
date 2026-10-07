@@ -16,18 +16,18 @@
  *   evidence
  *     confirmed     2806
  *     refused       1989
- *     not-lowered    367
+ *     not-lowered    389
  *     lsp-gap         76
  *     diverges         5
- *     unaskable       90
+ *     unaskable       92
  *
  *   tier                     lowered    clean
- *     decl                    754      754
+ *     decl                    755      755
  *     arith                  1545     1543
  *     control                 155      144
  *     aggregate               142      142
  *     call                    268      266
- *     indirect                359      355
+ *     indirect                360      356
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
@@ -59,14 +59,14 @@
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
  *     agree         3046
  *     disagree         0
- *     not-run        177
+ *     not-run        179
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: the emitted Rust does not build                 65
- *       not-run: no elementary variable to seed or compare       41
+ *       not-run: no elementary variable to seed or compare       43
 
  *
- *   pedantic — 30835 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7844
+ *   pedantic — 30845 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7854
  *     clippy::cast_possible_truncation         4856
  *     clippy::cast_lossless                    4266
  *     clippy::cast_sign_loss                   3401
@@ -89,8 +89,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1714 distinct emission shapes over 3223 lowered fixtures, 1795 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 3054 fixtures are improvable, 2969 touch a construct with alternatives.
+ *   shape — 1716 distinct emission shapes over 3225 lowered fixtures, 1798 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 3056 fixtures are improvable, 2971 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
@@ -2205,6 +2205,30 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   init_slot_reserved_device_object: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   init_slot_user_early: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   init_struct_by_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 46, edge: "agree", size: 3.5, shape: "4707ac9f96", notes: ["1307e33bbf", "3489b7781f", "5c9bb13706", "5d9850550d", "74845f98c6", "9689b156ea", "d5d625ee73", "e4b6325c44"] },
+  initord_array_earlier_name: { evidence: "not-lowered" },
+  initord_array_later_name: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_chain3_asc: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_chain3_desc: { evidence: "not-lowered" },
+  initord_chain4_asc: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_chain4_desc: { evidence: "not-lowered" },
+  initord_chain4_symbol_noe: { evidence: "not-lowered" },
+  initord_chain4_symbol_none: { evidence: "not-lowered" },
+  initord_chain5_asc: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_interface_var_later_name: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 5, edge: "not-run", size: 4.4, shape: "69ec36d309", notes: ["1307e33bbf", "58a7e6289b", "8b9a7c5eea", "a497507b30", "abf2bb6e4e", "ad25627749", "bea3694884", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_read_type_default: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_read_type_default_earlier_name: { evidence: "not-lowered" },
+  initord_read_uninitialized: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_read_uninitialized_earlier_name: { evidence: "not-lowered" },
+  initord_reads_earlier_name: { evidence: "not-lowered" },
+  initord_reads_earlier_name_declared_first: { evidence: "not-lowered" },
+  initord_reads_later_name: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_reads_later_name_called_second: { evidence: "not-lowered" },
+  initord_reads_later_name_declared_second: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_same_block_later_instance: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_slot_lower_on_read: { evidence: "not-lowered" },
+  initord_slot_on_read: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  initord_slot_on_reader: { evidence: "not-lowered" },
+  initord_value_later_name: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 5, edge: "not-run", size: 4.4, shape: "ebaefd4f96", notes: ["1307e33bbf", "58a7e6289b", "8b9a7c5eea", "a29db6178b", "a497507b30", "abf2bb6e4e", "bea3694884", "fbde4d6e1e"], diverges: { twincat: "known" } },
   initprg_adr_of_earlier: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.8, shape: "095b2312e2", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
   initprg_adr_of_later: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.8, shape: "cf7b087a78", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
   initprg_reads_earlier: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.9, shape: "d5ce3b302a", notes: ["1307e33bbf", "6a41bda0a0", "ec9a760059", "fa7d5f176f"] },
