@@ -1155,8 +1155,8 @@ describe("the map's measured columns — the pure halves", () => {
 
   test("the map's NOTES section renders every note's full text under its construct line, by id", () => {
     const notes = {
-      bbbbbbbbbb: { improvement: 'say "less"' },
-      aaaaaaaaaa: { improvement: "one", alternatives: ["x", "y"], chosen: "y", why: "because" },
+      bbbbbbbbbb: { improvement: 'say "less"', tasks: ["keep:nothing to change"] },
+      aaaaaaaaaa: { improvement: "one", alternatives: ["x", "y"], chosen: "y", why: "because", tasks: ["7.3.1", "7.2.2"] },
     }
     const lines = new Map([
       ["aaaaaaaaaa", "self.f = Li16;"],
@@ -1175,10 +1175,12 @@ describe("the map's measured columns — the pure halves", () => {
         "    ],",
         '    chosen: "y",',
         '    why: "because",',
+        '    tasks: ["7.3.1", "7.2.2"],',
         "  },",
         "  // loop {",
         '  "bbbbbbbbbb": {',
         '    improvement: "say \\"less\\"",',
+        '    tasks: ["keep:nothing to change"],',
         "  },",
         "}",
       ].join("\n"),

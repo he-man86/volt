@@ -471,29 +471,31 @@ Every file imports `syntax`, `symbols`, `types`, `ir/` and `semantics/` as neede
 
 ### 2.7 `types/`, `symbols/` and `syntax/` changes the transpiler needs
 
-The front-end homes below are what the transpiler needs (§6). Where frontend-conformance's archived structure already gives a
-concern a home, that home wins and the row reads as "use it"; the file names here are the fallback if it did not.
+The front-end homes below are what the transpiler needs (§6). frontend-conformance put the front-end under `src/frontend/`, so every
+path here is `src/frontend/<layer>/…` (task 0.9, 2026-10-07: rewritten to the real files; "exists" = the file is in the tree today,
+"planned" = the 1.1 task that creates it). Where frontend-conformance already gives a concern a home, that home wins and the row
+reads as "use it".
 
 | File | Responsibility | From |
 |---|---|---|
-| `types/index.ts` | re-exports every module below (architecture.md mechanism 2: consumers import `from "../types"`, never a deep path) | types/index.ts |
-| `types/predicates.ts` | `isBit(t)`, `isBoolValued(t)` (BIT or BOOL), `isIntegral(t)`, `holdsIntegerBits(t)`, `stringKind(t)`, `isReal(t)`/`floatBits(t)`, `hasTextFormat(t)` (split from `isTemporal`, RC 12). The one home; `emit/rust/types.ts` consumes them. | elementary.ts 287-332; ir.ts 60-64; inline copies |
-| `types/width.ts` | `integerOfWidth`, `wrapToWidth(value, elem)` (the one store wrap), `widthOf`, the literal ladder order | arith.ts 84-87; const-eval.ts 182-186; convert.ts 87-98; values.ts 302-305; evaluate.ts 23; infer.ts 95/426/471; elementary.ts 238 |
-| `types/arrays.ts` | `peelArray`, `elementOf` | ir.ts 66-81 |
-| `types/defaults.ts` | `typeZero` (was `defaultValueOf`), `typeDefault(type)` (enum default via `types/enums`, alias initializer, alias arrays, element defaults: RC 25) | ir.ts 49-58; resolve.ts 118-131; storage.ts 201-217 |
-| `types/enums.ts` | `numberEnumerators(enum)` (the one numbering; was `defaultOfValues` + `enumConstant`'s numbering) and `enumDefaultValue(enum)` (was `enumDefault`/`inlineEnumDefault`'s value part). An enum's numbering is a type fact: the LSP's CASE-label and range checks read it too. | constants.ts 50-128 |
-| `types/literal.ts` | `literalType`, `literalCheckType`, `literalErrorType`, `integerLiteralType`, `contextLiteralType` (with the range rule: RC 6/36) | infer.ts 323-374; elementary.ts 245; constants.ts 316-329 |
-| `types/conversion-name.ts` | `parseConversionName` | elementary.ts 260 |
-| `types/arith/runtime.ts` | `commonType`, `promoteForRuntime`, the constant-fold meet type | arith.ts 17-41, 97-101 |
-| `types/arith/checked.ts` | `checkedMeetType`, `checkedNegationType`, NOT and bitwise result types, typed-literal sum, `exptResultType` | arith.ts 63-120; infer.ts 87-96, 420-429, 465-497 |
-| `types/arith/temporal.ts` | `temporalResultType`, `durationFor` (RC 40) | arith.ts 130-154 |
-| `types/const/constancy.ts` | `constancyOf` | const-eval.ts 26-53 |
-| `types/const/fold.ts` | `constEval`, `heldAs` (on `width.wrapToWidth`); one typed fold after lean 10.2; `**`, `&` and REAL MOD removed (6.A.20) | const-eval.ts 64-284 |
-| `types/resolve.ts` | asker required (RC 21); qualifiers (6.A.26); subranges (6.A.25); alias default. It does **not** apply the string default capacity (type.ts:36-38 stands; §3.2). | resolve.ts |
-| `types/infer/expr.ts`, `member.ts`, `callee.ts` | inference split; `fbChainSections` on `symbols.extendsChain`; the orphan doc at infer.ts:258 (lean 10.4) deleted in the move | infer.ts |
-| `symbols/scope-nav.ts` | `extendsChain(scope)`: base first, cycle guarded, reports incomplete; for FBs and interfaces. `precedence.ts` is re-exported from the barrel. | scope-nav.ts 32-42, 74-83 |
-| `syntax/identifier.ts` | `sameName` | interp.ts 289-292; compat.ts 107 |
-| `syntax/literal-value.ts` | `calendarNanoseconds` (calendar literal valuation). `inTicks` does **not** move here: it reads `elemOf(type).tickNs` from `types/`, which `syntax/` may not import; it goes to `lower/values/literals.ts`. | constants.ts 294-313 |
+| `frontend/types/index.ts` (exists) | re-exports every module below (architecture.md mechanism 2: consumers import `from "../types"`, never a deep path) | types/index.ts |
+| `frontend/types/predicates.ts` (exists; the transpiler's set planned, 1.1.5) | `isBit(t)`, `isBoolValued(t)` (BIT or BOOL), `isIntegral(t)`, `holdsIntegerBits(t)`, `stringKind(t)`, `isReal(t)`/`floatBits(t)`, `hasTextFormat(t)` (split from `isTemporal`, RC 12). The one home; `emit/rust/types.ts` consumes them. | elementary.ts 287-332; ir.ts 60-64; inline copies |
+| `frontend/types/width.ts` (exists; `widthOf` planned, 1.1.6) | `integerOfWidth`, `wrapToWidth(value, elem)` (the one store wrap), `widthOf`, the literal ladder order | arith.ts 84-87; const-eval.ts 182-186; convert.ts 87-98; values.ts 302-305; evaluate.ts 23; infer.ts 95/426/471; elementary.ts 238 |
+| `frontend/types/arrays.ts` (planned, 1.1.3) | `peelArray`, `elementOf` | ir.ts 66-81 |
+| `frontend/types/defaults.ts` (exists; `typeZero`/`typeDefault` planned, 1.1.4) | `typeZero` (was `defaultValueOf`), `typeDefault(type)` (enum default via `types/enums`, alias initializer, alias arrays, element defaults: RC 25) | ir.ts 49-58; resolve.ts 118-131; storage.ts 201-217 |
+| `frontend/types/enums.ts` (exists: `enumMemberValue`, `enumDefault`, `inlineEnumDefault`) | `numberEnumerators(enum)` (the one numbering; was `defaultOfValues` + `enumConstant`'s numbering) and `enumDefaultValue(enum)` (was `enumDefault`/`inlineEnumDefault`'s value part). An enum's numbering is a type fact: the LSP's CASE-label and range checks read it too. | constants.ts 50-128 |
+| `frontend/types/literal.ts` (exists; `contextLiteralType` open, H5) | `literalType`, `literalCheckType`, `literalErrorType`, `integerLiteralType`, `contextLiteralType` (with the range rule: RC 6/36) | infer.ts 323-374; elementary.ts 245; constants.ts 316-329 |
+| `frontend/types/conversion-name.ts` (exists) | `parseConversionName` | elementary.ts 260 |
+| `frontend/types/arith/runtime.ts` (exists) | `commonType`, `promoteForRuntime`, the constant-fold meet type | arith.ts 17-41, 97-101 |
+| `frontend/types/arith/checked.ts` (exists; NOT and bitwise result types are in `arith/operators.ts`, `exptResultType` in `frontend/types/builtins.ts`) | `checkedMeetType`, `checkedNegationType`, NOT and bitwise result types, typed-literal sum, `exptResultType` | arith.ts 63-120; infer.ts 87-96, 420-429, 465-497 |
+| `frontend/types/arith/temporal.ts` (exists) | `temporalResultType`, `durationFor` (RC 40) | arith.ts 130-154 |
+| `frontend/types/const/constancy.ts` (exists) | `constancyOf` | const-eval.ts 26-53 |
+| `frontend/types/const/fold.ts` (exists; `declaredValue` is what `heldAs` was) | `constEval`, `heldAs` (on `width.wrapToWidth`); one typed fold after lean 10.2; `**`, `&` and REAL MOD removed (6.A.20) | const-eval.ts 64-284 |
+| `frontend/types/resolve.ts` (exists) | asker required (RC 21); qualifiers (6.A.26); subranges (6.A.25); alias default. It does **not** apply the string default capacity (type.ts:36-38 stands; §3.2). | resolve.ts |
+| `frontend/types/infer/expr.ts`, `member.ts`, `callee.ts` (exist) | inference split; `fbChainSections` on `symbols.extendsChain`; the orphan doc at infer.ts:258 (lean 10.4) deleted in the move | infer.ts |
+| `frontend/symbols/extends.ts` (exists; "incomplete" is `frontend/symbols/scope-nav.ts` `hasUnresolvedBase`) | `extendsChain(scope)`: base first, cycle guarded, reports incomplete; for FBs and interfaces. `precedence.ts` is re-exported from the barrel. | scope-nav.ts 32-42, 74-83 |
+| `frontend/syntax/identifier.ts` (exists) | `sameName` | interp.ts 289-292; compat.ts 107 |
+| `frontend/syntax/literal/calendar.ts` (exists) | `calendarNanoseconds` (calendar literal valuation). `inTicks` does **not** move here: it reads `elemOf(type).tickNs` from `types/`, which `syntax/` may not import; it goes to `lower/values/literals.ts`. | constants.ts 294-313 |
 
 ### 2.8 Rows added to architecture.md's ownership map
 
@@ -1316,7 +1318,8 @@ A new openspec change that receives every LSP-only finding of this work, one tas
 | RC 20 | the LSP false positive exposed by `tr_20_output_index_moved_by_callee` | the fixture's entry in `KNOWN_DIVERGENCES.codesys` |
 | RC 38 | the LSP half of implicit STRING↔WSTRING refusals, if 6.13 finds one | `string_wstring_mixing`, `uop_*` |
 
-Every later task that says "filed" appends a line there in the same commit. Task 8.4 checks the change exists and every hand-off in
+Created by 0.7 on 2026-10-07 as tasks 1.1–1.5 in this order; the RC 37 row was already met then (the four `tr_37_*` rate
+`refused`), so its task is ticked there with that reason, and RC 38 has no known LSP half (6.13 decides). Every later task that says "filed" appends a line there in the same commit. Task 8.4 checks the change exists and every hand-off in
 this file has a line in it.
 
 ### 7.2 Accepted vendor-routine divergences

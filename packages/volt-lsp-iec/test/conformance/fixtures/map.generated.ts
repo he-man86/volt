@@ -92,6 +92,15 @@
  *   shape — 1716 distinct emission shapes over 3225 lowered fixtures, 1798 distinct constructs.
  *   723 constructs carry a review note (`NOTES`): 3056 fixtures are improvable, 2971 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
+ *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
+ *   `keep` = an item that says nothing needs to change):
+ *     7.3.1 99, 7.2.3 47, 7.3.3 31, 7.2.6 30, 7.4.1 27, 7.4.4 24, 7.7.1 24, 7.4.2 22, 7.8.6 22, 7.2.2 19, 7.4.3 19
+ *     7.6.1 19, 7.9.3 18, 7.7.3 17, 7.2.4 16, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.5.7 13, 7.6.3 13
+ *     7.2.5 12, 7.2.7 12, keep 12, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8
+ *     7.2.10 8, 7.3.6 8, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5
+ *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.4.8 4, 7.5.2 4, 7.3.8 3, 7.7.6 3, 4.2 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
+ *     7.4.7 2, 7.4.9 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1
+ *     7.7.7 1, 7.8.1 1, 7.8.11 1, 7.9.2 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -5464,15 +5473,18 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
  *   `alternatives`  when several emissions are CORRECT: each option, as the reviewer put it
  *   `chosen`        the option the reviewer would pick, when one was named
  *   `why`           the reviewer's reason for it
+ *   `tasks`         per merged item, in order: the transpile-restructure task that resolves it, or `keep:<reason>`
  */
 export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: std::array::from_fn(|_| L),
   "00c356c11c": {
     improvement: "An array of interface slots (and of pointers or references) is Copy, but `initOf` checks `array.element.kind === \"elementary\"`, so it prints `std::array::from_fn(|_| 0)`. Use `isCopy(array.element)` (already defined at :305) to pick `[0; N]`, and keep from_fn for structs and FB instances, which are not Copy.",
+    tasks: ["7.8.2"],
   },
   // pub fn x<const T: usize>(mut __grid_lower_N: i32, mut __grid_upper_N: i32, mut __grid_lower_N: i32, mut __grid_upper_N: i32, x: &mut [[i16; T]]) -> i16 {
   "00fc50d055": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
+    tasks: ["7.7.1"],
   },
   // pub p: usize,
   "013de1dc6a": {
@@ -5483,6 +5495,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep usize (my choice): it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
     ],
     chosen: "keep usize: it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
+    tasks: ["4.2"],
   },
   // self.sum = (self.sum as i32).wrapping_add(self.f as i32) as i16;
   "0153115496": {
@@ -5492,22 +5505,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow: `self.sum.wrapping_add(self.i)`. Truncating a wrapping add/sub/mul is a ring homomorphism, so the stored value is identical for every input. This is my choice when the consumer is a same-typed store, because it removes 3 casts and the cast_possible_truncation/cast_lossless findings.",
     ],
     chosen: "Narrow: `self.sum.wrapping_add(self.i)`. Truncating a wrapping add/sub/mul is a ring homomorphism, so the stored value is identical for every input",
+    tasks: ["7.3.1"],
   },
   // self.v = m(self.f * Lf64, …);
   "015dcb3b7f": {
     improvement: "When the divisor is a nonzero literal the zero check cannot fire. Print plain `a / 3.0f64` and emit the iec_div helper only when a divisor can be zero.",
+    tasks: ["7.2.6"],
   },
   // pub fn fb_init(&mut self, prg: &mut Programs, mut x: bool, …) -> bool {
   "0180f72495": {
     improvement: "`pub fn fb_init(&mut self, prg: &mut Programs, mut b_init_retains: bool, mut b_in_copy_code: bool) -> bool { let mut fb_init: bool = false; …; fb_init }` marks inputs mut even though they are never written, then suppresses the result with #[allow(unused_mut, unused_variables, unused_assignments)]. Emit `mut` only for inputs the body assigns (the IR knows the stores), and drop the allow.",
+    tasks: ["7.7.1"],
   },
   // m(Li32, &mut (*x));
   "01e84968c3": {
     improvement: "An inout FB or struct passed on, or called, is printed as `(*target).call()`, `(*target).dim()` and `m(4i32, &mut (*book))`. Method calls auto-deref, and a `&mut T` binding reborrows implicitly when passed. Print `target.call()` and `f_x3_mark(4, book)`, the same exemption the emitter already makes for `.x` and `[i]`.",
+    tasks: ["7.8.6"],
   },
   // x = *x;
   "01ef1b756d": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
+    tasks: ["7.9.3"],
   },
   // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i16; m(__arg_N, …) }.to();
   "0205cf3af0": {
@@ -5521,22 +5539,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3", "7.4.3"],
   },
   // if x.is_nan() { return L; }
   "02a72c2e83": {
     improvement: "f64::round already rounds half away from zero and is odd-symmetric: round(-2.5) = -3, round(-0.0) = -0.0, round(NaN) = NaN. So the sign branch is the identity. Emit `let c = v.round();`. The 32-bit helper can also fold to `if c.is_nan() || c >= 9223372036854775808.0 { 0 } else if c < -2147483648.0 { i32::MIN } else { c as i64 as i32 }`.",
+    tasks: ["7.9.1"],
   },
   // pub fn m(mut x: u8, …) -> bool {
   "03846c1eae": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // self.f.f[(Li8 as i64) as usize] = Lu8;
   "03b3e8b80c": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // pub fn m(mut x: i32, x: &mut i16) -> i32 {
   "040107266f": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64)).to();
   "0464b7d671": {
@@ -5546,6 +5569,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
     chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.1", "7.4.3"],
   },
   // x: [Lu8; L],
   "054b93382f": {
@@ -5557,10 +5581,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "to_le_bytes/from_le_bytes on the whole member",
     why: "1 line, obviously right on a little-endian target, which CODESYS x86/ARM are",
+    tasks: ["7.2.6"],
   },
   // x: [{ let mut v = T::new(); v.f = Li16; v }, { let mut v = T::new(); v.f = Li16; v.f = false; v }, T::new()],
   "055df7e5f8": {
     improvement: "A structured initial value is emitted as a block that mutates a fresh value: `{ let mut v = T::new(); v.x = 1i16; v.y = 2.5f32; v }`, nested for a struct inside a struct. Struct update syntax, `T { x: 1i16, y: 2.5f32, ..T::new() }`, is the idiomatic single expression and needs no shadowed `v`.",
+    tasks: ["7.8.3"],
   },
   // self.f = iec_max(self.f.to::<L>(), self.f).to::<L>().to();
   "05a142a4f4": {
@@ -5571,10 +5597,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // x: [Lf32, …, (-Lf32)],
   "060ccf97cc": {
     improvement: "Negative literals in array initialisers are parenthesised: `[(-1i32), 0i32]` and `[1.0f32, (-3.0f32)]`. They should print as `-1i32`.",
+    tasks: ["7.2.9"],
   },
   // self.f = (self.f as i32) <= (self.f as i32);
   "06135af232": {
@@ -5585,6 +5613,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // x: Li32,
   "06bb3a6005": {
@@ -5599,6 +5628,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choice: (B). It is trivial and lint-clean, and the value is unchanged.",
     ],
     chosen: "keep (A). The saving is cosmetic, and one uniform spelling from literal() is exactly what keeps receiver positions correct. A context flag would add a second path.",
+    tasks: ["7.2.8", "7.2.11"],
   },
   // self.f[((self.f as i64) - Li64) as usize].f = (self.f as i32).wrapping_mul(Li32) as i16;
   "07d4272a6e": {
@@ -5609,6 +5639,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as u16;
   "07ee06657f": {
@@ -5620,6 +5651,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1"],
   },
   // self.f = (self.f as i32).max(self.f as i32) as u8;
   "0817bbbc15": {
@@ -5631,14 +5663,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn m(mut x: i32, x: &mut T) -> i32 {
   "0855e1134c": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // pub __inout_index_N: i16,
   "0878222ac3": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.f = (self.f as f64).exp() as f32;
   "08964781e8": {
@@ -5648,6 +5683,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+    tasks: ["7.3.12"],
   },
   // self.narrow = self.f.narrow::<L>().to::<L>().to();
   "08b9196831": {
@@ -5661,18 +5697,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2", "7.4.6"],
   },
   // self.f = { let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
   "08ce268604": {
     improvement: "`{ let __mod_l = v; let __mod_r = 86400000000000u64; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`: the divisor is a nonzero literal (every calendar conversion lowers to this), so the zero check and both bindings are dead. Print `(v % 86_400_000_000_000u64)` when the right operand is a nonzero constant; wrapping_rem is only needed for a signed divisor of -1.",
+    tasks: ["7.2.6"],
   },
   // self.v = Lu32;
   "093ad5cc7a": {
     improvement: "Large integer literals are emitted unseparated (`1709078400u32`, `86400000u32`, `1000000000u64`), which is 200+ clippy::unreadable_literal hits across the decl/assign literal shapes. Group digits with `_` (e.g. `1_709_078_400u32`) for literals of 6+ digits.",
+    tasks: ["7.2.11"],
   },
   // return x;
   "0969e59592": {
     improvement: "Each routine declares `let mut f: T = 0; f = expr; f`, where `expr` as the tail is the idiomatic form. Each FOR prints `i = 0i32;` right after `let mut i: i32 = 0i32;`. Both are dead stores. When the result is assigned exactly once as the last statement, return the expression. Otherwise the pattern is correct and only verbose.",
+    tasks: ["7.7.3"],
   },
   // self.f = self.__numbers_lower_N;
   "09b1152bef": {
@@ -5683,6 +5723,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
   // self.f = self.f.rotate_right(Li8 as u32);
   "09eeda28bb": {
@@ -5693,10 +5734,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // self.f.widen();
   "09f527f35b": {
     improvement: "Every METHOD, ACTION and FUNCTION carries `#[allow(unused_mut, unused_variables, unused_assignments)]` (438 of 2333 files), including bodies with no locals or parameters at all, such as `widen`, `clamp` and `narrow`. Emit each allow only when the routine has a local, parameter or initialiser that can trigger it.",
+    tasks: ["7.7.2"],
   },
   // { let x = true; let x = &mut self.f.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "0a1967fcea": {
@@ -5708,26 +5751,32 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // self.f = m(self.f.to::<L>(), -Li16).to::<L>().to();
   "0a2a55e976": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = self.f.to::<L>().to();
   "0a52a768d3": {
     improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
+    tasks: ["7.4.1"],
   },
   // fn m(v: f64) -> i32 {
   "0ab1e9c511": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` does the same as `let c = v.round();`. f64::round already rounds half away from zero on both signs, and -0.0 stays -0.0. Emitted in every one of 182+57 fixtures that use the helpers.",
+    tasks: ["7.9.1"],
   },
   // pub fn fb_init(&mut self, mut x: bool, …, mut x: i16) -> bool {
   "0ab2575555": {
     improvement: "Every input parameter is `mut`, whether or not the body assigns it, and the resulting warnings are silenced with #[allow(unused_mut, unused_variables, unused_assignments)]. Print `mut` only for parameters the body writes (the IR knows which slots are assignment targets), and drop the allow.",
+    tasks: ["7.7.1"],
   },
   // pub __numbers_lower_N: i32,
   "0ac4ab4a64": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))).to();
   "0b353e99d9": {
@@ -5738,26 +5787,32 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // __inout_index_N: Li16,
   "0b358286cb": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.m(&mut (*x));
   "0b51d542e8": {
     improvement: "Re-lending a VAR_IN_OUT that is already `&mut T` prints an explicit reborrow `&mut (*x)`. Passing `x` reborrows implicitly. When the bound place is a bare inout or lent root with an empty path, print the name.",
+    tasks: ["7.8.6"],
   },
   // self.f = { m(self.f); self.f[(self.f as i64).wrapping_add(-Li64) as usize].f };
   "0c7c4434c4": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
+    tasks: ["7.2.4"],
   },
   // pub fn m(mut p: usize, x: &mut i16) -> i16 {
   "0ca9dad97d": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: A lent `POINTER TO` input keeps its now-dead value parameter: `f_lang_ptrtwo(0, &mut self.first)` with `mut p: usize` never read, because lowering refuses any other use of p. The value parameter can be dropped when the pointer is lent.",
+    tasks: ["7.7.2", "7.7.7"],
   },
   // (match self.f.f { L => self.f.m(&mut self.f), _ => panic!(S) });
   "0cbdff077d": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
+    tasks: ["7.8.7"],
   },
   // self.v = ({ m(self.f); self.v } as i32).wrapping_add(Li32) as i16;
   "0cf79a4fb2": {
@@ -5769,14 +5824,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1", "7.9.3"],
   },
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
   "0d14fd327c": {
     improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
+    tasks: ["7.8.6"],
   },
   // self.f = Li16;
   "0e0d715a81": {
     improvement: "Statements after an unconditional RETURN/EXIT are still printed (`return; self.n = 99i16; ...`, the body after `break 'loop_2;`). rustc reports unreachable_code, and the policy allows it. The printer could stop emitting a block after a diverging statement; the ST line is dead either way.",
+    tasks: ["7.5.11"],
   },
   // self.f = (self.f as i32).wrapping_sub(Li32) as u8;
   "0e5c6a2896": {
@@ -5788,10 +5846,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = Li64.wrapping_add(Li64);
   "0e60621ff1": {
     improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via evaluate.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
+    tasks: ["7.2.2"],
   },
   // self.f.f = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(({ let x = self.f.f[Li64 as usize] as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_mul(Lu64)) as u16;
   "10814b65ce": {
@@ -5803,14 +5863,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "const nonzero divisor → `(l % r)`; keep the guard only for a runtime divisor",
     why: "MOD by a literal is the common case",
+    tasks: ["7.2.6"],
   },
   // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to();
   "10af274f28": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // x
   "11f6ad8ec5": {
     improvement: "The function return is always `let mut f: T = default; ...; f = expr; f`, and a VAR_OUTPUT is reset at entry even when the body assigns it unconditionally (`*i_carry_out = 0i16;` twice). All parameters are declared `mut` even when never reassigned (`mut i_a: i16`). When the result or output is assigned exactly once on every path, return the expression directly, drop the entry reset, and declare `mut` only on reassigned parameters.",
+    tasks: ["7.7.3"],
   },
   // self.f = ((self.f as i32) > Li32) & (((self.f as i32) < Li32) | self.f);
   "128ab89e82": {
@@ -5821,6 +5884,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B only for pure right operands; the current rule is still needed when the right side can have effects.",
     ],
     chosen: "B only for pure right operands; the current rule is still needed when the right side can have effects.",
+    tasks: ["7.5.6"],
   },
   // self.f = if self.g { self.f } else { self.f };
   "12a2ae661a": {
@@ -5830,10 +5894,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
     ],
     chosen: "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
+    tasks: ["7.2.7"],
   },
   // x: (-Li64),
   "12e93440b3": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // pub x: i16,
   "1307e33bbf": {
@@ -5847,22 +5913,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "keep today's form",
     why: "one uniform path is worth the lines; the suffix-vs-bare literal inconsistency is cosmetic",
+    tasks: ["keep:the field line is already minimal and correct (probed edge inputs agree); removed by 7.2.13", "7.3.5"],
   },
   // pub __inout_guard_N: usize,
   "149af70520": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.f[(Li8 as i64) as usize] = L;
   "14a38342eb": {
     improvement: "castTo wraps a constant in a cast even though its value is known. Today: `2882343476u32 as u64`, `self.slots[(0i8 as i64) as usize]`, `self.mask.wrapping_shl(20i8 as u32)`, `rotate_right(4i8 as u32)`. When the operand is an IR const that fits the target type, print the literal in the target type instead: `2882343476u64`, `self.slots[0]`, `wrapping_shl(20)`. The value is identical: an in-range constant keeps its value through `as`, and a negative shift count can still go through the cast. Removes clippy cast_lossless/cast_possible_truncation/cast_sign_loss on these lines.",
+    tasks: ["7.2.10"],
   },
   // pub fn m(mut x: u16) -> bool {
   "14b2f39d44": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
   "14e2fedf17": {
     improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
+    tasks: ["7.3.1"],
   },
   // pub fn init(&mut self, g: &mut Globals) {
   "1524fb865f": {
@@ -5871,6 +5942,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "today: uniform calling convention, simple and never wrong",
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
+    tasks: ["7.7.5"],
   },
   // if ((self.f as i32) > Li32) & self.f {
   "1541330f1e": {
@@ -5879,18 +5951,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // x: (-Lf32),
   "159ca60812": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // __inout_guard_N: L,
   "16410bb3a0": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // m(Li16, &mut self.__output_N, …);
   "1647895e3b": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.f = (self.f as f64).sqrt() as f32;
   "1671e97e30": {
@@ -5901,10 +5977,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // self.f = { self.__inout_index_N = self.f[(self.f as i64) as usize]; let __arg_N = self.m(); m(__arg_N, &mut self.f[(self.__inout_index_N as i64) as usize]) };
   "16b713f0f3": {
     improvement: "Lowering temps in an FB or program body (a property-set value, an in-out index captured before the call, a pointer guard) become persistent `pub` struct fields. They show in the struct, in PartialEq/Debug and in `new()`, and they cause clippy::pub_underscore_fields. They live for one statement, so a Rust `let` in the emitted body is enough: `self.tank.level_set(5i16)`, or `let idx = self.cursor; ...`.",
+    tasks: ["7.6.1"],
   },
   // x: Lf64,
   "1707972c33": {
@@ -5919,10 +5997,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choice: (C).",
     ],
     chosen: "keep (A). The saving is cosmetic, and one uniform spelling from literal() is exactly what keeps receiver positions correct. A context flag would add a second path.",
+    tasks: ["7.2.8", "7.2.12"],
   },
   // pub fn m(&mut self, mut p: usize) -> i16 {
   "178b1e9748": {
     improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
+    tasks: ["7.7.11"],
   },
   // self.f = (self.f as i32).wrapping_shl(Li8 as u32) as u16;
   "17bfcf56b6": {
@@ -5933,6 +6013,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.f = (self.f as f64).tan() as f32;
   "18157407c3": {
@@ -5943,6 +6024,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // self.f = self.f.rotate_left(self.f as u32);
   "181d22eae0": {
@@ -5953,10 +6035,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // len = m(&mut str) as i16;
   "185a887a57": {
     improvement: "LEN_INTERNAL only reads its argument but declares it VAR_IN_OUT, so it takes `&mut IecString<N>` and forces every caller's STRING input to be `mut`. Declare it VAR_IN_OUT CONSTANT (emitted as `&IecString<N>`). Its counter `(len_internal as i32).wrapping_add(1i32) as u16` can also count in DINT and convert once.",
+    tasks: ["7.4.6"],
   },
   // self.f = (self.f as i32).wrapping_add(Li32) as i8;
   "18e6b05962": {
@@ -5968,10 +6052,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = true;
   "191ba38aad": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // { let x = self.f; let x = &mut self.f; *x = if x { *x | (Lu32 << L) } else { *x & !(Lu32 << L) }; }
   "1985d03764": {
@@ -5983,6 +6069,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // if !((x < Li32) & ((x.char_at(x as i64) as i32) != Li32)) { break; }
   "19dfd3f883": {
@@ -5993,10 +6080,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // break 'loop_N;
   "1ad1ab3163": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
+    tasks: ["7.5.2"],
   },
   // x = m(__numbers_lower_N, __numbers_upper_N, &mut (*x)).wrapping_add(Li32);
   "1b12aad5a0": {
@@ -6007,10 +6096,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
   "1bb6d1cb14": {
     improvement: "MOD by a non-zero CONSTANT still emits the zero-divisor block `{ let __mod_l = …; let __mod_r = 1000u32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`. With a literal divisor it is just `x % 1000` (or `wrapping_rem` for a -1 divisor).",
+    tasks: ["7.2.6"],
   },
   // x[(self.__numbers_upper_N as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = Li16;
   "1be212b44b": {
@@ -6021,14 +6112,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // pub fn m(mut x: i16) -> i16 {
   "1ca8b1b1fc": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // pub fn m(mut x: i16) -> u32 {
   "1d10ec0f39": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // if x > x.wrapping_sub(Li32) { break; }
   "1d1551a034": {
@@ -6038,6 +6132,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // pub x: u16,
   "1d7709a031": {
@@ -6054,6 +6149,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Decide it in lowering (skip promotion when the consumer narrows back). This is harder: the IR would have to see the store's type while lowering the expression.",
     ],
     chosen: "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table",
+    tasks: ["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", "7.2.5", "7.3.1"],
   },
   // self.f.f[(Li8 as i64) as usize] = IecString::<L>::lit(B).to();
   "1d835ef992": {
@@ -6064,14 +6160,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.4.1", "7.2.14"],
   },
   // x: [IecString::<L>::lit(B); L],
   "1d9f55ded0": {
     improvement: "`IecWString::<80>::lit(&[97u16, 98u16, 99u16])` needs no per-element suffix, since the slice type is inferred from lit's T: `&[97, 98, 99]`. An empty literal `IecString::<8>::lit(b\"\")` is `IecString::<8>::new()`.",
+    tasks: ["7.4.8"],
   },
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> u8 {
   "1dec9ffb7e": {
     improvement: "A borrowed in-out passed on is printed `&mut (*__str_pstfrom)` (a needless reborrow spelling; `__str_pstfrom` or `&mut *__str_pstfrom` will do). len_internal reads `(*str).char_at(..)`, where auto-deref makes the `(*..)` redundant (clippy explicit_auto_deref territory).",
+    tasks: ["7.8.6"],
   },
   // x[(self.f as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = self.f.wrapping_add(self.f.wrapping_mul(Li32)) as i16;
   "1e5d67a16e": {
@@ -6081,6 +6180,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "native i16 wrapping_* for pure add/sub/mul chains that end in an INT store: fewer casts, same result. I would choose this for ring-only chains and keep the widening wherever /, MOD, a comparison or a shift is in the chain",
     ],
     chosen: "native i16 wrapping_* for pure add/sub/mul chains that end in an INT store: fewer casts, same result. I would choose this for ring-only chains and keep the widening wherever /, MOD, a comparison or a shift is in the chain",
+    tasks: ["7.2.3", "7.3.1"],
   },
   // x = (self.f as i32).wrapping_add(self.f as i32) as i16;
   "1ebe9a3a67": {
@@ -6090,10 +6190,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // x: std::array::from_fn(|_| std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L]))),
   "1f2f8205f9": {
     improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit.ts:305), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
+    tasks: ["7.8.2"],
   },
   // self.f = match self.f { L => self.f, …, _ => panic!(S) };
   "1fa78ccf62": {
@@ -6104,10 +6206,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "The guard form for every arity, via `iec_deref(p);` plus an indexable target table. That does not fit fields of different types.",
       "I would keep today's split, since the guard form is shorter for the common case, but share one panic helper so the message and the code path are single-sourced.",
     ],
+    tasks: ["7.9.3"],
   },
   // break 'body_N;
   "204a887600": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
+    tasks: ["7.5.2"],
   },
   // x = x.to();
   "211808ca56": {
@@ -6119,6 +6223,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&mut self` set_char plus a guard around the call",
     why: "same semantics, and the interpreter's setChar needs no change",
+    tasks: ["7.4.4", "7.4.1"],
   },
   // if (self.f as i32) > Li32 {
   "21575de23f": {
@@ -6127,6 +6232,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // self.f = Li64.max(-Li64).min(Li64) as i16;
   "21672c09ea": {
@@ -6138,6 +6244,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    tasks: ["7.2.7"],
   },
   // self.f = len(self.f.to::<L>());
   "21ef64a1e0": {
@@ -6146,6 +6253,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: a by-value STRING(255) input. Matches the declared input and truncates a longer string at 255, as the vendor's 255 limit does",
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
+    tasks: ["7.4.6"],
   },
   // x = (self.f as i32).wrapping_mul(Li32) as i16;
   "228035615e": {
@@ -6155,6 +6263,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as u16;
   "2287fe3f1d": {
@@ -6165,6 +6274,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
+    tasks: ["7.3.13"],
   },
   // self.f.__numbers_upper_N = Li32;
   "22f3bd9b6d": {
@@ -6175,6 +6285,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
   // x = x.with_char(x.wrapping_sub(x) as i64, Lu8).to();
   "234c4da721": {
@@ -6184,14 +6295,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     ],
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // if false { break; }
   "235daf8f29": {
     improvement: "`WHILE TRUE` / `REPEAT ... UNTIL FALSE` print `if false { break; }`. When the negated test is the constant false, omit the line.",
+    tasks: ["7.5.8"],
   },
   // self.f = self.f.f == IecWString::<L>::lit(&[Lu16, …]);
   "23d12708e2": {
     improvement: "A WSTRING literal prints as `IecWString::<10>::lit(&[104u16, 101u16, ...]).to()`, one typed u16 per char, and is built at its own capacity and then copied. A prelude `IecWString::from_str(\"he\")` (encode_utf16), or building at the target capacity, reads as the source and drops the copy.",
+    tasks: ["7.4.8"],
   },
   // self.f = (self.f as f64).sin() as f32;
   "23d755d76c": {
@@ -6201,14 +6315,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+    tasks: ["7.3.12"],
   },
   // pub fn m(mut x: u32) -> bool {
   "241f597128": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
   "2421f6476e": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.f = Li64.wrapping_add(Li64) as i32;
   "24588decbd": {
@@ -6219,10 +6336,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // self.f = self.f.char_at(Li8 as i64);
   "2506fd8442": {
     improvement: "A constant that is cast or used as an index should be printed already typed or folded. `char_at(0i8 as i64)` becomes `char_at(0)`, and `values[((1i8 as i64) - 1i64) as usize]` becomes `values[0]`. Literals come out typed as the smallest type (SINT), then castTo adds `as i64`, and the lower-bound subtraction is done at run time.",
+    tasks: ["7.2.3"],
   },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as u8;
   "253e416b11": {
@@ -6233,10 +6352,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.f = m(L, …, &mut self.f, …);
   "256218c83c": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
+    tasks: ["7.4.5"],
   },
   // self.f = (x as i32).wrapping_mul(x as i32) as i16;
   "260b606dc8": {
@@ -6246,6 +6367,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i16 {
   "26a81a085d": {
@@ -6256,6 +6378,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // self.f = ((self.f as f64).sqrt() as f32) == ((self.f as f64).sqrt() as f32);
   "26afed6c0b": {
@@ -6266,14 +6389,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for sqrt only; it removes 2 casts per call.",
     ],
     chosen: "B for sqrt only; it removes 2 casts per call.",
+    tasks: ["7.3.6"],
   },
   // self.f = match self.f { L => (*__lent_N).m(), _ => panic!(S) };
   "26bfea40dc": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
+    tasks: ["7.8.7"],
   },
   // self.f = { self.__inout_guard_N = self.p; self.__inout_index_N = (self.p as i64).wrapping_add(-Li64); let __arg_N = self.m(); { m(self.__inout_guard_N); m(__arg_N, &mut self.f[self.__inout_index_N as usize]) } };
   "26c1488275": {
     improvement: "Lowering temps in an FB or program body (a property-set value, an in-out index captured before the call, a pointer guard) become persistent `pub` struct fields. They show in the struct, in PartialEq/Debug and in `new()`, and they cause clippy::pub_underscore_fields. They live for one statement, so a Rust `let` in the emitted body is enough: `self.tank.level_set(5i16)`, or `let idx = self.cursor; ...`.",
+    tasks: ["7.6.1"],
   },
   // if (self.f as i32) == Li32 {
   "271163608b": {
@@ -6284,6 +6410,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the literal fits",
     why: "what a Rust engineer writes",
+    tasks: ["7.3.3"],
   },
   // self.f = iec_max(self.f, ….to::<L>()).to::<L>().to();
   "286d90b120": {
@@ -6294,6 +6421,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // self.f = ((self.f as i32) & (self.f as i32)) as i16;
   "28a9242939": {
@@ -6305,10 +6433,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // x = len((*x).to::<L>());
   "28af8caf65": {
     improvement: "Passing a lent instance or an in-out on to another call prints `&mut (*__lent_0)`, and a method call on an in-out string prints `len((*text).to::<255>())`. `__lent_0` is already a `&mut T`, so passing `__lent_0` reborrows implicitly (or `&mut *__lent_0` without the parentheses). Method calls auto-deref, so `text.to::<255>()` works. Fix: in the `&mut` argument path at :435, if the place is a bare borrowed root (inout/lent, empty path), emit the name alone. Also treat a following method call like a field step in deref().",
+    tasks: ["7.8.6"],
   },
   // self.f = m(self.f as f64).ln() as f32;
   "28c9b9742d": {
@@ -6318,10 +6448,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+    tasks: ["7.3.12"],
   },
   // self.f[(self.f as i64) as usize].f = (self.f as i32).wrapping_mul(Li32) as i16;
   "28e0f14a5a": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
+    tasks: ["7.2.4"],
   },
   // self.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
   "28ee7b5d58": {
@@ -6332,6 +6464,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // self.f = m(((self.f as f64).sqrt() as f32) as f64);
   "2929468557": {
@@ -6342,6 +6475,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
     ],
     chosen: "(b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
+    tasks: ["7.3.6"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(Li32) as i16;
   "293906cee0": {
@@ -6352,10 +6486,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), applied as an emitter peephole when the IR chain is closed under wrap-homomorphic ops and ends in a convert back to the operand width. Keep (a) wherever the intermediate escapes (compare, div, mod, shift, wider store).",
     ],
     chosen: "(b), applied as an emitter peephole when the IR chain is closed under wrap-homomorphic ops and ends in a convert back to the operand width. Keep (a) wherever the intermediate escapes (compare, div, mod, shift, wider store).",
+    tasks: ["7.3.1"],
   },
   // x = m(__values_lower_N, __values_upper_N, &mut (*x)).wrapping_add(__values_upper_N);
   "29dc1a9c14": {
     improvement: "Passing a whole VAR_IN_OUT on to another routine prints `&mut (*values)`. Passing `values` reborrows implicitly. At minimum `&mut *values` drops the parentheses. This appears in 19 fixtures.",
+    tasks: ["7.8.6"],
   },
   // x = (x as i32).wrapping_sub(Li32) as u16;
   "2a09a0d33c": {
@@ -6365,6 +6501,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // pub fn x<const T: usize>(x: &IecString<T>) -> i16 {
   "2b67f9045b": {
@@ -6375,6 +6512,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "by value for Copy scalars and `&IecString` only for strings",
     why: "no block and no let.",
+    tasks: ["7.6.5"],
   },
   // self.__property_N = self.f;
   "2b6ceac96d": {
@@ -6385,6 +6523,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.3", "7.6.2"],
   },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as u16;
   "2c27c13c32": {
@@ -6395,6 +6534,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.f = (self.f as i32) <= Li32;
   "2cfa532f63": {
@@ -6406,6 +6546,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the operands' own common type when the op is a comparison or MIN/MAX and every constant fits it",
     why: "exact for every input and no casts",
+    tasks: ["7.3.3"],
   },
   // self.f = (if self.g { Li64 } else { Li64 }) as i16;
   "2db51dfb96": {
@@ -6416,10 +6557,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`.to()` only when the capacities differ or are generic",
     why: "the other stores need no copy because IecStr is Copy",
+    tasks: ["7.2.7", "7.4.1"],
   },
   // x = (*x) == IecString::<L>::lit(B);
   "2e20d3f400": {
     improvement: "Comparing a string with a literal builds a whole IecStr to compare against. `text.units() == b\"abc\"` (or at least drop the parens around `*text`) does the same with no construction.",
+    tasks: ["7.4.9"],
   },
   // x = (x as i32).wrapping_mul(Li32).wrapping_add(x as i32) as i16;
   "2ea589a8a1": {
@@ -6430,6 +6573,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep the promotion everywhere and just accept the casts. This is the simplest rule and is what the interpreter mirrors.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1"],
   },
   // g.f = (self.f as i32).wrapping_mul(Li32) as i16;
   "2ed6ef380f": {
@@ -6439,10 +6583,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.lit = Li64.min(Li64) as i16;
   "2f368e2e5b": {
     improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via evaluate.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
+    tasks: ["7.2.2"],
   },
   // x.f = (x as i32).wrapping_mul(Li32) as i16;
   "2fd81c587c": {
@@ -6452,14 +6598,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {
   "30d5674ec4": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // self.is_empty = m(L, &mut self.f);
   "311bf0f5b7": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
+    tasks: ["7.4.5"],
   },
   // self.f = (self.f as i32).wrapping_shl(Li8 as u32) as i8;
   "317cab8d16": {
@@ -6470,6 +6619,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.f = self.f.with_char(Li8 as i64, Lu8).to();
   "318cfd770d": {
@@ -6479,6 +6629,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     ],
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3", "7.2.3"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "3279d75111": {
@@ -6490,6 +6641,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // self.f = (self.f as u64).wrapping_sub({ let x = self.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "32a9e6d2e3": {
@@ -6503,10 +6655,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // self.f = Li64.wrapping_sub(-Li64) as usize;
   "32f4b8cabb": {
     improvement: "`cursor := ADR(slots[0])` prints `0i64.wrapping_sub(-1i64) as usize`. The handle is a constant, so it can fold to `1`.",
+    tasks: ["7.2.4"],
   },
   // *x = ({ let x = x as i32; let x = x as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
   "3357f26b8d": {
@@ -6518,6 +6672,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Variable divisor: keep the guard (shape 3357f26b8d needs it).",
     ],
     chosen: "Constant divisor ≠ 0 and ≠ -1: `(l % 2i32)`. This is what I would choose. `%` truncates toward zero exactly like IEC MOD and cannot panic for such a divisor.",
+    tasks: ["7.2.6"],
   },
   // x = Li32.wrapping_add(self.f as i32) as i16;
   "335f79d286": {
@@ -6527,6 +6682,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = self.__numbers_lower_N.wrapping_mul(Li32).wrapping_add(self.__numbers_upper_N);
   "33fc10bac3": {
@@ -6537,14 +6693,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // m(L, …u16, Li16, …, L, …u16, &mut self.f, …);
   "34556679d4": {
     improvement: "A cursor store through a pointer prints `iec_deref(p);` on the line before it and then `{ iec_deref(p); *__str_p }` again inside the same expression, so the same null check runs two or three times per statement (StringUtils STRMIDA/STRREPLACEA). Guarding each pointer once per statement is enough.",
+    tasks: ["7.4.4"],
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u8;
   "346e81a0f2": {
     improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    tasks: ["7.2.5"],
   },
   // if ((x == L) | (x == L)) | ((x as i32) < Li32) {
   "347b79cfd5": {
@@ -6554,10 +6713,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // x: { let mut v = T::new(); v.f = Li16; v.f = Lf32; v.f = IecString::<L>::lit(B); v },
   "3489b7781f": {
     improvement: "A structured initial value is emitted as a block that mutates a fresh value: `{ let mut v = T::new(); v.x = 1i16; v.y = 2.5f32; v }`, nested for a struct inside a struct. Struct update syntax, `T { x: 1i16, y: 2.5f32, ..T::new() }`, is the idiomatic single expression and needs no shadowed `v`.",
+    tasks: ["7.8.3"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32) as u8;
   "34c55ebfd9": {
@@ -6569,6 +6730,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn after_global_init(&mut self, g: &mut Globals) {
   "365326bb03": {
@@ -6577,10 +6739,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "today: uniform calling convention, simple and never wrong",
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
+    tasks: ["7.7.5"],
   },
   // x: [(-Li32), Li32, …],
   "36d4b59ee2": {
     improvement: "Negative literals in array initialisers are parenthesised: `[(-1i32), 0i32]` and `[1.0f32, (-3.0f32)]`. They should print as `-1i32`.",
+    tasks: ["7.2.9"],
   },
   // x.f = (x.f as i32).wrapping_add(Li32) as i16;
   "373f640901": {
@@ -6590,18 +6754,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // map
   "37745ed7a0": {
     improvement: "Every call on a PROGRAM-owned instance moves the whole program out with std::mem::take, which builds a fresh PROGRAM::new() (every initialiser, every string lit) as a stand-in. It then moves it back, even when the callee never touches `prg` (FB_CS_relay20.map has `#[allow(unused_variables)]` on `prg`). Pass `prg` only to routines that transitively reach a program. Then `prg.prg_cs_station20.relay.map()` is a plain field call with no take. Re-entrancy is already refused by lowering (call-program-reentrant, verified with a probe), so the take only exists to satisfy the borrow checker.",
+    tasks: ["7.7.5"],
   },
   // pub __property_N: i16,
   "377c1dfc31": {
     improvement: "Temporaries for a property setter argument and for an unbound function output become persistent `pub` fields of the PROGRAM/FB struct (clippy::pub_underscore_fields, 19 in this batch). They are also compared by PartialEq and printed by Debug. The setter can take the value directly (`self.fb.threshold_set(100i16)`), and an unbound output can be a call-scoped `&mut 0i16` or a `let mut` in the enclosing block.",
+    tasks: ["7.6.2"],
   },
   // self.f.f = IecString::<L>::lit(B).to();
   "37c65c7fbb": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
   },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i16;
   "37e2b15787": {
@@ -6612,6 +6780,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.sum = (self.f.f as i32).wrapping_add(self.f.f as i32) as i16;
   "37f5ec3b06": {
@@ -6622,6 +6791,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep the promotion everywhere and just accept the casts. This is the simplest rule and is what the interpreter mirrors.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1"],
   },
   // x = (self.f as i32).wrapping_add(Li32) as i16;
   "37faa78985": {
@@ -6631,6 +6801,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // g.f = (g.f as i32).wrapping_add(Li32) as u16;
   "383107953f": {
@@ -6640,6 +6811,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = self.__numbers_upper_N.wrapping_sub(self.__numbers_lower_N).wrapping_add(Li32);
   "38cce5cb54": {
@@ -6650,10 +6822,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // self.f = Lu8 as u32;
   "395880371f": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
+    tasks: ["7.2.10"],
   },
   // self.f = (self.f as i32).wrapping_neg() as i16;
   "3968425889": {
@@ -6664,10 +6838,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // self.f = self.f.clone();
   "39e68c53af": {
     improvement: "DUT structs derive only Clone, so a struct store needs `.clone()` and a struct array needs from_fn. A struct whose fields are all Copy (elementary, IecStr, usize pointers, arrays of those) could `#[derive(Clone, Copy)]`. The store then becomes a plain assignment and the array becomes `[T::new(); N]` (with a const fn new) or keeps from_fn.",
+    tasks: ["7.8.2"],
   },
   // *x = ((x as i32) / Li32) as i16;
   "3a7612a7b4": {
@@ -6677,6 +6853,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow division when the divisor is a constant other than 0 and -1 (my choice for constants, keep the widening for variables)",
     ],
     chosen: "narrow division when the divisor is a constant other than 0 and -1 (my choice for constants, keep the widening for variables)",
+    tasks: ["7.3.11"],
   },
   // self.f = self.f.rotate_right(self.f as u32);
   "3aa4ff5b30": {
@@ -6687,10 +6864,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // self.f = (match g.f { L => Li64, …, _ => Li64 }) as i16;
   "3b823fe0e7": {
     improvement: "MUX over untyped literals meets at LINT, so the result is `(match k { 0 => 0i64, …, _ => 4i64 }) as i16`. The literals could be typed at the destination (INT) and the outer cast dropped.",
+    tasks: ["7.2.7"],
   },
   // self.f = ((*x) as i32).wrapping_mul(Li32) as i16;
   "3c5653e905": {
@@ -6700,10 +6879,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1", "7.8.6"],
   },
   // (match self.f { L => self.f.m_set(self.__property_N), _ => panic!(S) });
   "3c8fcdf5d6": {
     improvement: "Lowering temps in an FB or program body (a property-set value, an in-out index captured before the call, a pointer guard) become persistent `pub` struct fields. They show in the struct, in PartialEq/Debug and in `new()`, and they cause clippy::pub_underscore_fields. They live for one statement, so a Rust `let` in the emitted body is enough: `self.tank.level_set(5i16)`, or `let idx = self.cursor; ...`. Also: A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
+    tasks: ["7.6.1", "7.8.7"],
   },
   // replace
   "3cacc7bfac": {
@@ -6714,6 +6895,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "intrinsics for every Standard string function: fastest, but it re-creates the TS/Rust twin the library repo was built to delete",
     ],
     chosen: "a prelude intrinsic for LEN_INTERNAL only (`units().len()`), which every other string function calls, so one primitive speeds them all",
+    tasks: ["7.4.6"],
   },
   // x = (m(x) as i32) == (m(x) as i32);
   "3cded85aba": {
@@ -6724,10 +6906,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
+    tasks: ["7.3.3"],
   },
   // pub fn m(mut x: IecString<L>, …) -> IecString<L> {
   "3cf4e6fa21": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
+    tasks: ["7.7.2", "7.7.2"],
   },
   // if (self.f as i32) > Li32 { break; }
   "3d3b42b24d": {
@@ -6736,10 +6920,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // self.f.m();
   "3d737b5821": {
     improvement: "A constant index is printed as `self.arr[((5i8 as i64) - 1i64) as usize]`, `self.u.b[(1i8 as i64) as usize]`, `self.arr[0i64 as usize]`. Fold a constant index minus the lower bound to a usize literal: `self.arr[4]`. The pointer path is `(self.p as i64).wrapping_add(-1i64)`, and ADR(arr[1]) stores `1i64.wrapping_sub(-1i64) as usize`, which should be `2`.",
+    tasks: ["7.2.3"],
   },
   // x = __grid_lower_N.wrapping_mul(Li32).wrapping_add(__grid_upper_N) as i16;
   "3d792fe7d9": {
@@ -6750,10 +6936,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // if m(x, …, false, &mut (*x), &mut (*x)) {
   "3d7b4a7836": {
     improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
+    tasks: ["7.8.6"],
   },
   // self.f = { let x = (-Lf64).trunc(); if (-L..=L).contains(&x) { x as i32 } else { i32::MIN } };
   "3e1e32f963": {
@@ -6764,6 +6952,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold when args[0] is const",
     why: "The f64 widening of a REAL argument is NOT removable: 2147483647.0f32 rounds to 2^31, so the range check must stay in f64",
+    tasks: ["7.2.7"],
   },
   // x = (x as i32).wrapping_mul(x as i32) as i16;
   "3eced711ed": {
@@ -6773,6 +6962,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f.f = (self.f as i32) >= Li32;
   "3ecf4f248b": {
@@ -6783,18 +6973,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
+    tasks: ["7.3.3"],
   },
   // self.f = m(L, …i32, L, &mut self.f, …);
   "3eed014822": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
+    tasks: ["7.4.5"],
   },
   // x = { m(x); *x };
   "3fed555c25": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
+    tasks: ["7.9.3"],
   },
   // x: std::array::from_fn(|_| [Lf32; L]),
   "4026548939": {
     improvement: "initOf checks only the first array level for elementary elements, so a 2D array of f32/i16 prints `std::array::from_fn(|_| [0.0f32; 4])` where `[[0.0f32; 4]; 4]` is a const expression. Apply peelArray recursively: if the leaf is elementary, use nested repeat expressions.",
+    tasks: ["7.8.2"],
   },
   // self.f = self.__chain_value_N;
   "40fd7317bb": {
@@ -6805,14 +6999,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "struct field (today)",
     ],
     chosen: "a scan-local `let __chain_value = ...;`",
+    tasks: ["7.6.1"],
   },
   // self.f = { m(self.p); self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f };
   "417ce6fb0b": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
+    tasks: ["7.2.4"],
   },
   // self.p = Li64.wrapping_sub(-Li64) as usize;
   "41d2232599": {
     improvement: "`ADR(arr[1])` over ARRAY[0..4] is emitted as `1i64.wrapping_sub(-1i64) as usize` instead of the folded constant `2`. Fold it when the index is constant. On deref the pointer has already passed `iec_deref` (it is non-zero), so `(self.p as i64).wrapping_add(-1i64) as usize` can be `self.p - 1`, plus `+ k` for p[k].",
+    tasks: ["7.2.4"],
   },
   // x = (x as i32).wrapping_add(x as i32) as i16;
   "41d2269c05": {
@@ -6822,10 +7019,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li16).to::<L>().to();
   "41d85d47cf": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32) as i8;
   "41f40f95f9": {
@@ -6837,6 +7036,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.v = ((Lf32 - self.f) as f64).sqrt() as f32;
   "428230e030": {
@@ -6847,18 +7047,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
     ],
     chosen: "(b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
+    tasks: ["7.3.6"],
   },
   // pub __chain_value_N: bool,
   "42897347c4": {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
+    tasks: ["7.6.1"],
   },
   // pub fn m(mut x: i32, mut x: i16, x: &mut i64) -> bool {
   "431373ac5d": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // self.f.__numbers_lower_N = self.__numbers_lower_N;
   "43449862b7": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
+    tasks: ["7.2.3"],
   },
   // x = (x as i32).wrapping_sub(Li32) as u8;
   "43aa1830f1": {
@@ -6868,14 +7072,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
     ],
     chosen: "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
+    tasks: ["7.3.1"],
   },
   // pub fn x<const T: usize>(mut p: usize, x: &mut IecString<T>) -> u8 {
   "43aad8296c": {
     improvement: "A borrowed in-out passed on is printed `&mut (*__str_pstfrom)` (a needless reborrow spelling; `__str_pstfrom` or `&mut *__str_pstfrom` will do). len_internal reads `(*str).char_at(..)`, where auto-deref makes the `(*..)` redundant (clippy explicit_auto_deref territory).",
+    tasks: ["7.8.6"],
   },
   // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes()).to();
   "448986061e": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_mul(Li32) as i16;
   "44a9549a6b": {
@@ -6887,6 +7094,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // if ({ m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) as i32) == Li32 { break; }
   "44d286d05b": {
@@ -6897,18 +7105,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4", "7.4.4"],
   },
   // self.p = L;
   "45292dbd9c": {
     improvement: "A constant index is printed as `self.arr[((5i8 as i64) - 1i64) as usize]`, `self.u.b[(1i8 as i64) as usize]`, `self.arr[0i64 as usize]`. Fold a constant index minus the lower bound to a usize literal: `self.arr[4]`. The pointer path is `(self.p as i64).wrapping_add(-1i64)`, and ADR(arr[1]) stores `1i64.wrapping_sub(-1i64) as usize`, which should be `2`. Also: `p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
+    tasks: ["7.2.3", "7.8.8"],
   },
   // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes()).to();
   "45e329cf8f": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes()).to();
   "463c3aa6a9": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = self.f.wrapping_add(Li16);
   "46c17ef7d3": {
@@ -6919,10 +7131,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
     ],
     chosen: "B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
+    tasks: ["7.3.2"],
   },
   // self.f = { let __arg_N = m(self.f.to::<L>(), IecString::<L>::lit(B)); len(__arg_N) };
   "47a7c12d8a": {
     improvement: "Hoisting exists to make order visible between SEVERAL inputs, or to read a program before it is moved out. It fires for a single input (`len(concat(..))`), which has no order to show. On a PROGRAM method it also hoists constants (`let __arg_0 = 10i16;`, `true`, `false`), which cannot read the program. Hoist only inputs that hold a call when there are two or more of them, and on a program method only inputs that read `prg`.",
+    tasks: ["7.6.6"],
   },
   // self.f.m_set(self.__property_N);
   "48737e1389": {
@@ -6933,14 +7147,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.2"],
   },
   // self.f = self.p.wrapping_add(L);
   "48944bacca": {
     improvement: "`ADR(arr[1])` over ARRAY[0..4] is emitted as `1i64.wrapping_sub(-1i64) as usize` instead of the folded constant `2`. Fold it when the index is constant. On deref the pointer has already passed `iec_deref` (it is non-zero), so `(self.p as i64).wrapping_add(-1i64) as usize` can be `self.p - 1`, plus `+ k` for p[k].",
+    tasks: ["7.2.4"],
   },
   // pub fn fb_init(&mut self, mut x: bool, …) -> bool {
   "49346d6299": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
+    tasks: ["7.7.1"],
   },
   // self.f = self.v.wrapping_sub({ let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } });
   "49387a9ebf": {
@@ -6954,6 +7171,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // g: false,
   "496b8acb56": {
@@ -6968,6 +7186,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/specialize.ts) and the arms are not promoted",
     why: "it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
+    tasks: ["keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13", "7.6.6"],
   },
   // self.f = (self.f as i32).wrapping_add(Li32) as i16;
   "4979768984": {
@@ -6978,6 +7197,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
     ],
     chosen: "B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
+    tasks: ["7.3.2"],
   },
   // if (len(self.f.f[(self.f as i64) as usize].to::<L>()) as i32) > (self.f as i32) {
   "4a599db8d8": {
@@ -6991,6 +7211,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14", "7.4.6"],
   },
   // pub x: i64,
   "4a6baf16b3": {
@@ -7004,6 +7225,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Fold only in the Rust printer (const-eval of literal operands). Smaller change, but the interpreter and Rust would then differ in structure, which the equivalence harness would not see.",
     ],
     chosen: "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table",
+    tasks: ["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", "7.2.2"],
   },
   // x = ((*x) as i32).wrapping_mul(Li32) as i16;
   "4b22d23722": {
@@ -7013,18 +7235,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1", "7.8.6"],
   },
   // self.f = match self.f { L => (*__lent_N).take(Li16), _ => panic!(S) };
   "4b5007906a": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
+    tasks: ["7.8.7"],
   },
   // self.f = Lu64;
   "4bf3f61062": {
     improvement: "Large integer literals are emitted unseparated (`1709078400u32`, `86400000u32`, `1000000000u64`), which is 200+ clippy::unreadable_literal hits across the decl/assign literal shapes. Group digits with `_` (e.g. `1_709_078_400u32`) for literals of 6+ digits.",
+    tasks: ["7.2.11"],
   },
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> i32 {
   "4c796f6678": {
     improvement: "A borrowed in-out passed on is printed `&mut (*__str_pstfrom)` (a needless reborrow spelling; `__str_pstfrom` or `&mut *__str_pstfrom` will do). len_internal reads `(*str).char_at(..)`, where auto-deref makes the `(*..)` redundant (clippy explicit_auto_deref territory).",
+    tasks: ["7.8.6"],
   },
   // x = (x as i32).wrapping_add(Li32) as u16;
   "4c9f4e33f4": {
@@ -7034,6 +7260,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
     ],
     chosen: "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
+    tasks: ["7.3.1"],
   },
   // if !((x < x) & ((x.char_at(x.wrapping_add(x) as i64) as i32) == (x.char_at(x as i64) as i32))) { break; }
   "4d5ea12dda": {
@@ -7044,6 +7271,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // self.f = (self.v as u64).wrapping_sub({ let x = self.v as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "4d6263fb86": {
@@ -7057,22 +7285,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // { let __copy_N = IecString::<L>::lit(B); self.f.call(&self.f, &__copy_N); }
   "4d6e5e12b9": {
     improvement: "A VAR_IN_OUT CONSTANT given a LITERAL is still bound to a `let __copy_1 = IecString::<80>::lit(b\"abc\");` before the call. The reason for the copy (E0503, a copy of x beside &mut x) cannot arise for a literal, so `&IecString::<80>::lit(b\"abc\")` inline is enough, because the temporary lives for the whole call. The scalar CONSTANT in-out is also passed as `&i16`, where a value would be leaner.",
+    tasks: ["7.6.5"],
   },
   // self.__property_N = Li16;
   "4d8c0c87ee": {
     improvement: "Temporaries for a property setter argument and for an unbound function output become persistent `pub` fields of the PROGRAM/FB struct (clippy::pub_underscore_fields, 19 in this batch). They are also compared by PartialEq and printed by Debug. The setter can take the value directly (`self.fb.threshold_set(100i16)`), and an unbound output can be a call-scoped `&mut 0i16` or a `let mut` in the enclosing block.",
+    tasks: ["7.6.2"],
   },
   // { let mut x = std::mem::take(&mut prg.f); x.m(prg); prg.f = x; };
   "4da7af6f6b": {
     improvement: "`{ let mut __program = std::mem::take(&mut prg.x); __program.boot(prg); prg.x = __program; };` builds a whole default program (arrays, strings included) and moves it twice on every call, even when the callee never reads `prg` (its fn carries #[allow(unused_variables)] for exactly that). When the callee's body does not reach Programs, call `prg.x.call()` directly and drop the prg parameter. The statement form also carries a stray `;` after the block.",
+    tasks: ["7.7.6"],
   },
   // self.f = self.f[((Li8 as i64) - Li64) as usize];
   "4e213fd264": {
     improvement: "A literal typed in its IEC type and then cast: `self.buf.char_at(4i8 as i64)`, `entries[(0i8 as i64) as usize]`, `values[((1i8 as i64) - 1i64) as usize]`. castTo should print a constant directly in the target type (`4i64`, or bare `4`), and a constant index minus a constant lower bound should fold to `[0]`.",
+    tasks: ["7.2.3"],
   },
   // *v = ((*v) as i32).wrapping_add(Li32) as i16;
   "4ebfb530bd": {
@@ -7082,10 +7315,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = false;
   "4edbb4135a": {
     improvement: "In set_reset_chained, the S=/R= chain temporary is a pub struct FIELD (`self.__chain_value_3 = self.c;`) rather than a local `let`, which adds a pub_underscore_fields lint and bloats state. A local `let c = self.c;` is enough because the value never lives across scans.",
+    tasks: ["7.6.1"],
   },
   // self.f = m(self.f.to::<L>(), Li16, …).to::<L>().to();
   "4eeb332195": {
@@ -7096,6 +7331,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // self.f = (self.f as i32).wrapping_add(Li32) as u16;
   "4fb4aff790": {
@@ -7107,6 +7343,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8).to();
   "4fb82cd93a": {
@@ -7116,6 +7353,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
     chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3", "7.2.4"],
   },
   // if !((x < Li32) & (x < x)) { break; }
   "50226e2c19": {
@@ -7125,10 +7363,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // *x = self.f;
   "50ba9519ad": {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
+    tasks: ["7.6.3"],
   },
   // if !((x < x) && ((x[(x as i64) as usize] as i32) != Li32)) { break; }
   "50f8dcd811": {
@@ -7139,6 +7379,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // let mut take: i16 = Li16;
   "51ea066d8e": {
@@ -7147,18 +7388,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
+    tasks: ["7.7.3"],
   },
   // loop {
   "521ba042ac": {
     improvement: "The body is always wrapped in an extra `{ ... }` block even when it has no CONTINUE, and a loop whose only EXIT sits directly in its own body gets `'loop_N:` + `break 'loop_N;` although a plain `break;` works when the body block is unlabeled. Emit the body inline when `!frame.continues`, and use an unlabeled `break` when no labeled body block sits between the EXIT and the loop.",
+    tasks: ["7.5.2"],
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u16;
   "5228723708": {
     improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    tasks: ["7.2.5"],
   },
   // self.f = (*x).m();
   "52d85b7cdc": {
     improvement: "An inout FB or struct passed on, or called, is printed as `(*target).call()`, `(*target).dim()` and `m(4i32, &mut (*book))`. Method calls auto-deref, and a `&mut T` binding reborrows implicitly when passed. Print `target.call()` and `f_x3_mark(4, book)`, the same exemption the emitter already makes for `.x` and `[i]`.",
+    tasks: ["7.8.6"],
   },
   // x = x.wrapping_add(-Li32);
   "5351b3711d": {
@@ -7169,18 +7414,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`i.wrapping_sub(1i32)`",
     why: "identical for every value, including MIN, and idiomatic",
+    tasks: ["7.5.10"],
   },
   // x = Li16;
   "5370b79269": {
     improvement: "Each routine declares `let mut f: T = 0; f = expr; f`, where `expr` as the tail is the idiomatic form. Each FOR prints `i = 0i32;` right after `let mut i: i32 = 0i32;`. Both are dead stores. When the result is assigned exactly once as the last statement, return the expression. Otherwise the pattern is correct and only verbose.",
+    tasks: ["7.7.3"],
   },
   // if x >= L { return (x as u64) as i64; }
   "5383e1c9ac": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` is exactly `v.round()`: f64::round already rounds half away from zero, symmetrically.",
+    tasks: ["7.9.1"],
   },
   // take
   "53bd7d992e": {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
+    tasks: ["7.6.3"],
   },
   // self.f = (self.f as i32) >= (self.f as i32);
   "54889e0f45": {
@@ -7191,26 +7440,32 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // x = (((x as i32).max(Li32) as u16) as i32).wrapping_sub(Li32);
   "5513d0e592": {
     improvement: "StrFindA's `MAX(uiSearchStart, 1) - 1` prints `(((uisearchstart as i32).max(1i32) as u16) as i32).wrapping_sub(1i32)`. That promotes, narrows back to UINT (a no-op, because the max of two UINTs is a UINT), and then promotes again. `(uisearchstart.max(1) as i32) - 1`, or the u16 max followed by one widening, is the same value.",
+    tasks: ["7.3.9"],
   },
   // self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f = Li16;
   "55d895e28f": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
+    tasks: ["7.2.4"],
   },
   // self.f = m(self.f, … as f32);
   "55fe85cf23": {
     improvement: "When the divisor is a nonzero literal the zero check cannot fire. Print plain `a / 3.0f64` and emit the iec_div helper only when a divisor can be zero.",
+    tasks: ["7.2.6"],
   },
   // self.f = self.f.wrapping_sub(self.f).wrapping_add(self.f);
   "561f3f5e13": {
     improvement: "MOD by a non-zero CONSTANT still emits the zero-divisor block `{ let __mod_l = …; let __mod_r = 1000u32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`. With a literal divisor it is just `x % 1000` (or `wrapping_rem` for a -1 divisor).",
+    tasks: ["7.2.6"],
   },
   // x[(x as i64) as usize] = { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64));
   "569d2b7a40": {
     improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
+    tasks: ["7.4.4", "7.2.4"],
   },
   // pub fn m(mut __values_lower_N: i32, mut __values_upper_N: i32, x: &mut [u8]) -> i64 {
   "56c1a77525": {
@@ -7221,6 +7476,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // self.f = (self.f as i32).wrapping_abs() as u8;
   "56c33c9bab": {
@@ -7231,10 +7487,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // pub ops: [u64; L],
   "572db4e711": {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
+    tasks: ["7.8.2"],
   },
   // self.f = Li64.wrapping_sub(Li64);
   "57a8f5a4c8": {
@@ -7244,10 +7502,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep `0i64.wrapping_sub(1i64)` (today): rustc folds it anyway, so this is readability only",
     ],
     chosen: "emit the folded literal",
+    tasks: ["7.2.2"],
   },
   // *x = { m(x.f); *x }.wrapping_add(x as i32);
   "57ce9e2ee4": {
     improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
   },
   // self.v = m(self.f, Lf64);
   "5886a0dc2b": {
@@ -7258,6 +7518,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "plain `/` when the divisor is a nonzero const",
     why: "same stops; the check is dead code for a literal divisor",
+    tasks: ["7.2.6"],
   },
   // self.f = Li64.wrapping_sub(Li64) as i32;
   "58988cbee9": {
@@ -7268,10 +7529,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // self.f.call(prg);
   "58a7e6289b": {
     improvement: "Every call on a PROGRAM-owned instance moves the whole program out with std::mem::take, which builds a fresh PROGRAM::new() (every initialiser, every string lit) as a stand-in. It then moves it back, even when the callee never touches `prg` (FB_CS_relay20.map has `#[allow(unused_variables)]` on `prg`). Pass `prg` only to routines that transitively reach a program. Then `prg.prg_cs_station20.relay.map()` is a plain field call with no take. Re-entrancy is already refused by lowering (call-program-reentrant, verified with a probe), so the take only exists to satisfy the borrow checker.",
+    tasks: ["7.7.6"],
   },
   // self.f = Li64.max(Li64).max(Li64) as i16;
   "58d4f235fd": {
@@ -7282,10 +7545,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // x = __numbers_lower_N;
   "58edc15c64": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // if (x as i32) < Li32 {
   "58f3434567": {
@@ -7296,22 +7561,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the other side is a constant that fits it, widen otherwise",
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
+    tasks: ["7.3.3"],
   },
   // self.f = iec_min(self.f, …).to();
   "59b48cdb5b": {
     improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
+    tasks: ["7.4.1"],
   },
   // self.f = iec_max(self.f, …).to();
   "59b92aa532": {
     improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
+    tasks: ["7.4.1"],
   },
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
   "59c341cb0f": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
+    tasks: ["7.8.7"],
   },
   // self.f = (match self.f { L => self.f as i32, …, _ => self.f as i32 }) as i16;
   "5a9bc1030e": {
     improvement: "`(match k { 0 => self.a as i32, 1 => self.b as i32, _ => self.c as i32 }) as i16` for INT inputs into an INT destination: the widening per arm and the narrowing afterwards cancel out (20 cast lints). Emit the match in the inputs' own type when it equals the destination's.",
+    tasks: ["7.3.1"],
   },
   // __chain_value_N: Li16,
   "5b7909c564": {
@@ -7323,10 +7593,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a `let __chain_value_N = …;` local in every mode",
     why: "one rule, no state leaked into the instance",
+    tasks: ["7.6.1"],
   },
   // self.v = self.f * (-Lf64);
   "5c40a4e5a8": {
     improvement: "A negated literal is printed as `(-0.5f64)`. `self.seed * -0.5f64` is valid Rust with the same precedence, and a negative literal constant could be emitted as one token.",
+    tasks: ["7.2.9"],
   },
   // m(x);
   "5c499dbdc8": {
@@ -7338,10 +7610,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&mut self` set_char plus a guard around the call",
     why: "same semantics, and the interpreter's setChar needs no change",
+    tasks: ["7.4.4"],
   },
   // self.f = replace(self.f.to::<L>(), IecString::<L>::lit(B), Li16, …).to::<L>().to();
   "5c7f0546bc": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // pub x: f32,
   "5c9bb13706": {
@@ -7352,10 +7626,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "B: keep f32 for selection builtins when every constant round-trips through f32 exactly",
     why: "the same value with no casts",
+    tasks: ["7.3.7"],
   },
   // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes()).to();
   "5cd04259c1": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // x[(x as i64).wrapping_sub(__numbers_lower_N as i64) as usize] = x.wrapping_mul(Li32) as i16;
   "5d3437b284": {
@@ -7366,14 +7642,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // x: IecString::<L>::lit(B),
   "5d9850550d": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.1"],
   },
   // self.f = match self.ops[((self.f as i64) - Li64) as usize] { L => self.f.m(self.f), L => self.f.m(self.f), _ => panic!(S) };
   "5dcbae07c6": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // if ((x as i32) >= Li32) & ((len as i32) > Li32) {
   "5e5aa25221": {
@@ -7383,6 +7662,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // let mut fb_init: i16 = Li16;
   "5e9caa6605": {
@@ -7391,10 +7671,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
+    tasks: ["7.7.3"],
   },
   // (match self.f.f { L => self.f.m(&mut self.f), L => self.f.m(&mut self.f), _ => panic!(S) });
   "5ed54bb657": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
+    tasks: ["7.8.7"],
   },
   // self.f = (self.f as i32).wrapping_neg();
   "605307fc4c": {
@@ -7405,6 +7687,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // { let __arg_N = true; let __arg_N = false; let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x = x.f.fb_init(prg, __arg_N, …); prg.f = x; x } };
   "60d6b79cca": {
@@ -7416,14 +7699,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.6.6", "7.8.10"],
   },
   // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
   "60fefc4d63": {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+    tasks: ["7.5.9"],
   },
   // self.f = m(self.f as f64, Lf64) as f32;
   "61a75e7b4b": {
     improvement: "`iec_div(self.int7 as f64, 2.0f64)` pays for a zero check and a generic call when the divisor is a non-zero constant. When the right operand is a `const` other than 0, print plain `/`.",
+    tasks: ["7.2.6"],
   },
   // self.f = (self.f as i32).wrapping_add(self.f.f as i32) as i16;
   "623e0abb20": {
@@ -7433,10 +7719,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.f as i32) / (self.f as i32)) as f32;
   "6256abaa7b": {
     improvement: "When the divisor is a non-zero constant, the zero check is dead. Print `self.real7 / 2.0`, or fold a literal/literal quotient to `3.5f32`. The same applies to MOD by a non-zero constant: `x.wrapping_rem(3)` without the `let __mod_*` block.",
+    tasks: ["7.2.6"],
   },
   // self.f[((Li8 as i64) - Li64) as usize] = (self.f[((Li8 as i64) - Li64) as usize] as i32).wrapping_add(Li32) as i16;
   "628bc6e2ed": {
@@ -7448,14 +7736,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // if ({ m(x); *__str_pst_N }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
   "62c7abffa7": {
     improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it.",
+    tasks: ["7.9.3"],
   },
   // x = __numbers_upper_N;
   "62caf55aa5": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // self.m_set(__property_N);
   "637fe937dc": {
@@ -7466,6 +7757,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.2"],
   },
   // self.f = self.f.wrapping_shl(self.f as u32);
   "638ea949bb": {
@@ -7476,6 +7768,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // self.v = Li64.wrapping_sub(Li64) as i32;
   "63c4ea9498": {
@@ -7486,6 +7779,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // pub x: i32,
   "63d29bd1a0": {
@@ -7500,6 +7794,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "B: fold in lowering with the shared evaluate.ts table and emit a typed literal",
     why: "CODESYS itself folds at compile time, and the value comes from the one table both backends use",
+    tasks: ["7.2.2", "7.3.1"],
   },
   // self.f = Li64.wrapping_sub(Li64) as i16;
   "63dc3d3963": {
@@ -7510,14 +7805,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // pub fn m(mut x: f32) -> f32 {
   "63e6752512": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f = Li8 as i16;
   "63f801635e": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
+    tasks: ["7.2.10"],
   },
   // g.f = (g.f as i32).wrapping_mul(Li32).wrapping_add(Li32) as i16;
   "64b82e4bf9": {
@@ -7528,6 +7826,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep the promotion everywhere and just accept the casts. This is the simplest rule and is what the interpreter mirrors.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as u8;
   "64c0a06174": {
@@ -7539,10 +7838,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // *x = { m(x.f); *x }.wrapping_add(x as i64);
   "64cc413c0b": {
     improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
   },
   // x: Lu16,
   "65df8e0418": {
@@ -7552,6 +7853,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "unparen() at the initOf call sites (:1170/:1190/:1227/:1072), the same treatment assignments already get (chosen)",
     ],
     chosen: "unparen() at the initOf call sites (:1170/:1190/:1227/:1072), the same treatment assignments already get",
+    tasks: ["7.2.9"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]).to();
   "668b522f05": {
@@ -7562,10 +7864,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // x: (f64::INFINITY),
   "66ef68b08a": {
     improvement: "The parentheses guard a negative constant as a method receiver. In a field initializer or other non-receiver position they are noise (clippy unused_parens territory). Only `-f32::INFINITY` needs them, and only as a receiver.",
+    tasks: ["7.2.9"],
   },
   // self.f = (self.f as i32).wrapping_add(x as i32) as i16;
   "6713eb5cc0": {
@@ -7575,6 +7879,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f.f[Li64 as usize] = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u8;
   "6750cc1d5f": {
@@ -7589,18 +7894,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose the const fast path. It is correct for every input, since Rust `%` only panics on 0 and on MIN % -1.",
     ],
     chosen: "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
+    tasks: ["7.8.4", "7.2.6", "7.2.3"],
   },
   // self.f[(Li8 as i64) as usize][(Li8 as i64) as usize] = Lf32;
   "67c71ff35c": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // self.v = self.f * (-Lf32);
   "682fffc71e": {
     improvement: "A negated literal is printed as `(-0.5f64)`. `self.seed * -0.5f64` is valid Rust with the same precedence, and a negative literal constant could be emitted as one token.",
+    tasks: ["7.2.9"],
   },
   // x: std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L])),
   "683d4b1944": {
     improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit.ts:305), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
+    tasks: ["7.8.2"],
   },
   // self.f.f = ({ let x = self.f.f[Li64 as usize] as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(((self.f.f as u64) / Lu64).wrapping_mul(Lu64)) as u16;
   "6866dc0381": {
@@ -7612,6 +7921,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "const nonzero divisor → `(l % r)`; keep the guard only for a runtime divisor",
     why: "MOD by a literal is the common case",
+    tasks: ["7.2.6"],
   },
   // x: false,
   "687428cc81": {
@@ -7621,30 +7931,37 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x: Default::default(),` or `..Default::default()`: this hides the declared value, only works for fields whose init is the type's zero, and needs a derived Default, which Rust refuses for arrays longer than 32 (emit.ts:318-323 gives this reason).",
       "`#[derive(Default)]` plus `new() { Self::default() }` when every field has its zero init: this would remove the per-field lines in some structs, but the struct shape would then depend on the init values, which breaks 'the same construct always emitted the same way'.",
     ],
+    tasks: ["keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13"],
   },
   // __numbers_upper_N: Li32,
   "68cdda5f1a": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // pub __inout_index_N: i64,
   "690693c479": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // if x < -L { return i32::MIN; }
   "693c14b0bd": {
     improvement: "f64::round already rounds half away from zero and is odd-symmetric: round(-2.5) = -3, round(-0.0) = -0.0, round(NaN) = NaN. So the sign branch is the identity. Emit `let c = v.round();`. The 32-bit helper can also fold to `if c.is_nan() || c >= 9223372036854775808.0 { 0 } else if c < -2147483648.0 { i32::MIN } else { c as i64 as i32 }`.",
+    tasks: ["7.9.1"],
   },
   // pub fn m(&mut self, prg: &mut Programs, mut x: i16) -> i16 {
   "69b0552c65": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // self.f = len(self.f.f[(self.f as i64) as usize].to::<L>());
   "6a2b5f2826": {
     improvement: "A literal typed in its IEC type and then cast: `self.buf.char_at(4i8 as i64)`, `entries[(0i8 as i64) as usize]`, `values[((1i8 as i64) - 1i64) as usize]`. castTo should print a constant directly in the target type (`4i64`, or bare `4`), and a constant index minus a constant lower bound should fold to `[0]`. Also: Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
+    tasks: ["7.2.3", "7.7.2"],
   },
   // self.f = (self.f as i32).wrapping_abs() as i16;
   "6a41bda0a0": {
     improvement: "ABS of an unsigned argument is the identity, as the lowering comment itself says. Returning `arg` there removes a widen, an abs and a narrow; the emitter's own unsigned shortcut at emit.ts:756 never fires because the type has already been promoted to DINT.",
+    tasks: ["7.3.4"],
   },
   // pub x: f64,
   "6a98109119": {
@@ -7656,6 +7973,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "keep today's form",
     why: "one uniform path is worth the lines; the suffix-vs-bare literal inconsistency is cosmetic",
+    tasks: ["keep:the field line is already minimal and correct (probed edge inputs agree); removed by 7.2.13"],
   },
   // x = (self.f as i32).wrapping_mul(self.f as i32) as i16;
   "6b14b17ba7": {
@@ -7665,6 +7983,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.v as u64) / Lu64) as u32;
   "6b4f1bb990": {
@@ -7675,10 +7994,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep ULINT and only swap wrapping_mul for `*`.",
     ],
     chosen: "(b) ULINT only when an up-scale feeds a day mask. Plain `*` where the product provably fits; stay in u32 for a pure down-scale",
+    tasks: ["7.3.10"],
   },
   // self.f = self.f.wrapping_add(self.f);
   "6bf6856d37": {
     improvement: "Every loop in production Rust carries a u64 counter and a branch per iteration. Behind a cfg(test) or harness flag the emitted loop would be the plain `loop { if !cond { break } … }` a Rust engineer writes.",
+    tasks: ["7.5.1"],
   },
   // pub fn __init(&mut self, g: &mut Globals) {
   "6cec059f2e": {
@@ -7687,26 +8008,32 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "today: uniform calling convention, simple and never wrong",
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
+    tasks: ["7.7.5"],
   },
   // x[(x as i64).wrapping_sub(__line_lower_N as i64) as usize].f = (x[(x as i64).wrapping_sub(__line_lower_N as i64) as usize].f as i32).wrapping_add(x as i32) as i16;
   "6d48208e3e": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // pub fn m(&mut self, mut x: i16) -> i16 {
   "6dd22a92d0": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // m(L, …u16, L, …i16, Li16, …, &mut self.f, …);
   "6e06410746": {
     improvement: "A cursor store through a pointer prints `iec_deref(p);` on the line before it and then `{ iec_deref(p); *__str_p }` again inside the same expression, so the same null check runs two or three times per statement (StringUtils STRMIDA/STRREPLACEA). Guarding each pointer once per statement is enough.",
+    tasks: ["7.4.4"],
   },
   // pub fn m(mut x: u8) -> bool {
   "6e16e4ee84": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f = (self.f as u64) as u32;
   "6e691851a6": {
     improvement: "If the divisor is a literal other than 0 (and other than -1 for signed), emit `l % r` directly. The block, the zero test and wrapping_rem are dead code for a literal divisor. Also: A lossless widening followed by a conversion back to the source's own Rust type is the identity. Peephole: if e.value is a convert from type X with rustType(X) === target and the middle step is a widening, emit X's text.",
+    tasks: ["7.2.6", "7.3.9"],
   },
   // self.f = Li64.wrapping_add(Li64) as i16;
   "6e95d900d2": {
@@ -7717,14 +8044,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // (x as i64) as i32
   "6f8ef8f0bd": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` equals `v.round()` for every f64, because f64::round already rounds half away from zero symmetrically (including -0.0 and NaN). The measured table (r2ilad_*, r2i_*_nan/inf, trunc_beyond_dint) otherwise matches both helpers; I found no wrong input.",
+    tasks: ["7.9.1"],
   },
   // x: (-Li32),
   "6f9ae8fd3a": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // self.f.m_set(prg, self.__property_N);
   "6ff1de2a48": {
@@ -7735,6 +8065,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.2"],
   },
   // self.f = m(self.f.to::<L>(), Li16).to::<L>().to();
   "7030300a1b": {
@@ -7745,14 +8076,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // self.f = x;
   "707233d6d6": {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
+    tasks: ["7.6.1"],
   },
   // self.f[(Li8 as i64) as usize].m();
   "7073e4cc28": {
     improvement: "A literal index prints `self.arr_uai[(0i8 as i64) as usize]`. A constant index already range-checked by lowering can print as `[0]`. The dynamic-lower-bound form uses `.wrapping_sub(...)` (callshape_array_star_fb_inout), while a static lower bound uses plain `-`. Choose one.",
+    tasks: ["7.2.3"],
   },
   // *x = ((*x) as i32).wrapping_add(x as i32) as i16;
   "707715f6ab": {
@@ -7762,6 +8096,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // x = IecString::<L>::lit(B).to();
   "708b7c88b3": {
@@ -7770,14 +8105,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
+    tasks: ["7.7.3"],
   },
   // self.f = { self.__inout_index_N = self.f; let __arg_N = self.m(); m(__arg_N, &mut self.f[(self.__inout_index_N as i64) as usize]) };
   "70b25e3c85": {
     improvement: "Lowering temps in an FB or program body (a property-set value, an in-out index captured before the call, a pointer guard) become persistent `pub` struct fields. They show in the struct, in PartialEq/Debug and in `new()`, and they cause clippy::pub_underscore_fields. They live for one statement, so a Rust `let` in the emitted body is enough: `self.tank.level_set(5i16)`, or `let idx = self.cursor; ...`.",
+    tasks: ["7.6.1"],
   },
   // pub fn m(mut x: i32, x: &mut bool) -> i32 {
   "72543de594": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // self.f.f = (self.f as i32) <= Li32;
   "73351964cd": {
@@ -7788,10 +8126,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the other side is a constant that fits it, widen otherwise",
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
+    tasks: ["7.3.3"],
   },
   // self.f = true;
   "73505351ad": {
     improvement: "In a PROGRAM/FB body, a lowering temporary (`__chain_value_N`, and likewise the output/property/inout_guard temps from calls.ts:787/1229/1261) becomes a persistent `pub` struct field. It appears in Debug/PartialEq/new() and is carried across scans, though it is only ever a statement-local value. Emit it as a `let` in scan()/call(), as routineMode already does. SIZEOF correctly ignores it (probed r1/sz.st: 16 = 16).",
+    tasks: ["7.6.1"],
   },
   // self.f = Li64.max(Li64).min(Li64) as i16;
   "745a764511": {
@@ -7802,6 +8142,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // x: Lf32,
   "74845f98c6": {
@@ -7819,6 +8160,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep the suffix but add `_` digit grouping: the smallest change and removes the lint (my choice: add grouping now, keep the suffix for uniformity)",
     ],
     chosen: "(C).",
+    tasks: ["7.2.12", "7.2.12", "7.2.8"],
   },
   // x = x.with_char(x as i64, str.char_at(x as i64)).to();
   "7566f32b5e": {
@@ -7828,10 +8170,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     ],
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes()).to();
   "7587dbd531": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i8;
   "7589f5a1ee": {
@@ -7843,10 +8187,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // p: L,
   "75cc82a569": {
     improvement: "A constant index is printed as `self.arr[((5i8 as i64) - 1i64) as usize]`, `self.u.b[(1i8 as i64) as usize]`, `self.arr[0i64 as usize]`. Fold a constant index minus the lower bound to a usize literal: `self.arr[4]`. The pointer path is `(self.p as i64).wrapping_add(-1i64)`, and ADR(arr[1]) stores `1i64.wrapping_sub(-1i64) as usize`, which should be `2`. Also: `p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
+    tasks: ["7.2.3", "7.8.8"],
   },
   // x = ({ let x = x as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
   "7685022caa": {
@@ -7857,6 +8203,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b).",
     ],
     chosen: "(b).",
+    tasks: ["7.2.6"],
   },
   // if (x.f as i32) < Li32 {
   "770670a973": {
@@ -7867,10 +8214,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the other side is a constant that fits it, widen otherwise",
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
+    tasks: ["7.3.3"],
   },
   // x = m(x, &mut (*x)).wrapping_sub(Li32);
   "77378f7efe": {
     improvement: "Passing on a caller's own `&mut` in-out prints `&mut (*__str_pstring)`, an explicit reborrow that clippy::borrow_deref_ref names. Pass `__str_pstring` itself.",
+    tasks: ["7.8.6"],
   },
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i32 {
   "775c30eac7": {
@@ -7881,6 +8230,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // self.f = (self.v as u64).wrapping_mul(Lu64).wrapping_sub({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } });
   "7812f5a53d": {
@@ -7894,10 +8244,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // pub __output_N: i16,
   "782a04d94c": {
     improvement: "Temporaries for a property setter argument and for an unbound function output become persistent `pub` fields of the PROGRAM/FB struct (clippy::pub_underscore_fields, 19 in this batch). They are also compared by PartialEq and printed by Debug. The setter can take the value directly (`self.fb.threshold_set(100i16)`), and an unbound output can be a call-scoped `&mut 0i16` or a `let mut` in the enclosing block.",
+    tasks: ["7.6.2"],
   },
   // self.f[(self.f as i64).wrapping_add(-Li64) as usize].f = Li16;
   "785b5ff775": {
@@ -7908,14 +8260,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "express the dereference as an index step with lower = 1 so the same place() code prints it",
     ],
     chosen: "`self.slots[self.cursor - 1]`: the cursor is usize and non-null after iec_deref",
+    tasks: ["7.2.4"],
   },
   // x: (f32::INFINITY),
   "78615154a3": {
     improvement: "The parentheses guard a negative constant as a method receiver. In a field initializer or other non-receiver position they are noise (clippy unused_parens territory). Only `-f32::INFINITY` needs them, and only as a receiver.",
+    tasks: ["7.2.9"],
   },
   // self.f = self.f[(Li8 as i64) as usize].f;
   "7886e7bd17": {
     improvement: "A constant index prints as `(4i8 as i64) as usize` and should print `4`, since the lowering already knows it is in range and rustc checks constant indices. For lower == 0 and a signed variable index, `(self.k as i64) as usize` can be `self.k as usize`: a signed-to-usize `as` sign-extends, so a negative index still becomes huge and still panics. The i64 hop is needed only when a non-zero lower bound is subtracted.",
+    tasks: ["7.2.3"],
   },
   // self.f.count = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_add(self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32) as i16;
   "789e5223f1": {
@@ -7927,6 +8282,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x).to();
   "78f3cafc1e": {
@@ -7936,10 +8292,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
     chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3", "7.2.4"],
   },
   // x = x.wrapping_add(x[(x as i64).wrapping_sub(__values_lower_N as i64) as usize] as i32);
   "7918d10820": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // self.f = (self.f as u8) as f32;
   "798c276f84": {
@@ -7950,10 +8308,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`(self.v as u8) as f32` (today): correct, but flags cast_lossless",
     ],
     chosen: "`f32::from(u8::from(self.v))`: lossless and lint-free",
+    tasks: ["7.3.5"],
   },
   // __numbers_lower_N: Li32,
   "79fd4d52a6": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // let mut __property_N: i16 = Li16;
   "79ff186095": {
@@ -7964,6 +8324,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.2"],
   },
   // x = ((*x) as i32).wrapping_add((*x) as i32) as i16;
   "7a6f282031": {
@@ -7973,14 +8334,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1", "7.8.6"],
   },
   // x = m(&mut str) as i32;
   "7a85af3c04": {
     improvement: "LEN_INTERNAL only reads its argument but declares it VAR_IN_OUT, so it takes `&mut IecString<N>` and forces every caller's STRING input to be `mut`. Declare it VAR_IN_OUT CONSTANT (emitted as `&IecString<N>`). Its counter `(len_internal as i32).wrapping_add(1i32) as u16` can also count in DINT and convert once.",
+    tasks: ["7.4.6"],
   },
   // __chain_value_N: false,
   "7a88c529f6": {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
+    tasks: ["7.6.1"],
   },
   // self.f = (self.f as i32).wrapping_sub(Li32) as i8;
   "7aa0eab362": {
@@ -7992,10 +8356,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn m(mut x: i16, x: &mut i16) -> i16 {
   "7ab9128afd": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add((x as i32).wrapping_sub(Li32).wrapping_add(x) as i64))).to();
   "7b34ea5981": {
@@ -8006,10 +8372,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
   "7c7cff3d31": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // x = (x as i32).wrapping_mul(Li32) as i16;
   "7c881bc819": {
@@ -8019,6 +8387,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // self.f = (self.f as i32).wrapping_abs();
   "7cf7edd325": {
@@ -8029,10 +8398,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // x = { m(p); *x }.char_at((p as i64).wrapping_sub(Li64).wrapping_add(Li64));
   "7cfee53212": {
     improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
+    tasks: ["7.4.4", "7.2.4"],
   },
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i16;
   "7d2d13ed81": {
@@ -8044,22 +8415,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1"],
   },
   // self.f = m(L, …u16, &mut self.f, …);
   "7db062ce2f": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
+    tasks: ["7.4.5"],
   },
   // self.f = { let __copy_N = IecString::<L>::lit(B); m(&__copy_N) };
   "7de11239a2": {
     improvement: "A VAR_IN_OUT CONSTANT bound to a LITERAL gets a `let` copy before the call. The copy exists to avoid E0503 when a `&mut` of the same place sits beside it. A literal is no place, and a temporary lives to the end of the statement, so `f_ioc_matches3(&IecString::<80>::lit(b\"abc\"))` is enough. Keep the copy only when the bound value is a place, as in `self.twice(&__copy_0)` of `self.plain_var`, where it is needed.",
+    tasks: ["7.6.5"],
   },
   // x = m(x, &mut (*x));
   "7e45a342fc": {
     improvement: "Passing an in-out on to another call prints `&mut (*numbers)`. When the place is the bare inout root, print the binding itself (`numbers`); Rust reborrows it implicitly.",
+    tasks: ["7.8.6"],
   },
   // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes()).to();
   "7e482a6261": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // x = (self.f as i32).wrapping_mul(Li32).wrapping_add((g.f as i32).wrapping_mul(Li32)).wrapping_add(x as i32) as i16;
   "7ee47c4eab": {
@@ -8069,6 +8445,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "native i16 wrapping_* for pure add/sub/mul chains that end in an INT store: fewer casts, same result. I would choose this for ring-only chains and keep the widening wherever /, MOD, a comparison or a shift is in the chain",
     ],
     chosen: "native i16 wrapping_* for pure add/sub/mul chains that end in an INT store: fewer casts, same result. I would choose this for ring-only chains and keep the widening wherever /, MOD, a comparison or a shift is in the chain",
+    tasks: ["7.3.1"],
   },
   // g.f = (g.f as i32).wrapping_add(Li32) as i16;
   "7ef1346b85": {
@@ -8078,6 +8455,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.f as i32) | (self.f as i32)) as u8;
   "7f28567c88": {
@@ -8089,6 +8467,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // if (self.f & (!self.f)) & ((self.f as i32) > Li32) {
   "7f4dd168c2": {
@@ -8098,6 +8477,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // pub __chain_value_N: f64,
   "7fc67373d7": {
@@ -8109,10 +8489,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a `let __chain_value_N = …;` local in every mode",
     why: "one rule, no state leaked into the instance",
+    tasks: ["7.6.1"],
   },
   // self.f = IecString::<L>::lit(B).to();
   "803ee89d4f": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
   },
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i8;
   "8049b483ae": {
@@ -8124,14 +8506,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f.call(&mut (*x));
   "8064ae1570": {
     improvement: "Passing an in-out on to another call prints `&mut (*numbers)`. When the place is the bare inout root, print the binding itself (`numbers`); Rust reborrows it implicitly.",
+    tasks: ["7.8.6"],
   },
   // x = Li32;
   "8088e0ab18": {
     improvement: "Each routine declares `let mut f: T = 0; f = expr; f`, where `expr` as the tail is the idiomatic form. Each FOR prints `i = 0i32;` right after `let mut i: i32 = 0i32;`. Both are dead stores. When the result is assigned exactly once as the last statement, return the expression. Otherwise the pattern is correct and only verbose.",
+    tasks: ["7.7.3"],
   },
   // self.f = (self.f as i32).max(self.f as i32) as i8;
   "80e291be91": {
@@ -8143,10 +8528,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn x<const T: usize>(x: &IecString<T>) -> bool {
   "81253ce291": {
     improvement: "Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
+    tasks: ["7.7.2"],
   },
   // self.m_set(self.__property_N);
   "81d1867d27": {
@@ -8157,6 +8544,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "direct argument when the value has no invoke, `let` temp otherwise",
     why: "most property writes are literal or field reads",
+    tasks: ["7.6.2"],
   },
   // pub fn call(&mut self, x: &mut [i16]) {
   "81ed699293": {
@@ -8167,6 +8555,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
   // self.f = ((self.f as i32) | (self.f as i32)) as u16;
   "81f1075b92": {
@@ -8178,10 +8567,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // take = self.f;
   "821a3bb974": {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
+    tasks: ["7.6.3"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(Li32) as i64), Lu8).to();
   "828ee45554": {
@@ -8192,10 +8583,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
   "82e802ebc9": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
+    tasks: ["7.8.7"],
   },
   // x = (((x as i32) == Li32) | (((x as i32) >= Li32) & ((x as i32) <= Li32))) | ((x as i32) == Li32);
   "82fcd0be19": {
@@ -8206,10 +8599,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // self.f = Lu8 != L;
   "83389dfa8a": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
+    tasks: ["7.2.10"],
   },
   // *x = ((*x) as i32).wrapping_add(self.f as i32) as i16;
   "833efb5917": {
@@ -8219,6 +8614,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.v as u64) / Lu64).wrapping_sub({ let x = (self.v as u64) / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "8346bf3968": {
@@ -8232,10 +8628,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
   "83d24ce33a": {
     improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
+    tasks: ["7.3.1"],
   },
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": {
@@ -8245,6 +8643,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
+    tasks: ["7.4.6", "7.6.6"],
   },
   // self.f[((self.f as i64) - Li64) as usize] = self.f.f;
   "848701ece2": {
@@ -8255,22 +8654,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // pub fn m(mut x: f64) -> f64 {
   "84ac703739": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // prg.f.f.f = Li16;
   "85168be6a7": {
     improvement: "Every call on a PROGRAM-owned instance moves the whole program out with std::mem::take, which builds a fresh PROGRAM::new() (every initialiser, every string lit) as a stand-in. It then moves it back, even when the callee never touches `prg` (FB_CS_relay20.map has `#[allow(unused_variables)]` on `prg`). Pass `prg` only to routines that transitively reach a program. Then `prg.prg_cs_station20.relay.map()` is a plain field call with no take. Re-entrancy is already refused by lowering (call-program-reentrant, verified with a probe), so the take only exists to satisfy the borrow checker.",
+    tasks: ["7.7.5"],
   },
   // self.f = m(self.f, &mut self.f);
   "8539587ea0": {
     improvement: "Reading a character through a string cursor copies the WHOLE IecStr out of the block before calling char_at: `{ iec_deref(p); *__str_p }.char_at(i)`. A store also checks the pointer twice (guardLine and then the guarded load on the right-hand side). Print `{ iec_deref(p); __str_p.char_at(i) }`, and check once per store.",
+    tasks: ["7.4.4"],
   },
   // self.f = IecWString::<L>::lit(&[Lu16, …]).to();
   "8597dc45bd": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.8"],
   },
   // self.f = m(self.f as f64) as u32;
   "8653414194": {
@@ -8280,6 +8684,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
       "Keep today's form",
     ],
+    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
   },
   // x: Li64,
   "870b70e195": {
@@ -8293,6 +8698,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "only new() plus #[allow(clippy::new_without_default)]: one line instead of five. I would choose this; the uniform shape is kept",
     ],
     chosen: "`x: 0,` / `x: 0.0,`: rely on the field type. This is what I would choose: pass a 'typed position' flag from initOf to literal() and drop the suffix there, keeping it everywhere a literal can be a receiver",
+    tasks: ["7.2.8", "7.8.11"],
   },
   // self.f = (self.v as u8) as f32;
   "873f201d21": {
@@ -8303,6 +8709,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`(self.v as u8) as f32` (today): correct, but flags cast_lossless",
     ],
     chosen: "`f32::from(u8::from(self.v))`: lossless and lint-free",
+    tasks: ["7.3.5"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu8 << L) } else { *x & !(Lu8 << L) }; }
   "87cd3925f5": {
@@ -8314,6 +8721,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // self.f = len(self.narrow.to::<L>());
   "8986d5305c": {
@@ -8322,6 +8730,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: a by-value STRING(255) input. Matches the declared input and truncates a longer string at 255, as the vendor's 255 limit does",
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
+    tasks: ["7.4.6"],
   },
   // self.f = (self.f as i32).min(self.f as i32) as i8;
   "8a1bafcc9c": {
@@ -8333,14 +8742,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // let mut fb_init: bool = false;
   "8a9bb48ddb": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
+    tasks: ["7.7.1"],
   },
   // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
   "8b3a192776": {
     improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
+    tasks: ["7.2.7"],
   },
   // self.f = self.f.wrapping_shr(self.f as u32);
   "8b69355dc1": {
@@ -8351,6 +8763,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
     ],
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
+    tasks: ["7.3.5"],
   },
   // x: { let mut v = T::new(); v.f = Li16; v },
   "8b9a7c5eea": {
@@ -8361,14 +8774,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) generate a `T::with_f(x)` constructor. More code, no gain.",
     ],
     chosen: "(b) `T { f: x, ..T::new() }`. Idiomatic; needs the field list to be the struct's own direct fields, which is exactly what `sets` holds",
+    tasks: ["7.8.3"],
   },
   // { m(self.f); self.f.m_set(self.__property_N) };
   "8c658bedd7": {
     improvement: "`ref_.Size := 7` becomes `self.__property_4 = 7i16; { iec_deref(self.ref_); self.c.size_set(self.__property_4) };`. The staging temp is a PUBLIC STRUCT FIELD that persists on the FB. It exists for borrow reasons only when the value calls a getter on the same instance. For other values the setter can take the value directly, and otherwise a block-local `let` does the job without adding state to the struct.",
+    tasks: ["7.6.2"],
   },
   // self.f.narrow();
   "8cca954ad7": {
     improvement: "Every METHOD, ACTION and FUNCTION carries `#[allow(unused_mut, unused_variables, unused_assignments)]` (438 of 2333 files), including bodies with no locals or parameters at all, such as `widen`, `clamp` and `narrow`. Emit each allow only when the routine has a local, parameter or initialiser that can trigger it.",
+    tasks: ["7.7.2"],
   },
   // x = (x as i32).wrapping_add(Li32) as i16;
   "8ccaa880cd": {
@@ -8378,6 +8794,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // self.f = Li64.min(Li64).min(Li64).min(Li64) as i16;
   "8cd84736a1": {
@@ -8389,6 +8806,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    tasks: ["7.2.7"],
   },
   // x.f[((x.f as i64) - Li64) as usize].f = x;
   "8d7dcea3f3": {
@@ -8399,6 +8817,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // self.count = (self.count as i32).wrapping_add(Li32) as i16;
   "8d8ff2c804": {
@@ -8410,6 +8829,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // x = x.with_char(x as i64, Lu8).to();
   "8e30e6691c": {
@@ -8420,6 +8840,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches",
     why: "the type is already known at both ends",
+    tasks: ["7.4.1"],
   },
   // self.f.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
   "8e4b1ce4cc": {
@@ -8430,6 +8851,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The eager `&` is the right default only for impure operands.",
     ],
     chosen: "(b). The eager `&` is the right default only for impure operands.",
+    tasks: ["7.3.3"],
   },
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
   "8e689b07b9": {
@@ -8440,10 +8862,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
+    tasks: ["7.3.13"],
   },
   // self.f = m(self.f.to::<L>(), -Li16, …).to::<L>().to();
   "8ee065ce1a": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = ((self.f as f64).sqrt() as f32) > Lf32;
   "8efdf97fb5": {
@@ -8454,6 +8878,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
     ],
     chosen: "(b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
+    tasks: ["7.3.6"],
   },
   // self.f = (self.f as i32).min(self.f as i32) as u16;
   "8f1829f5b3": {
@@ -8465,6 +8890,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // if (g.f as i32) <= Li32 {
   "8f2ea71862": {
@@ -8475,6 +8901,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the other side is a constant that fits it, widen otherwise",
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
+    tasks: ["7.3.3"],
   },
   // self.f = (x as i32).wrapping_mul(Li32) as i16;
   "8ffd5ed266": {
@@ -8484,18 +8911,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.narrow = self.f.f.narrow::<L>().to();
   "90205de00e": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // pub fn sum(&mut self, mut x: [i16; L]) {
   "9034f2a4d6": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // m(L, …u16, Li16, …, L, …u16, &mut self.f);
   "9055680d64": {
     improvement: "A cursor store through a pointer prints `iec_deref(p);` on the line before it and then `{ iec_deref(p); *__str_p }` again inside the same expression, so the same null check runs two or three times per statement (StringUtils STRMIDA/STRREPLACEA). Guarding each pointer once per statement is enough.",
+    tasks: ["7.4.4"],
   },
   // self.f = Li64 == Li64;
   "907aa92bfc": {
@@ -8507,6 +8938,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "widen only when an operand is a literal outside the other operand's range",
     why: "gives the same answer in all cases, since widening never changes a comparison, and emits `self.ea == 1i16`",
+    tasks: ["7.3.3"],
   },
   // self.f = (self.f.f as i32).wrapping_mul(self.f.f as i32) as i16;
   "90ba7cf588": {
@@ -8517,6 +8949,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep the promotion everywhere and just accept the casts. This is the simplest rule and is what the interpreter mirrors.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1"],
   },
   // x: Lu64,
   "90c445f7cb": {
@@ -8528,6 +8961,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "keep the suffix but add `_` digit grouping: the smallest change and removes the lint",
     why: "add grouping now, keep the suffix for uniformity",
+    tasks: ["7.2.8"],
   },
   // self.f.f = IecWString::<L>::lit(&[Lu16, …]).to();
   "90e7185468": {
@@ -8538,6 +8972,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2", "7.4.8"],
   },
   // self.f = (self.__chain_value_N as f32) as f64;
   "915417cef0": {
@@ -8548,6 +8983,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) evaluate once into the LAST target and read that target for each earlier link. Wrong when a target's index holds a call, so it is not general.",
     ],
     chosen: "(b) a statement-scoped `let` (the MOD/SEL expansions already use `let __mod_l`)",
+    tasks: ["7.6.1"],
   },
   // self.f = ({ let x = (self.f as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "91d3eef64b": {
@@ -8558,10 +8994,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6"],
   },
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = Li16;
   "91f6be3675": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // self.f = m(self.f as f64) as u16;
   "923862ec54": {
@@ -8571,6 +9009,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
       "Keep today's form",
     ],
+    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
   },
   // self.f = self.f.wrapping_shr(Li8 as u32);
   "924a0fdb2f": {
@@ -8581,18 +9020,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // let mut replace: IecString<L> = IecString::<L>::lit(B);
   "92f7142ab2": {
     improvement: "An empty-string initializer prints `IecString::<255>::lit(b\"\")`. `IecString::<255>::new()` (or Default) says the same thing without the slice copy.",
+    tasks: ["7.4.7"],
   },
   // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
   "9358115574": {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+    tasks: ["7.5.9"],
   },
   // 'loop_N: loop {
   "93a17fab28": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
+    tasks: ["7.5.2"],
   },
   // 'body_N: {
   "95094bd48a": {
@@ -8603,6 +9046,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "WHILE uses `continue 'loop_N`, FOR and REPEAT keep the block",
     why: "shorter, and the construct a Rust engineer expects; the block stays where it is semantically needed",
+    tasks: ["7.5.3"],
   },
   // self.f = (x as i32).wrapping_add(Li32) as i16;
   "9610f67747": {
@@ -8612,6 +9056,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // self.f = match self.p { L => self.f, …, _ => panic!(S) };
   "96161d76eb": {
@@ -8622,6 +9067,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "The guard form for every arity, via `iec_deref(p);` plus an indexable target table. That does not fit fields of different types.",
       "I would keep today's split, since the guard form is shorter for the common case, but share one panic helper so the message and the code path are single-sourced.",
     ],
+    tasks: ["7.9.3"],
   },
   // self.sum = (self.f as i32).wrapping_add(self.f as i32) as i16;
   "964296462a": {
@@ -8633,6 +9079,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1"],
   },
   // x: { let mut v = T::new(); v.f = Li16; v.f = Lf32; v },
   "9689b156ea": {
@@ -8643,10 +9090,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B. The only reason to keep A would be an initializer that reads a sibling, and those go through __init anyway.",
     ],
     chosen: "B. The only reason to keep A would be an initializer that reads a sibling, and those go through __init anyway.",
+    tasks: ["7.8.3"],
   },
   // *x = Li16;
   "96a5b25b66": {
     improvement: "The function return is always `let mut f: T = default; ...; f = expr; f`, and a VAR_OUTPUT is reset at entry even when the body assigns it unconditionally (`*i_carry_out = 0i16;` twice). All parameters are declared `mut` even when never reassigned (`mut i_a: i16`). When the result or output is assigned exactly once on every path, return the expression directly, drop the entry reset, and declare `mut` only on reassigned parameters.",
+    tasks: ["7.7.3"],
   },
   // self.f = (match self.f { L => Li64, …, _ => Li64 }) as i16;
   "96b55e688b": {
@@ -8658,14 +9107,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    tasks: ["7.2.7"],
   },
   // self.f = match self.f { L => self.f.m(Li16), _ => panic!(S) };
   "96bf43c1e7": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
+    tasks: ["7.8.7"],
   },
   // pub fn m(mut x: i16) -> T {
   "96f5f06912": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i16;
   "97c6103a21": {
@@ -8677,10 +9129,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // (match self.f { L => self.f.m(), L => self.f.m(), _ => panic!(S) });
   "9831f2d691": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
+    tasks: ["7.8.7"],
   },
   // self.f.f = ((self.f as i32) >= Li32) & ((self.f as i32) <= Li32);
   "98716b4ff8": {
@@ -8691,10 +9145,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The eager `&` is the right default only for impure operands.",
     ],
     chosen: "(b). The eager `&` is the right default only for impure operands.",
+    tasks: ["7.3.3"],
   },
   // if ((*str).char_at(x as i64) as i32) == Li32 { break; }
   "98ba0d2e70": {
     improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
+    tasks: ["7.8.6"],
   },
   // self.f = (self.f as i32).wrapping_sub(Li32) as i16;
   "9999dc327a": {
@@ -8706,6 +9162,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = self.f.rotate_left(Li8 as u32);
   "9a4cb2346e": {
@@ -8716,14 +9173,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // if m(x, …, true, &mut (*x), &mut (*x)) {
   "9a63db2a45": {
     improvement: "Passing on a caller's own `&mut` in-out prints `&mut (*__str_pstring)`, an explicit reborrow that clippy::borrow_deref_ref names. Pass `__str_pstring` itself.",
+    tasks: ["7.8.6"],
   },
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B)).to::<L>().to();
   "9a8003dce0": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize];
   "9b12fdbfc8": {
@@ -8735,6 +9195,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // self.v = Li64.wrapping_sub(Li64) as i16;
   "9b7b8014c4": {
@@ -8745,6 +9206,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // self.f = { let __copy_N = self.f; self.m(&__copy_N) };
   "9bb47dec44": {
@@ -8755,10 +9217,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "by value for Copy scalars and `&IecString` only for strings",
     why: "no block and no let.",
+    tasks: ["7.6.5"],
   },
   // let mut x: u8 = Lu8;
   "9c1d0c1a6e": {
     improvement: "A library routine is lowered once per caller string type and per call context, yet every copy is already generic over `const N___STR_*`. The copies come out byte-identical apart from the name. Key the variant on the cursor shape (and not on capacity) or dedupe routines with identical bodies at emit.",
+    tasks: ["7.4.5"],
   },
   // self.f = ({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "9c7ca7c1f9": {
@@ -8769,10 +9233,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6"],
   },
   // pub fn call<const T: usize>(&mut self, x: &i16, x: &IecString<T>) {
   "9c8bf093b2": {
     improvement: "A VAR_IN_OUT CONSTANT given a LITERAL is still bound to a `let __copy_1 = IecString::<80>::lit(b\"abc\");` before the call. The reason for the copy (E0503, a copy of x beside &mut x) cannot arise for a literal, so `&IecString::<80>::lit(b\"abc\")` inline is enough, because the temporary lives for the whole call. The scalar CONSTANT in-out is also passed as `&i16`, where a value would be leaner.",
+    tasks: ["7.6.5"],
   },
   // pub fn m(mut str: IecString<L>, mut len: i16, mut x: i16) -> IecString<L> {
   "9c8d21e237": {
@@ -8782,6 +9248,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
+    tasks: ["7.4.6"],
   },
   // self.ops[((Li8 as i64) - Li64) as usize] = L;
   "9ca82cec1d": {
@@ -8792,10 +9259,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // self.f = replace(self.f.to::<L>(), self.f.to::<L>(), Li16, …).to::<L>().to();
   "9cbdbcc28b": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = Li32.max(self.f as i32).min(Li32) as i16;
   "9d3d81580d": {
@@ -8807,10 +9276,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    tasks: ["7.2.7"],
   },
   // self.f = self.f.wrapping_shl(Li8 as u32);
   "9d8cd15435": {
     improvement: "castTo wraps a constant in a cast even though its value is known. Today: `2882343476u32 as u64`, `self.slots[(0i8 as i64) as usize]`, `self.mask.wrapping_shl(20i8 as u32)`, `rotate_right(4i8 as u32)`. When the operand is an IR const that fits the target type, print the literal in the target type instead: `2882343476u64`, `self.slots[0]`, `wrapping_shl(20)`. The value is identical: an in-range constant keeps its value through `as`, and a negative shift count can still go through the cast. Removes clippy cast_lossless/cast_possible_truncation/cast_sign_loss on these lines.",
+    tasks: ["7.2.10"],
   },
   // self.f = { let x = self.f; let x = Lu32; if x == L { L } else { x.wrapping_rem(x) } };
   "9db3c795da": {
@@ -8821,6 +9292,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b).",
     ],
     chosen: "(b).",
+    tasks: ["7.2.6"],
   },
   // pub __chain_value_N: i16,
   "9e66c9a561": {
@@ -8832,6 +9304,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a `let __chain_value_N = …;` local in every mode",
     why: "one rule, no state leaked into the instance",
+    tasks: ["7.6.1"],
   },
   // x[(__numbers_upper_N as i64).wrapping_sub(__numbers_lower_N as i64) as usize] = Li16;
   "9edcbf6da4": {
@@ -8842,6 +9315,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // self.f[((self.f as i64) - Li64) as usize] = Li16;
   "9f8b867884": {
@@ -8852,6 +9326,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // if (self.f as i32) < Li32 {
   "9f93398f3e": {
@@ -8860,6 +9335,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // self.f = (self.f as i32) != (self.f as i32);
   "9fb281f7a2": {
@@ -8870,18 +9346,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // self.f = Lu32 as u64;
   "9fb47c3123": {
     improvement: "castTo wraps a constant in a cast even though its value is known. Today: `2882343476u32 as u64`, `self.slots[(0i8 as i64) as usize]`, `self.mask.wrapping_shl(20i8 as u32)`, `rotate_right(4i8 as u32)`. When the operand is an IR const that fits the target type, print the literal in the target type instead: `2882343476u64`, `self.slots[0]`, `wrapping_shl(20)`. The value is identical: an in-range constant keeps its value through `as`, and a negative shift count can still go through the cast. Removes clippy cast_lossless/cast_possible_truncation/cast_sign_loss on these lines.",
+    tasks: ["7.2.10"],
   },
   // (match self.f.f { L => self.f.m(&mut self.v), _ => panic!(S) });
   "9fbd098efb": {
     improvement: "The in-out binding dispatch prints as `(match self.derived.__inout_binding { 1 => self.derived.bump(&mut self.v), _ => panic!(..) });` as a statement. The parentheses plus `;` are what clippy::unnecessary_semicolon names. Forwarding an in-out prints `self.add_ten(&mut (*shared))` where `shared` is already `&mut i16`, so a plain `self.add_ten(shared)` is enough. The tag field is `pub __inout_binding: i32` (clippy pub_underscore_fields).",
+    tasks: ["7.8.7"],
   },
   // pub fn m(&mut self, mut x: i16) {
   "a01f00db76": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // if ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 {
   "a021273b0d": {
@@ -8892,10 +9372,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4", "7.4.4", "7.2.4"],
   },
   // self.f = (self.f as i32) as i16;
   "a078903418": {
     improvement: "A lossless widening followed by a conversion back to the source's own Rust type is the identity. Peephole: if e.value is a convert from type X with rustType(X) === target and the middle step is a widening, emit X's text.",
+    tasks: ["7.3.9"],
   },
   // self.f = self.f == IecString::<L>::lit(B);
   "a095c1d0aa": {
@@ -8906,14 +9388,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) implement PartialEq<[T]> on IecStr and compare against `b\"abc\"[..]` directly.",
     ],
     chosen: "(b) skip `.to()` when the value's printed type already has the target's capacity; compare against a literal via `units()` slices",
+    tasks: ["7.4.1"],
   },
   // self.f[(Li8 as i64) as usize].f = (self.f[(Li8 as i64) as usize].f as i32).wrapping_add(Li32) as i16;
   "a0d3389a70": {
     improvement: "A constant index is printed through casts and an unfolded lower-bound subtraction: `self.pairs[(0i8 as i64) as usize]`, `self.dut_u.a_bytes[0i64 as usize]`, `self.u.w[(1i64 - 1i64) as usize]`. When step.index is a const, print `[value - lower]` as a bare usize literal.",
+    tasks: ["7.2.3"],
   },
   // self.f = (self.f as f64).sqrt();
   "a1adee154e": {
     improvement: "For SQRT only, f32::sqrt is correctly rounded, and f64 sqrt followed by narrowing is provably the same (53 >= 2*24+2). So a REAL SQRT can be `x.sqrt()` in f32. Keep the f64 detour for the other transcendentals, where it is load-bearing.",
+    tasks: ["7.3.6"],
   },
   // v: Li16,
   "a29db6178b": {
@@ -8924,10 +9409,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`..Default::default()` for all-zero fields: shorter, but hides the declared values and needs Default for arrays over 32 elements, which the file comment rejects",
     ],
     chosen: "`x: 0,` / `x: 0.0,`: rely on the field type. This is what I would choose: pass a 'typed position' flag from initOf to literal() and drop the suffix there, keeping it everywhere a literal can be a receiver",
+    tasks: ["7.2.8", "7.8.8", "7.9.3"],
   },
   // x = ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64)) as i32) == Li32;
   "a328a51dbd": {
     improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice.",
+    tasks: ["7.4.4"],
   },
   // self.f = (self.f as i32) == (self.f as i32);
   "a363bc4ca3": {
@@ -8938,10 +9425,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // self.f = m(Lu8, L, …i32, &mut self.f, …);
   "a39c1efab6": {
     improvement: "A cursor store through a pointer prints `iec_deref(p);` on the line before it and then `{ iec_deref(p); *__str_p }` again inside the same expression, so the same null check runs two or three times per statement (StringUtils STRMIDA/STRREPLACEA). Guarding each pointer once per statement is enough.",
+    tasks: ["7.4.4"],
   },
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.map(prg); prg.f = x; x };
   "a3a49d3776": {
@@ -8953,6 +9442,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
   },
   // if (x as i32) > Li32 {
   "a3ca286f93": {
@@ -8963,6 +9453,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the narrow type when the other side is a constant that fits it, widen otherwise",
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
+    tasks: ["7.3.3"],
   },
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.m_get(prg); prg.f = x; x };
   "a41f58717b": {
@@ -8974,6 +9465,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
   },
   // pub x: u64,
   "a497507b30": {
@@ -8987,6 +9479,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Type the literal from its context (u32) in lowering. This is cleaner in principle, but the count's context is not an IEC type.",
     ],
     chosen: "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table",
+    tasks: ["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", "7.2.5"],
   },
   // if ((x as i32) >= Li32) & ((x as i32) <= Li32) {
   "a54ead1fbe": {
@@ -8996,10 +9489,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // self.f = { let __copy_N = IecString::<L>::lit(B); self.m(&__copy_N) };
   "a558076adc": {
     improvement: "A VAR_IN_OUT CONSTANT bound to a LITERAL gets a `let` copy before the call. The copy exists to avoid E0503 when a `&mut` of the same place sits beside it. A literal is no place, and a temporary lives to the end of the statement, so `f_ioc_matches3(&IecString::<80>::lit(b\"abc\"))` is enough. Keep the copy only when the bound value is a place, as in `self.twice(&__copy_0)` of `self.plain_var`, where it is needed.",
+    tasks: ["7.6.5"],
   },
   // len
   "a573b540d2": {
@@ -9010,14 +9505,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "intrinsics for every Standard string function: fastest, but it re-creates the TS/Rust twin the library repo was built to delete",
     ],
     chosen: "a prelude intrinsic for LEN_INTERNAL only (`units().len()`), which every other string function calls, so one primitive speeds them all",
+    tasks: ["7.7.3", "7.4.6"],
   },
   // pub fn m(mut x: i16, …) -> i16 {
   "a5c4faeebd": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // ops: std::array::from_fn(|_| L),
   "a65506e4d8": {
     improvement: "An array of interface slots (and of pointers or references) is Copy, but `initOf` checks `array.element.kind === \"elementary\"`, so it prints `std::array::from_fn(|_| 0)`. Use `isCopy(array.element)` (already defined at :305) to pick `[0; N]`, and keep from_fn for structs and FB instances, which are not Copy.",
+    tasks: ["7.8.2"],
   },
   // self.f = ((self.f as i32) & (self.f as i32)) as u16;
   "a7ca0579a1": {
@@ -9029,10 +9527,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // x: { let mut v = T::new(); v.f = IecString::<L>::lit(B); v.f = IecString::<L>::lit(B); v },
   "a7ca9e8349": {
     improvement: "An aggregate initializer prints `{ let mut v = T::new(); v.first = ..; v.last = ..; v }`. Struct-update syntax, `T { first: .., last: .., ..T::new() }`, is the idiomatic single expression and needs no mut binding. For an FB, keep the block form if its fields are private or new() has side effects.",
+    tasks: ["7.8.3"],
   },
   // self.f = (self.f as i32).wrapping_sub(Li32) as u16;
   "a851cc298d": {
@@ -9044,6 +9544,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = (self.f as i32).wrapping_neg() as u8;
   "a9c2598276": {
@@ -9054,10 +9555,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // self.f = (*x) == IecString::<L>::lit(B);
   "ab6512a512": {
     improvement: "Comparing a string with a literal builds a whole IecStr to compare against. `text.units() == b\"abc\"` (or at least drop the parens around `*text`) does the same with no construction.",
+    tasks: ["7.4.9"],
   },
   // pub fn m(&mut self, prg: &mut Programs) {
   "ab696e2449": {
@@ -9069,18 +9572,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) per-routine reachability of Programs (a transitive call-graph flag)",
     why: "signatures then say what a routine touches.",
+    tasks: ["7.7.5"],
   },
   // x: (-f32::INFINITY),
   "aba7baaaaa": {
     improvement: "The parentheses guard a negative constant as a method receiver. In a field initializer or other non-receiver position they are noise (clippy unused_parens territory). Only `-f32::INFINITY` needs them, and only as a receiver.",
+    tasks: ["7.2.9"],
   },
   // pub fn m(mut x: u16) -> u16 {
   "abc8bc67de": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f = self.f[(Li8 as i64) as usize];
   "abe3ae1f0b": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // { let mut x = std::mem::take(&mut prg.f); x.call(prg); prg.f = x; }
   "abf2bb6e4e": {
@@ -9092,10 +9599,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose the second option. It is a static fact lowering already computes (it refuses self-reentry).",
     ],
     chosen: "I would choose the second option. It is a static fact lowering already computes (it refuses self-reentry).",
+    tasks: ["7.7.6"],
   },
   // self.f.f = self.f.clone();
   "ac452bc801": {
     improvement: "A DUT struct always derives only Clone, so assigning it prints `.clone()` even when every field is Copy (i16, bool, IecString<4>). Derive Copy for structs whose fields are all Copy and let isCopy say so; the `.clone()` then goes away.",
+    tasks: ["7.8.1"],
   },
   // g.f[((g.f as i64) - Li64) as usize].f = self.f;
   "acb72c4272": {
@@ -9106,10 +9615,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // self.f = L;
   "ad25627749": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
+    tasks: ["7.8.8"],
   },
   // self.f.f = ((self.f as i32) == Li32) | ((self.f as i32) == Li32);
   "adb6559f1f": {
@@ -9120,6 +9631,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // self.f = self.f[((Li8 as i64) - Li64) as usize][(Li8 as i64) as usize][((Li8 as i64) - Li64) as usize];
   "ae08e85841": {
@@ -9131,6 +9643,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // self.f = (self.f as i32).max(self.f as i32) as u16;
   "ae0e0c28ea": {
@@ -9142,6 +9655,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // { let mut x = std::mem::take(&mut prg.f); x.call(g, prg); prg.f = x; }
   "ae38098da5": {
@@ -9153,6 +9667,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
   },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i8;
   "af004404ec": {
@@ -9163,10 +9678,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
+    tasks: ["7.2.5"],
   },
   // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to::<L>().to();
   "af39c91205": {
     improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
+    tasks: ["7.4.2"],
   },
   // v: Lu32,
   "afa5d14dd9": {
@@ -9177,6 +9694,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`..Default::default()` for all-zero fields: shorter, but hides the declared values and needs Default for arrays over 32 elements, which the file comment rejects",
     ],
     chosen: "`x: 0,` / `x: 0.0,`: rely on the field type. This is what I would choose: pass a 'typed position' flag from initOf to literal() and drop the suffix there, keeping it everywhere a literal can be a receiver",
+    tasks: ["7.2.8"],
   },
   // pub fn x<const T: usize>(&mut self, x: &IecString<T>) -> bool {
   "b03c447093": {
@@ -9187,10 +9705,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "by value for Copy scalars and `&IecString` only for strings",
     why: "no block and no let.",
+    tasks: ["7.6.5"],
   },
   // self.f = IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()).to::<L>().to();
   "b060fcca7b": {
     improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
+    tasks: ["7.4.2"],
   },
   // self.f = m(self.f).log10() as f32;
   "b07338e4d9": {
@@ -9200,6 +9720,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+    tasks: ["7.3.12"],
   },
   // if ((self.f as i32) == Li32) & ((self.f as i32) == Li32) {
   "b0965eecf6": {
@@ -9210,6 +9731,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `&` everywhere, so both sides are evaluated, which matches CODESYS AND and the interpreter.",
       "`&&` when the right side holds no call and no deref guard. It is identical in value and is idiomatic Rust. I would keep `&` because it is one uniform, provably faithful rule and clippy does not flag it.",
     ],
+    tasks: ["7.3.3", "7.5.6"],
   },
   // self.f.f[Li64 as usize] = ({ let x = (self.f.f as u64) / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u8;
   "b0fe4f487d": {
@@ -9224,6 +9746,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose the const fast path. It is correct for every input, since Rust `%` only panics on 0 and on MIN % -1.",
     ],
     chosen: "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
+    tasks: ["7.8.4", "7.2.6", "7.2.3"],
   },
   // self.f.f = ({ let x = self.f as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) == Li32;
   "b1e8ba6d90": {
@@ -9235,6 +9758,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Variable divisor: keep the guard (shape 3357f26b8d needs it).",
     ],
     chosen: "Constant divisor ≠ 0 and ≠ -1: `(l % 2i32)`. This is what I would choose. `%` truncates toward zero exactly like IEC MOD and cannot panic for such a divisor.",
+    tasks: ["7.2.6"],
   },
   // if ((x as i32) < Li32) | ((x as i32) > x) {
   "b2d33739c5": {
@@ -9244,18 +9768,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // x = __grid_lower_N;
   "b3a0495ed2": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // self.f = T::new();
   "b3e78a179a": {
     improvement: "VAR_TEMP arrays and structs are fields reset at the top of every call (`self.a = [0i16; 3];`, `self.scratch = T::new();`). As a Rust local (`let mut a = [0i16; 3];`) they would carry no reset and no persistent state.",
+    tasks: ["7.6.4"],
   },
   // self.f = self.f.f[(Li8 as i64) as usize];
   "b4183b4f7f": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // self.f = (self.f as f64).cos() as f32;
   "b48af08c44": {
@@ -9265,18 +9793,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+    tasks: ["7.3.12"],
   },
   // x: (-Li8),
   "b501abe431": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // self.f = { let x = ((self.narrow * Lf32) as f64).trunc(); if (-L..=L).contains(&x) { x as i32 } else { i32::MIN } };
   "b532048eaa": {
     improvement: "TRUNC is printed inline as a 110-character block, `{ let t = (x as f64).trunc(); if (-2147483648.0..=2147483647.0).contains(&t) { t as i32 } else { i32::MIN } }`, at every use. REAL_TO_DINT already goes through a prelude helper (iec_r2i32). Emit an `iec_trunc_i32(v: f64) -> i32` helper next to it and call that. It is correct as it stands (NaN and out of range give i32::MIN, as measured).",
+    tasks: ["7.9.2"],
   },
   // x = { let __arg_N = m(x); m(__arg_N) };
   "b58894b5df": {
     improvement: "Hoisting inputs into `let __arg_k` exists to fix evaluation order between inputs. A FUNCTION call with a single input and no in-outs has no order to fix. Print `f_x3_double(f_x3_double(value))`.",
+    tasks: ["7.6.6"],
   },
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
   "b592939dbf": {
@@ -9286,6 +9818,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
+    tasks: ["7.4.6"],
   },
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
   "b6565109d7": {
@@ -9297,10 +9830,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
   },
   // self.f = Li32 as i8;
   "b6a5a933fb": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
+    tasks: ["7.2.10"],
   },
   // if x >= L { return L; }
   "b7286c7932": {
@@ -9311,6 +9846,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "merge NaN and >= 2^63 into one `return 0`",
     why: "same table, one line fewer, reads like the r2i64 twin",
+    tasks: ["7.9.1"],
   },
   // x.f = (x as i32) > Li32;
   "b733155a29": {
@@ -9321,6 +9857,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`i32::from(x)` instead of `as` (silences cast_lossless, not shorter)",
     ],
     chosen: "compare natively when the operand types are equal and the const fits (chosen at emit: exact and shorter)",
+    tasks: ["7.3.3"],
   },
   // if self.f > self.f.m_get() { break; }
   "b736e18f55": {
@@ -9330,10 +9867,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // self.f = m(x, &mut (*__lent_N));
   "b75c863ba4": {
     improvement: "Passing a lent instance or an in-out on to another call prints `&mut (*__lent_0)`, and a method call on an in-out string prints `len((*text).to::<255>())`. `__lent_0` is already a `&mut T`, so passing `__lent_0` reborrows implicitly (or `&mut *__lent_0` without the parentheses). Method calls auto-deref, so `text.to::<255>()` works. Fix: in the `&mut` argument path at :435, if the place is a bare borrowed root (inout/lent, empty path), emit the name alone. Also treat a following method call like a field step in deref().",
+    tasks: ["7.8.6"],
   },
   // self.f = { let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
   "b7631cfae9": {
@@ -9344,22 +9883,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6"],
   },
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), -Li16).to::<L>().to();
   "b7bdb5cfef": {
     improvement: "When the value is already a convert to the target's own capacity, the assign adds a second truncating copy. `insert(...).to::<80>().to()` into an IecString<80> is two 81-byte copies where one does. This occurs 101 times across 64 fixtures. Skip the trailing `.to()` when the value's type equals the target type, or drop the convert when its only consumer is the assign.",
+    tasks: ["7.4.1"],
   },
   // self.f = (self.f ^ self.f) ^ self.f;
   "b7bf67b59d": {
     improvement: "`(self.a ^ self.c) ^ self.b` keeps parentheses around a left-associative same-operator chain. `self.a ^ self.c ^ self.b` is identical. `a | (b & c)` is fine as written.",
+    tasks: ["7.3.8"],
   },
   // pub fn m(mut x: u8) -> u8 {
   "b7cc1b2b1d": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list. Also: A library routine is lowered once per caller string type and per call context, yet every copy is already generic over `const N___STR_*`. The copies come out byte-identical apart from the name. Key the variant on the cursor shape (and not on capacity) or dedupe routines with identical bodies at emit.",
+    tasks: ["7.7.1", "7.4.5"],
   },
   // pub __numbers_upper_N: i32,
   "b894525f6e": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
+    tasks: ["7.7.8"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64))).to();
   "b8e7f28ba6": {
@@ -9370,10 +9914,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // pub fn map(&mut self, prg: &mut Programs) -> i16 {
   "b959cb02cf": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // pub fn call(&mut self, g: &mut Globals) {
   "b9787e0d18": {
@@ -9382,6 +9928,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "today: uniform calling convention, simple and never wrong",
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
+    tasks: ["7.7.5"],
   },
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as u8;
   "b991267156": {
@@ -9393,6 +9940,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = ((self.f as i32) & (self.f as i32)) as u8;
   "ba37642ce3": {
@@ -9404,6 +9952,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = (if self.f { Li64 } else { Li64 }) as i16;
   "ba75ffae84": {
@@ -9414,6 +9963,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`.to()` only when the capacities differ or are generic",
     why: "the other stores need no copy because IecStr is Copy",
+    tasks: ["7.2.7", "7.4.1"],
   },
   // self.f = ((self.f as i32) | (self.f as i32)) as i16;
   "ba90e3c4fe": {
@@ -9425,10 +9975,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn m(&mut self, mut x: i16, …, x: &mut i16, …) -> i16 {
   "bb4c155c09": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
+    tasks: ["7.7.2"],
   },
   // self.f = (self.f as i32).min(self.f as i32) as u8;
   "bcb0fc562e": {
@@ -9440,6 +9992,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": {
@@ -9451,6 +10004,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) per-routine reachability of Programs (a transitive call-graph flag)",
     why: "signatures then say what a routine touches.",
+    tasks: ["7.7.5"],
   },
   // self.f = (self.f as i32) < (self.f as i32);
   "beb0779c8f": {
@@ -9461,6 +10015,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // self.f = (self.f as i32) > (self.f as i32);
   "bf88572dda": {
@@ -9471,6 +10026,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) promote to the smallest common type (i16 for INT vs USINT). More rules, and little gain beyond (b).",
     ],
     chosen: "(b) skip the promotion when rustType(left) === rustType(right) for eq/ne/lt/le/gt/ge",
+    tasks: ["7.3.3"],
   },
   // self.sum = (self.sum as i32).wrapping_add(self.f[((self.f as i64) - Li64) as usize].f as i32) as i16;
   "bff12f96c5": {
@@ -9484,6 +10040,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1", "7.2.14"],
   },
   // pub fn replace(mut x: IecString<L>, …, mut x: i16, mut p: i16) -> IecString<L> {
   "c001fbb3b1": {
@@ -9493,10 +10050,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
+    tasks: ["7.4.6"],
   },
   // pub fn m(&mut self, mut p: usize, x: &mut i16) -> i16 {
   "c0092c8e9b": {
     improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
+    tasks: ["7.7.11"],
   },
   // x = x.with_char(x.wrapping_add(x) as i64, Lu8).to();
   "c05be29130": {
@@ -9506,6 +10065,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     ],
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // self.f = (self.f.f as i32).wrapping_mul(Li32) as i16;
   "c069593bcd": {
@@ -9515,10 +10075,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // self.f[(Li8 as i64) as usize] = Lf32;
   "c0e245211c": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // x = (g.f as i32).wrapping_add(Li32) as i16;
   "c1a4f50099": {
@@ -9528,6 +10090,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1"],
   },
   // x[(x as i64) as usize] = Lu8;
   "c2409a5969": {
@@ -9538,6 +10101,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`[n as usize]` for lower 0 and `[(i as i64 - lo as i64) as usize]` for open bounds",
     why: "same panics, fewer tokens",
+    tasks: ["7.2.14"],
   },
   // self.f = (self.v as u64).wrapping_mul(Lu64);
   "c2729b1a2a": {
@@ -9548,6 +10112,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep ULINT and only swap wrapping_mul for `*`.",
     ],
     chosen: "(b) ULINT only when an up-scale feeds a day mask. Plain `*` where the product provably fits; stay in u32 for a pure down-scale",
+    tasks: ["7.3.10"],
   },
   // self.f = (self.f as i32).min(g.f as i32) as i16;
   "c2a92e6f4e": {
@@ -9558,18 +10123,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "same-type `.min`/`.max` when both operands (before promotion) share a type",
     why: "zero casts, identical results. Keep the widening only for a mixed meet (USINT vs SINT).",
+    tasks: ["7.3.1"],
   },
   // self.f = (Lf64 - self.f).sqrt();
   "c2d750a62a": {
     improvement: "For SQRT only, f32::sqrt is correctly rounded, and f64 sqrt followed by narrowing is provably the same (53 >= 2*24+2). So a REAL SQRT can be `x.sqrt()` in f32. Keep the f64 detour for the other transcendentals, where it is load-bearing.",
+    tasks: ["7.3.6"],
   },
   // self.f.f = if self.f { self.f } else { self.f };
   "c2ecf76c31": {
     improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
+    tasks: ["7.3.1"],
   },
   // x: (-Lf64),
   "c35f240db9": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // x.f = IecString::<L>::lit(B).to();
   "c49c211047": {
@@ -9580,14 +10149,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches",
     why: "the type is already known at both ends",
+    tasks: ["7.4.1"],
   },
   // self.f[((Li8 as i64) - Li64) as usize] = Li16;
   "c52c7994ca": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // if x.is_nan() || !(-L..L).contains(&x) { return i64::MIN; }
   "c5844eabe9": {
     improvement: "`RangeBounds::contains` is already false for NaN, so `c.is_nan() ||` is redundant: `if !(-9.2e18..1.8e19).contains(&c) { return i64::MIN; }`.",
+    tasks: ["7.9.1"],
   },
   // self.f = m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()).to::<L>().to();
   "c58cc5538f": {
@@ -9598,18 +10170,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.4.1", "7.2.14"],
   },
   // x.f = x.f;
   "c5d30c56ec": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
+    tasks: ["7.8.4"],
   },
   // match x {
   "c6322760e4": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
+    tasks: ["7.8.4"],
   },
   // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes()).to();
   "c689147e80": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x } };
   "c68f0b1ef6": {
@@ -9621,6 +10197,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.6.6", "7.8.10"],
   },
   // if (self.f as i32) >= Li32 { break; }
   "c7ac9a5e64": {
@@ -9629,14 +10206,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // if self.__chain_value_N {
   "c7af448b33": {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
+    tasks: ["7.6.1"],
   },
   // if ({ let x = self.f as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) != Li32 {
   "c7f76e08cf": {
     improvement: "With a constant non-zero divisor, the MOD block `{ let __mod_l = ...; let __mod_r = 2i32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }` reduces to `(self.i as i32) % 2`. `%` by a non-zero, non -1 constant cannot panic.",
+    tasks: ["7.2.6"],
   },
   // self.f = ((self.f as f64).sqrt() as f32) + Lf32;
   "c83ad009ae": {
@@ -9647,30 +10227,37 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
     ],
     chosen: "(b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
+    tasks: ["7.3.6"],
   },
   // g.f[((g.f as i64) - Li64) as usize].f = IecString::<L>::lit(B).to();
   "c86923a1ee": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // self.f = [Li16; L];
   "c8927952f2": {
     improvement: "VAR_TEMP arrays and structs are fields reset at the top of every call (`self.a = [0i16; 3];`, `self.scratch = T::new();`). As a Rust local (`let mut a = [0i16; 3];`) they would carry no reset and no persistent state.",
+    tasks: ["7.6.4"],
   },
   // self.f = (!self.f) | self.f;
   "c8ac3c10c1": {
     improvement: "Unary `!` binds tighter than every binary operator, so the parentheses are always redundant: emit `!x` and let the binary printer add parentheses only where needed. The `&`/`|` for eager AND/OR are deliberate and stay.",
+    tasks: ["7.3.8"],
   },
   // pub fn m(&mut self, mut x: i16, …) -> i16 {
   "c8ca44a755": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
+    tasks: ["7.7.2"],
   },
   // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes()).to();
   "c9573720ef": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // x: std::array::from_fn(|_| T::new()),
   "c9c77500c6": {
     improvement: "`array.element.kind === \"elementary\"` decides between a repeat expression and from_fn, so a 2-D array of i16 goes through a closure. [i16; N] is Copy, so `[[0i16; 3]; 2]` is legal. Use the emitter's existing isCopy(type) in that condition. Also: DUT structs derive only Clone, so a struct store needs `.clone()` and a struct array needs from_fn. A struct whose fields are all Copy (elementary, IecStr, usize pointers, arrays of those) could `#[derive(Clone, Copy)]`. The store then becomes a plain assignment and the array becomes `[T::new(); N]` (with a const fn new) or keeps from_fn.",
+    tasks: ["7.8.2", "7.8.2"],
   },
   // self.f = (self.f as i32).wrapping_add(self.f as i32) as i16;
   "c9cd63632c": {
@@ -9682,18 +10269,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1", "7.3.5"],
   },
   // self.f.call(&mut (*__lent_N));
   "ca81b2092d": {
     improvement: "Passing a lent instance or an in-out on to another call prints `&mut (*__lent_0)`, and a method call on an in-out string prints `len((*text).to::<255>())`. `__lent_0` is already a `&mut T`, so passing `__lent_0` reborrows implicitly (or `&mut *__lent_0` without the parentheses). Method calls auto-deref, so `text.to::<255>()` works. Fix: in the `&mut` argument path at :435, if the place is a bare borrowed root (inout/lent, empty path), emit the name alone. Also treat a following method call like a field step in deref().",
+    tasks: ["7.8.6"],
   },
   // m(x.f);
   "ca823a2c56": {
     improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it. Also: A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
+    tasks: ["7.9.3", "7.8.4"],
   },
   // self.f = m(L, …i16, &mut self.f, …);
   "ca94bceedc": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
+    tasks: ["7.4.5"],
   },
   // x = { let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) }.to::<L>().to();
   "cb2199fcf3": {
@@ -9704,6 +10295,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
     ],
     chosen: "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
+    tasks: ["7.4.3"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(self.f as i32) as i16;
   "cbab9cd013": {
@@ -9715,14 +10307,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1"],
   },
   // x = m(&mut x) as i32;
   "cbcde0e5de": {
     improvement: "LEN_INTERNAL only reads its argument but declares it VAR_IN_OUT, so it takes `&mut IecString<N>` and forces every caller's STRING input to be `mut`. Declare it VAR_IN_OUT CONSTANT (emitted as `&IecString<N>`). Its counter `(len_internal as i32).wrapping_add(1i32) as u16` can also count in DINT and convert once.",
+    tasks: ["7.4.6"],
   },
   // pub fn m(mut x: i32, x: &mut T) -> bool {
   "cc3063b338": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
+    tasks: ["7.7.2"],
   },
   // x = __numbers_lower_N.wrapping_mul(Li32).wrapping_add(__numbers_upper_N);
   "cc9778f81f": {
@@ -9733,10 +10328,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
+    tasks: ["7.7.8"],
   },
   // *x = ({ m(x.f); *x } as i32).wrapping_add(x as i32) as i16;
   "cca22914d5": {
     improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
   },
   // if (self.f.f.f as i32) > Li32 {
   "cd54e9d497": {
@@ -9747,10 +10344,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
+    tasks: ["7.3.3"],
   },
   // pub fn m_get(&mut self, prg: &mut Programs) -> i16 {
   "ceb0cb99a7": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // self.f = ((self.f as i32) & (self.f as i32)) as i8;
   "ceb22698cf": {
@@ -9762,6 +10361,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as u8;
   "cedcee340b": {
@@ -9772,10 +10372,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
+    tasks: ["7.3.13"],
   },
   // pub fn m(&mut self, mut x: i16) -> bool {
   "d00d314ec2": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f[((self.f as i64) - Li64) as usize] = (g.f / Lu64) as u32;
   "d04295d4c8": {
@@ -9786,6 +10388,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "constant index: fold to a literal usize at emit time. Always choose this, since rustc also rejects an out-of-range constant at compile time the same way.",
     ],
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
+    tasks: ["7.2.3"],
   },
   // if (self.f & (!self.f)) & ((self.f as i32) < Li32) {
   "d0865e3847": {
@@ -9795,10 +10398,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T>, …) {
   "d231c1a7e5": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
+    tasks: ["7.7.1"],
   },
   // self.f.f = (((self.f as i32) >= Li32) & ((self.f as i32) <= Li32)) | ((self.f as i32) == Li32);
   "d263b8545d": {
@@ -9809,14 +10414,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The eager `&` is the right default only for impure operands.",
     ],
     chosen: "(b). The eager `&` is the right default only for impure operands.",
+    tasks: ["7.3.3"],
   },
   // x: (-f64::INFINITY),
   "d2d239250b": {
     improvement: "The parentheses guard a negative constant as a method receiver. In a field initializer or other non-receiver position they are noise (clippy unused_parens territory). Only `-f32::INFINITY` needs them, and only as a receiver.",
+    tasks: ["7.2.9"],
   },
   // self.f = (Li64 / Li64) as f32;
   "d365a76953": {
     improvement: "Lowering already knows these are compile-time constants: 7/2 is folded at LINT width by the measured rule. Emit the folded, converted literal (`3.0f32`; `0.3f64 as f32` becomes its f32 literal). The value must be folded exactly as the vendor does, since `x : REAL := 7 / 2` is 3.",
+    tasks: ["7.2.2"],
   },
   // self.f = (self.f as i32).wrapping_neg() as u16;
   "d379abfe6a": {
@@ -9827,10 +10435,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // pub fn m(mut x: i32, mut x: i16, x: &mut i16) -> bool {
   "d39e19d533": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // self.f = Li64.wrapping_sub(Li64) as i8;
   "d46e26c2aa": {
@@ -9841,6 +10451,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+    tasks: ["7.2.2"],
   },
   // self.f = self.f.narrow::<L>().to::<L>().to();
   "d54a668b9a": {
@@ -9851,10 +10462,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // x: { let mut v = T::new(); v.f = { let mut v = T::new(); v.f = Li16; v }; v.f = Li16; v },
   "d5d625ee73": {
     improvement: "A structured initial value is emitted as a block that mutates a fresh value: `{ let mut v = T::new(); v.x = 1i16; v.y = 2.5f32; v }`, nested for a struct inside a struct. Struct update syntax, `T { x: 1i16, y: 2.5f32, ..T::new() }`, is the idiomatic single expression and needs no shadowed `v`.",
+    tasks: ["7.8.3"],
   },
   // self.f = (self.f as i32).wrapping_add(Li32) as u8;
   "d67dd34190": {
@@ -9866,10 +10479,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // x[(x as i64).wrapping_sub(__line_lower_N as i64) as usize].f = x as i16;
   "d8a5dd49a9": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // if !((x.wrapping_add(x) < Li32) & ((x.char_at(x as i64) as i32) != Li32)) { break; }
   "d8b7f34852": {
@@ -9880,10 +10495,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // pub fn m(mut x: i32, mut x: i16, x: &mut i32) -> bool {
   "d8e4a747d3": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // self.f = (self.f as i32) == Li32;
   "d99adbcc4b": {
@@ -9894,6 +10511,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
+    tasks: ["7.3.3"],
   },
   // self.f = (self.f as i32).wrapping_neg() as i8;
   "d9d76a4055": {
@@ -9904,14 +10522,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep the IR as is and add a peephole in the emitter's `convert` for `(x as i32).op() as <x's type>`.",
     ],
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
+    tasks: ["7.3.1"],
   },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
   "db57faba5d": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
+    tasks: ["7.7.1"],
   },
   // self.f = m(self.f.to::<L>(), self.f.to::<L>(), Li16).to::<L>().to();
   "db96948bf3": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // self.f = (self.char as i32).wrapping_add(self.f as i32) as i16;
   "dbc172da6a": {
@@ -9923,14 +10544,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1"],
   },
   // pub fn len(mut str: IecString<L>) -> i16 {
   "dbcd1088a5": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
+    tasks: ["7.7.2", "7.7.2"],
   },
   // self.f = match self.f { L => self.f.m_get(), _ => panic!(S) };
   "dc1e3df820": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
+    tasks: ["7.8.7"],
   },
   // pub fn m(&mut self) -> IecString<L> {
   "dc8437c26a": {
@@ -9939,6 +10563,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
+    tasks: ["7.7.3"],
   },
   // self.f = ({ m(self.f); self.f } as i32).wrapping_add(Li32) as i16;
   "dd1daf8424": {
@@ -9950,14 +10575,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
+    tasks: ["7.3.1", "7.9.3"],
   },
   // pub fn m(mut x: i32, x: &mut f64) -> i32 {
   "dd28a02e7e": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // pub fn m(mut x: i32, mut x: i16, x: &mut i8) -> bool {
   "dd8988b5d4": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // fn m(x: usize) { if x == L { panic!(S); } }
   "dd94ff18a2": {
@@ -9967,14 +10595,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "B: `assert_ne!(at, 0, ..)` / `assert!` in the same helper. Same behaviour, shorter.",
       "C: model a single-target pointer as `Option<()>` or NonZeroUsize. Heavier; not worth it. Choose B.",
     ],
+    tasks: ["7.9.3"],
   },
   // pub x: bool,
   "de132e5019": {
     improvement: "In a PROGRAM/FB body, a lowering temporary (`__chain_value_N`, and likewise the output/property/inout_guard temps from calls.ts:787/1229/1261) becomes a persistent `pub` struct field. It appears in Debug/PartialEq/new() and is carried across scans, though it is only ever a statement-local value. Emit it as a `let` in scan()/call(), as routineMode already does. SIZEOF correctly ignores it (probed r1/sz.st: 16 = 16).",
+    tasks: ["7.6.1"],
   },
   // let x = if v < L { -((-v).round()) } else { v.round() };
   "de283d0ef6": {
     improvement: "f64::round already rounds half away from zero symmetrically, so `-((-v).round())` equals `v.round()` for every v < 0, including the -0.0 results. The branch is dead weight: `let c = v.round();`.",
+    tasks: ["7.9.1"],
   },
   // if !((x < x) & (x < x)) { break; }
   "de2f16610e": {
@@ -9984,6 +10615,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // pub x: usize,
   "de8528b197": {
@@ -9994,10 +10626,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep usize (my choice): it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
     ],
     chosen: "keep usize: it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
+    tasks: ["4.2"],
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u32;
   "de956f2a12": {
     improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    tasks: ["7.2.5"],
   },
   // self.f = len(self.v.to::<L>());
   "dea089f2fd": {
@@ -10006,6 +10640,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: a by-value STRING(255) input. Matches the declared input and truncates a longer string at 255, as the vendor's 255 limit does",
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
+    tasks: ["7.4.6"],
   },
   // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
   "deaa2bbf15": {
@@ -10017,6 +10652,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    tasks: ["7.2.7"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8).to();
   "deb9c88c25": {
@@ -10026,14 +10662,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
     chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3"],
   },
   // self.f.__numbers_upper_N = self.__numbers_upper_N;
   "debabdec0d": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
+    tasks: ["7.2.3"],
   },
   // __inout_index_N: Li64,
   "def43ae4d0": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
+    tasks: ["7.6.3"],
   },
   // self.f = m(&mut self.f).to();
   "df1778304b": {
@@ -10043,18 +10682,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "append only when rustType(value.type) !== rustType(target) or the target is an inout generic (chosen)",
     ],
     chosen: "append only when rustType(value.type) !== rustType(target) or the target is an inout generic",
+    tasks: ["7.4.1"],
   },
   // pub fn m(&mut self, x: &mut i16) -> i16 {
   "dfc9d07c2c": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
+    tasks: ["7.7.2"],
   },
   // self.f.clamp();
   "e007ef42d8": {
     improvement: "Every METHOD, ACTION and FUNCTION carries `#[allow(unused_mut, unused_variables, unused_assignments)]` (438 of 2333 files), including bodies with no locals or parameters at all, such as `widen`, `clamp` and `narrow`. Emit each allow only when the routine has a local, parameter or initialiser that can trigger it. Also: LIMIT over INT operands is printed widened and narrowed back: `(self.i_raw as i32).max(0i32).min(100i32) as i16`. The result of min/max over same-typed operands cannot leave that type, so `self.i_raw.max(0i16).min(100i16)` is equal for all inputs. Skip the promotion for min, max and limit when all operands share a type.",
+    tasks: ["7.7.2", "7.3.1"],
   },
   // self.f[(Li8 as i64) as usize] = Li16;
   "e02b80c3c1": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // self.f = ((self.f as i32) | (self.f as i32)) as i8;
   "e1456a0eae": {
@@ -10066,10 +10709,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
   "e205f81b84": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // if (self.f as i32) <= Li32 { break; }
   "e2e0d67858": {
@@ -10078,14 +10723,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+    tasks: ["7.3.3"],
   },
   // x.f = L;
   "e3343dab4f": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
+    tasks: ["7.8.4"],
   },
   // x = __values_upper_N.wrapping_mul(Li32) as i64;
   "e37b53617c": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
+    tasks: ["7.2.3"],
   },
   // self.f = m(self.f as f64) as i16;
   "e3e3555f9c": {
@@ -10095,10 +10743,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
       "Keep today's form",
     ],
+    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
   },
   // self.f = m(self.f.to::<L>(), Li16, -Li16).to::<L>().to();
   "e42f1ae167": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+    tasks: ["7.4.1"],
   },
   // { let mut x = std::mem::take(&mut prg.f); x.f.call(prg); prg.f = x; }
   "e436b886c1": {
@@ -10110,10 +10760,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
   },
   // x = L;
   "e496034f7b": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
+    tasks: ["7.9.3"],
   },
   // x: { let mut v = T::new(); v.f = Lf32; v },
   "e4b6325c44": {
@@ -10124,6 +10776,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B. The only reason to keep A would be an initializer that reads a sibling, and those go through __init anyway.",
     ],
     chosen: "B. The only reason to keep A would be an initializer that reads a sibling, and those go through __init anyway.",
+    tasks: ["7.8.3"],
   },
   // if ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
   "e6075a580f": {
@@ -10134,10 +10787,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4", "7.4.4", "7.2.4"],
   },
   // let mut x: IecString<L> = IecString::<L>::lit(B);
   "e6646a0bd0": {
     improvement: "An empty-string initializer prints `IecString::<255>::lit(b\"\")`. `IecString::<255>::new()` (or Default) says the same thing without the slice copy.",
+    tasks: ["7.4.7"],
   },
   // x = x.wrapping_add(Li32) as i16;
   "e6ef5a4585": {
@@ -10147,6 +10802,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
     ],
     chosen: "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
+    tasks: ["7.3.1"],
   },
   // self.f = (self.f as i32).max(g.f as i32) as i16;
   "e708298af7": {
@@ -10157,6 +10813,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "same-type `.min`/`.max` when both operands (before promotion) share a type",
     why: "zero casts, identical results. Keep the widening only for a mixed meet (USINT vs SINT).",
+    tasks: ["7.3.1"],
   },
   // { let x = false; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "e76a0c7276": {
@@ -10168,6 +10825,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // if x > x.wrapping_sub(x) { break; }
   "e798927653": {
@@ -10177,6 +10835,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32) as i16;
   "e7b84e4a19": {
@@ -10188,6 +10847,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // x = ((*x).m() as i32).wrapping_add(x.f as i32) as i16;
   "e7c2f94b63": {
@@ -10197,6 +10857,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
+    tasks: ["7.3.1", "7.8.6"],
   },
   // self.f = ({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "e7c5e77bb8": {
@@ -10207,6 +10868,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6"],
   },
   // self.f.f = (self.f as i32) == Li32;
   "e7e1a63970": {
@@ -10217,6 +10879,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
+    tasks: ["7.3.3"],
   },
   // self.__chain_value_N = self.f;
   "e7e871371f": {
@@ -10227,6 +10890,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "struct field (today)",
     ],
     chosen: "a scan-local `let __chain_value = ...;`",
+    tasks: ["7.6.1"],
   },
   // self.units = len(self.narrow.to::<L>());
   "e8162bb9aa": {
@@ -10235,6 +10899,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: a by-value STRING(255) input. Matches the declared input and truncates a longer string at 255, as the vendor's 255 limit does",
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
+    tasks: ["7.4.6"],
   },
   // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64)).to();
   "e8210b694c": {
@@ -10244,10 +10909,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
     chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.1", "7.4.3"],
   },
   // pub fn fb_init(&mut self, mut x: bool) -> bool {
   "e82fbd8112": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
+    tasks: ["7.7.1"],
   },
   // x: Lu32,
   "e8954e2b0d": {
@@ -10262,6 +10929,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choice: (B). It is trivial and lint-clean, and the value is unchanged.",
     ],
     chosen: "keep (A). The saving is cosmetic, and one uniform spelling from literal() is exactly what keeps receiver positions correct. A context flag would add a second path.",
+    tasks: ["7.2.8", "7.2.11", "7.2.11"],
   },
   // if self.f > self.f.m() { break; }
   "e8a1222ae6": {
@@ -10271,14 +10939,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes()).to();
   "e921bd1d7e": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
   "e9a5cabd36": {
     improvement: "`(((uisearchstart as i32).max(1i32) as u16) as i32)` goes u16 -> i32 -> u16 -> i32. `(uisearchstart.max(1) as i32)` is the same value.",
+    tasks: ["7.3.9"],
   },
   // self.f = self.f.widen::<L>().to::<L>().to();
   "e9e296435a": {
@@ -10289,10 +10960,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
     ],
     chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+    tasks: ["7.4.2"],
   },
   // self.copied = self.copied;
   "ea53989ac8": {
     improvement: "ST `x := x;` prints `self.copied = self.copied;`, which is clippy::self_assignment (a correctness-group lint) in initseq_member_of_struct and cc3_empty_and_noop. It could be dropped when target and source are the same side-effect-free place with no conversion.",
+    tasks: ["keep:`x := x` stays ALLOWED self_assignment (7.8.9 moves this text into that reason); removed by 7.11.1"],
   },
   // if ((x == L) | (x == L)) | ((x as i32) == Li32) {
   "ea6f85988f": {
@@ -10302,18 +10975,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
+    tasks: ["7.5.6"],
   },
   // x = x[((Li8 as i64) - Li64) as usize];
   "eb533b340b": {
     improvement: "A constant that is cast or used as an index should be printed already typed or folded. `char_at(0i8 as i64)` becomes `char_at(0)`, and `values[((1i8 as i64) - 1i64) as usize]` becomes `values[0]`. Literals come out typed as the smallest type (SINT), then castTo adds `as i64`, and the lower-bound subtraction is done at run time.",
+    tasks: ["7.2.3"],
   },
   // self.f = self.f.f[((Li8 as i64) - Li64) as usize].f.f;
   "ebc60e2668": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // x = str.to();
   "ec1b55e90b": {
     improvement: "Every string store appends `.to()`, a truncating copy through lit, even when the value already has the target's capacity. Examples: `left = left.with_char(..).to()`, `concat = str1.to()`, and `self.left_two = left(..).to::<80>().to()`, which converts twice. Skip `.to()` when rustType(s.value.type) === rustType(into) and the target is not a generic-capacity inout.",
+    tasks: ["7.4.1"],
   },
   // if (x == L) | (x == L) {
   "ec21aafede": {
@@ -10324,10 +11001,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep `|` everywhere and accept the lint (simplest emitter)",
     ],
     chosen: "`||`/`&&` when neither side contains a call (equivalent; chosen for readability)",
+    tasks: ["7.5.6"],
   },
   // x: (-Li16),
   "ec9a760059": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
+    tasks: ["7.2.9"],
   },
   // *x = ((x as i32) / (x as i32)) as i16;
   "ed3ad19a47": {
@@ -10336,10 +11015,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: widen to i32, plain `/`, narrow. Correct: MIN/-1 fits in i32, and 0 panics like CODESYS",
       "i16::wrapping_div. Same values, and divide-by-zero still panics. I would use it only for widths below 32, because DINT/LINT must keep plain `/` to trap MIN/-1 as CODESYS does",
     ],
+    tasks: ["7.3.11"],
   },
   // pub fn m_set(&mut self, prg: &mut Programs, mut x: i16) {
   "ed425c8710": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
+    tasks: ["7.7.5"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32) as u16;
   "ed846b075d": {
@@ -10351,6 +11032,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // if x > __grid_upper_N { break; }
   "ed880b92a8": {
@@ -10362,6 +11044,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7", "7.5.7"],
   },
   // self.f = self.__chain_value_N as f32;
   "ee5f8f4ae1": {
@@ -10373,6 +11056,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`let __chain_value = self.src_l;` a local, each link converting from the previous TARGET",
     why: "no hidden field, one cast per link",
+    tasks: ["7.6.1"],
   },
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i8;
   "eea3dc7538": {
@@ -10383,14 +11067,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
+    tasks: ["7.3.13"],
   },
   // self.f = m((self.narrow * Lf32) as f64);
   "eeb4929f34": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` is exactly `v.round()`, because Rust's round is already half-away-from-zero and symmetric.",
+    tasks: ["7.9.1"],
   },
   // self.f = (self.v as u64) as u32;
   "eeb7e2463d": {
     improvement: "A lossless widening followed by a conversion back to the source's own Rust type is the identity. Peephole: if e.value is a convert from type X with rustType(X) === target and the middle step is a widening, emit X's text.",
+    tasks: ["7.3.9"],
   },
   // m(L, &mut self.f);
   "ef4db7eb51": {
@@ -10402,14 +11089,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&mut self` set_char plus a guard around the call",
     why: "same semantics, and the interpreter's setChar needs no change",
+    tasks: ["7.4.4", "7.9.3"],
   },
   // self.f = { m(self.p); self.f[(self.p as i64).wrapping_add(-Li64) as usize].f };
   "ef64f29f0d": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
+    tasks: ["7.2.4"],
   },
   // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i8;
   "efd31f3397": {
     improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. Each ANY_INT monomorph still receives its diSize as a `mut input: i32` param and emits `match input`, though since transpile-review 17 only the arm for its own size is lowered (the others dereferenced pValue as a type it is not), so the match has one arm and the param could be dropped.",
+    tasks: ["7.9.3"],
   },
   // g.f.count = (g.f.count as i32).wrapping_add(g.f as i32) as i16;
   "eff90824ac": {
@@ -10419,10 +11109,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+    tasks: ["7.3.1"],
   },
   // (*x).call();
   "f0065dbd0b": {
     improvement: "An inout FB or struct passed on, or called, is printed as `(*target).call()`, `(*target).dim()` and `m(4i32, &mut (*book))`. Method calls auto-deref, and a `&mut T` binding reborrows implicitly when passed. Print `target.call()` and `f_x3_mark(4, book)`, the same exemption the emitter already makes for `.x` and `[i]`.",
+    tasks: ["7.8.6"],
   },
   // self.f.__numbers_lower_N = Li32;
   "f06209ef9e": {
@@ -10433,10 +11125,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
   // x[(x as i64).wrapping_sub(__grid_lower_N as i64) as usize][(x as i64).wrapping_sub(__grid_lower_N as i64) as usize] = x.wrapping_mul(Li32).wrapping_add(x) as i16;
   "f07cf2da87": {
     improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit.ts:517). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`.",
+    tasks: ["7.2.3"],
   },
   // x = x.with_char(x as i64, x.char_at(x as i64)).to();
   "f0973f1bcc": {
@@ -10446,6 +11140,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     ],
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // x[(x.wrapping_add(x) as i64) as usize] = x[(x.wrapping_add(x) as i64) as usize];
   "f10c6b31a0": {
@@ -10456,10 +11151,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "lower != 0 with a const index: fold `k - lower` at emit time.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // self.f = self.v.m(&mut self.__output_N);
   "f1b8c2a1e6": {
     improvement: "An unbound METHOD VAR_OUTPUT becomes a PERSISTENT struct field (`pub __output_2: i16` on the caller's FB), which is initialised, cloned and compared along with the rest of the state. The method resets its outputs on entry (`*extra = 0i16;`), so a call-local `let mut __out = 0i16; self.v.m(&mut __out)` is enough.",
+    tasks: ["7.6.3"],
   },
   // self.f = (self.f & (self.f | (self.f & (!self.f)))) | (self.f ^ self.f);
   "f22b4df758": {
@@ -10470,10 +11167,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B only for pure right operands; the current rule is still needed when the right side can have effects.",
     ],
     chosen: "B only for pure right operands; the current rule is still needed when the right side can have effects.",
+    tasks: ["7.5.6"],
   },
   // self.f = true as u8;
   "f2987aca6a": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
+    tasks: ["7.2.10"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))).to();
   "f31583df05": {
@@ -10484,10 +11183,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // pub fn m(&mut self, mut x: i16, …) {
   "f327cfe40a": {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
+    tasks: ["7.7.1"],
   },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as u16;
   "f35183a6a9": {
@@ -10499,6 +11200,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
+    tasks: ["7.3.1"],
   },
   // if (len as i32) > Li32 {
   "f39a4e5fb5": {
@@ -10509,18 +11211,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`i32::from(x)` instead of `as` (silences cast_lossless, not shorter)",
     ],
     chosen: "compare natively when the operand types are equal and the const fits (chosen at emit: exact and shorter)",
+    tasks: ["7.3.3"],
   },
   // x as i64
   "f44fb59407": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` equals `v.round()` for every f64, because f64::round already rounds half away from zero symmetrically (including -0.0 and NaN). The measured table (r2ilad_*, r2i_*_nan/inf, trunc_beyond_dint) otherwise matches both helpers; I found no wrong input.",
+    tasks: ["7.9.1"],
   },
   // self.f = self.f & (!self.f);
   "f474d0ca12": {
     improvement: "Unary `!` binds tighter than every binary operator, so the parentheses are always redundant: emit `!x` and let the binary printer add parentheses only where needed. The `&`/`|` for eager AND/OR are deliberate and stay.",
+    tasks: ["7.3.8"],
   },
   // pub x: [u64; L],
   "f4a4eb1ade": {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
+    tasks: ["7.8.2"],
   },
   // self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize] = Li16;
   "f59561bd3c": {
@@ -10532,14 +11238,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // self.f = (Li64 / Li64) as f64;
   "f5a6eb5ecf": {
     improvement: "Lowering already knows these are compile-time constants: 7/2 is folded at LINT width by the measured rule. Emit the folded, converted literal (`3.0f32`; `0.3f64 as f32` becomes its f32 literal). The value must be folded exactly as the vendor does, since `x : REAL := 7 / 2` is 3.",
+    tasks: ["7.2.2"],
   },
   // pub fn m(mut x: IecString<L>, …) -> i16 {
   "f5ca982c14": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
+    tasks: ["7.7.2", "7.7.2"],
   },
   // pub fn m(&mut self, g: &mut Globals) -> i16 {
   "f62e4d99a5": {
@@ -10548,10 +11257,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "today: uniform calling convention, simple and never wrong",
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
+    tasks: ["7.7.5"],
   },
   // pub fn m(mut x: i8) -> bool {
   "f75c7acc4a": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
+    tasks: ["7.7.1"],
   },
   // m(self.p);
   "f7ea0fc7a1": {
@@ -10568,6 +11279,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in addressOf when last.index.kind === 'const' and emit the literal handle",
     why: "it is identical to the scalar-ADR form `self.p = 1;` and costs about 3 lines",
+    tasks: ["7.2.4", "7.2.4", "7.9.3", "7.9.3"],
   },
   // self.f = m(-Li32, …, &mut self.f);
   "f7faf582da": {
@@ -10578,6 +11290,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
   // self.f = (self.v / Lu64).wrapping_sub({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "f8319bc5b1": {
@@ -10591,6 +11304,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
+    tasks: ["7.2.6", "7.2.6"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Li16 << L) } else { *x & !(Li16 << L) }; }
   "f85632e185": {
@@ -10602,6 +11316,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b), with (c) for a variable value.",
     ],
     chosen: "(b), with (c) for a variable value.",
+    tasks: ["7.8.5"],
   },
   // self.f = m(self.f, Lf32);
   "f8b810062b": {
@@ -10612,18 +11327,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "plain `/` when the divisor is a nonzero const",
     why: "same stops; the check is dead code for a literal divisor",
+    tasks: ["7.2.6"],
   },
   // x: std::array::from_fn(|_| [Li16; L]),
   "f9bdd4950a": {
     improvement: "`array.element.kind === \"elementary\"` decides between a repeat expression and from_fn, so a 2-D array of i16 goes through a closure. [i16; N] is Copy, so `[[0i16; 3]; 2]` is legal. Use the emitter's existing isCopy(type) in that condition.",
+    tasks: ["7.8.2"],
   },
   // pub fn init(&mut self) {
   "fa7d5f176f": {
     improvement: "init() always gets `#[allow(unused_variables)]`, even without a g or prg parameter. Guard it the way line 1240 does (`usesGlobals || usesPrograms`).",
+    tasks: ["7.7.2"],
   },
   // self.f = (if false { Li64 } else { Li64 }) as i16;
   "faa5102f23": {
     improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
+    tasks: ["7.2.7"],
   },
   // let mut map: i16 = Li16;
   "faf5605030": {
@@ -10632,10 +11351,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
+    tasks: ["7.7.3"],
   },
   // self.m();
   "fb7e9e6ff4": {
     improvement: "The call itself is correct and lean. I probed INT wrap at 32767 -> -32768 and -1 -> 0 through outer->inner, and both match CODESYS's wrap. The in-frame specialization in lower/specialize.ts is also correct for the aliasing cases (a:=n, b:=n gives 6 in CODESYS). The waste is in the lines around the call: every generated routine gets `#[allow(unused_mut, unused_variables, unused_assignments)]`, including `outer`, `inner` and `two_a_0_b_0`, which have no parameters and no locals, so none of the three lints can fire. Emit the attribute only when the routine declares at least one local or in-out/lent parameter, and only name the lints that can apply (for example `unused_mut`/`unused_assignments` only when there are locals). The comment says the lints are 'verified load-bearing', but that holds only for routines that have bindings.",
+    tasks: ["keep:the call itself is correct and lean (its allow-attribute waste is 7.7.2's); removed by 7.7.10"],
   },
   // __chain_value_N: Lf64,
   "fbbfa869cf": {
@@ -10647,10 +11368,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a `let __chain_value_N = …;` local in every mode",
     why: "one rule, no state leaked into the instance",
+    tasks: ["7.6.1"],
   },
   // x: L,
   "fbde4d6e1e": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
+    tasks: ["7.8.8"],
   },
   // self.f = (self.f.f as i32).wrapping_add(self.f.f as i32) as i16;
   "fbfd8ba027": {
@@ -10661,6 +11384,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep the promotion everywhere and just accept the casts. This is the simplest rule and is what the interpreter mirrors.",
     ],
     chosen: "When the whole tree is + - * (with no DIV/MOD/compare/shift inside) and the store target has the operands' width: compute in that width with wrapping_*. This is what I would choose. It is bit-identical and drops 2-3 casts per line.",
+    tasks: ["7.3.1"],
   },
   // self.f[(Li8 as i64) as usize] = (self.f[(Li8 as i64) as usize] as i32).wrapping_add(Li32) as i16;
   "fcc10694ff": {
@@ -10672,6 +11396,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
+    tasks: ["7.2.3"],
   },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8).to();
   "fcc1e3ee2e": {
@@ -10682,30 +11407,37 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.9.3", "7.4.3"],
   },
   // if self.f > self.__numbers_upper_N { break; }
   "fd16368fa8": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
+    tasks: ["7.2.3"],
   },
   // pub fn m_set(&mut self, mut x: i16) {
   "fda03fa84f": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+    tasks: ["7.7.3"],
   },
   // pub fn x<const T: usize>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T>) {
   "fdb004dd33": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
+    tasks: ["7.7.1"],
   },
   // self.f = self.f.sqrt() as f32;
   "fdc2e175fa": {
     improvement: "For SQRT only, f32::sqrt is correctly rounded, and f64 sqrt followed by narrowing is provably the same (53 >= 2*24+2). So a REAL SQRT can be `x.sqrt()` in f32. Keep the f64 detour for the other transcendentals, where it is load-bearing.",
+    tasks: ["7.3.6"],
   },
   // self.f = (self.f.wrapping_shr(Li16 as u32) & Lu32) != Lu32;
   "fdfbae2680": {
     improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    tasks: ["7.2.5"],
   },
   // fn m(v: f64) -> i64 {
   "fe6af35845": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` does the same as `let c = v.round();`. f64::round already rounds half away from zero on both signs, and -0.0 stays -0.0. Emitted in every one of 182+57 fixtures that use the helpers.",
+    tasks: ["7.9.1"],
   },
   // self.f = m(Li32, …, &mut self.f);
   "fedbbc431c": {
@@ -10716,5 +11448,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
     why: "one source of truth, so the bound and the slice cannot disagree",
+    tasks: ["7.5.7"],
   },
 }

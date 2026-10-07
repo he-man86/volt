@@ -72,6 +72,7 @@ import {
   edgeVerdict,
   HARNESS_LOOP_GUARD,
   emissionShape,
+  notesByTask,
   notesOf,
   printRow,
   rejectionIsADefect,
@@ -244,6 +245,15 @@ const ranked = <K extends string>(m: ReadonlyMap<K, number>): [K, number][] =>
 sizes.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
 const median = [...sizes].map(([, s]) => s).sort((a, b) => a - b)[Math.floor(sizes.length / 2)] ?? 0
 const pedanticTotal = [...pedanticTally.values()].reduce((a, b) => a + b, 0)
+// the notes each transpile-restructure task still owes (its tasks 0.6 and 0b), wrapped to the header's width
+const perTaskLines = notesByTask(NOTES)
+  .map(([task, n]) => `${task} ${n}`)
+  .reduce<string[]>((out, item) => {
+    const last = out.at(-1)
+    if (last !== undefined && last.length + item.length + 2 <= 110) out[out.length - 1] = `${last}, ${item}`
+    else out.push(item)
+    return out
+  }, [])
 
 const lines = [...rows].sort((a, b) => a[0].localeCompare(b[0])).map(([name, row]) => printRow(name, row))
 const text = `/**
@@ -317,6 +327,9 @@ ${sizes
  *   shape — ${shapes.size} distinct emission shapes over ${sizes.length} lowered fixtures, ${constructs.size} distinct constructs.
  *   ${Object.keys(NOTES).length} constructs carry a review note (\`NOTES\`): ${improvable} fixtures are improvable, ${withAlternatives} touch a construct with alternatives.
  *   Each row's \`notes\` names its noted constructs; their texts are the \`NOTES\` section at the end of this file.
+ *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
+ *   \`keep\` = an item that says nothing needs to change):
+${perTaskLines.map((l) => ` *     ${l}`).join("\n")}
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 

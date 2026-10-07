@@ -36,6 +36,10 @@ export type EdgeVerdict = "agree" | "disagree" | "not-run"
  *   `alternatives`  when several emissions are CORRECT: each option, as the reviewer put it
  *   `chosen`        the option the reviewer would pick, when one was named
  *   `why`           the reviewer's reason for it
+ *   `tasks`         WHO OWNS IT, one owner per review item the note merges, in item order: the id of the openspec
+ *                   `transpile-restructure` task that resolves that item (`7.3.1`, `4.2`, …), or `keep:<reason>` for an
+ *                   item that says nothing needs to change. Required: the generator refuses a note without one, an
+ *                   item's task id that its `tasks.md` does not have, and one already ticked (`assertNotes`).
  *
  * AUTHORED IN `../support/transpile-confidence.ts` (`NOTES`), RENDERED IN THE MAP. A row carries `notes` — the ids of the noted constructs it emits — and the
  * map ends with a generated `NOTES` section holding every note's full text under its construct line (`renderNotes`),
@@ -49,6 +53,7 @@ export interface ShapeNote {
   alternatives?: readonly string[]
   chosen?: string
   why?: string
+  tasks: readonly string[]
 }
 
 // ── the row ──────────────────────────────────────────────────────────────────────────────────────────────────

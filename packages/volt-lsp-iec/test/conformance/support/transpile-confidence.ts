@@ -18,7 +18,7 @@
  * output, and all three are recomputed from the recordings and the compiler on every run.
  */
 import { createHash } from "node:crypto"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CLOCK, isBit, LoopGuardError, run, rustAccess, type IrPou, type Runner } from "../../../src/transpile/index.js"
 import { lex } from "../../../src/frontend/syntax/index.js"
@@ -502,6 +502,9 @@ export function sizeRatio(code: string, source: string, gvls: readonly { source:
  *
  * AUTHORED, NOT GENERATED. The seed came out of the review's transcripts once; from here an entry changes when a
  * person decides — the lean item landed (delete it), the reasoning changed (edit it), a new review (add one).
+ *
+ * An item carries no `task`: one item can sit on constructs that different tasks resolve, so the owner is named per
+ * NOTE (`note` below), not per item.
  */
 const LEAN = {
   shapes10_1: {
@@ -1951,1496 +1954,1580 @@ const LEAN = {
   shapes9_13: {
     improvement: "A widening that cannot lose information (i16→i32, u32→i64, f32→f64) is printed `x as T`. `T::from(x)` states that it is lossless and is what clippy asks for. Choose it only for widenings; wrapping narrowings must keep `as`.",
   },
-} satisfies Record<string, ShapeNote>
+} satisfies Record<string, ReviewItem>
 
-/** Two items the review reported against one construct, as one note: both improvements, every option, the first choice. */
-function merged(...notes: readonly ShapeNote[]): ShapeNote {
-  const alternatives = notes.flatMap((n) => n.alternatives ?? [])
-  const choice = notes.find((n) => n.chosen !== undefined)
+/** What one review item said, before a note names the task that owns it. */
+type ReviewItem = Omit<ShapeNote, "tasks">
+
+/** One construct's note made of ONE review item, owned by `task` (a transpile-restructure task id, or `keep:<reason>`). */
+function note(task: string, item: ReviewItem): ShapeNote {
+  return { ...item, tasks: [task] }
+}
+
+/** A review item with the task that owns it. */
+type Owned = readonly [task: string, item: ReviewItem]
+
+/**
+ * One construct's note made of the items several reviewers reported against it, merged — every improvement, every
+ * option, the first choice — EACH ITEM WITH ITS OWN OWNER, in item order (`tasks[i]` owns the i-th improvement). An
+ * item never rides on another's owner: the task that lands removes its own items, so one owner landing cannot take
+ * another item's text with it (transpile-restructure 0b).
+ */
+function merged(...owned: readonly [Owned, Owned, ...Owned[]]): ShapeNote {
+  const items = owned.map(([, item]) => item)
+  const alternatives = items.flatMap((n) => n.alternatives ?? [])
+  const choice = items.find((n) => n.chosen !== undefined)
   return {
-    improvement: notes.flatMap((n) => (n.improvement === undefined ? [] : [n.improvement])).join(" Also: "),
+    improvement: items.flatMap((n) => (n.improvement === undefined ? [] : [n.improvement])).join(" Also: "),
     ...(alternatives.length > 0 ? { alternatives } : {}),
     ...(choice?.chosen === undefined ? {} : { chosen: choice.chosen }),
     ...(choice?.why === undefined ? {} : { why: choice.why }),
+    tasks: owned.map(([task]) => task),
   }
 }
 
 /**
  * ONE NOTE PER CONSTRUCT, keyed by its id; the comment above each is the construct as `normalizeRustLine` prints it.
- * A construct that several items named carries all of them (`merged`).
+ * A construct that several items named carries all of them (`merged`, one owner per item). Each item's owner was
+ * tagged by transpile-restructure 0.6 (0b gave every merged item its own): the task that names the note, else the task
+ * that names another note of the same review item, else the phase-7 task its text describes; an item that asks for no
+ * change is `keep:<reason>`. The task that lands removes its items, and a note goes with its last item: an item whose
+ * owner is ticked is refused (`noteTagProblems`, transpile-restructure 7.11.2).
  */
 export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: std::array::from_fn(|_| L),
-  "00c356c11c": LEAN.shapes18_8,
+  "00c356c11c": note("7.8.2", LEAN.shapes18_8),
   // pub fn x<const T: usize>(mut __grid_lower_N: i32, mut __grid_upper_N: i32, mut __grid_lower_N: i32, mut __grid_upp
-  "00fc50d055": LEAN.shapes17_11,
+  "00fc50d055": note("7.7.1", LEAN.shapes17_11),
   // pub p: usize,
-  "013de1dc6a": LEAN.shapes1_12,
+  "013de1dc6a": note("4.2", LEAN.shapes1_12),
   // self.f = Lu8;
   // self.sum = (self.sum as i32).wrapping_add(self.f as i32) as i16;
-  "0153115496": LEAN.shapes11_15,
+  "0153115496": note("7.3.1", LEAN.shapes11_15),
   // self.v = m(self.f * Lf64, …);
-  "015dcb3b7f": LEAN.shapes5_4,
+  "015dcb3b7f": note("7.2.6", LEAN.shapes5_4),
   // self.v = (-Li64).wrapping_neg();
   // pub fn fb_init(&mut self, prg: &mut Programs, mut x: bool, …) -> bool {
-  "0180f72495": LEAN.shapes9_9,
+  "0180f72495": note("7.7.1", LEAN.shapes9_9),
   // m(Li32, &mut (*x));
-  "01e84968c3": LEAN.shapes12_5,
+  "01e84968c3": note("7.8.6", LEAN.shapes12_5),
   // x = *x;
-  "01ef1b756d": LEAN.shapes12_9,
+  "01ef1b756d": note("7.9.3", LEAN.shapes12_9),
   // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i1
-  "0205cf3af0": merged(LEAN.shapes17_2, LEAN.shapes17_4),
+  "0205cf3af0": merged(["7.4.3", LEAN.shapes17_2], ["7.4.3", LEAN.shapes17_4]),
   // if x.is_nan() { return L; }
-  "02a72c2e83": LEAN.shapes5_1,
+  "02a72c2e83": note("7.9.1", LEAN.shapes5_1),
   // pub fn m(mut x: u8, …) -> bool {
-  "03846c1eae": LEAN.shapes14_14,
+  "03846c1eae": note("7.7.3", LEAN.shapes14_14),
   // self.f.f[(Li8 as i64) as usize] = Lu8;
-  "03b3e8b80c": LEAN.shapes11_7,
+  "03b3e8b80c": note("7.2.3", LEAN.shapes11_7),
   // pub fn m(mut x: i32, x: &mut i16) -> i32 {
-  "040107266f": LEAN.shapes19_2,
+  "040107266f": note("7.7.9", LEAN.shapes19_2),
   // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64)).to();
-  "0464b7d671": merged(LEAN.shapes16_1, LEAN.shapes16_3),
+  "0464b7d671": merged(["7.4.1", LEAN.shapes16_1], ["7.4.3", LEAN.shapes16_3]),
   // x: [Lu8; L],
-  "054b93382f": LEAN.shapes1_7,
+  "054b93382f": note("7.2.6", LEAN.shapes1_7),
   // x: [{ let mut v = T::new(); v.f = Li16; v }, { let mut v = T::new(); v.f = Li16; v.f = false; v }, T::new()],
-  "055df7e5f8": LEAN.shapes3_7,
+  "055df7e5f8": note("7.8.3", LEAN.shapes3_7),
   // self.f = iec_max(self.f.to::<L>(), self.f).to::<L>().to();
-  "05a142a4f4": LEAN.shapes15_1,
+  "05a142a4f4": note("7.4.2", LEAN.shapes15_1),
   // x: [Lf32, …, (-Lf32)],
-  "060ccf97cc": LEAN.shapes11_19,
+  "060ccf97cc": note("7.2.9", LEAN.shapes11_19),
   // self.f = (self.f as i32) <= (self.f as i32);
-  "06135af232": LEAN.shapes7_2,
+  "06135af232": note("7.3.3", LEAN.shapes7_2),
   // x: Li32,
-  "06bb3a6005": merged(LEAN.shapes4_1, LEAN.shapes4_2),
+  "06bb3a6005": merged(["7.2.8", LEAN.shapes4_1], ["7.2.11", LEAN.shapes4_2]),
   // self.f[((self.f as i64) - Li64) as usize].f = (self.f as i32).wrapping_mul(Li32) as i16;
-  "07d4272a6e": LEAN.shapes16_7,
+  "07d4272a6e": note("7.2.14", LEAN.shapes16_7),
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as u16;
-  "07ee06657f": LEAN.shapes9_3,
+  "07ee06657f": note("7.3.1", LEAN.shapes9_3),
   // self.f = (self.f as i32).max(self.f as i32) as u8;
-  "0817bbbc15": LEAN.shapes8_3,
+  "0817bbbc15": note("7.3.1", LEAN.shapes8_3),
   // pub fn m(mut x: i32, x: &mut T) -> i32 {
-  "0855e1134c": LEAN.shapes18_9,
+  "0855e1134c": note("7.7.1", LEAN.shapes18_9),
   // pub __inout_index_N: i16,
-  "0878222ac3": LEAN.shapes18_1,
+  "0878222ac3": note("7.6.3", LEAN.shapes18_1),
   // self.f = (self.f as f64).exp() as f32;
-  "08964781e8": LEAN.shapes6_10,
+  "08964781e8": note("7.3.12", LEAN.shapes6_10),
   // self.f = { let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
-  "08ce268604": LEAN.shapes9_4,
+  "08ce268604": note("7.2.6", LEAN.shapes9_4),
   // self.v = Lu32;
-  "093ad5cc7a": LEAN.shapes1_10,
+  "093ad5cc7a": note("7.2.11", LEAN.shapes1_10),
   // return x;
-  "0969e59592": LEAN.shapes12_10,
+  "0969e59592": note("7.7.3", LEAN.shapes12_10),
   // self.f = self.__numbers_lower_N;
-  "09b1152bef": LEAN.shapes14_15,
+  "09b1152bef": note("7.5.7", LEAN.shapes14_15),
   // self.f = self.f.rotate_right(Li8 as u32);
-  "09eeda28bb": LEAN.shapes7_1,
+  "09eeda28bb": note("7.2.2", LEAN.shapes7_1),
   // self.f.widen();
-  "09f527f35b": LEAN.shapes3_9,
+  "09f527f35b": note("7.7.2", LEAN.shapes3_9),
   // { let x = true; let x = &mut self.f.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
-  "0a1967fcea": LEAN.shapes20_13,
+  "0a1967fcea": note("7.8.5", LEAN.shapes20_13),
   // self.f = self.f.to::<L>().to();
-  "0a52a768d3": LEAN.shapes5_8,
+  "0a52a768d3": note("7.4.1", LEAN.shapes5_8),
   // fn m(v: f64) -> i32 {
-  "0ab1e9c511": LEAN.shapes4_4,
+  "0ab1e9c511": note("7.9.1", LEAN.shapes4_4),
   // pub fn fb_init(&mut self, mut x: bool, …, mut x: i16) -> bool {
-  "0ab2575555": LEAN.shapes12_8,
+  "0ab2575555": note("7.7.1", LEAN.shapes12_8),
   // pub __numbers_lower_N: i32,
-  "0ac4ab4a64": LEAN.shapes13_17,
+  "0ac4ab4a64": note("7.7.8", LEAN.shapes13_17),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "0b353e99d9": LEAN.shapes17_2,
+  "0b353e99d9": note("7.4.3", LEAN.shapes17_2),
   // __inout_index_N: Li16,
-  "0b358286cb": LEAN.shapes18_1,
+  "0b358286cb": note("7.6.3", LEAN.shapes18_1),
   // self.m(&mut (*x));
-  "0b51d542e8": LEAN.shapes2_5,
+  "0b51d542e8": note("7.8.6", LEAN.shapes2_5),
   // self.f = { m(self.f); self.f[(self.f as i64).wrapping_add(-Li64) as usize].f };
-  "0c7c4434c4": LEAN.shapes3_4,
+  "0c7c4434c4": note("7.2.4", LEAN.shapes3_4),
   // pub fn m(mut p: usize, x: &mut i16) -> i16 {
-  "0ca9dad97d": merged(LEAN.shapes15_7, LEAN.shapes15_8),
+  "0ca9dad97d": merged(["7.7.2", LEAN.shapes15_7], ["7.7.7", LEAN.shapes15_8]),
   // (match self.f.f { L => self.f.m(&mut self.f), _ => panic!(S) });
-  "0cbdff077d": LEAN.shapes19_6,
+  "0cbdff077d": note("7.8.7", LEAN.shapes19_6),
   // self.v = ({ m(self.f); self.v } as i32).wrapping_add(Li32) as i16;
-  "0cf79a4fb2": merged(LEAN.shapes9_3, LEAN.shapes9_10),
+  "0cf79a4fb2": merged(["7.3.1", LEAN.shapes9_3], ["7.9.3", LEAN.shapes9_10]),
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
-  "0d14fd327c": LEAN.shapes15_9,
+  "0d14fd327c": note("7.8.6", LEAN.shapes15_9),
   // self.f = Li16;
-  "0e0d715a81": LEAN.shapes1_11,
+  "0e0d715a81": note("7.5.11", LEAN.shapes1_11),
   // self.f = (self.f as i32).wrapping_sub(Li32) as u8;
-  "0e5c6a2896": LEAN.shapes8_3,
+  "0e5c6a2896": note("7.3.1", LEAN.shapes8_3),
   // self.f = Li64.wrapping_add(Li64);
-  "0e60621ff1": LEAN.shapes6_6,
+  "0e60621ff1": note("7.2.2", LEAN.shapes6_6),
   // self.v = Li32.wrapping_neg() as i16;
   // self.f.f = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(({
-  "10814b65ce": LEAN.shapes12_4,
+  "10814b65ce": note("7.2.6", LEAN.shapes12_4),
   // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to();
-  "10af274f28": LEAN.shapes9_1,
+  "10af274f28": note("7.4.2", LEAN.shapes9_1),
   // self.f = Li32.wrapping_neg() as i8;
   // x
-  "11f6ad8ec5": LEAN.shapes1_9,
+  "11f6ad8ec5": note("7.7.3", LEAN.shapes1_9),
   // self.f = ((self.f as i32) > Li32) & (((self.f as i32) < Li32) | self.f);
-  "128ab89e82": LEAN.shapes9_12,
+  "128ab89e82": note("7.5.6", LEAN.shapes9_12),
   // x: (-Li64),
-  "12e93440b3": LEAN.shapes1_1,
+  "12e93440b3": note("7.2.9", LEAN.shapes1_1),
   // pub x: i16,
-  "1307e33bbf": merged(LEAN.shapes11_5, LEAN.shapes11_6),
+  "1307e33bbf": merged(["keep:the field line is already minimal and correct (probed edge inputs agree); removed by 7.2.13", LEAN.shapes11_5], ["7.3.5", LEAN.shapes11_6]),
   // self.f = (if self.g { Li64 } else { Li64 }) as i16;
-  "2db51dfb96": merged(LEAN.shapes10_4, LEAN.shapes10_5),
+  "2db51dfb96": merged(["7.2.7", LEAN.shapes10_4], ["7.4.1", LEAN.shapes10_5]),
   // pub __inout_guard_N: usize,
-  "149af70520": LEAN.shapes18_1,
+  "149af70520": note("7.6.3", LEAN.shapes18_1),
   // self.f[(Li8 as i64) as usize] = L;
-  "14a38342eb": LEAN.shapes18_4,
+  "14a38342eb": note("7.2.10", LEAN.shapes18_4),
   // pub fn m(mut x: u16) -> bool {
-  "14b2f39d44": LEAN.shapes14_14,
+  "14b2f39d44": note("7.7.3", LEAN.shapes14_14),
   // pub fn init(&mut self, g: &mut Globals) {
-  "1524fb865f": LEAN.shapes15_6,
+  "1524fb865f": note("7.7.5", LEAN.shapes15_6),
   // if ((self.f as i32) > Li32) & self.f {
-  "1541330f1e": LEAN.shapes11_16,
+  "1541330f1e": note("7.3.3", LEAN.shapes11_16),
   // x: (-Lf32),
-  "159ca60812": LEAN.shapes1_1,
+  "159ca60812": note("7.2.9", LEAN.shapes1_1),
   // __inout_guard_N: L,
-  "16410bb3a0": LEAN.shapes18_1,
+  "16410bb3a0": note("7.6.3", LEAN.shapes18_1),
   // m(Li16, &mut self.__output_N, …);
-  "1647895e3b": LEAN.shapes18_1,
+  "1647895e3b": note("7.6.3", LEAN.shapes18_1),
   // self.f = (self.f as f64).sqrt() as f32;
-  "1671e97e30": LEAN.shapes7_4,
+  "1671e97e30": note("7.3.5", LEAN.shapes7_4),
   // self.f = { self.__inout_index_N = self.f[(self.f as i64) as usize]; let __arg_N = self.m(); m(__arg_N, &mut self.f
-  "16b713f0f3": LEAN.shapes20_10,
+  "16b713f0f3": note("7.6.1", LEAN.shapes20_10),
   // x: Lf64,
-  "1707972c33": merged(LEAN.shapes4_1, LEAN.shapes4_3),
+  "1707972c33": merged(["7.2.8", LEAN.shapes4_1], ["7.2.12", LEAN.shapes4_3]),
   // pub fn m(&mut self, mut p: usize) -> i16 {
-  "178b1e9748": LEAN.shapes19_9,
+  "178b1e9748": note("7.7.11", LEAN.shapes19_9),
   // self.f = (self.f as i32).wrapping_shl(Li8 as u32) as u16;
-  "17bfcf56b6": LEAN.shapes8_5,
+  "17bfcf56b6": note("7.2.5", LEAN.shapes8_5),
   // self.f = (self.f as f64).tan() as f32;
-  "18157407c3": LEAN.shapes7_4,
+  "18157407c3": note("7.3.5", LEAN.shapes7_4),
   // self.f = self.f.rotate_left(self.f as u32);
-  "181d22eae0": LEAN.shapes7_4,
+  "181d22eae0": note("7.3.5", LEAN.shapes7_4),
   // len = m(&mut str) as i16;
-  "185a887a57": LEAN.shapes13_15,
+  "185a887a57": note("7.4.6", LEAN.shapes13_15),
   // self.f = (self.f as i32).wrapping_add(Li32) as i8;
-  "18e6b05962": LEAN.shapes8_3,
+  "18e6b05962": note("7.3.1", LEAN.shapes8_3),
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = true;
-  "191ba38aad": LEAN.shapes11_7,
+  "191ba38aad": note("7.2.3", LEAN.shapes11_7),
   // { let x = self.f; let x = &mut self.f; *x = if x { *x | (Lu32 << L) } else { *x & !(Lu32 << L) }; }
-  "1985d03764": LEAN.shapes20_13,
+  "1985d03764": note("7.8.5", LEAN.shapes20_13),
   // if !((x < Li32) & ((x.char_at(x as i64) as i32) != Li32)) { break; }
-  "19dfd3f883": LEAN.shapes16_5,
+  "19dfd3f883": note("7.4.4", LEAN.shapes16_5),
   // break 'loop_N;
-  "1ad1ab3163": LEAN.shapes11_9,
+  "1ad1ab3163": note("7.5.2", LEAN.shapes11_9),
   // x = m(__numbers_lower_N, __numbers_upper_N, &mut (*x)).wrapping_add(Li32);
-  "1b12aad5a0": LEAN.shapes16_15,
+  "1b12aad5a0": note("7.7.8", LEAN.shapes16_15),
   // x[(self.__numbers_upper_N as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = Li16;
-  "1be212b44b": LEAN.shapes16_7,
+  "1be212b44b": note("7.2.14", LEAN.shapes16_7),
   // pub fn m(mut x: i16) -> i16 {
-  "1ca8b1b1fc": LEAN.shapes13_12,
+  "1ca8b1b1fc": note("7.7.1", LEAN.shapes13_12),
   // pub fn m(mut x: i16) -> u32 {
-  "1d10ec0f39": LEAN.shapes13_12,
+  "1d10ec0f39": note("7.7.1", LEAN.shapes13_12),
   // if x > x.wrapping_sub(Li32) { break; }
-  "1d1551a034": LEAN.shapes14_7,
+  "1d1551a034": note("7.5.7", LEAN.shapes14_7),
   // pub x: u16,
-  "1d7709a031": merged(LEAN.shapes13_1, LEAN.shapes13_2, LEAN.shapes13_3),
+  "1d7709a031": merged(["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", LEAN.shapes13_1], ["7.2.5", LEAN.shapes13_2], ["7.3.1", LEAN.shapes13_3]),
   // self.f.f[(Li8 as i64) as usize] = IecString::<L>::lit(B).to();
-  "1d835ef992": merged(LEAN.shapes16_1, LEAN.shapes16_7),
+  "1d835ef992": merged(["7.4.1", LEAN.shapes16_1], ["7.2.14", LEAN.shapes16_7]),
   // x: [IecString::<L>::lit(B); L],
-  "1d9f55ded0": LEAN.shapes14_16,
+  "1d9f55ded0": note("7.4.8", LEAN.shapes14_16),
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> u8 {
-  "1dec9ffb7e": LEAN.shapes16_14,
+  "1dec9ffb7e": note("7.8.6", LEAN.shapes16_14),
   // x[(self.f as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = self.f.wrapping_add(self.f.wrapping_mul(
-  "1e5d67a16e": merged(LEAN.shapes17_3, LEAN.shapes17_7),
+  "1e5d67a16e": merged(["7.2.3", LEAN.shapes17_3], ["7.3.1", LEAN.shapes17_7]),
   // x = (self.f as i32).wrapping_add(self.f as i32) as i16;
-  "1ebe9a3a67": LEAN.shapes19_10,
+  "1ebe9a3a67": note("7.3.1", LEAN.shapes19_10),
   // x: std::array::from_fn(|_| std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L]))),
-  "1f2f8205f9": LEAN.shapes12_1,
+  "1f2f8205f9": note("7.8.2", LEAN.shapes12_1),
   // self.f = match self.f { L => self.f, …, _ => panic!(S) };
-  "1fa78ccf62": LEAN.shapes3_5,
+  "1fa78ccf62": note("7.9.3", LEAN.shapes3_5),
   // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
-  "8b3a192776": LEAN.shapes10_4,
+  "8b3a192776": note("7.2.7", LEAN.shapes10_4),
   // x = Li32.wrapping_neg();
   // break 'body_N;
-  "204a887600": LEAN.shapes11_9,
+  "204a887600": note("7.5.2", LEAN.shapes11_9),
   // x = x.to();
-  "211808ca56": merged(LEAN.shapes12_6, LEAN.shapes12_7),
+  "211808ca56": merged(["7.4.4", LEAN.shapes12_6], ["7.4.1", LEAN.shapes12_7]),
   // if (self.f as i32) > Li32 {
-  "21575de23f": LEAN.shapes11_16,
+  "21575de23f": note("7.3.3", LEAN.shapes11_16),
   // self.f = len(self.f.to::<L>());
-  "21ef64a1e0": LEAN.shapes14_18,
+  "21ef64a1e0": note("7.4.6", LEAN.shapes14_18),
   // x = (self.f as i32).wrapping_mul(Li32) as i16;
-  "228035615e": LEAN.shapes19_10,
+  "228035615e": note("7.3.1", LEAN.shapes19_10),
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as u16;
-  "2287fe3f1d": LEAN.shapes10_3,
+  "2287fe3f1d": note("7.3.13", LEAN.shapes10_3),
   // self.f.__numbers_upper_N = Li32;
-  "22f3bd9b6d": LEAN.shapes14_15,
+  "22f3bd9b6d": note("7.5.7", LEAN.shapes14_15),
   // x = x.with_char(x.wrapping_sub(x) as i64, Lu8).to();
-  "234c4da721": LEAN.shapes15_2,
+  "234c4da721": note("7.4.3", LEAN.shapes15_2),
   // if false { break; }
-  "235daf8f29": LEAN.shapes11_10,
+  "235daf8f29": note("7.5.8", LEAN.shapes11_10),
   // self.f = self.f.f == IecWString::<L>::lit(&[Lu16, …]);
-  "23d12708e2": LEAN.shapes15_12,
+  "23d12708e2": note("7.4.8", LEAN.shapes15_12),
   // self.f = (self.f as f64).sin() as f32;
-  "23d755d76c": LEAN.shapes6_10,
+  "23d755d76c": note("7.3.12", LEAN.shapes6_10),
   // pub fn m(mut x: u32) -> bool {
-  "241f597128": LEAN.shapes14_14,
+  "241f597128": note("7.7.3", LEAN.shapes14_14),
   // self.f = Li64.wrapping_add(Li64) as i32;
-  "24588decbd": LEAN.shapes7_1,
+  "24588decbd": note("7.2.2", LEAN.shapes7_1),
   // self.f = self.f.char_at(Li8 as i64);
-  "2506fd8442": LEAN.shapes14_2,
+  "2506fd8442": note("7.2.3", LEAN.shapes14_2),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as u8;
-  "253e416b11": LEAN.shapes8_5,
+  "253e416b11": note("7.2.5", LEAN.shapes8_5),
   // self.f = m(L, …, &mut self.f, …);
-  "256218c83c": LEAN.shapes14_8,
+  "256218c83c": note("7.4.5", LEAN.shapes14_8),
   // self.f = (x as i32).wrapping_mul(x as i32) as i16;
-  "260b606dc8": LEAN.shapes19_10,
+  "260b606dc8": note("7.3.1", LEAN.shapes19_10),
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i16 {
-  "26a81a085d": LEAN.shapes16_15,
+  "26a81a085d": note("7.7.8", LEAN.shapes16_15),
   // self.f = ((self.f as f64).sqrt() as f32) == ((self.f as f64).sqrt() as f32);
-  "26afed6c0b": LEAN.shapes9_11,
+  "26afed6c0b": note("7.3.6", LEAN.shapes9_11),
   // self.f = match self.f { L => (*__lent_N).m(), _ => panic!(S) };
-  "26bfea40dc": LEAN.shapes19_6,
+  "26bfea40dc": note("7.8.7", LEAN.shapes19_6),
   // self.f = { self.__inout_guard_N = self.p; self.__inout_index_N = (self.p as i64).wrapping_add(-Li64); let __arg_N 
-  "26c1488275": LEAN.shapes20_10,
+  "26c1488275": note("7.6.1", LEAN.shapes20_10),
   // if (self.f as i32) == Li32 {
-  "271163608b": LEAN.shapes5_6,
+  "271163608b": note("7.3.3", LEAN.shapes5_6),
   // self.f = iec_max(self.f, ….to::<L>()).to::<L>().to();
-  "286d90b120": LEAN.shapes15_1,
+  "286d90b120": note("7.4.2", LEAN.shapes15_1),
   // self.f = ((self.f as i32) & (self.f as i32)) as i16;
-  "28a9242939": LEAN.shapes8_3,
+  "28a9242939": note("7.3.1", LEAN.shapes8_3),
   // x = len((*x).to::<L>());
-  "28af8caf65": LEAN.shapes18_3,
+  "28af8caf65": note("7.8.6", LEAN.shapes18_3),
   // self.f = m(self.f as f64).ln() as f32;
-  "28c9b9742d": LEAN.shapes6_10,
+  "28c9b9742d": note("7.3.12", LEAN.shapes6_10),
   // self.f[(self.f as i64) as usize].f = (self.f as i32).wrapping_mul(Li32) as i16;
-  "28e0f14a5a": LEAN.shapes3_4,
+  "28e0f14a5a": note("7.2.4", LEAN.shapes3_4),
   // self.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
-  "28ee7b5d58": LEAN.shapes16_5,
+  "28ee7b5d58": note("7.4.4", LEAN.shapes16_5),
   // self.f = m(((self.f as f64).sqrt() as f32) as f64);
-  "2929468557": LEAN.shapes8_8,
+  "2929468557": note("7.3.6", LEAN.shapes8_8),
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(Li32) as i16;
-  "293906cee0": LEAN.shapes20_1,
+  "293906cee0": note("7.3.1", LEAN.shapes20_1),
   // x = m(__values_lower_N, __values_upper_N, &mut (*x)).wrapping_add(__values_upper_N);
-  "29dc1a9c14": LEAN.shapes20_11,
+  "29dc1a9c14": note("7.8.6", LEAN.shapes20_11),
   // x = (x as i32).wrapping_sub(Li32) as u16;
-  "2a09a0d33c": LEAN.shapes15_4,
+  "2a09a0d33c": note("7.3.1", LEAN.shapes15_4),
   // pub fn x<const T: usize>(x: &IecString<T>) -> i16 {
-  "2b67f9045b": LEAN.shapes19_7,
+  "2b67f9045b": note("7.6.5", LEAN.shapes19_7),
   // self.__property_N = self.f;
-  "2b6ceac96d": merged(LEAN.shapes18_1, LEAN.shapes18_2),
+  "2b6ceac96d": merged(["7.6.3", LEAN.shapes18_1], ["7.6.2", LEAN.shapes18_2]),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as u16;
-  "2c27c13c32": LEAN.shapes8_5,
+  "2c27c13c32": note("7.2.5", LEAN.shapes8_5),
   // self.f = (self.f as i32) <= Li32;
-  "2cfa532f63": LEAN.shapes6_7,
+  "2cfa532f63": note("7.3.3", LEAN.shapes6_7),
   // x = (*x) == IecString::<L>::lit(B);
-  "2e20d3f400": LEAN.shapes14_17,
+  "2e20d3f400": note("7.4.9", LEAN.shapes14_17),
   // x = (x as i32).wrapping_mul(Li32).wrapping_add(x as i32) as i16;
-  "2ea589a8a1": LEAN.shapes16_6,
+  "2ea589a8a1": note("7.3.1", LEAN.shapes16_6),
   // g.f = (self.f as i32).wrapping_mul(Li32) as i16;
-  "2ed6ef380f": LEAN.shapes19_10,
+  "2ed6ef380f": note("7.3.1", LEAN.shapes19_10),
   // self.lit = Li64.min(Li64) as i16;
-  "2f368e2e5b": LEAN.shapes6_6,
+  "2f368e2e5b": note("7.2.2", LEAN.shapes6_6),
   // x.f = (x as i32).wrapping_mul(Li32) as i16;
-  "2fd81c587c": LEAN.shapes15_4,
+  "2fd81c587c": note("7.3.1", LEAN.shapes15_4),
   // pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {
-  "30d5674ec4": LEAN.shapes19_8,
+  "30d5674ec4": note("7.7.5", LEAN.shapes19_8),
   // self.is_empty = m(L, &mut self.f);
-  "311bf0f5b7": LEAN.shapes14_8,
+  "311bf0f5b7": note("7.4.5", LEAN.shapes14_8),
   // self.f = (self.f as i32).wrapping_shl(Li8 as u32) as i8;
-  "317cab8d16": LEAN.shapes8_5,
+  "317cab8d16": note("7.2.5", LEAN.shapes8_5),
   // self.f = self.f.with_char(Li8 as i64, Lu8).to();
-  "318cfd770d": merged(LEAN.shapes15_2, LEAN.shapes15_3),
+  "318cfd770d": merged(["7.4.3", LEAN.shapes15_2], ["7.2.3", LEAN.shapes15_3]),
   // self.f = Li32.wrapping_neg().max(self.f as i32).min(self.f as i32) as i16;
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
-  "3279d75111": LEAN.shapes20_13,
+  "3279d75111": note("7.8.5", LEAN.shapes20_13),
   // self.f = (self.f as u64).wrapping_sub({ let x = self.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem
-  "32a9e6d2e3": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "32a9e6d2e3": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // self.f = Li64.wrapping_sub(-Li64) as usize;
-  "32f4b8cabb": LEAN.shapes11_18,
+  "32f4b8cabb": note("7.2.4", LEAN.shapes11_18),
   // *x = ({ let x = x as i32; let x = x as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
-  "3357f26b8d": LEAN.shapes16_4,
+  "3357f26b8d": note("7.2.6", LEAN.shapes16_4),
   // x = Li32.wrapping_add(self.f as i32) as i16;
-  "335f79d286": LEAN.shapes19_10,
+  "335f79d286": note("7.3.1", LEAN.shapes19_10),
   // self.f = self.__numbers_lower_N.wrapping_mul(Li32).wrapping_add(self.__numbers_upper_N);
-  "33fc10bac3": LEAN.shapes16_15,
+  "33fc10bac3": note("7.7.8", LEAN.shapes16_15),
   // m(L, …u16, Li16, …, L, …u16, &mut self.f, …);
-  "34556679d4": LEAN.shapes15_15,
+  "34556679d4": note("7.4.4", LEAN.shapes15_15),
   // self.f = self.f.wrapping_shr(Li16 as u32) as u8;
-  "346e81a0f2": LEAN.shapes8_4,
+  "346e81a0f2": note("7.2.5", LEAN.shapes8_4),
   // if ((x == L) | (x == L)) | ((x as i32) < Li32) {
-  "347b79cfd5": LEAN.shapes15_5,
+  "347b79cfd5": note("7.5.6", LEAN.shapes15_5),
   // x: { let mut v = T::new(); v.f = Li16; v.f = Lf32; v.f = IecString::<L>::lit(B); v },
-  "3489b7781f": LEAN.shapes3_7,
+  "3489b7781f": note("7.8.3", LEAN.shapes3_7),
   // self.f = (self.f as i32).wrapping_mul(Li32) as u8;
-  "34c55ebfd9": LEAN.shapes8_3,
+  "34c55ebfd9": note("7.3.1", LEAN.shapes8_3),
   // pub fn after_global_init(&mut self, g: &mut Globals) {
-  "365326bb03": LEAN.shapes15_6,
+  "365326bb03": note("7.7.5", LEAN.shapes15_6),
   // x: [(-Li32), Li32, …],
-  "36d4b59ee2": LEAN.shapes11_19,
+  "36d4b59ee2": note("7.2.9", LEAN.shapes11_19),
   // x.f = (x.f as i32).wrapping_add(Li32) as i16;
-  "373f640901": LEAN.shapes15_4,
+  "373f640901": note("7.3.1", LEAN.shapes15_4),
   // self.f = Li64.max(-Li64).min(Li64) as i16;
-  "21672c09ea": LEAN.shapes8_6,
+  "21672c09ea": note("7.2.7", LEAN.shapes8_6),
   // map
-  "37745ed7a0": LEAN.shapes17_5,
+  "37745ed7a0": note("7.7.5", LEAN.shapes17_5),
   // pub __property_N: i16,
-  "377c1dfc31": LEAN.shapes13_10,
+  "377c1dfc31": note("7.6.2", LEAN.shapes13_10),
   // self.f.f = IecString::<L>::lit(B).to();
-  "37c65c7fbb": LEAN.shapes2_6,
+  "37c65c7fbb": note("7.4.2", LEAN.shapes2_6),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i16;
-  "37e2b15787": LEAN.shapes8_5,
+  "37e2b15787": note("7.2.5", LEAN.shapes8_5),
   // self.sum = (self.f.f as i32).wrapping_add(self.f.f as i32) as i16;
-  "37f5ec3b06": LEAN.shapes16_6,
+  "37f5ec3b06": note("7.3.1", LEAN.shapes16_6),
   // x = (self.f as i32).wrapping_add(Li32) as i16;
-  "37faa78985": LEAN.shapes19_10,
+  "37faa78985": note("7.3.1", LEAN.shapes19_10),
   // g.f = (g.f as i32).wrapping_add(Li32) as u16;
-  "383107953f": LEAN.shapes19_10,
+  "383107953f": note("7.3.1", LEAN.shapes19_10),
   // self.f = self.__numbers_upper_N.wrapping_sub(self.__numbers_lower_N).wrapping_add(Li32);
-  "38cce5cb54": LEAN.shapes16_15,
+  "38cce5cb54": note("7.7.8", LEAN.shapes16_15),
   // self.f = Lu8 as u32;
-  "395880371f": LEAN.shapes3_11,
+  "395880371f": note("7.2.10", LEAN.shapes3_11),
   // self.f = (self.f as i32).wrapping_neg() as i16;
-  "3968425889": LEAN.shapes7_3,
+  "3968425889": note("7.3.1", LEAN.shapes7_3),
   // self.f = self.f.clone();
-  "39e68c53af": LEAN.shapes2_9,
+  "39e68c53af": note("7.8.2", LEAN.shapes2_9),
   // *x = ((x as i32) / Li32) as i16;
-  "3a7612a7b4": LEAN.shapes18_7,
+  "3a7612a7b4": note("7.3.11", LEAN.shapes18_7),
   // self.f = self.f.rotate_right(self.f as u32);
-  "3aa4ff5b30": LEAN.shapes7_4,
+  "3aa4ff5b30": note("7.3.5", LEAN.shapes7_4),
   // self.f = (match g.f { L => Li64, …, _ => Li64 }) as i16;
-  "3b823fe0e7": LEAN.shapes19_5,
+  "3b823fe0e7": note("7.2.7", LEAN.shapes19_5),
   // self.f = ((*x) as i32).wrapping_mul(Li32) as i16;
-  "3c5653e905": merged(LEAN.shapes15_4, LEAN.shapes15_9),
+  "3c5653e905": merged(["7.3.1", LEAN.shapes15_4], ["7.8.6", LEAN.shapes15_9]),
   // (match self.f { L => self.f.m_set(self.__property_N), _ => panic!(S) });
-  "3c8fcdf5d6": merged(LEAN.shapes20_10, LEAN.shapes20_14),
+  "3c8fcdf5d6": merged(["7.6.1", LEAN.shapes20_10], ["7.8.7", LEAN.shapes20_14]),
   // replace
-  "3cacc7bfac": LEAN.shapes12_11,
+  "3cacc7bfac": note("7.4.6", LEAN.shapes12_11),
   // x = (m(x) as i32) == (m(x) as i32);
-  "3cded85aba": LEAN.shapes14_6,
+  "3cded85aba": note("7.3.3", LEAN.shapes14_6),
   // pub fn m(mut x: IecString<L>, …) -> IecString<L> {
-  "3cf4e6fa21": merged(LEAN.shapes15_7, LEAN.shapes15_14),
+  "3cf4e6fa21": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
   // if (self.f as i32) > Li32 { break; }
-  "3d3b42b24d": LEAN.shapes11_16,
+  "3d3b42b24d": note("7.3.3", LEAN.shapes11_16),
   // self.f = self.f.narrow::<L>().to::<L>().to();
-  "d54a668b9a": LEAN.shapes15_1,
+  "d54a668b9a": note("7.4.2", LEAN.shapes15_1),
   // self.f.m();
-  "3d737b5821": LEAN.shapes1_6,
+  "3d737b5821": note("7.2.3", LEAN.shapes1_6),
   // x = __grid_lower_N.wrapping_mul(Li32).wrapping_add(__grid_upper_N) as i16;
-  "3d792fe7d9": LEAN.shapes16_15,
+  "3d792fe7d9": note("7.7.8", LEAN.shapes16_15),
   // if m(x, …, false, &mut (*x), &mut (*x)) {
-  "3d7b4a7836": LEAN.shapes15_9,
+  "3d7b4a7836": note("7.8.6", LEAN.shapes15_9),
   // self.f = { let x = (-Lf64).trunc(); if (-L..=L).contains(&x) { x as i32 } else { i32::MIN } };
-  "3e1e32f963": LEAN.shapes10_7,
+  "3e1e32f963": note("7.2.7", LEAN.shapes10_7),
   // x = (x as i32).wrapping_mul(x as i32) as i16;
-  "3eced711ed": LEAN.shapes19_10,
+  "3eced711ed": note("7.3.1", LEAN.shapes19_10),
   // self.f.f = (self.f as i32) >= Li32;
-  "3ecf4f248b": LEAN.shapes14_6,
+  "3ecf4f248b": note("7.3.3", LEAN.shapes14_6),
   // self.f = m(L, …i32, L, &mut self.f, …);
-  "3eed014822": LEAN.shapes14_8,
+  "3eed014822": note("7.4.5", LEAN.shapes14_8),
   // x = { m(x); *x };
-  "3fed555c25": LEAN.shapes12_9,
+  "3fed555c25": note("7.9.3", LEAN.shapes12_9),
   // x: std::array::from_fn(|_| [Lf32; L]),
-  "4026548939": LEAN.shapes11_13,
+  "4026548939": note("7.8.2", LEAN.shapes11_13),
   // self.f = self.__chain_value_N;
-  "40fd7317bb": LEAN.shapes5_7,
+  "40fd7317bb": note("7.6.1", LEAN.shapes5_7),
   // self.f = { m(self.p); self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f };
-  "417ce6fb0b": LEAN.shapes3_4,
+  "417ce6fb0b": note("7.2.4", LEAN.shapes3_4),
   // self.p = Li64.wrapping_sub(-Li64) as usize;
-  "41d2232599": LEAN.shapes2_4,
+  "41d2232599": note("7.2.4", LEAN.shapes2_4),
   // x = (x as i32).wrapping_add(x as i32) as i16;
-  "41d2269c05": LEAN.shapes15_4,
+  "41d2269c05": note("7.3.1", LEAN.shapes15_4),
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li16).to::<L>().to();
-  "41d85d47cf": LEAN.shapes16_1,
+  "41d85d47cf": note("7.4.1", LEAN.shapes16_1),
   // self.f = (self.f as i32).wrapping_mul(Li32) as i8;
-  "41f40f95f9": LEAN.shapes8_3,
+  "41f40f95f9": note("7.3.1", LEAN.shapes8_3),
   // self.v = ((Lf32 - self.f) as f64).sqrt() as f32;
-  "428230e030": LEAN.shapes8_8,
+  "428230e030": note("7.3.6", LEAN.shapes8_8),
   // pub __chain_value_N: bool,
-  "42897347c4": LEAN.shapes11_11,
+  "42897347c4": note("7.6.1", LEAN.shapes11_11),
   // pub fn m(mut x: i32, mut x: i16, x: &mut i64) -> bool {
-  "431373ac5d": LEAN.shapes19_2,
+  "431373ac5d": note("7.7.9", LEAN.shapes19_2),
   // x = Li32.wrapping_neg() as i16;
   // self.f.__numbers_lower_N = self.__numbers_lower_N;
-  "43449862b7": LEAN.shapes15_13,
+  "43449862b7": note("7.2.3", LEAN.shapes15_13),
   // x = (x as i32).wrapping_sub(Li32) as u8;
-  "43aa1830f1": LEAN.shapes14_4,
+  "43aa1830f1": note("7.3.1", LEAN.shapes14_4),
   // pub fn x<const T: usize>(mut p: usize, x: &mut IecString<T>) -> u8 {
-  "43aad8296c": LEAN.shapes16_14,
+  "43aad8296c": note("7.8.6", LEAN.shapes16_14),
   // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes()).to();
-  "448986061e": LEAN.shapes9_1,
+  "448986061e": note("7.4.2", LEAN.shapes9_1),
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_mul(
-  "44a9549a6b": LEAN.shapes12_2,
+  "44a9549a6b": note("7.2.3", LEAN.shapes12_2),
   // if ({ m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) as i32) == Li32 { break; }
-  "44d286d05b": merged(LEAN.shapes16_2, LEAN.shapes16_5),
+  "44d286d05b": merged(["7.4.4", LEAN.shapes16_2], ["7.4.4", LEAN.shapes16_5]),
   // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16, Li16).to::<L>().to();
-  "8ee065ce1a": LEAN.shapes16_1,
+  "8ee065ce1a": note("7.4.1", LEAN.shapes16_1),
   // self.p = L;
-  "45292dbd9c": merged(LEAN.shapes1_6, LEAN.shapes1_8),
+  "45292dbd9c": merged(["7.2.3", LEAN.shapes1_6], ["7.8.8", LEAN.shapes1_8]),
   // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes()).to();
-  "45e329cf8f": LEAN.shapes9_1,
+  "45e329cf8f": note("7.4.2", LEAN.shapes9_1),
   // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes()).to();
-  "463c3aa6a9": LEAN.shapes9_1,
+  "463c3aa6a9": note("7.4.2", LEAN.shapes9_1),
   // self.f = self.f.wrapping_add(Li16);
-  "46c17ef7d3": LEAN.shapes2_1,
+  "46c17ef7d3": note("7.3.2", LEAN.shapes2_1),
   // self.f = { let __arg_N = m(self.f.to::<L>(), IecString::<L>::lit(B)); len(__arg_N) };
-  "47a7c12d8a": LEAN.shapes20_8,
+  "47a7c12d8a": note("7.6.6", LEAN.shapes20_8),
   // self.f.m_set(self.__property_N);
-  "48737e1389": LEAN.shapes18_2,
+  "48737e1389": note("7.6.2", LEAN.shapes18_2),
   // self.f = self.p.wrapping_add(L);
-  "48944bacca": LEAN.shapes2_4,
+  "48944bacca": note("7.2.4", LEAN.shapes2_4),
   // pub fn fb_init(&mut self, mut x: bool, …) -> bool {
-  "49346d6299": LEAN.shapes2_11,
+  "49346d6299": note("7.7.1", LEAN.shapes2_11),
   // self.f = self.v.wrapping_sub({ let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } });
-  "49387a9ebf": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "49387a9ebf": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // g: false,
-  "496b8acb56": merged(LEAN.shapes8_9, LEAN.shapes8_11),
+  "496b8acb56": merged(["keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13", LEAN.shapes8_9], ["7.6.6", LEAN.shapes8_11]),
   // self.f = (self.f as i32).wrapping_add(Li32) as i16;
-  "4979768984": LEAN.shapes2_1,
+  "4979768984": note("7.3.2", LEAN.shapes2_1),
   // self.f = (-Li64).wrapping_neg();
   // if (len(self.f.f[(self.f as i64) as usize].to::<L>()) as i32) > (self.f as i32) {
-  "4a599db8d8": merged(LEAN.shapes16_7, LEAN.shapes16_11),
+  "4a599db8d8": merged(["7.2.14", LEAN.shapes16_7], ["7.4.6", LEAN.shapes16_11]),
   // pub x: i64,
-  "4a6baf16b3": merged(LEAN.shapes13_1, LEAN.shapes13_4),
+  "4a6baf16b3": merged(["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", LEAN.shapes13_1], ["7.2.2", LEAN.shapes13_4]),
   // x = ((*x) as i32).wrapping_mul(Li32) as i16;
-  "4b22d23722": merged(LEAN.shapes15_4, LEAN.shapes15_9),
+  "4b22d23722": merged(["7.3.1", LEAN.shapes15_4], ["7.8.6", LEAN.shapes15_9]),
   // self.f = match self.f { L => (*__lent_N).take(Li16), _ => panic!(S) };
-  "4b5007906a": LEAN.shapes20_14,
+  "4b5007906a": note("7.8.7", LEAN.shapes20_14),
   // self.f = Lu64;
-  "4bf3f61062": LEAN.shapes1_10,
+  "4bf3f61062": note("7.2.11", LEAN.shapes1_10),
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> i32 {
-  "4c796f6678": LEAN.shapes16_14,
+  "4c796f6678": note("7.8.6", LEAN.shapes16_14),
   // x = (x as i32).wrapping_add(Li32) as u16;
-  "4c9f4e33f4": LEAN.shapes14_4,
+  "4c9f4e33f4": note("7.3.1", LEAN.shapes14_4),
   // if !((x < x) & ((x.char_at(x.wrapping_add(x) as i64) as i32) == (x.char_at(x as i64) as i32))) { break; }
-  "4d5ea12dda": LEAN.shapes16_5,
+  "4d5ea12dda": note("7.4.4", LEAN.shapes16_5),
   // self.f = (self.v as u64).wrapping_sub({ let x = self.v as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem
-  "4d6263fb86": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "4d6263fb86": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // { let __copy_N = IecString::<L>::lit(B); self.f.call(&self.f, &__copy_N); }
-  "4d6e5e12b9": LEAN.shapes16_12,
+  "4d6e5e12b9": note("7.6.5", LEAN.shapes16_12),
   // self.__property_N = Li16;
-  "4d8c0c87ee": LEAN.shapes13_10,
+  "4d8c0c87ee": note("7.6.2", LEAN.shapes13_10),
   // { let mut x = std::mem::take(&mut prg.f); x.m(prg); prg.f = x; };
-  "4da7af6f6b": LEAN.shapes9_8,
+  "4da7af6f6b": note("7.7.6", LEAN.shapes9_8),
   // self.f = self.f[((Li8 as i64) - Li64) as usize];
-  "4e213fd264": LEAN.shapes15_3,
+  "4e213fd264": note("7.2.3", LEAN.shapes15_3),
   // *v = ((*v) as i32).wrapping_add(Li32) as i16;
-  "4ebfb530bd": LEAN.shapes19_10,
+  "4ebfb530bd": note("7.3.1", LEAN.shapes19_10),
   // self.f = false;
-  "4edbb4135a": LEAN.shapes3_13,
+  "4edbb4135a": note("7.6.1", LEAN.shapes3_13),
   // self.f = m(self.f.to::<L>(), Li16, …).to::<L>().to();
-  "4eeb332195": LEAN.shapes15_1,
+  "4eeb332195": note("7.4.2", LEAN.shapes15_1),
   // self.f = (self.f as i32).wrapping_add(Li32) as u16;
-  "4fb4aff790": LEAN.shapes8_3,
+  "4fb4aff790": note("7.3.1", LEAN.shapes8_3),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8).to();
-  "4fb82cd93a": merged(LEAN.shapes16_2, LEAN.shapes16_3, LEAN.shapes16_10),
+  "4fb82cd93a": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // if !((x < Li32) & (x < x)) { break; }
-  "50226e2c19": LEAN.shapes14_7,
+  "50226e2c19": note("7.5.7", LEAN.shapes14_7),
   // *x = self.f;
-  "50ba9519ad": LEAN.shapes17_9,
+  "50ba9519ad": note("7.6.3", LEAN.shapes17_9),
   // if !((x < x) && ((x[(x as i64) as usize] as i32) != Li32)) { break; }
-  "50f8dcd811": LEAN.shapes16_5,
+  "50f8dcd811": note("7.4.4", LEAN.shapes16_5),
   // let mut take: i16 = Li16;
-  "51ea066d8e": LEAN.shapes18_10,
+  "51ea066d8e": note("7.7.3", LEAN.shapes18_10),
   // loop {
-  "521ba042ac": LEAN.shapes1_3,
+  "521ba042ac": note("7.5.2", LEAN.shapes1_3),
   // self.f = self.f.wrapping_shr(Li16 as u32) as u16;
-  "5228723708": LEAN.shapes8_4,
+  "5228723708": note("7.2.5", LEAN.shapes8_4),
   // self.f = (*x).m();
-  "52d85b7cdc": LEAN.shapes12_5,
+  "52d85b7cdc": note("7.8.6", LEAN.shapes12_5),
   // x = x.wrapping_add(-Li32);
-  "5351b3711d": LEAN.shapes13_6,
+  "5351b3711d": note("7.5.10", LEAN.shapes13_6),
   // x = Li16;
-  "5370b79269": LEAN.shapes12_10,
+  "5370b79269": note("7.7.3", LEAN.shapes12_10),
   // if x >= L { return (x as u64) as i64; }
-  "5383e1c9ac": LEAN.shapes7_9,
+  "5383e1c9ac": note("7.9.1", LEAN.shapes7_9),
   // take
-  "53bd7d992e": LEAN.shapes17_9,
+  "53bd7d992e": note("7.6.3", LEAN.shapes17_9),
   // self.f = (self.f as i32) >= (self.f as i32);
-  "54889e0f45": LEAN.shapes7_2,
+  "54889e0f45": note("7.3.3", LEAN.shapes7_2),
   // x = (((x as i32).max(Li32) as u16) as i32).wrapping_sub(Li32);
-  "5513d0e592": LEAN.shapes16_9,
+  "5513d0e592": note("7.3.9", LEAN.shapes16_9),
   // self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f = Li16;
-  "55d895e28f": LEAN.shapes3_4,
+  "55d895e28f": note("7.2.4", LEAN.shapes3_4),
   // self.f = m(self.f, … as f32);
-  "55fe85cf23": LEAN.shapes5_4,
+  "55fe85cf23": note("7.2.6", LEAN.shapes5_4),
   // self.f = self.f.wrapping_sub(self.f).wrapping_add(self.f);
-  "561f3f5e13": LEAN.shapes19_11,
+  "561f3f5e13": note("7.2.6", LEAN.shapes19_11),
   // x[(x as i64) as usize] = { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64));
-  "569d2b7a40": merged(LEAN.shapes16_2, LEAN.shapes16_10),
+  "569d2b7a40": merged(["7.4.4", LEAN.shapes16_2], ["7.2.4", LEAN.shapes16_10]),
   // pub fn m(mut __values_lower_N: i32, mut __values_upper_N: i32, x: &mut [u8]) -> i64 {
-  "56c1a77525": LEAN.shapes16_15,
+  "56c1a77525": note("7.7.8", LEAN.shapes16_15),
   // self.f = (self.f as i32).wrapping_abs() as u8;
-  "56c33c9bab": LEAN.shapes7_3,
+  "56c33c9bab": note("7.3.1", LEAN.shapes7_3),
   // pub ops: [u64; L],
-  "572db4e711": LEAN.shapes17_8,
+  "572db4e711": note("7.8.2", LEAN.shapes17_8),
   // self.f = Li64.wrapping_sub(Li64);
-  "57a8f5a4c8": LEAN.shapes5_3,
+  "57a8f5a4c8": note("7.2.2", LEAN.shapes5_3),
   // *x = { m(x.f); *x }.wrapping_add(x as i32);
-  "57ce9e2ee4": LEAN.shapes19_1,
+  "57ce9e2ee4": note("7.9.3", LEAN.shapes19_1),
   // self.v = m(self.f, Lf64);
-  "5886a0dc2b": LEAN.shapes4_8,
+  "5886a0dc2b": note("7.2.6", LEAN.shapes4_8),
   // self.f = Li64.wrapping_sub(Li64) as i32;
-  "58988cbee9": LEAN.shapes7_1,
+  "58988cbee9": note("7.2.2", LEAN.shapes7_1),
   // self.f.call(prg);
-  "58a7e6289b": LEAN.shapes17_5,
+  "58a7e6289b": note("7.7.6", LEAN.shapes17_5),
   // self.f = Li64.max(Li64).max(Li64) as i16;
-  "58d4f235fd": LEAN.shapes7_1,
+  "58d4f235fd": note("7.2.2", LEAN.shapes7_1),
   // x = __numbers_lower_N;
-  "58edc15c64": LEAN.shapes13_17,
+  "58edc15c64": note("7.7.8", LEAN.shapes13_17),
   // if (x as i32) < Li32 {
-  "58f3434567": LEAN.shapes18_6,
+  "58f3434567": note("7.3.3", LEAN.shapes18_6),
   // self.f = Li32.wrapping_neg() as i16;
   // self.f = iec_min(self.f, …).to();
-  "59b48cdb5b": LEAN.shapes5_8,
+  "59b48cdb5b": note("7.4.1", LEAN.shapes5_8),
   // self.f = iec_max(self.f, …).to();
-  "59b92aa532": LEAN.shapes5_8,
+  "59b92aa532": note("7.4.1", LEAN.shapes5_8),
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
-  "59c341cb0f": LEAN.shapes19_6,
+  "59c341cb0f": note("7.8.7", LEAN.shapes19_6),
   // self.f = (match self.f { L => self.f as i32, …, _ => self.f as i32 }) as i16;
-  "5a9bc1030e": LEAN.shapes9_6,
+  "5a9bc1030e": note("7.3.1", LEAN.shapes9_6),
   // __chain_value_N: Li16,
-  "5b7909c564": LEAN.shapes4_6,
+  "5b7909c564": note("7.6.1", LEAN.shapes4_6),
   // self.v = self.f * (-Lf64);
-  "5c40a4e5a8": LEAN.shapes4_9,
+  "5c40a4e5a8": note("7.2.9", LEAN.shapes4_9),
   // m(x);
-  "5c499dbdc8": LEAN.shapes12_6,
+  "5c499dbdc8": note("7.4.4", LEAN.shapes12_6),
   // self.f = replace(self.f.to::<L>(), IecString::<L>::lit(B), Li16, …).to::<L>().to();
-  "5c7f0546bc": LEAN.shapes16_1,
+  "5c7f0546bc": note("7.4.1", LEAN.shapes16_1),
   // pub x: f32,
-  "5c9bb13706": LEAN.shapes12_14,
+  "5c9bb13706": note("7.3.7", LEAN.shapes12_14),
   // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes()).to();
-  "5cd04259c1": LEAN.shapes9_1,
+  "5cd04259c1": note("7.4.2", LEAN.shapes9_1),
   // x[(x as i64).wrapping_sub(__numbers_lower_N as i64) as usize] = x.wrapping_mul(Li32) as i16;
-  "5d3437b284": LEAN.shapes16_7,
+  "5d3437b284": note("7.2.14", LEAN.shapes16_7),
   // x: IecString::<L>::lit(B),
-  "5d9850550d": LEAN.shapes2_6,
+  "5d9850550d": note("7.4.1", LEAN.shapes2_6),
   // self.f = match self.ops[((self.f as i64) - Li64) as usize] { L => self.f.m(self.f), L => self.f.m(self.f), _ => pa
-  "5dcbae07c6": LEAN.shapes20_12,
+  "5dcbae07c6": note("7.2.3", LEAN.shapes20_12),
   // if ((x as i32) >= Li32) & ((len as i32) > Li32) {
-  "5e5aa25221": LEAN.shapes15_5,
+  "5e5aa25221": note("7.5.6", LEAN.shapes15_5),
   // let mut fb_init: i16 = Li16;
-  "5e9caa6605": LEAN.shapes18_10,
+  "5e9caa6605": note("7.7.3", LEAN.shapes18_10),
   // (match self.f.f { L => self.f.m(&mut self.f), L => self.f.m(&mut self.f), _ => panic!(S) });
-  "5ed54bb657": LEAN.shapes20_14,
+  "5ed54bb657": note("7.8.7", LEAN.shapes20_14),
   // self.f = (self.f as i32).wrapping_neg();
-  "605307fc4c": LEAN.shapes7_3,
+  "605307fc4c": note("7.3.1", LEAN.shapes7_3),
   // { let __arg_N = true; let __arg_N = false; let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x 
-  "60d6b79cca": merged(LEAN.shapes20_8, LEAN.shapes20_9),
+  "60d6b79cca": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
   // self.f = m(self.f as f64, Lf64) as f32;
-  "61a75e7b4b": LEAN.shapes7_10,
+  "61a75e7b4b": note("7.2.6", LEAN.shapes7_10),
   // self.f = (self.f as i32).wrapping_add(self.f.f as i32) as i16;
-  "623e0abb20": LEAN.shapes19_10,
+  "623e0abb20": note("7.3.1", LEAN.shapes19_10),
   // self.f = ((self.f as i32) / (self.f as i32)) as f32;
-  "6256abaa7b": LEAN.shapes8_7,
+  "6256abaa7b": note("7.2.6", LEAN.shapes8_7),
   // self.f[((Li8 as i64) - Li64) as usize] = (self.f[((Li8 as i64) - Li64) as usize] as i32).wrapping_add(Li32) as i16
-  "628bc6e2ed": LEAN.shapes12_2,
+  "628bc6e2ed": note("7.2.3", LEAN.shapes12_2),
   // if ({ m(x); *__str_pst_N }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 { break; 
-  "62c7abffa7": LEAN.shapes17_1,
+  "62c7abffa7": note("7.9.3", LEAN.shapes17_1),
   // x = __numbers_upper_N;
-  "62caf55aa5": LEAN.shapes13_17,
+  "62caf55aa5": note("7.7.8", LEAN.shapes13_17),
   // self.m_set(__property_N);
-  "637fe937dc": LEAN.shapes18_2,
+  "637fe937dc": note("7.6.2", LEAN.shapes18_2),
   // self.f = self.f.wrapping_shl(self.f as u32);
-  "638ea949bb": LEAN.shapes7_4,
+  "638ea949bb": note("7.3.5", LEAN.shapes7_4),
   // self.v = Li64.wrapping_sub(Li64) as i32;
-  "63c4ea9498": LEAN.shapes7_1,
+  "63c4ea9498": note("7.2.2", LEAN.shapes7_1),
   // pub x: i32,
-  "63d29bd1a0": merged(LEAN.shapes12_12, LEAN.shapes12_13),
+  "63d29bd1a0": merged(["7.2.2", LEAN.shapes12_12], ["7.3.1", LEAN.shapes12_13]),
   // self.f = Li64.wrapping_sub(Li64) as i16;
-  "63dc3d3963": LEAN.shapes7_1,
+  "63dc3d3963": note("7.2.2", LEAN.shapes7_1),
   // pub fn m(mut x: f32) -> f32 {
-  "63e6752512": LEAN.shapes13_12,
+  "63e6752512": note("7.7.1", LEAN.shapes13_12),
   // self.f = Li8 as i16;
-  "63f801635e": LEAN.shapes3_11,
+  "63f801635e": note("7.2.10", LEAN.shapes3_11),
   // g.f = (g.f as i32).wrapping_mul(Li32).wrapping_add(Li32) as i16;
-  "64b82e4bf9": LEAN.shapes16_6,
+  "64b82e4bf9": note("7.3.1", LEAN.shapes16_6),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as u8;
-  "64c0a06174": LEAN.shapes8_3,
+  "64c0a06174": note("7.3.1", LEAN.shapes8_3),
   // *x = { m(x.f); *x }.wrapping_add(x as i64);
-  "64cc413c0b": LEAN.shapes19_1,
+  "64cc413c0b": note("7.9.3", LEAN.shapes19_1),
   // x: Lu16,
-  "65df8e0418": LEAN.shapes5_17,
+  "65df8e0418": note("7.2.9", LEAN.shapes5_17),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]).to();
-  "668b522f05": LEAN.shapes17_2,
+  "668b522f05": note("7.4.3", LEAN.shapes17_2),
   // x: (f64::INFINITY),
-  "66ef68b08a": LEAN.shapes2_13,
+  "66ef68b08a": note("7.2.9", LEAN.shapes2_13),
   // self.f = (self.f as i32).wrapping_add(x as i32) as i16;
-  "6713eb5cc0": LEAN.shapes19_10,
+  "6713eb5cc0": note("7.3.1", LEAN.shapes19_10),
   // self.f.f[Li64 as usize] = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) 
-  "6750cc1d5f": merged(LEAN.shapes3_1, LEAN.shapes3_2, LEAN.shapes3_3),
+  "6750cc1d5f": merged(["7.8.4", LEAN.shapes3_1], ["7.2.6", LEAN.shapes3_2], ["7.2.3", LEAN.shapes3_3]),
   // self.f[(Li8 as i64) as usize][(Li8 as i64) as usize] = Lf32;
-  "67c71ff35c": LEAN.shapes11_7,
+  "67c71ff35c": note("7.2.3", LEAN.shapes11_7),
   // self.v = self.f * (-Lf32);
-  "682fffc71e": LEAN.shapes4_9,
+  "682fffc71e": note("7.2.9", LEAN.shapes4_9),
   // x: std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L])),
-  "683d4b1944": LEAN.shapes12_1,
+  "683d4b1944": note("7.8.2", LEAN.shapes12_1),
   // self.f.f = ({ let x = self.f.f[Li64 as usize] as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).
-  "6866dc0381": LEAN.shapes12_4,
+  "6866dc0381": note("7.2.6", LEAN.shapes12_4),
   // x: false,
-  "687428cc81": LEAN.shapes8_9,
+  "687428cc81": note("keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13", LEAN.shapes8_9),
   // __numbers_upper_N: Li32,
-  "68cdda5f1a": LEAN.shapes13_17,
+  "68cdda5f1a": note("7.7.8", LEAN.shapes13_17),
   // pub __inout_index_N: i64,
-  "690693c479": LEAN.shapes18_1,
+  "690693c479": note("7.6.3", LEAN.shapes18_1),
   // if x < -L { return i32::MIN; }
-  "693c14b0bd": LEAN.shapes5_1,
+  "693c14b0bd": note("7.9.1", LEAN.shapes5_1),
   // pub fn m(&mut self, prg: &mut Programs, mut x: i16) -> i16 {
-  "69b0552c65": LEAN.shapes19_8,
+  "69b0552c65": note("7.7.5", LEAN.shapes19_8),
   // self.f = len(self.f.f[(self.f as i64) as usize].to::<L>());
-  "6a2b5f2826": merged(LEAN.shapes15_3, LEAN.shapes15_14),
+  "6a2b5f2826": merged(["7.2.3", LEAN.shapes15_3], ["7.7.2", LEAN.shapes15_14]),
   // self.f = (self.f as i32).wrapping_abs() as i16;
-  "6a41bda0a0": LEAN.shapes2_10,
+  "6a41bda0a0": note("7.3.4", LEAN.shapes2_10),
   // pub x: f64,
-  "6a98109119": LEAN.shapes11_5,
+  "6a98109119": note("keep:the field line is already minimal and correct (probed edge inputs agree); removed by 7.2.13", LEAN.shapes11_5),
   // x = (self.f as i32).wrapping_mul(self.f as i32) as i16;
-  "6b14b17ba7": LEAN.shapes19_10,
+  "6b14b17ba7": note("7.3.1", LEAN.shapes19_10),
   // self.f = ((self.v as u64) / Lu64) as u32;
-  "6b4f1bb990": LEAN.shapes7_5,
+  "6b4f1bb990": note("7.3.10", LEAN.shapes7_5),
   // self.f = self.f.wrapping_add(self.f);
-  "6bf6856d37": LEAN.shapes6_13,
+  "6bf6856d37": note("7.5.1", LEAN.shapes6_13),
   // pub fn __init(&mut self, g: &mut Globals) {
-  "6cec059f2e": LEAN.shapes15_6,
+  "6cec059f2e": note("7.7.5", LEAN.shapes15_6),
   // x[(x as i64).wrapping_sub(__line_lower_N as i64) as usize].f = (x[(x as i64).wrapping_sub(__line_lower_N as i64) a
-  "6d48208e3e": LEAN.shapes20_12,
+  "6d48208e3e": note("7.2.3", LEAN.shapes20_12),
   // pub fn m(&mut self, mut x: i16) -> i16 {
-  "6dd22a92d0": LEAN.shapes14_14,
+  "6dd22a92d0": note("7.7.3", LEAN.shapes14_14),
   // m(L, …u16, L, …i16, Li16, …, &mut self.f, …);
-  "6e06410746": LEAN.shapes15_15,
+  "6e06410746": note("7.4.4", LEAN.shapes15_15),
   // pub fn m(mut x: u8) -> bool {
-  "6e16e4ee84": LEAN.shapes13_12,
+  "6e16e4ee84": note("7.7.1", LEAN.shapes13_12),
   // self.f = (self.f as u64) as u32;
-  "6e691851a6": merged(LEAN.shapes5_5, LEAN.shapes5_9),
+  "6e691851a6": merged(["7.2.6", LEAN.shapes5_5], ["7.3.9", LEAN.shapes5_9]),
   // self.f = Li64.wrapping_add(Li64) as i16;
-  "6e95d900d2": LEAN.shapes7_1,
+  "6e95d900d2": note("7.2.2", LEAN.shapes7_1),
   // (x as i64) as i32
-  "6f8ef8f0bd": LEAN.shapes3_8,
+  "6f8ef8f0bd": note("7.9.1", LEAN.shapes3_8),
   // x: (-Li32),
-  "6f9ae8fd3a": LEAN.shapes1_1,
+  "6f9ae8fd3a": note("7.2.9", LEAN.shapes1_1),
   // self.f.m_set(prg, self.__property_N);
-  "6ff1de2a48": LEAN.shapes18_2,
+  "6ff1de2a48": note("7.6.2", LEAN.shapes18_2),
   // self.f = m(self.f.to::<L>(), Li16).to::<L>().to();
-  "7030300a1b": LEAN.shapes15_1,
+  "7030300a1b": note("7.4.2", LEAN.shapes15_1),
   // self.f = x;
-  "707233d6d6": LEAN.shapes11_11,
+  "707233d6d6": note("7.6.1", LEAN.shapes11_11),
   // self.f[(Li8 as i64) as usize].m();
-  "7073e4cc28": LEAN.shapes6_9,
+  "7073e4cc28": note("7.2.3", LEAN.shapes6_9),
   // *x = ((*x) as i32).wrapping_add(x as i32) as i16;
-  "707715f6ab": LEAN.shapes19_10,
+  "707715f6ab": note("7.3.1", LEAN.shapes19_10),
   // x = IecString::<L>::lit(B).to();
-  "708b7c88b3": LEAN.shapes18_10,
+  "708b7c88b3": note("7.7.3", LEAN.shapes18_10),
   // self.f = { self.__inout_index_N = self.f; let __arg_N = self.m(); m(__arg_N, &mut self.f[(self.__inout_index_N as 
-  "70b25e3c85": LEAN.shapes20_10,
+  "70b25e3c85": note("7.6.1", LEAN.shapes20_10),
   // pub fn m(mut x: i32, x: &mut bool) -> i32 {
-  "72543de594": LEAN.shapes19_2,
+  "72543de594": note("7.7.9", LEAN.shapes19_2),
   // self.f.f = (self.f as i32) <= Li32;
-  "73351964cd": LEAN.shapes18_6,
+  "73351964cd": note("7.3.3", LEAN.shapes18_6),
   // self.f = true;
-  "73505351ad": LEAN.shapes1_5,
+  "73505351ad": note("7.6.1", LEAN.shapes1_5),
   // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
-  "deaa2bbf15": LEAN.shapes8_6,
+  "deaa2bbf15": note("7.2.7", LEAN.shapes8_6),
   // self.f = Li64.max(Li64).min(Li64) as i16;
-  "745a764511": LEAN.shapes7_1,
+  "745a764511": note("7.2.2", LEAN.shapes7_1),
   // x: Lf32,
-  "74845f98c6": merged(LEAN.shapes4_3, LEAN.shapes5_15, LEAN.shapes5_16),
+  "74845f98c6": merged(["7.2.12", LEAN.shapes4_3], ["7.2.12", LEAN.shapes5_15], ["7.2.8", LEAN.shapes5_16]),
   // x = x.with_char(x as i64, str.char_at(x as i64)).to();
-  "7566f32b5e": LEAN.shapes15_2,
+  "7566f32b5e": note("7.4.3", LEAN.shapes15_2),
   // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes()).to();
-  "7587dbd531": LEAN.shapes9_1,
+  "7587dbd531": note("7.4.2", LEAN.shapes9_1),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i8;
-  "7589f5a1ee": LEAN.shapes8_3,
+  "7589f5a1ee": note("7.3.1", LEAN.shapes8_3),
   // p: L,
-  "75cc82a569": merged(LEAN.shapes1_6, LEAN.shapes1_8),
+  "75cc82a569": merged(["7.2.3", LEAN.shapes1_6], ["7.8.8", LEAN.shapes1_8]),
   // x = ({ let x = x as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
-  "7685022caa": LEAN.shapes20_4,
+  "7685022caa": note("7.2.6", LEAN.shapes20_4),
   // if (x.f as i32) < Li32 {
-  "770670a973": LEAN.shapes18_6,
+  "770670a973": note("7.3.3", LEAN.shapes18_6),
   // x = m(x, &mut (*x)).wrapping_sub(Li32);
-  "77378f7efe": LEAN.shapes14_9,
+  "77378f7efe": note("7.8.6", LEAN.shapes14_9),
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i32 {
-  "775c30eac7": LEAN.shapes16_15,
+  "775c30eac7": note("7.7.8", LEAN.shapes16_15),
   // self.f = Li32.max(self.f as i32).min(Li32) as i16;
-  "9d3d81580d": LEAN.shapes8_6,
+  "9d3d81580d": note("7.2.7", LEAN.shapes8_6),
   // self.f = (self.v as u64).wrapping_mul(Lu64).wrapping_sub({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu6
-  "7812f5a53d": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "7812f5a53d": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // pub __output_N: i16,
-  "782a04d94c": LEAN.shapes13_10,
+  "782a04d94c": note("7.6.2", LEAN.shapes13_10),
   // self.f[(self.f as i64).wrapping_add(-Li64) as usize].f = Li16;
-  "785b5ff775": LEAN.shapes12_3,
+  "785b5ff775": note("7.2.4", LEAN.shapes12_3),
   // x: (f32::INFINITY),
-  "78615154a3": LEAN.shapes2_13,
+  "78615154a3": note("7.2.9", LEAN.shapes2_13),
   // self.f = self.f[(Li8 as i64) as usize].f;
-  "7886e7bd17": LEAN.shapes2_3,
+  "7886e7bd17": note("7.2.3", LEAN.shapes2_3),
   // self.f.count = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_add(self.f.f[((Li8 as i64) - Li64) a
-  "789e5223f1": LEAN.shapes12_2,
+  "789e5223f1": note("7.2.3", LEAN.shapes12_2),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x).to();
-  "78f3cafc1e": merged(LEAN.shapes16_2, LEAN.shapes16_3, LEAN.shapes16_10),
+  "78f3cafc1e": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // x = x.wrapping_add(x[(x as i64).wrapping_sub(__values_lower_N as i64) as usize] as i32);
-  "7918d10820": LEAN.shapes20_12,
+  "7918d10820": note("7.2.3", LEAN.shapes20_12),
   // self.f = (self.f as u8) as f32;
-  "798c276f84": LEAN.shapes5_10,
+  "798c276f84": note("7.3.5", LEAN.shapes5_10),
   // __numbers_lower_N: Li32,
-  "79fd4d52a6": LEAN.shapes13_17,
+  "79fd4d52a6": note("7.7.8", LEAN.shapes13_17),
   // let mut __property_N: i16 = Li16;
-  "79ff186095": LEAN.shapes18_2,
+  "79ff186095": note("7.6.2", LEAN.shapes18_2),
   // x = ((*x) as i32).wrapping_add((*x) as i32) as i16;
-  "7a6f282031": merged(LEAN.shapes15_4, LEAN.shapes15_9),
+  "7a6f282031": merged(["7.3.1", LEAN.shapes15_4], ["7.8.6", LEAN.shapes15_9]),
   // x = m(&mut str) as i32;
-  "7a85af3c04": LEAN.shapes13_15,
+  "7a85af3c04": note("7.4.6", LEAN.shapes13_15),
   // __chain_value_N: false,
-  "7a88c529f6": LEAN.shapes11_11,
+  "7a88c529f6": note("7.6.1", LEAN.shapes11_11),
   // self.f = (self.f as i32).wrapping_sub(Li32) as i8;
-  "7aa0eab362": LEAN.shapes8_3,
+  "7aa0eab362": note("7.3.1", LEAN.shapes8_3),
   // pub fn m(mut x: i16, x: &mut i16) -> i16 {
-  "7ab9128afd": LEAN.shapes18_9,
+  "7ab9128afd": note("7.7.1", LEAN.shapes18_9),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "7b34ea5981": LEAN.shapes17_2,
+  "7b34ea5981": note("7.4.3", LEAN.shapes17_2),
   // self.f = (if self.f { Li64 } else { Li64 }) as i16;
-  "ba75ffae84": merged(LEAN.shapes10_4, LEAN.shapes10_5),
+  "ba75ffae84": merged(["7.2.7", LEAN.shapes10_4], ["7.4.1", LEAN.shapes10_5]),
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
-  "7c7cff3d31": LEAN.shapes19_8,
+  "7c7cff3d31": note("7.7.5", LEAN.shapes19_8),
   // x = (x as i32).wrapping_mul(Li32) as i16;
-  "7c881bc819": LEAN.shapes15_4,
+  "7c881bc819": note("7.3.1", LEAN.shapes15_4),
   // self.f = (self.f as i32).wrapping_abs();
-  "7cf7edd325": LEAN.shapes7_3,
+  "7cf7edd325": note("7.3.1", LEAN.shapes7_3),
   // x = { m(p); *x }.char_at((p as i64).wrapping_sub(Li64).wrapping_add(Li64));
-  "7cfee53212": merged(LEAN.shapes16_2, LEAN.shapes16_10),
+  "7cfee53212": merged(["7.4.4", LEAN.shapes16_2], ["7.2.4", LEAN.shapes16_10]),
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i16;
-  "7d2d13ed81": LEAN.shapes9_3,
+  "7d2d13ed81": note("7.3.1", LEAN.shapes9_3),
   // self.f = m(L, …u16, &mut self.f, …);
-  "7db062ce2f": LEAN.shapes14_8,
+  "7db062ce2f": note("7.4.5", LEAN.shapes14_8),
   // self.f = { let __copy_N = IecString::<L>::lit(B); m(&__copy_N) };
-  "7de11239a2": LEAN.shapes20_7,
+  "7de11239a2": note("7.6.5", LEAN.shapes20_7),
   // self.f = Li32.wrapping_neg() as u8;
   // x = m(x, &mut (*x));
-  "7e45a342fc": LEAN.shapes13_9,
+  "7e45a342fc": note("7.8.6", LEAN.shapes13_9),
   // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes()).to();
-  "7e482a6261": LEAN.shapes9_1,
+  "7e482a6261": note("7.4.2", LEAN.shapes9_1),
   // x = (self.f as i32).wrapping_mul(Li32).wrapping_add((g.f as i32).wrapping_mul(Li32)).wrapping_add(x as i32) as i16
-  "7ee47c4eab": LEAN.shapes17_7,
+  "7ee47c4eab": note("7.3.1", LEAN.shapes17_7),
   // g.f = (g.f as i32).wrapping_add(Li32) as i16;
-  "7ef1346b85": LEAN.shapes15_4,
+  "7ef1346b85": note("7.3.1", LEAN.shapes15_4),
   // self.f = ((self.f as i32) | (self.f as i32)) as u8;
-  "7f28567c88": LEAN.shapes8_3,
+  "7f28567c88": note("7.3.1", LEAN.shapes8_3),
   // if (self.f & (!self.f)) & ((self.f as i32) > Li32) {
-  "7f4dd168c2": LEAN.shapes15_5,
+  "7f4dd168c2": note("7.5.6", LEAN.shapes15_5),
   // self.v = (-Li32).wrapping_neg();
   // pub __chain_value_N: f64,
-  "7fc67373d7": LEAN.shapes4_6,
+  "7fc67373d7": note("7.6.1", LEAN.shapes4_6),
   // self.f = IecString::<L>::lit(B).to();
-  "803ee89d4f": LEAN.shapes2_6,
+  "803ee89d4f": note("7.4.2", LEAN.shapes2_6),
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i8;
-  "8049b483ae": LEAN.shapes8_3,
+  "8049b483ae": note("7.3.1", LEAN.shapes8_3),
   // self.f.call(&mut (*x));
-  "8064ae1570": LEAN.shapes13_9,
+  "8064ae1570": note("7.8.6", LEAN.shapes13_9),
   // x = Li32;
-  "8088e0ab18": LEAN.shapes12_10,
+  "8088e0ab18": note("7.7.3", LEAN.shapes12_10),
   // self.f = (self.f as i32).max(self.f as i32) as i8;
-  "80e291be91": LEAN.shapes8_3,
+  "80e291be91": note("7.3.1", LEAN.shapes8_3),
   // pub fn x<const T: usize>(x: &IecString<T>) -> bool {
-  "81253ce291": LEAN.shapes15_14,
+  "81253ce291": note("7.7.2", LEAN.shapes15_14),
   // self.m_set(self.__property_N);
-  "81d1867d27": LEAN.shapes18_2,
+  "81d1867d27": note("7.6.2", LEAN.shapes18_2),
   // pub fn call(&mut self, x: &mut [i16]) {
-  "81ed699293": LEAN.shapes14_15,
+  "81ed699293": note("7.5.7", LEAN.shapes14_15),
   // self.f = ((self.f as i32) | (self.f as i32)) as u16;
-  "81f1075b92": LEAN.shapes8_3,
+  "81f1075b92": note("7.3.1", LEAN.shapes8_3),
   // take = self.f;
-  "821a3bb974": LEAN.shapes17_9,
+  "821a3bb974": note("7.6.3", LEAN.shapes17_9),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(Li
-  "828ee45554": LEAN.shapes17_2,
+  "828ee45554": note("7.4.3", LEAN.shapes17_2),
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
-  "82e802ebc9": LEAN.shapes20_14,
+  "82e802ebc9": note("7.8.7", LEAN.shapes20_14),
   // x = (((x as i32) == Li32) | (((x as i32) >= Li32) & ((x as i32) <= Li32))) | ((x as i32) == Li32);
-  "82fcd0be19": LEAN.shapes16_5,
+  "82fcd0be19": note("7.4.4", LEAN.shapes16_5),
   // self.f = Lu8 != L;
-  "83389dfa8a": LEAN.shapes3_11,
+  "83389dfa8a": note("7.2.10", LEAN.shapes3_11),
   // *x = ((*x) as i32).wrapping_add(self.f as i32) as i16;
-  "833efb5917": LEAN.shapes19_10,
+  "833efb5917": note("7.3.1", LEAN.shapes19_10),
   // self.f = ((self.v as u64) / Lu64).wrapping_sub({ let x = (self.v as u64) / Lu64; let x = Lu64; if x == L { L } els
-  "8346bf3968": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "8346bf3968": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
-  "83ed1aab47": merged(LEAN.shapes16_11, LEAN.shapes16_16),
+  "83ed1aab47": merged(["7.4.6", LEAN.shapes16_11], ["7.6.6", LEAN.shapes16_16]),
   // self.f[((self.f as i64) - Li64) as usize] = self.f.f;
-  "848701ece2": LEAN.shapes19_3,
+  "848701ece2": note("7.2.3", LEAN.shapes19_3),
   // pub fn m(mut x: f64) -> f64 {
-  "84ac703739": LEAN.shapes13_12,
+  "84ac703739": note("7.7.1", LEAN.shapes13_12),
   // prg.f.f.f = Li16;
-  "85168be6a7": LEAN.shapes17_5,
+  "85168be6a7": note("7.7.5", LEAN.shapes17_5),
   // self.f = m(self.f, &mut self.f);
-  "8539587ea0": LEAN.shapes14_10,
+  "8539587ea0": note("7.4.4", LEAN.shapes14_10),
   // self.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "8597dc45bd": LEAN.shapes2_6,
+  "8597dc45bd": note("7.4.8", LEAN.shapes2_6),
   // self.f = m(self.f as f64) as u32;
-  "8653414194": LEAN.shapes6_11,
+  "8653414194": note("keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells", LEAN.shapes6_11),
   // x: Li64,
-  "870b70e195": merged(LEAN.shapes6_1, LEAN.shapes6_4),
+  "870b70e195": merged(["7.2.8", LEAN.shapes6_1], ["7.8.11", LEAN.shapes6_4]),
   // self.f = (self.v as u8) as f32;
-  "873f201d21": LEAN.shapes5_10,
+  "873f201d21": note("7.3.5", LEAN.shapes5_10),
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu8 << L) } else { *x & !(Lu8 << L) }; }
-  "87cd3925f5": LEAN.shapes20_13,
+  "87cd3925f5": note("7.8.5", LEAN.shapes20_13),
   // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
-  "83d24ce33a": LEAN.shapes20_3,
+  "83d24ce33a": note("7.3.1", LEAN.shapes20_3),
   // self.f = len(self.narrow.to::<L>());
-  "8986d5305c": LEAN.shapes14_18,
+  "8986d5305c": note("7.4.6", LEAN.shapes14_18),
   // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
   // (re-keyed from `self.units = m(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
-  "2421f6476e": LEAN.shapes18_1,
+  "2421f6476e": note("7.6.3", LEAN.shapes18_1),
   // self.f = (self.f as i32).min(self.f as i32) as i8;
-  "8a1bafcc9c": LEAN.shapes8_3,
+  "8a1bafcc9c": note("7.3.1", LEAN.shapes8_3),
   // let mut fb_init: bool = false;
-  "8a9bb48ddb": LEAN.shapes2_11,
+  "8a9bb48ddb": note("7.7.1", LEAN.shapes2_11),
   // self.f = self.f.wrapping_shr(self.f as u32);
-  "8b69355dc1": LEAN.shapes7_4,
+  "8b69355dc1": note("7.3.5", LEAN.shapes7_4),
   // x: { let mut v = T::new(); v.f = Li16; v },
-  "8b9a7c5eea": LEAN.shapes7_11,
+  "8b9a7c5eea": note("7.8.3", LEAN.shapes7_11),
   // self.f.m(Li32.wrapping_neg() as i16);
   // { m(self.f); self.f.m_set(self.__property_N) };
-  "8c658bedd7": LEAN.shapes15_10,
+  "8c658bedd7": note("7.6.2", LEAN.shapes15_10),
   // self.f.narrow();
-  "8cca954ad7": LEAN.shapes3_9,
+  "8cca954ad7": note("7.7.2", LEAN.shapes3_9),
   // x = (x as i32).wrapping_add(Li32) as i16;
-  "8ccaa880cd": LEAN.shapes15_4,
+  "8ccaa880cd": note("7.3.1", LEAN.shapes15_4),
   // self.f = Li64.min(Li64).min(Li64).min(Li64) as i16;
-  "8cd84736a1": LEAN.shapes8_6,
+  "8cd84736a1": note("7.2.7", LEAN.shapes8_6),
   // x.f[((x.f as i64) - Li64) as usize].f = x;
-  "8d7dcea3f3": LEAN.shapes19_3,
+  "8d7dcea3f3": note("7.2.3", LEAN.shapes19_3),
   // self.count = (self.count as i32).wrapping_add(Li32) as i16;
-  "8d8ff2c804": LEAN.shapes8_3,
+  "8d8ff2c804": note("7.3.1", LEAN.shapes8_3),
   // x = x.with_char(x as i64, Lu8).to();
-  "8e30e6691c": LEAN.shapes14_3,
+  "8e30e6691c": note("7.4.1", LEAN.shapes14_3),
   // self.f.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
-  "8e4b1ce4cc": LEAN.shapes20_2,
+  "8e4b1ce4cc": note("7.3.3", LEAN.shapes20_2),
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
-  "8e689b07b9": LEAN.shapes10_3,
+  "8e689b07b9": note("7.3.13", LEAN.shapes10_3),
   // self.f = ((self.f as f64).sqrt() as f32) > Lf32;
-  "8efdf97fb5": LEAN.shapes8_8,
+  "8efdf97fb5": note("7.3.6", LEAN.shapes8_8),
   // self.f = (self.f as i32).min(self.f as i32) as u16;
-  "8f1829f5b3": LEAN.shapes8_3,
+  "8f1829f5b3": note("7.3.1", LEAN.shapes8_3),
   // if (g.f as i32) <= Li32 {
-  "8f2ea71862": LEAN.shapes18_6,
+  "8f2ea71862": note("7.3.3", LEAN.shapes18_6),
   // self.f = (x as i32).wrapping_mul(Li32) as i16;
-  "8ffd5ed266": LEAN.shapes19_10,
+  "8ffd5ed266": note("7.3.1", LEAN.shapes19_10),
   // pub fn sum(&mut self, mut x: [i16; L]) {
-  "9034f2a4d6": LEAN.shapes18_9,
+  "9034f2a4d6": note("7.7.1", LEAN.shapes18_9),
   // m(L, …u16, Li16, …, L, …u16, &mut self.f);
-  "9055680d64": LEAN.shapes15_15,
+  "9055680d64": note("7.4.4", LEAN.shapes15_15),
   // self.f = Li64 == Li64;
-  "907aa92bfc": LEAN.shapes4_7,
+  "907aa92bfc": note("7.3.3", LEAN.shapes4_7),
   // self.f = (self.f.f as i32).wrapping_mul(self.f.f as i32) as i16;
-  "90ba7cf588": LEAN.shapes16_6,
+  "90ba7cf588": note("7.3.1", LEAN.shapes16_6),
   // x: Lu64,
-  "90c445f7cb": LEAN.shapes5_16,
+  "90c445f7cb": note("7.2.8", LEAN.shapes5_16),
   // self.f.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "90e7185468": merged(LEAN.shapes15_1, LEAN.shapes15_12),
+  "90e7185468": merged(["7.4.2", LEAN.shapes15_1], ["7.4.8", LEAN.shapes15_12]),
   // self.f = (self.__chain_value_N as f32) as f64;
-  "915417cef0": LEAN.shapes7_6,
+  "915417cef0": note("7.6.1", LEAN.shapes7_6),
   // self.f = ({ let x = (self.f as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }
-  "91d3eef64b": LEAN.shapes10_1,
+  "91d3eef64b": note("7.2.6", LEAN.shapes10_1),
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = Li16;
-  "91f6be3675": LEAN.shapes11_7,
+  "91f6be3675": note("7.2.3", LEAN.shapes11_7),
   // self.f = m(self.f as f64) as u16;
-  "923862ec54": LEAN.shapes6_11,
+  "923862ec54": note("keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells", LEAN.shapes6_11),
   // self.f = self.f.wrapping_shr(Li8 as u32);
-  "924a0fdb2f": LEAN.shapes7_1,
+  "924a0fdb2f": note("7.2.2", LEAN.shapes7_1),
   // let mut replace: IecString<L> = IecString::<L>::lit(B);
-  "92f7142ab2": LEAN.shapes15_11,
+  "92f7142ab2": note("7.4.7", LEAN.shapes15_11),
   // 'loop_N: loop {
-  "93a17fab28": LEAN.shapes11_9,
+  "93a17fab28": note("7.5.2", LEAN.shapes11_9),
   // 'body_N: {
-  "95094bd48a": LEAN.shapes10_6,
+  "95094bd48a": note("7.5.3", LEAN.shapes10_6),
   // self.f = (x as i32).wrapping_add(Li32) as i16;
-  "9610f67747": LEAN.shapes19_10,
+  "9610f67747": note("7.3.1", LEAN.shapes19_10),
   // self.f = match self.p { L => self.f, …, _ => panic!(S) };
-  "96161d76eb": LEAN.shapes3_5,
+  "96161d76eb": note("7.9.3", LEAN.shapes3_5),
   // self.sum = (self.f as i32).wrapping_add(self.f as i32) as i16;
-  "964296462a": LEAN.shapes9_3,
+  "964296462a": note("7.3.1", LEAN.shapes9_3),
   // x: { let mut v = T::new(); v.f = Li16; v.f = Lf32; v },
-  "9689b156ea": LEAN.shapes2_8,
+  "9689b156ea": note("7.8.3", LEAN.shapes2_8),
   // *x = Li16;
-  "96a5b25b66": LEAN.shapes1_9,
+  "96a5b25b66": note("7.7.3", LEAN.shapes1_9),
   // self.f = (match self.f { L => Li64, …, _ => Li64 }) as i16;
-  "96b55e688b": LEAN.shapes8_6,
+  "96b55e688b": note("7.2.7", LEAN.shapes8_6),
   // self.f = match self.f { L => self.f.m(Li16), _ => panic!(S) };
-  "96bf43c1e7": LEAN.shapes19_6,
+  "96bf43c1e7": note("7.8.7", LEAN.shapes19_6),
   // pub fn m(mut x: i16) -> T {
-  "96f5f06912": LEAN.shapes13_12,
+  "96f5f06912": note("7.7.1", LEAN.shapes13_12),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i16;
-  "97c6103a21": LEAN.shapes8_3,
+  "97c6103a21": note("7.3.1", LEAN.shapes8_3),
   // (match self.f { L => self.f.m(), L => self.f.m(), _ => panic!(S) });
-  "9831f2d691": LEAN.shapes20_14,
+  "9831f2d691": note("7.8.7", LEAN.shapes20_14),
   // self.f.f = ((self.f as i32) >= Li32) & ((self.f as i32) <= Li32);
-  "98716b4ff8": LEAN.shapes20_2,
+  "98716b4ff8": note("7.3.3", LEAN.shapes20_2),
   // if ((*str).char_at(x as i64) as i32) == Li32 { break; }
-  "98ba0d2e70": LEAN.shapes15_9,
+  "98ba0d2e70": note("7.8.6", LEAN.shapes15_9),
   // self.f = (self.f as i32).wrapping_sub(Li32) as i16;
-  "9999dc327a": LEAN.shapes8_3,
+  "9999dc327a": note("7.3.1", LEAN.shapes8_3),
   // self.f = self.f.rotate_left(Li8 as u32);
-  "9a4cb2346e": LEAN.shapes7_1,
+  "9a4cb2346e": note("7.2.2", LEAN.shapes7_1),
   // if m(x, …, true, &mut (*x), &mut (*x)) {
-  "9a63db2a45": LEAN.shapes14_9,
+  "9a63db2a45": note("7.8.6", LEAN.shapes14_9),
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B)).to::<L>().to();
-  "9a8003dce0": LEAN.shapes16_1,
+  "9a8003dce0": note("7.4.1", LEAN.shapes16_1),
   // self.f = self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((
-  "9b12fdbfc8": LEAN.shapes12_2,
+  "9b12fdbfc8": note("7.2.3", LEAN.shapes12_2),
   // self.f = (if false { Li64 } else { Li64 }) as i16;
-  "faa5102f23": LEAN.shapes10_4,
+  "faa5102f23": note("7.2.7", LEAN.shapes10_4),
   // self.v = Li64.wrapping_sub(Li64) as i16;
-  "9b7b8014c4": LEAN.shapes7_1,
+  "9b7b8014c4": note("7.2.2", LEAN.shapes7_1),
   // self.f = { let __copy_N = self.f; self.m(&__copy_N) };
-  "9bb47dec44": LEAN.shapes19_7,
+  "9bb47dec44": note("7.6.5", LEAN.shapes19_7),
   // let mut x: u8 = Lu8;
-  "9c1d0c1a6e": LEAN.shapes13_16,
+  "9c1d0c1a6e": note("7.4.5", LEAN.shapes13_16),
   // self.f.f = if self.f { self.f } else { self.f };
-  "c2ecf76c31": LEAN.shapes20_3,
+  "c2ecf76c31": note("7.3.1", LEAN.shapes20_3),
   // self.f = ({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
-  "9c7ca7c1f9": LEAN.shapes10_1,
+  "9c7ca7c1f9": note("7.2.6", LEAN.shapes10_1),
   // pub fn call<const T: usize>(&mut self, x: &i16, x: &IecString<T>) {
-  "9c8bf093b2": LEAN.shapes16_12,
+  "9c8bf093b2": note("7.6.5", LEAN.shapes16_12),
   // pub fn m(mut str: IecString<L>, mut len: i16, mut x: i16) -> IecString<L> {
-  "9c8d21e237": LEAN.shapes16_11,
+  "9c8d21e237": note("7.4.6", LEAN.shapes16_11),
   // self.ops[((Li8 as i64) - Li64) as usize] = L;
-  "9ca82cec1d": LEAN.shapes19_3,
+  "9ca82cec1d": note("7.2.3", LEAN.shapes19_3),
   // self.f = replace(self.f.to::<L>(), self.f.to::<L>(), Li16, …).to::<L>().to();
-  "9cbdbcc28b": LEAN.shapes16_1,
+  "9cbdbcc28b": note("7.4.1", LEAN.shapes16_1),
   // self.f = self.f.wrapping_shl(Li8 as u32);
-  "9d8cd15435": LEAN.shapes18_4,
+  "9d8cd15435": note("7.2.10", LEAN.shapes18_4),
   // self.f = { let x = self.f; let x = Lu32; if x == L { L } else { x.wrapping_rem(x) } };
-  "9db3c795da": LEAN.shapes20_4,
+  "9db3c795da": note("7.2.6", LEAN.shapes20_4),
   // pub __chain_value_N: i16,
-  "9e66c9a561": LEAN.shapes4_6,
+  "9e66c9a561": note("7.6.1", LEAN.shapes4_6),
   // x[(__numbers_upper_N as i64).wrapping_sub(__numbers_lower_N as i64) as usize] = Li16;
-  "9edcbf6da4": LEAN.shapes16_7,
+  "9edcbf6da4": note("7.2.14", LEAN.shapes16_7),
   // self.f[((self.f as i64) - Li64) as usize] = Li16;
-  "9f8b867884": LEAN.shapes19_3,
+  "9f8b867884": note("7.2.3", LEAN.shapes19_3),
   // if (self.f as i32) < Li32 {
-  "9f93398f3e": LEAN.shapes11_16,
+  "9f93398f3e": note("7.3.3", LEAN.shapes11_16),
   // self.f = (self.f as i32) != (self.f as i32);
-  "9fb281f7a2": LEAN.shapes7_2,
+  "9fb281f7a2": note("7.3.3", LEAN.shapes7_2),
   // self.f = Lu32 as u64;
-  "9fb47c3123": LEAN.shapes18_4,
+  "9fb47c3123": note("7.2.10", LEAN.shapes18_4),
   // (match self.f.f { L => self.f.m(&mut self.v), _ => panic!(S) });
-  "9fbd098efb": LEAN.shapes3_12,
+  "9fbd098efb": note("7.8.7", LEAN.shapes3_12),
   // pub fn m(&mut self, mut x: i16) {
-  "a01f00db76": LEAN.shapes18_9,
+  "a01f00db76": note("7.7.1", LEAN.shapes18_9),
   // if ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 {
-  "a021273b0d": merged(LEAN.shapes16_2, LEAN.shapes16_5, LEAN.shapes16_10),
+  "a021273b0d": merged(["7.4.4", LEAN.shapes16_2], ["7.4.4", LEAN.shapes16_5], ["7.2.4", LEAN.shapes16_10]),
   // self.f = (self.f as i32) as i16;
-  "a078903418": LEAN.shapes5_9,
+  "a078903418": note("7.3.9", LEAN.shapes5_9),
   // self.f = self.f == IecString::<L>::lit(B);
-  "a095c1d0aa": LEAN.shapes7_7,
+  "a095c1d0aa": note("7.4.1", LEAN.shapes7_7),
   // self.f[(Li8 as i64) as usize].f = (self.f[(Li8 as i64) as usize].f as i32).wrapping_add(Li32) as i16;
-  "a0d3389a70": LEAN.shapes3_3,
+  "a0d3389a70": note("7.2.3", LEAN.shapes3_3),
   // self.f = (self.f as f64).sqrt();
-  "a1adee154e": LEAN.shapes5_11,
+  "a1adee154e": note("7.3.6", LEAN.shapes5_11),
   // v: Li16,
-  "a29db6178b": merged(LEAN.shapes6_1, LEAN.shapes6_2, LEAN.shapes6_3),
+  "a29db6178b": merged(["7.2.8", LEAN.shapes6_1], ["7.8.8", LEAN.shapes6_2], ["7.9.3", LEAN.shapes6_3]),
   // x = ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64)) as i32) == Li32;
-  "a328a51dbd": LEAN.shapes16_2,
+  "a328a51dbd": note("7.4.4", LEAN.shapes16_2),
   // self.f = (self.f as i32) == (self.f as i32);
-  "a363bc4ca3": LEAN.shapes7_2,
+  "a363bc4ca3": note("7.3.3", LEAN.shapes7_2),
   // self.f = m(Lu8, L, …i32, &mut self.f, …);
-  "a39c1efab6": LEAN.shapes15_15,
+  "a39c1efab6": note("7.4.4", LEAN.shapes15_15),
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.map(prg); prg.f = x; x };
-  "a3a49d3776": LEAN.shapes20_9,
+  "a3a49d3776": note("7.8.10", LEAN.shapes20_9),
   // if (x as i32) > Li32 {
-  "a3ca286f93": LEAN.shapes18_6,
+  "a3ca286f93": note("7.3.3", LEAN.shapes18_6),
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.m_get(prg); prg.f = x; x };
-  "a41f58717b": LEAN.shapes20_9,
+  "a41f58717b": note("7.8.10", LEAN.shapes20_9),
   // pub x: u64,
-  "a497507b30": merged(LEAN.shapes13_1, LEAN.shapes13_2),
+  "a497507b30": merged(["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", LEAN.shapes13_1], ["7.2.5", LEAN.shapes13_2]),
   // if ((x as i32) >= Li32) & ((x as i32) <= Li32) {
-  "a54ead1fbe": LEAN.shapes15_5,
+  "a54ead1fbe": note("7.5.6", LEAN.shapes15_5),
   // self.f = { let __copy_N = IecString::<L>::lit(B); self.m(&__copy_N) };
-  "a558076adc": LEAN.shapes20_7,
+  "a558076adc": note("7.6.5", LEAN.shapes20_7),
   // len
-  "a573b540d2": merged(LEAN.shapes12_10, LEAN.shapes12_11),
+  "a573b540d2": merged(["7.7.3", LEAN.shapes12_10], ["7.4.6", LEAN.shapes12_11]),
   // pub fn m(mut x: i16, …) -> i16 {
-  "a5c4faeebd": LEAN.shapes14_14,
+  "a5c4faeebd": note("7.7.3", LEAN.shapes14_14),
   // ops: std::array::from_fn(|_| L),
-  "a65506e4d8": LEAN.shapes18_8,
+  "a65506e4d8": note("7.8.2", LEAN.shapes18_8),
   // self.v = Li32.wrapping_neg() as i8;
   // self.f = ((self.f as i32) & (self.f as i32)) as u16;
-  "a7ca0579a1": LEAN.shapes8_3,
+  "a7ca0579a1": note("7.3.1", LEAN.shapes8_3),
   // x: { let mut v = T::new(); v.f = IecString::<L>::lit(B); v.f = IecString::<L>::lit(B); v },
-  "a7ca9e8349": LEAN.shapes16_13,
+  "a7ca9e8349": note("7.8.3", LEAN.shapes16_13),
   // self.f = (self.f as i32).wrapping_sub(Li32) as u16;
-  "a851cc298d": LEAN.shapes8_3,
+  "a851cc298d": note("7.3.1", LEAN.shapes8_3),
   // self.f = (-Li32).wrapping_neg();
   // self.f = (self.f as i32).wrapping_neg() as u8;
-  "a9c2598276": LEAN.shapes7_3,
+  "a9c2598276": note("7.3.1", LEAN.shapes7_3),
   // self.f = (*x) == IecString::<L>::lit(B);
-  "ab6512a512": LEAN.shapes14_17,
+  "ab6512a512": note("7.4.9", LEAN.shapes14_17),
   // pub fn m(&mut self, prg: &mut Programs) {
-  "ab696e2449": LEAN.shapes7_8,
+  "ab696e2449": note("7.7.5", LEAN.shapes7_8),
   // x: (-f32::INFINITY),
-  "aba7baaaaa": LEAN.shapes2_13,
+  "aba7baaaaa": note("7.2.9", LEAN.shapes2_13),
   // pub fn m(mut x: u16) -> u16 {
-  "abc8bc67de": LEAN.shapes13_12,
+  "abc8bc67de": note("7.7.1", LEAN.shapes13_12),
   // self.f = self.f[(Li8 as i64) as usize];
-  "abe3ae1f0b": LEAN.shapes11_7,
+  "abe3ae1f0b": note("7.2.3", LEAN.shapes11_7),
   // { let mut x = std::mem::take(&mut prg.f); x.call(prg); prg.f = x; }
-  "abf2bb6e4e": LEAN.shapes3_6,
+  "abf2bb6e4e": note("7.7.6", LEAN.shapes3_6),
   // self.f.f = self.f.clone();
-  "ac452bc801": LEAN.shapes13_11,
+  "ac452bc801": note("7.8.1", LEAN.shapes13_11),
   // g.f[((g.f as i64) - Li64) as usize].f = self.f;
-  "acb72c4272": LEAN.shapes19_3,
+  "acb72c4272": note("7.2.3", LEAN.shapes19_3),
   // self.f = L;
-  "ad25627749": LEAN.shapes1_8,
+  "ad25627749": note("7.8.8", LEAN.shapes1_8),
   // self.f.f = ((self.f as i32) == Li32) | ((self.f as i32) == Li32);
-  "adb6559f1f": LEAN.shapes16_5,
+  "adb6559f1f": note("7.4.4", LEAN.shapes16_5),
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li32.wrapping_neg() as i16).to::<L>().to();
-  "b7bdb5cfef": LEAN.shapes20_6,
+  "b7bdb5cfef": note("7.4.1", LEAN.shapes20_6),
   // self.f = self.f[((Li8 as i64) - Li64) as usize][(Li8 as i64) as usize][((Li8 as i64) - Li64) as usize];
-  "ae08e85841": LEAN.shapes12_2,
+  "ae08e85841": note("7.2.3", LEAN.shapes12_2),
   // self.f = (self.f as i32).max(self.f as i32) as u16;
-  "ae0e0c28ea": LEAN.shapes8_3,
+  "ae0e0c28ea": note("7.3.1", LEAN.shapes8_3),
   // { let mut x = std::mem::take(&mut prg.f); x.call(g, prg); prg.f = x; }
-  "ae38098da5": LEAN.shapes20_9,
+  "ae38098da5": note("7.8.10", LEAN.shapes20_9),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i8;
-  "af004404ec": LEAN.shapes8_5,
+  "af004404ec": note("7.2.5", LEAN.shapes8_5),
   // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to::<L>().to();
-  "af39c91205": LEAN.shapes9_2,
+  "af39c91205": note("7.4.2", LEAN.shapes9_2),
   // v: Lu32,
-  "afa5d14dd9": LEAN.shapes6_1,
+  "afa5d14dd9": note("7.2.8", LEAN.shapes6_1),
   // pub fn x<const T: usize>(&mut self, x: &IecString<T>) -> bool {
-  "b03c447093": LEAN.shapes19_7,
+  "b03c447093": note("7.6.5", LEAN.shapes19_7),
   // self.f = IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()).to::<L>().to();
-  "b060fcca7b": LEAN.shapes9_2,
+  "b060fcca7b": note("7.4.2", LEAN.shapes9_2),
   // self.f = m(self.f).log10() as f32;
-  "b07338e4d9": LEAN.shapes6_10,
+  "b07338e4d9": note("7.3.12", LEAN.shapes6_10),
   // if ((self.f as i32) == Li32) & ((self.f as i32) == Li32) {
-  "b0965eecf6": merged(LEAN.shapes11_16, LEAN.shapes11_17),
+  "b0965eecf6": merged(["7.3.3", LEAN.shapes11_16], ["7.5.6", LEAN.shapes11_17]),
   // self.f.f[Li64 as usize] = ({ let x = (self.f.f as u64) / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem
-  "b0fe4f487d": merged(LEAN.shapes3_1, LEAN.shapes3_2, LEAN.shapes3_3),
+  "b0fe4f487d": merged(["7.8.4", LEAN.shapes3_1], ["7.2.6", LEAN.shapes3_2], ["7.2.3", LEAN.shapes3_3]),
   // self.f.f = ({ let x = self.f as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) == Li32;
-  "b1e8ba6d90": LEAN.shapes16_4,
+  "b1e8ba6d90": note("7.2.6", LEAN.shapes16_4),
   // if ((x as i32) < Li32) | ((x as i32) > x) {
-  "b2d33739c5": LEAN.shapes15_5,
+  "b2d33739c5": note("7.5.6", LEAN.shapes15_5),
   // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
-  "14e2fedf17": LEAN.shapes20_3,
+  "14e2fedf17": note("7.3.1", LEAN.shapes20_3),
   // x = __grid_lower_N;
-  "b3a0495ed2": LEAN.shapes13_17,
+  "b3a0495ed2": note("7.7.8", LEAN.shapes13_17),
   // self.f = T::new();
-  "b3e78a179a": LEAN.shapes11_12,
+  "b3e78a179a": note("7.6.4", LEAN.shapes11_12),
   // self.f = self.f.f[(Li8 as i64) as usize];
-  "b4183b4f7f": LEAN.shapes11_7,
+  "b4183b4f7f": note("7.2.3", LEAN.shapes11_7),
   // self.f = (self.f as f64).cos() as f32;
-  "b48af08c44": LEAN.shapes6_10,
+  "b48af08c44": note("7.3.12", LEAN.shapes6_10),
   // x: (-Li8),
-  "b501abe431": LEAN.shapes1_1,
+  "b501abe431": note("7.2.9", LEAN.shapes1_1),
   // self.f = { let x = ((self.narrow * Lf32) as f64).trunc(); if (-L..=L).contains(&x) { x as i32 } else { i32::MIN } 
-  "b532048eaa": LEAN.shapes17_6,
+  "b532048eaa": note("7.9.2", LEAN.shapes17_6),
   // x = { let __arg_N = m(x); m(__arg_N) };
-  "b58894b5df": LEAN.shapes14_12,
+  "b58894b5df": note("7.6.6", LEAN.shapes14_12),
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
-  "b592939dbf": LEAN.shapes16_11,
+  "b592939dbf": note("7.4.6", LEAN.shapes16_11),
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
-  "b6565109d7": LEAN.shapes20_9,
+  "b6565109d7": note("7.8.10", LEAN.shapes20_9),
   // self.f = Li32 as i8;
-  "b6a5a933fb": LEAN.shapes3_11,
+  "b6a5a933fb": note("7.2.10", LEAN.shapes3_11),
   // if x >= L { return L; }
-  "b7286c7932": LEAN.shapes4_5,
+  "b7286c7932": note("7.9.1", LEAN.shapes4_5),
   // x.f = (x as i32) > Li32;
-  "b733155a29": LEAN.shapes13_14,
+  "b733155a29": note("7.3.3", LEAN.shapes13_14),
   // if self.f > self.f.m_get() { break; }
-  "b736e18f55": LEAN.shapes14_7,
+  "b736e18f55": note("7.5.7", LEAN.shapes14_7),
   // self.f = m(x, &mut (*__lent_N));
-  "b75c863ba4": LEAN.shapes18_3,
+  "b75c863ba4": note("7.8.6", LEAN.shapes18_3),
   // self.f = { let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
-  "b7631cfae9": LEAN.shapes10_1,
+  "b7631cfae9": note("7.2.6", LEAN.shapes10_1),
   // self.f = (self.f ^ self.f) ^ self.f;
-  "b7bf67b59d": LEAN.shapes6_12,
+  "b7bf67b59d": note("7.3.8", LEAN.shapes6_12),
   // pub fn m(mut x: u8) -> u8 {
-  "b7cc1b2b1d": merged(LEAN.shapes13_12, LEAN.shapes13_16),
+  "b7cc1b2b1d": merged(["7.7.1", LEAN.shapes13_12], ["7.4.5", LEAN.shapes13_16]),
   // pub __numbers_upper_N: i32,
-  "b894525f6e": LEAN.shapes13_17,
+  "b894525f6e": note("7.7.8", LEAN.shapes13_17),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "b8e7f28ba6": LEAN.shapes17_2,
+  "b8e7f28ba6": note("7.4.3", LEAN.shapes17_2),
   // pub fn map(&mut self, prg: &mut Programs) -> i16 {
-  "b959cb02cf": LEAN.shapes19_8,
+  "b959cb02cf": note("7.7.5", LEAN.shapes19_8),
   // pub fn call(&mut self, g: &mut Globals) {
-  "b9787e0d18": LEAN.shapes15_6,
+  "b9787e0d18": note("7.7.5", LEAN.shapes15_6),
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as u8;
-  "b991267156": LEAN.shapes8_3,
+  "b991267156": note("7.3.1", LEAN.shapes8_3),
   // self.f = ((self.f as i32) & (self.f as i32)) as u8;
-  "ba37642ce3": LEAN.shapes8_3,
+  "ba37642ce3": note("7.3.1", LEAN.shapes8_3),
   // self.f = ((self.f as i32) | (self.f as i32)) as i16;
-  "ba90e3c4fe": LEAN.shapes8_3,
+  "ba90e3c4fe": note("7.3.1", LEAN.shapes8_3),
   // pub fn m(&mut self, mut x: i16, …, x: &mut i16, …) -> i16 {
-  "bb4c155c09": LEAN.shapes15_7,
+  "bb4c155c09": note("7.7.2", LEAN.shapes15_7),
   // self.f = (self.f as i32).min(self.f as i32) as u8;
-  "bcb0fc562e": LEAN.shapes8_3,
+  "bcb0fc562e": note("7.3.1", LEAN.shapes8_3),
   // self.narrow = self.f.f.narrow::<L>().to();
-  "90205de00e": LEAN.shapes16_1,
+  "90205de00e": note("7.4.1", LEAN.shapes16_1),
   // self.f = if self.g { self.f } else { self.f };
-  "12a2ae661a": LEAN.shapes9_5,
+  "12a2ae661a": note("7.2.7", LEAN.shapes9_5),
   // pub fn init(&mut self, prg: &mut Programs) {
-  "bea3694884": LEAN.shapes7_8,
+  "bea3694884": note("7.7.5", LEAN.shapes7_8),
   // self.f = (self.f as i32) < (self.f as i32);
-  "beb0779c8f": LEAN.shapes7_2,
+  "beb0779c8f": note("7.3.3", LEAN.shapes7_2),
   // self.f = (self.f as i32) > (self.f as i32);
-  "bf88572dda": LEAN.shapes7_2,
+  "bf88572dda": note("7.3.3", LEAN.shapes7_2),
   // self.sum = (self.sum as i32).wrapping_add(self.f[((self.f as i64) - Li64) as usize].f as i32) as i16;
-  "bff12f96c5": merged(LEAN.shapes16_6, LEAN.shapes16_7),
+  "bff12f96c5": merged(["7.3.1", LEAN.shapes16_6], ["7.2.14", LEAN.shapes16_7]),
   // pub fn replace(mut x: IecString<L>, …, mut x: i16, mut p: i16) -> IecString<L> {
-  "c001fbb3b1": LEAN.shapes16_11,
+  "c001fbb3b1": note("7.4.6", LEAN.shapes16_11),
   // pub fn m(&mut self, mut p: usize, x: &mut i16) -> i16 {
-  "c0092c8e9b": LEAN.shapes19_9,
+  "c0092c8e9b": note("7.7.11", LEAN.shapes19_9),
   // x = x.with_char(x.wrapping_add(x) as i64, Lu8).to();
-  "c05be29130": LEAN.shapes15_2,
+  "c05be29130": note("7.4.3", LEAN.shapes15_2),
   // self.f = (self.f.f as i32).wrapping_mul(Li32) as i16;
-  "c069593bcd": LEAN.shapes15_4,
+  "c069593bcd": note("7.3.1", LEAN.shapes15_4),
   // self.f[(Li8 as i64) as usize] = Lf32;
-  "c0e245211c": LEAN.shapes11_7,
+  "c0e245211c": note("7.2.3", LEAN.shapes11_7),
   // x = (g.f as i32).wrapping_add(Li32) as i16;
-  "c1a4f50099": LEAN.shapes15_4,
+  "c1a4f50099": note("7.3.1", LEAN.shapes15_4),
   // x[(x as i64) as usize] = Lu8;
-  "c2409a5969": LEAN.shapes13_7,
+  "c2409a5969": note("7.2.14", LEAN.shapes13_7),
   // self.f = (self.v as u64).wrapping_mul(Lu64);
-  "c2729b1a2a": LEAN.shapes7_5,
+  "c2729b1a2a": note("7.3.10", LEAN.shapes7_5),
   // self.narrow = self.f.narrow::<L>().to::<L>().to();
-  "08b9196831": merged(LEAN.shapes15_1, LEAN.shapes16_11),
+  "08b9196831": merged(["7.4.2", LEAN.shapes15_1], ["7.4.6", LEAN.shapes16_11]),
   // self.f = (self.f as i32).min(g.f as i32) as i16;
-  "c2a92e6f4e": LEAN.shapes19_4,
+  "c2a92e6f4e": note("7.3.1", LEAN.shapes19_4),
   // self.f = (Lf64 - self.f).sqrt();
-  "c2d750a62a": LEAN.shapes5_11,
+  "c2d750a62a": note("7.3.6", LEAN.shapes5_11),
   // self.f = m(self.f.to::<L>(), Li16, Li32.wrapping_neg() as i16).to::<L>().to();
-  "e42f1ae167": LEAN.shapes16_1,
+  "e42f1ae167": note("7.4.1", LEAN.shapes16_1),
   // x: (-Lf64),
-  "c35f240db9": LEAN.shapes1_1,
+  "c35f240db9": note("7.2.9", LEAN.shapes1_1),
   // x.f = IecString::<L>::lit(B).to();
-  "c49c211047": LEAN.shapes14_3,
+  "c49c211047": note("7.4.1", LEAN.shapes14_3),
   // self.f[((Li8 as i64) - Li64) as usize] = Li16;
-  "c52c7994ca": LEAN.shapes11_7,
+  "c52c7994ca": note("7.2.3", LEAN.shapes11_7),
   // if x.is_nan() || !(-L..L).contains(&x) { return i64::MIN; }
-  "c5844eabe9": LEAN.shapes8_2,
+  "c5844eabe9": note("7.9.1", LEAN.shapes8_2),
   // self.f = m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()).to::<L>().to();
-  "c58cc5538f": merged(LEAN.shapes16_1, LEAN.shapes16_7),
+  "c58cc5538f": merged(["7.4.1", LEAN.shapes16_1], ["7.2.14", LEAN.shapes16_7]),
   // x.f = x.f;
-  "c5d30c56ec": LEAN.shapes17_10,
+  "c5d30c56ec": note("7.8.4", LEAN.shapes17_10),
   // match x {
-  "c6322760e4": LEAN.shapes17_10,
+  "c6322760e4": note("7.8.4", LEAN.shapes17_10),
   // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes()).to();
-  "c689147e80": LEAN.shapes9_1,
+  "c689147e80": note("7.4.2", LEAN.shapes9_1),
   // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x }
-  "c68f0b1ef6": merged(LEAN.shapes20_8, LEAN.shapes20_9),
+  "c68f0b1ef6": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
   // if (self.f as i32) >= Li32 { break; }
-  "c7ac9a5e64": LEAN.shapes11_16,
+  "c7ac9a5e64": note("7.3.3", LEAN.shapes11_16),
   // if self.__chain_value_N {
-  "c7af448b33": LEAN.shapes11_11,
+  "c7af448b33": note("7.6.1", LEAN.shapes11_11),
   // if ({ let x = self.f as i32; let x = Li32; if x == L { L } else { x.wrapping_rem(x) } }) != Li32 {
-  "c7f76e08cf": LEAN.shapes11_14,
+  "c7f76e08cf": note("7.2.6", LEAN.shapes11_14),
   // self.f = ((self.f as f64).sqrt() as f32) + Lf32;
-  "c83ad009ae": LEAN.shapes8_8,
+  "c83ad009ae": note("7.3.6", LEAN.shapes8_8),
   // g.f[((g.f as i64) - Li64) as usize].f = IecString::<L>::lit(B).to();
-  "c86923a1ee": LEAN.shapes20_12,
+  "c86923a1ee": note("7.2.3", LEAN.shapes20_12),
   // self.f = [Li16; L];
-  "c8927952f2": LEAN.shapes11_12,
+  "c8927952f2": note("7.6.4", LEAN.shapes11_12),
   // self.f = (!self.f) | self.f;
-  "c8ac3c10c1": LEAN.shapes5_12,
+  "c8ac3c10c1": note("7.3.8", LEAN.shapes5_12),
   // pub fn m(&mut self, mut x: i16, …) -> i16 {
-  "c8ca44a755": LEAN.shapes15_7,
+  "c8ca44a755": note("7.7.2", LEAN.shapes15_7),
   // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes()).to();
-  "c9573720ef": LEAN.shapes9_1,
+  "c9573720ef": note("7.4.2", LEAN.shapes9_1),
   // x: std::array::from_fn(|_| T::new()),
-  "c9c77500c6": merged(LEAN.shapes2_7, LEAN.shapes2_9),
+  "c9c77500c6": merged(["7.8.2", LEAN.shapes2_7], ["7.8.2", LEAN.shapes2_9]),
   // self.f = (self.f as i32).wrapping_add(self.f as i32) as i16;
-  "c9cd63632c": merged(LEAN.shapes9_3, LEAN.shapes9_13),
+  "c9cd63632c": merged(["7.3.1", LEAN.shapes9_3], ["7.3.5", LEAN.shapes9_13]),
   // self.f.call(&mut (*__lent_N));
-  "ca81b2092d": LEAN.shapes18_3,
+  "ca81b2092d": note("7.8.6", LEAN.shapes18_3),
   // m(x.f);
-  "ca823a2c56": merged(LEAN.shapes17_1, LEAN.shapes17_10),
+  "ca823a2c56": merged(["7.9.3", LEAN.shapes17_1], ["7.8.4", LEAN.shapes17_10]),
   // self.f = m(L, …i16, &mut self.f, …);
-  "ca94bceedc": LEAN.shapes14_8,
+  "ca94bceedc": note("7.4.5", LEAN.shapes14_8),
   // x = { let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) }.to::<L>
-  "cb2199fcf3": LEAN.shapes17_4,
+  "cb2199fcf3": note("7.4.3", LEAN.shapes17_4),
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(self.f as i32) as i16;
-  "cbab9cd013": LEAN.shapes9_3,
+  "cbab9cd013": note("7.3.1", LEAN.shapes9_3),
   // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
   // (re-keyed from `self.f = self.f.take(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
-  "1bb6d1cb14": LEAN.shapes19_11,
+  "1bb6d1cb14": note("7.2.6", LEAN.shapes19_11),
   // x = m(&mut x) as i32;
-  "cbcde0e5de": LEAN.shapes13_15,
+  "cbcde0e5de": note("7.4.6", LEAN.shapes13_15),
   // pub fn m(mut x: i32, x: &mut T) -> bool {
-  "cc3063b338": LEAN.shapes15_7,
+  "cc3063b338": note("7.7.2", LEAN.shapes15_7),
   // x = __numbers_lower_N.wrapping_mul(Li32).wrapping_add(__numbers_upper_N);
-  "cc9778f81f": LEAN.shapes16_15,
+  "cc9778f81f": note("7.7.8", LEAN.shapes16_15),
   // *x = ({ m(x.f); *x } as i32).wrapping_add(x as i32) as i16;
-  "cca22914d5": LEAN.shapes19_1,
+  "cca22914d5": note("7.9.3", LEAN.shapes19_1),
   // if (self.f.f.f as i32) > Li32 {
-  "cd54e9d497": LEAN.shapes14_6,
+  "cd54e9d497": note("7.3.3", LEAN.shapes14_6),
   // pub fn m_get(&mut self, prg: &mut Programs) -> i16 {
-  "ceb0cb99a7": LEAN.shapes19_8,
+  "ceb0cb99a7": note("7.7.5", LEAN.shapes19_8),
   // self.f = ((self.f as i32) & (self.f as i32)) as i8;
-  "ceb22698cf": LEAN.shapes8_3,
+  "ceb22698cf": note("7.3.1", LEAN.shapes8_3),
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as u8;
-  "cedcee340b": LEAN.shapes10_3,
+  "cedcee340b": note("7.3.13", LEAN.shapes10_3),
   // pub fn m(&mut self, mut x: i16) -> bool {
-  "d00d314ec2": LEAN.shapes18_9,
+  "d00d314ec2": note("7.7.1", LEAN.shapes18_9),
   // self.f[((self.f as i64) - Li64) as usize] = (g.f / Lu64) as u32;
-  "d04295d4c8": LEAN.shapes19_3,
+  "d04295d4c8": note("7.2.3", LEAN.shapes19_3),
   // if (self.f & (!self.f)) & ((self.f as i32) < Li32) {
-  "d0865e3847": LEAN.shapes15_5,
+  "d0865e3847": note("7.5.6", LEAN.shapes15_5),
   // self.f = self.f.widen::<L>().to::<L>().to();
-  "e9e296435a": LEAN.shapes15_1,
+  "e9e296435a": note("7.4.2", LEAN.shapes15_1),
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T
-  "d231c1a7e5": LEAN.shapes17_11,
+  "d231c1a7e5": note("7.7.1", LEAN.shapes17_11),
   // self.f.f = (((self.f as i32) >= Li32) & ((self.f as i32) <= Li32)) | ((self.f as i32) == Li32);
-  "d263b8545d": LEAN.shapes20_2,
+  "d263b8545d": note("7.3.3", LEAN.shapes20_2),
   // x: (-f64::INFINITY),
-  "d2d239250b": LEAN.shapes2_13,
+  "d2d239250b": note("7.2.9", LEAN.shapes2_13),
   // self.f = (Li64 / Li64) as f32;
-  "d365a76953": LEAN.shapes5_14,
+  "d365a76953": note("7.2.2", LEAN.shapes5_14),
   // self.f = (self.f as i32).wrapping_neg() as u16;
-  "d379abfe6a": LEAN.shapes7_3,
+  "d379abfe6a": note("7.3.1", LEAN.shapes7_3),
   // pub fn m(mut x: i32, mut x: i16, x: &mut i16) -> bool {
-  "d39e19d533": LEAN.shapes19_2,
+  "d39e19d533": note("7.7.9", LEAN.shapes19_2),
   // self.f = Li64.wrapping_sub(Li64) as i8;
-  "d46e26c2aa": LEAN.shapes7_1,
+  "d46e26c2aa": note("7.2.2", LEAN.shapes7_1),
   // x: { let mut v = T::new(); v.f = { let mut v = T::new(); v.f = Li16; v }; v.f = Li16; v },
-  "d5d625ee73": LEAN.shapes3_7,
+  "d5d625ee73": note("7.8.3", LEAN.shapes3_7),
   // self.f = (self.f as i32).wrapping_add(Li32) as u8;
-  "d67dd34190": LEAN.shapes8_3,
+  "d67dd34190": note("7.3.1", LEAN.shapes8_3),
   // x[(x as i64).wrapping_sub(__line_lower_N as i64) as usize].f = x as i16;
-  "d8a5dd49a9": LEAN.shapes20_12,
+  "d8a5dd49a9": note("7.2.3", LEAN.shapes20_12),
   // if !((x.wrapping_add(x) < Li32) & ((x.char_at(x as i64) as i32) != Li32)) { break; }
-  "d8b7f34852": LEAN.shapes16_5,
+  "d8b7f34852": note("7.4.4", LEAN.shapes16_5),
   // pub fn m(mut x: i32, mut x: i16, x: &mut i32) -> bool {
-  "d8e4a747d3": LEAN.shapes19_2,
+  "d8e4a747d3": note("7.7.9", LEAN.shapes19_2),
   // self.f = (self.f as i32) == Li32;
-  "d99adbcc4b": LEAN.shapes14_6,
+  "d99adbcc4b": note("7.3.3", LEAN.shapes14_6),
   // self.f = (self.f as i32).wrapping_neg() as i8;
-  "d9d76a4055": LEAN.shapes7_3,
+  "d9d76a4055": note("7.3.1", LEAN.shapes7_3),
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
-  "db57faba5d": LEAN.shapes17_11,
+  "db57faba5d": note("7.7.1", LEAN.shapes17_11),
   // self.f = m(self.f.to::<L>(), self.f.to::<L>(), Li16).to::<L>().to();
-  "db96948bf3": LEAN.shapes16_1,
+  "db96948bf3": note("7.4.1", LEAN.shapes16_1),
   // self.f = (self.char as i32).wrapping_add(self.f as i32) as i16;
-  "dbc172da6a": LEAN.shapes9_3,
+  "dbc172da6a": note("7.3.1", LEAN.shapes9_3),
   // pub fn len(mut str: IecString<L>) -> i16 {
-  "dbcd1088a5": merged(LEAN.shapes15_7, LEAN.shapes15_14),
+  "dbcd1088a5": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
   // self.f = match self.f { L => self.f.m_get(), _ => panic!(S) };
-  "dc1e3df820": LEAN.shapes19_6,
+  "dc1e3df820": note("7.8.7", LEAN.shapes19_6),
   // pub fn m(&mut self) -> IecString<L> {
-  "dc8437c26a": LEAN.shapes18_10,
+  "dc8437c26a": note("7.7.3", LEAN.shapes18_10),
   // self.f = ({ m(self.f); self.f } as i32).wrapping_add(Li32) as i16;
-  "dd1daf8424": merged(LEAN.shapes9_3, LEAN.shapes9_10),
+  "dd1daf8424": merged(["7.3.1", LEAN.shapes9_3], ["7.9.3", LEAN.shapes9_10]),
   // pub fn m(mut x: i32, x: &mut f64) -> i32 {
-  "dd28a02e7e": LEAN.shapes19_2,
+  "dd28a02e7e": note("7.7.9", LEAN.shapes19_2),
   // pub fn m(mut x: i32, mut x: i16, x: &mut i8) -> bool {
-  "dd8988b5d4": LEAN.shapes19_2,
+  "dd8988b5d4": note("7.7.9", LEAN.shapes19_2),
   // fn m(x: usize) { if x == L { panic!(S); } }
-  "dd94ff18a2": LEAN.shapes2_14,
+  "dd94ff18a2": note("7.9.3", LEAN.shapes2_14),
   // pub x: bool,
-  "de132e5019": LEAN.shapes1_5,
+  "de132e5019": note("7.6.1", LEAN.shapes1_5),
   // let x = if v < L { -((-v).round()) } else { v.round() };
-  "de283d0ef6": LEAN.shapes8_1,
+  "de283d0ef6": note("7.9.1", LEAN.shapes8_1),
   // if !((x < x) & (x < x)) { break; }
-  "de2f16610e": LEAN.shapes14_7,
+  "de2f16610e": note("7.5.7", LEAN.shapes14_7),
   // pub x: usize,
-  "de8528b197": LEAN.shapes1_12,
+  "de8528b197": note("4.2", LEAN.shapes1_12),
   // self.f = self.f.wrapping_shr(Li16 as u32) as u32;
-  "de956f2a12": LEAN.shapes8_4,
+  "de956f2a12": note("7.2.5", LEAN.shapes8_4),
   // self.f = len(self.v.to::<L>());
-  "dea089f2fd": LEAN.shapes14_18,
+  "dea089f2fd": note("7.4.6", LEAN.shapes14_18),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8).to();
-  "deb9c88c25": merged(LEAN.shapes16_2, LEAN.shapes16_3),
+  "deb9c88c25": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3]),
   // self.f.__numbers_upper_N = self.__numbers_upper_N;
-  "debabdec0d": LEAN.shapes15_13,
+  "debabdec0d": note("7.2.3", LEAN.shapes15_13),
   // __inout_index_N: Li64,
-  "def43ae4d0": LEAN.shapes18_1,
+  "def43ae4d0": note("7.6.3", LEAN.shapes18_1),
   // self.f = m(&mut self.f).to();
-  "df1778304b": LEAN.shapes13_8,
+  "df1778304b": note("7.4.1", LEAN.shapes13_8),
   // pub fn m(&mut self, x: &mut i16) -> i16 {
-  "dfc9d07c2c": LEAN.shapes15_7,
+  "dfc9d07c2c": note("7.7.2", LEAN.shapes15_7),
   // self.f.clamp();
-  "e007ef42d8": merged(LEAN.shapes3_9, LEAN.shapes3_10),
+  "e007ef42d8": merged(["7.7.2", LEAN.shapes3_9], ["7.3.1", LEAN.shapes3_10]),
   // self.f[(Li8 as i64) as usize] = Li16;
-  "e02b80c3c1": LEAN.shapes11_7,
+  "e02b80c3c1": note("7.2.3", LEAN.shapes11_7),
   // self.f = ((self.f as i32) | (self.f as i32)) as i8;
-  "e1456a0eae": LEAN.shapes8_3,
+  "e1456a0eae": note("7.3.1", LEAN.shapes8_3),
   // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
-  "60fefc4d63": LEAN.shapes11_8,
+  "60fefc4d63": note("7.5.9", LEAN.shapes11_8),
   // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
-  "e205f81b84": LEAN.shapes16_1,
+  "e205f81b84": note("7.4.1", LEAN.shapes16_1),
   // if (self.f as i32) <= Li32 { break; }
-  "e2e0d67858": LEAN.shapes11_16,
+  "e2e0d67858": note("7.3.3", LEAN.shapes11_16),
   // x.f = L;
-  "e3343dab4f": LEAN.shapes17_10,
+  "e3343dab4f": note("7.8.4", LEAN.shapes17_10),
   // x = __values_upper_N.wrapping_mul(Li32) as i64;
-  "e37b53617c": LEAN.shapes15_13,
+  "e37b53617c": note("7.2.3", LEAN.shapes15_13),
   // self.f = m(self.f as f64) as i16;
-  "e3e3555f9c": LEAN.shapes6_11,
+  "e3e3555f9c": note("keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells", LEAN.shapes6_11),
   // { let mut x = std::mem::take(&mut prg.f); x.f.call(prg); prg.f = x; }
-  "e436b886c1": LEAN.shapes20_9,
+  "e436b886c1": note("7.8.10", LEAN.shapes20_9),
   // x = L;
-  "e496034f7b": LEAN.shapes12_9,
+  "e496034f7b": note("7.9.3", LEAN.shapes12_9),
   // x: { let mut v = T::new(); v.f = Lf32; v },
-  "e4b6325c44": LEAN.shapes2_8,
+  "e4b6325c44": note("7.8.3", LEAN.shapes2_8),
   // if ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
-  "e6075a580f": merged(LEAN.shapes16_2, LEAN.shapes16_5, LEAN.shapes16_10),
+  "e6075a580f": merged(["7.4.4", LEAN.shapes16_2], ["7.4.4", LEAN.shapes16_5], ["7.2.4", LEAN.shapes16_10]),
   // let mut x: IecString<L> = IecString::<L>::lit(B);
-  "e6646a0bd0": LEAN.shapes15_11,
+  "e6646a0bd0": note("7.4.7", LEAN.shapes15_11),
   // x = x.wrapping_add(Li32) as i16;
-  "e6ef5a4585": LEAN.shapes14_4,
+  "e6ef5a4585": note("7.3.1", LEAN.shapes14_4),
   // self.f = (self.f as i32).max(g.f as i32) as i16;
-  "e708298af7": LEAN.shapes19_4,
+  "e708298af7": note("7.3.1", LEAN.shapes19_4),
   // { let x = false; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
-  "e76a0c7276": LEAN.shapes20_13,
+  "e76a0c7276": note("7.8.5", LEAN.shapes20_13),
   // if x > x.wrapping_sub(x) { break; }
-  "e798927653": LEAN.shapes14_7,
+  "e798927653": note("7.5.7", LEAN.shapes14_7),
   // self.f = (self.f as i32).wrapping_mul(Li32) as i16;
-  "e7b84e4a19": LEAN.shapes8_3,
+  "e7b84e4a19": note("7.3.1", LEAN.shapes8_3),
   // x = ((*x).m() as i32).wrapping_add(x.f as i32) as i16;
-  "e7c2f94b63": merged(LEAN.shapes15_4, LEAN.shapes15_9),
+  "e7c2f94b63": merged(["7.3.1", LEAN.shapes15_4], ["7.8.6", LEAN.shapes15_9]),
   // self.f = ({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }
-  "e7c5e77bb8": LEAN.shapes10_1,
+  "e7c5e77bb8": note("7.2.6", LEAN.shapes10_1),
   // self.f.f = (self.f as i32) == Li32;
-  "e7e1a63970": LEAN.shapes14_6,
+  "e7e1a63970": note("7.3.3", LEAN.shapes14_6),
   // self.__chain_value_N = self.f;
-  "e7e871371f": LEAN.shapes5_7,
+  "e7e871371f": note("7.6.1", LEAN.shapes5_7),
   // self.units = len(self.narrow.to::<L>());
-  "e8162bb9aa": LEAN.shapes14_18,
+  "e8162bb9aa": note("7.4.6", LEAN.shapes14_18),
   // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64)).to();
-  "e8210b694c": merged(LEAN.shapes16_1, LEAN.shapes16_3),
+  "e8210b694c": merged(["7.4.1", LEAN.shapes16_1], ["7.4.3", LEAN.shapes16_3]),
   // pub fn fb_init(&mut self, mut x: bool) -> bool {
-  "e82fbd8112": LEAN.shapes2_11,
+  "e82fbd8112": note("7.7.1", LEAN.shapes2_11),
   // x: Lu32,
-  "e8954e2b0d": merged(LEAN.shapes4_1, LEAN.shapes4_2, LEAN.shapes1_10),
+  "e8954e2b0d": merged(["7.2.8", LEAN.shapes4_1], ["7.2.11", LEAN.shapes4_2], ["7.2.11", LEAN.shapes1_10]),
   // if self.f > self.f.m() { break; }
-  "e8a1222ae6": LEAN.shapes14_7,
+  "e8a1222ae6": note("7.5.7", LEAN.shapes14_7),
   // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes()).to();
-  "e921bd1d7e": LEAN.shapes9_1,
+  "e921bd1d7e": note("7.4.2", LEAN.shapes9_1),
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 
-  "e9a5cabd36": LEAN.shapes17_12,
+  "e9a5cabd36": note("7.3.9", LEAN.shapes17_12),
   // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16).to::<L>().to();
-  "0a2a55e976": LEAN.shapes16_1,
+  "0a2a55e976": note("7.4.1", LEAN.shapes16_1),
   // self.copied = self.copied;
-  "ea53989ac8": LEAN.shapes11_20,
+  "ea53989ac8": note("keep:`x := x` stays ALLOWED self_assignment (7.8.9 moves this text into that reason); removed by 7.11.1", LEAN.shapes11_20),
   // if ((x == L) | (x == L)) | ((x as i32) == Li32) {
-  "ea6f85988f": LEAN.shapes15_5,
+  "ea6f85988f": note("7.5.6", LEAN.shapes15_5),
   // x = x[((Li8 as i64) - Li64) as usize];
-  "eb533b340b": LEAN.shapes14_2,
+  "eb533b340b": note("7.2.3", LEAN.shapes14_2),
   // self.f = self.f.f[((Li8 as i64) - Li64) as usize].f.f;
-  "ebc60e2668": LEAN.shapes11_7,
+  "ebc60e2668": note("7.2.3", LEAN.shapes11_7),
   // x = str.to();
-  "ec1b55e90b": LEAN.shapes12_7,
+  "ec1b55e90b": note("7.4.1", LEAN.shapes12_7),
   // if (x == L) | (x == L) {
-  "ec21aafede": LEAN.shapes13_13,
+  "ec21aafede": note("7.5.6", LEAN.shapes13_13),
   // x: (-Li16),
-  "ec9a760059": LEAN.shapes1_1,
+  "ec9a760059": note("7.2.9", LEAN.shapes1_1),
   // *x = ((x as i32) / (x as i32)) as i16;
-  "ed3ad19a47": LEAN.shapes14_5,
+  "ed3ad19a47": note("7.3.11", LEAN.shapes14_5),
   // pub fn m_set(&mut self, prg: &mut Programs, mut x: i16) {
-  "ed425c8710": LEAN.shapes19_8,
+  "ed425c8710": note("7.7.5", LEAN.shapes19_8),
   // self.f = (self.f as i32).wrapping_mul(Li32) as u16;
-  "ed846b075d": LEAN.shapes8_3,
+  "ed846b075d": note("7.3.1", LEAN.shapes8_3),
   // if x > __grid_upper_N { break; }
-  "ed880b92a8": merged(LEAN.shapes14_7, LEAN.shapes14_15),
+  "ed880b92a8": merged(["7.5.7", LEAN.shapes14_7], ["7.5.7", LEAN.shapes14_15]),
   // self.f = self.__chain_value_N as f32;
-  "ee5f8f4ae1": LEAN.shapes6_8,
+  "ee5f8f4ae1": note("7.6.1", LEAN.shapes6_8),
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i8;
-  "eea3dc7538": LEAN.shapes10_3,
+  "eea3dc7538": note("7.3.13", LEAN.shapes10_3),
   // self.f = m((self.narrow * Lf32) as f64);
-  "eeb4929f34": LEAN.shapes14_13,
+  "eeb4929f34": note("7.9.1", LEAN.shapes14_13),
   // self.f = (self.v as u64) as u32;
-  "eeb7e2463d": LEAN.shapes5_9,
+  "eeb7e2463d": note("7.3.9", LEAN.shapes5_9),
   // m(L, &mut self.f);
-  "ef4db7eb51": merged(LEAN.shapes12_6, LEAN.shapes12_9),
+  "ef4db7eb51": merged(["7.4.4", LEAN.shapes12_6], ["7.9.3", LEAN.shapes12_9]),
   // self.f = { m(self.p); self.f[(self.p as i64).wrapping_add(-Li64) as usize].f };
-  "ef64f29f0d": LEAN.shapes3_4,
+  "ef64f29f0d": note("7.2.4", LEAN.shapes3_4),
   // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i8;
-  "efd31f3397": LEAN.shapes20_15,
+  "efd31f3397": note("7.9.3", LEAN.shapes20_15),
   // g.f.count = (g.f.count as i32).wrapping_add(g.f as i32) as i16;
-  "eff90824ac": LEAN.shapes19_10,
+  "eff90824ac": note("7.3.1", LEAN.shapes19_10),
   // (*x).call();
-  "f0065dbd0b": LEAN.shapes12_5,
+  "f0065dbd0b": note("7.8.6", LEAN.shapes12_5),
   // self.f.__numbers_lower_N = Li32;
-  "f06209ef9e": LEAN.shapes14_15,
+  "f06209ef9e": note("7.5.7", LEAN.shapes14_15),
   // x[(x as i64).wrapping_sub(__grid_lower_N as i64) as usize][(x as i64).wrapping_sub(__grid_lower_N as i64) as usize
-  "f07cf2da87": LEAN.shapes17_3,
+  "f07cf2da87": note("7.2.3", LEAN.shapes17_3),
   // x = x.with_char(x as i64, x.char_at(x as i64)).to();
-  "f0973f1bcc": LEAN.shapes15_2,
+  "f0973f1bcc": note("7.4.3", LEAN.shapes15_2),
   // x[(x.wrapping_add(x) as i64) as usize] = x[(x.wrapping_add(x) as i64) as usize];
-  "f10c6b31a0": LEAN.shapes16_7,
+  "f10c6b31a0": note("7.2.14", LEAN.shapes16_7),
   // self.f = self.v.m(&mut self.__output_N);
-  "f1b8c2a1e6": LEAN.shapes14_11,
+  "f1b8c2a1e6": note("7.6.3", LEAN.shapes14_11),
   // self.f = (self.f & (self.f | (self.f & (!self.f)))) | (self.f ^ self.f);
-  "f22b4df758": LEAN.shapes9_12,
+  "f22b4df758": note("7.5.6", LEAN.shapes9_12),
   // self.f = true as u8;
-  "f2987aca6a": LEAN.shapes3_11,
+  "f2987aca6a": note("7.2.10", LEAN.shapes3_11),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.cha
-  "f31583df05": LEAN.shapes17_2,
+  "f31583df05": note("7.4.3", LEAN.shapes17_2),
   // pub fn m(&mut self, mut x: i16, …) {
-  "f327cfe40a": LEAN.shapes18_9,
+  "f327cfe40a": note("7.7.1", LEAN.shapes18_9),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as u16;
-  "f35183a6a9": LEAN.shapes8_3,
+  "f35183a6a9": note("7.3.1", LEAN.shapes8_3),
   // if (len as i32) > Li32 {
-  "f39a4e5fb5": LEAN.shapes13_14,
+  "f39a4e5fb5": note("7.3.3", LEAN.shapes13_14),
   // x as i64
-  "f44fb59407": LEAN.shapes3_8,
+  "f44fb59407": note("7.9.1", LEAN.shapes3_8),
   // self.f = self.f & (!self.f);
-  "f474d0ca12": LEAN.shapes5_12,
+  "f474d0ca12": note("7.3.8", LEAN.shapes5_12),
   // pub x: [u64; L],
-  "f4a4eb1ade": LEAN.shapes17_8,
+  "f4a4eb1ade": note("7.8.2", LEAN.shapes17_8),
   // self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i6
-  "f59561bd3c": LEAN.shapes12_2,
+  "f59561bd3c": note("7.2.3", LEAN.shapes12_2),
   // self.f = (Li64 / Li64) as f64;
-  "f5a6eb5ecf": LEAN.shapes5_14,
+  "f5a6eb5ecf": note("7.2.2", LEAN.shapes5_14),
   // pub fn m(mut x: IecString<L>, …) -> i16 {
-  "f5ca982c14": merged(LEAN.shapes15_7, LEAN.shapes15_14),
+  "f5ca982c14": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
   // pub fn m(&mut self, g: &mut Globals) -> i16 {
-  "f62e4d99a5": LEAN.shapes15_6,
+  "f62e4d99a5": note("7.7.5", LEAN.shapes15_6),
   // pub fn m(mut x: i8) -> bool {
-  "f75c7acc4a": LEAN.shapes13_12,
+  "f75c7acc4a": note("7.7.1", LEAN.shapes13_12),
   // m(self.p);
-  "f7ea0fc7a1": merged(LEAN.shapes11_1, LEAN.shapes11_2, LEAN.shapes11_3, LEAN.shapes11_4),
+  "f7ea0fc7a1": merged(["7.2.4", LEAN.shapes11_1], ["7.2.4", LEAN.shapes11_2], ["7.9.3", LEAN.shapes11_3], ["7.9.3", LEAN.shapes11_4]),
   // self.f = m(-Li32, …, &mut self.f);
-  "f7faf582da": LEAN.shapes14_15,
+  "f7faf582da": note("7.5.7", LEAN.shapes14_15),
   // self.f = (self.v / Lu64).wrapping_sub({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem
-  "f8319bc5b1": merged(LEAN.shapes10_1, LEAN.shapes10_2),
+  "f8319bc5b1": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Li16 << L) } else { *x & !(Li16 << L) }; }
-  "f85632e185": LEAN.shapes20_13,
+  "f85632e185": note("7.8.5", LEAN.shapes20_13),
   // self.f = m(self.f, Lf32);
-  "f8b810062b": LEAN.shapes4_8,
+  "f8b810062b": note("7.2.6", LEAN.shapes4_8),
   // x: std::array::from_fn(|_| [Li16; L]),
-  "f9bdd4950a": LEAN.shapes2_7,
+  "f9bdd4950a": note("7.8.2", LEAN.shapes2_7),
   // pub fn init(&mut self) {
-  "fa7d5f176f": LEAN.shapes2_12,
+  "fa7d5f176f": note("7.7.2", LEAN.shapes2_12),
   // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
-  "9358115574": LEAN.shapes11_8,
+  "9358115574": note("7.5.9", LEAN.shapes11_8),
   // let mut map: i16 = Li16;
-  "faf5605030": LEAN.shapes18_10,
+  "faf5605030": note("7.7.3", LEAN.shapes18_10),
   // self.m();
-  "fb7e9e6ff4": LEAN.shapes8_10,
+  "fb7e9e6ff4": note("keep:the call itself is correct and lean (its allow-attribute waste is 7.7.2's); removed by 7.7.10", LEAN.shapes8_10),
   // __chain_value_N: Lf64,
-  "fbbfa869cf": LEAN.shapes4_6,
+  "fbbfa869cf": note("7.6.1", LEAN.shapes4_6),
   // x: L,
-  "fbde4d6e1e": LEAN.shapes1_8,
+  "fbde4d6e1e": note("7.8.8", LEAN.shapes1_8),
   // self.f = (self.f.f as i32).wrapping_add(self.f.f as i32) as i16;
-  "fbfd8ba027": LEAN.shapes16_6,
+  "fbfd8ba027": note("7.3.1", LEAN.shapes16_6),
   // self.f[(Li8 as i64) as usize] = (self.f[(Li8 as i64) as usize] as i32).wrapping_add(Li32) as i16;
-  "fcc10694ff": LEAN.shapes12_2,
+  "fcc10694ff": note("7.2.3", LEAN.shapes12_2),
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8).to();
-  "fcc1e3ee2e": merged(LEAN.shapes17_1, LEAN.shapes17_2),
+  "fcc1e3ee2e": merged(["7.9.3", LEAN.shapes17_1], ["7.4.3", LEAN.shapes17_2]),
   // if self.f > self.__numbers_upper_N { break; }
-  "fd16368fa8": LEAN.shapes15_13,
+  "fd16368fa8": note("7.2.3", LEAN.shapes15_13),
   // pub fn m_set(&mut self, mut x: i16) {
-  "fda03fa84f": LEAN.shapes14_14,
+  "fda03fa84f": note("7.7.3", LEAN.shapes14_14),
   // pub fn x<const T: usize>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T>) 
-  "fdb004dd33": LEAN.shapes17_11,
+  "fdb004dd33": note("7.7.1", LEAN.shapes17_11),
   // self.f = self.f.sqrt() as f32;
-  "fdc2e175fa": LEAN.shapes5_11,
+  "fdc2e175fa": note("7.3.6", LEAN.shapes5_11),
   // self.f = (self.f.wrapping_shr(Li16 as u32) & Lu32) != Lu32;
-  "fdfbae2680": LEAN.shapes8_4,
+  "fdfbae2680": note("7.2.5", LEAN.shapes8_4),
   // fn m(v: f64) -> i64 {
-  "fe6af35845": LEAN.shapes4_4,
+  "fe6af35845": note("7.9.1", LEAN.shapes4_4),
   // self.f = m(Li32, …, &mut self.f);
-  "fedbbc431c": LEAN.shapes14_15,
+  "fedbbc431c": note("7.5.7", LEAN.shapes14_15),
   // self.f = m(Li32.wrapping_neg() as i16);
 }
 
-/** A note with nothing in it, or an id that cannot be a construct id — refused, like an allowed lint with no reason. */
+/**
+ * A note with nothing in it, or an id that cannot be a construct id — refused, like an allowed lint with no reason. And
+ * a note whose `task` is missing or names no task of transpile-restructure's `tasks.md` (`noteTagProblems`): a tag is
+ * the promise that some task deletes the note, so one that points nowhere is refused like an untagged one.
+ */
 export function assertNotes(): void {
   const bad = Object.entries(NOTES).filter(
     ([id, n]) => !/^[0-9a-f]{10}$/.test(id) || (n.improvement ?? "").trim() === "" && (n.alternatives ?? []).length === 0,
   )
   if (bad.length > 0) throw new Error(`notes with no id or no content: ${bad.map(([id]) => id).join(", ")}`)
+  // a `keep:` tag names no task, so only a table with a task tag in it needs the task list to exist
+  if (Object.values(NOTES).every((n) => n.tasks.every((t) => typeof t === "string" && t.startsWith("keep:")))) {
+    const untagged = noteTagProblems(NOTES, new Map())
+    if (untagged.length > 0) throw new Error(`notes with a bad task tag:\n  ${untagged.join("\n  ")}`)
+    return
+  }
+  if (!existsSync(RESTRUCTURE_TASKS))
+    throw new Error(
+      `the notes' task tags name tasks of ${RESTRUCTURE_TASKS}, which does not exist (archived?) — retag the notes or delete them`,
+    )
+  const problems = noteTagProblems(NOTES, taskIdsOf(readFileSync(RESTRUCTURE_TASKS, "utf8")))
+  if (problems.length > 0) throw new Error(`notes with a bad task tag:\n  ${problems.join("\n  ")}`)
+}
+
+/** The task list every note's `task` names an id of: openspec `transpile-restructure` (its task 0.6 tagged the notes). */
+export const RESTRUCTURE_TASKS = join(import.meta.dir, "..", "..", "..", "..", "..", "openspec", "changes", "transpile-restructure", "tasks.md")
+
+/**
+ * The ids of a `tasks.md`'s task lines (`- [ ] 7.3.1 …`, `- [x] 0a …`), each with whether it is ticked — a line of
+ * prose that mentions one is not one.
+ */
+export function taskIdsOf(tasksMd: string): ReadonlyMap<string, boolean> {
+  return new Map([...tasksMd.matchAll(/^- \[([ x])\] (\S+) /gm)].map((m) => [m[2]!, m[1] === "x"] as const))
+}
+
+/**
+ * Each note with no owner, and each item of a note whose owner is missing, a `keep:` with no reason, a task id `tasks`
+ * does not hold, or a task already TICKED — the task that lands removes its items, so a ticked owner means it did not
+ * (transpile-restructure 7.11.2) — by note id, then item (1-based).
+ */
+export function noteTagProblems(notes: Readonly<Record<string, ShapeNote>>, tasks: ReadonlyMap<string, boolean>): string[] {
+  return Object.keys(notes)
+    .sort()
+    .flatMap((id) => {
+      const owners: unknown = notes[id]!.tasks
+      if (!Array.isArray(owners) || owners.length === 0) return [`${id}: no task`]
+      return owners.flatMap((task: unknown, i) => {
+        const item = `${id}: item ${i + 1}`
+        if (typeof task !== "string" || task.trim() === "") return [`${item} has no task`]
+        if (task.startsWith("keep:"))
+          return task.slice("keep:".length).trim() === "" ? [`${item} is \`keep:\` without a reason`] : []
+        const done = tasks.get(task)
+        if (done === undefined) return [`${item}'s task ${task} is not in transpile-restructure's tasks.md`]
+        return done ? [`${item}'s task ${task} is ticked — the task that lands removes its items from the note`] : []
+      })
+    })
+}
+
+/**
+ * How many notes each task still owes — a note counted once under each of its owners, every `keep:<reason>` as one
+ * `keep` — by count, then by id.
+ */
+export function notesByTask(notes: Readonly<Record<string, ShapeNote>>): [string, number][] {
+  const count = new Map<string, number>()
+  for (const n of Object.values(notes))
+    for (const owner of new Set(n.tasks.map((t) => (t.startsWith("keep:") ? "keep" : t))))
+      count.set(owner, (count.get(owner) ?? 0) + 1)
+  return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "en", { numeric: true }))
 }
 
 /** The notes whose construct no fixture emits any more — each one a judgement about Rust nobody produces. */
@@ -3479,6 +3566,7 @@ export function renderNotes(
       ...(n.alternatives === undefined ? [] : ["    alternatives: [", ...n.alternatives.map((a) => `      ${q(a)},`), "    ],"]),
       ...(n.chosen === undefined ? [] : [`    chosen: ${q(n.chosen)},`]),
       ...(n.why === undefined ? [] : [`    why: ${q(n.why)},`]),
+      `    tasks: [${n.tasks.map(q).join(", ")}],`,
       "  },",
     ].join("\n")
   })
@@ -3492,6 +3580,7 @@ export function renderNotes(
  *   \`alternatives\`  when several emissions are CORRECT: each option, as the reviewer put it
  *   \`chosen\`        the option the reviewer would pick, when one was named
  *   \`why\`           the reviewer's reason for it
+ *   \`tasks\`         per merged item, in order: the transpile-restructure task that resolves it, or \`keep:<reason>\`
  */
 export const NOTES: Readonly<Record<string, ShapeNote>> = {
 ${entries.join("\n")}

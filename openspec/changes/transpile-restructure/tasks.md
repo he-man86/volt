@@ -277,12 +277,30 @@ its RC or lean id in this file.
     - Full suite, cold, final tree: 8410 pass, 35 skip, 432 todo, 0 fail — 8877 tests across 207 files, 1200 s.
       `bun typecheck` clean; `bun run lint` (layering) green; `bun run check` (repo root) green. Fixtures and the transpiler
       unchanged, so `map.generated.ts` is not regenerated.
-- [ ] 0.5 Baseline snapshots.
+- [x] 0.5 Baseline snapshots.
   - What: `snapshot:transpile write --baseline` and `suite-snapshot.ts <file>` at the 0.0 commit; both hashes recorded here.
   - Where: `test/conformance/.snapshot/baseline/` (untracked); this file.
   - Accept: `check` and `--compare` are identical.
   - Depends: 0.3, 0.4.
-- [ ] 0.6 Tag every NOTE with its task.
+  - Done 2026-10-07 at d677078540 (the 0.0 commit 3f42db0e71 plus 0a's snapshot and ceilings-test fixes; the transpiler, the
+    fixtures and every test title the T set covers are the same, so the baseline stands for 0.0 — taken at d677078540 so 0a's own
+    test titles are in the "before"). S: the baseline is 0a's rewrite (`write --baseline`, 5357 fixtures, 182 s); `snapshot:transpile
+    check` (all layers) 191 s "✓ identical". Hashes (sha256) of `test/conformance/.snapshot/baseline/`: `ir.jsonl`
+    58c47d39f5ed711f01bb98ded9190a4479f8b45cc4a5b8ebfa5386475df050d8, `rust.jsonl`
+    e1c9cd3bc3e199a46a301d84c52efe1d60cfffd15d6794aeb8e8edceac2dd653, `outputs.jsonl`
+    4dfd387291342e5ed5e99a8f5a15f8b103892a18f7ba1b723066036e4606325f, `edge.jsonl`
+    9193b539ae49cad4fb42e1c52e089ebe71ebe152a38e3e31051bc05cba5dc2a8. T: `bun scripts/suite-snapshot.ts
+    test/conformance/.snapshot/suite-baseline.txt` (the default dir set: `test/conformance`, `src/transpile`,
+    `src/frontend/{types,symbols,syntax}`, `test/libraries`; `test/exec` does not exist) wrote 7387 tests (6998 pass, 389 skip)
+    in 358 s, sha256 260c87768e39c8161700000ab12196e4566dbc28d19003cc14cbd4e67712ff22; `--compare` of it 460 s "✓ identical".
+    Both baselines are untracked (gitignored under `test/conformance/.snapshot/`). 0.6 then added four test titles
+    (`transpile-confidence.test.ts` "every note is tagged with the task that owns it"), so the T "before" for phase 1 is
+    re-taken after 0.6: 7391 tests, sha256
+    0cd1ef9f5e53fd06b55bab9465b8c243ee106cd46a6a8f284d51246e2ee8899e, the 0.5 file plus exactly those four `pass` lines.
+    Superseded by 0b (which renamed and added test titles there): the T baseline phase 1 compares against is the one 0b records,
+    taken on 0b's committed tree — it stands for the 0b commit. S stands for d677078540 (rebuildable from that commit with
+    `write --baseline`; 0b re-checked it against 0b's tree).
+- [x] 0.6 Tag every NOTE with its task.
   - What: the authored `NOTES` gain a `task` field: a task id of this file (`7.4.1`, `2.3`, `6.15`, …) or `keep:<reason>` for a note
     that says nothing needs to change. The generator refuses a note without a tag and a tag naming an id that is not in this file.
     Every note that fits no existing task gets a new task in phase 7 (same commit); the 520 notes no task cited on 2026-09-29 are
@@ -292,25 +310,124 @@ its RC or lean id in this file.
   - Accept: M (no row change); all 776 notes carry a valid tag; the map header prints a per-task note count; no task id in it is
     missing from this file.
   - Depends: 0.2.
-- [ ] 0.7 Create the LSP hand-off change `lsp-transpile-review-gaps`.
+  - Done 2026-10-07. `ShapeNote.task` (required; `fixtures/map-row.ts`); the review items (`LEAN`) carry no task, every
+    NOTES entry is `note(<task>, …items)` (`note` replaces `merged`: one item is kept as it is, several are merged as before).
+    `assertNotes` (run first by `rate:fixtures` and by `fixtures.test.ts`) refuses a note with no tag, a `keep:` with no reason
+    and a task id that is not a task line of this file (`taskIdsOf`, `noteTagProblems`; it reads this file only while some
+    tag names a task, and refuses by name when the file is gone). The map header prints the count per task (`notesByTask`), and
+    each note in the map's NOTES section shows its `task`. Tests: `support/transpile-confidence.test.ts` (4 new: the id
+    parser, the three refusals by note id, the per-task count, every authored note valid); `fixtures.test.ts`'s render test
+    carries a task. Live: a tag `7.3.99` and an empty one made `rate:fixtures` stop at once with "013de1dc6a: no task" and
+    "0153115496: task 7.3.99 is not in transpile-restructure's tasks.md".
+    How the 723 notes were placed (the work is reproducible from the review items and this file's citations): 226 named by
+    exactly one task here; 5 named by two (7.3.1/7.3.2, 7.5.4/7.5.7: the later task, which finishes it); 9 named by the keep
+    tasks 7.2.13, 7.7.10, 7.8.9 → `keep:<reason>`; 218 whose review item has another note one task names → that task; 14 whose
+    item's notes two tasks name and 12 made of two items no task names → decided on the construct line; 236 whose items no
+    task named → placed by reading the item's text (107 items); 3 → `keep` (shapes6_11: `iec_r2i32` then a narrowing cast is
+    correct against all 192 measured cells). Every note fit an existing task, so phase 7 gained no task; one item lands
+    outside phase 7: shapes1_12 (pointers as `usize` tags, 2 notes) → 4.2, the pointer-model decision.
+    The `keep` count is 12 (replaces the estimated 13): the seven 7.2.13 lists, fb7e9e6ff4 (7.7.10), ea53989ac8 (7.8.9 / 7.11.1)
+    and the three shapes6_11 notes (7.11.1 deletes them).
+    M: `rate:fixtures` regenerated — no row changed; the header gained the per-task counts, the NOTES section a `task` line per
+    note. Notes per task: 7.3.1 92, 7.2.3 42, 7.3.3 30, 7.2.6 27, 7.4.1 24, 7.4.4 24, 7.7.1 24, 7.4.2 22, 7.8.6 22, 7.2.2 18,
+    7.6.1 18, 7.7.3 17, 7.2.9 15, 7.7.5 15, 7.7.8 15, 7.4.3 14, 7.9.3 14, 7.4.6 13, 7.5.7 13, 7.6.3 12, 7.7.2 12, keep 12,
+    7.2.7 11, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.5 10, 7.6.2 10, 7.8.2 10, 7.2.4 9, 7.2.10 8, 7.3.5 8, 7.3.6 8, 7.2.8 7, 7.6.5 7,
+    7.7.9 7, 7.8.3 7, 7.8.10 7, 7.2.14 6, 7.4.5 6, 7.8.5 6, 7.3.9 5, 7.3.12 5, 7.8.4 5, 7.3.13 4, 7.5.2 4, 7.8.8 4, 7.3.8 3,
+    7.4.8 3, 7.7.6 3, 4.2 2, 7.2.11 2, 7.3.2 2, 7.3.10 2, 7.3.11 2, 7.4.7 2, 7.4.9 2, 7.5.9 2, 7.6.4 2, 7.6.6 2, 7.7.11 2, 7.2.12 1,
+    7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.8.1 1, 7.9.2 1 (the 2026-09-29 "776 notes" are 723 today).
+- [x] 0.7 Create the LSP hand-off change `lsp-transpile-review-gaps`.
   - What: `proposal.md` (why: LSP-only gaps found by the transpiler work, consumed by "the rest of the LSP review") and `tasks.md`
     with one task per row of design.md §7.1 (RC 13, 35, 37, 20, 38 halves), each naming its fixtures.
   - Where: `openspec/changes/lsp-transpile-review-gaps/`.
   - Accept: `npx --yes openspec validate lsp-transpile-review-gaps` passes; every "Filed" in this file names a line there.
   - Depends: 0.1.
-- [ ] 0.8 Reconcile `transpile-st-to-rust`'s 39 open tasks.
+  - Done 2026-10-07. `openspec/changes/lsp-transpile-review-gaps/` (proposal, one ADDED requirement, tasks): 1.1 RC 13 (the
+    three `for_limit_wider_than_counter_*`, `MEASURED_SILENT`), 1.2 RC 35 (`tr_35_for_byte_runtime_int_step`,
+    `tr_35_for_sint_step_300`), 1.3 RC 37 — ticked there: the four `tr_37_*` already rate `refused` (the LSP reports CODESYS's
+    refusal since 194319e648), so nothing is owed, 1.4 RC 20 (`tr_20_output_index_moved_by_callee`, `KNOWN_DIVERGENCES.codesys`),
+    1.5 RC 38 (no LSP half known today — `string_wstring_mixing`, all 39 `uop_*` and `standard_len_wstring_rejected` rate
+    `refused`; 6.13 files what it finds or ticks it). Section 2 receives later "Filed" lines. The "Filed" acceptances here map
+    to it: 2.4 → 1.2, 2.6 → 1.1, 4.11 → 1.4, 6.12 → 1.3, 6.13 → 1.5. `npx --yes openspec validate lsp-transpile-review-gaps`:
+    "Change 'lsp-transpile-review-gaps' is valid".
+- [x] 0.8 Reconcile `transpile-st-to-rust`'s 39 open tasks.
   - What: per design.md §7.3, each open task is marked "superseded by transpile-restructure <id>" or "stays"; the pointer tasks point
     at 4.2; the VAR_OUTPUT copy-back task at 4.11.
   - Where: `openspec/changes/transpile-st-to-rust/tasks.md`; this file (the list).
   - Accept: every open task there carries a verdict; none is ticked without its superseding task being done.
   - Depends: 0.1.
-- [ ] 0.9 What the front-end already provides.
+  - Done 2026-10-03 by the hand-off at the end of this file (54ba095d06; transpile-st-to-rust archived at
+    `archive/2026-10-03-transpile-st-to-rust`, 146565d27a); re-checked 2026-10-07: its tasks.md has 39 open lines, 6 marked
+    "*Superseded by transpile-restructure <id>*" (4.11 ×1, 4.2 ×4, 4.14 ×1) and 33 "*Backlog (handed off)*", none ticked, so none is
+    ticked ahead of its superseding task. Because that change is archived, 4.2, 4.11, 4.14 and 8.4 name the superseded line in
+    their commit instead of ticking the archived file (the hand-off's rule).
+- [x] 0.9 What the front-end already provides.
   - What: for each of the 15 needs in design.md §6, record "met by frontend-conformance at <path>" or "unmet"; for each met one, the
     matching 1.1 task becomes a verification that the transpiler uses that home (and nothing else). If frontend-conformance moved the
     folders (e.g. under `frontend/`), rewrite the front-end paths of design.md §2.7 and of this file in the same commit.
   - Where: this file (a table under 0.9); design.md §2.7, §6.
   - Accept: every need has a verdict and a path; design.md names only existing front-end paths or planned ones.
   - Depends: 0.1.
+  - Done 2026-10-07, re-checked against the code (every export and index named below grepped in `src/frontend/`, every
+    transpiler copy in `src/transpile/`). design.md §6.1 stands as written; this adds what is not on a layer's index yet.
+
+    | # | Need | Verdict | Path | 1.1 task becomes |
+    |---|---|---|---|---|
+    | 1 | `sameName` | met | `src/frontend/syntax/identifier.ts` (+ `selfRefKind`, H10) | 1.1.1 verify: drop `interp/interp.ts:467` |
+    | 2 | `extendsChain` | met | `src/frontend/symbols/extends.ts` (`extendsChain`, `baseOf`, `basesOf`, `ancestry`); `scope-nav.ts` `hasUnresolvedBase` | 1.1.2 verify: drop `lower/lower.ts:212`, `lower/lowering.ts` `baseOf` (H1) |
+    | 3 | `peelArray`, `elementOf` | unmet | planned `src/frontend/types/arrays.ts` | 1.1.3 builds it (today `ir/ir.ts:49,58`) |
+    | 4 | `typeZero`, `typeDefault` | unmet (the facts it reads exist: `types/enums.ts`, `types/defaults.ts` `DEFAULT_STRING_LENGTH`) | planned in `src/frontend/types/defaults.ts` | 1.1.4 builds it (today `ir/ir.ts:36` `defaultValueOf`) |
+    | 5 | type predicates | unmet (the file exists with the front-end's own) | `src/frontend/types/predicates.ts` | 1.1.5 adds the set (today `ir/ir.ts:43` `isBit`, `emit.ts:215` `isReal`) |
+    | 6 | widths | met for `integerOfWidth` and `wrapToWidth` (the latter not on the types index); `widthOf` unmet | `src/frontend/types/width.ts` | 1.1.6: verify + index `wrapToWidth`; `widthOf` (today `ir/evaluate.ts:23`) built there |
+    | 7 | literal typing | met but `contextLiteralType` (LT14 pins the disagreement; H5) | `src/frontend/types/literal.ts` | 1.1.7 verify; `contextLiteralType` stays in `lower/constants.ts:251` until 6.2 |
+    | 8 | `parseConversionName` | met (target required) | `src/frontend/types/conversion-name.ts` | 1.1.10 verify; the two `undefined` targets (`lower/builtins.ts:156`, `lower/constants.ts:132,183`) are H4's |
+    | 9 | arithmetic result types | met; `durationScaleResultType` is not on the types index | `src/frontend/types/arith/{runtime,checked,temporal,operators}.ts`, `exptResultType` in `types/builtins.ts` | 1.1.8 verify (H4) |
+    | 10 | constancy / fold | met; `compileTimeConstant`, `constancyIn` are not on the types index | `src/frontend/types/const/{constancy,fold}.ts` (`declaredValue` = `heldAs`) | 1.1.9 verify (H7) |
+    | 11 | enum numbering, default | met; `enumMemberValue`, `enumStorage`, `enumValueStorage`, `enumBase` are not on the types index | `src/frontend/types/enums.ts` | 1.7.14 / H7 use it; `lower/constants.ts:28` `enumStorage` is the copy |
+    | 12 | `calendarNanoseconds` | met, already used (`lower/constants.ts:4,224`) | `src/frontend/syntax/literal/calendar.ts` | 1.1.12 verify only |
+    | 13 | infer split, `resolveCallee` | met; `mathResultType`, `MATH_ARG_TYPED` (H4 `UNARY_MATH`) are not on the types index | `src/frontend/types/infer/{expr,member,callee}.ts` | 1.1.13 verify |
+    | 14 | `resolveNamedType` with a required asker | unmet (`askerUri` still optional, `types/resolve.ts:106`) | `src/frontend/types/resolve.ts` | 6.5 makes it required |
+    | 15 | every one on its layer's index | met but: `wrapToWidth`, `durationScaleResultType`, `compileTimeConstant`, `constancyIn`, `enumMemberValue`, `enumStorage`, `enumValueStorage`, `enumBase`, `mathResultType`, `MATH_ARG_TYPED`, `namespaceOf`, `systemStructType` (and `fbChainSections`, private by design) | `src/frontend/{syntax,symbols,types}/index.ts` | 1.1.14 adds each the transpiler starts importing |
+
+    design.md §2.7's table now names the real files (`src/frontend/<layer>/…`, each marked exists or planned by its 1.1 task);
+    §6.1 already states the same rule for every other front-end path in design.md and in this file (`types/…` = `src/frontend/types/…`).
+
+- [x] 0b Gate: the review of 0.5-0.9 (four findings, each fixed with a failing test first or written into its task).
+  - Done 2026-10-07.
+    - Merged notes lost items (medium): a note merging several review items had ONE owner, so the day 7.11.2 deleted it every other
+      item went too — 32 items lived only in merged notes (shapes6_4, the hand-written `impl Default`, under 7.2.8; shapes5_5 and
+      shapes3_2, MOD by a literal, under 7.3.9 and 7.8.4; …). Now every item names its own owner: `ShapeNote.tasks` (one per item,
+      in item order), authored as `merged([task, item], …)` (`note(task, item)` takes one item). 72 merged notes, 807 items over
+      723 notes, 59 notes with more than one owner. Items with a single-item note elsewhere took that note's task; the 32 were placed
+      by their text: 7.4.3 shapes16_3; 7.2.8 shapes4_1; 7.2.11 shapes4_2; 7.2.12 shapes4_3, 5_15; 7.7.7 shapes15_8; 7.9.3 shapes9_10,
+      6_3, 11_3, 11_4; 7.3.5 shapes11_6, 9_13; 7.4.1 shapes10_5; 7.2.5 shapes13_2; 7.3.1 shapes13_3, 12_13, 3_10; 7.2.2 shapes13_4,
+      12_12; 7.2.6 shapes10_2 (its `count / day * day` written into 7.2.6), 3_2, 5_5; 7.6.6 shapes8_11, 16_16; 7.2.4 shapes16_10,
+      11_1, 11_2; 7.8.4 shapes3_1; 7.8.8 shapes6_2 (the REF= tag written into 7.8.8); 7.5.6 shapes11_17; keep shapes13_1 (its
+      reason is its own). One fit no task: shapes6_4 → new task 7.8.11.
+    - `keep` notes hid change requests (medium): 1307e33bbf, 1d7709a031, a497507b30, 4a6baf16b3 and 496b8acb56 keep their `keep`
+      item, and their other items are owned (7.3.5; 7.2.5 + 7.3.1; 7.2.5; 7.2.2; 7.6.6). 7.2.13 and 7.11.1 now remove `keep`
+      ITEMS (a note goes with its last item); the keep reasons say "removed by", not "deleted by".
+    - No gate on 7.11.2 (low): `taskIdsOf` now returns each id with whether it is ticked, and `noteTagProblems` refuses an item
+      whose owner is ticked ("<id>: item <n>'s task <t> is ticked — the task that lands removes its items from the note"), so each
+      task removes its items in the commit that ticks it. Live: 7.2.12 ticked in a scratch edit → the authored-notes test failed
+      on 1707972c33 item 2 and 74845f98c6 items 1-2 (reverted).
+    - 0.5's baselines (low): 0.5 now says what each stands for; T is re-taken below on 0b's tree.
+    - Tests: `support/transpile-confidence.test.ts` 11 pass (6 red first: the ticked state, per-item refusals, the ticked-owner
+      refusal, the per-owner count, and the four merged/keep notes named above); `fixtures.test.ts`'s render test renders `tasks`.
+    - M: `rate:fixtures` regenerated — no row changed; each note's `task` line became `tasks: [...]`, and the header counts a
+      note under each owner: 7.3.1 99, 7.2.3 47, 7.3.3 31, 7.2.6 30, 7.4.1 27, 7.4.4 24, 7.7.1 24, 7.4.2 22, 7.8.6 22, 7.2.2 19,
+      7.4.3 19, 7.6.1 19, 7.9.3 18, 7.7.3 17, 7.2.4 16, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.5.7 13, 7.6.3 13,
+      7.2.5 12, 7.2.7 12, keep 12, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8, 7.2.10 8,
+      7.3.6 8, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5, 7.8.8 5, 7.2.11 4,
+      7.3.13 4, 7.4.8 4, 7.5.2 4, 7.3.8 3, 7.7.6 3, 4.2 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2, 7.4.7 2, 7.4.9 2, 7.5.9 2,
+      7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.7.7 1, 7.8.1 1, 7.8.11 1, 7.9.2 1.
+    - T re-taken on 0b's tree (the tree of the 0b commit; it stands for that commit): `bun scripts/suite-snapshot.ts
+      test/conformance/.snapshot/suite-baseline.txt` 335 s, 7394 tests (7005 pass, 389 skip), sha256
+      e7a6e2f6e0eb7c0edb8fbc3731b1b31a81810bab5e0f267f682151449b9ee565 — 0.6's file with this step's three new titles and two
+      renamed ones, nothing else. S: `snapshot:transpile check` (all layers) against d677078540's baseline, 153 s "✓ identical"
+      (5357 fixtures; the transpiler is unchanged).
+    - Full suite (`VOLT_REQUIRE_FULL=1 bun test`, rustc cache on, VOLT_FIXTURES unset): 8417 pass, 35 skip, 432 todo, 0 fail —
+      8884 tests across 207 files, 725 s. `bun typecheck` clean; `bun run lint` (layering) green; `bun run check` (repo root)
+      green.
 
 ## 1. Structure (output-neutral: every step G + S unless it says otherwise)
 
@@ -1305,7 +1422,7 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
 - [ ] 6.12 RC 37: CASE labels out of type or inverted are refused (CODESYS refuses all four).
   - Where: `lower/statements/case.ts`.
   - Accept: `tr_37_case_label_wraps_300`, `_wraps_minus_212`, `tr_37_case_range_inverted`, `_beyond_type` refused by the transpiler; the
-    LSP half Filed (`MEASURED_SILENT` stays until then).
+    LSP half is already met (all four rate `refused`; lsp-transpile-review-gaps 1.3, ticked by 0.7).
   - Depends: 1.9.4.
 - [ ] 6.13 RC 38: implicit STRING↔WSTRING and non-string→STRING refused via `types/compat.classifyConversion`.
   - What: stores, chain links, stores through a REFERENCE (appendix), arguments and compares; LEN(WSTRING) (appendix).
@@ -1612,6 +1729,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Depends: 7.2.2.
 - [ ] 7.2.6 MOD and real `/` by a nonzero constant other than -1 print plain `%` and `/` (lean 2.5), decided in lowering (an IR flag
   "divisor proven nonzero").
+  - Also: the whole-days truncation `count - count MOD day` lowers as `count / day * day` (one read of `count`; review item
+    shapes10_2, owned here by 0b).
   - Notes: 015dcb3b7f, 054b93382f, c7f76e08cf, 61a75e7b4b, 32a9e6d2e3, 49387a9ebf, 7812f5a53d.
   - Where: `lower/expressions/operators.ts`, `ir/expr.ts`, `emit/rust/expr.ts`.
   - Accept: S-out, M.
@@ -1646,10 +1765,11 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
-- [ ] 7.2.13 Delete the `keep` notes attached to group-2 constructs (1307e33bbf, 6a98109119, a497507b30, 1d7709a031, 4a6baf16b3,
-  687428cc81, 496b8acb56, as tagged in 0.6).
+- [ ] 7.2.13 Remove the `keep` items of the notes attached to group-2 constructs (1307e33bbf, 6a98109119, a497507b30, 1d7709a031,
+  4a6baf16b3, 687428cc81, 496b8acb56, as tagged in 0.6): a note whose every item is `keep` is deleted; the items another task owns
+  stay under it (1307e33bbf 7.3.5, 1d7709a031 7.2.5 + 7.3.1, a497507b30 7.2.5, 4a6baf16b3 7.2.2, 496b8acb56 7.6.6 — owned since 0b).
   - Where: `support/notes/notes.data.ts`.
-  - Accept: M (the notes are gone; 7.11.1's count falls by the same number).
+  - Accept: M (no `keep` item left in these notes; 7.11.1's count falls by the notes that held only `keep`).
   - Depends: 0.6.
 - [ ] 7.2.14 A runtime array index without the `(i as i64) as usize` hop.
   - What: the index is converted once from its own type to `usize` after the lower-bound subtraction in its own width, where the value
@@ -1984,6 +2104,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Accept: S-out, M.
   - Depends: 7.3.8.
 - [ ] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
+  - Also: a REFERENCE bound at its declaration (`REF=`) to a variable of the same instance gets its constant tag in `new()`, so
+    its `init()`/`__init()` chain goes (review item shapes6_2, owned here by 0b).
   - Notes: ad25627749, fbde4d6e1e.
   - Where: `lower/init/initial-values.ts`.
   - Accept: S-out, M.
@@ -1998,16 +2120,26 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `emit/rust/names.ts`, `builtins.ts`, `calls.ts`, `values.ts`.
   - Accept: S-out; the collision test in `names.test.ts` asserts every generated binding is `__`-prefixed.
   - Depends: 1.9.4.
+- [ ] 7.8.11 No hand-written `impl Default` beside `new()` (clippy `new_without_default`).
+  - What: every struct today gets `pub fn new()` plus a five-line `impl Default { fn default() -> Self { Self::new() } }`; it gets
+    `new()` and `#[allow(clippy::new_without_default)]` instead (the reviewer's choice: one uniform shape), unless 7.8.1's derives
+    make `#[derive(Default)]` exact (every initializer its type's zero, no array beyond 32 elements) — measured, not assumed.
+  - Notes: 870b70e195 (item 2, review item shapes6_4: it rode under 7.2.8 with no task of its own until 0b).
+  - Where: `emit/rust/structs.ts`.
+  - Accept: S-out, M (`new_without_default` stays 0; the emitted size falls).
+  - Depends: 7.8.1.
 
 ### 7.11 Notes and lint-policy hygiene
 
-- [ ] 7.11.1 Delete the remaining `keep` notes (0.6's count minus those 7.2.13 and 7.7.10 deleted), after 7.8.9 moved ea53989ac8's text.
+- [ ] 7.11.1 Remove the remaining `keep` items (a note goes with its last item), after 7.8.9 moved ea53989ac8's text.
   - Where: `support/notes/notes.data.ts`.
-  - Accept: M; no `keep` note left.
+  - Accept: M; no `keep` item left.
   - Depends: 0.6, 7.2.13, 7.7.10, 7.8.9.
-- [ ] 7.11.2 Every note tagged to a finished task is deleted.
+- [ ] 7.11.2 Every note item owned by a finished task is removed (a note goes with its last item).
+  - What: gated since 0b — `assertNotes` (run by `rate:fixtures` and `fixtures.test.ts`) refuses an item whose owner is ticked, so
+    each task removes its own items in the commit that ticks it; this task verifies none is left.
   - Where: `support/notes/notes.data.ts`, `scripts/rate-fixtures.ts`.
-  - Accept: the generator reports 0 notes tagged to a ticked task.
+  - Accept: the generator reports 0 note items owned by a ticked task.
   - Depends: all of 7.
 - [ ] 7.11.3 Re-check every ALLOWED lint after the models.
   - What: eq_op (17), unnecessary_min_or_max (10), approx_constant (6), manual_clamp (2; RC 28/41), absurd_extreme_comparisons,
