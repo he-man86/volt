@@ -3,9 +3,10 @@ import { buildRust } from "../../../../test/conformance/support/rustc-cache.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { emitRust, rustType, snake } from "./emit.js"
+import { emitRust, rustType, snake } from "./index.js"
 import { STRING_PRELUDE } from "./prelude.js"
 import { lowerSource } from "../../lower/index.js"
+import { lowerAndEmit } from "../../pipeline/index.js"
 import { RUSTC, skipRustSuite } from "../../../../test/conformance/support/rustc.js"
 
 function rust(src: string): string {
@@ -377,8 +378,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
   })
 
   test("every emitted statement line maps back to an ST span", () => {
-    const { pou } = lowerSource(COUNTER)
-    const { code, sourceMap } = emitRust(pou!)
+    const { code, sourceMap } = lowerAndEmit(COUNTER).emitted
     expect(sourceMap.length).toBeGreaterThan(0)
     const lines = code.split("\n")
     for (const { line, span } of sourceMap) {

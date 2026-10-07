@@ -1,11 +1,12 @@
 /**
- * The Rust the emitter prepends to a POU that holds a string — kept out of `emit.ts` so the printer reads as a printer.
+ * The Rust the emitter prepends to a POU that holds a string — kept out of the printers (`module.ts` and the files beside
+ * it) so a printer reads as a printer.
  *
  * The string types: one `[T; N]` plus a length, a STRING's T a byte and a WSTRING's a UTF-16 unit. `Copy`, so a store is
  * a copy; `lit`/`to` keep at most N units, so every store truncates by construction; equality and ordering compare the
  * used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — conformance `string_compare`, `wstring_basic`).
  *
- * `char_at` / `with_char` are `s[i]`, line for line the interpreter's `charAt` / `setChar` (`ir/values.ts`) — the one
+ * `char_at` / `with_char` are `s[i]`, line for line the interpreter's `charAt` / `setChar` (`semantics/string.ts`) — the one
  * primitive the Standard library's ST string functions are written in. The `iec_*` functions are the STRING conversions,
  * line for line the interpreter's (`coerce`, `timeText`); the differential test checks both against CODESYS.
  *

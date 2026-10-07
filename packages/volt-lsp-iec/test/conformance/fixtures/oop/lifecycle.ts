@@ -911,7 +911,7 @@ END_FUNCTION_BLOCK
         kind: "function_block",
         feature: `a METHOD named ${method} returning a field, called from outside`,
         fromDoc: "08-identifiers.md",
-        note: "transpile-review-2026-09-29 task 29 (emit/rust/emit.ts baseFnName reserves no prelude trait method name).",
+        note: "transpile-review-2026-09-29 task 29 (emit/rust/names.ts baseFnName reserves no prelude trait method name).",
         plcPrgVar: `b : FB_LANG_tr29_${slug}_r; res : INT;`,
         plcPrgBody: `res := b.${method}();`,
         source: `FUNCTION_BLOCK FB_LANG_tr29_${slug}_r

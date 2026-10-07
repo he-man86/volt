@@ -18,7 +18,7 @@
  * folded constant and a runtime value could have answered differently, and proving they do not took a second
  * fixture. Here it is the default: each probe multiplies or subtracts its way to the value in the body.
  *
- * The rule under test is `emit/rust/emit.ts`'s REAL→int model (through a 64-bit register, `i64::MIN` on overflow or
+ * The rule under test is `emit/rust/convert.ts`'s REAL→int model (through a 64-bit register, `i64::MIN` on overflow or
  * NaN, then wrap) and its interpreter twin. Four measurements fit it. This asks a hundred and forty.
  */
 import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"

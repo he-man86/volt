@@ -1,0 +1,99 @@
+/** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
+import type { IrPou, IrStmt } from "../../ir/index.js"
+import { stringKind } from "../../../frontend/types/index.js"
+import { stmtCall } from "./calls.js"
+import { expr, unparen, unparenHead } from "./expr.js"
+import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
+import { tmp } from "./names.js"
+import { place } from "./place.js"
+import { guardLine, type Printer, push } from "./printer.js"
+import { rustType } from "./types.js"
+
+export function block(p: Printer, list: readonly IrStmt[], slots: IrPou["slots"], indent: number): void {
+  if (list.length === 0) {
+    push(p, "// (empty)", indent)
+    return
+  }
+  for (const s of list) stmt(p, s, slots, indent)
+}
+
+export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: number): void {
+  switch (s.kind) {
+    case "assign":
+      return stmtAssign(p, s, slots, indent)
+    case "if":
+      return stmtIf(p, s, slots, indent)
+    case "switch":
+      return stmtSwitch(p, s, slots, indent)
+    case "loop":
+      return stmtLoop(p, s, slots, indent)
+    case "break":
+      return stmtBreak(p, s, slots, indent)
+    case "continue":
+      return stmtContinue(p, s, slots, indent)
+    case "return":
+      push(p, p.frame.result === undefined ? "return;" : `return ${p.frame.result};`, indent, s.span)
+      return
+    case "eval":
+      push(p, `${expr(p, s.value, slots)};`, indent, s.span)
+      return
+    case "call":
+      return stmtCall(p, s, slots, indent)
+  }
+}
+
+function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
+  guardLine(p, s.target, slots, indent)
+  const field = place(p, s.target, slots)
+  const bit = s.target.path.at(-1)
+  if (bit?.kind !== "bit") {
+    // A string stored INTO a place whose capacity is a GENERIC — a STRING VAR_IN_OUT (`inoutType`) — cannot name
+    // that capacity, in a turbofish or in a literal's own type, so the copy into it is left for Rust to infer
+    // from the target. Harmless where the capacity is a number: `to()` is the same truncating copy.
+    const into = s.target.type
+    const value = expr(p, s.value, slots)
+    const copied = stringKind(into) !== undefined ? `${value}.to()` : value
+    push(p, `${unparen(field)} = ${unparen(copied)};`, indent, s.span)
+    return
+  }
+  // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
+  // through one `&mut`: printed on both sides, an index holding a call ran that call twice (transpiler review
+  // 2026-09-15). The value first, as a plain `place = value` evaluates it.
+  const one = `(1${rustType(bit.of)} << ${bit.index})`
+  // reserved prefix, for the reason the MOD expansion above spells out: `v` and `w` are ordinary IEC
+  // identifiers, and a routine's parameters and VAR_TEMPs are Rust locals in the same scope as this block
+  push(p,
+    `{ let ${tmp("bit_v")} = ${expr(p, s.value, slots)}; let ${tmp("bit_w")} = &mut ${field}; *${tmp("bit_w")} = if ${tmp("bit_v")} { *${tmp("bit_w")} | ${one} } else { *${tmp("bit_w")} & !${one} }; }`,
+    indent,
+    s.span,
+  )
+  return
+}
+
+function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["slots"], indent: number): void {
+  push(p, `if ${unparenHead(expr(p, s.cond, slots))} {`, indent, s.span)
+  block(p, s.then, slots, indent + 1)
+  if (s.else.length > 0) {
+    push(p, "} else {", indent)
+    block(p, s.else, slots, indent + 1)
+  }
+  push(p, "}", indent)
+  return
+}
+
+function stmtSwitch(p: Printer, s: Extract<IrStmt, { kind: "switch" }>, slots: IrPou["slots"], indent: number): void {
+  push(p, `match ${unparenHead(expr(p, s.selector, slots))} {`, indent, s.span)
+  for (const arm of s.arms) {
+    const pattern = arm.labels
+      .map((l) => (l.lo === l.hi ? `${l.lo}` : `${l.lo}..=${l.hi}`))
+      .join(" | ")
+    push(p, `${pattern} => {`, indent + 1, arm.span)
+    block(p, arm.body, slots, indent + 2)
+    push(p, "}", indent + 1)
+  }
+  push(p, "_ => {", indent + 1)
+  block(p, s.else, slots, indent + 2)
+  push(p, "}", indent + 1)
+  push(p, "}", indent)
+  return
+}

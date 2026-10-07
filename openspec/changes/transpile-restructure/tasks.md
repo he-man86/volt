@@ -998,17 +998,34 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ### 1.5 `emit/rust/`
 
-- [ ] 1.5.1 `Printer` methods become module functions `(p: Printer, …)` inside emit.ts (mechanical `this`→`p`).
+- [x] 1.5.1 `Printer` methods become module functions `(p: Printer, …)` inside emit.ts (mechanical `this`→`p`).
   - Where: `emit/rust/emit.ts`.
   - Accept: G, S.
   - Depends: 1.2.1.
-- [ ] 1.5.2 Split the giant functions in place.
+  - Done 2026-10-07 (step 1.5a). `Printer` keeps only its state (constructor and fields, the `private`s dropped so the
+    functions reach them); its 18 methods are module functions `(p: Printer, …)`: `globalsArg`, `initOf`, `globalsParams`,
+    `inFrame`, `lendMut`, `lend`, `copiesBack`, `lentCopies`, `guarded`, `guardLine`, `place`, `movedOut`, `push`, `code`,
+    `negated`, `expr`, `block`, `stmt` (the three getters `globalsArg`, `globalsParams`, `code` included). Mechanical, by script:
+    `this.` → `p.`, `p.m(` → `m(p, `; first the parameters that would shadow it renamed (`place(p: Place)`/`movedOut(p: Place)`/
+    `select`'s `read = (p: Place)` → `at`; `lendMut`/`guarded`/`guardLine`'s `place` → `target`) and the free `initOf` named
+    `initOfValue` (the method took its name). S `ir,rust` identical.
+- [x] 1.5.2 Split the giant functions in place.
   - What: design.md §4.0: `expr` (574-842) into one function per node kind, `stmt` (850-988) per statement kind, `emitRust`
     (1158-1323) into struct/init/scan/routine/runtime assembly functions — still in emit.ts.
   - Where: `emit/rust/emit.ts`.
   - Accept: G, S; no function in emit.ts over 80 lines.
   - Depends: 1.5.1.
-- [ ] 1.5.3 `names.ts`.
+  - Done 2026-10-07 (step 1.5a). `expr` is a dispatch over `exprInvoke`, `exprDispatch`, `exprSelect`, `exprLoad`, `exprConvert`,
+    `exprBuiltin`, `exprUnary`, `exprBinary` (const and fresh stay one-line arms); `stmt` over `stmtAssign`, `stmtIf`,
+    `stmtSwitch`, `stmtLoop`, `stmtBreak`, `stmtContinue`, `stmtCall` (return, eval inline) — each arm's comments moved with it.
+    `exprBuiltin` was itself 89 lines: it is the name → printer table `BUILTINS` (a `Record<IrBuiltinName, BuiltinPrinter>`, so
+    a builtin without a printer is a compile error; the runtime throw by name stays for a name the type does not know) with the
+    shared printers `maxMin`, `shift`, `rotate`, `logarithm`, `math` — the table 1.5.7 asks for, built here so the builtins are
+    split once. `emitRust` (now 19 lines) over `printerFor`, `storageOf`, `printStruct` (one block for all four structs —
+    `Globals`, `Programs`, each layout, the POU — byte-identical, its `members` callback printing inside the `impl`),
+    `printLayout`, `printCall`, `printPou`, `appendRuntime`, `withPrelude`. No function in emit.ts over 80 lines (the size
+    warning list fell 16 → 13).
+- [x] 1.5.3 `names.ts`.
   - What: `snake`, `RUST_KEYWORDS`, `RESERVED_FN_NAMES`, `fieldNames` (with its stranded doc from 133-137), `rustName`, `baseFnName`,
     `routineFnNames`, `globalsParams`/`globalsArgs`. The four `g`/`prg` renderings go through one builder only where the text is
     identical; the ones that differ are listed here (7.7.5's input). `tmp(purpose, n)` produces the existing `__` spellings exactly; the
@@ -1016,47 +1033,124 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `emit/rust/names.ts`, `names.test.ts`.
   - Accept: G, S.
   - Depends: 1.5.2.
-- [ ] 1.5.4 `types.ts`.
+  - Done 2026-10-07 (step 1.5a). `emit/rust/names.ts`: `GlobalsUse`, `tmp`, `rustName`, `snake`, `RUST_KEYWORDS`, `fieldNames`
+    (its stranded doc — stacked above `hasStatementAfterReturn` — now on it), `globalsArgs`, `globalsParams` (both over a
+    `GlobalsUse`, which `Printer` satisfies), `RESERVED_FN_NAMES`, `baseFnName`, `routineFnNames`. The four `g`/`prg`
+    renderings: `globalsArg`, `globalsParams`, `emitRust`'s `reserved` and the `init`/`scan` headers' `", g: &mut Globals"`
+    chain — ALL four print identical text, so all go through `globalsArgs`/`globalsParams` (`reserved` = `globalsArgs`, the
+    headers = `globalsParams` joined with `, `); none differs. `tmp(purpose, n?)` = `__<purpose>[_<n>]`; every `__` temporary
+    goes through it (`arg`, `copy`, `lent`, `guard` numbered; `program`, `result`, `back`, `rot`, `mod_l`, `mod_r`, `bit_v`,
+    `bit_w`); the unprefixed `t` (TRUNC), `program` (the call statement's move-out) and `v` (an aggregate's `initOf`) stay.
+    `emit/rust/index.ts` re-exports `fieldNames`, `rustName`, `snake` from it (surface unchanged). Tests: `names.test.ts` 2
+    (`tmp`'s spellings; the args/params lists for all four combinations). S `ir,rust` identical.
+- [x] 1.5.4 `types.ts`.
   - What: `rustType`, `inoutType`, `genericList`, `isCopy`, `stringType`, `isString`, `isReal32` on `types/predicates` (the three
     string spellings and six real spellings collapse only where identical; the rest listed here).
   - Where: `emit/rust/types.ts`.
   - Accept: G, S.
   - Depends: 1.5.3, 1.1.5.
-- [ ] 1.5.5 `values.ts`.
+  - Done 2026-10-07 (step 1.5a). `emit/rust/types.ts`: `emittedFamily` (§4.9), `rustType`, `inoutType`, `genericList`,
+    `stringType`, `isString`, `stringPath` (here, not `place.ts` as §4.6 says: `values.ts` `literal` prints through it, and a
+    type's constructor path is a type rendering — in `place.ts` it would make the values leaf depend on the place printer),
+    `isReal32`, `isCopy`. Collapsed (identical answers): real — `isReal32` = `floatBits(t) === 32`, `literal`'s REAL-overflow
+    test → `isReal32`, `exprUnary`'s and `exprBinary`'s local `isReal` and `negated`'s `overReals` → `types` `isReal`, `abs`'s
+    `t?.family === "real"` → `isReal` (the sixth, MAX/MIN/LIMIT, already asked `isReal`); string — `inoutType`'s and
+    `stmtAssign`'s `elementary && family === "string"` → `stringKind(t) !== undefined`. Not collapsed: `isString` and
+    `stringType` read the type's NAME (`STRING`/`WSTRING`), which equals `stringKind` only if every string Type is named its
+    kind — not verified (1.1.5's list); `emittedFamily`'s BIT-as-bool decision and the convert arm's family comparisons are
+    RC 31's (6.9). `index.ts` re-exports `rustType` from here. S `ir,rust` identical.
+- [x] 1.5.5 `values.ts`.
   - What: `literal`, `shortestF32`, `byteString`, `unitsLiteral`, and both `initOf` functions (the free one is folded in by 5.4).
   - Where: `emit/rust/values.ts`.
   - Accept: G, S.
   - Depends: 1.5.4.
-- [ ] 1.5.6 `printer.ts` and `place.ts`.
+  - Done 2026-10-07 (step 1.5a). `emit/rust/values.ts`: `Layouts` (the program's layouts with their fields' Rust names),
+    `initOfValue` (the free `initOf`), `byteString`, `unitsLiteral`, `shortestF32`, `literal`, `initOf(layouts, type, init)` —
+    the aggregate one takes the layouts, not the printer (it read nothing else of it), so the leaf imports only `names.ts`
+    and `types.ts`; callers pass `p.layouts`.
+  - Step 1.5a end: `bun typecheck` clean; `bun run lint` green (emit.ts ceiling lowered 1366 → 1152; `emit.test.ts` back at
+    969 — its three imports are one from `./index.js`); `bun test src/transpile scripts` 379 pass, 0 fail; S (all layers) ✓
+    identical, 5357 fixtures, 159 s.
+- [x] 1.5.6 `printer.ts` and `place.ts`.
   - What: the Printer state, `Frame`, `inFrame`, `push`, `withUri(uri, fn)` (the two save/restore copies at 1046/1098 and 1219), the
     guards, lend and copy-back helpers; `place`, `movedOut`, `stringPath` (the stale stacked doc at 535-539 is deleted).
   - Where: `emit/rust/printer.ts`, `place.ts`.
   - Accept: G, S.
   - Depends: 1.5.5.
-- [ ] 1.5.7 `expr.ts`, `convert.ts` and `builtins.ts`.
+  - Done 2026-10-07 (step 1.5b; 1.5.6-1.5.10 were one split of emit.ts by a plan — each declaration moved verbatim with its
+    doc, every module's imports rebuilt from what it uses, and a declaration exported only when another module uses it).
+    `printer.ts` (117): `Printer`, `Frame`, `inFrame`, `withUri`, `push`, `code`, `lendMut`, `lend`, `copiesBack`,
+    `lentCopies`, `guarded`, `guardLine`. `withUri(p, uri, run)` replaces both save/restore copies: `printRoutine` (now
+    `withUri` around a private `printRoutineIn`) and the FB `call()` body. `place.ts` (71): `place`, `movedOut` — its stale
+    first doc deleted, its current one kept. `stringPath` is in `types.ts` (1.5.4's note).
+- [x] 1.5.7 `expr.ts`, `convert.ts` and `builtins.ts`.
   - What: the builtins as a name→printer table; `unparen`/`unparenHead`, `WRAPPING`, `INFIX`, `INVERSE`, `negated` in `expr.ts`;
     `castTo`, `fromF64` in `convert.ts`; `RUST_MATH` in `builtins.ts`.
   - Where: `emit/rust/expr.ts`, `convert.ts`, `builtins.ts`.
   - Accept: G, S.
   - Depends: 1.5.6.
-- [ ] 1.5.8 `calls.ts`.
+  - Done 2026-10-07 (step 1.5b). `expr.ts` (180): `unparen`, `unparenHead`, `WRAPPING`, `INFIX`, `INVERSE`, `negated`, the
+    `expr` dispatch, `exprLoad`, `exprUnary`, `exprBinary` (const and fresh inline). `convert.ts` (79): `castTo`, `fromF64`,
+    `exprConvert`. `builtins.ts` (123): `RUST_MATH`, `exprBuiltin` and the name → printer table `BUILTINS` built in 1.5.2.
+- [x] 1.5.8 `calls.ts`.
   - What: invoke, dispatch, select, the call statement, and one `callArguments` where the two builders print identical text (the
     difference, if any, listed here). The program move-out stays two spellings until 7.8.10.
   - Where: `emit/rust/calls.ts`.
   - Accept: G, S.
   - Depends: 1.5.7.
-- [ ] 1.5.9 `stmt.ts` and `loops.ts`.
+  - Done 2026-10-07 (step 1.5b). `calls.ts` (113): `exprInvoke`, `callArguments`, `exprDispatch`, `exprSelect`, `stmtCall`.
+    `callArguments(p, inputs, inouts, params, lent, slots)` is the one builder: the invoke's and the FB call's argument lists
+    print identical text — `g`/`prg`, the inputs (none for an FB call: its inputs are stores before the line), each in-out
+    through `lend`, each lent instance through `lendMut` — so there is no difference to list. The program move-out stays two
+    spellings (`__program`/`__result` in `exprInvoke`, `program` in `stmtCall`) until 7.8.10.
+- [x] 1.5.9 `stmt.ts` and `loops.ts`.
   - What: `block`, the statement arms; loop/break/continue. `hasStatementAfterReturn` and `nestedBlocks` go to `ir/walk.ts`
     (`exitsAfter`, `blocksOf`) with today's behaviour.
   - Where: `emit/rust/stmt.ts`, `loops.ts`, `ir/walk.ts`.
   - Accept: G, S.
   - Depends: 1.5.8, 1.2.3.
-- [ ] 1.5.10 `routine.ts`, `structs.ts` and `module.ts`.
+  - Done 2026-10-07 (step 1.5b). `stmt.ts` (99): `block`, the `stmt` dispatch (return, eval inline), `stmtAssign`, `stmtIf`,
+    `stmtSwitch`. `loops.ts` (55): `stmtLoop`, `stmtBreak`, `stmtContinue`. `hasStatementAfterReturn` and `nestedBlocks` are
+    deleted: 1.2.3's `ir/walk.ts` `exitsAfter` and `blocksOf` are the same two functions (same arms, same early returns), so
+    `printRoutine` asks `exitsAfter`; `walk.test.ts` already covers both. (The loop labels still come from the printer's own
+    `loops` stack; `ir/walk.ts` `loopUses` replaces it in 2.8.)
+- [x] 1.5.10 `routine.ts`, `structs.ts` and `module.ts`.
   - What: `printRoutine`; `printStruct` reproducing all four blocks byte-identically, `defaultImpl`; `emitRust`, `Emitted`. The stray blank
     line at 1099 and the misplaced iec_div comment (1268-1270) are fixed in the move (neither reaches the output).
   - Where: `emit/rust/routine.ts`, `structs.ts`, `module.ts`.
   - Accept: G, S.
   - Depends: 1.5.9.
+  - Done 2026-10-07 (step 1.5b). `routine.ts` (106): `printRoutine`, `printRoutineIn`, `bodyParams` (the one parameter
+    builder after `g`/`prg` and the inputs: each in-out's `inoutType`, then each lent instance — a routine and an FB's `call()`
+    printed the same text through two copies), `printCall` (the FB's `call()`, §2.6's "FB call()"). `structs.ts` (50):
+    `defaultImpl`, `printStruct` (1.5.2's one block for `Globals`, `Programs`, each layout and the POU). `module.ts` (200):
+    the emitter's header doc, `Emitted`, `EmitOptions`, `emitRust`, `storageOf`, `printerFor`, `printLayout`, `printPou`,
+    `appendRuntime` (the inline helpers until 1.5.11), `withPrelude`. The stray blank line closing `printRoutine` is gone; the
+    iec_div comment ("The emitted twin of `arith`'s zero-divisor check…") now stands above the `iec_div` block. `emit.ts`
+    (52) keeps only `rustAccess` (1.5.12 moves it) — its ceiling is removed (a file under 400 lines is a stale entry).
+    `emit/rust/index.ts` exports `emitRust`, `Emitted`, `EmitOptions` from `module.ts`, `rustAccess` from `emit.ts`,
+    `fieldNames`, `rustName`, `snake` from `names.ts`, `rustType` from `types.ts` — the transpile surface unchanged
+    (`index.test.ts` green, no edit). Re-pointed: `prelude.ts`'s doc (not its Rust text) and
+    `fixtures/conversions/real-to-integer.ts`'s comment (`emit/rust/convert.ts`).
+    Also in this step (export hygiene, no behaviour): names exported but used only in their own file lose `export` —
+    `RUST_KEYWORDS`, `RESERVED_FN_NAMES` (names.ts), `initOfValue`, `byteString`, `unitsLiteral`, `shortestF32` (values.ts),
+    `Signal` (interp/machine.ts, step 1.4's file), `toText`, `fromText` (semantics/convert.ts, step 1.3b's file).
+  - Step 1.5b end: `bun typecheck` clean; `bun run lint` green (size 9 ceilings, 13 functions warned — none in `emit/rust`;
+    every `emit/rust` file ≤ 200 lines but `emit.test.ts`); `bun test src/transpile scripts` 379 pass, 0 fail; S (all layers)
+    ✓ identical, 5357 fixtures, 163 s.
+  - Gate 1.3a-1.5b (2026-10-07). The review's four findings were all low and all fixed, each failing test first — the
+    three on 1.3/1.4 are written under 1.4 (Step 1.4 end); the one on 1.5: `oop/lifecycle.ts`'s task-29 fixture note cited
+    `emit/rust/emit.ts baseFnName`, now `emit/rust/names.ts` (no output change; `map.generated.ts` unchanged).
+    Numbers: `bun typecheck` clean; `bun run lint` green (layering 3 known; size 9 ceilings, 13 functions warned; citations
+    553 missing, warning); targeted `bun test src/transpile scripts` + the two new conformance tests 395 pass, 0 fail; FULL
+    `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) 8477 pass, 35 skip, 432 todo, 0 fail, 8944 tests in 234 files,
+    570 s; S (`snapshot:transpile check`, ir/rust/outputs/edge) ✓ identical, 5357 fixtures, 159 s; `rate:fixtures`
+    regenerated — `map.generated.ts` unchanged (edge agree 3046, disagree 0, not-run 179); `bun run check` (repo root) 18
+    passed. Committed in two commits, not five: 1.3a, 1.3b and 1.4 share files (`interp/interp.ts` is edited by 1.3 and
+    split by 1.4; `semantics/convert.ts` by 1.3a and 1.3b), as do 1.5a and 1.5b (`emit/rust/emit.ts`), and no intermediate
+    tree of either was kept — so one commit is 1.3a+1.3b+1.4 (with this gate's 1.3/1.4 fixes), the other 1.5a+1.5b (with
+    the lifecycle note and the 1.5 ticks). 1.5b's export hygiene in `interp/machine.ts` and `semantics/convert.ts` rides
+    with the first (its files).
 - [ ] 1.5.11 `runtime/`.
   - What: `prelude.ts` splits into `runtime/string.ts`, `text.ts`, `parse.ts`, `numeric.ts` (iec_max/min); the inline helpers at emit.ts
     1264-1301 go into `numeric.ts` and `pointer.ts`. `runtime/index.ts` is a registry with `runtimeText(id)` that reproduces TODAY's
