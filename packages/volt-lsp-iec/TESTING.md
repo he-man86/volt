@@ -79,7 +79,11 @@ test/
                              diagnostic-census.test.ts — every registry check and message builder over every fixture
                              (both vendors, the replay's composition) and the six corpora: TP / SEV / FP / GAP, pinned in
                              baselines/ with a ceiling per open FP, GAP, unowned GAP and never-fired builder
-                             (VOLT_CENSUS_REPORT=1 prints the per-check table)
+                             (VOLT_CENSUS_REPORT=1 prints the per-check table). Counts move only with
+                             VOLT_WRITE_BASELINE=1 in the commit that moves them; a ceiling never rises — a rise
+                             the ratchet accepts is a NAMED exception (frontend/baseline.ts CEILING_EXCEPTIONS: the
+                             fixture, the task that owns its fix, why) that fails once the fixture stops producing it.
+                             Every analysis-conformance 3.x step wrote its group's FP/GAP before → after from it.
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

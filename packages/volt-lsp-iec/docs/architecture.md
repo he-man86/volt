@@ -181,6 +181,14 @@ design.md §2). Every body-walking check iterates through `symbols/scoped-bodies
 check traces to a conformance fixture recorded against the live compiler. Dead-code reachability is server
 suppression policy and lives in `server/reachability`.
 
+The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
+in its entry's `reads`, and nothing else of `out` is read. `diagnostic-census.test.ts` (test/analysis) measures every
+check and message builder against both vendors' build recordings and the corpora, with ceilings that only fall.
+**Network text is NOT in the one pipeline yet** — its findings still come from `network/`'s own
+`computeNetworkTextDiagnostics`, merged by `server/diagnostics`, and `services/structure/semantic-tokens` still imports
+`network/` (the one `KNOWN_OTHER_VIOLATIONS` entry). That integration is unchanged and PARKED for the LD/FBD coverage
+change (openspec analysis-conformance design.md §3, the hand-off in its tasks.md 5.3).
+
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,
 `symbol-kinds`): navigation (definition · type-definition · references · rename · highlight ·

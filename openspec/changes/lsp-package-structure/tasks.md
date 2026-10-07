@@ -67,3 +67,37 @@ src/transpile are restructured by their own changes; network text is parked).
 
 ## 4. Close
 - [ ] 4.1 Cold full suite, README/TESTING updated, archive.
+
+## Hand-in from analysis-conformance (its task 5.3, 2026-10-07)
+
+No LD/FBD coverage change exists yet, so its hand-in waits here; whichever change dissolves `src/network*` (that change,
+or 2.1 above) takes it over. Paths relative to `packages/volt-lsp-iec/`.
+
+**For the LD/FBD coverage change — the parked network seam (analysis-conformance design.md §3, never executed):**
+- ONE network-text interface: `src/network-text/index.ts` as the only import path for services/analysis/server, its export
+  list the measured union of today's deep imports (`src/network/index.ts` re-exports `network-text/ast`, `parser`, `exprs`).
+- Routing: `inNetworkText` and `vgBodyAt` (`src/network/network-services.ts`, `src/server/server.ts`) replaced by one
+  front-end query `bodyAtOffset` in `src/frontend/syntax/format/bodies.ts`; `readOnlyBodyHover` to `src/services/assist/hover`.
+- One pipeline for network findings: `computeNetworkTextDiagnostics` (`src/network/network-analysis.ts`, merged by
+  `src/server/diagnostics.ts`) becomes the registry check `checkNetworkText` in `src/analysis/checks/network/`, run LAST
+  in `src/analysis/pipeline/registry.ts`, so config (C0118 off/forced), TwinCAT's dedupe and the server's `quiet()` reach
+  network findings; `services/structure/semantic-tokens.ts → network/network-analyze.ts` (`scripts/check-layering.ts`
+  `KNOWN_OTHER_VIOLATIONS`) goes with the move of `network-analyze.ts`.
+- The parse memo: measure how often `parseNetworkText` runs per edit first; memoize at the seam only above 5% of a
+  diagnostics pass (design.md §3 "One parse per body per project").
+- The duplicate jump-label rule: `src/network/network-analysis.ts` re-implements C0116–C0118 beside
+  `src/analysis/checks/flow/jump-labels.ts` (same slugs, own walk).
+- The `NETWORK_*` code spelling (`NETWORK_UNRESOLVED_BOX`, … in `src/network/network-analysis.ts`) — the only SCREAMING
+  codes; every other code is a kebab slug.
+- `Cnnnn` entries for network codes: none of them is in `src/analysis/error-code-map.ts`.
+- The field name `NetworkTextAnalysis.vg` (`src/network/network-analyze.ts`; "vg" is retired everywhere else).
+- The network check's own conformance: its census row is `NETWORK_ROW` in `test/analysis/census.ts`, the one row with no
+  registry entry (`test/analysis/diagnostic-census.test.ts`); it gets a registry entry and per-builder rows with the move.
+
+**For this change (lsp-package-structure):**
+- `src/network-text/` and what is left of `src/network/` (services: `network-services.ts`, `network-symbols.ts`) dissolve
+  into `src/frontend/syntax/network/`, `src/frontend/symbols`+`types` and the services (2.1).
+- `src/analysis/checks/network/` is the final home of the network diagnostics (the folder does not exist yet).
+- `test/analysis/` — its root: the analysis census sits beside `test/frontend/` today; 2.2 decides the cross-cutting root.
+- `test/frontend/baseline.ts` takes the baseline DIRECTORY (`test/frontend/baselines/`, `test/analysis/baselines/`) and
+  holds `CEILING_EXCEPTIONS` for both; it is shared by two suites, so it belongs at the cross-cutting root, not in `frontend/`.

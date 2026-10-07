@@ -334,25 +334,35 @@ interface DiagnosticItem {
 type Vendor = "codesys" | "twincat"
 type VendorSetting = Vendor | "auto"
 
-// Per-check enable flags (see the config decision in design: the clean rebuild collapses
-// these ~30 flags to `vendor` + a small opt-in lint set).
-interface DiagnosticConfig {
-  reservedKeyword: boolean; doubleUnderscore: boolean; consecutiveUnderscores: boolean
-  duplicateDeclaration: boolean; unresolvedIdentifier: boolean
-  unknownPragma: boolean; wrongVendorPragma: boolean; pragmaMissingCompanion: boolean
-  pragmaConflict: boolean; messagePragmas: boolean; orphanConditionalPragma: boolean; initSlotCollision: boolean
-  fbLifecycleSignature: boolean; shadowingDeclaration: boolean
-  missingInterfaceImplementation: boolean; missingInterfaceSignature: boolean
-  abstractInstantiation: boolean; varSectionPlacement: boolean; externalNonInputWrite: boolean
-  conversionSourceMismatch: boolean; assignmentTypeMismatch: boolean
-  binaryOperatorTypeMismatch: boolean; callArgumentMismatch: boolean
-  narrowingConversion: boolean; derefOnNonPointer: boolean
-  vendorOnlyOperator: boolean
-  vgStructure: boolean; vgUndeclaredIdentifier: boolean; vgUndefinedLabel: boolean
-  vgUnknownPin: boolean; vgNotCanonical: boolean
+// Configuration (`analysis/config`) — CODESYS's project settings, nothing more: compiler ERRORS always run; each code of
+// CODESYS's "Compiler warnings" dialog that Volt implements (`CONFIGURABLE_CHECKS`, slug ↔ Cnnnn) is a 3-state control.
+type DiagnosticState = "off" | "warning" | "error"
+type ConfigurableCode = (typeof CONFIGURABLE_CHECKS)[number]["code"] // "jump-label-unreferenced" (C0118), "enum-duplicate-value" (C0125), …
+interface AnalysisInitOptions { vendor?: VendorSetting; diagnostics?: Partial<Record<ConfigurableCode, DiagnosticState>>; diagnoseDeadCode?: boolean }
+interface ResolvedConfig { vendor: Vendor; diagnostics: Record<ConfigurableCode, DiagnosticState> /* all "warning" by default */; diagnoseDeadCode: boolean }
+
+// What a check is handed (`analysis/pipeline/context`) — a check reads only what it uses.
+interface CheckContext {
+  parseResult: ParseResult; source: string; project: Scope
+  uri: string /* the asker: required */; config: ResolvedConfig; messages: Messages
+  tokens: () => readonly Token[] // the parse's own token stream, for the pragma checks
 }
-interface PlcLspInitOptions { vendor?: VendorSetting; diagnostics?: Partial<DiagnosticConfig>; hover?: { showSource?: boolean }; completion?: { snippetSupport?: boolean } }
-interface ResolvedConfig { vendor: Vendor; diagnostics: DiagnosticConfig; hover: { showSource: boolean }; completion: { snippetSupport: boolean } }
+type Check = (ctx: CheckContext, out: DiagnosticItem[]) => void
+
+// One registry entry (`analysis/pipeline/registry`) — the registry is the checks in RUN ORDER, a contract
+// (`registry.test.ts` lists it).
+type CheckGroup = "types" | "declarations" | "names" | "oop" | "calls" | "flow" | "pragmas" | "syntax"
+interface RegistryEntry {
+  check: Check; group: CheckGroup
+  vendors: "both" | Vendor // a one-vendor entry says what was measured in `note`
+  reads?: ReadonlySet<string> // the codes of EARLIER findings this check reads from `out`
+  note?: string
+}
+
+// The one pipeline (`analysis/pipeline/diagnostics`): every check of the registry in order, then the policy
+// (configurable severity / off, TwinCAT's per-line dedupe). Network-text bodies are not in it yet (design §3, parked).
+interface DiagnosticsArgs { parseResult: ParseResult; source: string; project: Scope; config?: ResolvedConfig | AnalysisInitOptions; uri: string; groups?: readonly CheckGroup[] }
+declare function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[]
 ```
 
 ## reference

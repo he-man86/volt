@@ -38,6 +38,10 @@ message builder: TP, SEV, FP (`div` where the replay pins a divergence) and GAP 
 `unowned`). The builder is `census.ts`; the counts and findings are pinned in `analysis/baselines/` (`fixtures.codesys`,
 `fixtures.twincat`, `corpus`, `coverage`) with their own `ceilings.json`, held by the same discipline as `frontend/`
 (`frontend/baseline.ts` takes the directory; `frontend/baseline.test.ts` holds both ceilings files to their history).
+A census row is a registry entry (`diagnostic-census.test.ts` holds census rows == `CHECK_REGISTRY`); an unowned GAP is
+classed `owned-by-frontend` / `project-config` / `missing-rule` by its wording (`census.ts` `unownedClass`). A GAP that
+rises because a step recorded new ground no check owns yet is a named `CEILING_EXCEPTIONS` entry in `frontend/baseline.ts`,
+never a raised ceiling (analysis-conformance 3.11's REFERENCE TO BIT alias, 3.12's initialization order of PROGRAMs).
 
 ## Why these four, and not more
 
