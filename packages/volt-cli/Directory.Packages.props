@@ -25,6 +25,12 @@
     <!-- netstandard2.0 needs this for ValueTuple; net10.0 has it in the BCL. -->
     <PackageVersion Include="System.ValueTuple" Version="4.6.2" />
 
+    <!-- The CODESYS start script's load path, offline (Volt.Ide.Codesys.Tests/StartScriptLoadTests): the SAME IronPython
+         CODESYS SP21 runs scripts in (LacBinaries\GAC_MSIL\IronPython\2.7.12.0), with the standard library the script
+         imports (os, shutil). Test-only. -->
+    <PackageVersion Include="IronPython" Version="2.7.12" />
+    <PackageVersion Include="IronPython.StdLib" Version="2.7.12" />
+
     <!-- Test tooling — one version across all three test projects. -->
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />

@@ -44,7 +44,12 @@ public static class BridgeErrorCodes
     /// <c>health</c> answers with this code, and the message is a fixed English sentence naming the IDE's platform
     /// version and what it lacks (never an OS-localized exception text). <c>health</c> carries the same sentence as
     /// <c>unsupported</c>. Do not retry — the IDE has to change, not the call. A NEW code on purpose: a client maps by
-    /// code, and an old code would be read as its old meaning (openspec <c>codesys-minimum-version</c>).</summary>
+    /// code, and an old code would be read as its old meaning (openspec <c>codesys-minimum-version</c>).
+    /// <para>The CODESYS bridge answers it too when it finds its own assemblies (a <c>Volt.*</c> one or
+    /// <c>System.Text.Json</c>) loaded twice in the IDE process at start: two copies split the wire's types, so every
+    /// call would fail with a <c>MissingMethodException</c>. The same situation for a client — this IDE process cannot be
+    /// served, no call cures it — so the same code: the sentence names every copy's path and the remedy, restarting
+    /// the IDE (openspec <c>codesys-single-load-dependencies</c>).</para></summary>
     public const string IdeUnsupported = "IDE_UNSUPPORTED";
 
     /// <summary>A <c>push</c> or <c>build</c> arrived while another push or build held the IDE: refused at once, nothing

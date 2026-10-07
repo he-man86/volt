@@ -45,7 +45,8 @@ public class WireVocabularyTests
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 2))),
         new("another project is served", "the bound project is not the one named: rebind, never merge", "WRONG_PROJECT", At(
             ("Volt.Engine/BridgeException.cs", 1))),
-        new("the IDE lacks what the bridge needs", "every op but health: the IDE has to change, not the call",
+        new("the bridge cannot serve this IDE process (it lacks a capability, or Volt's assemblies loaded twice)",
+            "every op but health: the IDE has to change (upgraded, or restarted), not the call",
             "IDE_UNSUPPORTED", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
         new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",

@@ -19,7 +19,8 @@ namespace Volt.Contracts;
 /// release) does, and the location says where each copy came from (the bridge's folder, another folder, the GAC).</para>
 ///
 /// <para>A CONFLICT is either a Volt assembly or System.Text.Json loaded more than once (<see cref="CanConflict"/>), or Volt assemblies from more than one build
-/// (distinct <c>ProductVersion</c>s). Report only — nothing here refuses (3.2 is an open decision).</para>
+/// (distinct <c>ProductVersion</c>s). This only reads; the CODESYS bridge refuses to serve when it finds one at start
+/// (openspec <c>codesys-single-load-dependencies</c>: the bridge answers <c>IDE_UNSUPPORTED</c> naming the copies).</para>
 ///
 /// <para>netstandard2.0 and BCL-only, like the rest of this assembly, and it touches no <c>System.Text.Json</c> type:
 /// it must still run when that is exactly what failed to bind.</para>

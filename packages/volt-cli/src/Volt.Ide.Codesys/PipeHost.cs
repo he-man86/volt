@@ -63,7 +63,8 @@ public static class PipeHost
             VoltLog.Info(_driver.IdentityLine());
             _driver.Connect(); // snapshot on the primary thread (we are on it now)
 
-            _host = new BridgePipeHost(_driver, _pipeName);
+            var cannotServe = conflicts.Count == 0 ? null : CannotServe(conflicts);
+            _host = new BridgePipeHost(_driver, _pipeName, cannotServe);
             try { _host.Start(); }
             catch (Exception ex)
             {
@@ -91,15 +92,27 @@ public static class PipeHost
                 return $"Volt: {product}{reason} The bridge on pipe {_pipeName} refuses every call (IDE_UNSUPPORTED).";
             }
 
+            // Two copies of a Volt assembly or of System.Text.Json at start: the pipe is up, so a client gets this sentence
+            // under IDE_UNSUPPORTED instead of a MissingMethodException on every call, which is what the field saw.
+            if (cannotServe != null)
+            {
+                VoltLog.Error($"CODESYS bridge on {_pipeName} serves nothing — {cannotServe}");
+                return $"Volt: {cannotServe} The bridge on pipe {_pipeName} refuses every call (IDE_UNSUPPORTED).";
+            }
+
             var where = _driver.IsConnected ? "connected to IDE" : "no project open";
             VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
             var oem = _driver.OemProduct is { } o ? $"{o} on " : "";
-            // A load conflict is said in the message window too — report only (3.2 is an open decision), but the
-            // engineer looking at CODESYS is the one who can say what else they loaded.
-            var warning = conflicts.Count > 0 ? " — WARNING, load conflict (see the Volt log): " + conflicts[0] : "";
-            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion}){warning}";
+            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion})";
         }
     }
+
+    /// <summary>The sentence a bridge started over a load conflict answers every op with (openspec
+    /// codesys-single-load-dependencies 3.2). Fixed English around the conflict lines, which name every copy's path —
+    /// and the one remedy that works: a fresh IDE process, which loads each assembly once. Retrying the call cannot.</summary>
+    private static string CannotServe(IReadOnlyList<string> conflicts) =>
+        "Volt's own assemblies are loaded more than once in this CODESYS process, so the bridge serves nothing: " +
+        string.Join(" | ", conflicts) + ". Restart CODESYS and start the bridge once.";
 
     /// <summary>One line per bound wire assembly (<see cref="BoundAssemblies"/>). Never fatal: the log is evidence
     /// about a failure, so it must not become one.</summary>

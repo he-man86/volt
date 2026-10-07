@@ -21,9 +21,9 @@ namespace Volt.Ide.Codesys
     /// Resolves this assembly's dependencies from the folder it was loaded out of, and does it at MODULE LOAD —
     /// before any type in this assembly is touched.
     ///
-    /// WHY IT CANNOT LIVE IN <c>PipeHost.Start</c>, where it used to: CODESYS loads us with
-    /// <c>clr.AddReferenceToFileAndPath</c> (Assembly.LoadFile), which does not add our folder to the CLR probe
-    /// path. So our dependencies only resolve if this handler is already installed. But the JIT has to resolve
+    /// WHY IT CANNOT LIVE IN <c>PipeHost.Start</c>, where it used to: the CLR's own binding misses our
+    /// dependencies (the version mismatch below), so they only resolve if this handler is already installed. But the
+    /// JIT has to resolve
     /// everything <c>Start</c>'s body references BEFORE its first instruction executes, and that body references
     /// Volt.Wire — so the load failed while compiling the very method whose first line installed the fix. The
     /// handler was correct and simply never got the chance to run.
@@ -39,6 +39,12 @@ namespace Volt.Ide.Codesys
     /// process is CODESYS.exe and its config is not ours to edit — so resolving by simple NAME, ignoring version,
     /// is the only lever we have. That is what the handler below does, and why it deliberately ignores the version
     /// in the request rather than trying to match it.
+    ///
+    /// It is not the only handler in the process, and not the first: IronPython's runs before it and answers by
+    /// probing <c>sys.path</c>. That one answered from the folder the start script ran from, and so loaded a SECOND
+    /// System.Text.Json beside the one this handler loads (openspec codesys-single-load-dependencies);
+    /// <c>start_volt_codesys.py</c> therefore loads this assembly with <c>Assembly.LoadFrom</c> (not IronPython's
+    /// own load, whose requests IronPython claims) and takes the folders holding it off <c>sys.path</c> first.
     ///
     /// Deliberately dependency-free: only mscorlib/System types, no VoltLog. Anything else risks re-entering this
     /// handler to resolve the logger while resolving something else.

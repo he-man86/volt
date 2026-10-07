@@ -37,7 +37,7 @@
       "x-outcomes": [
         "Never gated by \u0060disconnect\u0060 \u2014 while paused every row is forced to \u0060idle\u0060, because the list is how the user reconnects.",
         "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead.",
-        "Answers even when the IDE lacks what the bridge needs: \u0060unsupported\u0060 then carries the fixed reason every other op answers with as IDE_UNSUPPORTED, \u0060ideVersion\u0060 the IDE version, and every row is idle. Never a version floor \u2014 an IDE is refused for what it lacks, not for its number.",
+        "Answers even when the IDE lacks what the bridge needs: \u0060unsupported\u0060 then carries the fixed reason every other op answers with as IDE_UNSUPPORTED, \u0060ideVersion\u0060 the IDE version, and every row is idle. Never a version floor \u2014 an IDE is refused for what it lacks, not for its number. The same refusal when the CODESYS bridge found its own assemblies loaded twice in the IDE process at start (\u0060loadConflicts\u0060 lists them): the reason names every copy, and the remedy is to restart the IDE.",
         "Always states the bridge identity at top level, rows or not, refused or not: \u0060productName\u0060, \u0060productVersion\u0060 and \u0060productVendor\u0060 (what the user runs, its own number and its maker), \u0060ideVersion\u0060 (the platform under it \u2014 the CODESYS framework version, or the TwinCAT build) and \u0060bridgeVersion\u0060 (the stamped release, or \u0060(dev) \u003Ccommit\u003E\u0060 for an unstamped build). Each is absent when its source does not answer, never filled from another, and none of them decides whether the bridge serves."
       ],
       "result": {
@@ -90,7 +90,7 @@
         "IDE_UNSUPPORTED"
       ],
       "x-outcomes": [
-        "Fails only with IDE_UNSUPPORTED, as every op but \u0060health\u0060 does on an IDE that lacks what the bridge needs. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
+        "Fails only with IDE_UNSUPPORTED, as every op but \u0060health\u0060 does on an IDE the bridge cannot serve. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
       ],
       "result": {
         "name": "ok",

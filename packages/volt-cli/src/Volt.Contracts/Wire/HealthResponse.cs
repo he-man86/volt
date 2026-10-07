@@ -72,15 +72,17 @@ public class HealthResponse
     /// <summary>Copies of Volt or of the framework assemblies the wire binds that should not be in one process
     /// (<see cref="LoadedCopies"/>): a name loaded more than once, or Volt assemblies of more than one build, one
     /// self-contained line each naming every copy's version, build (ProductVersion) and location. Absent when there is
-    /// one copy of each and one build — the normal case. Report only: nothing is refused for it (openspec
-    /// ide-identity-report 3.2 is an open decision); on the wire so a remote client, which never sees the bridge log,
-    /// records it.</summary>
+    /// one copy of each and one build — the normal case. Read on every poll; on the wire so a remote client, which never
+    /// sees the bridge log, records it. One found at START means the bridge serves nothing (<see cref="Unsupported"/>
+    /// then names it: openspec codesys-single-load-dependencies); one that appears later is reported here and in the
+    /// log only.</summary>
     [JsonPropertyName("loadConflicts")]
     public List<string>? LoadConflicts { get; set; }
 
-    /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence
-    /// every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the IDE has everything. While it is set,
-    /// every row is <c>idle</c>.</summary>
+    /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs, or (CODESYS) the bridge found
+    /// its own assemblies loaded twice in the IDE process at start (<see cref="LoadConflicts"/>; the remedy is to restart
+    /// the IDE). The fixed English sentence every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the
+    /// bridge can serve. While it is set, every row is <c>idle</c>.</summary>
     [JsonPropertyName("unsupported")]
     public string? Unsupported { get; set; }
 

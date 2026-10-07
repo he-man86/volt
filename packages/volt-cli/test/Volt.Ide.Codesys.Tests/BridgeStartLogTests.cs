@@ -140,10 +140,23 @@ namespace Volt.Ide.Codesys.Tests
                 Assert.Contains("[info] bound: Volt.Wire ", log);
                 Assert.Contains($"at {wireCopy} [ALSO LOADED]", log);
                 Assert.Contains("[warn] LOAD CONFLICT: Volt.Wire loaded 2 times: ", log);
-                // The message window (start_volt_codesys.py prints this) says so in one line.
-                Assert.Contains(" — WARNING, load conflict (see the Volt log): Volt.Wire loaded 2 times: ", started);
-                // health — what PLCAssist records — names it.
+                // A conflict at START refuses to serve (openspec codesys-single-load-dependencies 3.2): two copies split
+                // the wire's types, and every call would fail with a MissingMethodException. The message window
+                // (start_volt_codesys.py prints this) names both copies and the remedy.
+                Assert.StartsWith("Volt: Volt's own assemblies are loaded more than once in this CODESYS process, so the bridge serves nothing: Volt.Wire loaded 2 times: ", started);
+                Assert.Contains($"at {wireCopy}", started);
+                Assert.EndsWith($". Restart CODESYS and start the bridge once. The bridge on pipe {Pipe} refuses every call (IDE_UNSUPPORTED).", started);
+                Assert.Contains($"[error] CODESYS bridge on {Pipe} serves nothing — Volt's own assemblies are loaded more than once", log);
+                // health — what PLCAssist records — names it, and says the bridge serves nothing (JSON escapes the apostrophe).
                 Assert.Contains("\"loadConflicts\":[\"Volt.Wire loaded 2 times: ", health);
+                Assert.Contains("\"unsupported\":\"Volt", health);
+                Assert.Contains("s own assemblies are loaded more than once in this CODESYS process, so the bridge serves nothing: Volt.Wire loaded 2 times: ", health);
+                // Every other op is refused with that sentence — coded, instead of INTERNAL_ERROR on every call.
+                Assert.Equal(Volt.Contracts.BridgeErrorCodes.IdeUnsupported, (string)domain.GetData("refsCode"));
+                var refused = (string)domain.GetData("refsMessage");
+                Assert.Contains("Volt.Wire loaded 2 times: ", refused);
+                Assert.Contains($"at {wireCopy}", refused);
+                Assert.EndsWith("Restart CODESYS and start the bridge once.", refused);
 
                 // After start: a copy loaded later (a second session's _prune, another handler) is logged when it loads.
                 Assert.Contains($"[info] loaded after start (pid {Process.GetCurrentProcess().Id}): Volt.Contracts ", log);
@@ -158,8 +171,12 @@ namespace Volt.Ide.Codesys.Tests
             var me = AppDomain.CurrentDomain;
             var copies = (string)me.GetData("copies");
             Assembly.LoadFile(Path.Combine(copies, "Volt.Wire.dll"));   // another build's copy, loaded first
-            var (started, log, health) = Run(new object(),
-                afterStart: () => Assembly.LoadFile(Path.Combine(copies, "Volt.Contracts.dll")));
+            var (started, log, health) = Run(new object(), afterStart: () =>
+            {
+                try { new PipeClient(Pipe).Call("refs"); me.SetData("refsCode", "(answered)"); }
+                catch (PipeCallException ex) { me.SetData("refsCode", ex.Code); me.SetData("refsMessage", ex.Message); }
+                Assembly.LoadFile(Path.Combine(copies, "Volt.Contracts.dll"));
+            });
             me.SetData("started", started);
             me.SetData("log", log);
             me.SetData("health", health);

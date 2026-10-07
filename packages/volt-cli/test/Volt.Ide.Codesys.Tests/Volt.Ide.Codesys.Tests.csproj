@@ -17,6 +17,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="IronPython" />
+    <PackageReference Include="IronPython.StdLib" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" />

@@ -50,9 +50,19 @@ public sealed class BridgePipeHost : IDisposable
         return r;
     });
 
-    public BridgePipeHost(IIdeDriver ide, string pipeName)
+    // Why this host serves nothing although its IDE has every capability: the host process could not be served as it
+    // stands (CODESYS: a Volt assembly or System.Text.Json loaded twice at start — openspec
+    // codesys-single-load-dependencies). Answered exactly like a missing capability — IDE_UNSUPPORTED, the sentence on
+    // health's `unsupported`, every row idle — because it is the same situation for a client: no call cures it, the
+    // IDE has to change (here: be restarted). Null for a host that can serve.
+    private readonly string? _cannotServe;
+
+    public BridgePipeHost(IIdeDriver ide, string pipeName) : this(ide, pipeName, null) { }
+
+    public BridgePipeHost(IIdeDriver ide, string pipeName, string? cannotServe)
     {
         _ide = ide;
+        _cannotServe = cannotServe;
         _server = new PipeServer(pipeName, Dispatch);
     }
 
@@ -71,7 +81,9 @@ public sealed class BridgePipeHost : IDisposable
         // would otherwise answer ok and leave a client believing it can sync. The driver decided it once at attach
         // and names what is missing; the refusal is here, once, so both vendors answer it identically. Checked
         // BEFORE the pause gate: "unsupported" is the truer answer, and pressing Reconnect cannot cure it.
-        var unsupported = _ide.Unsupported;
+        // A process the host cannot serve (`_cannotServe`) is refused the same way, after the IDE's own reason: a
+        // missing capability outlives a restart, so it is the truer answer when both hold.
+        var unsupported = _ide.Unsupported ?? _cannotServe;
         if (unsupported != null && req.Op != Ops.Health)
             throw new BridgeException(BridgeErrorCodes.IdeUnsupported, unsupported);
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.Paused();
