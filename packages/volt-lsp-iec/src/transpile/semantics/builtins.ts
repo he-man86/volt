@@ -1,22 +1,16 @@
 /**
- * WHAT AN IR NODE MEANS, for the nodes whose meaning does not depend on storage.
- *
- * `values.ts` beside this holds the value semantics — `fit`, `coerce`, `arith`, the math and string tables. This
- * holds the three SWITCHES that turn those into a node's answer: a builtin, a unary and a binary. They sat inside
- * the interpreter, which is where the only consumer was.
- *
- * There is a second consumer now. A declaration's initial value may be a call — `ANY_TO_DINT(16#80000000)`,
- * `(SHL(UINT_TO_DWORD(x), 16) OR 16#1)`, `SIZEOF(T)` — and CODESYS folds those to exactly what the same expression
- * computes at run time (`declarations/constant-folding.ts`, 29 probes, 2026-09-19). "Exactly" is a claim a second
- * implementation cannot keep, so lowering folds by evaluating the IR it just built, through these functions, and
- * the interpreter's `expr` delegates to the same ones. One table, two callers.
- *
- * It lives in `ir/` because that is the only folder inside `transpile/` that lowering and the backends share — and
- * because a node's meaning belongs with the node, not with one of the things that executes it.
+ * WHAT A BUILTIN NODE MEANS over already-evaluated arguments. Lowering folds a declaration's initial value through it
+ * (`fold.ts`) and the interpreter computes with it — one table, two callers, so a folded value and a computed one
+ * cannot disagree (`declarations/constant-folding.ts`, 29 probes, 2026-09-19).
  */
-import type { IrBuiltinName, IrExpr } from "./expr.js"
+import type { IrBuiltinName } from "../ir/index.js"
 import { type Type, widthOf as typeWidth } from "../../frontend/types/index.js"
-import { arith, bool, coerce, eq, expt, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
+import { bool, num, type Val } from "./value.js"
+import { ord } from "./arith.js"
+import { fit } from "./store.js"
+import { expt, MATH } from "./math.js"
+import { charAt, setChar } from "./string.js"
+import { LoweringBug } from "./faults.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
@@ -25,13 +19,6 @@ function widthOf(type: Type, op: string): number {
   if (bits === undefined) throw new LoweringBug(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
   return bits
 }
-
-/**
- * A throw that means LOWERING IS WRONG, not that the program faulted — kept apart from an ordinary fault because
- * `constantValue` catches those. Caught there too, it would turn "lowering should have typed this" back into
- * "not a compile-time constant", which is the silence the throw exists to break.
- */
-export class LoweringBug extends TypeError {}
 
 /**
  * The one argument SEL or MUX evaluates after its selector — its index in the node's `args`. An out-of-range MUX K,
@@ -128,94 +115,5 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     case "atan":
       // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits
       return fit(MATH[name](Number(num(args[0]!))), type)
-  }
-}
-
-/** A unary over an ALREADY-EVALUATED operand. */
-export function unaryValue(op: "neg" | "not", operand: Val, type: Type): Val {
-  // A REAL IS NEGATED, not subtracted from zero. IEEE-754 says -(0.0) is -0.0 while 0.0 - 0.0 is +0.0, so
-  // computing it as a subtraction silently dropped the sign — where the emitter prints `-x` and keeps it.
-  // An INTEGER keeps the subtraction: that is what wraps at the width's minimum, matching `wrapping_neg`
-  // (`unary_minus_at_the_edge`, a DINT at its minimum, which Rust's own `-` panics on in a debug build).
-  if (op === "neg") return typeof operand === "number" ? fit(-operand, type) : fit(arith("sub", 0n, operand), type)
-  return typeof operand === "bigint" ? fit(~operand, type) : !bool(operand)
-}
-
-/**
- * A binary over TWO ALREADY-EVALUATED operands — so `and_then` and `or_else` are not here: the only reason those
- * are distinct nodes is that they must not evaluate the right side, which is the caller's business.
- */
-export function binaryValue(op: string, l: Val, r: Val, type: Type): Val {
-  switch (op) {
-    case "eq":
-      return eq(l, r)
-    case "ne":
-      return !eq(l, r)
-    case "lt":
-    case "le":
-    case "gt":
-    case "ge":
-      return ord(op, l, r)
-    case "and":
-    case "or":
-    case "xor":
-      return logic(op, l, r)
-    default:
-      return fit(arith(op, l, r, type), type)
-  }
-}
-
-/**
- * AN IR EXPRESSION WHOSE EVERY LEAF IS A CONSTANT — the value it has before anything runs, or undefined.
- *
- * Lowering uses it for a declaration's initial value. An expression that would read storage or call something
- * reaches a `load`, `invoke`, `dispatch` or `fresh` node, which cannot be answered without a frame: those are not
- * constant, and they are REJECTED rather than guessed at.
- *
- * A fold that FAULTS is not a value either — `1 / 0` in an initializer is the vendor's business, not a silent zero.
- * A `LoweringBug` is neither and is re-thrown: swallowing it would restore the silence it exists to break.
- */
-export function constantValue(e: IrExpr): Val | undefined {
-  try {
-    return evaluate(e)
-  } catch (error) {
-    // a FAULT is not a value — `1 / 0` in an initializer is the vendor's business. A LoweringBug is not a fault.
-    if (error instanceof LoweringBug) throw error
-    return undefined
-  }
-}
-
-function evaluate(e: IrExpr): Val | undefined {
-  switch (e.kind) {
-    case "const":
-      return fit(e.value, e.type)
-    case "convert": {
-      const inner = evaluate(e.value)
-      return inner === undefined ? undefined : fit(coerce(inner, e.type, e.value.type), e.type)
-    }
-    case "unary": {
-      const operand = evaluate(e.operand)
-      return operand === undefined ? undefined : unaryValue(e.op, operand, e.type)
-    }
-    case "binary": {
-      const l = evaluate(e.left)
-      const r = evaluate(e.right)
-      if (l === undefined || r === undefined) return undefined
-      // the short-circuit forms are ordinary here: both sides are constants, so neither can have an effect to skip
-      if (e.op === "and_then") return bool(l) && bool(r)
-      if (e.op === "or_else") return bool(l) || bool(r)
-      return binaryValue(e.op, l, r, e.type)
-    }
-    case "builtin": {
-      const args: Val[] = []
-      for (const a of e.args) {
-        const v = evaluate(a)
-        if (v === undefined) return undefined
-        args.push(v)
-      }
-      return builtinValue(e.name, args, e.type, e.args.map((a) => a.type), e.bits)
-    }
-    default:
-      return undefined
   }
 }

@@ -11,8 +11,8 @@ import { calendarOf, durationOf, enumeratorValue, enumStorage, foldsToConstant, 
 import { overlayBytes } from "./unions.js"
 import { buildInitSequence, lowerPendingInit, readsLaterTemp } from "./init-sequence.js"
 // A folded initial value and the same expression at run time go through ONE implementation, so they cannot
-// disagree — `ir/` is the folder lowering and the backends share, which is why it lives there.
-import { constantValue } from "../ir/evaluate.js"
+// disagree — `semantics/fold.ts` `constantValue`, the evaluator lowering and the interpreter share.
+import { constantValue } from "../semantics/index.js"
 import { lowerExpr } from "./expressions.js"
 
 /**
@@ -457,7 +457,7 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
  * parenthesised — and folds them to exactly what the same expression computes at RUN TIME. `ANY_TO_DINT(16#80000000)`
  * is -2147483648, `INT_TO_BYTE(300)` is 44, `REAL_TO_DINT(3.0E9)` is -1294967296, `REAL_TO_INT(2.5)` is 3.
  *
- * So the value is not folded a second way here: the expression is LOWERED, and `ir/evaluate.ts` answers it with
+ * So the value is not folded a second way here: the expression is LOWERED, and `semantics/fold.ts` answers it with
  * the same three switches the interpreter runs. A tree that needs storage — a name, a call to a user FUNCTION, a
  * dereference — is not constant and is rejected there rather than guessed at.
  *

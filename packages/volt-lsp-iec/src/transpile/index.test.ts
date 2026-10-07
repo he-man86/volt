@@ -20,6 +20,8 @@ describe("transpile — public surface", () => {
       // a project's libraries bound once, which a sweep lowers every program on top of
       "libraryBase",
       "load",
+      // lowering then printing in one call, beside `load` (pipeline/, task 1.4.2)
+      "lowerAndEmit",
       "lowerCodeKind",
       "lowerDiagnostic",
       "lowerSource",

@@ -267,9 +267,10 @@ END_METHOD
 `),
 
   // ─── what does a STRING convert to, for the targets nobody measured? ───────────────────────────────────────
-  // `ir/values.ts` coerce() has a catch-all: any STRING reaching a non-REAL target is parsed for leading
-  // digits. That is measured for STRING -> integer (`string_conversions*`), and for BOOL and TIME it is a guess
-  // that reached a user as a value. A guess in the ORACLE is the worst place for one, so this asks.
+  // `semantics/convert.ts` coerce() had a catch-all: any STRING reaching a non-REAL target was parsed for leading
+  // digits. That is measured for STRING -> integer (`string_conversions*`); for BOOL and TIME it was a guess that
+  // reached a user as a value. A guess in the ORACLE is the worst place for one, so this asked — and `fromText`
+  // now refuses every STRING target but REAL and the integers by name.
   fb("cc6_string_to_bool_and_time", "FB_C6_strConv", "STRING converted to BOOL and to TIME — the targets coerce() guesses at",
     `FUNCTION_BLOCK FB_C6_strConv
 VAR

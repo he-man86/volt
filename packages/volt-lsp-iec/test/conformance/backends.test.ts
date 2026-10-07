@@ -184,7 +184,10 @@ function interpreterOutcome(c: Case): Outcome | undefined {
     let v: unknown
     try {
       v = runner.get(p.path)
-    } catch {
+    } catch (error) {
+      // AN ANSWER, NOT A GAP: a place the interpreter refuses to read (an index outside its array) is compared like any
+      // value, so the Rust printing one there is a divergence — skipping it dropped the place from the comparison unseen.
+      values.set(p.path, `unreadable: ${error instanceof Error ? error.message : String(error)}`)
       continue
     }
     const wide = p.type.kind === "elementary" && p.type.elem.name === "LREAL"
@@ -349,7 +352,10 @@ async function compareCase(c: Case, dir: string): Promise<{ divergences: string[
     const path = line.slice(0, tab)
     const got = line.slice(tab + 1).trim()
     const want = b.values.get(path)
-    if (want === undefined) continue
+    if (want === undefined) {
+      divergences.push(`${c.name}: ${path} — the Rust printed it and the interpreter has no answer`)
+      continue
+    }
     compared++
     if (want !== got && !(c.transcendental && withinUlp(want, got))) divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
   }
@@ -367,6 +373,16 @@ function withinUlp(a: string, b: string): boolean {
   const gap = BigInt(a) - BigInt(b)
   return (gap < 0n ? -gap : gap) <= 4n
 }
+
+test("a place the interpreter cannot read is an answer to compare, not a place dropped from the comparison", () => {
+  const source = "PROGRAM PLC_PRG\nVAR\n\ta : ARRAY[0..2] OF INT;\nEND_VAR\na[0] := 1;\nEND_PROGRAM\n"
+  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
+  if (pou === undefined) throw new Error("the source does not lower")
+  const { expr, type, global } = rustAccess(pou, "a[5]")
+  const b = interpreterOutcome({ name: "unreadable", pou, paths: [{ path: "a[5]", type, global, expr }], cycles: 1, transcendental: false })
+  if (b === undefined || b.faulted) throw new Error("the program itself runs")
+  expect(b.values.get("a[5]")).toBe("unreadable: array index 5 is outside its bounds")
+})
 
 describe.skipIf(skipRustSuite())("the probes — every divergence that was real, as a regression test", () => {
   test(
@@ -453,7 +469,10 @@ describe.skipIf(skipRustSuite())("the two backends agree with each other, withou
           const path = line.slice(0, tab)
           const got = line.slice(tab + 1).trim()
           const want = b.values.get(path)
-          if (want === undefined) continue
+          if (want === undefined) {
+            divergences.push(`${c.name}: ${path} — the Rust printed it and the interpreter has no answer`)
+            continue
+          }
           compared++
           // the same rule the probe comparison applies — a transcendental's last bits are two libms', not a defect
           if (want !== got && !(c.transcendental && withinUlp(want, got)))

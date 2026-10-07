@@ -283,7 +283,7 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
   if (notANumber !== null) return Number.NaN
   // `REAL#Infinity` and `REAL#-Infinity`. The comment above once said NaN was the only non-numeric REAL spelling in
   // any recording; `bound_real_above_max` and `realovf_multiply_to_infinity` falsified that the day they were
-  // written. An infinity is an ordinary value to this vendor — see `ir/values.ts`.
+  // written. An infinity is an ordinary value to this vendor — see `semantics/store.ts`.
   const infinite = /^L?REAL#(-?)Infinity$/.exec(raw)
   if (infinite !== null) return infinite[1] === "-" ? -Infinity : Infinity
   const m = /^([A-Z]+)#(-?[0-9.eE+-]+)$/.exec(raw)
@@ -1372,7 +1372,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // at or above 0x80 answers 2, and no reading that gives 3 there leaves `$81` at 2. Deferred rather than fitted.
   // 5 -> 3. `$80` is RESOLVED too, by widening the probe: `$hh` is a WINDOWS-1252 byte, not the code point U+00XX,
   // and sixteen cells across 0x80..0x9F follow that codepage exactly. What is left is one family — CODESYS's trig
-  // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir/values.ts` and
+  // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `semantics/math.ts` and
   // deliberately not emulated.
   // 3 -> 4. `named_const_expression_keeps` (transpile-review-2026-09-29 task 2.3): CODESYS reads a constant whose
   // constant-EXPRESSION initializer overflows its type as the unwrapped fold (`D : SINT := K + 1` reads SINT#128);

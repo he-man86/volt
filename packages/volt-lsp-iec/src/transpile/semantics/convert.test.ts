@@ -8,7 +8,9 @@
  */
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
-import { coerce, expt, fit } from "./values.js"
+import { coerce } from "./convert.js"
+import { REAL_TO_INT_CASES } from "./numeric.cases.js"
+import { fit } from "./store.js"
 
 const toReal = (v: bigint, from: string) => fit(coerce(v, elementaryRef("REAL"), elementaryRef(from)), elementaryRef("REAL"))
 
@@ -52,43 +54,14 @@ test("LDT, LDATE and LTOD print CODESYS's text", () => {
 })
 
 /**
- * EXPT is C's `pow`, correctly rounded — what CODESYS answers and Rust's `powf` computes (transpile-review-2026-09-29
- * task 46, recorded as `tr_46_exptdom_*`). JavaScriptCore's `Math.pow` differs on both counts: `1 ** NaN` and
- * `(-1) ** ±Infinity` are NaN where C says 1, and an INTEGER exponent is repeated multiplication, rounded at every
- * step — 1E19 ** 8 comes out 9.999999999999998E151 where CODESYS says 1E+152.
- *
- * And a zero raised to a finite negative power is a division by zero: it stops the task on CODESYS. A zero to -Infinity
- * is +Infinity, and runs.
+ * REAL → INTEGER, every recorded cell (`numeric.cases.ts`, 192): `coerce` from the case's source type — so its routing
+ * to `realToInt` is under test too — then the store into the declared type. The table itself is held to the recordings
+ * by `test/conformance/numeric-cases.test.ts`.
  */
-test("EXPT has C's pow special cases", () => {
-  expect(expt(1, NaN)).toBe(1)
-  expect(expt(-1, Infinity)).toBe(1)
-  expect(expt(-1, -Infinity)).toBe(1)
-  expect(expt(NaN, 0)).toBe(1)
-  expect(expt(0, -Infinity)).toBe(Infinity)
-  expect(expt(2, NaN)).toBeNaN()
-  expect(expt(-8, 1 / 3)).toBeNaN()
-})
-
-test("EXPT of zero to a finite negative power stops the task", () => {
-  expect(() => expt(0, -1)).toThrow(RangeError)
-  expect(() => expt(0, -0.5)).toThrow(RangeError)
-  expect(() => expt(-0, -3)).toThrow(RangeError)
-})
-
-test("EXPT with an integer exponent is correctly rounded, as Rust's powf is", () => {
-  expect(expt(1e19, 8)).toBe(1e152)
-  // cross-checked against Rust `f64::powf` 2026-09-29 — `Math.pow` misses each of these by a few ULPs
-  expect(expt(0.006729743003845215, 45)).toBe(1.8194142192131608e-98)
-  expect(expt(-10.970263481140135, 40)).toBe(4.061461485393576e41)
-  expect(expt(976295471191.4073, 14)).toBe(7.147231449636255e167)
-  expect(expt(29154367446899.414, 18)).toBe(2.3156089312612504e242)
-  // exact cases: a power of two, a tie that must not loop, the ends of the range
-  expect(expt(-2, 3)).toBe(-8)
-  expect(expt(3, 40)).toBe(12157665459056928801)
-  expect(expt(2, -1074)).toBe(5e-324)
-  expect(expt(2, -1075)).toBe(0)
-  expect(expt(2, 1024)).toBe(Infinity)
-  expect(expt(1 + 2 ** -52, 2 ** 52)).toBe(2.718281828459045) // e, from the nearest double above 1
-  expect(expt(1 + 2 ** -52, -(2 ** 52))).toBe(0.3678794411714424)
+test("REAL -> integer: every recorded cell of the 192", () => {
+  expect(REAL_TO_INT_CASES).toHaveLength(192)
+  for (const c of REAL_TO_INT_CASES) {
+    const to = elementaryRef(c.input.to)
+    expect(fit(coerce(c.input.value, to, elementaryRef(c.input.from)), to), c.name).toBe(c.expected)
+  }
 })

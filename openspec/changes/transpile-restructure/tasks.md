@@ -805,71 +805,196 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     1.1's switches in `src/transpile/` ride with 1.2), plus this gate's fixes with 1.2.
 ### 1.3 `semantics/`
 
-- [ ] 1.3.1 Move `ir/values.ts` and `ir/evaluate.ts` to `semantics/` as they are.
+- [x] 1.3.1 Move `ir/values.ts` and `ir/evaluate.ts` to `semantics/` as they are.
   - What: update the imports in interp and `lower/storage.ts`; `values.ts`'s self-import of the ir barrel becomes direct imports.
   - Where: `transpile/semantics/*`, importers.
   - Accept: G, S; lint shows `lower → semantics` and `interp → semantics` allowed and a planted `emit → semantics` rejected.
   - Depends: 1.0.1, 1.2.4.
-- [ ] 1.3.2 Split `semantics/values.ts`.
+  - Done 2026-10-07 (step 1.3a, with 1.3.2-1.3.5 — one move straight into the split files, so no interim
+    `semantics/values.ts`). `ir/values.ts`, `ir/evaluate.ts` and `ir/values.test.ts` are gone; `semantics/index.ts` is the
+    barrel; `interp/interp.ts`, `lower/pointers.ts` and `lower/storage.ts` (both `constantValue`) import it; every semantics
+    file imports `ir/` by the barrel or `ir/faults.js` directly (no self-import). `interp/lreal-text.test.ts` reads the
+    barrel until 1.3.6 moves it. Lint: `lower → semantics` and `interp → semantics` green on the real tree; an
+    `import "../../semantics/index.js"` planted in `emit/rust/index.ts` fails "transpile/emit must not import
+    transpile/semantics" (reverted; `scripts/check-layering.test.ts` keeps its planted case). `scripts/check-size.ts`: the
+    `ir/values.ts` ceiling removed, `interp/interp.ts` lowered 538 → 528. Citations of the two old files re-pointed to the
+    file that now holds the fact in `src/` comments, fixture comments, `fixtures.test.ts` and `support/evidence.ts`; NOT in
+    `emit/rust/prelude.ts`'s Rust text (its "(ir/values.ts charAt / setChar)" line is EMITTED — changing it moved 168
+    fixtures' S `rust` layer; 1.5.11 re-points it when `runtime/string.ts` takes the text with its snapshot) nor in
+    `support/transpile-confidence.ts`'s LEAN text "ir/evaluate.ts" (it is rendered into `map.generated.ts`; 1.9.3).
+- [x] 1.3.2 Split `semantics/values.ts`.
   - What: into `value.ts`, `store.ts`, `convert.ts`, `text.ts`, `parse.ts`, `string.ts`, `arith.ts`, `math.ts`, `instantiate.ts` per
     design.md §4.5; delete the orphan docs at 106 and 309-313.
   - Where: `transpile/semantics/*`.
   - Accept: G, S.
   - Depends: 1.3.1.
-- [ ] 1.3.3 Split `semantics/evaluate.ts`.
+  - Done 2026-10-07 (step 1.3a). `value.ts` (`Val`, `num`, `bool`, `copy`), `store.ts` (`fit`, `lowest`/`highest`/`inWidth`),
+    `convert.ts` (`coerce`, `toSingle`), `parse.ts` (`parseReal`, `parseInteger` — `coerce`'s two regex reads, verbatim),
+    `text.ts` (`civilDate`, `calendarText`, `longCalendarText`, `timeText`, `ltimeText`, `durationText`, `lrealText`, private
+    `pad`, `ladder`, `trim`), `string.ts` (`charAt`, `setChar`, `visible`, `held` — exported, `fit` cuts through it), `arith.ts`
+    (`compared`, `eq`, `ord`, `arith`, `logic`), `math.ts` (`MATH`, `logarithm`, `expt` and its exact-power helpers),
+    `instantiate.ts`. Deviation from §4.5: `elemName` and `isInt` sit in `convert.ts`, private — §4.5 puts them in `store.ts`, but
+    only `coerce`'s STRING → integer refusal reads them and `fit` never did. The orphan docs: "A TIME's text — mirrored by the
+    emitter's `iec_time_text`" (stacked above `civilDate`) is now `timeText`'s doc, and the conversion doc stacked above
+    `elemName` is now `coerce`'s — each kept on the function it describes rather than deleted. `ir/values.test.ts` split by
+    subject: `semantics/convert.test.ts` (the three `coerce` tests) and `semantics/math.test.ts` (the three EXPT tests), titles
+    kept. Largest file `math.ts` 164 lines.
+- [x] 1.3.3 Split `semantics/evaluate.ts`.
   - What: into `builtins.ts`, `operators.ts` (`binaryValue` typed `IrBinOp`), `fold.ts` (with private `evaluate`) and `faults.ts`
     (`LoweringBug`, `IecFault`); `widthOf` already left in 1.1.6.
   - Where: `transpile/semantics/*`.
   - Accept: G, S.
   - Depends: 1.3.2.
-- [ ] 1.3.4 One convert, const and short-circuit rule (lean 10.3).
+  - Done 2026-10-07 (step 1.3a). `builtins.ts` (`selectedArg`, `builtinValue`, the private shift/rotate `widthOf` that throws a
+    `LoweringBug` around `types` `widthOf`), `operators.ts` (`unaryValue`, `binaryValue(op: IrBinOp, …)`), `fold.ts`
+    (`constantValue`, private `evaluate`), `faults.ts` (`LoweringBug`; `IecFault(kind)`, a `RangeError` whose message is
+    `FAULT_TEXT[kind]`). `IecFault` is thrown at the five fixed-text faults of `semantics/` (LN/LOG of zero, EXPT zero to a
+    negative power, integer and REAL division by zero, division overflow) — same class chain and message, so S's `throws <msg>`
+    and the `toThrow(RangeError)` tests are unchanged. Still plain `RangeError`: the two parametric texts
+    (`characterOutOfRange` in `string.ts`, `indexOutOfBounds` in interp) and interp's null-dereference/no-instance throws; and
+    `constantValue` still answers "not constant" on any non-`LoweringBug` throw — narrowing it to `IecFault` is 6.A.9's change.
+- [x] 1.3.4 One convert, const and short-circuit rule (lean 10.3).
   - What: `convertValue`, `constValue` and `shortCircuit` are exported; `interp.ts` 172-173, 196-197 and 208-209 call them.
   - Where: `semantics/convert.ts`, `semantics/arith.ts`, `interp/interp.ts`.
   - Accept: G, S.
   - Depends: 1.3.3.
-- [ ] 1.3.5 `storeAs(value, type)` replaces the four interpreter ternaries (81, 108, 161, 354).
+  - Done 2026-10-07 (step 1.3a). `convertValue(v, to, from)` = `fit(coerce(…), to)` and `constValue(value, type)` = `fit` in
+    `convert.ts`; `shortCircuit(op, left, right)` in `arith.ts` is a COMBINATOR over operand functions of a context `A`
+    (`(a: A) => boolean`), so the interpreter builds it once per node from its compiled `Run<Val>` operands (no closure per
+    evaluation) and the fold calls it on `() => l, () => r`. Both `fold.ts` `evaluate` and interp's `compileExpr` (const,
+    convert, and_then/or_else) call the three.
+- [x] 1.3.5 `storeAs(value, type)` replaces the four interpreter ternaries (81, 108, 161, 354).
   - Where: `semantics/value.ts`, `interp/interp.ts`.
   - Accept: G, S.
   - Depends: 1.3.4.
-- [ ] 1.3.6 The first case table.
+  - Done 2026-10-07 (step 1.3a). `semantics/value.ts` `storeAs` (a composite copied, else `fit`); EIGHT ternaries today, all
+    replaced: `invoke`'s input store, `bind`'s copy cell, `write` (plain and walked), `compileWrite`'s three roots, `Runner.set`.
+  - Step 1.3a end: `bun typecheck` clean; `bun run lint` green (layering 3 known; size 12 ceilings, 17 functions warned — the
+    two semantics ones are `builtinValue` 86 and `coerce` 85; citations warning); `bun test src/transpile` 342 pass, 0 fail;
+    S (`snapshot:transpile check`, ir/rust/outputs/edge) ✓ identical, 5357 fixtures, 149 s.
+- [x] 1.3.6 The first case table.
   - What: `semantics/cases.ts` (the `Case` contract, design.md P3); `semantics/text.cases.ts` from `lreal-text.test.ts`'s data;
     `interp/lreal-text.test.ts` becomes `semantics/text.test.ts`.
   - Where: `transpile/semantics/cases.ts`, `text.cases.ts`, `text.test.ts`.
   - Accept: G, T.
   - Depends: 1.3.2.
-- [ ] 1.3.7 Split `coerce`.
+  - Done 2026-10-07 (step 1.3b). `semantics/cases.ts`: `Case<I, O>` (`name`, `input`, `expected`, `recording?`) and
+    `CaseRecording` (`fixture`, `variable`). `semantics/text.cases.ts`: `LREAL_TEXT_CASES`, the 25 `lrealText` cells keyed by the
+    rule each group shows — the four keys are the four test titles of `lreal-text.test.ts`, so `semantics/text.test.ts` runs one
+    test per key and T keeps every title. No case names a recording yet: the cells are the `fmt_lreal_*` measurements, but the
+    fixture of each value is not stated in the old test; 1.5.15 attaches them where it checks recordings.
+    `interp/lreal-text.test.ts` is gone.
+- [x] 1.3.7 Split `coerce`.
   - What: into `toBool`, `toReal`, `realToInt`, `toText`, `fromText` (the last calling `parse.ts`), with `coerce` a dispatcher over them;
     no rule changes (RC 47's single rounding is 6.19).
   - Where: `semantics/convert.ts`, `semantics/parse.ts`.
   - Accept: G, S.
   - Depends: 1.3.4.
-- [ ] 1.3.8 `semantics/numeric.cases.ts` with the 192 REAL→int cells.
+  - Done 2026-10-07 (step 1.3b). `coerce` is a 12-line dispatcher (non-elementary, → STRING, STRING →, → BOOL, BOOL → 1/0,
+    → REAL, REAL → integer/TIME, else the value); `toText(v, to, from)`, `fromText(text, to)` (on the visible string; REAL →
+    `parseReal`, an integer → `parseInteger`, anything else refused by name), `toBool`, `toReal(n, to)` (`toSingle` for a REAL
+    target), `realToInt(n, to)` with `I64_MIN`/`I32_MIN` now module constants (were rebuilt per call). Each rule's comment moved
+    with it. S identical.
+- [x] 1.3.8 `semantics/numeric.cases.ts` with the 192 REAL→int cells.
   - What: one case per recorded cell of `fixtures/conversions/real-to-integer-ladder.ts` (and `real-to-integer.ts`), each naming its
     recording; `semantics/convert.test.ts` runs them against `realToInt`.
   - Where: `semantics/numeric.cases.ts`, `semantics/convert.test.ts`.
   - Accept: G; 192 cases green; the case count is written here.
   - Depends: 1.3.6, 1.3.7.
+  - Done 2026-10-07 (step 1.3b). `REAL_TO_INT_CASES`: 192 cases — 120 `r2i_*` (REAL and LREAL × the 12 integer and bit-string
+    destinations × above_max, below_min, nan, pos_inf, neg_inf) + 72 `r2ilad_*` (INT, DINT, LINT × 12 rungs × both signs). Each
+    names its fixture and `inst.out`; `input` is `{ from, to, value }` with `value` the number the fixture's `v` holds (a REAL's
+    in single precision), `expected` the recorded `out` as a bigint (every recording `<DEST>#<decimal>`, its type the
+    destination — checked while writing the table). Written ONCE by a single-use generator from the fixture sources and
+    `codesys.run.json` (deleted after; the twin harness holds the table to the recordings from 1.5.15). `convert.test.ts`
+    "REAL -> integer: every recorded cell of the 192": `fit(realToInt(value, to), to)` equals the recording for all 192 — green.
+  - Step 1.3b end: `bun typecheck` clean; `bun run lint` green (size 16 functions warned — `coerce` left the list;
+    citations warning); `bun test src/transpile` 343 pass, 0 fail (one new title, the 192-cell test); S ✓ identical (5357
+    fixtures).
 
 ### 1.4 `interp/` and `pipeline/`
 
-- [ ] 1.4.1 Split `interp/interp.ts` into `machine.ts`, `frame.ts`, `calls.ts` and `runner.ts`.
+- [x] 1.4.1 Split `interp/interp.ts` into `machine.ts`, `frame.ts`, `calls.ts` and `runner.ts`.
   - What: one frame builder for invoke and FB call (the key list at 88/260 once). `resolvePath` on `ir/path` plus `frame.locate`, its
     VAR_STAT handling moved into `locate`. Inline `import()` types become named imports; the orphan comment at 41 is deleted; the barrel
     no longer re-exports `Val`.
   - Where: `transpile/interp/*`.
   - Accept: G, S.
   - Depends: 1.3.5, 1.2.5.
-- [ ] 1.4.2 `pipeline/index.ts`.
+  - Done 2026-10-07 (step 1.4). `interp/interp.ts` is gone. `frame.ts` (184): `Cell`, `Located`, the abstract `Frame` (the
+    frame's state; `bind`, `writeBack`, `locate` — now public —, `read`, `write`; `expr` abstract) and `compileRead`/
+    `compileWrite`. `machine.ts` (230): `Signal`, `LoopGuardError`, `Machine extends Frame` (`expr`, `block`, `enterFrame` —
+    a body on a fresh frame) and the closure compiler (`compiledExpr`, `compiledBlock`, `compileExpr`, `compileBlock`,
+    `compileStmt`). `calls.ts` (62): `invoke`, `call` and the ONE frame builder `enter` (lent instances bound, the instance's
+    field keys — the key list once —, the body run, the copies written back); each caller binds its own in-outs where its
+    evaluation order puts them (an invoke before it locates its instance, an FB call after), so no evaluation moved.
+    `runner.ts` (108): `RunOptions`, `Runner`, `resolvePath`, `shown`, `run`. `resolvePath` now turns the IDE path (`ir/path`
+    `parsePath`) into a `Place` — slot or global root, a field step per name, an index step per segment (a LINT constant, the
+    dimension's lower bound and length) — and lands it with `Frame.locate`: no second walker. Deviations: (a) the VAR_STAT
+    redirect stays in `resolvePath` (a field of the FB's layout that is a static restarts the place at its global) — `locate`
+    walks `Place`s, which lowering already resolves statics into, so it has no static to handle; (b) `LoopGuardError` sits in
+    `machine.ts`, where the loop throws it, not `runner.ts` (§4.9) — `runner.ts` imports `machine.ts`, so the other way is an
+    import cycle; (c) a path index outside its dimension now throws `indexOutOfBounds` (the old walk read `undefined`, or planted
+    a stray key on a `set`) — no harness path does it (S identical). The inline `import()` types are named imports; the stacked
+    "first line of `bind`'s doc" is `bind`'s own doc; the orphan comment is gone; the interpreter's header doc (and its
+    `ponytail:` note) heads `machine.ts`. `interp/index.ts` exports `LoopGuardError`, `run`, `Runner`, `RunOptions` — no `Val`
+    (no consumer imported it). Ceiling `interp/interp.ts` removed. S ✓ identical (5357 fixtures, 161 s).
+- [x] 1.4.2 `pipeline/index.ts`.
   - What: `load` moves unchanged (same signature and return) from `transpile/index.ts:58-66`; `lowerAndEmit` is added; the barrel
     re-exports both. Tests that call lowerSource+emitRust in a pair use `lowerAndEmit`.
   - Where: `transpile/pipeline/index.ts`, `transpile/index.ts`, `index.test.ts`, test callers.
   - Accept: G, S.
   - Depends: 1.4.1.
-- [ ] 1.4.3 Split `interp/interp.test.ts` into `pipeline/{arith,control,calls,aggregates,pointers,time,strings}.test.ts`.
+  - Done 2026-10-07 (step 1.4). `pipeline/index.ts`: `load` (same signature, same throw text) and `lowerAndEmit(source, name?,
+    libraries) -> { pou, emitted }` over one private `lowered` (the refusal throw, once). `transpile/index.ts` ends with
+    `export { load, lowerAndEmit } from "./pipeline/index.js"`. `index.test.ts`: `lowerAndEmit` added to the surface (the one
+    deliberate edit). Callers switched: the one pair that only lowers and emits — `emit.test.ts` "every emitted statement line
+    maps back to an ST span". Not switched, each because the pair does more than `lowerAndEmit` returns: every other
+    `emit.test.ts` pair asserts `diagnostics` (or passes `loopGuard`), `snapshot.test.ts` emits twice with two options, the
+    library tests lower through their own project helpers, and the conformance/scripts callers hold an already-lowered `pou`.
+- [x] 1.4.3 Split `interp/interp.test.ts` into `pipeline/{arith,control,calls,aggregates,pointers,time,strings}.test.ts`.
   - What: the charAt/setChar unit cases (1164-1222) go to `semantics/string.test.ts`.
   - Where: `transpile/pipeline/*.test.ts`, `semantics/string.test.ts`.
   - Accept: G, T.
   - Depends: 1.4.2.
+  - Done 2026-10-07 (step 1.4). Each test moved verbatim with the comment above it, under its describe's own title (so every
+    `describe › title` line stays): `arith` 18 core tests + "a CONSTANT from an overflowing expression" + "MAX / MIN / LIMIT on a
+    NaN and a signed zero" (340 lines); `control` 10 + "SEL / MUX / LIMIT with side-effecting arguments" + "no iteration cap"
+    (256); `calls` 11 (359); `aggregates` 6 (124); `pointers` 4 (130); `time` 4 (94); `strings` the STRING describe's five
+    store/literal/conversion tests (44). `semantics/string.test.ts` (42): the STRING describe's five `s[i]` tests — end to end
+    through `load`, as they were (the cases are interpreter runs of `charAt`/`setChar`, not unit calls; rewriting them would
+    change tests). Ceiling `interp/interp.test.ts` removed. T (`suite-snapshot --dirs src/transpile`): 343 titles, every
+    pre-step title present, the one new title 1.3.8's.
+  - Step 1.4 end: `bun typecheck` clean; `bun run lint` green (size 10 ceilings); `bun test src/transpile scripts` 377 pass, 0
+    fail.
+  - Gate 1.3a-1.5b (2026-10-07), the review's findings on 1.3 and 1.4 (each failing test first; the gate's numbers under
+    1.5.10):
+    - `semantics/numeric.cases.ts` was held to nothing (1.3.8; low, fixed): its header claimed the twin harness checks it,
+      but 1.5.15 is not built, and `convert.test.ts` called `realToInt` directly (skipping `coerce`'s routing, ignoring
+      `input.from`). New `test/conformance/numeric-cases.test.ts` (under `test/` — rule 6 keeps `src/` off the recordings)
+      reads `codesys.run.json` for each case's named fixture: the recorded `inst.out` must be `<to>#<expected>` and the
+      recorded `inst.v` the case's `input.value` (`Math.fround` for a REAL) — 192 checked, 0 bad today; red when one cell of
+      the table is changed (tried: `r2i_real_to_byte_above_max` 252 → 253 fails it). `convert.test.ts` now runs
+      `fit(coerce(value, to, from), to)`; `realToInt` lost its `export` (its one outside reader is gone); the header says
+      what holds the table until 1.5.15 takes the check over.
+    - 1.4.1's out-of-range path throw was swallowed by two harnesses (low, fixed): `backends.test.ts` `interpreterOutcome`
+      `continue`d on a throwing `runner.get` and `compareRust`/the sweep then skipped a path with no interpreter value — the
+      place silently left the comparison. A throwing read is now the value `unreadable: <message>` (compared like any other,
+      so a Rust value there is a divergence) and a Rust-printed path with no interpreter answer is a divergence, not a
+      `continue`. Test "a place the interpreter cannot read is an answer to compare…" (red before: `undefined`).
+      `transpile-confidence.ts` `interpOutcome`: the seed `runner.set` sits OUTSIDE the fault catch, so a refused seed throws
+      as the harness error it is instead of reading as the program faulting; test "an edge seed the interpreter refuses
+      throws…" (red with the set back inside the catch). S `edge` identical — no harness path reached either.
+    - Stale citations (low, fixed): `lower/storage.ts`'s comment on `constantValue` (now `semantics/fold.ts`, not `ir/`),
+      `check-coverage-six.ts`'s "coerce() has a catch-all" (it now refuses by name, `fromText`). The fixture note in
+      `oop/lifecycle.ts` is 1.5's (under 1.5.10). Left as listed before: `prelude.ts`'s emitted Rust text (1.5.11) and
+      `transpile-confidence.ts`'s LEAN text "ir/evaluate.ts" (1.9.3).
+    - `IecFault` only partly applied (1.3.3; low, fixed): interp's three fixed-text faults — the null dereference in
+      `frame.ts` `locate` and in `machine.ts` `select`, the no-instance in `dispatch` — throw `IecFault` now (same class
+      chain and message). Tests: `pipeline/pointers.test.ts` "a null dereference is an IecFault" 2 (one-target pointer
+      through the guarded place, several-target pointer through `select`), `pipeline/calls.test.ts` "a call through a null
+      interface is an IecFault" — all three red before (`RangeError`). `new RangeError(FAULT_TEXT` no longer appears; the
+      two parametric texts (`indexOutOfBounds`, `characterOutOfRange`) stay plain `RangeError`s.
 
 ### 1.5 `emit/rust/`
 

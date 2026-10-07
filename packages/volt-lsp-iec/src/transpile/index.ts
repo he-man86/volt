@@ -51,16 +51,4 @@ export * from "./ir/index.js"
 export * from "./lower/index.js"
 export * from "./interp/index.js"
 export * from "./emit/rust/index.js"
-
-import { lowerSource, type LibraryFile } from "./lower/index.js"
-import { run, type Runner } from "./interp/index.js"
-
-/** Parse, lower and prepare one source string for execution — the one-call path for a test. */
-export function load(source: string, name?: string, libraries: readonly LibraryFile[] = []): Runner {
-  const { pou, diagnostics } = lowerSource(source, name, libraries)
-  if (pou === undefined) {
-    const first = diagnostics[0]
-    throw new Error(`cannot lower${first === undefined ? "" : `: ${first.message} [${first.code}]`}`)
-  }
-  return run(pou)
-}
+export { load, lowerAndEmit } from "./pipeline/index.js"

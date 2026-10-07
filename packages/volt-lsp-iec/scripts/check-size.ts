@@ -31,14 +31,11 @@ export const CEILINGS: Readonly<Record<string, number>> = {
   "emit/rust/emit.ts": 1366,
   "lower/lower.ts": 857,
   "lower/storage.ts": 655,
-  "ir/values.ts": 639,
-  "interp/interp.ts": 538,
   "lower/pointers.ts": 542,
   "lower/builtins.ts": 490,
   "lower/interfaces.ts": 480,
   "lower/statements.ts": 437,
   "lower/lower.test.ts": 2645,
-  "interp/interp.test.ts": 1349,
   "emit/rust/emit.test.ts": 969,
 }
 

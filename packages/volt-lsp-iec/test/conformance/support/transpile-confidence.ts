@@ -3839,7 +3839,13 @@ export function interpOutcome(pou: IrPou, plan: Extract<EdgePlan, { paths: unkno
   let runner: Runner
   try {
     runner = run(pou, { loopGuard: EDGE_INTERP_GUARD })
-    if (v.seed !== undefined) runner.set(v.seed.p.path, v.seed.s.interp)
+  } catch (error) {
+    return { faulted: true, gaveUp: error instanceof LoopGuardError, done: false, values: new Map() }
+  }
+  // OUTSIDE the fault catch: a seed the runner refuses (a path outside its array) is the harness's error, thrown as
+  // one — inside it, the refusal read as the PROGRAM faulting.
+  if (v.seed !== undefined) runner.set(v.seed.p.path, v.seed.s.interp)
+  try {
     for (let i = 1; i <= plan.cycles; i++) {
       if (plan.clock !== undefined) runner.set(CLOCK, BigInt(i) * 10_000_000n)
       runner.scan()

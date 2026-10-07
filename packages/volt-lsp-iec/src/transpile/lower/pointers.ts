@@ -9,7 +9,7 @@ import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"
 import { lowerPlace, refuseOpenArray } from "./places.js"
 import { byteSize } from "./bytes.js"
-import { constantValue } from "../ir/evaluate.js"
+import { constantValue } from "../semantics/index.js"
 import { lowerExpr } from "./expressions.js"
 import { refuseUnionWrite, unionOf } from "./unions.js"
 

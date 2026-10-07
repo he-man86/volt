@@ -157,7 +157,7 @@ function valueForTypedBody(prefix: string, body: string): LiteralValue {
  * THE DURATION LADDER — every unit a TIME or LTIME names, LARGEST first, in nanoseconds.
  *
  * <p>One home, and it sits in `syntax` because that is the lowest layer that needs it: the literal PARSER reads
- * it here and the transpiler's PRINTERS read it downward (`ir/values`, where `timeText` and `ltimeText` each
+ * it here and the transpiler's PRINTERS read it downward (`transpile/semantics/text`, where `timeText` and `ltimeText` each
  * carried their own copy — one scaled to milliseconds, one to nanoseconds, agreeing by hand).</p>
  *
  * <p>The Rust prelude carries a fourth copy as source TEXT and cannot import this; that one is a mirror, and the

@@ -168,7 +168,7 @@ export interface IrCopy {
  * a2 = 1, b2 = 0 (`tr_41_sel_side_effects`); `LIMIT(Add1(x), Dbl(x), 1000)` from x = 1 leaves x = 4 — MN before IN
  * (`tr_41_limit_evaluation_order`). This used to say "every argument, eagerly", unmeasured, on the premise that a
  * call in an expression was refused; the interpreter obeyed it for MUX while the emitted `match` did not, and the
- * emitted LIMIT read IN first. `selectedArg` (`ir/evaluate.ts`) is the one statement of which input is selected.
+ * emitted LIMIT read IN first. `selectedArg` (`semantics/builtins.ts`) is the one statement of which input is selected.
  */
 export type IrBuiltinName =
   | "max"
@@ -191,7 +191,7 @@ export type IrBuiltinName =
   | IrMathName
   /** `(s, i)`: `s[i]`, the character at 0-based `i` as the node's BYTE (a WSTRING's WORD); 0 at `i` = its length. */
   | "char"
-  /** `(s, i, c)`: `s` with `s[i] := c` — the node's type is the string's. See `values.ts` `setChar` for the model. */
+  /** `(s, i, c)`: `s` with `s[i] := c` — the node's type is the string's. See `semantics/string.ts` `setChar` for the model. */
   | "setchar"
 
 /** The one-argument math functions: the argument is already converted to the node's `type` (design §12). */

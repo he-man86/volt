@@ -133,7 +133,7 @@ export function stored(v: IrValue, to: Type): IrValue {
   if (typeof v !== "bigint" || target === undefined) return v
   // `isBit`, NOT `rank === undefined`, which is what this used to say. Only BIT is an int/bit-string family with
   // no rank — but so is every TIME and DATE, so the rank guard returned first and made the `"time"`/`"date"`
-  // entries one line below UNREACHABLE. The other copy of this rule (`fit`, `ir/values.ts`) has no such guard
+  // entries one line below UNREACHABLE. The other copy of this rule (`fit`, `semantics/store.ts`) has no such guard
   // and does wrap them, so an over-range TIME initializer wrapped in the interpreter and printed as an
   // out-of-range `u32` literal from the emitter — two backends, one program, two answers.
   if (isBit(to)) return v
