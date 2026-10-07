@@ -40,7 +40,5 @@
  * So `statement order, parenthesisation, and every cast` above is still INTERNAL, and it is no longer unmeasured:
  * a printer change that makes the output worse fails the suite naming the fixture and the lint.
  */
-export { emitRust, type Emitted, type EmitOptions } from "./module.js"
-export { rustAccess } from "./emit.js"
-export { fieldNames, rustName, snake } from "./names.js"
+export { emitRust, type Emitted } from "./module.js"
 export { rustType } from "./types.js"

@@ -20,9 +20,11 @@
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { CLOCK, LoopGuardError, run, rustAccess, type IrPou, type Runner } from "../../../src/transpile/index.js"
+import { CLOCK, LoopGuardError, run, type IrPou, type Runner } from "../../../src/transpile/index.js"
+import { rustAccess } from "./rust-access.js"
 import { lex } from "../../../src/frontend/syntax/index.js"
-import { STRING_PRELUDE } from "../../../src/transpile/emit/rust/prelude.js"
+// the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
+import { runtimeText } from "../../../src/transpile/emit/rust/runtime/index.js"
 import { isBit, type Type } from "../../../src/frontend/types/index.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./divergences.js"
 import { runPaths } from "./run-paths.js"
@@ -453,7 +455,7 @@ export function shapeId(normalized: string): string {
 
 /** The lines of `code` that are the prelude every string-using POU carries whole — the emitter's, not the fixture's. */
 function preludeLines(code: string): number {
-  return code.startsWith(STRING_PRELUDE) ? STRING_PRELUDE.split("\n").length - 1 : 0
+  return code.startsWith(runtimeText("string")) ? runtimeText("string").split("\n").length - 1 : 0
 }
 
 /**
@@ -3702,7 +3704,7 @@ const LIBM = /\.(powf|powi|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|ln|lo
 
 /** Does this emitted code reach the platform's libm? Read off the code itself, so it is the same answer everywhere. */
 export function reachesLibm(code: string): boolean {
-  return LIBM.test(code.slice(preludeLines(code) === 0 ? 0 : STRING_PRELUDE.length))
+  return LIBM.test(code.slice(preludeLines(code) === 0 ? 0 : runtimeText("string").length))
 }
 
 /** The variables a fixture's edge run seeds and compares: every recorder path the Rust can name as an elementary. */

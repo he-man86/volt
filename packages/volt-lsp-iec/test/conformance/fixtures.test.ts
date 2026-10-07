@@ -43,7 +43,8 @@ import { join } from "node:path"
 import { decodeStringLiteral, parseSource, type Expr, type TopLevel } from "../../src/frontend/syntax/index.js"
 import { build, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../src/analysis/index.js"
-import { CLOCK, emitRust, lowerCodeKind, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { CLOCK, emitRust, lowerCodeKind, lowerSource, run, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { rustAccess } from "./support/rust-access.js"
 import { CODESYS_TRIAGE, CREATE_REFUSAL_BY_NAME_NOT_MODELLED, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, withDependencies } from "./support/fixture-units.js"
@@ -91,12 +92,15 @@ import {
   tierOf,
 } from "./support/transpile-confidence.js"
 import type { EdgeVerdict } from "./fixtures/map-row.js"
-import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
+// the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
+import { runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
 import { constEval, elementaryType, elementaryTypeRef, isBoolValued } from "../../src/frontend/types/index.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
 import type { LanguageTest } from "./types.js"
+
+const STRING_PRELUDE = runtimeText("string")
 
 // ─── the recordings ──────────────────────────────────────────────────────────────────────────────────────────
 

@@ -21,12 +21,11 @@
  * prelude and the source-map shift.
  */
 import type { IrLayout, IrPou } from "../../ir/index.js"
-import { rustFaultLiteral } from "../../ir/faults.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { fieldNames, globalsParams, routineFnNames, rustName } from "./names.js"
-import { STRING_PRELUDE } from "./prelude.js"
 import { code, Printer, push } from "./printer.js"
 import { printCall, printRoutine } from "./routine.js"
+import { INLINE, runtimeText, usedIn } from "./runtime/index.js"
 import { block } from "./stmt.js"
 import { printStruct } from "./structs.js"
 
@@ -124,62 +123,12 @@ function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
   })
 }
 
-/** The runtime helpers the printed code calls, each appended only when the code calls it. */
+/** The runtime helpers the printed code calls, each appended only when the code calls it (`runtime/index.ts`). */
 function appendRuntime(p: Printer): void {
-  // the one check every dereference makes: a null pointer stops the program, as it stops the CODESYS application
-  if (code(p).includes("iec_deref(")) {
+  for (const id of INLINE) {
+    if (!usedIn(id, code(p))) continue
     push(p, "", 0)
-    push(p, `fn iec_deref(at: usize) { if at == 0 { panic!(${rustFaultLiteral("null-dereference")}); } }`, 0)
-  }
-  // The two halves of the measured REAL -> INTEGER table. See `coerce` in `semantics/convert.ts`.
-  if (code(p).includes("iec_r2i64(")) {
-    push(p, "", 0)
-    push(p, "fn iec_r2i64(v: f64) -> i64 {", 0)
-    push(p, "let c = if v < 0.0 { -((-v).round()) } else { v.round() };", 1)
-    push(p, "if c.is_nan() || !(-9223372036854775808.0..18446744073709551616.0).contains(&c) { return i64::MIN; }", 1)
-    push(p, "if c >= 9223372036854775808.0 { return (c as u64) as i64; }", 1)
-    push(p, "c as i64", 1)
-    push(p, "}", 0)
-  }
-  if (code(p).includes("iec_r2i32(")) {
-    push(p, "", 0)
-    push(p, "fn iec_r2i32(v: f64) -> i32 {", 0)
-    push(p, "let c = if v < 0.0 { -((-v).round()) } else { v.round() };", 1)
-    push(p, "if c.is_nan() { return 0; }", 1)
-    push(p, "if c < -2147483648.0 { return i32::MIN; }", 1)
-    push(p, "if c >= 9223372036854775808.0 { return 0; }", 1)
-    push(p, "(c as i64) as i32", 1)
-    push(p, "}", 0)
-  }
-  // MAX / MIN over a REAL: CODESYS's compare-select, the SECOND argument on a tie or a NaN (`semantics/builtins.ts` `select`)
-  if (code(p).includes("iec_fmax(")) {
-    push(p, "", 0)
-    push(p, "fn iec_fmax<T: PartialOrd>(a: T, b: T) -> T { if a > b { a } else { b } }", 0)
-  }
-  if (code(p).includes("iec_fmin(")) {
-    push(p, "", 0)
-    push(p, "fn iec_fmin<T: PartialOrd>(a: T, b: T) -> T { if a < b { a } else { b } }", 0)
-  }
-  if (code(p).includes("iec_log(")) {
-    push(p, "", 0)
-    push(p, `fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!(${rustFaultLiteral("logarithm-of-zero")}); } x }`, 0)
-  }
-  if (code(p).includes("iec_pow(")) {
-    push(p, "", 0)
-    push(p,
-      `fn iec_pow(x: f64, y: f64) -> f64 { if x == 0.0 && y < 0.0 && y.is_finite() { panic!(${rustFaultLiteral("zero-to-negative-power")}); } x.powf(y) }`,
-      0,
-    )
-  }
-  // The emitted twin of `arith`'s zero-divisor check. Gated on its OWN use, not on `iec_deref`'s — a program can
-  // divide by zero without ever dereferencing a pointer, and attaching it to the wrong condition left the helper
-  // undefined in every program that does.
-  if (code(p).includes("iec_div(")) {
-    push(p, "", 0)
-    push(p,
-      `fn iec_div<T: Copy + PartialEq + Default + std::ops::Div<Output = T>>(a: T, b: T) -> T { if b == T::default() { panic!(${rustFaultLiteral("division-by-zero")}); } a / b }`,
-      0,
-    )
+    for (const line of runtimeText(id).slice(0, -1).split("\n")) push(p, line, 0)
   }
 }
 
@@ -189,10 +138,11 @@ function withPrelude(p: Printer): Emitted {
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a
   // shared module when the emitter emits whole projects rather than one POU at a time.
-  if (!code(p).includes("IecStr") && !code(p).includes("IecWString")) return { code: code(p), sourceMap: p.sourceMap, usesGlobals, usesPrograms }
-  const offset = STRING_PRELUDE.split("\n").length - 1
+  if (!usedIn("string", code(p))) return { code: code(p), sourceMap: p.sourceMap, usesGlobals, usesPrograms }
+  const prelude = runtimeText("string")
+  const offset = prelude.split("\n").length - 1
   return {
-    code: STRING_PRELUDE + code(p),
+    code: prelude + code(p),
     sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })),
     usesGlobals,
     usesPrograms,

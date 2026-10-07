@@ -24,18 +24,18 @@ export const FUNCTION_LIMIT = 80
 
 /**
  * The ceilings, relative to `src/transpile/`. Measured 2026-10-07 (at fd0865a913): design.md's twelve of 2026-09-29, at
- * their line counts today, plus two that grew past 400 since — `lower/statements.ts` and `interp/interp.ts`.
+ * their line counts then, plus two that had grown past 400 — `lower/statements.ts` and `interp/interp.ts`. Steps 1.3-1.5
+ * dissolved the others outside `lower/` (`lower/lower.ts` 857 → 849 at 1.5c, an import line folded).
  */
 export const CEILINGS: Readonly<Record<string, number>> = {
   "lower/calls.ts": 1657,
-  "lower/lower.ts": 857,
+  "lower/lower.ts": 849,
   "lower/storage.ts": 655,
   "lower/pointers.ts": 542,
   "lower/builtins.ts": 490,
   "lower/interfaces.ts": 480,
   "lower/statements.ts": 437,
   "lower/lower.test.ts": 2645,
-  "emit/rust/emit.test.ts": 969,
 }
 
 const slash = (p: string): string => p.split("\\").join("/")

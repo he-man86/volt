@@ -5,10 +5,12 @@
  * so a table cannot drift from the oracle.
  */
 
-/** Where a case's answer was measured: a conformance fixture and the variable its recording holds the answer in. */
+/** Where a case's answer was measured: a conformance fixture, the variable its recording holds the answer in, and the
+ *  variable holding the input the fixture ran — both held to the recording, so neither half of a case can drift. */
 export interface CaseRecording {
   readonly fixture: string
   readonly variable: string
+  readonly input: string
 }
 
 /** One input and the answer the model gives for it. */

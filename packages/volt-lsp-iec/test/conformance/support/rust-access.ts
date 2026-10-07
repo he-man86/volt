@@ -1,9 +1,11 @@
-/** A VARIABLE PATH AS A RUST ACCESS — how a harness reads the emitted program where the interpreter reads it. (Moves to the
- *  conformance support by task 1.5.12; the emitter itself is `module.ts` and the files beside it.) */
-import type { IrPou } from "../../ir/index.js"
-import { namesVariable, parsePath } from "../../ir/path.js"
-import { peelArray, type Type } from "../../../frontend/types/index.js"
-import { fieldNames } from "./names.js"
+/**
+ * A VARIABLE PATH AS A RUST ACCESS — how a harness reads the emitted program where the interpreter reads it. Test support,
+ * not the emitter: the emitter prints, and a harness reaching into what it printed is the conformance suite's concern.
+ */
+import type { IrPou } from "../../../src/transpile/ir/index.js"
+import { namesVariable, parsePath } from "../../../src/transpile/ir/path.js"
+import { fieldNames } from "../../../src/transpile/emit/rust/names.js"
+import { peelArray, type Type } from "../../../src/frontend/types/index.js"
 
 /**
  * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → the Rust field access under a POU value, and the

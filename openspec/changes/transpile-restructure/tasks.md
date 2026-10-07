@@ -1151,7 +1151,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     tree of either was kept — so one commit is 1.3a+1.3b+1.4 (with this gate's 1.3/1.4 fixes), the other 1.5a+1.5b (with
     the lifecycle note and the 1.5 ticks). 1.5b's export hygiene in `interp/machine.ts` and `semantics/convert.ts` rides
     with the first (its files).
-- [ ] 1.5.11 `runtime/`.
+- [x] 1.5.11 `runtime/`.
   - What: `prelude.ts` splits into `runtime/string.ts`, `text.ts`, `parse.ts`, `numeric.ts` (iec_max/min); the inline helpers at emit.ts
     1264-1301 go into `numeric.ts` and `pointer.ts`. `runtime/index.ts` is a registry with `runtimeText(id)` that reproduces TODAY's
     gating exactly (the string blob on `IecStr`, plus per-helper sniffing). The source-map shift uses the registry's line count; the map's
@@ -1161,7 +1161,21 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `emit/rust/runtime/*`, `module.ts`, the two consumers.
   - Accept: G, S, M identical (size median unchanged).
   - Depends: 1.5.10.
-- [ ] 1.5.12 `rustAccess` to `test/conformance/support/rust-access.ts`; the barrel narrowed.
+  - Done 2026-10-07 (step 1.5c). `emit/rust/runtime/`: `string.ts` (`IEC_STR`, the string type), `numeric.ts` (`IEC_MAX_MIN`
+    — MAX/MIN over a string, which rides in the string blob — and the inline helpers `IEC_R2I64`, `IEC_R2I32`, `IEC_FMAX`,
+    `IEC_FMIN`, `IEC_LOG`, `IEC_POW`, `IEC_DIV`), `text.ts` (`TEXT`), `parse.ts` (`PARSE`), `pointer.ts` (`IEC_DEREF`) — each the
+    prelude's or `appendRuntime`'s text cut verbatim. `runtime/index.ts`: the registry `{ id, deps, rust, usedBy }`,
+    `runtimeText(id)` (a helper's text then its deps'), `usedIn(id, code)` (phase 1's sniffing) and `INLINE` (the eight helpers
+    appended after the code, in today's order). Today's gating exactly: `string` = `IEC_STR` + deps `iec_max_min`, `text`,
+    `parse` (the old blob byte for byte), in front of a program naming `IecStr`/`IecWString`; each `INLINE` helper after the code
+    when the code (as it stands after the ones before it) calls it. `module.ts` `appendRuntime` is the loop over `INLINE`;
+    `withPrelude` shifts the source map by `runtimeText("string")`'s line count. `prelude.ts` deleted; the two deep consumers
+    (`fixtures.test.ts`, `support/transpile-confidence.ts`) import `runtimeText` from `emit/rust/runtime/index.js` (no shim;
+    there is no `support/README` to list the deep path in — the import carries a comment instead). Tests:
+    `runtime/index.test.ts` 3 (the blob's parts and order, its sniffing, each INLINE helper defines its fn and is asked for by
+    its call only). S (all layers) ✓ identical, 5357 fixtures, 151 s. M: the `size` exclusion reads the same blob
+    (`preludeLines` = `runtimeText("string")`'s lines), so the map is unchanged by construction (rate:fixtures at the step end).
+- [x] 1.5.12 `rustAccess` to `test/conformance/support/rust-access.ts`; the barrel narrowed.
   - What: `emit/rust/index.ts` exports only `emitRust`, `Emitted`, `rustType`; the transpile barrel drops `fieldNames`, `snake`,
     `rustAccess`, `sameName`, `holdsCall`, `peelArray`, `elementOf`, `isBit`, `defaultValueOf` (one deliberate `index.test.ts` edit per
     name). Consumers changed in the same commit: `fixtures.test.ts:47`, `backends.test.ts:31`, `support/transpile-confidence.ts:23`,
@@ -1169,24 +1183,79 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `emit/rust/index.ts`, `transpile/index.ts`, `index.test.ts`, `test/conformance/support/rust-access.ts`, the consumers.
   - Accept: G, S; `index.test.ts` lists exactly design.md §2.1.1.
   - Depends: 1.5.11, 1.4.2.
-- [ ] 1.5.13 Split `emit.test.ts` per design.md §4.6.
+  - Done 2026-10-07 (step 1.5c). `rustAccess` → `test/conformance/support/rust-access.ts` (verbatim; imports `fieldNames` from
+    `emit/rust/names.js`, `parsePath`/`namesVariable` from `ir/path.js` — test support may deep-import src). `emit/rust/index.ts`
+    exports `emitRust`, `type Emitted`, `rustType` only (`EmitOptions` stays `module.ts`'s, `rustName` leaves with `fieldNames`
+    and `snake`); `ir/index.ts` no longer re-exports `holdsCall` (its four `lower/` importers take it from `ir/walk.js`).
+    `index.test.ts`: five deliberate removals — `fieldNames`, `holdsCall`, `rustAccess`, `rustName`, `snake`. NOT removed:
+    `LoopGuardError` (a harness's loop guard, used by `backends.test.ts` and `transpile-confidence.ts`) and `lowerDiagnostic`,
+    which design.md §2.1.1 does not list but no task removes either — so `index.test.ts` lists §2.1.1 plus those two (1.7.20's
+    dead-export pass is where `lowerDiagnostic`'s place is decided). Consumers re-pointed in the same tree:
+    `fixtures.test.ts`, `backends.test.ts`, `support/transpile-confidence.ts`, `support/transpile-confidence.test.ts`,
+    `test/libraries/{standard,stringutils,util}.test.ts`. S ✓ identical (with 1.5.11's run).
+- [x] 1.5.13 Split `emit.test.ts` per design.md §4.6.
   - What: text shapes → `names/values/expr/stmt/calls/loops.test.ts`; the compile suite (497-690) → `test/conformance/emit-build.test.ts`;
     the VAR_TEMP reset describe (800) → `values.test.ts`; the cap describe (398) stays (in `loops.test.ts`) until 2.3. The temporary lint
     exception from 1.0.1 is removed.
   - Where: `emit/rust/*.test.ts`, `test/conformance/emit-build.test.ts`, `scripts/check-layering.ts`.
   - Accept: G, T.
   - Depends: 1.5.12.
-- [ ] 1.5.14 Delete `emit.ts`; lower the ceilings.
+  - Done 2026-10-07 (step 1.5c). `emit.test.ts` (969) split by a plan, each test verbatim with its comments and inside a
+    describe of its old name: `names.test.ts` (keyword/snake fields, hidden slot, snake_case, generated bindings, routine
+    names; the 1.5.3 tests kept), `values.test.ts` (zero init, negative constant, VAR_TEMP reset), `types.test.ts` (the IEC
+    mapping, TIME/LTIME), `expr.test.ts` (array-index parentheses, REAL loop test negated, enum/THIS^, BOOL AND/OR, MOD/NOT,
+    negation), `place.test.ts` (pointer, string cursor), `calls.test.ts` (FB call, VAR_IN_OUT through a reference, a
+    PROGRAM's METHOD), `routine.test.ts` (METHOD/FUNCTION), `module.test.ts` (Globals/Programs, the flat struct, integer wrap,
+    source map), `builtins.test.ts` (LIMIT, REAL MAX/MIN/LIMIT RC 28, LIMIT/MUX order RC 41, math/ABS, EXPT, bit operations),
+    `convert.test.ts` (conversions, BIT as BOOL RC 31, LTIME_TO_STRING RC 32), `loops.test.ts` (CONTINUE, three loop forms,
+    "no iteration cap", FOR limit of another type), `stmt.test.ts` (CASE) — every file ≤ 164 lines. The compile suite,
+    "no iteration cap, compiled", LREAL tie (RC 33) and LDT/LDATE/LTOD (RC 12) → `test/conformance/emit-build.test.ts`
+    (354). No `src/` test imports `test/` any more: `KNOWN_TRANSPILE_VIOLATIONS` is empty. T: `bun scripts/suite-snapshot.ts
+    --compare` (before: `--dirs src/transpile/emit/rust`; after: `+ test/conformance/emit-build.test.ts`) ✓ identical, 57 tests.
+- [x] 1.5.14 Delete `emit.ts`; lower the ceilings.
   - Where: `emit/rust/`, `scripts/check-size.ts`.
   - Accept: G, S; `emit.ts` and `emit.test.ts` are gone; every `emit/rust/**` file is 400 lines or less and off the ceiling list.
   - Depends: 1.5.13.
-- [ ] 1.5.15 The twin harness.
+  - Done 2026-10-07 (step 1.5c). `emit.ts` deleted (empty once 1.5.12 moved `rustAccess`); `emit.test.ts` deleted (1.5.13).
+    `check-size.ts`: the `emit/rust/emit.test.ts` ceiling removed; every `emit/rust/**` file ≤ 200 lines, none on the list
+    (the list: 8 ceilings, all `lower/`). `lower/lower.ts` 857 → 849 (its symbols import on one line, after `holdsCall` took a
+    line of its own). S ✓ identical, 5357 fixtures, 166 s.
+- [x] 1.5.15 The twin harness.
   - What: `test/conformance/runtime-twins.test.ts` per design.md §8, running `text.cases.ts` against `runtime/text.ts` and
     `numeric.cases.ts` against `runtime/numeric.ts`; a case naming a recording is also checked against it. Divergences found today
     (e.g. RC 32/33 cells) are marked expected failures with their RC.
   - Where: `test/conformance/runtime-twins.test.ts`.
   - Accept: G; every case either passes or is an expected failure naming its RC.
   - Depends: 1.5.11, 1.3.8.
+  - Done 2026-10-07 (step 1.5c). `test/conformance/runtime-twins.test.ts`: per table one Rust program — the runtime snippet
+    (`runtimeText`) plus a generated `main` printing every case — built through `support/rustc-cache.ts` `buildRust`, each
+    line required to equal the case's `expected`; floats passed by their bits (`f64::from_bits`), a REAL case through
+    `f32::from_bits(..) as f64` as the emitter widens it; REAL → integer printed as `exprConvert` prints it (the destination's
+    register half, then `as` its Rust type). Tables run: `LREAL_TEXT_CASES` (25; the step reported 26 — the table holds 9+5+8+3) + `LREAL_TIE_CASES` (7, new in
+    `text.cases.ts`, recorded `tr_33_fmt_lreal_tie`) against `iec_lreal_text`; `LONG_CALENDAR_TEXT_CASES` (11, new,
+    recorded `tr_12_fmt_long_dates`) against `iec_ldt/ldate/ltod_text`; `REAL_TO_INT_CASES` (192) against `iec_r2i32`/
+    `iec_r2i64`. Recordings: every case naming one is held to `codesys.run.json` — the REAL → integer check moved here from
+    `test/conformance/numeric-cases.test.ts` (deleted; same test title), and the new text cells are checked likewise.
+    `text.test.ts` runs the two new tables against `semantics/text.ts` (+2 tests). Every case passes on both sides — no
+    divergence to mark (RC 32/33 were fixed upstream before this change). 5 tests, 0 fail.
+  - Step 1.5c end: `bun typecheck` clean; `bun run lint` green (layering 1 known — the frontend's, transpile's list empty;
+    size 8 ceilings, 13 functions warned; citations 595 missing, warning — up from 553 because `emit.ts`/`emit.test.ts`/
+    `prelude.ts` no longer exist: 62 authored NOTES and LEAN texts cite `emit.ts:NNN` lines of 2026-09-29, left for 1.9.3
+    rather than re-pointed by guess); targeted `bun test src/transpile scripts` + `emit-build`, `runtime-twins`, `backends`,
+    `transpile-confidence.test`, `test/libraries` 430 pass, 0 fail; S ✓ identical (5357 fixtures, 166 s).
+  - Gate 1.5c-1.6d (2026-10-07), the two findings on 1.5c — both low, both fixed, failing test first:
+    (1) `LREAL_TEXT_CASES` named no recording, so the twin harness never held it to CODESYS — 1.3.6's deferral ("1.5.15
+    attaches them") had been dropped. Each cell now names its `fmt_lreal_<slug>` fixture (`inst.out`), 24 of 25; the -0
+    cell names none, by name and with the reason: `fmt_lreal_negative_zero` computes `0.0 - seed * 0.0`, which IEEE 754
+    rounds to +0 (its `v` is `LREAL#0`), so no fixture ever ran a negative zero — the cell is `unrecorded(...)`, and a test
+    pins that it is the only unrecorded text case. (2) the tie (tr_33) and long-calendar (tr_12) cases checked only
+    `expected`: `CaseRecording` now carries `input` (the variable holding the input the fixture ran — `inst.v`,
+    `inst.v<i>`; required, so the REAL → integer cells state theirs too) and the harness holds every recorded case's input:
+    an LREAL input by `Object.is` against the recorded `LREAL#…`, a long-calendar input by rendering it as the monitor
+    shows it (u64 read signed, the floored day — LDATE `1715-6-13` where LDATE_TO_STRING prints `1715-06-14` — unpadded
+    fields, nine fraction digits when not zero) against `inst.v<i>`. Red first (4 fail: the -0 pin and three missing
+    `recording.input`s), green after; every recorded text and input agrees with the table — no data changed.
+    `runtime-twins.test.ts` 8 tests (was 5), 0 fail.
 
 ### 1.6 `lower/` (split giant functions in place first, then move leaves first; each file moves with its tests from 1.8.1)
 

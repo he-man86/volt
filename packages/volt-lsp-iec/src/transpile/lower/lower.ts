@@ -36,22 +36,14 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../frontend/syntax/index.js"
-import {
-  build,
-  extendsChain,
-  isLibrarySymbol,
-  lookup,
-  lookupMember,
-  type Scope,
-  scopeForUnit,
-  type Symbol,
-} from "../../frontend/symbols/index.js"
+import { build, extendsChain, isLibrarySymbol, lookup, lookupMember, type Scope, scopeForUnit, type Symbol } from "../../frontend/symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { buildInitSequence } from "./init-sequence.js"
 import { peelArray, resolveNamedType, type Type, typeZero, UNKNOWN } from "../../frontend/types/index.js"
-import { holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type Place } from "../ir/index.js"
+import { holdsCall } from "../ir/walk.js"
+import { type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type Place } from "../ir/index.js"
 import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"

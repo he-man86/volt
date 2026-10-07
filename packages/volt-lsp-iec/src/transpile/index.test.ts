@@ -15,8 +15,6 @@ describe("transpile — public surface", () => {
       // a harness's loop guard giving up — thrown only when `run(pou, { loopGuard })` asked for one (task 27)
       "LoopGuardError",
       "emitRust",
-      "fieldNames",
-      "holdsCall",
       // a project's libraries bound once, which a sweep lowers every program on top of
       "libraryBase",
       "load",
@@ -29,10 +27,7 @@ describe("transpile — public surface", () => {
       // binds a project for `lowerUnit` — the one place its library units are marked, so no caller can forget them
       "prepareProject",
       "run",
-      "rustAccess",
-      "rustName",
       "rustType",
-      "snake",
     ])
   })
 })

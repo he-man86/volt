@@ -101,11 +101,7 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * Violations of rules 4, 4b and 6 (the transpiler's own, openspec transpile-restructure task 1.0.1) that the change has
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
-export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
-  // transpile-restructure 1.5.13 moves the compile suite to test/conformance/emit-build.test.ts
-  "6 transpile/emit/rust/emit.test.ts → test/conformance/support/rustc-cache.ts: a src/ file imports test/",
-  "6 transpile/emit/rust/emit.test.ts → test/conformance/support/rustc.ts: a src/ file imports test/",
-]
+export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = []
 
 /**
  * The analysis-rule violations (A1–A6 below) that openspec analysis-conformance has not removed yet, measured by the

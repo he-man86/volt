@@ -13,7 +13,8 @@
  */
 import type { Span } from "../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type, typeZero } from "../../frontend/types/index.js"
-import { holdsCall, type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, type Place } from "../ir/index.js"
+import { holdsCall } from "../ir/walk.js"
+import { type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, type Place } from "../ir/index.js"
 import { aliases } from "./calls.js"
 import type { Lowering } from "./lowering.js"
 

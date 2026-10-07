@@ -4,9 +4,9 @@
  * `conversions/real-to-integer-ladder.ts` (INT, DINT and LINT on a magnitude ladder, both signs) — 192 cells, each
  * naming its fixture and the recorded variable `inst.out`. `input.value` is the number the fixture's `v` holds (a REAL's
  * computed in single precision); `expected` is the recorded `out`, the conversion as its destination stores it.
- * `convert.test.ts` runs them through `coerce` (then `fit`); the twin harness (task 1.5.15) will run them against the
- * Rust runtime. Data only: written once from the fixtures and their recordings; `test/conformance/numeric-cases.test.ts`
- * holds every cell (and its input) to `codesys.run.json` until the twin harness takes that check over.
+ * `convert.test.ts` runs them through `coerce` (then `fit`); the twin harness (`test/conformance/runtime-twins.test.ts`) runs
+ * them against the Rust runtime and holds every cell (and its input) to `codesys.run.json`. Data only: written once from
+ * the fixtures and their recordings.
  */
 import type { Case } from "./cases.js"
 
@@ -21,7 +21,7 @@ const r2i = (fixture: string, from: "REAL" | "LREAL", to: string, value: number,
   name: fixture,
   input: { from, to, value },
   expected,
-  recording: { fixture, variable: "inst.out" },
+  recording: { fixture, variable: "inst.out", input: "inst.v" },
 })
 
 /** The 192 recorded REAL → integer cells. */

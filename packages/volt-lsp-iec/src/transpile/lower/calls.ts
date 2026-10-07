@@ -39,8 +39,8 @@ import {
   type IrStmt,
   type IrValue,
   type Place,
-  holdsCall,
 } from "../ir/index.js"
+import { holdsCall } from "../ir/walk.js"
 import { baseOf, boundName, Lowering, openDims, type PendingBody } from "./lowering.js"
 import { callsNothing, type InFrame, inFramePlace, isInFrame, specializeRoutine } from "./specialize.js"
 import { convert, refuseImplicitString } from "./convert.js"

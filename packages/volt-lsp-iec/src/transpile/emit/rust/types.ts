@@ -28,7 +28,7 @@ export function rustType(t: Type): string {
   if (isBoolValued(t)) return "bool"
   const float = floatBits(t)
   if (float !== undefined) return `f${float}`
-  // A fixed-capacity string, generated into the output (STRING_PRELUDE) — not Rust `String`, which neither truncates
+  // A fixed-capacity string, generated into the output (`runtime/string.ts`) — not Rust `String`, which neither truncates
   // nor copies: `a := b` MOVED a String out of `self`, and no emitted program had ever held a string to find out.
   if (stringKind(t) !== undefined) {
     const s = stringType(t)
@@ -68,7 +68,7 @@ export const genericList = (typed: readonly { generics: string[] }[]): string =>
   return all.length === 0 ? "" : `<${all.join(", ")}>`
 }
 
-/** A string type's generated Rust type (STRING_PRELUDE) and capacity — the one place both are read off the type. */
+/** A string type's generated Rust type (`runtime/string.ts`) and capacity — the one place both are read off the type. */
 export function stringType(t: Type): { name: "IecString" | "IecWString"; capacity: number } {
   if (t.kind !== "elementary" || t.length === undefined) throw new Error("no Rust mapping for a string type without a capacity")
   return { name: t.name === "WSTRING" ? "IecWString" : "IecString", capacity: t.length }

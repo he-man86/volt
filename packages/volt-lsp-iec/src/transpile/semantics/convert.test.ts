@@ -56,7 +56,7 @@ test("LDT, LDATE and LTOD print CODESYS's text", () => {
 /**
  * REAL → INTEGER, every recorded cell (`numeric.cases.ts`, 192): `coerce` from the case's source type — so its routing
  * to `realToInt` is under test too — then the store into the declared type. The table itself is held to the recordings
- * by `test/conformance/numeric-cases.test.ts`.
+ * by the twin harness, `test/conformance/runtime-twins.test.ts`.
  */
 test("REAL -> integer: every recorded cell of the 192", () => {
   expect(REAL_TO_INT_CASES).toHaveLength(192)

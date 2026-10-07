@@ -1,6 +1,7 @@
 /**
  * The transpiler IR — what every backend consumes, and the one place ST semantics are resolved. This barrel is its
- * contract: `expr.ts` (places and expressions), `stmt.ts`, `program.ts` (the frame), and `walk.ts`.
+ * contract: `expr.ts` (places and expressions), `stmt.ts` and `program.ts` (the frame); the walks (`walk.ts`) are the
+ * transpiler's own and imported by path.
  *
  * Two decisions shape it, and both are load-bearing:
  *
@@ -21,6 +22,3 @@
 export * from "./expr.js"
 export * from "./stmt.js"
 export * from "./program.js"
-// the walks are the transpiler's own (`ir/walk.ts`, imported by path); only `holdsCall` is on the public surface (§2.1.1
-// removes it there)
-export { holdsCall } from "./walk.js"
