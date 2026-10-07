@@ -31,7 +31,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "bun run scripts/check-layering.ts",
+    "lint": "bun run scripts/check-layering.ts && bun run scripts/check-size.ts && bun run scripts/check-citations.ts",
     "test": "bun test",
     "test:corpus": "bun test test/corpus",
     "record:language": "VOLT_GRAPHICAL=1 bun run scripts/record-language.ts",

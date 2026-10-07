@@ -4,8 +4,15 @@
 //   1. an UPWARD import (e.g. types/ importing analysis/),
 //   2. a check importing a SIBLING check, or another check group's `_` helper,
 //   3. `transpile/` reaching above the front-end (it may consume only syntax·symbols·types),
-//   4. inside `transpile/`, anything but `ir/` shared between lower/ and the backends,
+//   4. inside `transpile/`, an import its folder table forbids (openspec transpile-restructure design.md P2):
+//      `ir/` imports only itself; `semantics/` imports `ir/`; `lower/` and `interp/` import `ir/` and `semantics/`;
+//      `emit/` imports `ir/`; `pipeline/` and `index.ts` are composition roots, and nothing but the barrel imports
+//      `pipeline/`,
+//  4b. inside `transpile/lower/`, a LEAF importing past its table: `diagnostics/` imports no other `lower/` folder,
+//      `core/` only `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`; and
+//      only `entry/` (and the `lower/` barrel) imports `project/`,
 //   5. an import CYCLE that spans layers,
+//   6. a file under `src/` — tests included — importing from `test/`,
 // and the FRONT-END rules (openspec frontend-conformance design.md §5, P2–P5), over src/, test/, scripts/ and the
 // top-level libraries/ — tests included:
 //   F1. nothing in the front-end imports outside the front-end;
@@ -88,6 +95,16 @@ export const KNOWN_FRONTEND_VIOLATIONS: readonly string[] = [
  */
 export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
   "services/structure/semantic-tokens.ts → network/network-analyze.ts: upward import (services must not import network)",
+]
+
+/**
+ * Violations of rules 4, 4b and 6 (the transpiler's own, openspec transpile-restructure task 1.0.1) that the change has
+ * not removed yet. Each entry names the task that removes it; the list may only shrink.
+ */
+export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
+  // transpile-restructure 1.5.13 moves the compile suite to test/conformance/emit-build.test.ts
+  "6 transpile/emit/rust/emit.test.ts → test/conformance/support/rustc-cache.ts: a src/ file imports test/",
+  "6 transpile/emit/rust/emit.test.ts → test/conformance/support/rustc.ts: a src/ file imports test/",
 ]
 
 /**
@@ -223,6 +240,12 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
           continue
         }
 
+        // Rule 6: nothing under src/ — tests included — imports test/.
+        if (inSrc && tsTarget.startsWith("test/")) {
+          violations.push(`6 ${relFrom} → ${relTo}: a src/ file imports test/`)
+          continue
+        }
+
         if (!production) continue
         if (targetInSrc && existsSync(join(pkg, tsTarget))) {
           edges.push(relTo)
@@ -239,13 +262,11 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
           violations.push(`${relFrom} → ${relTo}: transpile may only import the front-end`)
           continue
         }
-        // Rule 4: inside transpile, `ir/` is the ONLY shared contract.
+        // Rules 4 and 4b: inside transpile, the folder table.
         if (srcLayer === "transpile" && tgtLayer === "transpile") {
-          const part = (p: string) => p.split("/")[1] ?? ""
-          const f = part(relFrom)
-          const t = part(relTo)
-          if (f !== t && f !== "index.ts" && t !== "ir") {
-            violations.push(`${relFrom} → ${relTo}: inside transpile only ir/ is shared (lower/ and the backends stay apart)`)
+          const v = transpileViolation(relFrom, relTo)
+          if (v !== undefined) {
+            violations.push(v)
             continue
           }
         }
@@ -303,6 +324,54 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
   }
   violations.push(...analysisViolations(pkg))
   return violations
+}
+
+/**
+ * What each transpile folder may import among the transpile folders besides itself (rule 4, design.md P2). `pipeline/`
+ * and the barrel `index.ts` are composition roots and import anything; a folder not named here is bound by nothing
+ * but rule 3 until the table names it.
+ */
+const TRANSPILE_MAY_IMPORT: Record<string, readonly string[]> = {
+  ir: [],
+  semantics: ["ir"],
+  lower: ["ir", "semantics"],
+  interp: ["ir", "semantics"],
+  emit: ["ir"],
+}
+/** The `lower/` leaves and what each may import among the `lower/` folders besides itself (rule 4b). */
+const LOWER_LEAVES: Record<string, readonly string[]> = {
+  diagnostics: [],
+  core: ["diagnostics"],
+  values: ["core", "diagnostics"],
+  project: ["diagnostics"],
+}
+
+/** Rules 4 and 4b for one production import inside `transpile/` (both paths relative to `src/`), or undefined. */
+export function transpileViolation(relFrom: string, relTo: string): string | undefined {
+  const from = relFrom.split("/")
+  const to = relTo.split("/")
+  const f = from[1] ?? ""
+  const t = to[1] ?? ""
+  if (t === "pipeline" && f !== "index.ts" && f !== "pipeline")
+    return `4 ${relFrom} → ${relTo}: only the transpile barrel imports pipeline/ (it is a composition root)`
+  if (f !== t && f !== "index.ts" && f !== "pipeline") {
+    const allowed = TRANSPILE_MAY_IMPORT[f]
+    if (allowed !== undefined && !allowed.includes(t))
+      return `4 ${relFrom} → ${relTo}: transpile/${f} must not import transpile/${t}`
+  }
+  if (f === "lower" && t === "lower") {
+    // a file directly in lower/ is its own folder, "(root)"; the lower barrel is lower/index.ts
+    const folderOf = (parts: string[]): string => (parts.length > 3 ? parts[2]! : "(root)")
+    const ff = folderOf(from)
+    const tf = folderOf(to)
+    if (ff === tf) return undefined
+    const leaf = LOWER_LEAVES[ff]
+    if (leaf !== undefined && !leaf.includes(tf))
+      return `4b ${relFrom} → ${relTo}: lower/${ff} is a leaf and must not import lower/${tf}`
+    if (tf === "project" && ff !== "entry" && relFrom !== "transpile/lower/index.ts")
+      return `4b ${relFrom} → ${relTo}: only lower/entry imports lower/project`
+  }
+  return undefined
 }
 
 /** A static `import … from "x"` / `export … from "x"` / `import "x"`, or a dynamic `import("x")` — the A rules count both. */
@@ -399,7 +468,12 @@ const isRegistryOrPipeline = (relFrom: string): boolean =>
 /** The scan against the two known lists: what is new, and what is listed but no longer occurs. */
 export function layeringReport(): { unexpected: string[]; stale: string[] } {
   const found = layeringViolations()
-  const known = new Set([...KNOWN_FRONTEND_VIOLATIONS, ...KNOWN_OTHER_VIOLATIONS, ...KNOWN_ANALYSIS_VIOLATIONS])
+  const known = new Set([
+    ...KNOWN_FRONTEND_VIOLATIONS,
+    ...KNOWN_OTHER_VIOLATIONS,
+    ...KNOWN_ANALYSIS_VIOLATIONS,
+    ...KNOWN_TRANSPILE_VIOLATIONS,
+  ])
   const foundSet = new Set(found)
   return {
     unexpected: [...new Set(found)].filter((v) => !known.has(v)),
@@ -416,7 +490,11 @@ if (import.meta.main) {
     for (const v of stale) console.error(`  ${v}`)
     process.exit(1)
   }
-  const pending = KNOWN_FRONTEND_VIOLATIONS.length + KNOWN_OTHER_VIOLATIONS.length + KNOWN_ANALYSIS_VIOLATIONS.length
+  const pending =
+    KNOWN_FRONTEND_VIOLATIONS.length +
+    KNOWN_OTHER_VIOLATIONS.length +
+    KNOWN_ANALYSIS_VIOLATIONS.length +
+    KNOWN_TRANSPILE_VIOLATIONS.length
   console.log(
     `✓ layering: every folder ranked, imports point downward only, no cross-layer cycle` +
       (pending ? ` (${pending} known violation(s) listed)` : ""),
