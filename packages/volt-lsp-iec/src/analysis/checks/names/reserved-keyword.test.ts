@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { DiagnosticState } from "../../config.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -13,7 +13,7 @@ function rk(decl: string, state: DiagnosticState = "warning") {
   const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "reserved-keyword": state } }) }).filter(
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "reserved-keyword": state } }) }).filter(
     (d) => d.code === "reserved-keyword",
   )
 }
@@ -51,7 +51,7 @@ test("CODESYS-only — TwinCAT accepts CHAR as an identifier silently (verified 
   const src = `PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
-  const d = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter(
+  const d = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter(
     (x) => x.code === "reserved-keyword",
   )
   expect(d).toEqual([])
@@ -62,7 +62,7 @@ test("a STRUCT field named CHAR is flagged", () => {
   const src = `TYPE DUT_R :\nSTRUCT\n CHAR : INT;\nEND_STRUCT\nEND_TYPE`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "DUT_R.dut", parseResult, source: src }], [], "codesys")
-  const ds = computeSemanticDiagnostics({ uri: "DUT_R.dut", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: "DUT_R.dut", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual([
     "reserved-keyword: The name 'CHAR' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.",
   ])
@@ -73,6 +73,6 @@ test("a UNION field named CHAR is not flagged (unmeasured)", () => {
   const src = `TYPE U_R :\nUNION\n CHAR : INT;\n b : DINT;\nEND_UNION\nEND_TYPE`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "U_R.dut", parseResult, source: src }], [], "codesys")
-  const ds = computeSemanticDiagnostics({ uri: "U_R.dut", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: "U_R.dut", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.filter((d) => d.code === "reserved-keyword")).toEqual([])
 })

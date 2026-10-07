@@ -7,7 +7,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 /** The messages of `codes` (one, or several) — every FB of the source INSTANCED by a program, as the vendor compiles only
@@ -19,7 +19,7 @@ const msgs = (src0: string, codes: string | readonly string[], vendor: "codesys"
   const wanted = typeof codes === "string" ? [codes] : codes
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => wanted.includes(d.code))
     .map((d) => d.message)
 }
@@ -119,7 +119,7 @@ test("an FB nothing instances is not checked — the vendor compiles it not (pro
   const src = base("METHOD Fetch : INT\nEND_METHOD") + "METHOD Fetch : DINT\nEND_METHOD"
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const found = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const found = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(found.filter((d) => d.code === "override-mismatch-base")).toEqual([])
 })
 test("an FB reached only through a POINTER TO it is checked (`inh_override_pointer_only`); one instanced only in an FB nothing reaches is not", () => {
@@ -128,7 +128,7 @@ test("an FB reached only through a POINTER TO it is checked (`inh_override_point
     const src = `${src0}\n\n${tail}`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "override-mismatch-base")
       .map((d) => d.message)
   }
@@ -198,7 +198,7 @@ test("C0089: an interface method INHERITED from the base is said at the FB's IMP
   const parsed = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
   const project = build.buildSymbolTable(parsed, [], "codesys")
   const d = parsed.find((f) => f.uri === "FB_D.pou")!
-  const found = computeSemanticDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor: "codesys" }) })
+  const found = computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((x) => x.code === "override-mismatch-interface")
   const at = d.source.indexOf("ITF_X")
   expect(found.map((x) => [x.message, d.source.slice(x.span.start, x.span.end)])).toEqual([

@@ -7,7 +7,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 /** missing-interface-implementation messages for one source (codesys) — with `instanced`, every FB of it INSTANCED by
@@ -18,7 +18,7 @@ const missing = (src0: string, instanced = true): string[] => {
   const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "missing-interface-implementation")
     .map((d) => d.message)
 }

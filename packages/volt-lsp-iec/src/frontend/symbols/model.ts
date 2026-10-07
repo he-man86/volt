@@ -147,7 +147,7 @@ export interface Scope {
    *
    * <p>REQUIRED, and it used to read "undefined means CODESYS, the superset". That is the shape of default this
    * repo does not keep: the SERVER never passed a dialect to `buildSymbolTable`, so a TwinCAT workspace analysed
-   * as CODESYS and no one could see it. `computeSemanticDiagnostics` now refuses a project whose dialect does not
+   * as CODESYS and no one could see it. `computeDiagnostics` now refuses a project whose dialect does not
    * match the vendor it was asked about.</p>
    */
   dialect?: Dialect

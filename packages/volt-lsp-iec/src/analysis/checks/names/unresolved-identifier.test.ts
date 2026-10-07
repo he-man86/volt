@@ -9,7 +9,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { LibraryManifest } from "../../../frontend/library/index.js"
 import type { DeviceInstance } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../test-uri.js"
@@ -24,7 +24,7 @@ interface Workspace {
 function diag(src: string, workspace: Workspace = {}) {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], workspace.manifests ?? [], "codesys", undefined, workspace.devices ?? [])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
 /** unresolved-identifier messages only (ignore other checks that may fire on the same snippet). */
@@ -81,7 +81,7 @@ const enumUse = (enumDut: string, consumer: string): string[] => {
     { uri: "F.pou", parseResult: parseSource(consumer, { networkText: true }), source: consumer },
   ]
   const project = build.buildSymbolTable(files, [], "codesys")
-  return computeSemanticDiagnostics({ uri: files[1].uri, parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: files[1].uri, parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier")
     .map((d) => d.message)
 }
@@ -170,7 +170,7 @@ FUNCTION_BLOCK F
 VAR p : Pt; i : INT; END_VAR
 i := p.z;
 END_FUNCTION_BLOCK`
-  const tc = computeSemanticDiagnostics({
+  const tc = computeDiagnostics({
     uri: "F.pou",
     parseResult: parseSource(src, { networkText: true }, "twincat"),
     source: src,
@@ -241,7 +241,7 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
     { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.dut", parseResult: libPr, source: libSrc },
     { uri: "F.pou", parseResult: usePr, source: useSrc },
   ])
-  const diags = computeSemanticDiagnostics({ uri: uriFor(usePr), parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })
+  const diags = computeDiagnostics({ uri: uriFor(usePr), parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(diags.filter((d) => d.code === "unknown-member")).toEqual([]) // Pt is library-defined → skipped
 })
 
@@ -273,7 +273,7 @@ test("a name that does not resolve and is CALLED is two errors", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
     .map((d) => d.message)
   expect(msgs).toEqual([
@@ -309,7 +309,7 @@ test("`.g` declared by two global lists names no global (expr_global_namespace_a
   ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(files)
   const fb = files[2]!
-  const messages = computeSemanticDiagnostics({ uri: uriFor(fb.parseResult), parseResult: fb.parseResult, source: fb.source, project, config: resolveConfig({ vendor: "codesys" }) })
+  const messages = computeDiagnostics({ uri: uriFor(fb.parseResult), parseResult: fb.parseResult, source: fb.source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
     .sort()
@@ -328,7 +328,7 @@ test("a member a global variable list does not declare is no component of the li
     [],
     "codesys",
   )
-  const ds = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.filter((d) => d.severity === "error").map((d) => d.message).sort()).toEqual([
     "'nope' is no component of 'GVL_X'",
     "Cannot convert type 'Unknown type: 'GVL_X.nope'' to type 'INT'",
@@ -340,7 +340,7 @@ test("a member a global variable list does not declare is no component of the li
 const errors = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
     .sort()
@@ -411,7 +411,7 @@ test("M1: a called unknown member of a GLOBAL LIST or through a dereferenced POI
     [],
     "codesys",
   )
-  const ds = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.message).filter((m) => m.startsWith("Program name, function or function block instance expected"))).toEqual([])
 })
 
@@ -431,7 +431,7 @@ PROGRAM Prg_x\nVAR\nx : INT;\nEND_VAR\nEND_PROGRAM
 FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn := Prg_x.nope;\nn := THIS^.nope;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const ds = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.filter((d) => d.code === "unknown-member").map((d) => d.message)).toEqual([
     "'nope' is no component of 'Dut_s'",
     "'nope' is no component of 'I_x'",
@@ -457,7 +457,7 @@ function sfcDiag(files: Record<string, string>): string[] {
   const inputs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
   const project = build.buildSymbolTable(inputs, [], "codesys")
   return inputs
-    .flatMap((f) => computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
+    .flatMap((f) => computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
     .filter((d) => d.severity === "error")
     .map((d) => `${d.code}: ${d.message}`)
 }

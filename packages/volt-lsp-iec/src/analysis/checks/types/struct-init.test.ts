@@ -6,14 +6,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const init = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT p1 : INT; p2 : INT; END_STRUCT END_TYPE`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)
 }
@@ -56,7 +56,7 @@ test("the compiler resolves each FIELD NAME against the POU's scope, where they 
   const src = `TYPE DUT_P :\nSTRUCT\nx : INT;\ny : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\notherWay : INT := (x := 1, y := 2);\nEND_VAR\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "a.pou", parseResult: pr, source: src }], [], "codesys")
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)
     .sort()
@@ -76,7 +76,7 @@ test("a STRUCT's initializer naming a field the struct lacks: undefined, and no 
     const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT p1 : INT; p2 : INT; END_STRUCT END_TYPE`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "unknown-struct-field")
       .map((d) => d.message)
   }
@@ -92,7 +92,7 @@ test("a field of a struct whose base is unresolved is not reported unknown", () 
   const src = `PROGRAM P\nVAR\n  rec : sv := (baseF := 1, p1 := 2);\nEND_VAR\nEND_PROGRAM\nTYPE sv EXTENDS LibBase : STRUCT p1 : INT; END_STRUCT END_TYPE`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-  const codes = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const codes = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unknown-struct-field")
   expect(codes).toEqual([])
 })
@@ -104,7 +104,7 @@ test("a nested initializer naming a field its struct lacks, and a union's, are u
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE inner : STRUCT q : INT; END_STRUCT END_TYPE\nTYPE outer : STRUCT inn : inner; k : INT; END_STRUCT END_TYPE\nTYPE uu : UNION a : INT; b : DINT; END_UNION END_TYPE`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "unknown-struct-field")
       .map((d) => d.message)
   }
@@ -122,7 +122,7 @@ test("a struct value in an array initializer naming a field its element lacks is
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE inner : STRUCT q : INT; END_STRUCT END_TYPE\nTYPE outer : STRUCT arr : ARRAY[0..1] OF inner; END_STRUCT END_TYPE`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "unknown-struct-field")
       .map((d) => d.message)
   }

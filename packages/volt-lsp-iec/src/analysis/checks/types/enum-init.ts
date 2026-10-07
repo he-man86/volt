@@ -23,6 +23,10 @@
  * fact either, nor is the implicit member after it.
  *
  * Zero-FP: only the recorded kinds fire; anything else (an undecidable name, a library constant) is silent.
+ *
+ * KNOWN DIVERGENCE: `{attribute 'suppress_warning' := '0125'}` (the pragma reference's own example,
+ * docs/codesys-reference/07-pragmas.md) is not honoured — no warning is, the attribute is only a known name. Niche:
+ * accepted loss (0 occurrences in the corpora); the project setting (`Disabled warnings: C0125`) is honoured.
  */
 import { forEachDecl, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
 import { constancyOf, constEval, inferExprType, literalType, REAL_LITERAL_TYPE, renderType } from "../../../frontend/types/index.js"

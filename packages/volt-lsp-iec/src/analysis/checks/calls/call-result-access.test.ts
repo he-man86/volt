@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const MSG =
@@ -15,7 +15,7 @@ const msgs = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n i:INT; a:ARRAY[0..3] OF INT;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION F : INT\nEND_FUNCTION`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-result-access")
     .map((d) => d.message)
 }

@@ -8,7 +8,6 @@
 // the pipeline
 export {
   computeDiagnostics,
-  computeSemanticDiagnostics,
   runRegistry,
   CHECK_REGISTRY,
   type DiagnosticsArgs,

@@ -4,14 +4,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const noop = (body: string): string[] => {
   const src = `PROGRAM P\nVAR i:INT; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement")
     .map((d) => d.message)
 }
@@ -38,7 +38,7 @@ const bare = (body: string): string[] => {
   const src = `PROGRAM P\nVAR a:INT; out:INT; rn : REFERENCE TO INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "no-valid-statement")
     .map((d) => `[${d.severity}] ${d.message}`)
 }
@@ -58,7 +58,7 @@ test("a FUNCTION's name alone as a statement is an error beside the no-op warnin
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\ta : INT;\nEND_VAR\nFn;\nEND_PROGRAM\n`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
     .map((d) => `[${d.severity}] ${d.message}`)
   expect(got).toEqual(["[error] FUNCTION 'Fn' referenced without parentheses '()'", "[warning] The code 'Fn;\n' has no effect. Is this the intent?"])
@@ -69,7 +69,7 @@ test("a FUNCTION's name alone INSIDE that FUNCTION is its return variable: the n
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nFn;\nEND_FUNCTION\n`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
     .map((d) => `[${d.severity}] ${d.message}`)
   expect(got).toEqual(["[warning] The code 'Fn;\n' has no effect. Is this the intent?"])

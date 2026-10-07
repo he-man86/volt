@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
@@ -17,7 +17,7 @@ const run = (prg: string, extraGvl2 = true) => {
     ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) }] : []),
   ]
   const project = build.buildSymbolTable(inputs)
-  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "ambiguous-global")
 }
 
@@ -45,7 +45,7 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
     { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
   ])
   const ambiguous = () =>
-    computeSemanticDiagnostics({ uri: uriFor(prgParse), parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
+    computeDiagnostics({ uri: uriFor(prgParse), parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
   expect(ambiguous()).toBe(0)
   build.bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) })
   expect(ambiguous()).toBe(1)
@@ -61,7 +61,7 @@ const inEnumProject = (prg: string) => {
     { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
     { uri: "E.dut", source: TWO_ENUMS, parseResult: parseSource(TWO_ENUMS, { networkText: true }) },
   ]
-  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
     .map((d) => `${d.code}: ${d.message}`)
 }
 
@@ -88,7 +88,7 @@ const runWithF = (prg: string) => {
     { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) },
   ]
   const project = build.buildSymbolTable(inputs)
-  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "ambiguous-global")
     .map((d) => d.message)
 }
@@ -111,7 +111,7 @@ const inTwoLists = (prg: string, gvl = GVL1) => {
     { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
     { uri: "GVL2.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
   ]
-  return computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
     .map((d) => d.message)
     .sort()
 }
@@ -142,7 +142,7 @@ test("a bare name that is both the FB's variable and its METHOD warns ambiguous"
   const src = "FUNCTION_BLOCK FB\nVAR\n M : INT;\n out : INT;\nEND_VAR\nout := M;\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nM := 1;\nEND_METHOD"
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "FB.pou", source: src, parseResult }])
-  const ds = computeSemanticDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.severity} ${d.message}`)).toEqual(["warning Ambiguous use of name 'M'"])
 })
 
@@ -157,7 +157,7 @@ test("a global and an own enum's member of one name: ambiguous, not defined, a h
     { uri: "GVL1.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
     { uri: "E_M.dut", source: dut, parseResult: parseSource(dut, { networkText: true }) },
   ]
-  const ds = computeSemanticDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.message).sort()).toEqual(["Ambiguous use of name 'emvg'", "Cannot convert type 'Unknown type: 'emvg'' to type 'INT'", "Identifier 'emvg' not defined"].sort())
 })
 
@@ -167,7 +167,7 @@ test("a variable named as its FB's METHOD: no warning in another METHOD's body, 
   const amb = (src: string) => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "FB_A.pou", source: src, parseResult }])
-    return computeSemanticDiagnostics({ uri: "FB_A.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: "FB_A.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "ambiguous-global")
   }
   const decl = "FUNCTION_BLOCK FB_A\nVAR\n M : INT;\n i : INT;\nEND_VAR\n"

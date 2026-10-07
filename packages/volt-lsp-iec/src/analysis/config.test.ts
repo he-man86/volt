@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../frontend/syntax/index.js"
 import { build } from "../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
+import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
 import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
 import { uriFor } from "./test-uri.js"
@@ -14,7 +14,7 @@ import { uriFor } from "./test-uri.js"
 const diag = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig(opts) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig(opts) })
 }
 
 // C0139 no-op-statement: `i;` (a bare expression) has no effect — a configurable code Volt emits as warning.
@@ -141,8 +141,25 @@ test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], undefined, "twincat")
   const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
-    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
+    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
   expect(run({}), "the trigger must fire without the project's settings").toEqual(["inout-own-access"])
   expect(projectDiagnosticsFrom(pulled)).toEqual({ "inout-own-access": "off" })
   expect(run(projectDiagnosticsFrom(pulled))).toEqual([])
+})
+
+// analysis-conformance 4 (gate review): C0125 is a row of CODESYS's Compiler-warnings dialog (scripts/coverage-doc.ts
+// DIALOG), so a project can switch it off or raise it. Before 3.11 Volt had no check for it; once it shipped, a
+// `.projectsettings` naming C0125 was skipped as "not implemented" and the warning fired regardless.
+const dupEnum = `TYPE E : (A := 0, B := 0); END_TYPE`
+const dupEnumD = (opts?: Parameters<typeof resolveConfig>[0]) => diag(dupEnum, opts).filter((d) => d.code === "enum-duplicate-value")
+
+test("a project that disables C0125 turns the duplicate-enum-value warning off", () => {
+  expect(projectDiagnosticsFrom("Disabled warnings:     C0125")).toEqual({ "enum-duplicate-value": "off" })
+  expect(dupEnumD()).toHaveLength(1)
+  expect(dupEnumD({ diagnostics: projectDiagnosticsFrom("Disabled warnings:     C0125") })).toEqual([])
+})
+
+test("a project that raises C0125 makes the duplicate enum value an error", () => {
+  const [d] = dupEnumD({ diagnostics: projectDiagnosticsFrom("Warnings as errors:    C0125") })
+  expect(d?.severity).toBe("error")
 })

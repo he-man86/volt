@@ -4,14 +4,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const tv = (body: string): string[] => {
   const src = `PROGRAM P\nVAR value : INT;\nEND_VAR\n${body}\nEND_PROGRAM\nTYPE MyEnum : (RED, GREEN); END_TYPE`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "type-name-as-value")
     .map((d) => d.message)
 }
@@ -30,7 +30,7 @@ test("a STRUCT type's name called, or reached into for a member it lacks, is a t
     const src = `PROGRAM P\nVAR value : INT;\nEND_VAR\n${body}\nEND_PROGRAM\nTYPE Dut_s :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "type-name-as-value")
       .map((d) => d.message)
   }
@@ -48,7 +48,7 @@ test("an ALIAS type's name as a value or a target is that one message", () => {
     const src = `PROGRAM P\nVAR value : INT;\nEND_VAR\n${body}\nEND_PROGRAM\nTYPE T_Al : INT;\nEND_TYPE\nTYPE MyEnum : (RED, GREEN); END_TYPE`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "P.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: "P.pou", parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+    return computeDiagnostics({ uri: "P.pou", parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
   }
   expect(all(`value := T_Al;`)).toEqual(["Type name 'T_Al' not expected in this place"])
   expect(all(`T_Al := 3;`)).toEqual(["Type name 'T_Al' not expected in this place"])

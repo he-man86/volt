@@ -4,14 +4,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const sc = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
 }
@@ -87,7 +87,7 @@ test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  const found = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
   expect(found.map((d) => d.severity)).toEqual(["warning"]) // 'abc' into STRING(2); 'a$Tb' is 3 decoded and fits
 })
@@ -111,7 +111,7 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)
   }
@@ -151,7 +151,7 @@ test("a capacity named by a local constant is the written name in the warning, a
   const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  n : INT := 3;\nEND_VAR\nVAR\n  txt : STRING(n);\nEND_VAR\ntxt := 'abcdef';\nEND_FUNCTION_BLOCK"
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
-  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
   expect(got).toEqual(["String constant '...' too long for destination type 'STRING(n)'"])

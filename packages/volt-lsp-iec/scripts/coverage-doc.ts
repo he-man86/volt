@@ -22,7 +22,7 @@ const DIALOG = [
 
 const CATALOG = new URL("../docs/codesys-reference/error-catalog.json", import.meta.url)
 const OUT = new URL("../docs/codesys-reference/compiler-warnings-coverage.md", import.meta.url)
-type Entry = { code: string; status: string; ourCode?: string | null; category?: string | null; message?: string | null; gap?: string; note?: string; ideOnlyReason?: string }
+type Entry = { code: string; kind: string; status: string; ourCode?: string | null; category?: string | null; message?: string | null; gap?: string; note?: string; ideOnlyReason?: string }
 const cat: Entry[] = JSON.parse(readFileSync(CATALOG, "utf8"))
 const find = (code: string) => cat.find((x) => x.code === code)
 const desc = (e?: Entry) => (e ? (e.category ?? (e.message ?? "").slice(0, 60)) : "—")
@@ -46,10 +46,11 @@ for (const code of DIALOG) {
   if (done) impl++
   const configurable = done && CONFIGURABLE_CODES.has(e!.ourCode!)
   if (configurable) settings++
-  const status = done ? (configurable ? "✅ **3-state setting**" : "✅ implemented (fixed error)") : e ? `⬜ ${e.gap ?? e.status}` : "⬜ absent"
+  // A non-configurable code keeps the severity the catalog records for it (`kind`) — not "error" by assumption.
+  const status = done ? (configurable ? "✅ **3-state setting**" : `✅ implemented (not configurable, ${e!.kind})`) : e ? `⬜ ${e.gap ?? e.status}` : "⬜ absent"
   md += `| ${code} | ${status} | ${done ? "`" + e!.ourCode + "`" : "—"} | ${desc(e)} |\n`
 }
-md += `\n**${impl} of ${DIALOG.length}** dialog codes are implemented (${settings} as toggleable 3-state settings, ${impl - settings} as fixed errors). The other **${DIALOG.length - impl}** are gaps — grouped by why below.\n`
+md += `\n**${impl} of ${DIALOG.length}** dialog codes are implemented (${settings} as toggleable 3-state settings, ${impl - settings} not configurable yet). The other **${DIALOG.length - impl}** are gaps — grouped by why below.\n`
 
 // Bucket the open codes.
 const buckets: Record<string, [string, Entry | undefined][]> = { "needs-live-verify": [], "ide-only": [], "wont-fix": [], blocked: [], absent: [] }

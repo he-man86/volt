@@ -7,7 +7,7 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const FB = `FUNCTION_BLOCK FB_LANG_hide_var
@@ -34,7 +34,7 @@ function findings(body: string, vendor: Vendor): string[] {
   })
   const project = build.buildSymbolTable(files, [], vendor)
   const at = files[1]!
-  return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "external-non-input-write")
     .map((d) => `[${d.severity}] ${d.message}`)
 }
@@ -59,7 +59,7 @@ test("a VAR_OUTPUT written from outside is no input; a VAR_TEMP is no input of t
     })
     const project = build.buildSymbolTable(files, [], vendor)
     const at = files[1]!
-    return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+    return computeDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
   }
   for (const vendor of ["codesys", "twincat"] as const) {
     expect(run("w.o := 2;", vendor)).toEqual(["'o' is no input of 'FB_W'"])

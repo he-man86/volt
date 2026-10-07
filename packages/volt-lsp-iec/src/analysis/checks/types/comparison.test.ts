@@ -5,14 +5,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const cmp = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT; re : REAL; str : STRING; b : BOOL; w : WORD;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "incompatible-comparison")
     .map((d) => d.message)
 }
@@ -38,7 +38,7 @@ test("C0068/C0069: comparing arrays is flagged (same type → one, different →
   const run = (d: string) => {
     const pr = parseSource(src(d), { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(d) }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(d), project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(d), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.code.startsWith("compare-array"))
       .map((x) => x.message)
   }
@@ -56,7 +56,7 @@ test("C0354: comparing two different enumeration types is flagged; same-enum and
     const src = `${enums}PROGRAM P\nVAR b : BOOL; e1 : ENUM1; ea : ENUM1; e2 : ENUM2; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)
   }
@@ -73,7 +73,7 @@ test("C0354 upper-cases both names, skips two enum VALUES, and treats a re-cased
     const src = `${enums}PROGRAM P\nVAR b : BOOL; ea : E_Cmp_A; eb : E_Cmp_B; ec : e_cmp_a;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)
   }
@@ -92,7 +92,7 @@ const every = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[
     ` s1 : S_Cmp; s2 : S_Cmp; f1 : FB_Cmp; f2 : FB_Cmp; p : POINTER TO INT; ea : E_A;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor, { target: { pointerBits: 64 } })
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => `${d.severity}: ${d.message}`)
 }
@@ -136,7 +136,7 @@ test("C0068: two arrays are one type by their FOLDED bounds, each named as the c
     const src = `PROGRAM P\nVAR CONSTANT\n  N : INT := 2;\nEND_VAR\nVAR\n  b : BOOL;\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.code.startsWith("compare-array"))
       .map((x) => x.message)
   }

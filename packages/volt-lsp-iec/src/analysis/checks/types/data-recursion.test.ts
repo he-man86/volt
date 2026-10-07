@@ -5,13 +5,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const rec = (src: string): string[] => {
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "data-recursion")
     .map((d) => d.message)
 }
@@ -46,7 +46,7 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
   const project = build.buildSymbolTable([{ uri: "F", parseResult: parseSource(before, { networkText: true }), source: before }])
   const check = (src: string) =>
-    computeSemanticDiagnostics({ uri: "F", parseResult: parseSource(src, { networkText: true }), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
+    computeDiagnostics({ uri: "F", parseResult: parseSource(src, { networkText: true }), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
   expect(check(before)).toBe(0)
   build.unbindFile(project, "F")
   build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }), source: after })
@@ -64,7 +64,7 @@ test("a cycle across two files follows an edit to EITHER one — a rebound file'
   const project = build.buildSymbolTable([file("A", a), file("B", bFlat)])
   const fileA = file("A", a)
   const onA = () =>
-    computeSemanticDiagnostics({ uri: uriFor(fileA.parseResult), parseResult: fileA.parseResult, source: a, project, config: cfg })
+    computeDiagnostics({ uri: uriFor(fileA.parseResult), parseResult: fileA.parseResult, source: a, project, config: cfg })
       .filter((d) => d.code === "data-recursion")
       .map((d) => d.message)
   expect(onA()).toEqual([])
@@ -89,7 +89,7 @@ test("two same-named types are ONE node, with both declarations' members as its 
     { uri: "2", parseResult: parseSource(second, { networkText: true }), source: second },
   ])
   expect(
-    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: first, project, config: cfg })
+    computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: first, project, config: cfg })
       .filter((d) => d.code === "data-recursion")
       .map((d) => d.message),
   ).toEqual(["Data recursion: SV -> SV"])

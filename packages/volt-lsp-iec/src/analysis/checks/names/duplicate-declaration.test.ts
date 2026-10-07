@@ -6,13 +6,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const diag = (src: string) => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
 test("C0582 — two methods with the same name in one FB", () => {
@@ -87,7 +87,7 @@ test("a name declared twice in one global list is a duplicate, in the list's obj
   const src = `VAR_GLOBAL\n g : INT;\n g : BOOL;\nEND_VAR`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "GVL_Main.gvl", parseResult, source: src }])
-  const ds = computeSemanticDiagnostics({ uri: "GVL_Main.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const ds = computeDiagnostics({ uri: "GVL_Main.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual(["duplicate-declaration: A local variable named 'g' is already defined in 'GVL_Main'"])
 })
 
@@ -109,7 +109,7 @@ test("a global list's VAR_ACCESS name or refused-AT declaration does not duplica
   const gvl = (src: string) => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "GVL_A.gvl", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: "GVL_A.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: "GVL_A.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "duplicate-declaration")
   }
   expect(gvl(`VAR_GLOBAL\n a : INT;\nEND_VAR\nVAR_ACCESS\n a : P.d : INT READ_WRITE;\nEND_VAR`)).toEqual([])

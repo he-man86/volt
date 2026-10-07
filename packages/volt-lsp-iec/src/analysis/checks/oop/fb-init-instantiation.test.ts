@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -39,7 +39,7 @@ function diagnose(plc: string, vendor: Vendor = "codesys") {
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[2]!
-  return computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "fb-init-argument-missing")
     .map((d) => d.message)
 }
@@ -100,7 +100,7 @@ test("the extra inputs are those not named bInitRetains / bInCopyCode, wherever 
   const files = [fb, plc].map((source, i) => ({ uri: `file:///c/U${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const f = files[1]!
-  const got = computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-init-argument-missing")
     .map((d) => d.message)
   expect(got).toEqual([

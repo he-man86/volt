@@ -13,7 +13,7 @@
 import { describe, test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 describe("inout-external-access (C0178)", () => {
@@ -22,7 +22,7 @@ describe("inout-external-access (C0178)", () => {
     const src = `PROGRAM PLC_PRG\nVAR\n inst : FB;\n i : INT;\nEND_VAR\n${body}\nEND_PROGRAM${FB}`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   }
   const codes = (body: string): string[] => diag(body).map((d) => d.code)
 
@@ -49,10 +49,10 @@ describe("inout-external-access (C0178)", () => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
     // Default config: the C0371 warning (default on), never the C0178 error.
-    const def = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    const def = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     expect(def.map((d) => ({ code: d.code, sev: d.severity }))).toEqual([{ code: "inout-own-access", sev: "warning" }])
     // A project that disabled the warning: no diagnostic at all (still never the C0178 error).
-    const off = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
+    const off = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
     expect(off).toEqual([])
   })
 })
@@ -62,7 +62,7 @@ describe("inout-own-access (C0371)", () => {
   const diag = (src: string) => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   }
 
   test("a method touching its FB's VAR_IN_OUT warns (C0371), byte-identical", () => {
@@ -99,7 +99,7 @@ describe("inout-own-access (C0371)", () => {
     const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    const ds = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     expect(ds.filter((d) => d.code === "inout-own-access").length).toBe(1)
   })
 
@@ -107,7 +107,7 @@ describe("inout-own-access (C0371)", () => {
     const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    const ds = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
+    const ds = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
     expect(ds.filter((d) => d.code === "inout-own-access")).toEqual([])
   })
 
@@ -117,7 +117,7 @@ describe("inout-own-access (C0371)", () => {
     const src = `FUNCTION F_mark : BOOL\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nF_mark := TRUE;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_inner\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Deeper\nF_mark(book := book);\nEND_METHOD`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "inout-own-access")
       .map((d) => d.message)
     expect(msgs).toEqual(["Access to VAR_IN_OUT 'book' declared in 'FB_inner' from external context 'Deeper'"])
@@ -133,7 +133,7 @@ describe("an initializer's access to a VAR_IN_OUT (C0371)", () => {
   const run = (src: string): string[] => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "inout-own-access")
       .map((d) => d.message)
   }

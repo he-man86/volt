@@ -5,7 +5,7 @@
 import { test, expect, describe } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 
@@ -16,7 +16,7 @@ test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns tw
     const src = `FUNCTION_BLOCK F\n${section}\ncLimit : DINT := 16#80000000;\nEND_VAR\nEND_FUNCTION_BLOCK`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
       .map((d) => d.message)
   }
@@ -35,7 +35,7 @@ END_VAR
 END_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-  const messages = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const messages = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "narrowing-conversion")
     .map((d) => d.message)
   expect(messages).toEqual([
@@ -51,7 +51,7 @@ const signMessages = (vars: string, body: string, vendor: "codesys" | "twincat")
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
     .map((d) => d.message)
 }
@@ -106,7 +106,7 @@ test("LIMIT, SEL and MUX warn on each value argument that converts into the meet
     const src = `FUNCTION_BLOCK F\nVAR\n i : INT; ui : UINT; li : LINT; rv : REAL; g : BOOL; k : INT; out : STRING;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
       .map((d) => d.message)
   }
@@ -125,7 +125,7 @@ test("a bit operator's out-of-signed-range literal is refused nowhere (`cc_bitwi
   const src = `FUNCTION_BLOCK F\nVAR\nsi : SINT; i : INT; di : DINT; w : WORD; res : INT;\nEND_VAR\nres := si AND 255;\nsi := si AND 255;\ni := i AND 16#FF00;\ndi := di OR 16#80000000;\nw := i AND 16#FF00;\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-  const all = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const all = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(all.filter((d) => /Cannot convert/.test(d.message)).map((d) => d.message)).toEqual([])
   expect(signMessages("sn : SINT; res : INT;", "res := sn AND 255;", "codesys")).toEqual([
     "Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign",
@@ -176,7 +176,7 @@ describe("implicit conversions", () => {
     const src = `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true }, vendor)
     const p = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor }) }).filter(
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor }) }).filter(
       (d) => d.code === "narrowing-conversion" || d.code === "sign-change-conversion",
     )
   }
@@ -229,7 +229,7 @@ describe("implicit conversions", () => {
     const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true })
     const p = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
-    const messages = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
+    const messages = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
       .map((d) => d.message)
     expect(messages).toEqual([
@@ -249,7 +249,7 @@ describe("implicit conversions", () => {
       { uri: "Application/Library Manager/Lib/E_Lib.dut", parseResult: libResult, source: lib },
       { uri: "F.pou", parseResult: pr, source: src },
     ])
-    const d = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
+    const d = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
     expect(d.filter((x) => x.code === "sign-change-conversion")).toEqual([])
   })
 
@@ -338,7 +338,7 @@ describe("a negation's change of sign", () => {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "warning" || d.severity === "error")
       .map((d) => d.message)
   }

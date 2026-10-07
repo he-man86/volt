@@ -60,9 +60,6 @@ export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
   return runRegistry(ctx, undefined, args.groups)
 }
 
-/** The pipeline's former name — kept as an alias until task 4.4 moves its callers. */
-export const computeSemanticDiagnostics = computeDiagnostics
-
 /** The check registry in run order, READ-ONLY — exported for the diagnostic census (`test/analysis/census.ts`), which
  *  counts per entry. Nothing else reads it. */
 export const CHECK_REGISTRY: readonly Check[] = REGISTRY.map((e) => e.check)

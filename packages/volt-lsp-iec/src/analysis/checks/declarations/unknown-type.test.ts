@@ -7,7 +7,7 @@
  */
 import { expect, test } from "bun:test"
 import { parseDocument } from "../../../frontend/syntax/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 import { build } from "../../../frontend/symbols/index.js"
 
@@ -18,7 +18,7 @@ function errors(main: File, others: File[] = [], vendor: Vendor = "codesys"): st
   const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, vendor) }))
   const project = build.buildSymbolTable(files, [], vendor)
   const own = files[0]!
-  return computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor }), uri: own.uri })
+  return computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor }), uri: own.uri })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
     .sort()
@@ -112,7 +112,7 @@ test("a qualified type whose first qualifier names something — silent", () => 
   const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
   const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }])
   const own = files[0]!
-  const said = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
+  const said = computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
   expect(said.filter((d) => d.severity === "error").map((d) => d.message)).toEqual([])
   // on TwinCAT the LSP cannot know that nothing declares a type (its materialization is partial), qualified or not
   expect(errors(prg("v : NoSuchLib.T;"), [], "twincat")).toEqual([])

@@ -299,6 +299,16 @@
           "default": "warning",
           "description": "C0118 — A label has not been referenced. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
         },
+        "volt.iec.diagnostics.enum-duplicate-value": {
+          "type": "string",
+          "enum": [
+            "off",
+            "warning",
+            "error"
+          ],
+          "default": "warning",
+          "description": "C0125 — The constant is assigned to more than one enumeration. CODESYS \"Compiler warnings\" 3-state control (off/warning/error); set to match your project."
+        },
         "volt.iec.diagnostics.no-op-statement": {
           "type": "string",
           "enum": [

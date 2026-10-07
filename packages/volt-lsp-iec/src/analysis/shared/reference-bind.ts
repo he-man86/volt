@@ -15,7 +15,7 @@ import { inferExprType, literalErrorType, literalOwnType, renderType, withoutSub
 
 /** The two types a bind of `value` to `reference` (a REFERENCE TO T) fails to convert — `from` the value's, `to` the
  *  reference's, each rendered as the compiler names it — or undefined where it binds or the rule does not decide it. */
-export type BindMismatch = { from: string; to: string }
+type BindMismatch = { from: string; to: string }
 
 /**
  * A LITERAL bound to `reference`: its own type must BE the referenced one. `exact` when it is (the bind is accepted and a

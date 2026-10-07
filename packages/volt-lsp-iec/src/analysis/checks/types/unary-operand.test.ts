@@ -6,7 +6,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -14,7 +14,7 @@ function msgs(decl: string, op: string, outType: string, vendor: Vendor = "codes
   const src = `FUNCTION_BLOCK F\nVAR\n\t${decl}\n\tout : ${outType};\nEND_VAR\nout := ${op} x;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unary-operand-type")
     .map((d) => d.message)
 }

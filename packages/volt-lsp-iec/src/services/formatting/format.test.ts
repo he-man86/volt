@@ -407,6 +407,14 @@ VAR
 END_VAR
 n := 1;
 END_PROGRAM`)
+  // analysis-conformance 3.4 (`hdr_fb_return_type`, C0182 on both vendors): the parser reads an FB's return type since,
+  // so the header is reprinted from the AST rather than kept as a refused unit — the printer must write it back.
+  roundtrips(`FUNCTION_BLOCK FB_X : INT EXTENDS Base
+VAR
+	n : INT;
+END_VAR
+n := 1;
+END_FUNCTION_BLOCK`)
 })
 
 test("roundtrip: a TYPE's EXTENDS stays on the TYPE line, and its initializer stays", () => {

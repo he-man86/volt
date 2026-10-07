@@ -14,14 +14,14 @@
 import { test, expect } from "bun:test"
 import { parseSource, type Target } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const pc = (body: string, target: Target | undefined, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; xw:__XWORD; i:INT; di:DINT; li:LINT; p2:POINTER TO INT; rr:REAL; lrr:LREAL; o:BOOL; t:TIME; ss:STRING;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor, target === undefined ? undefined : { target })
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "assignment-type-mismatch" && d.message.includes("POINTER"))
     .map((d) => `${d.severity}: ${d.message}`)
 }
@@ -61,7 +61,7 @@ test("every other elementary type is refused â€” DATE, DT, TOD, LTIME, WSTRING â
     const text = `PROGRAM P\nVAR\n ptr : POINTER TO INT; d : DATE; dtv : DT; todv : TOD; ltv : LTIME; ws : WSTRING; xi : __XINT;\nEND_VAR\nd := ptr; dtv := ptr; todv := ptr; ltv := ptr; ws := ptr; xi := ptr;\nEND_PROGRAM`
     const pr = parseSource(text, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: text }], [], vendor, { target: { pointerBits: 64 } })
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: text, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: text, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.message.includes("POINTER"))
       .map((d) => `${d.severity}: ${d.message}`)
   }
@@ -78,7 +78,7 @@ test("a REFERENCE declared with a pointer as its initial value is refused, named
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor, { target: { pointerBits: 64 } })
     expect(
-      computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+      computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
         .filter((d) => d.message.includes("POINTER"))
         .map((d) => `${d.severity}: ${d.message}`),
     ).toEqual(refused("REFERENCE TO INT"))
@@ -94,7 +94,7 @@ END_PROGRAM`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } })
   expect(
-    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch" && d.message.includes("POINTER"))
       .map((d) => `${d.severity}: ${d.message}`),
   ).toEqual(refused("DWORD"))
@@ -109,7 +109,7 @@ const all64 = (body: string): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; q:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; i:INT; di:DINT; li:LINT; b:BYTE; rf : REFERENCE TO INT; o : BOOL; x : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } as Target })
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => (d.severity === "error" || d.severity === "warning") && d.code !== "signature-name-mismatch")
     .map((d) => `${d.severity}: ${d.message}`)
 }

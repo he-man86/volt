@@ -21,6 +21,7 @@ const LANGUAGE_IDS = ["structured-text"]
 // adding a configurable check adds a row here + a `volt.iec.diagnostics.<code>` setting in package.json.
 const CONFIGURABLE_CODES = [
 	"jump-label-unreferenced",
+	"enum-duplicate-value",
 	"no-op-statement",
 	"sign-change-conversion",
 	"narrowing-conversion",

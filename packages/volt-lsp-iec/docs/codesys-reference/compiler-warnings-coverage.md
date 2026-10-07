@@ -10,7 +10,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 | C0033 | ⬜ ide-only | — | unsafe pointer conversion warning |
 | C0100 | ⬜ absent | — | — |
 | C0118 | ✅ **3-state setting** | `jump-label-unreferenced` | unused jump label |
-| C0125 | ⬜ wont-fix | — | duplicate enum value |
+| C0125 | ✅ **3-state setting** | `enum-duplicate-value` | duplicate enum value |
 | C0139 | ✅ **3-state setting** | `no-op-statement` | no-op statement warning |
 | C0187 | ⬜ needs-live-verify | — | external reference on program |
 | C0195 | ✅ **3-state setting** | `sign-change-conversion` | signed-to-unsigned conversion |
@@ -53,7 +53,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 | C0410 | ⬜ absent | — | — |
 | C0421 | ✅ **3-state setting** | `interface-implements` | interface inheritance keyword |
 | C0422 | ⬜ absent | — | — |
-| C0426 | ✅ implemented (fixed error) | `empty-block` | empty CASE label |
+| C0426 | ✅ implemented (not configurable, warning) | `empty-block` | empty CASE label |
 | C0441 | ✅ **3-state setting** | `inout-in-initializer` | VAR_IN_OUT default-value misuse |
 | C0447 | ⬜ absent | — | — |
 | C0508 | ⬜ blocked | — | variable/action name collision |
@@ -74,7 +74,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 | C0561 | ⬜ needs-live-verify | — | recursive call warning |
 | C0564 | ⬜ needs-live-verify | — | initialization order |
 
-**22 of 66** dialog codes are implemented (21 as toggleable 3-state settings, 1 as fixed errors). The other **44** are gaps — grouped by why below.
+**23 of 66** dialog codes are implemented (22 as toggleable 3-state settings, 1 not configurable yet). The other **43** are gaps — grouped by why below.
 
 ## Closing the gaps
 
@@ -110,13 +110,12 @@ These need device/library metadata, codegen, memory layout, or a project option 
 | C0517 | internal object access via SIZEOF | Needs resolved referenced-library metadata (access modifiers, implicit check functions, cross-library namespaces) — the library floor. |
 | C0555 | string literal encoding | Gated on the project option 'UTF-8 encoding for STRING' (not in source) and advisory; not decidable offline. |
 
-### Won't-fix — would false-positive on legal code (2)
+### Won't-fix — would false-positive on legal code (1)
 
 Offline-decidable, but the trigger fires on code CODESYS accepts (proven against the corpus / live IDE).
 
 | CODESYS | what it flags | why not |
 |---|---|---|
-| C0125 | duplicate enum value | CODESYS accepts duplicate enum values by default — proven 5+ corpus FPs (TYPECLASS/BUS_TYPE/DEVICE_TYPE sentinel aliases). Only fires under an unseen strict-enums option. |
 | C0316 | redundant implicit lifecycle call | Base-chaining SUPER^.FB_Init(...) builds clean in the live IDE (2026-07-11); an offline 'already called implicitly' check false-positives on legitimate overrides. |
 
 ### Blocked by architecture (1)

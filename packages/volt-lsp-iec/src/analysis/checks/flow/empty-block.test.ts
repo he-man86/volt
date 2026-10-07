@@ -5,14 +5,14 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 function eb(body: string) {
   const src = `PROGRAM PLC_PRG\nVAR b : BOOL; i : INT; END_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "empty-block",
   )
 }
@@ -64,6 +64,6 @@ test("an empty THEN and an empty ELSE are two findings on TwinCAT too", () => {
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "twincat")
   expect(
-    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "empty-block"),
+    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter((d) => d.code === "empty-block"),
   ).toHaveLength(2)
 })

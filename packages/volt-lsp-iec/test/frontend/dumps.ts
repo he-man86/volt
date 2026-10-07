@@ -92,7 +92,7 @@ export interface ParseErrorRow {
  * Every parse error a client would see for the bound file `b` on `vendor`: both passes, the vendor's wording of "Unexpected token",
  * and without the ones that vendor's compiler does not report (`vendorReportsParseError`) — the same stream
  * `checks/syntax/parse-errors.ts` drains. On TwinCAT a message said twice on one LINE is seen once, because
- * `computeSemanticDiagnostics` folds TwinCAT's output per line (`dedupePerLine`: TwinCAT never says the same thing twice
+ * `computeDiagnostics` folds TwinCAT's output per line (`dedupePerLine`: TwinCAT never says the same thing twice
  * on one line) — so a refused `LDATE#2024-01-01`, whose cascade pairs `'-'` twice, is counted as TwinCAT records it
  * (task 2.2.6, when the cascade moved from `refused-name` into the parser).
  *

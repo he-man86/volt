@@ -7,7 +7,7 @@ import { signatureHelp } from "./signature-help.js"
 import { inlayHints } from "./inlay-hints.js"
 import { codeLenses } from "./code-lens.js"
 import { codeActions } from "./code-actions.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../analysis/index.js"
+import { computeDiagnostics, resolveConfig } from "../../analysis/index.js"
 import { type Document, rangeFromSpan } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
@@ -145,7 +145,7 @@ test("code-lens: a reference count above each named declaration", () => {
 test("code-actions: 'wrap in TO_<type>' quick fix for an assignment type mismatch", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
   const { doc, project } = setup(src)
-  const diags = computeSemanticDiagnostics({
+  const diags = computeDiagnostics({
     uri: doc.uri,
     parseResult: doc.parseResult,
     source: src,

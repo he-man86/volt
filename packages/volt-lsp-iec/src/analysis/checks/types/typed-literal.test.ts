@@ -6,7 +6,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -24,7 +24,7 @@ function errors(type: string, value: string, vendor: Vendor = "codesys"): string
     [],
     vendor,
   )
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
     .sort()
@@ -131,7 +131,7 @@ test("…and as a bare conversion's argument it is converted to ANY, while the c
 function componentErrors(src: string): string[] {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "X.pou", parseResult, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "typed-literal")
     .map((d) => d.message)
 }

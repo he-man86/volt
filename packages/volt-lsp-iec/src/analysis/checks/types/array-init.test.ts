@@ -6,7 +6,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const byCode =
@@ -18,7 +18,7 @@ const byCode =
       `TYPE HUE : (RED, GREEN, BLUE); END_TYPE`
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -95,7 +95,7 @@ const errors = (decls: string, vendor: "codesys" | "twincat" = "codesys"): strin
     `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n`
   const pr = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
     .map((d) => d.message)
 }

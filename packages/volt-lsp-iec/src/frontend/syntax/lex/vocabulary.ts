@@ -214,7 +214,7 @@ export type Keyword = (typeof KEYWORDS)[number]
  * AND IT HAS TO ARRIVE THREE WAYS, which is the harder half. `parseSource` carries it, `resolveConfig` carries
  * it, and `buildSymbolTable` carries it onto `project.dialect` — and that third one defaulted to codesys and was
  * never passed by the SERVER, so every rule keyed on `project.dialect` (the resolution and the operand rules) was dead in the
- * running LSP while the conformance replay, which does pass it, stayed green. `computeSemanticDiagnostics` now
+ * running LSP while the conformance replay, which does pass it, stayed green. `computeDiagnostics` now
  * refuses to run when the project's dialect and the config's vendor disagree.
  */
 export type Dialect = "codesys" | "twincat"

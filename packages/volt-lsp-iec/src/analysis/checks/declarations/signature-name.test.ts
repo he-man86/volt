@@ -6,13 +6,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] => {
   const parseResult = parseSource(source, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri, parseResult, source }], [], vendor)
-  return computeSemanticDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "signature-name-mismatch")
     .map((d) => d.message)
 }

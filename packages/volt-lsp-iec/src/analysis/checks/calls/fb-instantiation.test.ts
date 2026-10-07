@@ -3,7 +3,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -11,7 +11,7 @@ const fb = (body: string): string[] => {
   const src = `PROGRAM P\nVAR inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated")
     .map((d) => d.message)
 }
@@ -25,7 +25,7 @@ test("C0199: calling an interface by its type name is flagged", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nEND_VAR\nITF();\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "interface-not-instantiated")
     .map((d) => d.message)
   expect(msgs).toEqual(["Interface 'ITF' must be instantiated to be accessed"])
@@ -37,7 +37,7 @@ test("a member reached through a TYPE name needs an instance too", () => {
   const src = `FUNCTION_BLOCK FB_plain\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := n;\nEND_METHOD\n\nFUNCTION_BLOCK FB_user\nVAR\ntaken : INT;\nEND_VAR\ntaken := FB_plain.Get();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated")
     .map((d) => d.message)
   expect(msgs).toEqual(["Function block 'FB_plain' must be instantiated to be accessed"])
@@ -47,7 +47,7 @@ test("CALLING an interface by its type name says so twice; reaching into one say
   const src = `INTERFACE ITF_run\nMETHOD Run : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_c\nVAR\nn : INT;\nEND_VAR\nITF_run();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "interface-not-instantiated" || d.code === "invalid-call-target")
     .map((d) => d.message)
   expect(msgs).toEqual(["Interface 'ITF_run' must be instantiated to be accessed", "Cannot call object of type 'INTERFACE'"])
@@ -59,7 +59,7 @@ test("an FB or interface type name stored as a value must be instantiated (dt_st
   const src = `FUNCTION_BLOCK F\nVAR\n\ttxt : STRING;\n\tinst : FB;\nEND_VAR\ntxt := FB;\ntxt := ITF;\ntxt := inst;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")
     .map((d) => d.message)
   expect(msgs).toEqual(["Function block 'FB' must be instantiated to be accessed", "Interface 'ITF' must be instantiated to be accessed"])
@@ -71,7 +71,7 @@ test("an FB's or an interface's type name passed as an argument must be instanti
   const src = `INTERFACE ITF\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION F : INT\nVAR_INPUT\n\ta : FB;\n\tb : ITF;\nEND_VAR\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\tn : INT;\nEND_VAR\nn := F(a := FB, b := ITF);\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")
     .map((d) => d.message)
   expect(got).toEqual(["Function block 'FB' must be instantiated to be accessed", "Interface 'ITF' must be instantiated to be accessed"])

@@ -7,7 +7,7 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const FB = `FUNCTION_BLOCK ABSTRACT FB_LANG_oop_abstract_instantiated
@@ -36,7 +36,7 @@ function findings(prg: string, vendor: Vendor): string[] {
   })
   const project = build.buildSymbolTable(files, [], vendor)
   const at = files[1]!
-  return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "abstract-instantiation")
     .map((d) => `[${d.severity}] ${d.message}`)
 }
@@ -69,7 +69,7 @@ function fbFindings(sections: string, vendor: Vendor): string[] {
   })
   const project = build.buildSymbolTable(files, [], vendor)
   const at = files[1]!
-  return computeSemanticDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: at.uri, parseResult: at.parseResult, source: at.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "abstract-instantiation")
     .map((d) => d.message)
 }

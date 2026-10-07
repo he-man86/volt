@@ -887,6 +887,6 @@ export interface ParseResult {
    */
   tokens: readonly Token[]
   /** The vocabulary `tokens` were lexed with — so a consumer reading them can refuse a parse made for another vendor
-   *  (`computeSemanticDiagnostics`) instead of answering with the wrong vocabulary. */
+   *  (`computeDiagnostics`) instead of answering with the wrong vocabulary. */
   dialect: Dialect
 }

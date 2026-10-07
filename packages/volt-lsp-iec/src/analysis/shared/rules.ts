@@ -87,7 +87,7 @@ export function assignmentPairError(
  * `dt_subrange_assign_variable`, both vendors 2026-10-03; `messages` `subrangeAssignTarget`); an initial value's, and
  * anything else, as the type is written, `UINT (1..10)` (`subrange_init_above_range`).
  */
-export type StoreSite = "assignment" | "initial value" | "argument"
+type StoreSite = "assignment" | "initial value" | "argument"
 
 /** The name a store's target is given in its "Cannot convert" message — see `StoreSite`. */
 function storeTargetName(lhs: Type, site: StoreSite, messages: Messages): string {

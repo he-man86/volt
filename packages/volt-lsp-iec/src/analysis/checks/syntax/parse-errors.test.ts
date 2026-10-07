@@ -8,13 +8,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const syntaxErrors = (src: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "syntax-error")
     .map((d) => d.message)
 }
@@ -79,7 +79,7 @@ test("a global missing its `;`: TwinCAT names it, CODESYS says nothing — and n
   const errors = (vendor: "codesys" | "twincat"): string[] => {
     const parseResult = parseSource(src, { networkText: true }, vendor, "gvl")
     const project = build.buildSymbolTable([{ uri: "GVL.gvl", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "syntax-error")
       .map((d) => d.message)
   }

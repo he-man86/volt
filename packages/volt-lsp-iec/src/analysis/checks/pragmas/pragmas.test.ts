@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
+import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 /** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
@@ -13,7 +13,7 @@ function attrs(src: string, enabled: boolean, vendor: Vendor = "codesys") {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   const config = resolveConfig({ vendor, diagnostics: { "unknown-attribute": enabled ? "warning" : "off" } })
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config }).filter(
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config }).filter(
     (d) => d.code === "unknown-attribute",
   )
 }
@@ -119,7 +119,7 @@ test("the warning is CODESYS-only — TwinCAT compiles unknown attributes clean 
   const parseResult = parseSource(withAttr("qualifid_only"), { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: withAttr("qualifid_only") }], [], "twincat")
   const config = resolveConfig({ vendor: "twincat", diagnostics: { "unknown-attribute": "warning" } })
-  const d = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: withAttr("qualifid_only"), project, config }).filter(
+  const d = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: withAttr("qualifid_only"), project, config }).filter(
     (x) => x.code === "unknown-attribute",
   )
   expect(d).toEqual([]) // TwinCAT emits nothing even with the lint on
@@ -156,7 +156,7 @@ test("the invalid-value warning rides the SAME C0351 toggle (off ⇒ silent) and
   const src = prog("noe")
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "twincat")
-  const tc = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+  const tc = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
     .filter((d) => d.code === "unknown-attribute")
   expect(tc).toEqual([]) // CODESYS-gated, like the unknown-name case
 })
@@ -171,7 +171,7 @@ test("an attribute other than 'symbol' with an odd value is NOT value-checked (o
 function condDiags(src: string, vendor: "codesys" | "twincat" = "codesys") {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) }).filter(
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) }).filter(
     (d) => d.code === "unterminated-conditional-pragma" || d.code === "orphan-conditional-pragma",
   )
 }
@@ -213,7 +213,7 @@ test("each unclosed {IF} in a nest is flagged; an orphan {END_IF} is separate", 
 function attrValue(src: string) {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "attribute-value-string",
   )
 }
@@ -234,7 +234,7 @@ test("an attribute's value is checked against its published set — unless the d
   const attr = (src: string) => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "unknown-attribute")
       .map((d) => d.message)
   }
@@ -250,7 +250,7 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
   const src = `FUNCTION_BLOCK F\nVAR\n{attribute 'symbol' := readwrite}\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  const msgs = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unknown-attribute")
     .map((d) => d.message)
   expect(msgs).toEqual(["SymbolConfig: Invalid value '' for attribute 'symbol'. Should be one of: none, read, write, readwrite"])
@@ -270,7 +270,7 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
 function abstractWarnings(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "abstract-keyword-missing")
     .map((d) => d.message)
 }
@@ -327,7 +327,7 @@ test("a message pragma's word in upper or mixed case is no message pragma, in a 
   const said = (src: string, vendor: Vendor) => {
     const parseResult = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code.startsWith("message-pragma"))
       .map((d) => `${d.severity}:${d.message}`)
   }

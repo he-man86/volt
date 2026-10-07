@@ -3,7 +3,7 @@
  *   - COMPILER ERRORS run ALWAYS and are untoggleable (CODESYS gives no control for a hard error).
  *   - The codes in CODESYS's "Compiler warnings" dialog are each a 3-STATE control — off / warning / error —
  *     just like the dialog's checkbox (unchecked = off, ✓ = warning, red ✓ = error). The central filter in
- *     computeSemanticDiagnostics applies the chosen state: drops the diagnostic when off, else forces its
+ *     computeDiagnostics applies the chosen state: drops the diagnostic when off, else forces its
  *     severity. So a project can match its CODESYS configuration byte for byte.
  *   - Plus one non-CODESYS switch: `diagnoseDeadCode`.
  */
@@ -22,11 +22,13 @@ export type DiagnosticState = "off" | "warning" | "error"
  * own severity no longer matters for a configurable code.) Codes NOT here are non-configurable — errors always
  * error, exactly as CODESYS gives them no dialog control.
  *
- * This is 21 of the ~66 codes in the CODESYS dialog. The full dialog list — which codes Volt implements, which
- * are still gaps, and why the un-closeable ones can't be — is `docs/codesys-reference/compiler-warnings-coverage.md`.
+ * This is 21 rows (22 codes — C0195/C0196 share one) of the ~66 codes in the CODESYS dialog. The full dialog list —
+ * which codes Volt implements, which are still gaps, and why the un-closeable ones can't be — is
+ * `docs/codesys-reference/compiler-warnings-coverage.md`.
  */
 export const CONFIGURABLE_CHECKS = [
   { code: "jump-label-unreferenced", c: "C0118", label: "A label has not been referenced" },
+  { code: "enum-duplicate-value", c: "C0125", label: "The constant is assigned to more than one enumeration" },
   { code: "no-op-statement", c: "C0139", label: "The code has no effect — is this the intent?" },
   { code: "sign-change-conversion", c: "C0195/C0196", label: "Implicit conversion changes the sign" },
   { code: "narrowing-conversion", c: "C0197", label: "Implicit conversion, possible loss of information" },
@@ -107,7 +109,7 @@ const CODE_BY_CNNNN: ReadonlyMap<string, ConfigurableCode> = new Map(
 )
 
 /** `Cnnnn` → the LSP diagnostic code it configures, or undefined for one Volt does not implement. */
-export function configurableCodeFor(cnnnn: string): ConfigurableCode | undefined {
+function configurableCodeFor(cnnnn: string): ConfigurableCode | undefined {
   return CODE_BY_CNNNN.get(cnnnn.trim().toUpperCase())
 }
 

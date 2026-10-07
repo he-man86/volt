@@ -5,14 +5,14 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../test-uri.js"
 
 const msgs = (src: string, code: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === code)
     .map((d) => d.message)
 }
@@ -53,7 +53,7 @@ const all = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] =
   const parseResult = parseSource(src, { networkText: true }, vendor)
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   // every message but the object-name one: the sources here are not named after a file
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code !== "signature-name-mismatch")
     .map((d) => d.message)
 }
@@ -128,7 +128,7 @@ test("C0145: IMPLEMENTS on a FUNCTION is flagged; a bare FUNCTION is fine", () =
 const allErrors = (own: { uri: string; source: string }, others: { uri: string; source: string }[]): string[] => {
   const files = [own, ...others].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(files)
-  return computeSemanticDiagnostics({ parseResult: files[0]!.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
+  return computeDiagnostics({ parseResult: files[0]!.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
 }
@@ -148,7 +148,7 @@ test("C0145 on TwinCAT: 'Functionblocks', as TwinCAT writes it", () => {
   const src = "FUNCTION F_Impl IMPLEMENTS ITF_A\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n"
   const parseResult = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F_Impl.pou", parseResult, source: src }], [], "twincat")
-  const got = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+  const got = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
     .filter((d) => d.code === "function-implements")
     .map((d) => d.message)
   expect(got).toEqual(["Interfaces can only be implemented by Functionblocks"])
@@ -239,6 +239,6 @@ test("C0182: a return type on a FUNCTION_BLOCK is flagged, and nothing else", ()
   expect(msgs(src, "return-type-not-allowed")).toEqual(["Return type is only possible for POUs of type FUNCTION and METHOD"])
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source: src }])
-  const all = computeSemanticDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const all = computeDiagnostics({ uri: "FB.pou", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(all.map((d) => d.code)).toEqual(["return-type-not-allowed"])
 })

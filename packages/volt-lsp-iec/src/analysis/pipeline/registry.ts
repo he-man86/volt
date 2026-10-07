@@ -112,7 +112,7 @@ import { checkInoutInitializer } from "../checks/declarations/inout-initializer.
 /** The folders under `checks/` — a check's group. (`network` joins with the network-text check, design.md §3, parked.) */
 export type CheckGroup = "types" | "declarations" | "names" | "oop" | "calls" | "flow" | "pragmas" | "syntax"
 
-export interface RegistryEntry {
+interface RegistryEntry {
   check: Check
   group: CheckGroup
   /** `both`, or the one vendor the check runs for — with the measurement behind it in `note`. */

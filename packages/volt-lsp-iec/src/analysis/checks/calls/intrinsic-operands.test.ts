@@ -4,7 +4,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const run =
@@ -13,7 +13,7 @@ const run =
     const src = `FUNCTION_BLOCK F\nVAR\n i:INT; pt:POINTER TO INT; b:BIT; sv:STRING; rv:REAL;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)
   }
@@ -41,7 +41,7 @@ test("C0072 BitAdr: refused on an unlocated BOOL; a BOOL located at a bit addres
     const src = `FUNCTION_BLOCK F\nVAR\n${vars}\n addr : DWORD;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "operator-not-possible")
       .map((d) => d.message)
   }
@@ -70,7 +70,7 @@ test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid 
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; pt:POINTER TO FB; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-pointer-operand")
       .map((d) => d.message)
   }
@@ -85,7 +85,7 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; itf2:ITF; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-interface-operand")
       .map((d) => d.message)
   }
@@ -100,7 +100,7 @@ test("__QueryInterface / __QueryPointer with ONE operand: the operand count alon
   const src = `FUNCTION_BLOCK F\nVAR\n n:INT;\nEND_VAR\n__queryinterface(n);\n__querypointer(n);\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  const got = computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "operator-operand-count" || d.code === "query-interface-operand" || d.code === "query-pointer-operand")
     .map((d) => d.message)
   expect(got).toEqual(["'__QUERYINTERFACE' needs exactly '2' operands", "'__QUERYPOINTER' needs exactly '2' operands"])
@@ -128,7 +128,7 @@ was := TEST_AND_SET(flag);
 END_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "test-and-set-operand" || d.code === "sign-change-conversion")
       .map((d) => d.message)
   }
@@ -158,7 +158,7 @@ test("SQRT converts its operand to LREAL: a BOOL or a STRING is refused as that 
     for (const vendor of ["codesys", "twincat"] as const) {
       const pr = parseSource(src, { networkText: true }, vendor)
       const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-      expect(computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)).toEqual([
+      expect(computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)).toEqual([
         `Cannot convert type '${name}' to type 'LREAL'`,
       ])
     }
@@ -178,7 +178,7 @@ END_FUNCTION_BLOCK`
   const got = (vendor: "codesys" | "twincat") => {
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
   }
   expect(got("codesys")).toEqual(["A single bit cannot be referenced. A reference to the complete byte will be stored."])
   expect(got("twincat")).toEqual([])

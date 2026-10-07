@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs"
 import { errorCatalog, type ErrorCode } from "./error-codes.js"
 import { parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../src/analysis/index.js"
+import { computeDiagnostics, resolveConfig } from "../../src/analysis/index.js"
 
 const catalog = errorCatalog()
 
@@ -28,7 +28,7 @@ function lspMessages(repro: string, extra?: { uri: string; source: string }[]): 
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) })),
   ]
   const project = build.buildSymbolTable(files)
-  const semantic = computeSemanticDiagnostics({
+  const semantic = computeDiagnostics({
     uri: "F.pou",
     parseResult,
     source: repro,

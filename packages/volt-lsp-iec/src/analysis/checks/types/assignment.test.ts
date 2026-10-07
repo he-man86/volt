@@ -6,14 +6,14 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -27,7 +27,7 @@ const enumInto = (target: string, base = ""): string[] => {
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -53,7 +53,7 @@ const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -130,7 +130,7 @@ test("a reference declaration type-checks its target, and a valid bind stays sil
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   expect(
-    computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
       .map((d) => d.message),
   ).toEqual(["Identifier 'nope' not defined", "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'"])
@@ -155,7 +155,7 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
   const codes = (src: string): string[] => {
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)
   }
@@ -175,7 +175,7 @@ const storeDiagnostics = (enums: string, vars: string, body: string): string[] =
   const src = `${enums}\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
 }
@@ -249,7 +249,7 @@ test("a variable stored into a subrange names the target in its assignment form"
 const mismatchesIn = (units: string): string[] => {
   const parseResult = parseSource(units, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -309,7 +309,7 @@ txt := a.Value;
 END_METHOD`
   const parseResult = parseSource(units, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
-  const messages = computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+  const messages = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.message.startsWith("Cannot convert"))
     .map((d) => d.message)
   expect(messages).toEqual(["Cannot convert type 'VALUE' to type 'STRING'", "Cannot convert type 'VALUE' to type 'STRING'"])
@@ -320,7 +320,7 @@ const composite = (vars: string, body = ""): string[] => {
   const src = `TYPE S_Lit :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
 }
@@ -342,7 +342,7 @@ test("…and so into a FUNCTION BLOCK instance: 1 is BIT, 2 SINT, in an initial 
     const src = `FUNCTION_BLOCK FB_Lit\nVAR\n\ta : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
     const parseResult = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-    return computeSemanticDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)
   }

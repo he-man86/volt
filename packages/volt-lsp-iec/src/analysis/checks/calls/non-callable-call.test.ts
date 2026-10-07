@@ -5,14 +5,14 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../test-uri.js"
 
 const diag = (inputs: { uri: string; src: string }[]): { code: string; message: string }[] => {
   const parsed = inputs.map((i) => ({ uri: i.uri, source: i.src, parseResult: parseSource(i.src, { networkText: true }) }))
   const project = build.buildSymbolTable(parsed)
-  return parsed.flatMap((f) => computeSemanticDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
+  return parsed.flatMap((f) => computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
 }
 const one = (src: string) => diag([{ uri: "F.pou", src }])
 

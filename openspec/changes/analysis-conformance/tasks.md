@@ -1268,21 +1268,95 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 ### 4 Downstream
 
-- [ ] 4.1 services and server suites (hover, completion, semantic tokens, references/rename over both languages,
+- [x] 4.1 services and server suites (hover, completion, semantic tokens, references/rename over both languages,
       push/pull diagnostics parity): every change is recording-decided (noted) or a regression (fixed).
       Where: src/services, src/server. Acceptance: suites green; changes listed here. Depends on: 3.11
-- [ ] 4.2 Corpus (`test/corpus/corpus.test.ts`: LSP errors ⊆ recorded build, warnings, duplicate ranges) and the corpus
+      **Measured 2026-10-07.** `bun test src/services src/server`: 210 pass, 1 skip (the LSP_BENCH bench), 0 fail. Every
+      change these suites saw in this change, against f97e7c5f42 (the change's first commit): `diagnostics.test.ts` gained
+      2.5's three (one parse error is one C0002; a dead POU shows nothing, its parse errors included; a dead member keeps its
+      parse errors) — recording-decided (`dead_fb_missing_then`, `dead_fb_declaration_parse_error`,
+      `dead_method_missing_then`, `sig_empty_type`); `reachability.test.ts` and `incremental-index.test.ts` moved in (1.4);
+      `messagesFor` left `documentDiagnostics`' callers and `assist.test.ts` passes a uri (1.13) — refactors, no output.
+      One unpinned change found and pinned: 3.4 made the parser read a FUNCTION_BLOCK's return type (`hdr_fb_return_type`,
+      C0182 on both vendors), so the formatter reprints that header from the AST instead of keeping a refused unit, and
+      `print.ts` `fbHeader` writes the return type back — no test held it (reverting the one-line printer fix left the
+      suites green). `format.test.ts` "every header clause as written" now round-trips `FUNCTION_BLOCK FB_X : INT EXTENDS
+      Base` (red without the fix). No regression.
+- [x] 4.2 Corpus (`test/corpus/corpus.test.ts`: LSP errors ⊆ recorded build, warnings, duplicate ranges) and the corpus
       census: FP per project only fell. Where: test/corpus, test/analysis. Acceptance: numbers before → after here.
       Depends on: 4.1
-- [ ] 4.3 Transpile suites and the conformance run rows unchanged: analysis feeds no lowering, so any change is a
+      **Measured 2026-10-07** (network text ON, as the census runs it; `test/analysis/baselines/corpus.json` unchanged):
+
+      | project | TP | SEV | FP | GAP |
+      |---|---|---|---|---|
+      | CodesysTestProject | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+      | awa-palletizer | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+      | bakon-nano | 23 → 23 | 0 → 0 | 0 → 0 | 4 → 4 |
+      | lenze-mid | 5 → 5 | 0 → 0 | 0 → 0 | 1 → 1 |
+      | pro2193 | 0 → 0 | 0 → 0 | 0 → 0 | 7 → 7 (the three C0564 are 3.12's) |
+      | twincat-project14 | 0 → 0 | 0 → 0 | 216 → 216 `server:missing-language` | 0 → 0 |
+
+      FP fell nowhere and rose nowhere: the analysis work of phase 3 reached no corpus line (its rules fire on constructs the
+      corpora hold 0 of, by the niche counts). The 216 TwinCAT FPs are still 0.2's finding — `twincat-project14` was
+      materialized before implementation-keyword and needs a re-pull (a corpus refresh on a live XAE, not analysis work);
+      `corpus.test.ts` cannot see them. `bun test test/corpus`: 19 pass, 1 skip, 0 fail; its report is the base's line for
+      line (warnings ours/build: bakon-nano 4/4, lenze-mid 3/4 — MISSING the LREAL→REAL loss-of-information warning — pro2193 0/5, all five
+      project-config) except `[refusals]` 85 → 88 of 116 lowering codes produced, which counts the FIXTURES too: phase 3's
+      new fixtures reach three more lowering refusals (the corpus REACH and ROUTINES pins are unchanged).
+      Measurement note: the census run as a plain `bun` script (no test preload) has network text OFF and loses lenze-mid's
+      C0195 (`FB_Lenze_i550.pou:23`, an LD body) — not a regression; under `bun test` it is a TP on both trees.
+- [x] 4.3 Transpile suites and the conformance run rows unchanged: analysis feeds no lowering, so any change is a
       regression. Where: src/transpile, test/conformance, test/exec. Acceptance: `bun scripts/suite-snapshot.ts --compare`
       identical on every title under the fixtures.test.ts describes `confirmed —`, `not-lowered —`, `diverges —` and
       `unaskable —` and every test/exec title (the `refused —` and `lsp-gap —` describes read LSP diagnostics: their
       changes are listed here and recording-decided); `bun test src/transpile` pass/fail counts identical. Depends on: 4.1
-- [ ] 4.4 The `computeSemanticDiagnostics` alias deleted; dead exports gone (`scripts/dead-exports.ts` clean for
+      **Measured 2026-10-07**, base f97e7c5f42 (worktree) vs the working tree: `bun test src/transpile` 330 pass / 0 fail
+      on both. `suite-snapshot` (test/conformance; there is no test/exec): 6319 → 6513 tests. Under `confirmed —` (both
+      describes), `not-lowered —`, `diverges —` and `unaskable —`: 0 titles lost, 0 statuses changed; 162 + 30 titles gained,
+      all phase 3's new fixtures. `refused —`: identical (311). `lsp-gap —`: 75 → 77 — closed `enum_member_vs_global`,
+      `op_sys_queryinterface`, `ty_reference_to_bit` (phase 3's rules, recording-decided); opened, all new niche-pinned
+      fixtures: `flw_case_real_label`, `oopa_method_ref_in_operand`, `oopb_abstract_pointer_deref_assign`, `refbit_alias`,
+      `refbit_alias_variable_unread`. The base's one failure ("the table is total": its map was stale) passes now. No
+      regression. `rate:fixtures`: confirmed 2806, refused 1989, not-lowered 367, lsp-gap 76, diverges 5, unaskable 90 —
+      the 3.11 gate's figures; `map.generated.ts` unchanged.
+- [x] 4.4 The `computeSemanticDiagnostics` alias deleted; dead exports gone (`scripts/dead-exports.ts` clean for
       src/analysis); the catalog (`verify-catalog`, `catalog-status`) and `coverage-doc` regenerated where wording changed.
       Where: src/analysis, scripts/, docs/codesys-reference/. Acceptance: A on the alias removal; dead-exports clean.
       Depends on: 4.2, 4.3
+      **Done 2026-10-07.** The alias is gone: `computeSemanticDiagnostics` deleted from `pipeline/diagnostics.ts` and the
+      index; its 88 callers (src, test) and four comments read `computeDiagnostics` (`scripts/frontend-snapshot.ts` keeps
+      its `?? analysis.computeSemanticDiagnostics` on purpose: it measures base trees older than 1.6). Snapshot A (`check
+      --base HEAD --aspects diagnostics,fixture-diagnostics`): identical, 39,836 aspects. `dead-exports.ts` for
+      src/analysis: NOBODY 4 → 0 (`configurableCodeFor`, `RegistryEntry`, `BindMismatch`, `StoreSite` lose their `export`;
+      each is used in its own file only); TESTS/SCRIPTS 1 left and kept: `CONFIGURABLE_CHECKS`, read by its colocated
+      `config.test.ts` to hold the table's slug ↔ Cnnnn pairs to the catalog (the product reads the derived
+      `CONFIGURABLE_CODES`). `coverage-doc` regenerated: C0125 wont-fix → implemented (3.11's `enum-duplicate-value`),
+      22 → 23 of 66 dialog codes. `verify-catalog` not re-run: no catalog wording changed (`bun test test/catalog` replays
+      every implemented repro's `expect`: 147 pass, 0 fail); `catalog-status` is a report, nothing to write. Follow-up
+      noted, not done: C0125 is a dialog (toggleable) warning but not in `CONFIGURABLE_CHECKS` — whether a project
+      setting turns it off is unrecorded (`scripts/probe-projectsettings-effect.ts`). → closed by the gate review below.
+
+**Gate 4 (2026-10-07).** Three review findings, each settled before the gate:
+1. *(medium)* C0125 ships always on although it is a row of CODESYS's Compiler-warnings dialog (`coverage-doc.ts`
+   DIALOG, harvested from the dialog itself): a `.projectsettings` saying `Disabled warnings: C0125` was skipped as
+   "not implemented" and the warning fired. Fixed test-first (`config.test.ts`, two tests red → green: the project
+   disables it → nothing; raises it → error): `enum-duplicate-value` ↔ C0125 joins `CONFIGURABLE_CHECKS`, and the
+   `volt-vscode` setting `volt.iec.diagnostics.enum-duplicate-value` + its `CONFIGURABLE_CODES` row with it. The
+   dialog row IS the toggle's evidence (the same evidence every other row of the table stands on); the recorders
+   carry no per-fixture project settings, so no live run of the unchecked box was made.
+2. *(low)* `coverage-doc.ts` labelled every implemented non-configurable code "fixed error". It now prints the
+   catalog's `kind` (`implemented (not configurable, warning)` — C0426 `empty-block`, the one left) and the summary
+   reads "22 as toggleable 3-state settings, 1 not configurable yet"; C0125 is a 3-state setting. Regenerated.
+3. *(low)* `{attribute 'suppress_warning' := '0125'}` is not honoured (no warning is; the attribute is a known name
+   only). Not worked on: niche: accepted loss (0 occurrences in the corpora — `grep -rli suppress_warning
+   test-corpus`: 0 files); written as a KNOWN DIVERGENCE in `enum-init.ts`'s header. The project setting is honoured.
+
+**Gate numbers** (full suite, `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`, 621 s): 8392 pass, 0 fail, 35 skip, 410 todo
+(8837 tests, 205 files); agreement CODESYS 4875, TwinCAT 4784 of 5333. `rate:fixtures` figures as 4.3 (confirmed 2806,
+refused 1989, lsp-gap 76); fixture map untouched (no fixture or transpiler change). Typecheck (volt-lsp-iec,
+volt-vscode), layering lint, root `bun run lint` and `bun run check` pass; `volt-vscode` 40 pass. A first gate run
+failed two tests only because the laptop slept 9 h inside it (`the stored rating …` timed out at 32,736 s; the
+partial-run child lost its junit file — 1 pass alone); re-run awake, green.
 
 ## 5. Close
 

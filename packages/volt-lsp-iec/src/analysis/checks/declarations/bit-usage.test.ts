@@ -5,13 +5,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const errs = (src: string): string[] => {
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
     .map((d) => d.message)
 }
@@ -54,7 +54,7 @@ test("a BIT in an FB's VAR_TEMP: CODESYS says the section AND the container, Twi
   const pr = parseSource(src, { networkText: true }, "twincat")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "twincat")
   expect(
-    computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+    computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
       .filter((d) => d.code.startsWith("bit-"))
       .map((d) => d.message),
   ).toEqual(["Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block"])
@@ -72,7 +72,7 @@ test("a reference to a BIT: REFERENCE TO BIT on both vendors, a BIT in a VAR_IN_
   const vendorErrs = (src: string, vendor: "codesys" | "twincat"): string[] => {
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
       .map((d) => d.message)
   }
@@ -104,7 +104,7 @@ test("a reference to a BIT in every POU kind, and as an array's element", () => 
   const vendorErrs = (src: string, vendor: "codesys" | "twincat"): string[] => {
     const pr = parseSource(src, { networkText: true }, vendor)
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
-    return computeSemanticDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
       .map((d) => d.message)
   }
