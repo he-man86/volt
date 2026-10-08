@@ -18,6 +18,7 @@ import {
 } from "../../../frontend/types/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { oneArgument } from "./arity.js"
+import { LoweringBug } from "../../semantics/faults.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -71,10 +72,11 @@ function boolConversion(lw: Lowering, e: Call): IrExpr | undefined {
 
 /**
  * STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
- * REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
- * A number's text is a sizeless STRING (80) — no text these produce is longer. A STRING or WSTRING operand keeps its
- * OWN capacity, and a string result is sized by it: CODESYS converts the whole operand (transpile-review 11,
- * `tr_11_string_conversion_beyond_80`: 90 spaces then '5' is 5, a WSTRING of 100 narrows to 100 characters).
+ * REAL or LREAL; STRING <-> WSTRING, and TO_STRING / TO_WSTRING of a string of the same width. REAL_TO_STRING has no
+ * single digit rule and stays refused; parsing into a bit string is unmeasured. The capacities are `stringConversion`'s:
+ * no cut at 80 (transpile-review 11, `tr_11_string_conversion_beyond_80`: 90 spaces then '5' is 5, a WSTRING of 100
+ * narrows to 100 characters) — a cut at 255 (transpile-restructure 3.8), and 80 only for a number's text and a same-width
+ * TO_STRING / TO_WSTRING.
  *
  * The answer (`lowered`) for a conversion to or from text; for any other, the argument a bare `TO_Y(v)` lowered while
  * finding out (`bare`), which the numeric rule converts rather than lowering it a second time.
@@ -101,7 +103,9 @@ function textConversion(lw: Lowering, e: Call, from: Type | undefined, to: Type)
   // WSTRING -> a number is the STRING rule on the narrowed text (`tr_11_string_conversion_beyond_80`: 85 spaces then
   // '12345' is 12345 through WSTRING_TO_INT and TO_INT).
   const wideParse = isString(from) && elemOf(from ?? UNKNOWN)?.name === "WSTRING" && parses(to)
-  if (wideConversion || wideParse || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to)))
+  // TO_STRING(STRING) / TO_WSTRING(WSTRING): measured (`string_conversion_same_width_255`), the default capacity
+  const sameWidth = isString(to) && isString(from) && !wideConversion
+  if (wideConversion || sameWidth || wideParse || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to)))
     return { lowered: stringConversion(lw, e, from!, to, wideParse) }
   if (isString(to) && elemOf(to)?.name === "STRING" && elemOf(from ?? UNKNOWN)?.name === "REAL")
     return { lowered: lw.bail("conversion-type", "REAL_TO_STRING prints seven digits except where it prints eight — 70 cells and no rule", e.span) }
@@ -128,7 +132,30 @@ function refusesEnumToString(lw: Lowering, e: Call, to: Type): boolean {
  *  capacity; any other type as it is. */
 const defaultCapacity = (t: Type): Type => (isString(t) && t.kind === "elementary" && t.length === undefined ? { ...t, length: DEFAULT_STRING_LENGTH } : t)
 
-/** A conversion whose source or target is a STRING or WSTRING, the operand keeping its own capacity. */
+/** The capacity of the buffer a string conversion hands its text through: 255 units, one number for every case measured
+ *  (`string_conversion_result_capacity`: STRING_TO_WSTRING, WSTRING_TO_STRING, TO_WSTRING and TO_STRING of 300 units give
+ *  255, of 200 give 200; `string_parse_beyond_255`: 290 spaces then '5' parses 0 through STRING_TO_INT, WSTRING_TO_INT and
+ *  TO_INT of either width, 250 spaces then '5' parses 5, 253 spaces then '12345' parses 12, a STRING '5' then 290 spaces
+ *  parses 5) — the library's STRING(255) parameters. */
+const CONVERSION_RESULT = 255
+
+/** `t` (a sized STRING or WSTRING) at `length` units. */
+const withLength = (t: Type, length: number): Type => ({ ...(t as Extract<Type, { kind: "elementary" }>), length })
+
+/**
+ * A conversion whose source or target is a STRING or WSTRING (transpile-restructure 3.8, design §3.2 Decision step 3d):
+ *   - STRING <-> WSTRING, named or bare: the result is a STRING(255) / WSTRING(255), whatever the operand's capacity
+ *     (`string_conversion_result_capacity`); the units behind its terminator are 0 here, stack residue in CODESYS
+ *     (`string_conversion_result_tail`, `LanguageTest.residue`). One code unit per code unit, so cutting the result at 255
+ *     IS cutting the operand there — no separate operand node.
+ *   - a SAME-width TO_STRING(STRING) / TO_WSTRING(WSTRING): the result is the NAMED type at the default capacity — 80, not
+ *     255 and not the operand's own (`string_conversion_same_width_255`: 100, 255 and 300 in, 80 out, both widths).
+ *   - a parse (STRING or WSTRING to a number): the operand is cut at 255 on the way in (`string_parse_beyond_255`); a WSTRING
+ *     is narrowed to a STRING of its capacity up to that (`tr_11_string_conversion_beyond_80`: 85 spaces then '12345' is
+ *     12345). An operand of at most 255 units is converted as it is. A WSTRING number followed by spaces parses 0 in
+ *     CODESYS and 5 here (`wstring_parse_trailing_spaces`, niche: accepted loss).
+ *   - a number's text: a STRING at the default capacity — no text these produce is longer.
+ */
 function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse: boolean): IrExpr | undefined {
   const only = oneArgument(e)
   if (only === undefined) return arityRefusal(lw, e)
@@ -137,11 +164,16 @@ function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse
   // the operand keeps its own capacity when it already is a string of the named width; only a sizeless one is 80
   const sameWidth = isString(arg.type) && elemOf(arg.type)?.name === elemOf(from)?.name
   const source = sameWidth ? arg : convert(arg, defaultCapacity(from))
-  const capacity = source.type.kind === "elementary" ? source.type.length : undefined
-  const sized = (t: Type): Type => (t.kind === "elementary" && t.length === undefined && capacity !== undefined ? { ...t, length: capacity } : defaultCapacity(t))
-  if (wideParse) return { kind: "convert", value: convert(source, sized(elementaryRef("STRING"))), type: to, span: e.span }
-  const type = isString(to) && isString(source.type) ? sized(to) : defaultCapacity(to)
-  return { kind: "convert", value: source, type, span: e.span }
+  const capacity = isString(source.type) && source.type.kind === "elementary" ? source.type.length : undefined
+  if (isString(source.type) && capacity === undefined) throw new LoweringBug(`a string conversion's operand has no capacity (${elemOf(source.type)?.name})`)
+  if (wideParse) return { kind: "convert", value: convert(source, withLength(elementaryRef("STRING"), Math.min(capacity!, CONVERSION_RESULT))), type: to, span: e.span }
+  if (isString(to) && isString(source.type)) {
+    const cross = elemOf(to)?.name !== elemOf(source.type)?.name
+    return { kind: "convert", value: source, type: cross ? withLength(to, CONVERSION_RESULT) : defaultCapacity(to), span: e.span }
+  }
+  // a STRING parsed into a number reads at most 255 units of it
+  const read = capacity !== undefined && capacity > CONVERSION_RESULT ? convert(source, withLength(source.type, CONVERSION_RESULT)) : source
+  return { kind: "convert", value: read, type: defaultCapacity(to), span: e.span }
 }
 
 // LREAL_TO_STRING IS IMPLEMENTED AND REAL_TO_STRING IS NOT (`textConversion` refuses it), and the sweep that separated

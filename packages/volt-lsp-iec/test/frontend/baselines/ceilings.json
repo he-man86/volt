@@ -112,7 +112,7 @@
     "library: deref UNKNOWN": 0,
     "library: global_expr UNKNOWN": 0,
     "library: ident_expr UNKNOWN": 0,
-    "library: index UNKNOWN": 49,
+    "library: index UNKNOWN": 47,
     "library: member UNKNOWN": 0,
     "library: paren UNKNOWN": 0,
     "library: unary UNKNOWN": 0,

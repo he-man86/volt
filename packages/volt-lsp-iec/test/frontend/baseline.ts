@@ -182,6 +182,11 @@ const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["string_store_function_result_tail", 9],
   ["string_store_destination_kinds_tail", 12],
   ["string_store_function_input_tail", 3],
+  ["string_conversion_same_width_255", 18],
+  ["string_parse_beyond_255", 29],
+  ["wstring_parse_trailing_spaces", 10],
+  ["cursor_whole_store_capacity", 4],
+  ["lib_stu_replace_past_len", 6],
 ]
 
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [

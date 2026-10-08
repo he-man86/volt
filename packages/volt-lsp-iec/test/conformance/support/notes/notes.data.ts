@@ -467,8 +467,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "50421700bd": note("7.4.3", LEAN.shapes17_2),
   // *x = self.f;
   "50ba9519ad": note("7.6.3", LEAN.shapes17_9),
-  // if !((x < x) && ((x[(x as i64) as usize] as i32) != Li32)) { break; }
-  "50f8dcd811": note("7.4.4", LEAN.shapes16_5),
   // let mut take: i16 = Li16;
   "51ea066d8e": note("7.7.3", LEAN.shapes18_10),
   // loop {

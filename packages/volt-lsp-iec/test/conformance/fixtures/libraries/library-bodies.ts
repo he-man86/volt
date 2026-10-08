@@ -502,6 +502,51 @@ StrReplaceA(pstInput := ADR(atEnd), uiInputBufferSize := 21, pstReplaceWith := A
 END_FUNCTION_BLOCK
 `),
 
+  // transpile-restructure 3.11: StrReplaceA where ILENGTHINPUT (12) reaches PAST the string's length (3) into the bytes a
+  // shorter store left behind its terminator — each STRING(20) is assigned 'abcdefghijkl' and then 'abc', so it holds
+  // 'abc' + 0 + 'efghijkl' + 0. Replaced growing inside the string (position 2), growing at a position behind its
+  // terminator (6) and shrinking inside it; every buffer is dumped [0..20] through `[i]`, so what the in-place move does
+  // to the bytes behind the terminator is read, not only the string up to its first 0. RECORDED (CODESYS 3.5.21.40, 2026-10-08): the move
+  // and the copy run over the whole buffer in place — inside 97 88 89 90 99 0 101…108 0, behind 97 98 99 0 101 88 89 90
+  // 103…108 0 (the copy lands behind the terminator), shrink 97 88 89 90 103…108 0 108 0 ('aXYZghijkl').
+  fb("lib_stu_replace_past_len", "StrReplaceA with iLengthInput past the string's length, over bytes a shorter store left behind its terminator",
+    `FUNCTION_BLOCK FB_LANG_LIB_replace_past_len
+VAR
+\ti : INT;
+\trepl : STRING(10);
+\tinside : STRING(20);
+\tbehind : STRING(20);
+\tshrink : STRING(20);
+\tinsideLo : ARRAY[0..15] OF BYTE;
+\tinsideHi : ARRAY[16..20] OF BYTE;
+\tbehindLo : ARRAY[0..15] OF BYTE;
+\tbehindHi : ARRAY[16..20] OF BYTE;
+\tshrinkLo : ARRAY[0..15] OF BYTE;
+\tshrinkHi : ARRAY[16..20] OF BYTE;
+END_VAR
+repl := 'XYZ';
+inside := 'abcdefghijkl';
+inside := 'abc';
+behind := 'abcdefghijkl';
+behind := 'abc';
+shrink := 'abcdefghijkl';
+shrink := 'abc';
+StrReplaceA(pstInput := ADR(inside), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 12, iLengthToReplace := 1, iLengthToReplaceWith := 3, iPosition := 2);
+StrReplaceA(pstInput := ADR(behind), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 12, iLengthToReplace := 1, iLengthToReplaceWith := 3, iPosition := 6);
+StrReplaceA(pstInput := ADR(shrink), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 12, iLengthToReplace := 3, iLengthToReplaceWith := 1, iPosition := 2);
+FOR i := 0 TO 15 DO
+\tinsideLo[i] := inside[i];
+\tbehindLo[i] := behind[i];
+\tshrinkLo[i] := shrink[i];
+END_FOR
+FOR i := 16 TO 20 DO
+\tinsideHi[i] := inside[i];
+\tbehindHi[i] := behind[i];
+\tshrinkHi[i] := shrink[i];
+END_FOR
+END_FUNCTION_BLOCK
+`),
+
   // ── the primitives the repo's bodies are written in ─────────────────────────────────────────────────────────
   fb("lib_prim_char_past_length", "s[i] past the length but inside the variable: a read, a store, and the terminator idiom buf[SIZEOF(buf) - 1] := 0",
     `FUNCTION_BLOCK FB_LANG_LIB_char_past

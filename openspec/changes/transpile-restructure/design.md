@@ -927,6 +927,45 @@ changes only if that recording disagrees with today's answer.
 says. 3.12: architecture.md's string paragraph (one buffer, `storeString`, 255 conversions, refusals) and the map delta in
 tasks.md from `rate:fixtures`. Then the gate.
 
+**As built (step 3d), where the recordings chose — reality differed from the plan in one rule and two smaller places:**
+- `string_conversion_same_width_255` picked NEITHER of the two rules offered: TO_STRING of a STRING(300) and TO_WSTRING of
+  a WSTRING(300) give 80 units — the conversion's NAMED type at the default capacity, the same as a number's text. It
+  was refused ("not measured yet") and now lowers to that; the 255 cut belongs to the cross-width conversions and the
+  parses only. `string_parse_beyond_255` picked the 255 cut: 290 spaces then '5' parses 0, 250 spaces then '5' parses 5,
+  named and bare, both widths.
+- No separate operand cut for a cross-width conversion: it maps one code unit to one, so a result Type of 255 cuts exactly
+  where cutting the operand would — the extra `convert` node would only print. A parse whose operand is wider than 255 does
+  get the cut node (the parse has no string result to cut); one of at most 255 units is converted as it is, so no
+  STRING_TO_INT of a short string prints a widening copy. `CONVERSION_RESULT` lives in `builtins/conversions.ts`, its one
+  reader, not in `lower/core`.
+- `cursor_whole_store_capacity` recorded the overrun (both forms: `head` 'abcdef' with no terminator, the neighbour
+  'ghij' + 0 then 'Z'), so `cursor-overrun` (not-modelled) refuses a whole-string store through a cursor where
+  `min(n, m_ptr) > m_c` (`pointers/cursor.ts` `refuseCursorOverrun`, asked by `statements/assign.ts` beside
+  `refuseImplicitString`); the local-pointer form was already refused `pointer-type`.
+- `lib_stu_replace_past_len` disagreed with the body on all three cases (the move and the copy run over the whole buffer,
+  behind the terminator too; a copy position past LEN is NOT a no-op). The body now reads and writes back `cap + 1` units
+  and drops its `p > LEN` return; `cnt` is bounded by `cap - src` as well. The fixture's TwinCAT build recording was
+  withdrawn: the TwinCAT fixture project references no StringUtils ("Identifier 'StrReplaceA' not defined"), which is why
+  no library-body fixture carries one.
+
+**Gate 3d review (2026-10-08), what the fixes changed in the above:**
+- The same-width rule now rests on six cells, not two: 100, 255 and 300 units in, 80 out, both widths
+  (`string_conversion_same_width_255` re-recorded) — it rules out "cut to 80 only above 255" and "kept up to 255".
+- The parse cut is separated from "an operand longer than 255 parses 0": a STRING '5' then 290 spaces parses 5 and 253
+  spaces then '12345' parses 12, named and bare, both widths for the latter (`string_parse_beyond_255` re-recorded). The
+  wide '5' + 290 spaces answered 0 for another reason, measured in `wstring_parse_trailing_spaces`: a WSTRING parse of a
+  number followed by spaces is 0 (inside 255 as much as past it) where a STRING parse stops at the spaces. Both backends
+  narrow and answer 5 — known divergence, niche: accepted loss (no WSTRING parse and no user WSTRING in the corpora).
+- `cursor-overrun` is asked wherever something is written through a cursor's `p^`, not only by `storeValue`: an
+  assignment chain's `:=` link (`lowerChain`), an FB output copied out into it (`fbOutputCopy`), and `p^` lent to a
+  writable VAR_IN_OUT / VAR_OUTPUT whose capacity would overrun the caller's string (`bindPlace`; 0 such bindings in the
+  corpora). A string Type without a capacity there is a `LoweringBug`, not a store let through.
+- The TwinCAT build recording of `lib_stu_replace_past_len` is not withdrawn by hand any more: `twincat.build.json` was
+  restored and the recorder run on the four string fixtures only, so the library fixture never enters the TwinCAT batch.
+- StrReplaceA with a `uiInputBufferSize` larger than the caller's string faults at run time in the model (CODESYS writes
+  into the neighbour): niche: accepted loss (0 occurrences — the one corpus caller passes 80 for a STRING(80)), noted in
+  `STRREPLACEA.pou`.
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus

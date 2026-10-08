@@ -14,6 +14,7 @@ import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
 import { assignTo } from "../values/convert.js"
 import { tempPlace } from "../core/temps.js"
+import { refuseCursorOverrun } from "../pointers/cursor.js"
 
 /** `name => target`: a VAR_OUTPUT bound to the caller's place, copied out after the call; left empty, nothing binds here. */
 export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, bound: number, param: IrSlot | undefined): true | undefined {
@@ -62,6 +63,8 @@ export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: I
   // family compare refused the first three and truncated the last.
   if (!isAssignable(target.type, field.type))
     return lw.bail("call-output-type", `${field.name} is read into a variable of another type`, arg.span)
+  // an output copied out through a STRING cursor is a whole-string store into `p^` (`cursor_whole_store_capacity`)
+  if (refuseCursorOverrun(lw, target, field.type, arg.span)) return undefined
   const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
   return assignTo(target, value, arg.span)
 }

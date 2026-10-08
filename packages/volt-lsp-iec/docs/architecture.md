@@ -325,6 +325,20 @@ type (`for-step-type`, `for-limit-type`: a DINT limit on an INT counter does not
 literals by its value. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
 (`ir/walk.loopUses`).
 
+*Strings* (transpile-restructure §3.2). A STRING(n) is ONE buffer of n units plus the terminator at n: the interpreter
+holds it as a JS string of the whole buffer, trailing zeros trimmed (`semantics/string.ts` `held`), Rust as
+`IecStr<T, N>` (`[T; N]`, the terminator implied), and `LEN` is the first 0 — the units behind it are real (`s[i]` reads
+and writes them). Every Type lowering holds carries its capacity (`Lowering.resolve` applies the default 80; a capacity
+that does not fold is refused `string-capacity`). One store rule: `assign` into an existing string writes `min(n, m)`
+units of the SOURCE buffer and a 0 there, and leaves the destination's units behind it (`storeString`, Rust
+`dst.store(&src)`; a literal is a source of its own units); a `convert` fills a fresh buffer. A string conversion hands
+its text through a 255-unit buffer: STRING <-> WSTRING gives STRING(255)/WSTRING(255), a parse reads at most 255 units,
+a same-width TO_STRING / TO_WSTRING and a number's text are the default 80 (`lower/builtins/conversions.ts`). Refused by name:
+an implicit string crossing (`assign-string`), unmeasured escapes (`string-escape`, `wstring-surrogate`,
+`string-non-ascii`), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
+a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun`), REAL_TO_STRING
+(`conversion-type`).
+
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
 a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering
 computes operator types over the same widening lattice `frontend/types/elementary` owns, and an expression that still

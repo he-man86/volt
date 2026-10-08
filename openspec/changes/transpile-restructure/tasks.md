@@ -125,7 +125,7 @@ its RC or lean id in this file.
     | DINT/LINT MIN MOD -1 | open | 6.A.3 |
     | the interpreter's SHL/SHR/ROL count goes through `Number()` | open (`ir/evaluate.ts:81`) | 6.A.4 |
     | LEN(WSTRING) lowers through an implicit narrow | closed upstream (`standard_len_wstring_rejected` refused, no tier) | 8531164eca (RC 38) |
-    | StrReplaceA panics past LEN | open | 3.11 |
+    | StrReplaceA panics past LEN | closed (3.11, step 3d: the body moves the whole buffer as recorded; a buffer size above the caller's string is niche: accepted loss) | 3.11 |
     | `x := F(o => x)`: which write wins | open | 6.A.5 |
     | `hasStatementAfterReturn` misses EXIT/CONTINUE and all-return IFs | open | 1.5.9 moves it as `exitsAfter` with today's behaviour; 7.5.11 fixes it |
     | const-generic in-out names collide | open | 6.A.6 |
@@ -133,7 +133,7 @@ its RC or lean id in this file.
     | `ir/codes.ts` exact codes contradict their prefix families | open | 6.A.8 |
     | `constantValue` swallows every non-LoweringBug throw | open | 6.A.9 |
     | STRING_TO_<int> of '16#FF' / '2#101' / 'INT#5' | open | 6.A.10 |
-    | a whole-string cursor store is cut to the caller's capacity | open | 3.10 |
+    | a whole-string cursor store is cut to the caller's capacity | closed (3.10, step 3d: refused `cursor-overrun` — store, chain link, FB copy-out, VAR_IN_OUT binding) | 3.10 |
     | `overridesCalled` resolves SUPER^.M() against the frame | open | 6.A.11 |
     | a bare METHOD call with an unconnected VAR_OUTPUT in an FB body is refused | open | 6.A.12 |
     | `calledLayout`'s doc about VAR_TEMP | open (it still reads "Refused, until recorded: an FB with VAR_TEMP") | 6.A.13 |
@@ -2815,7 +2815,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     - Numbers: `bun typecheck` clean; `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8598 pass,
       35 skip, 432 todo, 0 fail (9065 tests, 304 files, 502 s); `bun run test:corpus` 19 pass, 1 skip; `bun test scripts`
       37 pass; `bun run lint` exit 0; `bun run check` 18 passed; `openspec validate` valid.
-- [ ] 3.8 Conversions without the 80 cut (RC 11).
+- [x] 3.8 Conversions without the 80 cut (RC 11).
   - What: (rewritten by §3.2 Decision on M5) a STRING<->WSTRING / TO_STRING / TO_WSTRING of a string cuts its operand to 255 on
     the way in and its result Type is STRING(255)/WSTRING(255) — not sized by the source; the units behind the result's
     terminator are written 0 (stack residue in CODESYS, `LanguageTest.residue`). Number->STRING conversions unchanged.
@@ -2827,28 +2827,121 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Accept: F(`string_conversion_result_capacity`, `string_conversion_result_tail`); the two new fixtures recorded and
     confirmed; `tr_11_string_conversion_beyond_80` and `xo3_string_wide_conversions` stay confirmed; M.
   - Depends: 3.6.
-- [ ] 3.9 Tests that pinned the old model.
+  - Done (2026-10-08, step 3d): the four fixtures of the step written first and recorded in ONE `record:exec` batch
+    (CODESYS 3.5.21.40 simulation, 4 cases, 0 failed) and one `record:language` run per vendor (`ide.ps1 -Instance
+    transpile-restructure`, CODESYS fixture copy, TwinCAT `-Fixture 13`): all build clean on CODESYS; TwinCAT builds the
+    three string ones clean (`lib_stu_replace_past_len`'s TwinCAT recording withdrawn — no StringUtils there, see design
+    §3.2 step 3d "As built"). `string_conversion_same_width_255`: 80 and 80 — neither rule offered; a same-width
+    TO_STRING / TO_WSTRING gives the named type at the default capacity (was refused "not measured yet", now lowered).
+    `string_parse_beyond_255`: 290 spaces then '5' → 0, 250 → 5, on STRING_TO_INT, TO_INT, WSTRING_TO_INT, TO_INT — the
+    255 cut. `stringConversion` (`lower/builtins/conversions.ts`): a cross-width result is STRING(255)/WSTRING(255)
+    (`CONVERSION_RESULT`), a same-width one and a number's text the default 80, a parse cuts an operand wider than 255
+    (a wide one narrowed to STRING(min(n, 255))); `sized` deleted; a string operand without a capacity is a `LoweringBug`.
+    - F: `string_conversion_result_capacity`, `string_conversion_result_tail` confirmed (marks removed);
+      `string_conversion_same_width_255`, `string_parse_beyond_255` confirmed; `tr_11_string_conversion_beyond_80`,
+      `xo3_string_wide_conversions` stay confirmed. Src tests (`builtins/conversions.test.ts`, red before the change): the
+      255 result with the 'Z' kept from [256] (144), the same-width 80 and the parse at 255.
+- [x] 3.9 Tests that pinned the old model.
   - What: `pipeline/strings.test.ts`, `semantics/string.test.ts`, `builtins/conversions.test.ts`, `places/places.test.ts`,
     `builtins/value-functions.test.ts`, `pointers/cursor.test.ts`, `test/libraries/{standard,stringutils}.test.ts`: each changed
     expectation cites its recording.
   - Where: those files.
   - Accept: G; the diff lists every changed expectation with its recording.
   - Depends: 3.8.
-- [ ] 3.10 Whole-string cursor store (appendix).
+  - Done (2026-10-08, step 3d): every listed file run against the new model — `pipeline/strings.test.ts`,
+    `semantics/string.test.ts`, `builtins/conversions.test.ts`, `places/places.test.ts`, `builtins/value-functions.test.ts`,
+    `pointers/cursor.test.ts`, `test/libraries/{standard,stringutils}.test.ts` — and NO existing expectation failed: the
+    old model's pins were already replaced at 3.4-3.7 (each citing its recording there). Changed expectations: none.
+    Changed text: one comment in `conversions.test.ts` ("keeps the operand's own capacity past 80" now says up to 255,
+    citing `string_conversion_result_capacity` / `string_parse_beyond_255`). Added: the three 3.8 tests, the 3.10 cursor
+    test, the two 3.11 `stringutils.test.ts` cases — each citing its fixture.
+- [x] 3.10 Whole-string cursor store (appendix).
   - What: record `cursor_whole_store_capacity`; fix it or refuse it by name.
   - Where: `lower/pointers/cursor.ts`.
   - Accept: recorded; F or a named refusal; M.
   - Depends: 3.9.
-- [ ] 3.11 StrReplaceA past LEN (appendix).
+  - Done (2026-10-08, step 3d): `cursor_whole_store_capacity` recorded (in 3.8's batch): through a local POINTER TO
+    STRING(20) and through a FUNCTION's pointer input alike, `p^ := ten` (STRING(10)) into a STRING(5) writes eleven bytes —
+    'abcdef' over the six of `head` (no terminator: its value is unreadable) and 'ghij' + 0 into the 'Z'-filled neighbour.
+    Neighbour overwritten → refused `cursor-overrun` (new code, not-modelled) where `min(n, m_ptr) > m_c`
+    (`pointers/cursor.ts` `refuseCursorOverrun`, asked by `statements/assign.ts` `storeValue`); below it the store is the
+    plain one. The fixture rates `not-lowered` (the local pointer form is refused `pointer-type` first, the cursor form
+    `cursor-overrun`); `map.test.ts` not-lowered ceiling 389 → 390 with the reason. Corpus: 11 whole-string cursor stores,
+    0 refused (design §3.2 step 3d). Src test `pointers/cursor.test.ts` (red first): the overrun refused, a store that fits
+    keeps the unit behind its 0.
+- [x] 3.11 StrReplaceA past LEN (appendix).
   - What: re-run `STRREPLACEA.fun` on the new model; fix the library body only if it is still wrong against its recording.
   - Where: `libraries/StringUtils/**`.
   - Accept: the `stringutils.test.ts` case green against the recorded value.
   - Depends: 3.9.
-- [ ] 3.12 Model delta.
+  - Done (2026-10-08, step 3d): `lib_stu_replace_past_len` recorded (in 3.8's batch): with `iLengthInput` 12 over
+    'abcdefghijkl' := 'abc', CODESYS moves and copies over the whole buffer in place — inside 97 88 89 90 99 0 101…108 0,
+    behind (position 6, past LEN) 97 98 99 0 101 88 89 90 103…108 0, shrink 97 88 89 90 103…108 0 108 0 ('aXYZghijkl').
+    Today's body disagreed on 25 cells (it copied up to the first 0 and returned at a position past LEN), so
+    `STRREPLACEA.pou` changed: the buffer is read and written back whole (`cap + 1` units), the `p > LEN` return is gone,
+    `cnt` is bounded by `cap - src` too. `stringutils.test.ts`: `pastLen` 'aXYZghijkl' and `pastLenTail` 108 (red first);
+    `lib_stu_replace` stays confirmed. A NOTE on the deleted `WHILE PSTINPUT^[n] <> 0` loop (50f8dcd811, 7.4.4) named a
+    construct no fixture emits any more and was deleted (NOTES 704 → 703).
+- [x] 3.12 Model delta.
   - What: architecture.md's string paragraph; the map delta (string fixture sizes).
   - Where: `docs/architecture.md`; this file.
   - Accept: M.
   - Depends: 3.6-3.11.
+  - Done (2026-10-08, step 3d): architecture.md *Strings* paragraph (one buffer, `storeString`, the 255 conversions and
+    the 80 ones, the refusals). M (`rate:fixtures`, 3.8-3.11 together): mapped 5383 → 5387; confirmed 2823 → 2828,
+    diverges 8 → 6 (left: `string_store_function_input_tail`, niche: accepted loss, and five non-string), not-lowered
+    389 → 390 (`cursor_whole_store_capacity`), refused 1989; lowered control 159/148 → 161/150, call 275/273 → 276/273
+    (`lib_stu_replace_past_len`, `clippy::too_many_arguments` 2 → 3); edge agree 3056 → 3059, disagree 0, not-run 184;
+    Rust changed (shape) in `lib_stu_replace` (size 4 → 3.9, pedantic 96 → 87), `tr_11_string_conversion_beyond_80`,
+    `xo3_wstring_across_objects`; median size 3.1 → 3.1, string fixtures' median 3.3 → 3.3 (the two new 2.3 and 2.1, no
+    other moved); pedantic 31858 → 32081 (the four new fixtures' own 232, lib_stu_replace −9); dead_code 5448 → 5492;
+    constructs 1838 → 1839; notes 704 → 703 (one resolved, 3.11). `test/frontend` baselines rewritten, counts only
+    (`STRING_INDEX_ROWS` + the four fixtures, 28 per vendor: index UNKNOWN 130 → 158 / 129 → 157; library index UNKNOWN
+    ceiling 49 → 47 — the StrReplaceA body; recorded values 9878 → 10005); `lsp-transpile-review-gaps` 2.3 +28.
+    - Tests: `bun typecheck` clean; `bun run lint` exit 0; `test/conformance` (full, once) 6246 pass, 390 todo, 0 fail
+      after the ceiling (6 diverge as expected failures); `test/frontend` 45 pass; `src/transpile` 400 pass;
+      `test/libraries` 23 pass; `bun test scripts` 37 pass; `bun run check` 18 passed.
+  - Gate 3d (2026-10-08): the review's seven findings, fixed first (red test first where code changed):
+    1. (3.10, medium) `lowerChain` asked only `refuseImplicitString`, so `x := P^ := SRC` / `P^ := x := SRC` stored past
+       the caller's string silently. Fixed: the chain's `:=` link asks `refuseCursorOverrun` too
+       (`statements/assign.ts`); src test `pointers/cursor.test.ts` (CSTORECL / CSTORECR refused `cursor-overrun`).
+    2. (3.10, medium) an FB output copied out into `P^` (`f(o => P^)`) and `P^` lent to a VAR_IN_OUT STRING(20) wrote past
+       a STRING(5) (the in-out left 10 characters in it). Corpus: 0 such bindings or copy-outs in the six corpora (1996
+       POINTER TO STRING/WSTRING declarations scanned) — cheap, so refused by name rather than accepted: `fbOutputCopy`
+       (`calls/outputs.ts`) and `bindPlace` (`calls/binding.ts`, a writable VAR_IN_OUT / VAR_OUTPUT, by its capacity) ask
+       `refuseCursorOverrun`, which now takes the written Type. Src test (CSTORELEND / CSTORECOPYOUT refused into a
+       STRING(5), 'abcdefghij' into a STRING(20)).
+    3. (3.8, medium) `string_parse_beyond_255` could not tell the 255 cut from "an operand longer than 255 parses 0".
+       Cells added and recorded (record:exec): a STRING '5' then 290 spaces → 5 (named, bare), 253 spaces then '12345' → 12
+       (named, bare, both widths) — the cut, confirmed. The WIDE '5' + 290 spaces answered 0: measured apart in the new
+       `wstring_parse_trailing_spaces` ("5   " in a WSTRING(20), '5' + 254 / 255 / 290 spaces; beside STRING '5   ' → 5):
+       every wide one 0 — a WSTRING parse refuses trailing spaces, inside 255 too, not the cut. Both backends narrow and
+       answer 5: known divergence, "niche: accepted loss (0 occurrences in the corpora: no WSTRING_TO_* parse, and no user
+       POU declares a WSTRING)".
+    4. (3.8, medium) the same-width 80 rested on one operand. 100- and 255-unit operands added, both widths, recorded: 80
+       for all six — "cut to 80 only above 255" and "identity up to 255" ruled out; the fixture stays confirmed.
+    5. (3.11, low) StrReplaceA with `uiInputBufferSize` larger than the caller's string faults at run time (RangeError)
+       where CODESYS writes into the neighbour. Not refusable at lowering (a run-time argument); "niche: accepted loss (0
+       occurrences in the corpora: the one caller, pro2193 ParseInstanceName, passes 80 for a STRING(80))", noted in
+       `STRREPLACEA.pou`.
+    6. (3.8, low) the hand-deleted TwinCAT recording of `lib_stu_replace_past_len`: `twincat.build.json` restored to HEAD
+       and the recorder run (`ide.ps1 -Instance transpile-restructure -Fixture 13`) on the four string fixtures only
+       (`string_conversion_same_width_255`, `string_parse_beyond_255`, `cursor_whole_store_capacity`,
+       `wstring_parse_trailing_spaces`; testCount 5119 → 5123, written by the recorder). CODESYS build recordings of the
+       three changed/new fixtures re-recorded too; all build clean on both vendors.
+    7. (3.10, low) `refuseCursorOverrun` passed silently on a missing capacity. Now: a store of another family is not this
+       one (false); a string source, caller or pointee without a capacity throws `LoweringBug`.
+    - M (`rate:fixtures`, against 3.12's): mapped 5387 → 5388; confirmed 2828; diverges 6 → 7
+      (`wstring_parse_trailing_spaces`); not-lowered 390; refused 1989; lowered control 161/150 → 162/151; edge agree
+      3059 → 3060, disagree 0, not-run 184; pedantic 32081 → 32190; dead_code 5492 → 5506; constructs 1839 → 1838 (HEAD's
+      count), notes 703. `test/frontend` baselines rewritten, counts only (`STRING_INDEX_ROWS`: same_width 6 → 18,
+      parse 12 → 29, `wstring_parse_trailing_spaces` 10 — index UNKNOWN 158 → 197 / 157 → 196; recorded values
+      10005 → 10039); `lsp-transpile-review-gaps` 2.3 +132 → +171.
+    - Numbers: `bun typecheck` clean; `bun run lint` exit 0; `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on)
+      8612 pass, 35 skip, 433 todo, 0 fail (9080 tests, 304 files, 497 s; 7 diverge as expected failures); `bun run
+      test:corpus` 19 pass, 1 skip; `bun test scripts` 37 pass; `bun run check` 18 passed; `openspec validate` valid. The
+      first full run failed only `test/analysis` census counts (fixtures measured 5127 → 5132 / 5116 → 5120 — 3.8-3.11's four
+      fixtures, which 3.12 had not rewritten, and this gate's one), rewritten counts-only.
 
 ## 4. Model 3: pointers and references (RC 14, 15, 16, 17, 18, 20, 26, 44)
 

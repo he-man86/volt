@@ -19,6 +19,7 @@ import { pointeePlace } from "./deref.js"
 import { callHolds, type InvokeBindings } from "../calls/invoke.js"
 import type { InFrame } from "../calls/specialize.js"
 import { bindInOut, bindPlace } from "../calls/binding.js"
+import { LoweringBug } from "../../semantics/faults.js"
 
 /** The character type of a STRING (BYTE) or WSTRING (WORD) — undefined for anything else. */
 export function charsOf(t: Type): Type | undefined {
@@ -91,6 +92,36 @@ export function cursorString(lw: Lowering, pointer: Place, span: Span): Place | 
     return null
   }
   return { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
+}
+
+/**
+ * A WHOLE-STRING STORE THROUGH A CURSOR THAT WRITES PAST THE CALLER'S STRING — refused, true when refused. `p^ := v`
+ * through a `POINTER TO STRING(m_ptr)` writes `min(n, m_ptr)` units of `v` and a 0 (M2) into memory starting at the
+ * caller's string, whose capacity `m_c` the hidden VAR_IN_OUT holds: where `min(n, m_ptr) > m_c` CODESYS writes on into
+ * whatever lies behind the variable (`cursor_whole_store_capacity`: a STRING(10) through a POINTER TO STRING(20) into a
+ * STRING(5) puts 'ghij' + 0 into the next field), which is no place the model holds — cut at `m_c` it would be a silent
+ * wrong answer. Below that bound the store is the plain one, whose 0 lands at `min(n, m_ptr)` either way.
+ * `written` is what is written's type: the stored value's, an FB output's copied out into `p^` (`f(o => p^)`), or the
+ * VAR_IN_OUT (VAR_OUTPUT) `p^` is lent to, which the callee stores up to its own capacity (`bindPlace`).
+ */
+export function refuseCursorOverrun(lw: Lowering, target: Place, written: Type, span: Span): boolean {
+  const pointer = target.guard
+  if (target.root !== "inout" || pointer?.type.kind !== "pointer" || cursorOf(lw, pointer) === undefined) return false
+  const through = lw.sized(pointer.type.target, span)
+  // only a whole STRING (WSTRING) store is this one; a value of another family is refused (or converted) elsewhere
+  if (elemOf(through)?.family !== "string" || elemOf(written)?.family !== "string") return false
+  // every string Type carries its capacity (3.3) — one without is a bug upstream, never a store let through unbounded
+  const capacity = (t: Type, what: string): number => {
+    const length = t.kind === "elementary" ? t.length : undefined
+    if (length === undefined) throw new LoweringBug(`a whole-string cursor store's ${what} has no capacity (${elemOf(t)?.name})`)
+    return length
+  }
+  const n = capacity(written, "source")
+  const caller = capacity(target.type, "caller's string")
+  const viaPointer = capacity(through, "pointee")
+  if (Math.min(n, viaPointer) <= caller) return false
+  lw.bail("cursor-overrun", `a ${elemOf(through)!.name}(${n}) written through a POINTER TO ${elemOf(through)!.name}(${viaPointer}) into a ${elemOf(through)!.name}(${caller}) writes past the variable, into memory the model does not hold`, span)
+  return true
 }
 
 /** Each routine's STRING CURSOR inputs (`PointerFrame.cursors`): the input slot index → the hidden VAR_IN_OUT a call binds

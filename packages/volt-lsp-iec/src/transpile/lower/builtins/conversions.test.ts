@@ -103,7 +103,8 @@ END_FUNCTION
 // transpile-review 11: STRING<->WSTRING and STRING->number conversions cut the operand to 80 characters, and a
 // WSTRING->number was refused. CODESYS (`tr_11_string_conversion_beyond_80`) converts the whole operand: 90 spaces then
 // '5' is 5 through STRING_TO_INT and TO_INT, 85 spaces then '12345' is 12345 through WSTRING_TO_INT and TO_INT, a
-// WSTRING of 100 narrows to a STRING of 100, a STRING of 91 widens to 91.
+// WSTRING of 100 narrows to a STRING of 100, a STRING of 91 widens to 91. (Up to 255: past it a conversion cuts — the
+// 3.8 tests below, `string_conversion_result_capacity` and `string_parse_beyond_255`.)
 test("a string conversion keeps the operand's own capacity past 80 characters", () => {
   const { pou, diagnostics } = lowerSource(
     "PROGRAM P\nVAR i : INT; txt : STRING(120); wide : WSTRING(120); w100 : WSTRING(120); narrow : STRING(120); widened : WSTRING(120);\n" +
@@ -120,6 +121,57 @@ test("a string conversion keeps the operand's own capacity past 80 characters", 
   const runner = run(pou!)
   runner.scan()
   expect(["namedInt", "bareInt", "crossNamed", "crossBare", "cnt", "wideLen"].map((n) => runner.get(n))).toEqual([5n, 5n, 12345n, 12345n, 100n, 91n])
+})
+
+// transpile-restructure 3.8 (design §3.2 Decision, step 3d): a STRING<->WSTRING conversion's result is a STRING(255) /
+// WSTRING(255), not a buffer sized by its source — `string_conversion_result_capacity` (CODESYS 3.5.21.40): 300 units in,
+// 255 out, named and bare alike; 200 in, 200 out. The units behind its terminator are 0 in the model (stack residue in
+// CODESYS, `string_conversion_result_tail`), so a 'Z'-filled STRING(400) keeps 'Z' from [256] only.
+test("a STRING<->WSTRING conversion result is cut at 255 units, whatever its source's capacity", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR i : INT; n200 : STRING(200); n300 : STRING(300); w300 : WSTRING(300);\n" +
+      "toWide200 : WSTRING(400); toWide300 : WSTRING(400); bareWide300 : WSTRING(400); toNarrow300 : STRING(400); bareNarrow300 : STRING(400);\n" +
+      "zNarrow : STRING(400); kept : INT; END_VAR\n" +
+      "FOR i := 0 TO 199 DO n200[i] := 120; END_FOR\nn200[200] := 0;\n" +
+      "FOR i := 0 TO 299 DO n300[i] := 120; w300[i] := 121; END_FOR\nn300[300] := 0;\nw300[300] := 0;\n" +
+      "FOR i := 0 TO 399 DO zNarrow[i] := 90; END_FOR\nzNarrow[400] := 0;\n" +
+      "toWide200 := STRING_TO_WSTRING(n200);\ntoWide300 := STRING_TO_WSTRING(n300);\nbareWide300 := TO_WSTRING(n300);\n" +
+      "toNarrow300 := WSTRING_TO_STRING(w300);\nbareNarrow300 := TO_STRING(w300);\nzNarrow := WSTRING_TO_STRING(w300);\n" +
+      "kept := 0;\nFOR i := 0 TO 399 DO IF zNarrow[i] = 90 THEN kept := kept + 1; END_IF END_FOR\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics.map((d) => d.code)).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  const len = (name: string) => (runner.get(name) as string).length
+  expect(["toWide200", "toWide300", "bareWide300", "toNarrow300", "bareNarrow300"].map(len)).toEqual([200, 255, 255, 255, 255])
+  // 255 units and the terminator at [255] written; [256..399] keep their 'Z' (`string_conversion_result_tail`: zNarrowKept)
+  expect(runner.get("kept")).toBe(144n)
+})
+
+// transpile-restructure 3.8, the two neighbours M5 left unmeasured, recorded (CODESYS 3.5.21.40, 2026-10-08):
+// `string_conversion_same_width_255` — TO_STRING of a STRING(300) and TO_WSTRING of a WSTRING(300) give 80 units, the
+// named type's default capacity (it was refused, "not measured yet"); `string_parse_beyond_255` — 290 spaces then '5'
+// parses 0 (the operand is cut at 255), 250 spaces then '5' parses 5, through STRING_TO_INT, WSTRING_TO_INT and TO_INT.
+test("a same-width TO_STRING / TO_WSTRING gives the default 80 units; a parse reads at most 255", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR i : INT; n300 : STRING(300); w300 : WSTRING(300); narrow : STRING(400); wide : WSTRING(400);\n" +
+      "n290 : STRING(300); w290 : WSTRING(300); n250 : STRING(300); w250 : WSTRING(300);\n" +
+      "named290 : INT; bare290 : INT; wideNamed290 : INT; wideBare290 : INT; named250 : INT; bare250 : INT; wideNamed250 : INT; wideBare250 : INT; END_VAR\n" +
+      "FOR i := 0 TO 299 DO n300[i] := 120; w300[i] := 121; END_FOR\nn300[300] := 0;\nw300[300] := 0;\n" +
+      "narrow := TO_STRING(n300);\nwide := TO_WSTRING(w300);\n" +
+      "FOR i := 0 TO 289 DO n290[i] := 32; w290[i] := 32; END_FOR\nn290[290] := 53;\nw290[290] := 53;\n" +
+      "FOR i := 0 TO 249 DO n250[i] := 32; w250[i] := 32; END_FOR\nn250[250] := 53;\nw250[250] := 53;\n" +
+      "named290 := STRING_TO_INT(n290);\nbare290 := TO_INT(n290);\nwideNamed290 := WSTRING_TO_INT(w290);\nwideBare290 := TO_INT(w290);\n" +
+      "named250 := STRING_TO_INT(n250);\nbare250 := TO_INT(n250);\nwideNamed250 := WSTRING_TO_INT(w250);\nwideBare250 := TO_INT(w250);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics.map((d) => d.code)).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([(runner.get("narrow") as string).length, (runner.get("wide") as string).length]).toEqual([80, 80])
+  const parsed = ["named290", "bare290", "wideNamed290", "wideBare290", "named250", "bare250", "wideNamed250", "wideBare250"]
+  expect(parsed.map((n) => runner.get(n))).toEqual([0n, 0n, 0n, 0n, 5n, 5n, 5n, 5n])
 })
 
 // `{attribute 'to_string'}` on an enum (frontend-conformance 2.10, P15; `prag_to_string_*`, CODESYS 2026-10-02): TO_STRING,

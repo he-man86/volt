@@ -20,6 +20,7 @@ import { lowerPropertySet } from "../calls/property.js"
 import { registerWholeCopy } from "../calls/last-binding.js"
 import { pointerTargets } from "../pointers/state.js"
 import { tempPlace } from "../core/temps.js"
+import { refuseCursorOverrun } from "../pointers/cursor.js"
 
 /**
  * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
@@ -46,7 +47,7 @@ function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): Ir
     if (target === undefined) return undefined
     const op = ops[i]
     if (op === undefined) {
-      if (refuseImplicitString(lw, flowing, target.type, s.span)) return undefined
+      if (refuseImplicitString(lw, flowing, target.type, s.span) || refuseCursorOverrun(lw, target, flowing.type, s.span)) return undefined
       flowing = convert(flowing, target.type) // a `:=` link converts the value on its way through
       out.push({ kind: "assign", target, value: flowing, span: s.span })
       continue
@@ -135,7 +136,7 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   //
   // Only the IMPLICIT store is refused. `STRING_TO_INT('123')` is an explicit conversion and stays, which is the
   // whole difference CODESYS draws.
-  if (refuseImplicitString(lw, value, target.type, s.span)) return undefined
+  if (refuseImplicitString(lw, value, target.type, s.span) || refuseCursorOverrun(lw, target, value.type, s.span)) return undefined
   // A pointer target is kept FRAME-RELATIVE (`pointerKey`: `FB:<name>.<field>`), so an instance copied whole would
   // point at its OWN member where CODESYS copies the address and keeps the source's (`tr_15_fb_copy_keeps_pointer_address`:
   // rb=7, `b.p = ADR(a.x)`). A target outside the copied instance is not modelled: refused (transpile-review 15).

@@ -656,7 +656,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // (`fixtures/cross-object/init-order.ts`) — every one initializes an FB instance's input with another PROGRAM's instance
   // (or its own later instance), which lowering refuses as "an initial value that is not a compile-time constant". No
   // fixture moved.
-  "not-lowered": 389,
+  // 389 -> 390, FOR MEASUREMENT. transpile-restructure 3.10 (2026-10-08): `cursor_whole_store_capacity` — a STRING(10)
+  // stored through a POINTER TO STRING(20) into a STRING(5), which CODESYS builds and runs by writing past the variable
+  // into its neighbour; lowering refuses it by name (`cursor-overrun`; the local pointer form `pointer-type`). No fixture
+  // moved.
+  "not-lowered": 390,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

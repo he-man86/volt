@@ -65,6 +65,10 @@ const CASES: readonly [name: string, type: string, body: string, expected: unkno
   ["midInPlace", "STRING(20)", "StrMidA(ADR(midInPlace), 21, 5, 11, ADR(midInPlace), 21);", "Plant"],
   ["replaced", "STRING(20)", "StrReplaceA(ADR(replaced), 21, ADR(underscore), 1, 1, 1, 7);", "Device_App"],
   ["grown", "STRING(20)", "StrReplaceA(ADR(grown), 21, ADR(abc), 3, 1, 3, 2);", "aabcc"],
+  // iLengthInput (12) past the length (3): the move runs over the bytes 'abcdefghijkl' := 'abc' left behind the terminator,
+  // in place — `lib_stu_replace_past_len` (CODESYS 3.5.21.40): 97 88 89 90 103…108 0 108 0, so 'aXYZghijkl', [11] = 'l'
+  ["pastLen", "STRING(20)", "pastLen := 'abc'; StrReplaceA(ADR(pastLen), 21, ADR(xyz), 12, 3, 1, 2);", "aXYZghijkl"],
+  ["pastLenTail", "BYTE", "pastLenTail := pastLen[11];", 108n],
   ["upper", "BYTE", "upper := CharToUpper(16#61);", 0x41n],
   ["space", "BOOL", "space := IsSpaceCharacter(16#09);", true],
 ]
@@ -75,7 +79,7 @@ const STRINGS =
   "abd : STRING := 'abd'; ab : STRING := 'ab'; upperAbc : STRING := 'ABC'; hel : STRING := 'hel'; llo : STRING := 'llo'; " +
   "upperLlo : STRING := 'LLO'; padded : STRING(10); paddedRight : STRING(10); twice : STRING := 'ababab'; " +
   "trimmed : STRING(20) := ' $T a b  '; midInPlace : STRING(20) := 'Device.PLCPlant'; replaced : STRING(20) := 'Device.App'; " +
-  "grown : STRING(20) := 'abc'; underscore : STRING := '_'; " +
+  "grown : STRING(20) := 'abc'; underscore : STRING := '_'; pastLen : STRING(20) := 'abcdefghijkl'; xyz : STRING := 'XYZ'; " +
   "wide : WSTRING := \"hello\"; wide2 : WSTRING(30) := \"hello\"; wideLo : WSTRING := \"lo\";"
 
 const results = CASES.filter(([name, , body]) => body !== "" && !STRINGS.includes(`${name} :`)).map(([name, type]) => `${name} : ${type};`).join(" ")

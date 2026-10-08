@@ -44,7 +44,20 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
 
   const DEREF = lib("CDEREF", "FUNCTION CDEREF : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nCDEREF := P[1];\nEND_FUNCTION\n")
 
-  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE, SHIFT, FROMBYTE, WHOLELEN, WHOLEFROMBYTE, STEPWHOLE, LENOR, DEREF]
+  // a whole-string store through a POINTER TO STRING(20) (`cursor_whole_store_capacity`)
+  const STORE = lib("CSTORE", "FUNCTION CSTORE : BOOL\nVAR_INPUT\n\tP : POINTER TO STRING(20);\n\tSRC : STRING(10);\nEND_VAR\nP^ := SRC;\nCSTORE := TRUE;\nEND_FUNCTION\n")
+
+  // the same store as a link of an assignment chain, either end (gate 3d review)
+  const CHAIN_LEFT = lib("CSTORECL", "FUNCTION CSTORECL : BOOL\nVAR_INPUT\n\tP : POINTER TO STRING(20);\n\tSRC : STRING(10);\nEND_VAR\nVAR\n\tx : STRING(20);\nEND_VAR\nx := P^ := SRC;\nCSTORECL := TRUE;\nEND_FUNCTION\n")
+  const CHAIN_RIGHT = lib("CSTORECR", "FUNCTION CSTORECR : BOOL\nVAR_INPUT\n\tP : POINTER TO STRING(20);\n\tSRC : STRING(10);\nEND_VAR\nVAR\n\tx : STRING(20);\nEND_VAR\nP^ := x := SRC;\nCSTORECR := TRUE;\nEND_FUNCTION\n")
+
+  // the same write by a callee: P^ lent to a VAR_IN_OUT STRING(20) it stores into, and an FB output copied out into P^
+  const CIO = lib("CIO", "FUNCTION CIO : BOOL\nVAR_IN_OUT\n\tio : STRING(20);\nEND_VAR\nio := 'abcdefghij';\nCIO := TRUE;\nEND_FUNCTION\n")
+  const LEND = lib("CSTORELEND", "FUNCTION CSTORELEND : BOOL\nVAR_INPUT\n\tP : POINTER TO STRING(20);\nEND_VAR\nCIO(io := P^);\nCSTORELEND := TRUE;\nEND_FUNCTION\n")
+  const FBO = lib("FBO", "FUNCTION_BLOCK FBO\nVAR_OUTPUT\n\to : STRING(10);\nEND_VAR\no := 'abcdefghij';\nEND_FUNCTION_BLOCK\n")
+  const COPYOUT = lib("CSTORECOPYOUT", "FUNCTION CSTORECOPYOUT : BOOL\nVAR_INPUT\n\tP : POINTER TO STRING(20);\nEND_VAR\nVAR\n\tf : FBO;\nEND_VAR\nf(o => P^);\nCSTORECOPYOUT := TRUE;\nEND_FUNCTION\n")
+
+  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE, SHIFT, FROMBYTE, WHOLELEN, WHOLEFROMBYTE, STEPWHOLE, LENOR, DEREF, STORE, CHAIN_LEFT, CHAIN_RIGHT, CIO, LEND, FBO, COPYOUT]
 
   const scanned = (vars: string, body: string) => {
     const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P", LIBS)
@@ -111,6 +124,42 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
     // into two strings, each is its own
     const p = scanned("sv : STRING := 'Device.Main'; t : STRING(20);", "CSHIFT(ADR(sv), 7, ADR(t));")
     expect([p.get("sv"), p.get("t")]).toEqual(["Device.Main", "Main"])
+  })
+
+  // transpile-restructure 3.10: `p^ := src` through a POINTER TO STRING(20) writes min(n, 20) units and a 0 — past the
+  // caller's variable when that is shorter. `cursor_whole_store_capacity` (CODESYS 3.5.21.40): a STRING(10) 'abcdefghij'
+  // stored through it into a STRING(5) writes 'abcdef' over the 5 + 1 bytes and 'ghij' + 0 into the STRING(10) behind it.
+  // Writing past the variable is no place the model holds, so it is refused by name where min(n, m_ptr) > m_caller; a store
+  // that fits is the plain store, which keeps the units behind its 0 (M2).
+  test("a whole-string store through a cursor that would write past the caller's string is refused; one that fits stores", () => {
+    const over = lowerSource("PROGRAM P\nVAR sv : STRING(5); ten : STRING(10) := 'abcdefghij'; END_VAR\nCSTORE(ADR(sv), ten);\nEND_PROGRAM\n", "P", LIBS)
+    expect([over.pou, over.diagnostics.map((d) => d.code)]).toEqual([undefined, ["cursor-overrun"]])
+    // min(10, 20) = 10 fits a STRING(10) and a STRING(12): written whole, the 0 at [10], [11] kept
+    const p = scanned("sv : STRING(12) := 'ZZZZZZZZZZZZ'; ten : STRING(10) := 'abc'; c : BYTE;", "CSTORE(ADR(sv), ten);\nc := sv[11];")
+    expect([p.get("sv"), p.get("c")]).toEqual(["abc", 90n])
+  })
+
+  // gate 3d review: the store is the same one when it is a link of an assignment chain — `x := P^ := SRC` and
+  // `P^ := x := SRC` write the STRING(10) through the POINTER TO STRING(20) as the plain `P^ := SRC` does
+  // (`cursor_whole_store_capacity`), so they are refused by the same name.
+  test("a whole-string cursor store inside an assignment chain is refused as the plain store is", () => {
+    for (const fn of ["CSTORECL", "CSTORECR"]) {
+      const over = lowerSource(`PROGRAM P\nVAR sv : STRING(5); ten : STRING(10) := 'abcdefghij'; END_VAR\n${fn}(ADR(sv), ten);\nEND_PROGRAM\n`, "P", LIBS)
+      expect([fn, over.pou, over.diagnostics.map((d) => d.code)]).toEqual([fn, undefined, ["cursor-overrun"]])
+    }
+  })
+
+  // gate 3d review: a callee writes through P^ as well — lent to a VAR_IN_OUT STRING(20) it stores 10 units into, or an
+  // FB's STRING(10) output copied out into it. Into a STRING(5) both write past the variable as `P^ := SRC` does
+  // (`cursor_whole_store_capacity`); the model would hold 10 units in a STRING(5), or cut them. Refused by the same name
+  // (0 such bindings in the six corpora). Into a STRING(20) they fit and run.
+  test("P^ lent to a wider VAR_IN_OUT or given a wider output is refused as the store is; one that fits runs", () => {
+    for (const fn of ["CSTORELEND", "CSTORECOPYOUT"]) {
+      const over = lowerSource(`PROGRAM P\nVAR sv : STRING(5); END_VAR\n${fn}(ADR(sv));\nEND_PROGRAM\n`, "P", LIBS)
+      expect([fn, over.pou, over.diagnostics.map((d) => d.code)]).toEqual([fn, undefined, ["cursor-overrun"]])
+      const p = scanned("sv : STRING(20);", `${fn}(ADR(sv));`)
+      expect([fn, p.get("sv")]).toEqual([fn, "abcdefghij"])
+    }
   })
 
   test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {

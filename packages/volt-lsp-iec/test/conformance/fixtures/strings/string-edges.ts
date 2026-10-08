@@ -606,7 +606,7 @@ toNarrow300 := WSTRING_TO_STRING(w300);
 bareNarrow300 := TO_STRING(w300);
 ${lengths([["toWide200", "lenToWide200"], ["toWide300", "lenToWide300"], ["bareWide300", "lenBareWide300"], ["toNarrow300", "lenToNarrow300"], ["bareNarrow300", "lenBareNarrow300"]])}
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure 3.1 M5): CODESYS cuts a STRING<->WSTRING conversion result at 255 units — 300 in, 255 out, named (STRING_TO_WSTRING, WSTRING_TO_STRING) and bare (TO_WSTRING, TO_STRING) alike; 200 in is 200 out. The lowering sizes the result by its source (RC 11's fix) and gives 300. Model 2 (§3.2), task 3.8." } },
+`) },
 
   // M5 Standard functions: CONCAT of two 150-unit STRING(200)s, and LEFT / RIGHT / MID / INSERT / DELETE / REPLACE / FIND /
   // LEN of a 300-unit STRING(300) ('x', with a 'Q' at [280]), each into a STRING(400) counted up to the first 0 (`lengths`) — a cut inside the
@@ -712,7 +712,7 @@ FOR i := 263 TO 399 DO
 \tEND_IF
 END_FOR
 END_FUNCTION_BLOCK
-`), residue: [...tailPaths("zeroWide", 201, 254), ...tailPaths("zWide", 201, 254), ...tailPaths("zNarrow", 201, 254), "inst.zeroWideNonZero"], deferred: { transpile: "2026-10-08 (transpile-restructure gate 3a): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. A conversion's result is a 255-unit buffer: the store into a WSTRING(400) / STRING(400) writes 255 units (the 200 converted, the terminator at [200], residue at [201..254] — `residue`, different on every run) and its own terminator at [255], and keeps 'Z' from [256] (137 kept in [263..399]). Task 3.8 too: a result sized by its source (200, RC 11's fix) would keep 'Z' from [201]." } },
+`), residue: [...tailPaths("zeroWide", 201, 254), ...tailPaths("zWide", 201, 254), ...tailPaths("zNarrow", 201, 254), "inst.zeroWideNonZero"] },
 
   // M2 from a FUNCTION RESULT (gate 3a): CONCAT, LEFT, a conversion and a user FUNCTION whose result holds 'efghij' behind
   // a 0 at [3], each stored into a 'Z'-filled STRING(20) and dumped [0..20] — sources M2's rule was not measured on.
@@ -850,4 +850,249 @@ okDirty := F_StrTailInput(p := 'YYYYYYYYYYYYYYYYYYYY', lo := dirtyLo, hi := dirt
 okP := F_StrTailInput(p := src, lo := pLo, hi := pHi);
 END_FUNCTION_BLOCK
 `), deferred: { transpile: "2026-10-08 (transpile-restructure gate 3c): a FUNCTION's VAR_INPUT STRING(20) holds, behind the units a call's pass stores, the units the PREVIOUS call through the same frame left there — p[11..19] read 89 after a 20-'Y' call, 90 after a 20-'Z' one (record:exec, both reproducible); both backends start the input at zeros and read 0. Modelling it means a function frame that persists between calls at the vendor's stack layout. Only reachable by reading behind a function input's terminator; niche: accepted loss (0 occurrences in the corpora: 0 of the corpora's FUNCTIONs with a STRING/WSTRING VAR_INPUT index it)" } },
+
+  // 3.8's two unmeasured neighbours of M5 (design §3.2 Decision step 3d), recorded before their rule is written.
+  // SAME-width: TO_STRING of a STRING and TO_WSTRING of a WSTRING of 300, 255 and 100 units ('x' / 'y', filled by index),
+  // each into a 400-unit destination and counted up to the first 0 (`lengths`) — the operand's own length means it is
+  // kept, 255 the cross-width conversions' cut, 80 the default capacity. 100 and 255 separate 80 from "cut to 80 only
+  // above 255" and "kept up to 255" (gate 3d review). RECORDED (CODESYS 3.5.21.40, 2026-10-08): 80 for all six — the
+  // result is the named type at its default capacity, whatever the operand.
+  whole("string_conversion_same_width_255", "a same-width TO_STRING / TO_WSTRING of a 300-, 255- and 100-unit operand: cut at 255, kept, or 80 (transpile-restructure 3.8)",
+    `FUNCTION_BLOCK FB_LANG_string_conversion_same_width_255
+VAR
+\ti : INT;
+\tn300 : STRING(300);
+\tw300 : WSTRING(300);
+\tnarrow : STRING(400);
+\twide : WSTRING(400);
+\tlenNarrow : INT;
+\tlenWide : INT;
+\tn100 : STRING(120);
+\tw100 : WSTRING(120);
+\tn255 : STRING(300);
+\tw255 : WSTRING(300);
+\tnarrow100 : STRING(400);
+\twide100 : WSTRING(400);
+\tnarrow255 : STRING(400);
+\twide255 : WSTRING(400);
+\tlenNarrow100 : INT;
+\tlenWide100 : INT;
+\tlenNarrow255 : INT;
+\tlenWide255 : INT;
+END_VAR
+FOR i := 0 TO 299 DO
+\tn300[i] := 120;
+\tw300[i] := 121;
+END_FOR
+n300[300] := 0;
+w300[300] := 0;
+FOR i := 0 TO 99 DO
+\tn100[i] := 120;
+\tw100[i] := 121;
+END_FOR
+n100[100] := 0;
+w100[100] := 0;
+FOR i := 0 TO 254 DO
+\tn255[i] := 120;
+\tw255[i] := 121;
+END_FOR
+n255[255] := 0;
+w255[255] := 0;
+narrow := TO_STRING(n300);
+wide := TO_WSTRING(w300);
+narrow100 := TO_STRING(n100);
+wide100 := TO_WSTRING(w100);
+narrow255 := TO_STRING(n255);
+wide255 := TO_WSTRING(w255);
+${lengths([["narrow", "lenNarrow"], ["wide", "lenWide"], ["narrow100", "lenNarrow100"], ["wide100", "lenWide100"], ["narrow255", "lenNarrow255"], ["wide255", "lenWide255"]])}END_FUNCTION_BLOCK
+`),
+
+  // A string -> number PARSE of an operand longer than 255, as a STRING(300) and a WSTRING(300) filled by index, through
+  // STRING_TO_INT / WSTRING_TO_INT and the bare TO_INT: 290 spaces then '5' (and 250 spaces then '5', inside 255) — a cut
+  // at 255 parses only spaces (0), the operand's own capacity 5; and, separating the cut from "an operand longer than 255
+  // parses 0" (gate 3d review), '5' then 290 spaces (narrow: a number wholly inside the first 255 units) and 253 spaces
+  // then '12345' (a number across unit 255). `tr_11_string_conversion_beyond_80` measured 90 units. RECORDED (CODESYS
+  // 3.5.21.40, 2026-10-08): 290 → 0, 250 → 5, '5' + 290 spaces → 5, 253 spaces + '12345' → 12 — the parse reads the first
+  // 255 units. The WIDE '5' + 290 spaces is `wstring_parse_trailing_spaces`'s: a WSTRING parse refuses trailing spaces.
+  whole("string_parse_beyond_255", "STRING_TO_INT / WSTRING_TO_INT / TO_INT of operands longer than 255 with the number before, across and after unit 255: does the parse cut at 255 (transpile-restructure 3.8)",
+    `FUNCTION_BLOCK FB_LANG_string_parse_beyond_255
+VAR
+\ti : INT;
+\tn290 : STRING(300);
+\tw290 : WSTRING(300);
+\tn250 : STRING(300);
+\tw250 : WSTRING(300);
+\tnamed290 : INT;
+\tbare290 : INT;
+\twideNamed290 : INT;
+\twideBare290 : INT;
+\tnamed250 : INT;
+\tbare250 : INT;
+\twideNamed250 : INT;
+\twideBare250 : INT;
+\tnLead : STRING(300);
+\tnSpan : STRING(300);
+\twSpan : WSTRING(300);
+\tnamedLead : INT;
+\tbareLead : INT;
+\tnamedSpan : INT;
+\tbareSpan : INT;
+\twideNamedSpan : INT;
+\twideBareSpan : INT;
+END_VAR
+FOR i := 0 TO 289 DO
+\tn290[i] := 32;
+\tw290[i] := 32;
+END_FOR
+n290[290] := 53;
+w290[290] := 53;
+n290[291] := 0;
+w290[291] := 0;
+FOR i := 0 TO 249 DO
+\tn250[i] := 32;
+\tw250[i] := 32;
+END_FOR
+n250[250] := 53;
+w250[250] := 53;
+n250[251] := 0;
+w250[251] := 0;
+named290 := STRING_TO_INT(n290);
+bare290 := TO_INT(n290);
+wideNamed290 := WSTRING_TO_INT(w290);
+wideBare290 := TO_INT(w290);
+named250 := STRING_TO_INT(n250);
+bare250 := TO_INT(n250);
+wideNamed250 := WSTRING_TO_INT(w250);
+wideBare250 := TO_INT(w250);
+nLead[0] := 53;
+FOR i := 1 TO 290 DO
+\tnLead[i] := 32;
+END_FOR
+nLead[291] := 0;
+FOR i := 0 TO 252 DO
+\tnSpan[i] := 32;
+\twSpan[i] := 32;
+END_FOR
+nSpan[253] := 49;
+wSpan[253] := 49;
+nSpan[254] := 50;
+wSpan[254] := 50;
+nSpan[255] := 51;
+wSpan[255] := 51;
+nSpan[256] := 52;
+wSpan[256] := 52;
+nSpan[257] := 53;
+wSpan[257] := 53;
+nSpan[258] := 0;
+wSpan[258] := 0;
+namedLead := STRING_TO_INT(nLead);
+bareLead := TO_INT(nLead);
+namedSpan := STRING_TO_INT(nSpan);
+bareSpan := TO_INT(nSpan);
+wideNamedSpan := WSTRING_TO_INT(wSpan);
+wideBareSpan := TO_INT(wSpan);
+END_FUNCTION_BLOCK
+`),
+
+  // A WSTRING parse of a number followed by SPACES (found by string_parse_beyond_255's first wide '5' + 290 spaces, gate 3d
+  // review): "5   " in a WSTRING(20), and '5' then 254 / 255 / 290 spaces in a WSTRING(300), through WSTRING_TO_INT and
+  // TO_INT, beside the same "5   " as a STRING(20). RECORDED (CODESYS 3.5.21.40, 2026-10-08): every wide one parses 0,
+  // the narrow one 5 — a WSTRING parse refuses trailing spaces where a STRING parse stops at them; inside 255 as much as
+  // past it, so it is not the cut.
+  { ...whole("wstring_parse_trailing_spaces", "WSTRING_TO_INT / TO_INT of a WSTRING number followed by spaces (\"5   \", '5' + 254/255/290 spaces) beside STRING_TO_INT of '5   ' (transpile-restructure 3.8)",
+    `FUNCTION_BLOCK FB_LANG_wstring_parse_trailing_spaces
+VAR
+\ti : INT;
+\tnTrail : STRING(20);
+\twTrail : WSTRING(20);
+\twLead : WSTRING(300);
+\twLead255 : WSTRING(300);
+\twLead256 : WSTRING(300);
+\tnamedTrail : INT;
+\twideNamedTrail : INT;
+\twideBareTrail : INT;
+\twideNamedLead : INT;
+\twideBareLead : INT;
+\twideNamedLead255 : INT;
+\twideNamedLead256 : INT;
+END_VAR
+nTrail := '5   ';
+wTrail := "5   ";
+namedTrail := STRING_TO_INT(nTrail);
+wideNamedTrail := WSTRING_TO_INT(wTrail);
+wideBareTrail := TO_INT(wTrail);
+wLead[0] := 53;
+wLead255[0] := 53;
+wLead256[0] := 53;
+FOR i := 1 TO 290 DO
+\twLead[i] := 32;
+END_FOR
+wLead[291] := 0;
+FOR i := 1 TO 254 DO
+\twLead255[i] := 32;
+\twLead256[i] := 32;
+END_FOR
+wLead255[255] := 0;
+wLead256[255] := 32;
+wLead256[256] := 0;
+wideNamedLead := WSTRING_TO_INT(wLead);
+wideBareLead := TO_INT(wLead);
+wideNamedLead255 := WSTRING_TO_INT(wLead255);
+wideNamedLead256 := WSTRING_TO_INT(wLead256);
+END_FUNCTION_BLOCK
+`), deferred: { transpile: "2026-10-08 (transpile-restructure gate 3d): a WSTRING parse of a number followed by spaces answers 0 (\"5   \", '5' + 254/255/290 spaces, WSTRING_TO_INT and TO_INT alike) where a STRING parse stops at the spaces and answers 5; both backends narrow the WSTRING and parse it as a STRING, and answer 5. What a WSTRING parse does with any other trailing character is unmeasured. niche: accepted loss (0 occurrences in the corpora: no WSTRING_TO_* parse, and no user POU declares a WSTRING)" } },
+
+  // 3.10 (design §3.2 Decision step 3d): a WHOLE-string store through a POINTER TO STRING(20) aimed at a STRING(5) — through
+  // a local pointer and through a FUNCTION's pointer input (a cursor) — of a STRING(10) 'abcdefghij'. The STRING(5) sits in
+  // a STRUCT in front of a 'Z'-filled STRING(10); both are dumped through `[i]`, so a store cut at the variable's capacity
+  // leaves the neighbour 'ZZZZZZZZZZ' and a store at the pointer's capacity writes into it. RECORDED (CODESYS 3.5.21.40,
+  // 2026-10-08), both forms alike: `head` holds 'abcdef' in its six bytes (no terminator — its value is unreadable) and
+  // `after` 'ghij' + 0, then 'Z' — eleven bytes written, past the variable. Lowering refuses it (`cursor-overrun`; the local
+  // pointer is refused `pointer-type` before that).
+  { ...whole("cursor_whole_store_capacity", "p^ := STRING(10) through a POINTER TO STRING(20) aimed at a STRING(5) in front of a 'Z'-filled neighbour, by a local pointer and a function's pointer input (transpile-restructure 3.10)",
+    `TYPE ST_CursorStoreHolder :
+STRUCT
+\thead : STRING(5);
+\tafter : STRING(10);
+END_STRUCT
+END_TYPE
+
+FUNCTION F_CursorWholeStore : BOOL
+VAR_INPUT
+\tp : POINTER TO STRING(20);
+\tsource : STRING(10);
+END_VAR
+p^ := source;
+F_CursorWholeStore := TRUE;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_cursor_whole_store_capacity
+VAR
+\ti : INT;
+\tten : STRING(10);
+\tviaLocal : ST_CursorStoreHolder;
+\tviaInput : ST_CursorStoreHolder;
+\tp : POINTER TO STRING(20);
+\tok : BOOL;
+\tlocalHead : ARRAY[0..5] OF BYTE;
+\tlocalAfter : ARRAY[0..10] OF BYTE;
+\tinputHead : ARRAY[0..5] OF BYTE;
+\tinputAfter : ARRAY[0..10] OF BYTE;
+END_VAR
+ten := 'abcdefghij';
+viaLocal.after := 'ZZZZZZZZZZ';
+viaInput.after := 'ZZZZZZZZZZ';
+p := ADR(viaLocal.head);
+p^ := ten;
+ok := F_CursorWholeStore(p := ADR(viaInput.head), source := ten);
+FOR i := 0 TO 5 DO
+\tlocalHead[i] := viaLocal.head[i];
+\tinputHead[i] := viaInput.head[i];
+END_FOR
+FOR i := 0 TO 10 DO
+\tlocalAfter[i] := viaLocal.after[i];
+\tinputAfter[i] := viaInput.after[i];
+END_FOR
+END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_cursor_whole_store_capacity", plcPrgVar: "inst : FB_LANG_cursor_whole_store_capacity;" },
 ]

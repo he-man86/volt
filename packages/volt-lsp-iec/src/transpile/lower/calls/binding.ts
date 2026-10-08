@@ -17,6 +17,7 @@ import type { Type } from "../../../frontend/types/index.js"
 import type { InvokeBindings } from "./invoke.js"
 import { holdsCall, touchesOnlyItsOwn, writesOnlyLocals } from "../../ir/walk.js"
 import { tempPlace } from "../core/temps.js"
+import { refuseCursorOverrun } from "../pointers/cursor.js"
 
 /** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calledRoutine`). */
 export const shadowedInOutsOf = frameState(() => new Set<string>())
@@ -57,6 +58,9 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
   // a read-only binding writes nothing, so it is not a store `guardWrite` must check — a reference still reads its target
   const target = param.constant === true && written.type.kind !== "reference" ? written : guardWrite(lw, written, arg.span, FULL_WRITE)
   if (target === undefined) return undefined
+  // a cursor's `p^` lent to a VAR_IN_OUT (VAR_OUTPUT) the callee may store up to its own capacity into — a whole-string
+  // store through the cursor (`cursor_whole_store_capacity`); a read-only one writes nothing
+  if (param.readOnly !== true && param.constant !== true && refuseCursorOverrun(lw, target, param.type, arg.span)) return undefined
   // A place INSIDE the instance the callee runs on is not lent at all: the routine is specialized on the path to it
   // (`specialize.ts`), which is the only exact answer where the callee also reaches that storage another way.
   // Not a VAR_IN_OUT CONSTANT: what it reads after the callee writes the same field by name is not recorded, and its copy
