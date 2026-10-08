@@ -760,6 +760,51 @@ Decide by M1-M7, the size of the emitted Rust on the `string_*` fixtures, and wh
 - `tr_34_lib_prim_char_behind` is not lowered today (`pointer-type`, a POINTER TO BYTE over a STRING). Its fixture flips only after
   model 3 (4.12); the string-model half is proven by `semantics/string.cases.ts` and src tests first.
 
+### §3.2 Decision: strings (task 3.2, 2026-10-08, on 3.1's measurements)
+
+**Target.** One rule for every string store, M2's: write `min(n, m)` units of the SOURCE buffer (behind its terminator too),
+a 0 at `min(n, m)`, and leave the destination's units behind that alone — `n` the source's capacity (a literal's own unit
+count, a library or conversion result 255), `m` the destination's. Comparison (M4) and `s[i]` (RC 34) are already right.
+
+**Representation: keep what landed — option (c) without the tail array.** TS: the IR value stays a JS string holding the whole
+buffer, trailing zeros trimmed (`held`), `len` = first 0. Rust: `IecStr<T, N>` with `[T; N]`, the terminator at N implied.
+- Deciding measure: M6 — all 197 string fixtures interpret in 11.8 ms; (a)'s 3x on a synthetic mix is not a cost anyone pays,
+  and a mutable `Uint8Array` inside the immutable `IrValue` (`bigint | number | boolean | string`) would need a clone at every
+  copy site. Rejected (a) `Uint8Array(n+1)` / `IecStr<B = n+1>` for that, and B = n+1 also because byte N can only ever hold 0
+  (`setChar`/`with_char` refuse anything else at N, and every store's 0 lands at `min(n, m) <= m`), so it carries nothing.
+  Rejected (b): its cached `len` bought nothing (4.0 vs 4.1 ms). Rejected the tail array: one buffer already holds the tail.
+
+**The store reads its destination (3.6).** `semantics/store.ts` `fit` for a string becomes `storeString(dst, m, src, n)` =
+`src.padEnd(n, "\0").slice(0, min(n, m)) + "\0" + dst.slice(min(n, m) + 1)`, `held`. Lowering hands it both capacities
+(every Type carries one after 3.3). Rust: `IecStr::to` becomes `dst.store(&src)` (`&mut self`, writes in place); lean 4.3
+(in-place `set_char`) falls out of the same `&mut` form. A destination with no prior buffer (a fresh frame, a function
+VAR_INPUT — unmeasured, M2 scope) starts zeroed, which is the frame's declared start, not a guess about the store.
+
+**Literal `$00` (3.7, M1/M3).** The literal valuation keeps every decoded unit, `$00` and what follows; its capacity is its
+unit count, so storing it into STRING(3) cuts at 3 and into STRING(10) keeps 'cd' behind the 0. No literal is trimmed at its
+first 0.
+
+**Conversions (3.8, M5).** STRING<->WSTRING, TO_STRING/TO_WSTRING of a string: the operand is cut to 255 on the way in and
+the result Type is STRING(255)/WSTRING(255) — replacing RC 11's "sized by the source" (task 3.8's What is rewritten). The
+result's units behind its terminator are stack residue (`string_conversion_result_tail`, `LanguageTest.residue`); the model
+writes 0 there and the replay holds those paths only to being produced. Number→STRING conversions keep their current rule
+(unmeasured here).
+
+**Capacity default and `commonType` (3.3, M7).** `DEFAULT_STRING_LENGTH` applied in `lower/core/lowering.resolve`;
+`withStringCapacity` and conversions.ts's `sized` go; `types/resolve.ts` unchanged (564 recorded messages print 'STRING').
+The `commonType` appendix item closes with M7 as the reason (no caller outside `src/transpile`).
+
+**Stays refused, by code:** `assign-string` (an implicit conversion the vendor does not make), `pointer-type` for
+`tr_34_lib_prim_char_behind` until model 3 (4.12), the unmeasured-escape bail in `stringLiteralText`.
+
+**Tests that change (3.9), each citing its recording:** a wide store keeping the destination tail
+(`string_assign_tail_wide`, `wstring_assign_tail_wide`) in `semantics/string.test.ts`/`pipeline/strings.test.ts`; a
+conversion result of 255 (`string_conversion_result_capacity`) in `builtins/conversions.test.ts`; literal NUL tails
+(`string_literal_nul_tail`) in `values` tests. The five 3.1 and three gate-3a divergences flip at 3.6/3.7/3.8.
+
+**Migration.** 3.3 resolve + deletions (S identical). 3.4/3.5 = `storeString` and `IecStr::store` with `string.cases.ts`
+(M1-M5 cells) run by both backends. 3.6 wires the store, 3.7 the literal, 3.8 the 255 rule. 3.10-3.12 as written.
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus
