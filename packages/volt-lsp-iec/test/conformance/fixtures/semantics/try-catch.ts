@@ -1,7 +1,7 @@
 /**
  * `__TRY` / `__CATCH` / `__FINALLY` / `__ENDTRY` — the one construct that changes the FAULT MODEL.
  *
- * `interp/values.ts` records what stops a CODESYS task: dividing by zero, and the logarithm of zero. Nothing else —
+ * `transpile/ir/faults.ts` records what stops a CODESYS task: dividing by zero, and the logarithm of zero. Nothing else —
  * an infinity is an ordinary value. "Stops" means the scan never completes and the application is dead.
  *
  * Except that pro2193 wraps every top-level call in `__TRY … __CATCH(…) … __ENDTRY` and counts the exceptions, so

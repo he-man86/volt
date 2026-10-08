@@ -4,12 +4,12 @@
  * One row per fixture: how well it is EVIDENCED, what its ST lowers to, which oracle reached the emitted Rust, and
  * what the Rust linter still says about that Rust. `fixtures/index.ts` merges this onto every fixture, so
  * `t.evidence` and `t.transpile` are populated whether the fixture is a literal object or built by a factory;
- * `fixtures.test.ts` recomputes all of it and fails if anything here is stale.
+ * `map.test.ts` recomputes all of it and fails if anything here is stale.
  *
- * `support/evidence.ts` defines the evidence ratings; `support/transpile-confidence.ts` defines the tier, the
- * oracle, the lint policy — including the reason each allowed lint is Volt's own answer rather than a defect —, the
- * shape, the edge differential, and the review's `NOTES` — authored there, and copied in full to the END of this
- * file, so the construct ids in a row's `notes` resolve to their text here.
+ * `support/evidence.ts` defines the evidence ratings; `support/transpile/` defines the tier, the oracle, the lint
+ * policy — including the reason each allowed lint is Volt's own answer rather than a defect —, the shape and the edge
+ * differential; the review's `NOTES` are authored in `support/notes/notes.data.ts` and copied in full to the END of
+ * this file, so the construct ids in a row's `notes` resolve to their text here.
  *
  * At the last regeneration:
  *
@@ -41,7 +41,7 @@
  *     clippy::nonminimal_bool                    1
  *     overlapping_range_endpoints                1
  *
- *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
+ *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
  *     dead_code                               5263
  *     clippy::self_assignment                   34
@@ -5467,7 +5467,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
 /**
  * THE REVIEW'S NOTES — the full text behind every row's `notes`, keyed by construct id, the construct as
  * `normalizeRustLine` prints it in the comment above each. GENERATED from the authored `NOTES` in
- * `support/transpile-confidence.ts`: edit it there and regenerate, never here.
+ * `support/notes/notes.data.ts`: edit it there and regenerate, never here.
  *
  *   `improvement`   what a Rust engineer would write instead
  *   `alternatives`  when several emissions are CORRECT: each option, as the reviewer put it
@@ -5646,7 +5646,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -5727,7 +5727,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.rotate_right(Li8 as u32);
   "09eeda28bb": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -5819,7 +5819,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result. Also: `iec_deref(self.ref_); self.n = ({ iec_deref(self.ref_); self.n } as i32)…`: the same pointer is null-checked twice in one statement, once for the store target and once for the read. Skip a read guard whose guard place equals the target's guard, which has already run on the previous line.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -5850,7 +5850,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.wrapping_add(Li64);
   "0e60621ff1": {
-    improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via evaluate.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
+    improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via semantics/fold.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
     tasks: ["7.2.2"],
   },
   // self.f.f = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(({ let x = self.f.f[Li64 as usize] as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_mul(Lu64)) as u16;
@@ -5879,7 +5879,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "128ab89e82": {
     improvement: "`a & (b | (c & !d))` on plain BOOL loads: clippy::needless_bitwise_bool.",
     alternatives: [
-      "A (emitted today): `&`/`|` always, so a call on the right side runs in both backends (the reason given at emit.ts:795-796).",
+      "A (emitted today): `&`/`|` always, so a call on the right side runs in both backends (the reason given in emit/rust/expr.ts).",
       "B: `&&`/`||` when the right operand is side-effect free (loads, constants, comparisons of loads). The results are identical, and it is what a Rust engineer writes.",
       "Choose B only for pure right operands; the current rule is still needed when the right side can have effects.",
     ],
@@ -6136,7 +6136,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub x: u16,
   "1d7709a031": {
-    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit.ts:49), while a POINTER/REFERENCE is usize (emit.ts:47). Also: castTo does not fold a constant operand. A literal shift/rotate count is typed as its narrowest type (SINT), then cast with `as u32` at run time. For a non-negative literal count, print the bare literal (`wrapping_shr(1)`, `rotate_left(4)`). Rust infers u32 there, and a negative literal already becomes its masked u32 value when it is folded. Also: Promoting first is the measured CODESYS rule (arithmetic_width: SINT 127 + 1 into INT is 128), so it has to stay when the result is stored WIDER. When an add/sub/mul result is narrowed straight back to the operands' own width, the low bits are identical. I checked all 65536 u16 and all 256 u8 inputs: `(x as i32).wrapping_sub(1) as u16 == x.wrapping_sub(1)`. The emitter can peephole `(a as W).wrapping_{add,sub,mul}(b) as T`, where a and b are both T (or a literal that fits T), into `a.wrapping_op(b)`. This does NOT hold for div/mod (sign/overflow), for comparisons, or for a wider target.",
+    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit/rust/types.ts rustType), while a POINTER/REFERENCE is usize (the same rustType). Also: castTo does not fold a constant operand. A literal shift/rotate count is typed as its narrowest type (SINT), then cast with `as u32` at run time. For a non-negative literal count, print the bare literal (`wrapping_shr(1)`, `rotate_left(4)`). Rust infers u32 there, and a negative literal already becomes its masked u32 value when it is folded. Also: Promoting first is the measured CODESYS rule (arithmetic_width: SINT 127 + 1 into INT is 128), so it has to stay when the result is stored WIDER. When an add/sub/mul result is narrowed straight back to the operands' own width, the low bits are identical. I checked all 65536 u16 and all 256 u8 inputs: `(x as i32).wrapping_sub(1) as u16 == x.wrapping_sub(1)`. The emitter can peephole `(a as W).wrapping_{add,sub,mul}(b) as T`, where a and b are both T (or a literal that fits T), into `a.wrapping_op(b)`. This does NOT hold for div/mod (sign/overflow), for comparisons, or for a wider target.",
     alternatives: [
       "Today: interface → u64 tag, pointer/reference → usize index. Correct, but two handle kinds use two integer types, and an interface field reads exactly like an LWORD field in the emitted struct.",
       "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table. This is my choice if tags are ever used as indices.",
@@ -6174,7 +6174,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // x[(self.f as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = self.f.wrapping_add(self.f.wrapping_mul(Li32)) as i16;
   "1e5d67a16e": {
-    improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit.ts:517). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`. Also: INT arithmetic is widened to i32, done with wrapping ops and narrowed with `as i16`. For a chain of + - * stored straight back into an INT, i16 wrapping_* gives bit-identical results, because the ring homomorphism mod 2^16 holds. Only division, MOD, comparisons and shifts need the widening.",
+    improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit/rust/place.ts). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`. Also: INT arithmetic is widened to i32, done with wrapping ops and narrowed with `as i16`. For a chain of + - * stored straight back into an INT, i16 wrapping_* gives bit-identical results, because the ring homomorphism mod 2^16 holds. Only division, MOD, comparisons and shifts need the widening.",
     alternatives: [
       "TODAY: widen every operand to i32, wrapping_* in i32, then truncate with `as i16`. Uniform, and matches CODESYS's register width for / and comparisons",
       "native i16 wrapping_* for pure add/sub/mul chains that end in an INT store: fewer casts, same result. I would choose this for ring-only chains and keep the widening wherever /, MOD, a comparison or a shift is in the chain",
@@ -6194,7 +6194,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // x: std::array::from_fn(|_| std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L]))),
   "1f2f8205f9": {
-    improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit.ts:305), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
+    improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit/rust/types.ts), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
     tasks: ["7.8.2"],
   },
   // self.f = match self.f { L => self.f, …, _ => panic!(S) };
@@ -6236,7 +6236,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.max(-Li64).min(Li64) as i16;
   "21672c09ea": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -6329,7 +6329,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.wrapping_add(Li64) as i32;
   "24588decbd": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -6587,7 +6587,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.lit = Li64.min(Li64) as i16;
   "2f368e2e5b": {
-    improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via evaluate.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
+    improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via semantics/fold.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
     tasks: ["7.2.2"],
   },
   // x.f = (x as i32).wrapping_mul(Li32) as i16;
@@ -6702,7 +6702,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u8;
   "346e81a0f2": {
-    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path in emit/rust/expr.ts already skips `>> 0`; partial access should follow it.",
     tasks: ["7.2.5"],
   },
   // if ((x == L) | (x == L)) | ((x as i32) < Li32) {
@@ -7175,16 +7175,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // g: false,
   "496b8acb56": {
-    improvement: "This line is correct for every input, because a BOOL's declared or default initial value is a literal. Nothing needs to change. Several spellings would be correct here, so the options are listed below. Shape 496b8acb56 is the same emission: the normalizer in scratchpad/review/shapes.ts:31 keeps `g` as a reserved word (it stands for the globals parameter), so a field that happens to be named `g` (sel_sel_false, sel_sel_true, ct_bit_packing_sizes) was counted as a separate shape. That is a quirk of the review tool, not of the transpiler. Also: SEL binds both arms eagerly so that side effects match the interpreter, and that is right in general. When every argument is a side-effect-free place or literal, though, the eager block is the same as a plain `if`. Separately, widening INT to i32 and narrowing back is a no-op for a selection; the promotion comes from lowering treating SEL like arithmetic.",
+    improvement: "This line is correct for every input, because a BOOL's declared or default initial value is a literal. Nothing needs to change. Several spellings would be correct here, so the options are listed below. Shape 496b8acb56 is the same emission: the normalizer in test/conformance/support/transpile/shape.ts (its KEEP set) keeps `g` as a reserved word (it stands for the globals parameter), so a field that happens to be named `g` (sel_sel_false, sel_sel_true, ct_bit_packing_sizes) was counted as a separate shape. That is a quirk of the review tool, not of the transpiler. Also: SEL binds both arms eagerly so that side effects match the interpreter, and that is right in general. When every argument is a side-effect-free place or literal, though, the eager block is the same as a plain `if`. Separately, widening INT to i32 and narrowing back is a no-op for a selection; the promotion comes from lowering treating SEL like arithmetic.",
     alternatives: [
       "Explicit literal `x: false,` inside `new()`, with `impl Default` calling `Self::new()`. This is emitted today and is the one I would keep: it is the shortest, it states the IEC initial value at the declaration, and it is the same path used for every other elementary init.",
-      "`x: Default::default(),` or `..Default::default()`: this hides the declared value, only works for fields whose init is the type's zero, and needs a derived Default, which Rust refuses for arrays longer than 32 (emit.ts:318-323 gives this reason).",
+      "`x: Default::default(),` or `..Default::default()`: this hides the declared value, only works for fields whose init is the type's zero, and needs a derived Default, which Rust refuses for arrays longer than 32 (emit/rust/structs.ts gives this reason).",
       "`#[derive(Default)]` plus `new() { Self::default() }` when every field has its zero init: this would remove the per-field lines in some structs, but the struct shape would then depend on the init values, which breaks 'the same construct always emitted the same way'.",
       "Eager block with i32 widening. This is emitted today; it is always correct but costs 3 temporaries and 3 casts.",
-      "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/specialize.ts) and the arms are not promoted. I would choose this: it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
+      "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/calls/specialize.ts) and the arms are not promoted. I would choose this: it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
       "Keep the eager block but drop the widening: `let __sel_f = self.a;` and no trailing `as i16`. This is a smaller change with the same correctness.",
     ],
-    chosen: "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/specialize.ts) and the arms are not promoted",
+    chosen: "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/calls/specialize.ts) and the arms are not promoted",
     why: "it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
     tasks: ["keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13", "7.6.6"],
   },
@@ -7215,7 +7215,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub x: i64,
   "4a6baf16b3": {
-    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit.ts:49), while a POINTER/REFERENCE is usize (emit.ts:47). Also: All-constant integer arithmetic is typed LINT, as measured (CODESYS folds at full width: 30000+30000 into DINT is 60000). It is still emitted as a run-time i64 wrapping op plus a narrowing cast. Folding it in lowering, computing the LINT value with wrapping at i64 and then converting to the target, would emit `200i16` / `4000000000i64`. This is the same value by construction, and it is what CODESYS's own compiler does.",
+    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit/rust/types.ts rustType), while a POINTER/REFERENCE is usize (the same rustType). Also: All-constant integer arithmetic is typed LINT, as measured (CODESYS folds at full width: 30000+30000 into DINT is 60000). It is still emitted as a run-time i64 wrapping op plus a narrowing cast. Folding it in lowering, computing the LINT value with wrapping at i64 and then converting to the target, would emit `200i16` / `4000000000i64`. This is the same value by construction, and it is what CODESYS's own compiler does.",
     alternatives: [
       "Today: interface → u64 tag, pointer/reference → usize index. Correct, but two handle kinds use two integer types, and an interface field reads exactly like an LWORD field in the emitted struct.",
       "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table. This is my choice if tags are ever used as indices.",
@@ -7397,7 +7397,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u16;
   "5228723708": {
-    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path in emit/rust/expr.ts already skips `>> 0`; partial access should follow it.",
     tasks: ["7.2.5"],
   },
   // self.f = (*x).m();
@@ -7522,7 +7522,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.wrapping_sub(Li64) as i32;
   "58988cbee9": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -7538,7 +7538,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.max(Li64).max(Li64) as i16;
   "58d4f235fd": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -7772,7 +7772,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.v = Li64.wrapping_sub(Li64) as i32;
   "63c4ea9498": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -7786,19 +7786,19 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Arithmetic whose operands are all literals is not folded in a body. `self.di := 30000 + 30000` is emitted as `30000i64.wrapping_add(30000i64) as i32` instead of `60000i32`. Lowering already has the exact evaluator (`builtinValue`/`arith`, the one the declaration folding uses), so running it over an all-const binary node gives the recorded value by construction. Also: SINT/INT add, sub and mul are widened to DINT and narrowed back: `(self.si as i32).wrapping_add(1i32) as i8`. When the node's only consumer is a store or conversion back to the operand's own width, `self.si.wrapping_add(1i8)` gives the same answer, because wrapping add/sub/mul commute with truncation mod 2^n. Division, MOD, comparisons and wider stores still need the promotion (SINT -128 / -1 is measured to be 128 in DINT).",
     alternatives: [
       "A: emit the unfolded i64 wrapping_add then cast (emitted today)",
-      "B: fold in lowering with the shared evaluate.ts table and emit a typed literal (preferred: CODESYS itself folds at compile time, and the value comes from the one table both backends use)",
+      "B: fold in lowering with the shared semantics/fold.ts table and emit a typed literal (preferred: CODESYS itself folds at compile time, and the value comes from the one table both backends use)",
       "C: leave it to rustc/LLVM const-folding (the same machine code, but the source stays noisy)",
       "A: always promote to i32 and cast back (emitted today; uniform, and the promotion is what CODESYS measures)",
       "B: narrow-width wrapping op when the result converts straight back to the operand width and op is in {add,sub,mul} (preferred for readability; exact by modular arithmetic)",
       "C: keep the promotion in the IR and peephole `(x as i32).wrapping_add(c) as i8` in the emitter (smaller change, but a second place that knows the rule)",
     ],
-    chosen: "B: fold in lowering with the shared evaluate.ts table and emit a typed literal",
+    chosen: "B: fold in lowering with the shared semantics/fold.ts table and emit a typed literal",
     why: "CODESYS itself folds at compile time, and the value comes from the one table both backends use",
     tasks: ["7.2.2", "7.3.1"],
   },
   // self.f = Li64.wrapping_sub(Li64) as i16;
   "63dc3d3963": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -7908,7 +7908,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // x: std::array::from_fn(|_| std::array::from_fn(|_| [Li16; L])),
   "683d4b1944": {
-    improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit.ts:305), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
+    improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit/rust/types.ts), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
     tasks: ["7.8.2"],
   },
   // self.f.f = ({ let x = self.f.f[Li64 as usize] as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(((self.f.f as u64) / Lu64).wrapping_mul(Lu64)) as u16;
@@ -7925,10 +7925,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // x: false,
   "687428cc81": {
-    improvement: "This line is correct for every input, because a BOOL's declared or default initial value is a literal. Nothing needs to change. Several spellings would be correct here, so the options are listed below. Shape 496b8acb56 is the same emission: the normalizer in scratchpad/review/shapes.ts:31 keeps `g` as a reserved word (it stands for the globals parameter), so a field that happens to be named `g` (sel_sel_false, sel_sel_true, ct_bit_packing_sizes) was counted as a separate shape. That is a quirk of the review tool, not of the transpiler.",
+    improvement: "This line is correct for every input, because a BOOL's declared or default initial value is a literal. Nothing needs to change. Several spellings would be correct here, so the options are listed below. Shape 496b8acb56 is the same emission: the normalizer in test/conformance/support/transpile/shape.ts (its KEEP set) keeps `g` as a reserved word (it stands for the globals parameter), so a field that happens to be named `g` (sel_sel_false, sel_sel_true, ct_bit_packing_sizes) was counted as a separate shape. That is a quirk of the review tool, not of the transpiler.",
     alternatives: [
       "Explicit literal `x: false,` inside `new()`, with `impl Default` calling `Self::new()`. This is emitted today and is the one I would keep: it is the shortest, it states the IEC initial value at the declaration, and it is the same path used for every other elementary init.",
-      "`x: Default::default(),` or `..Default::default()`: this hides the declared value, only works for fields whose init is the type's zero, and needs a derived Default, which Rust refuses for arrays longer than 32 (emit.ts:318-323 gives this reason).",
+      "`x: Default::default(),` or `..Default::default()`: this hides the declared value, only works for fields whose init is the type's zero, and needs a derived Default, which Rust refuses for arrays longer than 32 (emit/rust/structs.ts gives this reason).",
       "`#[derive(Default)]` plus `new() { Self::default() }` when every field has its zero init: this would remove the per-field lines in some structs, but the struct shape would then depend on the init values, which breaks 'the same construct always emitted the same way'.",
     ],
     tasks: ["keep:a BOOL initial value as a literal is correct for every input, nothing needs to change; removed by 7.2.13"],
@@ -7960,7 +7960,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (self.f as i32).wrapping_abs() as i16;
   "6a41bda0a0": {
-    improvement: "ABS of an unsigned argument is the identity, as the lowering comment itself says. Returning `arg` there removes a widen, an abs and a narrow; the emitter's own unsigned shortcut at emit.ts:756 never fires because the type has already been promoted to DINT.",
+    improvement: "ABS of an unsigned argument is the identity, as the lowering comment itself says. Returning `arg` there removes a widen, an abs and a narrow; the emitter's own unsigned shortcut in emit/rust/builtins.ts never fires because the type has already been promoted to DINT.",
     tasks: ["7.3.4"],
   },
   // pub x: f64,
@@ -8037,7 +8037,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.wrapping_add(Li64) as i16;
   "6e95d900d2": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -8135,7 +8135,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.max(Li64).min(Li64) as i16;
   "745a764511": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -8410,7 +8410,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -8798,7 +8798,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.min(Li64).min(Li64).min(Li64) as i16;
   "8cd84736a1": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -9013,7 +9013,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.wrapping_shr(Li8 as u32);
   "924a0fdb2f": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -9074,7 +9074,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -9099,7 +9099,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (match self.f { L => Li64, …, _ => Li64 }) as i16;
   "96b55e688b": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -9166,7 +9166,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.rotate_left(Li8 as u32);
   "9a4cb2346e": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -9199,7 +9199,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.v = Li64.wrapping_sub(Li64) as i16;
   "9b7b8014c4": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -9268,7 +9268,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li32.max(self.f as i32).min(Li32) as i16;
   "9d3d81580d": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -9469,7 +9469,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub x: u64,
   "a497507b30": {
-    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit.ts:49), while a POINTER/REFERENCE is usize (emit.ts:47). Also: castTo does not fold a constant operand. A literal shift/rotate count is typed as its narrowest type (SINT), then cast with `as u32` at run time. For a non-negative literal count, print the bare literal (`wrapping_shr(1)`, `rotate_left(4)`). Rust infers u32 there, and a negative literal already becomes its masked u32 value when it is folded.",
+    improvement: "The field declaration itself is already lean and correct. LWORD, ULINT and LTIME map to u64 (LTIME counts nanoseconds and is unsigned, as recorded in ltime_basic: 1s+1ns = LINT 1000000001). WORD and UINT map to u16, LINT to i64. I probed these with rustc under scratchpad/review/b13/p.rs. Every u16 and u8 input to unsigned_underflow matches a same-width wrap. SHL(LWORD 1, n) for n in {-1, 64, 65, 127, i16::MIN} follows the 6-bit mask that shift_64bit and the DWORD case (33 gives 2) establish. DINT against UDINT 3e9 meets in DINT, which signed_unsigned_comparison confirms: udMax > -1 is FALSE, so this is bits and not a widened compare. LTIME max+1 wraps to 0. diff.json has 0 interpreter/Rust disagreements across all 569 members of these three shapes. The only choice worth noting is the other mapping that produces `pub x: u64`: an INTERFACE is emitted as u64 (emit/rust/types.ts rustType), while a POINTER/REFERENCE is usize (the same rustType). Also: castTo does not fold a constant operand. A literal shift/rotate count is typed as its narrowest type (SINT), then cast with `as u32` at run time. For a non-negative literal count, print the bare literal (`wrapping_shr(1)`, `rotate_left(4)`). Rust infers u32 there, and a negative literal already becomes its masked u32 value when it is folded.",
     alternatives: [
       "Today: interface → u64 tag, pointer/reference → usize index. Correct, but two handle kinds use two integer types, and an interface field reads exactly like an LWORD field in the emitted struct.",
       "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table. This is my choice if tags are ever used as indices.",
@@ -10264,7 +10264,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result. Also: A widening that cannot lose information (i16→i32, u32→i64, f32→f64) is printed `x as T`. `T::from(x)` states that it is lossless and is what clippy asks for. Choose it only for widenings; wrapping narrowings must keep `as`.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -10302,7 +10302,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -10444,7 +10444,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = Li64.wrapping_sub(Li64) as i8;
   "d46e26c2aa": {
-    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
+    improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
     alternatives: [
       "(a) TODAY: runtime i64 wrapping arithmetic then `as T`. rustc const-folds it, so it only costs readability.",
       "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too. My choice.",
@@ -10539,7 +10539,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -10570,7 +10570,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`(a as i32).wrapping_add(b as i32) as i16` when a, b and the destination are all INT. Addition, subtraction and multiplication modulo 2^32 truncated to 16 bits equal the same operations modulo 2^16, so the native-width call gives the same result. Also: `iec_deref(self.ref_); self.n = ({ iec_deref(self.ref_); self.n } as i32)…`: the same pointer is null-checked twice in one statement, once for the store target and once for the read. Skip a read guard whose guard place equals the target's guard, which has already run on the previous line.",
     alternatives: [
       "A (emitted today): promote both operands to the DINT register, wrap there, truncate with `as i16`. This mirrors the IR, which always promotes, and is what clippy flags as cast_lossless and cast_possible_truncation (36 + 21 + 16 + 6 hits across these shapes).",
-      "B: a peephole in emit.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
+      "B: a peephole in emit/rust/convert.ts: when a convert-to-T wraps a binary add/sub/mul whose operands are both converts from T, print `a.wrapping_add(b)` in T. The results are identical, and it removes 3 casts per line.",
       "C: `i32::from(a)` instead of `a as i32` for the widening only. That silences cast_lossless but keeps the round trip.",
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
@@ -10630,7 +10630,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u32;
   "de956f2a12": {
-    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path in emit/rust/expr.ts already skips `>> 0`; partial access should follow it.",
     tasks: ["7.2.5"],
   },
   // self.f = len(self.v.to::<L>());
@@ -10644,7 +10644,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
   "deaa2bbf15": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -11129,7 +11129,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // x[(x as i64).wrapping_sub(__grid_lower_N as i64) as usize][(x as i64).wrapping_sub(__grid_lower_N as i64) as usize] = x.wrapping_mul(Li32).wrapping_add(x) as i16;
   "f07cf2da87": {
-    improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit.ts:517). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`.",
+    improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit/rust/place.ts). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`.",
     tasks: ["7.2.3"],
   },
   // x = x.with_char(x as i64, x.char_at(x as i64)).to();
@@ -11162,7 +11162,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f22b4df758": {
     improvement: "`a & (b | (c & !d))` on plain BOOL loads: clippy::needless_bitwise_bool.",
     alternatives: [
-      "A (emitted today): `&`/`|` always, so a call on the right side runs in both backends (the reason given at emit.ts:795-796).",
+      "A (emitted today): `&`/`|` always, so a call on the right side runs in both backends (the reason given in emit/rust/expr.ts).",
       "B: `&&`/`||` when the right operand is side-effect free (loads, constants, comparisons of loads). The results are identical, and it is what a Rust engineer writes.",
       "Choose B only for pure right operands; the current rule is still needed when the right side can have effects.",
     ],
@@ -11355,7 +11355,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.m();
   "fb7e9e6ff4": {
-    improvement: "The call itself is correct and lean. I probed INT wrap at 32767 -> -32768 and -1 -> 0 through outer->inner, and both match CODESYS's wrap. The in-frame specialization in lower/specialize.ts is also correct for the aliasing cases (a:=n, b:=n gives 6 in CODESYS). The waste is in the lines around the call: every generated routine gets `#[allow(unused_mut, unused_variables, unused_assignments)]`, including `outer`, `inner` and `two_a_0_b_0`, which have no parameters and no locals, so none of the three lints can fire. Emit the attribute only when the routine declares at least one local or in-out/lent parameter, and only name the lints that can apply (for example `unused_mut`/`unused_assignments` only when there are locals). The comment says the lints are 'verified load-bearing', but that holds only for routines that have bindings.",
+    improvement: "The call itself is correct and lean. I probed INT wrap at 32767 -> -32768 and -1 -> 0 through outer->inner, and both match CODESYS's wrap. The in-frame specialization in lower/calls/specialize.ts is also correct for the aliasing cases (a:=n, b:=n gives 6 in CODESYS). The waste is in the lines around the call: every generated routine gets `#[allow(unused_mut, unused_variables, unused_assignments)]`, including `outer`, `inner` and `two_a_0_b_0`, which have no parameters and no locals, so none of the three lints can fire. Emit the attribute only when the routine declares at least one local or in-out/lent parameter, and only name the lints that can apply (for example `unused_mut`/`unused_assignments` only when there are locals). The comment says the lints are 'verified load-bearing', but that holds only for routines that have bindings.",
     tasks: ["keep:the call itself is correct and lean (its allow-attribute waste is 7.7.2's); removed by 7.7.10"],
   },
   // __chain_value_N: Lf64,
@@ -11431,7 +11431,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (self.f.wrapping_shr(Li16 as u32) & Lu32) != Lu32;
   "fdfbae2680": {
-    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
+    improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path in emit/rust/expr.ts already skips `>> 0`; partial access should follow it.",
     tasks: ["7.2.5"],
   },
   // fn m(v: f64) -> i64 {

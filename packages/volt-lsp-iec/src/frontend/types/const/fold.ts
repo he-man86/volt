@@ -11,6 +11,7 @@
  */
 import {
   bareEnumMember,
+  externalGlobal,
   isLibrarySymbol,
   lookup,
   lookupGlobal,
@@ -273,6 +274,12 @@ function symbolValue(sym: Symbol | undefined, ctx: FoldContext): Folded {
   if (sym === undefined) return UNKNOWN_VALUE // unresolved — could be a library constant or a typo
   if (sym.kind === "enum_value") return enumValue(sym, ctx)
   if (isLibrarySymbol(sym)) return UNKNOWN_VALUE // may be a constant we can't see (normalizes %20)
+  // a VAR_EXTERNAL CONSTANT has no initializer of its own: its value is the global it binds (rule Y13, `externalGlobal`),
+  // when that is a constant (`xo3_value_functions_across_objects`; the fold-agreement test, transpile-restructure 1.8.9)
+  if (sym.constant === true && sym.varSection === "VAR_EXTERNAL") {
+    const global = externalGlobal(rootOf(sym.owner), sym.name)
+    return global?.constant === true ? { ...initialValue(global, ctx), constancy: "constant" } : { value: undefined, constancy: "constant" }
+  }
   if (sym.constant === true) return { ...initialValue(sym, ctx), constancy: "constant" }
   if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
     return { value: undefined, constancy: "variable" }

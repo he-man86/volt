@@ -189,7 +189,7 @@ const BUILTINS: LanguageTest[] = [
       lsp: "2026-10-03, both vendors: \"Cannot convert type '__SYSTEM.VAR_INFO' to type 'STRING'\" — the VAR_INFO struct's members are unmeasured (`types/system` binds none) and a struct stored into an elementary target is unchecked for every struct (task 4.5.3); `ARITHMETIC_RESULT_DIVERGENCES`",
     },
   },
-  // CODESYS's refusal is a measured silence (`fixtures.test.ts` `MEASURED_SILENT`, `CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`);
+  // CODESYS's refusal is a measured silence (`transpile-replay.test.ts` `MEASURED_SILENT`, `CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`);
   // TwinCAT has no `__POUNAME` and agrees
   fb("ar_pouname_type", "__POUNAME() into an INT — the compiler names the STRING it is", "\tn : INT;", "n := __POUNAME();"),
   typeProbe("ar_compare_and_swap_type", "__COMPARE_AND_SWAP on the address of an LWORD into a STRING", "\tlw : LWORD;", "", ["__COMPARE_AND_SWAP(ADR(lw), 0, 1)"]),

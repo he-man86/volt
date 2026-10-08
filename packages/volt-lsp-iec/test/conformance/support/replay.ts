@@ -3,7 +3,7 @@
  * it: the fixture's own item, its global lists and the PLC_PRG that instantiates it, on top of every OTHER fixture's
  * declarations and the standard library, for one vendor.
  *
- * It lived inside `fixtures.test.ts` (`runLsp`) and moved here unchanged so the diagnostic census
+ * It lived inside the fixture gate (`runLsp`, now in `lsp-replay.test.ts`) and moved here unchanged so the diagnostic census
  * (`test/analysis/census.ts`, openspec analysis-conformance 0.1) measures the SAME composition the replay gates — a census
  * over a project of its own would count findings the replay never sees. What each caller then ASKS of the bound fixture
  * (the replay its messages, the census each check's slice) is the caller's — and "what the LSP says about it" is ONE
@@ -218,7 +218,7 @@ export function withReplayFixture<T>(testIdx: number, vendor: Vendor, ask: (file
  * the pipeline (`computeDiagnostics`) over each document the replay analyses — its own item, its PLC_PRG, its global
  * lists, each under its own uri — then the network-text pass over its own item, which stays a call of its own while
  * design.md §3 is parked. No parse error is added beside the pipeline's: `checkParseErrors` reports each one. The replay
- * gate (`fixtures.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
+ * gate (`lsp-replay.test.ts` `runLsp`) and the agreement residue (`scripts/agreement-residue.ts`) both ask this; they each
  * composed it themselves, and the residue's own project gave two fixtures a different answer (task 0.4).
  */
 export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles, project: Scope, vendor: Vendor): DiagnosticItem[] {

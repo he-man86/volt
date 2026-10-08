@@ -1,5 +1,5 @@
 /**
- * WHAT TYPE DO TWO DIFFERENT OPERANDS MEET AT? — the `commonType` lattice in `src/types/arith.ts`, asked pair by pair.
+ * WHAT TYPE DO TWO DIFFERENT OPERANDS MEET AT? — the `commonType` lattice in `src/frontend/types/arith/runtime.ts`, asked pair by pair.
  *
  * That function encodes a real rule — REAL absorbs any integer, the wider rank wins, and at equal width the SIGNED
  * type wins — and most of it was inferred rather than measured. One line of it carries the scar: the equal-width tie

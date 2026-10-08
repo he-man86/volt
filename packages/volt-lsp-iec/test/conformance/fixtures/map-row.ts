@@ -3,8 +3,9 @@
  *
  * Pure data shapes, no logic: the generated map and the `./conformance` package export reach this file, and the
  * published build (`tsconfig.build.json`) compiles what they reach. The functions that COMPUTE a row live in
- * `../support/transpile-confidence.ts`, a test-runner helper on Bun-only APIs (`Bun.spawnSync` through `rustc.ts`)
- * that a `dist/` for a runtime that is not Bun must never contain — so the map imports its types from here, not there.
+ * `../support/transpile/` and `../support/notes/`, test-runner helpers on Bun-only APIs (`Bun.spawnSync` through
+ * `rustc.ts`) that a `dist/` for a runtime that is not Bun must never contain — so the map imports its types from here,
+ * not there.
  */
 import type { LanguageTest } from "../types.js"
 
@@ -24,7 +25,7 @@ export type Tier = (typeof TIERS)[number]
  */
 export type Correctness = "vendor" | "compiles" | "rejected"
 
-/** The interpreter against the compiled Rust on the edge inputs — computed by `edgeVerdict` (`../support/transpile-confidence.ts`, where the method is documented). */
+/** The interpreter against the compiled Rust on the edge inputs — computed by `edgeVerdict` (`../support/transpile/edge.ts`, where the method is documented). */
 export type EdgeVerdict = "agree" | "disagree" | "not-run"
 
 // ── the notes ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -41,12 +42,12 @@ export type EdgeVerdict = "agree" | "disagree" | "not-run"
  *                   item that says nothing needs to change. Required: the generator refuses a note without one, an
  *                   item's task id that its `tasks.md` does not have, and one already ticked (`assertNotes`).
  *
- * AUTHORED IN `../support/transpile-confidence.ts` (`NOTES`), RENDERED IN THE MAP. A row carries `notes` — the ids of the noted constructs it emits — and the
+ * AUTHORED IN `../support/notes/notes.data.ts` (`NOTES`), RENDERED IN THE MAP. A row carries `notes` — the ids of the noted constructs it emits — and the
  * map ends with a generated `NOTES` section holding every note's full text under its construct line (`renderNotes`),
  * so a reader goes from a row to its reasons in the same file. The prose is WRITTEN there, where a regeneration
- * cannot delete it; the map's copy is regenerated from this one and `fixtures.test.ts` fails when it drifts. And
+ * cannot delete it; the map's copy is regenerated from this one and `map.test.ts` fails when it drifts. And
  * like `ALLOWED`, a note outlives its construct silently unless something refuses it: the generator and
- * `fixtures.test.ts` both fail on a key no fixture emits any more.
+ * `map.test.ts` both fail on a key no fixture emits any more.
  */
 export interface ShapeNote {
   improvement?: string

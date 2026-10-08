@@ -225,8 +225,8 @@ async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
   const { runPaths } = await load<typeof import("../test/conformance/support/run-paths.ts")>(
     "test/conformance/support/run-paths.ts",
   )
-  const { HARNESS_LOOP_GUARD } = await load<typeof import("../test/conformance/support/transpile-confidence.ts")>(
-    "test/conformance/support/transpile-confidence.ts",
+  const { HARNESS_LOOP_GUARD } = await load<typeof import("../test/conformance/support/transpile/edge.ts")>(
+    "test/conformance/support/transpile/edge.ts",
   )
   const failure = (e: unknown): string => `throws ${e instanceof Error ? e.message : String(e)}`
   for (const t of ALL_TESTS) {

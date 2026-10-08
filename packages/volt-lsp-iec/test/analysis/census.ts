@@ -4,7 +4,7 @@
  * judges nothing and fixes nothing; `diagnostic-census.test.ts` pins what it counts in `baselines/`.
  *
  * FIXTURES (0.1). Every conformance fixture × vendor with a build recording, bound exactly as the replay binds it
- * (`conformance/support/replay.ts`, the composition `fixtures.test.ts` gates) with network text ON (the test preload).
+ * (`conformance/support/replay.ts`, the composition `lsp-replay.test.ts` gates) with network text ON (the test preload).
  * Each analysed document runs the registry through `runRegistry` with an `onCheck` hook, so every finding is attributed
  * to the check whose slice of `out` it is in; the messages are a wrapped `messagesFor(vendor)` that remembers which
  * builder produced each text, so every finding is attributed to its builder too. A text no builder produced is the

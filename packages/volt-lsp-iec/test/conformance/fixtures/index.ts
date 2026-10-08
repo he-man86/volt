@@ -292,10 +292,10 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
  *
  * All of it is derived — from the recordings, the fixture's own flags, the lowered IR and the Rust linter — so it is
  * generated into `map.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come
- * from factory helpers or template-literal names, where a per-entry field cannot reach. `fixtures.test.ts`
+ * from factory helpers or template-literal names, where a per-entry field cannot reach. `map.test.ts`
  * recomputes every value so none of it can go stale.
  *
- * THERE USED TO BE TWO GENERATED MODULES and a plan for a third: `evidence.generated.ts` beside a transpile map
+ * THERE USED TO BE TWO GENERATED MODULES and a plan for a third: an `evidence.generated` module beside a transpile map
  * beside the divergence sets. Same question, three files, and a reader asking "what do we know about this fixture?"
  * opening all of them. They are one row now. What did NOT move is the ground truth: `recordings/*.json` is the
  * vendor's own answer and only a recorder writes it, and `support/divergences.ts` keeps the paragraph explaining

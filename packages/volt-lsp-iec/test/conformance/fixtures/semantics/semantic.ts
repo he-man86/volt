@@ -3,13 +3,13 @@
  *
  * Each entry exercises one of the LSP's named semantic checks that
  * isn't naturally covered by the pragma / lifecycle / etc. catalogs.
- * From `volt-lsp-iec/src/semantic/diagnostics.ts`:
+ * From the old `volt-lsp-iec/src/semantic/diagnostics` module:
  *   - duplicateDeclaration: two declarations with the same name in one scope
  *   - unresolvedIdentifier: body reference doesn't resolve
  *   - wrongVendorPragma: pragma known but belongs to the OTHER vendor
  *   - pragmaConflict: two mutually-exclusive pragmas on the same target
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -87,7 +87,7 @@ END_FUNCTION_BLOCK
   //   so the test makes most sense as a pure-LSP unit test rather than
   //   round-trip. Skipping in v1.
 
-  // ─── Coverage extension for check-deref.ts:66-69 (type-label switch) ─
+  // ─── Coverage extension for the old check-deref, lines 66-69 (type-label switch) ─
 
   {
     name: "deref_on_array_type",

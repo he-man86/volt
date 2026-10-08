@@ -9,7 +9,7 @@
  * Each test pushes an FB that uses a non-conforming identifier in a
  * VAR section. TC and LSP responses are compared.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 

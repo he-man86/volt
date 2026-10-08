@@ -18,7 +18,7 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 | check a C-code matches the **real CODESYS/TwinCAT** byte-for-byte | run `scripts/verify-catalog.ts` (live) → stamps `docs/codesys-reference/error-catalog.json`; view status with `scripts/catalog-status.ts` | Tooling |
 | a **language feature** — parse, resolve, hover, completion, signature, format, semantic tokens | colocated `src/frontend/{syntax,symbols,types}/`, `src/services/**/*.test.ts` | Unit |
 | a **graphical (network-text)** body | `src/network/*.test.ts` | Unit |
-| prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/fixtures.test.ts` (replays recorded IDE output — no live IDE) | Conformance |
+| prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/lsp-replay.test.ts` and `transpile-replay.test.ts` (replay recorded IDE output — no live IDE) | Conformance |
 | **no invented diagnostics on real projects** | `test/corpus/corpus.test.ts` | Corpus |
 
 ## The three test layers
@@ -32,8 +32,8 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 They layer, they don't overlap:
 - **Unit** = white-box. "Does this function do what I wrote?"
 - **Conformance** = black-box vs the compiler. "Do we *agree with CODESYS/TwinCAT*?" It runs our LSP on each
-  `fixtures/` case and compares to the recorded IDE output. The live IDE is **not** hit here — `fixtures.test.ts`
-  replays the JSON in `recordings/`.
+  `fixtures/` case and compares to the recorded IDE output. The live IDE is **not** hit here — the replays
+  (`lsp-replay.test.ts`, `transpile-replay.test.ts`) read the JSON in `recordings/`.
 - **Corpus** = black-box vs reality. "Does the LSP survive real code without crying wolf?" Every error and
   warning we emit on a corpus project must be one the IDE's own build also emitted. (It is NOT "a clean project
   produces no diagnostics" — the projects are not clean.)
@@ -52,9 +52,11 @@ test/
       codesys.build.json     what CODESYS's build said     <- scripts/record-language.ts (live bridge)
       twincat.build.json     what TwinCAT's build said     <- scripts/record-language.ts (TwinCAT worker)
       codesys.run.json       every variable after N scans  <- scripts/record-exec.ts (headless simulator)
-    fixtures.test.ts         THE FIXTURE CONTRACT - one row per evidence rating, driving everything the
-                             recordings can answer: the LSP's diagnostics vs the build, the interpreter and
-                             the emitted Rust vs the run, and the rating itself recomputed
+    transpile-replay.test.ts THE FIXTURE CONTRACT's rows - one per evidence rating: the interpreter and the
+                             emitted Rust vs the run, every vendor refusal refused, every gap named
+    map.test.ts              the map's measured columns, the rating itself recomputed, the evidence ratchet
+    lsp-replay.test.ts       the LSP's diagnostics vs each vendor's build (no false positive, the agreement
+                             ratchet); the three share support/fixture-suite.ts (selection, lowering, ratings)
     backends.test.ts         interp vs emitted Rust, where no recording reaches
     suite.test.ts            is enough being ASKED - the census, our grammar, the vendor's index
     properties.test.ts       the memory model as properties
@@ -87,7 +89,7 @@ test/
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two
-**ratchets** in `fixtures.test.ts` only ever move one way: exact per-vendor message agreement, and a ceiling per
+**ratchets** in `lsp-replay.test.ts` and `map.test.ts` only ever move one way: exact per-vendor message agreement, and a ceiling per
 evidence rating. A fixture the IDE and LSP disagree on for a documented reason is in `KNOWN_DIVERGENCES`. A case
 CODESYS refuses is outside the transpiler's input contract (`src/transpile/index.ts`), so only the refusal is
 checked. Moving tests between files is gated by `scripts/suite-snapshot.ts` (every title and result, before vs
@@ -139,7 +141,7 @@ the whole suite (and a close runs it cold, `VOLT_RUSTC_CACHE=0`).
 
 ```bash
 # the fixture contract for the NAMED fixtures only — registered, LSP-run and Rust-built alone (~3 s for three)
-VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/fixtures.test.ts
+VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/transpile-replay.test.ts test/conformance/map.test.ts test/conformance/lsp-replay.test.ts
 # one front-end baseline file (test/frontend): census, resolution, type, fold, fixed point, rules
 bun test test/frontend/parse-census.test.ts
 bun test test/frontend/type-dump.test.ts test/frontend/fold-dump.test.ts test/frontend/resolution-dump.test.ts

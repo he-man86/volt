@@ -9,7 +9,6 @@
  */
 import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
-import { readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
@@ -24,19 +23,16 @@ import {
   LREAL_TIE_CASES,
   type LongCalendarInput,
 } from "../../src/transpile/semantics/text.cases.js"
+import { RUNS } from "./support/recordings.js"
 import { buildRust } from "./support/rustc-cache.js"
 import { RUSTC, skipRustSuite } from "./support/rustc.js"
 
-const RECORDED = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")).tests as Record<
-  string,
-  { values?: Record<string, string> } | undefined
->
 
 /** The recorded value a case names, refused by name when the recording does not hold it. */
 function recorded(c: Case<unknown, unknown>): string {
   const rec = c.recording
   if (rec === undefined) throw new Error(`${c.name} names no recording`)
-  const values = RECORDED[rec.fixture]?.values
+  const values = RUNS[rec.fixture]?.values
   if (values === undefined) throw new Error(`${c.name}: no recording of ${rec.fixture}`)
   const value = values[rec.variable]
   if (value === undefined) throw new Error(`${c.name}: ${rec.fixture} recorded no ${rec.variable}`)
@@ -47,7 +43,7 @@ function recorded(c: Case<unknown, unknown>): string {
 function recordedInput(c: Case<unknown, unknown>): string {
   const rec = c.recording
   if (rec === undefined) throw new Error(`${c.name} names no recording`)
-  const value = RECORDED[rec.fixture]?.values?.[rec.input]
+  const value = RUNS[rec.fixture]?.values?.[rec.input]
   if (value === undefined) throw new Error(`${c.name}: ${rec.fixture} recorded no ${rec.input}`)
   return value
 }

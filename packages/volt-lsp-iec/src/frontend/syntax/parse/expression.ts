@@ -22,7 +22,7 @@ import { expectedInsteadOf, vendorExpressionExpected, vendorTokenText } from "./
 import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND, SOFT_NAME_KEYWORDS } from "../lex/vocabulary.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
-// Exported for `test/conformance/coverage.test.ts`, which requires every operator here to appear in at least one
+// Exported for `test/conformance/suite.test.ts`, which requires every operator here to appear in at least one
 // conformance fixture — so an operator the grammar accepts can never again go unmeasured, the way `**` did.
 export const BINARY_PRECEDENCE: ReadonlyArray<{
   ops: readonly string[]
@@ -189,7 +189,7 @@ function parsePostfix(cur: Cursor): Expr | undefined {
     // 2026-10-01) — and a parse error here stops the body's analysis.
     // …but a `.` on a compiler INTRINSIC's result (a `__`-named callee) ENDS the expression: `__VARINFO(v).size` is the
     // call, and the statement then lacks its `;` before the `.` — "';' expected instead of '.'", and `.size;` read on as
-    // a statement of its own that has no effect (`op_sys_varinfo`, both vendors; `analysis/resync.ts` modelled it until
+    // a statement of its own that has no effect (`op_sys_varinfo`, both vendors; the old `analysis/resync` module modelled it until
     // frontend-conformance 2.8.3 folded it here).
     if (t.text === "." && isIntrinsicCall(base)) break
     if (t.text === ".") {
@@ -324,7 +324,7 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
   // Named input `p := v` or output `p => tgt` — a name followed by := / =>.
   // `atNameStart` (not `kind === "identifier"`): the soft keywords are legal PARAMETER names for the same
   // reason they are legal variable names — the Standard `RS` FB declares `SET : BOOL`, so `rs(SET := x)` is
-  // how you call it by name. The declaration side already allowed this (`var-section.ts`); the call side did
+  // how you call it by name. The declaration side already allowed this (`parse/declarations.ts`); the call side did
   // not, which made that input reachable only positionally.
   if (cur.atNameStart()) {
     const next = cur.peek(1)

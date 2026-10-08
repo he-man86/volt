@@ -11,7 +11,7 @@
  *   - FB_Exit missing bInCopyCode → error
  *   - FB_Reinit with parameters → questionable (doc says "no parameters")
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -570,7 +570,7 @@ END_METHOD
     fromDoc: "07-pragmas.md#instance-path",
     deferred: {
       transpile:
-        "the path is taken from the project tree, Device.Application.PRG_LANG_pathM.outer.inner — the simulator's reads Device.Sim.Device.Application…, a segment the tree does not hold (user decision 2026-09-15); the program's name once is checked in lower.test.ts",
+        "the path is taken from the project tree, Device.Application.PRG_LANG_pathM.outer.inner — the simulator's reads Device.Sim.Device.Application…, a segment the tree does not hold (user decision 2026-09-15); the program's name once is checked in lower/init/attributes.test.ts",
     },
     plcPrgVar: "seen : STRING(255);",
     plcPrgBody: "PRG_LANG_pathM();\nseen := PRG_LANG_pathM.outer.inner.sMyPath;",

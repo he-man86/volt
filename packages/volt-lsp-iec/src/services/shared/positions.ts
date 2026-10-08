@@ -39,8 +39,8 @@ export function offsetFromPosition(src: string, pos: Position): number {
 
 /**
  * The meaningful token covering a byte offset — for a cursor that sits in a DECLARATION (a type name, a declared
- * identifier) where there is no statement tree. It lived in `services/shared/token-scan.ts`, then in the syntax layer
- * (`token-at.ts`); the syntax layer answers what text IS, and a cursor is a service's question (openspec
+ * identifier) where there is no statement tree. It lived in the old `services/shared/token-scan`, then in the syntax layer
+ * (`token-at`); the syntax layer answers what text IS, and a cursor is a service's question (openspec
  * frontend-conformance P5, 1.10). It reads the tokens the PARSE lexed, in the document's dialect: it re-lexed the
  * source as CODESYS, so on TwinCAT a `__POSITION` under the cursor was a keyword the vendor does not have (2.1.4).
  */

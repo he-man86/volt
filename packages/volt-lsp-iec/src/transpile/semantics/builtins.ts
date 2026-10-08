@@ -57,9 +57,45 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const inRange = Number.isFinite(t) && t >= -2147483648 && t <= 2147483647
       return fit(inRange ? BigInt(t) : -2147483648n, type)
     }
-    // THE WIDTH IS THE NODE'S, and lowering always types these — a shift or rotate is built from a promoted
-    // operand, so a non-elementary type here is a lowering bug, not a 32-bit value. Defaulting to 32 gave a
-    // BYTE or a LWORD the wrong mask and the wrong wrap, silently and only for the case that never happens.
+    case "shl":
+    case "shr":
+    case "rol":
+    case "ror":
+      return fit(bitValue(name, args, type, rotateBits), type)
+    case "expt":
+      // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL)
+      return fit(expt(Number(num(args[0]!)), Number(num(args[1]!))), type)
+    case "abs": {
+      // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself
+      const v = args[0]!
+      return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), type)
+    }
+    case "char":
+    case "setchar":
+      return stringBuiltin(name, args, type, argTypes)
+    case "sqrt":
+    case "ln":
+    case "log":
+    case "exp":
+    case "sin":
+    case "cos":
+    case "tan":
+    case "asin":
+    case "acos":
+    case "atan":
+      // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits
+      return fit(MATH[name](Number(num(args[0]!))), type)
+  }
+}
+
+/**
+ * SHL, SHR, ROL and ROR — the bits, before `fit` stores them at the node's type. THE WIDTH IS THE NODE'S, and lowering
+ * always types these — a shift or rotate is built from a promoted operand, so a non-elementary type here is a lowering
+ * bug, not a 32-bit value. Defaulting to 32 gave a BYTE or a LWORD the wrong mask and the wrong wrap, silently and only
+ * for the case that never happens.
+ */
+function bitValue(name: "shl" | "shr" | "rol" | "ror", args: readonly Val[], type: Type, rotateBits: number | undefined): bigint {
+  switch (name) {
     case "shl":
     case "shr": {
       // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (conformance `shift_count_*`,
@@ -68,7 +104,7 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const bits = widthOf(type, name)
       const count = BigInt(Number(num(args[1]!)) & (bits - 1))
       const value = num(args[0]!) as bigint
-      return fit(name === "shl" ? value << count : value >> count, type)
+      return name === "shl" ? value << count : value >> count
     }
     case "rol":
     case "ror": {
@@ -80,16 +116,14 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const by = name === "rol" ? left : (width - left) % width
       const value = num(args[0]!) as bigint
       const unsigned = BigInt.asUintN(bits, value)
-      return fit((value - unsigned) | BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), type)
+      return (value - unsigned) | BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width)))
     }
-    case "expt":
-      // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL)
-      return fit(expt(Number(num(args[0]!)), Number(num(args[1]!))), type)
-    case "abs": {
-      // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself
-      const v = args[0]!
-      return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), type)
-    }
+  }
+}
+
+/** CHAR and SETCHAR — a string's byte read, or stored and cut at the capacity lowering stated. */
+function stringBuiltin(name: "char" | "setchar", args: readonly Val[], type: Type, argTypes: readonly Type[]): Val {
+  switch (name) {
     case "char": {
       const text = argTypes[0]!
       const capacity = text.kind === "elementary" ? text.length : undefined
@@ -103,17 +137,5 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       if (capacity === undefined) throw new LoweringBug("SETCHAR on a string whose capacity lowering did not state")
       return setChar(args[0] as string, num(args[1]!) as bigint, num(args[2]!) as bigint, capacity)
     }
-    case "sqrt":
-    case "ln":
-    case "log":
-    case "exp":
-    case "sin":
-    case "cos":
-    case "tan":
-    case "asin":
-    case "acos":
-    case "atan":
-      // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits
-      return fit(MATH[name](Number(num(args[0]!))), type)
   }
 }

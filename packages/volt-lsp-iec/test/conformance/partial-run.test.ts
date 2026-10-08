@@ -5,7 +5,8 @@
  * `SELECTION.selected` rather than as `whole()`, a total quietly shrinks to the selection — `rated("diverges").length`
  * is 0 against its ceiling — and a partial run passes what the full run fails, with nothing red.
  *
- * So this runs `fixtures.test.ts` partially, one fixture per rating, and holds what it executed:
+ * So this runs the fixture contract (`transpile-replay.test.ts`, `map.test.ts`, `lsp-replay.test.ts`) partially, one
+ * fixture per rating, and holds what it executed:
  *   - every test passes (an expected failure passes; a skip is not a pass and is held below);
  *   - each named fixture gets its rating's row, under that rating's describe;
  *   - every other EXECUTED test is one of `SCOPED` — the rows whose assertion is a list of offenders among the selected
@@ -18,6 +19,9 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+
+/** The fixture contract's three files (they were one, `support/fixture-suite.ts` says why there are three). */
+const CONTRACT = ["transpile-replay", "map", "lsp-replay"].map((f) => `test/conformance/${f}.test.ts`)
 
 /** One fixture per rating — `fixtures/map.generated.ts` is where each one's rating is read. `unaskable` has no
  *  per-fixture row (its one row checks each selected fixture says why), so it is `null` here. */
@@ -104,7 +108,7 @@ describe("a VOLT_FIXTURES run answers what the full run answers for the fixtures
       delete env.CI
       delete env.VOLT_REQUIRE_FULL
       const child = Bun.spawn(
-        ["bun", "test", "test/conformance/fixtures.test.ts", "--reporter=junit", `--reporter-outfile=${out}`],
+        ["bun", "test", ...CONTRACT, "--reporter=junit", `--reporter-outfile=${out}`],
         { cwd: join(import.meta.dir, "..", ".."), env, stdout: "pipe", stderr: "pipe" },
       )
       const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()])

@@ -1,6 +1,6 @@
 /**
  * THE LIBRARY PATH RULE — `isLibraryUri` (a referenced library's signature, not project source) and `libraryOf` (which
- * library). It lived in `symbols/library-symbol.test.ts` and `symbols/symbols.test.ts` while the rule was the binder's.
+ * library). It lived in the old `symbols/library-symbol` and `symbols/symbols` tests while the rule was the binder's.
  */
 import { expect, test } from "bun:test"
 import { isLibraryUri, libraryOf } from "./index.js"

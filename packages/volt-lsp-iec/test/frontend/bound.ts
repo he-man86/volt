@@ -6,7 +6,7 @@
  *             instances and its vendor's dialect — what the server binds;
  *   fixtures  the fixture project's libraries bound once per vendor, and each fixture's own item, its PLC_PRG and the
  *             fixtures it depends on, parsed as that vendor, bound on top for the length of one visit — what the replay
- *             binds for that vendor (`conformance/fixtures.test.ts` `runLsp`);
+ *             binds for that vendor (`conformance/lsp-replay.test.ts` `runLsp`);
  *   library   the fixture project's libraries with the repo's bodies in place of the declarations (`withImplementations`),
  *             which is where each body is lowered from.
  */

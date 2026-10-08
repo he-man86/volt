@@ -1,7 +1,7 @@
 /**
  * Checks with no fixture, third set — and the reserved-name question `cc3_bit_access_and_call_result` raised by
  * accident: CODESYS refused a variable called `bit` ("Unexpected token 'bit' found") while the LSP accepted it, which
- * is the family `names/set-reset-name.ts` already covers for `r` and `s`. Which type names are unusable as variable
+ * is the family the old `names/set-reset-name` check covered for `r` and `s`. Which type names are unusable as variable
  * names is measured here rather than guessed.
  */
 import type { LanguageTest } from "../../types.js"

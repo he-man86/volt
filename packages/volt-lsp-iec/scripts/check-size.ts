@@ -26,11 +26,10 @@ export const FUNCTION_LIMIT = 80
  * The ceilings, relative to `src/transpile/`. Measured 2026-10-07 (at fd0865a913): design.md's twelve of 2026-09-29, at
  * their line counts then, plus two that had grown past 400 — `lower/statements.ts` and `interp/interp.ts`. Phase 1
  * dissolved them file by file (steps 1.3-1.6; the in-place splits of 1.6a/1.6b raised four for the steps between, each
- * file then moved into its folder); what is left is `lower/lower.test.ts`, which 1.8.1 dissolves.
+ * file then moved into its folder); the last, the lowering test file, went with 1.8.1. None is left: every file is within its
+ * limit, and a new ceiling is not how a file gets past it.
  */
-export const CEILINGS: Readonly<Record<string, number>> = {
-  "lower/lower.test.ts": 2645,
-}
+export const CEILINGS: Readonly<Record<string, number>> = {}
 
 const slash = (p: string): string => p.split("\\").join("/")
 

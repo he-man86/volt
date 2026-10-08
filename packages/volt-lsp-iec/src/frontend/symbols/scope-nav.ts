@@ -194,7 +194,7 @@ export function externalGlobal(project: Scope, name: string): Symbol | undefined
 }
 
 /** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. Type inference and constant
- *  folding both qualify through it (it lived privately in `infer.ts`). `.GVL.field` names the list in the global
+ *  folding both qualify through it (it lived privately in the old `infer` module). `.GVL.field` names the list in the global
  *  namespace only (rule E33): `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]` in a lenze library, `1..` then `.L_MC1P_…`. */
 export function resolveGvlMember(expr: { base: Expr; member: { name: string } }, scope: Scope, project: Scope): Symbol | undefined {
   const block = gvlBlockOf(expr.base, scope, project)

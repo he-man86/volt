@@ -136,7 +136,7 @@ test("infer: unary minus is typed as the signed type of the operand's width, at 
   expect(neg("UDINT")).toMatchObject({ kind: "elementary", name: "DINT" })
   expect(neg("INT")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(neg("LINT")).toMatchObject({ kind: "elementary", name: "LINT" })
-  // BOTH OF THESE SAID "not measured". They are now — `fixtures/unary-operand.ts` asks every elementary type one at a
+  // BOTH OF THESE SAID "not measured". They are now — `fixtures/operators/unary-operand.ts` asks every elementary type one at a
   // time, and `-ULINT` is LINT (the silence was itself a guess) while `NOT WORD` is UINT, not WORD.
   expect(neg("ULINT")).toMatchObject({ kind: "elementary", name: "LINT" })
   expect(neg("LWORD")).toMatchObject({ kind: "elementary", name: "LINT" })

@@ -9,7 +9,7 @@
  * silently and uses undefined ordering. The LSP value-add is catching
  * the collision before runtime.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 

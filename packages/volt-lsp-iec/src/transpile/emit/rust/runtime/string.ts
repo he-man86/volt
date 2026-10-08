@@ -29,7 +29,7 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
 // s[i] — 0-based over the N + 1 bytes of the variable, the bytes behind the terminator included: a read reads that byte,
 // a store stores it and the length is re-scanned — a 0 cuts the string and keeps its tail, which a store over that 0
 // brings back (tr_34_lib_prim_char_behind). Byte N is the terminator: it reads 0, and only a 0 fits. Outside 0..N is
-// outside the variable: a panic, as the interpreter's RangeError (ir/values.ts charAt / setChar).
+// outside the variable: a panic, as the interpreter's RangeError (semantics/string.ts charAt / setChar).
 // Written out, not on one line: "if .. { panic!() } if .." on one line reads to clippy as possible_missing_else.
 impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
     pub fn char_at(&self, i: i64) -> T {

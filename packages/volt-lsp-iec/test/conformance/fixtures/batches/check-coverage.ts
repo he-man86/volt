@@ -218,7 +218,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   // Recorded: EXPT(REAL, REAL) is typed REAL (no warning), EXPT(INT, INT) LREAL (warning). The mixed pair decides.
   fb("cc_expt_real_int_into_real", "EXPT(REAL, INT) into REAL → ?", "a : REAL; i : INT; c : REAL;", "c := EXPT(a, i);"),
   fb("cc_expt_lreal_real_into_real", "EXPT(LREAL, REAL) into REAL → ?", "l : LREAL; a : REAL; c : REAL;", "c := EXPT(l, a);"),
-  // The class fix: every operator the grammar accepts gets at least one fixture (test/conformance/coverage.test.ts
+  // The class fix: every operator the grammar accepts gets at least one fixture (test/conformance/suite.test.ts
   // enforces it). These six had NONE when it was first measured — the same blind spot `**` sat in.
   fb("cc_fp_op_divide", "`/` → accepted", "a : INT := 7; b : INT := 2; c : INT;", "c := a / b;"),
   fb("cc_fp_op_less_equal", "`<=` → accepted", "a : INT; ok : BOOL;", "ok := a <= 3;"),

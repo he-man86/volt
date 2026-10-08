@@ -1,9 +1,9 @@
 /**
  * unary-operand (types/). A unary operator does not merely fail on a type it cannot use — it CONVERTS the operand
  * first, and reports the conversion. `inferExprType` knows what each one produces (`arith.ts` `checkedNegationType`
- * for `-`, the NOT branch in `infer.ts`); this is the other half, the operand's own trip into that type.
+ * for `-`, the NOT branch in `frontend/types/infer/expr.ts`); this is the other half, the operand's own trip into that type.
  *
- * Measured one operand type at a time on CODESYS 3.5.21.40, 2026-09-18 — see `fixtures/unary-operand.ts`, whose
+ * Measured one operand type at a time on CODESYS 3.5.21.40, 2026-09-18 — see `fixtures/operators/unary-operand.ts`, whose
  * probes assign into a deliberately wrong destination so the compiler has to name every type it touched:
  *
  *   -aTime    Cannot convert type 'TIME' to type 'DINT'                 (and LTIME -> LINT, DATE/TOD/DT -> DINT)

@@ -10,7 +10,7 @@
  * from there (conformance `cc2_constant_and_external`, where one dangling name accounts for six of the ten recorded
  * errors). That is the search order's to say, not this check's — `lookup` passes over a VAR_EXTERNAL with no global
  * (frontend-conformance 3.1.3), so `unresolved-identifier` reports each use; a separate walk here reported them twice
- * once it did (`analysis/lost-declaration.ts`, deleted).
+ * once it did (the `analysis/lost-declaration` module, deleted).
  */
 import { externalGlobal, forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"

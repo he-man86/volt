@@ -6,7 +6,7 @@
  * arg's declared type isn't `<X>`. TC's stance on this varies — some
  * mismatches are silently auto-coerced, some are errors.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 

@@ -387,3 +387,17 @@ test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
   expect(evalConst("", "7.5 - 2.5")).toBe(5)
   expect(evalConst("", "9.0 / 2.0")).toBe(4.5)
 })
+
+// transpile-restructure 1.8.9 gate (the fold-agreement test): a VAR_EXTERNAL CONSTANT was a constant with no value — its
+// own declaration has no initializer — where the IR reads the global it binds (`xo3_value_functions_across_objects`).
+test("a VAR_EXTERNAL CONSTANT folds to the global it binds; one whose global is missing or not a constant does not", () => {
+  const files = [
+    { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  gLow : INT := 10;\nEND_VAR\nVAR_GLOBAL\n  gVar : INT := 4;\nEND_VAR\n" },
+    { uri: "file:///p/F.pou", source: "FUNCTION_BLOCK F\nVAR_EXTERNAL CONSTANT\n  gLow : INT;\n  gVar : INT;\n  gNone : INT;\nEND_VAR\nVAR\n  n : INT;\nEND_VAR\nn := gLow * 2;\nn := gVar;\nn := gNone;\nEND_FUNCTION_BLOCK\n" },
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
+  const project = build.buildSymbolTable(files)
+  const values: unknown[] = []
+  for (const { scope, statements } of bodies(files[1]!.parseResult.units, project))
+    for (const s of statements) if (s.kind === "assign") values.push(constEval(s.value, scope))
+  expect(values).toEqual([20n, undefined, undefined])
+})

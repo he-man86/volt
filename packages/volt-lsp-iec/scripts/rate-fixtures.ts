@@ -21,7 +21,7 @@
  *   `shape`     the emission's shape id — its normalized constructs in order.
  *   `notes`     the ids of the constructs it emits that the review judged. Their full text — improvement,
  *               alternatives, chosen, why — is written at the END of the same file, a generated `NOTES` section
- *               copied from the authored table in `support/transpile-confidence.ts` (`renderNotes`), so a row leads
+ *               copied from the authored table in `support/notes/notes.data.ts` (`renderNotes`), so a row leads
  *               to its reasons without leaving the map. The authored table stays the source; the copy is gated.
  *
  * WHY A GENERATED MODULE AND NOT A FIELD IN EACH FIXTURE. About half the catalog is not literal objects: 458 of the
@@ -31,7 +31,7 @@
  * file is written rather than about what is known. One module keyed by name reaches all of them, and
  * `fixtures/index.ts` merges it so `t.evidence` and `t.transpile` are populated on EVERY fixture at runtime.
  *
- * It is derived data, so it is generated and then CHECKED: `fixtures.test.ts` recomputes every row and fails if a
+ * It is derived data, so it is generated and then CHECKED: `map.test.ts` recomputes every row and fails if a
  * stored one disagrees. That is what makes it safe to commit — it can be read, diffed and reviewed, and it cannot
  * go stale without a red test.
  *
@@ -57,31 +57,15 @@ import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { assembleFixture } from "../test/conformance/support/fixture-units.js"
 import { PROJECT_BASE } from "../test/conformance/support/project-libraries.js"
 import { EVIDENCE_ORDER, rateFixture, type Evidence } from "../test/conformance/support/evidence.js"
-import {
-  ALLOWED,
-  NOTES,
-  assertNotes,
-  assertPolicy,
-  buildArgv,
-  correctnessOf,
-  deadNotes,
-  divergesOf,
-  EDGE_ARG,
-  edgeHarness,
-  edgePlan,
-  edgeVerdict,
-  HARNESS_LOOP_GUARD,
-  emissionShape,
-  notesByTask,
-  notesOf,
-  printRow,
-  rejectionIsADefect,
-  renderNotes,
-  rendered,
-  sizeRatio,
-  splitFindings,
-  tierOf,
-} from "../test/conformance/support/transpile-confidence.js"
+import { assertNotes, deadNotes, notesByTask, notesOf } from "../test/conformance/support/notes/notes.js"
+import { NOTES } from "../test/conformance/support/notes/notes.data.js"
+import { renderNotes } from "../test/conformance/support/notes/render.js"
+import { correctnessOf, rejectionIsADefect } from "../test/conformance/support/transpile/correctness.js"
+import { EDGE_ARG, edgeHarness, edgePlan, edgeVerdict, HARNESS_LOOP_GUARD } from "../test/conformance/support/transpile/edge.js"
+import { ALLOWED, assertPolicy, buildArgv, rendered, splitFindings } from "../test/conformance/support/transpile/lint-policy.js"
+import { divergesOf, printRow } from "../test/conformance/support/transpile/row.js"
+import { emissionShape, sizeRatio } from "../test/conformance/support/transpile/shape.js"
+import { tierOf } from "../test/conformance/support/transpile/tier.js"
 import { TIERS, type EdgeVerdict, type FixtureMapRow } from "../test/conformance/fixtures/map-row.js"
 import { CLIPPY } from "../test/conformance/support/rustc.js"
 import { buildRust } from "../test/conformance/support/rustc-cache.js"
@@ -123,7 +107,7 @@ const pedanticTally = new Map<string, number>()
 const started = performance.now()
 
 // ONE COMPILER PER CORE. Each fixture is its own `clippy-driver`, and spawning 2,600 at once is thrashing rather
-// than parallelism — the same shape `fixtures.test.ts` settled on for its own Rust pass.
+// than parallelism — the same shape `transpile-replay.test.ts` settled on for its own Rust pass.
 const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
 let next = 0
 await Promise.all(
@@ -262,12 +246,12 @@ const text = `/**
  * One row per fixture: how well it is EVIDENCED, what its ST lowers to, which oracle reached the emitted Rust, and
  * what the Rust linter still says about that Rust. \`fixtures/index.ts\` merges this onto every fixture, so
  * \`t.evidence\` and \`t.transpile\` are populated whether the fixture is a literal object or built by a factory;
- * \`fixtures.test.ts\` recomputes all of it and fails if anything here is stale.
+ * \`map.test.ts\` recomputes all of it and fails if anything here is stale.
  *
- * \`support/evidence.ts\` defines the evidence ratings; \`support/transpile-confidence.ts\` defines the tier, the
- * oracle, the lint policy — including the reason each allowed lint is Volt's own answer rather than a defect —, the
- * shape, the edge differential, and the review's \`NOTES\` — authored there, and copied in full to the END of this
- * file, so the construct ids in a row's \`notes\` resolve to their text here.
+ * \`support/evidence.ts\` defines the evidence ratings; \`support/transpile/\` defines the tier, the oracle, the lint
+ * policy — including the reason each allowed lint is Volt's own answer rather than a defect —, the shape and the edge
+ * differential; the review's \`NOTES\` are authored in \`support/notes/notes.data.ts\` and copied in full to the END of
+ * this file, so the construct ids in a row's \`notes\` resolve to their text here.
  *
  * At the last regeneration:
  *
@@ -293,7 +277,7 @@ ${
         .join("\n")
 }
  *
- *   allowed, and how many fixtures each one still excuses — \`support/transpile-confidence.ts\` holds the reason
+ *   allowed, and how many fixtures each one still excuses — \`support/transpile/lint-policy.ts\` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
 ${ranked(excused)
   .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(5)}`)

@@ -1,44 +1,8 @@
-/**
- * transpile-review 48: `vendor` is the claim that a RECORDED VALUE came back out of the emitted Rust. A recording whose
- * every value is its type's default, from a program with no non-default constant in it, pins nothing — every variable
- * starts at its default, so a body that computes the wrong thing over zeros (or nothing at all) reads the same.
- */
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import type { ShapeNote } from "../fixtures/map-row.js"
-import { ALL_TESTS } from "../fixtures/index.js"
-import { assembleFixture } from "./fixture-units.js"
-import { lowerSource } from "../../../src/transpile/index.js"
-import { rustAccess } from "./rust-access.js"
-import { assertNotes, correctnessOf, interpOutcome, NOTES, notesByTask, noteTagProblems, RESTRUCTURE_TASKS, taskIdsOf } from "./transpile-confidence.js"
-import { PROJECT_BASE } from "./project-libraries.js"
-
-const sourceOf = (name: string): string => {
-  const t = ALL_TESTS.find((x) => x.name === name)
-  if (t === undefined) throw new Error(`no fixture ${name}`)
-  const { source, gvls } = assembleFixture(t, ALL_TESTS)
-  return [source, ...gvls.map((g) => g.source)].join("\n")
-}
-const rated = (name: string): string => correctnessOf(name, "confirmed", true, sourceOf(name))
-
-describe("the vendor oracle needs a recording that discriminates", () => {
-  test("all defaults out of all-default inputs is not vendor evidence (cc_ rows)", () => {
-    expect(["cc_fp_neg_int_into_int", "cc_add_uint_int", "cc_max_udint_dint"].map(rated)).toEqual(["compiles", "compiles", "compiles"])
-  })
-
-  test("a prim_default_* fixture asks for exactly the default, so it keeps vendor", () => {
-    expect(["prim_default_int", "prim_default_string"].map(rated)).toEqual(["vendor", "vendor"])
-  })
-
-  test("a default ANSWER from non-default constants discriminates, so it keeps vendor", () => {
-    // LIMIT(100, 50, 0) = 0 (MX wins when MN > MX); a WHILE false on entry leaves 0; an attribute method that never runs
-    expect(["limit_inverted_bounds", "stmt_while_never", "call_after_init"].map(rated)).toEqual(["vendor", "vendor", "vendor"])
-  })
-
-  test("a recording with a non-default value stays vendor", () => {
-    expect(rated("cc_bitwise_sint_and_literal")).toBe("vendor")
-  })
-})
+import type { ShapeNote } from "../../fixtures/map-row.js"
+import { NOTES } from "./notes.data.js"
+import { assertNotes, notesByTask, noteTagProblems, RESTRUCTURE_TASKS, taskIdsOf } from "./notes.js"
 
 /**
  * transpile-restructure 0.6: every review note names the task that owns it — an id of that change's `tasks.md`, or
@@ -131,17 +95,4 @@ describe("every note is tagged with the task that owns it", () => {
     expect(noteTagProblems(NOTES, taskIdsOf(readFileSync(RESTRUCTURE_TASKS, "utf8")))).toEqual([])
     expect(() => assertNotes()).not.toThrow()
   })
-})
-
-/**
- * A seed the runner refuses — a path outside its array — is the HARNESS's error, so it throws; it used to sit inside the
- * fault catch and read as the program faulting (an edge outcome, compared against the Rust's).
- */
-test("an edge seed the interpreter refuses throws instead of reading as a program fault", () => {
-  const source = "PROGRAM PLC_PRG\nVAR\n\ta : ARRAY[0..2] OF INT;\nEND_VAR\na[0] := 1;\nEND_PROGRAM\n"
-  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
-  if (pou === undefined) throw new Error("the source does not lower")
-  const p = { path: "a[5]", ...rustAccess(pou, "a[5]") }
-  const plan = { paths: [], cycles: 1, variants: [{ label: "oob", seed: { p, s: { label: "1", interp: 1n, rust: "1" } } }] }
-  expect(() => interpOutcome(pou, plan, 0)).toThrow("array index 5 is outside its bounds")
 })

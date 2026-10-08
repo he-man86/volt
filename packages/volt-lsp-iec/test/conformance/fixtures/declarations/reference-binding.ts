@@ -6,7 +6,7 @@
  * is not a rare spelling: `ONTIME.pou` declares `refSeconds : REFERENCE TO UDINT REF= udiSeconds`, and 141 corpus
  * POUs reach it — the single largest line in `pointer-order`'s histogram (pointer-model.md §7b).
  *
- * It was ALSO the shape that exposed a parser hole. `var-section.ts` wrote `c.eatPunct(":=") ?? c.eatPunct("REF=")`
+ * It was ALSO the shape that exposed a parser hole. The VAR-section parser (then `var-section`, now `parse/declarations.ts`) wrote `c.eatPunct(":=") ?? c.eatPunct("REF=")`
  * — it accepted either operator and recorded neither — so the declaration reached lowering as an ordinary
  * assignment (no target bound, every read refused) and reached the FORMATTER as one too (`REF=` printed back as
  * `:=`, silently turning a bind into a store). Both are fixed; this family is what stops the fix resting on

@@ -6,7 +6,7 @@ import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { citationsIn, missingCitations, resolves, tailsOf } from "./check-citations.js"
+import { citationsIn, missingCitations, resolves, stalePlanned, tailsOf } from "./check-citations.js"
 
 test("a citation is a .ts path with an optional line; URLs, globs, placeholders in <> and .d.ts are not", () => {
   const text = [
@@ -18,6 +18,28 @@ test("a citation is a .ts path with an optional line; URLs, globs, placeholders 
     "1 interp.ts",
     "1 ir/ir.ts",
   ])
+})
+
+test("in a tasks.md a ticked task's lines are its record and are not read; an open task's, and prose outside a task, are", () => {
+  const text = [
+    "## 1. Phase",
+    "- [x] 1.1 Split `lower/lower.ts`.",
+    "  - Done. `lower/lower.ts` deleted; `emit.ts:517` moved.",
+    "- [ ] 1.2 Move `lower/calls.ts:337`.",
+    "  - Where: `lower/calls.ts`.",
+    "### 1.3 heading naming `ir/ir.ts`",
+    "- [x] 1.3.1 Done one (`gone.ts`).",
+    "",
+    "Prose after the list: `prose.ts`.",
+  ].join("\n")
+  expect(citationsIn("openspec/changes/c/tasks.md", text).map((c) => `${c.line} ${c.cited}`)).toEqual([
+    "4 lower/calls.ts",
+    "5 lower/calls.ts",
+    "6 ir/ir.ts",
+    "9 prose.ts",
+  ])
+  // any other text is read whole, a ticked box or not
+  expect(citationsIn("x.ts", text).length).toBe(8)
 })
 
 test("a citation resolves by the file's tail at a / boundary", () => {
@@ -35,7 +57,7 @@ test("the scan reports a cited file that does not exist, in each kind of citing 
   const files: Record<string, string> = {
     "packages/p/src/transpile/ir/ir.ts": "// moved from ir/old.ts:12; see ir/ir.ts\nexport {}\n",
     "packages/p/test/conformance/fixtures/f.ts": "// ir/ir.ts:3 and lower/gone.ts\n",
-    "packages/p/test/conformance/support/transpile-confidence.ts": 'const NOTES = { a: "emit.ts:640" }\n',
+    "packages/p/test/conformance/support/notes/notes.data.ts": 'const NOTES = { a: "emit.ts:640" }\n',
     "packages/p/docs/architecture.md": "`ir/ir.ts` and `semantics/value.ts`\n",
     "openspec/changes/c/tasks.md": "- [ ] 1 Where: `ir/ir.ts`, `interp/interp.ts`\n",
     "openspec/changes/archive/old/tasks.md": "- [x] `nowhere.ts`\n",
@@ -51,8 +73,29 @@ test("the scan reports a cited file that does not exist, in each kind of citing 
       "packages/p/docs/architecture.md:1 semantics/value.ts",
       "packages/p/src/transpile/ir/ir.ts:1 ir/old.ts",
       "packages/p/test/conformance/fixtures/f.ts:1 lower/gone.ts",
-      "packages/p/test/conformance/support/transpile-confidence.ts:1 emit.ts",
+      "packages/p/test/conformance/support/notes/notes.data.ts:1 emit.ts",
     ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test("a file an open task will create resolves while it is planned, and a planned file that exists is a stale entry", () => {
+  const root = mkdtempSync(join(tmpdir(), "volt-citations-planned-"))
+  const files: Record<string, string> = {
+    "packages/p/src/transpile/ir/ir.ts": "export {}\n",
+    // a planned file is cited by its folder and name: a bare `memory.ts` names no plan (the gate of 1.8a+1.9 — any
+    // `memory.ts` anywhere resolved against a file that does not exist)
+    "openspec/changes/c/tasks.md": "- [ ] 1 Where: new `semantics/memory.ts`, `ir/ir.ts`, and `gone.ts`; see `memory.ts`.\n",
+  }
+  try {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true })
+      writeFileSync(join(root, path), text)
+    }
+    const planned = { "packages/p/src/transpile/semantics/memory.ts": "c 1", "packages/p/src/transpile/ir/ir.ts": "c 2" }
+    expect(missingCitations(join(root, "packages", "p"), root, planned).map((c) => c.cited)).toEqual(["gone.ts", "memory.ts"])
+    expect(stalePlanned(root, planned)).toEqual(["packages/p/src/transpile/ir/ir.ts (c 2) exists — remove it from PLANNED"])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

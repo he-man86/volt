@@ -10,7 +10,7 @@ produces what — see [`../TESTING.md`](../TESTING.md). This file is only the ma
 
 | Concern | File | Question | Oracle |
 |---|---|---|---|
-| 1. the fixture contract | `conformance/fixtures.test.ts` | for each fixture, does the thing its evidence rating claims actually hold? | the recorded CODESYS build **and** run |
+| 1. the fixture contract | `conformance/{transpile-replay,map,lsp-replay}.test.ts` | for each fixture, does the thing its evidence rating claims actually hold? | the recorded CODESYS build **and** run |
 | 1b. the documented codes | `catalog/catalog.test.ts` | does every `Cnnnn` the catalog documents have a repro and a message? | `docs/codesys-reference/error-catalog.json` |
 | 2. real code | `corpus/corpus.test.ts` | can the LSP read 29k files of real code, does it invent nothing, and is lowering total over them? | the projects' own recorded IDE builds |
 | 2b. the memory model | `conformance/properties.test.ts` | do the layout rules hold as properties, where no single recording can say? | none — they are properties |
@@ -32,7 +32,7 @@ everything bound ONCE for 0.3 and 0.4.
 
 Plus `analysis/` — the ANALYSIS MEASURED (openspec `analysis-conformance`, phase 0): does every diagnostic the LSP's
 analysis gives say what the vendor's build said? `diagnostic-census.test.ts` runs every registry check over every
-conformance fixture as the replay binds it (`conformance/support/replay.ts`, the composition `fixtures.test.ts` gates), on
+conformance fixture as the replay binds it (`conformance/support/replay.ts`, the composition `lsp-replay.test.ts` gates), on
 both vendors, and over the six corpora as the server analyses them, and attributes each finding to its check and its
 message builder: TP, SEV, FP (`div` where the replay pins a divergence) and GAP (IDE-only, attributed by shape, or
 `unowned`). The builder is `census.ts`; the counts and findings are pinned in `analysis/baselines/` (`fixtures.codesys`,
@@ -60,7 +60,8 @@ three to compile through `rustc`. A file that walks either of them a second time
 paying that again. `corpus.test.ts` parses each project once and asks every question of that one parse — it was
 four files doing four walks, one of them five times within itself.
 
-**One selection, and it must be total.** `fixtures.test.ts` is driven by the fixture's `evidence` rating, which is
+**One selection, and it must be total.** The fixture contract (`transpile-replay.test.ts`, `map.test.ts`,
+`lsp-replay.test.ts`, over `support/fixture-suite.ts`) is driven by the fixture's `evidence` rating, which is
 derived for every fixture, so a rating with no row is a visible hole. It replaced four files that each hand-wrote
 its own filter, where a fixture in a state nobody had thought of was simply covered by none of them — which is
 exactly what happened, and what the merge found on the first run.
@@ -70,7 +71,7 @@ exactly what happened, and what the merge found on the first run.
 - It reproduces a bug in one function → **beside the code**, `src/**/*.test.ts`. That is where the three
   lowering-totality regressions went, and where a src-colocated test belongs by policy.
 - It asks CODESYS something → **a fixture**, `conformance/fixtures/`, then `bun run record:exec` /
-  `record:language`. Never a new test file: `fixtures.test.ts` will pick it up under its rating.
+  `record:language`. Never a new test file: `transpile-replay.test.ts` will pick it up under its rating.
 - It is a new *concern* — something that could be wrong in a way none of the four covers → a new file, named for
   the question, with the first paragraph saying what it is and why nothing else can answer it.
 

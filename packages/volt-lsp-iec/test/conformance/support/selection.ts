@@ -1,5 +1,5 @@
 /**
- * `VOLT_FIXTURES=<name,name,…>` — run the fixture contract (`fixtures.test.ts`) for the NAMED fixtures only: the inner
+ * `VOLT_FIXTURES=<name,name,…>` — run the fixture contract (`transpile-replay.test.ts`, `map.test.ts`, `lsp-replay.test.ts`) for the NAMED fixtures only: the inner
  * loop of a step that touched a handful of them. `-t` cannot do this: it filters which tests RUN, after every fixture
  * was registered, lowered and Rust-built in the before-all phase (~62 s for three fixtures, measured 2026-10-02).
  *

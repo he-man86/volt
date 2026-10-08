@@ -10,7 +10,7 @@
  * IO mapping — they test the SYNTAX, not actual IO. TC accepts the
  * declaration; mapping resolution is a different layer.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -179,7 +179,7 @@ END_METHOD
 `,
   },
   // ─── THE CONSTRUCTS THE INDEX SAYS NOTHING COVERED ─────────────────────────────────────────────────
-  // `construct-index.test.ts` reads the vendor's own operator list and requires every entry to resolve to a fixture
+  // `suite.test.ts` reads the vendor's own operator list and requires every entry to resolve to a fixture
   // or a stated gap. These were the stated gaps — nine operators nothing exercised, so nothing knew whether CODESYS
   // even accepts the spelling, let alone what it answers. Recording them costs a build each and turns nine unknowns
   // into nine facts; a REFUSAL by the vendor is as useful an answer as a value, because it tells us the construct

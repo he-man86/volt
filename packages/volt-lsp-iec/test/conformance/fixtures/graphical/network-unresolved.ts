@@ -35,7 +35,7 @@
  *
  *   "the objects are excluded from build"  —  planting an undeclared identifier in `Mach1_MIDS`, `AHWF`,
  *                                             `General` and `BasicMovement` makes the compiler report every
- *                                             one (probe-is-it-compiled.ts (deleted; git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-is-it-compiled.ts)). They ARE compiled.
+ *                                             one (the `probe-is-it-compiled` probe, deleted; `git show b2496efb4b` holds it, under `scripts/`). They ARE compiled.
  *   "nothing reaches them"                 —  same experiment, same answer. (The MECHANISM is real — an
  *                                             uninstantiated FB is skipped whatever is wrong inside it — it
  *                                             simply is not what is happening here.)

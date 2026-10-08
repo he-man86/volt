@@ -37,7 +37,7 @@ test("spanContains: start inclusive, end exclusive", () => {
 })
 
 // ── tokenAtOffset — the token under a cursor when there is no statement tree (declarations), for hover and
-// definition on type names and declared identifiers (from `syntax/token-at.test.ts`, openspec frontend-conformance 1.10).
+// definition on type names and declared identifiers (from the old `syntax/token-at` test, openspec frontend-conformance 1.10).
 
 // "x := foo;" → x[0,1) :=[2,4) foo[5,8) ;[8,9)   (offsets 1 and 4 are whitespace = trivia)
 const TOKENS = lex("x := foo;", "codesys")

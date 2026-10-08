@@ -177,7 +177,7 @@ export const LOWER_CODE_PREFIXES: ReadonlyArray<{ prefix: string; kind: LowerCod
   { prefix: "slot-", kind: "not-modelled", note: "a VAR section kind with no runtime representation yet" },
   { prefix: "routine-", kind: "not-measured", note: "an FB section on a routine whose behaviour is unrecorded" },
   { prefix: "bit-on-", kind: "not-modelled", note: "a bit access on a type whose layout is not modelled" },
-  { prefix: "layout-", kind: "not-modelled", note: "a type kind with no declaration lowering can lay out (storage.ts)" },
+  { prefix: "layout-", kind: "not-modelled", note: "a type kind with no declaration lowering can lay out (storage/layout.ts)" },
 ]
 
 

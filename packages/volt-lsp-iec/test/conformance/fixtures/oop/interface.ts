@@ -5,7 +5,7 @@
  * LSP handle INTERFACE declarations, FBs that IMPLEMENTS them, and
  * common shape patterns (methods, properties, multiple inheritance).
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -110,7 +110,7 @@ END_FUNCTION_BLOCK
 `,
   },
 
-  // ─── Coverage extensions for find-identifier.ts:77-100 ────────
+  // ─── Coverage extensions for the old find-identifier, lines 77-100 ────────
 
   {
     name: "interface_extends_another",

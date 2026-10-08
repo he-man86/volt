@@ -1,7 +1,7 @@
 /**
  * WHICH FIXTURES DO NOT MATCH, AND WHY — the two triage backlogs and the two divergence sets, as data.
  *
- * They lived in `fixtures.test.ts`, which is where they are ASSERTED. They are read in more than one place
+ * They lived in the fixture gate, which is where they are ASSERTED (`lsp-replay.test.ts`, `map.test.ts`). They are read in more than one place
  * now — `scripts/agreement-residue.ts` has to skip a documented divergence or its work list is mostly device
  * facts — and a second copy of a list whose whole value is that it only shrinks would be the worst possible
  * duplication. So the lists live here and the gates import them.
@@ -1432,7 +1432,7 @@ const INIT_ORDER_OF_PROGRAMS: readonly string[] = [
  * code above the IMPLEMENTATION line: "an IMPLEMENTATION line inside a body"), and on TwinCAT it is silent on a
  * backtick name. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six names itself
  * outside an ASCII identifier, and none with a backtick). Each entry is the vendor's own sentence the LSP would have to
- * say; `fixtures.test.ts` holds each as an expected failure, so the day the LSP says it, the entry must go.
+ * say; `transpile-replay.test.ts` holds each as an expected failure, so the day the LSP says it, the entry must go.
  */
 export const CREATE_REFUSAL_BY_NAME_NOT_MODELLED: Record<Vendor, Readonly<Record<string, string>>> = {
   codesys: { rcc_member_name_not_identifier: "The name 'My-Name' is not valid for this object." },

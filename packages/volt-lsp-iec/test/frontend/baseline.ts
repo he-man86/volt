@@ -344,7 +344,7 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   // the diagnostic census: analysis-conformance 3.3 asked a BIT in every FB section (`fixtures/declarations/declaration-
   // rules.ts`). (In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — its unowned GAP left 2026-10-06,
   // analysis-conformance 3.11: `bit-usage` says it.) And a FUNCTION called with no argument whose one input's default CODESYS refuses
-  // (not constant) is "requires exactly '1' inputs" there (`callarg_no_argument_variable_default`, MEASURED_SILENT in fixtures.test.ts):
+  // (not constant) is "requires exactly '1' inputs" there (`callarg_no_argument_variable_default`, MEASURED_SILENT in transpile-replay.test.ts):
   // the call check reads only that a default is written, the calls group's to refine (3.8) — one calls GAP. New ground
   // measured, not a regression.
   // …and `b : BIT := 1` in a VAR CONSTANT (`bitu_fb_var_constant`, legal on both): one more literal of LT14's existing class

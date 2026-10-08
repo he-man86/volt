@@ -8,7 +8,7 @@
  * THE LIST IS THE VENDOR'S, NOT OURS. `docs/codesys-reference/06-data-types.md` names the Elementary group, and
  * `Standard` adds STRING and WSTRING. Twenty-nine distinct types once the aliases are folded in (DATE_AND_TIME=DT,
  * TIME_OF_DAY=TOD, LDATE_AND_TIME=LDT, LTIME_OF_DAY=LTOD) — and three of them, the platform-portable
- * `__XINT` / `__UXINT` / `__XWORD`, are NOT IN `src/types/elementary.ts` AT ALL. That gap is why they are here.
+ * `__XINT` / `__UXINT` / `__XWORD`, are NOT IN `src/frontend/types/elementary.ts` AT ALL. That gap is why they are here.
  *
  * `BIT` is declared like the rest: the reference restricts it to "STRUCT members or FB local variables only", and an
  * FB local is exactly what a fixture is.
@@ -80,7 +80,7 @@ export const PRIMITIVE_DEFAULT_TESTS: readonly LanguageTest[] = [
   def("STRING"),
   def("WSTRING"),
 
-  // ── platform-portable integers. NOT IN `src/types/elementary.ts`: `elementaryType("__XINT")` is undefined, so
+  // ── platform-portable integers. NOT IN `src/frontend/types/elementary.ts`: `elementaryType("__XINT")` is undefined, so
   //    every check that gates on `checkable()` skips them in silence. They are a CODESYS extension that compiles to
   //    DINT/LINT, UDINT/ULINT and DWORD/LWORD by target width — and the exec oracle runs one specific target, so
   //    what comes back is also the answer to "which width is the simulator".

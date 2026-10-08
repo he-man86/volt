@@ -230,6 +230,8 @@ A compiler backend, sibling consumer of the frontend (`frontend/`: `syntax ← s
 ```
 AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
                       └── emit/rust/    prints it + a source map
+              semantics/  what a node MEANS on values: run by interp/ and by lowering's IR fold,
+                          mirrored by emit/rust/runtime/ (the twin tests hold the two together)
 ```
 
 `ir/` is the one contract; `lower/` owns every ST semantic; the backends own none. A referenced LIBRARY is not
@@ -237,10 +239,71 @@ semantics the transpiler owns: its elements are ordinary POUs whose bodies the l
 (`libraries/<library>/<version>/`, ST, looked up by the manifest's `RESOLUTION`), lowered like project code. The
 only primitives a library needs are language operators — `s[i]` and `TIME()`, the latter read from a `CLOCK`
 global the harness sets per scan — and one pointer form, the STRING CURSOR: a character pointer a caller fills with
-a string's address binds that string by its own type and keeps its byte offset (`Lowering.cursors`), which is what a
-library like StringUtils walks. That split is enforced by
-`check-layering.ts`: inside `transpile/`, **only `ir/` is importable across folders**, so a backend cannot
-reach into the lowering and let a semantic decision drift out of its single home.
+a string's address binds that string by its own type and keeps its byte offset (`PointerFrame.cursors`,
+`lower/pointers/state.ts`), which is what a library like StringUtils walks.
+
+**The folders** (openspec `transpile-restructure` design.md §2; each test sits next to its module as `<file>.test.ts`):
+
+```
+transpile/
+  index.ts          the public barrel — explicit named exports, pinned by index.test.ts
+  pipeline/         the composition root: load (lower, then run) and lowerAndEmit; the ST → lower → interp tests
+  ir/               expr.ts stmt.ts program.ts — the node contract; walk.ts — the one exhaustive walk (childrenOf) every
+                    IR walk is built on; path.ts — the IDE path grammar; faults.ts — fault kinds and their texts
+  semantics/        value.ts store.ts convert.ts arith.ts operators.ts builtins.ts math.ts text.ts parse.ts string.ts
+                    instantiate.ts fold.ts faults.ts; cases.ts and the *.cases.ts tables the twin tests share
+  lower/
+    entry/          lower-unit.ts lower-source.ts checks.ts finish.ts — where a POU's lowering starts and ends
+    project/        prepare.ts library-base.ts — the transpiler's input assembly (files, libraries, attributes)
+    diagnostics/    codes.ts (the registry) diagnostic.ts — a refusal by name
+    core/           lowering.ts shared.ts (the frame and the POU's state) temps.ts nested.ts build.ts chain.ts
+                    ast-walk.ts tags.ts
+    values/         literals.ts fold.ts enums.ts convert.ts promote.ts
+    storage/        layout.ts declare.ts statics.ts addresses.ts bytes.ts unions.ts
+    init/           state.ts step.ts sequence.ts fb-init.ts instance-init.ts initial-values.ts temp-resets.ts
+                    attributes.ts
+    places/         places.ts names.ts self.ts globals.ts bounds.ts path.ts access-guards.ts
+    pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts
+    expressions/    expressions.ts operators.ts calendar.ts partial-access.ts
+    builtins/       arity.ts builtins.ts value-functions.ts system.ts clock.ts conversions.ts sizeof.ts
+    statements/     statements.ts assign.ts loops.ts case.ts
+    calls/          routines.ts routine-frame.ts facts.ts variants.ts parameters.ts invoke.ts fb-call.ts outputs.ts
+                    binding.ts super.ts property.ts specialize.ts last-binding.ts reentrancy.ts namespace.ts
+    interfaces/     state.ts tags.ts lend.ts dispatch.ts query.ts
+    conditions.ts   the exec oracle's condition world (read by project/ and calls/)
+  interp/           machine.ts frame.ts calls.ts runner.ts — executes the IR, decides nothing
+  emit/rust/        module.ts structs.ts names.ts types.ts values.ts printer.ts place.ts expr.ts convert.ts
+                    builtins.ts calls.ts stmt.ts loops.ts routine.ts — prints the IR, decides nothing
+    runtime/        string.ts text.ts parse.ts numeric.ts pointer.ts — the Rust the emitted code carries, by
+                    registry (index.ts); the mirror of semantics/
+```
+
+**The layers** — enforced by `scripts/check-layering.ts` (rules 3, 4, 4b and 6), a lint failure, not a convention.
+`transpile/` as a whole may import only `syntax`, `symbols` and `types`; inside it:
+
+| Folder | May import (transpile) | May import (frontend) | Owns |
+|---|---|---|---|
+| `ir/` | itself | `syntax` (Span), `types` (Type) | The node contract, the walkers, the IDE path grammar, fault kinds and texts. No semantics. |
+| `semantics/` | `ir/` | `types`, `syntax` | What a node means on values: store, convert, arithmetic, builtins, text, the string model, the IR constant fold, instantiation. |
+| `lower/` | `ir/`, `semantics/` | `syntax`, `symbols`, `types` | Every ST decision: types, order, evaluation strategy, defaults, refusals. |
+| `interp/` | `ir/`, `semantics/` | `types` | Nothing. It executes. |
+| `emit/rust/` | `ir/` | `types` | Nothing. It prints. Its `runtime/` mirrors `semantics/`; the emitter must not import `semantics/` (a printer that can evaluate starts deciding). |
+| `pipeline/` | everything | — | The composition root. Nothing in `src/` but the barrel imports it. |
+
+Inside `lower/` the recursion is real (an expression lowers a call, a call lowers its arguments), so most folders import
+each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `lower/` folder, `core/` only
+`diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`, and only `entry/` imports
+`project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
+only shrinks). Rule 6: nothing under `src/` imports `test/`. Size is ratcheted too (`scripts/check-size.ts`: a file
+within 400 lines, a test within 600, a function within 80 — the last reported, none over it since 1.9.4).
+
+**The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
+never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold
+(`semantics/fold.ts` `constantValue`) serves lowering after its conversions are in (an initializer holding a call,
+`lower/values/fold.ts` `foldedCall`), through the interpreter's own arithmetic. They cannot be one function without
+`types/` depending on the IR, so they are held together the way the backends are: `test/conformance/fold-agreement.test.ts`
+folds every constant expression the lowered fixtures hold with both and requires the same value; the disagreements it
+found are expected failures naming their task.
 
 **Two decisions carry the design.**
 
@@ -302,7 +365,7 @@ reports a comfortable percentage while nothing real runs.
 
 Diagnostics match CODESYS and TwinCAT byte-for-byte, guaranteed by construction. `test/conformance/`:
 `fixtures/` (one fixture per rule, grouped by concern) → `scripts/record-language.ts` (push each to the live bridge,
-build, capture the compiler's exact diagnostics) → `recordings/` (the committed oracle truth) → `fixtures.test.ts`
+build, capture the compiler's exact diagnostics) → `recordings/` (the committed oracle truth) → `lsp-replay.test.ts`
 (offline; asserts the message set is byte-identical per vendor — the single criterion; a `KNOWN_DIVERGENCES` ledger
 is the only opt-out). The full map is `TESTING.md` and `test/README.md`. `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, never a threshold tweak); unit
 tests co-locate with each module; `test/conformance/` also runs the transpiler (interpreter + emitted Rust) against the simulator's recording. The loop: corpus miss → catalog fixture →
@@ -332,7 +395,21 @@ constant, look it up here; if it exists, import it — never redefine.
 | The `Type` model | `frontend/types/type` |
 | Type compatibility (assignable/narrowing/arith/conversion) | `frontend/types/compat` |
 | An operator's typing rule, a built-in's result type | `frontend/types/arith/operators` · `frontend/types/builtins` |
-| Constant evaluation | `frontend/types/const/fold` |
+| Constant evaluation — the two folds, held together by `test/conformance/fold-agreement.test.ts` | `frontend/types/const/fold` (the AST fold) · `transpile/semantics/fold` (the IR fold) |
+| The integer store wrap | `frontend/types/width` |
+| BIT-as-BOOL and the type predicates | `frontend/types/predicates` |
+| Literal typing | `frontend/types/literal` |
+| Type defaults (a type's zero) | `frontend/types/defaults` |
+| Enum numbering and an enum's default | `frontend/types/enums` |
+| Arithmetic result types | `frontend/types/arith/` (`runtime`, `checked`, `temporal`, `operators`) |
+| The EXTENDS chain, FB and interface | `frontend/symbols/extends` `extendsChain` |
+| The transpiler's input assembly (files, libraries, attributes) | `transpile/lower/project` |
+| The lowering's view of a call's parameters | `transpile/lower/calls/parameters` (over `frontend/types/infer/callee`) |
+| Place identity · the tag encoding | `transpile/lower/places/path` `staticKey` · `transpile/lower/core/tags` |
+| The value semantics (what an IR node means on values) | `transpile/semantics` |
+| The IR walk | `transpile/ir/walk` (`childrenOf`, total over every node kind) |
+| Fault kinds and messages | `transpile/ir/faults` |
+| The Rust runtime | `transpile/emit/rust/runtime` — mirrored by `transpile/semantics` through the shared `*.cases.ts` tables |
 | Type/expr rendering | `frontend/types/render` (a resolved `Type`) · `frontend/syntax/print` (a declared `TypeExpr`, an expression) |
 | Diagnostic message building (per-vendor) | `analysis/messages` |
 | Vendor differences | `analysis` vendor-difference registry (data; see `language-reference.md` §10) |

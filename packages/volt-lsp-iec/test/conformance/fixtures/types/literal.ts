@@ -5,7 +5,7 @@
  * agree on the various numeric, time, date, and string literal forms
  * IEC 61131-3 supports. Most are positive cases.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -272,7 +272,7 @@ END_METHOD
   {
     // RESOLVED 2026-09-19. The reading was right and the evidence was one fixture: `strings/escapes.ts` walked the
     // whole escape table and every form at or above 0x80 is two bytes, which is the UTF-8 encoding of U+00XX.
-    // `literal-value.ts` stores those bytes now, one JS char each, so LEN counts them and a slice cuts on a byte.
+    // `syntax/literal/value.ts` stores those bytes now, one JS char each, so LEN counts them and a slice cuts on a byte.
     name: "string_high_byte_escape",
     pouName: "FB_LANG_string_high_byte_escape",
     kind: "function_block" as const,

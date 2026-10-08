@@ -1,10 +1,12 @@
 /**
- * `once` — the one writer of the routine cache (task 1.7.8) (task 1.7.8).
+ * `once` — the one writer of the routine cache (task 1.7.8) — and a type that contains itself (task 1.8.2).
  */
-import { expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import type { Scope } from "../../../frontend/symbols/index.js"
+import { run } from "../../interp/index.js"
 import type { IrRoutine } from "../../ir/index.js"
 import { Lowering } from "../core/lowering.js"
+import { lowerSource } from "../index.js"
 import { once } from "./routines.js"
 
 const scope = {} as Scope
@@ -32,3 +34,119 @@ test("once quiet: a built routine's failure is not refused again, and it has no 
   expect([...lw.routines.keys()]).toEqual(["I", "J"])
 })
 
+/**
+ * A LIBRARY CALLABLE WITHOUT A BODY IS REFUSED — a signature is not an implementation.
+ *
+ * A library reaches lowering as a DECLARATION file, and has a body only where the library repo (`libraries/`) wrote one. `bodyStatements`
+ * answers an empty statement list for that, which lowered to a routine that ran nothing — so `t1(IN := TRUE)` was a
+ * no-op and `t1.Q` read FALSE forever, an INVENTED meaning rather than a missing one. 308 corpus files declare a TON,
+ * TOF, CTU, R_TRIG or F_TRIG.
+ *
+ * An empty body is legal IEC, so emptiness alone cannot be the discriminator — PROVENANCE is, and the three cases below
+ * pin all of it: a bodyless LIBRARY unit refuses, a library shipping REAL SOURCE still lowers, and a PROJECT POU with an
+ * empty body still lowers and does nothing. The Standard library is no exception: its
+ * elements are ordinary library units, run from the repo's ST (`test/libraries/standard.test.ts`).
+ */
+describe("a library declaration without a body", () => {
+  const BODYLESS_FB = { uri: "file:///p/Library Manager/MyLib/VendorFB.pou", source: "FUNCTION_BLOCK VendorFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }
+  const SOURCED_FB = { uri: "file:///p/Library Manager/MyLib/RealFB.pou", source: "FUNCTION_BLOCK RealFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nQ := IN;\nEND_FUNCTION_BLOCK\n" }
+  const BODYLESS_FN = { uri: "file:///p/Library Manager/MyLib/VendorCalc.pou", source: "FUNCTION VendorCalc : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n" }
+
+  test("an FB call is refused rather than run as a no-op", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tf : VendorFB;\n\tq : BOOL;\nEND_VAR\nf(IN := TRUE);\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG", [BODYLESS_FB])
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("call-library")
+  })
+
+  test("a FUNCTION call is refused rather than answering the result's default", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nn := VendorCalc(7);\nEND_PROGRAM\n", "PLC_PRG", [BODYLESS_FN])
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("call-library")
+  })
+
+  test("a library that ships real source still lowers", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tf : RealFB;\n\tq : BOOL;\nEND_VAR\nf(IN := TRUE);\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG", [SOURCED_FB])
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("q")).toBe(true)
+  })
+
+  test("a POU of the project's own with an empty body still lowers, and does nothing", () => {
+    const r = lowerSource("FUNCTION_BLOCK Idle\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n\tf : Idle;\n\tq : BOOL;\nEND_VAR\nf();\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("q")).toBe(false)
+  })
+})
+
+const st = (...lines: string[]): string => lines.join("\n") + "\n"
+const T = "\t"
+
+/** The codes a source is refused with — empty when it lowers. */
+const codesFor = (source: string, name = "PLC_PRG"): string[] => {
+  const r = lowerSource(source, name)
+  return r.pou === undefined ? r.diagnostics.map((d) => d.code) : []
+}
+
+/** A source that lowers, run one scan, read one place. */
+const valueOf = (source: string, path: string, name = "PLC_PRG"): unknown => {
+  const r = lowerSource(source, name)
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  return p.get(path)
+}
+
+describe("a type that contains itself", () => {
+  /**
+   * FOUND BY AIMING HERE (2026-09-18). `FUNCTION_BLOCK FB_R VAR rv : FB_R; END_VAR` sent `storageOf` and
+   * `buildLayout` into each other until the process died with a RangeError — where this component's stated rule is
+   * that invalid input ends in a LowerDiagnostic and NEVER a throw. The corpus holds no self-referential type, which
+   * is exactly why `TOTALITY` never saw it: that gate walks real projects, and no real project contains this.
+   *
+   * CODESYS rejects the shape too, so refusing loses nothing. What was lost before was the difference between
+   * "refused" and "crashed".
+   */
+  test("an FB declaring an instance of ITSELF is refused, not chased", () => {
+    const source = st(
+      "FUNCTION_BLOCK FB_R", "VAR", T + "rx : FB_R;", "END_VAR", "rx();", "END_FUNCTION_BLOCK", "",
+      "PROGRAM PLC_PRG", "VAR", T + "x : FB_R;", "END_VAR", "x();", "END_PROGRAM",
+    )
+    expect(codesFor(source)).toContain("layout-recursive")
+  })
+
+  test("a STRUCT holding itself, and a two-step cycle through another type", () => {
+    const direct = st(
+      "TYPE D :", "STRUCT", T + "inner : D;", T + "n : INT;", "END_STRUCT", "END_TYPE", "",
+      "PROGRAM PLC_PRG", "VAR", T + "d : D;", "END_VAR", "d.n := 1;", "END_PROGRAM",
+    )
+    expect(codesFor(direct)).toContain("layout-recursive")
+
+    const indirect = st(
+      "TYPE A :", "STRUCT", T + "b : B;", "END_STRUCT", "END_TYPE", "",
+      "TYPE B :", "STRUCT", T + "a : A;", "END_STRUCT", "END_TYPE", "",
+      "PROGRAM PLC_PRG", "VAR", T + "x : A;", "END_VAR", "END_PROGRAM",
+    )
+    expect(codesFor(indirect)).toContain("layout-recursive")
+  })
+
+  test("but an FB holding ANOTHER FB still lowers — the guard is about CYCLES, not nesting", () => {
+    const source = st(
+      "FUNCTION_BLOCK FB_Inner", "VAR_OUTPUT", T + "q : INT;", "END_VAR", "q := 5;", "END_FUNCTION_BLOCK", "",
+      "FUNCTION_BLOCK FB_Outer", "VAR", T + "inner : FB_Inner;", "END_VAR", "inner();", "END_FUNCTION_BLOCK", "",
+      "PROGRAM PLC_PRG", "VAR", T + "o : FB_Outer;", T + "a : INT;", "END_VAR", "o();", "a := o.inner.q;", "END_PROGRAM",
+    )
+    expect(valueOf(source, "a")).toBe(5n)
+  })
+
+  test("and a POINTER to its own type is legal — it is an address, not containment", () => {
+    // the shape every linked list has; refusing it would refuse a construct CODESYS compiles
+    const source = st(
+      "TYPE Node :", "STRUCT", T + "next : POINTER TO Node;", T + "n : INT;", "END_STRUCT", "END_TYPE", "",
+      "PROGRAM PLC_PRG", "VAR", T + "d : Node;", "END_VAR", "d.n := 3;", "END_PROGRAM",
+    )
+    expect(valueOf(source, "d.n")).toBe(3n)
+  })
+})

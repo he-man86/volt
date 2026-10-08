@@ -5,7 +5,7 @@
  *   FIXED    a built-in whose result does not depend on its arguments — `BUILTIN_RESULT`, data. The reference catalog
  *            (`reference/reference.ts`) reads its hover text's return type from here; there is no second table;
  *   RULES    a built-in whose result is a function of its arguments' types — the one-argument math functions, EXPT,
- *            TwinCAT's `__XADD`, and `__POSITION` named bare. Inference (`infer.ts`) infers the arguments and asks here.
+ *            TwinCAT's `__XADD`, and `__POSITION` named bare. Inference (`infer/expr.ts`) infers the arguments and asks here.
  *
  * A conversion's result (`INT_TO_REAL`, `TO_REAL`) is derived, not listed: `parseConversionName` names it.
  */

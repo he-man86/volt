@@ -3,7 +3,7 @@
  *
  * Each entry is a small, self-contained TwinCAT-pushable POU that
  * exercises ONE documented pragma. Used by:
- *   - `fixtures.test.ts` — replays the committed build recording, runs
+ *   - `lsp-replay.test.ts` — replays the committed build recording, runs
  *     LSP diagnostics on each `source`, compares the two sides
  *   - `scripts/record-language.ts` — pushes each `source` through a live
  *     bridge, builds it, and records the compiler's diagnostics into
@@ -30,7 +30,7 @@ export const PRAGMA_TESTS: readonly LanguageTest[] = [
 
   // NOTE: This catalog covers FB-position pragmas. GVL-specific
   // pragma tests (qualified_only, etc.) are tracked in their own
-  // catalog (variable-section-tests.ts / pragma-tests sections
+  // catalog (the old variable-section-tests / pragma-tests sections
   // that exercise GVL-scope pragmas via direct GVL sourceText).
 
   {
@@ -1044,7 +1044,7 @@ END_METHOD
 `,
   },
 
-  // ─── Coverage extensions for check-pragmas.ts:167-174, 240-251 ─
+  // ─── Coverage extensions for the old check-pragmas, lines 167-174, 240-251 ─
 
   {
     name: "pragma_unknown_directive",

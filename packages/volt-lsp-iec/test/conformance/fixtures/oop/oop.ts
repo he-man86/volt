@@ -5,7 +5,7 @@
  * inheritance, method overrides, ABSTRACT / FINAL modifiers, and
  * SUPER access.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 

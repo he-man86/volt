@@ -36,8 +36,9 @@ import { assembleFixture } from "./support/fixture-units.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache.js"
+import { compareOutcomes, type Outcome } from "./support/differential.js"
 import { PROJECT_BASE } from "./support/project-libraries.js"
-import { HARNESS_LOOP_GUARD } from "./support/transpile-confidence.js"
+import { HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
 import type { LanguageTest } from "./types.js"
 
 /**
@@ -153,9 +154,9 @@ function bitsOf(v: number, wide: boolean): string {
  * But "it faulted" is still a fact both backends must agree on, and a fault in ONE of them is one of the most
  * valuable divergences there is — a loop that panicked in one backend and ran in the other was exactly that shape. So the comparison is between
  * outcomes: both faulted (agree — the messages differ by design and are not compared), neither faulted (compare
- * every value), or one did (a divergence, reported as one).
+ * every value), or one did (a divergence, reported as one) — `support/differential.ts`, the comparer the edge verdict
+ * uses too.
  */
-type Outcome = { faulted: true } | { faulted: false; values: Map<string, string> }
 
 /**
  * The interpreter's outcome, or undefined when the harness's loop guard gave up on the case — seeding can hand a
@@ -178,7 +179,7 @@ function interpreterOutcome(c: Case): Outcome | undefined {
     for (let i = 0; i < c.cycles; i++) runner.scan()
   } catch (error) {
     if (error instanceof LoopGuardError) return undefined
-    return { faulted: true }
+    return { faulted: true, values: new Map() }
   }
   const values = new Map<string, string>()
   for (const p of c.paths) {
@@ -336,31 +337,35 @@ async function compareCase(c: Case, dir: string): Promise<{ divergences: string[
   // indistinguishable from a slow suite. A run that had to be killed is a fault, and reported as one.
   const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 10_000 })
   const cFaulted = ran.exitCode !== 0 || ran.exitCode === null
-  if (b.faulted !== cFaulted)
-    return {
-      divergences: [
-        `${c.name}: ${b.faulted ? "the INTERPRETER faulted and the Rust ran" : "the RUST faulted and the interpreter ran"}`,
-      ],
-      compared: 0,
-      faultedBoth: false,
+  return { ...divergencesOf(c, b, rustOutcome(cFaulted, ran.stdout.toString())), faultedBoth: b.faulted && cFaulted }
+}
+
+/** What the harness printed — `path<TAB>value` per place, in its order — as the Rust's outcome. */
+function rustOutcome(faulted: boolean, stdout: string): Outcome {
+  const values = new Map<string, string>()
+  if (!faulted)
+    for (const line of stdout.split("\n")) {
+      const tab = line.indexOf("\t")
+      if (tab >= 0) values.set(line.slice(0, tab), line.slice(tab + 1).trim())
     }
-  if (b.faulted) return { divergences: [], compared: 0, faultedBoth: true }
-  const divergences: string[] = []
-  let compared = 0
-  for (const line of ran.stdout.toString().split("\n")) {
-    const tab = line.indexOf("\t")
-    if (tab < 0) continue
-    const path = line.slice(0, tab)
-    const got = line.slice(tab + 1).trim()
-    const want = b.values.get(path)
-    if (want === undefined) {
-      divergences.push(`${c.name}: ${path} — the Rust printed it and the interpreter has no answer`)
-      continue
-    }
-    compared++
-    if (want !== got && !(c.transcendental && withinUlp(want, got))) divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
-  }
-  return { divergences, compared, faultedBoth: false }
+  return { faulted, values }
+}
+
+/**
+ * The divergences between the two outcomes, as this gate words them: every place the Rust printed, exact — a
+ * transcendental's REAL within a few ULP (`withinUlp`). `faultNote` follows a fault divergence (the sweep's stderr).
+ */
+function divergencesOf(c: Case, b: Outcome, rust: Outcome, faultNote = ""): { divergences: string[]; compared: number } {
+  const same = (_: string, want: string, got: string): boolean => want === got || (c.transcendental && withinUlp(want, got))
+  const { differences, compared } = compareOutcomes(b, rust, "rust", same)
+  const divergences = differences.map((d) =>
+    d.kind === "fault"
+      ? `${c.name}: ${d.interpreterFaulted ? "the INTERPRETER faulted and the Rust ran" : "the RUST faulted and the interpreter ran"}${faultNote}`
+      : d.kind === "unanswered"
+        ? `${c.name}: ${d.path} — the Rust printed it and the interpreter has no answer`
+        : `${c.name}: ${d.path} — interp ${d.interpreter}, rust ${d.rust}`,
+  )
+  return { divergences, compared }
 }
 
 /**
@@ -453,32 +458,12 @@ describe.skipIf(skipRustSuite())("the two backends agree with each other, withou
         const [stdout, stderr, exit] = await Promise.all([new Response(run.stdout).text(), new Response(run.stderr).text(), run.exited])
         // killed by the timeout is a fault too: a hang is what this gate must not meet by hanging
         const cFaulted = exit !== 0 || run.signalCode !== null
-        if (b.faulted !== cFaulted) {
-          divergences.push(
-            `${c.name}: ${b.faulted ? "the INTERPRETER faulted and the Rust ran" : "the RUST faulted and the interpreter ran"}` +
-              ` — ${(cFaulted ? stderr : "").split("\n")[0]?.trim() ?? ""}`,
-          )
-          return
-        }
-        if (b.faulted) {
-          agreedFaults++
-          return // both refused the same program; the wording is each backend's own
-        }
-        for (const line of stdout.split("\n")) {
-          const tab = line.indexOf("\t")
-          if (tab < 0) continue
-          const path = line.slice(0, tab)
-          const got = line.slice(tab + 1).trim()
-          const want = b.values.get(path)
-          if (want === undefined) {
-            divergences.push(`${c.name}: ${path} — the Rust printed it and the interpreter has no answer`)
-            continue
-          }
-          compared++
-          // the same rule the probe comparison applies — a transcendental's last bits are two libms', not a defect
-          if (want !== got && !(c.transcendental && withinUlp(want, got)))
-            divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
-        }
+        // both refused the same program: agreed, and the wording is each backend's own
+        if (b.faulted && cFaulted) agreedFaults++
+        // the probes' rule — a transcendental's last bits are two libms', not a defect (`divergencesOf`)
+        const r = divergencesOf(c, b, rustOutcome(cFaulted, stdout), ` — ${(cFaulted ? stderr : "").split("\n")[0]?.trim() ?? ""}`)
+        divergences.push(...r.divergences)
+        compared += r.compared
       }
       try {
         await Promise.all(

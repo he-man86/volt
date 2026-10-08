@@ -13,8 +13,8 @@ ids) continuation lines, and `What:` where the line needs detail. A step writes 
 **Acceptance shorthands** (design.md §8):
 - **G:** `bun typecheck`, `bun run lint` (layering, size, citations) and `bun test` in the package are green; `bun run check` at the
   repo root is green.
-- **G+LSP:** G, plus the LSP corpus gate (`bun run test:corpus`), the build-conformance oracle and `lsp-replay.test.ts` (or its
-  predecessor in `fixtures.test.ts`) unchanged.
+- **G+LSP:** G, plus the LSP corpus gate (`bun run test:corpus`), the build-conformance oracle and `lsp-replay.test.ts`
+  unchanged.
 - **S:** `bun run snapshot:transpile check` is identical in all layers (canonical IR, emitted Rust + source map, interpreter outputs,
   Rust outputs, edge verdicts) against the 0.5 baseline.
 - **S-out:** outputs and edge verdicts are identical; the Rust may change.
@@ -1936,75 +1936,257 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ### 1.8 Tests and conformance support
 
-- [ ] 1.8.1 Split `lower/lower.test.ts` per design.md §5 (133 tests into about 36 colocated files).
+- [x] 1.8.1 Split `lower/lower.test.ts` per design.md §5 (133 tests into about 36 colocated files).
   - Where: `lower/**/*.test.ts`.
   - Accept: G, T; `lower.test.ts` deleted.
   - Depends: 1.6.20.
-- [ ] 1.8.2 Move the remaining lower tests: `calls.test.ts` → `calls/routines.test.ts` + `calls/binding.test.ts`;
+  - Done 2026-10-08 (step 1.8a). `lower/lower.test.ts` (2645 lines, 170 tests counting the nested ones) dissolved by §5's
+    two tables into 43 new colocated files and 5 existing ones (`calls/reentrancy`, `calls/routines`, `core/lowering`,
+    `values/fold`, `values/promote`). Placements the tables leave open, decided here: 161 (VAR_STAT and VAR_TEMP in one
+    test) → `storage/statics.test.ts` (one test cannot be in two files); 313, 335 and 789 → `calls/invoke.test.ts`;
+    "lower — STRING (design §18)" split: the slot, initializer, escape, WSTRING and non-ASCII tests → `places/places.test.ts`,
+    the compare, the Standard call and the `**`/`&` refusal → `builtins/conversions.test.ts`. A test that leaves its
+    describe keeps it — the same describe, wrapping it in the new file — so every title is unchanged: "a FOR reads its
+    limit and its step on every pass" in `statements/loops.test.ts` under "lower — total, never silently wrong" (the rest
+    of that describe → `entry/totality.test.ts`), the RC 38 nested describe in `statements/assign.test.ts` under "lower —
+    a STRING CURSOR …". The file-level helpers (`ir`, `wrap`, `INTERFACES`, `STANDARD_LEN`) are copied into each file
+    that uses them (one-line helpers; a shared test module is not in the design). `check-size.ts`'s last ceiling is
+    gone (`CEILINGS` is empty); the citations the move made stale in `src`/`test` re-pointed (`test/corpus/corpus.test.ts`,
+    `fixtures/grammar/type-expressions.ts`). T (`--dirs src/transpile`): 380 before, 380 after, ✓ identical.
+- [x] 1.8.2 Move the remaining lower tests: `calls.test.ts` → `calls/routines.test.ts` + `calls/binding.test.ts`;
   `init-sequence.test.ts` → `init/sequence.test.ts`; `totality.test.ts` → `entry/totality.test.ts`.
   - Where: `lower/**/*.test.ts`.
   - Accept: G, T.
   - Depends: 1.8.1.
-- [ ] 1.8.3 Split `support/transpile-confidence.ts` (4032 lines).
+  - Done 2026-10-08 (step 1.8a). `calls.test.ts` → "a type that contains itself" into `calls/routines.test.ts`, "what a
+    call may bind" into `calls/binding.test.ts` (each with the helpers `st`, `T`, `codesFor`, `valueOf` it uses) and its
+    one loose test (RC 42, an ANY input per array type) into `calls/specialize.test.ts` (what `specialize.ts` keys);
+    `totality.test.ts` → `entry/totality.test.ts` (its doc and describe beside 1.8.1's). `init-sequence.test.ts` had
+    already moved (`init/sequence.test.ts`). `lower/` holds no test file of its own now. T: as 1.8.1 (one run for both).
+- [x] 1.8.3 Split `support/transpile-confidence.ts` (4032 lines).
   - What: into `support/transpile/{tier,correctness,lint-policy,shape,edge,row}.ts` and `support/notes/{lean,notes,render}.ts` with the
     authored tables as `notes.data.ts`, `lean.data.ts`; `rate-fixtures.ts` imports updated.
   - Where: `test/conformance/support/**`, `scripts/rate-fixtures.ts`.
   - Accept: G, M (identical map content except the type import path).
   - Depends: 0.6.
-- [ ] 1.8.4 `support/recordings.ts`, the one `codesys.run.json` reader (for fixtures.test.ts, evidence.ts and the correctness module).
+  - Done 2026-10-08 (step 1.8a). `support/transpile-confidence.ts` (3987 lines) → `support/transpile/tier.ts` (`tierOf`),
+    `correctness.ts` (`correctnessOf`, `rejectionIsADefect`), `lint-policy.ts` (`ALLOWED`, `LINT_FLAGS`, `buildArgv`,
+    `splitFindings`, `rendered`, `pedanticGroups`), `shape.ts` (`normalizeRustLine`, `shapeId`, `emissionShape`,
+    `sizeRatio`, `preludeLines` — exported for `edge.ts`), `edge.ts` (the edge differential), `row.ts` (`divergesOf`,
+    `printRow`, and the module's doc); `support/notes/lean.ts` (`ReviewItem`, `note`, `merged`), `lean.data.ts` (`LEAN`),
+    `notes.data.ts` (`NOTES`), `notes.ts` (`assertNotes`, `RESTRUCTURE_TASKS` one `..` deeper, `taskIdsOf`,
+    `noteTagProblems`, `notesByTask`, `deadNotes`, `notesOf`), `render.ts` (`renderNotes`). Every line of the old file is
+    in exactly one new one (checked line by line; only imports, the `RUNS` path and the generated note's source path
+    changed). `transpile-confidence.test.ts` → `transpile/correctness.test.ts`, `notes/notes.test.ts`,
+    `transpile/edge.test.ts` (titles unchanged). Importers re-pointed: `fixtures.test.ts`, `backends.test.ts`,
+    `support/snapshot.ts`, `snapshot.test.ts`, `rustc-cache.test.ts`, `scripts/rate-fixtures.ts`,
+    `scripts/frontend-snapshot.ts`; `check-citations.ts` reads `support/notes/` only (its test plants `notes.data.ts`).
+    M: `map.generated.ts` differs in three source-path texts only (header ×2, the NOTES section's "edit it there").
+- [x] 1.8.4 `support/recordings.ts`, the one `codesys.run.json` reader (for fixtures.test.ts, evidence.ts and the correctness module).
   - Where: `test/conformance/support/recordings.ts` and the three readers.
   - Accept: G, M identical.
   - Depends: 1.8.3.
-- [ ] 1.8.5 `support/display.ts`: `ideValue`, `asDisplayed`, `interpRender`, `rustRender`.
+  - Done 2026-10-08 (step 1.8a). `support/recordings.ts` exports `RUNS` and `RunRecorded` (cycles, values, error,
+    unreadable); `fixtures.test.ts`, `evidence.ts`, `transpile/correctness.ts` and `runtime-twins.test.ts` (a fourth
+    reader since 1.5.15) read it — a grep finds one `JSON.parse` of `codesys.run.json` under `test/conformance`. Not
+    moved: the three readers in `test/frontend` (`sources.ts`, `conversion-pairs.ts`, `bound-census.ts`), outside this
+    task's list. M: identical (the run above).
+- [x] 1.8.5 `support/display.ts`: `ideValue`, `asDisplayed`, `interpRender`, `rustRender`.
   - Where: `test/conformance/support/display.ts`.
   - Accept: G, S.
   - Depends: 1.8.4.
-- [ ] 1.8.6 `support/differential.ts`, used by `backends.test.ts` and the edge verdict.
+  - Done 2026-10-08 (step 1.8a). `support/display.ts`: `ideValue` and `asDisplayed` (from `fixtures.test.ts`'s "the
+    vendor's display formats"), `interpRender` and `rustRender` (from `transpile/edge.ts`), and `seedable`/`Seedable`,
+    which `interpRender` reads and the edge seeding shares (in `edge.ts` it would be a cycle). S ✓ identical (5357
+    fixtures, 159 s).
+  - Step 1.8a end: `bun typecheck` clean; `bun run lint` green (layering 5 known; size: 0 ceilings, 5 functions over 80,
+    unchanged; citations 558 missing, warning — the rise from 551 is `tasks.md` history naming `lower.test.ts`,
+    `transpile-confidence.ts` and the test files this step deleted, for 1.9.3); `bun test test/conformance/support scripts
+    src/transpile` 502 pass, 0 fail; S ✓ identical; `bun run rate:fixtures` — only the three path texts (edge agree
+    3046, disagree 0, not-run 179).
+- [x] 1.8.6 `support/differential.ts`, used by `backends.test.ts` and the edge verdict.
   - Where: `test/conformance/support/differential.ts`, `backends.test.ts`, `support/transpile/edge.ts`.
   - Accept: G, S (edge layer identical).
   - Depends: 1.8.5.
-- [ ] 1.8.7 Split `fixtures.test.ts` into `transpile-replay.test.ts`, `map.test.ts` and `lsp-replay.test.ts`.
+  - Done 2026-10-08 (step 1.8b). `support/differential.ts`: `compareOutcomes(interpreter, rust, places, same)` over two
+    `Outcome`s (`faulted`, `values`) answers the `Difference`s (a fault on one side, a place one side did not answer, a
+    value) and the count compared — the rule both callers had in their own loops (`backends.test.ts` twice: the probes'
+    `compareCase` and the sweep's lane). `backends.test.ts` reads the harness's printed lines into an `Outcome`
+    (`rustOutcome`) and words the differences as before (`divergencesOf`, the transcendental ULP rule its `same`);
+    `transpile/edge.ts` `compareEdge` compares each variant over the plan's paths (its `same` reads the Rust's NaN bits
+    through `rustRender`; a plan path the interpreter left unanswered throws — `interpOutcome` answers every one). Every
+    message is the text it was. `backends.test.ts` against HEAD's copy (run beside it): probes 29 places in 6, sweep 118
+    of 5172 sampled, 168 places, 3 agreed faults — the same.
+- [x] 1.8.7 Split `fixtures.test.ts` into `transpile-replay.test.ts`, `map.test.ts` and `lsp-replay.test.ts`.
   - What: the LSP replay binds through `lower/project/library-base.ts`; `project-libraries.ts` uses it too.
   - Where: `test/conformance/*.test.ts`, `support/project-libraries.ts`.
   - Accept: G+LSP, T, M identical.
   - Depends: 1.8.6, 1.6.20.
+  - Done 2026-10-08 (step 1.8b). `fixtures.test.ts` (2319 lines) → `transpile-replay.test.ts` (the rating rows: its
+    banner "the rating rows" through "no fixture the BUILD recording compiled was refused by the simulator", with the
+    enum, clock and interpreter helpers only it reads), `map.test.ts` ("the table itself" and "ratchet one"),
+    `lsp-replay.test.ts` ("ratchet two"); what more than one reads — `SELECTION`/`whole`, the build recordings
+    (`BUILDS`, `RecordedDiagnostic`), the one lowering cache (`lowering`), `reproducible`, the rating index (`rated`) —
+    in `support/fixture-suite.ts`, with the contract's doc ("one selection, three files"). Every line of the old file is
+    in exactly one new one (imports aside; checked line by line). `partial-run.test.ts` runs the three files (its
+    `SCOPED` list unchanged, green). Citations of the deleted file re-pointed to the file that holds what each says
+    (src, scripts, fixtures, support, docs, `TESTING.md`, `test/README.md`) — except `rate-fixtures.ts`'s header text,
+    which is written into `map.generated.ts` (M identical here; 1.9.3). NOT done as written: "the LSP replay binds
+    through `lower/project/library-base.ts`". Since this task was written the replay moved to `support/replay.ts`
+    (analysis-conformance 2.6), which swaps a fixture into a SYMBOL project bound from the libraries' declarations, the
+    devices and the manifests (`build.bindFile`/`relink`), while `LibraryBase` binds a LOWERING project from the
+    libraries' bodies — different contents, and rebinding the replay on it is a change of what the LSP is asked, not a
+    move (G+LSP requires it unchanged). `project-libraries.ts` already builds `PROJECT_BASE` with `libraryBase`.
 - [ ] 1.8.8 `libraries/index.ts` takes the manifest's `folder` instead of slicing the URI (l.70).
   - Where: `libraries/index.ts`.
   - Accept: G, S.
   - Depends: 1.6.20.
-- [ ] 1.8.9 The fold-agreement test (design.md P3a).
+  - NOT done (step 1.8b), for the gate: not output-neutral as written. The manifest's `folder`
+    (`frontend/library/manifest.ts:52`) is the folder's lower-cased NAME, not its path; `withImplementations` builds
+    each body's uri as `<the manifest's directory, as written> + <element>.pou`, so a body added beside the
+    declarations (or replacing one) would change the case of its uri — the uris lowering keys files by (S). The neutral
+    alternatives both move the slice rather than remove it (a `LibraryManifest.dir` field in the front-end, or a
+    `frontend/library/path.ts` helper). Default if the owner says nothing: add `dir` (the folder as written) to
+    `LibraryManifest`, read it here; that is a front-end change outside this task's Where, so it waits for the gate.
+  - Gate 1.8a+1.9 (2026-10-08): left open, unchanged — the review raised nothing on it, and the default is a front-end
+    API change better done with an owner's yes than inside a gate; it blocks nothing in phase 2.
+- [x] 1.8.9 The fold-agreement test (design.md P3a).
   - What: for every constant expression the lowered fixtures fold, `types/const/fold.constEval` (AST) and `semantics/fold.constantValue`
     (IR) give the same value and type; each disagreement found is an expected failure naming its RC or a new 6.A task.
   - Where: `test/conformance/fold-agreement.test.ts`.
   - Accept: G; the disagreement count is written here.
   - Depends: 1.8.4, 1.3.3.
+  - Done 2026-10-08 (step 1.8b). `test/conformance/fold-agreement.test.ts`: each lowered fixture's own bodies (PLC_PRG,
+    and the routines and layouts of units its own source declares) walked; each IR expression `constantValue` answers
+    is matched by its exact span to the AST expression it was lowered from (the outermost IR node at that span that is
+    not a `convert`), and that expression — when the front-end calls it a CONSTANT (`constancyOf`), not a literal, not
+    a STRING — is folded by `constEval` in its unit's scope (the libraries bound as the LSP binds them, the fixture on
+    top). Agreement = the same value, of the same kind, once the AST value is stored as the IR node's type holds it (an
+    integer wrapped to the width, an integer into a REAL as that number, a REAL rounded to float32 — the IR node is typed
+    by its context, the AST fold is not). 375 constant expressions compared; 24 disagree, all one cause, each an
+    expected failure naming it (the test fails on an unnamed one, and on a named one that agrees): SIZEOF of a
+    STRUCT, an FB instance, an ARRAY or a packed DUT, which the AST fold leaves unfolded (it has no layout) and the IR
+    sizes — filed as 6.A.31 (not niche: 198 SIZEOF calls in the six corpora, most over a STRUCT). The disagreement count
+    is 24.
+  - CORRECTED by the 1.8a+1.9 gate (2026-10-08; review findings, red first). (a) The test skipped every expression the
+    IR fold left unanswered BEFORE the constancy filter, so "375 compared" hid 45 the front-end calls constant: it now
+    starts from `constancyOf` and counts one side answering nothing, or neither, as a disagreement. Of the 45: 23 were
+    reads of a `VAR CONSTANT`, which lowering keeps as a `load` of its slot (as the vendor reads a non-replaced
+    constant) — the IR's answer is now the IR fold with each load the front-end reads as a constant taken as its slot's
+    `init` (`withConstantSlots`; never a parameter, never a direct address), and all 23 agree; 4 were a `VAR_EXTERNAL
+    CONSTANT` (`xo3_value_functions_across_objects`), which the AST fold left valueless — FIXED in `types/const/fold.ts`
+    (it folds to the global `externalGlobal` binds, when that is a constant; `fold.test.ts` red first); 1 was a BIT
+    constant, `b : BIT := 1`, read by the AST fold as the integer it is written as and held by the IR as a BOOLEAN (the
+    test stores it as `semantics/store.ts` `fit` does); 14 are `constancyOf` calling a read-only PARAMETER (`VAR_INPUT
+    CONSTANT`, `VAR_IN_OUT CONSTANT`, expressions over one) or a direct address (`%MW30 + 1`) a CONSTANT — finding 3 of
+    the review, below. (b) A KNOWN mark no longer compared at all now fails like one that agrees (a bogus mark fails it,
+    checked). (c) The header said "the DEEPEST IR node"; it is the outermost non-`convert` one, as `irBySpan` does.
+    Front-end finding 3 (`constancyOf` answers CONSTANT for a read-only parameter and a direct address, so a CASE label
+    naming one gets no C0218): niche: accepted loss (0 occurrences in the corpora — no `VAR_INPUT CONSTANT` or
+    `VAR_IN_OUT CONSTANT` section, no direct address in a CASE label, array bound or repeat count in the six), and not
+    cheap: `constancyOf` is read both as "read-only" (C0018 a write, C0041 an in-out argument) and as "compile-time
+    constant" (C0218, C0162), so it needs splitting, and the vendor's answer for such a CASE label is unmeasured. Its 14
+    expressions are KNOWN marks with that reason. Numbers: 420 constant expressions compared, 38 disagree, 38 known
+    (24 SIZEOF → 6.A.31, 14 niche).
 
 ### 1.9 Close the structure phase
 
-- [ ] 1.9.1 architecture.md's transpile section.
+- [x] 1.9.1 architecture.md's transpile section.
   - What: the folder map (design.md §2.0), the layer table (P2), the ownership rows (§2.8), the two folds (P3a); the `__TRY` note from 1.6.16.
   - Where: `docs/architecture.md`.
   - Accept: `check-citations` reports no missing path in it.
   - Depends: 1.8.7.
-- [ ] 1.9.2 data-model.md and scripts README.
+  - Done 2026-10-08 (step 1.9). `docs/architecture.md` "Backend — `transpile/`": the folder map (the tree as it is, every
+    file named; `lower/conditions.ts` at the lower root with its reason; `calls/routine-frame.ts` from 1.9.4), the layer
+    table (rules 3, 4, 4b, 6 as `check-layering.ts` enforces them, the known edges by name), the size ratchet, the two
+    constant folds and their agreement test; the stale "only `ir/` is importable across folders" and `Lowering.cursors`
+    lines replaced (`PointerFrame.cursors`). The ownership map gains §2.8's rows at their REAL homes (the EXTENDS chain is
+    `frontend/symbols/extends`, not `scope-nav`; the folds' row names both). The `__TRY` note was already there (1.6.16).
+    `check-citations` reports no missing path in it.
+- [x] 1.9.2 data-model.md and scripts README.
   - What: data-model.md's `## types` section corrected (it still documents the deleted ResolvedType/InferredType and lacks `length`,
     `bounds`, `tickNs`, `mantissaBits`) and a `## transpile IR` section; `scripts/README.md` gains the snapshot, size and citation tools.
   - Where: `docs/data-model.md`, `scripts/README.md`.
   - Accept: `check-citations` reports no missing path in them.
   - Depends: 1.9.1.
-- [ ] 1.9.3 Re-point every stale path citation.
+  - Done 2026-10-08 (step 1.9). `docs/data-model.md`: `## frontend/types` already had the one `Type` (frontend-conformance
+    removed `ResolvedType`/`InferredType`; they survive only in "Rebuild refinements", marked as built) and `length`,
+    `bounds`; it gains `ElementaryType`'s `tickNs` and `mantissaBits` and a note on `length`/`bounds` as facts the
+    resolver may leave absent. New `## transpile IR`: `IrValue`, `IrInit`, `IrPou`, `IrSlot`, `IrLayout`, `IrRoutine`,
+    `Place`, `Access`, the `IrExpr` and `IrStmt` unions, `IrBinding`, `LoweredPou`, `LowerDiagnostic`, `FaultKind`, and the
+    walk. `scripts/README.md` already listed the snapshot, size and citation tools (1.0); their rows are brought up to
+    date (`CEILINGS` empty; the citation check strict, `PLANNED`, ticked tasks skipped). No missing path in either.
+- [x] 1.9.3 Re-point every stale path citation.
   - What: every citation `check-citations` reports (src comments, fixture comments such as `oop/lifecycle.ts`, `memory/memory-model.ts`,
     `syntax/literal-value.ts:170`, the ~60 NOTES/LEAN texts such as 'emit.ts:517', 'expressions.ts:241-247', and the open openspec
     changes' tasks such as 'lower.test.ts:614') names its new file; `check-citations` becomes an error in lint.
   - Where: the cited files; `support/notes/*.data.ts`; `openspec/changes/*/tasks.md`; `scripts/check-citations.ts`.
   - Accept: G; M (only note texts change); `check-citations` reports 0.
   - Depends: 1.9.2.
-- [ ] 1.9.4 Checkpoint review.
+  - Done 2026-10-08 (step 1.9). 574 missing citations at the start (after 1.8b) → 0; `check-citations --strict` is in
+    `bun run lint`. Two rules, test-first (`check-citations.test.ts`, 2 new): (a) in a `tasks.md` a TICKED task's lines
+    are its record and are not read — re-pointing "`emit.ts` deleted" would falsify it; this alone took 574 → 200;
+    (b) `PLANNED`: the files open tasks will create, each named with its task (`semantics/string.cases.ts` 3.4,
+    `semantics/memory.ts` 4.4, `semantics/builtins.test.ts` 6.7, `emit/rust/precedence.ts` 7.3.8, the network seam's
+    `network-text/index.ts`, vendor-fact-probe's two scripts); a planned file that exists fails the check. Re-pointed:
+    the 18 LEAN texts (`emit.ts:49` → `emit/rust/types.ts rustType`, `ir/evaluate.ts` → `semantics/fold.ts`, `lower/
+    constants.ts` → `lower/values/fold.ts`, `lower/specialize.ts` → `lower/calls/specialize.ts`, the review's scratch
+    normalizer → `support/transpile/shape.ts` …); every src and fixture comment (a live file by its path; a gone file —
+    "it lived in X" — by its name without `.ts`; "see pragma-tests.ts for field docs" → `test/conformance/types.ts`);
+    the open tasks' Where/What lines here and in lsp-transpile-review-gaps; the dated 2026-10-03 hand-off names its
+    moved modules without `.ts` (42, with a note); `rate-fixtures.ts`'s header. M: `map.generated.ts` differs from HEAD
+    only in note texts and the header's source paths (114 lines, edge agree 3046, disagree 0, not-run 179). One citation
+    sat in the Rust the runtime carries (`runtime/string.ts`, a comment line of the string prelude: `ir/values.ts` →
+    `semantics/string.ts`): S's rust layer moves by that one comment line in the 362 string-using fixtures — outputs and
+    edge verdicts identical (see 1.9.4).
+  - Gate 1.8a+1.9 review (2026-10-08). (a) Two re-pointed citations named a file that does not hold what they cite —
+    fixed: `MEASURED_SILENT` is `transpile-replay.test.ts`'s (lsp-transpile-review-gaps' tasks, `fixtures/names/enums.ts`,
+    `fixtures/types/arithmetic-results.ts`, `test/frontend/baseline.ts`), `standardLibrary` is `support/replay.ts`'s
+    (`support/evidence.ts`). (b) A `PLANNED` file resolved by its bare name, so any `memory.ts` anywhere passed — fixed,
+    red first (`check-citations.test.ts`): a planned file resolves only by a tail with its folder; the four bare
+    `string.cases.ts` in this file's open tasks now say `semantics/string.cases.ts`. (c) OWNER DECISION, default taken:
+    the ticked-task rule narrows this task's Accept ("every reported citation names its new file") to the lines outside
+    ticked tasks — kept, because a ticked task's text is the record of what was done then (re-pointing "`emit.ts`
+    deleted" would falsify it); if the owner wants ticked history re-pointed too, drop `recordLines` and re-point the
+    374 lines it skips.
+- [x] 1.9.4 Checkpoint review.
   - What: a fresh-implementation review of the new tree (memory: review at checkpoints); findings fixed or filed as tasks here.
   - Where: all of `src/transpile/**`.
   - Accept: the size ceiling list for `src/transpile/**` is empty and the >80-line function list is empty; S identical to 0.5; T
     identical to 0.5.
   - Depends: 1.9.3.
+  - Done 2026-10-08 (step 1.9). Size: no ceiling (since 1.8.1) and no function over 80 lines — the five split in place,
+    output-neutral: `semantics/builtins.ts` `builtinValue` (→ `bitValue`, `stringBuiltin`), `storage/declare.ts`
+    `declareVars` (→ `declareOne`, `startValue`, `declareNames`), `builtins/conversions.ts` `lowerConversion` (→
+    `boolConversion`, `textConversion`, `refusesEnumToString`, `stringConversion`, `numericConversion`, `tickConversion`;
+    the REAL_TO_STRING sweep note kept whole beside them), `calls/routines.ts` `calledRoutine` and its closure (→ new
+    `calls/routine-frame.ts`: `routineInputs`, `hiddenInOuts`, `instanceInOuts` — `routines.ts` would have passed 400
+    lines). Review findings: (1) the five long functions — fixed above; (2) `conversions.ts` refused a wrong arity with
+    the same `lw.bail` four times — one `arityRefusal`; (3) three of the five `KNOWN_TRANSPILE_VIOLATIONS` were "reported
+    to the gate" with no owning task — filed as 6.B.6; (4) the lowering tests copy the one-line helpers `ir`/`wrap` into
+    each file that uses them (1.8.1) — test-only, kept (a shared module is not in the design; noted, not filed).
+    `dead-exports.ts --scope src/transpile`: no finding. S: `ir`, `outputs`, `edge` identical to 0.5; `rust` differs in
+    exactly one line — the runtime prelude's comment 1.9.3 re-pointed — in the 362 fixtures that carry the string prelude
+    (checked: with that comment reverted the `ir`+`rust` layers are identical). T: identical to 0.5 but for the tests this
+    phase added on purpose (the fold-agreement test, 1.8.9; the two `check-citations` rules, 1.9.3).
+  - Gate 1.8a+1.9 review (2026-10-08): S is not literally identical to 0.5 (the one emitted comment line above).
+    OWNER DECISION, default taken: keep the re-pointed comment (a path that names a deleted file would fail the strict
+    citation check, and a path-free rewording changes the same line) and leave 0.5 as it is; the rust layer's only
+    difference is that line in the 362 string fixtures (re-checked at the gate: 362 differ, as before; the 200 the check
+    prints all differ first in that line; the two fixtures the gate's VAR_EXTERNAL fold reaches, `xo3_*`, identical). Re-baselining 0.5's rust layer is the owner's call.
+  - GATE 1.8a+1.9 (2026-10-08). Review: seven findings — five fixed (fold-agreement's blind spot, its stale-mark
+    check and its header, 1.8.9; the two wrong citations and the bare `PLANNED` tail, 1.9.3), the front-end
+    `constancyOf` one recorded as niche (1.8.9), two owner decisions with their defaults taken (ticked-task rule,
+    1.9.3; S's comment line, above). The VAR_EXTERNAL CONSTANT fold moves the front-end fold census
+    (`test/frontend/baselines/fold-dump.json`, rewritten): body folds 457 → 464 (codesys), 422 → 429 (twincat), does
+    not fold 84 → 77, 81 → 74; its recorded-value comparison still 0 disagreements. Numbers (VOLT_REQUIRE_FULL=1,
+    VOLT_FIXTURES unset): `bun typecheck` clean; `bun run lint` green (layering 5 known; size 0 ceilings; citations
+    strict, 0 missing, 7 planned); `dead-exports.ts --scope src/transpile` no finding; `bun test` 8531 pass, 35 skip,
+    432 todo, 0 fail (8998 tests, 303 files, 546 s); fold agreement 420 compared, 38 disagree, 38 known; S: 362
+    fixtures differ from 0.5 by the one comment line (as recorded above), nothing else; `bun run rate:fixtures` —
+    `map.generated.ts` differs from HEAD only as 1.9.3 records (114 lines; edge agree 3046, disagree 0, not-run 179);
+    `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run check` 18 passed. ONE commit for 1.8a, 1.8b and 1.9: they
+    ran as one run in one tree (1.9.3 re-points citations in the files 1.8a/1.8b moved), as with 1.6a-1.6d.
 
 ## 2. Model 1: loops (RC 27, 35, 36, 39; RC 13's transpiler half; RC 13 guard)
 
@@ -2018,8 +2200,8 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Depends: 1.9.4.
 - [ ] 2.2 Design "§3.1 Decision: loops".
   - What: the cap (option a or b), the counting rule, the step rule (refuse only a non-converting step, per 2.1's runtime-step
-    recordings), literal vs typed limit, loop depth, labels by pre-scan, what stays refused (by code), and which of `lower.test.ts:278`,
-    `:1076` and `emit.test.ts:696` change and on which recording.
+    recordings), literal vs typed limit, loop depth, labels by pre-scan, what stays refused (by code), and which of `places/bounds.test.ts` ("bounds from a POU's own constant …"),
+    `statements/loops.test.ts` ("a FOR reads its limit and its step on every pass") and `emit/rust/loops.test.ts` ("a FOR whose limit is a different type") change and on which recording.
   - Where: `design.md`.
   - Accept: committed before any code.
   - Depends: 2.1.
@@ -2059,8 +2241,8 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `rust`/`tier` columns disappear); src test red then green; M.
   - Depends: 2.3.
 - [ ] 2.8 Labels from the IR pre-scan.
-  - What: whether a loop needs `'loop_N`/`'body_N` comes from `ir/walk.loopUses`, not from rewriting printed lines (`loops.ts`, was
-    emit.ts 934-935); the printed text is unchanged.
+  - What: whether a loop needs `'loop_N`/`'body_N` comes from `ir/walk.loopUses`, not from rewriting printed lines (`loops.ts`, which
+    rewrites the printed `'loop_N:`/`'body_N:` lines today); the printed text is unchanged.
   - Where: `emit/rust/loops.ts`, `ir/walk.ts`.
   - Accept: S-out and Rust identical (S on the rust layer).
   - Depends: 2.3.
@@ -2100,13 +2282,13 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `lower/core/lowering.ts`, `lower/storage/layout.ts`, `types/arith/runtime.ts` (if 3.2 says so).
   - Accept: G+LSP (LSP output byte-identical unless 3.2 names the change); S-out (list any Rust that printed capacities differently).
   - Depends: 3.2.
-- [ ] 3.4 `semantics/string.ts` new model plus `string.cases.ts`; the interpreter runs it.
-  - Where: `semantics/string.ts`, `string.cases.ts`, `string.test.ts`, `interp/frame.ts`.
+- [ ] 3.4 `semantics/string.ts` new model plus `semantics/string.cases.ts`; the interpreter runs it.
+  - Where: `semantics/string.ts`, `semantics/string.cases.ts`, `string.test.ts`, `interp/frame.ts`.
   - Accept: `semantics/string.test.ts` green on the case table (`tr_34`, `tr_45`, `lib_prim_char_past_length`, M1-M5 cells).
   - Depends: 3.3.
 - [ ] 3.5 `emit/rust/runtime/string.ts` new model.
   - Where: `emit/rust/runtime/string.ts`, `emit/rust/types.ts`, `values.ts`.
-  - Accept: `runtime-twins.test.ts` runs `string.cases.ts` through rustc and matches.
+  - Accept: `runtime-twins.test.ts` runs `semantics/string.cases.ts` through rustc and matches.
   - Depends: 3.4.
 - [ ] 3.6 Bytes behind the terminator (RC 34).
   - What: a store at or past `len` rescans; a same-capacity copy keeps the units.
@@ -2117,7 +2299,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 - [ ] 3.7 `$00` in a literal (RC 45).
   - What: the literal valuation keeps the decoded units; `values/literals.stringLiteralText` builds a buffer whose `len` is the first 0,
     the bytes behind per M1. If frontend-conformance closed the decoding half (0.1), only the lowering half remains.
-  - Where: `syntax/literal-value.ts`, `lower/values/literals.ts`.
+  - Where: `frontend/syntax/literal/value.ts`, `lower/values/literals.ts`.
   - Accept: F(`tr_45_string_embedded_nul`); G+LSP; M.
   - Depends: 3.6.
 - [ ] 3.8 Conversions without the 80 cut (RC 11).
@@ -2524,7 +2706,7 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - Where: `ir/faults.ts` (its own kind), `lower/calls/last-binding.ts`, both backends.
   - Accept: a src test; both backends print the new message.
   - Depends: 1.2.4, 1.9.4.
-- [ ] 6.A.29 A named DINT/LINT constant folds unbounded in an initializer but wraps at run time (`const-eval.ts:172`, Appendix A grouped).
+- [ ] 6.A.29 A named DINT/LINT constant folds unbounded in an initializer but wraps at run time (`types/const/fold.ts`, Appendix A grouped).
   - What: record the case (a CONSTANT whose initializer overflows its declared width, used in another initializer and read at run time);
     fold it at its declared width in the initializer too, or close with the recording.
   - Where: `types/const/fold.ts`, `lower/values/fold.ts`.
@@ -2534,6 +2716,16 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - What: record a live case (ROL/ROR with an ANY argument whose evaluation order matters); fix or close with the recording.
   - Where: `lower/builtins/value-functions.ts`, `semantics/builtins.ts`.
   - Accept: recording plus F or close.
+  - Depends: 1.9.4.
+
+- [ ] 6.A.31 The AST fold sizes no STRUCT, FB instance, ARRAY or packed DUT (SIZEOF); the IR fold does.
+  - What: found by the fold-agreement test (1.8.9): 24 SIZEOF expressions the front-end calls constant fold to nothing in
+    `types/const/fold.constEval` and to the recorded size in `semantics/fold.constantValue` (lowering's layout model,
+    `lower/storage/layout.ts`, `builtins/sizeof.ts`). The LSP then skips a check that needs the value (an array bound or a
+    CASE label written as a SIZEOF). Give the front-end the layout facts it needs (the layout model's home, P1), or keep
+    the AST fold silent with a written reason; either way each `KNOWN` entry in `fold-agreement.test.ts` goes.
+  - Where: `types/const/fold.ts`, `types/infer/expr.ts` (`sizeofOperandBytes`), `lower/storage/layout.ts`.
+  - Accept: the 24 marks removed (the test fails on a stale one); G+LSP.
   - Depends: 1.9.4.
 
 (6.A.7, runtime helpers colliding with a user FUNCTION, needs the registry of 7.1.2 and is task 7.1.5.)
@@ -2563,23 +2755,33 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - Depends: 1.9.4.
 - [ ] 6.B.5 Lowering's NOT, duration-scaling and platform-conversion rules read the front-end (hand-off H4, split from 1.1.8
   and 1.1.10: not output-neutral).
-  - What: `NOT` of a signed integer (`lower/values` / today `lower/expressions.ts` 181-185) types as `types/arith/operators`
+  - What: `NOT` of a signed integer (`lower/values` / today `lower/expressions/operators.ts`) types as `types/arith/operators`
     `notResultType` — the unsigned INTEGER of the width (`NOT sint` USINT, recorded `uop_not_*`) where lowering stamps the bit
     string (BYTE): the same value, a different IR type (S's `ir` layer moves; S-out must not). Duration × / ÷ integer (today
-    `lower/expressions.ts` 257-261) converts through `types/arith/temporal` `durationScaleConversion`: a 64-bit integer beside a
+    `lower/expressions/operators.ts`) converts through `types/arith/temporal` `durationScaleConversion`: a 64-bit integer beside a
     TIME is the INTEGER there (AR18) where lowering converts it to TIME — a value change, so its fixtures are named first and
-    recorded if missing (with 6.14). The platform conversion rewrite (today `lower/builtins.ts` 152-157: `__U?X…_TO_` replaced
+    recorded if missing (with 6.14). The platform conversion rewrite (today `lower/builtins/builtins.ts`: `__U?X…_TO_` replaced
     through `PLATFORM_ALIASES`, then `parseConversionName(…, undefined)`) becomes `parseConversionName(name, targetOf(project))`:
     measured by 1.1.10, that also reads the platform side on the RIGHT (`DINT_TO___UXINT`), so `ty_dint_to_uxint` starts
     lowering and `ty_xint_to_dint_result_type`'s refusal moves from `expr-call` to `assign-string` — both rate today as
     not-lowered/refused, so the change is decided against their recordings, not taken as a structure move. The constant
-    folder (`lower/constants.ts` `convertedConstant`, `isConstantCallee`, today `undefined`) switches in the SAME step as the
-    body, so an initializer and a body never answer differently (gate 1.0-1.2; `lower/constants.test.ts` pins today's refusal and
+    folder (`lower/values/fold.ts` `convertedConstant`, `isConstantCallee`, today `undefined`) switches in the SAME step as the
+    body, so an initializer and a body never answer differently (gate 1.0-1.2; `lower/values/fold.test.ts` pins today's refusal and
     is rewritten with the recorded answer — a TY11 conversion in a VAR initializer is recorded first).
-  - Where: `lower/expressions/operators.ts`, `lower/builtins/conversions.ts` (after 1.6.14, 1.6.15), `lower/constants.ts`, `types/arith/*`.
+  - Where: `lower/expressions/operators.ts`, `lower/builtins/conversions.ts` (after 1.6.14, 1.6.15), `lower/values/fold.ts`, `types/arith/*`.
   - Accept: S-out for NOT; for duration scaling and the platform names F(each fixture whose answer changes) or the recording
     that shows none does; G+LSP.
   - Depends: 1.9.4, 6.14.
+- [ ] 6.B.6 The three rule-4b edges the design placed against its own rule (checkpoint review 1.9.4).
+  - What: each `KNOWN_TRANSPILE_VIOLATIONS` entry reported to the gate rather than owned by a task gets a home that keeps
+    the leaves acyclic, or design.md P2's rule 4b is amended for it with the reason: `core/shared.ts` reads
+    `project/prepare.ts` `AttributeLookup` (§4.2's placement); `project/prepare.ts` reads `lower/conditions.ts` (§4.9 moves it into
+    `project/`, which would make `calls/` import `project/`); `values/fold.ts` `foldedCall` lowers through
+    `expressions/expressions.ts` (§2.4's placement). The fourth entry (`values/enums.ts` → `storage/layout.ts`) is 3.3's.
+  - Where: `lower/core/shared.ts`, `lower/project/prepare.ts`, `lower/conditions.ts`, `lower/values/fold.ts`,
+    `scripts/check-layering.ts` (`KNOWN_TRANSPILE_VIOLATIONS`), design.md P2.
+  - Accept: G, S; the three entries gone from the list (or the rule amended in design.md and the lint together).
+  - Depends: 1.9.4.
 
 ## 7. Lean groups (same program output, less Rust: every step S-out + M)
 
@@ -2590,7 +2792,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 ### 7.10 Transpiler source cleanup (leftovers after 1.7)
 
 - [ ] 7.10.1 Verify lean 10.1 (EXTENDS, holdsFbInit/reaches), 10.3 (convertValue) and 10.4 (every orphan doc named in the maps,
-  incl. infer.ts:258 deleted by 1.1.13) are dissolved.
+  incl. the old `infer` module's :258, deleted by 1.1.13) are dissolved.
   - Where: `src/transpile/**`, `src/types/**`.
   - Accept: a grep list is empty.
   - Depends: 1.9.4.
@@ -2919,7 +3121,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Accept: S-out, M.
   - Depends: 7.4.2.
 - [ ] 7.4.9 A string compared with a literal compares against the literal's bytes, not a built IecStr.
-  - What: the runtime gains `eq_bytes(&[u8])`/`cmp_bytes`, mirrored in `semantics/string.ts` and `string.cases.ts`.
+  - What: the runtime gains `eq_bytes(&[u8])`/`cmp_bytes`, mirrored in `semantics/string.ts` and `semantics/string.cases.ts`.
   - Notes: the string-literal-compare notes tagged here by 0.6.
   - Where: `runtime/string.ts`, `emit/rust/expr.ts`, `semantics/string.ts`.
   - Accept: twin test, S-out, M.
@@ -3096,7 +3298,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Accept: M; no `keep` item left.
   - Depends: 0.6, 7.2.13, 7.7.10, 7.8.9.
 - [ ] 7.11.2 Every note item owned by a finished task is removed (a note goes with its last item).
-  - What: gated since 0b — `assertNotes` (run by `rate:fixtures` and `fixtures.test.ts`) refuses an item whose owner is ticked, so
+  - What: gated since 0b — `assertNotes` (run by `rate:fixtures` and `map.test.ts`) refuses an item whose owner is ticked, so
     each task removes its own items in the commit that ticks it; this task verifies none is left.
   - Where: `support/notes/notes.data.ts`, `scripts/rate-fixtures.ts`.
   - Accept: the generator reports 0 note items owned by a ticked task.
@@ -3231,6 +3433,8 @@ its delta.
 
 ## Hand-off from frontend-conformance (2026-10-03, its tasks 5.2 and 5.3)
 
+_The modules this hand-off names without `.ts` (`lower/lower`, `lower/calls`, `ir/values` …) are the pre-restructure files as read on 2026-10-03, since split — their homes are `docs/architecture.md`'s folder map._
+
 These are notes, not tasks: the task list above is unchanged. Front-end paths are the real ones (`src/frontend/<layer>/…`);
 every function named below is reachable through `src/frontend/<layer>/index.js` unless it says otherwise.
 
@@ -3244,76 +3448,76 @@ lowering because the parser now refuses them as CODESYS does (`cc_il_name_*` ×1
 `cc4_type_name_*_as_variable` ×2, `identifier_*underscore*` ×2, `var_non_retain`), one started (`operand_uchar_literal`,
 `UCHAR#'A'`, which CODESYS REFUSES — "Cannot convert type 'UDINT' to type 'BYTE'", recorded; TwinCAT refuses it at
 parse): lowering called the literal malformed and now lowers it, so it joins the 266 refused fixtures that lower — outside
-the transpiler's input contract ("code CODESYS compiles", `fixtures.test.ts` `refused` row), neither an improvement nor a
+the transpiler's input contract ("code CODESYS compiles", the old `fixtures` test's `refused` row), neither an improvement nor a
 regression; the LSP gives the recorded refusal, pinned by the fixture's `refused` field. A refusal at a compiler struct
 (`VERSION`, an `ANY` input — `type_codesys_version`, `refuse_interface_any_input`) pointed at 0:0; `storageOf` now takes
-the span of its use and refuses there (fixed in frontend-conformance's step-5 review, `lower.test.ts`).
+the span of its use and refuses there (fixed in frontend-conformance's step-5 review, the old `lower` test).
 
 **Task 5.3 — the T hand-off.** Every "T" row of frontend-conformance design.md P6 and §3.3, once, with the transpiler site as
 read on 2026-10-03 (line numbers name the code, not a contract) and the front-end function that replaces it. The restructure
 task that owns each is in brackets.
 
-- **H1 — EXTENDS chains** (P6 "13 EXTENDS sites"; §3.3 "EXTENDS chains", "Interface EXTENDS"). Sites today: `lower/lower.ts`
+- **H1 — EXTENDS chains** (P6 "13 EXTENDS sites"; §3.3 "EXTENDS chains", "Interface EXTENDS"). Sites today: `lower/lower`
   `extendsChain(lw, fb)` :212 (by NAME through `unit.extends?.text`) and its callers :398, :583; the `baseOf`/`.extends`/
-  `baseScope` walks at `lower/lower.ts` :200, :272, :290, :301, :377, :438; `lower/calls.ts` :97–101, :113, :655, :735, :983,
-  :1409; `lower/storage.ts` :90, :109; `lower/bytes.ts` :64, :72, :81; `lower/interfaces.ts` :53, :66 (interface EXTENDS by
-  name); `lower/lowering.ts` :46 (`baseOf`, a copy of the front-end's). → `symbols/extends.ts` `extendsChain(scope)` (base
+  `baseScope` walks at `lower/lower` :200, :272, :290, :301, :377, :438; `lower/calls` :97–101, :113, :655, :735, :983,
+  :1409; `lower/storage` :90, :109; `lower/bytes` :64, :72, :81; `lower/interfaces` :53, :66 (interface EXTENDS by
+  name); `lower/lowering` :46 (`baseOf`, a copy of the front-end's). → `symbols/extends.ts` `extendsChain(scope)` (base
   first, cycle-safe), `baseOf`, `basesOf`/`ancestry` for interfaces (linked by the binder since frontend-conformance 3.2.1, so
   a base is the one precedence picked, not the first by name); `symbols/scope-nav.ts` `hasUnresolvedBase` for "incomplete".
   [1.1.2, 1.7.3]
-- **H2 — GVL-qualified resolution** (P6 `places.ts:33,64,80`). `lower/places.ts` :34, :65, :81 search
+- **H2 — GVL-qualified resolution** (P6 `places:33,64,80`). `lower/places` :34, :65, :81 search
   `lw.project.symbols.get(…)` for a `gvl_var`. → `symbols/scope-nav.ts` `resolveGvlMember`, `gvlBlockOf`, `externalGlobal`
   (per-unit `qualified_only` read since frontend-conformance 3.1.3). [1.6.12]
-- **H3 — namespace lookups by map** (P6 `calls.ts:976,1627`, `constants.ts:103`). `lower/calls.ts` :993
-  (`ns.symbols.get(…)` for a namespace FUNCTION); `lower/lower.ts` :302 (`s.symbols.get("fb_init")`). The `constants.ts`
+- **H3 — namespace lookups by map** (P6 `calls:976,1627`, `constants:103`). `lower/calls` :993
+  (`ns.symbols.get(…)` for a namespace FUNCTION); `lower/lower` :302 (`s.symbols.get("fb_init")`). The `constants`
   namespace lookup now reads `findChildScope` (:56–58) — that site is met. → `symbols/scope-nav.ts` `findChildScope` +
   `symbols/scope.ts` `lookupLocal` (both on the symbols index). [6.5]
 - **H4 — typing rules re-decided in lowering** (P6 NOT, duration × integer, LIMIT/SEL/MUX, `UNARY_MATH`, platform rewrite;
   §3.3 "NOT result type", "Built-in result types").
-  - NOT: `lower/expressions.ts` :180–184 (a signed integer → the bit string of its width) → `types/arith/operators.ts`
+  - NOT: `lower/expressions` :180–184 (a signed integer → the bit string of its width) → `types/arith/operators.ts`
     `notResultType` (value-identical, frontend-conformance 4.3.2). [1.1.8]
-  - duration × integer: `lower/expressions.ts` :246–251 → `types/arith/temporal.ts` `durationScaleResultType`,
+  - duration × integer: `lower/expressions` :246–251 → `types/arith/temporal.ts` `durationScaleResultType`,
     `durationScaleConversion` (4.3.5). [1.1.8, 6.14]
-  - LIMIT/SEL/MUX: `lower/builtins.ts` :456–487 (its own meet over `commonType`/`integerFoldType`) → `types/builtins.ts`
+  - LIMIT/SEL/MUX: `lower/builtins` :456–487 (its own meet over `commonType`/`integerFoldType`) → `types/builtins.ts`
     `selectionValueArguments` (the checked meet of the value arguments, after SEL's selector and MUX's index; 4.3.4).
     [6.7, 6.15]
-  - `UNARY_MATH`: `lower/builtins.ts` :76, :229 → `types/builtins.ts` `MATH_ARG_TYPED`, `mathResultType`. [1.6.15]
-  - platform conversion rewrite: `lower/builtins.ts` :152–156 (replaces `__XINT` & co. before parsing) and
-    `lower/constants.ts` :132, :183 (`parseConversionName(…, undefined)`) → `types/conversion-name.ts`
+  - `UNARY_MATH`: `lower/builtins` :76, :229 → `types/builtins.ts` `MATH_ARG_TYPED`, `mathResultType`. [1.6.15]
+  - platform conversion rewrite: `lower/builtins` :152–156 (replaces `__XINT` & co. before parsing) and
+    `lower/constants` :132, :183 (`parseConversionName(…, undefined)`) → `types/conversion-name.ts`
     `parseConversionName(name, target)` with the project's target (`symbols` `targetOf`), which reads platform sides itself
     (4.1.2). [1.1.10]
-- **H5 — literal typing** (P6 `contextLiteralType`; §3.3 "Literal typing"). `lower/constants.ts` `contextLiteralType` :251
+- **H5 — literal typing** (P6 `contextLiteralType`; §3.3 "Literal typing"). `lower/constants` `contextLiteralType` :251
   → `types/literal.ts` (`literalCheckType`, `literalContextConversion`, `integerLiteralType`). NOT value-identical: LT14
   (`test/frontend/literal-agreement.test.ts`, `baselines/literal-agreement.json`) pins 29 classes, corpus 78 / fixtures 79
   stores, where the two answer differently (a 0/1 into BOOL/BIT/TIME, an integer the target cannot hold, a real beyond REAL,
   a real into an integer); each class needs a recording before the switch, and the baseline may only fall. The transpiler's
   own mark here is `lt_literal_negative_in_comparison_unsigned` (rule LT12, `diverges`; F in 6.2). [1.1.7, 6.2]
 - **H6 — width ladder and wrap** (P6 `stored`/`fit`/`integerFoldType`; §3.3 "Integer width ladder", "Wrap to width").
-  `lower/convert.ts` `stored` :132, `integerFoldType` :67; `ir/values.ts` `fit` :416; `ir/evaluate.ts` `widthOf` →
+  `lower/convert` `stored` :132, `integerFoldType` :67; `ir/values` `fit` :416; `ir/evaluate` `widthOf` →
   `types/width.ts` `wrapToWidth` (export it from the types index first) and `integerOfWidth`; the fold width is the
   front-end fold's (`types/const/fold.ts`). [1.1.6, 6.B.2]
-- **H7 — the constant folder and enum facts** (P6 `constants.ts` row; §3.3 "Constant folding", "Enum base / numbering /
-  default"). `lower/constants.ts` `foldConstant` :187, `foldsToConstant` :157, `convertedConstant` :123 →
+- **H7 — the constant folder and enum facts** (P6 `constants` row; §3.3 "Constant folding", "Enum base / numbering /
+  default"). `lower/constants` `foldConstant` :187, `foldsToConstant` :157, `convertedConstant` :123 →
   `types/const/fold.ts` `constEval`, `compileTimeConstant`, `declaredValue`, `constantSlotType`, `constancyIn`
   (frontend-conformance 4.6.1 made the LSP fold the set the transpiler folds: conversions, pure built-ins, SIZEOF, enum
-  values, NOT, shifts); `lower/constants.ts` `enumStorage` :28 → `types/enums.ts` `enumStorage`/`enumValueStorage`
+  values, NOT, shifts); `lower/constants` `enumStorage` :28 → `types/enums.ts` `enumStorage`/`enumValueStorage`
   (recorded DT5–DT6, 4.7.3). Already switched by frontend-conformance: `enumDefault`, `inlineEnumDefault` (1.37,
-  `lower/storage.ts` imports them), `calendarNanoseconds` (1.22). [1.1.9, 1.7.14, 7.2]
-- **H8 — the default STRING capacity** (P6 `withStringCapacity`). `lower/storage.ts` `withStringCapacity` :32 (and its
-  callers in `builtins.ts`, `places.ts`, `constants.ts`) → `types/defaults.ts` `DEFAULT_STRING_LENGTH`, applied at
+  `lower/storage` imports them), `calendarNanoseconds` (1.22). [1.1.9, 1.7.14, 7.2]
+- **H8 — the default STRING capacity** (P6 `withStringCapacity`). `lower/storage` `withStringCapacity` :32 (and its
+  callers in `builtins`, `places`, `constants`) → `types/defaults.ts` `DEFAULT_STRING_LENGTH`, applied at
   `lowering.resolve` as design.md §3.2 decides. [3.3]
-- **H9 — the platform target** (P6 `canonicalElem`'s target in `lowering.ts`). The `lowering.ts` `canonicalElem` call is gone
+- **H9 — the platform target** (P6 `canonicalElem`'s target in `lowering`). The `lowering` `canonicalElem` call is gone
   (`resolve` goes through `resolveTypeExpr`, which takes the project's target). What is left: `lower/conditions.ts` :20
-  `EXEC_ORACLE_TARGET` passed to `build.buildSymbolTable` (`lower/lower.ts` :719), and `lower/bytes.ts` :172
+  `EXEC_ORACLE_TARGET` passed to `build.buildSymbolTable` (`lower/lower` :719), and `lower/bytes` :172
   `elementaryTypeOn(name, targetOf(project))` for SIZEOF of a type name → `types/platform.ts` `canonicalElem(name, target)`
   / `elementaryTypeOn` with the target the project states (4.1.1; `workspace-refs` `MEASURED_DEVICE_TARGETS` for real
   projects). [1.1.6 or 6.B]
-- **H10 — identifier equality** (P6 interp `sameName`). `interp/interp.ts` `sameName` :467 → `syntax/identifier.ts`
-  `sameName`; and the self-reference spellings `lower/calls.ts` `isSuper` :84 and `lower/places.ts` :156
+- **H10 — identifier equality** (P6 interp `sameName`). `interp/interp` `sameName` :467 → `syntax/identifier.ts`
+  `sameName`; and the self-reference spellings `lower/calls` `isSuper` :84 and `lower/places` :156
   (`name.toUpperCase() === "SUPER"` / `"THIS"`, found by the frontend-conformance close review) → `syntax/identifier.ts`
   `selfRefKind`. [1.1.1]
-- **H11 — attribute maps** (frontend-conformance 1.23 "T, 5.3"). `lower/lower.ts` `attributesOf` :733 and
-  `lowering.ts` `attributes` :261 rebuild per-file maps from `unitAttributes`/`memberAttributes`/`declarationAttributes`;
+- **H11 — attribute maps** (frontend-conformance 1.23 "T, 5.3"). `lower/lower` `attributesOf` :733 and
+  `lowering` `attributes` :261 rebuild per-file maps from `unitAttributes`/`memberAttributes`/`declarationAttributes`;
   since frontend-conformance 2.7.2 every unit, member and declaration node carries `attributes` in the AST (the three
   functions no longer lex). → read the node's `attributes` (`syntax/pragmas/attributes.ts` `hasFrontendAttribute`,
   `readAttribute`). Output-neutral. [1.6.20]
@@ -3324,7 +3528,7 @@ initializer without its context — H5/H7); `dt_union_member_sizes` (union membe
 `dt_this_deref_identity_values` (a bare THIS and `SUPER^.v` as places); `ty_dint_to_uxint` (a platform conversion name read
 as a project FUNCTION — H4); the enum `to_string` member-name table (4.5.1, refused by name); `type_codesys_version` and
 `refuse_interface_any_input` — the front-end now types `VERSION` and an `ANY` input as the compiler's own structs
-(`types/system.ts`, rules TY14/TY15, recorded), so `lower/storage.ts` :125 refuses `layout-struct` "VERSION / ANY has no
+(`types/system.ts`, rules TY14/TY15, recorded), so `lower/storage` :125 refuses `layout-struct` "VERSION / ANY has no
 declaration lowering can lay out" at a zero span (no project symbol declares them); before, `type_codesys_version` was refused
 as `slot-unknown` at its declaration. Lay out the system structs from `types/system.ts` `systemStructType`, or refuse at the
 declaration that names one. [5 (the instance model) or 6.B]

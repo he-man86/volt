@@ -1,6 +1,6 @@
 /**
  * The diagnostic an analysis produces and the source tag it carries — a leaf the checks, the shared rules and the
- * orchestrator all import without a cycle. It lived in `checks/_shared.ts` (consolidate-lsp-structure C3).
+ * orchestrator all import without a cycle. It lived in the old `checks/_shared` module (consolidate-lsp-structure C3).
  */
 import type { Span } from "../../frontend/syntax/index.js"
 

@@ -8,7 +8,7 @@
  * kind-named file (every DUT is `.dut`), like every writable source kind. PLC_PRG instantiates the
  * type so TC analyses it (dead code is skipped by the compiler).
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -487,9 +487,9 @@ END_TYPE
 `,
   },
 
-  // ─── Coverage extension for dut.ts:211-218 (alias init body) ──
+  // ─── Coverage extension for the old dut parser, lines 211-218 (alias init body) ──
   // STRUCT EXTENDS is already covered by `type_dut_struct_extends`
-  // above; remaining gap in dut.ts is the alias-with-init path.
+  // above; remaining gap in that parser is the alias-with-init path.
 
   {
     name: "type_dut_alias_with_init",

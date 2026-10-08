@@ -5,7 +5,7 @@
  *   bun run scripts/agreement-residue.ts --detail   every incomplete fixture and what it misses
  *   bun run scripts/agreement-residue.ts <name>…    one fixture's source beside both sides in full
  *
- * `fixtures.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
+ * `lsp-replay.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
  * merely INCOMPLETE — the LSP right about everything it says and silent about the rest — is invisible in it. This
  * buckets every disagreement into missing-only / extra-only / both / no-recording, then ranks the IDE messages the LSP
  * most often misses. It is how the parse-error cascade was found: 109 of 126 disagreements were missing-only, and the
@@ -55,7 +55,7 @@ for (let i = 0; i < ALL_TESTS.length; i++) {
   }
   const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)}`).sort()
   // THE REPLAY'S OWN ANSWER (`support/replay.ts` `replayDiagnostics`, analysis-conformance 2.6): the same project and the
-  // same composition `fixtures.test.ts` gates, or this tool prints a work list for a compiler nobody runs. It built a
+  // same composition `lsp-replay.test.ts` gates, or this tool prints a work list for a compiler nobody runs. It built a
   // project of its own — every file parsed as a `.st` source rather than as the object its file holds — and two fixtures
   // answered differently here than in the replay (task 0.4: `cc5_deprecated_functionblock_keyword`,
   // `unit_namespace_method_after_fb`).

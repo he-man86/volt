@@ -13,7 +13,7 @@ never changes a recording or a fixture's expectation to match the LSP.
     The LSP says nothing.
   - Fixtures: `for_limit_wider_than_counter_dint_var`, `for_limit_wider_than_counter_dint_expr`,
     `for_limit_wider_than_counter_upper_bound` (`test/conformance/fixtures/semantics/execution.ts`; `lsp-gap`, held by
-    `fixtures.test.ts` `MEASURED_SILENT`, recorded 2026-09-29 for transpile-review task 13).
+    `transpile-replay.test.ts` `MEASURED_SILENT`, recorded 2026-09-29 for transpile-review task 13).
   - Accept: the three rate `refused` (the LSP reports the recorded message); removed from `MEASURED_SILENT`;
     `for_limit_wider_than_counter_uint_expr` stays confirmed with no LSP error.
   - Transpiler half: transpile-restructure 2.6.

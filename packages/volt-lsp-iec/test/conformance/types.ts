@@ -10,13 +10,13 @@
  *                                into `recordings/<vendor>.build.json`.
  *   `scripts/record-exec.ts`      runs it in CODESYS simulation and records variable values into
  *                                `recordings/codesys.run.json`. Self-launching; not a bridge op.
- *   `fixtures.test.ts`           ONE gate over all of it, driven by the fixture's `evidence` rating: the LSP's
- *                                diagnostics against the BUILD recording (the precision ratchet), the interpreter
- *                                AND the emitted Rust against the RUN recording (the only place values are
- *                                compared), every source CODESYS rejects as an LSP error too, and the rating
- *                                itself recomputed so a stored one cannot go stale. It was four files that each
- *                                re-selected their own subset, so a fixture in a state nobody had thought of was
- *                                covered by none of them.
+ *   `transpile-replay.test.ts`,  ONE gate over all of it, driven by the fixture's `evidence` rating over one
+ *   `map.test.ts`,               selection (`support/fixture-suite.ts`): the LSP's diagnostics against the BUILD
+ *   `lsp-replay.test.ts`         recording (the precision ratchet), the interpreter AND the emitted Rust against
+ *                                the RUN recording (the only place values are compared), every source CODESYS
+ *                                rejects as an LSP error too, and the rating itself recomputed so a stored one
+ *                                cannot go stale. It was four files that each re-selected their own subset, so a
+ *                                fixture in a state nobody had thought of was covered by none of them.
  *   `backends.test.ts`           the two backends against EACH OTHER, where no recording reaches.
  *   `suite.test.ts`              whether enough is being ASKED — the census, the grammar and the vendor's index.
  *
@@ -125,12 +125,12 @@ export interface LanguageTest {
   /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */
   cycles?: number
   /** CODESYS refuses the source, with a fragment of its error text: outside the transpiler's input contract, and an LSP
-   *  error that must be present (`fixtures.test.ts`, the `refused` row). */
+   *  error that must be present (`transpile-replay.test.ts`, the `refused` row). */
   refused?: string
   /** A consumer that deliberately does not check this case yet — the reason, with its date. */
   deferred?: { lsp?: string; transpile?: string }
   /**
-   * HOW WELL THIS FIXTURE IS EVIDENCED — written by `bun run rate:fixtures`, checked by `fixtures.test.ts`.
+   * HOW WELL THIS FIXTURE IS EVIDENCED — written by `bun run rate:fixtures`, checked by `map.test.ts`.
    *
    * GENERATED, like a lockfile: it is derived from the recordings and the flags below, so it is never edited by
    * hand and never trusted on its own. The gate recomputes every rating and fails if a stored one disagrees, which
@@ -153,14 +153,14 @@ export interface LanguageTest {
    */
   evidence?: "confirmed" | "refused" | "not-lowered" | "diverges" | "lsp-gap" | "unasked" | "unaskable"
   /**
-   * WHAT THIS FIXTURE TRANSPILES TO — written by `bun run rate:fixtures`, checked by `fixtures.test.ts`, generated
+   * WHAT THIS FIXTURE TRANSPILES TO — written by `bun run rate:fixtures`, checked by `map.test.ts`, generated
    * for the same reason `evidence` is and merged in `fixtures/index.ts` the same way.
    *
    * `evidence` above says how well the fixture is EVIDENCED. This says what came out of the backend and what is
    * wrong with it — the half nobody could ask about while the emitted Rust was only an oracle:
    *
    *   `tier`         the band of the language this fixture's own body reaches, from the lowered IR. The
-   *                  simplest-first ladder the emitter sweep walks; `support/transpile-confidence.ts` defines it.
+   *                  simplest-first ladder the emitter sweep walks; `support/transpile/tier.ts` defines it.
    *   `rust`         which oracle reached the emitted RUST — `vendor` when the recording's values came back out of
    *                  it, `compiles` when the compiler accepted it and no recorded value reaches it, `rejected`
    *                  when the compiler refused it. Taken from the compiler's exit status, never inferred.
@@ -180,14 +180,14 @@ export interface LanguageTest {
    *   `notes`        the ids of the constructs it emits that the review judged. Each id's full text — improvement,
    *                  alternatives, chosen, why — is rendered in the map's own `NOTES` section, at the end of the
    *                  same file, so a row leads to its reasons without leaving it. The AUTHORED source is `NOTES` in
-   *                  `support/transpile-confidence.ts`; the map's copy is generated from it and gated.
+   *                  `support/notes/notes.data.ts`; the map's copy is generated from it and gated.
    *
    * A fixture that does not lower carries no `tier`, `rust` or `lints` at all — that absence IS the signal, and
    * it must not be able to read as clean.
    */
   transpile?: {
-    /** The literals of `TIERS` in `support/transpile-confidence.ts`, spelled out because importing it here would
-     *  be a cycle — that module imports this one for `LanguageTest`. `fixtures.test.ts` recomputes every value
+    /** The literals of `TIERS` in `fixtures/map-row.ts`, spelled out because importing it here would
+     *  be a cycle — that module imports this one for `LanguageTest`. `map.test.ts` recomputes every value
      *  with the real `tierOf`, so a drift between the two lists is a red test rather than a silent widening. */
     tier?: "decl" | "arith" | "control" | "aggregate" | "call" | "indirect"
     rust?: "vendor" | "compiles" | "rejected"

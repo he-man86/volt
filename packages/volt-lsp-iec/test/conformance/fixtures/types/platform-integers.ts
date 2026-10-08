@@ -2,7 +2,7 @@
  * `__XINT`, `__UXINT`, `__XWORD` — the three primitives the analyzer does not know exist.
  *
  * They are in the vendor's own Elementary group (`docs/codesys-reference/06-data-types.md`) and NOT in
- * `src/types/elementary.ts`, so `elementaryType("__XINT")` is undefined and every check that gates on `checkable()`
+ * `src/frontend/types/elementary.ts`, so `elementaryType("__XINT")` is undefined and every check that gates on `checkable()`
  * skips them without a word. The transpiler handles them; the analyzer does not.
  *
  * ADDING THEM IS NOT A ONE-LINE FIX, which is why this exists instead of a guess. They are compile-time aliases

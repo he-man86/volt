@@ -32,10 +32,10 @@
  *
  * ─── THE EMITTED RUST IS LINTED ──────────────────────────────────────────────────────────────────────────────────
  *
- * Because a user reads it. `fixtures.test.ts` builds every conformance fixture's Rust with `clippy-driver` and
+ * Because a user reads it. `transpile-replay.test.ts` builds every conformance fixture's Rust with `clippy-driver` and
  * records what survives into that fixture's row in `test/conformance/fixtures/map.generated.ts`; a fixture may
  * report only the lints its row already carries. The allow-list — a lint that is Volt's own answer rather than a
- * defect, each with the reason — is `test/conformance/support/transpile-confidence.ts`.
+ * defect, each with the reason — is `test/conformance/support/transpile/lint-policy.ts`.
  *
  * So `statement order, parenthesisation, and every cast` above is still INTERNAL, and it is no longer unmeasured:
  * a printer change that makes the output worse fails the suite naming the fixture and the lint.

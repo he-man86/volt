@@ -30,7 +30,7 @@
  *
  * WHAT THE CORPUS CANNOT PROVE. It contains no invalid code and only the constructs its authors happened to use, so
  * a pass here is EVIDENCE, not proof. Two throws found by review are unreachable from it and are pinned beside the
- * code that answers them (`src/transpile/lower/totality.test.ts`); whether enough is being ASKED at all is
+ * code that answers them (`src/transpile/lower/entry/totality.test.ts`); whether enough is being ASKED at all is
  * `test/conformance/suite.test.ts`.
  *
  * MEMORY, deliberately. The walk holds ONE project's parse results at a time and accumulates only counts and

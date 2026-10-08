@@ -8,7 +8,7 @@
  * Each entry uses ONE FB; the recorder pushes it + a PLC_PRG that
  * instantiates it (TC only analyzes reachable code).
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -313,7 +313,7 @@ END_FUNCTION
 `,
   },
 
-  // ─── Coverage extension for find-identifier.ts:204-206 (inline enum in VAR) ─
+  // ─── Coverage extension for the old find-identifier, lines 204-206 (inline enum in VAR) ─
 
   {
     name: "var_inline_enum_decl",

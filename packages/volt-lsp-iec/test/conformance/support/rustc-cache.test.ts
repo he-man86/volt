@@ -17,7 +17,7 @@ import {
   type Toolchain,
 } from "./rustc-cache.js"
 import { CLIPPY, RUSTC, skipRustSuite } from "./rustc.js"
-import { buildArgv } from "./transpile-confidence.js"
+import { buildArgv } from "./transpile/lint-policy.js"
 
 const exeOf = (dir: string, name: string) => join(dir, `${name}${process.platform === "win32" ? ".exe" : ""}`)
 

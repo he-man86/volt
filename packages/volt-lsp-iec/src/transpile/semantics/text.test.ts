@@ -1,6 +1,6 @@
 /**
  * The formatters against their case table (`text.cases.ts`) — the check that fails FIRST, in milliseconds, when a
- * formatter drifts; `fixtures.test.ts` grades both backends against the recordings, and the twin harness
+ * formatter drifts; `transpile-replay.test.ts` grades both backends against the recordings, and the twin harness
  * (`test/conformance/runtime-twins.test.ts`) runs the same table against the Rust runtime.
  */
 import { expect, test } from "bun:test"

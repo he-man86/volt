@@ -5,7 +5,7 @@
  * own, `recordings/twincat-32.build.json` (`VOLT_RECORDING_TARGET=32 RECORD_ONLY=… bun run record:language`, frontend-
  * conformance 4.8): the fixtures that name a platform integer or store a pointer, asked there. The LSP replays each on a
  * project of THAT target, and must give exactly the build's
- * messages — the agreement the 64-bit oracles are held to (`fixtures.test.ts`).
+ * messages — the agreement the 64-bit oracles are held to (`lsp-replay.test.ts`).
  */
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"

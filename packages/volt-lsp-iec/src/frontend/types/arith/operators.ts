@@ -117,7 +117,7 @@ const NOT_NAMES_ANY_BIT: ReadonlySet<TypeFamily> = new Set(["real", "string"])
 /**
  * What a unary operator does to an operand of `family` on the way in: `none` — it is already the type the operator
  * computes in; `result` — it converts into the operator's result type; `ANY_BIT` — `NOT` on a REAL or a STRING, which
- * has no integer to produce and names the generic family (measured one operand type at a time, `fixtures/unary-operand.ts`).
+ * has no integer to produce and names the generic family (measured one operand type at a time, `fixtures/operators/unary-operand.ts`).
  */
 export function unaryOperandConversion(op: "-" | "NOT", family: TypeFamily): "none" | "result" | "ANY_BIT" {
   if (!(op === "-" ? MINUS_CONVERTS : NOT_CONVERTS).has(family)) return "none"

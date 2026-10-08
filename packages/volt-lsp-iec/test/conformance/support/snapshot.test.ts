@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { elementaryType, elementaryTypeRef, type Type } from "../../../src/frontend/types/index.js"
 import { emitRust, lowerSource } from "../../../src/transpile/index.js"
-import { HARNESS_LOOP_GUARD } from "./transpile-confidence.js"
+import { HARNESS_LOOP_GUARD } from "./transpile/edge.js"
 import { canonical, compareSnapshots, firstDifference, LAYERS, parseLayers, rustLayer, type FixtureSnapshot } from "./snapshot.js"
 
 const span = { start: 0, end: 4, startLine: 3, startCol: 2, endLine: 3, endCol: 6 }

@@ -35,18 +35,8 @@ import { PROJECT_BASE } from "./project-libraries.js"
 import { runPaths } from "./run-paths.js"
 import { CLIPPY, RUSTC } from "./rustc.js"
 import { buildRust } from "./rustc-cache.js"
-import {
-  buildArgv,
-  compareEdge,
-  EDGE_ARG,
-  edgeHarness,
-  edgePlan,
-  HARNESS_LOOP_GUARD,
-  interpOutcome,
-  reachesLibm,
-  rustEdgeRun,
-  type EdgeOutcome,
-} from "./transpile-confidence.js"
+import { compareEdge, EDGE_ARG, edgeHarness, type EdgeOutcome, edgePlan, HARNESS_LOOP_GUARD, interpOutcome, reachesLibm, rustEdgeRun } from "./transpile/edge.js"
+import { buildArgv } from "./transpile/lint-policy.js"
 
 export const LAYERS = ["ir", "rust", "outputs", "edge"] as const
 export type Layer = (typeof LAYERS)[number]

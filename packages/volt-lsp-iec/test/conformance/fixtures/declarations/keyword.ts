@@ -7,9 +7,9 @@
  * Source: 10-keywords.md (cross-referenced to the relevant doc
  * pages: ST statements, pointers, OO basics).
  *
- * SUPER^ is already covered in oop-tests.ts.
+ * SUPER^ is already covered in `oop/oop.ts`.
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 

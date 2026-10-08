@@ -7,7 +7,7 @@
  *
  * `UNKNOWN` is the total, conservative fallback: any unresolved sub-part collapses to it (C.6), and
  * every consumer skips on `UNKNOWN` — never a false positive. Resolve and infer are one engine that
- * produces these values (`resolve.ts`, `infer.ts`).
+ * produces these values (`resolve.ts`, `infer/expr.ts`).
  *
  * Naming: the composite variants are `*Type` interfaces distinct from the AST's TypeExpr nodes of
  * the same concept (`syntax/ast/nodes` owns `ArrayType`/`PointerType`/`ReferenceType` the *syntax*; here

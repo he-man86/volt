@@ -6,7 +6,7 @@
  * symbol. TC is silent on shadowing (the lookup rule "local wins over
  * global" applies without warning).
  *
- * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -64,7 +64,7 @@ END_METHOD
 `,
   },
 
-  // ─── Coverage extension for resolver.ts:54-61 (lookupAll across scopes) ─
+  // ─── Coverage extension for the old resolver, lines 54-61 (lookupAll across scopes) ─
 
   {
     name: "shadowing_method_local_shadows_fb_var",

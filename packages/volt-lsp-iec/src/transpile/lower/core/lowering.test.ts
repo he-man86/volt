@@ -3,9 +3,11 @@
  * `Lowering` fields and `Shared` fields it replaced were — created empty with their owner, one per owner, never shared
  * with another (task 1.6.21).
  */
-import { expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import type { Scope } from "../../../frontend/symbols/index.js"
-import { frameState, Lowering } from "./lowering.js"
+import type { IrAssign } from "../../ir/index.js"
+import { lowerSource } from "../index.js"
+import { Lowering, frameState } from "./lowering.js"
 import { newShared, sharedState } from "./shared.js"
 
 const scope = {} as Scope
@@ -31,4 +33,80 @@ test("sharedState: one state per POU lowering, the same from every frame that sh
   expect(targets(nested).get("P")).toBe(1)
   expect(targets(nested)).toBe(targets(a))
   expect(targets(other).size).toBe(0)
+})
+
+/** Lower and require success — most tests are about the SHAPE, not the failure path. */
+function ir(src: string, name?: string) {
+  const { pou, diagnostics } = lowerSource(src, name)
+  expect(diagnostics).toEqual([])
+  return pou!
+}
+
+const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
+
+describe("lower — the frame", () => {
+  test("a slot without an initial value carries its type's zero in the IR — no backend picks one", () => {
+    const pou = ir(wrap("iCount := 1;", "iCount : INT;\n  flag : BOOL;\n  ratio : REAL;\n  text : STRING;"))
+    expect(pou.slots.map((s) => s.init)).toEqual([0n, false, 0, ""])
+  })
+
+  test("every declared variable becomes a slot carrying its RESOLVED type, not a name", () => {
+    const pou = ir(`
+PROGRAM P
+VAR_INPUT
+  Enable : BOOL;
+END_VAR
+VAR
+  iCount : INT := 3;
+  rate   : REAL;
+END_VAR
+iCount := iCount + 1;
+END_PROGRAM
+`)
+    expect(pou.slots.map((s) => [s.name, s.section, s.type.kind === "elementary" ? s.type.name : s.type.kind])).toEqual([
+      ["Enable", "VAR_INPUT", "BOOL"],
+      ["iCount", "VAR", "INT"],
+      ["rate", "VAR", "REAL"],
+    ])
+    // the INT's own facts ride along — no second type table for a backend to consult
+    const count = pou.slots[1]!.type
+    expect(count.kind === "elementary" && count.elem.bits).toBe(16)
+    expect(count.kind === "elementary" && count.elem.signed).toBe(true)
+  })
+
+  test("a declared initializer is constant-folded into the slot", () => {
+    const pou = ir(wrap("iCount := 0;", "iCount : INT := 2 + 3;"))
+    expect(pou.slots[0]!.init).toBe(5n)
+  })
+
+  test("every slot name is unique — two chains each get their own temp", () => {
+    // Temps were named by purpose alone, so a second FOR loop (or chain) duplicated `for_limit` (`chain_value`): a
+    // Rust struct with two identical fields. The interpreter reads by index and never noticed; no test had two temps.
+    // A FOR takes no temp since its limit is read on every pass (conformance `callshape_for_bounds_changed_in_body`), so
+    // the two loops add none — the two chains still need two.
+    const pou = ir(
+      wrap(
+        "FOR iCount := 1 TO 3 DO flag := TRUE; END_FOR\nFOR iCount := 1 TO 2 DO flag := FALSE; END_FOR\nflag S= done R= flag;\ndone S= flag R= done;",
+        "iCount : INT;\n  flag : BOOL;\n  done : BOOL;",
+      ),
+    )
+    const names = pou.slots.map((s) => s.name.toUpperCase())
+    expect(pou.slots.filter((s) => s.section === "temp").length).toBe(2)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  test("a name is a slot index — the IR holds no identifiers to look up", () => {
+    const pou = ir(wrap("iCount := iCount + 1;"))
+    const assign = pou.body[0] as IrAssign
+    expect(assign.target.slot).toBe(0)
+    expect(assign.target.path).toEqual([]) // fields/indices/derefs append here later
+    // `iCount + 1` computes in DINT (integer promotion, measured against CODESYS in conformance) and converts back
+    // to INT on store — so the load sits under two conversions, but it is still slot 0, not a name.
+    const value = assign.value
+    expect(value.kind).toBe("convert")
+    const sum = value.kind === "convert" ? value.value : value
+    expect(sum.kind).toBe("binary")
+    const operand = sum.kind === "binary" && sum.left.kind === "convert" ? sum.left.value : undefined
+    expect(operand?.kind === "load" && operand.place.slot).toBe(0)
+  })
 })

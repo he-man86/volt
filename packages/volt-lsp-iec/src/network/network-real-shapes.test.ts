@@ -109,7 +109,7 @@ test("a backticked operand is ONE operand, checked as the ST its text is", () =>
 const unresolved = (src: string) => diags(src).filter((d) => d.code === "NETWORK_UNRESOLVED_BOX")
 
 // THE MESSAGE IS THE COMPILER'S, AND IT DEPENDS ON THE SLOT. Both strings below are CODESYS's own, recorded
-// live and held byte-for-byte by `test/conformance/fixtures/network-unresolved.ts`. Until 2026-09-05 the LSP
+// live and held byte-for-byte by `test/conformance/fixtures/graphical/network-unresolved.ts`. Until 2026-09-05 the LSP
 // answered every position with one invented sentence - "a box whose INSTANCE the IDE could not resolve" -
 // which is simply false on an input pin or a coil, where no instance exists.
 const OPERAND_MSG = "Expression expected instead of '?'"

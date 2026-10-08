@@ -1,5 +1,5 @@
 /**
- * A CONTENT-ADDRESSED CACHE FOR THE EMITTED-RUST BUILDS — `fixtures.test.ts` and `scripts/rate-fixtures.ts` both
+ * A CONTENT-ADDRESSED CACHE FOR THE EMITTED-RUST BUILDS — `transpile-replay.test.ts` and `scripts/rate-fixtures.ts` both
  * build every lowered fixture's Rust with `clippy-driver`, ~2,300 processes and ~6 minutes, every run, while a step
  * changes a handful of fixtures. Through here an unchanged build is never repeated. A STALE HIT IS THE ONE WAY THIS
  * CAN BREAK THE SUITE, so the key is everything a build reads, a sample of hits is re-proved every run, and CI runs
