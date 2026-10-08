@@ -824,6 +824,47 @@ destination tails), 3.7 (the two literal NUL tails) and 3.8 (the two conversion 
 **Migration.** 3.3 resolve + `withStringCapacity` deleted (S identical; `sized` kept). 3.4/3.5 = `storeString` and `IecStr::store` with `string.cases.ts`
 (M1-M5 cells) run by both backends. 3.6 wires the store, 3.7 the literal, 3.8 the 255 rule and `sized`'s deletion. 3.10-3.12 as written.
 
+### §3.2 Decision (step 3c): capacity, the store, the literal (tasks 3.3-3.7, 2026-10-08)
+
+**Target.** Every string Type the lowering holds is sized; `assign` is the one place a string lands in an EXISTING buffer and
+it runs `storeString(dst, m, src, n)` in both backends; `convert` stays the copy into a FRESH buffer (store into zeros =
+today's `to`), which is what call arguments and results need. A sizeless string Type reaching a store is an internal error
+by name, never defaulted there.
+
+**Capacity (3.3).** `Lowering.resolve` sizes the sizeless STRING/WSTRING it returns, array elements included;
+`withStringCapacity`'s four callers (conversions.ts operand, system.ts, places.ts, enums.ts) and `layout.ts:50` read the
+resolved length or `DEFAULT_STRING_LENGTH` by name. A string literal's const is typed STRING(k)/WSTRING(k) at 3.3, k its
+decoded unit count (`frontend/types/literal.ts` keeps the sizeless type the LSP prints). `sized` stays until 3.8.
+- Rejected: sizing in `types/resolve.ts` (M7: 564 recorded messages print 'STRING'); sizing per use (four callers
+  re-deciding one fact is what 3.3 removes).
+
+**Where `n` comes from (3.6): the source's own Type, kept by not converting a same-width string at an `assign`.** One IR
+constructor `assignTo(target, value)` in `lower/values/convert.ts` replaces the 15 `{ kind: "assign", value: convert(…) }`
+literals: it converts as today except a STRING→STRING / WSTRING→WSTRING of another capacity, which passes unconverted.
+Interpreter: `compileWrite`'s string branch reads the place, then writes `storeString(prior, m, v, n)` with `n` =
+`s.value.type.length` taken at compile time (`storeAs` and the call/runner bindings unchanged: they fill fresh buffers).
+Rust: `place = v.to();` becomes `place.store(&v);` (`&mut self`, `store<const M>` — both capacities are const generics, and
+a VAR_IN_OUT's generic capacity infers as today); `to` stays only behind a same-width `convert`.
+- Deciding measure: the counts — 40 lowering `assign` sites (15 convert their value) against 8 interpreter `storeAs` sites
+  and 1 emitter copy (`stmt.ts:55`); the store belongs to `assign`, the one IR kind all 40 share.
+- Rejected: an IR `storeString` node (inserted at all 40 sites; a missed one silently keeps the old cut); a value carrying
+  its capacity (an object in `IrValue`, the clone-per-copy cost §3.2 rejected for (a)); dropping same-width `convert`
+  everywhere (every Rust argument/result position would then need its own store-into-new).
+
+**Model (3.4/3.5).** `semantics/string.ts` `storeString` (§3.2's formula, `held`); `string.cases.ts` one cell per
+recorded store/read (M1-M5, `tr_34`, `tr_45`, `lib_prim_char_past_length`), each naming its fixture, run by
+`string.test.ts` and through rustc by `runtime-twins.test.ts` — the `numeric.cases.ts` pattern. `IecStr::store` lands with
+its twin before any caller (3.4/3.5 unwired, S identical).
+
+**Literal (3.7).** `stringLiteralText` keeps every decoded unit; with k from 3.3 the store cuts a literal at k and keeps the
+destination behind its 0. A declaration's folded initial value is `storeString(zero, m, lit, k)`, so it equals today's cut.
+
+**Stays refused, by code:** `assign-string`, `string-escape`, `wstring-surrogate`, `string-non-ascii` — unchanged.
+
+**Migration.** 3.3 one commit (Types only; S-out lists literal consts that now print `IecString::<k>`). 3.4, 3.5 the unwired model
+and twin. 3.6: record `string_store_function_input_tail` (twice) first, then `assignTo` + the two backends in one commit.
+3.7 the literal. Then the gate.
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus
