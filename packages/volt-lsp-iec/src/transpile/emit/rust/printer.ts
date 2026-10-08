@@ -19,9 +19,9 @@ export class Printer {
   /** A harness's loop guard ({@link EmitOptions}) — undefined prints none. */
   loopGuard: number | undefined = undefined
 
-  /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels, and the flags
-   *  say whether an EXIT or a CONTINUE used them (an unused label is a rustc warning, and the crate builds with none). */
-  readonly loops: { n: number; exits: boolean; continues: boolean }[] = []
+  /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels (whether a
+   *  label is printed at all is asked of the IR before the loop prints: `ir/walk.loopUses`). */
+  readonly loops: { n: number }[] = []
   loopCount = 0
 
   /** The body being printed: its VAR_IN_OUT parameters and its routine's locals (Rust names and slots), and the name of

@@ -318,6 +318,13 @@ coverage reachable rather than a wall at the first aliasing construct.
 constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —
 not a second type model. **If a backend ever has to decide something, the lowering is incomplete.**
 
+*Loops* (transpile-restructure §3.1). There is no loop bound in the semantics — CODESYS caps no loop (`tr_27_loop_cap_*`) —
+so only a harness bounds a runaway: `loopGuard` on `run` and `emitRust`, one body entry after a head test counted as one
+pass in both backends, and its `LoopGuardError` is never a fault match. A FOR step and limit are judged by their front-end
+type (`for-step-type`, `for-limit-type`: a DINT limit on an INT counter does not compile), an expression of untyped
+literals by its value. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
+(`ir/walk.loopUses`).
+
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
 a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering
 computes operator types over the same widening lattice `frontend/types/elementary` owns, and an expression that still

@@ -2459,23 +2459,58 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8559 pass, 35 skip, 432 todo, 0 fail (9026
       tests, 304 files, 640 s), fold agreement 420 compared, 38 disagree, 38 known; `bun run test:corpus` 19 pass, 1 skip,
       0 fail; `bun run lint` exit 0; `openspec validate` valid; `bun run check` 18 passed.
-- [ ] 2.8 Labels from the IR pre-scan.
+- [x] 2.8 Labels from the IR pre-scan.
   - What: whether a loop needs `'loop_N`/`'body_N` comes from `ir/walk.loopUses`, asked before printing; `emit/rust/loops.ts` stops
     rewriting printed lines (`p.lines[…].replace`); the printed text is unchanged.
   - Where: `emit/rust/loops.ts`, `ir/walk.ts`.
   - Accept: S-out and Rust identical (S on the rust layer).
   - Depends: 2.3.
-- [ ] 2.9 RC 13 regression guard.
-  - What: `emit/rust/loops.test.ts` compiles the UINT `n-1` loop.
-  - Where: `emit/rust/loops.test.ts`.
-  - Accept: G; `for_limit_wider_than_counter_uint_n_minus_1` and the negative-step fixture stay confirmed after 2.4-2.6 (the three typed
-    wider limits are refused, per 2.6).
+  - Done (2026-10-08, step 2d). `stmtLoop` asks `loopUses(s)` before printing and prints `'loop_N: ` only on `exits`, `'body_N: `
+    only on `continues`; the two `p.lines[…].replace` rewrites, `stmtBreak`/`stmtContinue`'s flag writes and the printer frame's
+    `exits`/`continues` fields are gone (`Printer.loops` is `{ n }[]`, the number the breaks name). `ir/walk.ts` and
+    `walk.test.ts` untouched. S: `snapshot:transpile write --baseline --layers ir,rust` before the edit, `check --layers ir,rust`
+    after: 5370 fixtures, "✓ identical" (IR and Rust unchanged, so S-out follows: the outputs/edge layers are computed from
+    those two). `rate:fixtures` rewrote `map.generated.ts` byte-identical.
+- [x] 2.9 RC 13 regression guard.
+  - What: the conformance replay of the UINT `n-1` loop is the compile guard (design.md §3.1 step 2d: no rustc in a colocated test,
+    layering rule 6); `emit/rust/loops.test.ts` pins its text.
+  - Where: `emit/rust/loops.test.ts`, `test/conformance/transpile-replay.test.ts` (read only).
+  - Accept: G; `for_limit_wider_than_counter_uint_expr` (the task named it `_uint_n_minus_1`, which does not exist) and
+    `for_limit_wider_than_counter_negative_step` stay confirmed after 2.4-2.6 (the typed wider limits are refused, per 2.6: the
+    task first said three; 2.6 recorded two more, five in all).
   - Depends: 2.6.
-- [ ] 2.10 Model delta.
+  - Done (2026-10-08, step 2d). Red check, reverted: a scratch edit made the FOR step add to the widened test read (`left: current`
+    in `lower/statements/loops.ts`) — `emit/rust/loops.test.ts` "the step adds in the counter's own type — only the test is
+    widened" failed (1 of 7), and `VOLT_FIXTURES=for_limit_wider_than_counter_uint_expr,_negative_step bun test
+    test/conformance/transpile-replay.test.ts` failed `for_limit_wider_than_counter_uint_expr` by name with rustc
+    `error[E0308]: mismatched types` (plus its stored-row check; 2 of 16). Reverted: 7/7 and 16/16 pass. No new test. Map:
+    `_uint_expr` and `_negative_step` confirmed, tier control, rust `vendor`, edge `agree`; the five typed wider limits
+    `_dint_constant`, `_dint_expr`, `_dint_var`, `_typed_literal`, `_upper_bound` `lsp-gap`, no rust column (`_dint_constant`
+    and `_typed_literal` recorded in 2.6).
+  - Gate 2d review: the Done note above and the Accept line named three refused typed wider limits; the map has five at
+    `lsp-gap` (`_dint_constant`, `_typed_literal` from 2.6 too). Record fixed, no data or code change (review found
+    `loopUses` gives the old flags' answer: body only, no nested loops, `blocksOf` covers if/switch/loop).
+- [x] 2.10 Model delta.
   - What: architecture.md's loop paragraph; the map delta written here.
   - Where: `docs/architecture.md`; this file.
   - Accept: M.
   - Depends: 2.3-2.9.
+  - Done (2026-10-08, step 2d). `docs/architecture.md`: a *Loops* paragraph after "The IR carries the semantics" — no bound in
+    the semantics (harness-only `loopGuard`, one body entry after a head test = one pass in both backends, `LoopGuardError`
+    never a fault match); FOR step and limit judged by front-end type (`for-step-type`, `for-limit-type`), untyped literal
+    expressions by value; labels from `ir/walk.loopUses`.
+    Map delta, model 1 (before 2a = `map.generated.ts` at 7dcd537a00; after 2.9 = `rate:fixtures` on the 2d tree, unchanged
+    from gate 2c): map rows 5355 -> 5368 (+13: three 2.1 measurements, seven 2.6, two gate-2c sign-change, one
+    `for_step_typed_literal_on_narrower_counter`); confirmed 2806 -> 2813, lsp-gap 76 -> 82, refused (map rows) 1987 ->
+    1987 (`rate:fixtures` 1989 -> 1989), not-lowered 389, diverges 5, unaskable 92 unchanged; tier control 155 -> 159
+    lowered (clean 144 -> 148), other tiers unchanged; edge agree 3046 -> 3044, disagree 0, not-run 179 -> 185. No
+    known divergence opened or closed by model 1: RC 27/35/36/39 were already passes at 2.1, RC 13's transpiler half
+    became refusals (`lsp-gap`, the LSP half is lsp-transpile-review-gaps 2.1).
+  - Gate 2d (2026-10-08): one review finding (2.9's record named three of the five refused typed wider limits) fixed in the
+    record. `bun typecheck` clean; `rate:fixtures` map byte-identical (control 159 lowered/148 clean, edge agree 3044,
+    disagree 0, not-run 185); `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8559 pass, 35 skip,
+    432 todo, 0 fail (9026 tests, 304 files, 637 s), fold agreement 420 compared, 38 disagree, 38 known; `bun run
+    test:corpus` 19 pass, 1 skip, 0 fail; `bun run lint` exit 0; `openspec validate` valid; `bun run check` 18 passed.
 
 ## 3. Model 2: strings (RC 11, 34, 45; appendix string items)
 
