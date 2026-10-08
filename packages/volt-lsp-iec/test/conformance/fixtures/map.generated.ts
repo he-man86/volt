@@ -14,17 +14,17 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2809
+ *     confirmed     2813
  *     refused       1989
  *     not-lowered    389
- *     lsp-gap         76
+ *     lsp-gap         82
  *     diverges         5
  *     unaskable       92
  *
  *   tier                     lowered    clean
  *     decl                    755      755
  *     arith                  1545     1543
- *     control                 158      147
+ *     control                 159      148
  *     aggregate               142      142
  *     call                    268      266
  *     indirect                360      356
@@ -57,7 +57,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3043
+ *     agree         3044
  *     disagree         0
  *     not-run        185
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -67,8 +67,8 @@
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
  *       agree,  1/11 unanswered (the interpreter's loop guard): flw_empty_semicolon_body
  *       agree,  2/16 unanswered (the interpreter's loop guard): for_counter_at_type_max
- *       agree,  2/16 unanswered (the interpreter's loop guard): for_limit_wider_than_counter_dint_expr
- *       agree,  1/16 unanswered (the interpreter's loop guard): for_limit_wider_than_counter_dint_var
+ *       agree,  2/14 unanswered (the interpreter's loop guard): for_limit_sign_change_uint_limit_out_of_int_range
+ *       agree,  1/14 unanswered (the interpreter's loop guard): for_limit_sign_change_uint_on_int
  *       agree,  1/41 unanswered (the interpreter's loop guard): for_runtime_step_same_type
  *       agree,   1/8 unanswered (the interpreter's loop guard): stmt_repeat_empty_body
  *       agree,   1/8 unanswered (the interpreter's loop guard): stmt_while_empty_body
@@ -76,14 +76,14 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
 
  *
- *   pedantic — 30868 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7857
- *     clippy::cast_possible_truncation         4860
- *     clippy::cast_lossless                    4270
+ *   pedantic — 30874 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7858
+ *     clippy::cast_possible_truncation         4859
+ *     clippy::cast_lossless                    4275
  *     clippy::cast_sign_loss                   3401
  *     clippy::uninlined_format_args            3222
  *     clippy::unreadable_literal               2810
- *     clippy::missing_panics_doc               1068
+ *     clippy::missing_panics_doc               1069
  *     clippy::manual_assert                     818
  *     clippy::format_push_string                716
  *     clippy::cast_possible_wrap                364
@@ -100,8 +100,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1719 distinct emission shapes over 3228 lowered fixtures, 1800 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 3059 fixtures are improvable, 2974 touch a construct with alternatives.
+ *   shape — 1720 distinct emission shapes over 3229 lowered fixtures, 1799 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 3060 fixtures are improvable, 2975 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
@@ -1930,14 +1930,24 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fmt_time_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
   for_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 5.5, shape: "f97ff5a5bf", notes: ["1307e33bbf", "1ad1ab3163", "21575de23f", "4979768984", "93a17fab28"] },
   for_counter_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 6, shape: "fecc383852", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "63d29bd1a0", "93a17fab28"] },
-  for_limit_wider_than_counter_dint_expr: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", edgeUnanswered: 2, size: 5.3, shape: "ae62ed5344", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "63d29bd1a0"] },
-  for_limit_wider_than_counter_dint_var: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 5, edge: "agree", edgeUnanswered: 1, size: 5.3, shape: "8af7c003de", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "63d29bd1a0"] },
+  for_limit_sign_change_int_on_uint: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.3, shape: "99d98bac00", notes: ["1307e33bbf", "1d7709a031", "4979768984", "521ba042ac", "65df8e0418"] },
+  for_limit_sign_change_uint_counter_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 5.3, shape: "6121bb77ef", notes: ["06bb3a6005", "1307e33bbf", "1d7709a031", "521ba042ac", "63d29bd1a0", "65df8e0418"] },
+  for_limit_sign_change_uint_limit_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", edgeUnanswered: 2, size: 5.8, shape: "d49a9c7a5a", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "1ad1ab3163", "1d7709a031", "46c17ef7d3", "63d29bd1a0", "65df8e0418", "93a17fab28"] },
+  for_limit_sign_change_uint_on_int: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", edgeUnanswered: 1, size: 5.3, shape: "b97f81610a", notes: ["0e0d715a81", "1307e33bbf", "1d7709a031", "46c17ef7d3", "4979768984", "521ba042ac", "65df8e0418"] },
+  for_limit_wider_than_counter_dint_constant: { evidence: "lsp-gap" },
+  for_limit_wider_than_counter_dint_expr: { evidence: "lsp-gap" },
+  for_limit_wider_than_counter_dint_var: { evidence: "lsp-gap" },
   for_limit_wider_than_counter_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 7, edge: "agree", size: 5.5, shape: "3129f01a95", notes: ["0153115496", "1307e33bbf", "4979768984", "521ba042ac"] },
+  for_limit_wider_than_counter_typed_literal: { evidence: "lsp-gap" },
   for_limit_wider_than_counter_uint_expr: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.3, shape: "f6a930451f", notes: ["1307e33bbf", "1d7709a031", "4979768984", "521ba042ac", "65df8e0418"] },
-  for_limit_wider_than_counter_upper_bound: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 4, edge: "agree", size: 5.3, shape: "48fee07451", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
+  for_limit_wider_than_counter_upper_bound: { evidence: "lsp-gap" },
   for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 7, edge: "agree", size: 5.5, shape: "dca8a03b28", notes: ["0153115496", "0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac"] },
   for_runtime_step_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 9, edge: "agree", size: 6, shape: "88a22fe15b", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "6bf6856d37"] },
   for_runtime_step_same_type: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 12, edge: "agree", edgeUnanswered: 1, size: 7.4, shape: "4f90840b4c", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "6bf6856d37", "ec9a760059"] },
+  for_step_typed_literal_on_narrower_counter: { evidence: "lsp-gap" },
+  for_step_wider_than_counter_dint_expr: { evidence: "lsp-gap" },
+  for_step_wider_than_counter_dint_paren: { evidence: "lsp-gap" },
+  for_step_wider_than_counter_upper_bound: { evidence: "lsp-gap" },
   generic_to_conversion: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 5.8, shape: "f02d6cfa67", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "5c9bb13706", "63d29bd1a0", "693c14b0bd", "6f8ef8f0bd", "74845f98c6", "b7286c7932", "de283d0ef6", "e3e3555f9c"] },
   global_init_slot: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   hdr_fb_extends_three: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "936ef1e336", notes: ["0e0d715a81", "1307e33bbf"] },

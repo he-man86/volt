@@ -91,6 +91,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "exit-outside-loop": "invalid",
   "copy-instance-pointer": "not-modelled",
   "for-bound-call": "unclassified",
+  "for-limit-type": "invalid",
   "for-step-type": "invalid",
   "graphical-body": "unclassified",
   // An initial value that READS an FB instance. A sibling instance's FB_Init runs in the same step, at its own

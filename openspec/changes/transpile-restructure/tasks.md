@@ -2329,7 +2329,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       clean; FULL `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8538 pass, 35 skip, 432 todo,
       0 fail (9005 tests, 303 files, 623 s), fold agreement 420 compared, 38 disagree, 38 known; `bun run test:corpus`
       19 pass, 1 skip, 0 fail; `bun run lint` exit 0; `openspec validate` valid; `bun run check` 18 passed.
-- [ ] 2.3 A runaway cannot hang the fault replay (RC 27's last hole).
+- [x] 2.3 A runaway cannot hang the fault replay (RC 27's last hole).
   - What: RC 27 itself landed in f052467157 (no cap in `ir/`, the interpreter or the Rust; `run`/`emitRust` take `loopGuard`).
     Left: `compareFault` (`test/conformance/transpile-replay.test.ts`) runs `run()` under `HARNESS_LOOP_GUARD`; a
     `LoopGuardError` there fails the case by name ("runs past the harness guard") — never a refusal, never a fault match.
@@ -2339,7 +2339,14 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     F(`tr_27_loop_cap_for_1000000`, `_for_1000001`, `_repeat_1000001`, `_while_5000000`) stay confirmed; the N/N+1 boundary
     tests (`pipeline/control.test.ts`, `emit-build.test.ts`) unchanged; M.
   - Depends: 2.2.
-- [ ] 2.4 FOR step (RC 35) — a check for the folded and variable step; the typed non-variable step is decided in 2.6.
+  - Done (2026-10-08, step 2c). `compareFault` calls `replayFault(pou, cycles, HARNESS_LOOP_GUARD)`
+    (`test/conformance/support/transpile/fault.ts`, new): `run()` under the guard; a `LoopGuardError` throws "runs past the
+    harness guard (N body entries)" (cause kept), any other throw is the fault match, a completed scan throws "completed …
+    where the vendor stopped". Red first: `fault.test.ts` ("a runaway replayed as a vendor stop fails by name") against
+    today's body (unguarded `run()`) HUNG — killed by a 60 s process timeout; green after. No renames. `tr_27_*` stay
+    confirmed (map unchanged for them); `pipeline/control.test.ts` and `emit-build.test.ts` untouched. M: no map change
+    from this task (the 32 `compareFault` rows — faults and `diverges` — pass under the guard).
+- [x] 2.4 FOR step (RC 35) — a check for the folded and variable step; the typed non-variable step is decided in 2.6.
   - What: verify the folded step (wrapped to the counter, direction from the signed literal), `for-step-type` for a variable step
     that does not convert and for a folded step that does not fit, and the convertible runtime step read every pass. NOT a
     check-only task (gate 2b): the type rule fires only on a bare variable (IR `by.kind === "load"`), so `BY k - 1` (`k : DINT`)
@@ -2350,12 +2357,20 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `callshape_for_runtime_step` confirmed; `tr_35_for_byte_runtime_int_step` and `tr_35_for_sint_step_300` refused by the
     transpiler (LSP half Filed); `loops.test.ts` and `bounds.test.ts` green and unchanged; M.
   - Depends: 2.3.
-- [ ] 2.5 FOR literal limit in its own type (RC 36) — a check, no code.
+  - Done (2026-10-08, step 2c). Folded step verified (`tr_35_for_byte_step_minus_one`, `_uint_step_minus_two`,
+    `_byte_step_255`, `callshape_for_runtime_step` confirmed, no divergence mark on any — F holds); `tr_35_for_byte_runtime_int
+    _step`, `_sint_step_300` refused by the transpiler (`for-step-type`; `lsp-gap`, LSP half filed as lsp-transpile-review-gaps
+    1.2). The typed non-variable step changed in 2.6 (CODESYS refuses it). `statements/loops.test.ts` existing tests and
+    `places/bounds.test.ts` unchanged and green (2.6 ADDS one test to `loops.test.ts`).
+- [x] 2.5 FOR literal limit in its own type (RC 36) — a check, no code.
   - What: verify `beside` (a constant the counter cannot hold keeps its type) and the compare in the `for-compare` meet.
   - Where: `lower/statements/loops.ts` (read only).
   - Accept: F(`tr_36_for_literal_limit_beyond_counter`) (n = 300, small = 44); its src test exists (name it); M.
   - Depends: 2.4.
-- [ ] 2.6 A typed FOR limit wider than the counter is refused (RC 13's transpiler half).
+  - Done (2026-10-08, step 2c). `beside` + the `for-compare` meet verified; `tr_36_for_literal_limit_beyond_counter`
+    confirmed (n = 300, small = 44), no mark. Src test: `lower/statements/loops.test.ts` "a literal FOR limit the counter's
+    type cannot hold is compared unnarrowed". No code.
+- [x] 2.6 A typed FOR limit wider than the counter is refused (RC 13's transpiler half).
   - What: a limit whose FRONT-END type (`inferExprType`) does not convert implicitly into the counter
     (`classifyConversion(counter, limit) === "incompatible"`) is refused with a new code `for-limit-type` ("invalid"); an untyped
     limit stays asked by value. First write and record, in the step's ONE `record:exec` batch (gate 2b widened it from one to
@@ -2377,12 +2392,73 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     "a FOR whose limit is a different type" changes to the refusal, citing those three recordings; no comment left calling a
     DINT limit on an INT counter compilable; src test red then green; M.
   - Depends: 2.5.
-- [ ] 2.7 EXIT/CONTINUE outside a loop (RC 39) — a check, no code.
+  - Done (2026-10-08, step 2c). Recorded (record:exec, CODESYS 3.5.21.40): batch of six, then ONE more fixture in a
+    second run, because `BY k - 1` answered a different question (design §3.1 "Settled"):
+    `for_limit_wider_than_counter_dint_constant` and `_typed_literal` — "Cannot convert type 'DINT' to type 'INT'";
+    `for_limit_sign_change_int_on_uint` (runs 3, u 4) and `_uint_on_int` (runs 3, i 4) — compile, so `for-limit-type` stays
+    at `incompatible`; `for_step_wider_than_counter_upper_bound` — "Cannot convert type 'DINT' to type 'INT'";
+    `for_step_wider_than_counter_dint_expr` (`BY k - 1`) — a PARSE error, "'DO' expected instead of '-'";
+    `for_step_wider_than_counter_dint_paren` (`BY (k - 1)`, the 7th) — "Cannot convert type 'DINT' to type 'INT'".
+    Code: `lower/statements/loops.ts` `typedIncompatible` (front-end type: `inferExprType` + `classifyConversion` ===
+    `incompatible`) refuses the limit with new `for-limit-type` ("invalid", `lower/diagnostics/codes.ts`) and replaces the
+    step's IR-shape test (`by.kind === "load"`) under `for-step-type`; the step lowering split into `lowerForStep` (lowerFor
+    was 89 lines). Comments rewritten (above `compareIn`; `emit/rust/loops.test.ts`'s describe header) to the recordings.
+    Tests: `loops.test.ts` "a typed FOR limit or step that does not convert into the counter is refused; untyped ones are
+    asked by value" (red, then green); `emit/rust/loops.test.ts` "a typed limit that does not convert into the counter is
+    refused, as CODESYS refuses it" (replaces "the counter is promoted to the common type") and "a same-width sign change
+    meets in the common type" (`(self.u as i16) > self.hi`). Ratings: `_dint_var`, `_dint_expr`, `_upper_bound` lose their
+    `rust`/`tier` columns (`lsp-gap`); the five new refusals `lsp-gap` with no rust column (`MEASURED_SILENT` +5; filed as
+    lsp-transpile-review-gaps 2.1, and 2.2 for the parse error — niche: accepted loss, 0 `BY x - y` in the corpora);
+    sign-change pair confirmed, rust `vendor`; `_uint_expr`, `_negative_step`, `tr_36_*`, `callshape_for_runtime_step`
+    stay confirmed. `map.test.ts` lsp-gap ceiling 76 -> 81 (for measurement). Frontend baselines: counts only
+    (`VOLT_WRITE_BASELINE=1`: files 10720 -> 10734, expressions +72 per vendor, literal UNKNOWN +27 per vendor, literals
+    stored 4641 -> 4656, recorded values 9114 -> 9120, unrecorded-no-parse-error +7 per vendor, bare names resolved +34
+    per vendor, folds +1/+7 per vendor); no finding, `ceilings.json` unchanged.
+    M (`rate:fixtures`): confirmed 2809 -> 2811, refused 1989, not-lowered 389, lsp-gap 76 -> 81, diverges 5, unaskable 92;
+    control 158/147 -> 157/146; lowered 3228 -> 3227, shapes 1719 -> 1718; edge agree 3043 -> 3042, disagree 0, not-run
+    185 (partial agrees: `_dint_expr` 2/16 and `_dint_var` 1/16 gone, `for_limit_sign_change_int_on_uint` 1/14 new);
+    median size 3.1 unchanged; pedantic 30868 -> 30864 (must_use_candidate -1, cast_possible_truncation -1, cast_lossless
+    -3, missing_panics_doc -1, cast_possible_wrap +2); no ALLOWED count or note changed. Fixtures whose Rust changed: the
+    three refused (no Rust now) and the two sign-change (new).
+- [x] 2.7 EXIT/CONTINUE outside a loop (RC 39) — a check, no code.
   - What: verify `lw.loops` → `exit-outside-loop` (`lowerExit` in `lower/statements/loops.ts`).
   - Where: read only.
   - Accept: `cc2_exit_outside_loop` refused by the transpiler with `exit-outside-loop` (no `rust`/`tier` column); its src test
     exists (name it); M.
   - Depends: 2.3.
+  - Done (2026-10-08, step 2c). `lowerExit` → `exit-outside-loop` verified; `cc2_exit_outside_loop` rated `refused`, no
+    `rust`/`tier` column. Src test: `lower/statements/loops.test.ts` "EXIT and CONTINUE outside a loop are refused; inside one
+    — nested in an IF — they lower". No code.
+  - [x] Gate 2c (2026-10-08). Four review findings, all fixed (red test first each); one record:exec batch of three
+    fixtures (CODESYS 3.5.21.40):
+    - (medium) The same-width sign-change pair was compared in the unpromoted common type (INT) and its emit test pinned
+      `(self.u as i16)` to what the code printed; its recordings stayed inside INT. Recorded outside it:
+      `for_limit_sign_change_uint_counter_out_of_int_range` (UINT counter from 40000 TO an INT 100) runs 0, u 40000 — the
+      transpiler ran 25637; `for_limit_sign_change_uint_limit_out_of_int_range` (INT counter TO a UINT 40000, EXIT at 50000)
+      runs 50000, i -15537 — the transpiler ran 0. CODESYS compares the pair PROMOTED, as an IF does. Fix:
+      `values/promote.ts` `for-compare` is the pair's one type when they are the same (promotion keeps every value, so
+      that compares alike), else `promoteForRuntime(commonType)`. Tests: `statements/loops.test.ts` "a same-width
+      sign-change FOR pair is compared promoted, as an IF compares it" (red, then green); `values/promote.test.ts`
+      for-compare rows (+UINT/INT -> DINT, UDINT/DINT -> DINT); `emit/rust/loops.test.ts` now pins
+      `(self.u as i32) > (self.hi as i32)`, citing the recording. Comments above `compareIn` and the describe header
+      rewritten.
+    - (low) A typed literal step was refused unrecorded. Recorded `for_step_typed_literal_on_narrower_counter` (`BY INT#-1`
+      on a BYTE): "Cannot convert type 'INT' to type 'BYTE'" — the 2c rule is right. Added to `loops.test.ts`'s refusal
+      test (and the untyped `BY -1` beside it), to MEASURED_SILENT (`lsp-gap`) and to lsp-transpile-review-gaps 2.1.
+    - (low) `execution.ts`'s comment above the typed-step fixtures stated the pre-recording guess; rewritten to the
+      recording (`_dint_paren`, `_upper_bound` do not compile; `_dint_expr` is a parse error).
+    - (low) `replayFault` matched any throw. Now only a `RangeError` (the interpreter's runtime faults: `IecFault`, index
+      or character out of range) matches; anything else is rethrown. `fault.test.ts` "an interpreter crash is not a fault
+      match — it is rethrown" (IR with an unknown statement kind throws a TypeError; red, then green).
+    - Numbers: typecheck clean; `rate:fixtures` — confirmed 2811 -> 2813 (the two new sign-change fixtures), refused 1989,
+      not-lowered 389, lsp-gap 81 -> 82 (`map.test.ts` ceiling 81 -> 82, for measurement), diverges 5, unaskable 92;
+      control 157/146 -> 159/148; lowered 3227 -> 3229, shapes 1718 -> 1720; edge agree 3042 -> 3044, disagree 0, not-run
+      185; pedantic 30864 -> 30874 (cast_lossless +8, must_use_candidate +2, missing_panics_doc +2, cast_possible_wrap -2).
+      Rust changed for the two existing sign-change fixtures only (shape and pedantic 5 -> 6). Frontend baselines counts
+      only (`VOLT_WRITE_BASELINE=1`, files 10734 -> 10740, recorded values 9120 -> 9126), `ceilings.json` unchanged. FULL
+      `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8559 pass, 35 skip, 432 todo, 0 fail (9026
+      tests, 304 files, 640 s), fold agreement 420 compared, 38 disagree, 38 known; `bun run test:corpus` 19 pass, 1 skip,
+      0 fail; `bun run lint` exit 0; `openspec validate` valid; `bun run check` 18 passed.
 - [ ] 2.8 Labels from the IR pre-scan.
   - What: whether a loop needs `'loop_N`/`'body_N` comes from `ir/walk.loopUses`, asked before printing; `emit/rust/loops.ts` stops
     rewriting printed lines (`p.lines[…].replace`); the printed text is unchanged.

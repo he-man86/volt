@@ -51,19 +51,30 @@ describe("emit/rust — no iteration cap", () => {
 /**
  * A FOR LIMIT OF A DIFFERENT TYPE FROM THE COUNTER — the test meets the pair, as every other comparison does.
  *
- * The limit was converted to its OWN type (a no-op), so the emitted test compared the two as they were:
- * `FOR i := 1 TO hi` with `i : INT` and `hi : DINT` printed `self.i <= self.hi` — `i16 <= i32`, which rustc
- * rejects with E0308 — and lowering reported nothing. Ordinary ST that CODESYS compiles, and no recorded case
- * caught it because no fixture mixes the two widths.
+ * The limit was converted to its OWN type (a no-op), so the emitted test compared the two as they were (`i16 <= i32`,
+ * rustc E0308), and lowering reported nothing. The case that showed it — `FOR i := 1 TO hi` with `i : INT` and
+ * `hi : DINT` — does NOT compile in CODESYS: "Cannot convert type 'DINT' to type 'INT'" (`for_limit_wider_than_counter_
+ * dint_var`, `_dint_expr`, `_upper_bound`, record:exec), so it is refused (`for-limit-type`). What still meets is a pair
+ * CODESYS takes: a UINT `n - 1` (promoted at run time) and a same-width sign change (compared promoted,
+ * `for_limit_sign_change_uint_counter_out_of_int_range`, `_uint_limit_out_of_int_range`).
  *
- * It PROMOTES rather than narrows, and that is the load-bearing half: narrowing the LIMIT into the counter's
- * type would wrap a limit the counter cannot hold (a DINT 100000 into an INT is -31072, and the loop would run
- * zero times instead of until the counter wraps). `commonType` is the promotion the binary operators already
+ * It PROMOTES rather than narrows, and that is the load-bearing half: narrowing the LIMIT into the counter's type would
+ * wrap a literal the counter cannot hold (200 into a SINT is -56, and the loop would run zero times instead of until the
+ * counter wraps, `tr_36_for_literal_limit_beyond_counter`). `commonType` is the promotion the binary operators already
  * use, measured.
  */
 describe("emit/rust — a FOR whose limit is a different type", () => {
-  test("the counter is promoted to the common type, so the comparison is same-typed", () => {
-    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if (self.i as i32) > self.hi { break; }")
+  test("a typed limit that does not convert into the counter is refused, as CODESYS refuses it", () => {
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")
+    expect(pou).toBeUndefined()
+    expect(diagnostics.map((d) => d.code)).toEqual(["for-limit-type"])
+  })
+
+  test("a same-width sign change is compared promoted, so the comparison is same-typed", () => {
+    // CODESYS takes an INT limit on a UINT counter (`for_limit_sign_change_int_on_uint`: 3 passes, u left at 4) and
+    // compares the pair promoted: from 40000 to an INT 100 it runs no pass (`for_limit_sign_change_uint_counter_out_of_
+    // int_range`), where the signed type at equal width (i16) read 40000 as -25536 and ran 25637
+    expect(rust("PROGRAM P\nVAR\n\tu : UINT;\n\thi : INT := 3;\n\tn : INT;\nEND_VAR\nFOR u := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if (self.u as i32) > (self.hi as i32) { break; }")
   })
 
   // transpile-review-2026-09-29 task 13 (conformance `for_limit_wider_than_counter_uint_expr`, recorded: 3 passes, u

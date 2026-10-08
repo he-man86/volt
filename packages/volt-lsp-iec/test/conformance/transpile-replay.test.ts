@@ -28,6 +28,7 @@ import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/
 import { buildRust } from "./support/rustc-cache.js"
 import { rejectionIsADefect } from "./support/transpile/correctness.js"
 import { EDGE_ARG, edgeHarness, edgePlan, edgeVerdict, HARNESS_LOOP_GUARD } from "./support/transpile/edge.js"
+import { replayFault } from "./support/transpile/fault.js"
 import { buildArgv, rendered, splitFindings } from "./support/transpile/lint-policy.js"
 import type { EdgeVerdict } from "./fixtures/map-row.js"
 import { constEval, isBoolValued } from "../../src/frontend/types/index.js"
@@ -290,10 +291,9 @@ function compareFault(c: LanguageTest): void {
     expect(lowered.diagnostics.length).toBeGreaterThan(0)
     return
   }
-  expect(() => {
-    const pou = run(lowered.pou!)
-    for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
-  }).toThrow()
+  // under the harness guard: the recording cannot tell a stop from a runaway, so the replay bounds every loop and a
+  // run past the guard fails by name (`support/transpile/fault.ts`)
+  replayFault(lowered.pou, c.cycles ?? 1, HARNESS_LOOP_GUARD)
 }
 
 /** The Rust runs of the `diverges` fixtures, filled by the rest-of-the-lowered pass that already builds them, and
@@ -730,6 +730,19 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     "for_limit_wider_than_counter_dint_var",
     "for_limit_wider_than_counter_dint_expr",
     "for_limit_wider_than_counter_upper_bound",
+    // …and, recorded 2026-10-08 for transpile-restructure 2.6, a named DINT CONSTANT limit and a DINT#5 limit on an INT
+    // counter, and a DINT step that is not a bare variable (`BY (k - 1)`, `BY UPPER_BOUND(a, 1)`): the same "Cannot
+    // convert type 'DINT' to type 'INT'" (lsp-transpile-review-gaps 2.1). The transpiler refuses all of them.
+    "for_limit_wider_than_counter_dint_constant",
+    "for_limit_wider_than_counter_typed_literal",
+    "for_step_wider_than_counter_dint_paren",
+    "for_step_wider_than_counter_upper_bound",
+    // …and a typed literal step whose value fits: `BY INT#-1` on a BYTE, "Cannot convert type 'INT' to type 'BYTE'"
+    // (recorded gate 2c; the untyped `BY -1` is taken, `tr_35_for_byte_step_minus_one`)
+    "for_step_typed_literal_on_narrower_counter",
+    // `BY k - 1` unparenthesised is a PARSE error in CODESYS ("'DO' expected instead of '-'", recorded 2026-10-08) that
+    // the parser accepts — niche: accepted loss (0 occurrences in the corpora; lsp-transpile-review-gaps 2.2)
+    "for_step_wider_than_counter_dint_expr",
     // transpile-review-2026-09-29, recorded 2026-09-29 — each refused by CODESYS, silently accepted by the LSP:
     //   task 35: a FOR step the counter's type cannot hold — a runtime INT step on a BYTE counter, 300 on a SINT one
     //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").

@@ -89,3 +89,52 @@ test("a literal FOR limit the counter's type cannot hold is compared unnarrowed"
   runner.scan()
   expect(["n", "small", "n2", "small2"].map((v) => runner.get(v))).toEqual([300n, 44n, 300n, 44n])
 })
+
+// transpile-restructure 2.6 (RC 13's transpiler half): CODESYS judges a FOR limit and step by their TYPE. A DINT
+// limit on an INT counter — a variable, an expression, UPPER_BOUND, a named CONSTANT, a typed literal — is "Cannot
+// convert type 'DINT' to type 'INT'" (`for_limit_wider_than_counter_dint_var`, `_dint_expr`, `_upper_bound`,
+// `_dint_constant`, `_typed_literal`), and so is a DINT step that is not a bare variable (`for_step_wider_than_counter_
+// dint_paren`, `_upper_bound`). Lowered, they compiled and ran. Taken: a same-width sign change (`for_limit_sign_change_
+// int_on_uint`, `_uint_on_int`: 3 passes, the counter left at 4), a UINT `n - 1` on a UINT (`_uint_expr`), and an
+// expression of untyped literals, asked by value (`tr_36_*`, `callshape_for_runtime_step`).
+test("a typed FOR limit or step that does not convert into the counter is refused; untyped ones are asked by value", () => {
+  const codes = (vars: string, body: string) => lowerSource(`PROGRAM P\nVAR ${vars} runs : INT; END_VAR\n${body}\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+  const each = "DO runs := runs + 1; END_FOR"
+  expect(codes("hi : DINT := 3; i : INT;", `FOR i := 1 TO hi ${each}`)).toEqual(["for-limit-type"])
+  expect(codes("k : DINT := 4; i : INT;", `FOR i := 1 TO k - 1 ${each}`)).toEqual(["for-limit-type"])
+  expect(codes("arr : ARRAY[0..4] OF INT; j : INT;", `FOR j := 0 TO UPPER_BOUND(arr, 1) ${each}`)).toEqual(["for-limit-type"])
+  expect(codes("i : INT; END_VAR VAR CONSTANT hi : DINT := 3;", `FOR i := 1 TO hi ${each}`)).toEqual(["for-limit-type"])
+  expect(codes("i : INT;", `FOR i := 1 TO DINT#5 ${each}`)).toEqual(["for-limit-type"])
+  expect(codes("k : DINT := 3; i : INT;", `FOR i := 0 TO 10 BY (k - 1) ${each}`)).toEqual(["for-step-type"])
+  expect(codes("arr : ARRAY[0..3] OF INT; i : INT;", `FOR i := 0 TO 10 BY UPPER_BOUND(arr, 1) ${each}`)).toEqual(["for-step-type"])
+  // a typed literal step is asked by its type too, its value fitting: INT#-1 on a BYTE is "Cannot convert type 'INT' to
+  // type 'BYTE'" (`for_step_typed_literal_on_narrower_counter`), where the untyped `BY -1` is taken (`tr_35_for_byte_step_minus_one`)
+  expect(codes("b : BYTE;", `FOR b := 5 TO 0 BY INT#-1 ${each}`)).toEqual(["for-step-type"])
+  expect(codes("b : BYTE;", `FOR b := 5 TO 0 BY -1 ${each}`)).toEqual([])
+  expect(codes("b : BOOL; i : INT;", `FOR i := 0 TO 10 BY SEL(b, 2, -2) ${each}`)).toEqual([])
+  expect(codes("n : UINT := 3; u : UINT;", `FOR u := 0 TO n - 1 ${each}`)).toEqual([])
+  const passes = (vars: string, counter: string) => {
+    const runner = run(ir(`PROGRAM P\nVAR ${vars} runs : INT; END_VAR\nFOR ${counter} := 1 TO hi ${each}\nEND_PROGRAM\n`, "P"))
+    runner.scan()
+    return [runner.get("runs"), runner.get(counter)]
+  }
+  expect(passes("hi : INT := 3; u : UINT;", "u")).toEqual([3n, 4n])
+  expect(passes("hi : UINT := 3; i : INT;", "i")).toEqual([3n, 4n])
+})
+
+// transpile-restructure gate 2c: the sign-change pair, outside the INT range. CODESYS compares the counter and the limit
+// PROMOTED, as an IF compares them: a UINT counter from 40000 to an INT limit of 100 runs no pass
+// (`for_limit_sign_change_uint_counter_out_of_int_range`: runs 0, u 40000), and an INT counter never exceeds a UINT limit
+// of 40000, so only the EXIT guard ends it (`for_limit_sign_change_uint_limit_out_of_int_range`: runs 50000, i -15537).
+// Compared in the unpromoted common type (INT), 40000 read as -25536: 25637 passes, and 0.
+test("a same-width sign-change FOR pair is compared promoted, as an IF compares it", () => {
+  const scan = (vars: string, body: string, read: string[]) => {
+    const runner = run(ir(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P"), { loopGuard: 200000 })
+    runner.scan()
+    return read.map((v) => runner.get(v))
+  }
+  expect(scan("hi : INT := 100; u : UINT; runs : DINT;", "FOR u := 40000 TO hi DO runs := runs + 1; END_FOR", ["runs", "u"])).toEqual([0n, 40000n])
+  expect(
+    scan("hi : UINT := 40000; i : INT; runs : DINT;", "FOR i := 0 TO hi DO runs := runs + 1; IF runs >= 50000 THEN EXIT; END_IF END_FOR", ["runs", "i"]),
+  ).toEqual([50000n, -15537n])
+})

@@ -617,6 +617,12 @@ every pass") and `places/bounds.test.ts` keep their premise, unchanged; lean 7.5
   `classifyConversion`), the limit's rule, under the same code `for-step-type`; an expression of untyped literals
   (`SEL(b, 2, -2)`, `callshape_for_runtime_step`) stays asked by value, as it is today. If CODESYS accepts them, the rule stays
   as built and the recordings say why.
+  **Settled (2.6, record:exec 2026-10-08): CODESYS refuses them**, so the step is judged by its front-end type under
+  `for-step-type` (`lower/statements/loops.ts` `typedIncompatible`, the limit's rule). `BY UPPER_BOUND(a, 1)` and
+  `BY (k - 1)` are "Cannot convert type 'DINT' to type 'INT'" (`for_step_wider_than_counter_upper_bound`, `_dint_paren`).
+  `BY k - 1` unparenthesised answered a different question: a PARSE error, "'DO' expected instead of '-'"
+  (`for_step_wider_than_counter_dint_expr`), so a seventh fixture, `_dint_paren`, was recorded in a second one-fixture run
+  to ask the type question the sixth could not — a deviation from "one batch of six", forced by the answer.
 
 **Literal limit (RC 36) and loop depth (RC 39): kept as built** — `beside` (a constant the counter cannot hold keeps its own
 type, compared in the `for-compare` meet; `tr_36_*` confirmed) and `lw.loops` → `exit-outside-loop` (`cc2_exit_outside_loop`
@@ -639,6 +645,9 @@ in its batch before trusting the rule there.
   INT), both rated `sign-change` and so KEPT by the rule as written — a guess. The recordings decide: a refused sign-change pair
   widens `for-limit-type` to `sign-change`; an accepted typed literal is asked by value like an untyped one. A REAL limit
   (`incompatible`) is refused unrecorded — refusing loses nothing, so it is not recorded.
+  **Settled (2.6, record:exec 2026-10-08):** the sign-change pair compiles and runs 3 passes each (counter left at 4), so
+  `for-limit-type` stays at `incompatible`; the DINT CONSTANT and `DINT#5` limits are refused ("Cannot convert type
+  'DINT' to type 'INT'"), as the rule as written refuses them.
 - Rejected "refuse every non-literal limit": `_uint_expr` (UINT `n - 1` on UINT) is recorded as accepted.
 
 **Labels.** `emit/rust/loops.ts` asks `ir/walk.loopUses` before printing `'loop_N`/`'body_N`, and stops rewriting printed lines

@@ -447,7 +447,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 75 -> 76, FOR MEASUREMENT. analysis-conformance 3.11 closed `ty_reference_to_bit` (-1); its gate review (2026-10-06)
   // measured an alias of REFERENCE TO BIT, `refbit_alias` and `refbit_alias_variable_unread` (+2), which both vendors refuse
   // and the LSP passes — REFERENCE_TO_BIT_ALIAS, niche: accepted loss (0 REFERENCE TO BIT in the corpora). No fixture moved.
-  "lsp-gap": 76,
+  // 76 -> 81, FOR MEASUREMENT. transpile-restructure 2.6 (2026-10-08), new questions, no fixture moved:
+  // `for_limit_wider_than_counter_dint_constant`, `_typed_literal`, `for_step_wider_than_counter_dint_paren`, `_upper_bound`
+  // ("Cannot convert type 'DINT' to type 'INT'", the LSP half of RC 13 / RC 35, lsp-transpile-review-gaps 2.1) and
+  // `for_step_wider_than_counter_dint_expr` (`BY k - 1` is a CODESYS parse error the parser accepts — niche: accepted loss,
+  // 0 occurrences in the corpora). MEASURED_SILENT in `transpile-replay.test.ts`.
+  // 81 -> 82, FOR MEASUREMENT (gate 2c, no fixture moved): `for_step_typed_literal_on_narrower_counter` (`BY INT#-1` on a
+  // BYTE, "Cannot convert type 'INT' to type 'BYTE'"; lsp-transpile-review-gaps 2.1).
+  "lsp-gap": 82,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

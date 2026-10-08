@@ -37,9 +37,12 @@ test("builtin: the variables decide and a REAL constant widens; the operands are
   expect(met.operands).toEqual(ops)
 })
 
-test("for-compare: the counter's and the limit's common type, unpromoted", () => {
+// two types meet promoted (`for_limit_sign_change_uint_counter_out_of_int_range`, `_uint_limit_out_of_int_range`)
+test("for-compare: one type stays itself; two meet in their common type, promoted", () => {
   expect(name(meet(lw, [variable(ty("INT")), variable(ty("DINT"))], { kind: "for-compare" }, span)!.type)).toBe("DINT")
   expect(name(meet(lw, [variable(ty("SINT")), variable(ty("SINT"))], { kind: "for-compare" }, span)!.type)).toBe("SINT")
+  expect(name(meet(lw, [variable(ty("UINT")), variable(ty("INT"))], { kind: "for-compare" }, span)!.type)).toBe("DINT")
+  expect(name(meet(lw, [variable(ty("UDINT")), variable(ty("DINT"))], { kind: "for-compare" }, span)!.type)).toBe("DINT")
 })
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */

@@ -9,11 +9,12 @@
  *   retyped.
  * - `builtin`: the variables decide; a REAL constant still widens; all-constant integers fold as LINT (ULINT past it); an
  *   integer constant the variables' type cannot hold meets them; the result is promoted. The operands are not retyped.
- * - `for-compare`: the counter's and the limit's `commonType`, unpromoted and unrefused — the loop converts both to it.
+ * - `for-compare`: the counter's and the limit's type when they are the same; otherwise their `commonType` PROMOTED, as a
+ *   comparison computes, unrefused — the loop converts both to it.
  */
 
 import type { Span } from "../../../frontend/syntax/index.js"
-import { commonType, elemOf, promoteForRuntime, type Type, UNKNOWN } from "../../../frontend/types/index.js"
+import { commonType, elemOf, isSameType, promoteForRuntime, type Type, UNKNOWN } from "../../../frontend/types/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { beside, ownIntegerType, retype } from "./convert.js"
@@ -34,8 +35,15 @@ export function meet(lw: Lowering, operands: readonly IrExpr[], context: MeetCon
       const type = builtinMeet(lw, operands, span)
       return type === undefined ? undefined : { operands: [...operands], type }
     }
-    case "for-compare":
-      return { operands: [...operands], type: commonType(operands[0]!.type, operands[1]!.type) }
+    case "for-compare": {
+      // Two types are compared PROMOTED, as an IF compares them: a UINT counter from 40000 to an INT limit of 100 runs no
+      // pass, and an INT counter never exceeds a UINT limit of 40000 (`for_limit_sign_change_uint_counter_out_of_int_range`,
+      // `_uint_limit_out_of_int_range`). The unpromoted common type at equal width (INT) read 40000 as -25536. One type
+      // compares alike in itself and promoted (promotion keeps every value), so it is not widened.
+      const [counter, limit] = [operands[0]!.type, operands[1]!.type]
+      const met = commonType(counter, limit)
+      return { operands: [...operands], type: isSameType(counter, limit) ? met : promoteForRuntime(met) }
+    }
   }
 }
 

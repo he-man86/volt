@@ -3,15 +3,15 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { Statement, StatementList } from "../../../frontend/syntax/index.js"
-import type { IrExpr, IrStmt, IrValue } from "../../ir/index.js"
+import type { Expr, Statement, StatementList } from "../../../frontend/syntax/index.js"
+import type { IrExpr, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { lowerBlock } from "./statements.js"
 import { lowerPlace } from "../places/places.js"
 import { guardWrite } from "../places/access-guards.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { beside, convert, stored } from "../values/convert.js"
 import { foldConstant } from "../values/fold.js"
-import { classifyConversion, elementaryRef, elemOf } from "../../../frontend/types/index.js"
+import { classifyConversion, elementaryRef, elemOf, inferExprType } from "../../../frontend/types/index.js"
 import { holdsCall } from "../../ir/walk.js"
 import { meet } from "../values/promote.js"
 
@@ -47,47 +47,36 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   // Narrowed, it was -56 and the loop ran zero passes. A limit that fits takes the counter's type (`beside`).
   const lowered = lowerExpr(lw, s.to)
   if (from === undefined || lowered === undefined) return undefined
+  // …but a TYPED limit is asked by its type, as CODESYS asks it: a DINT on an INT counter — a variable, an expression,
+  // UPPER_BOUND, a named CONSTANT, a typed literal — is "Cannot convert type 'DINT' to type 'INT'"
+  // (`for_limit_wider_than_counter_dint_var`, `_dint_expr`, `_upper_bound`, `_dint_constant`, `_typed_literal`). It is
+  // the FRONT-END type, not the IR's: UPPER_BOUND and a CONSTANT fold to a const, and an expression of untyped literals
+  // (`TO (100 + 100)`) has no named type, so it stays asked by value. A same-width sign change converts
+  // (`for_limit_sign_change_int_on_uint`, `_uint_on_int`: 3 passes each).
+  if (typedIncompatible(lw, control.type, s.to))
+    return lw.bail("for-limit-type", "a FOR limit whose type does not convert into the counter's", s.to.span)
   const to = beside(lowered, control.type)
 
-  const by = s.by === undefined ? undefined : lowerExpr(lw, s.by, control.type)
-  if (s.by !== undefined && by === undefined) return undefined
-  // The limit and the step are read on EVERY pass (conformance `callshape_for_bounds_changed_in_body`: a body that sets the
-  // limit to 4 and the step to 3 after the first pass runs 2 passes, ending at 7). The limit was taken into a temp once —
-  // unrecorded, and wrong. A PROPERTY read or METHOD call in the limit runs on every test too (`callshape_for_limit_call`:
-  // 4 runs for 3 passes, the corpus's `fbModuleManager.baseModulesCount`). One in the step, or in a limit a runtime step
-  // tests on two arms, would run a number of times no recording shows: refused below.
-  const step: IrValue | undefined = s.by === undefined ? 1n : foldConstant(lw, s.by)
-  // A step whose type does not convert into the counter's is a build error — "Cannot convert type 'INT' to type 'BYTE'"
-  // for a runtime INT step on a BYTE counter, '... to type 'SINT'' for BY 300 on a SINT (`tr_35_for_byte_runtime_int_step`,
-  // `tr_35_for_sint_step_300`). A negative literal on an unsigned counter converts (a change of sign): BY -1 on a BYTE.
-  // A literal adopts the counter's type whatever its value, so a folded step is asked by VALUE: it fits the counter, or
-  // it is a negative one on an unsigned counter that the signed type of that width holds. A runtime step is asked by its
-  // TYPE only when it is a variable, the measured shape: an expression of untyped literals (`SEL(b, 2, -2)`) meets as
-  // LINT here, and CODESYS compiles it on an INT counter (`callshape_for_runtime_step`).
-  const counter = elemOf(control.type)
-  const foldedFits = (v: bigint): boolean =>
-    stored(v, control.type) === v || (counter !== undefined && !counter.signed && v < 0n && BigInt.asIntN(counter.bits, v) === v)
-  if (by !== undefined && ((by.kind === "load" && classifyConversion(control.type, by.type) === "incompatible") || (typeof step === "bigint" && !foldedFits(step))))
-    return lw.bail("for-step-type", "a FOR step whose type does not convert into the counter's", s.by!.span)
-  // A step that does not fold makes the loop's DIRECTION runtime: the test takes the limit from below for a step of 0 or
-  // more and from above for a negative one (conformance `callshape_for_runtime_step`). It was refused (`for-step-runtime`)
-  // — guessing `<=` would run a negative step zero times.
-  //
-  // A folded step is held at the counter's width (BY -1 on a BYTE adds 255, which wraps it down) while the DIRECTION stays
-  // the signed literal's: CODESYS counts a BYTE down from 5 to 0 and a UINT from 10 to 0 BY -2 (`tr_35_for_*_step_*`).
-  const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: stored(step, control.type), type: control.type, span: s.by?.span ?? s.span }
+  const stepped = lowerForStep(lw, s, control)
+  if (stepped === undefined) return undefined
+  const { by, step, stepExpr } = stepped
   const bool = elementaryRef("BOOL")
   // THE TEST MEETS THE PAIR IN THE COMMON TYPE, like every other comparison.
   //
-  // This was `convert(to, to.type)` — a no-op — so the limit kept its own type and the counter kept its own,
-  // and the emitted test compared them AS THEY WERE: `FOR i := 1 TO hi` with `i : INT` and `hi : DINT` printed
-  // `self.i <= self.hi`, which is `i16 <= i32` and which rustc rejects with E0308. Zero diagnostics, on ordinary
-  // ST that CODESYS compiles.
+  // This was `convert(to, to.type)` — a no-op — so the limit kept its own type and the counter kept its own, and the
+  // emitted test compared them AS THEY WERE (`i16 <= i32`, rustc E0308). A typed limit that does not convert is refused
+  // above (`for-limit-type`: a DINT limit on an INT counter does not compile, `for_limit_wider_than_counter_dint_var`),
+  // so the pairs that reach here are the ones CODESYS takes whose types still differ: a same-width sign change (an INT
+  // limit on a UINT counter, `for_limit_sign_change_int_on_uint`), a UINT `n - 1` that promotes at run time
+  // (`for_limit_wider_than_counter_uint_expr`), and a literal the counter cannot hold.
   //
-  // the meet (`values/promote.ts`, `for-compare`: `commonType`) rather than `control.type`, and the difference is not cosmetic: narrowing the LIMIT into the
-  // counter's type would wrap a limit the counter cannot hold (a DINT 100000 into an INT is -31072, and the loop
-  // would run zero times instead of until the counter wraps). Promoting is what `commonType` already encodes for
-  // binary operands, measured — the signed type at equal width, the wider rank otherwise.
+  // The meet (`values/promote.ts`, `for-compare`: `commonType`) rather than `control.type`, and the difference is not
+  // cosmetic: narrowing the LIMIT into the counter's type would wrap a literal the counter cannot hold (200 into a SINT is
+  // -56, and the loop would run zero times instead of until the counter wraps, `tr_36_for_literal_limit_beyond_counter`).
+  // Two different types are compared PROMOTED, as an IF compares them (`binary`'s `promoteForRuntime`): a UINT counter
+  // from 40000 to an INT limit of 100 runs no pass, and an INT counter never exceeds a UINT limit of 40000
+  // (`for_limit_sign_change_uint_counter_out_of_int_range`, `_uint_limit_out_of_int_range`). The unpromoted common type
+  // at equal width (INT) read 40000 as -25536.
   const compareIn = meet(lw, [{ kind: "load", place: control, type: control.type, span: s.controlVar.span }, to], { kind: "for-compare" }, s.span)!.type
   const current: IrExpr = convert({ kind: "load", place: control, type: control.type, span: s.controlVar.span }, compareIn)
   const limit = convert(to, compareIn)
@@ -113,6 +102,49 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
     span: s.span,
   }
+}
+
+/** A FOR's step: lowered, judged against the counter (`for-step-type`), and the expression the step adds. */
+function lowerForStep(
+  lw: Lowering,
+  s: Extract<Statement, { kind: "for" }>,
+  control: Place,
+): { by: IrExpr | undefined; step: IrValue | undefined; stepExpr: IrExpr } | undefined {
+  const by = s.by === undefined ? undefined : lowerExpr(lw, s.by, control.type)
+  if (s.by !== undefined && by === undefined) return undefined
+  // The limit and the step are read on EVERY pass (conformance `callshape_for_bounds_changed_in_body`: a body that sets the
+  // limit to 4 and the step to 3 after the first pass runs 2 passes, ending at 7). The limit was taken into a temp once —
+  // unrecorded, and wrong. A PROPERTY read or METHOD call in the limit runs on every test too (`callshape_for_limit_call`:
+  // 4 runs for 3 passes, the corpus's `fbModuleManager.baseModulesCount`). One in the step, or in a limit a runtime step
+  // tests on two arms, would run a number of times no recording shows: refused below.
+  const step: IrValue | undefined = s.by === undefined ? 1n : foldConstant(lw, s.by)
+  // A step whose type does not convert into the counter's is a build error — "Cannot convert type 'INT' to type 'BYTE'"
+  // for a runtime INT step on a BYTE counter, '... to type 'SINT'' for BY 300 on a SINT (`tr_35_for_byte_runtime_int_step`,
+  // `tr_35_for_sint_step_300`). A negative literal on an unsigned counter converts (a change of sign): BY -1 on a BYTE.
+  // A literal adopts the counter's type whatever its value, so a folded step is asked by VALUE: it fits the counter, or
+  // it is a negative one on an unsigned counter that the signed type of that width holds. A step is asked by its
+  // FRONT-END type, the limit's rule: a DINT expression or UPPER_BOUND on an INT counter is refused like a DINT variable
+  // (`for_step_wider_than_counter_dint_paren`, `_upper_bound`: "Cannot convert type 'DINT' to type 'INT'"; judged by IR
+  // shape, a bare variable only, they lowered and ran). An expression of untyped literals (`SEL(b, 2, -2)`) has no named
+  // type, and CODESYS compiles it on an INT counter (`callshape_for_runtime_step`).
+  const counter = elemOf(control.type)
+  const foldedFits = (v: bigint): boolean =>
+    stored(v, control.type) === v || (counter !== undefined && !counter.signed && v < 0n && BigInt.asIntN(counter.bits, v) === v)
+  if (s.by !== undefined && (typedIncompatible(lw, control.type, s.by) || (typeof step === "bigint" && !foldedFits(step))))
+    return lw.bail("for-step-type", "a FOR step whose type does not convert into the counter's", s.by.span)
+  // A step that does not fold makes the loop's DIRECTION runtime: the test takes the limit from below for a step of 0 or
+  // more and from above for a negative one (conformance `callshape_for_runtime_step`). It was refused (`for-step-runtime`)
+  // — guessing `<=` would run a negative step zero times.
+  //
+  // A folded step is held at the counter's width (BY -1 on a BYTE adds 255, which wraps it down) while the DIRECTION stays
+  // the signed literal's: CODESYS counts a BYTE down from 5 to 0 and a UINT from 10 to 0 BY -2 (`tr_35_for_*_step_*`).
+  const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: stored(step, control.type), type: control.type, span: s.by?.span ?? s.span }
+  return { by, step, stepExpr }
+}
+
+/** A FOR bound whose front-end type does not convert implicitly into the counter's — a build error in CODESYS. */
+function typedIncompatible(lw: Lowering, counter: IrExpr["type"], bound: Expr): boolean {
+  return classifyConversion(counter, inferExprType(bound, lw.scope, lw.project)) === "incompatible"
 }
 
 /** WHILE: the loop shape, its test at the top. */

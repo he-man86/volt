@@ -932,6 +932,74 @@ const CASES: readonly ExecCase[] = [
     vars: "sc : SINT; runs : INT; sum : INT;",
     body: "FOR sc := 5 TO -5 BY -1 DO runs := runs + 1; sum := sum + sc; END_FOR",
   },
+  // transpile-restructure 2.6 (gate 2b): the classes `for-limit-type` and the step rule would decide with no recording
+  // of their own — FOR-limit conversion is not assignment conversion (an untyped 200 is a SINT counter's limit,
+  // `tr_36_*`; 300 is no SINT CASE label, `tr_37_case_label_wraps_300`). Does CODESYS take each, and how many passes?
+  // A named DINT CONSTANT limit on an INT counter (the DINT variable is refused: `_dint_var`).
+  {
+    name: "for_limit_wider_than_counter_dint_constant",
+    vars: "i : INT; runs : INT; END_VAR VAR CONSTANT hi : DINT := 3;",
+    body: "FOR i := 1 TO hi DO runs := runs + 1; END_FOR",
+  },
+  // A TYPED literal limit: a DINT#5 on an INT counter.
+  {
+    name: "for_limit_wider_than_counter_typed_literal",
+    vars: "i : INT; runs : INT;",
+    body: "FOR i := 1 TO DINT#5 DO runs := runs + 1; END_FOR",
+  },
+  // Same width, other sign: an INT variable limit on a UINT counter, and a UINT one on an INT counter.
+  {
+    name: "for_limit_sign_change_int_on_uint",
+    vars: "hi : INT := 3; u : UINT; runs : INT;",
+    body: "FOR u := 1 TO hi DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_sign_change_uint_on_int",
+    vars: "hi : UINT := 3; i : INT; runs : INT;",
+    body: "FOR i := 1 TO hi DO runs := runs + 1; END_FOR",
+  },
+  // A typed STEP that is not a bare variable: a DINT expression, and UPPER_BOUND (a DINT), on an INT counter. Recorded
+  // (record:exec 2026-10-08): none of the three is taken. `_dint_paren` and `_upper_bound` do not compile, "Cannot convert
+  // type 'DINT' to type 'INT'"; `BY k - 1` unparenthesised (`_dint_expr`) is a PARSE error, "'DO' expected instead of
+  // '-'" — which is why `_dint_paren` was added to ask the type question.
+  {
+    name: "for_step_wider_than_counter_dint_expr",
+    vars: "k : DINT := 3; i : INT; runs : INT; last : INT;",
+    body: "FOR i := 0 TO 10 BY k - 1 DO runs := runs + 1; last := i; END_FOR",
+  },
+  {
+    name: "for_step_wider_than_counter_dint_paren",
+    vars: "k : DINT := 3; i : INT; runs : INT; last : INT;",
+    body: "FOR i := 0 TO 10 BY (k - 1) DO runs := runs + 1; last := i; END_FOR",
+  },
+  {
+    name: "for_step_wider_than_counter_upper_bound",
+    vars: "arr : ARRAY[0..3] OF INT; i : INT; runs : INT; last : INT;",
+    body: "FOR i := 0 TO 10 BY UPPER_BOUND(arr, 1) DO runs := runs + 1; last := i; END_FOR",
+  },
+  // transpile-restructure gate 2c: the same-width sign-change pair (`for_limit_sign_change_*`) was recorded inside the INT
+  // range only, where comparing in INT, in UINT or promoted all answer alike. Outside it they part: a UINT counter from
+  // 40000 to an INT limit of 100 runs 0 passes compared promoted or in UINT, 25637 compared in INT (40000 is -25536);
+  // an INT counter to a UINT limit of 40000 runs 0 compared in INT (-25536), 40001 in UINT (the counter wraps to
+  // -32768 = 32768 and stops past 40000), and never stops promoted (an INT never exceeds 40000) — the EXIT guard ends
+  // that at 50000 passes.
+  {
+    name: "for_limit_sign_change_uint_counter_out_of_int_range",
+    vars: "hi : INT := 100; u : UINT; runs : DINT;",
+    body: "FOR u := 40000 TO hi DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_sign_change_uint_limit_out_of_int_range",
+    vars: "hi : UINT := 40000; i : INT; runs : DINT;",
+    body: "FOR i := 0 TO hi DO runs := runs + 1; IF runs >= 50000 THEN EXIT; END_IF END_FOR",
+  },
+  // A TYPED literal step that does not convert into the counter, its value fitting: INT#-1 on a BYTE counter (the untyped
+  // `BY -1` on a BYTE is taken, `tr_35_for_byte_step_minus_one`).
+  {
+    name: "for_step_typed_literal_on_narrower_counter",
+    vars: "b : BYTE; runs : INT;",
+    body: "FOR b := 5 TO 0 BY INT#-1 DO runs := runs + 1; END_FOR",
+  },
 
   // ── MOD by zero: `cc_mod_udint_dint` (0 MOD 0) recorded 0 where `/` by zero stopped the application. Is the answer 0,
   //    or the dividend — in each signedness and width? ──

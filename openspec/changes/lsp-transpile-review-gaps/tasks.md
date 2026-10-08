@@ -49,3 +49,15 @@ never changes a recording or a fixture's expectation to match the LSP.
 ## 2. Filed later
 
 Appended by transpile-restructure steps, one line each, in the commit that finds the gap.
+
+- [ ] 2.1 RC 13 / RC 35, more shapes (transpile-restructure 2.6, recorded 2026-10-08) — the LSP accepts a typed FOR bound that does
+  not convert into the counter: a named DINT CONSTANT limit and a `DINT#5` limit on an INT counter, and a DINT step that is not a
+  bare variable (`BY (k - 1)`, `BY UPPER_BOUND(a, 1)`). CODESYS: "Cannot convert type 'DINT' to type 'INT'". Fixtures
+  `for_limit_wider_than_counter_dint_constant`, `_typed_literal`, `for_step_wider_than_counter_dint_paren`, `_upper_bound`
+  (`lsp-gap`, `MEASURED_SILENT`); and a typed literal step whose value fits, `BY INT#-1` on a BYTE ("Cannot convert type
+  'INT' to type 'BYTE'", `for_step_typed_literal_on_narrower_counter`, gate 2c); a same-width sign change (`for_limit_sign_change_int_on_uint`, `_uint_on_int`) compiles and
+  must stay free of LSP errors. Close with 1.1/1.2: the bound judged by its type (`classifyConversion` `incompatible`).
+- [ ] 2.2 `FOR … BY k - 1` (unparenthesised binary step) is a CODESYS PARSE error, "'DO' expected instead of '-'" (transpile-
+  restructure 2.6, recorded 2026-10-08); the parser accepts it. Fixture `for_step_wider_than_counter_dint_expr` (`lsp-gap`,
+  `MEASURED_SILENT`). Niche: accepted loss (0 occurrences in the corpora) — which binary operators a BY operand admits is
+  unrecorded.
