@@ -608,6 +608,15 @@ carries none. Deciding measure: no cap is needed for speed (`tr_27_*` with no gu
 variable step asked by type (`classifyConversion(counter, step) === "incompatible"` → `for-step-type`). A runtime step is read
 every pass (`for_runtime_step_changed_in_body`: 4 passes, not 20), so `statements/loops.test.ts` ("reads its limit and its step on
 every pass") and `places/bounds.test.ts` keep their premise, unchanged; lean 7.5.9 may bind the step once per pass, never hoist it.
+- **Open (gate 2b): a typed step that is not a bare variable.** The type rule fires only on IR `by.kind === "load"`
+  (`lower/statements/loops.ts`), so `BY k - 1` (`k : DINT`) and `BY UPPER_BOUND(a, 1)` on an INT counter lower and run (a probe:
+  n = 10 and n = 3), while `BY k` and `BY (k)` are refused. That is the IR-shape judgement this section rejects for the limit, and
+  the limit recordings (`for_limit_wider_than_counter_dint_expr`, `_upper_bound`: "Cannot convert type 'DINT' to type 'INT'")
+  show CODESYS judging a bound by its type. Unrecorded for the step: 2.6 records `for_step_wider_than_counter_dint_expr` and
+  `_upper_bound` in its batch. If CODESYS refuses them, the step is judged by its FRONT-END type (`inferExprType` +
+  `classifyConversion`), the limit's rule, under the same code `for-step-type`; an expression of untyped literals
+  (`SEL(b, 2, -2)`, `callshape_for_runtime_step`) stays asked by value, as it is today. If CODESYS accepts them, the rule stays
+  as built and the recordings say why.
 
 **Literal limit (RC 36) and loop depth (RC 39): kept as built** — `beside` (a constant the counter cannot hold keeps its own
 type, compared in the `for-compare` meet; `tr_36_*` confirmed) and `lw.loops` → `exit-outside-loop` (`cc2_exit_outside_loop`
@@ -621,6 +630,15 @@ dint_var`, `_dint_expr`, `_upper_bound` (rated `lsp-gap`; their `rust`/`tier` co
 `_negative_step`, `tr_36_*`. `emit/rust/loops.test.ts` "a FOR whose limit is a different type" changes to the refusal, citing
 those three recordings. A named DINT CONSTANT limit is unrecorded: 2.6 records `for_limit_wider_than_counter_dint_constant`
 in its batch before trusting the rule there.
+- **FOR-limit conversion is not plain assignment conversion (gate 2b).** An untyped 200 is accepted as a SINT counter's limit
+  (`tr_36_*`) where 300 as a CASE label on a SINT is "Cannot convert type 'INT' to type 'SINT'" (`tr_37_case_label_wraps_300`),
+  and the only `incompatible` pair recorded is DINT into INT. So every class the rule decides needs its own recording, not the
+  relation's word for it. 2.6's batch also records `for_limit_wider_than_counter_typed_literal` (`TO DINT#5` on an INT counter:
+  `classifyConversion` says `incompatible`, the DINT CONSTANT's open question) and the same-width sign-change pair
+  `for_limit_sign_change_int_on_uint` (an INT variable limit on a UINT counter) and `for_limit_sign_change_uint_on_int` (UINT on
+  INT), both rated `sign-change` and so KEPT by the rule as written — a guess. The recordings decide: a refused sign-change pair
+  widens `for-limit-type` to `sign-change`; an accepted typed literal is asked by value like an untyped one. A REAL limit
+  (`incompatible`) is refused unrecorded — refusing loses nothing, so it is not recorded.
 - Rejected "refuse every non-literal limit": `_uint_expr` (UINT `n - 1` on UINT) is recorded as accepted.
 
 **Labels.** `emit/rust/loops.ts` asks `ir/walk.loopUses` before printing `'loop_N`/`'body_N`, and stops rewriting printed lines
@@ -631,8 +649,13 @@ step — its run count is unrecorded), `exit-outside-loop`, new `for-limit-type`
 wraps and runs until an EXIT (`for_counter_at_type_max`), so lean 5.4/7.5.4 may not print it as a Rust range.
 
 **Migration.** 2.3 = `compareFault` under the guard (red first: a runaway fixture without `execSkip` hangs today); no renames.
-2.4, 2.5, 2.7 = verify the F/refusal lists above, no code. 2.6 = `for-limit-type` (+ the one recording). 2.8 = labels. 2.9 as
-written.
+2.5, 2.7 = verify the F/refusal lists above, no code. 2.4 = verify the folded and variable step; its typed non-variable step
+is decided in 2.6. 2.6 = ONE `record:exec` batch of six (`for_limit_wider_than_counter_dint_constant`, `_typed_literal`,
+`for_limit_sign_change_int_on_uint`, `_uint_on_int`, `for_step_wider_than_counter_dint_expr`, `_upper_bound`), then
+`for-limit-type` and the step rule as those recordings say, and the two product comments that call a DINT limit on an INT
+counter "ordinary ST that CODESYS compiles" (`lower/statements/loops.ts` above `compareIn`; the header of
+`emit/rust/loops.test.ts`'s "a FOR whose limit is a different type") rewritten to `for_limit_wider_than_counter_dint_var`'s
+recording. 2.8 = labels. 2.9 as written.
 
 ### 3.2 Strings (model 2): RC 11, 34, 45; appendix string items
 
