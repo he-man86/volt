@@ -114,6 +114,14 @@ export interface LanguageTest {
    */
   wallClock?: readonly string[]
   /**
+   * Paths whose recorded value is MEMORY THE PROGRAM NEVER WROTE — the units behind the terminator of a Standard
+   * function's or a conversion's result (a 255-unit buffer of the IDE's), which a string store copies along
+   * (transpile-restructure gate 3a). They hold stack residue: two `record:exec` runs of the same fixture recorded
+   * different address bytes there (2026-10-08). No run can reproduce them; the replays compare every other path and
+   * hold these only to having been produced.
+   */
+  residue?: readonly string[]
+  /**
    * THE CLOCK A TIMER FIXTURE RAN ON — the path of an `ARRAY[1..cycles] OF TIME` the fixture fills with `TIME()` on
    * every scan (`now[n] := TIME();`). The simulator's clock is real time, so a timer's outputs differ from recording
    * to recording; recorded beside them, the instants make the run exact: the replay sets the transpiler's `CLOCK` to

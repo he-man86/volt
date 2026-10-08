@@ -163,7 +163,37 @@ const SECTION_ECHO_ROWS: readonly string[] = [
   "rec_unterminated_var_before_section",
 ]
 
+const STRING_INDEX_TASK =
+  "lsp-transpile-review-gaps 2.3: the front-end types `s[i]` on a STRING / WSTRING (a BYTE / WORD, `lib_prim_char_past_length`)"
+const STRING_INDEX_CELLS =
+  "transpile-restructure 3.1's string-model fixtures dump a buffer through `s[i]`, which the front-end leaves UNKNOWN (26 such reads in the fixtures before them, 5 in the corpora) — measured, not regressed: the character access is typed by the hand-off, not by a measure step"
+/** transpile-restructure 3.1's (and gate 3a's) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
+const STRING_INDEX_ROWS: readonly [string, number][] = [
+  ["string_literal_nul_tail", 6],
+  ["string_assign_tail_narrow", 3],
+  ["string_assign_tail_wide", 3],
+  ["wstring_literal_nul_tail", 9],
+  ["wstring_assign_tail_narrow", 3],
+  ["wstring_assign_tail_wide", 3],
+  ["string_compare_tail", 5],
+  ["string_conversion_result_capacity", 11],
+  ["concat_result_capacity", 14],
+  ["string_conversion_result_tail", 23],
+  ["string_store_function_result_tail", 9],
+  ["string_store_destination_kinds_tail", 9],
+]
+
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
+  ...STRING_INDEX_ROWS.flatMap(([fixture, by]) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: index UNKNOWN`,
+      by,
+      fixture,
+      task: STRING_INDEX_TASK,
+      why: STRING_INDEX_CELLS,
+    })),
+  ),
   ...UNTYPED_CALL_ROWS.flatMap(([fixture, kind]) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
       baseline: "type-dump",

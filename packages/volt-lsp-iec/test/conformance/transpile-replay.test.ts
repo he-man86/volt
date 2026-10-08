@@ -36,7 +36,7 @@ import { comparable } from "./support/compare-message.js"
 import { lspErrors } from "./support/evidence.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
 import type { LanguageTest } from "./types.js"
-import { BUILDS, lowering, rated, reproducible, SELECTION, whole } from "./support/fixture-suite.js"
+import { BUILDS, lowering, rated, reproducible, SELECTION, uncompared, whole } from "./support/fixture-suite.js"
 
 /** What a harness binary is run with — the recorded scan, and the edge run. A re-proved cache hit runs both builds on
  *  each (`support/rustc-cache.ts`). */
@@ -142,8 +142,8 @@ function compareInterp(c: LanguageTest, rec: RunRecorded): void {
   const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
   const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
   expect(got).toEqual(want)
-  // a wall-clock path is not compared, and it is still one the run must PRODUCE
-  for (const path of c.wallClock ?? []) expect(typeof pou.get(path)).toBe("bigint")
+  // a wall-clock or residue path is not compared, and it is still one the run must PRODUCE
+  for (const path of uncompared(c)) expect(typeof pou.get(path)).toBe("bigint")
 }
 
 /** Every fixture by name — the lint ratchet looked one up per case, which is 1,900 x 2,600 string compares a run. */
@@ -255,7 +255,7 @@ function compareRust(c: LanguageTest, result: RustRun): void {
       .map((line) => line.split("\t") as [string, string]),
   )
   const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
-  for (const path of c.wallClock ?? []) expect(printed.has(path)).toBe(true)
+  for (const path of uncompared(c)) expect(printed.has(path)).toBe(true)
   const got = Object.fromEntries(
     Object.keys(want).map((k) => {
       const { type } = rustAccess(pou, k)

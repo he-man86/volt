@@ -2514,7 +2514,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ## 3. Model 2: strings (RC 11, 34, 45; appendix string items)
 
-- [ ] 3.1 Measure.
+- [x] 3.1 Measure.
   - What: M1 (re-read `tr_45` cell by cell against RC 45's LIVE text; record `string_literal_nul_tail` if unresolved), M2
     (`string_assign_tail_narrow`, `string_assign_tail_wide`), M3 (WSTRING twins), M4 (`string_compare_tail`), M5
     (`string_conversion_result_capacity`, `concat_result_capacity`), M6 (interpreter time per representation on the `string_*` fixtures),
@@ -2522,6 +2522,127 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `test/conformance/fixtures/strings/string-edges.ts`; numbers here.
   - Accept: recordings committed; M1-M7 answered here.
   - Depends: 1.9.4.
+  - Done (2026-10-08, at cda74a482d; single-use scratch probes for M6/M7 and the index census, deleted — nothing under
+    `scripts/`). As with RC 27 in 2.1, most of RC 34/45/11 ALREADY landed in transpile-review (5c1e7e00df, 34.2/45.2/11.2):
+    the interpreter holds the whole buffer as a JS string (trailing zeros trimmed, `len` = first 0, `semantics/string.ts`
+    `charAt`/`setChar`/`visible`/`held`), the Rust `IecStr<T, N>` a `[T; N]` with N = the capacity (byte N, the terminator, is
+    implied: `char_at(N)` reads 0, `with_char(N, 0)` is a no-op) and `len` re-scanned; `tr_34_lib_prim_char_behind`,
+    `tr_45_string_embedded_nul`, `tr_11_string_conversion_beyond_80` and `lib_prim_char_past_length` are `confirmed` (rust
+    vendor). So 3.2 decides what of 3.4-3.8 is left, and the representation question is whether to keep the JS string
+    (option c without the tail array) or move to (a)/(b). New fixtures: nine, `STRING_MODEL_TESTS` in `string-edges.ts`
+    (each dumps the BUFFER through `s[i]` into an ARRAY OF BYTE/WORD, the destination pre-filled with 'Z' = 90, long operands
+    filled by index), recorded in ONE `record:exec` batch (CODESYS 3.5.21.40 simulation, 9 cases, 0 failed); the two M5
+    fixtures re-recorded once (2 cases) after their length loops were made to stop at the first 0 (the first loops counted
+    every non-zero unit of the buffer and read 211 for a 200-unit conversion result — non-zero units sit behind its
+    terminator — so they measured something else; recorded values only, no recording edited).
+    - M1 — RC 45's LIVE text is WRONG for its source. `tr_45`'s committed recording (c2 = 0, c3 = 0, uc3 = 0, lenS = lenU =
+      lenS3 = 2, eqAb = eqFull = weqAb = TRUE, cat = 'abX') disagrees with the LIVE text (c3 = 99, uc3 = 99) on exactly those
+      two cells, and `string_literal_nul_tail` re-asks the cell verbatim: `three : STRING(3) := 'ab$00c'` holds 97 98 0 0 —
+      the literal's 4th unit 'c' falls on byte 3, the terminator of a STRING(3), and is cut; `tr_45`'s note "bytes behind the
+      NUL are 0" is true only because of that capacity. Where the capacity holds the literal the bytes behind its `$00` ARE
+      stored: `lit : STRING(10) := 'ab$00cd'` and the sizeless `bare` hold 97 98 0 99 100 0 0 0 0 0 0, LEN 2; a copy
+      `copy := lit` carries them (same bytes). A literal STORED at run time over 'ZZZZZZZZZZ' gives 97 98 0 99 100 0 90 90 90
+      90 0: it writes its own units and its terminator (six) and leaves the rest of the destination — see M2.
+    - M2 — a string store writes `min(n, m)` units of the SOURCE BUFFER (the bytes behind its terminator included), then a 0
+      at `min(n, m)`, and leaves every destination unit behind that as it was. Narrow, STRING(10) := STRING(20) holding
+      'abc' + 0 + 'efgh…t': 97 98 99 0 101 102 103 104 105 106 0, LEN 3 (a 20-character source with no 0: 'abcdefghij', LEN
+      10). Wide, STRING(20) := STRING(10) holding 'abc' + 0 + 'efghij' over 20 'Z': 97 98 99 0 101…106 0, then 90 at [11..19],
+      0 at [20] — the eleven bytes of the source, nothing of its neighbour `after` ('QQQQ…'). A literal is a source of its
+      own length (M1); a STRING(3) into a Z-filled STRING(10) writes four (97 98 0 0, 90 from [4]). Today both backends
+      rebuild the destination from zeros (`fit` / `IecStr::to` start from `new()`), so the WIDE half diverges (the 'Z's read
+      0) while the narrow half already matches. 3.6's "a same-capacity copy keeps the units" is the special case of this rule.
+      SCOPE (gate 3a): measured, `n` = the source's declared capacity, on these sources — a STRING/WSTRING variable, a
+      literal (n = its own length), a user FUNCTION's STRING(10) result, and CONCAT / LEFT / STRING_TO_WSTRING /
+      WSTRING_TO_STRING results, whose `n` is 255 (the library's and the conversions' result buffer); and on these
+      destinations — a plain variable, an ARRAY element, a STRUCT member, a VAR_IN_OUT (store inside a FUNCTION) and an FB
+      VAR_INPUT (the call's pass). The units behind a 255-unit result's terminator are STACK RESIDUE (address bytes that
+      differ between two runs), so what such a store leaves behind the result's length is unaskable; only its extent is
+      (it writes `min(m, 255)` units and a 0 there). Not measured: a function VAR_INPUT pass (fresh stack; no destination
+      to pre-fill), a POINTER/REFERENCE destination, a user FUNCTION_BLOCK output.
+    - M3 — WSTRING: identical, unit for unit (`wstring_literal_nul_tail` 97 98 0 99 100 0 …, `three` 97 98 0 0, the sizeless
+      `bare` 97 98 0 99 100 0 0 …, LEN-by-loop of `lit`/`assigned`/`copy` 2 — every cell the STRING twin asks, since gate
+      3a —, the run-time literal store and the copies keep 90 exactly where the STRING twins do;
+      `wstring_assign_tail_narrow`/`_wide` as M2).
+    - M4 — comparison reads only up to the terminator: 'abc' + 0 + 'def' against 'abc' + 0 + 'xyz' is equal (eqAB, leAB,
+      geAB TRUE; neAB, ltAB, gtAB FALSE), against a STRING(20) 'abc' + 0 + 'rstuvw' equal (eqAC TRUE, ltAC/gtAC FALSE), = 'abc'
+      TRUE, and the WSTRING twins the same. Today's model already compares `units[..len]` (confirmed).
+    - M5 — conversions and the Standard functions cut at 255. STRING_TO_WSTRING, WSTRING_TO_STRING, TO_WSTRING and TO_STRING
+      of a 300-unit operand all give 255 units (a 200-unit one gives 200); CONCAT of two 150-unit STRING(200)s gives 255;
+      LEFT(·, 290), RIGHT(·, 290), INSERT, REPLACE of a 300-unit STRING(300) give 255, DELETE(·, 2, 150) 253, MID(·, 290, 2)
+      254, LEN 255, FIND of a 'Q' at position 281 0 — the operand itself is cut to 255 on the way IN (the library's STRING(255)
+      parameters; `esc_wstring_sized_fits` records "Cannot convert type 'WSTRING(3)' to type 'STRING(255)'"). The library bodies
+      already match (`concat_result_capacity` confirmed); the conversions do NOT: RC 11's fix sizes a STRING↔WSTRING result by
+      its source and gives 300 (`string_conversion_result_capacity` diverges). So 3.8's "a wide result is sized by the source
+      (M5)" is contradicted: the result capacity is 255, and only an operand under 80 → 255 is what RC 11 fixed.
+    - M6 — interpreter cost. Today, the 197 lowered fixtures whose name says string run in 11.8 ms together (median of 7 per
+      fixture; median fixture 0.006 ms; top: `tr_11_string_conversion_beyond_80` 5.9 ms, `string_conversion_result_capacity`
+      1.9 ms, `string_input_truncation` 0.94 ms, everything else ≤ 0.24 ms). The representation alone, on one workload in the
+      fixtures' mix (200 × [300 indexed stores each followed by a LEN, 50 copies 300 → 400, 50 compares], the same checksum
+      from all three): today's JS string 12.0 ms, (a) a `Uint8Array(n + 1)` with `len` scanned on read 4.0 ms, (b) (a) plus
+      a cached `len` 4.1 ms. No option is a cost problem; (a) is 3× faster on the primitive mix and (b)'s cache buys nothing.
+    - M7 — CODESYS prints the type AS DECLARED: a sizeless STRING is 'STRING', never 'STRING(80)'. Quoted string types in
+      `codesys.build.json` messages: 'STRING' 542, 'WSTRING' 36, sized ones 96 (STRING(255) 21 — the library's parameters —,
+      STRING(2) 13, STRING(4) 12, …); 'STRING(80)' 0. 564 messages quoting a bare 'STRING'/'WSTRING' sit in fixtures that
+      declare ONLY sizeless strings (TwinCAT 560), and the only 'STRING(80)' anywhere (TwinCAT, 3, `sysop_position_value`)
+      comes from a declaration that WRITES `STRING(80)`. The LSP renders a Type in one place, `frontend/types/render.ts`
+      `renderType` (`t.length === undefined ? name : name(n)`), called from 21 analysis checks/shared files
+      (`checks/calls/{call-arguments,intrinsic-operands}`, `checks/declarations/input-default`, `checks/flow/case-labels`,
+      `checks/oop/{method-reference,method-signature}`, `checks/types/{array-init,assignment,comparison,conversion,enum-init,
+      indexing,pointer-conversion,string-constant,subrange,unary-operand,unknown-source}`, `shared/{reference-bind,rules}`,
+      `frontend/types/literal`) and `network/network-analysis`; hover and signature help print the DECLARED `TypeExpr`
+      (`renderTypeExpr`, `services/assist/{hover,signature-help}.ts`), so they show 'STRING' as written. The default is
+      applied inside the front-end only where nothing is rendered (SIZEOF, `types/builtins.ts:212`; a constant's fold,
+      `types/const/fold.ts:89`). So the default stays transpile-side (type.ts:36-38 stands; putting it in `types/resolve`
+      would turn 564 recorded 'STRING's into 'STRING(80)'). `commonType` (`types/arith/runtime.ts:22`, `length ?? 0`) has NO
+      caller outside `src/transpile` (`lower/values/{convert,promote}.ts` only): no LSP-visible consequence, so the appendix
+      item closes with M7 as the reason, and inside lowering it disappears with 3.3 (every Type carries its capacity).
+    - Found on the way (LSP, handed off): the front-end types `s[i]` on a STRING/WSTRING UNKNOWN (26 reads in the fixtures
+      before, +53 per vendor in these nine, 5 in the corpora — all pro2193) → `lsp-transpile-review-gaps` 2.3; each new
+      fixture's count is a named ceiling exception (`test/frontend/baseline.ts` `STRING_INDEX_ROWS`), not a raised ceiling.
+    - Ratings: five fixtures diverge and run as expected failures with `deferred.transpile` naming what was measured and
+      the task that closes it — `string_literal_nul_tail`, `wstring_literal_nul_tail`, `string_assign_tail_wide`,
+      `wstring_assign_tail_wide` (M2's kept destination tail, 3.6) and `string_conversion_result_capacity` (the 255 cut,
+      3.8); four are `confirmed` (`string_assign_tail_narrow`, `wstring_assign_tail_narrow`, `string_compare_tail`,
+      `concat_result_capacity`). `rate:fixtures`: confirmed 2813 → 2817, diverges 5 → 10, lowered 3229 → 3238 (arith 1545/1543
+      → 1546/1544, control 159/148 → 160/149, aggregate 142/142 → 145/145, call 268/266 → 272/270), edge agree 3044 → 3053
+      (disagree 0, not-run 185), pedantic 30874 → 31524 (+650, the nine fixtures' own), dead_code 5263 → 5398, shapes 1720
+      → 1729. `test/frontend` baselines rewritten (`VOLT_WRITE_BASELINE=1`; counts only, no finding; `ceilings.json`
+      unchanged): files 10740 → 10758, expressions +713 per vendor, literal UNKNOWN +220 per vendor, index UNKNOWN 26 → 79 /
+      25 → 78 (the excepted rows), literals stored 4662 → 4735, recorded values 9126 → 9409.
+    - Tests: `bun typecheck` clean; `test/conformance` (full, once) 6227 pass, 389 todo, 0 fail, 10 diverge as expected
+      failures; `test/frontend` 45 pass, 0 fail; `bun run lint` exit 0 (no new warning).
+  - Gate 3a (2026-10-08): four review findings, all fixed (none skipped).
+    - (1) The 211 kept as a fixture: `string_conversion_result_tail` dumps units [199..262] of `STRING_TO_WSTRING(n200)`
+      stored into a zero WSTRING(400) and into a 'Z'-filled one, and of the WSTRING_TO_STRING twin. CODESYS: [199] the last
+      character, [200] 0, [201..254] residue (address bytes, e.g. 54050 32761 = 0x7FF9D322), [255] 0, 'Z' from [256]
+      (`zWideKept` = `zNarrowKept` = 137 of [263..399]); the zero destination counts 211 non-zero units. A second
+      `record:exec` of the same fixture recorded DIFFERENT residue bytes (6188 62 → 16943 203 at [201..202], …), so the tail
+      is stack residue: the result is a 255-unit buffer and only its extent is askable. New fixture field
+      `LanguageTest.residue` (beside `wallClock`, `support/fixture-suite.ts` `reproducible`/`uncompared`): the replays compare
+      every other path and hold residue paths only to being produced; 163 paths here, 47 in (2).
+    - (2) M2's scope measured: `string_store_function_result_tail` (CONCAT, LEFT, WSTRING_TO_STRING, a user FUNCTION
+      returning STRING(10) with 'efghij' behind a 0) and `string_store_destination_kinds_tail` (ARRAY element, STRUCT member,
+      VAR_IN_OUT, FB VAR_INPUT), each over 'Z' and dumped [0..20]. Every one follows M2 with `n` = the source's declared
+      capacity: the user FUNCTION and the four destinations carry eleven bytes ('efghij' included) and keep 'Z' at [11..19];
+      the three library results (n = 255) write all 20 units plus the terminator, residue behind their own terminator. M2's
+      text above now states the measured scope and what is not measured.
+    - (3) Build recordings: the nine 3.1 fixtures and the three new ones recorded with `record:language` on both vendors
+      (`ide.ps1 -Instance transpile-restructure`, CODESYS fixture copy, TwinCAT `-Fixture 13`): all twelve build; the only
+      messages are the two `String constant '...' too long for destination type 'STRING(3)'` / `'WSTRING(3)'` warnings
+      (the `three` initializers; CODESYS twice, TwinCAT once), which the LSP gives — `lsp-replay` agrees, the diagnostic
+      census moves by counts only (stringConstantTooLong TP 78 → 82 / 37 → 39, fixtures measured 5114 → 5126).
+    - (4) `wstring_literal_nul_tail` asks every cell the STRING twin asks: a sizeless `bare : WSTRING := "ab$0000cd"` (97 98
+      0 99 100 0 0 …, as `bare` in M1) and `lenLit`/`lenAssigned`/`lenCopy` (counted to the first 0 — LEN takes a STRING —
+      all 2). M3's claim now holds on what is recorded.
+    - Ratings: the three new fixtures diverge (the kept 'Z', task 3.6; the conversion one also 3.8) with `deferred.transpile`;
+      `rate:fixtures`: mapped 5379 → 5382, confirmed 2817, diverges 10 → 13, lowered aggregate 145 → 146, call 272/270 → 274/272
+      (lowered/clean), edge agree 3053 → 3056 (disagree 0, not-run 185). `test/frontend` baselines rewritten, counts only
+      (`STRING_INDEX_ROWS` +3 rows, `wstring_literal_nul_tail` 5 → 9; index UNKNOWN 79 → 124 / 78 → 123, recorded values
+      9409 → 9810); `lsp-transpile-review-gaps` 2.3's count updated (+98 per vendor).
+    - Tests: `bun typecheck` clean; `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8575 pass, 35
+      skip, 432 todo, 0 fail (9042 tests, 304 files, 507 s), 13 diverge as expected failures, fold agreement 420 compared,
+      38 disagree, 38 known; `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run lint` exit 0 (no new warning);
+      `openspec validate` valid; `bun run check` 18 passed.
 - [ ] 3.2 Design "§3.2 Decision: strings".
   - What: the representation (a/b/c) in TS and Rust (incl. the `B = n+1` const parameter), literal NUL, assignment across capacities,
     comparison, conversion capacity, where the capacity default is applied (transpile-side, per type.ts:36-38 unless M7 contradicts), the

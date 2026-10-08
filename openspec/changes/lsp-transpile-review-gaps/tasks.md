@@ -61,3 +61,8 @@ Appended by transpile-restructure steps, one line each, in the commit that finds
   restructure 2.6, recorded 2026-10-08); the parser accepts it. Fixture `for_step_wider_than_counter_dint_expr` (`lsp-gap`,
   `MEASURED_SILENT`). Niche: accepted loss (0 occurrences in the corpora) — which binary operators a BY operand admits is
   unrecorded.
+- [ ] 2.3 `s[i]` on a STRING / WSTRING types UNKNOWN in the front-end (transpile-restructure 3.1, measured 2026-10-08): the
+  character access is a BYTE (a WSTRING's a WORD) — `lib_prim_char_past_length` records `BYTE#…`, `string_non_ascii_bytes`
+  `text[0]` = BYTE#99. 26 uses in the fixtures before 3.1, +98 in the string-model fixtures of 3.1 and gate 3a (per vendor), 5 in the corpora
+  (all pro2193). Each 3.1 fixture's count is a named ceiling exception (`test/frontend/baseline.ts` `STRING_INDEX_ROWS`),
+  removed when the read is typed.

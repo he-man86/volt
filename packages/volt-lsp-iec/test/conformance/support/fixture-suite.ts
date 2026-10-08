@@ -96,9 +96,13 @@ export function lowering(c: LanguageTest): LoweredPou {
   return lowered
 }
 
-/** The recorded values a run can reproduce — all but the ones that read the IDE's wall clock (`LanguageTest.wallClock`). */
+/** The recorded values a run can reproduce — all but the ones that read the IDE's wall clock (`LanguageTest.wallClock`)
+ *  or its stack residue (`LanguageTest.residue`). */
 export const reproducible = (c: LanguageTest, rec: RunRecorded): [string, string][] =>
-  Object.entries(rec.values!).filter(([path]) => !(c.wallClock ?? []).includes(path))
+  Object.entries(rec.values!).filter(([path]) => !(c.wallClock ?? []).includes(path) && !(c.residue ?? []).includes(path))
+
+/** The paths a run must produce without being compared (`wallClock`, `residue`). */
+export const uncompared = (c: LanguageTest): readonly string[] => [...(c.wallClock ?? []), ...(c.residue ?? [])]
 
 // ─── the rating rows ─────────────────────────────────────────────────────────────────────────────────────────
 
