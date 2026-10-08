@@ -7,7 +7,23 @@ import { describe, expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import type { IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
 import type { IrLoop, IrStmt } from "./stmt.js"
-import { blocksOf, callsIn, childrenOf, exitsAfter, forEachExpr, forEachStmt, holdsCall, type IrNode, loopUses, mapPlaces, somePlace } from "./walk.js"
+import {
+  blocksOf,
+  callsIn,
+  childrenOf,
+  exitsAfter,
+  findPlace,
+  forEachExpr,
+  forEachStmt,
+  holdsCall,
+  initReadChildren,
+  type IrNode,
+  loopUses,
+  mapPlaces,
+  somePlace,
+  touchesOnlyItsOwn,
+  writesOnlyLocals,
+} from "./walk.js"
 
 const INT = elementaryRef("INT")
 const span = { uri: "f", start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } as never
@@ -120,5 +136,43 @@ describe("the walks", () => {
       exits: true,
       continues: true,
     })
+  })
+})
+
+describe("the predicates lowering asks of a callee (1.7.4)", () => {
+  const local = (slot: number): Place => ({ ...place(slot), root: "local" })
+  const inout = (slot: number): Place => ({ ...place(slot), root: "inout" })
+  test("touchesOnlyItsOwn: only locals and in-outs, unguarded, and no call", () => {
+    expect(touchesOnlyItsOwn([assign(local(0), load(inout(1)))])).toBe(true)
+    expect(touchesOnlyItsOwn([assign(local(0), load(place(1)))])).toBe(false) // a field of the frame
+    expect(touchesOnlyItsOwn([assign(local(0), load({ ...local(1), guard: local(2) }))])).toBe(false) // a dereference
+    expect(touchesOnlyItsOwn([assign(local(0), invoke())])).toBe(false)
+    expect(touchesOnlyItsOwn([assign(local(0), c(1n))])).toBe(true)
+  })
+  test("writesOnlyLocals: every assignment into a local, and no call", () => {
+    expect(writesOnlyLocals([assign(local(0), load(place(1)))])).toBe(true)
+    expect(writesOnlyLocals([assign(inout(0), c(1n))])).toBe(false)
+    expect(writesOnlyLocals([loop([assign(place(0), c(1n))])])).toBe(false)
+    expect(writesOnlyLocals([assign(local(0), invoke())])).toBe(false)
+  })
+})
+
+describe("findPlace and the init sequence's read walk (1.7.4)", () => {
+  const named = (p: Place): string | undefined => `${p.root ?? ""}${p.slot}`
+  const all = (root: IrNode, children?: (n: IrNode) => readonly IrNode[]): string[] => {
+    const seen: string[] = []
+    findPlace(root, (p) => void seen.push(named(p)!), children)
+    return seen
+  }
+  test("a place is tested after the places inside it, the first answer wins", () => {
+    expect(all(load(place(0, load(place(1)))))).toEqual(["1", "0"])
+    expect(findPlace(load(place(0, load(place(1)))), named)).toBe("1")
+  })
+  test("initReadChildren: a call's inputs, then its bindings (a copy's value only), then its instance — no select, freeze or lent", () => {
+    const call: IrInvoke = { ...invoke(load(place(1))), instance: place(3), order: [0, freeze], inouts: [copy, place(7)], lent: [place(4)] }
+    expect(all(call, initReadChildren)).toEqual(["1", "7", "3"])
+    expect(all(call)).toEqual(["3", "1", "9", "8", "7", "4"])
+    const select: IrExpr = { kind: "select", tag: load(place(2)), arms: [{ tag: 1n, place: place(5) }], type: INT, span }
+    expect(all(select, initReadChildren)).toEqual([])
   })
 })

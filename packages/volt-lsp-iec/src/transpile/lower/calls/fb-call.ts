@@ -2,7 +2,7 @@
  * An FB call statement → its input stores, the call, its output copies — or, when it names a routine, that call.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { FbType, Lowering } from "../core/lowering.js"
 import type { CallArg, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrBinding, IrCall, IrLayout, IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { isSuper, lowerSuperCall } from "./super.js"
@@ -14,13 +14,12 @@ import { ownMember } from "../places/names.js"
 import { namespaceOf } from "./namespace.js"
 import { lowerPlace } from "../places/places.js"
 import { instancePlace } from "../places/self.js"
-import type { FbType } from "../core/lowering.js"
-import { inGlobals, reachesDispatch } from "./reentrancy.js"
-import { staticPath } from "../places/path.js"
+import { inGlobals, programReentrant, programTarget, touchedOf } from "./reentrancy.js"
+import { fieldIn, staticPath } from "../places/path.js"
 import { calledLayout } from "./routines.js"
 import { isInFrame } from "./specialize.js"
 import { fbOutputCopy } from "./outputs.js"
-import { refuseConstantWrite } from "../places/access-guards.js"
+import { guardWrite } from "../places/access-guards.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
@@ -87,7 +86,7 @@ function routineCallStatement(lw: Lowering, call: Extract<Statement, { kind: "ca
     // the struct and was refused `call-method`.
     const layout = base.type.kind === "function_block" || base.type.kind === "struct" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     // `inst.M(…)` / `inst.A()` — anything that is not an instance held in a field is a METHOD or ACTION
-    if (!layout?.fields.some((f) => f.name.toUpperCase() === callee.member.name.toUpperCase())) return asInvoke()
+    if (fieldIn(layout?.fields, callee.member.name) === undefined) return asInvoke()
   }
   return null
 }
@@ -122,9 +121,11 @@ function calledInstance(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance through a runtime index`, call.span)
   const layout = calledLayout(lw, instance.type.name, call.span)
   if (layout === undefined) return undefined
-  if (instance.root === "global" && instance.path.length > 0 && lw.bodies.get(instance.type.name.toUpperCase())?.lowering.touched.has(instance.slot))
-    return lw.bail("call-program-reentrant", `${instance.type.name}'s body reaches the PROGRAM it is called inside`, call.span)
-  if (instance.root === "global" && instance.path.length > 0 && reachesDispatch(lw, layout.body ?? []))
+  const body = lw.bodies.get(instance.type.name.toUpperCase())
+  const run = { touched: body === undefined ? undefined : touchedOf(body.lowering), body: layout.body ?? [] }
+  const reentrant = programReentrant(lw, run, programTarget(instance), { touched: "inside", dispatch: "inside" })
+  if (reentrant === "touches") return lw.bail("call-program-reentrant", `${instance.type.name}'s body reaches the PROGRAM it is called inside`, call.span)
+  if (reentrant === "dispatch")
     return lw.bail("call-program-reentrant", `${instance.type.name}'s body calls through an interface, which may reach the PROGRAM it is called inside`, call.span)
   return { instance: instance as Place & { type: FbType }, layout }
 }
@@ -145,14 +146,14 @@ function fbArguments(
     if (arg.param === undefined) return lw.bail("call-positional", `${layout.name} called with a positional argument`, arg.span)
     if (arg.value === undefined) continue
     const name = arg.param.name.toUpperCase()
-    const param = inouts.find((p) => p.name.toUpperCase() === name)
+    const param = fieldIn(inouts, name)
     if (param !== undefined) {
       const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name, undefined)
       if (target === undefined || isInFrame(target)) return undefined
       bound.set(name, target)
       continue
     }
-    const field = layout.fields.find((f) => f.name.toUpperCase() === name)
+    const field = fieldIn(layout.fields, name)
     if (field === undefined) return lw.bail("call-param", `${arg.param.name} is not a parameter of ${layout.name}`, arg.span)
     const member: Place = { ...instance, path: [...instance.path, { kind: "field", name: field.name }], type: field.type, span: arg.span }
     const stmt = arg.output ? fbOutputCopy(lw, arg, member, field) : fbInputStore(lw, arg, member, field)
@@ -166,7 +167,7 @@ function fbArguments(
 function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | undefined {
   // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
   // storing into it is not recorded — refused as the store it is
-  if (refuseConstantWrite(lw, member, arg.span)) return undefined
+  if (guardWrite(lw, member, arg.span, ["constant"]) === undefined) return undefined
   // an FB keeps an interface input as it keeps any (`itf_fb_input_left_out`): the tag stored into its field
   if (field.type.kind === "interface") return storeInterface(lw, member, arg.value!, arg.span)
   const value = lowerExpr(lw, arg.value!, field.type)
@@ -184,7 +185,7 @@ export function storeOpenBounds(lw: Lowering, instance: Place, fields: readonly 
   for (const [i, slot] of inouts.entries())
     for (let dim = 1; dim <= openDims(slot.type); dim++)
       for (const which of ["lower", "upper"] as const) {
-        const field = fields.find((f) => f.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
+        const field = fieldIn(fields, boundName(slot.name, which, dim))
         const bound = binding(i)
         const at = bound === undefined ? undefined : "kind" in bound ? bound.back : bound
         const value = field === undefined || at === undefined ? undefined : boundOf(lw, at, which, dim)

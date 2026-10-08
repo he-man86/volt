@@ -1,11 +1,26 @@
 /**
- * AST visitors the lowering folders share.
+ * AST VISITORS the lowering folders share — the one home of every walk over ST syntax in `lower/` (transpile-restructure
+ * 1.7.1). The walks over the IR are `ir/walk.ts`'s.
  */
 
 import type { Expr } from "../../../frontend/syntax/index.js"
-import type { FbType, RoutineSymbol } from "./lowering.js"
+import type { FbType, Lowering, RoutineSymbol } from "./lowering.js"
 import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
-import type { Lowering } from "../lowering.js"
+
+/** The nodes an AST node holds — every own value but its `span`, which holds only positions. The AST has no exhaustive
+ *  child table the way the IR has (`ir/walk.childrenOf`), so the walks below take every value and test each by shape. */
+function astChildren(node: object): unknown[] {
+  return Object.entries(node).flatMap(([key, child]) => (key === "span" ? [] : [child]))
+}
+
+/** The operand an IF condition LEADS with — the one that runs first whatever the rest decides: through parentheses,
+ *  NOT, and the left side of AND_THEN / OR_ELSE (`queryCondition`). */
+export function leadingOperand(e: Expr): Expr {
+  return e.kind === "paren" ? leadingOperand(e.inner)
+    : e.kind === "unary" && e.op === "NOT" ? leadingOperand(e.operand)
+    : e.kind === "binary" && (e.op === "AND_THEN" || e.op === "OR_ELSE") ? leadingOperand(e.left)
+    : e
+}
 
 /** Only try the lowering path for an expression that actually HOLDS a call — everything else `constEval` covers. */
 export function exprHoldsCall(e: Expr): boolean {
@@ -37,7 +52,7 @@ export function overridesCalled(frame: FbType, chain: ReadonlySet<string>, state
     const name = callee?.kind === "ident_expr" ? callee.name : callee?.kind === "member" && callee.base?.kind === "deref" ? callee.member?.name : undefined
     const member = name === undefined ? undefined : lookupMember(scope, name)
     if ((member?.kind === "method" || member?.kind === "action") && !chain.has((member as RoutineSymbol).owner.name.toUpperCase())) found = true
-    Object.values(node).forEach(walk)
+    astChildren(node).forEach(walk)
   }
   walk(statements)
   return found
@@ -60,7 +75,7 @@ export function reachedNames(r: Lowering, statements: readonly unknown[]): Set<s
       const kind = callee.kind === "ident_expr" ? lookup(r.scope, callee.name!)?.symbol.kind : undefined
       if (kind === "method" || kind === "action" || callee.kind === "deref" || (callee.kind === "member" && callee.base?.kind === "deref")) all = true
     }
-    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child)
+    astChildren(node).forEach(walk)
   }
   walk(statements)
   return all ? "all" : names
@@ -93,7 +108,7 @@ export function borrowedPointerNames(r: Lowering, statements: readonly unknown[]
       if (!derefBase) borrowed.delete(n.name!.toUpperCase())
       return
     }
-    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child, false)
+    for (const child of astChildren(node)) walk(child, false)
   }
   walk(statements, false)
   return borrowed

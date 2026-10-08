@@ -223,12 +223,12 @@ export interface IrConst {
 /**
  * A FRESH VALUE OF A COMPOSITE TYPE — what a `VAR_TEMP` struct or array is reset to at the top of every call.
  *
- * An elementary VAR_TEMP resets with an ordinary `const`, and that is all `tempResets` could emit, so a composite
+ * An elementary VAR_TEMP resets with an ordinary `const`, and that is all `resetTemps` could emit, so a composite
  * one was refused ("starting it over is not built"). `declarations/section-semantics.ts` measured what it should be — an ARRAY in VAR_TEMP counts 1 after three scans where the same ARRAY in VAR counts 3, exactly
  * as the scalars do — so the behaviour was never in doubt, only the IR to express it.
  *
  * Both backends already had the function: `instantiate` in the interpreter and `initOf` in the emitter. This node is
- * the thing that lets `tempResets` reach them.
+ * the thing that lets `resetTemps` reach them.
  */
 export interface IrFresh {
   kind: "fresh"

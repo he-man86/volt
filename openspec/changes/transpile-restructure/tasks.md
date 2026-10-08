@@ -1584,123 +1584,355 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     1.6d share files (`lower/calls.ts` is split in place by 1.6a and dissolved by 1.6d; `lower.ts`, `storage.ts`,
     `lowering.ts` likewise) and no intermediate tree of them was kept — so the second commit is 1.6a-1.6d with this gate's
     `callsIn` fix.
-- [ ] 1.6.21 `core/lowering.ts` and `core/shared.ts` slimmed.
+- [x] 1.6.21 `core/lowering.ts` and `core/shared.ts` slimmed.
   - What: `Lowering` holds the frame, `bail`, slots, modes and `resolve` only; `Shared`, `newShared`, `PendingBody`, `CalledRoutine` →
     `core/shared.ts`; `tempPlace`/`temp` → `core/temps.ts`; `fail` → `calls/routines.ts`; `baseOf` → `core/chain.ts`. The `frame` getter
     and the empty banners (176-178, 364-368, 380) are deleted.
   - Where: `lower/core/*`.
   - Accept: G, S; `core/lowering.ts` is 250 lines or less.
   - Depends: 1.6.20.
+  - Done 2026-10-08 (step 1.6e). `lower/lowering.ts` deleted. `core/lowering.ts` (157 lines): `FbType`, `RoutineSymbol`,
+    `frameState` (a model's per-frame state, kept beside the `Lowering` by reference — a `WeakMap` created empty at first
+    use, as the field it replaces was created empty with the frame) and the `Lowering` class: the slots (frame, in-outs,
+    locals, `statics`), the modes (`routineMode`, `globalMode`, `globalPrefix`, `isRoot`, `selfType`, `codeOwner`,
+    `frameContext`, `routineContext`, `displayName`, `arguments`, `conditional`, `loops`), `bail`, `inArgument`, `holds`,
+    `inherit`, `declared`, `slot`, `resolve` and the `Shared` getters. `core/shared.ts`: `PendingBody`, `CalledRoutine`,
+    `Shared` (layouts, bodies, routines, `routineLowerings`, attributes, globals, root, the dispatch queue, `libraryUnits`),
+    `newShared`, and `sharedState` (the same per-POU-lowering). `core/temps.ts`: `temp`, `tempPlace` (functions of `lw`).
+    `fail` → `calls/routines.ts` (private); `baseOf` → `core/chain.ts`; the `frame` getter (every `x.frame` → `x.slots`)
+    and the empty banners deleted. MODEL STATE moved to its model, on `frameState`/`sharedState` (design.md §2.4 "model
+    state is held by reference to each model's state.ts"; that is what makes `core/` a leaf — `Lowering` named
+    `pointers/state.ts`'s `Cursor`, `Shared` its `PointerTarget`): `pointers/state.ts` `PointerFrame`/`pointerFrame`
+    (`boundPointers`, `anyInputs`, `anyTargets`, `borrowedPointers`, `cursors`) and `pointerTargets` (was
+    `shared.pointers`); `interfaces/state.ts` (NEW) `interfaceFrame` (`lends`, `hoistedQueries`) and `interfaceTables`
+    (`instances`, `interfaces`); `init/state.ts` `PendingInit`, `InitFrame`/`initFrame` (`pendingInits`, `tempInits`,
+    `initSequence`) and `pendingInitsOf`; `calls/reentrancy.ts` `touchedOf`; `calls/binding.ts` `shadowedInOutsOf`;
+    `calls/last-binding.ts` `bindingRecords` (`bodyCalls`, `superRebinds`, `copiedWhole`); `storage/addresses.ts`
+    `addressedOf`, `storage/unions.ts` `unionsOf`, `storage/layout.ts` `buildingOf`. `calls/facts.ts` `routineFacts` (the
+    same mechanism, hand-written) is now `sharedState`; `interfaces/tags.ts`'s second `FbType` deleted (core's). Rule 4b:
+    the five `→ lower/lowering.ts` entries are gone; `lowering.ts → project/prepare.ts` is now `core/shared.ts →
+    project/prepare.ts` (`Shared.attributes` is an `AttributeLookup`; the design conflict reported at 1.6d, still open —
+    the gate's to decide). New test `core/lowering.test.ts` (2: a frame's state is its own and kept; a POU's shared state
+    is the same from every frame sharing it).
+    Numbers: `bun typecheck` clean; `bun run lint` green (layering 5 known; size 1 ceiling; 5 functions over 80 —
+    unchanged; citations 566 missing, warning — the four new ones are `lower/lowering.ts` cited by this tasks.md's own
+    history); `bun test src/transpile scripts` 386 pass, 0 fail; S ✓ identical (5357 fixtures).
 
 ### 1.7 Consolidations (one home per concern; neutral by construction, proven by S)
 
-- [ ] 1.7.1 AST walkers into `core/ast-walk.ts`: `overridesCalled`, `borrowedPointerNames`, `reachedNames`, `exprHoldsCall`,
+- [x] 1.7.1 AST walkers into `core/ast-walk.ts`: `overridesCalled`, `borrowedPointerNames`, `reachedNames`, `exprHoldsCall`,
   `queryCondition`'s leading-query scan.
   - Where: `lower/core/ast-walk.ts`.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.2 One `oneArgument` check for the five builtin sites.
+  - Done 2026-10-08 (step 1.7a). `core/ast-walk.ts` is the one home of every AST walk in `lower/`: `exprHoldsCall`,
+    `overridesCalled`, `reachedNames`, `borrowedPointerNames` (already there since 1.6.18) now take their children from
+    one private `astChildren` (every own value but `span` — `overridesCalled` walked the span too, which holds only
+    positions); `queryCondition`'s leading-query scan is `leadingOperand` (through parentheses, NOT and the left of
+    AND_THEN/OR_ELSE). A grep finds no other `Object.entries`/`Object.values` walk over the AST in `lower/`. S ✓.
+- [x] 1.7.2 One `oneArgument` check for the five builtin sites.
   - Where: `lower/builtins/arity.ts` and its callers.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.3 One EXTENDS chain (lean 10.1, widened).
+  - Done 2026-10-08 (step 1.7a). `builtins/arity.oneArgument(call, accepts)` is the one check; the five sites keep what
+    they let through as a named option (`OneArgumentAccepts`, filed for 6.A.18's kind of change): `conversions.ts` the
+    bare-conversion source (none) and the `to_string` enum check (`named`, `output`), `sizeof.ts` SIZEOF (`output`),
+    `system.ts` `__ISVALIDREF` (`named`, `output`), `values/fold.ts` `convertedConstant` (`named`, `output`); `MOVE` and
+    the three conversion arities used it already. New `builtins/arity.test.ts` (2). S ✓.
+- [x] 1.7.3 One EXTENDS chain (lean 10.1, widened).
   - What: the 13 lowering sites (lower.ts 164-169, 179-188, 232, 247-252, 261, 326-335; calls.ts 93-102, 107-117, 635-640; bytes.ts
     81-83; interfaces.ts 47-70 incl. `interfaceChain`; storage.ts 77-87) use `core/chain.ts` over `symbols.extendsChain`. A site whose
     order or cycle handling differs keeps a documented parameter, listed here (6.B.3's input).
   - Where: `lower/core/chain.ts` and the sites.
   - Accept: G, S; a grep finds no hand-written EXTENDS walk in `lower/`.
   - Depends: 1.6.21, 1.1.2.
-- [ ] 1.7.4 One IR walker.
+  - Done 2026-10-08 (step 1.7a). `core/chain.ts` holds every EXTENDS walk; the hand-written ones are gone (a grep for
+    `for (let … extends` / `.baseScope` loops in `lower/` finds none; what remains reads ONE step — `layout.ts` the
+    direct base, `bytes.ts` whether a struct extends, SUPER^'s `codeOwner.baseScope`). THE MECHANISMS DIFFER and each
+    site keeps its own (6.B.3's input): BY THE BINDER'S LINK (`symbols.extendsChain`) — `chainNamesOf`, `scopeChain`
+    (`init/attributes.initMethod`, `init/fb-init.fbInits`, `storage/bytes.byteSize`'s VAR_INST check); BY THE QUEUED
+    BODIES (`lw.bodies`) — `bodyChain` (`chainOf`, `init/attributes.pathFields`,
+    `storage/addresses.addressSharedByInstances`); BY NAME LOOKUP — `declaredChain` (`init/fb-init.declaredArgs`, every
+    kind; `interfaces/tags.implementsInterface` with `limit` 32, its old depth cap), `pouChain`/`chainNames` (FB or
+    PROGRAM, a repeated NAME ends it — `calls/routines.calledRoutine`'s in-out walk) and `interfaceChainOf` (was
+    `interfaces/tags.interfaceChain`). Each walk now visits a unit once: `pathFields`, `addressSharedByInstances`,
+    `declaredArgs`, `initMethod` and `fbInits` had no guard (on a cycle they did not end, so no answer depended on it).
+    New `core/chain.test.ts` (3). S ✓.
+- [x] 1.7.4 One IR walker.
   - What: `touchesOnlyItsOwn`, `writesOnlyLocals`, `reachesDispatch`, `writesGlobal`, `callsIn`, `callsNothing` (→ `!holdsCall`),
     `mapPlaces`, `exitsAfter`, `blocksOf` and the init-sequence read walk run on `ir/walk.childrenOf`. The init-sequence walk keeps its
     current skip set (select, freezes) as an explicit option (removed in 5.9).
   - Where: `transpile/ir/walk.ts` and callers.
   - Accept: G, S; a grep finds no reflective IR walk outside `ir/walk.ts`.
   - Depends: 1.2.3, 1.6.21.
-- [ ] 1.7.5 `guardWrite(place, checks)`.
+  - Done 2026-10-08 (step 1.7a). On `ir/walk.ts` (`childrenOf`): `touchesOnlyItsOwn`, `writesOnlyLocals` (moved there
+    from `calls/reentrancy.ts`), `callsNothing` → `!holdsCall` (deleted), specialize's reflective `mapPlaces` → walk's
+    (deleted with its `isPlace`), `reachesDispatch` and `writesGlobal` on the exported `someNode` (each enters a called
+    routine's or FB's body from the lowering's tables by calling `someNode` again — the IR walk is the walk's, the
+    resolver the caller's), the init-sequence read walk → `findPlace(e, onPlace, initReadChildren)` (`readsInvoke`/
+    `readsPlace` deleted; `reads(e, onPlace)` keeps the name). `initReadChildren` is the named option: a call's inputs,
+    bindings (a copy's value only), then instance; no `select`, freeze or lent (removed in 5.9). `callsIn`, `blocksOf`,
+    `exitsAfter` were already there. A grep finds no reflective IR walk outside `ir/walk.ts` (left: `core/ast-walk.ts` —
+    AST; `init/fb-init.ts` iterating an `IrInit`'s fields — data; `interp/runner.ts` rendering a value). Equivalence on
+    the real IR: `test/conformance/ir-walk.test.ts` keeps the four replaced walks verbatim as oracles and requires the same
+    answer from `touchesOnlyItsOwn`/`writesOnlyLocals` on every body and statement, the same tree from `mapPlaces`, and
+    the same place visit order from the read walk on every expression, of every lowered fixture (green). New
+    `ir/walk.test.ts` cases (4). S ✓.
+- [x] 1.7.5 `guardWrite(place, checks)`.
   - What: each store site passes its current check list explicitly (the per-site subsets listed here). Making them uniform is 6.A.18.
   - Where: `lower/places/access-guards.ts` and the store sites.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.6 `core/nested.ts`.
+  - Done 2026-10-08 (step 1.7a). `places/access-guards.guardWrite(lw, place, span, checks)` over `WriteCheck`
+    (`open-array`, `interface`, `through-reference`, `union`, `constant`, applied in the listed order); `through` deleted.
+    The per-site lists (6.A.18's input): `:=` into a place `open-array, constant`; into a reference's target `constant`;
+    `s[i] :=` `constant`; a chain link `open-array` + FULL_WRITE; FULL_WRITE (`interface, through-reference, union,
+    constant`) for a latch, an FB output (`calls/outputs.ts`), a non-CONSTANT in-out binding (`calls/binding.ts`), an ANY
+    argument (`pointers/any.ts`); a FOR variable `union, constant`; an FB input stored into the instance `constant`. Not a
+    store, so not on it: `pointers/address.ts`'s ADR refusal of a union member (its own message). S ✓.
+    Step 1.7a end: `bun typecheck` clean; `bun run lint` green (layering 5 known; size 1 ceiling; 5 functions over 80;
+    citations 569, warning); `bun test src/transpile scripts test/conformance/ir-walk.test.ts` 397 pass, 0 fail; S ✓
+    identical (5357 fixtures).
+- [x] 1.7.6 `core/nested.ts`.
   - What: one diagnostic drain replaces the 12 hand-written drains; one `declareGlobals` replaces places.ts 47-53, storage.ts 139-154 and
     calls.ts 228-229.
   - Where: `lower/core/nested.ts` and the sites.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.7 One body pipeline `bodyOf(unit)`, replacing the five copies (calls.ts 545/656, 687/698, 802/821, 1303/1313; lower.ts 71/113).
+  - Done 2026-10-08 (step 1.7b). `core/nested.ts`: `drain(into, from, since)` — THE drain, a COPY (a routine's or body's
+    own lowering is kept and asked again, so what it reported stays its own), true when there was anything — and
+    `nested(lw, scope, mode, fn)`, a scratch lowering in its modes drained into `lw` once. The 14 hand-written drains are
+    `drain` (`calls/routines.ts` ×5 — keptVariables, calledRoutine, baseBody, calledLayout and the owner's in-outs —,
+    `calls/property.ts`, `calls/last-binding.ts`, `entry/finish.ts`, `interfaces/lend.ts`, `init/instance-init.ts`,
+    `storage/layout.ts`, and the three `declareGlobals` replaced) or `nested` (declareOutputs, the owner's in-outs); the
+    three that skip a drain into the root itself keep their `lw !== root` test at the site (`drain` has no implicit one:
+    `instance-init.ts` drains a frame that may be the asker's own). `declareGlobals(into, scope, section, prefix)`
+    replaces `places/globals.ts` `declareGlobal`'s body, `storage/statics.ts`'s and `keptVariables`' VAR_STAT (one
+    scratch per section where it reused one — declarations in global mode write only the shared globals). DESIGN
+    CONFLICT for the gate: design.md §2.4 puts `declareGlobals` in `core/nested.ts`, but it calls `declareVars`
+    (`storage/`), which rule 4b forbids `core/`; it lives in `storage/declare.ts` beside `declareVars`. New
+    `core/nested.test.ts` (2). S ✓.
+- [x] 1.7.7 One body pipeline `bodyOf(unit)`, replacing the five copies (calls.ts 545/656, 687/698, 802/821, 1303/1313; lower.ts 71/113).
   - Where: `lower/calls/routines.ts`.
   - Accept: G, S.
   - Depends: 1.7.6.
-- [ ] 1.7.8 One routine cache.
+  - Done 2026-10-08 (step 1.7b). `calls/routines.bodyOf(lw, unit, body, name, { library })` → `{ statements } |
+    BodyRefusal` (`graphical-body`, `parse`, `call-library`, with the message): the five copies are gone — `calledRoutine`,
+    `baseBody`, `calledLayout` (reported through `fail`), `calls/property.ts` and `entry/lower-unit.ts`. Each site
+    reports the refusal its own way; the POU's own body is unnamed (its messages say "body"/"a body that is not ST is
+    not lowered here", as before) and is not asked the library question (`library: false` — it never was), and its ST
+    check still runs before anything is declared, its parse after the init sequence is built (order kept: a parse error
+    beside a failing initializer still answers the initializer's). `isBodylessLibrary` is private. S ✓.
+- [x] 1.7.8 One routine cache.
   - What: `instanceInitRoutine` and `specializeRoutine` go through `once`, which gains the lowering/failed states and the recursion guard.
   - Where: `lower/calls/routines.ts`, `init/instance-init.ts`, `calls/specialize.ts`.
   - Accept: G, S; a grep finds one writer of the routine cache.
   - Depends: 1.7.7.
-- [ ] 1.7.9 One ADR recognizer `adrOperand`, replacing pointers.ts 96, calls.ts 337-343 and bytes.ts 173-174.
+  - Done 2026-10-08 (step 1.7b). `once(lw, name, span, build, { quiet })` is the one writer of `lw.routines` (a grep
+    finds `routines.set` only there). `init/instance-init.ts`'s `__INIT` and `calls/specialize.ts`'s copies go through it
+    with `quiet` — the two differences they had, kept by name: a failed one answers undefined without a second refusal
+    (its builder reported), and it is never `lowering` while it builds (no recursion guard). `specializeRoutine` throws if
+    its key were ever cached failed (it cannot be). New `calls/routines.test.ts` (2; 1.8.2 adds `calls.test.ts`'s
+    routine tests to it). S ✓.
+- [x] 1.7.9 One ADR recognizer `adrOperand`, replacing pointers.ts 96, calls.ts 337-343 and bytes.ts 173-174.
   - Where: `lower/pointers/address.ts` and the sites.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.10 One path walk and one field lookup.
+  - Done 2026-10-08 (step 1.7b). `pointers/address.adrOperand(value, { parens })` (was `adrArgument`) replaces
+    `pointerValue`'s inline test (its operand is never parenthesized there — `pointerValue` unwraps first) and
+    `builtins/sizeof.adrDifference`'s `adrOf`, which recognizes the bare call only (`parens: false`, kept); the borrowed
+    and cursor bindings call it by its new name. A grep finds `"ADR"` only in it. S ✓.
+- [x] 1.7.10 One path walk and one field lookup.
   - What: `typeAlong` for the six type-along-path walks (incl. `insideInstance`), `fieldOf` for the ~15 upper-cased field lookups.
   - Where: `lower/places/path.ts` and the sites.
   - Accept: G, S; a grep finds no `toUpperCase()` field lookup outside `path.ts`.
   - Depends: 1.6.21.
-- [ ] 1.7.11 One place identity `staticKey`.
+  - Done 2026-10-08 (step 1.7b). `places/path.ts`: `fieldIn(fields, name)`, `fieldIndex(fields, name)` and
+    `fieldOf(lw, typeName, name)` — the one case-insensitive lookup — and `typeAlong(lw, root, path, rule, visit)`, the
+    one walk of the types along a path (`visit` sees each step on the type it is taken on and may stop the walk with a
+    value). THE RULES DIFFER and each walk keeps its own (`PathRule`): `throughInstance` and `insideInstance`
+    (struct, sized), `storage/bytes.byteOffset` (struct, sized), `storage/unions.unionOf` (composite, any — an
+    `ARRAY[*]`'s element too), `interfaces/tags.interfaceKey` (composite, sized). 21 field lookups now go through
+    `fieldIn`/`fieldIndex`/`fieldOf` (`calls/fb-call.ts` ×4, `invoke.ts` ×3, `super.ts` ×2, `specialize.ts`,
+    `last-binding.ts`, `init/attributes.ts`, `init/initial-values.ts`, `init/fb-init.ts` ×3, `places/places.ts`,
+    `pointers/cursor.ts`, `storage/bytes.ts`, `storage/unions.ts` ×2). Not converted (not a field lookup): AST
+    declaration matches on `name.text` (`init/fb-init.declaredArgs`, `places/globals.ts`, the interface method and
+    property lookups), `storage/unions.ts`'s member comparison. New `places/path.test.ts` (3). S ✓.
+    Step 1.7b end: `bun typecheck` clean; `bun run lint` green (layering 5 known; size 1 ceiling; 5 functions over 80, unchanged;
+    citations 566, warning); `bun test src/transpile scripts
+    test/conformance/ir-walk.test.ts` 404 pass, 0 fail; S ✓ identical (5357 fixtures).
+- [x] 1.7.11 One place identity `staticKey`.
   - What: replaces `stringIdentity`, `staticPath`, `placeKey`, `instanceKey`, `suffixOf`/`sameStep`, `sameTarget`, `sameStorage`;
     `pointerKey` and `interfaceKey` are built on it. Any copy whose identity differs keeps it behind a named option, listed here (4.15's
     input).
   - Where: `lower/places/path.ts`, `pointers/state.ts`, `interfaces/tags.ts`, `calls/last-binding.ts`.
   - Accept: G, S.
   - Depends: 1.7.10.
-- [ ] 1.7.12 One `programReentrant`, used by the five inlined sites and the init step's two.
+  - Done 2026-10-08 (step 1.7c). `places/path.ts`: one static-step writer (`stepKey`/`staticSteps` over a named
+    `StepWriting`) and on it `staticKey(place)` (was `stringIdentity`: root, slot, static path; the guard not part of it),
+    `staticPath`, `sameStep`, `sameTarget`, `suffixOf`, `placeKey` (and `instanceKey` on it); `interfaces/tags.tagOf`'s
+    inline static-path test is `staticPath`. THE WRITINGS DIFFER and each keeps its own (4.15's input): `KEY_STEP` (a
+    field upper-cased, an index `[v]`) for `staticKey`/`placeKey`; `SUFFIX_STEP` (`_Name` in source casing, `_v`) for a
+    specialized routine's name; `SAME_STEP` for `sameStep`/`sameTarget`, which compare an index by value AND type as `===`
+    did; `placeKey` also keys the frame (`GLOBAL`/`frameContext`) and refuses a guard and a non-frame root. Not on it, and
+    why: `pointers/state.pointerKey` keys a VARIABLE (a bare slot or THIS's field, never a path — a union member by its
+    union, a pointer reached through one by that one); `interfaces/tags.interfaceKey` is `pointerKey`, else
+    `FB:<type>.<field>` by the path's type (`typeAlong`); `sameStorage` compares TYPES, not places. New
+    `places/path.test.ts` cases (2). S ✓.
+- [x] 1.7.12 One `programReentrant`, used by the five inlined sites and the init step's two.
   - Where: `lower/calls/reentrancy.ts`.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.13 `reachesFbInit`: `holdsFbInit` and `reaches` merged (lean 10.1).
+  - Done 2026-10-08 (step 1.7c). `calls/reentrancy.programReentrant(lw, callee, target, rule)` → `"touches" |
+    "dispatch" | undefined` over a `Callee` (touched set, body; `routineCallee` reads a routine's by key) and a
+    `programTarget(place)` (the global slot, and whether the call is INSIDE a program's instance). Its sites, with their
+    rules (`ReentrancyRule`): the init step's FB_Init and slot-METHOD calls (both checks, always — the default);
+    `calls/property.ts` (both; asked only inside); `calls/invoke.ts` (touched always, interface call inside);
+    `calls/fb-call.ts` (both inside); `calledLayout`'s PROGRAM reaching its own instance (touched only). Each site keeps
+    its own refusal text per reason. New `calls/reentrancy.test.ts` (2). S ✓.
+- [x] 1.7.13 `reachesFbInit`: `holdsFbInit` and `reaches` merged (lean 10.1).
   - Where: `lower/init/fb-init.ts`.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.14 Enum numbering and default in `types/enums.ts`.
+  - Done 2026-10-08 (step 1.7c). `init/fb-init.reachesFbInit(st, t, what)` is the one memoized deep walk (array
+    elements, struct and FB fields; a type reached again while asked answers false); `what` = `"fb-init"` (was
+    `holdsFbInit`, memo `fbInitHeld`) or `"init-step"` (was `reaches`, memo `known`), the type's own part in
+    `ownInitWork`. Callers (`visit`, `callFbInits`, `init/step.ts`) ask by name. S ✓.
+- [x] 1.7.14 Enum numbering and default in `types/enums.ts`.
   - What: `numberEnumerators` replaces `defaultOfValues` and `enumConstant`'s numbering; `enumDefaultValue` replaces the value part of
     `enumDefault`/`inlineEnumDefault`; `lower/values/enums.ts` keeps only `enumStorage`/`enumConstant` (IR). If 0.9 found an enum home
     in the front-end, use it.
   - Where: `types/enums.ts`, `types/enums.test.ts`, `types/index.ts`, `lower/values/enums.ts`.
   - Accept: G+LSP, S.
   - Depends: 1.6.21, 1.1.14.
-- [ ] 1.7.15 One operand meet `meet(lw, operands, context)`.
+  - Done 2026-10-08 (step 1.7c). `frontend/types/enums.ts`: `numberEnumerators(values, valueOf, until?)` (the numbering:
+    written values folded, unwritten the previous + 1, first 0; a written value that does not fold ends it,
+    `unfolded`; `until` stops after that member, folding nothing past it) and `enumDefaultValue(values, init, valueOf)`
+    (zero if a value, else the first, or the type-level `:= Name`); both on the types index. They replace the private
+    `memberValues`/`defaultOfValues` (`enumDefault`, `inlineEnumDefault` and `strictEnum` now call them) and
+    `lower/values/enums.enumConstant`'s own numbering (it numbers `until` the member asked, as it stopped there before, and
+    refuses `enum-value` naming the member that does not fold). `lower/values/enums.ts` keeps `enumStorage`,
+    `enumeratorValue` and `enumConstant` (IR) — its member-list lookup (by name in the project) is not the front-end's
+    (by the scope's file), so it stays, for 5.3/H7. New `frontend/types/enums.test.ts` (3, red first). S ✓; G+LSP:
+    see the step end.
+- [x] 1.7.15 One operand meet `meet(lw, operands, context)`.
   - What: replaces expressions.ts 61-67/253-279, builtins.ts `meetOperands` and statements.ts 321-323; a context whose rule differs keeps
     it as a named context, listed here.
   - Where: `lower/values/promote.ts`.
   - Accept: G, S.
   - Depends: 1.6.21.
-- [ ] 1.7.16 No fallback in the refusal kind.
+  - Done 2026-10-08 (step 1.7c). `values/promote.meet(lw, operands, context, span)` → `{ operands, type }`; the three
+    contexts keep their rules by name (`MeetContext`): `binary` (literal beside a variable, all-constant integer fold, then
+    `commonType`, refused when none, promoted when `lift` — `expressions/operators.ts` passes `LIFTED.has(op)`; the
+    operands come back retyped), `builtin` (was `builtins/value-functions.meetOperands`, deleted: variables decide, a REAL
+    constant widens, all-constant integers fold, an unholdable constant meets, promoted), `for-compare`
+    (`statements/loops.ts`: `commonType`, unpromoted, unrefused). New `values/promote.test.ts` (4). S ✓.
+    Step 1.7c end: `bun typecheck` clean; `bun run lint` green (layering 5 known; size 1 ceiling; 5 functions over 80;
+    citations 558, warning); `bun test src/transpile src/frontend/types scripts test/conformance/ir-walk.test.ts` 546
+    pass, 0 fail; S ✓ identical (5357 fixtures); `bun run test:corpus` (1.7.14's G+LSP) 19 pass, 1 skip, 0 fail; the
+    build-conformance oracle and the LSP replay run in the end-of-run `test/conformance` (below, under 1.7.20).
+- [x] 1.7.16 No fallback in the refusal kind.
   - What: `bail` calls `lowerCodeKind`; an unregistered code throws `LoweringBug`.
   - Where: `lower/core/lowering.ts`, `lower/diagnostics/codes.ts`.
   - Accept: G, S; `codes.test.ts` green, plus a test that an unregistered code throws.
   - Depends: 1.2.2, 1.6.21.
-- [ ] 1.7.17 One VAR_TEMP reset site `resetTemps(lw)`, called from the three places (lower.ts 117, calls.ts 821 and 1313 before the moves).
+  - Done 2026-10-08 (step 1.7d). `diagnostics/codes.emittedKind(code)` — the kind of a code lowering EMITS, throwing
+    `LoweringBug` (`semantics/faults.ts`) for an unregistered one; `Lowering.bail` and `lowerDiagnostic` use it, the
+    `?? "unclassified"` is gone. `lowerCodeKind` stays the question "is this registered?" (undefined when not) that
+    `codes.test.ts` and `fixtures.test.ts` ask. Red first: `codes.test.ts` "bail and lowerDiagnostic throw LoweringBug on a
+    code the registry does not hold" (and a registered code and a templated family answer their kind). `codes.test.ts`
+    5 pass; S ✓ (no fixture emits an unregistered code).
+- [x] 1.7.17 One VAR_TEMP reset site `resetTemps(lw)`, called from the three places (lower.ts 117, calls.ts 821 and 1313 before the moves).
   - Where: `lower/init/temp-resets.ts`, `calls/routines.ts`, `entry/lower-unit.ts`.
   - Accept: G, S.
   - Depends: 1.7.7.
-- [ ] 1.7.18 Lowering's call parameter view in `calls/parameters.ts`.
+  - Done 2026-10-08 (step 1.7d). `init/temp-resets.resetTemps(lw, unit)` (was `tempResets(lw, sections, span)` and a
+    `?? []` at each caller): the one reset site, called from the three bodies that run — `entry/lower-unit.ts` (the
+    POU's), `calledLayout` (an FB's at its first call) and `baseBody` (a base's by `SUPER^()`). A refused reset still
+    answers no statements and the body lowers on, its refusal reported (kept, documented at the one site). S ✓.
+- [x] 1.7.18 Lowering's call parameter view in `calls/parameters.ts`.
   - What: `positionalParameters`, `inOutSections`, `prefixed`, `positionalOf` in one module; a differential test compares its parameter
     list with `types/infer/callee.resolveCallee` over every call in the lowered fixtures and writes the differences here (6.B.4's input).
   - Where: `lower/calls/parameters.ts`, `parameters.test.ts`.
   - Accept: G, S; the difference list is written here.
   - Depends: 1.6.21, 1.1.13.
-- [ ] 1.7.19 One tag encoding `core/tags.ts`.
+  - Done 2026-10-08 (step 1.7d). `calls/parameters.ts` already held `positionalParameters`, `inOutSections`, `prefixed`,
+    `positionalOf` (1.6.18). New `calls/parameters.test.ts` (2: the positional order; a chain's in-outs and a prefixed
+    section) and the differential `test/conformance/call-parameters.test.ts`: over every call in every lowered fixture's
+    POU, METHOD, ACTION and FUNCTION bodies whose callee `types/infer/callee.resolveCallee` resolves, lowering's positional
+    order (`positionalParameters` over the callee's own sections) against the front-end's `positional`. Numbers
+    (3225 lowered fixtures, 5512 calls): 1846 the front-end resolves no callee for (the builtins, conversions, ADR/SIZEOF…
+    — lowering's own), 2824 FB-instance calls (front-end: the chain's VAR_INPUT + VAR_IN_OUT, base first; lowering binds
+    NO argument of an FB call by position — `call-positional`), 842 direct calls compared. THE DIFFERENCES (6.B.4's
+    input) — CORRECTED by the 1.6e+1.7d gate (review finding; the first list said lowering's order "counts VAR_OUTPUT — a
+    positional argument can bind an output", which lowering never does): (1) a positional argument at or past a
+    VAR_OUTPUT declared among the parameters — lowering REFUSES it (`call-positional` "counted across a VAR_OUTPUT",
+    `calls/parameters.positionalBinding`), the front-end SKIPS the output and binds it to the next input
+    (`types/infer/callee.ts` `POSITIONAL_SECTIONS`, "VAR_OUTPUT is never bound by position"). NEITHER rule is recorded:
+    `callshape_positional_arguments` covers VAR_INPUT and VAR_IN_OUT only, and no fixture has such a call (0 of the 5357
+    fixtures refuse with it; 0 of the lowered ones bind across an output — a lowered fixture cannot, lowering refuses
+    it). So the LSP's rule is unrecorded too; 6.B.4 starts by recording a positional argument past a VAR_OUTPUT. 12
+    compared calls of 7 routines declare an output among their parameters, none with a positional argument past it.
+    (2) the FB-instance case above. The differential test now compares what each BINDS, argument by argument
+    (`positionalBinding` — the rule `invoke.ts` binds by — against `positional[i]`): 554 positional arguments of the 842
+    direct calls, all naming the same parameter and in-out mark, 0 across an output (counted and named when one
+    appears); any other difference fails, and so does a fixture that throws or whose GVLs do not parse (named; the
+    `catch { continue }` that dropped them is gone, here and in `ir-walk.test.ts`'s two walks — 0 throw today). Not
+    covered: a PROPERTY accessor's body (not walked). S ✓.
+- [x] 1.7.19 One tag encoding `core/tags.ts`.
   - What: `NO_TAG`, `tagOfIndex`, `indexOfTag`; the pointer, interface-instance and `__inout_binding` schemes number through it.
     Whether the schemes merge is 4.2/4.14.
   - Where: `lower/core/tags.ts`, `pointers/state.ts`, `interfaces/tags.ts`, `calls/last-binding.ts`.
   - Accept: G, S; a grep finds no `+ 1`/`- 1` tag arithmetic outside `core/tags.ts`.
   - Depends: 1.6.21.
-- [ ] 1.7.20 Registries and surface in place.
+  - Done 2026-10-08 (step 1.7d). `core/tags.ts`: `NO_TAG` (0), `tagOfIndex(k)` (k + 1), `indexOfTag(tag)`. The three
+    schemes number through it: a pointer's targets (`pointers/state.recordTarget`, `pointers/deref.pointerArms`, the null
+    `p := 0` in `pointers/address.pointerValue`), the interface instances (`interfaces/tags.tagOf`, an interface given
+    `0`; read back in `dispatch.ts`, `lend.ts`, `query.ts`, `tags.tagsOf`) and the in-out binding tag
+    (`calls/last-binding.ts`). A grep finds no `+ 1`/`- 1` tag arithmetic outside `core/tags.ts` (an element pointer's
+    `ELEMENT_TAG_BIAS` is a scheme of its own, named there). New `core/tags.test.ts` (1). S ✓.
+- [x] 1.7.20 Registries and surface in place.
   - What: the transpile barrel exports exactly design.md §2.1.1; `lower/index.ts` the lower row; the dead-export list of 1.0.4 is cleared
     (each name deleted, un-exported, or used).
   - Where: `transpile/index.ts`, `lower/index.ts`, `scripts/dead-exports.ts` output.
   - Accept: G, S; `dead-exports.ts --scope src/transpile` (filtered per design.md §8) prints nothing.
   - Depends: 1.7.1-1.7.19.
+  - Done 2026-10-08 (step 1.7d). The transpile barrel names its exports one by one (`export type *` from `ir/`, the rest
+    explicit): the runtime surface is §2.1.1's — `lowerPrepared` joined (exported from `entry/lower-source.ts`),
+    `lowerDiagnostic` left (nothing outside lowering builds a refusal; `index.test.ts` edited deliberately) — plus,
+    each named in the barrel with its consumer, `LoopGuardError` (task 27 came after the design; `backends.test.ts`, the
+    confidence rating) and the type `LoweringProject` (`test/corpus/support/project.ts`). `lower/index.ts` is the lower
+    row (+ `LoweringProject`): `LowerCodeKind` and `lowerDiagnostic` left it; `interp/index.ts` drops `RunOptions`. The
+    dead-export list is cleared — `dead-exports.ts --scope src/transpile` prints "no finding". Of 1.0.4's 24 names, the
+    ones 1.6/1.7 had not already removed or used, and the new ones this run's modules added, are un-exported (26):
+    `GlobalsUse`, `RuntimeId`, `RuntimeHelper`, `OneArgumentAccepts`, `UNARY_MATH`, `Callee`, `ReentrancyRule`,
+    `reachesDispatch`, `NestedMode`, `BIN_OPS`, `readsLaterTemp`, `SymbolAst`, `InterfaceFrame`, `InterfaceTables`,
+    `WriteCheck`, `refuseConstantWrite`, `PathRule`, `bitPlace`, `pointerArms`, `nullDeref`, `lowerChain`, `addressBits`,
+    `INSTANCE_STORAGE`, `inTicks`, `MeetContext`, `CaseRecording` (a type in an exported signature emits fine unexported
+    under TS 7's declaration emit, checked). S ✓.
+    Step 1.7d end, and the end of the 1.6e-1.7d run (VOLT_FIXTURES unset, each once): `bun typecheck` clean; `bun run
+    lint` green (layering 5 known; size 1 ceiling; 5 functions over 80, unchanged; citations 551 missing, warning);
+    `bun test src scripts test/conformance/ir-walk.test.ts test/conformance/call-parameters.test.ts` 2095 tests, 0 fail;
+    S ✓ identical (5357 fixtures, 170 s); `bun test test/conformance test/libraries` 6211 pass, 389 todo, 0 fail (6600
+    tests, 22 files, 309 s); `bun test test/frontend` 45 pass, 0 fail; `bun run rate:fixtures` — `map.generated.ts`
+    unchanged (edge agree 3046, disagree 0, not-run 179); `bun run test:corpus` 19 pass, 1 skip (after 1.7c); `bun run
+    check` (repo root) 18 passed.
+  - GATE 1.6e+1.7d (2026-10-08). Review findings, all three fixed: (a) 1.7.18's difference list was wrong about
+    lowering (it refuses a positional argument across a VAR_OUTPUT, never binds one) — corrected above; the rule is
+    now one function `calls/parameters.positionalBinding`, read by `invoke.ts` and by the differential test, which
+    compares what each side BINDS per argument (red first: `parameters.test.ts` "what a positional argument binds
+    to"); (b) `call-parameters.test.ts` and `ir-walk.test.ts`'s two walks no longer drop a fixture that throws or
+    whose GVLs do not parse — a throw fails the test, an unparsed GVL is named (0 of each today); (c)
+    `diagnostics/diagnostic.ts`'s "Lowering is TOTAL — it never throws" now says it is total on its input and throws
+    only `LoweringBug` on a bug of its own (an unregistered code, 1.7.16). Numbers (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES
+    unset): `bun typecheck` clean; `bun run lint` green (layering 5 known; size 1 ceiling; 5 functions over 80,
+    unchanged; citations 551 missing, warning); `dead-exports.ts --scope src/transpile` no finding; `bun test` 8527
+    pass, 35 skip, 432 todo, 0 fail (8994 tests, 258 files, 574 s); S ✓ identical (5357 fixtures, 183 s); `bun run
+    rate:fixtures` — `map.generated.ts` unchanged (edge agree 3046, disagree 0, not-run 179); `bun run test:corpus` 19
+    pass, 1 skip, 0 fail; `bun run check` 18 passed. `call-parameters`: 3225 fixtures, 5512 calls, 842 direct, 554
+    positional arguments compared, 0 differences, 0 across an output. ONE commit for 1.6e and 1.7d: they ran as one
+    run in one tree (1.7d edits the files 1.6e moved — `core/lowering.ts`, `calls/*`, `init/*` …) and no 1.6e tree
+    was kept, as with 1.6a-1.6d.
 
 ### 1.8 Tests and conformance support
 

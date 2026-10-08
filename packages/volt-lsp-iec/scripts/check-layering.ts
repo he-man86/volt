@@ -102,17 +102,11 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
 export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
-  // the `Lowering` frame lives in lower/lowering.ts until task 1.6.21 makes it core/lowering.ts
-  "4b transpile/lower/values/enums.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
-  "4b transpile/lower/core/ast-walk.ts → transpile/lower/lowering.ts: lower/core is a leaf and must not import lower/(root)",
-  "4b transpile/lower/core/chain.ts → transpile/lower/lowering.ts: lower/core is a leaf and must not import lower/(root)",
-  "4b transpile/lower/values/fold.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
-  "4b transpile/lower/values/literals.ts → transpile/lower/lowering.ts: lower/values is a leaf and must not import lower/(root)",
   // an enum's storage reads the string capacity default (`withStringCapacity`), which task 3.3 deletes
   "4b transpile/lower/values/enums.ts → transpile/lower/storage/layout.ts: lower/values is a leaf and must not import lower/storage",
-  // design.md §4.2 puts `AttributeLookup` in project/prepare.ts, and the shared state the frame holds (`Shared.attributes`)
-  // reads it: the design's placement and rule 4b disagree — reported to the gate (step 1.6d)
-  "4b transpile/lower/lowering.ts → transpile/lower/project/prepare.ts: only lower/entry imports lower/project",
+  // design.md §4.2 puts `AttributeLookup` in project/prepare.ts, and the shared state (`core/shared.ts` `Shared.attributes`)
+  // reads it: the design's placement and rule 4b disagree — reported to the gate (step 1.6d; core/shared.ts since 1.6.21)
+  "4b transpile/lower/core/shared.ts → transpile/lower/project/prepare.ts: lower/core is a leaf and must not import lower/project",
   // the exec oracle's world (lower/conditions.ts) is read by project/prepare.ts and by calls/ (`calledRoutine`,
   // `propertyRoutine`): as §4.9's project/conditions.ts, calls/ would import project/ — reported to the gate (step 1.6d)
   "4b transpile/lower/project/prepare.ts → transpile/lower/conditions.ts: lower/project is a leaf and must not import lower/(root)",

@@ -14,7 +14,7 @@ import { IEC_DEREF } from "./pointer.js"
 import { IEC_STR } from "./string.js"
 import { TEXT } from "./text.js"
 
-export type RuntimeId =
+type RuntimeId =
   | "string"
   | "iec_max_min"
   | "text"
@@ -28,7 +28,7 @@ export type RuntimeId =
   | "iec_pow"
   | "iec_div"
 
-export interface RuntimeHelper {
+interface RuntimeHelper {
   readonly id: RuntimeId
   /** The helpers its text is followed by, in order — the string blob's three riders. */
   readonly deps: readonly RuntimeId[]

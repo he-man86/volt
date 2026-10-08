@@ -61,7 +61,7 @@ export {
   type Type,
 } from "./type.js"
 export { isDialectType, resolveNamedType, resolveTypeExpr } from "./resolve.js"
-export { enumDeclaration, enumDefault, inlineEnumDefault, strictEnum } from "./enums.js"
+export { enumDeclaration, enumDefault, enumDefaultValue, inlineEnumDefault, numberEnumerators, strictEnum } from "./enums.js"
 export { renderType } from "./render.js"
 
 // inference

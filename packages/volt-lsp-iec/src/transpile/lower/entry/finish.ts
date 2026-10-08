@@ -4,11 +4,12 @@
  * not in `core/`, because it drives `interfaces/` and `calls/`.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrStmt } from "../../ir/index.js"
 import { tagsOf } from "../interfaces/tags.js"
 import { callsIn } from "../../ir/walk.js"
 import { lendToCall } from "../interfaces/lend.js"
+import { drain } from "../core/nested.js"
 
 /**
  * Every call through an interface, and every __QUERYINTERFACE, given the instances its variables may hold — run once the
@@ -41,7 +42,7 @@ export function onEachTag(lw: Lowering, key: string, each: (tag: number, root: L
       seen.set(tag, foreign || (seen.get(tag) ?? false))
       each(tag, root, foreign)
     }
-    if (lw !== root) root.diagnostics.push(...lw.diagnostics.slice(before))
+    if (lw !== root) drain(root, lw, before)
     return fresh.length > 0
   })
 }

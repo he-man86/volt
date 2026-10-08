@@ -7,7 +7,7 @@
 
 /** Where a case's answer was measured: a conformance fixture, the variable its recording holds the answer in, and the
  *  variable holding the input the fixture ran — both held to the recording, so neither half of a case can drift. */
-export interface CaseRecording {
+interface CaseRecording {
   readonly fixture: string
   readonly variable: string
   readonly input: string

@@ -4,8 +4,8 @@
 
 import type { IrBinding, IrDispatch, IrExpr, IrInvoke, IrRoutine, Place } from "../../ir/index.js"
 import { type InFrame, isInFrame, specializeRoutine } from "./specialize.js"
-import { aliases, bindInOut, bindWhereWritten, holding } from "./binding.js"
-import type { Lowering } from "../lowering.js"
+import { aliases, bindInOut, bindWhereWritten, holding, shadowedInOutsOf } from "./binding.js"
+import type { Lowering } from "../core/lowering.js"
 import type { CallArg, Expr, Span } from "../../../frontend/syntax/index.js"
 import { anyInputsOf, bindAnyArgument, bindAnyTargets } from "../pointers/any.js"
 import { bindOutputArgument, bindUnconnectedOutputs } from "./outputs.js"
@@ -19,9 +19,9 @@ import { namespaceOf } from "./namespace.js"
 import { methodOf, ownMember } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { interfaceCall } from "../interfaces/dispatch.js"
-import { inGlobals, reachesDispatch, touchesOf } from "./reentrancy.js"
-import { staticPath } from "../places/path.js"
-import { positionalOf } from "./parameters.js"
+import { inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
+import { fieldIndex, staticPath } from "../places/path.js"
+import { positionalBinding, positionalOf } from "./parameters.js"
 import { bindCursorArgument, cursorInputsOf } from "../pointers/cursor.js"
 import { bindBorrowedArgument, borrowedInputsOf } from "../pointers/borrowed.js"
 import { interfaceArgument } from "../interfaces/tags.js"
@@ -141,9 +141,9 @@ function memberTarget(
   if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
   const routine = methodOf(lw, base.type, callee.member.name, call.span, call)
   // moved out while it runs, the program must not reach its own instance from the method
-  if (routine !== undefined && base.root === "global" && touchesOf(lw).get(routine.key)?.has(base.slot))
-    return lw.bail("call-program-reentrant", `${callee.member.name} reaches its own PROGRAM's instance while it runs`, call.span)
-  if (routine !== undefined && base.root === "global" && base.path.length > 0 && reachesDispatch(lw, routine.body))
+  const reentrant = routine === undefined ? undefined : programReentrant(lw, routineCallee(lw, routine), programTarget(base), { touched: "always", dispatch: "inside" })
+  if (reentrant === "touches") return lw.bail("call-program-reentrant", `${callee.member.name} reaches its own PROGRAM's instance while it runs`, call.span)
+  if (reentrant === "dispatch")
     return lw.bail("call-program-reentrant", `${callee.member.name} calls through an interface, which may reach its PROGRAM while it runs`, call.span)
   return routine === undefined ? undefined : { routine, instance: base }
 }
@@ -163,9 +163,9 @@ function positionalArguments(lw: Lowering, routine: IrRoutine, call: Extract<Exp
       args.push(arg)
       continue
     }
-    const parameter = declared[position]
-    if (parameter === undefined || declared.slice(0, position + 1).some((d) => d.output))
-      return lw.bail("call-positional", `${routine.name} called with a positional argument ${parameter === undefined ? "past its parameters" : "counted across a VAR_OUTPUT"}`, arg.span)
+    const parameter = positionalBinding(declared, position)
+    if (typeof parameter === "string")
+      return lw.bail("call-positional", `${routine.name} called with a positional argument ${parameter === "past-parameters" ? "past its parameters" : "counted across a VAR_OUTPUT"}`, arg.span)
     args.push({ ...arg, param: { kind: "ident_expr", name: parameter.name, span: arg.span } })
   }
   return args
@@ -176,7 +176,7 @@ function positionalArguments(lw: Lowering, routine: IrRoutine, call: Extract<Exp
 function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | undefined {
   const routine = b.routine
   const name = arg.param?.name.toUpperCase()
-  const bound = name === undefined ? -1 : routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
+  const bound = name === undefined ? -1 : fieldIndex(routine.inouts, name)
   const param = bound >= 0 ? routine.inouts[bound]! : undefined
   // `name => target`: a VAR_OUTPUT bound to the caller's place (conformance `state_routine_outputs`); left empty, a temp
   if (arg.output) return bindOutputArgument(lw, b, arg, bound, param)
@@ -189,7 +189,7 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
     b.order.push({ inout: bound })
     return true
   }
-  const k = routine.inputs.findIndex((i) => routine.locals[i]!.name.toUpperCase() === name)
+  const k = name === undefined ? -1 : fieldIndex(routine.inputs.map((i) => routine.locals[i]!), name)
   if (k < 0) return lw.bail("call-param", `${arg.param!.name} is not an input of ${routine.name}`, arg.span)
   if (anyInputsOf(lw).get(routine.key)?.has(routine.inputs[k]!)) return bindAnyArgument(lw, b, arg, k, name!)
   const cursorInOut = cursorInputsOf(lw).get(routine.key)?.get(routine.inputs[k]!)
@@ -226,7 +226,7 @@ function bindOpenBounds(lw: Lowering, b: InvokeBindings, span: Span): true | und
     const binding = b.inouts[i]
     for (let dim = 1; binding !== undefined && dim <= openDims(slot.type); dim++)
       for (const which of ["lower", "upper"] as const) {
-        const k = routine.inputs.findIndex((index) => routine.locals[index]!.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
+        const k = fieldIndex(routine.inputs.map((index) => routine.locals[index]!), boundName(slot.name, which, dim))
         // a copy written back takes the bounds of the place it copies (an FB's own array lent to its own METHOD)
         const at = isInFrame(binding) ? undefined : "kind" in binding ? binding.back : binding
         const value = k < 0 || at === undefined ? undefined : boundOf(lw, at, which, dim)
@@ -266,7 +266,7 @@ function bindInstanceInOuts(lw: Lowering, b: InvokeBindings, span: Span): boolea
     if (slot.ofInstance !== true) continue
     // THIS instance itself — `THIS^.inner.M()` is rooted at THIS too, but runs on a child with in-outs of its own
     // a parameter or local of this routine by that name hides the FB's in-out — lending it would lend the wrong one (review)
-    if (instance?.root === "this" && instance.path.length === 0 && lw.shadowedInOuts.has(slot.name.toUpperCase()))
+    if (instance?.root === "this" && instance.path.length === 0 && shadowedInOutsOf(lw).has(slot.name.toUpperCase()))
       return lw.bail("call-inout-shadowed", `${routine.name} reaches ${slot.name}, which a parameter or local of the calling routine hides`, span)
     const held = instance?.root === "this" && instance.path.length === 0 ? lw.inoutByName.get(slot.name.toUpperCase()) : undefined
     if (held === undefined) outside = true

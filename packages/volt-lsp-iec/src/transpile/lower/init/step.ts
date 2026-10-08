@@ -2,13 +2,13 @@
  * A POU's init step: what runs once before the first scan, in the order CODESYS runs it.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Span, TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrSlot, IrStmt } from "../../ir/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
-import type { InitStep } from "./state.js"
+import { initFrame, type InitStep } from "./state.js"
 import { typeZero } from "../../../frontend/types/index.js"
-import { declaredArgs, reaches, unreached, visit, writesGlobal } from "./fb-init.js"
+import { declaredArgs, reachesFbInit, unreached, visit, writesGlobal } from "./fb-init.js"
 
 /**
  * The init step: each instance's `call_after_global_init_slot` METHOD, run once before the first scan (conformance
@@ -47,8 +47,8 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const { fbInitCalls } = st
   // The POU's own initializers interleave with its instances the same way (transpile-review 23): those declared before an
   // instance whose init step does anything run before it. The rest keep their place after every FB_Init.
-  const frame = lw.frame as IrSlot[]
-  const ownInits = lw.initSequence?.bySlot ?? []
+  const frame = lw.slots as IrSlot[]
+  const ownInits = initFrame(lw).initSequence?.bySlot ?? []
   let ownRun = 0
   for (const [slot, frameSlot] of [...frame].entries()) {
     const clear = () => void (frame[slot] = { ...frame[slot]!, init: typeZero(frameSlot.type) })
@@ -70,8 +70,8 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const clear = () => void (globals[slot] = { ...globals[slot]!, init: typeZero(global.type) })
     if (!visit(st, { slot, path: [], type: global.type, span, root: "global" }, [], lw, global.init, clear)) return undefined
   }
-  if (lw.globals.some((g) => g.section !== "program" && reaches(st, g.type))) return unreached(st, "the globals")
-  for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reaches(st, l.type))) return unreached(st, `${r.routine.name}'s locals`)
+  if (lw.globals.some((g) => g.section !== "program" && reachesFbInit(st, g.type, "init-step"))) return unreached(st, "the globals")
+  for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reachesFbInit(st, l.type, "init-step"))) return unreached(st, `${r.routine.name}'s locals`)
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (st.globalArguments.size > 0 && writesGlobal(lw, fbInitCalls))
     return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)

@@ -3,16 +3,17 @@
  * an unconnected one given a temp.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { callHolds, type InvokeBindings } from "./invoke.js"
 import type { CallArg, Span } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrSlot, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { aliases, bindInOut } from "./binding.js"
 import { isInFrame } from "./specialize.js"
 import { lowerPlace } from "../places/places.js"
-import { through } from "../places/access-guards.js"
+import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
 import { convert } from "../values/convert.js"
+import { tempPlace } from "../core/temps.js"
 
 /** `name => target`: a VAR_OUTPUT bound to the caller's place, copied out after the call; left empty, nothing binds here. */
 export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, bound: number, param: IrSlot | undefined): true | undefined {
@@ -40,7 +41,7 @@ export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside:
   for (const [i, slot] of routine.inouts.entries()) {
     if (b.inouts[i] !== undefined || (outside && slot.ofInstance === true)) continue
     if (slot.section !== "VAR_OUTPUT") return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, span)
-    const temp = lw.tempPlace("output", slot.type, span)
+    const temp = tempPlace(lw, "output", slot.type, span)
     if (callHolds(b).some((p) => aliases(temp, p))) return lw.bail("call-inout-alias", `${slot.name} is unconnected on a call of this instance's own method`, span)
     b.inouts[i] = temp
   }
@@ -50,7 +51,7 @@ export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside:
 /** `q => y`: the output read out of the instance after the call, into a variable it converts to as an assignment does. */
 export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | undefined {
   const written = lowerPlace(lw, arg.value!)
-  const target = written === undefined ? undefined : through(lw, written, arg.span)
+  const target = written === undefined ? undefined : guardWrite(lw, written, arg.span, FULL_WRITE)
   if (target === undefined) return undefined
   // AN OUTPUT IS READ INTO A VARIABLE OF ITS OWN TYPE. `accepts_output_into_other_type` asked CODESYS on
   // 2026-09-18: `w(o => text)` with an INT output and a STRING variable does not compile, "Cannot convert type

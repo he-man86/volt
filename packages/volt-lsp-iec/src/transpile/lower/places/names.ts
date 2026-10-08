@@ -2,14 +2,14 @@
  * Names: which place a bare name is (its precedence), and which METHOD or ACTION a name on an FB is.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { FbType, Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { Expr, Span } from "../../../frontend/syntax/index.js"
 import type { IrRoutine, Place } from "../../ir/index.js"
 import { globalPlace } from "./globals.js"
 import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
 import { selfFb } from "./self.js"
 import { calledRoutine } from "../calls/routines.js"
-import type { FbType, RoutineSymbol } from "../core/lowering.js"
+import { pointerFrame } from "../pointers/state.js"
 
 /**
  * A bare name's place, by the precedence a body sees it (transpile-review 19): the routine's own local (its result,
@@ -18,7 +18,7 @@ import type { FbType, RoutineSymbol } from "../core/lowering.js"
  */
 export function namePlace(lw: Lowering, e: Extract<Expr, { kind: "ident_expr" }>): Place | undefined {
   // an ANY input is read only as `.diSize`; its value, `pValue` and `typeClass` are not measured
-  if (lw.anyInputs.has(e.name.toUpperCase())) return lw.bail("any-input", `${e.name} is an ANY input, used other than as .diSize`, e.span)
+  if (pointerFrame(lw).anyInputs.has(e.name.toUpperCase())) return lw.bail("any-input", `${e.name} is an ANY input, used other than as .diSize`, e.span)
   // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
   const local = lw.localByName.get(e.name.toUpperCase())
   if (local !== undefined) return { slot: local, path: [], type: lw.localSlots[local]!.type, span: e.span, root: "local" }

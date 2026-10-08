@@ -3,7 +3,7 @@
  * the IF (transpile-review 18).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrArm, IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerPlace } from "../places/places.js"
@@ -13,6 +13,10 @@ import { convert } from "../values/convert.js"
 import { onEachTag } from "../entry/finish.js"
 import { implementsInterface } from "./tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
+import { interfaceFrame, interfaceTables } from "./state.js"
+import { tempPlace } from "../core/temps.js"
+import { leadingOperand } from "../core/ast-walk.js"
+import { indexOfTag } from "../core/tags.js"
 
 /**
  * `found := __QUERYINTERFACE(from, into)` (conformance `itf_queryinterface_success_and_failure`): TRUE, and `into` names the
@@ -49,7 +53,7 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
   onEachTag(lw, source.key, (tag) => {
     // one arm per tag, as in `dispatch` — a revisited tag must not add a second label for the same value
     if (arms.some((a) => a.labels.some((l) => l.lo === BigInt(tag)))) return
-    if (implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, wanted))
+    if (implementsInterface(lw, interfaceTables(lw).instances[indexOfTag(tag)]!.fb.name, wanted))
       arms.push({ labels: [{ lo: BigInt(tag), hi: BigInt(tag) }], body: outcome(BigInt(tag), true), span })
   })
   return [{ kind: "switch", selector: { kind: "load", place: from, type: from.type, span }, arms, else: outcome(0n, false), span }]
@@ -65,20 +69,15 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
  * order is not recorded — stays refused there. `null` when the condition leads with no query.
  */
 export function queryCondition(lw: Lowering, cond: Expr): { before: IrStmt[]; cond: IrExpr } | undefined | null {
-  const leading = (e: Expr): Expr | undefined =>
-    e.kind === "paren" ? leading(e.inner)
-    : e.kind === "unary" && e.op === "NOT" ? leading(e.operand)
-    : e.kind === "binary" && (e.op === "AND_THEN" || e.op === "OR_ELSE") ? leading(e.left)
-    : e
-  const call = leading(cond)
-  if (call === undefined || !isQuery(call)) return null
+  const call = leadingOperand(cond)
+  if (!isQuery(call)) return null
   const bool = elementaryRef("BOOL")
-  const found = lw.tempPlace("query_found", bool, cond.span)
+  const found = tempPlace(lw, "query_found", bool, cond.span)
   const before = queryInto(lw, found, call, cond.span)
   if (before === undefined) return undefined
-  lw.hoistedQueries.set(call, { kind: "load", place: found, type: bool, span: call.span })
+  interfaceFrame(lw).hoistedQueries.set(call, { kind: "load", place: found, type: bool, span: call.span })
   const lowered = lowerExpr(lw, cond, bool)
-  lw.hoistedQueries.delete(call)
+  interfaceFrame(lw).hoistedQueries.delete(call)
   return lowered && { before, cond: lowered }
 }
 

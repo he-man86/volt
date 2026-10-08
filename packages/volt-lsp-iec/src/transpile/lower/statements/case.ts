@@ -2,7 +2,7 @@
  * CASE: a switch over constant label ranges, each a value of the selector's type.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Statement } from "../../../frontend/syntax/index.js"
 import type { IrArm, IrStmt, IrValue } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"

@@ -2,13 +2,13 @@
  * Storing an address: a pointer assigned, a reference bound (`REF=`).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import { cursorOf } from "./cursor.js"
 import { elemOf } from "../../../frontend/types/index.js"
 import { binaryOf, cast } from "../core/build.js"
-import { pointerKey, recordTarget } from "./state.js"
+import { pointerFrame, pointerKey, pointerTargets, recordTarget } from "./state.js"
 import { addressOf, pointerValue } from "./address.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -43,14 +43,14 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
     // 1 for a variable, the element index + ELEMENT_TAG_BIAS for an array — which is form 1's encoding and what `p = 0`,
     // `__ISVALIDREF` and `p[i]` are all built on. Those two encodings cannot share a variable, so a pointer that
     // names several ELEMENTS is refused rather than given a tag that its index arithmetic would then read.
-    const targets = lw.shared.pointers.get(key) ?? []
+    const targets = pointerTargets(lw).get(key) ?? []
     if (targets.length > 1) {
       if (targets.some((t) => t.element !== undefined || t.chars !== undefined))
         return lw.bail("pointer-targets", "a pointer that names several variables, one of them an array element — the value would be both a tag and an index", span)
       written = { kind: "const", value: tag, type: target.type, span }
     }
   }
-  if (lw.conditional === 0) lw.boundPointers.add(key)
+  if (lw.conditional === 0) pointerFrame(lw).boundPointers.add(key)
   return { kind: "assign", target, value: written, span }
 }
 
@@ -67,10 +67,10 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   // THE TAG, once the reference names more than one variable — `storePointer` says why the two encodings cannot
   // share a slot. A reference rebound after its declaration is the shape this exists for
   // (`refdecl_rebound_by_statement`: before 1, after 2).
-  const targets = lw.shared.pointers.get(key) ?? []
+  const targets = pointerTargets(lw).get(key) ?? []
   if (targets.length > 1 && targets.some((t) => t.element !== undefined || t.chars !== undefined))
     return lw.bail("pointer-targets", "a reference rebound across an array element and a variable — the value would be both a tag and an index", s.span)
   const value = targets.length > 1 ? ({ kind: "const", value: tag, type: target.type, span: s.span } as IrExpr) : address.value
-  if (lw.conditional === 0) lw.boundPointers.add(key)
+  if (lw.conditional === 0) pointerFrame(lw).boundPointers.add(key)
   return { kind: "assign", target, value, span: s.span }
 }

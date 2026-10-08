@@ -3,7 +3,9 @@
  * VAR_IN_OUT parameters and an `ARRAY[*]`'s hidden bounds.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
+import { nested } from "../core/nested.js"
+import type { Scope } from "../../../frontend/symbols/index.js"
 import type { Expr, VarDecl, VarSection } from "../../../frontend/syntax/index.js"
 import { bindAddress } from "./addresses.js"
 import { holdsInstance, storageOf } from "./layout.js"
@@ -23,6 +25,7 @@ import type { IrInit } from "../../ir/index.js"
 import { stored } from "../values/convert.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { boundName, openDims } from "../places/bounds.js"
+import { initFrame } from "../init/state.js"
 
 /**
  * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal.
@@ -63,7 +66,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
             ? aggregateInit(lw, decl.init, type)
             : scalarInit(lw, decl.init, type, sec.constant === true)
       // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
-      // and the expression is queued in declaration order (`Lowering.pendingInits`), which is what `ADR(x)`, `THIS`
+      // and the expression is queued in declaration order (`InitFrame.pendingInits`), which is what `ADR(x)`, `THIS`
       // and a call to a user FUNCTION are.
       //
       // WHICH IT IS, IS DECIDED BEFORE ANYTHING IS BUILT. `foldsToConstant` reads the AST and the scope; it lowers
@@ -120,16 +123,16 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
         // rather than the section.
         if (lw.declared(name.text)) lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
         else {
-          const slot = lw.frame.length
+          const slot = lw.slots.length
           lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
           // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
           // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
           // store through an unbound reference.
           if (deferred) {
             const pending = { name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) }
-            // a VAR_TEMP's runs on every run of its body, not once before the first (`tempResets`)
-            if (sec.sectionKind === "VAR_TEMP") lw.tempInits.set(slot, pending)
-            else lw.pendingInits.push(pending)
+            // a VAR_TEMP's runs on every run of its body, not once before the first (`resetTemps`)
+            if (sec.sectionKind === "VAR_TEMP") initFrame(lw).tempInits.set(slot, pending)
+            else initFrame(lw).pendingInits.push(pending)
           }
         }
       }
@@ -174,4 +177,13 @@ export function declareOpenBounds(lw: Lowering, sections: readonly VarSection[],
     for (const name of decl.names)
       for (let dim = 1; dim <= openDims(lw.resolve(decl.type)); dim++)
         for (const which of ["lower", "upper"] as const) lw.slot({ kind: "identifier", text: boundName(name.text, which, dim), span: name.span }, elementaryRef("DINT"), section)
+}
+
+/**
+ * A section's variables made the APPLICATION'S storage — a GVL's, an FB's VAR_STAT, a METHOD's VAR_STAT: declared in
+ * `scope` (where their types and bounds fold), each keyed by `prefix` and its name (a `qualified_only` list's), in a
+ * scratch lowering whose diagnostics are drained into `into`. True when it declared them without one.
+ */
+export function declareGlobals(into: Lowering, scope: Scope, section: VarSection, prefix = ""): boolean {
+  return !nested(into, scope, { globalMode: true, globalPrefix: prefix }, (global) => declareVars(global, [section])).drained
 }

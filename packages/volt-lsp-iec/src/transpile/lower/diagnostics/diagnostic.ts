@@ -1,11 +1,13 @@
 /** What lowering answers with: one POU's IR, or the refusals that say why it could not — each with its taxonomy. */
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { IrPou } from "../../ir/index.js"
-import { type LowerCodeKind, lowerCodeKind } from "./codes.js"
+import { emittedKind, type LowerCodeKind } from "./codes.js"
 
 /**
- * A construct the lowering could not represent. Lowering is TOTAL — it never throws — so an untestable POU
- * is reported, never silently wrong, and `scripts/lower-completeness.ts` can measure coverage over the corpus.
+ * A construct the lowering could not represent. Lowering is TOTAL on its input — any ST answers an IR or refusals,
+ * never a throw — so an untestable POU is reported, never silently wrong, and `scripts/lower-completeness.ts` can
+ * measure coverage over the corpus. It throws only on a bug of its own: `LoweringBug` (`semantics/faults.ts`), e.g. a
+ * refusal code `codes.ts` does not register (`emittedKind`, task 1.7.16).
  */
 export interface LowerDiagnostic {
   /** Stable slug for the blocking construct — what the coverage report groups by. */
@@ -38,5 +40,5 @@ export interface LoweredPou {
  * assembled independently at a hundred call sites answers it a hundred slightly different ways.
  */
 export function lowerDiagnostic(code: string, message: string, span: Span): LowerDiagnostic {
-  return { code, kind: lowerCodeKind(code) ?? "unclassified", message, span }
+  return { code, kind: emittedKind(code), message, span }
 }

@@ -9,18 +9,20 @@
  *   in DECLARATION ORDER         `i : INT := ABS(other)` is 7 with `other` declared before it and 0 after
  *   any expression               `ADR(x)`, `THIS`, a struct member, a global, a call to a user FUNCTION
  *
- * `storage/declare.ts` queues the ones that do not fold (`Lowering.pendingInits`); this turns them into statements. Order
+ * `storage/declare.ts` queues the ones that do not fold (`InitFrame.pendingInits`); this turns them into statements. Order
  * is what makes the values right, so nothing here has a rule about it: they come out in the order they were
  * declared, and a slot whose own initializer has not run yet still holds its default.
  *
  * Built EARLY — while the layout is, before any body lowers — because a body may dereference a pointer this step
- * fills, and `pointer-order` only allows that once the store is known (`shared.pointers`).
+ * fills, and `pointer-order` only allows that once the store is known (`pointerTargets`).
  */
 
-import type { Lowering } from "../lowering.js"
-import type { IrExpr, IrInvoke, IrStmt, Place } from "../../ir/index.js"
+import type { Lowering } from "../core/lowering.js"
+import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
+import { findPlace, initReadChildren } from "../../ir/walk.js"
 import { insideInstance } from "../places/path.js"
 import { lowerStmt } from "../statements/statements.js"
+import { initFrame, type PendingInit } from "./state.js"
 
 /**
  * `lw.pendingInits`, lowered as the assignments they are — or undefined when one of them cannot be.
@@ -30,11 +32,12 @@ import { lowerStmt } from "../statements/statements.js"
  * `expr-call`, and that is the shape the corpus writes 180 times.
  */
 export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
-  if (lw.initSequence !== undefined) return lw.initSequence.statements
-  lw.initSequence = { statements: undefined }
+  const frame = initFrame(lw)
+  if (frame.initSequence !== undefined) return frame.initSequence.statements
+  frame.initSequence = { statements: undefined }
   const out: IrStmt[] = []
   const bySlot: { slot: number; statements: IrStmt[] }[] = []
-  for (const pending of lw.pendingInits) {
+  for (const pending of initFrame(lw).pendingInits) {
     const assigned = lowerPendingInit(lw, pending)
     if (assigned === undefined) return undefined
     const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
@@ -43,7 +46,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). Here a
     // constant initializer is the slot's STARTING VALUE rather than a statement, so an earlier initializer would
     // read -7 and answer 7. Refused until the constants are sequenced too.
-    const later = values.reduce<string | undefined>((f, v) => f ?? reads(lw, v, laterThan(lw, pending.slot)), undefined)
+    const later = values.reduce<string | undefined>((f, v) => f ?? reads(v, laterThan(lw, pending.slot)), undefined)
     if (later !== undefined)
       return lw.bail(
         "init-reads-later",
@@ -56,7 +59,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // `initseq_fb_init_declared_last`). The init step interleaves these statements with the FB_Inits by declaration
     // (transpile-review 23), which answers that — except for an instance declared with a STRUCTURED initializer, which
     // is applied after every FB_Init (`fb_init_and_structured_initializer`), so what a sibling reads of it is not.
-    const instance = values.reduce<string | undefined>((f, v) => f ?? reads(lw, v, insideInstance(lw)), undefined)
+    const instance = values.reduce<string | undefined>((f, v) => f ?? reads(v, insideInstance(lw)), undefined)
     if (instance !== undefined)
       return lw.bail(
         "init-reads-instance",
@@ -66,12 +69,12 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     out.push(...assigned)
     bySlot.push({ slot: pending.slot, statements: assigned })
   }
-  lw.initSequence = { statements: out, bySlot }
+  initFrame(lw).initSequence = { statements: out, bySlot }
   return out
 }
 
-/** One queued initializer, lowered as the assignment it is — also a VAR_TEMP's, on every run (`tempResets`). */
-export function lowerPendingInit(lw: Lowering, pending: Lowering["pendingInits"][number]): IrStmt[] | undefined {
+/** One queued initializer, lowered as the assignment it is — also a VAR_TEMP's, on every run (`resetTemps`). */
+export function lowerPendingInit(lw: Lowering, pending: PendingInit): IrStmt[] | undefined {
   const lowered = lowerStmt(lw, {
     kind: "assign",
     target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
@@ -87,57 +90,14 @@ export function lowerPendingInit(lw: Lowering, pending: Lowering["pendingInits"]
 /**
  * The first place the expression READS for which `onPlace` gives a name — or undefined. Every expression that can
  * hold a read is walked: a call's inputs, its in-out bindings and the instance it runs on, and the index
- * expressions inside a place (`arr[k]` reads `k` too). Each of those was a hole, and each let a guard through.
+ * expressions inside a place (`arr[k]` reads `k` too). Each of those was a hole, and each let a guard through. The walk
+ * is `ir/walk.ts`'s, with the read order and skip set this walk has always had (`initReadChildren`, until task 5.9).
  *
  * `ADR(x)` is deliberately NOT a read of `x`: it takes an ADDRESS, which is the same whenever it is taken, and the
  * corpus writes it 180 times.
  */
-export function reads(lw: Lowering, e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
-  const walk = (x: IrExpr): string | undefined => reads(lw, x, onPlace)
-  const first = (xs: readonly IrExpr[]): string | undefined => xs.reduce<string | undefined>((f, x) => f ?? walk(x), undefined)
-  switch (e.kind) {
-    case "load":
-      return readsPlace(lw, e.place, onPlace)
-    case "convert":
-      return walk(e.value)
-    case "unary":
-      return walk(e.operand)
-    case "binary":
-      return walk(e.left) ?? walk(e.right)
-    case "builtin":
-      return first(e.args)
-    case "invoke":
-      return readsInvoke(lw, e, onPlace)
-    case "dispatch":
-      return walk(e.tag) ?? e.arms.reduce<string | undefined>((f, a) => f ?? readsInvoke(lw, a.call, onPlace), undefined)
-    default:
-      return undefined
-  }
-}
-
-/** Everything a call reads: its inputs, its in-out bindings (a place, or a copy of an expression) and its instance. */
-function readsInvoke(lw: Lowering, e: IrInvoke, onPlace: (place: Place) => string | undefined): string | undefined {
-  const inputs = e.inputs.reduce<string | undefined>((f, x) => f ?? reads(lw, x, onPlace), undefined)
-  if (inputs !== undefined) return inputs
-  const bound = e.inouts.reduce<string | undefined>(
-    (f, io) => f ?? ("kind" in io && io.kind === "copy" ? reads(lw, io.value, onPlace) : readsPlace(lw, io as Place, onPlace)),
-    undefined,
-  )
-  if (bound !== undefined) return bound
-  return e.instance === undefined ? undefined : readsPlace(lw, e.instance, onPlace)
-}
-
-function readsPlace(lw: Lowering, place: Place, onPlace: (place: Place) => string | undefined): string | undefined {
-  for (const access of place.path)
-    if (access.kind === "index") {
-      const inside = reads(lw, access.index, onPlace)
-      if (inside !== undefined) return inside
-    }
-  if (place.guard !== undefined) {
-    const through = readsPlace(lw, place.guard, onPlace)
-    if (through !== undefined) return through
-  }
-  return onPlace(place)
+export function reads(e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
+  return findPlace(e, onPlace, initReadChildren)
 }
 
 /**
@@ -148,4 +108,4 @@ function readsPlace(lw: Lowering, place: Place, onPlace: (place: Place) => strin
 export const laterThan =
   (lw: Lowering, slot: number) =>
   (place: Place): string | undefined =>
-    place.root === undefined && place.slot >= slot ? (lw.frame[place.slot]?.name ?? "a later declaration") : undefined
+    place.root === undefined && place.slot >= slot ? (lw.slots[place.slot]?.name ?? "a later declaration") : undefined

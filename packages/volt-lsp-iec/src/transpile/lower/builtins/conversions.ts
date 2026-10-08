@@ -2,7 +2,7 @@
  * The type conversions `X_TO_Y` / `TO_Y` as explicit IR nodes.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { type Expr, hasFrontendAttribute, type TypeDecl } from "../../../frontend/syntax/index.js"
 import {
   elementaryRef,
@@ -53,7 +53,7 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // and TO_WSTRING of `On` are 'On' (P15, conformance `prag_to_string_*`, CODESYS 2026-10-02), where the same enum without
   // the attribute prints '1'. Printed as the number it was a silent wrong answer; there is no member-name table yet
   // (task 4.5.1 reads `to_string` from the AST), so the conversion is refused by name.
-  const operand = e.args.length === 1 ? e.args[0]?.value : undefined
+  const operand = oneArgument(e, { named: true, output: true })
   if (isString(to) && operand !== undefined) {
     const t = inferExprType(operand, lw.scope, lw.project)
     const sym = t.kind === "enum" && t.name !== "(implicit)" ? lookup(lw.project, t.name)?.symbol : undefined
@@ -79,8 +79,9 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // `TO_STRING(v)` names no source, so `from` is undefined and the text rules below had nothing to test — the catalog
   // only ever wrote `X_TO_STRING`, while the corpus writes the bare form 132 times. The argument's own type is the
   // source (conformance `ct_bare_to_conversions`). `TO_INT(s)` of a STRING or WSTRING is the same: the named rule below.
-  const single = e.args.length === 1 && e.args[0]?.value !== undefined && e.args[0].param === undefined && !e.args[0].output
-  const bare = from === undefined && single ? lowerExpr(lw, e.args[0]!.value!) : undefined
+  const positional = oneArgument(e)
+  const single = positional !== undefined
+  const bare = from === undefined && positional !== undefined ? lowerExpr(lw, positional) : undefined
   if (from === undefined && single && bare === undefined) return undefined
   if (from === undefined && isString(to)) {
     if (bare === undefined) return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)

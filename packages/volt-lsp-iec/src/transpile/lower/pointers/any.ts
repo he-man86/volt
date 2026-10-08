@@ -2,23 +2,23 @@
  * ANY inputs: what a routine reads of the argument behind one.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { byteSize } from "../storage/bytes.js"
 import { routineFacts } from "../calls/facts.js"
-import type { RoutineSymbol } from "../core/lowering.js"
 import { ANY_FAMILIES, elementaryRef, type Type } from "../../../frontend/types/index.js"
 import { positionalParameters } from "../calls/parameters.js"
 import { lowerPlace } from "../places/places.js"
 import { callHolds, type InvokeBindings } from "../calls/invoke.js"
-import { through } from "../places/access-guards.js"
+import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { aliases, lendGuards } from "../calls/binding.js"
+import { pointerFrame } from "./state.js"
 
 /** `anyArg.diSize` — an ANY input's size, which the call handed in as a hidden DINT (conformance `state_any_input_sizes`);
  *  `null` when the base is no ANY input. */
 export function anyDiSize(lw: Lowering, e: Extract<Expr, { kind: "member" }>): IrExpr | undefined | null {
-  if (e.base.kind !== "ident_expr" || !lw.anyInputs.has(e.base.name.toUpperCase())) return null
+  if (e.base.kind !== "ident_expr" || !pointerFrame(lw).anyInputs.has(e.base.name.toUpperCase())) return null
   const slot = lw.localByName.get(e.base.name.toUpperCase())
   if (e.member.name.toUpperCase() !== "DISIZE" || slot === undefined)
     return lw.bail("any-input", `${e.base.name}.${e.member.name} of an ANY input is not measured`, e.span)
@@ -29,7 +29,7 @@ export function anyDiSize(lw: Lowering, e: Extract<Expr, { kind: "member" }>): I
 /** `anyArg.diSize` of an ANY input this variant was given a VARIABLE for — its byte size, known here — else undefined. */
 export function anySize(lw: Lowering, e: Expr): bigint | undefined {
   if (e.kind !== "member" || e.base.kind !== "ident_expr" || e.member.name.toUpperCase() !== "DISIZE") return undefined
-  const slot = lw.anyTargets.get(e.base.name.toUpperCase())
+  const slot = pointerFrame(lw).anyTargets.get(e.base.name.toUpperCase())
   return slot === undefined ? undefined : byteSize(lw, lw.inoutSlots[slot]!.type)?.size
 }
 
@@ -77,7 +77,7 @@ export function bindAnyArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k
   // caller's `VAR_IN_OUT CONSTANT` was WRITTEN by the interpreter.
   const raw = lw.inArgument(() => lowerPlace(lw, arg.value!))
   if (raw === undefined) return undefined
-  const viaRef = through(lw, raw, arg.span)
+  const viaRef = guardWrite(lw, raw, arg.span, FULL_WRITE)
   if (viaRef === undefined) return undefined
   const place = lendGuards(lw, viaRef, arg.param!.name, arg.span)
   if (place === undefined) return undefined

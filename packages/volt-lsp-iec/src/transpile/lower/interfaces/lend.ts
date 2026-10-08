@@ -3,12 +3,15 @@
  * the frame, the place a caller lends, and one call's lend to its callee (design §24).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrCall, IrInvoke, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { pointerKey } from "../pointers/state.js"
 import { elementOfArray, heldBy } from "./tags.js"
 import { aliases } from "../calls/binding.js"
+import { interfaceFrame, interfaceTables } from "./state.js"
+import { drain } from "../core/nested.js"
+import { indexOfTag } from "../core/tags.js"
 
 /**
  * The instances an interface variable READ holds — one of this frame's own variables (`pointerKey`). Another instance's
@@ -21,7 +24,7 @@ export function heldAt(lw: Lowering, read: Place, span: Span) {
 }
 
 /** A tag naming a place of an FB's frame — a field of whichever instance runs — not of the POU's one instance. */
-export const instanceRelative = (root: Lowering, tag: number): boolean => root.shared.instances[tag - 1]!.context !== root.frameContext
+export const instanceRelative = (root: Lowering, tag: number): boolean => interfaceTables(root).instances[indexOfTag(tag)]!.context !== root.frameContext
 
 /**
  * Where `body` reaches the instance a tag names: its own place, when the instance is of the body's frame — otherwise a
@@ -29,12 +32,12 @@ export const instanceRelative = (root: Lowering, tag: number): boolean => root.s
  * and a GVL instance is not lent beside the globals every body already holds.
  */
 export function lendPlace(root: Lowering, body: Lowering, tag: number, span: Span): Place | undefined {
-  const instance = body.shared.instances[tag - 1]!
+  const instance = interfaceTables(body).instances[indexOfTag(tag)]!
   if (instance.context === body.frameContext) return instance.place
   if (body === root || instance.context === "GLOBAL")
     return body.bail("interface-context", `an instance of ${instance.fb.name} held where no caller can lend it`, span)
-  let at = body.lends.findIndex((l) => l.tag === tag)
-  if (at < 0) at = body.lends.push({ tag, type: instance.fb }) - 1
+  let at = interfaceFrame(body).lends.findIndex((l) => l.tag === tag)
+  if (at < 0) at = interfaceFrame(body).lends.push({ tag, type: instance.fb }) - 1
   return { slot: at, path: [], type: instance.fb, span, root: "lent" }
 }
 
@@ -46,7 +49,7 @@ export function lendToCall(root: Lowering, caller: Lowering, node: IrInvoke | Ir
   let progress = false
   if (refusedLends.has(node)) return false
   const callee = node.kind === "call" ? root.bodies.get(node.fb.toUpperCase())?.lowering : root.shared.routineLowerings.get(node.routine)
-  const needs = callee?.lends ?? []
+  const needs = callee === undefined ? [] : interfaceFrame(callee).lends
   const lent = ((node as { lent?: Place[] }).lent ??= [])
   const before = caller.diagnostics.length
   // a call on this body's own instance, a child field of it, or no instance at all (a FUNCTION)
@@ -68,6 +71,6 @@ export function lendToCall(root: Lowering, caller: Lowering, node: IrInvoke | Ir
       progress = true
     }
   }
-  if (caller !== root) root.diagnostics.push(...caller.diagnostics.slice(before))
+  if (caller !== root) drain(root, caller, before)
   return progress
 }

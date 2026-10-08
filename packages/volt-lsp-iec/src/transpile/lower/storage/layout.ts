@@ -4,19 +4,26 @@
  */
 
 import { DEFAULT_STRING_LENGTH, elementOf, resolveNamedType, type Type } from "../../../frontend/types/index.js"
-import { baseOf, Lowering } from "../lowering.js"
+import { Lowering } from "../core/lowering.js"
+import { sharedState } from "../core/shared.js"
+import { baseOf } from "../core/chain.js"
 import type { Span, VarSection } from "../../../frontend/syntax/index.js"
 import { enumStorage } from "../values/enums.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { declareOpenBounds, declareVars } from "./declare.js"
-import { overlayBytes } from "./unions.js"
+import { overlayBytes, unionsOf } from "./unions.js"
 import { declareStatics } from "./statics.js"
 import { buildInitSequence } from "../init/sequence.js"
+import { drain } from "../core/nested.js"
+
+/** The layouts being built right now, by upper-cased name — a type reached again while its own layout is being laid
+ *  out CONTAINS itself, which has no size (`buildLayout`). */
+const buildingOf = sharedState(() => new Set<string>())
 
 /**
  * The FB variable sections that get a FRAME SLOT. VAR_IN_OUT does not: it aliases the caller's variable. Nor does
  * VAR_STAT, which is shared by every instance (`declareStatics`). VAR_TEMP does, and is started over on each run
- * (`tempResets`).
+ * (`resetTemps`).
  *
  * A FRAME SLOT IS NOT THE SAME AS A BYTE IN THE INSTANCE, and this said "an instance's storage", which reads as if it
  * were. `bytes.ts` skips VAR_TEMP and VAR_STAT when it lays an instance out, and says the opposite in its own words —
@@ -24,7 +31,7 @@ import { buildInitSequence } from "../init/sequence.js"
  * and is absent from the layout SIZEOF reports. **What CODESYS answers for SIZEOF of an FB holding a VAR_TEMP is not
  * measured** — `mem_sizeof_fb_with_temp` and `mem_sizeof_fb_with_stat` record it against a baseline that has neither.
  */
-export const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_TEMP"])
+const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_TEMP"])
 
 /** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds `DEFAULT_STRING_LENGTH`. */
 export function withStringCapacity(t: Type): Type {
@@ -53,16 +60,16 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   // LowerDiagnostic and never a throw. CODESYS rejects the shape too, so nothing is lost by refusing it; what was
   // lost was the difference between "refused" and "crashed". The corpus has no self-referential type, which is why
   // `TOTALITY` never saw it — found by aiming at `calls.ts`'s uncovered refusals (0.7).
-  if (lw.shared.building.has(key)) {
+  if (buildingOf(lw).has(key)) {
     lw.bail("layout-recursive", `${name} contains itself, so it has no size`, where)
     return { ...t, name }
   }
   if (!lw.layouts.has(key)) {
-    lw.shared.building.add(key)
+    buildingOf(lw).add(key)
     try {
       buildLayout(lw, { ...t, name }, sym, where)
     } finally {
-      lw.shared.building.delete(key)
+      buildingOf(lw).delete(key)
     }
   }
   return { ...t, name }
@@ -96,12 +103,12 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // A union of pointers is how an ANY input's `pValue` is read at the width its `diSize` selects (conformance
     // `state_any_int_pointer_increment`).
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
-    const pointers = nested.frame.length > 0 && nested.frame.every((f) => f.type.kind === "pointer")
-    if (ast.body.fields.some((f) => f.init !== undefined) || !(pointers || nested.frame.every((f) => overlayBytes(f.type) !== undefined))) {
+    const pointers = nested.slots.length > 0 && nested.slots.every((f) => f.type.kind === "pointer")
+    if (ast.body.fields.some((f) => f.init !== undefined) || !(pointers || nested.slots.every((f) => overlayBytes(f.type) !== undefined))) {
       lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where)
       return
     }
-    lw.shared.unions.add(t.name.toUpperCase())
+    unionsOf(lw).add(t.name.toUpperCase())
   } else if (t.kind === "function_block" && (ast?.kind === "function_block" || ast?.kind === "program")) {
     // The compiler acts on these whether or not the FB is ever called, and `lowerUnit`'s init step models them: an
     // `instance-path` STRING holds the instance's path from the project tree, and a `call_after_global_init_slot` method
@@ -126,9 +133,9 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, where)
     return
   }
-  lw.diagnostics.push(...nested.diagnostics)
+  drain(lw, nested)
   // the live frame: temps the FB's body adds when a call lowers it are fields of the instance too
-  lw.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: nested.frame, ...(statics.length > 0 ? { statics } : {}) })
+  lw.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: nested.slots, ...(statics.length > 0 ? { statics } : {}) })
 }
 
 /** Whether a value of `t` holds an FB instance — it is one, or an element or a field at any depth is. */

@@ -2,7 +2,7 @@
  * Library namespaces: a library's FUNCTION named through its namespace.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import { findChildScope, lookup, type Scope } from "../../../frontend/symbols/index.js"
 

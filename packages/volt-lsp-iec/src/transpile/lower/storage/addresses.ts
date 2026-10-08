@@ -3,10 +3,17 @@
  * refusals of an overlap or an address shared by several instances.
  */
 
-import { baseOf, type Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
+import { sharedState } from "../core/shared.js"
+import { bodyChain } from "../core/chain.js"
 import type { Span, VarDecl } from "../../../frontend/syntax/index.js"
 import type { Place } from "../../ir/index.js"
 import { elementaryRef, peelArray, type Type, typeZero } from "../../../frontend/types/index.js"
+
+/** Every variable bound AT an address, and every bare address, as the BIT RANGE it covers — one interpretation, the
+ *  measured one (`addressBits`): its area, its range under byte and under word addressing, and the frame that
+ *  declares it (`bindAddress`). Shared by every lowering of the POU. */
+const addressedOf = sharedState(() => [] as { area: string; bits: readonly [number, number]; name: string; owner: string }[])
 
 /**
  * THE ONE SPELLING OF A DIRECT ADDRESS — `%` area, width, index, and a bit only on an `X`. Undefined for anything else,
@@ -40,13 +47,13 @@ function parseAddress(text: string): RegExpExecArray | undefined {
  */
 function addressClash(lw: Lowering, m: RegExpExecArray): string | undefined {
   const { area, bits } = addressBits(m)
-  return lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])?.name
+  return addressedOf(lw).find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])?.name
 }
 
 /** That address, recorded as taken by `name`. */
 function claimAddress(lw: Lowering, m: RegExpExecArray, name: string, owner: string): void {
   const { area, bits } = addressBits(m)
-  lw.shared.addressed.push({ area, bits, name, owner })
+  addressedOf(lw).push({ area, bits, name, owner })
 }
 
 /**
@@ -77,7 +84,7 @@ export function addressPlace(lw: Lowering, text: string, span: Span): Place | un
  * too, which is the pattern every real project writes — the corpus has `%IW5` next to `%IW6` and `%QW2` next to `%QB2`.
  * ponytail: a project that turns BYTE addressing on is not modelled, and nothing Volt reads says which one it is.
  */
-export function addressBits(m: RegExpExecArray): { area: string; bits: [number, number] } {
+function addressBits(m: RegExpExecArray): { area: string; bits: [number, number] } {
   const n = Number(m[3])
   const width = { X: 0, B: 1, W: 2, D: 4, L: 8 }[m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"]
   const bit = n * 8 + Number(m[4] ?? 0)
@@ -138,7 +145,7 @@ export function bindAddress(lw: Lowering, decl: VarDecl): boolean {
  * arrays (by length), globals and routine locals; an instance of a derived FB counts for each of its bases.
  */
 export function addressSharedByInstances(lw: Lowering, slots: readonly { type: Type }[]): string | undefined {
-  const addressed = new Set(lw.shared.addressed.filter((a) => a.owner.startsWith("FB:")).map((a) => a.owner.slice(3)))
+  const addressed = new Set(addressedOf(lw).filter((a) => a.owner.startsWith("FB:")).map((a) => a.owner.slice(3)))
   if (addressed.size === 0) return undefined
   const count = new Map<string, number>()
   const walk = (t: Type, times: number): void => {
@@ -146,11 +153,10 @@ export function addressSharedByInstances(lw: Lowering, slots: readonly { type: T
     if (array !== undefined) return walk(array.element, times * array.length)
     if (t.kind !== "struct" && t.kind !== "function_block") return
     const key = t.name.toUpperCase()
-    for (let unit = lw.bodies.get(key)?.unit; unit !== undefined; ) {
-      const name = unit.name.text.toUpperCase()
+    const unit = lw.bodies.get(key)?.unit
+    for (const own of unit === undefined ? [] : bodyChain(lw, unit).units) {
+      const name = own.name.text.toUpperCase()
       count.set(name, (count.get(name) ?? 0) + times)
-      const base = baseOf(unit)
-      unit = base === undefined ? undefined : lw.bodies.get(base.text.toUpperCase())?.unit
     }
     for (const field of lw.layouts.get(key)?.fields ?? []) walk(field.type, times)
   }

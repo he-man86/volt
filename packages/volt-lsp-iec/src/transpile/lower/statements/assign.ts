@@ -3,13 +3,12 @@
  * conversions CODESYS refuses.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
-import { refuseOpenArray } from "../places/bounds.js"
-import { refuseConstantWrite, through } from "../places/access-guards.js"
+import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { convert } from "../values/convert.js"
 import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import { bindReference, storePointer } from "../pointers/store.js"
@@ -19,6 +18,8 @@ import { lowerQueryInterface } from "../interfaces/query.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerPropertySet } from "../calls/property.js"
 import { registerWholeCopy } from "../calls/last-binding.js"
+import { pointerTargets } from "../pointers/state.js"
+import { tempPlace } from "../core/temps.js"
 
 /**
  * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
@@ -30,18 +31,18 @@ import { registerWholeCopy } from "../calls/last-binding.js"
  *     as converted THROUGH the DINT link, not the INT source.
  * The value is evaluated ONCE, into a temp, so a call in it cannot run twice.
  */
-export function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined {
+function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined {
   const targets = [s.target, ...(s.chained ?? [])]
   const ops = [s.op, ...(s.chainOps ?? [])] // ops[i] is the operator after targets[i]
   if (ops.includes("REF=")) return lw.bail("assign-op", "REF= in an assignment chain", s.span)
   const value = lowerExpr(lw, s.value)
   if (value === undefined) return undefined
-  const held = lw.tempPlace("chain_value", value.type, s.value.span)
+  const held = tempPlace(lw, "chain_value", value.type, s.value.span)
   const out: IrStmt[] = [{ kind: "assign", target: held, value, span: s.value.span }]
   let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
   for (let i = targets.length - 1; i >= 0; i--) {
     const written = lowerPlace(lw, targets[i]!)
-    const target = written === undefined || refuseOpenArray(lw, written, targets[i]!.span) ? undefined : through(lw, written, targets[i]!.span)
+    const target = written === undefined ? undefined : guardWrite(lw, written, targets[i]!.span, ["open-array", ...FULL_WRITE])
     if (target === undefined) return undefined
     const op = ops[i]
     if (op === undefined) {
@@ -77,8 +78,8 @@ export function lowerAssign(lw: Lowering, s: Extract<Statement, { kind: "assign"
   if (indexed === undefined) return undefined
   if ("char" in indexed) return storeChar(lw, s, indexed.char)
   const target = indexed.place
-  // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which `through` checks, so not there)
-  if (target === undefined || refuseOpenArray(lw, target, s.span) || refuseConstantWrite(lw, target, s.span)) return undefined
+  // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which is no store, so not there)
+  if (target === undefined || guardWrite(lw, target, s.span, ["open-array", "constant"]) === undefined) return undefined
   if (s.op === "S=" || s.op === "R=") return lowerLatch(lw, s, target)
   return storeValue(lw, s, target)
 }
@@ -87,7 +88,7 @@ export function lowerAssign(lw: Lowering, s: Extract<Statement, { kind: "assign"
 function storeChar(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, char: { place: Place; index: IrExpr; unit: Type }): IrStmt | undefined {
   const { place: text, index, unit } = char
   const c = lowerExpr(lw, s.value, unit)
-  if (c === undefined || refuseImplicitString(lw, c, unit, s.span) || refuseConstantWrite(lw, text, s.span)) return undefined
+  if (c === undefined || refuseImplicitString(lw, c, unit, s.span) || guardWrite(lw, text, s.span, ["constant"]) === undefined) return undefined
   const load: IrExpr = { kind: "load", place: text, type: text.type, span: s.span }
   const value: IrExpr = { kind: "builtin", name: "setchar", args: [load, index, convert(c, unit)], type: text.type, span: s.span }
   return { kind: "assign", target: text, value, span: s.span }
@@ -101,7 +102,7 @@ function lowerLatch(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   const cond = lowerExpr(lw, s.value, elementaryRef("BOOL"))
   if (cond === undefined) return undefined
   const latch: IrExpr = { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }
-  const latched = through(lw, target, s.span)
+  const latched = guardWrite(lw, target, s.span, FULL_WRITE)
   if (latched === undefined) return undefined
   const set: IrStmt = { kind: "assign", target: latched, value: convert(latch, latched.type), span: s.span }
   return { kind: "if", cond, then: [set], else: [], span: s.span }
@@ -120,7 +121,7 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   if (target.type.kind === "reference") {
     // a write through a reference is a write to its target
     const pointee = pointeePlace(lw, target, undefined, s.span)
-    if (pointee === undefined || refuseConstantWrite(lw, pointee, s.span)) return undefined
+    if (pointee === undefined || guardWrite(lw, pointee, s.span, ["constant"]) === undefined) return undefined
     const written = lowerExpr(lw, s.value, pointee.type)
     return written && { kind: "assign", target: pointee, value: convert(written, pointee.type), span: s.span }
   }
@@ -157,7 +158,7 @@ function holdsOwnAddress(lw: Lowering, t: Type, seen = new Set<string>()): boole
   seen.add(name)
   return (lw.layouts.get(name)?.fields ?? []).some((f) =>
     f.type.kind === "pointer" || f.type.kind === "reference"
-      ? (lw.shared.pointers.get(`FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
+      ? (pointerTargets(lw).get(`FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
       : holdsOwnAddress(lw, f.type, seen),
   )
 }

@@ -2,7 +2,7 @@
  * Statements → IR: the dispatch, a block, IF / ELSIF / ELSE and RETURN; assignment, CASE and the loops beside it.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Statement, StatementList } from "../../../frontend/syntax/index.js"
 import type { IrStmt } from "../../ir/index.js"
 import { lowerAssign } from "./assign.js"

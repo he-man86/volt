@@ -1,8 +1,8 @@
 /**
- * The guards on a place's access: through a reference, a write into a VAR_IN_OUT CONSTANT, a read of a value.
+ * The guards on a place's access: the checks a WRITE passes (`guardWrite`), a read of a value (`loadValue`).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { pointeePlace, selectThrough } from "../pointers/deref.js"
@@ -10,16 +10,61 @@ import { refuseUnionWrite } from "../storage/unions.js"
 import { refuseOpenArray } from "./bounds.js"
 
 /**
- * A place WRITTEN through: a REFERENCE writes its target, as a read reads it; anything else is itself. Only a plain `:=`
- * went through a reference — an FB output (`inst(q => r)`), a VAR_IN_OUT binding, `S=`/`R=` and a chain link wrote the
- * reference's own slot, overwriting its stored index instead of the variable (transpiler review 2026-09-15).
+ * What a store checks before it writes a place, in the order a site lists them:
+ *
+ * - `open-array`: an `ARRAY[*]` is never stored whole (`refuseOpenArray`);
+ * - `interface`: an interface's instances are recorded only by a plain `:=` (`storeInterface`), so any other store into
+ *   one is refused;
+ * - `through-reference`: a REFERENCE writes its target, as a read reads it — from here on the checks are on the target.
+ *   Only a plain `:=` went through a reference once — an FB output (`inst(q => r)`), a VAR_IN_OUT binding, `S=`/`R=` and
+ *   a chain link wrote the reference's own slot, overwriting its stored index instead of the variable (transpiler review
+ *   2026-09-15);
+ * - `union`: a write into a UNION member other than a plain `:=` (`refuseUnionWrite`);
+ * - `constant`: a VAR_IN_OUT CONSTANT (`refuseConstantWrite`).
  */
-export function through(lw: Lowering, place: Place, span: Span): Place | undefined {
-  // an interface's instances are recorded only by a plain `:=` (`storeInterface`)
-  if (place.type.kind === "interface") return lw.bail("interface-store", "an interface stored by anything but a plain `:=`", span)
-  const written = place.type.kind === "reference" ? pointeePlace(lw, place, undefined, span) : place
-  return written === undefined || refuseUnionWrite(lw, written, span) || refuseConstantWrite(lw, written, span) ? undefined : written
+type WriteCheck = "open-array" | "interface" | "through-reference" | "union" | "constant"
+
+/**
+ * THE ONE WRITE GUARD (transpile-restructure 1.7.5): the place a store writes once `checks` pass, in order — undefined
+ * when one refused (reported). Each store site passes the checks it made before this existed, explicitly; the lists
+ * differ by site, and making them one rule is task 6.A.18's (by recording, not by moving):
+ *
+ * - `:=` into a place: `open-array`, `constant` (`statements/assign.ts`); into a reference's target: `constant`;
+ *   a character `s[i] :=`: `constant`; a chain link: `open-array`, then the full write (below);
+ * - the FULL WRITE — `interface`, `through-reference`, `union`, `constant` — for a latch `S=`/`R=`, an FB output
+ *   `q => y` (`calls/outputs.ts`), a VAR_IN_OUT binding that is not CONSTANT (`calls/binding.ts`), an ANY argument
+ *   (`pointers/any.ts`);
+ * - a FOR variable: `union`, `constant` (`statements/loops.ts`); an FB input stored into the instance: `constant`
+ *   (`calls/fb-call.ts`).
+ */
+export function guardWrite(lw: Lowering, place: Place, span: Span, checks: readonly WriteCheck[]): Place | undefined {
+  let written = place
+  for (const check of checks)
+    switch (check) {
+      case "open-array":
+        if (refuseOpenArray(lw, written, span)) return undefined
+        break
+      case "interface":
+        if (written.type.kind === "interface") return lw.bail("interface-store", "an interface stored by anything but a plain `:=`", span)
+        break
+      case "through-reference": {
+        const target = written.type.kind === "reference" ? pointeePlace(lw, written, undefined, span) : written
+        if (target === undefined) return undefined
+        written = target
+        break
+      }
+      case "union":
+        if (refuseUnionWrite(lw, written, span)) return undefined
+        break
+      case "constant":
+        if (refuseConstantWrite(lw, written, span)) return undefined
+        break
+    }
+  return written
 }
+
+/** The FULL WRITE — what an output, a latch, a non-CONSTANT in-out binding and an ANY argument check (`guardWrite`). */
+export const FULL_WRITE: readonly WriteCheck[] = ["interface", "through-reference", "union", "constant"]
 
 /**
  * A store into a VAR_IN_OUT CONSTANT — "'value' is no valid assignment target" (conformance `inout_const_write_5`, a `:=`):
@@ -27,7 +72,7 @@ export function through(lw: Lowering, place: Place, span: Span): Place | undefin
  * instance, a store through a pointer or reference to it (its address may be taken, `inout_const_adr_11`, and read).
  * Only the `:=` is recorded; the rest are refused as the stores they are, not claimed as the compiler's.
  */
-export function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boolean {
+function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boolean {
   const slot = place.root === "inout" ? lw.inoutSlots[place.slot] : undefined
   if (slot?.constant !== true) return false
   lw.bail("inout-constant-write", `'${slot.name}' is a VAR_IN_OUT CONSTANT — no valid assignment target`, span)

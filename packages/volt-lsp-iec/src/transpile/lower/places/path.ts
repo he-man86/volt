@@ -1,10 +1,11 @@
 /**
- * Paths through places: the type a place's root holds.
+ * Paths through places: the type a place's root holds, the one field lookup (`fieldIn`, `fieldOf`) and the one walk of
+ * the types along a path (`typeAlong`; transpile-restructure 1.7.10).
  */
 
-import type { Lowering } from "../lowering.js"
-import type { Access, IrSlot, Place } from "../../ir/index.js"
-import { peelArray, type Type } from "../../../frontend/types/index.js"
+import type { Lowering } from "../core/lowering.js"
+import type { Access, IrSlot, IrValue, Place } from "../../ir/index.js"
+import { elementOf, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { PointerTarget } from "../pointers/state.js"
 
 /** The type a place's root holds — where a byte offset along its path starts. */
@@ -23,6 +24,63 @@ export function rootType(lw: Lowering, place: Place): Type | undefined {
   }
 }
 
+/** THE ONE FIELD LOOKUP: the slot named `name` among `fields` — ST names are case-insensitive. */
+export function fieldIn<T extends { readonly name: string }>(fields: readonly T[] | undefined, name: string): T | undefined {
+  const key = name.toUpperCase()
+  return fields?.find((f) => f.name.toUpperCase() === key)
+}
+
+/** Where the slot named `name` stands among `fields` — -1 when none does (`fieldIn`). */
+export function fieldIndex(fields: readonly { readonly name: string }[] | undefined, name: string): number {
+  const key = name.toUpperCase()
+  return fields?.findIndex((f) => f.name.toUpperCase() === key) ?? -1
+}
+
+/** A composite type's field by name, from its layout (`lw.layouts`, by the type's upper-cased name). */
+export function fieldOf(lw: Lowering, typeName: string, name: string): IrSlot | undefined {
+  return fieldIn(lw.layouts.get(typeName.toUpperCase())?.fields, name)
+}
+
+/**
+ * How `typeAlong` steps. THE WALKS DIFFERED and each keeps its rule (phase 1 is output-neutral):
+ * `fields` — which types a field step enters: `"struct"` only, or `"composite"` (a struct or an FB instance);
+ * `element` — what an index step reaches: `"sized"` (`peelArray`, a sized array's element) or `"any"` (`elementOf`, an
+ * `ARRAY[*]`'s too).
+ */
+interface PathRule {
+  readonly fields: "struct" | "composite"
+  readonly element: "sized" | "any"
+}
+
+/**
+ * THE ONE PATH WALK: the types along `path`, from `root`. At each step `visit` is handed the step and the type it is
+ * taken ON (undefined once the walk lost the type) and answers `undefined` to go on — to the field's declared type, the
+ * array's element — or a value to stop with (`{ stopped }`). Walked to the end, the answer is the last type.
+ *
+ * Its sites (each with its rule): `throughInstance` (struct, sized), `insideInstance` (struct, sized),
+ * `storage/bytes.byteOffset` (struct, sized), `storage/unions.unionOf` (composite, any), `interfaces/tags.interfaceKey`
+ * (composite, sized).
+ */
+export function typeAlong<T>(
+  lw: Lowering,
+  root: Type | undefined,
+  path: readonly Access[],
+  rule: PathRule,
+  visit: (step: Access, on: Type | undefined, at: number) => T | undefined,
+): { stopped: T } | { type: Type | undefined } {
+  let type = root
+  for (const [at, step] of path.entries()) {
+    const stopped = visit(step, type, at)
+    if (stopped !== undefined) return { stopped }
+    if (type === undefined) continue
+    if (step.kind === "field")
+      type = type.kind === "struct" || (rule.fields === "composite" && type.kind === "function_block") ? fieldOf(lw, type.name, step.name)?.type : undefined
+    else if (step.kind === "index") type = rule.element === "sized" ? peelArray(type)?.element : elementOf(type)
+    else type = undefined
+  }
+  return { type }
+}
+
 /** Two stored types that are the same: one elementary type (and capacity), one struct or FB, or arrays of the same bounds
  *  over the same element. */
 export function sameStorage(a: Type, b: Type): boolean {
@@ -35,40 +93,66 @@ export function sameStorage(a: Type, b: Type): boolean {
   return x !== undefined && y !== undefined && x.lower === y.lower && x.length === y.length && sameStorage(x.element, y.element)
 }
 
+/**
+ * How one STATIC step — a field, or an index that is a constant — is written into a key. The keys below are one identity,
+ * written three ways, each kept as it was (phase 1 is output-neutral; 4.15 decides whether they become one):
+ * `KEY_STEP` (a field upper-cased, an index `[v]`) — `staticKey`, `placeKey`; `SUFFIX_STEP` (`_name` in source casing,
+ * `_v`) — a specialized routine's name (`suffixOf`); `SAME_STEP` — what `sameStep`/`sameTarget` compare, where an
+ * index's value is compared by value AND type, as `===` did.
+ */
+interface StepWriting {
+  field(name: string): string
+  index(value: IrValue): string
+}
+const KEY_STEP: StepWriting = { field: (name) => name.toUpperCase(), index: (value) => `[${String(value)}]` }
+const SUFFIX_STEP: StepWriting = { field: (name) => `_${name}`, index: (value) => `_${String(value)}` }
+const SAME_STEP: StepWriting = { field: (name) => name.toUpperCase(), index: (value) => `[${typeof value}:${String(value)}]` }
+
+/** One step written for a key — undefined when it is not static (an index computed at run time, a bit). */
+function stepKey(step: Access, writing: StepWriting): string | undefined {
+  if (step.kind === "field") return writing.field(step.name)
+  if (step.kind === "index" && step.index.kind === "const") return writing.index(step.index.value)
+  return undefined
+}
+
+/** A path's steps written for a key — undefined when one of them is not static. */
+function staticSteps(path: readonly Access[], writing: StepWriting): string[] | undefined {
+  const steps: string[] = []
+  for (const step of path) {
+    const key = stepKey(step, writing)
+    if (key === undefined) return undefined
+    steps.push(key)
+  }
+  return steps
+}
+
+/**
+ * THE ONE PLACE IDENTITY (transpile-restructure 1.7.11): which place this is, as a key two places share only when they
+ * are the SAME one — its root, slot and static path — or undefined when that is not known while lowering (a runtime
+ * index). A dereference's guard is not part of it: a pointer variable's one target is that variable, so `ADR(s)` and a
+ * pointer given it agree (the STRING a cursor walks, `pointers/cursor.ts`).
+ */
+export function staticKey(place: Place): string | undefined {
+  const steps = staticSteps(place.path, KEY_STEP)
+  return steps === undefined ? undefined : `${place.root ?? "frame"}:${place.slot}:${steps.join(".")}`
+}
+
+/** A place whose path is fields and constant indices only — the same place read before a program is moved out and after. */
+export const staticPath = (place: Place): boolean => staticSteps(place.path, KEY_STEP) !== undefined
+
+/** Two steps that are the same static step: one field, or one constant index. */
+export const sameStep = (a: Access, b: Access): boolean => {
+  const key = stepKey(a, SAME_STEP)
+  return key !== undefined && key === stepKey(b, SAME_STEP)
+}
+
 /** Two pointer targets naming the same variable (or the same array) — through fields and constant indices only. */
 export function sameTarget(a: PointerTarget, b: PointerTarget): boolean {
   if (a.base.slot !== b.base.slot || a.base.root !== b.base.root || (a.element === undefined) !== (b.element === undefined)) return false
   if ((a.chars === undefined) !== (b.chars === undefined)) return false
   if (a.base.path.length !== b.base.path.length) return false
-  return a.base.path.every((step, i) => {
-    const other = b.base.path[i]!
-    if (step.kind === "field") return other.kind === "field" && other.name.toUpperCase() === step.name.toUpperCase()
-    if (step.kind === "index")
-      return other.kind === "index" && step.index.kind === "const" && other.index.kind === "const" && step.index.value === other.index.value
-    return false
-  })
+  return a.base.path.every((step, i) => sameStep(step, b.base.path[i]!))
 }
-
-/** Which string a place is, as a key two arguments agree on only when they name the SAME one — or undefined when that
- *  is not known while lowering: an index computed at run time. A pointer variable's one target is that variable, so
- *  `ADR(s)` and a pointer given it agree. */
-export function stringIdentity(place: Place): string | undefined {
-  const path: string[] = []
-  for (const a of place.path) {
-    if (a.kind === "field") path.push(a.name.toUpperCase())
-    else if (a.kind === "index" && a.index.kind === "const") path.push(`[${a.index.value}]`)
-    else return undefined
-  }
-  return `${place.root ?? "frame"}:${place.slot}:${path.join(".")}`
-}
-
-/** A place whose path is fields and constant indices only — the same place read before a program is moved out and after. */
-export const staticPath = (place: Place): boolean => place.path.every((s) => s.kind === "field" || (s.kind === "index" && s.index.kind === "const"))
-
-export const sameStep = (a: Access, b: Access): boolean =>
-  a.kind === "field" && b.kind === "field"
-    ? a.name.toUpperCase() === b.name.toUpperCase()
-    : a.kind === "index" && b.kind === "index" && a.index.kind === "const" && b.index.kind === "const" && a.index.value === b.index.value
 
 /**
  * A specialized routine's suffix — the parameter and the path it stands for, so two call sites binding the same place
@@ -80,38 +164,26 @@ export const sameStep = (a: Access, b: Access): boolean =>
  * cannot distinguish must stop the specialization, not blur into it.
  */
 export const suffixOf = (slot: IrSlot, place: Place): string | undefined => {
-  const steps: string[] = []
-  for (const step of place.path) {
-    if (step.kind === "field") steps.push(`_${step.name}`)
-    else if (step.kind === "index" && step.index.kind === "const") steps.push(`_${String(step.index.value)}`)
-    else return undefined
-  }
-  return `${slot.name}_${String(place.slot)}${steps.join("")}`
+  const steps = staticSteps(place.path, SUFFIX_STEP)
+  return steps === undefined ? undefined : `${slot.name}_${String(place.slot)}${steps.join("")}`
 }
 
 /** A place's shape as a key, with the frame it indexes — undefined through a runtime index, a dereference, or a root no
  *  later call can name again (a routine's local, an in-out, a lent instance). */
 export function placeKey(lw: Lowering, p: Place): string | undefined {
   if (p.guard !== undefined || (p.root !== undefined && p.root !== "global" && p.root !== "this")) return undefined
-  const steps: string[] = []
-  for (const step of p.path) {
-    if (step.kind === "field") steps.push(step.name.toUpperCase())
-    else if (step.kind === "index" && step.index.kind === "const") steps.push(`[${String(step.index.value)}]`)
-    else return undefined
-  }
+  const steps = staticSteps(p.path, KEY_STEP)
+  if (steps === undefined) return undefined
   return `${p.root === "global" ? "GLOBAL" : lw.frameContext}|${p.root ?? ""}:${p.root === "this" ? "" : p.slot}|${steps.join(".")}`
 }
 
 /** Whether the path passes through an FB instance — a holder's field, a program's variable — which its own frame names too. */
 function throughInstance(lw: Lowering, p: Place): boolean {
-  let t: Type | undefined = p.root === "global" ? lw.shared.globals.slots[p.slot]?.type : lw.slots[p.slot]?.type
-  for (const step of p.path) {
-    if (t === undefined || t.kind === "function_block") return true
-    if (step.kind === "field") t = t.kind === "struct" ? lw.layouts.get(t.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type : undefined
-    else if (step.kind === "index") t = peelArray(t)?.element
-    else return true
-  }
-  return false
+  const root: Type | undefined = p.root === "global" ? lw.shared.globals.slots[p.slot]?.type : lw.slots[p.slot]?.type
+  const walked = typeAlong(lw, root, p.path, { fields: "struct", element: "sized" }, (step, on) =>
+    on === undefined || on.kind === "function_block" || step.kind === "bit" ? true : undefined,
+  )
+  return "stopped" in walked
 }
 
 export const instanceKey = (lw: Lowering, p: Place): string | undefined =>
@@ -127,23 +199,16 @@ export const insideInstance =
   (lw: Lowering) =>
   (place: Place): string | undefined => {
     if (place.root !== undefined) return undefined
-    const slot = lw.frame[place.slot]
+    const slot = lw.slots[place.slot]
     if (slot === undefined || !(typeof slot.init === "object" && slot.init !== null && "fields" in slot.init)) return undefined
-    let type: Type | undefined = slot.type
-    let name = slot.name
-    for (const access of place.path) {
-      if (type === undefined) return undefined
-      if (type.kind === "function_block") return name
-      if (access.kind === "index") {
-        type = peelArray(type)?.element
-        continue
-      }
+    // the instance's name: the slot's, then every field step taken before it (an index step adds nothing)
+    const nameAt = (at: number) => [slot.name, ...place.path.slice(0, at).flatMap((s) => (s.kind === "field" ? [s.name] : []))].join(".")
+    const walked = typeAlong(lw, slot.type, place.path, { fields: "struct", element: "sized" }, (access, on, at) => {
+      if (on === undefined) return null
+      if (on.kind === "function_block") return nameAt(at)
       // a BIT access reaches into an integer, never into an instance
-      if (access.kind !== "field" || type.kind !== "struct") return undefined
-      type = (lw.layouts.get(type.name.toUpperCase())?.fields ?? []).find(
-        (f) => f.name.toUpperCase() === access.name.toUpperCase(),
-      )?.type
-      name = `${name}.${access.name}`
-    }
-    return undefined
+      if (access.kind !== "index" && (access.kind !== "field" || on.kind !== "struct")) return null
+      return undefined
+    })
+    return "stopped" in walked ? (walked.stopped ?? undefined) : undefined
   }

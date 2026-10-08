@@ -19,8 +19,11 @@
 
 import type { Access, IrBinding, IrRoutine, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import type { Lowering } from "../lowering.js"
-import { sameStep, suffixOf } from "../places/path.js"
+import type { Lowering } from "../core/lowering.js"
+import { fieldIndex, sameStep, suffixOf } from "../places/path.js"
+import { mapPlaces } from "../../ir/walk.js"
+import { once } from "./routines.js"
+import { ZERO_SPAN } from "../core/build.js"
 
 /** A binding that is not lent but substituted: `place` is the target in the CALLEE's terms (its layout's field, then the
  *  rest of the path). It never reaches the IR — `specializeRoutine` consumes it and the parameter is gone. */
@@ -57,29 +60,9 @@ export function inFramePlace(lw: Lowering, instance: Place | undefined, target: 
   if (head.kind !== "field") return undefined
   if (rest.some((s) => s.kind === "bit" || (s.kind === "index" && s.index.kind !== "const"))) return undefined
   const fields = lw.layouts.get(calleeFb.toUpperCase())?.fields
-  const slot = fields?.findIndex((f) => f.name.toUpperCase() === head.name.toUpperCase()) ?? -1
+  const slot = fieldIndex(fields, head.name)
   if (fields === undefined || slot < 0) return undefined
   return { slot, path: rest.slice(1), type: target.type, span: target.span }
-}
-
-/** A body that calls nothing — no METHOD, ACTION, FUNCTION, FB body or interface dispatch. */
-export function callsNothing(node: unknown): boolean {
-  if (Array.isArray(node)) return node.every(callsNothing)
-  if (node === null || typeof node !== "object") return true
-  const kind = (node as { kind?: string }).kind
-  if (kind === "invoke" || kind === "dispatch" || kind === "call") return false
-  return Object.entries(node).every(([key, child]) => key === "type" || key === "span" || key === "of" || callsNothing(child))
-}
-
-const isPlace = (n: object): n is Place => typeof (n as { slot?: unknown }).slot === "number" && Array.isArray((n as { path?: unknown }).path)
-
-/** Rewrite every Place in an IR subtree, innermost first (a path's indices and a guard are mapped before their place). */
-function mapPlaces<T>(node: T, f: (p: Place) => Place): T {
-  if (Array.isArray(node)) return node.map((child) => mapPlaces(child, f)) as unknown as T
-  if (node === null || typeof node !== "object") return node
-  const out: Record<string, unknown> = {}
-  for (const [key, child] of Object.entries(node)) out[key] = key === "type" || key === "span" || key === "of" ? child : mapPlaces(child, f)
-  return (isPlace(node) ? f(out as unknown as Place) : out) as unknown as T
 }
 
 /**
@@ -102,8 +85,6 @@ export function specializeRoutine(
   const key = `${routine.key}#${suffix.toUpperCase()}`
   const kept = routine.inouts.map((_, i) => i).filter((i) => !substituted.has(i))
   const inouts = kept.map((i) => bindings[i] as IrBinding | undefined)
-  const cached = lw.routines.get(key)
-  if (cached?.state === "lowered") return { routine: cached.routine, inouts }
   const index = new Map(kept.map((old, now) => [old, now]))
   const rewrite = (p: Place): Place => {
     if (p.root !== "inout") return p
@@ -117,13 +98,13 @@ export function specializeRoutine(
     }
     return { slot: into.slot, path: [...into.path, ...p.path], type: p.type, span: p.span, ...(p.guard === undefined ? {} : { guard: p.guard }) }
   }
-  const special: IrRoutine = {
+  const special = once(lw, key, ZERO_SPAN, () => ({
     ...routine,
     name: `${routine.name}__${suffix}`,
     key,
     inouts: kept.map((i) => routine.inouts[i]!),
-    body: mapPlaces(routine.body, rewrite),
-  }
-  lw.routines.set(key, { state: "lowered", routine: special })
+    body: routine.body.map((s) => mapPlaces(s, rewrite)),
+  }), { quiet: true })
+  if (special === undefined) throw new Error(`specialize: ${key} is cached as failed, which a specialization never is`)
   return { routine: special, inouts }
 }

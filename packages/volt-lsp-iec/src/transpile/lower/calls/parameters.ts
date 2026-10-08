@@ -3,7 +3,7 @@
  * under a prefix.
  */
 
-import type { PendingBody } from "../lowering.js"
+import type { PendingBody } from "../core/shared.js"
 import type { VarSection } from "../../../frontend/syntax/index.js"
 import { routineFacts } from "./facts.js"
 
@@ -39,3 +39,18 @@ export function positionalParameters(sections: readonly VarSection[]): {
 /** Each routine's parameters in declaration order — VAR_INPUT, VAR_IN_OUT and VAR_OUTPUT as written: the order a
  *  positional argument binds in (conformance `callshape_positional_arguments`). */
 export const positionalOf = routineFacts<readonly { name: string; output: boolean }[]>()
+
+/**
+ * WHAT LOWERING BINDS a positional argument at `position` to: the parameter declared there, or why it refuses — past the
+ * parameters, or counted across a VAR_OUTPUT (how a position counts an output declared among the parameters is not
+ * recorded; `callshape_positional_arguments` covers VAR_INPUT and VAR_IN_OUT only). One rule, read by the call's binding
+ * (`invoke.ts`) and by the differential test against the front-end (`test/conformance/call-parameters.test.ts`).
+ */
+export function positionalBinding<P extends { name: string; output: boolean }>(
+  declared: readonly P[],
+  position: number,
+): P | "past-parameters" | "across-output" {
+  const parameter = declared[position]
+  if (parameter === undefined) return "past-parameters"
+  return declared.slice(0, position + 1).some((d) => d.output) ? "across-output" : parameter
+}

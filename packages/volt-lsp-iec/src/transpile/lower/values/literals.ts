@@ -3,7 +3,7 @@
  * and an untyped literal's type from its context. Valuation is `syntax/literal`'s, the literal's own type `types/literal`'s.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { calendarNanoseconds, decodeStringLiteral, type Expr } from "../../../frontend/syntax/index.js"
 import {
   elementaryRef,
@@ -84,7 +84,7 @@ export function typedRealOf(e: Extract<Expr, { kind: "literal" }>): { value: num
 
 /** A nanosecond count in its type's ticks (`types/elementary` `tickNs`), with that type — the literal's own
  *  (`types/literalType`: its prefix decides). */
-export function inTicks(ns: bigint, type: Type): { value: bigint; type: Type } | undefined {
+function inTicks(ns: bigint, type: Type): { value: bigint; type: Type } | undefined {
   const tick = elemOf(type)?.tickNs
   return tick === undefined ? undefined : { value: ns / tick, type }
 }

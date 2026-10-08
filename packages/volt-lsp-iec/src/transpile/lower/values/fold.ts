@@ -4,7 +4,7 @@
  * expression folds at.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrValue } from "../../ir/index.js"
 import { enumConstant } from "./enums.js"
@@ -15,7 +15,7 @@ import {
   parseConversionName,
   type Type,
 } from "../../../frontend/types/index.js"
-import { isConstantCallee } from "../builtins/arity.js"
+import { isConstantCallee, oneArgument } from "../builtins/arity.js"
 import { stored } from "./convert.js"
 import { exprHoldsCall } from "../core/ast-walk.js"
 import { constantValue } from "../../semantics/index.js"
@@ -70,8 +70,8 @@ export function foldsToConstant(lw: Lowering, e: Expr): boolean {
 
 /** `TO_USINT(x)` / `INT_TO_BYTE(x)` over a constant — the value stored at the target's width, as measured (design §11). */
 function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undefined {
-  if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.args.length !== 1) return undefined
-  const written = e.args[0]?.value
+  if (e.kind !== "call" || e.callee.kind !== "ident_expr") return undefined
+  const written = oneArgument(e, { named: true, output: true })
   // THE ONE PARSER, not a seventh. This read the name with its own `/^(?:[A-Za-z]+_)?TO_([A-Za-z]+)$/` — in a
   // file that imports `parseConversionName` and uses it two functions below — and disagreed with it twice: no
   // `i` flag, so a lower-case `int_to_byte(5)` was not a conversion at all where ST is case-insensitive; and no

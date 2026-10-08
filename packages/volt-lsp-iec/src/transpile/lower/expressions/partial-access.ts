@@ -2,7 +2,7 @@
  * Partial access: a bit, byte, word or double word of an unsigned integer (`x.%X3`, `.%B3`, `.%W1`, `.%D0`).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { lowerExpr } from "./expressions.js"

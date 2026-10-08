@@ -2,7 +2,7 @@
  * Places — where a name, a field, an element or a bit lives: in the frame, a local, a VAR_IN_OUT, or the globals.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { type Expr, isSelfRef, selfRefKind } from "../../../frontend/syntax/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -17,6 +17,8 @@ import { binaryOf } from "../core/build.js"
 import { convert } from "../values/convert.js"
 import { cursorChar, cursorString, cursorStringChar } from "../pointers/cursor.js"
 import { lowerExpr } from "../expressions/expressions.js"
+import { pointerFrame } from "../pointers/state.js"
+import { fieldIn } from "./path.js"
 
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
@@ -27,7 +29,7 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     const base = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
     if (base === undefined) return undefined
     const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
-    const field = layout?.fields.find((f) => f.name.toUpperCase() === e.member.name.toUpperCase())
+    const field = fieldIn(layout?.fields, e.member.name)
     if (field === undefined) return lw.bail(notAMember, "member access is not lowered yet", e.span)
     return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
   }
@@ -78,7 +80,7 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
   }
   // `p^[i]` on a POINTER TO STRING cursor: a character counted from where the cursor stands, not from the string's start
   // (a cursor is a bare parameter, so its name decides before anything is lowered — nothing is lowered twice)
-  if (e.base.kind === "deref" && e.base.base.kind === "ident_expr" && lw.cursors.has(e.base.base.name.toUpperCase()) && e.indices.length === 1) {
+  if (e.base.kind === "deref" && e.base.base.kind === "ident_expr" && pointerFrame(lw).cursors.has(e.base.base.name.toUpperCase()) && e.indices.length === 1) {
     const pointer = lowerPlace(lw, e.base.base, notAMember)
     const i = pointer && lowerExpr(lw, e.indices[0]!)
     if (pointer === undefined || i === undefined) return undefined
@@ -134,7 +136,7 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
  * instance member, which waits on the memory model (§9) — it keeps the counted code the caller passes, so the
  * coverage report's categories do not shift under it.
  */
-export function bitPlace(lw: Lowering, e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
+function bitPlace(lw: Lowering, e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
   const index = Number(e.member.name)
   const base = lowerPlace(lw, e.base, notABit)
   if (base === undefined) return undefined

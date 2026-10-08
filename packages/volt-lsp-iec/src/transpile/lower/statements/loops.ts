@@ -2,18 +2,18 @@
  * The three loops as one IR shape — FOR, WHILE, REPEAT — and EXIT / CONTINUE.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Statement, StatementList } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrStmt, IrValue } from "../../ir/index.js"
 import { lowerBlock } from "./statements.js"
 import { lowerPlace } from "../places/places.js"
-import { refuseUnionWrite } from "../storage/unions.js"
-import { refuseConstantWrite } from "../places/access-guards.js"
+import { guardWrite } from "../places/access-guards.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { beside, convert, stored } from "../values/convert.js"
 import { foldConstant } from "../values/fold.js"
-import { classifyConversion, commonType, elementaryRef, elemOf } from "../../../frontend/types/index.js"
+import { classifyConversion, elementaryRef, elemOf } from "../../../frontend/types/index.js"
 import { holdsCall } from "../../ir/walk.js"
+import { meet } from "../values/promote.js"
 
 /** A loop's body: an EXIT or CONTINUE in it has a loop to leave. */
 function loopBody(lw: Lowering, list: StatementList): IrStmt[] {
@@ -40,7 +40,7 @@ function loopBody(lw: Lowering, list: StatementList): IrStmt[] {
  */
 export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): IrStmt | undefined {
   const control = lowerPlace(lw, s.controlVar)
-  if (control === undefined || refuseUnionWrite(lw, control, s.controlVar.span) || refuseConstantWrite(lw, control, s.controlVar.span)) return undefined
+  if (control === undefined || guardWrite(lw, control, s.controlVar.span, ["union", "constant"]) === undefined) return undefined
   const from = lowerExpr(lw, s.from, control.type)
   // The LIMIT is not lowered in the counter's type: a literal the counter cannot hold is compared as it is — `FOR small :=
   // 1 TO 200` on a SINT runs until something EXITs, as `TO (100 + 100)` does (`tr_36_for_literal_limit_beyond_counter`).
@@ -84,11 +84,11 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   // `self.i <= self.hi`, which is `i16 <= i32` and which rustc rejects with E0308. Zero diagnostics, on ordinary
   // ST that CODESYS compiles.
   //
-  // `commonType` rather than `control.type`, and the difference is not cosmetic: narrowing the LIMIT into the
+  // the meet (`values/promote.ts`, `for-compare`: `commonType`) rather than `control.type`, and the difference is not cosmetic: narrowing the LIMIT into the
   // counter's type would wrap a limit the counter cannot hold (a DINT 100000 into an INT is -31072, and the loop
   // would run zero times instead of until the counter wraps). Promoting is what `commonType` already encodes for
   // binary operands, measured — the signed type at equal width, the wider rank otherwise.
-  const compareIn = commonType(control.type, to.type)
+  const compareIn = meet(lw, [{ kind: "load", place: control, type: control.type, span: s.controlVar.span }, to], { kind: "for-compare" }, s.span)!.type
   const current: IrExpr = convert({ kind: "load", place: control, type: control.type, span: s.controlVar.span }, compareIn)
   const limit = convert(to, compareIn)
   const binary = (op: "le" | "ge" | "lt" | "and" | "or", left: IrExpr, right: IrExpr): IrExpr => ({ kind: "binary", op, left, right, type: bool, span: s.span })

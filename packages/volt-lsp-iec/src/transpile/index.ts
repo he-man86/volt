@@ -47,8 +47,27 @@
  * centrepiece with "26,175 corpus files" and the measurement was 55 POUs — the same order of error as claiming a
  * test suite covers a codebase when it covers one directory.
  */
-export * from "./ir/index.js"
-export * from "./lower/index.js"
-export * from "./interp/index.js"
-export * from "./emit/rust/index.js"
+// THE SURFACE, named one by one (design.md §2.1.1; `index.test.ts` pins the runtime names). Beyond the design's list, each
+// with its consumer: `LoopGuardError` (a harness's loop guard giving up — `test/conformance/backends.test.ts`, the
+// confidence rating; task 27 came after the design) and the type `LoweringProject` (`test/corpus/support/project.ts`).
+export type * from "./ir/index.js"
+export {
+  CLOCK,
+  libraryBase,
+  LOWER_CODE_PREFIXES,
+  LOWER_CODES,
+  lowerCodeKind,
+  lowerPrepared,
+  lowerSource,
+  lowerUnit,
+  prepareProject,
+  type LibraryBase,
+  type LibraryFile,
+  type LoweredPou,
+  type LowerDiagnostic,
+  type LoweringProject,
+  type ParsedFile,
+} from "./lower/index.js"
+export { LoopGuardError, run, type Runner } from "./interp/index.js"
+export { emitRust, type Emitted, rustType } from "./emit/rust/index.js"
 export { load, lowerAndEmit } from "./pipeline/index.js"

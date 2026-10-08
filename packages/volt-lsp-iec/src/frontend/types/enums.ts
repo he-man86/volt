@@ -45,7 +45,7 @@ export function enumBase(body: EnumBody, sym: Symbol): ElementaryTypeRef | undef
  */
 export function enumDefault(project: Scope, t: Type, valueOf: EnumeratorValue): bigint | undefined {
   const body = enumDeclaration(project, t)?.body
-  return body?.kind === "enum" ? defaultOfValues(body.values, body.init, valueOf) : undefined
+  return body?.kind === "enum" ? enumDefaultValue(body.values, body.init, valueOf) : undefined
 }
 
 /**
@@ -69,8 +69,8 @@ export function enumDeclaration(project: Scope, t: Type): TypeDecl | undefined {
 export function strictEnum(project: Scope, t: Type, valueOf: EnumeratorValue): { name: string; values: ReadonlySet<bigint> } | undefined {
   const decl = enumDeclaration(project, t)
   if (decl === undefined || decl.body.kind !== "enum" || !hasFrontendAttribute(decl, "strict")) return undefined
-  const values = memberValues(decl.body.values, valueOf)
-  return values === undefined ? undefined : { name: decl.name.text, values: new Set(values.values()) }
+  const numbered = numberEnumerators(decl.body.values, valueOf)
+  return numbered.unfolded !== undefined ? undefined : { name: decl.name.text, values: new Set(numbered.values.values()) }
 }
 
 /**
@@ -82,32 +82,48 @@ export function inlineEnumDefault(
   type: { kind: string; values?: readonly { name: { text: string }; value?: Expr }[] },
   valueOf: EnumeratorValue,
 ): bigint | undefined {
-  return type.kind === "implicit_enum_type" && type.values !== undefined ? defaultOfValues(type.values, undefined, valueOf) : undefined
+  return type.kind === "implicit_enum_type" && type.values !== undefined ? enumDefaultValue(type.values, undefined, valueOf) : undefined
 }
 
-/** Each member's value by its upper-cased name, in declaration order — a written one folded, an unwritten one the
- *  previous plus one (the first 0); undefined when a written value does not fold. */
-function memberValues(values: readonly { name: { text: string }; value?: Expr }[], valueOf: EnumeratorValue): Map<string, bigint> | undefined {
+/** An enumerator's numbering (`numberEnumerators`): each member's value by its upper-cased name, and the member whose
+ *  written value did not fold, which ended it. */
+export interface EnumeratorNumbering {
+  readonly values: ReadonlyMap<string, bigint>
+  /** the source name of the member whose written value does not fold — neither it nor any member after it is numbered */
+  readonly unfolded?: string
+}
+
+/**
+ * THE ENUMERATOR NUMBERING (transpile-restructure 1.7.14) — the LSP's and the transpiler's: in declaration order, a written
+ * `:= n` folded by `valueOf`, an unwritten member the previous plus one, the first 0 (`type_dut_enum_simple`,
+ * `type_dut_enum_explicit_values`). A written value that does not fold ends it (`unfolded`). Given `until`, it stops after
+ * the member of that name — nothing past it is folded, as a member's value is made of what comes before it only.
+ */
+export function numberEnumerators(values: readonly { name: { text: string }; value?: Expr }[], valueOf: EnumeratorValue, until?: string): EnumeratorNumbering {
   let next = 0n
   const byName = new Map<string, bigint>()
+  const last = until?.toUpperCase()
   for (const v of values) {
     const written = v.value === undefined ? undefined : valueOf(v.value)
-    if (v.value !== undefined && typeof written !== "bigint") return undefined // a value that does not fold
+    if (v.value !== undefined && typeof written !== "bigint") return { values: byName, unfolded: v.name.text } // a value that does not fold
     const value = typeof written === "bigint" ? written : next
     byName.set(v.name.text.toUpperCase(), value)
+    if (v.name.text.toUpperCase() === last) break
     next = value + 1n
   }
-  return byName
+  return { values: byName }
 }
 
-/** Zero when zero is one of the values, else the FIRST — or the member a type-level `:= Name` default names. */
-function defaultOfValues(
+/** THE ENUM DEFAULT'S VALUE over a member list: zero when zero is one of the values, else the FIRST — or the member a
+ *  type-level `:= Name` default names (`enumDefault`'s measurements); undefined when a written value does not fold. */
+export function enumDefaultValue(
   values: readonly { name: { text: string }; value?: Expr }[],
   init: { kind: string; name?: unknown } | undefined,
   valueOf: EnumeratorValue,
 ): bigint | undefined {
-  const byName = memberValues(values, valueOf)
-  if (byName === undefined) return undefined
+  const numbered = numberEnumerators(values, valueOf)
+  if (numbered.unfolded !== undefined) return undefined
+  const byName = numbered.values
   const first = byName.values().next().value
   const hasZero = [...byName.values()].includes(0n)
   // A TYPE-LEVEL default names one of its own members: `TYPE E : (Idle, Busy) := Busy` starts every E at Busy

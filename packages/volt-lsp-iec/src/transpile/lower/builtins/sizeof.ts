@@ -2,7 +2,7 @@
  * SIZEOF and the difference of two addresses in one variable, over the measured byte layout (`storage/bytes.ts`).
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { lookup, targetOf } from "../../../frontend/symbols/index.js"
@@ -10,14 +10,16 @@ import { elementaryRef, elementaryTypeOn, resolveNamedType, type Type } from "..
 import { storageOf } from "../storage/layout.js"
 import { byteOffset, byteSize } from "../storage/bytes.js"
 import { lowerPlace } from "../places/places.js"
+import { oneArgument } from "./arity.js"
+import { adrOperand } from "../pointers/address.js"
 
 /**
  * `SIZEOF(x)` of a variable or a type name — its byte size (`bytes`), as a ULINT constant: a SIZEOF widens into a ULINT
  * without a message, measured. A type with an unmeasured part is refused.
  */
 export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
-  const arg = e.args[0]?.value
-  if (e.args.length !== 1 || arg === undefined || e.args[0]!.param !== undefined) return lw.bail("call-arity", "SIZEOF takes one argument", e.span)
+  const arg = oneArgument(e, { output: true })
+  if (arg === undefined) return lw.bail("call-arity", "SIZEOF takes one argument", e.span)
   // XSIZEOF is SIZEOF: the same byte count, and this already answers with the pointer-width integer it returns
   // (conformance `cp_xsizeof`: XSIZEOF and SIZEOF agree on a variable, an array and a type).
   const named = arg.kind === "ident_expr" && !lw.holds(arg.name) ? lookup(lw.scope, arg.name)?.symbol : undefined
@@ -43,9 +45,7 @@ export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr
  * (reported), so the caller does not report it a second time.
  */
 export function adrDifference(lw: Lowering, e: Extract<Expr, { kind: "binary" }>): IrExpr | null | undefined {
-  const adrOf = (x: Expr): Expr | undefined =>
-    x.kind === "call" && x.callee.kind === "ident_expr" && x.callee.name.toUpperCase() === "ADR" && x.args.length === 1 ? x.args[0]!.value : undefined
-  const [a, b] = [adrOf(e.left), adrOf(e.right)]
+  const [a, b] = [adrOperand(e.left, { parens: false }), adrOperand(e.right, { parens: false })]
   if (a === undefined || b === undefined) return undefined
   const [left, right] = [lowerPlace(lw, a), lowerPlace(lw, b)]
   if (left === undefined || right === undefined) return null

@@ -25,10 +25,26 @@ export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number 
   ...Object.fromEntries(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"].map((n) => [n, { min: 1, max: 1 }])),
 }
 
-/** A call's one positional argument — undefined when it has another count, a name, an output or an empty one. */
-export function oneArgument(e: Extract<Expr, { kind: "call" }>): Expr | undefined {
+/**
+ * What a one-argument site lets through besides a plain positional argument. THE SITES DIFFER TODAY and each keeps what
+ * it accepted (transpile-restructure 1.7.2 is output-neutral; making them one rule is task 6.A.18's kind of change, by
+ * recording): `named` lets `f(p := x)` through, `output` lets `f(p => x)` through.
+ */
+interface OneArgumentAccepts {
+  readonly named?: true
+  readonly output?: true
+}
+
+/**
+ * A call's ONE argument — THE check of every builtin that takes exactly one (a conversion, `MOVE`, `SIZEOF`,
+ * `__ISVALIDREF`, the constant fold's conversion). Undefined when the call has another count or an empty argument, and
+ * — unless the site `accepts` it — a named or an output one.
+ */
+export function oneArgument(e: Extract<Expr, { kind: "call" }>, accepts: OneArgumentAccepts = {}): Expr | undefined {
   const only = e.args[0]
-  return e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output ? undefined : only.value
+  if (e.args.length !== 1 || only?.value === undefined) return undefined
+  if ((only.param !== undefined && accepts.named === undefined) || (only.output && accepts.output === undefined)) return undefined
+  return only.value
 }
 
 /** The callees whose result is decided at compile time: a conversion, `SIZEOF`, and the pure value functions. */

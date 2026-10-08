@@ -4,10 +4,9 @@
  */
 
 import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
-import type { Lowering } from "../lowering.js"
+import type { FbType, Lowering } from "../core/lowering.js"
 import type { IrDispatch, IrExpr, IrInvoke, IrStmt, Place } from "../../ir/index.js"
 import { ANY_FAMILIES, inferExprType, type Type, UNKNOWN } from "../../../frontend/types/index.js"
-import { type FbType, interfaceChain } from "./tags.js"
 import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import { heldAt, instanceRelative, lendPlace } from "./lend.js"
 import { onEachTag } from "../entry/finish.js"
@@ -17,8 +16,12 @@ import { convert } from "../values/convert.js"
 import { methodOf } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { propertyRoutine } from "../calls/property.js"
+import { interfaceTables } from "./state.js"
+import { tempPlace } from "../core/temps.js"
+import { interfaceChainOf } from "../core/chain.js"
+import { indexOfTag } from "../core/tags.js"
 
-export type SymbolAst = NonNullable<ReturnType<typeof lookup>>["symbol"]["ast"]
+type SymbolAst = NonNullable<ReturnType<typeof lookup>>["symbol"]["ast"]
 
 /** A call through `ref`: one arm per instance it may hold, each built by `arm` once every store has lowered. */
 function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, fb: FbType) => IrInvoke | undefined, span: Span): IrDispatch | undefined {
@@ -28,11 +31,11 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
   onEachTag(lw, at.key, (tag, root, foreign) => {
     // an FB frame's tag handed across instances names a field of whichever instance runs here — not the one it came from
     if (foreign && instanceRelative(root, tag))
-      return void lw.bail("interface-instance-relative", `an interface naming a field of one ${lw.shared.instances[tag - 1]!.fb.name} holder, handed to another instance — which instance it names is not tracked`, span)
+      return void lw.bail("interface-instance-relative", `an interface naming a field of one ${interfaceTables(lw).instances[indexOfTag(tag)]!.fb.name} holder, handed to another instance — which instance it names is not tracked`, span)
     // the instance where this body can reach it: its own, or lent to it by its callers
     const place = lendPlace(root, lw, tag, span)
     if (place === undefined) return
-    const call = arm(place, lw.shared.instances[tag - 1]!.fb)
+    const call = arm(place, interfaceTables(lw).instances[indexOfTag(tag)]!.fb)
     // one arm per tag — a revisit (an escalated `foreign`) is here to refuse, not to add a second
     if (call !== undefined && !arms.some((a) => a.tag === BigInt(tag))) arms.push({ tag: BigInt(tag), call })
   })
@@ -42,7 +45,7 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
 /** `ref.M(…)` — each instance's METHOD, with the arguments lowered ONCE, against the interface's own declaration. */
 export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { kind: "call" }>, name: string): IrDispatch | undefined {
   const itf = (ref.type as { name: string }).name
-  const method = interfaceChain(lw, itf).flatMap((a) => a.methods).find((m) => m.name.text.toUpperCase() === name.toUpperCase())
+  const method = interfaceChainOf(lw, itf).flatMap((a) => a.methods).find((m) => m.name.text.toUpperCase() === name.toUpperCase())
   if (method === undefined) return lw.bail("call-method", `${name} is no METHOD of ${itf}`, call.span)
   const declared = method.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => ({ section: s.sectionKind, name: n.text.toUpperCase(), type: d.type }))))
   if (declared.some((d) => d.section !== "VAR_INPUT")) return lw.bail("interface-call-shape", `${name} has a VAR_IN_OUT or VAR_OUTPUT — through an interface, not built yet`, call.span)
@@ -92,7 +95,7 @@ function interfaceProperty(lw: Lowering, e: Expr): { ref: Place; name: string; t
   const ref = lowerPlace(lw, e.base)
   if (ref === undefined) return undefined
   if (ref.type.kind !== "interface") return null
-  const property = interfaceChain(lw, ref.type.name).flatMap((a) => a.properties).find((p) => p.name.text.toUpperCase() === e.member.name.toUpperCase())
+  const property = interfaceChainOf(lw, ref.type.name).flatMap((a) => a.properties).find((p) => p.name.text.toUpperCase() === e.member.name.toUpperCase())
   return property === undefined ? null : { ref, name: property.name.text, type: storageOf(lw, lw.resolve(property.dataType, lw.project), property.dataType.span) }
 }
 
@@ -119,7 +122,7 @@ export function interfacePropertySet(lw: Lowering, s: Extract<Statement, { kind:
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.name} set by ${s.op ?? "a chain"}`, s.span)
   const value = lowerExpr(lw, s.value, access.type)
   if (value === undefined) return undefined
-  const temp = lw.tempPlace("property", access.type, s.span)
+  const temp = tempPlace(lw, "property", access.type, s.span)
   const load: IrExpr = { kind: "load", place: temp, type: access.type, span: s.span }
   const set = dispatch(lw, access.ref, UNKNOWN, (instance, fb) => accessorCall(lw, fb, instance, access.name, "set", [load], UNKNOWN, s.span), s.span)
   return set && [{ kind: "assign", target: temp, value: convert(value, access.type), span: s.span }, { kind: "eval", value: set, span: s.span }]

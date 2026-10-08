@@ -2,13 +2,11 @@
  * PROPERTY accessors as routines: a GET read and a SET assigned.
  */
 
-import type { Lowering } from "../lowering.js"
-import type { FbType, RoutineSymbol } from "../core/lowering.js"
-import { type Expr, isStBody, type Property, type Span, type Statement } from "../../../frontend/syntax/index.js"
+import type { FbType, Lowering, RoutineSymbol } from "../core/lowering.js"
+import type { Expr, Property, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrDispatch, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
-import { isBodylessLibrary, once, routineLowering } from "./routines.js"
+import { bodyOf, once, routineLowering } from "./routines.js"
 import { childScopesByName, lookupMember } from "../../../frontend/symbols/index.js"
-import { execBodyStatements } from "../conditions.js"
 import { storageOf } from "../storage/layout.js"
 import { inferExprType, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import { declareVars } from "../storage/declare.js"
@@ -16,12 +14,15 @@ import { lowerBlock } from "../statements/statements.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
 import { lowerPlace } from "../places/places.js"
-import { inGlobals, reachesDispatch, touchesOf } from "./reentrancy.js"
+import { inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
 import { interfacePropertyGet, interfacePropertySet } from "../interfaces/dispatch.js"
 import { staticPath } from "../places/path.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
 import { convert } from "../values/convert.js"
+import { interfaceFrame } from "../interfaces/state.js"
+import { tempPlace } from "../core/temps.js"
+import { drain } from "../core/nested.js"
 
 /**
  * A PROPERTY's GET or SET as a routine of the FB it runs on: the getter's result, or the setter's one input, is a local
@@ -37,11 +38,8 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
-    if (!isStBody(part.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
-    const parsed = execBodyStatements(lw.project, ast, part.body)
-    if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
-    if (isBodylessLibrary(lw, ast, parsed.statements))
-      return lw.bail("call-library", `${name} is a library declaration without a body`, span)
+    const parsed = bodyOf(lw, ast, part.body, name)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)
@@ -49,12 +47,9 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: typeZero(type) })
     declareVars(r, part.varSections)
     const body = lowerBlock(r, parsed.statements)
-    if (r.diagnostics.length > 0) {
-      lw.diagnostics.push(...r.diagnostics)
-      return undefined
-    }
+    if (drain(lw, r)) return undefined
     const shape = accessor === "get" ? { inputs: [], result: 0 } : { inputs: [0] }
-    return { name, key, kind: "method", fb: frame.name, uri: sym.uri, locals: r.localSlots, inouts: [], ...shape, body, lent: r.lends }
+    return { name, key, kind: "method", fb: frame.name, uri: sym.uri, locals: r.localSlots, inouts: [], ...shape, body, lent: interfaceFrame(r).lends }
   })
 }
 
@@ -112,7 +107,7 @@ export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | IrDispatch |
   const inside = access.instance
   if (inside.root === "global" && inside.path.length > 0) {
     if (!staticPath(inside)) return lw.bail("call-program-property", `${access.sym.name} is read on an instance inside a PROGRAM through a runtime index`, e.span)
-    if (touchesOf(lw).get(routine.key)?.has(inside.slot) || reachesDispatch(lw, routine.body))
+    if (programReentrant(lw, routineCallee(lw, routine), programTarget(inside)) !== undefined)
       return lw.bail("call-program-reentrant", `${access.sym.name}'s getter may reach the PROGRAM it is read inside`, e.span)
   }
   return { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [], inouts: [], type: routine.locals[0]!.type, span: e.span }
@@ -137,7 +132,7 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   const type = routine.locals[0]!.type
   const value = lowerExpr(lw, s.value, type)
   if (value === undefined || refuseImplicitString(lw, value, type, s.span)) return undefined
-  const temp = lw.tempPlace("property", type, s.span)
+  const temp = tempPlace(lw, "property", type, s.span)
   const set: IrInvoke = { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [{ kind: "load", place: temp, type, span: s.span }], inouts: [], type: UNKNOWN, span: s.span }
   return [{ kind: "assign", target: temp, value: convert(value, type), span: s.span }, { kind: "eval", value: set, span: s.span }]
 }

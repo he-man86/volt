@@ -23,6 +23,8 @@
  * unregistered code.
  */
 
+import { LoweringBug } from "../../semantics/faults.js"
+
 
 /** What a refusal asks of the person who hit it. */
 export type LowerCodeKind = "invalid" | "not-modelled" | "not-measured" | "unclassified"
@@ -185,4 +187,15 @@ export function lowerCodeKind(code: string): LowerCodeKind | undefined {
   if (exact !== undefined) return exact
   for (const p of LOWER_CODE_PREFIXES) if (code.startsWith(p.prefix)) return p.kind
   return undefined
+}
+
+/**
+ * The kind of a code lowering EMITS (`Lowering.bail`, `lowerDiagnostic`) — which must be registered. An unregistered one
+ * is a LOWERING BUG and is thrown (design.md P8; it was filed `"unclassified"`, a kind the registry never gave it, and only
+ * `codes.test.ts` noticed). `lowerCodeKind` stays the question "is this registered?" for the gates that ask it.
+ */
+export function emittedKind(code: string): LowerCodeKind {
+  const kind = lowerCodeKind(code)
+  if (kind === undefined) throw new LoweringBug(`lowering emitted the unregistered refusal code '${code}' — register it in lower/diagnostics/codes.ts`)
+  return kind
 }

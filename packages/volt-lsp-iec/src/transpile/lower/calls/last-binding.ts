@@ -13,16 +13,34 @@
  */
 
 import { elementaryRef, type Type, typeZero } from "../../../frontend/types/index.js"
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
+import { sharedState } from "../core/shared.js"
 import type { IrBinding, IrCall, IrDispatch, IrInvoke, IrRoutine, IrSlot, Place } from "../../ir/index.js"
-import { instanceKey, placeKey } from "../places/path.js"
+import { fieldIndex, instanceKey, placeKey } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { holdsCall } from "../../ir/walk.js"
 import { aliases } from "./binding.js"
+import { drain } from "../core/nested.js"
+import { tagOfIndex } from "../core/tags.js"
 
 const FIELD = "__inout_binding"
 
 const DINT = elementaryRef("DINT")
+
+/** What `lastBinding` decides on, gathered over the POU's lowering (each was a field of `Shared`). */
+interface BindingRecords {
+  /** Every call of an FB with VAR_IN_OUT, its instance and binding keyed — what a METHOD called from outside the FB's run
+   *  dispatches over. */
+  readonly bodyCalls: { call: IrCall; instance: string | undefined; binding: string | undefined; context: string }[]
+  /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
+   *  refuses, as what the instance then holds is not recorded. */
+  readonly superRebinds: Set<string>
+  /** The FBs an instance of which is stored WHOLE (`b := a`) — the copy carries the source's in-out binding, which no arm
+   *  of `lastBinding` lends, so a METHOD reaching the in-out is refused (transpile-review 16). */
+  readonly copiedWhole: Set<string>
+}
+
+export const bindingRecords = sharedState<BindingRecords>(() => ({ bodyCalls: [], superRebinds: new Set(), copiedWhole: new Set() }))
 
 /** A value of `t` stored whole: every FB it holds is copied with its in-out binding — for `lastBinding` to refuse. */
 export function registerWholeCopy(lw: Lowering, t: Type, seen = new Set<string>()): void {
@@ -31,14 +49,14 @@ export function registerWholeCopy(lw: Lowering, t: Type, seen = new Set<string>(
   const name = t.name.toUpperCase()
   if (seen.has(name)) return
   seen.add(name)
-  if (t.kind === "function_block") lw.shared.copiedWhole.add(name)
+  if (t.kind === "function_block") bindingRecords(lw).copiedWhole.add(name)
   for (const f of lw.layouts.get(name)?.fields ?? []) registerWholeCopy(lw, f.type, seen)
 }
 
 /** Every call of an FB with VAR_IN_OUT: the instance it runs on and the places it binds, keyed — for `lastBinding`. */
 export function registerBodyCall(lw: Lowering, call: IrCall): void {
   const keys = call.inouts.map((b) => ("kind" in b ? undefined : placeKey(lw, b)))
-  lw.shared.bodyCalls.push({ call, instance: instanceKey(lw, call.instance), binding: keys.includes(undefined) ? undefined : keys.join(";"), context: lw.frameContext })
+  bindingRecords(lw).bodyCalls.push({ call, instance: instanceKey(lw, call.instance), binding: keys.includes(undefined) ? undefined : keys.join(";"), context: lw.frameContext })
 }
 
 /** `inst.M()` reaching the FB's own VAR_IN_OUT from outside its run — a dispatch on the binding `inst` was last called with. */
@@ -68,10 +86,10 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
   lw.shared.dispatches.push((root) => {
     if (refused) return false
     const before = lw.diagnostics.length
-    const calls = lw.shared.bodyCalls.filter((c) => c.call.instance.type.kind === "function_block" && c.call.instance.type.name.toUpperCase() === fb)
+    const calls = bindingRecords(lw).bodyCalls.filter((c) => c.call.instance.type.kind === "function_block" && c.call.instance.type.name.toUpperCase() === fb)
     // one tag per distinct instance and binding, over every call of the FB — the order calls registered keeps them stable
     const bindings = [...new Set(calls.flatMap((c) => (c.instance === undefined || c.binding === undefined ? [] : [`${c.instance}#${c.binding}`])))]
-    const tagFor = (c: (typeof calls)[number]) => BigInt(bindings.indexOf(`${c.instance}#${c.binding}`) + 1)
+    const tagFor = (c: (typeof calls)[number]) => BigInt(tagOfIndex(bindings.indexOf(`${c.instance}#${c.binding}`)))
     for (const c of calls) if (c.instance !== undefined && c.binding !== undefined) c.call.bind = { place: tagOf(c.call.instance), tag: tagFor(c) }
     const mine = calls.filter((c) => c.instance === key)
     let fresh = false
@@ -85,9 +103,9 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
     if (calls.some((c) => c.instance === undefined)) fail("while another call of the FB names its instance some other way")
     else if (mine.some((c) => c.binding === undefined)) fail("while a call of the instance binds a place this cannot lend again")
     // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
-    else if (lw.shared.superRebinds.has(fb)) fail("while its SUPER^ binds the in-out to another place, which is not recorded")
+    else if (bindingRecords(lw).superRebinds.has(fb)) fail("while its SUPER^ binds the in-out to another place, which is not recorded")
     // the copy carries the SOURCE's binding (`tr_16_fb_copy_carries_inout_binding`: first=11), a tag no arm lends
-    else if (lw.shared.copiedWhole.has(fb)) fail("while an instance of it is copied whole, carrying a binding no call of its own made")
+    else if (bindingRecords(lw).copiedWhole.has(fb)) fail("while an instance of it is copied whole, carrying a binding no call of its own made")
     else if (mine.length === 0 && calls.length > 0) fail("never called on this instance, while it is called on others — a copy's binding is not recorded")
     else if (key.startsWith("GLOBAL") && mine.some((c) => !single(c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
       fail("bound from a frame of which there can be several instances, which the one binding cannot name")
@@ -101,7 +119,7 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
           break
         }
         const params = layoutNow()?.inouts ?? []
-        const lent: (IrBinding | undefined)[] = invoke.inouts.map((b, i) => b ?? places[params.findIndex((s) => s.name.toUpperCase() === routine.inouts[i]!.name.toUpperCase())])
+        const lent: (IrBinding | undefined)[] = invoke.inouts.map((b, i) => b ?? places[fieldIndex(params, routine.inouts[i]!.name)])
         if (lent.some((b) => b === undefined)) {
           fail("reaching an in-out no call binds")
           break
@@ -114,7 +132,7 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
         arms.push({ tag, call: { ...invoke, inouts: lent as IrBinding[] } })
         fresh = true
       }
-    if (lw !== root) root.diagnostics.push(...lw.diagnostics.slice(before))
+    if (lw !== root) drain(root, lw, before)
     return fresh
   })
   return dispatch

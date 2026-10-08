@@ -3,21 +3,22 @@
  * initializers interleaved by declaration, and the instances inside it.
  */
 
-import type { Fb, InitStep } from "./state.js"
+import { type Fb, initFrame, type InitStep, pendingInitsOf } from "./state.js"
 import { lookup, type Symbol } from "../../../frontend/symbols/index.js"
 import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrInit, IrRoutine, IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { lowerPlace } from "../places/places.js"
 import { INIT_ATTRIBUTE, initMethod, instancePaths, pathFields, slotMethodCall } from "./attributes.js"
-import { chainNamesOf } from "../core/chain.js"
-import { ownProgram, programReentrant } from "../calls/reentrancy.js"
+import { chainNamesOf, declaredChain, scopeChain } from "../core/chain.js"
+import { ownProgram, programReentrant, programTarget, routineCallee } from "../calls/reentrancy.js"
 import { calledRoutine } from "../calls/routines.js"
-import { holdsCall } from "../../ir/walk.js"
+import { holdsCall, type IrNode, isPlace, someNode } from "../../ir/walk.js"
 import { foldConstant } from "../values/fold.js"
 import { convert, stored, valueAs } from "../values/convert.js"
 import { instanceInitRoutine } from "./instance-init.js"
+import { fieldIn, fieldIndex } from "../places/path.js"
 
 /**
  * Every FB_Init of an FB type's EXTENDS chain, the base's first. FB_Init (conformance `fb_init_runs_with_declared_arguments`,
@@ -28,24 +29,45 @@ import { instanceInitRoutine } from "./instance-init.js"
  */
 function fbInits(fb: Fb): Symbol[] {
   const chain: Symbol[] = []
-  for (let s = fb.scope; s !== undefined; s = s.baseScope) {
+  for (const s of scopeChain(fb.scope)) {
     const own = (s.symbols.get("fb_init") ?? []).find((sym) => sym.kind === "method" && sym.owner === s)
     if (own !== undefined) chain.unshift(own)
   }
   return chain
 }
 
-/** Whether a value of `t` holds, at any depth, an instance running FB_Init. */
-function holdsFbInit(st: InitStep, t: Type): boolean {
+/**
+ * Whether a value of `t` holds, at any depth — an array's elements, a struct's or an FB's fields — an instance the init
+ * step has something to do on (transpile-restructure 1.7.13, lean 10.1: `holdsFbInit` and `reaches` were this walk twice).
+ * `what` is the question: `"fb-init"` — an instance running FB_Init; `"init-step"` — anything at all for the step (an
+ * init-slot METHOD, an instance-path, an FB_Init, a field initializer that runs, the base's included). Memoized per
+ * type and question in the step (`fbInitHeld`, `known`); a type reached again while it is asked answers false.
+ */
+export function reachesFbInit(st: InitStep, t: Type, what: "fb-init" | "init-step"): boolean {
   const array = peelArray(t)
-  if (array !== undefined) return holdsFbInit(st, array.element)
+  if (array !== undefined) return reachesFbInit(st, array.element, what)
   if (t.kind !== "function_block" && t.kind !== "struct") return false
+  const memo = what === "fb-init" ? st.fbInitHeld : st.known
   const key = t.name.toUpperCase()
-  if (st.fbInitHeld.has(key)) return st.fbInitHeld.get(key)!
-  st.fbInitHeld.set(key, false)
-  const result = (t.kind === "function_block" && fbInits(t).length > 0) || (st.lw.layouts.get(key)?.fields ?? []).some((f) => holdsFbInit(st, f.type))
-  st.fbInitHeld.set(key, result)
+  if (memo.has(key)) return memo.get(key)!
+  memo.set(key, false)
+  const result = (t.kind === "function_block" && ownInitWork(st.lw, t, what)) || (st.lw.layouts.get(key)?.fields ?? []).some((f) => reachesFbInit(st, f.type, what))
+  memo.set(key, result)
   return result
+}
+
+/** What an FB type itself gives the init step to do, for `reachesFbInit`'s question. */
+function ownInitWork(lw: Lowering, t: Fb, what: "fb-init" | "init-step"): boolean {
+  if (what === "fb-init") return fbInits(t).length > 0
+  return (
+    initMethod(lw, t) !== undefined ||
+    pathFields(lw, t).length > 0 ||
+    fbInits(t).length > 0 ||
+    // A field whose initial value RUNS — the walk has to reach the instance to run it there. The whole EXTENDS
+    // chain, for the same reason the invoke below walks it: a DERIVED FB whose own fields all fold still has to
+    // be reached, or its base's initializers never run on it and the field silently keeps its default.
+    chainNamesOf(t).some((name) => pendingInitsOf(lw, name) > 0)
+  )
 }
 
 /**
@@ -62,11 +84,11 @@ function recordedArgument(st: InitStep, expr: Expr, instanceSlot: number, declar
   const read = lowerPlace(declaring, expr)
   if (read === undefined || read.path.length > 0 || read.type.kind !== "elementary") return undefined
   if (read.root === undefined) {
-    const declared = declaring.frame[read.slot]
+    const declared = declaring.slots[read.slot]
     // declared before the instance, its initializer has run; declared after it with one that RUNS, it has not, and the
     // variable is still at its default (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). A later one
     // whose initializer folds starts at that value here, which is not recorded.
-    const settled = read.slot < instanceSlot || declaring.pendingInits.some((p) => p.slot === read.slot)
+    const settled = read.slot < instanceSlot || initFrame(declaring).pendingInits.some((p) => p.slot === read.slot)
     if (!(settled && (declared?.section === "VAR" || declared?.section === "VAR_INPUT"))) return undefined
     return holder === undefined ? read : { ...holder, path: [...holder.path, { kind: "field", name: declared!.name }], type: read.type }
   }
@@ -76,60 +98,35 @@ function recordedArgument(st: InitStep, expr: Expr, instanceSlot: number, declar
 }
 
 /** Whether init statements write a global, through any routine or FB body they call. */
-export function writesGlobal(lw: Lowering, node: unknown, seen: Set<string> = new Set()): boolean {
-  if (node === null || typeof node !== "object") return false
-  if (Array.isArray(node)) return node.some((n) => writesGlobal(lw, n, seen))
-  const n = node as { kind?: string; target?: Place; routine?: string; fb?: string }
-  if (n.kind === "assign" && n.target?.root === "global") return true
-  if (n.kind === "invoke" && n.routine !== undefined && !seen.has(n.routine)) {
-    seen.add(n.routine)
-    const called = lw.routines.get(n.routine)
-    if (called?.state === "lowered" && writesGlobal(lw, called.routine.body, seen)) return true
+export function writesGlobal(lw: Lowering, root: readonly IrStmt[], seen: Set<string> = new Set()): boolean {
+  const visit = (n: IrNode): boolean => {
+    if (isPlace(n)) return false
+    if (n.kind === "assign" && n.target.root === "global") return true
+    if (n.kind === "invoke" && !seen.has(n.routine)) {
+      seen.add(n.routine)
+      const called = lw.routines.get(n.routine)
+      if (called?.state === "lowered" && someNode(called.routine.body, visit)) return true
+    }
+    if (n.kind === "call" && !seen.has(`FB:${n.fb}`)) {
+      seen.add(`FB:${n.fb}`)
+      if (someNode(lw.layouts.get(n.fb.toUpperCase())?.body ?? [], visit)) return true
+    }
+    return false
   }
-  if (n.kind === "call" && n.fb !== undefined && !seen.has(`FB:${n.fb}`)) {
-    seen.add(`FB:${n.fb}`)
-    if (writesGlobal(lw, lw.layouts.get(n.fb.toUpperCase())?.body, seen)) return true
-  }
-  return Object.entries(node).some(([key, child]) => key !== "span" && key !== "type" && writesGlobal(lw, child, seen))
+  return someNode(root, visit)
 }
 
 /** The FB_Init arguments a field is declared with, by the unit (or struct) declaring it — its base FBs' too. */
 export function declaredArgs(lw: Lowering, owner: TopLevel | undefined, name: string): readonly CallArg[] {
-  for (let unit = owner; unit !== undefined; ) {
+  for (const unit of declaredChain(lw, owner)) {
     const decls =
       unit.kind === "function_block" || unit.kind === "program" ? unit.varSections.flatMap((s) => s.decls)
       : unit.kind === "type_decl" && unit.body.kind === "struct" ? unit.body.fields
       : []
     const decl = decls.find((d) => d.names.some((n) => n.text.toUpperCase() === name.toUpperCase()))
     if (decl !== undefined) return decl.type.kind === "named_type" ? (decl.type.initArgs ?? []) : []
-    const base = unit.kind === "function_block" ? unit.extends : undefined
-    unit = base === undefined ? undefined : lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined
   }
   return []
-}
-
-/** Whether an instance of `t` (or one inside it) has anything for the init step to do: an init-slot METHOD, an
- *  instance-path, an FB_Init, or a field initializer that runs. */
-export function reaches(st: InitStep, t: Type): boolean {
-  const lw = st.lw
-  const array = peelArray(t)
-  if (array !== undefined) return reaches(st, array.element)
-  if (t.kind !== "function_block" && t.kind !== "struct") return false
-  const key = t.name.toUpperCase()
-  if (st.known.has(key)) return st.known.get(key)!
-  st.known.set(key, false)
-  const own =
-    t.kind === "function_block" &&
-    (initMethod(lw, t) !== undefined ||
-      pathFields(lw, t).length > 0 ||
-      fbInits(t).length > 0 ||
-      // A field whose initial value RUNS — the walk has to reach the instance to run it there. The whole EXTENDS
-      // chain, for the same reason the invoke below walks it: a DERIVED FB whose own fields all fold still has to
-      // be reached, or its base's initializers never run on it and the field silently keeps its default.
-      chainNamesOf(t).some((name) => (lw.bodies.get(name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0))
-  const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(st, f.type))
-  st.known.set(key, result)
-  return result
 }
 
 /** An instance the init step would have to reach where its walk does not go: refused. */
@@ -145,7 +142,7 @@ export function unreached(st: InitStep, where: string): undefined {
  */
 export function visit(st: InitStep, place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, holder?: Place): boolean {
   const t = place.type
-  if (!reaches(st, t)) return true
+  if (!reachesFbInit(st, t, "init-step")) return true
   if (peelArray(t) !== undefined) return unreached(st, "an array") ?? false
   if (t.kind !== "function_block" && t.kind !== "struct") return true
   // A PROGRAM's own FB_Init leaves its variables as they were (`fb_init_program_own`: 1) — whether it runs at all, before
@@ -178,7 +175,7 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
   const { lw, span } = st
   // Inner first is recorded for a holder with no EXTENDS (`fb_init_nested_in_fb_init`). With a base chain, whether a
   // field's FB_Init runs before the base's or the derived's is not — the review of that batch found it guessed.
-  if (t.scope?.baseScope !== undefined && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsFbInit(st, f.type)))
+  if (t.scope?.baseScope !== undefined && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => reachesFbInit(st, f.type, "fb-init")))
     return lw.bail("fb-init-order", `${t.name} extends a base and holds an instance running FB_Init — their order is not recorded`, span) ?? false
   const given = new Map<string, Expr>()
   for (const arg of args) {
@@ -195,14 +192,14 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
       if (input === false) return false
       inputs.push(input)
     }
-    if (programReentrant(lw, routine, place))
+    if (programReentrant(lw, routineCallee(lw, routine), programTarget(place)) !== undefined)
       return lw.bail("call-program-reentrant", `${sym.owner.name}'s FB_Init may reach the PROGRAM its instance lives in, which it runs moved out of`, span) ?? false
     mine.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
   }
   if (typeof init === "object" && "fields" in init) {
     const fields = lw.layouts.get(t.name.toUpperCase())?.fields ?? []
     for (const [name, value] of Object.entries(init.fields)) {
-      const field = fields.find((f) => f.name.toUpperCase() === name)
+      const field = fieldIn(fields, name)
       if (field === undefined || typeof value === "object")
         return lw.bail("fb-init-order", `${t.name} declared with FB_Init arguments and a nested structured initializer — applied after FB_Init, not modelled`, span) ?? false
       st.reapplied.push({ kind: "assign", target: { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, value: { kind: "const", value, type: field.type, span }, span })
@@ -229,15 +226,15 @@ function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, given: Rea
   }
   const held = place.path[0]
   if (input === undefined && expr !== undefined && place.path.length === 1 && held?.kind === "field" && ownProgram(st, place)) {
-    const holder: Place = { ...place, path: [], type: (place.root === "global" ? lw.globals : lw.frame)[place.slot]!.type }
-    const read = recordedArgument(st, expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
+    const holder: Place = { ...place, path: [], type: (place.root === "global" ? lw.globals : lw.slots)[place.slot]!.type }
+    const read = recordedArgument(st, expr, fieldIndex(declaring.slots, held.name), declaring, holder)
     if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
   }
   // ...and an instance held by an FB instance: the variable is the HOLDER's field (transpile-review 23 — it was
   // refused, `tr_23_fb_init_argument_from_pending_init`)
   const last = place.path.at(-1)
   if (input === undefined && expr !== undefined && holder?.type.kind === "function_block" && last?.kind === "field" && lw.bodies.get(holder.type.name.toUpperCase())?.lowering === declaring) {
-    const read = recordedArgument(st, expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === last.name.toUpperCase()), declaring, holder)
+    const read = recordedArgument(st, expr, fieldIndex(declaring.slots, last.name), declaring, holder)
     if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
   }
   // NO ARGUMENT AT ALL IS NOT A GAP IN LOWERING — the vendor refuses that declaration too: an FB whose
@@ -262,7 +259,7 @@ function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, given: Rea
     place.root === undefined &&
     place.path.length === 0 &&
     lw.shared.root !== "" &&
-    lw.frame[place.slot]?.name.toUpperCase() === lw.shared.root.toUpperCase()
+    lw.slots[place.slot]?.name.toUpperCase() === lw.shared.root.toUpperCase()
   if (input === undefined && args.length === 0 && rootsOwn)
     return (
       lw.bail(
@@ -318,7 +315,7 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
   const chain = t.kind === "function_block" ? chainNamesOf(t) : []
   // the depth of the most basic FB_Init in the chain — a type below it initializes after a base's FB_Init could run
   const firstFbInit = Math.min(...inits.map((sym) => chain.findIndex((name) => name.toUpperCase() === sym.owner.name.toUpperCase())))
-  const initialized = chain.filter((type) => (lw.bodies.get(type.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0)
+  const initialized = chain.filter((type) => pendingInitsOf(lw, type) > 0)
   const below = initialized.find((type) => chain.indexOf(type) > firstFbInit)
   if (below !== undefined) return lw.bail("fb-init-order", `${below}'s field initializers and a base's FB_Init — which runs first is not recorded`, span) ?? false
   const ordered: IrStmt[] = []

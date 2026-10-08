@@ -12,34 +12,32 @@ import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
-import { Lowering, newShared } from "../lowering.js"
+import { Lowering } from "../core/lowering.js"
+import { newShared } from "../core/shared.js"
 import { initStep } from "../init/step.js"
 import { finishInterfaces } from "./finish.js"
 import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { openDims } from "../places/bounds.js"
 import { declareVars } from "../storage/declare.js"
 import { buildInitSequence } from "../init/sequence.js"
-import { execBodyStatements } from "../conditions.js"
-import { tempResets } from "../init/temp-resets.js"
+import { resetTemps } from "../init/temp-resets.js"
 import { lowerBlock } from "../statements/statements.js"
 import { addressSharedByInstances } from "../storage/addresses.js"
 import { representable, reversedArray } from "./checks.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
-import { calledLayout } from "../calls/routines.js"
+import { type BodyRefusal, bodyOf, calledLayout } from "../calls/routines.js"
 
 /** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
 export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, libraryUnits }: LoweringProject): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
 
-  // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
-  // a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the backend through network text, not
-  // through here.
-  if (!isStBody(unit.body))
-    return { diagnostics: [lowerDiagnostic("graphical-body", "a body that is not ST is not lowered here", unit.span)] }
-
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text, libraryUnits))
+  // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
+  // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
+  // through network text, not through here.
+  if (!isStBody(unit.body)) return refusedBody(unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
   lowering.isRoot = true
   lowering.displayName = unit.name.text
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
@@ -61,7 +59,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, l
   if (refused !== undefined) return refused
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
-  const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
+  const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
   return { pou, diagnostics: [] }
 }
 
@@ -111,20 +109,19 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   // the POU's own frame is the one place an initializer that is not a constant can become an init-step statement
   declareVars(lowering, unit.varSections, true)
   // Lowered HERE, before the body, though they RUN in the init step: `p : POINTER TO INT := ADR(x)` stores an
-  // address, and the body's `p^` is only allowed because that store is known (`shared.pointers`). The statements
+  // address, and the body's `p^` is only allowed because that store is known (`pointerTargets`). The statements
   // are kept for `initStep` to place; only the order they are BUILT in moves.
   if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
-  const parsed = execBodyStatements(lowering.project, unit, unit.body)
-  if (!parsed.ok)
-    return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
+  const parsed = bodyOf(lowering, unit, unit.body, undefined, { library: false })
+  if ("code" in parsed) return refusedBody(unit, parsed)
   // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
-  return [...(tempResets(lowering, unit.varSections, unit.span) ?? []), ...lowerBlock(lowering, parsed.statements)]
+  return [...resetTemps(lowering, unit), ...lowerBlock(lowering, parsed.statements)]
 }
 
 /** The refusal of a lowered POU whose storage a backend cannot hold: an address shared by instances, a reversed array, or a
  *  slot with no runtime representation. */
 function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>, layouts: readonly IrLayout[], routines: readonly IrRoutine[]): LoweredPou | undefined {
-  const sharedAddress = addressSharedByInstances(lowering, [...lowering.frame, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
+  const sharedAddress = addressSharedByInstances(lowering, [...lowering.slots, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
   if (sharedAddress !== undefined)
     return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
   // WHICH SLOTS A CALL LENDS: a VAR_IN_OUT, and a routine's VAR_INPUT (a function's or a method's — CODESYS takes an
@@ -132,7 +129,7 @@ function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   // storage, where an `ARRAY[*]` has no size: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse
   // them) lowered as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot.
   const slots = [
-    ...lowering.frame.map((s) => ({ s, lent: false })),
+    ...lowering.slots.map((s) => ({ s, lent: false })),
     ...layouts.flatMap((l) => [...l.fields.map((s) => ({ s, lent: false })), ...(l.inouts ?? []).map((s) => ({ s, lent: true }))]),
     ...routines.flatMap((r) => [...r.locals.map((s) => ({ s, lent: s.section === "VAR_INPUT" })), ...r.inouts.map((s) => ({ s, lent: true }))]),
     ...lowering.globals.map((s) => ({ s, lent: false })),
@@ -180,8 +177,13 @@ function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_bl
   }
   const inouts: Place[] = (layout.inouts ?? []).map((slot) => {
     lw.slot({ ...unit.name, text: slot.name }, slot.type, "VAR")
-    return { slot: lw.frame.length - 1, path: [], type: slot.type, span: unit.span }
+    return { slot: lw.slots.length - 1, path: [], type: slot.type, span: unit.span }
   })
   lw.slot(unit.name, type, "VAR")
-  return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts, span: unit.span }]
+  return [{ kind: "call", instance: { slot: lw.slots.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts, span: unit.span }]
+}
+
+/** The POU's own body refused (`bodyOf`): a POU with no IR, the refusal its one diagnostic. */
+function refusedBody(unit: TopLevel, refusal: BodyRefusal): LoweredPou {
+  return { diagnostics: [lowerDiagnostic(refusal.code, refusal.message, unit.span)] }
 }

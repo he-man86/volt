@@ -7,11 +7,12 @@
  * POINTER and REFERENCE, `expressions/`, `builtins/`, `statements/`, `calls/` and `interfaces/`.
  */
 export { lowerUnit } from "./entry/lower-unit.js"
-export { lowerSource } from "./entry/lower-source.js"
+export { lowerPrepared, lowerSource } from "./entry/lower-source.js"
+// `LoweringProject` beyond design.md §2.1.1's row: the corpus gate binds its projects through it (`test/corpus/support`)
 export { prepareProject, type LibraryFile, type LoweringProject, type ParsedFile } from "./project/prepare.js"
 export { libraryBase, type LibraryBase } from "./project/library-base.js"
 /** The global `TIME()` reads — what a harness sets before a scan. */
 export { CLOCK } from "./builtins/clock.js"
 /** What lowering answers with, and the refusal registry (`kind`: "is this my bug or yours?"). */
-export { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind, type LowerCodeKind } from "./diagnostics/codes.js"
-export { lowerDiagnostic, type LowerDiagnostic, type LoweredPou } from "./diagnostics/diagnostic.js"
+export { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./diagnostics/codes.js"
+export type { LowerDiagnostic, LoweredPou } from "./diagnostics/diagnostic.js"

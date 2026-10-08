@@ -3,19 +3,18 @@
  */
 
 import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
-import type { Lowering } from "../lowering.js"
+import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { IrBinding, IrExpr, Place } from "../../ir/index.js"
-import { type Cursor, pointerKey } from "./state.js"
+import { type Cursor, pointerFrame, pointerKey, pointerTargets } from "./state.js"
 import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
 import { binaryOf, cast } from "../core/build.js"
 import { convert } from "../values/convert.js"
 import { routineFacts } from "../calls/facts.js"
-import type { RoutineSymbol } from "../core/lowering.js"
 import { findChildScope } from "../../../frontend/symbols/index.js"
 import { positionalParameters } from "../calls/parameters.js"
-import { adrArgument } from "./address.js"
+import { adrOperand } from "./address.js"
 import { lowerPlace } from "../places/places.js"
-import { stringIdentity } from "../places/path.js"
+import { fieldIn, staticKey } from "../places/path.js"
 import { pointeePlace } from "./deref.js"
 import { callHolds, type InvokeBindings } from "../calls/invoke.js"
 import type { InFrame } from "../calls/specialize.js"
@@ -27,11 +26,11 @@ export function charsOf(t: Type): Type | undefined {
   return text?.name === "STRING" ? elementaryRef("BYTE") : text?.name === "WSTRING" ? elementaryRef("WORD") : undefined
 }
 
-/** The STRING CURSOR a pointer place is (`Lowering.cursors`) — a bare parameter of this routine — or undefined. */
+/** The STRING CURSOR a pointer place is (`PointerFrame.cursors`) — a bare parameter of this routine — or undefined. */
 export function cursorOf(lw: Lowering, pointer: Place): Cursor | undefined {
   if (pointer.root !== "local" || pointer.path.length > 0) return undefined
   const name = lw.localSlots[pointer.slot]?.name.toUpperCase()
-  return name === undefined ? undefined : lw.cursors.get(name)
+  return name === undefined ? undefined : pointerFrame(lw).cursors.get(name)
 }
 
 /**
@@ -51,7 +50,7 @@ export function cursorChar(lw: Lowering, pointer: Place, extra: IrExpr | undefin
  *  other pointer. Several targets, or one scoped to an in-out's binding, fall through to `pointeePlace`, which refuses them. */
 function charsThrough(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
   const key = pointer.type.kind === "pointer" ? pointerKey(lw, pointer) : undefined
-  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   const target = targets?.length === 1 ? targets[0]! : undefined
   if (target?.chars === undefined || target.scopedTo !== undefined) return null
   return cursorCharAt(pointer, { ...target.base, guard: pointer, span }, target.chars, extra, span)
@@ -94,7 +93,7 @@ export function cursorString(lw: Lowering, pointer: Place, span: Span): Place | 
   return { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
 }
 
-/** Each routine's STRING CURSOR inputs (`Lowering.cursors`): the input slot index → the hidden VAR_IN_OUT a call binds
+/** Each routine's STRING CURSOR inputs (`PointerFrame.cursors`): the input slot index → the hidden VAR_IN_OUT a call binds
  *  the string to. */
 export const cursorInputsOf = routineFacts<ReadonlyMap<number, number>>()
 
@@ -103,11 +102,11 @@ export const cursorInputsOf = routineFacts<ReadonlyMap<number, number>>()
 export const CURSOR = "__str_"
 
 /** The string a character pointer walks: STRING under a `POINTER TO BYTE`, WSTRING under a `POINTER TO WORD`. A pointer
- *  to a whole STRING or WSTRING is a cursor too, whose `p^` is that string (`Lowering.cursors`). */
+ *  to a whole STRING or WSTRING is a cursor too, whose `p^` is that string (`PointerFrame.cursors`). */
 const TEXT_OF: Readonly<Record<string, string>> = { BYTE: "STRING", WORD: "WSTRING" }
 
 /**
- * THE STRING EACH CHARACTER-POINTER INPUT OF THIS CALL WALKS (`Lowering.cursors`), by parameter — from the argument:
+ * THE STRING EACH CHARACTER-POINTER INPUT OF THIS CALL WALKS (`PointerFrame.cursors`), by parameter — from the argument:
  * `ADR(s)` of a string, or a cursor of the caller's own handed on. The routine is lowered once per string TYPE (the
  * variant in its name), so the hidden VAR_IN_OUT is the caller's exact type and its capacity cuts a store in both
  * backends. An argument of any other shape leaves the parameter an ordinary pointer, refused where it is used.
@@ -121,7 +120,7 @@ export function cursorArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extr
   const walking = new Map<string, string>()
   for (const [position, arg] of call.args.entries()) {
     const name = arg.param?.name.toUpperCase() ?? parameters[position]?.name.toUpperCase()
-    const prm = parameters.find((p) => p.name.toUpperCase() === name)
+    const prm = name === undefined ? undefined : fieldIn(parameters, name)
     if (prm?.sectionKind !== "VAR_INPUT" || arg.output || arg.value === undefined) continue
     const type = lw.resolve(prm.type, scope)
     // a pointer to characters walks a string of that width; a pointer to a whole STRING (WSTRING) of any capacity takes
@@ -154,15 +153,15 @@ export interface CursorArgument {
 function cursorArgument(lw: Lowering, value: Expr): { type: Type; same?: string; walked: boolean } | undefined {
   // the caller's own cursor may have walked — a character cursor can step; a whole-string one cannot, unless it was
   // itself handed one that did
-  const own = value.kind === "ident_expr" ? lw.cursors.get(value.name.toUpperCase()) : undefined
+  const own = value.kind === "ident_expr" ? pointerFrame(lw).cursors.get(value.name.toUpperCase()) : undefined
   if (own !== undefined)
     return { type: lw.inoutSlots[own.inout]!.type, same: `inout:${own.inout}`, walked: own.offset || elemOf(own.unit)?.family !== "string" }
   const before = lw.diagnostics.length
-  const addressed = adrArgument(value)
+  const addressed = adrOperand(value)
   const place = lw.inArgument(() => (addressed !== undefined ? lowerPlace(lw, addressed) : pointedString(lw, value)))
   lw.diagnostics.length = before
   const name = place?.type.kind === "elementary" ? place.type.name : undefined
-  return name === "STRING" || name === "WSTRING" ? { type: place!.type, same: stringIdentity(place!), walked: false } : undefined
+  return name === "STRING" || name === "WSTRING" ? { type: place!.type, same: staticKey(place!), walked: false } : undefined
 }
 
 /** The string a POINTER VARIABLE argument names — its one recorded target (form 1), reached through it, so a null
@@ -172,7 +171,7 @@ function pointedString(lw: Lowering, value: Expr): Place | undefined {
   const pointer = lowerPlace(lw, value)
   if (pointer?.type.kind !== "pointer") return undefined
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   if (targets?.length !== 1 || targets[0]!.element !== undefined) return undefined
   return pointeePlace(lw, pointer, undefined, value.span)
 }
@@ -186,8 +185,8 @@ export function bindCursorArgument(lw: Lowering, b: InvokeBindings, arg: CallArg
   const routine = b.routine
   const param = routine.inouts[cursorInOut]!
   const pointerType = routine.locals[routine.inputs[k]!]!.type
-  const addressed = adrArgument(arg.value)
-  const own = arg.value?.kind === "ident_expr" && lw.cursors.has(arg.value.name.toUpperCase()) ? arg.value : undefined
+  const addressed = adrOperand(arg.value)
+  const own = arg.value?.kind === "ident_expr" && pointerFrame(lw).cursors.has(arg.value.name.toUpperCase()) ? arg.value : undefined
   // three sources, each with where the callee starts: `ADR(s)` at the first character; the caller's own cursor where
   // it stands; a pointer variable at its own VALUE — form 1's 1 for the one string it was given, or 0 while it is
   // still null, which the callee's `IF p = 0 THEN RETURN` reads as CODESYS's does (every StringUtils function

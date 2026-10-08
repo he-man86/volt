@@ -6,7 +6,7 @@
 import type { IrPou, IrRoutine } from "../../ir/index.js"
 
 /** Which of the two global structs a program reaches: `Globals` (as `g`) and `Programs` (as `prg`). */
-export interface GlobalsUse {
+interface GlobalsUse {
   readonly usesGlobals: boolean
   readonly usesPrograms: boolean
 }

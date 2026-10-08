@@ -4,11 +4,10 @@
  */
 
 import type { IrBinOp, IrExpr } from "../../ir/index.js"
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import {
   checkedNegationType,
-  commonType,
   elementaryRef,
   elemOf,
   inferExprType,
@@ -17,18 +16,18 @@ import {
   narrowDateWideDuration,
   promoteForRuntime,
   type Type,
-  UNKNOWN,
 } from "../../../frontend/types/index.js"
 import { lowerExpr } from "./expressions.js"
-import { beside, convert, retype } from "../values/convert.js"
+import { convert } from "../values/convert.js"
 import { adrDifference } from "../builtins/sizeof.js"
 import { calendarArithmetic } from "./calendar.js"
 import { lowerPlace } from "../places/places.js"
-import { foldConstant, foldsToConstant, integerFoldType } from "../values/fold.js"
+import { foldConstant, foldsToConstant } from "../values/fold.js"
+import { meet } from "../values/promote.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent: neither is an
  *  operator in CODESYS, and the parser refuses both (`parse/expression` `REFUSED_OPERATORS`), so no tree holds one. */
-export const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
+const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
   "+": "add",
   "-": "sub",
   "*": "mul",
@@ -204,23 +203,10 @@ function arithmetic(lw: Lowering, e: Extract<Expr, { kind: "binary" }>, op: IrBi
   if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
   else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
 
-  // Arithmetic and comparison happen in the PROMOTED type (see `promoteForRuntime`), so a literal beside a narrow
-  // variable takes that type too — else `si + 1000` would wrap the 1000 into SINT before promoting.
-  const lift = LIFTED.has(op) ? promoteForRuntime : (t: Type): Type => t
-  if (left.kind === "const" && right.kind !== "const") left = beside(left, lift(right.type))
-  else if (right.kind === "const" && left.kind !== "const") right = beside(right, lift(left.type))
-  else if (left.kind === "const" && right.kind === "const") {
-    // An ALL-constant integer expression folds at FULL width and then converts: `i := 100 + 100` is 200 and
-    // `li := 2000000000 + 2000000000` is 4000000000 (conformance `constant_arithmetic_width`). It does not take
-    // the context's type either — `x : REAL := 7 / 2` is 3, not 3.5 (`all_constant_division_in_real_context`);
-    // this used to retype both sides to the context. The width is LINT, or ULINT for a literal ≥ 2^63 (`integerFoldType`).
-    const fold = integerFoldType([left, right])
-    if (elemOf(left.type)?.family === "int") left = retype(left, fold)
-    if (elemOf(right.type)?.family === "int") right = retype(right, fold)
-  }
-  const meet = commonType(left.type, right.type)
-  if (meet === UNKNOWN) return lw.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)
-  const operands = lift(meet)
+  const met = meet(lw, [left, right], { kind: "binary", lift: LIFTED.has(op), operator: e.op }, e.span)
+  if (met === undefined) return undefined
+  ;[left, right] = met.operands as [IrExpr, IrExpr]
+  const operands = met.type
   const type = COMPARISONS.has(op) ? elementaryRef("BOOL") : operands
   // A REAL expression over constants is FOLDED — wide, rounded once at its end — not computed step by step in
   // float32: `(CBig + 1) - CBig` with CBig : REAL := 16777216 is 1, the value its initializer twin folds to

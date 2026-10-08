@@ -15,6 +15,10 @@ import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./codes.js"
+import { lowerDiagnostic } from "./diagnostic.js"
+import { Lowering } from "../core/lowering.js"
+import { LoweringBug } from "../../semantics/faults.js"
+import type { Scope } from "../../../frontend/symbols/index.js"
 
 const LOWER_DIR = join(import.meta.dir, "..")
 
@@ -81,5 +85,19 @@ describe("the refusal registry covers what lowering emits", () => {
   test("the unclassified count only goes down", () => {
     const unclassified = Object.values(LOWER_CODES).filter((k) => k === "unclassified").length
     expect(unclassified).toBeLessThanOrEqual(84)
+  })
+})
+
+describe("an unregistered code is a lowering bug, never a kind (1.7.16, design P8)", () => {
+  test("bail and lowerDiagnostic throw LoweringBug on a code the registry does not hold", () => {
+    const lw = new Lowering({} as Scope, {} as Scope)
+    const span = undefined as never
+    expect(() => lw.bail("no-such-refusal", "m", span)).toThrow(LoweringBug)
+    expect(() => lowerDiagnostic("no-such-refusal", "m", span)).toThrow(LoweringBug)
+    expect(lw.diagnostics).toEqual([])
+    // a registered code and a templated family answer their kind
+    lw.bail("parse", "m", span)
+    lw.bail("stmt-not_a_kind", "m", span)
+    expect(lw.diagnostics.map((d) => d.kind)).toEqual([lowerCodeKind("parse")!, "not-modelled"])
   })
 })

@@ -2,7 +2,7 @@
  * The system operators: SIZEOF, MOVE, `__POUNAME`, `__QUERYINTERFACE`, LOWER_BOUND/UPPER_BOUND, `__ISVALIDREF`.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { sizeOf } from "./sizeof.js"
@@ -13,6 +13,7 @@ import { elementaryRef } from "../../../frontend/types/index.js"
 import { lowerPlace } from "../places/places.js"
 import { foldConstant } from "../values/fold.js"
 import { boundOf } from "../places/bounds.js"
+import { interfaceFrame } from "../interfaces/state.js"
 
 /** The system operators — SIZEOF, MOVE, `__POUNAME`, `__QUERYINTERFACE`, LOWER_BOUND/UPPER_BOUND, `__ISVALIDREF`; `null`
  *  for any other name. */
@@ -37,7 +38,7 @@ export function lowerSystemCall(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // (`queryCondition`); anywhere else — a right operand a short-circuit may skip, inside another expression — the timing
   // of its store is not modelled
   if (name === "__QUERYINTERFACE")
-    return lw.hoistedQueries.get(e) ?? lw.bail("interface-query", "__QUERYINTERFACE other than an assignment's whole value or an IF condition's leading operand", e.span)
+    return interfaceFrame(lw).hoistedQueries.get(e) ?? lw.bail("interface-query", "__QUERYINTERFACE other than an assignment's whole value or an IF condition's leading operand", e.span)
   // LOWER_BOUND(array, dimension) / UPPER_BOUND: a DINT (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`)
   if (name === "LOWER_BOUND" || name === "UPPER_BOUND") {
     const [array, dimension] = e.args
@@ -51,8 +52,8 @@ export function lowerSystemCall(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   }
   if (name === "__ISVALIDREF") {
     // a bound reference is valid (conformance `op_sys_isvalidref`: TRUE) — its value is not 0
-    const arg = e.args[0]?.value
-    if (e.args.length !== 1 || arg === undefined) return lw.bail("call-arity", "__ISVALIDREF takes one argument", e.span)
+    const arg = oneArgument(e, { named: true, output: true })
+    if (arg === undefined) return lw.bail("call-arity", "__ISVALIDREF takes one argument", e.span)
     const place = lowerPlace(lw, arg)
     if (place === undefined) return undefined
     if (place.type.kind !== "reference" && place.type.kind !== "pointer") return lw.bail("call-arity", "__ISVALIDREF of something that is not a reference", e.span)

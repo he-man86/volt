@@ -2,8 +2,12 @@
  * An FB type's implicit initializer routine (`__INIT`): its non-constant field initializers, run on an instance.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { buildInitSequence } from "./sequence.js"
+import { initFrame } from "./state.js"
+import { drain } from "../core/nested.js"
+import { once } from "../calls/routines.js"
+import { ZERO_SPAN } from "../core/build.js"
 
 /**
  * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — those of the fields at
@@ -18,28 +22,21 @@ import { buildInitSequence } from "./sequence.js"
 export function instanceInitRoutine(lw: Lowering, fb: string, from = 0, to = Number.POSITIVE_INFINITY): string | undefined | null {
   const entry = lw.bodies.get(fb.toUpperCase())
   const nested = entry?.lowering
-  if (nested === undefined || nested.pendingInits.length === 0) return undefined
-  const inRange = nested.pendingInits.filter((p) => p.slot >= from && p.slot < to)
+  if (nested === undefined || initFrame(nested).pendingInits.length === 0) return undefined
+  const inRange = initFrame(nested).pendingInits.filter((p) => p.slot >= from && p.slot < to)
   if (inRange.length === 0) return undefined
-  const whole = inRange.length === nested.pendingInits.length
+  const whole = inRange.length === initFrame(nested).pendingInits.length
   const key = `${fb.toUpperCase()}.__INIT${whole ? "" : `@${inRange[0]!.slot}..${inRange.at(-1)!.slot}`}`
-  const cached = lw.routines.get(key)
-  if (cached?.state === "failed") return null
-  if (cached?.state === "lowered") return key
-  // `nested`'s diagnostics were drained into `lw` when the layout was built, so only what THIS lowering adds is new
-  const before = nested.diagnostics.length
-  const built = buildInitSequence(nested)
-  lw.diagnostics.push(...nested.diagnostics.slice(before))
-  if (built === undefined) {
-    lw.routines.set(key, { state: "failed" })
-    return null
-  }
-  const body = whole ? built : (nested.initSequence?.bySlot ?? []).filter((b) => b.slot >= from && b.slot < to).flatMap((b) => b.statements)
-  lw.routines.set(key, {
-    state: "lowered",
+  const routine = once(lw, key, ZERO_SPAN, () => {
+    // `nested`'s diagnostics were drained into `lw` when the layout was built, so only what THIS lowering adds is new
+    const before = nested.diagnostics.length
+    const built = buildInitSequence(nested)
+    drain(lw, nested, before)
+    if (built === undefined) return undefined
+    const body = whole ? built : (initFrame(nested).initSequence?.bySlot ?? []).filter((b) => b.slot >= from && b.slot < to).flatMap((b) => b.statements)
     // no per-call storage: a temp one of these needs is a field of the instance, as every FB body's temps are
     // its spans index the file the TYPE is declared in, which need not be the main source (a GVL's FB)
-    routine: { name: `${fb}.__init`, key, kind: "method", fb, ...(entry?.uri === undefined ? {} : { uri: entry.uri }), locals: [], inputs: [], inouts: [], body },
-  })
-  return key
+    return { name: `${fb}.__init`, key, kind: "method", fb, ...(entry?.uri === undefined ? {} : { uri: entry.uri }), locals: [], inputs: [], inouts: [], body }
+  }, { quiet: true })
+  return routine === undefined ? null : key
 }

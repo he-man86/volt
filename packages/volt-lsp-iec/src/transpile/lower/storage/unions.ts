@@ -7,13 +7,18 @@
  * chain link, a FOR variable, an address taken — is refused: it would change one member without the copy.
  */
 
-import { elementaryRef, elementOf, elemOf, peelArray, type Type } from "../../../frontend/types/index.js"
-import type { Lowering } from "../lowering.js"
+import { elementaryRef, elemOf, peelArray, type Type } from "../../../frontend/types/index.js"
+import type { Lowering } from "../core/lowering.js"
+import { sharedState } from "../core/shared.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
-import { rootType } from "../places/path.js"
+import { fieldIn, rootType, typeAlong } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { convert } from "../values/convert.js"
 import { binaryOf } from "../core/build.js"
+
+/** The layouts that are a UNION's, by upper-cased name — their members overlay one another. Shared by every lowering
+ *  of the POU. */
+export const unionsOf = sharedState(() => new Set<string>())
 
 /** A member's bytes, as `count` elements of `size` bytes — undefined for a kind of member not measured. */
 export function overlayBytes(t: Type): { count: number; size: number; element: Type; array?: { lower: bigint; length: number } } | undefined {
@@ -26,18 +31,15 @@ export function overlayBytes(t: Type): { count: number; size: number; element: T
 
 /** The union a place reaches into, and which member — undefined when no step of its path is a union's member. */
 export function unionOf(lw: Lowering, place: Place): { union: Place; member: string } | undefined {
-  let type = rootType(lw, place)
-  for (const [i, step] of place.path.entries()) {
-    if (type === undefined) return undefined
-    if (step.kind === "field") {
-      if (type.kind !== "struct" && type.kind !== "function_block") return undefined
-      if (lw.shared.unions.has(type.name.toUpperCase())) return { union: { ...place, path: place.path.slice(0, i), type }, member: step.name }
-      type = lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type
-    // an `ARRAY[*]` in-out's element too — the walk stopped there, so a union reached through one was never overlaid
-    } else if (step.kind === "index") type = elementOf(type)
-    else return undefined
-  }
-  return undefined
+  // an index step reaches an `ARRAY[*]` in-out's element too (`any`) — the walk stopped there, so a union reached through
+  // one was never overlaid
+  const walked = typeAlong(lw, rootType(lw, place), place.path, { fields: "composite", element: "any" }, (step, type, i) => {
+    if (type === undefined || step.kind === "bit") return null
+    if (step.kind !== "field") return undefined
+    if (type.kind !== "struct" && type.kind !== "function_block") return null
+    return unionsOf(lw).has(type.name.toUpperCase()) ? { union: { ...place, path: place.path.slice(0, i), type }, member: step.name } : undefined
+  })
+  return "stopped" in walked ? (walked.stopped ?? undefined) : undefined
 }
 
 /** A place that is, or is inside, a union member — refused, for a write that cannot be followed by the copy. */
@@ -61,7 +63,7 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
   const k = (v: bigint): IrExpr => ({ kind: "const", value: v, type: ulint, span })
   const load = (p: Place): IrExpr => convert({ kind: "load", place: p, type: p.type, span }, ulint)
   const member = (name: string) => {
-    const field = layout.fields.find((f) => f.name.toUpperCase() === name.toUpperCase())!
+    const field = fieldIn(layout.fields, name)!
     const place: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: field.name }], type: field.type }
     return { place, bytes: overlayBytes(field.type)! }
   }
@@ -78,7 +80,7 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
   // Every member of a union of POINTERs holds the same one integer (design §9 form 1), so the overlay is a plain copy —
   // and it must happen, or a member never written would read 0 and its dereference would fault on the null guard.
   if (layout.fields.every((f) => f.type.kind === "pointer")) {
-    const written: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: found.member }], type: layout.fields.find((f) => f.name.toUpperCase() === found.member.toUpperCase())!.type }
+    const written: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: found.member }], type: fieldIn(layout.fields, found.member)!.type }
     return layout.fields
       .filter((f) => f.name.toUpperCase() !== found.member.toUpperCase())
       .map((f) => {

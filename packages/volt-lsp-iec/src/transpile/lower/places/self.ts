@@ -2,12 +2,11 @@
  * The instance a body runs on, as a place: the FB it runs on, `THIS^`, and the instance a call runs on.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { FbType, Lowering } from "../core/lowering.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { Place } from "../../ir/index.js"
 import { storageOf } from "../storage/layout.js"
 import { pointeePlace } from "../pointers/deref.js"
-import type { FbType } from "../core/lowering.js"
 
 /** The FB a body runs on — what `THIS^` names — when it runs on one. */
 export const selfFb = (lw: Lowering): FbType | undefined => (lw.selfType?.kind === "function_block" ? lw.selfType : undefined)

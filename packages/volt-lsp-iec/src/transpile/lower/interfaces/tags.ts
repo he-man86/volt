@@ -28,41 +28,26 @@
  * (`interface-context`; a limitation, not recorded behaviour).
  */
 
-import { peelArray, type Type } from "../../../frontend/types/index.js"
-import type { Lowering } from "../lowering.js"
-import type { Expr, Interface, Span } from "../../../frontend/syntax/index.js"
+import type { Type } from "../../../frontend/types/index.js"
+import type { FbType, Lowering } from "../core/lowering.js"
+import type { Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
-import type { SymbolAst } from "./dispatch.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
-import { rootType, sameTarget } from "../places/path.js"
+import { rootType, sameTarget, staticPath, typeAlong } from "../places/path.js"
 import { pointerKey } from "../pointers/state.js"
 import { foreignWrite } from "./query.js"
 import { lowerPlace } from "../places/places.js"
 import { heldAt } from "./lend.js"
-
-export type FbType = Extract<Type, { kind: "function_block" }>
-
-/** An interface's declaration and every one it EXTENDS, itself first. */
-export function interfaceChain(lw: Lowering, name: string): Interface[] {
-  const chain: Interface[] = []
-  const visit = (n: string): void => {
-    const ast = lookup(lw.project, n)?.symbol.ast
-    if (ast?.kind !== "interface" || chain.includes(ast)) return
-    chain.push(ast)
-    for (const base of ast.extends ?? []) visit(base.text)
-  }
-  visit(name)
-  return chain
-}
+import { interfaceTables } from "./state.js"
+import { declaredChain, interfaceChainOf } from "../core/chain.js"
+import { indexOfTag, NO_TAG, tagOfIndex } from "../core/tags.js"
 
 /** Whether the FB, or a base FB of it, IMPLEMENTS the interface — itself or one that EXTENDS it. */
 export function implementsInterface(lw: Lowering, fb: string, itf: string): boolean {
   const wanted = itf.toUpperCase()
-  for (let name: string | undefined = fb, depth = 0; name !== undefined && depth < 32; depth++) {
-    const ast: SymbolAst | undefined = lookup(lw.project, name)?.symbol.ast
-    if (ast?.kind !== "function_block") return false
-    if ((ast.implements ?? []).some((i) => interfaceChain(lw, i.text).some((a) => a.name.text.toUpperCase() === wanted))) return true
-    name = ast.extends?.text
+  for (const ast of declaredChain(lw, lookup(lw.project, fb)?.symbol.ast as TopLevel | undefined, 32)) {
+    if (ast.kind !== "function_block") return false
+    if ((ast.implements ?? []).some((i) => interfaceChainOf(lw, i.text).some((a) => a.name.text.toUpperCase() === wanted))) return true
   }
   return false
 }
@@ -72,13 +57,14 @@ function tagOf(lw: Lowering, place: Place, fb: FbType, span: Span): number | und
   const tracked =
     place.guard === undefined &&
     (place.root === undefined || place.root === "this" || place.root === "global") &&
-    place.path.every((s) => s.kind === "field" || (s.kind === "index" && s.index.kind === "const"))
+    staticPath(place)
   if (!tracked) return lw.bail("interface-instance", "an interface stored with a local, an in-out, a dereference or an element at a runtime index", span)
   const context = place.root === "global" ? "GLOBAL" : lw.frameContext
-  const known = lw.shared.instances.findIndex((x) => x.context === context && sameTarget({ base: x.place }, { base: place }))
-  if (known >= 0) return known + 1
-  lw.shared.instances.push({ place, context, fb })
-  return lw.shared.instances.length
+  const known = interfaceTables(lw).instances.findIndex((x) => x.context === context && sameTarget({ base: x.place }, { base: place }))
+  if (known >= 0) return tagOfIndex(known)
+  const index = interfaceTables(lw).instances.length
+  interfaceTables(lw).instances.push({ place, context, fb })
+  return tagOfIndex(index)
 }
 
 /**
@@ -104,32 +90,29 @@ function interfaceKey(lw: Lowering, written: Place): string | undefined {
   if (own !== undefined) return own
   const last = place.path.at(-1)
   if (place.guard !== undefined || place.root === "inout" || place.root === "lent" || last?.kind !== "field") return undefined
-  let type = rootType(lw, place)
-  for (const step of place.path.slice(0, -1)) {
-    if (type === undefined) return undefined
-    if (step.kind === "field") type = type.kind === "struct" || type.kind === "function_block" ? lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type : undefined
-    else if (step.kind === "index" && step.index.kind === "const") type = peelArray(type)?.element
-    else return undefined
-  }
+  const walked = typeAlong(lw, rootType(lw, place), place.path.slice(0, -1), { fields: "composite", element: "sized" }, (step, on) =>
+    on === undefined || !(step.kind === "field" || (step.kind === "index" && step.index.kind === "const")) ? null : undefined,
+  )
+  const type = "type" in walked ? walked.type : undefined
   return type?.kind === "function_block" ? `FB:${type.name.toUpperCase()}.${last.name.toUpperCase()}` : undefined
 }
 
 /** The instances recorded under a key — created at its first use. */
 export function heldBy(lw: Lowering, key: string) {
-  let held = lw.shared.interfaces.get(key)
-  if (held === undefined) lw.shared.interfaces.set(key, (held = { tags: new Map(), from: [] }))
+  let held = interfaceTables(lw).interfaces.get(key)
+  if (held === undefined) interfaceTables(lw).interfaces.set(key, (held = { tags: new Map(), from: [] }))
   return held
 }
 
 /** Every tag the variable may hold — its own stores, and what each variable it was copied from may hold — each with
  *  whether it arrived through a foreign write anywhere on the way. */
 export function tagsOf(lw: Lowering, key: string, seen: ReadonlySet<string> = new Set()): Map<number, boolean> {
-  const held = lw.shared.interfaces.get(key)
+  const held = interfaceTables(lw).interfaces.get(key)
   if (held === undefined || seen.has(key)) return new Map()
   const tags = new Map(held.tags)
   for (const edge of held.from)
     for (const [tag, foreign] of tagsOf(lw, edge.key, new Set([...seen, key])))
-      if (edge.only === undefined || implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, edge.only))
+      if (edge.only === undefined || implementsInterface(lw, interfaceTables(lw).instances[indexOfTag(tag)]!.fb.name, edge.only))
         tags.set(tag, (tags.get(tag) ?? false) || foreign || edge.foreign)
   return tags
 }
@@ -149,7 +132,7 @@ export function storeInterface(lw: Lowering, target: Place, value: Expr, span: S
  */
 export function interfaceArgument(lw: Lowering, key: string, itf: Type, value: Expr, span: Span, foreign: boolean): IrExpr | undefined {
   const held = heldBy(lw, key)
-  if (value.kind === "literal" && value.value === 0n) return { kind: "const", value: 0n, type: itf, span }
+  if (value.kind === "literal" && value.value === 0n) return { kind: "const", value: BigInt(NO_TAG), type: itf, span }
   const source = lowerPlace(lw, value)
   if (source === undefined) return undefined
   if (source.type.kind === "function_block") {

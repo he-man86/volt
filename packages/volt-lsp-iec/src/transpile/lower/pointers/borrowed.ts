@@ -2,16 +2,17 @@
  * Form 2: a `POINTER TO T` parameter its body only dereferences, borrowed as a hidden VAR_IN_OUT of T.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrSlot, Place } from "../../ir/index.js"
 import { routineFacts } from "../calls/facts.js"
 import { borrowedPointerNames } from "../core/ast-walk.js"
 import { callHolds, type InvokeBindings } from "../calls/invoke.js"
 import type { CallArg } from "../../../frontend/syntax/index.js"
-import { adrArgument } from "./address.js"
+import { adrOperand } from "./address.js"
 import { bindInOut } from "../calls/binding.js"
 import { isInFrame } from "../calls/specialize.js"
 import { sameStorage } from "../places/path.js"
+import { pointerFrame } from "./state.js"
 
 /**
  * The hidden VAR_IN_OUT a borrowed pointer PARAMETER was given (form 2), when `pointer` names one.
@@ -22,9 +23,9 @@ import { sameStorage } from "../places/path.js"
 export function borrowedInOut(lw: Lowering, pointer: Place): Place | undefined {
   if (pointer.root !== "local" && pointer.root !== undefined) return undefined
   if (pointer.path.length > 0) return undefined
-  const slot = pointer.root === "local" ? lw.localSlots[pointer.slot] : lw.frame[pointer.slot]
+  const slot = pointer.root === "local" ? lw.localSlots[pointer.slot] : lw.slots[pointer.slot]
   if (slot === undefined) return undefined
-  const bound = lw.borrowedPointers.get(slot.name.toUpperCase())
+  const bound = pointerFrame(lw).borrowedPointers.get(slot.name.toUpperCase())
   if (bound === undefined) return undefined
   return { slot: bound, path: [], type: lw.inoutSlots[bound]!.type, span: pointer.span, root: "inout" }
 }
@@ -60,7 +61,7 @@ export function borrowedPointerSlots(r: Lowering, statements: readonly unknown[]
  */
 export function bindBorrowedArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k: number, borrowedInOutIndex: number): true | undefined {
   const routine = b.routine
-  const addressed = adrArgument(arg.value)
+  const addressed = adrOperand(arg.value)
   if (addressed === undefined)
     return lw.bail("pointer-order", `${arg.param!.name} is a borrowed pointer parameter given something other than ADR(...)`, arg.span)
   // BOUND BY `bindInOut`, exactly as a written VAR_IN_OUT is — not by a hand-rolled walk. It is what refuses two

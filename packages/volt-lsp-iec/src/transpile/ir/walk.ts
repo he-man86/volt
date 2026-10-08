@@ -80,8 +80,9 @@ const STMT_KINDS: ReadonlySet<string> = new Set(["assign", "if", "switch", "loop
 const isExpr = (n: IrNode): n is IrExpr => !isPlace(n) && EXPR_KINDS.has(n.kind)
 const isStmt = (n: IrNode): n is IrStmt => !isPlace(n) && STMT_KINDS.has(n.kind)
 
-/** Does `visit` answer true for `root` or any node under it (pre-order, stopping at the first)? */
-function some(root: IrNode | readonly IrNode[], visit: (n: IrNode) => boolean): boolean {
+/** Does `visit` answer true for `root` or any node under it (pre-order, stopping at the first)? A walk that also enters
+ *  what a node NAMES — a called routine's body, from the lowering's tables — calls `someNode` again from `visit`. */
+export function someNode(root: IrNode | readonly IrNode[], visit: (n: IrNode) => boolean): boolean {
   const stack: IrNode[] = Array.isArray(root) ? [...(root as readonly IrNode[])].reverse() : [root as IrNode]
   while (stack.length > 0) {
     const n = stack.pop()!
@@ -94,17 +95,17 @@ function some(root: IrNode | readonly IrNode[], visit: (n: IrNode) => boolean): 
 
 /** Every expression under `root`, `root` included, pre-order. */
 export function forEachExpr(root: IrNode | readonly IrNode[], f: (e: IrExpr) => void): void {
-  some(root, (n) => (isExpr(n) && f(n), false))
+  someNode(root, (n) => (isExpr(n) && f(n), false))
 }
 
 /** Every statement under `root`, `root` included, pre-order. */
 export function forEachStmt(root: IrNode | readonly IrNode[], f: (s: IrStmt) => void): void {
-  some(root, (n) => (isStmt(n) && f(n), false))
+  someNode(root, (n) => (isStmt(n) && f(n), false))
 }
 
 /** Does any place under `root` (a path's index and a guard included) satisfy `test`? */
 export function somePlace(root: IrNode | readonly IrNode[], test: (p: Place) => boolean): boolean {
-  return some(root, (n) => isPlace(n) && test(n))
+  return someNode(root, (n) => isPlace(n) && test(n))
 }
 
 /**
@@ -116,7 +117,7 @@ export function somePlace(root: IrNode | readonly IrNode[], test: (p: Place) => 
  * are unaffected: a `call` is a statement and never appears inside one.
  */
 export function holdsCall(root: IrNode | readonly IrNode[]): boolean {
-  return some(root, (n) => !isPlace(n) && (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call"))
+  return someNode(root, (n) => !isPlace(n) && (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call"))
 }
 
 /** `node` with every place in it rewritten by `f`, innermost first: a path's indices and a guard are mapped before the
@@ -242,6 +243,47 @@ export function loopUses(loop: IrLoop): { exits: boolean; continues: boolean } {
  *  like every other walk here (it was the last reflective one, a skip list over every key but `type`/`of`/`span`/`lent`). */
 export function callsIn(root: IrNode | readonly IrNode[]): (IrInvoke | IrCall)[] {
   const out: (IrInvoke | IrCall)[] = []
-  some(root, (n) => (!isPlace(n) && (n.kind === "call" || n.kind === "invoke") && out.push(n), false))
+  someNode(root, (n) => (!isPlace(n) && (n.kind === "call" || n.kind === "invoke") && out.push(n), false))
   return out
+}
+
+/** A callee that touches nothing but its own locals, inputs and in-outs, and calls nothing — no METHOD, FB body, FUNCTION
+ *  or interface call, no dereference. The only way from it to a variable of its caller is then an in-out it was bound. */
+export function touchesOnlyItsOwn(root: IrNode | readonly IrNode[]): boolean {
+  return !someNode(root, (n) =>
+    isPlace(n) ? n.guard !== undefined || (n.root !== "local" && n.root !== "inout") : n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call",
+  )
+}
+
+/** A body that writes nothing but its own locals and calls nothing. */
+export function writesOnlyLocals(root: IrNode | readonly IrNode[]): boolean {
+  return !someNode(root, (n) => !isPlace(n) && (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call" || (n.kind === "assign" && n.target.root !== "local")))
+}
+
+/**
+ * THE INIT SEQUENCE'S READ WALK — what an initializer reads (`lower/init/sequence.ts`): an expression's children in
+ * `childrenOf`'s order, except that a call reads its inputs, then its in-out bindings (a copy only its value), then its
+ * instance, and that a `select`, a call's freezes and lent places are not entered. That skip set and order are the
+ * walk's own today, kept as this explicit option until task 5.9 removes it.
+ */
+export function initReadChildren(n: IrNode): IrNode[] {
+  if (isPlace(n)) return childrenOf(n)
+  switch (n.kind) {
+    case "invoke":
+      return [...n.inputs, ...n.inouts.map((b) => ("kind" in b && b.kind === "copy" ? b.value : b)), ...(n.instance === undefined ? [] : [n.instance])]
+    case "select":
+      return []
+    default:
+      return childrenOf(n)
+  }
+}
+
+/** The first answer `onPlace` gives for a place under `root` — each place tested AFTER the places and expressions inside
+ *  it (its path's indices, its guard), in the order `children` names them. */
+export function findPlace<T>(root: IrNode, onPlace: (p: Place) => T | undefined, children: (n: IrNode) => readonly IrNode[] = childrenOf): T | undefined {
+  for (const child of children(root)) {
+    const found = findPlace(child, onPlace, children)
+    if (found !== undefined) return found
+  }
+  return isPlace(root) ? onPlace(root) : undefined
 }

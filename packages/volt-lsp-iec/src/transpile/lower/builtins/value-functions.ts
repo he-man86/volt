@@ -3,10 +3,9 @@
  * the one-argument math.
  */
 
-import type { Lowering } from "../lowering.js"
-import type { Expr, Span } from "../../../frontend/syntax/index.js"
+import type { Lowering } from "../core/lowering.js"
+import type { Expr } from "../../../frontend/syntax/index.js"
 import {
-  commonType,
   elementaryRef,
   elemOf,
   exptResultType,
@@ -14,13 +13,11 @@ import {
   isReal,
   literalCheckType,
   promoteForRuntime,
-  type Type,
-  UNKNOWN,
 } from "../../../frontend/types/index.js"
 import type { IrBuiltinName, IrExpr } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { convert, ownIntegerType } from "../values/convert.js"
-import { integerFoldType } from "../values/fold.js"
+import { convert } from "../values/convert.js"
+import { meet } from "../values/promote.js"
 
 /** The width an integer or bit-string expression is CHECKED in — before run-time promotion. `inferExprType` answers
  *  UNKNOWN beside an untyped literal, which takes the other operand's type when that holds it (`literalCheckType`). */
@@ -40,7 +37,7 @@ function checkedBits(lw: Lowering, e: Expr): number | undefined {
 }
 
 /** The one-argument math functions — same arity, same typing rule (see `builtin`). */
-export const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
 
 /** A value function with its arity checked: TRUNC, ABS, the shifts and rotates, MUX, EXPT, the unary math, and
  *  MAX/MIN/LIMIT/SEL. */
@@ -106,7 +103,7 @@ function lowerMux(lw: Lowering, e: Extract<Expr, { kind: "call" }>, values: read
     if (lowered === undefined) return undefined
     inputs.push(lowered)
   }
-  const type = meetOperands(lw, inputs, e.span)
+  const type = meet(lw, inputs, { kind: "builtin" }, e.span)?.type
   if (type === undefined) return undefined
   return { kind: "builtin", name: "mux", args: [index, ...inputs.map((i) => convert(i, type))], type, span: e.span }
 }
@@ -134,7 +131,7 @@ function lowerSelection(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: 
     if (lowered === undefined) return undefined
     operands.push(lowered)
   }
-  const type = meetOperands(lw, operands, e.span)
+  const type = meet(lw, operands, { kind: "builtin" }, e.span)?.type
   if (type === undefined) return undefined
   // MAX / MIN / LIMIT OVER A STRING WAS REFUSED until the order was measured, and now it is: CODESYS compares two
   // STRINGs BYTE BY BYTE, UNSIGNED, with a prefix losing to what it is a prefix of. Six pairs settle it
@@ -153,21 +150,3 @@ function lowerSelection(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: 
   return { kind: "builtin", name: lower, args: selector === undefined ? args : [selector, ...args], type, span: e.span }
 }
 
-/** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a
- *  REAL constant still widens (as in `int7 / 2.0`), all-constant integers fold as LINT (ULINT past it), and the result promotes. */
-export function meetOperands(lw: Lowering, operands: readonly IrExpr[], span: Span): Type | undefined {
-  const variables = operands.filter((o) => o.kind !== "const")
-  let type =
-    variables.length > 0
-      ? variables.map((o) => o.type).reduce(commonType)
-      : operands.map((o) => (elemOf(o.type)?.family === "int" ? integerFoldType(operands) : o.type)).reduce(commonType)
-  for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = commonType(type, o.type)
-  // an integer constant the variables' type cannot hold meets them instead of wrapping into it (`beside`)
-  if (variables.length > 0)
-    for (const o of operands) {
-      const own = ownIntegerType(o, promoteForRuntime(type))
-      if (own !== undefined) type = commonType(promoteForRuntime(type), own)
-    }
-  if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
-  return promoteForRuntime(type)
-}

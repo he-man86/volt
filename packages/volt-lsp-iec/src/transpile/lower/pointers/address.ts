@@ -2,11 +2,11 @@
  * An address as a pointer's value: `ADR(x)`, an element's address, and pointer arithmetic.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr, Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
-import { ELEMENT_TAG_BIAS, pointerKey, type PointerTarget } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, pointerTargets } from "./state.js"
 import { lowerPlace } from "../places/places.js"
 import { refuseUnionWrite } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
@@ -18,6 +18,7 @@ import { describePointer, unsuppliedInput } from "./deref.js"
 import { byteSize } from "../storage/bytes.js"
 import { constantValue } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
+import { NO_TAG } from "../core/tags.js"
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
@@ -65,14 +66,14 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
 /** A value stored into a pointer: `0`, `ADR(x)`, another pointer, or one stepped by whole elements (`p + SIZEOF(T)`). */
 export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value: IrExpr; target?: PointerTarget } | undefined {
   if (e.kind === "paren") return pointerValue(lw, e.inner, pointerType)
-  if (e.kind === "literal" && e.value === 0n) return { value: { kind: "const", value: 0n, type: pointerType, span: e.span } }
-  const adr = e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "ADR" && e.args.length === 1 ? e.args[0]!.value : undefined
+  if (e.kind === "literal" && e.value === 0n) return { value: { kind: "const", value: BigInt(NO_TAG), type: pointerType, span: e.span } }
+  const adr = adrOperand(e)
   if (adr !== undefined) return addressOf(lw, adr, pointerType, e.span)
   // `anyArg.pValue` — the address of the variable the call passed. An ANY input is a hidden VAR_IN_OUT bound to it, per
   // call site (`calls.ts`), so the "address" is that parameter: one target, form 1, and the write lands in the caller's
   // own variable at its own width (conformance `state_any_int_pointer_increment`).
-  if (e.kind === "member" && e.base.kind === "ident_expr" && lw.anyInputs.has(e.base.name.toUpperCase()) && e.member.name.toUpperCase() === "PVALUE") {
-    const slot = lw.anyTargets.get(e.base.name.toUpperCase())
+  if (e.kind === "member" && e.base.kind === "ident_expr" && pointerFrame(lw).anyInputs.has(e.base.name.toUpperCase()) && e.member.name.toUpperCase() === "PVALUE") {
+    const slot = pointerFrame(lw).anyTargets.get(e.base.name.toUpperCase())
     if (slot === undefined) return lw.bail("any-input", `${e.base.name}.pValue, whose argument this call site does not name as a variable`, e.span)
     const base: Place = { slot, path: [], type: lw.inoutSlots[slot]!.type, span: e.span, root: "inout" }
     return { value: { kind: "const", value: 1n, type: pointerType, span: e.span }, target: { base } }
@@ -84,7 +85,7 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   const source = lowerPlace(lw, operand)
   if (source === undefined) return undefined
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
-  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   // COPYING a multi-target pointer is not built: the copy would have to carry every arm, and its own reads would
   // select over them. Form 3 covers the pointer that HOLDS several targets, not yet the one copied from it.
   if (targets !== undefined && targets.length > 1)
@@ -128,10 +129,14 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
 }
 
-/** The operand of an `ADR(x)` argument — the place a borrowed pointer parameter binds to. */
-export function adrArgument(value: Expr | undefined): Expr | undefined {
+/**
+ * THE ONE ADR RECOGNIZER (transpile-restructure 1.7.9): the operand `x` of an `ADR(x)` — a call of `ADR` with one argument,
+ * whatever that argument is written as — or undefined. Through parentheses `(ADR(x))` by default; `ADR(a) - ADR(b)`
+ * (`builtins/sizeof.adrDifference`) recognizes only the bare call, as it always has (`parens: false`).
+ */
+export function adrOperand(value: Expr | undefined, { parens = true }: { parens?: boolean } = {}): Expr | undefined {
   if (value === undefined) return undefined
-  if (value.kind === "paren") return adrArgument(value.inner)
+  if (value.kind === "paren" && parens) return adrOperand(value.inner)
   return value.kind === "call" && value.callee.kind === "ident_expr" && value.callee.name.toUpperCase() === "ADR" && value.args.length === 1
     ? value.args[0]!.value
     : undefined

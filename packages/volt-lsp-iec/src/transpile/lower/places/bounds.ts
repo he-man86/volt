@@ -3,7 +3,7 @@
  * of storing an open array whole.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"

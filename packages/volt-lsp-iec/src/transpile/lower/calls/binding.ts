@@ -4,19 +4,22 @@
  */
 
 import type { Access, IrBinding, IrFreeze, IrSlot, IrStmt, Place } from "../../ir/index.js"
-import { callsNothing, type InFrame, inFramePlace, isInFrame } from "./specialize.js"
-import type { Lowering } from "../lowering.js"
+import { type InFrame, inFramePlace, isInFrame } from "./specialize.js"
+import { frameState, type Lowering } from "../core/lowering.js"
 import type { CallArg, Span } from "../../../frontend/syntax/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { lowerPlace } from "../places/places.js"
-import { through } from "../places/access-guards.js"
+import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { openDims } from "../places/bounds.js"
 import { sameStorage, staticPath } from "../places/path.js"
-import { touchesOnlyItsOwn, writesOnlyLocals } from "./reentrancy.js"
 import type { Type } from "../../../frontend/types/index.js"
 import type { InvokeBindings } from "./invoke.js"
-import { holdsCall } from "../../ir/walk.js"
+import { holdsCall, touchesOnlyItsOwn, writesOnlyLocals } from "../../ir/walk.js"
+import { tempPlace } from "../core/temps.js"
+
+/** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calledRoutine`). */
+export const shadowedInOutsOf = frameState(() => new Set<string>())
 
 /** What a call already holds: its instance, each in-out bound to a place, and the place each copy is written back to. The
  *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back). */
@@ -51,14 +54,14 @@ export function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: reado
 /** A place, already lowered, lent to a VAR_IN_OUT — every check `bindInOut` makes once it has the argument's place. A
  *  STRING CURSOR binds this way to what a pointer argument names, which is a place and no expression. */
 export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined, instance: Place | undefined): IrBinding | InFrame | undefined {
-  // a read-only binding writes nothing, so it is not a store `through` must check — a reference still reads its target
-  const target = param.constant === true && written.type.kind !== "reference" ? written : through(lw, written, arg.span)
+  // a read-only binding writes nothing, so it is not a store `guardWrite` must check — a reference still reads its target
+  const target = param.constant === true && written.type.kind !== "reference" ? written : guardWrite(lw, written, arg.span, FULL_WRITE)
   if (target === undefined) return undefined
   // A place INSIDE the instance the callee runs on is not lent at all: the routine is specialized on the path to it
   // (`specialize.ts`), which is the only exact answer where the callee also reaches that storage another way.
   // Not a VAR_IN_OUT CONSTANT: what it reads after the callee writes the same field by name is not recorded, and its copy
   // rule (`inout_const_method_9`) already covers what is.
-  if (held.some((p) => aliases(target, p)) && param.readOnly !== true && param.section !== "VAR_OUTPUT" && openDims(param.type) === 0 && sameStorage(param.type, target.type) && callsNothing(callee)) {
+  if (held.some((p) => aliases(target, p)) && param.readOnly !== true && param.section !== "VAR_OUTPUT" && openDims(param.type) === 0 && sameStorage(param.type, target.type) && !holdsCall(callee)) {
     const place = inFramePlace(lw, instance, target, calleeFb)
     if (place !== undefined) return { kind: "inframe", place, span: arg.span }
   }
@@ -148,13 +151,13 @@ export function bindWhereWritten(lw: Lowering, b: InvokeBindings, span: Span): (
     // still numbers[0] after a later argument repoints p). The frozen value carries the null check with it.
     let guard = binding.guard
     if (guard !== undefined) {
-      const temp = lw.tempPlace("inout_guard", guard.type, binding.span)
+      const temp = tempPlace(lw, "inout_guard", guard.type, binding.span)
       written.push({ kind: "freeze", temp, value: { kind: "load", place: guard, type: guard.type, span: binding.span } })
       guard = temp
     }
     const path = binding.path.map((step): Access => {
       if (step.kind !== "index" || step.index.kind === "const") return step
-      const temp = lw.tempPlace("inout_index", step.index.type, binding.span)
+      const temp = tempPlace(lw, "inout_index", step.index.type, binding.span)
       written.push({ kind: "freeze", temp, value: step.index })
       return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
     })

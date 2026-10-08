@@ -3,8 +3,8 @@
  * value are the front-end's (`types/enums`).
  */
 
-import type { Lowering } from "../lowering.js"
-import { elementaryRef, type Type } from "../../../frontend/types/index.js"
+import type { Lowering } from "../core/lowering.js"
+import { elementaryRef, numberEnumerators, type Type } from "../../../frontend/types/index.js"
 import { bareEnumMember, findChildScope, lookup, lookupMember } from "../../../frontend/symbols/index.js"
 import type { Expr, TypeDecl } from "../../../frontend/syntax/index.js"
 import { enumValueOf } from "./fold.js"
@@ -30,9 +30,9 @@ export const enumeratorValue = (lw: Lowering) => (e: Expr): bigint | undefined =
 }
 
 /**
- * An enum value — `E_Mode.Busy`, or a bare `Busy` when its enum is not qualified_only — as the constant it is: its written
- * `:= n`, else one more than the value before it, starting at 0 (conformance `type_dut_enum_simple`: `Running` is 1;
- * `type_dut_enum_explicit_values`), typed as its enum's storage. Undefined for anything that is not one.
+ * An enum value — `E_Mode.Busy`, or a bare `Busy` when its enum is not qualified_only — as the constant it is: numbered by
+ * `types/enums.numberEnumerators` (conformance `type_dut_enum_simple`: `Running` is 1; `type_dut_enum_explicit_values`),
+ * typed as its enum's storage. Undefined for anything that is not one.
  */
 export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefined {
   let sym: ReturnType<typeof bareEnumMember>
@@ -65,13 +65,13 @@ export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefin
   const values = implicit ?? (body?.kind === "enum" ? body.values : undefined)
   if (values === undefined) return undefined
   const type = implicit !== undefined ? enumStorage(lw, { kind: "enum", name: "(implicit)" }) : enumStorage(lw, { kind: "enum", name: sym.owner.name, scope: sym.owner })
-  let next = 0n
-  for (const v of values) {
-    const written = v.value === undefined ? undefined : enumValueOf(lw, v.value, depth)
-    if (v.value !== undefined && typeof written !== "bigint") return lw.bail("enum-value", `${v.name.text}'s value does not fold`, e.span)
-    const value = typeof written === "bigint" ? written : next
-    if (v.name.text.toUpperCase() === sym.name.toUpperCase()) return { kind: "const", value: stored(value, type), type, span: e.span }
-    next = value + 1n
+  // numbered up to this member only — the front-end's numbering (`types/enums`), folding with lowering's rule at this depth
+  const folded = (x: Expr): bigint | undefined => {
+    const v = enumValueOf(lw, x, depth)
+    return typeof v === "bigint" ? v : undefined
   }
-  return undefined
+  const numbered = numberEnumerators(values, folded, sym.name)
+  const value = numbered.values.get(sym.name.toUpperCase())
+  if (value !== undefined) return { kind: "const", value: stored(value, type), type, span: e.span }
+  return numbered.unfolded === undefined ? undefined : lw.bail("enum-value", `${numbered.unfolded}'s value does not fold`, e.span)
 }

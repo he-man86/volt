@@ -75,7 +75,7 @@ function isRunnable(u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
 }
 
 /** Find the program to lower in `parseResult` and lower it against a bound project. */
-function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name: string | undefined, prepared: LoweringProject): LoweredPou {
+export function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name: string | undefined, prepared: LoweringProject): LoweredPou {
   const unit = parseResult.units
     .filter(isRunnable)
     .find((u) => name === undefined || u.name.text.toUpperCase() === name.toUpperCase())

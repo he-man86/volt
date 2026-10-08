@@ -2,11 +2,11 @@
  * Through a pointer or reference: the place a dereference reaches.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrSelect, IrStmt, Place } from "../../ir/index.js"
 import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import { borrowedInOut } from "./borrowed.js"
-import { ELEMENT_TAG_BIAS, pointerKey } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, pointerTargets } from "./state.js"
 import { storageOf } from "../storage/layout.js"
 import { sameStorage } from "../places/path.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
@@ -14,6 +14,7 @@ import { binaryOf, cast } from "../core/build.js"
 import { convert } from "../values/convert.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
+import { tagOfIndex } from "../core/tags.js"
 
 /**
  * A REFERENCE IS IMPLICITLY DEREFERENCED — `r.x` MEANS `r^.x`, and `r[1]` means `r^[1]`.
@@ -41,7 +42,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     return { ...borrowed, span }
   }
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   // ONE TARGET IS FORM 1 AND ERASES: the deref is that place, no tag is ever built, and that is the common case.
   // Several is form 3, and a PLACE cannot express it — the READ path builds an `IrSelect` before reaching here
   // (`selectThrough`), so anything still arriving with several targets is a use that has no select form yet: a
@@ -54,7 +55,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   // the caller's place), a field or a local with several stores is form 3 (the tagged handle), and they are
   // different work. `--why pointer-order` could not tell them apart.
   if (target === undefined) return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", `${describePointer(lw, pointer)} dereferenced before any address was stored into it`, span)
-  if (target.scopedTo !== undefined && (target.scopedTo !== lw || !lw.boundPointers.has(key!)))
+  if (target.scopedTo !== undefined && (target.scopedTo !== lw || !pointerFrame(lw).boundPointers.has(key!)))
     return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {
     if (extra !== undefined) return lw.bail("pointer-index", "an index on a pointer to a single variable", span)
@@ -82,9 +83,9 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
  * The arms are every target recorded for the key, at the tag `storePointer` writes. `null` is no arm at all, so a
  * deref before any store faults exactly as `iec_deref` makes it fault for the single-target form.
  */
-export function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bigint; place: Place }[] | undefined {
+function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bigint; place: Place }[] | undefined {
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   if (targets === undefined || targets.length < 2) return undefined
   // A target inside a VAR_IN_OUT is exact only while the body that bound it runs (`recordTarget`), and an arm is
   // selected wherever the tag is read — so the two do not combine yet.
@@ -92,7 +93,7 @@ export function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bi
     lw.bail("pointer-targets", "a pointer naming several variables, one of them an array element or inside a bound VAR_IN_OUT", span)
     return undefined
   }
-  return targets.map((t, i) => ({ tag: BigInt(i + 1), place: t.base }))
+  return targets.map((t, i) => ({ tag: BigInt(tagOfIndex(i)), place: t.base }))
 }
 
 export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr | undefined {
@@ -101,7 +102,7 @@ export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr 
 }
 
 /** The select itself — with no arm for a tag of 0, which is what makes a null dereference fault in both backends. */
-export function nullDeref(pointer: Place, arms: readonly { tag: bigint; place: Place }[], type: Type, span: Span): IrSelect {
+function nullDeref(pointer: Place, arms: readonly { tag: bigint; place: Place }[], type: Type, span: Span): IrSelect {
   return { kind: "select", tag: { kind: "load", place: pointer, type: pointer.type, span }, arms, type, span }
 }
 
@@ -112,7 +113,7 @@ export function nullDeref(pointer: Place, arms: readonly { tag: bigint; place: P
  */
 export function describePointer(lw: Lowering, pointer: Place): string {
   if (pointer.root !== undefined) return `a ${pointer.root} pointer`
-  const slot = lw.frame[pointer.slot]
+  const slot = lw.slots[pointer.slot]
   if (slot === undefined) return "a pointer"
   const where =
     slot.section === "VAR_INPUT"
@@ -155,7 +156,7 @@ export function unsuppliedInput(lw: Lowering, pointer: Place, span: Span): undef
   // ROUTINEMODE IS EXCLUDED and the exclusion is load-bearing: a METHOD of the root FB also has VAR_INPUTs,
   // and those ARE supplied — by whoever calls the method. Only the POU's own entry body has inputs nobody fills.
   if (pointer.root !== undefined || lw.routineMode) return undefined
-  const slot = lw.frame[pointer.slot]
+  const slot = lw.slots[pointer.slot]
   if (slot?.section !== "VAR_INPUT") return undefined
   // AN FB'S POINTER INPUT THAT A CALLER DOES FILL — form 3's foreign half, and a different fact from the root's.
   // The old message said "dereferenced before any address was stored into it", which is FALSE here: the caller

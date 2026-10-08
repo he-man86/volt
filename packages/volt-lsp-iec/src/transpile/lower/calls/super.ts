@@ -3,19 +3,20 @@
  */
 
 import { type Expr, selfRefKind, type Span, type Statement } from "../../../frontend/syntax/index.js"
-import type { Lowering } from "../lowering.js"
+import type { FbType, Lowering } from "../core/lowering.js"
 import type { IrBinding, IrInvoke, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { selfFb, thisPlace } from "../places/self.js"
 import { baseBody } from "./routines.js"
 import { type InFrame, isInFrame, specializeRoutine } from "./specialize.js"
 import { storeOpenBounds } from "./fb-call.js"
 import { UNKNOWN } from "../../../frontend/types/index.js"
-import type { FbType } from "../core/lowering.js"
-import { aliases, bindInOut, holding } from "./binding.js"
+import { aliases, bindInOut, holding, shadowedInOutsOf } from "./binding.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
 import { convert } from "../values/convert.js"
 import { openDims } from "../places/bounds.js"
+import { bindingRecords } from "./last-binding.js"
+import { fieldIn, fieldIndex } from "../places/path.js"
 
 export const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && selfRefKind(e.base.name) === "SUPER"
 
@@ -61,14 +62,16 @@ function superArguments(
     if (arg.param === undefined || arg.output) return lw.bail("call-positional", "SUPER^ called with a positional or output argument", arg.span)
     if (arg.value === undefined) continue
     const name = arg.param.name.toUpperCase()
-    const k = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
+    const k = fieldIndex(routine.inouts, name)
     if (k >= 0) {
       const target = bindInOut(lw, arg, routine.inouts[k]!, holding(instance, inouts.filter((b) => !isInFrame(b)) as (IrBinding | undefined)[]), routine.body, routine.fb, instance)
       if (target === undefined) return undefined
       inouts[k] = target
       continue
     }
-    const field = layout.fields.find((f) => f.name.toUpperCase() === name && f.section === "VAR_INPUT")
+    // a layout names each field once (`storage/declare.ts` refuses a duplicate), so the first by name is the only one
+    const named = fieldIn(layout.fields, name)
+    const field = named?.section === "VAR_INPUT" ? named : undefined
     if (field === undefined) return lw.bail("call-param", `${arg.param.name} is not an input of ${frame.name}'s base`, arg.span)
     const value = lowerExpr(lw, arg.value, field.type)
     if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
@@ -84,7 +87,7 @@ function passOnDerivedInOuts(lw: Lowering, routine: IrRoutine, inouts: (IrBindin
   for (const [k, slot] of routine.inouts.entries()) {
     if (slot.ofInstance !== true || inouts[k] !== undefined) continue
     const name = slot.name.toUpperCase()
-    if (lw.shadowedInOuts.has(name)) return lw.bail("call-inout-shadowed", `SUPER^ would pass on ${slot.name}, which a parameter or local of this routine hides`, span)
+    if (shadowedInOutsOf(lw).has(name)) return lw.bail("call-inout-shadowed", `SUPER^ would pass on ${slot.name}, which a parameter or local of this routine hides`, span)
     const found = lw.inoutByName.get(name)
     if (found === undefined) continue
     const own: Place = { slot: found, path: [], type: lw.inoutSlots[found]!.type, span, root: "inout" }
@@ -104,7 +107,7 @@ function superOpenBounds(lw: Lowering, frame: FbType, routine: IrRoutine, inouts
     const passedOn = !("kind" in binding) && binding.root === "inout" && binding.path.length === 0 && lw.inoutSlots[binding.slot]!.name.toUpperCase() === slot.name.toUpperCase()
     if (openDims(slot.type) > 0 && !passedOn) return lw.bail("call-open-array", `SUPER^ binds its ARRAY[*] ${slot.name} to another array`, span)
     // what the instance holds for a METHOD called from outside after this is not recorded (`last-binding.ts` refuses it)
-    if (!passedOn) lw.shared.superRebinds.add(frame.name.toUpperCase())
+    if (!passedOn) bindingRecords(lw).superRebinds.add(frame.name.toUpperCase())
   }
   return true
 }

@@ -2,7 +2,7 @@
  * The clock: `TIME()` and `LTIME()` read a global the harness sets before a scan.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { elementaryRef } from "../../../frontend/types/index.js"

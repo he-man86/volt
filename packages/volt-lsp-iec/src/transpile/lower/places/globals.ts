@@ -2,14 +2,15 @@
  * The globals as places: a GVL variable, a called PROGRAM's instance, a GVL-qualified name.
  */
 
-import { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import type { Span, TopLevel, VarDecl, VarSection } from "../../../frontend/syntax/index.js"
 import type { Place } from "../../ir/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { libraryOf } from "../../../frontend/library/index.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType, typeZero } from "../../../frontend/types/index.js"
-import { declareVars } from "../storage/declare.js"
+import { declareGlobals } from "../storage/declare.js"
+import { touchedOf } from "../calls/reentrancy.js"
 
 /**
  * A name no local, field or parameter holds: a GVL variable, or a called PROGRAM's instance — the application's
@@ -24,7 +25,7 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   // that reaches one records it (`touched`) — a program runs moved out of `Programs`, so it must not reach itself.
   const known = lw.shared.globals.byName.get(upper)
   if (known !== undefined) {
-    if (lw.shared.globals.slots[known]!.section === "program") lw.touched.add(known)
+    if (lw.shared.globals.slots[known]!.section === "program") touchedOf(lw).add(known)
     return place(known)
   }
   let sym = lookup(lw.scope, name)?.symbol
@@ -37,20 +38,15 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
     const type = storageOf(lw, resolveNamedType(sym.name, lw.project), sym.span)
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
     lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: typeZero(type) })
-    lw.touched.add(lw.shared.globals.slots.length - 1)
+    touchedOf(lw).add(lw.shared.globals.slots.length - 1)
   } else return undefined
   const slot = lw.shared.globals.byName.get(upper)
   return slot === undefined ? undefined : place(slot)
 }
 
 /** A GVL declaration's variables made the application's storage, each keyed by `prefix` and its name. */
-function declareGlobal(lw: Lowering, decl: VarDecl, prefix: string): void {
-  const gvl = new Lowering(lw.project, lw.project, lw.shared)
-  gvl.globalMode = true
-  gvl.globalPrefix = prefix
-  declareVars(gvl, [{ sectionKind: "VAR", decls: [decl] } as unknown as VarSection])
-  lw.diagnostics.push(...gvl.diagnostics)
-}
+const declareGlobal = (lw: Lowering, decl: VarDecl, prefix: string): void =>
+  void declareGlobals(lw, lw.project, { sectionKind: "VAR", decls: [decl] } as unknown as VarSection, prefix)
 
 /**
  * `GVL_Name.var` — a global named through its list (conformance `fbcall_gvl_qualified`), the one way to a variable of a

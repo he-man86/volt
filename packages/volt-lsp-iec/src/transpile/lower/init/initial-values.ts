@@ -11,7 +11,7 @@ import type {
   TypeDecl,
   TypeExpr,
 } from "../../../frontend/syntax/index.js"
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { elemOf, enumDefault, inlineEnumDefault, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { IrInit, IrValue } from "../../ir/index.js"
 import { calendarOf, durationOf, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "../values/literals.js"
@@ -19,6 +19,8 @@ import { foldConstant, foldedCall } from "../values/fold.js"
 import { stored, valueAs } from "../values/convert.js"
 import { enumeratorValue } from "../values/enums.js"
 import { lookup } from "../../../frontend/symbols/index.js"
+import { unionsOf } from "../storage/unions.js"
+import { fieldIn } from "../places/path.js"
 
 /**
  * An initializer the INIT STEP can run — an ordinary expression, not an aggregate.
@@ -99,11 +101,11 @@ export function aggregateInit(lw: Lowering, init: AggregateInit, type: Type): Ir
   if (init.form === "struct") {
     const layout = type.kind === "struct" || type.kind === "function_block" ? lw.layouts.get(type.name.toUpperCase()) : undefined
     if (layout === undefined) return refuse("in struct form for something that is not a struct or FB instance")
-    if (lw.shared.unions.has(layout.name.toUpperCase())) return refuse("of a UNION, which is not measured")
+    if (unionsOf(lw).has(layout.name.toUpperCase())) return refuse("of a UNION, which is not measured")
     const fields: Record<string, IrInit> = {}
     for (const e of init.elements) {
       if (e.kind !== "field") return refuse("with an element that names no field")
-      const field = layout.fields.find((f) => f.name.toUpperCase() === e.name.toUpperCase())
+      const field = fieldIn(layout.fields, e.name)
       if (field === undefined) return refuse(`naming ${e.name}, which is no field of ${layout.name}`)
       const value = element(e.value, field.type)
       if (value === undefined) return undefined

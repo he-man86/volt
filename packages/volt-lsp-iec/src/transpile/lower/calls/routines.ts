@@ -12,13 +12,13 @@
  * variable shared by every instance, and a PROPERTY getter runs once per read with its own VAR started over.
  */
 
-import { Lowering, type PendingBody } from "../lowering.js"
-import { type Expr, isStBody, type Span, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
+import { type FbType, Lowering, type RoutineSymbol } from "../core/lowering.js"
+import type { PendingBody } from "../core/shared.js"
+import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import type { IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
-import { touchesOf } from "./reentrancy.js"
-import { childScopesByName, findChildScope, lookup, type Scope } from "../../../frontend/symbols/index.js"
-import type { FbType, RoutineSymbol } from "../core/lowering.js"
-import { declareInOuts, declareOpenBounds, declareVars } from "../storage/declare.js"
+import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
+import { childScopesByName, findChildScope, type Scope } from "../../../frontend/symbols/index.js"
+import { declareGlobals, declareInOuts, declareOpenBounds, declareVars } from "../storage/declare.js"
 import { inOutSections, positionalOf, positionalParameters, prefixed } from "./parameters.js"
 import { ANY_FAMILIES, elementaryRef, type Type, typeZero } from "../../../frontend/types/index.js"
 import { ANY_TARGET, anyArgumentTypes, anyInputsOf } from "../pointers/any.js"
@@ -29,36 +29,52 @@ import { execBodyStatements } from "../conditions.js"
 import { storageOf } from "../storage/layout.js"
 import { BORROWED, borrowedInputsOf, borrowedPointerSlots } from "../pointers/borrowed.js"
 import { overridesCalled, reachedNames } from "../core/ast-walk.js"
-import { chainNames, chainOf } from "../core/chain.js"
+import { chainNames, chainOf, pouChain } from "../core/chain.js"
 import { lowerBlock } from "../statements/statements.js"
-import { tempResets } from "../init/temp-resets.js"
+import { resetTemps } from "../init/temp-resets.js"
+import { interfaceFrame } from "../interfaces/state.js"
+import { pointerFrame } from "../pointers/state.js"
+import { shadowedInOutsOf } from "./binding.js"
+import { drain, nested } from "../core/nested.js"
 
 /**
- * A routine lowered once per POU under `name`: cached, or refused if it failed before — or if it is reached again while
- * its own body lowers, which is a routine calling itself and lowered it again without end (a RangeError out of lowering;
- * transpiler review 2026-09-15). Whether CODESYS allows a recursive call at all is not measured.
+ * A routine lowered once per POU under `name` — THE ONE WRITER OF THE ROUTINE CACHE (`lw.routines`; transpile-restructure
+ * 1.7.8): cached, or refused if it failed before — or if it is reached again while its own body lowers, which is a
+ * routine calling itself and lowered it again without end (a RangeError out of lowering; transpiler review 2026-09-15).
+ * Whether CODESYS allows a recursive call at all is not measured.
+ *
+ * `quiet`: a routine lowering BUILDS rather than one a call names — an FB type's `__INIT` (`init/instance-init.ts`), a
+ * routine specialized on a path (`calls/specialize.ts`). Its failure was reported where it was built, so a later ask
+ * answers undefined without a second refusal, and it is never `lowering` while it builds (no recursion guard): both
+ * kept as they were before the cache had one writer.
  */
-export function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | undefined): IrRoutine | undefined {
+export function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | undefined, { quiet = false }: { quiet?: boolean } = {}): IrRoutine | undefined {
   const key = name.toUpperCase()
   const cached = lw.routines.get(key)
-  if (cached?.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
-  if (cached?.state === "lowering") return lw.bail("call-recursive", `${name} calls itself`, span)
+  if (cached?.state === "failed") return quiet ? undefined : lw.bail("call-body", `${name}'s body does not lower`, span)
+  if (cached?.state === "lowering" && !quiet) return lw.bail("call-recursive", `${name} calls itself`, span)
   let routine = cached?.state === "lowered" ? cached.routine : undefined
   if (routine === undefined) {
-    lw.routines.set(key, { state: "lowering" })
+    if (!quiet) lw.routines.set(key, { state: "lowering" })
     routine = build()
     lw.routines.set(key, routine === undefined ? { state: "failed" } : { state: "lowered", routine })
   }
-  // the program instances the routine reaches are reached by whoever calls it (`Lowering.touched`)
-  for (const slot of touchesOf(lw).get(key) ?? []) lw.touched.add(slot)
+  // the program instances the routine reaches are reached by whoever calls it (`touchedOf`)
+  for (const slot of touchesOf(lw).get(key) ?? []) touchedOf(lw).add(slot)
   return routine
+}
+
+/** A body that cannot lower: marked failed — every later call refuses it by name (`call-body`) — and reported. */
+function fail(lw: Lowering, pending: PendingBody, code: string, message: string, span: Span): undefined {
+  pending.state = "failed"
+  return lw.bail(code, message, span)
 }
 
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
 export function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string, displayName = key): Lowering {
   const r = new Lowering(scope, lw.project, lw.shared)
   r.displayName = displayName
-  touchesOf(lw).set(key, r.touched)
+  touchesOf(lw).set(key, touchedOf(r))
   lw.shared.routineLowerings.set(key, r)
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
   if (layout !== undefined) r.inherit(layout.fields)
@@ -86,17 +102,15 @@ function keptVariables(lw: Lowering, sym: RoutineSymbol, sections: readonly VarS
   const frameLowering = frame === undefined ? undefined : lw.bodies.get(frame.name.toUpperCase())?.lowering
   if (frameLowering === undefined) return lw.bail(`routine-${kept[0]!.sectionKind.toLowerCase()}`, `${sym.name} has ${kept[0]!.sectionKind} outside an FB lowering can lay out`, span)
   const prefix = `__${sym.owner.name}_${sym.name}_`
-  const global = new Lowering(lw.project, lw.project, lw.shared)
-  global.globalMode = true
   for (const section of kept) {
-    const into = section.sectionKind === "VAR_INST" ? frameLowering : global
     const names = section.decls.flatMap((d) => d.names.map((n) => n.text))
-    const declared = section.sectionKind === "VAR_INST" ? frameLowering.byName : lw.shared.globals.byName
-    const before = into.diagnostics.length
-    if (!names.every((n) => declared.has(`${prefix}${n}`.toUpperCase()))) declareVars(into, [prefixed(section, prefix)])
-    if (into.diagnostics.length > before) {
-      lw.diagnostics.push(...into.diagnostics.slice(before))
-      return undefined
+    const inst = section.sectionKind === "VAR_INST"
+    const declared = inst ? frameLowering.byName : lw.shared.globals.byName
+    if (!names.every((n) => declared.has(`${prefix}${n}`.toUpperCase()))) {
+      // a VAR_INST is a field of the FB's own frame; a VAR_STAT one global (`declareGlobals`)
+      const before = frameLowering.diagnostics.length
+      if (inst) declareVars(frameLowering, [prefixed(section, prefix)])
+      if (inst ? drain(lw, frameLowering, before) : !declareGlobals(lw, lw.project, prefixed(section, prefix))) return undefined
     }
     for (const n of names) (section.sectionKind === "VAR_INST" ? out.inst : out.stat).set(n.toUpperCase(), `${prefix}${n}`.toUpperCase())
   }
@@ -111,13 +125,8 @@ function keptVariables(lw: Lowering, sym: RoutineSymbol, sections: readonly VarS
  */
 function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection[], span: Span): IrStmt[] | undefined {
   if (sections.length === 0) return []
-  const scratch = new Lowering(r.scope, r.project, r.shared)
-  scratch.routineMode = true
-  declareVars(scratch, sections)
-  if (scratch.diagnostics.length > 0) {
-    lw.diagnostics.push(...scratch.diagnostics)
-    return undefined
-  }
+  const { value: scratch, drained } = nested(lw, r.scope, { routineMode: true }, (s) => (declareVars(s, sections), s))
+  if (drained) return undefined
   const resets: IrStmt[] = []
   for (const slot of scratch.localSlots) {
     if (slot.type.kind !== "elementary") return lw.bail("routine-var_output", `${slot.name} is a ${slot.type.kind} VAR_OUTPUT, not measured`, span)
@@ -145,8 +154,38 @@ function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection
  * A POU written in the project with no statements genuinely does nothing and must still lower; a library element with
  * no statements is one whose body nobody has written. A library with real source — the repo's — lowers like any POU.
  */
-export function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unknown[]): boolean {
+function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unknown[]): boolean {
   return statements.length === 0 && lw.shared.libraryUnits.has(ast)
+}
+
+/** Why a body cannot be lowered: not ST, not parsed, or a library's declaration with no body written. */
+export interface BodyRefusal {
+  code: "graphical-body" | "parse" | "call-library"
+  message: string
+}
+
+/**
+ * THE ONE BODY PIPELINE (transpile-restructure 1.7.7): a unit's ST body as the statements lowering lowers — or why it
+ * cannot be. Every body comes through here: a METHOD's, ACTION's and FUNCTION's (`calledRoutine`), a PROPERTY
+ * accessor's (`calls/property.ts`), a base body run by `SUPER^()` (`baseBody`), an FB's body at its first call
+ * (`calledLayout`), and the POU's own (`entry/lower-unit.ts`). The site reports the refusal its way — a diagnostic, the
+ * pending body marked failed, a POU with no IR. `name` names the body in the message; the POU's own body is unnamed
+ * (its messages say "body"), and is the one a library's empty declaration is not asked of (`library: false` — a POU is
+ * lowered from the project).
+ */
+export function bodyOf(
+  lw: Lowering,
+  unit: Parameters<typeof execBodyStatements>[1],
+  body: Parameters<typeof isStBody>[0],
+  name: string | undefined,
+  { library = true }: { library?: boolean } = {},
+): { statements: StatementList } | BodyRefusal {
+  if (!isStBody(body)) return { code: "graphical-body", message: name === undefined ? "a body that is not ST is not lowered here" : `${name} has no ST body` }
+  const parsed = execBodyStatements(lw.project, unit, body)
+  if (!parsed.ok) return { code: "parse", message: parsed.firstError ?? (name === undefined ? "body did not parse" : `${name}'s body did not parse`) }
+  if (library && isBodylessLibrary(lw, unit, parsed.statements))
+    return { code: "call-library", message: `${name ?? "the body"} is a library declaration without a body` }
+  return { statements: parsed.statements }
 }
 
 /**
@@ -173,11 +212,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const scope = frame === undefined ? childScopesByName(lw.project, sym.name).find((s) => s.defUri === sym.uri) : findChildScope(sym.owner, sym.name)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
-    if (!isStBody(ast.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
-    const parsed = execBodyStatements(lw.project, ast, ast.body)
-    if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
-    if (isBodylessLibrary(lw, ast, parsed.statements))
-      return lw.bail("call-library", `${name} is a library declaration without a body`, span)
+    const parsed = bodyOf(lw, ast, ast.body, name)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
 
@@ -201,7 +237,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
           continue
         }
         for (const n of decl.names) {
-          r.anyInputs.add(n.text.toUpperCase())
+          pointerFrame(r).anyInputs.add(n.text.toUpperCase())
           r.localByName.set(n.text.toUpperCase(), r.localSlots.length)
           r.localSlots.push({ name: n.text, type: elementaryRef("DINT"), section: "VAR_INPUT", init: 0n })
         }
@@ -209,7 +245,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     // an `ARRAY[*]` in-out's bounds: hidden inputs every call fills from the array it binds (design §26)
     declareOpenBounds(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR_INPUT")
     const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
-    anyInputsOf(lw).set(key, new Set(inputs.filter((i) => r.anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
+    anyInputsOf(lw).set(key, new Set(inputs.filter((i) => pointerFrame(r).anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
     positionalOf(lw).set(
       key,
       positionalParameters(sections).map(({ name, output }) => ({ name, output })),
@@ -218,19 +254,19 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     // the ANY inputs this variant was given a variable for: one hidden VAR_IN_OUT each, which `pValue` names
     for (const [input, type] of targets) {
-      r.anyTargets.set(input, r.inoutSlots.length)
+      pointerFrame(r).anyTargets.set(input, r.inoutSlots.length)
       r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: typeZero(type) })
     }
     // FORM 2: a `POINTER TO T` parameter this body only dereferences becomes a hidden VAR_IN_OUT of T, and every
     // `p^` becomes the place the CALL binds to it. One lowering serves every call site — which is the whole point,
     // since `ptrparam_two_targets` calls one routine with two different `ADR` arguments and gets two answers.
     // A STRING CURSOR: a character pointer this call fills with a string's address walks that string — one hidden
-    // VAR_IN_OUT of the caller's exact string type, and the pointer keeps its byte offset (`Lowering.cursors`)
+    // VAR_IN_OUT of the caller's exact string type, and the pointer keeps its byte offset (`PointerFrame.cursors`)
     const cursorByInput = new Map<number, number>()
     for (const [input, { type: text, shares, offset }] of cursors) {
       const local = r.localByName.get(input)!
-      const inout = shares === undefined ? r.inoutSlots.length : r.cursors.get(shares)!.inout
-      r.cursors.set(input, { inout, unit: (r.localSlots[local]!.type as Extract<Type, { kind: "pointer" }>).target, offset })
+      const inout = shares === undefined ? r.inoutSlots.length : pointerFrame(r).cursors.get(shares)!.inout
+      pointerFrame(r).cursors.set(input, { inout, unit: (r.localSlots[local]!.type as Extract<Type, { kind: "pointer" }>).target, offset })
       r.inoutByName.set(`${input}^`, inout)
       cursorByInput.set(local, inout)
       if (shares === undefined)
@@ -239,9 +275,9 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     cursorInputsOf(lw).set(key, cursorByInput)
     const borrowedByInput = new Map<number, number>()
     for (const [name, slot] of borrowedPointerSlots(r, parsed.statements)) {
-      if (r.cursors.has(name)) continue
+      if (pointerFrame(r).cursors.has(name)) continue
       const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
-      r.borrowedPointers.set(name, r.inoutSlots.length)
+      pointerFrame(r).borrowedPointers.set(name, r.inoutSlots.length)
       borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)
       r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: typeZero(pointee) })
     }
@@ -257,27 +293,20 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       // (`callshape_inout_base_method_from_derived_method`: 11, `callshape_inout_super_method_from_override`: 11). They were
       // the owner's own only, so a derived METHOD calling such a base METHOD was `call-fb-inout` (pro2193's ConveyorFB).
       const sections: VarSection[] = []
-      const seen = new Set<string>()
       // Below the owner's chain, the FRAME's — the instance's type — when the routine calls a METHOD overridden there: a base
       // METHOD run on a derived instance then reaches the derived FB's own in-outs (`callshape_inout_override_from_outside_base_method`).
       // Not otherwise: one calling no override took them all, and faulted unbound (review).
       const ownerChain = chainNames(lw, sym.owner.name)
       const overridden = overridesCalled(frame, ownerChain, parsed.statements)
-      for (let unit = lookup(lw.project, frame.name)?.symbol.ast as TopLevel | undefined; unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") && !seen.has(unit.name.text.toUpperCase()); ) {
-        seen.add(unit.name.text.toUpperCase())
+      for (const unit of pouChain(lw, frame.name))
         if (overridden || ownerChain.has(unit.name.text.toUpperCase())) sections.unshift(...unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
-        const base = unit.kind === "function_block" ? unit.extends : undefined
-        unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
-      }
-      const declared = new Lowering(sym.owner, r.project, r.shared)
-      declareInOuts(declared, sections)
-      r.diagnostics.push(...declared.diagnostics)
+      const declared = nested(r, sym.owner, {}, (d) => (declareInOuts(d, sections), d)).value
       for (const slot of declared.inoutSlots) {
         const own = slot.name.toUpperCase()
         if (reached !== "all" && !reached.has(own)) continue
         // a parameter or local of the routine by that name hides the FB's in-out: a call that would take it is refused (review)
         if (r.inoutByName.has(own) || r.localByName.has(own)) {
-          r.shadowedInOuts.add(own)
+          shadowedInOutsOf(r).add(own)
           continue
         }
         r.inoutByName.set(own, r.inoutSlots.length)
@@ -285,11 +314,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       }
     }
     const body = [...resets, ...lowerBlock(r, parsed.statements)]
-    if (r.diagnostics.length > 0) {
-      lw.diagnostics.push(...r.diagnostics)
-      return undefined
-    }
-    return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: r.lends }
+    if (drain(lw, r)) return undefined
+    return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: interfaceFrame(r).lends }
   })
 }
 
@@ -303,11 +329,8 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
     if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
-    if (!isStBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has no ST body`, span)
-    const parsed = execBodyStatements(lw.project, unit, unit.body)
-    if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
-    if (isBodylessLibrary(lw, unit, parsed.statements))
-      return lw.bail("call-library", `${unit.name.text} is a library declaration without a body`, span)
+    const parsed = bodyOf(lw, unit, unit.body, unit.name.text)
+    if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
@@ -322,12 +345,9 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
       declareInOuts(r, inOutSections(frameChain).map((s) => ({ ...s, decls: s.decls.map((d) => ({ ...d, names: d.names.filter((n) => !taken.has(n.text.toUpperCase())) })).filter((d) => d.names.length > 0) })))
     for (let i = first; i < r.inoutSlots.length; i++) r.inoutSlots[i] = { ...r.inoutSlots[i]!, ofInstance: true }
     // the base's own VAR_TEMP starts over each time `SUPER^()` runs it
-    const body = [...(tempResets(r, unit.varSections, unit.span) ?? []), ...lowerBlock(r, parsed.statements)]
-    if (r.diagnostics.length > 0) {
-      lw.diagnostics.push(...r.diagnostics)
-      return undefined
-    }
-    return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body, lent: r.lends }
+    const body = [...resetTemps(r, unit), ...lowerBlock(r, parsed.statements)]
+    if (drain(lw, r)) return undefined
+    return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body, lent: interfaceFrame(r).lends }
   })
 }
 
@@ -343,39 +363,36 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   if (pending === undefined || layout === undefined) return lw.bail("call-target", `${name} has no body lowering can call`, span)
   if (pending.state === "lowered") {
     // the program instances its body reaches are reached by this caller too
-    for (const slot of pending.lowering.touched) lw.touched.add(slot)
+    for (const slot of touchedOf(pending.lowering)) touchedOf(lw).add(slot)
     return layout
   }
   if (pending.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
   if (pending.state === "lowering") return lw.bail("call-recursive", `${name} is reached again while its own body lowers`, span)
   const unit = pending.unit
   const chain = chainOf(lw, unit)
-  if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
-  if (!isStBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has no ST body`, span)
-  const parsed = execBodyStatements(lw.project, unit, unit.body)
-  if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
-  if (isBodylessLibrary(lw, unit, parsed.statements))
-    return lw.fail(pending, "call-library", `${name} is a library declaration without a body`, span)
-  const nested = pending.lowering
-  const before = nested.diagnostics.length
-  declareInOuts(nested, inOutSections(chain))
+  if (chain === undefined) return fail(lw, pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
+  const parsed = bodyOf(lw, unit, unit.body, name)
+  if ("code" in parsed) return fail(lw, pending, parsed.code, parsed.message, span)
+  const frame = pending.lowering
+  const before = frame.diagnostics.length
+  declareInOuts(frame, inOutSections(chain))
   pending.state = "lowering"
   // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body)
-  const body = [...(tempResets(nested, unit.varSections, unit.span) ?? []), ...lowerBlock(nested, parsed.statements)]
+  const body = [...resetTemps(frame, unit), ...lowerBlock(frame, parsed.statements)]
   // A PROGRAM runs moved out of `Programs` in Rust (the call moves its instance out and back), so a program whose run
   // reaches its own instance — reading `P.x` from an FB it calls — would read a stand-in there. Refused.
   const own = unit.kind === "program" ? lw.shared.globals.byName.get(unit.name.text.toUpperCase()) : undefined
-  if (own !== undefined && nested.touched.has(own) && nested.diagnostics.length === before)
-    nested.bail("call-program-reentrant", `${name} reaches its own instance while it runs`, span)
-  if (nested.diagnostics.length > before) {
-    lw.diagnostics.push(...nested.diagnostics.slice(before))
+  const reentrant = own === undefined ? undefined : programReentrant(lw, { touched: touchedOf(frame), body: [] }, { slot: own, inside: false }, { touched: "always", dispatch: "never" })
+  if (reentrant !== undefined && frame.diagnostics.length === before)
+    frame.bail("call-program-reentrant", `${name} reaches its own instance while it runs`, span)
+  if (drain(lw, frame, before)) {
     pending.state = "failed"
     return undefined
   }
   pending.state = "lowered"
-  for (const slot of nested.touched) lw.touched.add(slot)
+  for (const slot of touchedOf(frame)) touchedOf(lw).add(slot)
   // the file this body was written in travels with it, so the emitter can name it on every mapping
-  const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots, lent: nested.lends, ...(pending.uri === undefined ? {} : { bodyUri: pending.uri }) }
+  const called: IrLayout = { ...layout, body, inouts: frame.inoutSlots, lent: interfaceFrame(frame).lends, ...(pending.uri === undefined ? {} : { bodyUri: pending.uri }) }
   lw.layouts.set(key, called)
   return called
 }

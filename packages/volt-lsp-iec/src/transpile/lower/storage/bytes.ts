@@ -2,11 +2,13 @@
  * The measured byte layout — a type's size and alignment, a struct's or FB's field offsets, a place's byte offset.
  */
 
-import { baseOf, type Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
+import { baseOf, scopeChain } from "../core/chain.js"
 import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
-import { rootType } from "../places/path.js"
+import { fieldIn, fieldOf, rootType, typeAlong } from "../places/path.js"
+import { unionsOf } from "./unions.js"
 
 /**
  * A stored type's byte size and alignment, as the 64-bit simulator lays it out (conformance `mem_sizeof_*`,
@@ -42,7 +44,7 @@ export function byteSize(lw: Lowering, t: Type): { size: bigint; align: bigint }
 export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
   const layout = lw.layouts.get(t.name.toUpperCase())
   // a UNION's size (its widest member, aligned?) is not measured
-  if (layout === undefined || lw.shared.unions.has(t.name.toUpperCase())) return undefined
+  if (layout === undefined || unionsOf(lw).has(t.name.toUpperCase())) return undefined
   const pending = lw.bodies.get(t.name.toUpperCase())
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
   // THE DECLARATION OF EITHER KIND. This read it only for a STRUCT, so `pack_mode` on a FUNCTION_BLOCK was never
@@ -61,7 +63,7 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   if (packed && attributes?.has("pack_mode=1") !== true) return undefined
   // A METHOD's VAR_INST is storage in the instance, laid out as a field only once the method lowers — where it sits is not
   // measured, and a SIZEOF taken before and after that call would differ. Refused while any method of the FB declares one.
-  for (let s = t.kind === "function_block" ? t.scope : undefined; s !== undefined; s = s.baseScope)
+  for (const s of scopeChain(t.kind === "function_block" ? t.scope : undefined))
     for (const list of s.symbols.values())
       if (list.some((sym) => sym.kind === "method" && (sym.ast as { varSections?: readonly { sectionKind: string }[] }).varSections?.some((v) => v.sectionKind === "VAR_INST"))) return undefined
   const isFb = t.kind === "function_block"
@@ -76,7 +78,7 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
       for (const d of sec.decls) {
         if (lw.attributes.get(d)?.has("const_non_replaced") === true) continue
         for (const n of d.names) {
-          const type = layout.fields.find((f) => f.name.toUpperCase() === n.text.toUpperCase())?.type
+          const type = fieldIn(layout.fields, n.text)?.type
           if (type?.kind === "struct") continue
           if (type?.kind !== "elementary" || type.elem.family === "string") return undefined
           replaced.add(n.text.toUpperCase())
@@ -118,26 +120,26 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
 
 /** A place's byte offset from the start of its root variable — through struct fields and constant indices only. */
 export function byteOffset(lw: Lowering, place: Place): bigint | undefined {
-  let type = rootType(lw, place)
   let offset = 0n
-  for (const step of place.path) {
-    if (type === undefined) return undefined
+  const walked = typeAlong(lw, rootType(lw, place), place.path, { fields: "struct", element: "sized" }, (step, type) => {
+    if (type === undefined) return null
     if (step.kind === "field") {
-      if (type.kind !== "struct") return undefined
+      if (type.kind !== "struct") return null
       const at = fieldBytes(lw, type)?.offsets?.get(step.name.toUpperCase())
-      const field = lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())
-      if (at === undefined || field === undefined) return undefined
+      if (at === undefined || fieldOf(lw, type.name, step.name) === undefined) return null
       offset += at
-      type = field.type
-    } else if (step.kind === "index") {
+      return undefined
+    }
+    if (step.kind === "index") {
       const array = peelArray(type)
       const element = array === undefined ? undefined : byteSize(lw, array.element)
-      if (array === undefined || element === undefined || step.index.kind !== "const" || typeof step.index.value !== "bigint") return undefined
+      if (array === undefined || element === undefined || step.index.kind !== "const" || typeof step.index.value !== "bigint") return null
       offset += (step.index.value - step.lower) * element.size
-      type = array.element
-    } else return undefined
-  }
-  return offset
+      return undefined
+    }
+    return null
+  })
+  return "stopped" in walked ? undefined : offset
 }
 
 /** `offset` raised to the next multiple of `align`. */

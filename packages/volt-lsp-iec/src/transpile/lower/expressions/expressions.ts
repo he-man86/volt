@@ -3,7 +3,7 @@
  * the calls and the places.
  */
 
-import type { Lowering } from "../lowering.js"
+import type { Lowering } from "../core/lowering.js"
 import { type Expr, isSelfRef } from "../../../frontend/syntax/index.js"
 import { elementaryRef, type Type, UNKNOWN } from "../../../frontend/types/index.js"
 import type { IrExpr } from "../../ir/index.js"

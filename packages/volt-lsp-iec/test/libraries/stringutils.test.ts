@@ -3,7 +3,7 @@
  * `CHARBUFFERPTR` (`POINTER TO BYTE`), a `POINTER TO WORD` or a `POINTER TO STRING`, and the helpers they call.
  *
  * Every one of them walks a string through a pointer — `StrLenA(ADR(s))` — which is the STRING CURSOR the transpiler
- * binds for it (`Lowering.cursors`): the caller's string, by its own type, and the pointer's byte offset.
+ * binds for it (`PointerFrame.cursors`): the caller's string, by its own type, and the pointer's byte offset.
  *
  * Lowered against pro2193's own materialization (StringUtils 3.5.18.0), as a project that references the library
  * lowers it. The library ships compiled, with no source to follow, so every answer the contract leaves open was ASKED
