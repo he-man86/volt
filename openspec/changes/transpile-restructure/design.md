@@ -777,8 +777,14 @@ buffer, trailing zeros trimmed (`held`), `len` = first 0. Rust: `IecStr<T, N>` w
 **The store reads its destination (3.6).** `semantics/store.ts` `fit` for a string becomes `storeString(dst, m, src, n)` =
 `src.padEnd(n, "\0").slice(0, min(n, m)) + "\0" + dst.slice(min(n, m) + 1)`, `held`. Lowering hands it both capacities
 (every Type carries one after 3.3). Rust: `IecStr::to` becomes `dst.store(&src)` (`&mut self`, writes in place); lean 4.3
-(in-place `set_char`) falls out of the same `&mut` form. A destination with no prior buffer (a fresh frame, a function
-VAR_INPUT — unmeasured, M2 scope) starts zeroed, which is the frame's declared start, not a guess about the store.
+(in-place `set_char`) falls out of the same `&mut` form. A destination with no prior buffer of its own is NOT declared
+zero: a function's VAR_INPUT lives in a stack frame, and gate 3a measured stack buffers carrying residue behind a terminator
+(`string_conversion_result_tail` recorded different bytes on two runs). M2 left that pass unmeasured, so 3.6 records it
+(`string_store_function_input_tail`: a STRING(10) 'abc'+0+'efghij' passed to `VAR_INPUT p : STRING(20)`, `p[11..19]`
+read through `p[i]`, recorded twice) and its recording decides: the units behind the stored ones are either a rule (then
+modelled) or residue (then `LanguageTest.residue`, held only to being produced, like a conversion result). Until that
+recording the model's 0 there is not claimed by any fixture. (A FB instance's or program's VAR is a static buffer with its
+declared start, measured by M2's destination kinds.)
 
 **Literal `$00` (3.7, M1/M3).** The literal valuation keeps every decoded unit, `$00` and what follows; its capacity is its
 unit count, so storing it into STRING(3) cuts at 3 and into STRING(10) keeps 'cd' behind the 0. No literal is trimmed at its
@@ -788,22 +794,35 @@ first 0.
 the result Type is STRING(255)/WSTRING(255) — replacing RC 11's "sized by the source" (task 3.8's What is rewritten). The
 result's units behind its terminator are stack residue (`string_conversion_result_tail`, `LanguageTest.residue`); the model
 writes 0 there and the replay holds those paths only to being produced. Number→STRING conversions keep their current rule
-(unmeasured here).
+(unmeasured here). M5 measured only CROSS-width conversions (STRING_TO_WSTRING, WSTRING_TO_STRING, TO_WSTRING(STRING(300)),
+TO_STRING(WSTRING(300))); two neighbours are unmeasured and 3.8 records them before it writes their rule, the recording
+deciding: (1) a SAME-width TO_STRING of a STRING(300) / TO_WSTRING of a WSTRING(300) (`string_conversion_same_width_255`) —
+until recorded it keeps today's own-capacity rule, the 255 cut is not applied to it; (2) a string→number parse whose operand
+is longer than 255 (`string_parse_beyond_255`: STRING_TO_INT, WSTRING_TO_INT and TO_INT of 290 spaces then '5') — today
+the operand keeps its own capacity (the wide one narrowed to a STRING of the operand's capacity, `tr_11`: 85 spaces then
+'12345' is 12345), and that rule stays, stated as measured only up to 90 units, until the recording says whether CODESYS
+cuts at 255 (5 vs 0).
 
 **Capacity default and `commonType` (3.3, M7).** `DEFAULT_STRING_LENGTH` applied in `lower/core/lowering.resolve`;
-`withStringCapacity` and conversions.ts's `sized` go; `types/resolve.ts` unchanged (564 recorded messages print 'STRING').
+`withStringCapacity` goes at 3.3 (its other callers — conversions.ts, system.ts, places.ts, enums.ts — take the resolved
+capacity or the default by name). conversions.ts's `sized` does NOT go at 3.3: it is what sizes a STRING<->WSTRING result
+and the narrowed STRING of a wide parse by the operand, and the conversion's target is built from the conversion's name, not
+resolved — deleting it before its replacement would default that target to 80, the cut RC 11 removed (`tr_11` would
+regress: 100 narrowed units become 80, 85 spaces + '12345' parses to 0). It goes at 3.8 together with the 255 rule; `types/resolve.ts` unchanged (564 recorded messages print 'STRING').
 The `commonType` appendix item closes with M7 as the reason (no caller outside `src/transpile`).
 
-**Stays refused, by code:** `assign-string` (an implicit conversion the vendor does not make), `pointer-type` for
-`tr_34_lib_prim_char_behind` until model 3 (4.12), the unmeasured-escape bail in `stringLiteralText`.
+**Stays refused, by code:** `assign-string` (an implicit conversion the vendor does not make), the unmeasured-escape bail in
+`stringLiteralText`. (`tr_34_lib_prim_char_behind` is NOT refused: a POINTER TO BYTE over a STRING already lowers
+(`pointers/address.ts`) and the fixture is confirmed; an earlier draft carried the pre-3.1 `pointer-type` claim.)
 
 **Tests that change (3.9), each citing its recording:** a wide store keeping the destination tail
 (`string_assign_tail_wide`, `wstring_assign_tail_wide`) in `semantics/string.test.ts`/`pipeline/strings.test.ts`; a
 conversion result of 255 (`string_conversion_result_capacity`) in `builtins/conversions.test.ts`; literal NUL tails
-(`string_literal_nul_tail`) in `values` tests. The five 3.1 and three gate-3a divergences flip at 3.6/3.7/3.8.
+(`string_literal_nul_tail`) in `values` tests. The five 3.1 and three gate-3a divergences flip at 3.6 (the four kept
+destination tails), 3.7 (the two literal NUL tails) and 3.8 (the two conversion results), each step's Accept naming its own.
 
-**Migration.** 3.3 resolve + deletions (S identical). 3.4/3.5 = `storeString` and `IecStr::store` with `string.cases.ts`
-(M1-M5 cells) run by both backends. 3.6 wires the store, 3.7 the literal, 3.8 the 255 rule. 3.10-3.12 as written.
+**Migration.** 3.3 resolve + `withStringCapacity` deleted (S identical; `sized` kept). 3.4/3.5 = `storeString` and `IecStr::store` with `string.cases.ts`
+(M1-M5 cells) run by both backends. 3.6 wires the store, 3.7 the literal, 3.8 the 255 rule and `sized`'s deletion. 3.10-3.12 as written.
 
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 

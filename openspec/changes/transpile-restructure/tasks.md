@@ -2643,18 +2643,58 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       skip, 432 todo, 0 fail (9042 tests, 304 files, 507 s), 13 diverge as expected failures, fold agreement 420 compared,
       38 disagree, 38 known; `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run lint` exit 0 (no new warning);
       `openspec validate` valid; `bun run check` 18 passed.
-- [ ] 3.2 Design "§3.2 Decision: strings".
+- [x] 3.2 Design "§3.2 Decision: strings".
   - What: the representation (a/b/c) in TS and Rust (incl. the `B = n+1` const parameter), literal NUL, assignment across capacities,
     comparison, conversion capacity, where the capacity default is applied (transpile-side, per type.ts:36-38 unless M7 contradicts), the
     commonType item per M7, the tests that change and why.
   - Where: `design.md`.
   - Accept: committed.
   - Depends: 3.1.
+  - Done (2026-10-08): design.md "§3.2 Decision: strings", committed alone in 9e6a30efcc (no code). One store rule for every
+    string, M2's (`min(n, m)` units of the source buffer, a 0 at `min(n, m)`, the destination's units behind left alone; `n` a
+    literal's own unit count or 255 for a library/conversion result). Representation: option (c) WITHOUT the tail array — the
+    JS string holding the whole buffer (`held`) and `IecStr<T, N>` with the terminator at N implied, as landed in
+    transpile-review; deciding measure M6 (197 string fixtures interpret in 11.8 ms). Rejected (a) `Uint8Array(n+1)` /
+    `IecStr<B = n+1>` (a mutable buffer inside the immutable `IrValue` needs a clone at every copy site; byte N only ever holds
+    0, so B = n+1 carries nothing), (b) (its cached `len` bought nothing, 4.0 vs 4.1 ms) and the tail array (one buffer already
+    holds the tail). The store reads its destination: `storeString(dst, m, src, n)` in `semantics/store.ts`, Rust
+    `dst.store(&src)` (`&mut self`; lean 4.3 falls out). Literal `$00` keeps every decoded unit (3.7). Conversions: operand cut
+    to 255, result STRING(255)/WSTRING(255) — M5 contradicts RC 11's "sized by the source", so 3.8's What is rewritten below;
+    the residue tail is written 0 and held only to being produced. Capacity default in `lower/core/lowering.resolve`
+    (`withStringCapacity` goes at 3.3, conversions.ts's `sized` at 3.8 with the 255 rule), `types/resolve.ts` unchanged (M7: 564 recorded messages print
+    'STRING'); the `commonType` appendix item closes with M7 as the reason. Stays refused: `assign-string`,
+    `string-escape` in `stringLiteralText`. The eight string divergences (of 13) flip at 3.6
+    (kept destination tail: `string_assign_tail_wide`, `wstring_assign_tail_wide`, `string_store_function_result_tail`,
+    `string_store_destination_kinds_tail`), 3.7 (`string_literal_nul_tail`, `wstring_literal_nul_tail`) and 3.8
+    (`string_conversion_result_capacity`, `string_conversion_result_tail`); a design step turns none of them.
+  - Gate 3b (2026-10-08) — review findings on the 3.2 text, all five fixed (docs only, no code):
+    1. `sized` was moved into 3.3 although the 255 rule replacing it arrives at 3.8 (the conversion target is built from the
+       name, sizeless, so 3.3 would default it to 80 and regress the confirmed `tr_11`). Fixed: `sized` goes at 3.8 (3.3's
+       What/Where, 3.8's What, design §3.2 "Capacity default" and "Migration"); 3.3's Where now names every
+       `withStringCapacity` caller (conversions.ts, system.ts, places.ts, enums.ts).
+    2. 3.6 and 3.7 Accepts did not ask for the divergences they exist for (3.7 asked F on the already-confirmed `tr_45`).
+       Fixed: 3.6 asks F of the four kept-destination-tail fixtures, 3.7 of the two literal NUL tails, `tr_45` stays confirmed.
+    3. §3.2's conversion rule covered same-width TO_STRING >255 and string->number parses >255 without a measurement.
+       Fixed: both stated unmeasured, today's own-capacity rule kept, and 3.8 records `string_conversion_same_width_255` and
+       `string_parse_beyond_255` before writing their rule.
+    4. `tr_34_lib_prim_char_behind` was listed refused `pointer-type` until 4.12; it is confirmed and lowered
+       (`pointers/address.ts`). Fixed in design §3.2 "Stays refused", this note and 3.6's Accept.
+    5. A function VAR_INPUT destination was declared to "start zeroed" — unmeasured, and stack buffers carry residue (gate 3a).
+       Fixed: design §3.2 no longer claims 0; 3.6 records `string_store_function_input_tail` and its recording decides rule
+       vs residue.
+    - Numbers (no code or fixture changed, so no `rate:fixtures`): `bun typecheck` clean; `bun test` (VOLT_REQUIRE_FULL=1,
+      VOLT_FIXTURES unset, rustc cache on) 8575 pass, 35 skip, 432 todo, 0 fail (9042 tests, 304 files, 513 s) — unchanged
+      from gate 3a; `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run lint` exit 0; `openspec validate` valid;
+      `bun run check` 18 passed.
 - [ ] 3.3 Every string Type the transpiler holds carries its capacity.
   - What: `core/lowering.resolve` applies `DEFAULT_STRING_LENGTH` to every sizeless STRING/WSTRING it returns; `withStringCapacity`
-    (`storage/layout.ts`) is deleted; `types/resolve.ts` is unchanged. The appendix item "commonType treats a sizeless STRING as capacity
-    0" is fixed in `types/arith/runtime.ts` or closed with M7 as the reason, per 3.2.
-  - Where: `lower/core/lowering.ts`, `lower/storage/layout.ts`, `types/arith/runtime.ts` (if 3.2 says so).
+    (`storage/layout.ts`) is deleted, its callers taking the resolved capacity or the default by name; `builtins/conversions.ts`'s
+    `sized` STAYS (it sizes a STRING<->WSTRING result and a wide parse's narrowed STRING by the operand; the conversion's
+    target is built from its name, sizeless, and would otherwise default to 80 — the cut RC 11 removed; it goes at 3.8 with the
+    255 rule). `types/resolve.ts` is unchanged. The appendix item "commonType treats a sizeless STRING as capacity
+    0" is closed with M7 as the reason, per 3.2.
+  - Where: `lower/core/lowering.ts`, `lower/storage/layout.ts`, `lower/builtins/conversions.ts`, `lower/builtins/system.ts`,
+    `lower/places/places.ts`, `lower/values/enums.ts` (the `withStringCapacity` callers).
   - Accept: G+LSP (LSP output byte-identical unless 3.2 names the change); S-out (list any Rust that printed capacities differently).
   - Depends: 3.2.
 - [ ] 3.4 `semantics/string.ts` new model plus `semantics/string.cases.ts`; the interpreter runs it.
@@ -2666,21 +2706,34 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Accept: `runtime-twins.test.ts` runs `semantics/string.cases.ts` through rustc and matches.
   - Depends: 3.4.
 - [ ] 3.6 Bytes behind the terminator (RC 34).
-  - What: a store at or past `len` rescans; a same-capacity copy keeps the units.
-  - Where: `semantics/string.ts`, `runtime/string.ts`, `lower/places/places.ts` (`s[i]`).
+  - What: a store at or past `len` rescans; every string store follows M2 (design §3.2 Decision): `storeString(dst, m, src, n)`
+    writes `min(n, m)` source units and a 0 at `min(n, m)` and keeps the destination behind it (Rust `dst.store(&src)`). A
+    same-capacity copy keeping the units is the special case. First record `string_store_function_input_tail` (a STRING(10)
+    'abc'+0+'efghij' passed to a FUNCTION's `VAR_INPUT p : STRING(20)`, `p[11..19]` read through `p[i]`, recorded twice):
+    its recording decides whether the units behind a fresh-stack destination are a rule or residue (design §3.2).
+  - Where: `semantics/string.ts`, `runtime/string.ts`, `lower/places/places.ts` (`s[i]`), the new fixture.
   - Accept: src pipeline test (right-to-left digit fill gives '4321'; 'abcdef' with `t[2]:=0; t[2]:=88` gives 'abXdef');
-    `tr_34_lib_prim_char_behind` flips only at 4.12 (it needs POINTER TO BYTE).
+    F(`string_assign_tail_wide`, `wstring_assign_tail_wide`, `string_store_function_result_tail`,
+    `string_store_destination_kinds_tail`); `string_store_function_input_tail` recorded and confirmed (or residue-marked per
+    its recording); `tr_34_lib_prim_char_behind` stays confirmed.
   - Depends: 3.5.
 - [ ] 3.7 `$00` in a literal (RC 45).
   - What: the literal valuation keeps the decoded units; `values/literals.stringLiteralText` builds a buffer whose `len` is the first 0,
     the bytes behind per M1. If frontend-conformance closed the decoding half (0.1), only the lowering half remains.
   - Where: `frontend/syntax/literal/value.ts`, `lower/values/literals.ts`.
-  - Accept: F(`tr_45_string_embedded_nul`); G+LSP; M.
+  - Accept: F(`string_literal_nul_tail`, `wstring_literal_nul_tail`); `tr_45_string_embedded_nul` stays confirmed; G+LSP; M.
   - Depends: 3.6.
 - [ ] 3.8 Conversions without the 80 cut (RC 11).
-  - What: an operand keeps its own capacity; a wide result is sized by the source (M5).
-  - Where: `lower/builtins/conversions.ts`.
-  - Accept: F(`tr_11_string_conversion_beyond_80`), which now lowers; `xo3_string_wide_conversions` stays confirmed; M.
+  - What: (rewritten by §3.2 Decision on M5) a STRING<->WSTRING / TO_STRING / TO_WSTRING of a string cuts its operand to 255 on
+    the way in and its result Type is STRING(255)/WSTRING(255) — not sized by the source; the units behind the result's
+    terminator are written 0 (stack residue in CODESYS, `LanguageTest.residue`). Number->STRING conversions unchanged.
+    `sized` is deleted here (not at 3.3). First record, in one batch, the two neighbours M5 did not measure:
+    `string_conversion_same_width_255` (TO_STRING of a STRING(300), TO_WSTRING of a WSTRING(300)) and
+    `string_parse_beyond_255` (STRING_TO_INT, WSTRING_TO_INT and TO_INT of 290 spaces then '5'); their recordings decide
+    whether the 255 cut reaches them — until then they keep the operand's own capacity.
+  - Where: `lower/builtins/conversions.ts`, the two new fixtures.
+  - Accept: F(`string_conversion_result_capacity`, `string_conversion_result_tail`); the two new fixtures recorded and
+    confirmed; `tr_11_string_conversion_beyond_80` and `xo3_string_wide_conversions` stay confirmed; M.
   - Depends: 3.6.
 - [ ] 3.9 Tests that pinned the old model.
   - What: `pipeline/strings.test.ts`, `semantics/string.test.ts`, `builtins/conversions.test.ts`, `places/places.test.ts`,
