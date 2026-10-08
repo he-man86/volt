@@ -95,7 +95,7 @@ const CONDITION_TYPE_WHY = "an ambiguous global as an IF condition, measured 202
 
 const LITERAL_TYPING ="frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
 const NEGATED_LITERAL_CELLS =
-  "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator; 4c's negative enum literals and the negative SOURCE value of every explicit-pair cell over SINT, INT, DINT, LINT and LREAL) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
+  "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator; 4c's negative enum literals and the negative SOURCE value of every explicit-pair cell over SINT, INT, DINT, LINT and LREAL; transpile-restructure 2.1's negative FOR step variable) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
 /** The 4.1.3 / 4.2 / 4.3 / 4b fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
 const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["lt_literal_any_int_argument", 2],
@@ -127,6 +127,8 @@ const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ...EXPLICIT_PAIR_TESTS.filter((t) => /:= -/.test(t.source)).map((t): [string, number] => [t.name, 1]),
   // analysis-conformance 3.11: two enum members written -1 (the duplicate value's negative cell)
   ["enumdup_negative", 2],
+  // transpile-restructure 2.1: a negative FOR step variable's initial value (`downStep : INT := -4`)
+  ["for_runtime_step_same_type", 1],
 ]
 
 const UNTYPED_CALL_CELLS =

@@ -292,7 +292,8 @@ export async function snapshotFixture(
   else if ("notRun" in plan) out.edge = `not-run: ${plan.notRun}`
   else {
     const v = compareEdge(pou, plan, rust!, interpOf)
-    out.edge = v.first === undefined ? v.verdict : `${v.verdict}: ${v.first}`
+    const unanswered = v.unanswered === undefined ? "" : ` (${v.unanswered} of ${plan.variants.length} variants unanswered: the interpreter's loop guard gave up)`
+    out.edge = `${v.verdict}${v.first === undefined ? "" : `: ${v.first}`}${unanswered}`
   }
   return out
 }

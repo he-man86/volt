@@ -44,6 +44,7 @@ export function printRow(name: string, row: FixtureMapRow): string {
     parts.push(`lints: [${row.lints.map((l) => JSON.stringify(l)).join(", ")}]`)
   if (row.pedantic !== undefined) parts.push(`pedantic: ${row.pedantic}`)
   if (row.edge !== undefined) parts.push(`edge: ${JSON.stringify(row.edge)}`)
+  if (row.edgeUnanswered !== undefined) parts.push(`edgeUnanswered: ${row.edgeUnanswered}`)
   if (row.size !== undefined) parts.push(`size: ${row.size}`)
   if (row.shape !== undefined) parts.push(`shape: ${JSON.stringify(row.shape)}`)
   if (row.notes !== undefined) parts.push(`notes: [${row.notes.map((id) => JSON.stringify(id)).join(", ")}]`)

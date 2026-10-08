@@ -171,6 +171,7 @@ interface Measured {
   lints: string[]
   pedantic: number
   edge: EdgeVerdict
+  edgeUnanswered?: number
 }
 
 /**
@@ -184,6 +185,8 @@ const measuredDrift = (found: Map<string, Measured>): string[] =>
     const out: string[] = []
     if (stored?.pedantic !== got.pedantic) out.push(`${name}: pedantic stored ${stored?.pedantic}, computed ${got.pedantic}`)
     if (stored?.edge !== got.edge) out.push(`${name}: edge stored ${stored?.edge}, computed ${got.edge}`)
+    if (stored?.edgeUnanswered !== got.edgeUnanswered)
+      out.push(`${name}: edge variants unanswered stored ${stored?.edgeUnanswered}, computed ${got.edgeUnanswered}`)
     return out
   })
 
@@ -191,9 +194,15 @@ const measuredDrift = (found: Map<string, Measured>): string[] =>
  * The edge column for one built fixture — run only when it built and there is something to seed; a fixture whose
  * Rust did not build, or that has no elementary variable, is `not-run` exactly as the generator writes it.
  */
-async function edgeOf(built: boolean, exe: string, pou: IrPou, plan: ReturnType<typeof edgePlan>): Promise<EdgeVerdict> {
-  if (!built || "notRun" in plan) return "not-run"
-  return (await edgeVerdict(exe, pou, plan)).verdict
+async function edgeOf(
+  built: boolean,
+  exe: string,
+  pou: IrPou,
+  plan: ReturnType<typeof edgePlan>,
+): Promise<Pick<Measured, "edge" | "edgeUnanswered">> {
+  if (!built || "notRun" in plan) return { edge: "not-run" }
+  const { verdict, unanswered } = await edgeVerdict(exe, pou, plan)
+  return unanswered === undefined ? { edge: verdict } : { edge: verdict, edgeUnanswered: unanswered }
 }
 
 /** A built case's run: its exit, and what it printed. `exit: -1` is a case that did not build (or lower). */
@@ -408,9 +417,9 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const buildExit = build.exit
       const buildErr = build.stderr
       const findings = splitFindings(buildErr, emitted.code.split("\n").length)
-      const measure = (edge: EdgeVerdict) =>
-        measured.set(c.name, { lints: findings.found.map((f) => f.code), pedantic: findings.pedantic.length, edge })
-      if (buildExit !== 0) measure("not-run")
+      const measure = (edge: Pick<Measured, "edge" | "edgeUnanswered">) =>
+        measured.set(c.name, { lints: findings.found.map((f) => f.code), pedantic: findings.pedantic.length, ...edge })
+      if (buildExit !== 0) measure({ edge: "not-run" })
       if (buildExit !== 0)
         return void runs.set(c.name, {
           exit: -1,
@@ -522,7 +531,7 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
             ok,
             lints: found.map((f) => f.code),
             pedantic: pedantic.length,
-            edge: await edgeOf(ok, exe, pou, plan),
+            ...(await edgeOf(ok, exe, pou, plan)),
             why: ok ? "" : rendered(stderr),
           })
         }

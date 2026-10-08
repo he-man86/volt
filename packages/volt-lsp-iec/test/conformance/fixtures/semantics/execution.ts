@@ -1038,6 +1038,34 @@ const CASES: readonly ExecCase[] = [
   { name: "tr_27_loop_cap_repeat_1000001", vars: "cnt : DINT;", body: "REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT" },
   { name: "tr_27_loop_cap_while_5000000", vars: "cnt : DINT;", body: "WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE" },
 
+  // transpile-restructure 2.1 (model 1, loops). A FOR to its INT counter's maximum: does the counter wrap past 32767
+  // so the loop never ends (the EXIT guard stops it at 32800 passes, `last` = -32737), or does it end after 32768
+  // passes (`last` = 32767)? Decides whether a FOR may be printed as a Rust `for` range (lean 5.4). Compare
+  // `for_at_type_max` (the SINT case).
+  {
+    name: "for_counter_at_type_max",
+    vars: "i : INT; cnt : DINT; last : INT;",
+    body: "FOR i := 0 TO 32767 DO cnt := cnt + 1; last := i; IF cnt >= 32800 THEN EXIT; END_IF END_FOR",
+  },
+  // The body changes the step VARIABLE on every pass (stride = 1, 3, 5, …). Read every pass: i = 1, 4, 9, 16 — 4
+  // passes, `last` 16, the counter left at 25. Read once: 20 passes, `last` 20, the counter left at 21. (Not `s`:
+  // CODESYS reads a lone `S` as the set operator — "Unexpected token 's' found", record:exec 2026-10-08.)
+  {
+    name: "for_runtime_step_changed_in_body",
+    vars: "i : INT; stride : INT := 1; cnt : INT; last : INT;",
+    body: "FOR i := 1 TO 20 BY stride DO cnt := cnt + 1; last := i; stride := stride + 2; END_FOR",
+  },
+  // An INT variable step on an INT counter, up and down (the step type is the counter type, so nothing converts):
+  // up 0, 3, 6, 9 (4 passes, left at 12); down 10, 6, 2 (3 passes, left at -2).
+  {
+    name: "for_runtime_step_same_type",
+    vars: "i : INT; upStep : INT := 3; up : INT; lastUp : INT; j : INT; downStep : INT := -4; down : INT; lastDown : INT;",
+    body: [
+      "FOR i := 0 TO 10 BY upStep DO up := up + 1; lastUp := i; END_FOR",
+      "FOR j := 10 TO 0 BY downStep DO down := down + 1; lastDown := j; END_FOR",
+    ].join("\n"),
+  },
+
   // task 28: MAX / MIN / LIMIT given a NaN or a signed zero, both argument orders, LREAL and REAL. NaN is SQRT of a
   // computed negative and -0.0 is +0.0 times a computed -1 — never folded, and never 1.0/0.0 (it stops the runtime).
   // NaN and -0 do not compare, so every result is also read as its BITS through a pointer (`wN`).

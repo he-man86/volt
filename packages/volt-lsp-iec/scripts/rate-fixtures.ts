@@ -61,7 +61,7 @@ import { assertNotes, deadNotes, notesByTask, notesOf } from "../test/conformanc
 import { NOTES } from "../test/conformance/support/notes/notes.data.js"
 import { renderNotes } from "../test/conformance/support/notes/render.js"
 import { correctnessOf, rejectionIsADefect } from "../test/conformance/support/transpile/correctness.js"
-import { EDGE_ARG, edgeHarness, edgePlan, edgeVerdict, HARNESS_LOOP_GUARD } from "../test/conformance/support/transpile/edge.js"
+import { EDGE_ALL_GAVE_UP, EDGE_ARG, edgeHarness, edgePlan, edgeVerdict, HARNESS_LOOP_GUARD } from "../test/conformance/support/transpile/edge.js"
 import { ALLOWED, assertPolicy, buildArgv, rendered, splitFindings } from "../test/conformance/support/transpile/lint-policy.js"
 import { divergesOf, printRow } from "../test/conformance/support/transpile/row.js"
 import { emissionShape, sizeRatio } from "../test/conformance/support/transpile/shape.js"
@@ -100,6 +100,8 @@ const rejected = new Map<string, string>()
 const constructs = new Map<string, string>()
 /** Why each `not-run` edge row did not run, by reason. */
 const notRun = new Map<string, number>()
+/** The `agree` edge rows that rest on fewer variants than their plan (the interpreter's loop guard gave up), for the header. */
+const partial = new Map<string, string>()
 /** The first difference of each `disagree` edge row, for the header. */
 const disagreements = new Map<string, string>()
 /** Every pedantic finding, by lint, across all fixtures. */
@@ -147,12 +149,16 @@ await Promise.all(
       for (const lint of pedantic) pedanticTally.set(lint, (pedanticTally.get(lint) ?? 0) + 1)
 
       let edge: EdgeVerdict = "not-run"
+      let edgeUnanswered: number | undefined
       if (!built) notRun.set("the emitted Rust does not build", (notRun.get("the emitted Rust does not build") ?? 0) + 1)
       else if ("notRun" in plan) notRun.set(plan.notRun, (notRun.get(plan.notRun) ?? 0) + 1)
       else {
         const result = await edgeVerdict(exe, pou, plan)
         edge = result.verdict
+        edgeUnanswered = result.unanswered
         if (result.first !== undefined) disagreements.set(t.name, result.first)
+        if (edge === "not-run") notRun.set(EDGE_ALL_GAVE_UP, (notRun.get(EDGE_ALL_GAVE_UP) ?? 0) + 1)
+        else if (edgeUnanswered !== undefined) partial.set(t.name, `${edgeUnanswered}/${plan.variants.length}`)
       }
       rmSync(exe, { force: true })
       rmSync(exe.replace(/\.exe$/, ".pdb"), { force: true })
@@ -167,6 +173,7 @@ await Promise.all(
         ...(found.length > 0 ? { lints: [...new Set(found.map((f) => f.code))].sort() } : {}),
         pedantic: pedantic.length,
         edge,
+        ...(edgeUnanswered === undefined ? {} : { edgeUnanswered }),
         size: sizeRatio(shown, source, gvls),
         shape: shape.shape,
         ...notesOf(shape.constructs),
@@ -290,6 +297,10 @@ ${(["agree", "disagree", "not-run"] as const)
   .join("\n")}
 ${ranked(notRun)
   .map(([why, n]) => ` *       not-run: ${why.padEnd(44)} ${String(n).padStart(5)}`)
+  .join("\n")}
+${[...partial]
+  .sort((a, b) => a[0].localeCompare(b[0]))
+  .map(([name, n]) => ` *       agree, ${n.padStart(5)} unanswered (the interpreter's loop guard): ${name}`)
   .join("\n")}
 ${[...disagreements]
   .sort((a, b) => a[0].localeCompare(b[0]))

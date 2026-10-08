@@ -197,6 +197,8 @@ export interface LanguageTest {
     pedantic?: number
     /** The interpreter against the compiled Rust on deterministic edge inputs per variable (`edgeVerdict`). */
     edge?: "agree" | "disagree" | "not-run"
+    /** Edge variants the interpreter's loop guard gave up on, when any (`EdgeComparison`). */
+    edgeUnanswered?: number
     /** Emitted Rust lines per ST line, one decimal, the string prelude not counted. */
     size?: number
     /** The emission's shape id: its normalized constructs in order (`emissionShape`). */

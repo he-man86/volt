@@ -89,6 +89,9 @@ export interface FixtureMapRow {
   pedantic?: number
   /** The interpreter against the compiled Rust on the edge inputs — `edgeVerdict`, or `not-run` and the header says why. */
   edge?: EdgeVerdict
+  /** How many edge variants the interpreter's loop guard gave up on — an `agree` rests on that many fewer than the plan
+   *  holds (`EdgeComparison`). Absent when none. */
+  edgeUnanswered?: number
   /** Emitted Rust lines per ST line, to one decimal — `sizeRatio`. */
   size?: number
   /** The id of the fixture's emission shape — its constructs in order (`emissionShape`). */

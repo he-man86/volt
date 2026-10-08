@@ -2190,7 +2190,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ## 2. Model 1: loops (RC 27, 35, 36, 39; RC 13's transpiler half; RC 13 guard)
 
-- [ ] 2.1 Measure.
+- [x] 2.1 Measure.
   - What: (a) interpreter wall time on `tr_27_loop_cap_while_5000000` and `tr_27_loop_cap_for_1000001` with the cap disabled; (b) every
     test, recording and fixture that reaches `LOOP_CAP_MESSAGE`; (c) how the harness distinguishes a CODESYS stop (timeout) from a
     runaway; (d) record `for_counter_at_type_max` (INT counter to 32767 with an EXIT guard), `for_runtime_step_changed_in_body`
@@ -2198,6 +2198,94 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: this file (numbers); fixtures in `test/conformance/fixtures/semantics/execution.ts`.
   - Accept: recordings committed (`record:exec`); the numbers written here.
   - Depends: 1.9.4.
+  - Done (2026-10-08, at 7dcd537a00; a single-use scratch probe, deleted — nothing under `scripts/`). The cap is ALREADY gone:
+    RC 27 landed in f052467157 (transpile-review 27) — `LOOP_ITERATION_CAP`/`LOOP_CAP_MESSAGE` were deleted from `ir/`, the
+    interpreter and the Rust, and a harness opts in to a guard: `run(pou, { loopGuard })` throws `LoopGuardError` (a
+    `RangeError`, not an `IecFault`), `emitRust(pou, { loopGuard })` prints `assert!(__guard_N <= …, "harness loop guard")`,
+    both counting one body entry (after a head test) as one pass. So design §3.1 option (a) is what exists, under the names
+    `loopGuard`/`LoopGuardError` rather than `loopBudget`/`HarnessBudget`; 2.2 decides the names and what of 2.3 is left.
+    - (a) Interpreter wall time, NO guard, median of 5 (min–max), one scan: `tr_27_loop_cap_for_1000000` 215 ms (199–229),
+      `_for_1000001` 214 ms (206–220), `_repeat_1000001` 141 ms (140–162), `_while_5000000` 662 ms (644–686) — ≈ 0.13–0.21
+      µs per pass. Every recorded pass count runs in under a second; no cap is needed for speed.
+    - (b) Who reaches a guard. `LOOP_CAP_MESSAGE`: nothing (deleted). Recordings with a pass count ≥ 1,000,000: only the four
+      `tr_27_*` (1,000,000 / 1,000,001 / 1,000,001 / 5,000,000). Every fixture lowered (3,228 of 5,360 — the three 2.1 fixtures included; re-run at gate 2a, the first write-up's 3,226
+      was a mid-step tree) and scanned with the
+      guard at the OLD cap (1,000,000): 8 pass it — the three `tr_27` over 1,000,000 plus `cc4_loop_exit_constant`,
+      `cc6_loop_cannot_exit`, `flw_for_byte_to_255`, `flw_for_int_down_to_min`, `flw_for_usint_by_two_to_255`; at the harness
+      guard (`HARNESS_LOOP_GUARD` 10,000,000) only those five, all rated `unaskable` (their `execSkip`: the scan never ends in
+      CODESYS either), ≈ 7–8 s each in the interpreter to reach it. Edge variants the interpreter's edge guard
+      (`EDGE_INTERP_GUARD` 1,000,000) gives up on: 15 fixtures — the five above (all variants), the three `tr_27` over the old
+      cap (11/11, 5/6, 5/6), `for_counter_at_type_max` 2/16, `for_limit_wider_than_counter_dint_var` 1/16, `_dint_expr` 2/16,
+      `cc3_empty_and_noop`, `flw_empty_semicolon_body`, `stmt_while_empty_body`, `stmt_repeat_empty_body` 1/8–1/11 each (a seed
+      that hands a loop a bound nobody arranged). Code that names the guard: `interp/{machine,runner,index}.ts`,
+      `emit/rust/{loops,module,printer}.ts`, `index.ts` (+ `index.test.ts` lists `LoopGuardError`),
+      `pipeline/control.test.ts` (the counting rule), `emit/rust/loops.test.ts`, `test/conformance/{backends,emit-build,
+      transpile-replay}.test.ts`, `support/{snapshot,snapshot.test}.ts`, `support/transpile/edge.ts`,
+      `scripts/{rate-fixtures,frontend-snapshot}.ts`. Map today: `clippy::manual_assert` 818 (lean 5.1 counted 1502 with the
+      cap), `clippy::unreadable_literal` 2810 (the guard prints `10_000_000`, so none of it is the guard's).
+    - (c) Stop vs runaway: the harness does NOT tell them apart — not by the recording, and not by its error text.
+      (Corrected at gate 2a; the first write-up said the error text separates them, and it cannot.) A program that faults
+      the simulator records one of TWO texts: `"The operation has timed out."` (27 recordings — 24 `confirmed`, 3
+      `not-lowered` — thrown by the online calls `oa.start`/`read_value`) or `record-exec.py`'s 10 s done-flag poll text
+      `"the done flag never rose … did not finish its cycles"` — the text a runaway would also get. One CONFIRMED fault
+      already carries it: `arithedge_uint_div_by_zero` (a divide by zero), replayed through `compareFault` like the 24.
+      `transpile-replay.test.ts`'s own comment says so ("a timeout or a done flag that never rose"). Every recording with an
+      `error` on a `confirmed` fixture goes to `compareFault`, which runs `run()` with NO loop guard. The five runaway
+      fixtures are kept out ONLY by their hand-written `execSkip` (`flow-rules.ts` ENDLESS and the cc batches): the recorder
+      never runs them (no recording at all) and `evidence.ts` rates them `unaskable`. Gap for 2.2, larger than first
+      reported: a disjointness check on the error text cannot be built (one confirmed fault already carries the runaway
+      text), so nothing but `execSkip` stands between a runaway fixture and an unguarded `compareFault` — record one without
+      it and the replay hangs. 2.2 decides the guard: `compareFault` running `run()` under the harness loop guard (a
+      `LoopGuardError` is then NOT a refusal — it fails the case by name), so a runaway can no longer hang the suite whatever
+      its recording says.
+    - (d) Recorded (`record:exec`, CODESYS 3.5.21.40 simulation, one batch; `s`/`t` renamed after the first batch answered
+      "Unexpected token 's' found" — CODESYS reads a lone `S` as the set operator):
+      `for_counter_at_type_max` — cnt 32800, i = last = -32737: the INT counter WRAPS past 32767 and the loop never ends on
+      its own (the EXIT guard stopped it), as `for_at_type_max` measured for SINT. A FOR to the type's maximum may NOT be
+      printed as a Rust `for` range (`..=32767` would end) — lean 5.4/7.5.4 must keep the wrapping counter there.
+      `for_runtime_step_changed_in_body` — cnt 4, last 16, i 25, stride 9: the step is RE-READ EVERY PASS (read once would be
+      20 passes). `for_runtime_step_same_type` — up 4 (last 9, i 12), down 3 (last 2, j -2): an INT variable step on an INT
+      counter is accepted and its sign picks the direction. So `statements/loops.test.ts` ("reads its limit and its step on
+      every pass") and `places/bounds.test.ts` keep their premise, and lean 7.5.9 may NOT hoist the step (it may bind it once
+      per pass). Note: `callshape_for_bounds_changed_in_body` (visits 2, lastIndex 4) already answered "limit AND step every
+      pass" — design §3.1's "covers the limit only" understated it. All three rate `confirmed`, tier control, rust `vendor`,
+      edge `agree` (`rate:fixtures`: confirmed 2806 → 2809, control 155/144 → 158/147, edge agree 3046 → 3049).
+      `downStep` is written as a bare `-4`, the source the recording was made from (gate 2a restored it: the first write-up
+      had edited it to `INT#-4` AFTER `record:exec` to dodge the capped type-census measure, which left the recording
+      describing a text that was no longer the fixture's — the recorder keeps no source hash). A bare `-4` is a signed
+      untyped number, UNKNOWN in the census until LT14, so it is registered where every earlier bare negative is: a
+      `NEGATED_LITERAL_ROWS` entry in `test/frontend/baseline.ts` (`for_runtime_step_same_type`, 1 per vendor, "measured, not
+      regressed"). The three fixtures move only COUNTS in
+      `test/frontend/baselines` (rewritten with `VOLT_WRITE_BASELINE=1`; no finding, no ceiling): files 10714 → 10720,
+      expressions +49 per vendor, literal UNKNOWN +16 per vendor, unrecorded-no-parse-error +3 per vendor (execution fixtures
+      have no build recording, as the `tr_*` ones), recorded values 9099 → 9114. Tests: `test/conformance` 6195 pass,
+      389 todo, 0 fail (full, before the `INT#-4` edit; VOLT_FIXTURES on the three after it: 0 fail); `test/frontend` 45
+      pass, 0 fail.
+  - [x] Gate 2a (2026-10-08). Four review findings, all fixed:
+    - (c) was wrong — the error text does not separate a stop from a runaway (`arithedge_uint_div_by_zero`, a confirmed
+      divide-by-zero fault, records the done-flag text). Rewritten above, with the larger gap handed to 2.2 (only `execSkip`
+      keeps a runaway out of an unguarded `compareFault`). Tally of the recorded `error`s: timeout text 27 (24 confirmed,
+      3 not-lowered), done-flag text 1 (confirmed), the five runaways no recording at all.
+    - `downStep` back to the bare `-4` the recording was made from, registered as an LT14 "measured, not regressed" row
+      (`baseline.ts` `NEGATED_LITERAL_ROWS`), not dodged. Baselines rewritten: type-dump expressions, literal UNKNOWN and
+      signed-untyped UNKNOWN +1 per vendor (41228 → 41229 / 40242 → 40243, 8120 → 8121 / 8011 → 8012, 356 → 357 /
+      354 → 355), literals stored 4640 → 4641; `ceilings.json` unchanged (the raise is the excepted row).
+    - Edge variants the interpreter's loop guard gives up on are now COUNTED (`compareEdge` → `EdgeComparison.unanswered`;
+      `edge.test.ts` red first): a row carries `edgeUnanswered: N`, the map header lists each partial `agree` with N/plan,
+      and a plan with NO answered variant is `not-run` ("the interpreter's loop guard gives up on every variant") —
+      an agreement on zero variants is not one. `transpile-replay.test.ts` holds the stored count to the computed one,
+      `support/snapshot.ts` prints it. Map: edge agree 3049 → 3043, not-run 179 → 185 (the five runaways and
+      `tr_27_loop_cap_for_1000001`, 9–11 of 9–11 unanswered); 10 partial agrees (`cc3_empty_and_noop` 1/8,
+      `flw_empty_semicolon_body` 1/11, `for_counter_at_type_max` 2/16, `for_limit_wider_than_counter_dint_expr` 2/16,
+      `_dint_var` 1/16, `for_runtime_step_same_type` 1/41 — missed by the first write-up's list —, `stmt_repeat_empty_body`
+      and `stmt_while_empty_body` 1/8, `tr_27_loop_cap_repeat_1000001` and `_while_5000000` 5/6).
+    - (b)'s scan re-run on the gate tree (a single-use scratch probe, deleted): 3,228 of 5,360 lowered (the three 2.1
+      fixtures in), the same 8 fixtures reach the old 1,000,000 guard.
+    - Numbers: typecheck clean; `bun run rate:fixtures` — confirmed 2809, refused 1989, not-lowered 389, lsp-gap 76,
+      diverges 5, unaskable 92, control 158/147, shape 1719 over 3228 lowered, edge 3043 / 0 / 185; FULL `bun test`
+      (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8538 pass, 35 skip, 432 todo, 0 fail (9005 tests, 303
+      files, 675 s), fold agreement 420 compared, 38 disagree, 38 known; `bun run test:corpus` 19 pass, 1 skip, 0 fail;
+      `bun run lint` exit 0; `bun run check` 18 passed.
 - [ ] 2.2 Design "§3.1 Decision: loops".
   - What: the cap (option a or b), the counting rule, the step rule (refuse only a non-converting step, per 2.1's runtime-step
     recordings), literal vs typed limit, loop depth, labels by pre-scan, what stays refused (by code), and which of `places/bounds.test.ts` ("bounds from a POU's own constant …"),

@@ -5,6 +5,7 @@
 import { CLOCK, LoopGuardError, run, type IrPou, type Runner } from "../../../../src/transpile/index.js"
 import type { Type } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
+import type { EdgeVerdict } from "../../fixtures/map-row.js"
 import { compareOutcomes } from "../differential.js"
 import { interpRender, rustRender, seedable } from "../display.js"
 import { runPaths } from "../run-paths.js"
@@ -284,7 +285,7 @@ export async function edgeVerdict(
   exe: string,
   pou: IrPou,
   plan: Extract<EdgePlan, { paths: unknown }>,
-): Promise<{ verdict: "agree" | "disagree"; first?: string }> {
+): Promise<EdgeComparison> {
   return compareEdge(pou, plan, await rustEdgeRun(exe, plan))
 }
 
@@ -308,6 +309,21 @@ export async function rustEdgeRun(exe: string, plan: Extract<EdgePlan, { paths: 
   return outcomes
 }
 
+/** Why an edge row whose every variant the interpreter's loop guard gave up on is `not-run`. */
+export const EDGE_ALL_GAVE_UP = "the interpreter's loop guard gives up on every variant"
+
+/**
+ * One fixture's edge comparison. `unanswered` counts the variants the interpreter's loop guard gave up on — there is
+ * nothing to compare on those, so an `agree` rests on that many fewer variants than the plan holds, and a plan with no
+ * answered variant is `not-run` (`EDGE_ALL_GAVE_UP`): an agreement on zero variants is not one. Absent when 0, and on
+ * a `disagree` (the comparison stops at the first difference, so the count would be partial).
+ */
+export interface EdgeComparison {
+  verdict: EdgeVerdict
+  first?: string
+  unanswered?: number
+}
+
 /** The edge verdict from the Rust's outcomes and the interpreter's — `interp` answers one variant (the snapshot hands a
  *  memo of the ones it already ran; the default runs it here). Stops at the first difference. */
 export function compareEdge(
@@ -315,12 +331,16 @@ export function compareEdge(
   plan: Extract<EdgePlan, { paths: unknown }>,
   outcomes: ReadonlyMap<number, EdgeOutcome>,
   interp: (k: number) => EdgeOutcome = (k) => interpOutcome(pou, plan, k),
-): { verdict: "agree" | "disagree"; first?: string } {
+): EdgeComparison {
   const paths = plan.paths.map((p) => p.path)
   const types = new Map(plan.paths.map((p) => [p.path, p.type]))
+  let unanswered = 0
   for (let k = 0; k < plan.variants.length; k++) {
     const mine = interp(k)
-    if (mine.gaveUp) continue
+    if (mine.gaveUp) {
+      unanswered++
+      continue
+    }
     const rust = outcomes.get(k) ?? { faulted: true, done: false, values: new Map() }
     const label = plan.variants[k]!.label
     const [d] = compareOutcomes(mine, rust, paths, (path, want, raw) => want === rustRender(raw, types.get(path)!)).differences
@@ -332,5 +352,6 @@ export function compareEdge(
     if (d.kind === "unanswered") return { verdict: "disagree", first: `${label}: Rust printed no ${d.path}` }
     return { verdict: "disagree", first: `${label}: ${d.path} interpreter ${d.interpreter}, Rust ${rustRender(d.rust, types.get(d.path)!)}` }
   }
-  return { verdict: "agree" }
+  if (unanswered === plan.variants.length) return { verdict: "not-run", unanswered }
+  return unanswered === 0 ? { verdict: "agree" } : { verdict: "agree", unanswered }
 }
