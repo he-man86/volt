@@ -666,6 +666,39 @@ counter "ordinary ST that CODESYS compiles" (`lower/statements/loops.ts` above `
 `emit/rust/loops.test.ts`'s "a FOR whose limit is a different type") rewritten to `for_limit_wider_than_counter_dint_var`'s
 recording. 2.8 = labels. 2.9 as written.
 
+### §3.1 Decision (step 2d): labels, RC 13 guard, model delta (tasks 2.8-2.10, 2026-10-08)
+
+**Target.** `emit/rust/loops.ts` knows before it prints whether `'loop_N`/`'body_N` are named; RC 13's compile fix is guarded
+by a test that turns red on the old E0308; the loop model is written down once in architecture.md.
+
+**Labels (2.8): pre-scan with `ir/walk.loopUses`.** `stmtLoop` calls `loopUses(s)` and prints each label only when used; the
+printer's `loops` frames keep only `n` (the number `break 'loop_N`/`'body_N` names), and `exits`/`continues` and the two
+`p.lines[…].replace` rewrites go. Deciding measure: equivalence by construction — `loopUses` and the printer's flags see the
+same thing (an IR `break`/`continue` in the body, not in `init`/`step`, a nested loop's own excluded), and `blocksOf` is
+exhaustive over the three statement kinds that hold blocks (`if`, `switch`, `loop`; `ir/stmt.ts`). Accept: S on the rust
+layer identical (no fixture's Rust changes).
+- Rejected: keep the post-print rewrite (a printer re-deciding text it already emitted; blocks lean 5.2); always print both
+  labels under `#[allow(unused_labels)]` (changes every loop's output and hides a warning the crate builds without).
+
+**RC 13 guard (2.9): the conformance fixture, not a rustc call in a colocated test.** The task's name
+`for_limit_wider_than_counter_uint_n_minus_1` does not exist; the fixture is `for_limit_wider_than_counter_uint_expr`
+(confirmed, rust `vendor`), with `for_limit_wider_than_counter_negative_step` beside it. `transpile-replay.test.ts` compiles
+every lowering case with rustc, so a return of E0308 fails that fixture by name; `emit/rust/loops.test.ts` already pins the
+text (`self.u = self.u.wrapping_add(1u16);`). 2.9 is a red check: in a scratch edit the step reuses the widened read → the
+replay of `_uint_expr` fails (and the text pin fails) → revert. No new test.
+- Rejected: rustc in `emit/rust/loops.test.ts` (layering rule 6: a colocated test may not import `test/` support; it would be a
+  second compile of the same text); a new case in `emit-build.test.ts` (duplicates the fixture's compile).
+
+**Model delta (2.10).** architecture.md's IR paragraph gains the loop rule in three sentences: no bound in the semantics (a
+harness-only `loopGuard`, one body entry = one pass, both backends; `LoopGuardError` never a fault match); FOR step and limit
+judged by their front-end type (`for-step-type`, `for-limit-type`), an untyped literal expression by value; labels from
+`loopUses`. tasks.md 2.10 gets the map delta (counts before 2a vs after 2.9, from `rate:fixtures`).
+
+**Stays refused, by code:** `for-step-type`, `for-limit-type`, `for-bound-call`, `exit-outside-loop` — unchanged by 2d.
+
+**Migration.** 2.8 one commit (printer + `loops.ts`, `walk.test.ts` untouched; S identical). 2.9 the red check, tasks.md's
+fixture name corrected. 2.10 docs only. Then the gate.
+
 ### 3.2 Strings (model 2): RC 11, 34, 45; appendix string items
 
 **Home.**
