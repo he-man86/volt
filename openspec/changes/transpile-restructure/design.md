@@ -883,6 +883,50 @@ and twin. 3.6: record `string_store_function_input_tail` (twice) first, then `as
 - `string_store_function_input_tail` (recorded twice, identical): the pass is M2's store (eleven units) and `p[11..19]` read
   the 'Z's the PREVIOUS call left in the same stack frame — residue, so `LanguageTest.residue`; the model writes 0 there.
 
+### §3.2 Decision (step 3d): conversions, old tests, cursor store, StrReplaceA, delta (tasks 3.8-3.12, 2026-10-08)
+
+**Target.** A string conversion's result is a fresh STRING(255)/WSTRING(255) by one named constant, `sized` deleted; a
+whole-string store through a cursor is either the plain store or refused by name — never cut at a capacity CODESYS does
+not cut at; StrReplaceA reads the bytes model 2 now holds behind the terminator.
+
+**Conversions (3.8).** `stringConversion` builds its target as `{ …to, length: CONVERSION_RESULT }` (255, beside
+`DEFAULT_STRING_LENGTH` in `lower/core`) and cuts a cross-width operand with `convert(source, <from>(255))` first; the
+result's tail is 0 in the model (residue, `LanguageTest.residue`). The two unmeasured neighbours are recorded in ONE batch
+first (`string_conversion_same_width_255`, `string_parse_beyond_255`) and their recording picks between the same two rules
+each: the 255 cut, or the operand's own capacity (today's). Whichever wins is written as the rule and `sized` goes either way
+(own capacity is then `source.type.length`, read, not re-derived).
+- Rejected: a per-function result-capacity table (one number, 255, measured on every cross-width case); keeping `sized`
+  as the own-capacity path (it defaults a sizeless target to 80 — the cut RC 11 removed).
+
+**Old-model tests (3.9).** Only the files tasks 3.9 lists; each changed expectation carries the fixture it now equals in a
+comment, and the commit body lists them. A test whose change has no recording behind it is not changed.
+
+**Cursor store (3.10): record first, the recording picks.** Today `p^ := s` through `POINTER TO STRING(m_ptr)` stores
+into the caller's buffer at the caller's capacity `m_c` (the hidden VAR_IN_OUT's type). Under M2's rule CODESYS writes
+`min(n, m_ptr)` units, so the two differ only when `min(n, m_ptr) > m_c` — a write past the caller's variable.
+`cursor_whole_store_capacity`: a STRUCT holding a STRING(5) then a 'Z'-filled STRING(10), `p : POINTER TO STRING(20) :=
+ADR(st.short)`, `p^ := ten` (a STRING(10) 'abcdefghij'); read the neighbour.
+- Neighbour unchanged → today's cut is the vendor's; item closed with the recording, no code.
+- Neighbour overwritten → refused `cursor-overrun` where `min(n, m_ptr) > m_c` is known at lowering (both capacities are
+  Types after 3.3); below it the store is `storeString(dst, m_c, src, n)`, identical to `m_ptr`'s because the 0 lands at
+  `min(n, m_ptr)` either way. Corpus: 11 whole-string cursor stores (pro2193 JSON builders), all literals of <= 5 units
+  into larger buffers — 0 would be refused.
+- Rejected: writing past the variable (needs model 3's memory, §3.3); cutting silently at `m_ptr` into a buffer of `m_c`.
+
+**StrReplaceA (3.11).** Its `ponytail` assumption ("memory past the terminator need not be zero") is now modelled: the
+copy into `buf` reads `cap` units, not up to the first 0, and the move's `cnt` is bounded by `cap - src` as well as
+`cap - dst` (the panic: `buf[src + i]` past 255 when `ILENGTHINPUT` > LEN). Recorded first, in `lib_stu_replace`'s
+neighbour `lib_stu_replace_past_len` (STRING(20) assigned 'abcdefghijkl' then 'abc', `iLengthInput := 12`); the body
+changes only if that recording disagrees with today's answer.
+
+**Stays refused, by code:** `assign-string`, `string-escape`, `wstring-surrogate`, `string-non-ascii`, `string-capacity`;
+`cursor-overrun` if 3.10's recording says so; REAL_TO_STRING (`conversion-type`).
+
+**Migration.** 3.8: one recorder batch per vendor (the two conversion fixtures, `cursor_whole_store_capacity`,
+`lib_stu_replace_past_len`), then the 255 rule + `sized` deleted in one commit. 3.9 tests. 3.10 / 3.11 as their recording
+says. 3.12: architecture.md's string paragraph (one buffer, `storeString`, 255 conversions, refusals) and the map delta in
+tasks.md from `rate:fixtures`. Then the gate.
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus
