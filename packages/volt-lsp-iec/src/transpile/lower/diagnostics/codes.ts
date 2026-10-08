@@ -154,6 +154,8 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "sizeof-unmeasured": "unclassified",
   "stmt-call_stmt": "unclassified",
   "string-escape": "not-measured",
+  // a STRING(n) whose n the declaring scope cannot fold: the buffer's size is a missing fact (`Lowering.sized`)
+  "string-capacity": "not-modelled",
   "string-op": "unclassified",
   "this-in-program": "unclassified",
   "type-unknown": "unclassified",

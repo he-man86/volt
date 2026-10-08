@@ -19,7 +19,7 @@ import { interfacePropertyGet, interfacePropertySet } from "../interfaces/dispat
 import { staticPath } from "../places/path.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
-import { convert } from "../values/convert.js"
+import { assignTo } from "../values/convert.js"
 import { interfaceFrame } from "../interfaces/state.js"
 import { tempPlace } from "../core/temps.js"
 import { drain } from "../core/nested.js"
@@ -134,5 +134,5 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   if (value === undefined || refuseImplicitString(lw, value, type, s.span)) return undefined
   const temp = tempPlace(lw, "property", type, s.span)
   const set: IrInvoke = { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [{ kind: "load", place: temp, type, span: s.span }], inouts: [], type: UNKNOWN, span: s.span }
-  return [{ kind: "assign", target: temp, value: convert(value, type), span: s.span }, { kind: "eval", value: set, span: s.span }]
+  return [assignTo(temp, value, s.span), { kind: "eval", value: set, span: s.span }]
 }

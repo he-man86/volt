@@ -5,6 +5,7 @@
 import type { Lowering } from "../core/lowering.js"
 import { type Expr, hasFrontendAttribute, type Span, type TypeDecl } from "../../../frontend/syntax/index.js"
 import {
+  DEFAULT_STRING_LENGTH,
   elementaryRef,
   elemOf,
   inferExprType,
@@ -20,7 +21,6 @@ import { oneArgument } from "./arity.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { lookup } from "../../../frontend/symbols/index.js"
-import { withStringCapacity } from "../storage/layout.js"
 
 /**
  * `X_TO_Y(v)` / `TO_Y(v)` → an explicit `convert` node. The rules themselves live in that IR node (design §11), so
@@ -124,6 +124,10 @@ function refusesEnumToString(lw: Lowering, e: Call, to: Type): boolean {
   return true
 }
 
+/** A conversion's NAMED string type (`STRING_TO_…`, `…_TO_WSTRING`) — built from the name, so sizeless — at the default
+ *  capacity; any other type as it is. */
+const defaultCapacity = (t: Type): Type => (isString(t) && t.kind === "elementary" && t.length === undefined ? { ...t, length: DEFAULT_STRING_LENGTH } : t)
+
 /** A conversion whose source or target is a STRING or WSTRING, the operand keeping its own capacity. */
 function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse: boolean): IrExpr | undefined {
   const only = oneArgument(e)
@@ -132,11 +136,11 @@ function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse
   if (arg === undefined) return undefined
   // the operand keeps its own capacity when it already is a string of the named width; only a sizeless one is 80
   const sameWidth = isString(arg.type) && elemOf(arg.type)?.name === elemOf(from)?.name
-  const source = sameWidth ? arg : convert(arg, withStringCapacity(from))
+  const source = sameWidth ? arg : convert(arg, defaultCapacity(from))
   const capacity = source.type.kind === "elementary" ? source.type.length : undefined
-  const sized = (t: Type): Type => (t.kind === "elementary" && t.length === undefined && capacity !== undefined ? { ...t, length: capacity } : withStringCapacity(t))
+  const sized = (t: Type): Type => (t.kind === "elementary" && t.length === undefined && capacity !== undefined ? { ...t, length: capacity } : defaultCapacity(t))
   if (wideParse) return { kind: "convert", value: convert(source, sized(elementaryRef("STRING"))), type: to, span: e.span }
-  const type = isString(to) && isString(source.type) ? sized(to) : withStringCapacity(to)
+  const type = isString(to) && isString(source.type) ? sized(to) : defaultCapacity(to)
   return { kind: "convert", value: source, type, span: e.span }
 }
 

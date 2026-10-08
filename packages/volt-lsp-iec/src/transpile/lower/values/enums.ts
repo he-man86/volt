@@ -10,7 +10,6 @@ import type { Expr, TypeDecl } from "../../../frontend/syntax/index.js"
 import { enumValueOf } from "./fold.js"
 import type { IrExpr } from "../../ir/index.js"
 import { stored } from "./convert.js"
-import { withStringCapacity } from "../storage/layout.js"
 
 /**
  * An enum is stored as its base type: the one written after the value list (`) BYTE`), else INT — how a project enum
@@ -19,7 +18,7 @@ import { withStringCapacity } from "../storage/layout.js"
 export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): Type {
   const sym = t.name === "(implicit)" ? undefined : lookup(lw.project, t.name)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
-  if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(lw.resolve(body.baseType, lw.project))
+  if (body?.kind === "enum" && body.baseType !== undefined) return lw.resolve(body.baseType, lw.project)
   return elementaryRef("INT")
 }
 

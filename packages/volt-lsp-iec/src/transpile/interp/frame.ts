@@ -3,7 +3,7 @@
  * (the frame, the per-call locals, the globals, a bound VAR_IN_OUT, a lent instance), its path, its dereference guard.
  */
 import type { Access, IrBinding, IrExpr, IrLayout, IrRoutine, Place } from "../ir/index.js"
-import { bool, fit, IecFault, num, storeAs, type Val } from "../semantics/index.js"
+import { bool, fit, IecFault, LoweringBug, num, storeAs, storeString, type Val } from "../semantics/index.js"
 import { indexOutOfBounds } from "../ir/faults.js"
 
 /** Where a value lives: a container (a frame, a record, an array) and the key into it. */
@@ -134,15 +134,18 @@ export abstract class Frame {
     return bit === undefined ? value : ((num(value) as bigint) >> BigInt(bit.index)) & 1n ? true : false
   }
 
-  write(place: Place, value: Val): void {
+  /** `source` — a string store's source capacity (`compileWrite`): the store then keeps the place's units behind it. */
+  write(place: Place, value: Val, source?: number): void {
     if (Frame.plain(place)) {
-      this.base(place)[this.baseKey(place)] = storeAs(value, place.type)
+      const base = this.base(place)
+      const key = this.baseKey(place)
+      base[key] = source === undefined ? storeAs(value, place.type) : storeString(base[key] as string, capacityOf(place), value as string, source)
       return
     }
     const { container, key, bit } = this.locate(place)
     const slot = container as Record<string | number, Val>
     if (bit === undefined) {
-      slot[key] = storeAs(value, place.type)
+      slot[key] = source === undefined ? storeAs(value, place.type) : storeString(slot[key] as string, capacityOf(place), value as string, source)
       return
     }
     const current = num(slot[key]!) as bigint
@@ -168,9 +171,35 @@ export function compileRead(place: Place): (m: Frame) => Val {
   return (m) => m.read(place)
 }
 
-/** A write to a place, stored as the place's type holds it — the counterpart of {@link compileRead}. */
-export function compileWrite(place: Place): (m: Frame, value: Val) => void {
+/** A string place's capacity — every one carries it (`Lowering.resolve`); one without is a lowering bug, named. */
+function capacityOf(place: Place): number {
+  const m = place.type.kind === "elementary" ? place.type.length : undefined
+  if (m === undefined) throw new LoweringBug(`a string store into a place with no capacity (slot ${place.slot})`)
+  return m
+}
+
+/**
+ * A write to a place, stored as the place's type holds it — the counterpart of {@link compileRead}. `source` is given for
+ * an `assign` of a STRING into a STRING (a WSTRING into a WSTRING) — the value's capacity, which `assignTo` kept: the
+ * write is then a STRING STORE (`storeString`, model 2), which writes `min(source, m)` units and leaves the units of
+ * the place behind them as they were. Every other write — a call's input, a binding, a runner's set — fills a fresh
+ * buffer (`storeAs`).
+ */
+export function compileWrite(place: Place, source?: number): (m: Frame, value: Val) => void {
   const { slot, type } = place
+  if (source !== undefined) {
+    const m = capacityOf(place)
+    if (place.path.length === 0 && place.guard === undefined)
+      switch (place.root) {
+        case undefined:
+          return (f, v) => void (f.root[f.keys[slot]!] = storeString(f.root[f.keys[slot]!] as string, m, v as string, source))
+        case "local":
+          return (f, v) => void (f.locals[slot] = storeString(f.locals[slot] as string, m, v as string, source))
+        case "global":
+          return (f, v) => void (f.globals[slot] = storeString(f.globals[slot] as string, m, v as string, source))
+      }
+    return (f, v) => f.write(place, v, source)
+  }
   if (place.path.length === 0 && place.guard === undefined)
     switch (place.root) {
       case undefined:

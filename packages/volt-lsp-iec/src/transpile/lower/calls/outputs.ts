@@ -12,7 +12,7 @@ import { isInFrame } from "./specialize.js"
 import { lowerPlace } from "../places/places.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
-import { convert } from "../values/convert.js"
+import { assignTo } from "../values/convert.js"
 import { tempPlace } from "../core/temps.js"
 
 /** `name => target`: a VAR_OUTPUT bound to the caller's place, copied out after the call; left empty, nothing binds here. */
@@ -63,5 +63,5 @@ export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: I
   if (!isAssignable(target.type, field.type))
     return lw.bail("call-output-type", `${field.name} is read into a variable of another type`, arg.span)
   const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
-  return { kind: "assign", target, value: convert(value, target.type), span: arg.span }
+  return assignTo(target, value, arg.span)
 }

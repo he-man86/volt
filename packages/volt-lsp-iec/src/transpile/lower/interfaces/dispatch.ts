@@ -12,7 +12,7 @@ import { heldAt, instanceRelative, lendPlace } from "./lend.js"
 import { onEachTag } from "../entry/finish.js"
 import { storageOf } from "../storage/layout.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { convert } from "../values/convert.js"
+import { assignTo, convert } from "../values/convert.js"
 import { methodOf } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { propertyRoutine } from "../calls/property.js"
@@ -125,5 +125,5 @@ export function interfacePropertySet(lw: Lowering, s: Extract<Statement, { kind:
   const temp = tempPlace(lw, "property", access.type, s.span)
   const load: IrExpr = { kind: "load", place: temp, type: access.type, span: s.span }
   const set = dispatch(lw, access.ref, UNKNOWN, (instance, fb) => accessorCall(lw, fb, instance, access.name, "set", [load], UNKNOWN, s.span), s.span)
-  return set && [{ kind: "assign", target: temp, value: convert(value, access.type), span: s.span }, { kind: "eval", value: set, span: s.span }]
+  return set && [assignTo(temp, value, s.span), { kind: "eval", value: set, span: s.span }]
 }

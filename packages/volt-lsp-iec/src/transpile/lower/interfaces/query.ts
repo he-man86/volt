@@ -9,7 +9,8 @@ import type { IrArm, IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerPlace } from "../places/places.js"
 import { heldAt } from "./lend.js"
 import { elementaryRef } from "../../../frontend/types/index.js"
-import { convert } from "../values/convert.js"
+import { assignTo } from "../values/convert.js"
+import { refuseImplicitString } from "../statements/assign.js"
 import { onEachTag } from "../entry/finish.js"
 import { implementsInterface } from "./tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -45,9 +46,12 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
   const wanted = into.type.name
   dest.held.from.push({ key: source.key, only: wanted, foreign: foreignWrite(lw, dest.key, into) })
   const bool = elementaryRef("BOOL")
+  // the BOOL lands in `target` as any value does: a STRING target is an implicit conversion the vendor refuses
+  // (`ar_queryinterface_type`, refused), not a boolean stored into a string's buffer
+  if (refuseImplicitString(lw, { kind: "const", value: true, type: bool, span }, target.type, span)) return undefined
   const outcome = (tag: bigint, found: boolean): IrStmt[] => [
     { kind: "assign", target: into, value: { kind: "const", value: tag, type: into.type, span }, span },
-    { kind: "assign", target, value: convert({ kind: "const", value: found, type: bool, span }, target.type), span },
+    assignTo(target, { kind: "const", value: found, type: bool, span }, span),
   ]
   const arms: IrArm[] = []
   onEachTag(lw, source.key, (tag) => {

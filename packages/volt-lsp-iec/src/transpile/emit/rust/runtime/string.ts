@@ -1,6 +1,7 @@
 /**
  * The string types the emitted code holds (model 2): one `[T; N]` plus a length, a STRING's T a byte and a WSTRING's a UTF-16
- * unit. `Copy`, so a store is a copy; `lit`/`to` keep at most N units, so every store truncates by construction; equality
+ * unit. `Copy`; `lit`/`to` build a FRESH buffer of at most N units, and `store` writes into an existing one the way an ST
+ * assignment does (min(M, N) source units and a 0, the units behind kept — the interpreter's `storeString`); equality
  * and ordering compare the used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — conformance
  * `string_compare`, `wstring_basic`).
  *
@@ -23,6 +24,9 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
     // the units BOTH buffers hold, the bytes behind the terminator among them — the interpreter's fit slicing its buffer
     pub fn to<const M: usize>(&self) -> IecStr<T, M> { let mut s = IecStr::<T, M>::new(); let n = N.min(M); s.units[..n].copy_from_slice(&self.units[..n]); s.scan(); s }
+    // a store into THIS buffer (model 2): min(M, N) units of the source's buffer, a 0 behind them, and the units behind
+    // that left as they were — the interpreter's storeString (semantics/string.ts; string_assign_tail_wide)
+    pub fn store<const M: usize>(&mut self, src: &IecStr<T, M>) { let k = M.min(N); self.units[..k].copy_from_slice(&src.units[..k]); if k < N { self.units[k] = T::default(); } self.scan(); }
     // the length is where the first 0 stands: the buffer behind it is kept
     fn scan(&mut self) { self.len = self.units.iter().position(|u| *u == T::default()).unwrap_or(N); }
 }

@@ -9,7 +9,7 @@ import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
-import { convert } from "../values/convert.js"
+import { assignTo, convert } from "../values/convert.js"
 import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import { bindReference, storePointer } from "../pointers/store.js"
 import { pointeePlace, storeThrough } from "../pointers/deref.js"
@@ -53,7 +53,7 @@ function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): Ir
     }
     // a latch acts on the value and passes it on unchanged
     const latch: IrExpr = { kind: "const", value: op === "S=", type: elementaryRef("BOOL"), span: s.span }
-    const set: IrStmt = { kind: "assign", target, value: convert(latch, target.type), span: s.span }
+    const set: IrStmt = assignTo(target, latch, s.span)
     out.push({ kind: "if", cond: convert(flowing, elementaryRef("BOOL")), then: [set], else: [], span: s.span })
   }
   return out
@@ -104,7 +104,7 @@ function lowerLatch(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   const latch: IrExpr = { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }
   const latched = guardWrite(lw, target, s.span, FULL_WRITE)
   if (latched === undefined) return undefined
-  const set: IrStmt = { kind: "assign", target: latched, value: convert(latch, latched.type), span: s.span }
+  const set: IrStmt = assignTo(latched, latch, s.span)
   return { kind: "if", cond, then: [set], else: [], span: s.span }
 }
 
@@ -123,7 +123,7 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
     const pointee = pointeePlace(lw, target, undefined, s.span)
     if (pointee === undefined || guardWrite(lw, pointee, s.span, ["constant"]) === undefined) return undefined
     const written = lowerExpr(lw, s.value, pointee.type)
-    return written && { kind: "assign", target: pointee, value: convert(written, pointee.type), span: s.span }
+    return written && assignTo(pointee, written, s.span)
   }
   const value = lowerExpr(lw, s.value, target.type)
   if (value === undefined) return undefined
@@ -142,7 +142,7 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   if (holdsOwnAddress(lw, target.type))
     return lw.bail("copy-instance-pointer", "a whole-value store of an instance whose POINTER or REFERENCE field targets its own member — the copy would re-target it", s.span)
   registerWholeCopy(lw, target.type)
-  const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
+  const store: IrStmt = assignTo(target, value, s.span)
   // a UNION member's store, then its bytes into the members it overlays
   const copies = unionCopies(lw, target, s.span)
   return copies && [store, ...copies]

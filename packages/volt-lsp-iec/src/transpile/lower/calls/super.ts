@@ -13,7 +13,7 @@ import { UNKNOWN } from "../../../frontend/types/index.js"
 import { aliases, bindInOut, holding, shadowedInOutsOf } from "./binding.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
-import { convert } from "../values/convert.js"
+import { assignTo } from "../values/convert.js"
 import { openDims } from "../places/bounds.js"
 import { bindingRecords } from "./last-binding.js"
 import { fieldIn, fieldIndex } from "../places/path.js"
@@ -76,7 +76,7 @@ function superArguments(
     const value = lowerExpr(lw, arg.value, field.type)
     if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
     const member: Place = { ...instance, path: [{ kind: "field", name: field.name }], type: field.type, span: arg.span }
-    before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
+    before.push(assignTo(member, value, arg.span))
   }
   return before
 }

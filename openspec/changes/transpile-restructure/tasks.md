@@ -2686,7 +2686,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       VOLT_FIXTURES unset, rustc cache on) 8575 pass, 35 skip, 432 todo, 0 fail (9042 tests, 304 files, 513 s) — unchanged
       from gate 3a; `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run lint` exit 0; `openspec validate` valid;
       `bun run check` 18 passed.
-- [ ] 3.3 Every string Type the transpiler holds carries its capacity.
+- [x] 3.3 Every string Type the transpiler holds carries its capacity.
   - What: `core/lowering.resolve` applies `DEFAULT_STRING_LENGTH` to every sizeless STRING/WSTRING it returns; `withStringCapacity`
     (`storage/layout.ts`) is deleted, its callers taking the resolved capacity or the default by name; `builtins/conversions.ts`'s
     `sized` STAYS (it sizes a STRING<->WSTRING result and a wide parse's narrowed STRING by the operand; the conversion's
@@ -2697,15 +2697,36 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `lower/places/places.ts`, `lower/values/enums.ts` (the `withStringCapacity` callers).
   - Accept: G+LSP (LSP output byte-identical unless 3.2 names the change); S-out (list any Rust that printed capacities differently).
   - Depends: 3.2.
-- [ ] 3.4 `semantics/string.ts` new model plus `semantics/string.cases.ts`; the interpreter runs it.
+  - Done (2026-10-08, step 3c): `Lowering.resolve` sizes every sizeless STRING/WSTRING it returns, array elements included
+    (`Lowering.sized`, `lower/core/lowering.ts`); `withStringCapacity` deleted — enums.ts takes the resolved type, system.ts
+    (`__POUNAME`) and conversions.ts (`defaultCapacity`, the conversion's NAMED type, sizeless) name `DEFAULT_STRING_LENGTH`,
+    places.ts takes the place's own capacity, and `storageOf` sizes a POINTEE's string by the same default (a `POINTER TO
+    STRING`'s target is resolved with the pointer, not by `resolve`). `sized` stays (3.8). A capacity the declaring scope
+    cannot fold (`unfoldedLength`) was silently 80; it is refused by name, `string-capacity` (not-modelled), so
+    `decl_string_length_variable` (`STRING(n)` over a VARIABLE, refused by CODESYS) no longer lowers. The literal half was
+    already done: `lowerLiteral` typed a string const STRING(k). `types/resolve.ts` unchanged; the `commonType` appendix item
+    closes with M7 as the reason (no caller outside `src/transpile`). Layering: the listed violation `values/enums.ts →
+    storage/layout.ts` is gone (removed from `KNOWN_TRANSPILE_VIOLATIONS`).
+    - S (against a baseline written at 6ed116ac11, all four layers): identical but `decl_string_length_variable` (refused).
+- [x] 3.4 `semantics/string.ts` new model plus `semantics/string.cases.ts`; the interpreter runs it.
   - Where: `semantics/string.ts`, `semantics/string.cases.ts`, `string.test.ts`, `interp/frame.ts`.
   - Accept: `semantics/string.test.ts` green on the case table (`tr_34`, `tr_45`, `lib_prim_char_past_length`, M1-M5 cells).
   - Depends: 3.3.
-- [ ] 3.5 `emit/rust/runtime/string.ts` new model.
+  - Done (2026-10-08, step 3c): `storeString(dst, m, src, n)` in `semantics/string.ts` (§3.2's formula, `held`);
+    `semantics/string.cases.ts`: 32 cases under 4 rules (the M2 store narrow/wide and its WSTRING twins; every source and
+    destination kind gate 3a measured; the literal as a source of its own units, M1/M3 and `tr_45`; `s[i]` behind the
+    terminator, `tr_34` and `lib_prim_char_past_length`), each a variable started at zeros and taken through the stores and
+    `s[i] :=` its fixture runs, answering the WHOLE buffer, and naming its fixture and the 360 recorded cells it shows (each
+    unit dumped through `s[i]`, each string and length) over 11 fixtures. `string.test.ts` runs the table (4 tests);
+    `runtime-twins.test.ts` holds all 360 cells to `codesys.run.json` (a new test).
+- [x] 3.5 `emit/rust/runtime/string.ts` new model.
   - Where: `emit/rust/runtime/string.ts`, `emit/rust/types.ts`, `values.ts`.
   - Accept: `runtime-twins.test.ts` runs `semantics/string.cases.ts` through rustc and matches.
   - Depends: 3.4.
-- [ ] 3.6 Bytes behind the terminator (RC 34).
+  - Done (2026-10-08, step 3c): `IecStr::store<const M>(&mut self, src: &IecStr<T, M>)` in `runtime/string.ts` (min(M, N)
+    units, a 0 at k < N, `scan`); `runtime-twins.test.ts` builds the 32 cases through rustc (`IecStr::new` + `store` /
+    `with_char`, printing the N units) and every line matches.
+- [x] 3.6 Bytes behind the terminator (RC 34).
   - What: a store at or past `len` rescans; every string store follows M2 (design §3.2 Decision): `storeString(dst, m, src, n)`
     writes `min(n, m)` source units and a 0 at `min(n, m)` and keeps the destination behind it (Rust `dst.store(&src)`). A
     same-capacity copy keeping the units is the special case. First record `string_store_function_input_tail` (a STRING(10)
@@ -2717,12 +2738,83 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `string_store_destination_kinds_tail`); `string_store_function_input_tail` recorded and confirmed (or residue-marked per
     its recording); `tr_34_lib_prim_char_behind` stays confirmed.
   - Depends: 3.5.
-- [ ] 3.7 `$00` in a literal (RC 45).
+  - Done (2026-10-08, step 3c): `string_store_function_input_tail` written and recorded TWICE in one-fixture `record:exec`
+    runs (CODESYS 3.5.21.40), identical: `p` = 97 98 99 0 101…106 0 at [0..10], then 'Z' at [11..19] — the units the call
+    before left in the same stack frame (a 20-'Z' literal through the same FUNCTION), so `residue: p[11..19]`; build
+    recordings on both vendors (`record:language`, `ide.ps1 -Instance transpile-restructure`, CODESYS fixture copy, TwinCAT
+    `-Fixture 13`): builds clean, no message. `assignTo(target, value, span)` (`lower/values/convert.ts`) replaces the 15
+    `{ kind: "assign", value: convert(…) }` literals; a STRING→STRING / WSTRING→WSTRING of another capacity passes
+    unconverted (a sizeless side is a `LoweringBug`). Interpreter: `compileWrite(place, source)` / `Frame.write(…, source)`
+    store `storeString(prior, m, v, n)` for an assign of a string into a string (`machine.ts` `stringSource`); call inputs,
+    bindings and the runner keep `storeAs`. Rust: `place.store(&v)` where the capacities differ or a STRING VAR_IN_OUT is on
+    either side, `place = v` at one capacity (the whole copy) — no `.to()` behind an assign any more (design §3.2 "As
+    built"). Found on the way and fixed: `__QUERYINTERFACE` into a STRING (`ar_queryinterface_type`, refused by CODESYS)
+    stored a BOOL into a string buffer — `queryInto` now refuses it `assign-string`.
+    - F: `string_assign_tail_wide`, `wstring_assign_tail_wide`, `string_store_function_result_tail`,
+      `string_store_destination_kinds_tail` confirmed (marks removed); `tr_34_lib_prim_char_behind` stays confirmed;
+      `string_store_function_input_tail` confirmed. Src tests: `pipeline/strings.test.ts` (wide store keeps 'Z', a literal
+      over 'Z', an FB VAR_INPUT pass, `tr_34`'s '4321' and 'abXdef'), `emit/rust/stmt.test.ts` (store vs plain copy, the
+      in-out store).
+    - S-out (against 6ed116ac11): outputs and edge identical but the eight flipped/new string fixtures, the two now refused
+      (`decl_string_length_variable`, `ar_queryinterface_type`) and two edge-seeded runs (`lib_prim_char_past_length`,
+      `tr_34_lib_prim_char_behind`: a seeded 'AAAA…' buffer keeps its tail behind a shorter store, both backends alike, edge
+      agree). Rust: 225 fixtures' code changed (`.to()` dropped / `.store(&…)`), 147 more by the prelude's three `store`
+      lines alone. NOTES: 65 constructs re-keyed to the 70 that replaced them (five split into a store and a plain-copy form,
+      the note copied to both); their tasks unchanged (7.4.1-7.4.3 still own the `.to()`/with_char items they name).
+- [x] 3.7 `$00` in a literal (RC 45).
   - What: the literal valuation keeps the decoded units; `values/literals.stringLiteralText` builds a buffer whose `len` is the first 0,
     the bytes behind per M1. If frontend-conformance closed the decoding half (0.1), only the lowering half remains.
   - Where: `frontend/syntax/literal/value.ts`, `lower/values/literals.ts`.
   - Accept: F(`string_literal_nul_tail`, `wstring_literal_nul_tail`); `tr_45_string_embedded_nul` stays confirmed; G+LSP; M.
   - Depends: 3.6.
+  - Done (2026-10-08, step 3c): nothing left to lower — `decodeStringLiteral` keeps every decoded unit (`$00` and what
+    follows) and `lowerLiteral` types the const STRING(k)/WSTRING(k), so with 3.6's store a literal is a source of its own
+    units: F(`string_literal_nul_tail`, `wstring_literal_nul_tail`) confirmed at 3.6 (their marks named 3.6);
+    `tr_45_string_embedded_nul` stays confirmed; LSP unchanged (`lsp-replay` green, `test:corpus` 19 pass).
+    - M (`rate:fixtures`, 3.3-3.7 together): mapped 5382 → 5383; confirmed 2817 → 2824, diverges 13 → 7 (refused 1989,
+      unchanged); lowered decl 755/755 → 758/758, arith 1546/1544 → 1542/1540, control 160/149 → 159/148, call 274/272 → 275/273
+      (three `str_assign_into_*` and `string_assign_truncation` move arith → decl: their assign holds no convert node now);
+      edge agree 3056, disagree 0, not-run 185 → 184; median size 3.1 → 3.1 (string fixtures' median 5.1, no fixture's size
+      moved — one line replaced by one); pedantic 31843 → 31848; dead_code 5443 → 5448, clippy::self_assignment 34 → 39
+      (`s := s` on a string printed `s = s.to()` and now `s = s`, which clippy names); notes resolved: none (re-keyed, 3.6).
+      `test/frontend` baselines rewritten, counts only (`STRING_INDEX_ROWS` + `string_store_function_input_tail` 3; index
+      UNKNOWN 124 → 127 / 123 → 126, recorded values 9810 → 9855); `lsp-transpile-review-gaps` 2.3's count +3.
+    - Tests: `bun typecheck` clean; `test/conformance` (full, once) 6240 pass, 389 todo, 0 fail, 7 diverge as expected
+      failures; `test/frontend` 45 pass; `src/transpile` 394 pass; `test/libraries` 23 pass; `bun run test:corpus` 19 pass,
+      1 skip; `bun run lint` exit 0 (PLANNED `semantics/string.cases.ts` removed — it exists); `bun test scripts` 37 pass;
+      `bun run check` 18 passed.
+  - Gate 3c (2026-10-08) — review findings on 3.3-3.7, each fixed with its test first:
+    1. (3.3, medium) `storageOf` still sized a POINTEE's string 80 without asking `unfoldedLength`: `POINTER TO STRING(n)` /
+       `REFERENCE TO STRING(n)` over a variable or an invisible constant lowered as STRING(80). Fixed: `storageOf` sizes a
+       sizeless pointee string through `Lowering.sized` (now public), the same refusal `string-capacity`. Test
+       `storage/layout.test.ts` (variable, REFERENCE, unknown constant). No fixture moved (refused 1989 unchanged).
+    2. (3.6, medium) `string_store_function_input_tail`'s `residue` mark did not meet `LanguageTest.residue` (memory no
+       program wrote). Measured as the review asked: the first call's literal changed to 20 'Y' and re-recorded
+       (`record:exec`, one batch with 3's fixture): p[11..19] = 89 — it FOLLOWS the previous call (90 after 'Z'), a
+       deterministic carry-over of the function's frame. `residue` removed; a known divergence (`deferred.transpile`):
+       "niche: accepted loss (0 occurrences in the corpora)" — of the corpora's FUNCTIONs with a STRING/WSTRING VAR_INPUT,
+       none indexes it. Build recordings re-taken on both vendors (`ide.ps1 -Instance transpile-restructure`, TwinCAT
+       `-Fixture 13`): clean.
+    3. (3.6, low) `assignTo`'s store reached `=>` copy-out unrecorded. `string_store_destination_kinds_tail` gains an FB
+       VAR_OUTPUT STRING(10) copied out by `fbOut(o => viaOut)` into a 'Z'-filled STRING(20), recorded: 97 98 99 0 101…106 0,
+       then 90 at [11..19] — the tail is kept, as the code already did (fixture stays confirmed; src test
+       `pipeline/strings.test.ts`). The UNION half is skipped: a UNION with a STRING member is refused `layout-union` (only
+       measured-integer or all-pointer members lay out, `unions.ts`), so `unionCopies` never stores a string. SEL/MUX of a
+       narrow meet stays with 3.8/3.9 (a function-result source).
+    4. (3.6, low) Re-keyed notes described the `.to()` 3.6 removed (1c341ca22f on `x = str;`). 7.4.1 ticked as resolved by
+       3.6 and its pure `.to()` items removed with 7.4.2's shapes15_1 (24 notes gone, 10 shrunk; two items re-owned, see
+       7.4.1): NOTES 728 → 704.
+    5. (3.3, low) `string-capacity` never named what did not fold, and came twice per declaration. Fixed: `types/resolve.ts`
+       keeps `lengthText` on an `unfoldedLength` capacity too (render unchanged — it prints a sizeless name), the message is
+       "the capacity of STRING(n) does not fold here"; `storage/declare.ts` resolves a declaration once (`startValue` takes
+       the resolved type for its enum default). Test `core/lowering.test.ts`.
+    - M (`rate:fixtures`): mapped 5383; confirmed 2824 → 2823, diverges 7 → 8 (`string_store_function_input_tail`),
+      refused 1989; edge agree 3056, disagree 0, not-run 184; pedantic 31848 → 31858 (the `=>` cells); constructs 1838 →
+      1839; notes 728 → 704. Baselines rewritten, counts only: `STRING_INDEX_ROWS` destination_kinds 9 → 12 (index UNKNOWN
+      127 → 130 / 126 → 129), recorded values 9855 → 9878, fixtures measured +1 (the function-input build recording).
+    - Numbers: `bun typecheck` clean; `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset, rustc cache on) 8598 pass,
+      35 skip, 432 todo, 0 fail (9065 tests, 304 files, 502 s); `bun run test:corpus` 19 pass, 1 skip; `bun test scripts`
+      37 pass; `bun run lint` exit 0; `bun run check` 18 passed; `openspec validate` valid.
 - [ ] 3.8 Conversions without the 80 cut (RC 11).
   - What: (rewritten by §3.2 Decision on M5) a STRING<->WSTRING / TO_STRING / TO_WSTRING of a string cuts its operand to 255 on
     the way in and its result Type is STRING(255)/WSTRING(255) — not sized by the source; the units behind the result's
@@ -3509,11 +3601,19 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.4 String copies (lean 4, on model 2)
 
-- [ ] 7.4.1 `.to()` only when the capacity differs or the target is generic.
+- [x] 7.4.1 `.to()` only when the capacity differs or the target is generic.
   - Notes: 5d9850550d, 8e30e6691c, ec1b55e90b, 4c088ca52b, 8883cf3a18, c90fc459e6, d3fdc1ed97, 0464b7d671, e8210b694c.
   - Where: `emit/rust/stmt.ts` (assign).
   - Accept: S-out, M.
   - Depends: 3.12.
+  - Done (2026-10-08, gate 3c): RESOLVED BY 3.6, not by its own step. 3.6's store prints `place.store(&v)` where the
+    capacities differ or a STRING VAR_IN_OUT is on either side and `place = v` at one capacity, so no assign prints a
+    trailing `.to()` any more (`emit/rust/*.ts` print none). Its note items went with it (the gate 3c review: re-keyed notes
+    such as 1c341ca22f, now on `x = str;`, still described a `.to()` the line no longer has): the pure `.to()` items
+    shapes5_8, 10_5, 12_7, 13_8, 14_3, 16_1 and 20_6 removed (24 notes gone, 10 merged notes shrunk); the two with a
+    remaining half re-owned — shapes2_6 (a literal built at its own capacity) → 7.4.2, shapes7_7 (a compare builds the
+    literal) → 7.4.9; 7.4.2's shapes15_1 (the assign's second copy) removed with them. The Notes list above is the
+    2026-09-29 census (its ids were re-keyed at 3.6).
 - [ ] 7.4.2 Literals and conversion results built at the target capacity, no `.to::<N>().to()`.
   - Notes: 803ee89d4f, 4eeb332195, 7030300a1b, 90e7185468, 7587dbd531, 54e36b572f, c689147e80.
   - Where: `lower/values/literals.ts`, `builtins/conversions.ts`.

@@ -23,7 +23,7 @@ import { guardWrite } from "../places/access-guards.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
-import { convert } from "../values/convert.js"
+import { assignTo } from "../values/convert.js"
 import { boundName, boundOf, openDims } from "../places/bounds.js"
 
 /**
@@ -172,7 +172,7 @@ function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot):
   if (field.type.kind === "interface") return storeInterface(lw, member, arg.value!, arg.span)
   const value = lowerExpr(lw, arg.value!, field.type)
   if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
-  return { kind: "assign", target: member, value: convert(value, field.type), span: arg.span }
+  return assignTo(member, value, arg.span)
 }
 
 /**

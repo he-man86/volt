@@ -40,7 +40,8 @@ export function fit(v: Val, type: Type): Val {
   // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it.
   if (isBit(type)) return typeof v === "bigint" ? v !== 0n : v
   // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
-  // the buffer cut at the target's capacity — as the prelude's `to` copies the units both buffers hold
+  // the buffer cut at the target's capacity — as the prelude's `to` copies the units both buffers hold. This is a FRESH
+  // buffer (a call's input, a binding); an assignment into a buffer already there is `storeString` (`interp/frame.ts`)
   if (family === "string") return typeof v === "string" && type.length !== undefined ? held(v.slice(0, type.length)) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
   // the L variants 64-bit nanoseconds (design §16, §17)

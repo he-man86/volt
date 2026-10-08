@@ -11,7 +11,7 @@ import { storageOf } from "../storage/layout.js"
 import { sameStorage } from "../places/path.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
 import { binaryOf, cast } from "../core/build.js"
-import { convert } from "../values/convert.js"
+import { assignTo, convert } from "../values/convert.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { tagOfIndex } from "../core/tags.js"
@@ -210,11 +210,11 @@ export function storeThrough(lw: Lowering, s: Extract<Statement, { kind: "assign
       ? {
           kind: "if",
           cond: value,
-          then: [{ kind: "assign", target: place, value: convert({ kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }, place.type), span: s.span }],
+          then: [assignTo(place, { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }, s.span)],
           else: [],
           span: s.span,
         }
-      : { kind: "assign", target: place, value: convert(value, place.type), span: s.span }
+      : assignTo(place, value, s.span)
   // THE ELSE ARM FAULTS. A tag no arm names is a null dereference, and a select with NO arms is exactly that in
   // both backends — read into a temp, so the fault happens where the store would have.
   return {

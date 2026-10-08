@@ -12,7 +12,7 @@
  */
 import type { IrExpr, IrStmt } from "../ir/index.js"
 import {
-  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, ord, selectedArg, shortCircuit,
+  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, LoweringBug, ord, selectedArg, shortCircuit,
   unaryValue, type Val,
 } from "../semantics/index.js"
 import { type Cell, compileRead, compileWrite, Frame } from "./frame.js"
@@ -156,11 +156,20 @@ function compileBlock(list: readonly IrStmt[]): Run<Signal> {
   }
 }
 
+/** An assignment of a STRING into a STRING (a WSTRING into a WSTRING): the source's capacity, which makes the write a
+ *  string store (`compileWrite`); undefined for every other assignment. */
+function stringSource(s: Extract<IrStmt, { kind: "assign" }>): number | undefined {
+  const [v, t] = [s.value.type, s.target.type]
+  if (v.kind !== "elementary" || t.kind !== "elementary" || v.name !== t.name || (v.name !== "STRING" && v.name !== "WSTRING")) return undefined
+  if (v.length === undefined) throw new LoweringBug(`a string store from a value with no capacity (${v.name})`)
+  return v.length
+}
+
 function compileStmt(s: IrStmt): Run<Signal> {
   switch (s.kind) {
     case "assign": {
       const value = compiledExpr(s.value)
-      const store = compileWrite(s.target)
+      const store = compileWrite(s.target, stringSource(s))
       return (m) => {
         store(m, value(m))
         return "none"

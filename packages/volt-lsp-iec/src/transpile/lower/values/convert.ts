@@ -2,7 +2,9 @@
  * Conversions as IR nodes, and how a constant is stored at a type — the one place a value changes type.
  */
 
-import type { IrExpr, IrValue } from "../../ir/index.js"
+import type { IrExpr, IrStmt, IrValue, Place } from "../../ir/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
+import { LoweringBug } from "../../semantics/faults.js"
 import {
   commonType,
   elementaryRef,
@@ -42,6 +44,31 @@ export function convert(e: IrExpr, to: Type): IrExpr {
   }
   return { kind: "convert", value: e, type: to, span: e.span }
 }
+
+/**
+ * THE ONE IR ASSIGNMENT — a value stored into a place that already holds one (model 2, design §3.2 step 3c). It converts
+ * as {@link convert} does, but for a STRING into a STRING (a WSTRING into a WSTRING) of another capacity, which it hands
+ * over UNCONVERTED: a string store reads the SOURCE's capacity — it writes `min(n, m)` units of the source's buffer and
+ * keeps the destination's units behind them (`storeString`; `string_assign_tail_wide`, `string_literal_nul_tail`), so `n`
+ * has to survive to the store, and a conversion to the target's type would make it `m`. A literal keeps its own unit count
+ * the same way. Both backends store through the value's type: the interpreter's `compileWrite`, the emitter's
+ * `place.store(&v)`. A sizeless string reaching here is a lowering bug: every string Type carries its capacity
+ * (`Lowering.resolve`).
+ */
+export function assignTo(target: Place, value: IrExpr, span: Span): IrStmt {
+  if (!sameWidthStrings(value.type, target.type)) return { kind: "assign", target, value: convert(value, target.type), span }
+  if (stringCapacity(value.type) === undefined || stringCapacity(target.type) === undefined)
+    throw new LoweringBug(`a string store with no capacity on one side (${typeText(value.type)} into ${typeText(target.type)})`)
+  return { kind: "assign", target, value, span }
+}
+
+/** Two STRINGs or two WSTRINGs, whatever their capacities. */
+function sameWidthStrings(a: Type, b: Type): boolean {
+  return a.kind === "elementary" && b.kind === "elementary" && a.name === b.name && (a.name === "STRING" || a.name === "WSTRING")
+}
+
+const stringCapacity = (t: Type): number | undefined => (t.kind === "elementary" ? t.length : undefined)
+const typeText = (t: Type): string => (t.kind === "elementary" ? `${t.name}${t.length === undefined ? "" : `(${t.length})`}` : t.kind)
 
 /** Re-stamp a constant with a type, moving its value across the int/real divide if that is what changed. */
 export function retype(e: IrExpr, to: Type): IrExpr {

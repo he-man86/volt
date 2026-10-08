@@ -3,7 +3,7 @@
  * queued.
  */
 
-import { DEFAULT_STRING_LENGTH, elementOf, resolveNamedType, type Type } from "../../../frontend/types/index.js"
+import { elementOf, resolveNamedType, type Type } from "../../../frontend/types/index.js"
 import { Lowering } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
 import { baseOf } from "../core/chain.js"
@@ -33,12 +33,6 @@ const buildingOf = sharedState(() => new Set<string>())
  */
 const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_TEMP"])
 
-/** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds `DEFAULT_STRING_LENGTH`. */
-export function withStringCapacity(t: Type): Type {
-  if (t.kind !== "elementary" || t.length !== undefined || (t.name !== "STRING" && t.name !== "WSTRING")) return t
-  return { ...t, length: DEFAULT_STRING_LENGTH }
-}
-
 /**
  * The type a variable is STORED as: a sizeless string with its capacity, a struct or FB under its DECLARED name (ST is
  * case-insensitive and Rust is not, so `fb_x : fb_conveyor` and `FB_Conveyor` must be one struct), an array of
@@ -47,7 +41,11 @@ export function withStringCapacity(t: Type): Type {
 export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   if (t.kind === "array") return { ...t, element: storageOf(lw, t.element, at) }
   if (t.kind === "enum") return enumStorage(lw, t)
-  if (t.kind !== "struct" && t.kind !== "function_block") return withStringCapacity(t)
+  // A POINTEE's type is not one `Lowering.resolve` returned — a `POINTER TO STRING`'s target is resolved with the
+  // pointer, sizeless — so a string reached through one is sized here, by the same rule (`Lowering.sized`: the default,
+  // or `string-capacity` when its stated capacity does not fold)
+  if (t.kind === "elementary" && (t.name === "STRING" || t.name === "WSTRING") && t.length === undefined) return lw.sized(t, at)
+  if (t.kind !== "struct" && t.kind !== "function_block") return t
   const sym = lookup(lw.project, t.name)?.symbol
   const name = sym?.name ?? t.name
   const key = name.toUpperCase()

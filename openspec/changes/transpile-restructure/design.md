@@ -865,6 +865,24 @@ destination behind its 0. A declaration's folded initial value is `storeString(z
 and twin. 3.6: record `string_store_function_input_tail` (twice) first, then `assignTo` + the two backends in one commit.
 3.7 the literal. Then the gate.
 
+**As built (step 3c), where reality differed — each a smaller change than the plan, none a different model:**
+- The literal half was already there: `lowerLiteral` typed a string const STRING(k)/WSTRING(k) (k its decoded units) and
+  `decodeStringLiteral` kept every unit, so 3.3's literal typing and 3.7's lowering needed no code; the two literal NUL tails
+  flipped with 3.6's store (their marks already named 3.6).
+- Rust prints `place.store(&v)` only where the capacities DIFFER or a STRING VAR_IN_OUT (generic capacity) is on either side;
+  at one capacity the store writes every unit, which is exactly the plain copy, so it prints `place = v` — no `.to()` at all.
+  The plan's "`place = v.to()` becomes `place.store(&v)`" everywhere would print a `&mut` call where an assignment does.
+- A pointee's string type is not one `Lowering.resolve` returns (a `POINTER TO STRING`'s target is resolved with the pointer),
+  so `storageOf` sizes it through the same `Lowering.sized` (gate 3c: it had defaulted a pointee's unfolded capacity to 80);
+  and a capacity the declaring scope cannot fold (`unfoldedLength`)
+  is refused `string-capacity` instead of defaulted (`withStringCapacity` gave it 80): `decl_string_length_variable`, which
+  CODESYS refuses, no longer lowers.
+- `assignTo` exposed a BOOL stored into a STRING: `__QUERYINTERFACE` into a STRING target (`ar_queryinterface_type`, refused by
+  CODESYS) lowered a boolean into the buffer; `queryInto` now refuses it `assign-string`, as every other implicit string
+  crossing is.
+- `string_store_function_input_tail` (recorded twice, identical): the pass is M2's store (eleven units) and `p[11..19]` read
+  the 'Z's the PREVIOUS call left in the same stack frame — residue, so `LanguageTest.residue`; the model writes 0 there.
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus

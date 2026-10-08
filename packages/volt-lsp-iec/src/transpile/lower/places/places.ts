@@ -11,7 +11,6 @@ import { pointeePlace, throughReference } from "../pointers/deref.js"
 import { addressPlace } from "../storage/addresses.js"
 import { namePlace } from "./names.js"
 import { elementaryRef, elementOf, peelArray, type Type } from "../../../frontend/types/index.js"
-import { withStringCapacity } from "../storage/layout.js"
 import { boundOf } from "./bounds.js"
 import { binaryOf } from "../core/build.js"
 import { convert } from "../values/convert.js"
@@ -94,8 +93,8 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
   if (place !== undefined && text !== undefined) {
     if (e.indices.length !== 1) return lw.bail("place-shape", "a string indexed in more than one dimension", e.span)
     const index = lowerExpr(lw, e.indices[0]!)
-    // the capacity is what a store is cut at, so a string reached without one — a pointee — takes the default
-    return index && { char: { place: { ...place, type: withStringCapacity(place.type) }, index, unit: elementaryRef(text === "STRING" ? "BYTE" : "WORD") } }
+    // the capacity is what `s[i]` is bounded by; every string place carries one (`Lowering.resolve`, `storageOf`)
+    return index && { char: { place, index, unit: elementaryRef(text === "STRING" ? "BYTE" : "WORD") } }
   }
   // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
   if (place !== undefined && place.type.kind === "pointer") {

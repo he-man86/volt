@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { load } from "../index.js"
+import { STRING_CASES, type StringInput } from "./string.cases.js"
+import { setChar, storeString } from "./string.js"
 
 // `s[i]` end to end — the character primitive `charAt` / `setChar` (`string.ts`) as the interpreter runs it.
 describe("interp — STRING (design §18; every expectation recorded in conformance `string_*`)", () => {
@@ -38,5 +40,22 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
   test("s[i] on a WSTRING is a WORD", () => {
     const pou = scanned('w : WSTRING := "h$00E9"; c : WORD;', "c := w[1]; w[0] := 72;")
     expect([pou.get("c"), pou.get("w")]).toEqual([0xe9n, "Hé"])
+  })
+})
+
+// The buffer model against its case table (`string.cases.ts`): the store (`storeString`) and `s[i]` (`setChar`) on the whole
+// buffer — the check that fails FIRST when the model drifts; the twin harness runs the same table through rustc.
+describe("the string buffer model — its case table (string.cases.ts)", () => {
+  const ran = (input: StringInput): string =>
+    input.ops.reduce((s, op) => ("store" in op ? storeString(s, input.m, op.store, op.n) : setChar(s, BigInt(op.at), BigInt(op.unit), input.m)), "")
+  for (const [rule, cases] of Object.entries(STRING_CASES))
+    test(rule, () => {
+      expect(cases.map((c) => `${c.name}: ${JSON.stringify(ran(c.input))}`)).toEqual(cases.map((c) => `${c.name}: ${JSON.stringify(c.expected)}`))
+    })
+
+  test("a store into a destination holding nothing is the source cut at the destination — today's fresh copy", () => {
+    expect(storeString("", 3, "abcdef", 6)).toBe("abc")
+    expect(storeString("", 10, "abc", 3)).toBe("abc")
+    expect(storeString("ZZZZ", 4, "", 0)).toBe("\0ZZZ")
   })
 })

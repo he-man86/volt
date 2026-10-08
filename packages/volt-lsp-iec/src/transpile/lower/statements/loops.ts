@@ -9,7 +9,7 @@ import { lowerBlock } from "./statements.js"
 import { lowerPlace } from "../places/places.js"
 import { guardWrite } from "../places/access-guards.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { beside, convert, stored } from "../values/convert.js"
+import { assignTo, beside, convert, stored } from "../values/convert.js"
 import { foldConstant } from "../values/fold.js"
 import { classifyConversion, elementaryRef, elemOf, inferExprType } from "../../../frontend/types/index.js"
 import { holdsCall } from "../../ir/walk.js"
@@ -94,7 +94,7 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
 
   return {
     kind: "loop",
-    init: [{ kind: "assign", target: control, value: convert(from, control.type), span: s.from.span }],
+    init: [assignTo(control, from, s.from.span)],
     test: { cond, atEnd: false },
     body: loopBody(lw, s.body),
     // The step adds in the COUNTER's type: `current` is the counter widened for the test, and adding a step of the

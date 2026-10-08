@@ -8,8 +8,7 @@ import type { IrExpr } from "../../ir/index.js"
 import { sizeOf } from "./sizeof.js"
 import { oneArgument } from "./arity.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { withStringCapacity } from "../storage/layout.js"
-import { elementaryRef } from "../../../frontend/types/index.js"
+import { DEFAULT_STRING_LENGTH, elementaryRef, type Type } from "../../../frontend/types/index.js"
 import { lowerPlace } from "../places/places.js"
 import { foldConstant } from "../values/fold.js"
 import { boundOf } from "../places/bounds.js"
@@ -32,7 +31,7 @@ export function lowerSystemCall(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   if (name === "__POUNAME") {
     if (e.args.length !== 0) return lw.bail("call-arity", "__POUNAME takes no argument", e.span)
     if (lw.displayName === "") return lw.bail("expr-call", "__POUNAME where the POU has no name", e.span)
-    return { kind: "const", value: lw.displayName, type: withStringCapacity(elementaryRef("STRING")), span: e.span }
+    return { kind: "const", value: lw.displayName, type: { ...elementaryRef("STRING"), length: DEFAULT_STRING_LENGTH } as Type, span: e.span }
   }
   // lowered as an assignment's whole value, or as an IF condition's leading operand — taken just before the IF, read here
   // (`queryCondition`); anywhere else — a right operand a short-circuit may skip, inside another expression — the timing

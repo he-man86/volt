@@ -49,12 +49,15 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // it is skipped for the reason above — a hardware-mapped variable left as ordinary storage, un-diagnosed,
   // is worse than the cascade.
   if (written.at !== undefined) bindAddress(lw, written)
-  const type = constantSlot(lw, sec, written, storageOf(lw, lw.resolve(written.type), written.type.span))
+  // resolved ONCE: a refusal `resolve` makes (`string-capacity`) is made once per declaration, and `startValue` asks the
+  // same resolved type for its enum default
+  const resolved = lw.resolve(written.type)
+  const type = constantSlot(lw, sec, written, storageOf(lw, resolved, written.type.span))
   // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
   // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
   // alias to INT and the alias's initializer went with it.
   const decl = { ...written, init: written.init ?? aliasInit(lw, written.type) }
-  const attempt = (): IrInit | undefined => startValue(lw, sec, written, decl, type)
+  const attempt = (): IrInit | undefined => startValue(lw, sec, written, decl, resolved, type)
   // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
   // and the expression is queued in declaration order (`InitFrame.pendingInits`), which is what `ADR(x)`, `THIS`
   // and a call to a user FUNCTION are.
@@ -108,13 +111,13 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
 
 /** A declaration's initial value: its initializer folded or built, or — with none — its type's (an enum's at its measured
  *  default). */
-function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDecl, type: Type): IrInit | undefined {
+function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDecl, resolved: Type, type: Type): IrInit | undefined {
   // ONLY a variable that takes the TYPE's default asks where that default is, and for an ENUM that is not always
   // zero — `enumDefault` carries the measured rule. A variable WITH an initializer never asks; neither does
   // folding a VALUE of the same enum, which is a constant its declaration states.
   const enumStart =
     decl.init === undefined
-      ? (enumDefault(lw.project, lw.resolve(written.type), enumeratorValue(lw)) ?? inlineEnumDefault(written.type, enumeratorValue(lw)))
+      ? (enumDefault(lw.project, resolved, enumeratorValue(lw)) ?? inlineEnumDefault(written.type, enumeratorValue(lw)))
       : undefined
   if (decl.init === undefined) return enumStart === undefined ? elementDefaults(lw, written.type, type) : stored(enumStart, type)
   return decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type) : scalarInit(lw, decl.init, type, sec.constant === true)

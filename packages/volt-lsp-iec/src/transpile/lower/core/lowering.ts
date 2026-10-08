@@ -6,7 +6,7 @@
  */
 import type { Identifier, Span, TypeExpr, VarSection } from "../../../frontend/syntax/index.js"
 import type { lookup, Scope } from "../../../frontend/symbols/index.js"
-import { resolveTypeExpr, type Type, typeZero } from "../../../frontend/types/index.js"
+import { DEFAULT_STRING_LENGTH, resolveTypeExpr, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { IrInit, IrLayout, IrSlot } from "../../ir/index.js"
 import { emittedKind } from "../diagnostics/codes.js"
 import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
@@ -151,6 +151,23 @@ export class Lowering {
     // copy of the alias table — and `resolveTypeExpr` already does exactly that, through `elementaryType` →
     // `canonicalElem`, which reads the one home. Two tables for one fact, and the redundant one is the copy.
     // bounds and capacities fold where the variable is declared — its own VAR CONSTANT included
-    return resolveTypeExpr(t, this.project, 0, where)
+    return this.sized(resolveTypeExpr(t, this.project, 0, where), t.span)
+  }
+
+  /**
+   * EVERY STRING TYPE THE LOWERING HOLDS CARRIES ITS CAPACITY (transpile-restructure 3.3, design §3.2): a sizeless
+   * STRING/WSTRING — an array's element too — holds `DEFAULT_STRING_LENGTH`, applied HERE and nowhere downstream, because
+   * a string store reads both capacities (`storeString`). Not in `types/resolve.ts`: the LSP prints the type as declared
+   * — 564 recorded messages say 'STRING', none 'STRING(80)' (3.1 M7). A capacity the declaring scope cannot fold
+   * (`unfoldedLength`) is a missing fact, refused by name rather than taken for the default.
+   */
+  sized(t: Type, at: Span): Type {
+    if (t.kind === "array") {
+      const element = this.sized(t.element, at)
+      return element === t.element ? t : { ...t, element }
+    }
+    if (t.kind !== "elementary" || (t.name !== "STRING" && t.name !== "WSTRING") || t.length !== undefined) return t
+    if (t.unfoldedLength === true) this.bail("string-capacity", `the capacity of ${t.name}(${t.lengthText}) does not fold here`, at)
+    return { ...t, length: DEFAULT_STRING_LENGTH }
   }
 }

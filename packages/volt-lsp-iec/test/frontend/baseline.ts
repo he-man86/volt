@@ -180,7 +180,8 @@ const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["concat_result_capacity", 14],
   ["string_conversion_result_tail", 23],
   ["string_store_function_result_tail", 9],
-  ["string_store_destination_kinds_tail", 9],
+  ["string_store_destination_kinds_tail", 12],
+  ["string_store_function_input_tail", 3],
 ]
 
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [

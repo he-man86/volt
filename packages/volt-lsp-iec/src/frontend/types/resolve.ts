@@ -53,7 +53,7 @@ export function resolveTypeExpr(
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
       const length = t.length === undefined ? undefined : constEval(t.length, valueScope)
       if (base.kind !== "elementary" || t.length === undefined) return base
-      if (typeof length !== "bigint") return { ...base, unfoldedLength: true }
+      if (typeof length !== "bigint") return { ...base, unfoldedLength: true, lengthText: exprText(t.length) }
       return t.length.kind === "literal" ? { ...base, length: Number(length) } : { ...base, length: Number(length), lengthText: exprText(t.length) }
     }
     case "implicit_enum_type":

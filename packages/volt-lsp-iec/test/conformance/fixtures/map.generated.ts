@@ -14,19 +14,19 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2817
+ *     confirmed     2823
  *     refused       1989
  *     not-lowered    389
  *     lsp-gap         82
- *     diverges        13
+ *     diverges         8
  *     unaskable       92
  *
  *   tier                     lowered    clean
- *     decl                    755      755
- *     arith                  1546     1544
- *     control                 160      149
+ *     decl                    758      758
+ *     arith                  1542     1540
+ *     control                 159      148
  *     aggregate               146      146
- *     call                    274      272
+ *     call                    275      273
  *     indirect                360      356
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
@@ -43,8 +43,8 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5443
- *     clippy::self_assignment                   34
+ *     dead_code                               5448
+ *     clippy::self_assignment                   39
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
  *     clippy::approx_constant                    6
@@ -59,9 +59,9 @@
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
  *     agree         3056
  *     disagree         0
- *     not-run        185
+ *     not-run        184
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: the emitted Rust does not build                 65
+ *       not-run: the emitted Rust does not build                 64
  *       not-run: no elementary variable to seed or compare       43
  *       not-run: the interpreter's loop guard gives up on every variant     6
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
@@ -76,17 +76,17 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
 
  *
- *   pedantic — 31843 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7935
- *     clippy::cast_possible_truncation         5020
- *     clippy::cast_lossless                    4563
- *     clippy::cast_sign_loss                   3542
+ *   pedantic — 31858 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7936
+ *     clippy::cast_possible_truncation         5024
+ *     clippy::cast_lossless                    4573
+ *     clippy::cast_sign_loss                   3546
  *     clippy::uninlined_format_args            3330
- *     clippy::unreadable_literal               2858
- *     clippy::missing_panics_doc               1118
+ *     clippy::unreadable_literal               2854
+ *     clippy::missing_panics_doc               1119
  *     clippy::manual_assert                     842
  *     clippy::format_push_string                740
- *     clippy::many_single_char_names            374
+ *     clippy::many_single_char_names            373
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
  *     string_positions_low                          33.5
@@ -100,18 +100,18 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1732 distinct emission shapes over 3241 lowered fixtures, 1834 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 3072 fixtures are improvable, 2987 touch a construct with alternatives.
+ *   shape — 1731 distinct emission shapes over 3240 lowered fixtures, 1839 distinct constructs.
+ *   704 constructs carry a review note (`NOTES`): 3071 fixtures are improvable, 2986 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
- *     7.3.1 99, 7.2.3 47, 7.3.3 31, 7.2.6 30, 7.4.1 27, 7.4.4 24, 7.7.1 24, 7.4.2 22, 7.8.6 22, 7.2.2 19, 7.4.3 19
- *     7.6.1 19, 7.9.3 18, 7.7.3 17, 7.2.4 16, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.5.7 13, 7.6.3 13
- *     7.2.5 12, 7.2.7 12, keep 12, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8
- *     7.2.10 8, 7.3.6 8, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5
- *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.4.8 4, 7.5.2 4, 7.3.8 3, 7.7.6 3, 4.2 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
- *     7.4.7 2, 7.4.9 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1
- *     7.7.7 1, 7.8.1 1, 7.8.11 1, 7.9.2 1
+ *     7.3.1 99, 7.2.3 47, 7.3.3 31, 7.2.6 30, 7.4.4 24, 7.7.1 24, 7.8.6 22, 7.2.2 19, 7.4.3 19, 7.6.1 19, 7.7.3 18
+ *     7.9.3 18, 7.4.2 17, 7.2.4 16, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.5.7 13, 7.6.3 13, 7.2.5 12
+ *     7.2.7 12, keep 12, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8, 7.2.10 8
+ *     7.3.6 8, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.4.8 6, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5
+ *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.5.2 4, 7.3.8 3, 7.4.9 3, 7.7.6 3, 4.2 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
+ *     7.4.7 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.7.7 1
+ *     7.8.1 1, 7.8.11 1, 7.9.2 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -176,7 +176,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ar_mux_mixed_types: { evidence: "refused" },
   ar_new_type: { evidence: "refused", diverges: { codesys: "known" } },
   ar_pouname_type: { evidence: "lsp-gap", diverges: { codesys: "known" } },
-  ar_queryinterface_type: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 5, edge: "not-run", size: 2.1, shape: "d81837cf10", notes: ["1307e33bbf", "5d9850550d", "a497507b30", "ad25627749", "fbde4d6e1e"] },
+  ar_queryinterface_type: { evidence: "refused" },
   ar_querypointer_type: { evidence: "refused" },
   ar_real_literal_operand_types: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   ar_rol_byte_type: { evidence: "refused" },
@@ -548,7 +548,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   bound_word_at_min: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.7, shape: "7f76d52d43", notes: ["1d7709a031", "65df8e0418"] },
   bound_word_below_min: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.7, shape: "7f76d52d43", notes: ["1d7709a031", "65df8e0418"] },
   ca_adjacent_word_addresses: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "10d1e2e75a", notes: ["1d7709a031", "65df8e0418"] },
-  ca_bitstring_date_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 51, edge: "agree", size: 2.6, shape: "b4c035f438", notes: ["32a9e6d2e3", "5d9850550d", "91d3eef64b", "b060fcca7b", "e8954e2b0d"] },
+  ca_bitstring_date_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 51, edge: "agree", size: 2.6, shape: "7a764d97d1", notes: ["2a5436bd78", "32a9e6d2e3", "5d9850550d", "91d3eef64b", "e8954e2b0d"] },
   ca_direct_address_expression: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 21, edge: "agree", size: 3.5, shape: "05b740a4b3", notes: ["1d7709a031", "383107953f", "65df8e0418", "b9787e0d18"] },
   call_after_global_init_slot: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "6fe387e162", notes: ["0e0d715a81", "1307e33bbf", "fa7d5f176f"] },
   call_after_init: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
@@ -556,12 +556,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   call_before_global_exit_slot: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.7, shape: "198ab55c44", notes: ["1307e33bbf"] },
   call_ldate_instance: { evidence: "refused" },
   call_on_type_change: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "198ab55c44", notes: ["1307e33bbf"] },
-  callarg_no_argument_defaulted_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  callarg_no_argument_defaulted_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   callarg_no_argument_variable_default: { evidence: "refused" },
   calls_adr_on_bit_access: { evidence: "not-lowered" },
   calls_adr_on_bit_field: { evidence: "not-lowered" },
   calls_constant_called: { evidence: "refused" },
-  calls_default_local_constant_shadows_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "0db31cdebd", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  calls_default_local_constant_shadows_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "0db31cdebd", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   calls_enum_value_called: { evidence: "refused" },
   calls_fb_type_as_argument: { evidence: "refused" },
   calls_function_defaults_none_given: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.5, shape: "c5f332adcc", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "a5c4faeebd"] },
@@ -594,9 +594,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   calls_unknown_output_fb: { evidence: "refused" },
   calls_unknown_output_function: { evidence: "refused" },
   calls_unknown_output_method: { evidence: "refused" },
-  callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.2, shape: "c8b7af740f", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "63d29bd1a0", "6dd22a92d0", "a5c4faeebd"] },
+  callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.2, shape: "c8b7af740f", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "63d29bd1a0", "6dd22a92d0", "a5c4faeebd", "dbdc75774e"] },
   callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "deffbe80ec", notes: ["054b93382f", "11f6ad8ec5", "4a6baf16b3", "56c1a77525", "870b70e195", "e37b53617c", "fedbbc431c"] },
-  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "7179479ea3", notes: ["11f6ad8ec5", "1307e33bbf", "26a81a085d", "521ba042ac", "58edc15c64", "5d3437b284", "62caf55aa5", "fedbbc431c"] },
+  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "7179479ea3", notes: ["11f6ad8ec5", "1307e33bbf", "26a81a085d", "521ba042ac", "58edc15c64", "5d3437b284", "62caf55aa5", "dbdc75774e", "fedbbc431c"] },
   callshape_array_star_fb_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 2.7, shape: "269e0f079f", notes: ["06bb3a6005", "0ac4ab4a64", "1be212b44b", "22f3bd9b6d", "33fc10bac3", "43449862b7", "63d29bd1a0", "68cdda5f1a", "79fd4d52a6", "8064ae1570", "81ed699293", "b894525f6e", "debabdec0d", "f06209ef9e"] },
   callshape_array_star_fb_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 2.7, shape: "a7f4a99bd2", notes: ["06bb3a6005", "09b1152bef", "0ac4ab4a64", "1e5d67a16e", "22f3bd9b6d", "38cce5cb54", "521ba042ac", "63d29bd1a0", "68cdda5f1a", "79fd4d52a6", "81ed699293", "b894525f6e", "f06209ef9e", "fd16368fa8"] },
   callshape_array_star_of_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 20, edge: "agree", size: 2.2, shape: "27ed0665d3", notes: ["1307e33bbf", "521ba042ac", "6d48208e3e", "b6565109d7", "c9c77500c6", "d8a5dd49a9"] },
@@ -623,7 +623,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_input_left_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.3, shape: "589f48a700", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "a5c4faeebd", "c8ca44a755"] },
   callshape_method_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 6, edge: "agree", size: 2.9, shape: "cb6b52d112", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "c8ca44a755"] },
   callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 3.4, shape: "7af35f7f06", notes: ["11f6ad8ec5", "1307e33bbf", "1ebe9a3a67", "4979768984", "58a7e6289b", "6713eb5cc0", "69b0552c65", "abf2bb6e4e", "c68f0b1ef6"] },
-  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "2808477e09", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984", "7ab9128afd", "96a5b25b66"] },
+  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "2808477e09", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984", "7ab9128afd", "96a5b25b66", "dbdc75774e"] },
   callshape_own_field_inout_read_by_name: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "7adffcabd8", notes: ["11f6ad8ec5", "1307e33bbf", "6713eb5cc0", "6dd22a92d0", "707715f6ab"] },
   callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.6, shape: "c0aa0f524c", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "96a5b25b66", "fb7e9e6ff4"] },
   callshape_positional_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 28, edge: "agree", size: 1.8, shape: "81bc08b5f2", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "2ea589a8a1", "4979768984", "4b22d23722", "6713eb5cc0", "6dd22a92d0", "707715f6ab", "a5c4faeebd", "c8ca44a755"] },
@@ -734,7 +734,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_fp_set_reset: { evidence: "confirmed", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 3.7, shape: "15186cd86b", notes: ["4edbb4135a", "687428cc81", "73505351ad", "de132e5019"] },
   cc_fp_set_reset_chain: { evidence: "confirmed", tier: "control", rust: "compiles", pedantic: 4, edge: "agree", size: 4.4, shape: "e856391a23", notes: ["42897347c4", "4edbb4135a", "687428cc81", "73505351ad", "7a88c529f6", "c7af448b33", "de132e5019", "e7e871371f"] },
   cc_fp_sint_plus_one: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "7a44ab5418", notes: ["18e6b05962"] },
-  cc_fp_string_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "e196cff49b", notes: ["5d9850550d", "803ee89d4f"] },
+  cc_fp_string_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "f4ea4e3fd5", notes: ["5d9850550d", "94c11e8f56"] },
   cc_fp_string_escape_init_fits: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.7, shape: "efdda7aaef", notes: ["5d9850550d"] },
   cc_fp_time_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "d670ba55d1", notes: ["e8954e2b0d"] },
   cc_fp_widen: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 3.6, shape: "7d11fd2d7d", notes: ["06bb3a6005", "1307e33bbf", "63d29bd1a0"] },
@@ -960,9 +960,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ce_fold_untyped_shl_in_context_values: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "8c39de5df0", notes: ["e8954e2b0d"] },
   ce_real_alias_const: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 2.5, shape: "0a34b2a10c", notes: ["5c9bb13706", "74845f98c6"] },
   ce_real_alias_const_values: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "119e912e58", notes: ["5c9bb13706", "74845f98c6"] },
-  ce_string_length_constant_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "c9144a4844", notes: ["1307e33bbf", "5d9850550d", "803ee89d4f"] },
-  ce_string_length_constant_init: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "aa1dc37409", notes: ["1307e33bbf", "5d9850550d"] },
-  ce_string_length_literal_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "e196cff49b", notes: ["5d9850550d", "803ee89d4f"] },
+  ce_string_length_constant_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "169371e994", notes: ["1307e33bbf", "5d9850550d", "94c11e8f56"] },
+  ce_string_length_constant_init: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "dd983a15a7", notes: ["1307e33bbf", "5d9850550d"] },
+  ce_string_length_literal_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "f4ea4e3fd5", notes: ["5d9850550d", "94c11e8f56"] },
   cfold_abs: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "a87bebc5e4", notes: ["1307e33bbf"] },
   cfold_any_to_dint_high: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.4, shape: "72ef26f9a6", notes: ["63d29bd1a0", "6f9ae8fd3a"] },
   cfold_argument_declared_first: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.9, shape: "ce31287f6c", notes: ["1307e33bbf", "6a41bda0a0", "ec9a760059", "fa7d5f176f"] },
@@ -1099,9 +1099,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cmpop_time_vs_int: { evidence: "refused" },
   co_any_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 15, edge: "agree", size: 2.4, shape: "2fbd242527", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "159ca60812", "5c9bb13706", "63d29bd1a0", "63f801635e", "693c14b0bd", "6f8ef8f0bd", "6f9ae8fd3a", "90c445f7cb", "a497507b30", "b7286c7932", "de283d0ef6", "e8954e2b0d"] },
   co_move_operator: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "3dc012292c", notes: ["0e0d715a81", "1307e33bbf", "1d7709a031", "65df8e0418"] },
-  co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 2.3, shape: "ad00ba2a68", notes: ["02a72c2e83", "0ab1e9c511", "1307e33bbf", "159ca60812", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "8653414194", "923862ec54", "af39c91205", "b501abe431", "b7286c7932", "de283d0ef6", "e8954e2b0d", "ec9a760059"] },
-  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 108, edge: "agree", size: 8.9, shape: "4d81f18f49", notes: ["0205cf3af0", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "de2f16610e", "e42f1ae167", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 162, edge: "agree", size: 3.9, shape: "fd275c236a", notes: ["0205cf3af0", "0464b7d671", "0969e59592", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "19dfd3f883", "1ad1ab3163", "1d1551a034", "211808ca56", "21ef64a1e0", "234c4da721", "3cacc7bfac", "3cf4e6fa21", "41d85d47cf", "46c17ef7d3", "4979768984", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "93a17fab28", "98ba0d2e70", "9c8d21e237", "a573b540d2", "b2d33739c5", "b592939dbf", "c001fbb3b1", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "de2f16610e", "e205f81b84", "e6646a0bd0", "e6ef5a4585", "e798927653", "e8210b694c", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
+  co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 2.3, shape: "27d88569ee", notes: ["02a72c2e83", "0ab1e9c511", "1307e33bbf", "159ca60812", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "8653414194", "8c1b866176", "923862ec54", "b501abe431", "b7286c7932", "de283d0ef6", "e8954e2b0d", "ec9a760059"] },
+  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 108, edge: "agree", size: 8.9, shape: "31975aa7d7", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "650e10d85c", "7a85af3c04", "8088e0ab18", "83ed1aab47", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
+  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 162, edge: "agree", size: 3.9, shape: "42a4e01e1d", notes: ["0969e59592", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "185a887a57", "19dfd3f883", "1ad1ab3163", "1d1551a034", "21ef64a1e0", "2e591ac56e", "3cacc7bfac", "3cf4e6fa21", "405fc80910", "46c17ef7d3", "4979768984", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "650e10d85c", "7a85af3c04", "8088e0ab18", "83ed1aab47", "92f7142ab2", "93a17fab28", "98ba0d2e70", "9c8d21e237", "a573b540d2", "b2d33739c5", "b592939dbf", "c001fbb3b1", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
   conditional_define_then_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   conditional_else_branch_taken: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   conditional_elsif_chain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
@@ -1118,7 +1118,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   continue_in_while: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 11, edge: "agree", size: 6.3, shape: "15742aefcc", notes: ["1307e33bbf", "1ad1ab3163", "204a887600", "21575de23f", "271163608b", "4979768984", "93a17fab28", "95094bd48a", "c7ac9a5e64"] },
   conversion_bool_to_int_valid: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "cc47152a61", notes: ["1307e33bbf", "3d737b5821", "de132e5019"] },
   conversion_constant_folding: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 11, edge: "agree", size: 5.7, shape: "086c88c5b5", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "3e1e32f963", "63d29bd1a0", "693c14b0bd", "6f8ef8f0bd", "b6a5a933fb", "b7286c7932", "de283d0ef6"] },
-  conversion_date_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 2.9, shape: "f25e0fc5a0", notes: ["3d737b5821", "5d9850550d", "e8954e2b0d"] },
+  conversion_date_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 2.9, shape: "b2a4566b25", notes: ["3d737b5821", "5d9850550d", "e8954e2b0d"] },
   conversion_dint_to_int_wrong_source: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 2.9, shape: "c00b8fd4bf", notes: ["1307e33bbf", "3d737b5821", "a078903418"] },
   conversion_dt_to_date: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "c457955835", notes: ["32a9e6d2e3", "3d737b5821", "e8954e2b0d"] },
   conversion_implicit_dint_to_int: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "28e5ed4faa", notes: ["06bb3a6005", "1307e33bbf", "3d737b5821", "63d29bd1a0"] },
@@ -1136,15 +1136,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cp_empty_statements: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.1, shape: "878f975322", notes: ["0e0d715a81", "1307e33bbf", "21575de23f", "4979768984"] },
   cp_inline_assignment: { evidence: "not-lowered" },
   cp_obsolete_pou: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "67a2b6c60e", notes: ["1307e33bbf", "4979768984"] },
-  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 51, edge: "agree", size: 3.1, shape: "b4c597debd", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "708b7c88b3", "803ee89d4f", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "dc8437c26a", "de132e5019", "e6646a0bd0", "fb7e9e6ff4"] },
+  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 51, edge: "agree", size: 3.1, shape: "4ebcf8d8c1", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "8232a1cf7c", "94c11e8f56", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "dc8437c26a", "de132e5019", "e6646a0bd0", "fb7e9e6ff4"] },
   cp_symbol_and_monitoring: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 16, edge: "agree", size: 2, shape: "866945efb6", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "5370b79269"] },
   cp_xsizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "a1e5d20ce7", notes: ["06bb3a6005", "1307e33bbf", "4bf3f61062", "63d29bd1a0", "90c445f7cb", "a497507b30"], diverges: { twincat: "known" } },
   cs_anynum_to_conversions: { evidence: "refused" },
   cs_array_four_dimensions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 26, edge: "agree", size: 3.1, shape: "56701bd640", notes: ["1307e33bbf", "1f2f8205f9", "9b12fdbfc8", "f59561bd3c"] },
   cs_clock_reads: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 4.5, shape: "8ce98dad99", notes: ["90c445f7cb", "a497507b30", "b9787e0d18", "e8954e2b0d"] },
   cs_spelled_narrowing_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.6, shape: "c194b38beb", notes: ["1d7709a031", "5c9bb13706", "65df8e0418", "74845f98c6", "b501abe431", "e8954e2b0d"] },
-  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 115, edge: "agree", size: 9.6, shape: "a5997b537c", notes: ["0205cf3af0", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 57, edge: "agree", size: 2.4, shape: "ac3be1edf8", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "63d29bd1a0", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "af39c91205", "b7286c7932", "de283d0ef6", "e3e3555f9c", "e8954e2b0d", "ec9a760059"] },
+  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 115, edge: "agree", size: 9.6, shape: "ef4967bc2b", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "650e10d85c", "7a85af3c04", "8088e0ab18", "83ed1aab47", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
+  ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 57, edge: "agree", size: 2.4, shape: "537dc022d7", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "63d29bd1a0", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "8c1b866176", "b7286c7932", "de283d0ef6", "e3e3555f9c", "e8954e2b0d", "ec9a760059"] },
   ct_bit_fields: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "70a36f112f", notes: ["06bb3a6005", "63d29bd1a0", "687428cc81", "de132e5019"] },
   ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 11, edge: "agree", size: 7, shape: "29e128ed3f", notes: ["06bb3a6005", "1307e33bbf", "496b8acb56", "63d29bd1a0", "687428cc81", "de132e5019"] },
   ct_integer_bitstring_crossings: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "agree", size: 2.2, shape: "549ca5c3c1", notes: ["06bb3a6005", "1307e33bbf", "1707972c33", "1d7709a031", "395880371f", "63d29bd1a0", "65df8e0418", "687428cc81", "6a98109119", "83389dfa8a", "b501abe431", "de132e5019", "e8954e2b0d", "ec9a760059", "f2987aca6a"] },
@@ -1153,11 +1153,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ct_real_time_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 15, edge: "agree", size: 2.7, shape: "c48e5088ed", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "159ca60812", "5c9bb13706", "63d29bd1a0", "693c14b0bd", "6f8ef8f0bd", "74845f98c6", "8653414194", "b7286c7932", "de283d0ef6", "e8954e2b0d"] },
   ct_subrange_across_objects: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 2.5, shape: "fbef86a742", notes: ["1307e33bbf", "1d7709a031", "4979768984", "5c9bb13706", "65df8e0418", "74845f98c6", "964296462a"] },
   ct_three_dimensional_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 46, edge: "agree", size: 2.9, shape: "04462e7fe4", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "683d4b1944", "ae08e85841"] },
-  ctrl_case_of_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.7, shape: "b4fe71a897", notes: ["1307e33bbf", "3d737b5821", "5d9850550d", "803ee89d4f"] },
+  ctrl_case_of_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.7, shape: "dde90f3ccc", notes: ["1307e33bbf", "3d737b5821", "5d9850550d", "94c11e8f56"] },
   ctrl_continue_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "5bfda8ea03", notes: ["0e0d715a81", "1307e33bbf", "204a887600", "46c17ef7d3", "4979768984", "521ba042ac", "95094bd48a", "c7f76e08cf"] },
   ctrl_exit_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "903e5e9547", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "271163608b", "3d737b5821", "46c17ef7d3", "93a17fab28", "ec9a760059"] },
   ctrl_for_to_by_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "0cf3898365", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "c9cd63632c"] },
-  ctrl_if_elsif_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 46, edge: "agree", size: 2.5, shape: "525e4c4995", notes: ["1307e33bbf", "21575de23f", "3d737b5821", "5d9850550d", "803ee89d4f"] },
+  ctrl_if_elsif_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 46, edge: "agree", size: 2.5, shape: "00ea2e0a8c", notes: ["1307e33bbf", "21575de23f", "3d737b5821", "5d9850550d", "94c11e8f56"] },
   ctrl_repeat_until: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "fbd33b827d", notes: ["1307e33bbf", "3d737b5821", "4979768984", "521ba042ac", "c7ac9a5e64"] },
   ctrl_return_from_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "beeb472302", notes: ["4edbb4135a", "58f3434567", "687428cc81", "73505351ad", "a01f00db76", "de132e5019"] },
   ctrl_while_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "b436e019f3", notes: ["1307e33bbf", "3d737b5821", "521ba042ac", "9999dc327a", "e2e0d67858"] },
@@ -1311,13 +1311,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_retain_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   decl_stat_counts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
   decl_stat_initialized: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
-  decl_string_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "4205ee2f44", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "b71a0d6cfa", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_string_brackets_mismatched: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_string_brackets_mismatched_other: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
-  decl_string_length_constant: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "b3d530ca71", notes: ["0e0d715a81", "1307e33bbf"] },
-  decl_string_length_constant_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "b3d530ca71", notes: ["0e0d715a81", "1307e33bbf"] },
-  decl_string_length_expression: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "4205ee2f44", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
-  decl_string_length_variable: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 3.2, shape: "77d0b8eca3", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_length_constant: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "bcb425e8a6", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_length_constant_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "bcb425e8a6", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_length_expression: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "b71a0d6cfa", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_string_length_variable: { evidence: "refused" },
   decl_string_zero_length: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_struct_field_at: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "6743e39285", notes: ["1307e33bbf"] },
   decl_struct_field_at_after_type: { evidence: "refused" },
@@ -1354,7 +1354,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_temp_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "a56687ac91", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   decl_temp_initialized: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "a56687ac91", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   decl_temp_retain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
-  decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "55ee6dd5f9", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
+  decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "e29606e7df", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "8b6ecf477b", "98ba0d2e70", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
   decl_temp_struct_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "856bc7521f", notes: ["1307e33bbf", "8b9a7c5eea"] },
   decl_type_enum_empty: { evidence: "refused" },
   decl_type_enum_missing_comma: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -1395,14 +1395,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_var_inst_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_var_output_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_var_stat_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
-  decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "7825d56e1e", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
+  decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "bf79d65633", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
   decl_var_temp_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_vector_constant_size: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 14, edge: "agree", size: 3.1, shape: "d6f51090c9", notes: ["02a72c2e83", "0ab1e9c511", "1307e33bbf", "693c14b0bd", "6f8ef8f0bd", "b7286c7932", "de283d0ef6"], diverges: { twincat: "known" } },
   decl_vector_of_bool: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "16977b5a38", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_vector_of_int: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 8, edge: "agree", size: 3.1, shape: "66693383ef", notes: ["1307e33bbf"] },
   decl_wstring_brackets: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   decl_wstring_brackets_mismatched: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
-  decl_wstring_length: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "85ae2212d1", notes: ["0e0d715a81", "1307e33bbf", "8597dc45bd"] },
+  decl_wstring_length: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "c6557c3db7", notes: ["0e0d715a81", "1307e33bbf", "dc950bfb03"] },
   deref_on_array_type: { evidence: "refused" },
   dflt_fb_input_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.9, shape: "32d54f7f0f", notes: ["1307e33bbf", "1524fb865f", "6cec059f2e", "b9787e0d18"] },
   dflt_function_input_from_variable: { evidence: "not-lowered" },
@@ -1435,7 +1435,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   dt_enum_implicit_storage: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 3.3, shape: "e9142ebc40", notes: ["054b93382f", "1307e33bbf"] },
   dt_enum_plain_storage: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 2.3, shape: "e9142ebc40", notes: ["054b93382f", "1307e33bbf"] },
   dt_fb_instance_into_integers: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.9, shape: "55b549ccde", notes: ["1307e33bbf", "39e68c53af", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
-  dt_fb_instance_type_name: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 5, edge: "not-run", size: 3.3, shape: "8f22da64c4", notes: ["1307e33bbf", "5d9850550d"] },
+  dt_fb_instance_type_name: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 5, edge: "not-run", size: 3.3, shape: "afbb7bfdda", notes: ["1307e33bbf", "5d9850550d"] },
   dt_function_name_in_own_body: { evidence: "refused" },
   dt_interface_into_integers: { evidence: "refused" },
   dt_interface_method_positional_values: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "65f404a24f", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "7c881bc819", "96bf43c1e7", "a497507b30", "ad25627749", "fbde4d6e1e"] },
@@ -1469,7 +1469,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   dt_static_base_fb_type: { evidence: "refused" },
   dt_static_base_function: { evidence: "refused" },
   dt_static_base_gvl: { evidence: "refused" },
-  dt_static_base_program: { evidence: "refused", tier: "indirect", rust: "rejected", pedantic: 5, edge: "not-run", size: 4.5, shape: "a364b2d023", notes: ["1307e33bbf", "58a7e6289b", "5d9850550d"] },
+  dt_static_base_program: { evidence: "refused", tier: "indirect", rust: "rejected", pedantic: 5, edge: "not-run", size: 4.5, shape: "ec550131ab", notes: ["1307e33bbf", "58a7e6289b", "5d9850550d"] },
   dt_static_base_struct_type: { evidence: "refused" },
   dt_static_base_unknown_member: { evidence: "refused" },
   dt_struct_type_name_called: { evidence: "refused" },
@@ -1533,7 +1533,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   enum_member_unique_beside_shared: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 1.6, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
   enum_member_vs_function_name: { evidence: "lsp-gap", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "e02eeccdf3", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"], diverges: { codesys: "known", twincat: "known" } },
   enum_member_vs_global: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "0908129e76", notes: ["1307e33bbf", "b9787e0d18"] },
-  enum_member_vs_method_local: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  enum_member_vs_method_local: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf", "dbdc75774e"] },
   enum_member_vs_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   enum_member_vs_variable_enum_store: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "d690da6062", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
   enum_qualified_only_bare: { evidence: "refused" },
@@ -1775,12 +1775,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fb_reinit_with_params: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "5567f878f6", notes: ["11f6ad8ec5", "1307e33bbf", "707233d6d6", "d00d314ec2"] },
   fbcall_action: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "1fb8ca213e", notes: ["3d737b5821", "8d8ff2c804"] },
   fbcall_bare_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "f435676d9f", notes: ["1307e33bbf", "4979768984", "fb7e9e6ff4"] },
-  fbcall_function_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2, shape: "e8ba88867e", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "41d2269c05"] },
+  fbcall_function_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2, shape: "e8ba88867e", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "41d2269c05", "dbdc75774e"] },
   fbcall_gvl_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 4, shape: "e94c532046", notes: ["1307e33bbf", "7ef1346b85"] },
   fbcall_inout_written_back: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.5, shape: "7bad3cb62f", notes: ["1307e33bbf", "4ebfb530bd"] },
   fbcall_input_retained: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "c0c08fd557", notes: ["1307e33bbf", "e7b84e4a19"] },
   fbcall_inputs_outputs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "2067ac4c7a", notes: ["1307e33bbf", "964296462a"] },
-  fbcall_method_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.4, shape: "739fe5ae16", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "4979768984", "6dd22a92d0"] },
+  fbcall_method_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.4, shape: "739fe5ae16", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "4979768984", "6dd22a92d0", "dbdc75774e"] },
   fbcall_nested_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.6, shape: "5b59ddb5d0", notes: ["1307e33bbf", "8d8ff2c804", "c069593bcd"] },
   fbcall_output_before_and_after: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.5, shape: "baa2877207", notes: ["1307e33bbf", "4979768984"] },
   fbcall_output_widens: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "ad3bd5d76d", notes: ["06bb3a6005", "1307e33bbf", "63d29bd1a0", "964296462a"] },
@@ -1825,60 +1825,60 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   flw_super_in_program: { evidence: "refused" },
   flw_this_in_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   flw_this_in_function: { evidence: "refused" },
-  fmt_lreal_down_1e_1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_3: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_4: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_5: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_down_1e_6: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_eight_nines_ish: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "95ef8efd39", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_exp_mantissa_fifteen: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_four_and_four: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_infinity: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "9cd0ffaae4", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_large_whole: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_many_decimals: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_more_digits_than_a_real_holds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "b814c741c1", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_negative: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "3d8bada3c7", notes: ["1707972c33", "5c40a4e5a8", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_negative_infinity: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "38da33375e", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_negative_very_large: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "bae65ad674", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_negative_very_small: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "bae65ad674", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_negative_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "bae65ad674", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_one_decimal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_seven_nines: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_seventh: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "df51cf4c92", notes: ["1707972c33", "5886a0dc2b", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_small_with_digits: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_third: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "df51cf4c92", notes: ["1707972c33", "5886a0dc2b", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_two_thirds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "322b02e499", notes: ["015dcb3b7f", "1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e11: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e12: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e13: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e14: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e15: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e16: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e17: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e4: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e5: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e6: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e7: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_up_1e9: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_very_large: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_very_small: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_whole: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_lreal_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "ba281f7fda", notes: ["1707972c33", "5d9850550d", "6a98109119", "7587dbd531"] },
-  fmt_ltime_every_component: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_day: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_hour: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_microsecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_millisecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_minute: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_nanosecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_one_second: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_the_one_already_measured: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
-  fmt_ltime_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
+  fmt_lreal_down_1e_1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_3: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_4: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_5: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_down_1e_6: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_eight_nines_ish: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "ff52c63c68", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_exp_mantissa_fifteen: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_four_and_four: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_infinity: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "f97dac8112", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_large_whole: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_many_decimals: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_more_digits_than_a_real_holds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "be0dfe85cf", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_negative: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "c507b4e7ad", notes: ["1707972c33", "57f6f7d814", "5c40a4e5a8", "5d9850550d", "6a98109119"] },
+  fmt_lreal_negative_infinity: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "1a89b62cf8", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_negative_very_large: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "d087ca9978", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_negative_very_small: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "d087ca9978", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_negative_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "d087ca9978", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_one_decimal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_seven_nines: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_seventh: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "88d21ebebc", notes: ["1707972c33", "57f6f7d814", "5886a0dc2b", "5d9850550d", "6a98109119"] },
+  fmt_lreal_small_with_digits: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_third: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "88d21ebebc", notes: ["1707972c33", "57f6f7d814", "5886a0dc2b", "5d9850550d", "6a98109119"] },
+  fmt_lreal_two_thirds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "0f50287e6f", notes: ["015dcb3b7f", "1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e11: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e12: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e13: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e14: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e15: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e16: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e17: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e4: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e5: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e6: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e7: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_up_1e9: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_very_large: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_very_small: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_whole: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_lreal_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "fa5d892325", notes: ["1707972c33", "57f6f7d814", "5d9850550d", "6a98109119"] },
+  fmt_ltime_every_component: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_day: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_hour: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_microsecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_millisecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_minute: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_nanosecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_one_second: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_the_one_already_measured: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
+  fmt_ltime_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
   fmt_real_down_1e_1: { evidence: "not-lowered" },
   fmt_real_down_1e_10: { evidence: "not-lowered" },
   fmt_real_down_1e_2: { evidence: "not-lowered" },
@@ -1925,10 +1925,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fmt_real_very_small: { evidence: "not-lowered" },
   fmt_real_whole: { evidence: "not-lowered" },
   fmt_real_zero: { evidence: "not-lowered" },
-  fmt_time_every_component: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
-  fmt_time_one_millisecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
-  fmt_time_one_second: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
-  fmt_time_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
+  fmt_time_every_component: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
+  fmt_time_one_millisecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
+  fmt_time_one_second: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
+  fmt_time_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
   for_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 5.5, shape: "f97ff5a5bf", notes: ["1307e33bbf", "1ad1ab3163", "21575de23f", "4979768984", "93a17fab28"] },
   for_counter_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 6, shape: "fecc383852", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "63d29bd1a0", "93a17fab28"] },
   for_limit_sign_change_int_on_uint: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.3, shape: "99d98bac00", notes: ["1307e33bbf", "1d7709a031", "4979768984", "521ba042ac", "65df8e0418"] },
@@ -1954,9 +1954,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   hdr_fb_extends_three: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "936ef1e336", notes: ["0e0d715a81", "1307e33bbf"] },
   hdr_fb_property_no_accessor: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   hdr_fb_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
-  hdr_function_extends: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"], diverges: { codesys: "known", twincat: "known" } },
+  hdr_function_extends: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"], diverges: { codesys: "known", twincat: "known" } },
   hdr_function_extends_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.2, shape: "a28b4193b6" },
-  hdr_function_implements: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.4, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"], diverges: { codesys: "known", twincat: "known" } },
+  hdr_function_implements: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.4, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"], diverges: { codesys: "known", twincat: "known" } },
   hdr_function_implements_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.2, shape: "a28b4193b6" },
   hdr_function_private: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   hdr_interface_extends_two: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 1.9, shape: "44a02a46eb", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
@@ -2210,7 +2210,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inh_interface_method_signature_mismatch_uninstanced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "not-run", size: 0.8, shape: "a50ba5e42d" },
   inh_interface_method_unknown_param: { evidence: "refused" },
   inh_override_final_method: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "54fcacfbce", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"], diverges: { codesys: "known", twincat: "known" } },
-  inh_override_inout_as_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.3, shape: "665dc0ad00", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "a29db6178b"] },
+  inh_override_inout_as_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.3, shape: "665dc0ad00", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "a29db6178b", "dbdc75774e"] },
   inh_override_input_as_output: { evidence: "refused" },
   inh_override_instanced_in_uninstanced_fb: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "not-run", size: 0.6, shape: "a50ba5e42d" },
   inh_override_param_count_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 6, edge: "agree", size: 2.2, shape: "4b8fefba5e", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "c8ca44a755"] },
@@ -2310,11 +2310,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ioinit_array_initializer: { evidence: "unaskable" },
   ioinit_fb_instance_literal: { evidence: "refused" },
   ioinit_struct_initializer: { evidence: "unaskable" },
-  ir_initializer_warning_in_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 44, edge: "agree", size: 4.7, shape: "89f3d81e72", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "abf2bb6e4e"] },
-  ir_initializer_warning_nested_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 44, edge: "agree", size: 3.4, shape: "9c5b6468f2", notes: ["5d9850550d"] },
+  ir_initializer_warning_in_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 44, edge: "agree", size: 4.7, shape: "e830fdbf08", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "abf2bb6e4e"] },
+  ir_initializer_warning_nested_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 44, edge: "agree", size: 3.4, shape: "7b06d45883", notes: ["5d9850550d"] },
   ir_initializer_warning_no_instance: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.8, shape: "1358d87837", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
-  ir_initializer_warning_one_instance: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "18299b1907", notes: ["5d9850550d"] },
-  ir_initializer_warning_two_instances: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "f975aeda4d", notes: ["5d9850550d"] },
+  ir_initializer_warning_one_instance: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "e9c30a5f60", notes: ["5d9850550d"] },
+  ir_initializer_warning_two_instances: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "3bd0fafd8d", notes: ["5d9850550d"] },
   itf_call_dispatches_on_instance: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 18, edge: "agree", size: 2.2, shape: "29c79d36f5", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "6b14b17ba7", "9831f2d691", "a497507b30", "ad25627749", "fbde4d6e1e"] },
   itf_extends_assigns_to_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 2.1, shape: "2e2016b44d", notes: ["11f6ad8ec5", "1307e33bbf", "335f79d286", "4979768984", "59c341cb0f", "a497507b30", "ad25627749", "fbde4d6e1e"] },
   itf_fb_input_each_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "c33da6c2c2", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "6b14b17ba7", "82e802ebc9", "a497507b30", "fbde4d6e1e"] },
@@ -2812,7 +2812,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_ns_type_name_two_libraries_other_member: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"], diverges: { codesys: "known", twincat: "known" } },
   lib_ns_type_qualified: { evidence: "not-lowered", diverges: { twincat: "known" } },
   lib_ns_type_qualified_other_library: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"], diverges: { twincat: "known" } },
-  lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 55, edge: "agree", size: 3.3, shape: "9d8a37f7b2", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "318cfd770d", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 55, edge: "agree", size: 3.3, shape: "42de7a1928", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "da046bfcbb", "dbcd1088a5"] },
   lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 47, edge: "agree", size: 2.2, shape: "688961967a", notes: ["06bb3a6005", "0969e59592", "11f6ad8ec5", "44d286d05b", "521ba042ac", "5d9850550d", "63d29bd1a0", "8539587ea0", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
   lib_prim_string_cursor_offset: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 46, edge: "agree", size: 2.4, shape: "82c140754c", notes: ["11f6ad8ec5", "1dec9ffb7e", "43aad8296c", "5d9850550d", "7cfee53212", "7e45a342fc", "9c1d0c1a6e", "dd94ff18a2"] },
   lib_std_bistables: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 5.6, shape: "cffe831b87", notes: ["1307e33bbf", "271163608b", "3ecf4f248b", "4979768984", "687428cc81", "adb6559f1f", "de132e5019"] },
@@ -2824,18 +2824,18 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_std_ton: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 25, edge: "agree", size: 6.1, shape: "8e9bcc6371", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "90c445f7cb", "98716b4ff8", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   lib_std_tp: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 29, edge: "agree", size: 6, shape: "6d9ef272aa", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "8e4b1ce4cc", "90c445f7cb", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   lib_std_tp_held: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 29, edge: "agree", size: 6, shape: "7f2ea976ba", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "d04295d4c8", "d263b8545d", "de132e5019", "e8954e2b0d"] },
-  lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 25, edge: "agree", size: 2.9, shape: "bb491cb288", notes: ["11f6ad8ec5", "14b2f39d44", "1d7709a031", "2a09a0d33c", "43aa1830f1", "65df8e0418", "687428cc81", "82fcd0be19", "9c1d0c1a6e", "a54ead1fbe", "abc8bc67de", "b7cc1b2b1d", "de132e5019"] },
-  lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 123, edge: "agree", size: 5, shape: "8781645c22", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "43aa1830f1", "521ba042ac", "5370b79269", "5d9850550d", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "dd94ff18a2", "ec21aafede"] },
-  lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.9, shape: "44ddc0af3d", notes: ["0969e59592", "11f6ad8ec5", "1d1551a034", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "687428cc81", "7e45a342fc", "8088e0ab18", "ca94bceedc", "dd94ff18a2", "de132e5019", "e6075a580f", "ec21aafede", "f31583df05", "fcc1e3ee2e"] },
-  lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 3.8, shape: "efad4b7df6", notes: ["06bb3a6005", "0969e59592", "0b353e99d9", "11f6ad8ec5", "3eed014822", "4fb82cd93a", "521ba042ac", "5c499dbdc8", "5d9850550d", "63d29bd1a0", "dd94ff18a2"] },
-  lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 89, edge: "agree", size: 5.9, shape: "2e847e652b", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "43aa1830f1", "521ba042ac", "5513d0e592", "5d9850550d", "62c7abffa7", "7db062ce2f", "8088e0ab18", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "dd94ff18a2", "e6ef5a4585", "e798927653", "ec21aafede"] },
+  lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 25, edge: "agree", size: 2.9, shape: "bb491cb288", notes: ["11f6ad8ec5", "14b2f39d44", "1d7709a031", "2a09a0d33c", "43aa1830f1", "65df8e0418", "687428cc81", "82fcd0be19", "9c1d0c1a6e", "a54ead1fbe", "abc8bc67de", "b7cc1b2b1d", "dbdc75774e", "de132e5019"] },
+  lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 123, edge: "agree", size: 5, shape: "8781645c22", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "43aa1830f1", "521ba042ac", "5370b79269", "5d9850550d", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "dbdc75774e", "dd94ff18a2", "ec21aafede"] },
+  lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.9, shape: "c6c9ee6fb8", notes: ["0969e59592", "0bb816a185", "11f6ad8ec5", "1d1551a034", "3b433bdec0", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "687428cc81", "7e45a342fc", "8088e0ab18", "ca94bceedc", "dd94ff18a2", "de132e5019", "e6075a580f", "ec21aafede"] },
+  lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 3.8, shape: "825291ecee", notes: ["06bb3a6005", "0969e59592", "0cea56d7e0", "11f6ad8ec5", "3eed014822", "521ba042ac", "5c499dbdc8", "5d9850550d", "63d29bd1a0", "c1db7399d8", "dd94ff18a2"] },
+  lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 89, edge: "agree", size: 5.9, shape: "2e847e652b", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "43aa1830f1", "521ba042ac", "5513d0e592", "5d9850550d", "62c7abffa7", "7db062ce2f", "8088e0ab18", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "dbdc75774e", "dd94ff18a2", "e6ef5a4585", "e798927653", "ec21aafede"] },
   lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 50, edge: "agree", size: 3.7, shape: "be7093028e", notes: ["06bb3a6005", "0969e59592", "11f6ad8ec5", "311bf0f5b7", "4c796f6678", "521ba042ac", "5d9850550d", "63d29bd1a0", "687428cc81", "a328a51dbd", "dd94ff18a2", "de132e5019", "e6075a580f"] },
-  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 86, edge: "agree", size: 4.5, shape: "99e55bd843", notes: ["0969e59592", "11f6ad8ec5", "1d1551a034", "34556679d4", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "7b34ea5981", "7e45a342fc", "803ee89d4f", "8088e0ab18", "9055680d64", "b2d33739c5", "d231c1a7e5", "dd94ff18a2", "deb9c88c25", "e6075a580f", "ea6f85988f", "fdb004dd33"] },
-  lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 68, edge: "agree", size: 6.9, shape: "e7d2a6765a", notes: ["0969e59592", "0b353e99d9", "11f6ad8ec5", "1d1551a034", "4c796f6678", "4fb82cd93a", "521ba042ac", "5c499dbdc8", "5d9850550d", "687428cc81", "78f3cafc1e", "7e45a342fc", "8088e0ab18", "a39c1efab6", "dd94ff18a2", "de132e5019", "e6075a580f", "ec21aafede", "f31583df05", "fcc1e3ee2e"] },
-  lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 96, edge: "agree", size: 4, shape: "ee6db5bf34", notes: ["1d1551a034", "347b79cfd5", "4fb82cd93a", "50f8dcd811", "521ba042ac", "5351b3711d", "569d2b7a40", "5c499dbdc8", "5d9850550d", "668b522f05", "6e06410746", "803ee89d4f", "8088e0ab18", "c2409a5969", "db57faba5d", "dd94ff18a2", "e6075a580f", "f10c6b31a0"] },
-  lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 90, edge: "agree", size: 6.8, shape: "b613d8ddde", notes: ["03846c1eae", "0969e59592", "11f6ad8ec5", "1307e33bbf", "1d1551a034", "256218c83c", "3cded85aba", "3d7b4a7836", "43aa1830f1", "4c796f6678", "521ba042ac", "5370b79269", "5d9850550d", "7e45a342fc", "8088e0ab18", "9a63db2a45", "9c1d0c1a6e", "a021273b0d", "a54ead1fbe", "b7cc1b2b1d", "dd94ff18a2", "e6075a580f", "ec21aafede"] },
-  lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 69, edge: "agree", size: 4.5, shape: "06a0aa17eb", notes: ["0969e59592", "11f6ad8ec5", "14b2f39d44", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "77378f7efe", "803ee89d4f", "8088e0ab18", "828ee45554", "82fcd0be19", "b8e7f28ba6", "dd94ff18a2", "e6075a580f", "e798927653", "ef4db7eb51"] },
-  lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 161, edge: "agree", size: 9.2, shape: "2a84c7aa74", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "2a09a0d33c", "521ba042ac", "5370b79269", "5513d0e592", "7db062ce2f", "8088e0ab18", "a54ead1fbe", "abc8bc67de", "dd94ff18a2", "e6ef5a4585", "e798927653", "e9a5cabd36", "ec21aafede"] },
+  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 86, edge: "agree", size: 4.5, shape: "a89fb294a9", notes: ["0969e59592", "11f6ad8ec5", "1d1551a034", "34556679d4", "3bbed3930d", "4c796f6678", "50421700bd", "521ba042ac", "5c499dbdc8", "5d9850550d", "7e45a342fc", "8088e0ab18", "9055680d64", "94c11e8f56", "b2d33739c5", "d231c1a7e5", "dd94ff18a2", "e6075a580f", "ea6f85988f", "fdb004dd33"] },
+  lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 68, edge: "agree", size: 6.9, shape: "d72594369e", notes: ["0969e59592", "0bb816a185", "0cea56d7e0", "11f6ad8ec5", "1d1551a034", "36d2a5dd78", "3b433bdec0", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "687428cc81", "7e45a342fc", "8088e0ab18", "a39c1efab6", "c1db7399d8", "dbdc75774e", "dd94ff18a2", "de132e5019", "e6075a580f", "ec21aafede"] },
+  lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 96, edge: "agree", size: 4, shape: "204fe9d85f", notes: ["0cea56d7e0", "1d1551a034", "347b79cfd5", "50f8dcd811", "521ba042ac", "5351b3711d", "569d2b7a40", "5c499dbdc8", "5d9850550d", "6e06410746", "8088e0ab18", "94c11e8f56", "c2409a5969", "db57faba5d", "dd94ff18a2", "e6075a580f", "e6fd2dc9fd", "f10c6b31a0"] },
+  lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 90, edge: "agree", size: 6.8, shape: "b613d8ddde", notes: ["03846c1eae", "0969e59592", "11f6ad8ec5", "1307e33bbf", "1d1551a034", "256218c83c", "3cded85aba", "3d7b4a7836", "43aa1830f1", "4c796f6678", "521ba042ac", "5370b79269", "5d9850550d", "7e45a342fc", "8088e0ab18", "9a63db2a45", "9c1d0c1a6e", "a021273b0d", "a54ead1fbe", "b7cc1b2b1d", "dbdc75774e", "dd94ff18a2", "e6075a580f", "ec21aafede"] },
+  lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 69, edge: "agree", size: 4.5, shape: "0df1dac933", notes: ["0969e59592", "11f6ad8ec5", "14b2f39d44", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "77378f7efe", "8088e0ab18", "82fcd0be19", "94c11e8f56", "974fbd1aae", "dd94ff18a2", "e6075a580f", "e798927653", "ef4db7eb51", "f6f7b781df"] },
+  lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 161, edge: "agree", size: 9.2, shape: "2a84c7aa74", notes: ["0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "2a09a0d33c", "521ba042ac", "5370b79269", "5513d0e592", "7db062ce2f", "8088e0ab18", "a54ead1fbe", "abc8bc67de", "dbdc75774e", "dd94ff18a2", "e6ef5a4585", "e798927653", "e9a5cabd36", "ec21aafede"] },
   lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "feed2fc488", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "c2ecf76c31", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "feed2fc488", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "c2ecf76c31", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   life_fb_var_stat_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "22fffaf56f", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
@@ -2941,7 +2941,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_real_no_fraction_digit: { evidence: "refused" },
   lit_real_no_leading_digit: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   lit_real_underscore: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "02ca4b1b79" },
-  lit_string_double_quote_inside: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.4, shape: "375c7635d6", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  lit_string_double_quote_inside: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.4, shape: "c16ffe3e3a", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   lit_string_lowercase_escapes: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 2.5, shape: "05f13430c7", notes: ["5d9850550d", "687428cc81", "a095c1d0aa", "de132e5019"] },
   lit_string_typed: { evidence: "refused" },
   lit_string_typed_double_quote: { evidence: "refused" },
@@ -2972,7 +2972,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_uchar_lowercase_prefix: { evidence: "refused" },
   lit_uchar_non_ascii: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "8061dbe395", notes: ["093ad5cc7a", "afa5d14dd9"] },
   lit_uchar_two_chars: { evidence: "refused" },
-  lit_uchar_two_chars_into_string: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "af7aed9789" },
+  lit_uchar_two_chars_into_string: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "cbf9c8e60b" },
   lit_uchar_two_escapes: { evidence: "refused" },
   lit_uchar_typed_into_bool: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "ddd682767f" },
   lit_uchar_typed_udint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "8061dbe395", notes: ["093ad5cc7a", "afa5d14dd9"] },
@@ -2980,13 +2980,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_unknown_prefix_quoted: { evidence: "refused" },
   lit_unknown_prefix_quoted_into_udint: { evidence: "refused" },
   lit_utf8_double_quote: { evidence: "refused" },
-  lit_utf8_escape: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "bbfa41507f", notes: ["687428cc81", "de132e5019"] },
+  lit_utf8_escape: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "846e01d99f", notes: ["687428cc81", "de132e5019"] },
   lit_utf8_into_wstring: { evidence: "refused" },
   lit_utf8_lowercase_into_wstring: { evidence: "refused" },
-  lit_utf8_lowercase_prefix: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "af7aed9789" },
+  lit_utf8_lowercase_prefix: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "cbf9c8e60b" },
   lit_utf8_non_ascii: { evidence: "not-lowered" },
   lit_utf8_non_ascii_into_wstring: { evidence: "refused" },
-  lit_utf8_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.4, shape: "375c7635d6", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  lit_utf8_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.4, shape: "c16ffe3e3a", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   lit_wchar_typed: { evidence: "refused" },
   lit_wchar_typed_into_bool: { evidence: "refused" },
   lit_wchar_typed_number: { evidence: "refused" },
@@ -2995,7 +2995,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_word_typed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "aacaafe9d9" },
   lit_wstring_lowercase_escapes: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 2.5, shape: "e51d8b0816", notes: ["687428cc81", "de132e5019"] },
   lit_wstring_named_escapes: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 2.3, shape: "86260316d8", notes: ["687428cc81", "de132e5019"] },
-  lit_wstring_single_quote_inside: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "5f8e04627b", notes: ["8597dc45bd"] },
+  lit_wstring_single_quote_inside: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "0e57bf3462", notes: ["dc950bfb03"] },
   lit_wstring_typed: { evidence: "refused" },
   lit_wstring_typed_single_quote: { evidence: "refused" },
   litc_array_assign_one: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.1, shape: "be9365deef", notes: ["1307e33bbf", "abe3ae1f0b"] },
@@ -3019,12 +3019,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   literal_out_of_range_assign: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 4, shape: "0963b28f8e", notes: ["1307e33bbf"] },
   literal_out_of_range_init: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3.8, shape: "6413f86a57", notes: ["1307e33bbf"] },
   literal_real_scientific: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "e7984726ef", notes: ["5c9bb13706", "74845f98c6", "fa7d5f176f"] },
-  literal_string_single_quoted: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3, shape: "9d20bfd1c2", notes: ["5d9850550d", "803ee89d4f", "fa7d5f176f"] },
+  literal_string_single_quoted: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3, shape: "93c35300a6", notes: ["5d9850550d", "94c11e8f56", "fa7d5f176f"] },
   literal_string_to_int_assignment: { evidence: "refused" },
   literal_time: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3d7e09ed27", notes: ["e8954e2b0d", "fa7d5f176f"] },
   literal_tod: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "3d7e09ed27", notes: ["e8954e2b0d", "fa7d5f176f"] },
   literal_typed_int_hash: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3e4b973eea", notes: ["0e0d715a81", "1307e33bbf", "fa7d5f176f"] },
-  literal_wstring_double_quoted: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3, shape: "70d7caac0e", notes: ["8597dc45bd", "fa7d5f176f"] },
+  literal_wstring_double_quoted: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3, shape: "78619ffda1", notes: ["dc950bfb03", "fa7d5f176f"] },
   loss_dint_to_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "981268967d", notes: ["06bb3a6005", "09f527f35b", "5c9bb13706", "63d29bd1a0", "74845f98c6"] },
   lreal_to_dint_rounding: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "agree", size: 8.2, shape: "5535015d37", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1707972c33", "4a6baf16b3", "5383e1c9ac", "63d29bd1a0", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "870b70e195", "b7286c7932", "c35f240db9", "c5844eabe9", "de283d0ef6", "f44fb59407", "fe6af35845"] },
   lt_literal_any_int_argument: { evidence: "refused" },
@@ -3340,7 +3340,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   mem_unknown_method_of_interface: { evidence: "refused" },
   mod_by_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 7.7, shape: "5df1af7c1f", notes: ["06bb3a6005", "1307e33bbf", "4a6baf16b3", "63d29bd1a0", "6f9ae8fd3a", "870b70e195", "8e689b07b9", "e8954e2b0d"] },
   monitoring_display: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "c3b7e25378", notes: ["1307e33bbf"] },
-  monitoring_encoding: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 3.2, shape: "268e4fd65f", notes: ["37c65c7fbb", "5d9850550d"] },
+  monitoring_encoding: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 3.2, shape: "ed1028976f", notes: ["3d5ad9c649", "5d9850550d"] },
   mux_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.5, shape: "01ef849627", notes: ["1307e33bbf", "96b55e688b"] },
   mux_mixed_types: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.3, shape: "e998521ed0", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
   mux_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 4.7, shape: "df3897f2a5", notes: ["1307e33bbf", "96b55e688b", "ec9a760059"] },
@@ -3443,9 +3443,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopb_generic_two_constants_one_value: { evidence: "refused", diverges: { twincat: "known" } },
   oopb_implicit_abstract_output_default: { evidence: "not-lowered", diverges: { codesys: "known" } },
   oopb_itf_inherited_method_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 1.7, shape: "8b6c41bb4c", notes: ["11f6ad8ec5", "1307e33bbf"] },
-  oopb_itf_method_from_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "94dcf992a8", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  oopb_itf_method_from_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "94dcf992a8", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "dbdc75774e"] },
   oopb_itf_method_in_base_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.2, shape: "2ac211b5d1", notes: ["11f6ad8ec5", "1307e33bbf"] },
-  oopb_itf_param_name_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.9, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  oopb_itf_param_name_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.9, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "dbdc75774e"] },
   oopb_itf_property_getter_only: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "2dac00ee75", notes: ["1307e33bbf"] },
   oopb_itf_property_missing: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   oopb_itf_property_type_mismatch: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "46fc6e416c", notes: ["06bb3a6005", "63d29bd1a0"] },
@@ -3536,7 +3536,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_attribute_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_obsolete_fb_called_twice: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "6edb240771", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   prag_attribute_obsolete_fb_declared: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "d41335477f", notes: ["0e0d715a81", "1307e33bbf"] },
-  prag_attribute_obsolete_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "5c6e2643b2", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  prag_attribute_obsolete_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "5c6e2643b2", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   prag_attribute_obsolete_method_called_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "9ee12eae29", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
@@ -3544,14 +3544,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_const_non_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "4c11d4a0d9", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
   prag_const_non_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "53d1b1caf9", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_const_non_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "3062b9e575", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
-  prag_const_non_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "3626bd5fa7", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  prag_const_non_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "9142af7b60", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   prag_const_non_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "4e2ada8dd5", notes: ["1307e33bbf", "a29db6178b"] },
   prag_const_non_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_const_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "4c11d4a0d9", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
   prag_const_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "53d1b1caf9", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_const_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "3062b9e575", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
   prag_const_replaced_on_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.7, shape: "165dfc6b0f", notes: ["1307e33bbf", "abe3ae1f0b"] },
-  prag_const_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "3626bd5fa7", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  prag_const_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "9142af7b60", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   prag_const_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "4e2ada8dd5", notes: ["1307e33bbf", "a29db6178b"] },
   prag_const_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_define_case_insensitive: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
@@ -3624,15 +3624,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_project_defined_in_declaration: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
   prag_project_defined_not_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { twincat: "known" } },
   prag_region_unclosed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
-  prag_rule_abstract_attribute_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  prag_rule_abstract_attribute_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   prag_rule_abstract_attribute_on_interface_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   prag_rule_abstract_attribute_on_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "not-run", size: 4.8, shape: "1a403fc9a3", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   prag_rule_abstract_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "0fb5408124", notes: ["1307e33bbf"] },
   prag_rule_error_in_var_section: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "ddda3a17da", notes: ["1307e33bbf", "a29db6178b"] },
-  prag_rule_hide_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.8, shape: "85b59d05df", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "803ee89d4f"] },
-  prag_rule_monitoring_encoding_lower_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "85b59d05df", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "803ee89d4f"] },
-  prag_rule_monitoring_encoding_unicode: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "53625c1646", notes: ["0e0d715a81", "1307e33bbf"] },
-  prag_rule_pingroup_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  prag_rule_hide_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.8, shape: "cf18204c91", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "94c11e8f56"] },
+  prag_rule_monitoring_encoding_lower_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "cf18204c91", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "94c11e8f56"] },
+  prag_rule_monitoring_encoding_unicode: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "85fa1a747a", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_rule_pingroup_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   prag_rule_pingroup_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   prag_rule_pingroup_on_struct: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 3, edge: "agree", size: 3.2, shape: "e8cd4d7bdf", notes: ["1307e33bbf", "a29db6178b"] },
   prag_rule_qualified_only_upper_case: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 3.5, shape: "0908129e76", notes: ["1307e33bbf", "b9787e0d18"] },
@@ -3640,11 +3640,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_rule_symbol_value_typo_on_fb: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_rule_symbol_value_upper_case: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "ddda3a17da", notes: ["1307e33bbf", "a29db6178b"] },
   prag_rule_unknown_attribute_in_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
-  prag_rule_unknown_attribute_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  prag_rule_unknown_attribute_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   prag_rule_unknown_attribute_on_gvl_variable: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 3.9, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
   prag_rule_unknown_attribute_on_interface: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   prag_rule_unknown_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
-  prag_rule_unknown_attribute_on_method_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  prag_rule_unknown_attribute_on_method_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf", "dbdc75774e"] },
   prag_rule_unknown_attribute_upper_case: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "ddda3a17da", notes: ["1307e33bbf", "a29db6178b"] },
   prag_rule_warning_above_unit: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_rule_warning_in_gvl: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 3.9, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
@@ -3660,7 +3660,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_strict_enum_literal_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_strict_enum_literal_not_a_member_assign: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_strict_enum_member_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
-  prag_to_string_absent: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.2, shape: "1b728ef7d7", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d"] },
+  prag_to_string_absent: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.2, shape: "b5787f0573", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d"] },
   prag_to_string_implicit: { evidence: "refused" },
   prag_to_string_member: { evidence: "not-lowered" },
   prag_to_string_not_a_member: { evidence: "not-lowered" },
@@ -3681,7 +3681,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_warning_mixed_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_warning_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_warning_upper_case_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
-  pragma_conflict_hide_plus_monitoring: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 2.9, shape: "268e4fd65f", notes: ["37c65c7fbb", "5d9850550d"] },
+  pragma_conflict_hide_plus_monitoring: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 2.9, shape: "ed1028976f", notes: ["3d5ad9c649", "5d9850550d"] },
   pragma_conflicting_pair: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "61038779bd", notes: ["1307e33bbf"] },
   pragma_unknown_directive: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   prim_default_bit: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.7, shape: "3d2901df54", notes: ["687428cc81", "de132e5019"] },
@@ -4120,7 +4120,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   region_basic: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "61038779bd", notes: ["1307e33bbf"] },
   region_pragma_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.3, shape: "bbf974dbab", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821", "4979768984"] },
   region_pragma_nested: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "c27316b90e", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821", "4979768984"] },
-  rkw_method_input_using: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  rkw_method_input_using: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "dbdc75774e"] },
   rkw_struct_field_char: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 3, edge: "agree", size: 3.3, shape: "48b0dd7e6b", notes: ["1307e33bbf"] },
   rotate_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.7, shape: "14f925c62d", notes: ["09eeda28bb", "1d7709a031", "65df8e0418", "9a4cb2346e"] },
   rotate_beyond_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.5, shape: "7a594e60d8", notes: ["1307e33bbf", "181d22eae0", "3aa4ff5b30"] },
@@ -4343,7 +4343,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sn_union_mismatch_used: { evidence: "refused" },
   sqrt_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 6, shape: "ca8c93cf2a", notes: ["1307e33bbf", "1671e97e30", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "a1adee154e"] },
   standard_len_wstring_rejected: { evidence: "refused" },
-  state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 43, edge: "agree", size: 4.6, shape: "0aa36188a1", notes: ["040107266f", "06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "1707972c33", "5d9850550d", "63d29bd1a0", "687428cc81", "6a98109119", "72543de594", "dd28a02e7e", "de132e5019"] },
+  state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 43, edge: "agree", size: 4.6, shape: "0aa36188a1", notes: ["040107266f", "06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "1707972c33", "5d9850550d", "63d29bd1a0", "687428cc81", "6a98109119", "72543de594", "dbdc75774e", "dd28a02e7e", "de132e5019"] },
   state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 16, edge: "agree", size: 4.1, shape: "bb8a69ea37", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "431373ac5d", "4a6baf16b3", "57ce9e2ee4", "63d29bd1a0", "64cc413c0b", "687428cc81", "870b70e195", "c5d30c56ec", "c6322760e4", "ca823a2c56", "cca22914d5", "d39e19d533", "d8e4a747d3", "dd8988b5d4", "dd94ff18a2", "de132e5019", "de8528b197", "e3343dab4f", "efd31f3397", "fbde4d6e1e"] },
   state_call_after_global_init_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.2, shape: "2eea5ff574", notes: ["1307e33bbf", "4979768984", "fa7d5f176f"] },
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 3.6, shape: "0de54de31a", notes: ["1307e33bbf", "271163608b", "4979768984", "964296462a"] },
@@ -4481,94 +4481,95 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   stmt_while_counts: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "b49fd90ec3", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "c7ac9a5e64"] },
   stmt_while_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 3.3, shape: "9069692c57", notes: ["0e0d715a81", "1307e33bbf", "521ba042ac", "687428cc81", "de132e5019"] },
   stmt_while_never: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "359c73e48b", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "e2e0d67858"] },
-  str_assign_into_exact: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "df30720f64", notes: ["0a52a768d3", "5d9850550d", "803ee89d4f"] },
-  str_assign_into_longer: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "df30720f64", notes: ["0a52a768d3", "5d9850550d", "803ee89d4f"] },
-  str_assign_into_shorter: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "df30720f64", notes: ["0a52a768d3", "5d9850550d", "803ee89d4f"] },
-  str_concat_both: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.7, shape: "acd9bdd2e7", notes: ["0d14fd327c", "11f6ad8ec5", "211808ca56", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "c05be29130", "cbcde0e5de", "d8b7f34852", "e205f81b84", "e6646a0bd0", "e8210b694c"] },
-  str_concat_empty_left: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.5, shape: "cba69445b1", notes: ["0d14fd327c", "11f6ad8ec5", "211808ca56", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "c05be29130", "cbcde0e5de", "d8b7f34852", "e205f81b84", "e6646a0bd0", "e8210b694c"] },
-  str_concat_into_short: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.7, shape: "acd9bdd2e7", notes: ["0d14fd327c", "11f6ad8ec5", "211808ca56", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "c05be29130", "cbcde0e5de", "d8b7f34852", "e205f81b84", "e6646a0bd0", "e8210b694c"] },
-  str_delete_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "d7c1a0dbc7", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "e6646a0bd0", "ec1b55e90b", "f39a4e5fb5"] },
-  str_delete_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "d7c1a0dbc7", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "e6646a0bd0", "ec1b55e90b", "f39a4e5fb5"] },
-  str_delete_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "d7c1a0dbc7", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "e6646a0bd0", "ec1b55e90b", "f39a4e5fb5"] },
-  str_delete_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "d7c1a0dbc7", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "e6646a0bd0", "ec1b55e90b", "f39a4e5fb5"] },
-  str_find_absent: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.6, shape: "c0b9e4b66b", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
-  str_find_empty_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.4, shape: "aaa60e09da", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
-  str_find_longer_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.6, shape: "c0b9e4b66b", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
-  str_find_present: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.4, shape: "aaa60e09da", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
-  str_insert_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "8c7bf34a20", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
-  str_insert_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "8c7bf34a20", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
-  str_insert_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "8c7bf34a20", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
-  str_insert_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "8c7bf34a20", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
-  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "f56e5aa76d", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "e6646a0bd0"] },
-  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "95f83902e3", notes: ["0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "e6646a0bd0"] },
-  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "f56e5aa76d", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "e6646a0bd0"] },
-  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "f56e5aa76d", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "e6646a0bd0"] },
-  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "f56e5aa76d", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "e6646a0bd0"] },
-  str_len_after_truncation: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.9, shape: "b8ff13c167", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  str_len_empty: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.9, shape: "b8ff13c167", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  str_len_five: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4, shape: "4305ccd1a5", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  str_mid_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "b63776bbff", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "8ee065ce1a", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "b63776bbff", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "8ee065ce1a", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "b63776bbff", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "8ee065ce1a", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "b63776bbff", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "8ee065ce1a", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_mid_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "f7c7d24181", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7a85af3c04", "803ee89d4f", "98ba0d2e70", "9c8d21e237", "de2f16610e", "e6646a0bd0"] },
-  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "f951578f2d", notes: ["0205cf3af0", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
-  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "f951578f2d", notes: ["0205cf3af0", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
-  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "f951578f2d", notes: ["0205cf3af0", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
-  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "f951578f2d", notes: ["0205cf3af0", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
-  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "d9361881b8", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "e6646a0bd0"] },
-  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "b6d0374e05", notes: ["0464b7d671", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "e6646a0bd0"] },
-  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "d9361881b8", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "e6646a0bd0"] },
-  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "d9361881b8", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "e6646a0bd0"] },
-  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "d9361881b8", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "e6646a0bd0"] },
+  str_assign_into_exact: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
+  str_assign_into_longer: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
+  str_assign_into_shorter: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
+  str_concat_both: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.7, shape: "41f1203cd1", notes: ["0d14fd327c", "11f6ad8ec5", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbdc75774e", "e6646a0bd0"] },
+  str_concat_empty_left: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.5, shape: "230912ec8f", notes: ["0d14fd327c", "11f6ad8ec5", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbdc75774e", "e6646a0bd0"] },
+  str_concat_into_short: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 57, edge: "agree", size: 4.7, shape: "41f1203cd1", notes: ["0d14fd327c", "11f6ad8ec5", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbdc75774e", "e6646a0bd0"] },
+  str_delete_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "a685a67f40", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_delete_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "a685a67f40", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_delete_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "a685a67f40", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_delete_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 5.6, shape: "a685a67f40", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_find_absent: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.6, shape: "3f11a08f1d", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  str_find_empty_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.4, shape: "de8fcbeba8", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  str_find_longer_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.6, shape: "3f11a08f1d", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  str_find_present: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 5.4, shape: "de8fcbeba8", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "cbcde0e5de", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  str_insert_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "332c394e7c", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "dbdc75774e", "e6646a0bd0"] },
+  str_insert_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "332c394e7c", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "dbdc75774e", "e6646a0bd0"] },
+  str_insert_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "332c394e7c", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "dbdc75774e", "e6646a0bd0"] },
+  str_insert_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 6.2, shape: "332c394e7c", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "dbdc75774e", "e6646a0bd0"] },
+  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "1025d3e585", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "e6646a0bd0"] },
+  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "ecea99196a", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "e6646a0bd0"] },
+  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "1025d3e585", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "e6646a0bd0"] },
+  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "1025d3e585", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "e6646a0bd0"] },
+  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.7, shape: "1025d3e585", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "e6646a0bd0"] },
+  str_len_after_truncation: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.9, shape: "101e986766", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  str_len_empty: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.9, shape: "101e986766", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  str_len_five: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4, shape: "2ccad20839", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  str_mid_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_len0_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_len0_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_len0_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_len0_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_lenneg_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "a8e0ae6777", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_lenneg_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "a8e0ae6777", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_lenneg_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "a8e0ae6777", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_lenneg_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "a8e0ae6777", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_mid_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.1, shape: "49c8f004ef", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "5e5aa25221", "7a85af3c04", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "16f08cb1ba", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5a131ce074", "5d9850550d", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "16f08cb1ba", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5a131ce074", "5d9850550d", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "16f08cb1ba", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5a131ce074", "5d9850550d", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 8.5, shape: "16f08cb1ba", notes: ["0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5a131ce074", "5d9850550d", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "94c11e8f56", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "e6646a0bd0", "f39a4e5fb5"] },
+  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "14fd6f7ddf", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "1d1551a034", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "7a85af3c04", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "dbdc75774e", "e6646a0bd0"] },
+  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "e98c1cdf5d", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "1d1551a034", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "7a85af3c04", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "dbdc75774e", "e6646a0bd0"] },
+  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "14fd6f7ddf", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "1d1551a034", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "7a85af3c04", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "dbdc75774e", "e6646a0bd0"] },
+  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "14fd6f7ddf", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "1d1551a034", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "7a85af3c04", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "dbdc75774e", "e6646a0bd0"] },
+  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 56, edge: "agree", size: 4.8, shape: "14fd6f7ddf", notes: ["0d14fd327c", "11f6ad8ec5", "163ffc50fa", "1d1551a034", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5d9850550d", "7a85af3c04", "83ed1aab47", "94c11e8f56", "98ba0d2e70", "dbdc75774e", "e6646a0bd0"] },
   string_arithmetic_rejected: { evidence: "refused" },
-  string_assign_tail_narrow: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 2.8, shape: "29db19900d", notes: ["054b93382f", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "318cfd770d", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_assign_tail_wide: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 61, edge: "agree", size: 3.1, shape: "86090876b5", notes: ["054b93382f", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "318cfd770d", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_assign_truncation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 42, edge: "agree", size: 4.7, shape: "e6f5a8e4de", notes: ["0a52a768d3", "5d9850550d"] },
+  string_assign_tail_narrow: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 2.8, shape: "c07ff2566f", notes: ["054b93382f", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "8b6ecf477b", "98ba0d2e70", "a573b540d2", "da046bfcbb", "dbcd1088a5"] },
+  string_assign_tail_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 3.1, shape: "ce6e25ce6f", notes: ["054b93382f", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "8b6ecf477b", "98ba0d2e70", "a573b540d2", "da046bfcbb", "dbcd1088a5"] },
+  string_assign_truncation: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 42, edge: "agree", size: 4.7, shape: "a2bd36f33b", notes: ["5d9850550d"] },
   string_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 6.7, shape: "3a1cddf2a2", notes: ["5d9850550d", "687428cc81", "a095c1d0aa", "de132e5019"] },
   string_compare_operators: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 2.7, shape: "51833c6142", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
-  string_compare_tail: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 1.9, shape: "64f80fd8b5", notes: ["318cfd770d", "5d9850550d", "687428cc81", "803ee89d4f", "8597dc45bd", "a095c1d0aa", "de132e5019"] },
-  string_concat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 56, edge: "agree", size: 9.3, shape: "6a550e8cb9", notes: ["0d14fd327c", "11f6ad8ec5", "211808ca56", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "c05be29130", "cbcde0e5de", "d8b7f34852", "e205f81b84", "e6646a0bd0", "e8210b694c"] },
-  string_conversion_result_capacity: { evidence: "diverges", tier: "control", rust: "compiles", pedantic: 71, edge: "agree", size: 2, shape: "bfe45fed0d", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "4979768984", "521ba042ac", "5d9850550d", "93a17fab28", "d54a668b9a", "e9e296435a"] },
-  string_conversion_result_tail: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 113, edge: "agree", size: 2.3, shape: "ed03a5a891", notes: ["054b93382f", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "5d9850550d", "d54a668b9a", "e9e296435a"] },
-  string_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 5.5, shape: "9d46eea60d", notes: ["10af274f28", "1307e33bbf", "5d9850550d", "ec9a760059"] },
-  string_conversions_formats: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 73, edge: "agree", size: 18.3, shape: "4fa15d5912", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "211808ca56", "448986061e", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5c9bb13706", "5d9850550d", "687428cc81", "74845f98c6", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "b7bdb5cfef", "cbcde0e5de", "de132e5019", "e6646a0bd0", "e8954e2b0d", "f0973f1bcc"] },
-  string_conversions_more: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 10.5, shape: "5dfa2fe62b", notes: ["10af274f28", "12e93440b3", "1307e33bbf", "448986061e", "4a6baf16b3", "5c9bb13706", "5d9850550d", "74845f98c6", "de132e5019", "e8954e2b0d"] },
-  string_default_length: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 50, edge: "agree", size: 7.2, shape: "909e761c77", notes: ["0a52a768d3", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 85, edge: "agree", size: 24, shape: "8dfaab4447", notes: ["0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "cbcde0e5de", "dbcd1088a5", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  string_compare_tail: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 1.9, shape: "b0b0c27ade", notes: ["5d9850550d", "687428cc81", "94c11e8f56", "a095c1d0aa", "da046bfcbb", "dc950bfb03", "de132e5019"] },
+  string_concat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 56, edge: "agree", size: 9.3, shape: "97f79507a7", notes: ["0d14fd327c", "11f6ad8ec5", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbdc75774e", "e6646a0bd0"] },
+  string_conversion_result_capacity: { evidence: "diverges", tier: "control", rust: "compiles", pedantic: 71, edge: "agree", size: 2, shape: "a1a04809ed", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "4979768984", "521ba042ac", "5d9850550d", "93a17fab28"] },
+  string_conversion_result_tail: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 113, edge: "agree", size: 2.3, shape: "8f1a43c1ed", notes: ["054b93382f", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "5d9850550d"] },
+  string_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 5.5, shape: "61f57a313e", notes: ["1307e33bbf", "5d9850550d", "c867edb1d3", "ec9a760059"] },
+  string_conversions_formats: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 73, edge: "agree", size: 18.3, shape: "40379038b4", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "405fc80910", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5c9bb13706", "5d9850550d", "687428cc81", "74845f98c6", "8088e0ab18", "98ba0d2e70", "b2d33739c5", "b592939dbf", "b5a9bef60f", "cbcde0e5de", "dbdc75774e", "de132e5019", "e6646a0bd0", "e8954e2b0d"] },
+  string_conversions_more: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 10.5, shape: "9077e6c5d6", notes: ["12e93440b3", "1307e33bbf", "4a6baf16b3", "5c9bb13706", "5d9850550d", "74845f98c6", "b5a9bef60f", "c867edb1d3", "de132e5019", "e8954e2b0d"] },
+  string_default_length: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 50, edge: "agree", size: 7.2, shape: "4b8dd93c39", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 85, edge: "agree", size: 24, shape: "e48a966606", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "185a887a57", "1d1551a034", "21ef64a1e0", "4c9f4e33f4", "4d5ea12dda", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "7a85af3c04", "8088e0ab18", "83ed1aab47", "98ba0d2e70", "9c8d21e237", "a573b540d2", "cbcde0e5de", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f5ca982c14"] },
   string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 50, edge: "agree", size: 7.5, shape: "997a3ac3bc", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 51, edge: "agree", size: 13, shape: "a89fb676c6", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "de132e5019"] },
   string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.6, shape: "74fb3a1acd", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 65, edge: "agree", size: 13.3, shape: "cc66ec4000", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "47a7c12d8a", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
-  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 88, edge: "agree", size: 25.7, shape: "275783f0df", notes: ["0205cf3af0", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "7566f32b5e", "7a85af3c04", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 76, edge: "agree", size: 18, shape: "07a90d0191", notes: ["0464b7d671", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "dbcd1088a5", "de2f16610e", "e6646a0bd0"] },
-  string_limit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "d45cf1b1ed", notes: ["5d9850550d"] },
-  string_literal_nul_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 76, edge: "agree", size: 2.6, shape: "11ad7df922", notes: ["054b93382f", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "a9e4905c5a", notes: ["59b92aa532", "5d9850550d"] },
-  string_max_differing_case: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "a9e4905c5a", notes: ["59b92aa532", "5d9850550d"] },
-  string_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "b7dd355cf0", notes: ["59b48cdb5b", "5d9850550d"] },
+  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 65, edge: "agree", size: 13.3, shape: "0ca1bdd7e5", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "2e591ac56e", "3cf4e6fa21", "47a7c12d8a", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "98ba0d2e70", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
+  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 88, edge: "agree", size: 25.7, shape: "b94df84a4e", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "5a131ce074", "5d9850550d", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
+  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 76, edge: "agree", size: 18, shape: "6c526b314c", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "185a887a57", "1d1551a034", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "7a85af3c04", "8088e0ab18", "83ed1aab47", "98ba0d2e70", "9c8d21e237", "a573b540d2", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
+  string_limit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "add054f0eb", notes: ["5d9850550d"] },
+  string_literal_nul_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 76, edge: "agree", size: 2.6, shape: "a62d049bc8", notes: ["054b93382f", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "8b6ecf477b", "94c11e8f56", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  string_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "850701fc53", notes: ["5d9850550d"] },
+  string_max_differing_case: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "850701fc53", notes: ["5d9850550d"] },
+  string_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "2757e06dc5", notes: ["5d9850550d"] },
   string_non_ascii_bytes: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 52, edge: "agree", size: 4.2, shape: "525c8e404e", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 100, edge: "agree", size: 31.7, shape: "3dd3c5afba", notes: ["0205cf3af0", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7566f32b5e", "7a85af3c04", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 107, edge: "agree", size: 33.5, shape: "5b3045edf1", notes: ["0205cf3af0", "0464b7d671", "0969e59592", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  string_store_destination_kinds_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 91, edge: "agree", size: 2.2, shape: "fa059d40d5", notes: ["054b93382f", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1d9f55ded0", "318cfd770d", "37c65c7fbb", "46c17ef7d3", "521ba042ac", "5d9850550d", "687428cc81", "803ee89d4f", "de132e5019"] },
-  string_store_function_result_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 99, edge: "agree", size: 2.9, shape: "14075ecb65", notes: ["054b93382f", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1d1551a034", "211808ca56", "3cf4e6fa21", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "708b7c88b3", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8597dc45bd", "8e30e6691c", "98ba0d2e70", "c05be29130", "cbcde0e5de", "d54a668b9a", "d8b7f34852", "e205f81b84", "e6646a0bd0", "e8210b694c"] },
+  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 100, edge: "agree", size: 31.7, shape: "5ad1a87aec", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "650e10d85c", "7a85af3c04", "8088e0ab18", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
+  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 107, edge: "agree", size: 33.5, shape: "6dcaecbe30", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "163ffc50fa", "19dfd3f883", "1d1551a034", "3cacc7bfac", "405fc80910", "4c9f4e33f4", "4d5ea12dda", "50226e2c19", "521ba042ac", "572efde5ab", "5a131ce074", "5d9850550d", "5e5aa25221", "650e10d85c", "7a85af3c04", "8088e0ab18", "83ed1aab47", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f39a4e5fb5", "f5ca982c14"] },
+  string_store_destination_kinds_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 101, edge: "agree", size: 2.2, shape: "33d0a0e2f8", notes: ["054b93382f", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1d9f55ded0", "46c17ef7d3", "521ba042ac", "5d9850550d", "687428cc81", "8b6ecf477b", "da046bfcbb", "dc277bd73f", "de132e5019"] },
+  string_store_function_input_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 53, edge: "agree", size: 2, shape: "7a31d9bb07", notes: ["054b93382f", "11f6ad8ec5", "521ba042ac", "5370b79269", "5d9850550d", "687428cc81", "8b6ecf477b", "da046bfcbb", "de132e5019"] },
+  string_store_function_result_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 99, edge: "agree", size: 2.9, shape: "22368b363d", notes: ["054b93382f", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1b6d6589aa", "1d1551a034", "2e591ac56e", "3cf4e6fa21", "46c17ef7d3", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "8b6ecf477b", "94c11e8f56", "98ba0d2e70", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbdc75774e", "dc950bfb03", "e6646a0bd0"] },
   string_to_real_parse: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 51, edge: "agree", size: 11, shape: "a35ad6cc8b", notes: ["1707972c33", "5c9bb13706", "5d9850550d", "6a98109119", "74845f98c6"] },
   string_wstring_mixing: { evidence: "refused" },
-  strord_capacity_longer_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.1, shape: "f4c1939542", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "286d90b120", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  strord_capacity_shorter_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.1, shape: "c9b66b01c7", notes: ["05a142a4f4", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
-  strord_empty: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
-  strord_equal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
-  strord_high_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
-  strord_length_vs_first: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
-  strord_prefix: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
-  strord_two_high: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "8260dcb59e", notes: ["59b48cdb5b", "59b92aa532", "5d9850550d", "687428cc81", "de132e5019"] },
+  strord_capacity_longer_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.1, shape: "c383ae3d86", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  strord_capacity_shorter_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 4.1, shape: "0da5533f45", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  strord_empty: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
+  strord_equal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
+  strord_high_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
+  strord_length_vs_first: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
+  strord_prefix: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
+  strord_two_high: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "687428cc81", "de132e5019"] },
   subrange_assign_const_out: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "not-run", size: 3, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   subrange_init_above_range: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "not-run", size: 3.7, shape: "198ab55c44", notes: ["1307e33bbf"] },
   subrange_init_below_range: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "not-run", size: 3.7, shape: "13873be932", notes: ["1307e33bbf", "ec9a760059"] },
@@ -4603,9 +4604,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sym_method_before_pou_name: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   sym_method_input_named_as_method: { evidence: "refused" },
   sym_method_local_named_as_method: { evidence: "refused" },
-  sym_method_local_shadows_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf"] },
+  sym_method_local_shadows_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "41923c8375", notes: ["11f6ad8ec5", "1307e33bbf", "dbdc75774e"] },
   sym_method_output_param_bound: { evidence: "not-lowered" },
-  sym_method_param_shadows_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0"] },
+  sym_method_param_shadows_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "347959c4c9", notes: ["11f6ad8ec5", "1307e33bbf", "6dd22a92d0", "dbdc75774e"] },
   sym_method_result_read_in_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3, shape: "aecbf17a62", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269", "7c881bc819"] },
   sym_named_argument_beside_ambiguous_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 1.6, shape: "ab1db2750a", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "41d2269c05"] },
   sym_namespace_block_unit_checked: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.4, shape: "a50ba5e42d" },
@@ -4659,7 +4660,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tc_swap_dword: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.5, shape: "1dfecf40c9", notes: ["e8954e2b0d"] },
   tc_swap_word: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.5, shape: "ad029364a2", notes: ["1d7709a031", "65df8e0418"] },
   tc2_gvl_var_names: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 3.9, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
-  temporal_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 70, edge: "agree", size: 6.4, shape: "5179b6348d", notes: ["02a72c2e83", "0ab1e9c511", "1707972c33", "32a9e6d2e3", "5c9bb13706", "5d9850550d", "693c14b0bd", "6a98109119", "6e691851a6", "6f8ef8f0bd", "74845f98c6", "8653414194", "91d3eef64b", "b7286c7932", "de283d0ef6", "e8954e2b0d"] },
+  temporal_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 70, edge: "agree", size: 6.4, shape: "10eb31b2fe", notes: ["02a72c2e83", "0ab1e9c511", "1707972c33", "32a9e6d2e3", "5c9bb13706", "5d9850550d", "693c14b0bd", "6a98109119", "6e691851a6", "6f8ef8f0bd", "74845f98c6", "8653414194", "91d3eef64b", "b7286c7932", "de283d0ef6", "e8954e2b0d"] },
   text_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "9c87a5e56b", notes: ["1307e33bbf", "4979768984"] },
   time_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.2, shape: "0a06c1cbc8", notes: ["e8954e2b0d"] },
   time_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.2, shape: "9b4c268b58", notes: ["687428cc81", "de132e5019", "e8954e2b0d"] },
@@ -4667,8 +4668,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   time_multiply_divide: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "318f407c98", notes: ["1307e33bbf", "e8954e2b0d"] },
   time_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "0d401832d0", notes: ["6bf6856d37", "e8954e2b0d"] },
   tod_wrap_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.4, shape: "3706cbc9a1", notes: ["6bf6856d37", "e8954e2b0d"] },
-  tr_11_string_conversion_beyond_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 2.6, shape: "7b662a9712", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "8986d5305c", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
-  tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "88fbb6a2fa", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
+  tr_11_string_conversion_beyond_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 80, edge: "agree", size: 2.6, shape: "72d826e036", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "21ef64a1e0", "2e591ac56e", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5d9850550d", "8986d5305c", "93a17fab28", "94c11e8f56", "98ba0d2e70", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
+  tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "89bc326c16", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 12.2, shape: "f18cbffe95", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "not-lowered" },
   tr_16_fb_copy_carries_inout_binding: { evidence: "not-lowered" },
@@ -4680,8 +4681,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
   tr_20_output_index_moved_by_callee: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 2.7, shape: "57ac4e8994", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
-  tr_21_namespace_bare_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "4c454109c0", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "4c9f4e33f4", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
-  tr_21_namespace_qualified_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "55a4f7414c", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },
+  tr_21_namespace_bare_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "4c454109c0", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "4c9f4e33f4", "65df8e0418", "a54ead1fbe", "abc8bc67de", "dbdc75774e"] },
+  tr_21_namespace_qualified_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "55a4f7414c", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "dbdc75774e"] },
   tr_22_fb_init_reads_adr_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "fc6c3b9cfd", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "49346d6299", "75cc82a569", "8a9bb48ddb", "dd94ff18a2", "fa7d5f176f"] },
   tr_22_fb_init_reads_call_field: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.5, shape: "b354277f2a", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "49346d6299", "8a9bb48ddb", "8ccaa880cd", "fa7d5f176f"] },
   tr_22_fb_init_reads_this_field: { evidence: "not-lowered" },
@@ -4701,10 +4702,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_29_method_named_to_owned_result: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d41194ad6a", notes: ["11f6ad8ec5", "1307e33bbf", "a29db6178b"] },
   tr_29_method_named_try_into_no_result: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "62cef3037a", notes: ["1307e33bbf", "3d737b5821", "a29db6178b"] },
   tr_29_method_named_try_into_result: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d41194ad6a", notes: ["11f6ad8ec5", "1307e33bbf", "a29db6178b"] },
-  tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.2, shape: "c093cf3c37", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
-  tr_32_fmt_ltime_past_i64: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 47, edge: "agree", size: 2.4, shape: "5276512907", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
-  tr_33_fmt_lreal_tie: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 50, edge: "agree", size: 2.1, shape: "3a2551b872", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
-  tr_34_lib_prim_char_behind: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 2.5, shape: "dd3d4c3a97", notes: ["013de1dc6a", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "318cfd770d", "45292dbd9c", "4c9f4e33f4", "521ba042ac", "5d9850550d", "75cc82a569", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5", "dd94ff18a2", "f7ea0fc7a1"] },
+  tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.2, shape: "766413ec13", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
+  tr_32_fmt_ltime_past_i64: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 47, edge: "agree", size: 2.4, shape: "5e023cbfcd", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
+  tr_33_fmt_lreal_tie: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 50, edge: "agree", size: 2.1, shape: "b3ae58fd98", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
+  tr_34_lib_prim_char_behind: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 2.5, shape: "f221af5d81", notes: ["013de1dc6a", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "45292dbd9c", "4c9f4e33f4", "521ba042ac", "5d9850550d", "75cc82a569", "94c11e8f56", "98ba0d2e70", "a573b540d2", "da046bfcbb", "dbcd1088a5", "dd94ff18a2", "f7ea0fc7a1"] },
   tr_35_for_byte_runtime_int_step: { evidence: "lsp-gap" },
   tr_35_for_byte_step_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 5, shape: "bbe7629c07", notes: ["1307e33bbf", "4979768984", "521ba042ac"] },
   tr_35_for_byte_step_minus_one: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 5, shape: "138eb2b850", notes: ["1307e33bbf", "4979768984", "521ba042ac"] },
@@ -4728,7 +4729,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_43_output_word_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "af659936a3", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
   tr_43_output_word_to_udint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "70c818a9fd", notes: ["1d7709a031", "65df8e0418", "e8954e2b0d"] },
   tr_44_pointer_step_below_first_element: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 17, edge: "agree", size: 2.5, shape: "5a7f4e0390", notes: ["013de1dc6a", "1307e33bbf", "32f4b8cabb", "41d2232599", "687428cc81", "75cc82a569", "dd94ff18a2", "de132e5019", "de8528b197", "fbde4d6e1e"] },
-  tr_45_string_embedded_nul: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 2.8, shape: "32cd85f801", notes: ["0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "2506fd8442", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a095c1d0aa", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "de132e5019", "e6646a0bd0", "e8210b694c"] },
+  tr_45_string_embedded_nul: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 2.8, shape: "6439a7dcb2", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "21ef64a1e0", "2506fd8442", "2e591ac56e", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "de132e5019", "e6646a0bd0"] },
   tr_46_exptdom_1e19_pow_8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 5, shape: "1df5ac8bc1", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_minus_one_pow_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "eff0a3a592", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_minus_one_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "92a265e8b8", notes: ["1707972c33", "6a98109119"] },
@@ -4752,31 +4753,31 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   try_nested: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_no_fault: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_one_line: { evidence: "not-lowered", diverges: { twincat: "known" } },
-  ty_any_bit_parameter_accepts_bool: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "ab9665378c", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "72543de594", "de132e5019"] },
-  ty_any_bit_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
-  ty_any_date_parameter_accepts_tod: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "e8954e2b0d"] },
-  ty_any_date_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
-  ty_any_elementary_parameter_rejects_struct: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "486cb2c0ac", notes: ["06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "687428cc81", "de132e5019"], diverges: { codesys: "known", twincat: "known" } },
-  ty_any_int_parameter_accepts_word: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "507980de8d", notes: ["06bb3a6005", "11f6ad8ec5", "1d7709a031", "63d29bd1a0", "65df8e0418"] },
-  ty_any_int_parameter_rejects_real: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "efe531bb87", notes: ["06bb3a6005", "11f6ad8ec5", "5c9bb13706", "63d29bd1a0", "74845f98c6"] },
-  ty_any_magnitude_parameter_accepts_time: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "e8954e2b0d"], diverges: { codesys: "known", twincat: "known" } },
+  ty_any_bit_parameter_accepts_bool: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "ab9665378c", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "72543de594", "dbdc75774e", "de132e5019"] },
+  ty_any_bit_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
+  ty_any_date_parameter_accepts_tod: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dbdc75774e", "e8954e2b0d"] },
+  ty_any_date_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
+  ty_any_elementary_parameter_rejects_struct: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "486cb2c0ac", notes: ["06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "687428cc81", "dbdc75774e", "de132e5019"], diverges: { codesys: "known", twincat: "known" } },
+  ty_any_int_parameter_accepts_word: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "507980de8d", notes: ["06bb3a6005", "11f6ad8ec5", "1d7709a031", "63d29bd1a0", "65df8e0418", "dbdc75774e"] },
+  ty_any_int_parameter_rejects_real: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "efe531bb87", notes: ["06bb3a6005", "11f6ad8ec5", "5c9bb13706", "63d29bd1a0", "74845f98c6", "dbdc75774e"] },
+  ty_any_magnitude_parameter_accepts_time: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dbdc75774e", "e8954e2b0d"], diverges: { codesys: "known", twincat: "known" } },
   ty_any_num_as_local_variable: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
-  ty_any_num_parameter_accepts_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
-  ty_any_num_parameter_accepts_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "efe531bb87", notes: ["06bb3a6005", "11f6ad8ec5", "5c9bb13706", "63d29bd1a0", "74845f98c6"] },
-  ty_any_num_parameter_rejects_bool: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "77bae6ab7e", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "687428cc81", "72543de594", "de132e5019"] },
-  ty_any_num_parameter_rejects_string: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 42, edge: "agree", size: 2.2, shape: "faf4b5a5f1", notes: ["06bb3a6005", "11f6ad8ec5", "5d9850550d", "63d29bd1a0"] },
-  ty_any_num_parameter_rejects_time: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "e8954e2b0d"] },
-  ty_any_parameter_accepts_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "486cb2c0ac", notes: ["06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "687428cc81", "de132e5019"] },
-  ty_any_real_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
-  ty_any_string_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
+  ty_any_num_parameter_accepts_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
+  ty_any_num_parameter_accepts_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "efe531bb87", notes: ["06bb3a6005", "11f6ad8ec5", "5c9bb13706", "63d29bd1a0", "74845f98c6", "dbdc75774e"] },
+  ty_any_num_parameter_rejects_bool: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "77bae6ab7e", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "687428cc81", "72543de594", "dbdc75774e", "de132e5019"] },
+  ty_any_num_parameter_rejects_string: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 42, edge: "agree", size: 2.2, shape: "faf4b5a5f1", notes: ["06bb3a6005", "11f6ad8ec5", "5d9850550d", "63d29bd1a0", "dbdc75774e"] },
+  ty_any_num_parameter_rejects_time: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "274861e1ce", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dbdc75774e", "e8954e2b0d"] },
+  ty_any_parameter_accepts_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "486cb2c0ac", notes: ["06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "687428cc81", "dbdc75774e", "de132e5019"] },
+  ty_any_real_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
+  ty_any_string_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
   ty_array_of_bit: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 8, edge: "agree", size: 3.1, shape: "34525768eb", notes: ["4e213fd264", "687428cc81", "de132e5019"] },
   ty_array_of_pointer: { evidence: "not-lowered" },
   ty_array_of_reference: { evidence: "refused" },
   ty_bit_as_fb_input: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "cd2b0ebb3d", notes: ["687428cc81", "de132e5019"] },
   ty_bit_as_fb_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "1efd6b27b1", notes: ["687428cc81", "73505351ad", "de132e5019"] },
-  ty_bit_as_function_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "558bf44c3b", notes: ["11f6ad8ec5", "687428cc81", "de132e5019"] },
-  ty_bit_as_method_variable: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "9100f89993", notes: ["11f6ad8ec5", "687428cc81", "de132e5019"] },
-  ty_bit_as_variable: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "85e22f63d0", notes: ["11f6ad8ec5", "687428cc81", "de132e5019"] },
+  ty_bit_as_function_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "558bf44c3b", notes: ["11f6ad8ec5", "687428cc81", "dbdc75774e", "de132e5019"] },
+  ty_bit_as_method_variable: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "9100f89993", notes: ["11f6ad8ec5", "687428cc81", "dbdc75774e", "de132e5019"] },
+  ty_bit_as_variable: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "85e22f63d0", notes: ["11f6ad8ec5", "687428cc81", "dbdc75774e", "de132e5019"] },
   ty_bit_in_gvl: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 3.8, shape: "a804c6b51b", notes: ["687428cc81", "b9787e0d18", "de132e5019"] },
   ty_dint_to_uxint: { evidence: "not-lowered" },
   ty_pointer_size_twincat: { evidence: "refused" },
@@ -4789,8 +4790,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ty_xint_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "136da61d6a", notes: ["06bb3a6005", "12e93440b3", "1307e33bbf", "4a6baf16b3", "63d29bd1a0", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
   ty_xint_to_dint_result_type: { evidence: "refused" },
   ty_xint_twincat_width: { evidence: "refused" },
-  type_any_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
-  type_any_int_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0"] },
+  type_any_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
+  type_any_int_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "481124a8b3", notes: ["040107266f", "06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "dbdc75774e"] },
   type_array_2d: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3, shape: "e1df0f4eca", notes: ["4026548939", "67c71ff35c", "fa7d5f176f"] },
   type_array_of_int: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "bde9630159", notes: ["e02b80c3c1", "fa7d5f176f"] },
   type_codesys_uxint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "78fbee2300", notes: ["3d737b5821", "4bf3f61062", "90c445f7cb", "a497507b30"] },
@@ -4800,13 +4801,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   type_codesys_xword: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "78fbee2300", notes: ["3d737b5821", "4bf3f61062", "90c445f7cb", "a497507b30"] },
   type_deref_non_pointer: { evidence: "refused" },
   type_dut_alias_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 2.6, shape: "2a1cdc2058", notes: ["e8954e2b0d"] },
-  type_dut_alias_string: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 42, edge: "agree", size: 2.6, shape: "046e0314ff", notes: ["5d9850550d", "803ee89d4f"] },
+  type_dut_alias_string: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 42, edge: "agree", size: 2.6, shape: "1315ac1879", notes: ["5d9850550d", "94c11e8f56"] },
   type_dut_alias_with_init: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "6262a9ac5c", notes: ["1307e33bbf", "4979768984"] },
   type_dut_enum_explicit_values: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "1358d87837", notes: ["0e0d715a81", "1307e33bbf"] },
   type_dut_enum_simple: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "1358d87837", notes: ["0e0d715a81", "1307e33bbf"] },
   type_dut_enum_with_base: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "b2e3d2ee5e" },
   type_dut_struct_base: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "aac65beb1e", notes: ["1307e33bbf"] },
-  type_dut_struct_extends: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 44, edge: "agree", size: 3.4, shape: "4f65a93c9d", notes: ["1307e33bbf", "37c65c7fbb", "5d9850550d"] },
+  type_dut_struct_extends: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 44, edge: "agree", size: 3.4, shape: "8ee6e7a7e5", notes: ["1307e33bbf", "3d5ad9c649", "5d9850550d"] },
   type_dut_struct_inner: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "aac65beb1e", notes: ["1307e33bbf"] },
   type_dut_struct_nested: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "9012d8c1a5", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
   type_dut_struct_simple: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "d9d52bc3f2", notes: ["1307e33bbf"] },
@@ -4822,7 +4823,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   type_implicit_enum_inline: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   type_pointer_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "076066d657", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
   type_reference_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "d79c102454", notes: ["1307e33bbf", "ad25627749", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
-  type_string_n: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.8, shape: "5cef4c28ab", notes: ["5d9850550d", "803ee89d4f", "fa7d5f176f"] },
+  type_string_n: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.8, shape: "b8590c2345", notes: ["5d9850550d", "94c11e8f56", "fa7d5f176f"] },
   type_var_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "ddae256eea", notes: ["1307e33bbf", "3d737b5821"] },
   type_var_temp_in_method: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.4, shape: "ecf0c90732", notes: ["1307e33bbf", "3d737b5821", "5370b79269", "9610f67747"] },
   typed_literal_constant_fold: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 4.5, shape: "10d7b1b841", notes: ["06bb3a6005", "1307e33bbf", "24588decbd", "63d29bd1a0", "6e95d900d2"] },
@@ -5002,7 +5003,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_external_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 4.3, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
   var_inline_enum_decl: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "457933b767", notes: ["0e0d715a81", "1307e33bbf", "271163608b", "3d737b5821"] },
   var_input_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "fc611f6914", notes: ["1307e33bbf"] },
-  var_input_constant_default_as_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.1, shape: "d1122cb50c", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "521ba042ac", "5370b79269", "8ccaa880cd"] },
+  var_input_constant_default_as_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.1, shape: "d1122cb50c", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "521ba042ac", "5370b79269", "8ccaa880cd", "dbdc75774e"] },
   var_input_constant_default_in_init: { evidence: "not-lowered" },
   var_input_output_inout_on_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.4, shape: "ced8ff26f4", notes: ["1307e33bbf", "833efb5917", "e7b84e4a19"] },
   var_inst_in_method: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.5, shape: "7e1374d317", notes: ["1307e33bbf", "3d737b5821", "4979768984"] },
@@ -5012,33 +5013,33 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_retain: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3866846b47", notes: ["06bb3a6005", "3d737b5821", "63d29bd1a0"] },
   var_stat_in_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.4, shape: "ed9b175e71", notes: ["1307e33bbf", "7ef1346b85"] },
   var_temp_dynamic_init: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 3.6, shape: "d04f7418d2", notes: ["1307e33bbf", "30d5674ec4", "7c7cff3d31", "7ef1346b85", "ae38098da5"] },
-  vsp_retain_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.2, shape: "983e487d99", notes: ["11f6ad8ec5", "1307e33bbf", "8ccaa880cd"] },
-  vsp_retain_input_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  vsp_retain_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.2, shape: "983e487d99", notes: ["11f6ad8ec5", "1307e33bbf", "8ccaa880cd", "dbdc75774e"] },
+  vsp_retain_input_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "7b45ed90f5", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "dbdc75774e"] },
   vsp_retain_output_in_fb: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "9c87a5e56b", notes: ["1307e33bbf", "4979768984"] },
   vsp_var_config_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.3, shape: "524e30ddc6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   vsp_var_global_in_fb: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.7, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   vsp_var_global_in_program: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "not-run", size: 4.1, shape: "1a403fc9a3", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   warning_disable_restore: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "9c87a5e56b", notes: ["1307e33bbf", "4979768984"] },
   warning_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "9c87a5e56b", notes: ["1307e33bbf", "4979768984"] },
-  wstring_assign_tail_narrow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.4, shape: "538bd72bfa", notes: ["0a52a768d3", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "8597dc45bd"] },
-  wstring_assign_tail_wide: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 53, edge: "agree", size: 2.6, shape: "b299b33e76", notes: ["0a52a768d3", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "8597dc45bd"] },
-  wstring_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 42, edge: "agree", size: 6, shape: "b90198142f", notes: ["0a52a768d3", "687428cc81", "de132e5019"] },
+  wstring_assign_tail_narrow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.4, shape: "97f45fc97b", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "9d62c9b3e2"] },
+  wstring_assign_tail_wide: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.6, shape: "9ceb70c8e2", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac", "9d62c9b3e2"] },
+  wstring_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 42, edge: "agree", size: 6, shape: "d9fc50bbc9", notes: ["687428cc81", "de132e5019"] },
   wstring_code_units: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 42, edge: "agree", size: 4.8, shape: "b9ca8bb6bc", notes: ["687428cc81", "de132e5019"] },
-  wstring_literal_nul_tail: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 80, edge: "agree", size: 2.1, shape: "0b453c62ba", notes: ["0a52a768d3", "0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "4979768984", "521ba042ac", "8597dc45bd", "93a17fab28"] },
+  wstring_literal_nul_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 80, edge: "agree", size: 2.1, shape: "3e6252e54b", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "4979768984", "521ba042ac", "93a17fab28", "9d62c9b3e2", "dc950bfb03"] },
   wstring_non_ascii: { evidence: "refused" },
   wstring_surrogate_pair: { evidence: "refused" },
   xf_bool_to_int_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "466d2127e1", notes: ["1307e33bbf"] },
   xf_bool_to_real_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "ad73bea6ea", notes: ["5c9bb13706", "74845f98c6", "873f201d21"] },
-  xf_bool_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "da611e5ed6", notes: ["45e329cf8f", "5d9850550d"] },
+  xf_bool_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "bf296e303f", notes: ["5d9850550d", "e763b5dd7a"] },
   xf_date_to_dt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "a943721e20", notes: ["093ad5cc7a", "afa5d14dd9", "e8954e2b0d", "eeb7e2463d"] },
   xf_date_to_ldate: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "6346d46303", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "c2729b1a2a"] },
   xf_date_to_ldate_call_once: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.2, shape: "413b997609", notes: ["11f6ad8ec5", "1307e33bbf", "90c445f7cb", "a497507b30"], diverges: { twincat: "known" } },
   xf_date_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "6346d46303", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "c2729b1a2a"] },
   xf_date_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "33cb113169", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "b7631cfae9"] },
-  xf_date_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "110d6cbb37", notes: ["093ad5cc7a", "5cd04259c1", "5d9850550d", "afa5d14dd9"] },
+  xf_date_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "0beefefa1e", notes: ["093ad5cc7a", "5564cd017c", "5d9850550d", "afa5d14dd9"] },
   xf_date_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "98314c40f3", notes: ["093ad5cc7a", "afa5d14dd9", "e7c5e77bb8", "e8954e2b0d"] },
   xf_dint_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "55d698611d", notes: ["90c445f7cb", "a497507b30"] },
-  xf_dint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "f037f4ce7b", notes: ["5d9850550d", "63c4ea9498", "e921bd1d7e"] },
+  xf_dint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58d9ca00a6", notes: ["5d9850550d", "63c4ea9498", "85e51471f9"] },
   xf_dint_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "37187d827e", notes: ["e8954e2b0d"] },
   xf_dt_to_date: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "75dc2c2449", notes: ["093ad5cc7a", "4d6263fb86", "afa5d14dd9", "e8954e2b0d"] },
   xf_dt_to_date_call_once: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.2, shape: "830723ed45", notes: ["11f6ad8ec5", "1307e33bbf", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
@@ -5046,7 +5047,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_dt_to_ldate_call_once: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 10, edge: "agree", size: 2.2, shape: "ebe1600ee7", notes: ["11f6ad8ec5", "1307e33bbf", "90c445f7cb", "a497507b30"], diverges: { twincat: "known" } },
   xf_dt_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "6346d46303", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "c2729b1a2a"] },
   xf_dt_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "33cb113169", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "b7631cfae9"] },
-  xf_dt_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "27688e748a", notes: ["093ad5cc7a", "5d9850550d", "7e482a6261", "afa5d14dd9"] },
+  xf_dt_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "8d3f591462", notes: ["093ad5cc7a", "5cefb347f0", "5d9850550d", "afa5d14dd9"] },
   xf_dt_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "98314c40f3", notes: ["093ad5cc7a", "afa5d14dd9", "e7c5e77bb8", "e8954e2b0d"] },
   xf_int_to_bool_negative: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "663abc8fbb", notes: ["687428cc81", "9b7b8014c4", "a29db6178b", "de132e5019"] },
   xf_int_to_bool_one: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "99e0f27b34", notes: ["687428cc81", "a29db6178b", "de132e5019"] },
@@ -5067,7 +5068,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_ldt_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "534c887ed7", notes: ["9c7ca7c1f9", "e8954e2b0d"] },
   xf_ltime_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "8f4bac900c", notes: ["06bb3a6005", "63d29bd1a0"] },
   xf_ltime_to_lint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "3d7439515d", notes: ["4a6baf16b3", "870b70e195"] },
-  xf_ltime_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "7ce0891c9e", notes: ["5d9850550d", "c9573720ef"] },
+  xf_ltime_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "3099808d48", notes: ["5d9850550d", "a0672773fa"] },
   xf_ltime_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "b3f97e37c3", notes: ["e8954e2b0d"] },
   xf_ltime_to_udint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "b24bb70361", notes: ["e8954e2b0d"] },
   xf_ltime_to_ulint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "2c20dafee2", notes: ["90c445f7cb", "a497507b30"] },
@@ -5099,12 +5100,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_time_to_lint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "85db520b34", notes: ["093ad5cc7a", "4a6baf16b3", "870b70e195", "afa5d14dd9"] },
   xf_time_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "6346d46303", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "c2729b1a2a"] },
   xf_time_to_lword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "b4ed98238c", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9"] },
-  xf_time_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
+  xf_time_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
   xf_time_to_udint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "3f049bcb7c", notes: ["093ad5cc7a", "afa5d14dd9", "e8954e2b0d"] },
   xf_time_to_uint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "6c61cca858", notes: ["093ad5cc7a", "1d7709a031", "65df8e0418", "afa5d14dd9"] },
   xf_time_to_ulint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "b4ed98238c", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9"] },
-  xf_time_zero_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "e04813bb5e", notes: ["093ad5cc7a", "5d9850550d", "afa5d14dd9", "c689147e80"] },
-  xf_tod_round_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "c8899172a5", notes: ["093ad5cc7a", "463c3aa6a9", "5d9850550d", "afa5d14dd9"] },
+  xf_time_zero_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.1, shape: "58f1504625", notes: ["093ad5cc7a", "5d9850550d", "6f19035a22", "afa5d14dd9"] },
+  xf_tod_round_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "4e45d36789", notes: ["093ad5cc7a", "5d9850550d", "aeb527c9e6", "afa5d14dd9"] },
   xf_tod_to_date: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "7201e2c306", notes: ["093ad5cc7a", "8346bf3968", "afa5d14dd9", "e8954e2b0d"] },
   xf_tod_to_date_call_once: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.2, shape: "b1c3ad7ce0", notes: ["11f6ad8ec5", "1307e33bbf", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
   xf_tod_to_dt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "b35ec8b5bf", notes: ["093ad5cc7a", "6b4f1bb990", "afa5d14dd9", "e8954e2b0d"] },
@@ -5112,7 +5113,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_tod_to_ldate_call_once: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.2, shape: "ebe1600ee7", notes: ["11f6ad8ec5", "1307e33bbf", "90c445f7cb", "a497507b30"], diverges: { twincat: "known" } },
   xf_tod_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "6346d46303", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "c2729b1a2a"] },
   xf_tod_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "33cb113169", notes: ["093ad5cc7a", "90c445f7cb", "a497507b30", "afa5d14dd9", "b7631cfae9"] },
-  xf_tod_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "c8899172a5", notes: ["093ad5cc7a", "463c3aa6a9", "5d9850550d", "afa5d14dd9"] },
+  xf_tod_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 45, edge: "agree", size: 3.1, shape: "4e45d36789", notes: ["093ad5cc7a", "5d9850550d", "aeb527c9e6", "afa5d14dd9"] },
   xo_enum_case_across_objects: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 8, edge: "agree", size: 1.9, shape: "e261f32805", notes: ["1307e33bbf", "4979768984"] },
   xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 20, edge: "agree", size: 2, shape: "dab7953b39", notes: ["11f6ad8ec5", "1307e33bbf", "373f640901", "4979768984", "521ba042ac", "5370b79269", "770670a973", "8d7dcea3f3", "c9c77500c6", "fb7e9e6ff4"] },
   xo_gvl_shared_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
@@ -5124,7 +5125,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_reference_index_step: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 15, edge: "agree", size: 2.8, shape: "b194567726", notes: ["1307e33bbf", "abe3ae1f0b", "ad25627749", "dd94ff18a2", "de8528b197", "e02b80c3c1", "fbde4d6e1e"] },
   xo_reference_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "4fe9fc3750", notes: ["11f6ad8ec5", "1307e33bbf", "377c1dfc31", "4d8c0c87ee", "707233d6d6", "8c658bedd7", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e", "fda03fa84f"] },
   xo_reference_to_fb_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.7, shape: "1c03f4d895", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "ad25627749", "c9cd63632c", "dd94ff18a2", "de132e5019", "de8528b197", "fbde4d6e1e"] },
-  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 4.3, shape: "d7bc09a99b", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "a7ca9e8349", "c05be29130", "cb2199fcf3", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "df1778304b", "e6646a0bd0", "e8210b694c"] },
+  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 67, edge: "agree", size: 4.3, shape: "13b406e395", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "2e591ac56e", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5a131ce074", "5d9850550d", "8088e0ab18", "83ed1aab47", "98ba0d2e70", "a31de5f5e1", "a573b540d2", "a7ca9e8349", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
   xo_tally_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "9a969560c1", notes: ["1307e33bbf"] },
   xo_three_level_super_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 14, edge: "agree", size: 3.2, shape: "d277e0e151", notes: ["11f6ad8ec5", "1307e33bbf", "293906cee0", "5370b79269"] },
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 3, shape: "f43890d546", notes: ["1307e33bbf", "b9787e0d18", "eff90824ac"] },
@@ -5134,10 +5135,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 23, edge: "agree", size: 2.6, shape: "ecb3f0a134", notes: ["07d4272a6e", "0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "bff12f96c5", "c9c77500c6", "c9cd63632c"] },
   xo2_case_ranges_over_enum: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "37a86478cb", notes: ["0e0d715a81", "1307e33bbf"] },
   xo2_fb_instance_as_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.7, shape: "640b6e430c", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "52d85b7cdc", "9999dc327a", "f0065dbd0b"] },
-  xo2_function_returns_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 2.5, shape: "237c840c82", notes: ["11f6ad8ec5", "1307e33bbf", "2fd81c587c", "37f5ec3b06", "5d9850550d", "687428cc81", "96f5f06912", "b733155a29", "c49c211047", "de132e5019"] },
+  xo2_function_returns_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 2.5, shape: "f404791e16", notes: ["11f6ad8ec5", "1307e33bbf", "2fd81c587c", "37f5ec3b06", "5d9850550d", "687428cc81", "96f5f06912", "b733155a29", "de132e5019"] },
   xo2_grade_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "11a0606b96", notes: ["1307e33bbf"] },
   xo2_grid_of_structs: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 27, edge: "agree", size: 2.6, shape: "ab09b2d80d", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "204a887600", "271163608b", "46c17ef7d3", "4979768984", "521ba042ac", "687428cc81", "93a17fab28", "95094bd48a", "b0965eecf6", "de132e5019"] },
-  xo2_instance_in_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 49, edge: "agree", size: 2.7, shape: "85a48aa16c", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "37c65c7fbb", "5d9850550d", "c9cd63632c", "cd54e9d497"] },
+  xo2_instance_in_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 49, edge: "agree", size: 2.7, shape: "3ac3591022", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "3d5ad9c649", "5d9850550d", "c9cd63632c", "cd54e9d497"] },
   xo2_interface_extends: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "fe8e152e10", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "4979768984", "59c341cb0f", "a497507b30", "ad25627749", "fbde4d6e1e"] },
   xo2_method_outputs_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 2.4, shape: "282462e9aa", notes: ["11f6ad8ec5", "1307e33bbf", "3357f26b8d", "7a6f282031", "96a5b25b66", "bb4c155c09", "ed3ad19a47"] },
   xo2_pointer_step_variable: { evidence: "not-lowered" },
@@ -5152,13 +5153,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_inout_chain_four_deep: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "cce558e8fb", notes: ["01e84968c3", "06bb3a6005", "0b51d542e8", "11f6ad8ec5", "1307e33bbf", "373f640901", "63d29bd1a0", "8064ae1570", "cc3063b338"] },
   xo3_interface_input_passed_on: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 2.2, shape: "a27aa39008", notes: ["1307e33bbf", "4979768984", "4b5007906a", "51ea066d8e", "53bd7d992e", "6713eb5cc0", "821a3bb974", "a497507b30", "ca81b2092d", "fbde4d6e1e"] },
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.5, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
-  xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "f6f253829d", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "8ccaa880cd"] },
+  xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "f6f253829d", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "8ccaa880cd", "dbdc75774e"] },
   xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "2df57f800c", notes: ["06bb3a6005", "1307e33bbf", "4979768984", "63d29bd1a0", "fb7e9e6ff4"] },
-  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "79acb2b0ec", notes: ["08b9196831", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "8986d5305c", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "d54a668b9a", "dbcd1088a5", "de132e5019", "e9e296435a"] },
+  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "4b7311c252", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "5d9850550d", "687428cc81", "8986d5305c", "98ba0d2e70", "a095c1d0aa", "a1c2206655", "a573b540d2", "dbcd1088a5", "de132e5019"] },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 48, edge: "agree", size: 2.9, shape: "fa8e03698d", notes: ["1307e33bbf", "5d9850550d", "8b9a7c5eea", "90ba7cf588", "ac452bc801"] },
   xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.9, shape: "6d36038c87", notes: ["1307e33bbf", "14e2fedf17", "3b823fe0e7", "687428cc81", "83d24ce33a", "b9787e0d18", "c2a92e6f4e", "de132e5019", "e708298af7"] },
-  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 52, edge: "agree", size: 3.5, shape: "7712b46cf3", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "4c9f4e33f4", "521ba042ac", "687428cc81", "90205de00e", "90e7185468", "98ba0d2e70", "a573b540d2", "dbcd1088a5", "de132e5019", "e8162bb9aa"] },
-  xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 81, edge: "agree", size: 3.7, shape: "18e8f12a02", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d835ef992", "1d9f55ded0", "211808ca56", "3cf4e6fa21", "46c17ef7d3", "4a599db8d8", "4c9f4e33f4", "521ba042ac", "5d9850550d", "6a2b5f2826", "803ee89d4f", "98ba0d2e70", "a573b540d2", "c05be29130", "c58cc5538f", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
+  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 52, edge: "agree", size: 3.5, shape: "d465c062c1", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "4c9f4e33f4", "521ba042ac", "687428cc81", "8f5f221644", "98ba0d2e70", "a573b540d2", "dbcd1088a5", "de132e5019", "e19e17485d", "e8162bb9aa"] },
+  xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 81, edge: "agree", size: 3.7, shape: "9684380e03", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d9f55ded0", "250357816b", "2e591ac56e", "3cf4e6fa21", "46c17ef7d3", "4a599db8d8", "4c9f4e33f4", "521ba042ac", "5d9850550d", "6a2b5f2826", "939dcea16f", "94c11e8f56", "98ba0d2e70", "a573b540d2", "c45bfa2727", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "dbdc75774e", "e6646a0bd0"] },
   xo4_case_over_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "0b83d86691", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984"] },
   xo4_fb_init_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 2.7, shape: "5888a4b9b7", notes: ["0ab2575555", "1307e33bbf", "4979768984", "707233d6d6", "8a9bb48ddb", "c069593bcd", "fa7d5f176f", "fbfd8ba027"] },
   xo4_gvl_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
@@ -5167,10 +5168,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo4_method_inst_and_stat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 3, shape: "da32a9b789", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "7ee47c4eab", "7ef1346b85", "8ccaa880cd", "b9787e0d18", "f62e4d99a5"] },
   xo4_query_between_interfaces: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.4, shape: "38a38fcd3e", notes: ["11f6ad8ec5", "1307e33bbf", "4edbb4135a", "687428cc81", "6dd22a92d0", "707233d6d6", "73505351ad", "96bf43c1e7", "a497507b30", "ad25627749", "de132e5019", "fbde4d6e1e"] },
   xo4_real_precision_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 2.2, shape: "4a1faaed52", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "11f6ad8ec5", "1707972c33", "63d29bd1a0", "63e6752512", "687428cc81", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "84ac703739", "b532048eaa", "b7286c7932", "de132e5019", "de283d0ef6", "eeb4929f34"] },
-  xo4_return_in_every_routine: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 1.7, shape: "af721641f1", notes: ["0969e59592", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "5370b79269", "58f3434567", "6dd22a92d0", "7c881bc819", "a3ca286f93", "de132e5019", "fb7e9e6ff4"] },
+  xo4_return_in_every_routine: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 1.7, shape: "af721641f1", notes: ["0969e59592", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "5370b79269", "58f3434567", "6dd22a92d0", "7c881bc819", "a3ca286f93", "dbdc75774e", "de132e5019", "fb7e9e6ff4"] },
   xo4_slot_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.6, shape: "900042f6ce", notes: ["1307e33bbf", "5d9850550d"] },
-  xo4_string_constant_too_long: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.2, shape: "a29b8b1789", notes: ["5d9850550d", "803ee89d4f", "8597dc45bd"] },
-  xo4_two_writers_one_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 55, edge: "agree", size: 2.7, shape: "5e75f1941b", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "7ef1346b85", "8f2ea71862", "acb72c4272", "b9787e0d18", "c86923a1ee", "c9c77500c6"] },
+  xo4_string_constant_too_long: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 2.2, shape: "ec673d86f6", notes: ["5d9850550d", "8b6ecf477b", "94c11e8f56", "dc950bfb03"] },
+  xo4_two_writers_one_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 55, edge: "agree", size: 2.7, shape: "edd95a0a1b", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d", "7ef1346b85", "8f2ea71862", "a4ff08580b", "acb72c4272", "b9787e0d18", "c9c77500c6"] },
   xp_bool_to_date: { evidence: "not-lowered" },
   xp_bool_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "6b3dc52e1f", notes: ["06bb3a6005", "63d29bd1a0"] },
   xp_bool_to_dt: { evidence: "not-lowered" },
@@ -5353,7 +5354,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_lword_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
   xp_lword_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
   xp_lword_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
-  xp_lword_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "e737d2d6e1", notes: ["5d9850550d", "e921bd1d7e"] },
+  xp_lword_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "21ba734d0a", notes: ["5d9850550d", "85e51471f9"] },
   xp_lword_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "14c8d340b4", notes: ["e8954e2b0d"] },
   xp_lword_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "14c8d340b4", notes: ["e8954e2b0d"] },
   xp_lword_to_wstring: { evidence: "not-lowered" },
@@ -5372,7 +5373,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_sint_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "4e20a45ace", notes: ["90c445f7cb", "a497507b30"] },
   xp_sint_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "4e20a45ace", notes: ["90c445f7cb", "a497507b30"] },
   xp_sint_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "4e20a45ace", notes: ["90c445f7cb", "a497507b30"] },
-  xp_sint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "88d73e003f", notes: ["5d9850550d", "e921bd1d7e"] },
+  xp_sint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "05dd26ac71", notes: ["5d9850550d", "85e51471f9"] },
   xp_sint_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "b40847b03b", notes: ["e8954e2b0d"] },
   xp_sint_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "b40847b03b", notes: ["e8954e2b0d"] },
   xp_sint_to_wstring: { evidence: "not-lowered" },
@@ -5429,7 +5430,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_udint_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "6a0a245257", notes: ["90c445f7cb", "a497507b30", "afa5d14dd9"] },
   xp_udint_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "6a0a245257", notes: ["90c445f7cb", "a497507b30", "afa5d14dd9"] },
   xp_udint_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "6a0a245257", notes: ["90c445f7cb", "a497507b30", "afa5d14dd9"] },
-  xp_udint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "3f90fe8081", notes: ["5d9850550d", "afa5d14dd9", "e921bd1d7e"] },
+  xp_udint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "e6bb50e376", notes: ["5d9850550d", "85e51471f9", "afa5d14dd9"] },
   xp_udint_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "08c1c51bd9", notes: ["afa5d14dd9", "e8954e2b0d"] },
   xp_udint_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "08c1c51bd9", notes: ["afa5d14dd9", "e8954e2b0d"] },
   xp_udint_to_wstring: { evidence: "not-lowered" },
@@ -5450,7 +5451,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_ulint_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
   xp_ulint_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
   xp_ulint_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "c1740ba021", notes: ["90c445f7cb", "a497507b30"] },
-  xp_ulint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "e737d2d6e1", notes: ["5d9850550d", "e921bd1d7e"] },
+  xp_ulint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 44, edge: "agree", size: 3.3, shape: "21ba734d0a", notes: ["5d9850550d", "85e51471f9"] },
   xp_ulint_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "14c8d340b4", notes: ["e8954e2b0d"] },
   xp_ulint_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "14c8d340b4", notes: ["e8954e2b0d"] },
   xp_ulint_to_wstring: { evidence: "not-lowered" },
@@ -5461,7 +5462,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_usint_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "d8001db424", notes: ["90c445f7cb", "a497507b30"] },
   xp_usint_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "d8001db424", notes: ["90c445f7cb", "a497507b30"] },
   xp_usint_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "d8001db424", notes: ["90c445f7cb", "a497507b30"] },
-  xp_usint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "e07f248a3a", notes: ["5d9850550d", "e921bd1d7e"] },
+  xp_usint_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "84637baaf2", notes: ["5d9850550d", "85e51471f9"] },
   xp_usint_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "0fe4d792e3", notes: ["e8954e2b0d"] },
   xp_usint_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "0fe4d792e3", notes: ["e8954e2b0d"] },
   xp_usint_to_wstring: { evidence: "not-lowered" },
@@ -5472,7 +5473,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xp_word_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "46a2817f6a", notes: ["90c445f7cb", "a497507b30"] },
   xp_word_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "46a2817f6a", notes: ["90c445f7cb", "a497507b30"] },
   xp_word_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "46a2817f6a", notes: ["90c445f7cb", "a497507b30"] },
-  xp_word_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "c83c52325b", notes: ["5d9850550d", "e921bd1d7e"] },
+  xp_word_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "a590345bf7", notes: ["5d9850550d", "85e51471f9"] },
   xp_word_to_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "e4633e90b0", notes: ["e8954e2b0d"] },
   xp_word_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "e4633e90b0", notes: ["e8954e2b0d"] },
   xp_word_to_wstring: { evidence: "not-lowered" },
@@ -5563,20 +5564,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
     tasks: ["7.9.3"],
   },
-  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i16; m(__arg_N, …) }.to();
-  "0205cf3af0": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice). Also: When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
-      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
-      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3", "7.4.3"],
-  },
   // if x.is_nan() { return L; }
   "02a72c2e83": {
     improvement: "f64::round already rounds half away from zero and is odd-symmetric: round(-2.5) = -3, round(-0.0) = -0.0, round(NaN) = NaN. So the sign branch is the identity. Emit `let c = v.round();`. The 32-bit helper can also fold to `if c.is_nan() || c >= 9223372036854775808.0 { 0 } else if c < -2147483648.0 { i32::MIN } else { c as i64 as i32 }`.",
@@ -5597,16 +5584,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
     tasks: ["7.7.9"],
   },
-  // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64)).to();
-  "0464b7d671": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
-    alternatives: [
-      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
-      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    ],
-    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    tasks: ["7.4.1", "7.4.3"],
-  },
   // x: [Lu8; L],
   "054b93382f": {
     improvement: "Keeping the members of a WORD/BYTE[2] union in sync emits `{ let __mod_l = ...; let __mod_r = 256u64; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }` twice per write, zero-guarding a constant 256. A Rust engineer writes `self.u.b = self.u.w.to_le_bytes();` and `self.u.w = u16::from_le_bytes(self.u.b);`. Values are correct (probed r1/un.st: 4813, 205, 171).",
@@ -5623,17 +5600,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "055df7e5f8": {
     improvement: "A structured initial value is emitted as a block that mutates a fresh value: `{ let mut v = T::new(); v.x = 1i16; v.y = 2.5f32; v }`, nested for a struct inside a struct. Struct update syntax, `T { x: 1i16, y: 2.5f32, ..T::new() }`, is the idiomatic single expression and needs no shadowed `v`.",
     tasks: ["7.8.3"],
-  },
-  // self.f = iec_max(self.f.to::<L>(), self.f).to::<L>().to();
-  "05a142a4f4": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
   },
   // x: [Lf32, …, (-Lf32)],
   "060ccf97cc": {
@@ -5721,20 +5687,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.3.12"],
   },
-  // self.narrow = self.f.narrow::<L>().to::<L>().to();
-  "08b9196831": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies. Also: LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-      "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
-      "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2", "7.4.6"],
-  },
   // self.f = { let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
   "08ce268604": {
     improvement: "`{ let __mod_l = v; let __mod_r = 86400000000000u64; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`: the divisor is a nonzero literal (every calendar conversion lowers to this), so the zero check and both bindings are dead. Print `(v % 86_400_000_000_000u64)` when the right operand is a nonzero constant; wrapping_rem is only needed for a signed divisor of -1.",
@@ -5789,16 +5741,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
   },
-  // self.f = m(self.f.to::<L>(), -Li16).to::<L>().to();
-  "0a2a55e976": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
-  },
-  // self.f = self.f.to::<L>().to();
-  "0a52a768d3": {
-    improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
-    tasks: ["7.4.1"],
-  },
   // fn m(v: f64) -> i32 {
   "0ab1e9c511": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` does the same as `let c = v.round();`. f64::round already rounds half away from zero on both signs, and -0.0 stays -0.0. Emitted in every one of 182+57 fixtures that use the helpers.",
@@ -5814,17 +5756,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
     tasks: ["7.7.8"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))).to();
-  "0b353e99d9": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
-  },
   // __inout_index_N: Li16,
   "0b358286cb": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
@@ -5834,6 +5765,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "0b51d542e8": {
     improvement: "Re-lending a VAR_IN_OUT that is already `&mut T` prints an explicit reborrow `&mut (*x)`. Passing `x` reborrows implicitly. When the bound place is a bare inout or lent root with an empty path, print the name.",
     tasks: ["7.8.6"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))));
+  "0bb816a185": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // self.f = { m(self.f); self.f[(self.f as i64).wrapping_add(-Li64) as usize].f };
   "0c7c4434c4": {
@@ -5849,6 +5791,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "0cbdff077d": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
     tasks: ["7.8.7"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8));
+  "0cea56d7e0": {
+    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
+    alternatives: [
+      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
+      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    ],
+    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3", "7.2.4"],
   },
   // self.v = ({ m(self.f); self.v } as i32).wrapping_add(Li32) as i16;
   "0cf79a4fb2": {
@@ -5900,11 +5852,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "const nonzero divisor → `(l % r)`; keep the guard only for a runtime divisor",
     why: "MOD by a literal is the common case",
     tasks: ["7.2.6"],
-  },
-  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to();
-  "10af274f28": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
   },
   // x
   "11f6ad8ec5": {
@@ -5993,6 +5940,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "159ca60812": {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
     tasks: ["7.2.9"],
+  },
+  // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64));
+  "163ffc50fa": {
+    improvement: "`s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
+    alternatives: [
+      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
+      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    ],
+    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.3"],
   },
   // __inout_guard_N: L,
   "16410bb3a0": {
@@ -6134,6 +6091,15 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
     tasks: ["7.7.8"],
   },
+  // x = IecString::<L>::lit(B);
+  "1b6d6589aa": {
+    improvement: "The function-result variable is always declared with a default, assigned, and returned: `let mut inner: IecString<40> = IecString::<40>::lit(b\"\"); inner = IecString::<40>::lit(b\"FB_CP_named.Inner\").to(); inner`. This is faithful to ST, where the result can be read before it is set. When a body's first statement unconditionally assigns the result and nothing reads it earlier, the declaration could take that value directly, or the body could end in the expression. For strings it also saves building a throwaway empty IecString.",
+    alternatives: [
+      "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
+      "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
+    ],
+    tasks: ["7.7.3"],
+  },
   // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
   "1bb6d1cb14": {
     improvement: "MOD by a non-zero CONSTANT still emits the zero-divisor block `{ let __mod_l = …; let __mod_r = 1000u32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`. With a literal divisor it is just `x % 1000` (or `wrapping_rem` for a -1 divisor).",
@@ -6187,17 +6153,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table",
     tasks: ["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", "7.2.5", "7.3.1"],
   },
-  // self.f.f[(Li8 as i64) as usize] = IecString::<L>::lit(B).to();
-  "1d835ef992": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type. Also: An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
-    alternatives: [
-      "Today: always castTo i64, then `as usize` or `(.. - lower) as usize`.",
-      "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
-      "lower != 0 with a const index: fold `k - lower` at emit time.",
-    ],
-    chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
-    tasks: ["7.4.1", "7.2.14"],
-  },
   // x: [IecString::<L>::lit(B); L],
   "1d9f55ded0": {
     improvement: "`IecWString::<80>::lit(&[97u16, 98u16, 99u16])` needs no per-element suffix, since the slice type is inferred from lit's T: `&[97, 98, 99]`. An empty literal `IecString::<8>::lit(b\"\")` is `IecString::<8>::new()`.",
@@ -6248,18 +6203,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "204a887600": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
     tasks: ["7.5.2"],
-  },
-  // x = x.to();
-  "211808ca56": {
-    improvement: "A character read through a string cursor copies the whole IecStr out of the borrow: `{ iec_deref(p); *__str_p }.char_at(i)` is 256+ bytes per character, so O(n²) per LEN/TRIM/COPY loop. A write guards twice and copies twice: `iec_deref(p); *__str_p = { iec_deref(p); *__str_p }.with_char(..).to();`. Put the guard around the whole method call (`{ iec_deref(p); __str_p.char_at(i) }`) and add an in-place `set_char(&mut self, i, c)` to the prelude for stores. Also: Every string store appends `.to()`, a truncating copy through lit, even when the value already has the target's capacity. Examples: `left = left.with_char(..).to()`, `concat = str1.to()`, and `self.left_two = left(..).to::<80>().to()`, which converts twice. Skip `.to()` when rustType(s.value.type) === rustType(into) and the target is not a generic-capacity inout.",
-    alternatives: [
-      "TODAY: value-semantics with_char(self) -> Self, plus a copy out of the borrow",
-      "`&mut self` set_char plus a guard around the call (my choice: same semantics, and the interpreter's setChar needs no change)",
-      "keep with_char but guard the call rather than the load: removes the read copy only",
-    ],
-    chosen: "`&mut self` set_char plus a guard around the call",
-    why: "same semantics, and the interpreter's setChar needs no change",
-    tasks: ["7.4.4", "7.4.1"],
   },
   // if (self.f as i32) > Li32 {
   "21575de23f": {
@@ -6323,16 +6266,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "one source of truth, so the bound and the slice cannot disagree",
     tasks: ["7.5.7"],
   },
-  // x = x.with_char(x.wrapping_sub(x) as i64, Lu8).to();
-  "234c4da721": {
-    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
-    alternatives: [
-      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
-      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    ],
-    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    tasks: ["7.4.3"],
-  },
   // if false { break; }
   "235daf8f29": {
     improvement: "`WHILE TRUE` / `REPEAT ... UNTIL FALSE` print `if false { break; }`. When the negated test is the constant false, omit the line.",
@@ -6373,6 +6306,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
     tasks: ["7.2.2"],
+  },
+  // self.f.f[(Li8 as i64) as usize].m(&IecString::<L>::lit(B));
+  "250357816b": {
+    improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
+    alternatives: [
+      "Today: always castTo i64, then `as usize` or `(.. - lower) as usize`.",
+      "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+      "lower != 0 with a const index: fold `k - lower` at emit time.",
+    ],
+    chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
   },
   // self.f = self.f.char_at(Li8 as i64);
   "2506fd8442": {
@@ -6447,17 +6391,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "compare in the narrow type when the literal fits",
     why: "what a Rust engineer writes",
     tasks: ["7.3.3"],
-  },
-  // self.f = iec_max(self.f, ….to::<L>()).to::<L>().to();
-  "286d90b120": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
   },
   // self.f = ((self.f as i32) & (self.f as i32)) as i16;
   "28a9242939": {
@@ -6539,6 +6472,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     tasks: ["7.3.1"],
   },
+  // self.f.m(&IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()));
+  "2a5436bd78": {
+    improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
+    tasks: ["7.4.2"],
+  },
   // pub fn x<const T: usize>(x: &IecString<T>) -> i16 {
   "2b67f9045b": {
     improvement: "A scalar VAR_IN_OUT CONSTANT is copied into a let and lent by reference: `{ let __copy_0 = self.plain_var; self.twice(&__copy_0) }` into `twice(&mut self, value: &i16)`. For a Copy scalar the parameter can take `value: i16` by value: `self.twice(self.plain_var)`. Aliasing is already refused (call-inout-alias), so by-value is equivalent.",
@@ -6586,19 +6524,23 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (if self.g { Li64 } else { Li64 }) as i16;
   "2db51dfb96": {
-    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.) Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
-    alternatives: [
-      "today: `.to()` on every string store",
-      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
-    ],
-    chosen: "`.to()` only when the capacities differ or are generic",
-    why: "the other stores need no copy because IecStr is Copy",
-    tasks: ["7.2.7", "7.4.1"],
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
+    tasks: ["7.2.7"],
   },
   // x = (*x) == IecString::<L>::lit(B);
   "2e20d3f400": {
     improvement: "Comparing a string with a literal builds a whole IecStr to compare against. `text.units() == b\"abc\"` (or at least drop the parens around `*text`) does the same with no construction.",
     tasks: ["7.4.9"],
+  },
+  // x = x.with_char(x.wrapping_add(x) as i64, Lu8);
+  "2e591ac56e": {
+    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
+    alternatives: [
+      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
+      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    ],
+    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // x = (x as i32).wrapping_mul(Li32).wrapping_add(x as i32) as i16;
   "2ea589a8a1": {
@@ -6656,16 +6598,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     tasks: ["7.2.5"],
-  },
-  // self.f = self.f.with_char(Li8 as i64, Lu8).to();
-  "318cfd770d": {
-    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form. Also: A literal typed in its IEC type and then cast: `self.buf.char_at(4i8 as i64)`, `entries[(0i8 as i64) as usize]`, `values[((1i8 as i64) - 1i64) as usize]`. castTo should print a constant directly in the target type (`4i64`, or bare `4`), and a constant index minus a constant lower bound should fold to `[0]`.",
-    alternatives: [
-      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
-      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    ],
-    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    tasks: ["7.4.3", "7.2.3"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "3279d75111": {
@@ -6777,6 +6709,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.7.5"],
   },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x));
+  "36d2a5dd78": {
+    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
+    alternatives: [
+      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
+      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    ],
+    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3", "7.2.4"],
+  },
   // x: [(-Li32), Li32, …],
   "36d4b59ee2": {
     improvement: "Negative literals in array initialisers are parenthesised: `[(-1i32), 0i32]` and `[1.0f32, (-3.0f32)]`. They should print as `-1i32`.",
@@ -6801,11 +6743,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "377c1dfc31": {
     improvement: "Temporaries for a property setter argument and for an unbound function output become persistent `pub` fields of the PROGRAM/FB struct (clippy::pub_underscore_fields, 19 in this batch). They are also compared by PartialEq and printed by Debug. The setter can take the value directly (`self.fb.threshold_set(100i16)`), and an unbound output can be a call-scoped `&mut 0i16` or a `let mut` in the enclosing block.",
     tasks: ["7.6.2"],
-  },
-  // self.f.f = IecString::<L>::lit(B).to();
-  "37c65c7fbb": {
-    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
-    tasks: ["7.4.2"],
   },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i16;
   "37e2b15787": {
@@ -6902,10 +6839,31 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
     tasks: ["7.3.5"],
   },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8));
+  "3b433bdec0": {
+    improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it. Also: A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.9.3", "7.4.3"],
+  },
   // self.f = (match g.f { L => Li64, …, _ => Li64 }) as i16;
   "3b823fe0e7": {
     improvement: "MUX over untyped literals meets at LINT, so the result is `(match k { 0 => 0i64, …, _ => 4i64 }) as i16`. The literals could be typed at the destination (INT) and the outer cast dropped.",
     tasks: ["7.2.7"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8));
+  "3bbed3930d": {
+    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
+    alternatives: [
+      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
+      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    ],
+    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.4", "7.4.3"],
   },
   // self.f = ((*x) as i32).wrapping_mul(Li32) as i16;
   "3c5653e905": {
@@ -6957,6 +6915,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
     tasks: ["7.3.3"],
+  },
+  // self.f.f.m(&IecString::<L>::lit(B));
+  "3d5ad9c649": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
   },
   // self.f.m();
   "3d737b5821": {
@@ -7026,6 +6989,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "initOf checks only the first array level for elementary elements, so a 2D array of f32/i16 prints `std::array::from_fn(|_| [0.0f32; 4])` where `[[0.0f32; 4]; 4]` is a const expression. Apply peelArray recursively: if the leaf is elementary, use nested repeat expressions.",
     tasks: ["7.8.2"],
   },
+  // x = x.with_char(x as i64, x.char_at(x as i64));
+  "405fc80910": {
+    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
+    alternatives: [
+      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
+      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    ],
+    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
+  },
   // self.f = self.__chain_value_N;
   "40fd7317bb": {
     improvement: "Outside routine mode, the chain temporary becomes a public field of the POU struct. It persists across scans, appears in Debug/PartialEq, and triggers clippy::pub_underscore_fields. Make it a local `let`, or skip the temp entirely when the value is a plain load of a place no target in the chain writes.",
@@ -7056,11 +7029,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     tasks: ["7.3.1"],
-  },
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li16).to::<L>().to();
-  "41d85d47cf": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32) as i8;
   "41f40f95f9": {
@@ -7115,11 +7083,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A borrowed in-out passed on is printed `&mut (*__str_pstfrom)` (a needless reborrow spelling; `__str_pstfrom` or `&mut *__str_pstfrom` will do). len_internal reads `(*str).char_at(..)`, where auto-deref makes the `(*..)` redundant (clippy explicit_auto_deref territory).",
     tasks: ["7.8.6"],
   },
-  // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes()).to();
-  "448986061e": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
-  },
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_mul(Li32) as i16;
   "44a9549a6b": {
     improvement: "A constant index is printed as a typed literal, then cast, then offset at run time: `self.partial[((5i8 as i64) - 1i64) as usize]`. When step.index is a const, print the folded usize (`[4]`). rustc would also reject an out-of-range constant at compile time, as it already does for array_index_const_out_of_bounds.",
@@ -7147,16 +7110,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "45292dbd9c": {
     improvement: "A constant index is printed as `self.arr[((5i8 as i64) - 1i64) as usize]`, `self.u.b[(1i8 as i64) as usize]`, `self.arr[0i64 as usize]`. Fold a constant index minus the lower bound to a usize literal: `self.arr[4]`. The pointer path is `(self.p as i64).wrapping_add(-1i64)`, and ADR(arr[1]) stores `1i64.wrapping_sub(-1i64) as usize`, which should be `2`. Also: `p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
     tasks: ["7.2.3", "7.8.8"],
-  },
-  // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes()).to();
-  "45e329cf8f": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
-  },
-  // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes()).to();
-  "463c3aa6a9": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
   },
   // self.f = self.f.wrapping_add(Li16);
   "46c17ef7d3": {
@@ -7358,17 +7311,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "In set_reset_chained, the S=/R= chain temporary is a pub struct FIELD (`self.__chain_value_3 = self.c;`) rather than a local `let`, which adds a pub_underscore_fields lint and bloats state. A local `let c = self.c;` is enough because the value never lives across scans.",
     tasks: ["7.6.1"],
   },
-  // self.f = m(self.f.to::<L>(), Li16, …).to::<L>().to();
-  "4eeb332195": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
-  },
   // self.f = (self.f as i32).wrapping_add(Li32) as u16;
   "4fb4aff790": {
     improvement: "When both operands already have the destination's width and signedness, and the promoted result is stored straight back at that width, the i32 detour changes nothing for add/sub/mul (congruent mod 2^n), and/or/xor, and min/max. Division, shifts, comparisons and mixed signedness still need the widening.",
@@ -7381,16 +7323,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     tasks: ["7.3.1"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8).to();
-  "4fb82cd93a": {
-    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
-    alternatives: [
-      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
-      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    ],
-    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    tasks: ["7.4.4", "7.4.3", "7.2.4"],
-  },
   // if !((x < Li32) & (x < x)) { break; }
   "50226e2c19": {
     improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
@@ -7400,6 +7332,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     tasks: ["7.5.7"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add((x as i32).wrapping_sub(Li32).wrapping_add(x) as i64))));
+  "50421700bd": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // *x = self.f;
   "50ba9519ad": {
@@ -7483,6 +7426,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "StrFindA's `MAX(uiSearchStart, 1) - 1` prints `(((uisearchstart as i32).max(1i32) as u16) as i32).wrapping_sub(1i32)`. That promotes, narrows back to UINT (a no-op, because the max of two UINTs is a UINT), and then promotes again. `(uisearchstart.max(1) as i32) - 1`, or the u16 max followed by one widening, is the same value.",
     tasks: ["7.3.9"],
   },
+  // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes());
+  "5564cd017c": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
+  },
   // self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f = Li16;
   "55d895e28f": {
     improvement: "The pointer tag arithmetic is never folded. ADR prints `1i64.wrapping_sub(-1i64) as usize` for the constant 2, and p[i] prints `(self.p as i64).wrapping_add(-1i64).wrapping_add(2i64) as usize`. Fold the constant ADR to a literal and merge the two const offsets into one. Because `iec_deref` has already rejected 0, the element index can be `self.p - 1 + k` in usize, with no i64 round trip.",
@@ -7530,6 +7478,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
     tasks: ["7.8.2"],
   },
+  // x = x.with_char(x.wrapping_sub(x) as i64, Lu8);
+  "572efde5ab": {
+    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
+    alternatives: [
+      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
+      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    ],
+    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
+  },
   // self.f = Li64.wrapping_sub(Li64);
   "57a8f5a4c8": {
     improvement: "An all-constant integer expression is already folded at full width in lowering (expressions.ts:241-247), but the node is kept and printed. Emit the folded literal. Constant-folding in lowering is fine; CODESYS folding it too does not matter for a value.",
@@ -7544,6 +7502,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "57ce9e2ee4": {
     improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
     tasks: ["7.9.3"],
+  },
+  // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes());
+  "57f6f7d814": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.v = m(self.f, Lf64);
   "5886a0dc2b": {
@@ -7599,20 +7562,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
     tasks: ["7.3.3"],
   },
-  // self.f = iec_min(self.f, …).to();
-  "59b48cdb5b": {
-    improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
-    tasks: ["7.4.1"],
-  },
-  // self.f = iec_max(self.f, …).to();
-  "59b92aa532": {
-    improvement: "The assignment always adds `.to()`, even when the value is already a fresh IecString of the target's capacity, so each assignment copies 2-3 times. Skip the outer `.to()` when the value's type capacity equals the target's. Build a literal or format! result directly at the target capacity: `IecString::<12>::lit(...)`.",
-    tasks: ["7.4.1"],
-  },
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
   "59c341cb0f": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
     tasks: ["7.8.7"],
+  },
+  // x = x.with_char(x as i64, str.char_at(x as i64));
+  "5a131ce074": {
+    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
+    alternatives: [
+      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
+      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    ],
+    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3"],
   },
   // self.f = (match self.f { L => self.f as i32, …, _ => self.f as i32 }) as i16;
   "5a9bc1030e": {
@@ -7648,11 +7611,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "same semantics, and the interpreter's setChar needs no change",
     tasks: ["7.4.4"],
   },
-  // self.f = replace(self.f.to::<L>(), IecString::<L>::lit(B), Li16, …).to::<L>().to();
-  "5c7f0546bc": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
-  },
   // pub x: f32,
   "5c9bb13706": {
     improvement: "MAX/MIN of a REAL variable and an untyped real literal goes through f64 and back: `(self.n as f64).max(2.5f64) as f32`. max/min only select one of their inputs, so when the literal is exactly representable in f32 the answer equals `self.n.max(2.5f32)`. Arithmetic (+ - * /) must keep the widening, because it changes rounding.",
@@ -7664,8 +7622,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "the same value with no casts",
     tasks: ["7.3.7"],
   },
-  // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes()).to();
-  "5cd04259c1": {
+  // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes());
+  "5cefb347f0": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
     tasks: ["7.4.2"],
   },
@@ -7683,7 +7641,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: IecString::<L>::lit(B),
   "5d9850550d": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
-    tasks: ["7.4.1"],
+    tasks: ["7.4.2"],
   },
   // self.f = match self.ops[((self.f as i64) - Li64) as usize] { L => self.f.m(self.f), L => self.f.m(self.f), _ => panic!(S) };
   "5dcbae07c6": {
@@ -7881,6 +7839,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
     tasks: ["7.9.3"],
   },
+  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i16; m(__arg_N, …) };
+  "650e10d85c": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice). Also: When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
+      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
+      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3", "7.4.3"],
+  },
   // x: Lu16,
   "65df8e0418": {
     improvement: "A negative literal is wrapped in parens even at a field-init position, where it can never be a method receiver: `im5: (-5i16),` and `i_min: (-32768i16),`, 87 lines across the fixtures. rustc's unused_parens does not fire there, so the lint scan does not see it. The initOf field pushes could unparen() the value, which is already used for assignment right-hand sides.",
@@ -7890,17 +7862,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "unparen() at the initOf call sites (:1170/:1190/:1227/:1072), the same treatment assignments already get",
     tasks: ["7.2.9"],
-  },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]).to();
-  "668b522f05": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
   },
   // x: (f64::INFINITY),
   "66ef68b08a": {
@@ -8082,6 +8043,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
     tasks: ["7.2.2"],
   },
+  // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes());
+  "6f19035a22": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
+  },
   // (x as i64) as i32
   "6f8ef8f0bd": {
     improvement: "`let c = if v < 0.0 { -((-v).round()) } else { v.round() };` equals `v.round()` for every f64, because f64::round already rounds half away from zero symmetrically (including -0.0 and NaN). The measured table (r2ilad_*, r2i_*_nan/inf, trunc_beyond_dint) otherwise matches both helpers; I found no wrong input.",
@@ -8103,17 +8069,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "most property writes are literal or field reads",
     tasks: ["7.6.2"],
   },
-  // self.f = m(self.f.to::<L>(), Li16).to::<L>().to();
-  "7030300a1b": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
-  },
   // self.f = x;
   "707233d6d6": {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
@@ -8133,15 +8088,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     tasks: ["7.3.1"],
-  },
-  // x = IecString::<L>::lit(B).to();
-  "708b7c88b3": {
-    improvement: "The function-result variable is always declared with a default, assigned, and returned: `let mut inner: IecString<40> = IecString::<40>::lit(b\"\"); inner = IecString::<40>::lit(b\"FB_CP_named.Inner\").to(); inner`. This is faithful to ST, where the result can be read before it is set. When a body's first statement unconditionally assigns the result and nothing reads it earlier, the declaration could take that value directly, or the body could end in the expression. For strings it also saves building a throwaway empty IecString.",
-    alternatives: [
-      "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
-      "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
-    ],
-    tasks: ["7.7.3"],
   },
   // self.f = { self.__inout_index_N = self.f; let __arg_N = self.m(); m(__arg_N, &mut self.f[(self.__inout_index_N as i64) as usize]) };
   "70b25e3c85": {
@@ -8197,21 +8143,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(C).",
     tasks: ["7.2.12", "7.2.12", "7.2.8"],
-  },
-  // x = x.with_char(x as i64, str.char_at(x as i64)).to();
-  "7566f32b5e": {
-    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
-    alternatives: [
-      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
-      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    ],
-    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    tasks: ["7.4.3"],
-  },
-  // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes()).to();
-  "7587dbd531": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
   },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i8;
   "7589f5a1ee": {
@@ -8320,16 +8251,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "one line in place(",
     tasks: ["7.2.3"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x).to();
-  "78f3cafc1e": {
-    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`. Also: A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
-    alternatives: [
-      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
-      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    ],
-    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    tasks: ["7.4.4", "7.4.3", "7.2.4"],
-  },
   // x = x.wrapping_add(x[(x as i64).wrapping_sub(__values_lower_N as i64) as usize] as i32);
   "7918d10820": {
     improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
@@ -8399,17 +8320,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every VAR_INPUT is `mut` whether or not the body writes it (`configure(&mut self, mut i_width: i16, mut i_height: i16)` never assigns either one). The `#[allow(unused_mut)]` on every routine hides that. The IR already knows which slots a routine body assigns, so it can print `mut` only for those. That would let `unused_mut` come off the allow list.",
     tasks: ["7.7.1"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add((x as i32).wrapping_sub(Li32).wrapping_add(x) as i64))).to();
-  "7b34ea5981": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
-  },
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
   "7c7cff3d31": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
@@ -8468,11 +8378,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Passing an in-out on to another call prints `&mut (*numbers)`. When the place is the bare inout root, print the binding itself (`numbers`); Rust reborrows it implicitly.",
     tasks: ["7.8.6"],
   },
-  // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes()).to();
-  "7e482a6261": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
-  },
   // x = (self.f as i32).wrapping_mul(Li32).wrapping_add((g.f as i32).wrapping_mul(Li32)).wrapping_add(x as i32) as i16;
   "7ee47c4eab": {
     improvement: "INT arithmetic is widened to i32, done with wrapping ops and narrowed with `as i16`. For a chain of + - * stored straight back into an INT, i16 wrapping_* gives bit-identical results, because the ring homomorphism mod 2^16 holds. Only division, MOD, comparisons and shifts need the widening.",
@@ -8526,11 +8431,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "a `let __chain_value_N = …;` local in every mode",
     why: "one rule, no state leaked into the instance",
     tasks: ["7.6.1"],
-  },
-  // self.f = IecString::<L>::lit(B).to();
-  "803ee89d4f": {
-    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
-    tasks: ["7.4.2"],
   },
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i8;
   "8049b483ae": {
@@ -8610,16 +8510,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
     tasks: ["7.6.3"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(Li32) as i64), Lu8).to();
-  "828ee45554": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+  // x.m(&IecString::<L>::lit(B));
+  "8232a1cf7c": {
+    improvement: "The function-result variable is always declared with a default, assigned, and returned: `let mut inner: IecString<40> = IecString::<40>::lit(b\"\"); inner = IecString::<40>::lit(b\"FB_CP_named.Inner\").to(); inner`. This is faithful to ST, where the result can be read before it is set. When a body's first statement unconditionally assigns the result and nothing reads it earlier, the declaration could take that value directly, or the body could end in the expression. For strings it also saves building a throwaway empty IecString.",
     alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
+      "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
+      "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
+    tasks: ["7.7.3"],
   },
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
   "82e802ebc9": {
@@ -8707,10 +8605,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Reading a character through a string cursor copies the WHOLE IecStr out of the block before calling char_at: `{ iec_deref(p); *__str_p }.char_at(i)`. A store also checks the pointer twice (guardLine and then the guarded load on the right-hand side). Print `{ iec_deref(p); __str_p.char_at(i) }`, and check once per store.",
     tasks: ["7.4.4"],
   },
-  // self.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "8597dc45bd": {
-    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
-    tasks: ["7.4.8"],
+  // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes());
+  "85e51471f9": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = m(self.f as f64) as u32;
   "8653414194": {
@@ -8801,6 +8699,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
     tasks: ["7.3.5"],
   },
+  // self.f = IecString::<L>::lit(B);
+  "8b6ecf477b": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
+  },
   // x: { let mut v = T::new(); v.f = Li16; v },
   "8b9a7c5eea": {
     improvement: "`{ let mut v = T::new(); v.offset = 7i16; v }` is a block with a mutable temporary. Rust's struct-update syntax says the same thing in one expression.",
@@ -8811,6 +8714,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) `T { f: x, ..T::new() }`. Idiomatic; needs the field list to be the struct's own direct fields, which is exactly what `sets` holds",
     tasks: ["7.8.3"],
+  },
+  // self.f.m(&IecString::<L>::lit(x!(S, self.f).as_bytes()));
+  "8c1b866176": {
+    improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
+    tasks: ["7.4.2"],
   },
   // { m(self.f); self.f.m_set(self.__property_N) };
   "8c658bedd7": {
@@ -8867,17 +8775,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     tasks: ["7.3.1"],
   },
-  // x = x.with_char(x as i64, Lu8).to();
-  "8e30e6691c": {
-    improvement: "Leave out the store's `.to()` when the value is already the target's IecStr<N>: a same-capacity with_char result, a literal already built at the target capacity, or a value that ends in `.to::<N>()`/`.narrow::<N>()`. Leave out `.to::<N>()` when source and target capacity are equal. Today `left = left.with_char(n as i64, 0u8).to();` and `self.left_two = left(...).to::<80>().to();` each copy the string twice.",
-    alternatives: [
-      "emitted today: always `.to()` on a string store. Always correct, because Rust infers the target N, and it covers a generic-capacity VAR_IN_OUT target",
-      "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches. I would choose this: the type is already known at both ends",
-    ],
-    chosen: "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches",
-    why: "the type is already known at both ends",
-    tasks: ["7.4.1"],
-  },
   // self.f.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
   "8e4b1ce4cc": {
     improvement: "A comparison of an INT with an in-range literal is widened on both sides, which is 6 casts on one line. The comment's reason (an out-of-range literal) does not apply when the literal fits the operand type. Also, AND/OR over two side-effect-free comparisons prints the bitwise `&`/`|`, which is clippy::needless_bitwise_bool (1-3 per timer fixture). The eager form is only needed when a side of the expression holds a call.",
@@ -8899,11 +8796,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
     tasks: ["7.3.13"],
-  },
-  // self.f = m(self.f.to::<L>(), -Li16, …).to::<L>().to();
-  "8ee065ce1a": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // self.f = ((self.f as f64).sqrt() as f32) > Lf32;
   "8efdf97fb5": {
@@ -8939,6 +8831,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "same answers, the common case of `x < 3` becomes idiomatic, and out-of-range literals keep the widened form",
     tasks: ["7.3.3"],
   },
+  // self.f.f = IecWString::<L>::lit(&[Lu16, …]);
+  "8f5f221644": {
+    improvement: "A WSTRING literal prints as `IecWString::<10>::lit(&[104u16, 101u16, ...]).to()`, one typed u16 per char, and is built at its own capacity and then copied. A prelude `IecWString::from_str(\"he\")` (encode_utf16), or building at the target capacity, reads as the source and drops the copy.",
+    tasks: ["7.4.8"],
+  },
   // self.f = (x as i32).wrapping_mul(Li32) as i16;
   "8ffd5ed266": {
     improvement: "INT/SINT +, - and * widen to i32 and narrow back. Several emissions are correct here (see alternatives).",
@@ -8948,11 +8845,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     tasks: ["7.3.1"],
-  },
-  // self.narrow = self.f.f.narrow::<L>().to();
-  "90205de00e": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // pub fn sum(&mut self, mut x: [i16; L]) {
   "9034f2a4d6": {
@@ -8998,17 +8890,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "keep the suffix but add `_` digit grouping: the smallest change and removes the lint",
     why: "add grouping now, keep the suffix for uniformity",
     tasks: ["7.2.8"],
-  },
-  // self.f.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "90e7185468": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies. Also: A WSTRING literal prints as `IecWString::<10>::lit(&[104u16, 101u16, ...]).to()`, one typed u16 per char, and is built at its own capacity and then copied. A prelude `IecWString::from_str(\"he\")` (encode_utf16), or building at the target capacity, reads as the source and drops the copy.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2", "7.4.8"],
   },
   // self.f = (self.__chain_value_N as f32) as f64;
   "915417cef0": {
@@ -9068,10 +8949,26 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
     tasks: ["7.5.9"],
   },
+  // self.f.m(&m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()));
+  "939dcea16f": {
+    improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
+    alternatives: [
+      "Today: always castTo i64, then `as usize` or `(.. - lower) as usize`.",
+      "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+      "lower != 0 with a const index: fold `k - lower` at emit time.",
+    ],
+    chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
+    tasks: ["7.2.14"],
+  },
   // 'loop_N: loop {
   "93a17fab28": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
     tasks: ["7.5.2"],
+  },
+  // self.f.m(&IecString::<L>::lit(B));
+  "94c11e8f56": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
   },
   // 'body_N: {
   "95094bd48a": {
@@ -9155,6 +9052,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
     tasks: ["7.7.1"],
   },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64))));
+  "974fbd1aae": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
+  },
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i16;
   "97c6103a21": {
     improvement: "When both operands already have the destination's width and signedness, and the promoted result is stored straight back at that width, the i32 detour changes nothing for add/sub/mul (congruent mod 2^n), and/or/xor, and min/max. Division, shifts, comparisons and mixed signedness still need the widening.",
@@ -9215,11 +9123,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9a63db2a45": {
     improvement: "Passing on a caller's own `&mut` in-out prints `&mut (*__str_pstring)`, an explicit reborrow that clippy::borrow_deref_ref names. Pass `__str_pstring` itself.",
     tasks: ["7.8.6"],
-  },
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B)).to::<L>().to();
-  "9a8003dce0": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // self.f = self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize];
   "9b12fdbfc8": {
@@ -9297,11 +9200,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`[(i as usize).wrapping_sub(L)]`: one cast fewer, same panic-on-out-of-range behaviour (a negative index wraps to a huge usize)",
     tasks: ["7.2.3"],
   },
-  // self.f = replace(self.f.to::<L>(), self.f.to::<L>(), Li16, …).to::<L>().to();
-  "9cbdbcc28b": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
-  },
   // self.f = Li32.max(self.f as i32).min(Li32) as i16;
   "9d3d81580d": {
     improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through semantics/fold.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
@@ -9313,6 +9211,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     tasks: ["7.2.7"],
+  },
+  // self.f = IecWString::<L>::lit(&[Lu16, …]);
+  "9d62c9b3e2": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.8"],
   },
   // self.f = self.f.wrapping_shl(Li8 as u32);
   "9d8cd15435": {
@@ -9410,6 +9313,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
     tasks: ["7.4.4", "7.4.4", "7.2.4"],
   },
+  // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes());
+  "a0672773fa": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
+  },
   // self.f = (self.f as i32) as i16;
   "a078903418": {
     improvement: "A lossless widening followed by a conversion back to the source's own Rust type is the identity. Peephole: if e.value is a convert from type X with rustType(X) === target and the middle step is a widening, emit X's text.",
@@ -9424,7 +9332,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) implement PartialEq<[T]> on IecStr and compare against `b\"abc\"[..]` directly.",
     ],
     chosen: "(b) skip `.to()` when the value's printed type already has the target's capacity; compare against a literal via `units()` slices",
-    tasks: ["7.4.1"],
+    tasks: ["7.4.9"],
   },
   // self.f[(Li8 as i64) as usize].f = (self.f[(Li8 as i64) as usize].f as i32).wrapping_add(Li32) as i16;
   "a0d3389a70": {
@@ -9436,6 +9344,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "For SQRT only, f32::sqrt is correctly rounded, and f64 sqrt followed by narrowing is provably the same (53 >= 2*24+2). So a REAL SQRT can be `x.sqrt()` in f32. Keep the f64 detour for the other transcendentals, where it is load-bearing.",
     tasks: ["7.3.6"],
   },
+  // self.narrow.m(&self.f.narrow::<L>());
+  "a1c2206655": {
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    alternatives: [
+      "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
+      "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
+    ],
+    tasks: ["7.4.6"],
+  },
   // v: Li16,
   "a29db6178b": {
     improvement: "A field initializer in `Self { .. }` has a declared type, so the literal suffix is redundant there. `li: 0i64,` could be `li: 0,` and `v: 305419896u32,` could be `v: 305419896,`. The suffix is needed only where the literal is a method receiver (`100i64.wrapping_add(..)`). Also, pointer/reference slots already print bare `ref_: 0,` because their type is not elementary, so today the same construct comes out two ways within one struct. Also: A reference bound at its declaration to a variable of the same instance always gets the constant tag 1 (`ref_: 0` in new(), then `self.ref_ = 1;` in init()). The tag does not depend on init order: refdecl_target_after reads an address, not a value. Folding it into new() as `ref_: 1,` removes the init()/__init() method and its call chain (`self.inst.__init()` in the parent) for every refdecl_* fixture. Also: When a reference is bound unconditionally at its declaration and has a single target (lw.boundPointers already records unconditional binds), the `iec_deref(self.ref_)` null check can never fire. `{ iec_deref(self.ref_); self.v }` could be `self.v`. That also drops the `fn iec_deref` prelude when nothing else uses it.",
@@ -9446,6 +9364,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`x: 0,` / `x: 0.0,`: rely on the field type. This is what I would choose: pass a 'typed position' flag from initOf to literal() and drop the suffix there, keeping it everywhere a literal can be a receiver",
     tasks: ["7.2.8", "7.8.8", "7.9.3"],
+  },
+  // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
+  "a31de5f5e1": {
+    improvement: "When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
+    alternatives: [
+      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
+      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
+      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
+    ],
+    chosen: "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
+    tasks: ["7.4.3"],
   },
   // x = ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64)) as i32) == Li32;
   "a328a51dbd": {
@@ -9516,6 +9445,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "Interface → usize, the same as a pointer: one handle type, and no `as usize` where a tag indexes a table",
     tasks: ["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", "7.2.5"],
+  },
+  // g.f[((g.f as i64) - Li64) as usize].f.m(&IecString::<L>::lit(B));
+  "a4ff08580b": {
+    improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
+    tasks: ["7.2.3"],
   },
   // if ((x as i32) >= Li32) & ((x as i32) <= Li32) {
   "a54ead1fbe": {
@@ -9705,6 +9639,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b). It matches the program-instance form already emitted.",
     tasks: ["7.8.10"],
   },
+  // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes());
+  "aeb527c9e6": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
+  },
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i8;
   "af004404ec": {
     improvement: "A literal count prints as `7i8 as u32`. Print the bare literal (`7`). When the count is a constant below the operand width, `>>`/`<<` state it directly.",
@@ -9715,11 +9654,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
     tasks: ["7.2.5"],
-  },
-  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to::<L>().to();
-  "af39c91205": {
-    improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
-    tasks: ["7.4.2"],
   },
   // v: Lu32,
   "afa5d14dd9": {
@@ -9742,11 +9676,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "by value for Copy scalars and `&IecString` only for strings",
     why: "no block and no let.",
     tasks: ["7.6.5"],
-  },
-  // self.f = IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()).to::<L>().to();
-  "b060fcca7b": {
-    improvement: "`lit(..).to::<12>().to()`: the explicit truncating copy into STRING(12) is followed by a second same-capacity `.to()`. Drop the outer copy when the capacities match; with the lean above, this becomes a single `IecString::<12>::lit(..)`.",
-    tasks: ["7.4.2"],
   },
   // self.f = m(self.f).log10() as f32;
   "b07338e4d9": {
@@ -9856,6 +9785,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
+  // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes());
+  "b5a9bef60f": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
+  },
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
   "b6565109d7": {
     improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
@@ -9921,11 +9855,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "this is exact and it is what a Rust engineer writes",
     tasks: ["7.2.6"],
   },
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), -Li16).to::<L>().to();
-  "b7bdb5cfef": {
-    improvement: "When the value is already a convert to the target's own capacity, the assign adds a second truncating copy. `insert(...).to::<80>().to()` into an IecString<80> is two 81-byte copies where one does. This occurs 101 times across 64 fixtures. Skip the trailing `.to()` when the value's type equals the target type, or drop the convert when its only consumer is the assign.",
-    tasks: ["7.4.1"],
-  },
   // self.f = (self.f ^ self.f) ^ self.f;
   "b7bf67b59d": {
     improvement: "`(self.a ^ self.c) ^ self.b` keeps parentheses around a left-associative same-operator chain. `self.a ^ self.c ^ self.b` is identical. `a | (b & c)` is fine as written.",
@@ -9940,17 +9869,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b894525f6e": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
     tasks: ["7.7.8"],
-  },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64))).to();
-  "b8e7f28ba6": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
   },
   // pub fn map(&mut self, prg: &mut Programs) -> i16 {
   "b959cb02cf": {
@@ -9992,14 +9910,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // self.f = (if self.f { Li64 } else { Li64 }) as i16;
   "ba75ffae84": {
-    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.) Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
-    alternatives: [
-      "today: `.to()` on every string store",
-      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
-    ],
-    chosen: "`.to()` only when the capacities differ or are generic",
-    why: "the other stores need no copy because IecStr is Copy",
-    tasks: ["7.2.7", "7.4.1"],
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
+    tasks: ["7.2.7"],
   },
   // self.f = ((self.f as i32) | (self.f as i32)) as i16;
   "ba90e3c4fe": {
@@ -10093,16 +10005,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
     tasks: ["7.7.11"],
   },
-  // x = x.with_char(x.wrapping_add(x) as i64, Lu8).to();
-  "c05be29130": {
-    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
-    alternatives: [
-      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
-      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    ],
-    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    tasks: ["7.4.3"],
-  },
   // self.f = (self.f.f as i32).wrapping_mul(Li32) as i16;
   "c069593bcd": {
     improvement: "`x := x * 3` on INT prints `x = (x as i32).wrapping_mul(3i32) as i16;`. When the result goes straight back into the narrow type, `+ - *` modulo 2^16 is the same computed in i16: `x = x.wrapping_mul(3);`. The widening matters only for comparisons, division and a wider destination.",
@@ -10127,6 +10029,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "narrow-type `wrapping_*` when a whole add/sub/mul tree lands in the same width, which is correct because the ring is mod 2^n (the one I would choose, as an emit-time peephole that never applies to div/MOD/compare, since i16::MIN / -1 differs)",
     tasks: ["7.3.1"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))));
+  "c1db7399d8": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // x[(x as i64) as usize] = Lu8;
   "c2409a5969": {
@@ -10176,16 +10089,15 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
     tasks: ["7.2.9"],
   },
-  // x.f = IecString::<L>::lit(B).to();
-  "c49c211047": {
-    improvement: "Leave out the store's `.to()` when the value is already the target's IecStr<N>: a same-capacity with_char result, a literal already built at the target capacity, or a value that ends in `.to::<N>()`/`.narrow::<N>()`. Leave out `.to::<N>()` when source and target capacity are equal. Today `left = left.with_char(n as i64, 0u8).to();` and `self.left_two = left(...).to::<80>().to();` each copy the string twice.",
+  // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64));
+  "c45bfa2727": {
+    improvement: "`s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
     alternatives: [
-      "emitted today: always `.to()` on a string store. Always correct, because Rust infers the target N, and it covers a generic-capacity VAR_IN_OUT target",
-      "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches. I would choose this: the type is already known at both ends",
+      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
+      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
     ],
-    chosen: "skip `.to()` when rustType(value.type) === rustType(target.type). A string can only be typed-identical when its capacity matches",
-    why: "the type is already known at both ends",
-    tasks: ["7.4.1"],
+    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
+    tasks: ["7.4.3"],
   },
   // self.f[((Li8 as i64) - Li64) as usize] = Li16;
   "c52c7994ca": {
@@ -10197,17 +10109,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`RangeBounds::contains` is already false for NaN, so `c.is_nan() ||` is redundant: `if !(-9.2e18..1.8e19).contains(&c) { return i64::MIN; }`.",
     tasks: ["7.9.1"],
   },
-  // self.f = m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()).to::<L>().to();
-  "c58cc5538f": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type. Also: An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
-    alternatives: [
-      "Today: always castTo i64, then `as usize` or `(.. - lower) as usize`.",
-      "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
-      "lower != 0 with a const index: fold `k - lower` at emit time.",
-    ],
-    chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
-    tasks: ["7.4.1", "7.2.14"],
-  },
   // x.f = x.f;
   "c5d30c56ec": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
@@ -10217,11 +10118,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c6322760e4": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
     tasks: ["7.8.4"],
-  },
-  // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes()).to();
-  "c689147e80": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
   },
   // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x } };
   "c68f0b1ef6": {
@@ -10265,10 +10161,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) only if the emitter already special-cases per function. Otherwise the uniformity of (a) is defensible.",
     tasks: ["7.3.6"],
   },
-  // g.f[((g.f as i64) - Li64) as usize].f = IecString::<L>::lit(B).to();
-  "c86923a1ee": {
-    improvement: "An index offset is printed two ways: `.wrapping_sub` for an open array and plain `-` for a declared bound. Both are i64 over an i32 or i16 index and cannot overflow, so use one form. An ARRAY[*] also carries both `__lower` and `__upper` i32 params, but the slice already has its length (upper = lower + len - 1). Passing only the lower bound shortens every signature and call. 1546 also computes the same element index twice in a read-modify-write. `let e = &mut line[i]; e.x = e.x.wrapping_add(offset);` names it once.",
-    tasks: ["7.2.3"],
+  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes());
+  "c867edb1d3": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // self.f = [Li16; L];
   "c8927952f2": {
@@ -10284,11 +10180,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c8ca44a755": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
     tasks: ["7.7.2"],
-  },
-  // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes()).to();
-  "c9573720ef": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
   },
   // x: std::array::from_fn(|_| T::new()),
   "c9c77500c6": {
@@ -10321,17 +10212,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ca94bceedc": {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
     tasks: ["7.4.5"],
-  },
-  // x = { let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) }.to::<L>().to();
-  "cb2199fcf3": {
-    improvement: "When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
-    alternatives: [
-      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
-      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
-      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    ],
-    chosen: "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    tasks: ["7.4.3"],
   },
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(self.f as i32) as i16;
   "cbab9cd013": {
@@ -10489,17 +10369,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
     tasks: ["7.2.2"],
   },
-  // self.f = self.f.narrow::<L>().to::<L>().to();
-  "d54a668b9a": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
-  },
   // x: { let mut v = T::new(); v.f = { let mut v = T::new(); v.f = Li16; v }; v.f = Li16; v },
   "d5d625ee73": {
     improvement: "A structured initial value is emitted as a block that mutates a fresh value: `{ let mut v = T::new(); v.x = 1i16; v.y = 2.5f32; v }`, nested for a struct inside a struct. Struct update syntax, `T { x: 1i16, y: 2.5f32, ..T::new() }`, is the idiomatic single expression and needs no shadowed `v`.",
@@ -10560,15 +10429,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
     tasks: ["7.3.1"],
   },
+  // self.f = self.f.with_char(Li8 as i64, Lu8);
+  "da046bfcbb": {
+    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form. Also: A literal typed in its IEC type and then cast: `self.buf.char_at(4i8 as i64)`, `entries[(0i8 as i64) as usize]`, `values[((1i8 as i64) - 1i64) as usize]`. castTo should print a constant directly in the target type (`4i64`, or bare `4`), and a constant index minus a constant lower bound should fold to `[0]`.",
+    alternatives: [
+      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
+      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    ],
+    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
+    tasks: ["7.4.3", "7.2.3"],
+  },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
   "db57faba5d": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
     tasks: ["7.7.1"],
-  },
-  // self.f = m(self.f.to::<L>(), self.f.to::<L>(), Li16).to::<L>().to();
-  "db96948bf3": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // self.f = (self.char as i32).wrapping_add(self.f as i32) as i16;
   "dbc172da6a": {
@@ -10587,10 +10461,27 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: Every LEN/LEFT/MID/... call copies its argument into a fresh IecString<255> (`len(self.hello.to::<255>())`), and LEN then lends that copy `&mut` to LEN_INTERNAL. A read-only STRING input could print as a generic `&IecStr<u8, N>`, as the VAR_IN_OUT CONSTANT form already does (shape 81253ce291), which removes the 256-byte copy per call.",
     tasks: ["7.7.2", "7.7.2"],
   },
+  // x = x;
+  "dbdc75774e": {
+    improvement: "A character read through a string cursor copies the whole IecStr out of the borrow: `{ iec_deref(p); *__str_p }.char_at(i)` is 256+ bytes per character, so O(n²) per LEN/TRIM/COPY loop. A write guards twice and copies twice: `iec_deref(p); *__str_p = { iec_deref(p); *__str_p }.with_char(..).to();`. Put the guard around the whole method call (`{ iec_deref(p); __str_p.char_at(i) }`) and add an in-place `set_char(&mut self, i, c)` to the prelude for stores.",
+    alternatives: [
+      "TODAY: value-semantics with_char(self) -> Self, plus a copy out of the borrow",
+      "`&mut self` set_char plus a guard around the call (my choice: same semantics, and the interpreter's setChar needs no change)",
+      "keep with_char but guard the call rather than the load: removes the read copy only",
+    ],
+    chosen: "`&mut self` set_char plus a guard around the call",
+    why: "same semantics, and the interpreter's setChar needs no change",
+    tasks: ["7.4.4"],
+  },
   // self.f = match self.f { L => self.f.m_get(), _ => panic!(S) };
   "dc1e3df820": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
     tasks: ["7.8.7"],
+  },
+  // self.f.f = IecString::<L>::lit(B);
+  "dc277bd73f": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.2"],
   },
   // pub fn m(&mut self) -> IecString<L> {
   "dc8437c26a": {
@@ -10600,6 +10491,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
     tasks: ["7.7.3"],
+  },
+  // self.f.m(&IecWString::<L>::lit(&[Lu16, …]));
+  "dc950bfb03": {
+    improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
+    tasks: ["7.4.8"],
   },
   // self.f = ({ m(self.f); self.f } as i32).wrapping_add(Li32) as i16;
   "dd1daf8424": {
@@ -10690,16 +10586,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
     tasks: ["7.2.7"],
   },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8).to();
-  "deb9c88c25": {
-    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
-    alternatives: [
-      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
-      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    ],
-    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    tasks: ["7.4.4", "7.4.3"],
-  },
   // self.f.__numbers_upper_N = self.__numbers_upper_N;
   "debabdec0d": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
@@ -10709,16 +10595,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "def43ae4d0": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
     tasks: ["7.6.3"],
-  },
-  // self.f = m(&mut self.f).to();
-  "df1778304b": {
-    improvement: "Every string assignment adds `.to()` even when the value already has the target's capacity, because the call lowering converted it already or the literal was built with that capacity. Each `.to()` is a full IecStr copy through lit(). Add it only when the value's capacity differs from the target's, or when the target capacity is generic.",
-    alternatives: [
-      "emitted today: always append `.to()`",
-      "append only when rustType(value.type) !== rustType(target) or the target is an inout generic (chosen)",
-    ],
-    chosen: "append only when rustType(value.type) !== rustType(target) or the target is an inout generic",
-    tasks: ["7.4.1"],
   },
   // pub fn m(&mut self, x: &mut i16) -> i16 {
   "dfc9d07c2c": {
@@ -10747,10 +10623,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     tasks: ["7.3.1"],
   },
-  // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
-  "e205f81b84": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
+  // self.f.f.m(&IecWString::<L>::lit(&[Lu16, …]));
+  "e19e17485d": {
+    improvement: "A WSTRING literal prints as `IecWString::<10>::lit(&[104u16, 101u16, ...]).to()`, one typed u16 per char, and is built at its own capacity and then copied. A prelude `IecWString::from_str(\"he\")` (encode_utf16), or building at the target capacity, reads as the source and drops the copy.",
+    tasks: ["7.4.8"],
   },
   // if (self.f as i32) <= Li32 { break; }
   "e2e0d67858": {
@@ -10780,11 +10656,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep today's form",
     ],
     tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
-  },
-  // self.f = m(self.f.to::<L>(), Li16, -Li16).to::<L>().to();
-  "e42f1ae167": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
-    tasks: ["7.4.1"],
   },
   // { let mut x = std::mem::take(&mut prg.f); x.f.call(prg); prg.f = x; }
   "e436b886c1": {
@@ -10840,6 +10711,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "x.wrapping_add(L) in the narrow type. Bit-identical for +,-,* whenever the result is stored back into a type no wider than the operands. I would choose this for add/sub/mul whose consumer is a same-width store, and keep the widening everywhere else",
     tasks: ["7.3.1"],
   },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]));
+  "e6fd2dc9fd": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
+  },
   // self.f = (self.f as i32).max(g.f as i32) as i16;
   "e708298af7": {
     improvement: "MIN/MAX of two operands of the same type is widened to DINT and narrowed back: `(self.raw as i32).min(g.g_low as i32) as i16`. MIN/MAX of equal types cannot overflow, so `self.raw.min(g.g_low)` gives the identical result.",
@@ -10850,6 +10732,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "same-type `.min`/`.max` when both operands (before promotion) share a type",
     why: "zero casts, identical results. Keep the widening only for a mixed meet (USINT vs SINT).",
     tasks: ["7.3.1"],
+  },
+  // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes());
+  "e763b5dd7a": {
+    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
+    tasks: ["7.4.2"],
   },
   // { let x = false; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "e76a0c7276": {
@@ -10937,16 +10824,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
-  // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64)).to();
-  "e8210b694c": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
-    alternatives: [
-      "Today: an expression `x = x.with_char(i,c).to()`, which the value-semantics IR uses for every character store, including through cursors (`*p = { iec_deref(q); *p }.with_char(..).to()`).",
-      "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    ],
-    chosen: "In-place `x.set_char(i, c)` when a setchar's source and target are the same place: this is what I would choose. It is one bounds check and a one-byte write. The IR already knows target == source.",
-    tasks: ["7.4.1", "7.4.3"],
-  },
   // pub fn fb_init(&mut self, mut x: bool) -> bool {
   "e82fbd8112": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
@@ -10977,26 +10854,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     tasks: ["7.5.7"],
   },
-  // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes()).to();
-  "e921bd1d7e": {
-    improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
-    tasks: ["7.4.2"],
-  },
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
   "e9a5cabd36": {
     improvement: "`(((uisearchstart as i32).max(1i32) as u16) as i32)` goes u16 -> i32 -> u16 -> i32. `(uisearchstart.max(1) as i32)` is the same value.",
     tasks: ["7.3.9"],
-  },
-  // self.f = self.f.widen::<L>().to::<L>().to();
-  "e9e296435a": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-    tasks: ["7.4.2"],
   },
   // self.copied = self.copied;
   "ea53989ac8": {
@@ -11022,11 +10883,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ebc60e2668": {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
     tasks: ["7.2.3"],
-  },
-  // x = str.to();
-  "ec1b55e90b": {
-    improvement: "Every string store appends `.to()`, a truncating copy through lit, even when the value already has the target's capacity. Examples: `left = left.with_char(..).to()`, `concat = str1.to()`, and `self.left_two = left(..).to::<80>().to()`, which converts twice. Skip `.to()` when rustType(s.value.type) === rustType(into) and the target is not a generic-capacity inout.",
-    tasks: ["7.4.1"],
   },
   // if (x == L) | (x == L) {
   "ec21aafede": {
@@ -11168,16 +11024,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "The same construct, index minus lower bound, is printed two ways. A fixed array gets a plain `(i - 1i64) as usize` (emit/rust/place.ts). An ARRAY[*] dimension or a string cursor gets `(i as i64).wrapping_sub(lower as i64) as usize` or `(p as i64).wrapping_sub(1i64).wrapping_add(n as i64)`, because the offset goes through the generic IR sub/add, which prints as wrapping. Two i32 values widened to i64 cannot overflow, so the wrapping is noise. Give the open-array and cursor offset the index-step form the emitter already has (a `lower` expression on the step), so all three print `[(i - lower) as usize]`.",
     tasks: ["7.2.3"],
   },
-  // x = x.with_char(x as i64, x.char_at(x as i64)).to();
-  "f0973f1bcc": {
-    improvement: "`s[i] := c` prints `x = x.with_char(i, c).to();`. That is a by-value copy of the whole string, a rebuild, and then a same-capacity `.to()` copy back. A `fn set_char(&mut self, i: i64, c: T)` in the prelude, printed as `x.set_char(i, c);`, is the idiomatic in-place form.",
-    alternatives: [
-      "today: `x = x.with_char(i, c).to()` (value in, value out, re-truncated)",
-      "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    ],
-    chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
-    tasks: ["7.4.3"],
-  },
   // x[(x.wrapping_add(x) as i64) as usize] = x[(x.wrapping_add(x) as i64) as usize];
   "f10c6b31a0": {
     improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
@@ -11209,17 +11055,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f2987aca6a": {
     improvement: "Conversions and divisions of CONSTANTS are not folded: `true as u8`, `5u8 as u32`, `-1i8 as i16`, `300i32 as i8` (=44), `5u8 != 0`, `iec_div(1.0f64, 3.0f64)`, and a whole TRUNC range-check block on `(-2.7f64)`. When the operand is a const, print the converted literal. When a real divisor is a non-zero const, print `/` instead of `iec_div`.",
     tasks: ["7.2.10"],
-  },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64))).to();
-  "f31583df05": {
-    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.4.3"],
   },
   // pub fn m(&mut self, mut x: i16, …) {
   "f327cfe40a": {
@@ -11294,6 +11129,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "per-POU transitive usage, which is leaner Rust but needs a call-graph pass (I would keep today's convention and drop only the allow where g IS used)",
     ],
     tasks: ["7.7.5"],
+  },
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(Li32) as i64), Lu8));
+  "f6f7b781df": {
+    improvement: "A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
+    alternatives: [
+      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
+      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+      "keep value style but drop .to() when capacities match: the smallest emitter change",
+    ],
+    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
+    tasks: ["7.4.3"],
   },
   // pub fn m(mut x: i8) -> bool {
   "f75c7acc4a": {
@@ -11433,17 +11279,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
     tasks: ["7.2.3"],
-  },
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8).to();
-  "fcc1e3ee2e": {
-    improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it. Also: A character store is emitted as `*s = { ..; *s }.with_char(i, c).to();`, which copies the string by value, rebuilds it through lit() in .to() at the SAME capacity, and moves it back. An in-place `s.set_char(i, c)` (&mut self) does the same thing with no copies. More generally, skip the .to() whenever source and target capacity are the same (REPLACE: `insert(..) }.to()` 255->255, then `.to::<80>().to()` at the call site converts twice).",
-    alternatives: [
-      "TODAY: value-style `*s = {copy}.with_char(i,c).to()`, which keeps the IR's load/setchar/assign triple literal",
-      "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-      "keep value style but drop .to() when capacities match: the smallest emitter change",
-    ],
-    chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-    tasks: ["7.9.3", "7.4.3"],
   },
   // if self.f > self.__numbers_upper_N { break; }
   "fd16368fa8": {

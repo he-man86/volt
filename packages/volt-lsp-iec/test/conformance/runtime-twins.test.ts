@@ -23,6 +23,8 @@ import {
   LREAL_TIE_CASES,
   type LongCalendarInput,
 } from "../../src/transpile/semantics/text.cases.js"
+import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
+import { visible } from "../../src/transpile/semantics/string.js"
 import { RUNS } from "./support/recordings.js"
 import { buildRust } from "./support/rustc-cache.js"
 import { RUSTC, skipRustSuite } from "./support/rustc.js"
@@ -132,6 +134,47 @@ function compare<I, O>(cases: readonly Case<I, O>[], got: readonly string[]): { 
   }
 }
 
+/** Every string case, its rule's cases flattened. */
+const STRING_CASE_LIST: readonly StringCase[] = Object.values(STRING_CASES).flat()
+
+/** A recorded value a string case names, refused by name when the recording does not hold it. */
+function recordedAt(fixture: string, path: string): string {
+  const value = RUNS[fixture]?.values?.[path]
+  if (value === undefined) throw new Error(`${fixture} recorded no ${path}`)
+  return value
+}
+
+/** What a buffer shows where a recording looked at it: the unit (0 past what is held), the string, or its length. */
+function shown(buffer: string, seen: Seen): string {
+  if ("unit" in seen) return String(seen.unit < buffer.length ? buffer.charCodeAt(seen.unit) : 0)
+  return "text" in seen ? visible(buffer) : String(visible(buffer).length)
+}
+
+/** A recording's value in `shown`'s terms: a BYTE/WORD/INT as its number, a STRING ('…') or WSTRING ("…") as its text. */
+function asShown(value: string, where: string): string {
+  if (/^["']/.test(value)) {
+    if (value.at(-1) !== value[0]) throw new Error(`${where}: not a recorded string (${value})`)
+    return value.slice(1, -1)
+  }
+  return typed(value, where).text
+}
+
+/** A string case as one Rust block: the variable started at zeros, each operation, then every unit of its buffer. */
+function stringCaseRust(input: StringInput): string {
+  const type = input.wide ? "IecWString" : "IecString"
+  const unit = input.wide ? "u16" : "u8"
+  const units = (text: string): string =>
+    input.wide ? `&[${[...text].map((ch) => `${ch.charCodeAt(0)}u16`).join(", ")}]` : `b"${[...text].map((ch) => `\\x${ch.charCodeAt(0).toString(16).padStart(2, "0")}`).join("")}"`
+  const ops = input.ops.map((op) =>
+    "store" in op ? `s.store(&${type}::<${op.n}>::lit(${units(op.store)}));` : `s = s.with_char(${op.at}, ${op.unit}${unit});`,
+  )
+  return `{ let mut s = ${type}::<${input.m}>::new(); ${ops.join(" ")} format!("{:?}", s.units.iter().map(|&u| u as u32).collect::<Vec<u32>>()) }`
+}
+
+/** The buffer a case expects, as `stringCaseRust` prints it: its m units, zeros past what it holds. */
+const stringCaseUnits = (c: StringCase): string =>
+  `[${Array.from({ length: c.input.m }, (_, i) => (i < c.expected.length ? c.expected.charCodeAt(i) : 0)).join(", ")}]`
+
 describe("runtime twins — the case tables hold their recordings", () => {
   test("every REAL -> integer case is the recorded cell of the fixture it names", () => {
     expect(REAL_TO_INT_CASES).toHaveLength(192)
@@ -171,6 +214,13 @@ describe("runtime twins — the case tables hold their recordings", () => {
     expect(bad).toEqual([])
   })
 
+  test("every string case shows what its fixture recorded — each unit dumped through s[i], each string and length", () => {
+    const seen = STRING_CASE_LIST.flatMap((c) => c.seen.map((v) => ({ c, v })))
+    expect(seen.length).toBeGreaterThan(300)
+    const got = seen.map(({ c, v }) => `${c.name} ${v.path}: ${asShown(recordedAt(c.fixture, v.path), `${c.fixture} ${v.path}`)}`)
+    expect(got).toEqual(seen.map(({ c, v }) => `${c.name} ${v.path}: ${shown(c.expected, v)}`))
+  })
+
   test("every long-calendar text case's input is the value its fixture ran", () => {
     const got = LONG_CALENDAR_TEXT_CASES.map((c) => `${c.name}: ${recordedInput(c)}`)
     expect(got).toEqual(LONG_CALENDAR_TEXT_CASES.map((c) => `${c.name}: ${monitored(c.input)}`))
@@ -192,6 +242,12 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const got = await runTwin("text_long", runtimeText("text"), cases.map((c) => `${fn[c.input.name]}(${c.input.ns}u64 as i64)`))
     const { got: g, expected } = compare(cases, got)
     expect(g).toEqual(expected)
+  }, 60_000)
+
+  test("runtime/string.ts: IecStr::store / with_char over every string case", async () => {
+    const got = await runTwin("string_store", runtimeText("string"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
+    expect(got).toHaveLength(STRING_CASE_LIST.length)
+    expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${stringCaseUnits(c)}`))
   }, 60_000)
 
   test("runtime/numeric.ts: iec_r2i32 / iec_r2i64 over every recorded REAL -> integer cell", async () => {

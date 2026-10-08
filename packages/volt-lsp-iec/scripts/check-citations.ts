@@ -126,7 +126,6 @@ export function citingFiles(pkg: string = PACKAGE, repo: string = REPO): string[
  * (`stalePlanned`), so the list only holds what is still to come.
  */
 export const PLANNED: Readonly<Record<string, string>> = {
-  "packages/volt-lsp-iec/src/transpile/semantics/string.cases.ts": "transpile-restructure 3.4",
   "packages/volt-lsp-iec/src/transpile/semantics/memory.ts": "transpile-restructure 4.4 (if model 3 chooses the byte arena)",
   "packages/volt-lsp-iec/src/transpile/semantics/builtins.test.ts": "transpile-restructure 6.7",
   "packages/volt-lsp-iec/src/transpile/emit/rust/precedence.ts": "transpile-restructure 7.3.8",

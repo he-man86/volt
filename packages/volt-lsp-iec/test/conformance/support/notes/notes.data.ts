@@ -29,8 +29,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "01e84968c3": note("7.8.6", LEAN.shapes12_5),
   // x = *x;
   "01ef1b756d": note("7.9.3", LEAN.shapes12_9),
-  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i1
-  "0205cf3af0": merged(["7.4.3", LEAN.shapes17_2], ["7.4.3", LEAN.shapes17_4]),
   // if x.is_nan() { return L; }
   "02a72c2e83": note("7.9.1", LEAN.shapes5_1),
   // pub fn m(mut x: u8, …) -> bool {
@@ -39,14 +37,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "03b3e8b80c": note("7.2.3", LEAN.shapes11_7),
   // pub fn m(mut x: i32, x: &mut i16) -> i32 {
   "040107266f": note("7.7.9", LEAN.shapes19_2),
-  // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64)).to();
-  "0464b7d671": merged(["7.4.1", LEAN.shapes16_1], ["7.4.3", LEAN.shapes16_3]),
   // x: [Lu8; L],
   "054b93382f": note("7.2.6", LEAN.shapes1_7),
   // x: [{ let mut v = T::new(); v.f = Li16; v }, { let mut v = T::new(); v.f = Li16; v.f = false; v }, T::new()],
   "055df7e5f8": note("7.8.3", LEAN.shapes3_7),
-  // self.f = iec_max(self.f.to::<L>(), self.f).to::<L>().to();
-  "05a142a4f4": note("7.4.2", LEAN.shapes15_1),
   // x: [Lf32, …, (-Lf32)],
   "060ccf97cc": note("7.2.9", LEAN.shapes11_19),
   // self.f = (self.f as i32) <= (self.f as i32);
@@ -79,26 +73,26 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "09f527f35b": note("7.7.2", LEAN.shapes3_9),
   // { let x = true; let x = &mut self.f.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "0a1967fcea": note("7.8.5", LEAN.shapes20_13),
-  // self.f = self.f.to::<L>().to();
-  "0a52a768d3": note("7.4.1", LEAN.shapes5_8),
   // fn m(v: f64) -> i32 {
   "0ab1e9c511": note("7.9.1", LEAN.shapes4_4),
   // pub fn fb_init(&mut self, mut x: bool, …, mut x: i16) -> bool {
   "0ab2575555": note("7.7.1", LEAN.shapes12_8),
   // pub __numbers_lower_N: i32,
   "0ac4ab4a64": note("7.7.8", LEAN.shapes13_17),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "0b353e99d9": note("7.4.3", LEAN.shapes17_2),
   // __inout_index_N: Li16,
   "0b358286cb": note("7.6.3", LEAN.shapes18_1),
   // self.m(&mut (*x));
   "0b51d542e8": note("7.8.6", LEAN.shapes2_5),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.c
+  "0bb816a185": note("7.4.3", LEAN.shapes17_2),
   // self.f = { m(self.f); self.f[(self.f as i64).wrapping_add(-Li64) as usize].f };
   "0c7c4434c4": note("7.2.4", LEAN.shapes3_4),
   // pub fn m(mut p: usize, x: &mut i16) -> i16 {
   "0ca9dad97d": merged(["7.7.2", LEAN.shapes15_7], ["7.7.7", LEAN.shapes15_8]),
   // (match self.f.f { L => self.f.m(&mut self.f), _ => panic!(S) });
   "0cbdff077d": note("7.8.7", LEAN.shapes19_6),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8));
+  "0cea56d7e0": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // self.v = ({ m(self.f); self.v } as i32).wrapping_add(Li32) as i16;
   "0cf79a4fb2": merged(["7.3.1", LEAN.shapes9_3], ["7.9.3", LEAN.shapes9_10]),
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
@@ -112,31 +106,33 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.v = Li32.wrapping_neg() as i16;
   // self.f.f = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(({
   "10814b65ce": note("7.2.6", LEAN.shapes12_4),
-  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to();
-  "10af274f28": note("7.4.2", LEAN.shapes9_1),
   // self.f = Li32.wrapping_neg() as i8;
   // x
   "11f6ad8ec5": note("7.7.3", LEAN.shapes1_9),
   // self.f = ((self.f as i32) > Li32) & (((self.f as i32) < Li32) | self.f);
   "128ab89e82": note("7.5.6", LEAN.shapes9_12),
+  // self.f = if self.g { self.f } else { self.f };
+  "12a2ae661a": note("7.2.7", LEAN.shapes9_5),
   // x: (-Li64),
   "12e93440b3": note("7.2.9", LEAN.shapes1_1),
   // pub x: i16,
   "1307e33bbf": merged(["keep:the field line is already minimal and correct (probed edge inputs agree); removed by 7.2.13", LEAN.shapes11_5], ["7.3.5", LEAN.shapes11_6]),
-  // self.f = (if self.g { Li64 } else { Li64 }) as i16;
-  "2db51dfb96": merged(["7.2.7", LEAN.shapes10_4], ["7.4.1", LEAN.shapes10_5]),
   // pub __inout_guard_N: usize,
   "149af70520": note("7.6.3", LEAN.shapes18_1),
   // self.f[(Li8 as i64) as usize] = L;
   "14a38342eb": note("7.2.10", LEAN.shapes18_4),
   // pub fn m(mut x: u16) -> bool {
   "14b2f39d44": note("7.7.3", LEAN.shapes14_14),
+  // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
+  "14e2fedf17": note("7.3.1", LEAN.shapes20_3),
   // pub fn init(&mut self, g: &mut Globals) {
   "1524fb865f": note("7.7.5", LEAN.shapes15_6),
   // if ((self.f as i32) > Li32) & self.f {
   "1541330f1e": note("7.3.3", LEAN.shapes11_16),
   // x: (-Lf32),
   "159ca60812": note("7.2.9", LEAN.shapes1_1),
+  // x = x.with_char(x.wrapping_sub(x) as i64, str.char_at(x as i64));
+  "163ffc50fa": note("7.4.3", LEAN.shapes16_3),
   // __inout_guard_N: L,
   "16410bb3a0": note("7.6.3", LEAN.shapes18_1),
   // m(Li16, &mut self.__output_N, …);
@@ -169,6 +165,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1ad1ab3163": note("7.5.2", LEAN.shapes11_9),
   // x = m(__numbers_lower_N, __numbers_upper_N, &mut (*x)).wrapping_add(Li32);
   "1b12aad5a0": note("7.7.8", LEAN.shapes16_15),
+  // x = IecString::<L>::lit(B);
+  "1b6d6589aa": note("7.7.3", LEAN.shapes18_10),
+  // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  // (re-keyed from `self.f = self.f.take(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
+  "1bb6d1cb14": note("7.2.6", LEAN.shapes19_11),
   // x[(self.__numbers_upper_N as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = Li16;
   "1be212b44b": note("7.2.14", LEAN.shapes16_7),
   // pub fn m(mut x: i16) -> i16 {
@@ -179,8 +180,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1d1551a034": note("7.5.7", LEAN.shapes14_7),
   // pub x: u16,
   "1d7709a031": merged(["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", LEAN.shapes13_1], ["7.2.5", LEAN.shapes13_2], ["7.3.1", LEAN.shapes13_3]),
-  // self.f.f[(Li8 as i64) as usize] = IecString::<L>::lit(B).to();
-  "1d835ef992": merged(["7.4.1", LEAN.shapes16_1], ["7.2.14", LEAN.shapes16_7]),
   // x: [IecString::<L>::lit(B); L],
   "1d9f55ded0": note("7.4.8", LEAN.shapes14_16),
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> u8 {
@@ -193,15 +192,13 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1f2f8205f9": note("7.8.2", LEAN.shapes12_1),
   // self.f = match self.f { L => self.f, …, _ => panic!(S) };
   "1fa78ccf62": note("7.9.3", LEAN.shapes3_5),
-  // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
-  "8b3a192776": note("7.2.7", LEAN.shapes10_4),
   // x = Li32.wrapping_neg();
   // break 'body_N;
   "204a887600": note("7.5.2", LEAN.shapes11_9),
-  // x = x.to();
-  "211808ca56": merged(["7.4.4", LEAN.shapes12_6], ["7.4.1", LEAN.shapes12_7]),
   // if (self.f as i32) > Li32 {
   "21575de23f": note("7.3.3", LEAN.shapes11_16),
+  // self.f = Li64.max(-Li64).min(Li64) as i16;
+  "21672c09ea": note("7.2.7", LEAN.shapes8_6),
   // self.f = len(self.f.to::<L>());
   "21ef64a1e0": note("7.4.6", LEAN.shapes14_18),
   // x = (self.f as i32).wrapping_mul(Li32) as i16;
@@ -210,8 +207,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "2287fe3f1d": note("7.3.13", LEAN.shapes10_3),
   // self.f.__numbers_upper_N = Li32;
   "22f3bd9b6d": note("7.5.7", LEAN.shapes14_15),
-  // x = x.with_char(x.wrapping_sub(x) as i64, Lu8).to();
-  "234c4da721": note("7.4.3", LEAN.shapes15_2),
   // if false { break; }
   "235daf8f29": note("7.5.8", LEAN.shapes11_10),
   // self.f = self.f.f == IecWString::<L>::lit(&[Lu16, …]);
@@ -220,8 +215,13 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "23d755d76c": note("7.3.12", LEAN.shapes6_10),
   // pub fn m(mut x: u32) -> bool {
   "241f597128": note("7.7.3", LEAN.shapes14_14),
+  // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  // (re-keyed from `self.units = m(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
+  "2421f6476e": note("7.6.3", LEAN.shapes18_1),
   // self.f = Li64.wrapping_add(Li64) as i32;
   "24588decbd": note("7.2.2", LEAN.shapes7_1),
+  // self.f.f[(Li8 as i64) as usize].m(&IecString::<L>::lit(B));
+  "250357816b": note("7.2.14", LEAN.shapes16_7),
   // self.f = self.f.char_at(Li8 as i64);
   "2506fd8442": note("7.2.3", LEAN.shapes14_2),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as u8;
@@ -240,8 +240,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "26c1488275": note("7.6.1", LEAN.shapes20_10),
   // if (self.f as i32) == Li32 {
   "271163608b": note("7.3.3", LEAN.shapes5_6),
-  // self.f = iec_max(self.f, ….to::<L>()).to::<L>().to();
-  "286d90b120": note("7.4.2", LEAN.shapes15_1),
   // self.f = ((self.f as i32) & (self.f as i32)) as i16;
   "28a9242939": note("7.3.1", LEAN.shapes8_3),
   // x = len((*x).to::<L>());
@@ -260,6 +258,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "29dc1a9c14": note("7.8.6", LEAN.shapes20_11),
   // x = (x as i32).wrapping_sub(Li32) as u16;
   "2a09a0d33c": note("7.3.1", LEAN.shapes15_4),
+  // self.f.m(&IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()));
+  "2a5436bd78": note("7.4.2", LEAN.shapes9_2),
   // pub fn x<const T: usize>(x: &IecString<T>) -> i16 {
   "2b67f9045b": note("7.6.5", LEAN.shapes19_7),
   // self.__property_N = self.f;
@@ -268,8 +268,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "2c27c13c32": note("7.2.5", LEAN.shapes8_5),
   // self.f = (self.f as i32) <= Li32;
   "2cfa532f63": note("7.3.3", LEAN.shapes6_7),
+  // self.f = (if self.g { Li64 } else { Li64 }) as i16;
+  "2db51dfb96": note("7.2.7", LEAN.shapes10_4),
   // x = (*x) == IecString::<L>::lit(B);
   "2e20d3f400": note("7.4.9", LEAN.shapes14_17),
+  // x = x.with_char(x.wrapping_add(x) as i64, Lu8);
+  "2e591ac56e": note("7.4.3", LEAN.shapes15_2),
   // x = (x as i32).wrapping_mul(Li32).wrapping_add(x as i32) as i16;
   "2ea589a8a1": note("7.3.1", LEAN.shapes16_6),
   // g.f = (self.f as i32).wrapping_mul(Li32) as i16;
@@ -284,8 +288,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "311bf0f5b7": note("7.4.5", LEAN.shapes14_8),
   // self.f = (self.f as i32).wrapping_shl(Li8 as u32) as i8;
   "317cab8d16": note("7.2.5", LEAN.shapes8_5),
-  // self.f = self.f.with_char(Li8 as i64, Lu8).to();
-  "318cfd770d": merged(["7.4.3", LEAN.shapes15_2], ["7.2.3", LEAN.shapes15_3]),
   // self.f = Li32.wrapping_neg().max(self.f as i32).min(self.f as i32) as i16;
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "3279d75111": note("7.8.5", LEAN.shapes20_13),
@@ -311,18 +313,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "34c55ebfd9": note("7.3.1", LEAN.shapes8_3),
   // pub fn after_global_init(&mut self, g: &mut Globals) {
   "365326bb03": note("7.7.5", LEAN.shapes15_6),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x));
+  "36d2a5dd78": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // x: [(-Li32), Li32, …],
   "36d4b59ee2": note("7.2.9", LEAN.shapes11_19),
   // x.f = (x.f as i32).wrapping_add(Li32) as i16;
   "373f640901": note("7.3.1", LEAN.shapes15_4),
-  // self.f = Li64.max(-Li64).min(Li64) as i16;
-  "21672c09ea": note("7.2.7", LEAN.shapes8_6),
   // map
   "37745ed7a0": note("7.7.5", LEAN.shapes17_5),
   // pub __property_N: i16,
   "377c1dfc31": note("7.6.2", LEAN.shapes13_10),
-  // self.f.f = IecString::<L>::lit(B).to();
-  "37c65c7fbb": note("7.4.2", LEAN.shapes2_6),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i16;
   "37e2b15787": note("7.2.5", LEAN.shapes8_5),
   // self.sum = (self.f.f as i32).wrapping_add(self.f.f as i32) as i16;
@@ -343,8 +343,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3a7612a7b4": note("7.3.11", LEAN.shapes18_7),
   // self.f = self.f.rotate_right(self.f as u32);
   "3aa4ff5b30": note("7.3.5", LEAN.shapes7_4),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8));
+  "3b433bdec0": merged(["7.9.3", LEAN.shapes17_1], ["7.4.3", LEAN.shapes17_2]),
   // self.f = (match g.f { L => Li64, …, _ => Li64 }) as i16;
   "3b823fe0e7": note("7.2.7", LEAN.shapes19_5),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8));
+  "3bbed3930d": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3]),
   // self.f = ((*x) as i32).wrapping_mul(Li32) as i16;
   "3c5653e905": merged(["7.3.1", LEAN.shapes15_4], ["7.8.6", LEAN.shapes15_9]),
   // (match self.f { L => self.f.m_set(self.__property_N), _ => panic!(S) });
@@ -357,8 +361,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3cf4e6fa21": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
   // if (self.f as i32) > Li32 { break; }
   "3d3b42b24d": note("7.3.3", LEAN.shapes11_16),
-  // self.f = self.f.narrow::<L>().to::<L>().to();
-  "d54a668b9a": note("7.4.2", LEAN.shapes15_1),
+  // self.f.f.m(&IecString::<L>::lit(B));
+  "3d5ad9c649": note("7.4.2", LEAN.shapes2_6),
   // self.f.m();
   "3d737b5821": note("7.2.3", LEAN.shapes1_6),
   // x = __grid_lower_N.wrapping_mul(Li32).wrapping_add(__grid_upper_N) as i16;
@@ -377,6 +381,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3fed555c25": note("7.9.3", LEAN.shapes12_9),
   // x: std::array::from_fn(|_| [Lf32; L]),
   "4026548939": note("7.8.2", LEAN.shapes11_13),
+  // x = x.with_char(x as i64, x.char_at(x as i64));
+  "405fc80910": note("7.4.3", LEAN.shapes15_2),
   // self.f = self.__chain_value_N;
   "40fd7317bb": note("7.6.1", LEAN.shapes5_7),
   // self.f = { m(self.p); self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f };
@@ -385,8 +391,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "41d2232599": note("7.2.4", LEAN.shapes2_4),
   // x = (x as i32).wrapping_add(x as i32) as i16;
   "41d2269c05": note("7.3.1", LEAN.shapes15_4),
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li16).to::<L>().to();
-  "41d85d47cf": note("7.4.1", LEAN.shapes16_1),
   // self.f = (self.f as i32).wrapping_mul(Li32) as i8;
   "41f40f95f9": note("7.3.1", LEAN.shapes8_3),
   // self.v = ((Lf32 - self.f) as f64).sqrt() as f32;
@@ -402,20 +406,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "43aa1830f1": note("7.3.1", LEAN.shapes14_4),
   // pub fn x<const T: usize>(mut p: usize, x: &mut IecString<T>) -> u8 {
   "43aad8296c": note("7.8.6", LEAN.shapes16_14),
-  // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes()).to();
-  "448986061e": note("7.4.2", LEAN.shapes9_1),
   // self.f.f[((Li8 as i64) - Li64) as usize].f.f = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_mul(
   "44a9549a6b": note("7.2.3", LEAN.shapes12_2),
   // if ({ m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) as i32) == Li32 { break; }
   "44d286d05b": merged(["7.4.4", LEAN.shapes16_2], ["7.4.4", LEAN.shapes16_5]),
-  // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16, Li16).to::<L>().to();
-  "8ee065ce1a": note("7.4.1", LEAN.shapes16_1),
   // self.p = L;
   "45292dbd9c": merged(["7.2.3", LEAN.shapes1_6], ["7.8.8", LEAN.shapes1_8]),
-  // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes()).to();
-  "45e329cf8f": note("7.4.2", LEAN.shapes9_1),
-  // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes()).to();
-  "463c3aa6a9": note("7.4.2", LEAN.shapes9_1),
   // self.f = self.f.wrapping_add(Li16);
   "46c17ef7d3": note("7.3.2", LEAN.shapes2_1),
   // self.f = { let __arg_N = m(self.f.to::<L>(), IecString::<L>::lit(B)); len(__arg_N) };
@@ -463,14 +459,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "4ebfb530bd": note("7.3.1", LEAN.shapes19_10),
   // self.f = false;
   "4edbb4135a": note("7.6.1", LEAN.shapes3_13),
-  // self.f = m(self.f.to::<L>(), Li16, …).to::<L>().to();
-  "4eeb332195": note("7.4.2", LEAN.shapes15_1),
   // self.f = (self.f as i32).wrapping_add(Li32) as u16;
   "4fb4aff790": note("7.3.1", LEAN.shapes8_3),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), Lu8).to();
-  "4fb82cd93a": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // if !((x < Li32) & (x < x)) { break; }
   "50226e2c19": note("7.5.7", LEAN.shapes14_7),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64
+  "50421700bd": note("7.4.3", LEAN.shapes17_2),
   // *x = self.f;
   "50ba9519ad": note("7.6.3", LEAN.shapes17_9),
   // if !((x < x) && ((x[(x as i64) as usize] as i32) != Li32)) { break; }
@@ -495,6 +489,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "54889e0f45": note("7.3.3", LEAN.shapes7_2),
   // x = (((x as i32).max(Li32) as u16) as i32).wrapping_sub(Li32);
   "5513d0e592": note("7.3.9", LEAN.shapes16_9),
+  // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes());
+  "5564cd017c": note("7.4.2", LEAN.shapes9_1),
   // self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f = Li16;
   "55d895e28f": note("7.2.4", LEAN.shapes3_4),
   // self.f = m(self.f, … as f32);
@@ -509,10 +505,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "56c33c9bab": note("7.3.1", LEAN.shapes7_3),
   // pub ops: [u64; L],
   "572db4e711": note("7.8.2", LEAN.shapes17_8),
+  // x = x.with_char(x.wrapping_sub(x) as i64, Lu8);
+  "572efde5ab": note("7.4.3", LEAN.shapes15_2),
   // self.f = Li64.wrapping_sub(Li64);
   "57a8f5a4c8": note("7.2.2", LEAN.shapes5_3),
   // *x = { m(x.f); *x }.wrapping_add(x as i32);
   "57ce9e2ee4": note("7.9.3", LEAN.shapes19_1),
+  // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes());
+  "57f6f7d814": note("7.4.2", LEAN.shapes9_1),
   // self.v = m(self.f, Lf64);
   "5886a0dc2b": note("7.2.6", LEAN.shapes4_8),
   // self.f = Li64.wrapping_sub(Li64) as i32;
@@ -525,13 +525,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "58edc15c64": note("7.7.8", LEAN.shapes13_17),
   // if (x as i32) < Li32 {
   "58f3434567": note("7.3.3", LEAN.shapes18_6),
-  // self.f = Li32.wrapping_neg() as i16;
-  // self.f = iec_min(self.f, …).to();
-  "59b48cdb5b": note("7.4.1", LEAN.shapes5_8),
-  // self.f = iec_max(self.f, …).to();
-  "59b92aa532": note("7.4.1", LEAN.shapes5_8),
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
   "59c341cb0f": note("7.8.7", LEAN.shapes19_6),
+  // x = x.with_char(x as i64, str.char_at(x as i64));
+  "5a131ce074": note("7.4.3", LEAN.shapes15_2),
   // self.f = (match self.f { L => self.f as i32, …, _ => self.f as i32 }) as i16;
   "5a9bc1030e": note("7.3.1", LEAN.shapes9_6),
   // __chain_value_N: Li16,
@@ -540,16 +537,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "5c40a4e5a8": note("7.2.9", LEAN.shapes4_9),
   // m(x);
   "5c499dbdc8": note("7.4.4", LEAN.shapes12_6),
-  // self.f = replace(self.f.to::<L>(), IecString::<L>::lit(B), Li16, …).to::<L>().to();
-  "5c7f0546bc": note("7.4.1", LEAN.shapes16_1),
   // pub x: f32,
   "5c9bb13706": note("7.3.7", LEAN.shapes12_14),
-  // self.f = IecString::<L>::lit(iec_date_text(self.v as i64).as_bytes()).to();
-  "5cd04259c1": note("7.4.2", LEAN.shapes9_1),
+  // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes());
+  "5cefb347f0": note("7.4.2", LEAN.shapes9_1),
   // x[(x as i64).wrapping_sub(__numbers_lower_N as i64) as usize] = x.wrapping_mul(Li32) as i16;
   "5d3437b284": note("7.2.14", LEAN.shapes16_7),
   // x: IecString::<L>::lit(B),
-  "5d9850550d": note("7.4.1", LEAN.shapes2_6),
+  "5d9850550d": note("7.4.2", LEAN.shapes2_6),
   // self.f = match self.ops[((self.f as i64) - Li64) as usize] { L => self.f.m(self.f), L => self.f.m(self.f), _ => pa
   "5dcbae07c6": note("7.2.3", LEAN.shapes20_12),
   // if ((x as i32) >= Li32) & ((len as i32) > Li32) {
@@ -562,6 +557,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "605307fc4c": note("7.3.1", LEAN.shapes7_3),
   // { let __arg_N = true; let __arg_N = false; let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x 
   "60d6b79cca": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
+  // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
+  "60fefc4d63": note("7.5.9", LEAN.shapes11_8),
   // self.f = m(self.f as f64, Lf64) as f32;
   "61a75e7b4b": note("7.2.6", LEAN.shapes7_10),
   // self.f = (self.f as i32).wrapping_add(self.f.f as i32) as i16;
@@ -594,10 +591,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "64c0a06174": note("7.3.1", LEAN.shapes8_3),
   // *x = { m(x.f); *x }.wrapping_add(x as i64);
   "64cc413c0b": note("7.9.3", LEAN.shapes19_1),
+  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i16
+  "650e10d85c": merged(["7.4.3", LEAN.shapes17_2], ["7.4.3", LEAN.shapes17_4]),
   // x: Lu16,
   "65df8e0418": note("7.2.9", LEAN.shapes5_17),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]).to();
-  "668b522f05": note("7.4.3", LEAN.shapes17_2),
   // x: (f64::INFINITY),
   "66ef68b08a": note("7.2.9", LEAN.shapes2_13),
   // self.f = (self.f as i32).wrapping_add(x as i32) as i16;
@@ -648,22 +645,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "6e691851a6": merged(["7.2.6", LEAN.shapes5_5], ["7.3.9", LEAN.shapes5_9]),
   // self.f = Li64.wrapping_add(Li64) as i16;
   "6e95d900d2": note("7.2.2", LEAN.shapes7_1),
+  // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes());
+  "6f19035a22": note("7.4.2", LEAN.shapes9_1),
   // (x as i64) as i32
   "6f8ef8f0bd": note("7.9.1", LEAN.shapes3_8),
   // x: (-Li32),
   "6f9ae8fd3a": note("7.2.9", LEAN.shapes1_1),
   // self.f.m_set(prg, self.__property_N);
   "6ff1de2a48": note("7.6.2", LEAN.shapes18_2),
-  // self.f = m(self.f.to::<L>(), Li16).to::<L>().to();
-  "7030300a1b": note("7.4.2", LEAN.shapes15_1),
   // self.f = x;
   "707233d6d6": note("7.6.1", LEAN.shapes11_11),
   // self.f[(Li8 as i64) as usize].m();
   "7073e4cc28": note("7.2.3", LEAN.shapes6_9),
   // *x = ((*x) as i32).wrapping_add(x as i32) as i16;
   "707715f6ab": note("7.3.1", LEAN.shapes19_10),
-  // x = IecString::<L>::lit(B).to();
-  "708b7c88b3": note("7.7.3", LEAN.shapes18_10),
   // self.f = { self.__inout_index_N = self.f; let __arg_N = self.m(); m(__arg_N, &mut self.f[(self.__inout_index_N as 
   "70b25e3c85": note("7.6.1", LEAN.shapes20_10),
   // pub fn m(mut x: i32, x: &mut bool) -> i32 {
@@ -672,16 +667,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "73351964cd": note("7.3.3", LEAN.shapes18_6),
   // self.f = true;
   "73505351ad": note("7.6.1", LEAN.shapes1_5),
-  // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
-  "deaa2bbf15": note("7.2.7", LEAN.shapes8_6),
   // self.f = Li64.max(Li64).min(Li64) as i16;
   "745a764511": note("7.2.2", LEAN.shapes7_1),
   // x: Lf32,
   "74845f98c6": merged(["7.2.12", LEAN.shapes4_3], ["7.2.12", LEAN.shapes5_15], ["7.2.8", LEAN.shapes5_16]),
-  // x = x.with_char(x as i64, str.char_at(x as i64)).to();
-  "7566f32b5e": note("7.4.3", LEAN.shapes15_2),
-  // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes()).to();
-  "7587dbd531": note("7.4.2", LEAN.shapes9_1),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i8;
   "7589f5a1ee": note("7.3.1", LEAN.shapes8_3),
   // p: L,
@@ -694,8 +683,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "77378f7efe": note("7.8.6", LEAN.shapes14_9),
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i32 {
   "775c30eac7": note("7.7.8", LEAN.shapes16_15),
-  // self.f = Li32.max(self.f as i32).min(Li32) as i16;
-  "9d3d81580d": note("7.2.7", LEAN.shapes8_6),
   // self.f = (self.v as u64).wrapping_mul(Lu64).wrapping_sub({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu6
   "7812f5a53d": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
   // pub __output_N: i16,
@@ -708,8 +695,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "7886e7bd17": note("7.2.3", LEAN.shapes2_3),
   // self.f.count = (self.f.f[((Li8 as i64) - Li64) as usize].f.f as i32).wrapping_add(self.f.f[((Li8 as i64) - Li64) a
   "789e5223f1": note("7.2.3", LEAN.shapes12_2),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x).to();
-  "78f3cafc1e": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3], ["7.2.4", LEAN.shapes16_10]),
   // x = x.wrapping_add(x[(x as i64).wrapping_sub(__values_lower_N as i64) as usize] as i32);
   "7918d10820": note("7.2.3", LEAN.shapes20_12),
   // self.f = (self.f as u8) as f32;
@@ -728,10 +713,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "7aa0eab362": note("7.3.1", LEAN.shapes8_3),
   // pub fn m(mut x: i16, x: &mut i16) -> i16 {
   "7ab9128afd": note("7.7.1", LEAN.shapes18_9),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "7b34ea5981": note("7.4.3", LEAN.shapes17_2),
-  // self.f = (if self.f { Li64 } else { Li64 }) as i16;
-  "ba75ffae84": merged(["7.2.7", LEAN.shapes10_4], ["7.4.1", LEAN.shapes10_5]),
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
   "7c7cff3d31": note("7.7.5", LEAN.shapes19_8),
   // x = (x as i32).wrapping_mul(Li32) as i16;
@@ -749,8 +730,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = Li32.wrapping_neg() as u8;
   // x = m(x, &mut (*x));
   "7e45a342fc": note("7.8.6", LEAN.shapes13_9),
-  // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes()).to();
-  "7e482a6261": note("7.4.2", LEAN.shapes9_1),
   // x = (self.f as i32).wrapping_mul(Li32).wrapping_add((g.f as i32).wrapping_mul(Li32)).wrapping_add(x as i32) as i16
   "7ee47c4eab": note("7.3.1", LEAN.shapes17_7),
   // g.f = (g.f as i32).wrapping_add(Li32) as i16;
@@ -762,8 +741,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.v = (-Li32).wrapping_neg();
   // pub __chain_value_N: f64,
   "7fc67373d7": note("7.6.1", LEAN.shapes4_6),
-  // self.f = IecString::<L>::lit(B).to();
-  "803ee89d4f": note("7.4.2", LEAN.shapes2_6),
   // self.f = (self.f as i32).wrapping_sub(self.f as i32) as i8;
   "8049b483ae": note("7.3.1", LEAN.shapes8_3),
   // self.f.call(&mut (*x));
@@ -782,8 +759,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "81f1075b92": note("7.3.1", LEAN.shapes8_3),
   // take = self.f;
   "821a3bb974": note("7.6.3", LEAN.shapes17_9),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(Li
-  "828ee45554": note("7.4.3", LEAN.shapes17_2),
+  // x.m(&IecString::<L>::lit(B));
+  "8232a1cf7c": note("7.7.3", LEAN.shapes18_10),
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
   "82e802ebc9": note("7.8.7", LEAN.shapes20_14),
   // x = (((x as i32) == Li32) | (((x as i32) >= Li32) & ((x as i32) <= Li32))) | ((x as i32) == Li32);
@@ -794,6 +771,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "833efb5917": note("7.3.1", LEAN.shapes19_10),
   // self.f = ((self.v as u64) / Lu64).wrapping_sub({ let x = (self.v as u64) / Lu64; let x = Lu64; if x == L { L } els
   "8346bf3968": merged(["7.2.6", LEAN.shapes10_1], ["7.2.6", LEAN.shapes10_2]),
+  // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
+  "83d24ce33a": note("7.3.1", LEAN.shapes20_3),
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": merged(["7.4.6", LEAN.shapes16_11], ["7.6.6", LEAN.shapes16_16]),
   // self.f[((self.f as i64) - Li64) as usize] = self.f.f;
@@ -804,8 +783,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "85168be6a7": note("7.7.5", LEAN.shapes17_5),
   // self.f = m(self.f, &mut self.f);
   "8539587ea0": note("7.4.4", LEAN.shapes14_10),
-  // self.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "8597dc45bd": note("7.4.8", LEAN.shapes2_6),
+  // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes());
+  "85e51471f9": note("7.4.2", LEAN.shapes9_1),
   // self.f = m(self.f as f64) as u32;
   "8653414194": note("keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells", LEAN.shapes6_11),
   // x: Li64,
@@ -814,21 +793,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "873f201d21": note("7.3.5", LEAN.shapes5_10),
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu8 << L) } else { *x & !(Lu8 << L) }; }
   "87cd3925f5": note("7.8.5", LEAN.shapes20_13),
-  // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
-  "83d24ce33a": note("7.3.1", LEAN.shapes20_3),
   // self.f = len(self.narrow.to::<L>());
   "8986d5305c": note("7.4.6", LEAN.shapes14_18),
-  // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
-  // (re-keyed from `self.units = m(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
-  "2421f6476e": note("7.6.3", LEAN.shapes18_1),
   // self.f = (self.f as i32).min(self.f as i32) as i8;
   "8a1bafcc9c": note("7.3.1", LEAN.shapes8_3),
   // let mut fb_init: bool = false;
   "8a9bb48ddb": note("7.7.1", LEAN.shapes2_11),
+  // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
+  "8b3a192776": note("7.2.7", LEAN.shapes10_4),
   // self.f = self.f.wrapping_shr(self.f as u32);
   "8b69355dc1": note("7.3.5", LEAN.shapes7_4),
+  // self.f = IecString::<L>::lit(B);
+  "8b6ecf477b": note("7.4.2", LEAN.shapes2_6),
   // x: { let mut v = T::new(); v.f = Li16; v },
   "8b9a7c5eea": note("7.8.3", LEAN.shapes7_11),
+  // self.f.m(&IecString::<L>::lit(x!(S, self.f).as_bytes()));
+  "8c1b866176": note("7.4.2", LEAN.shapes9_2),
   // self.f.m(Li32.wrapping_neg() as i16);
   // { m(self.f); self.f.m_set(self.__property_N) };
   "8c658bedd7": note("7.6.2", LEAN.shapes15_10),
@@ -842,8 +822,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8d7dcea3f3": note("7.2.3", LEAN.shapes19_3),
   // self.count = (self.count as i32).wrapping_add(Li32) as i16;
   "8d8ff2c804": note("7.3.1", LEAN.shapes8_3),
-  // x = x.with_char(x as i64, Lu8).to();
-  "8e30e6691c": note("7.4.1", LEAN.shapes14_3),
   // self.f.f = (((self.f as i32) == Li32) | ((self.f as i32) == Li32)) | ((self.f as i32) == Li32);
   "8e4b1ce4cc": note("7.3.3", LEAN.shapes20_2),
   // self.f = ({ let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }) as i16;
@@ -854,6 +832,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8f1829f5b3": note("7.3.1", LEAN.shapes8_3),
   // if (g.f as i32) <= Li32 {
   "8f2ea71862": note("7.3.3", LEAN.shapes18_6),
+  // self.f.f = IecWString::<L>::lit(&[Lu16, …]);
+  "8f5f221644": note("7.4.8", LEAN.shapes15_12),
   // self.f = (x as i32).wrapping_mul(Li32) as i16;
   "8ffd5ed266": note("7.3.1", LEAN.shapes19_10),
   // pub fn sum(&mut self, mut x: [i16; L]) {
@@ -866,8 +846,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "90ba7cf588": note("7.3.1", LEAN.shapes16_6),
   // x: Lu64,
   "90c445f7cb": note("7.2.8", LEAN.shapes5_16),
-  // self.f.f = IecWString::<L>::lit(&[Lu16, …]).to();
-  "90e7185468": merged(["7.4.2", LEAN.shapes15_1], ["7.4.8", LEAN.shapes15_12]),
   // self.f = (self.__chain_value_N as f32) as f64;
   "915417cef0": note("7.6.1", LEAN.shapes7_6),
   // self.f = ({ let x = (self.f as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }
@@ -880,8 +858,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "924a0fdb2f": note("7.2.2", LEAN.shapes7_1),
   // let mut replace: IecString<L> = IecString::<L>::lit(B);
   "92f7142ab2": note("7.4.7", LEAN.shapes15_11),
+  // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
+  "9358115574": note("7.5.9", LEAN.shapes11_8),
+  // self.f.m(&m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()));
+  "939dcea16f": note("7.2.14", LEAN.shapes16_7),
   // 'loop_N: loop {
   "93a17fab28": note("7.5.2", LEAN.shapes11_9),
+  // self.f.m(&IecString::<L>::lit(B));
+  "94c11e8f56": note("7.4.2", LEAN.shapes2_6),
   // 'body_N: {
   "95094bd48a": note("7.5.3", LEAN.shapes10_6),
   // self.f = (x as i32).wrapping_add(Li32) as i16;
@@ -900,6 +884,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "96bf43c1e7": note("7.8.7", LEAN.shapes19_6),
   // pub fn m(mut x: i16) -> T {
   "96f5f06912": note("7.7.1", LEAN.shapes13_12),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64
+  "974fbd1aae": note("7.4.3", LEAN.shapes17_2),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as i16;
   "97c6103a21": note("7.3.1", LEAN.shapes8_3),
   // (match self.f { L => self.f.m(), L => self.f.m(), _ => panic!(S) });
@@ -914,20 +900,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9a4cb2346e": note("7.2.2", LEAN.shapes7_1),
   // if m(x, …, true, &mut (*x), &mut (*x)) {
   "9a63db2a45": note("7.8.6", LEAN.shapes14_9),
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B)).to::<L>().to();
-  "9a8003dce0": note("7.4.1", LEAN.shapes16_1),
   // self.f = self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((
   "9b12fdbfc8": note("7.2.3", LEAN.shapes12_2),
-  // self.f = (if false { Li64 } else { Li64 }) as i16;
-  "faa5102f23": note("7.2.7", LEAN.shapes10_4),
   // self.v = Li64.wrapping_sub(Li64) as i16;
   "9b7b8014c4": note("7.2.2", LEAN.shapes7_1),
   // self.f = { let __copy_N = self.f; self.m(&__copy_N) };
   "9bb47dec44": note("7.6.5", LEAN.shapes19_7),
   // let mut x: u8 = Lu8;
   "9c1d0c1a6e": note("7.4.5", LEAN.shapes13_16),
-  // self.f.f = if self.f { self.f } else { self.f };
-  "c2ecf76c31": note("7.3.1", LEAN.shapes20_3),
   // self.f = ({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "9c7ca7c1f9": note("7.2.6", LEAN.shapes10_1),
   // pub fn call<const T: usize>(&mut self, x: &i16, x: &IecString<T>) {
@@ -936,8 +916,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9c8d21e237": note("7.4.6", LEAN.shapes16_11),
   // self.ops[((Li8 as i64) - Li64) as usize] = L;
   "9ca82cec1d": note("7.2.3", LEAN.shapes19_3),
-  // self.f = replace(self.f.to::<L>(), self.f.to::<L>(), Li16, …).to::<L>().to();
-  "9cbdbcc28b": note("7.4.1", LEAN.shapes16_1),
+  // self.f = Li32.max(self.f as i32).min(Li32) as i16;
+  "9d3d81580d": note("7.2.7", LEAN.shapes8_6),
+  // self.f = IecWString::<L>::lit(&[Lu16, …]);
+  "9d62c9b3e2": note("7.4.8", LEAN.shapes2_6),
   // self.f = self.f.wrapping_shl(Li8 as u32);
   "9d8cd15435": note("7.2.10", LEAN.shapes18_4),
   // self.f = { let x = self.f; let x = Lu32; if x == L { L } else { x.wrapping_rem(x) } };
@@ -960,16 +942,22 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "a01f00db76": note("7.7.1", LEAN.shapes18_9),
   // if ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(x as i64)) as i32) == Li32 {
   "a021273b0d": merged(["7.4.4", LEAN.shapes16_2], ["7.4.4", LEAN.shapes16_5], ["7.2.4", LEAN.shapes16_10]),
+  // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes());
+  "a0672773fa": note("7.4.2", LEAN.shapes9_1),
   // self.f = (self.f as i32) as i16;
   "a078903418": note("7.3.9", LEAN.shapes5_9),
   // self.f = self.f == IecString::<L>::lit(B);
-  "a095c1d0aa": note("7.4.1", LEAN.shapes7_7),
+  "a095c1d0aa": note("7.4.9", LEAN.shapes7_7),
   // self.f[(Li8 as i64) as usize].f = (self.f[(Li8 as i64) as usize].f as i32).wrapping_add(Li32) as i16;
   "a0d3389a70": note("7.2.3", LEAN.shapes3_3),
   // self.f = (self.f as f64).sqrt();
   "a1adee154e": note("7.3.6", LEAN.shapes5_11),
+  // self.narrow.m(&self.f.narrow::<L>());
+  "a1c2206655": note("7.4.6", LEAN.shapes16_11),
   // v: Li16,
   "a29db6178b": merged(["7.2.8", LEAN.shapes6_1], ["7.8.8", LEAN.shapes6_2], ["7.9.3", LEAN.shapes6_3]),
+  // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
+  "a31de5f5e1": note("7.4.3", LEAN.shapes17_4),
   // x = ({ m(x); *x }.char_at((x as i64).wrapping_sub(Li64)) as i32) == Li32;
   "a328a51dbd": note("7.4.4", LEAN.shapes16_2),
   // self.f = (self.f as i32) == (self.f as i32);
@@ -984,6 +972,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "a41f58717b": note("7.8.10", LEAN.shapes20_9),
   // pub x: u64,
   "a497507b30": merged(["keep:the field declaration is already lean and correct (569 members, 0 disagreements); removed by 7.2.13", LEAN.shapes13_1], ["7.2.5", LEAN.shapes13_2]),
+  // g.f[((g.f as i64) - Li64) as usize].f.m(&IecString::<L>::lit(B));
+  "a4ff08580b": note("7.2.3", LEAN.shapes20_12),
   // if ((x as i32) >= Li32) & ((x as i32) <= Li32) {
   "a54ead1fbe": note("7.5.6", LEAN.shapes15_5),
   // self.f = { let __copy_N = IecString::<L>::lit(B); self.m(&__copy_N) };
@@ -1024,24 +1014,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ad25627749": note("7.8.8", LEAN.shapes1_8),
   // self.f.f = ((self.f as i32) == Li32) | ((self.f as i32) == Li32);
   "adb6559f1f": note("7.4.4", LEAN.shapes16_5),
-  // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li32.wrapping_neg() as i16).to::<L>().to();
-  "b7bdb5cfef": note("7.4.1", LEAN.shapes20_6),
   // self.f = self.f[((Li8 as i64) - Li64) as usize][(Li8 as i64) as usize][((Li8 as i64) - Li64) as usize];
   "ae08e85841": note("7.2.3", LEAN.shapes12_2),
   // self.f = (self.f as i32).max(self.f as i32) as u16;
   "ae0e0c28ea": note("7.3.1", LEAN.shapes8_3),
   // { let mut x = std::mem::take(&mut prg.f); x.call(g, prg); prg.f = x; }
   "ae38098da5": note("7.8.10", LEAN.shapes20_9),
+  // self.f = IecString::<L>::lit(iec_tod_text(self.v as i64).as_bytes());
+  "aeb527c9e6": note("7.4.2", LEAN.shapes9_1),
   // self.f = (self.f as i32).wrapping_shr(Li8 as u32) as i8;
   "af004404ec": note("7.2.5", LEAN.shapes8_5),
-  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to::<L>().to();
-  "af39c91205": note("7.4.2", LEAN.shapes9_2),
   // v: Lu32,
   "afa5d14dd9": note("7.2.8", LEAN.shapes6_1),
   // pub fn x<const T: usize>(&mut self, x: &IecString<T>) -> bool {
   "b03c447093": note("7.6.5", LEAN.shapes19_7),
-  // self.f = IecString::<L>::lit(iec_dt_text(self.f as i64).as_bytes()).to::<L>().to();
-  "b060fcca7b": note("7.4.2", LEAN.shapes9_2),
   // self.f = m(self.f).log10() as f32;
   "b07338e4d9": note("7.3.12", LEAN.shapes6_10),
   // if ((self.f as i32) == Li32) & ((self.f as i32) == Li32) {
@@ -1052,8 +1038,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b1e8ba6d90": note("7.2.6", LEAN.shapes16_4),
   // if ((x as i32) < Li32) | ((x as i32) > x) {
   "b2d33739c5": note("7.5.6", LEAN.shapes15_5),
-  // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
-  "14e2fedf17": note("7.3.1", LEAN.shapes20_3),
   // x = __grid_lower_N;
   "b3a0495ed2": note("7.7.8", LEAN.shapes13_17),
   // self.f = T::new();
@@ -1070,6 +1054,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b58894b5df": note("7.6.6", LEAN.shapes14_12),
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
   "b592939dbf": note("7.4.6", LEAN.shapes16_11),
+  // self.f = IecString::<L>::lit((if self.f { S } else { S }).as_bytes());
+  "b5a9bef60f": note("7.4.2", LEAN.shapes9_1),
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
   "b6565109d7": note("7.8.10", LEAN.shapes20_9),
   // self.f = Li32 as i8;
@@ -1090,8 +1076,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b7cc1b2b1d": merged(["7.7.1", LEAN.shapes13_12], ["7.4.5", LEAN.shapes13_16]),
   // pub __numbers_upper_N: i32,
   "b894525f6e": note("7.7.8", LEAN.shapes13_17),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
-  "b8e7f28ba6": note("7.4.3", LEAN.shapes17_2),
   // pub fn map(&mut self, prg: &mut Programs) -> i16 {
   "b959cb02cf": note("7.7.5", LEAN.shapes19_8),
   // pub fn call(&mut self, g: &mut Globals) {
@@ -1100,16 +1084,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b991267156": note("7.3.1", LEAN.shapes8_3),
   // self.f = ((self.f as i32) & (self.f as i32)) as u8;
   "ba37642ce3": note("7.3.1", LEAN.shapes8_3),
+  // self.f = (if self.f { Li64 } else { Li64 }) as i16;
+  "ba75ffae84": note("7.2.7", LEAN.shapes10_4),
   // self.f = ((self.f as i32) | (self.f as i32)) as i16;
   "ba90e3c4fe": note("7.3.1", LEAN.shapes8_3),
   // pub fn m(&mut self, mut x: i16, …, x: &mut i16, …) -> i16 {
   "bb4c155c09": note("7.7.2", LEAN.shapes15_7),
   // self.f = (self.f as i32).min(self.f as i32) as u8;
   "bcb0fc562e": note("7.3.1", LEAN.shapes8_3),
-  // self.narrow = self.f.f.narrow::<L>().to();
-  "90205de00e": note("7.4.1", LEAN.shapes16_1),
-  // self.f = if self.g { self.f } else { self.f };
-  "12a2ae661a": note("7.2.7", LEAN.shapes9_5),
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": note("7.7.5", LEAN.shapes7_8),
   // self.f = (self.f as i32) < (self.f as i32);
@@ -1122,42 +1104,36 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c001fbb3b1": note("7.4.6", LEAN.shapes16_11),
   // pub fn m(&mut self, mut p: usize, x: &mut i16) -> i16 {
   "c0092c8e9b": note("7.7.11", LEAN.shapes19_9),
-  // x = x.with_char(x.wrapping_add(x) as i64, Lu8).to();
-  "c05be29130": note("7.4.3", LEAN.shapes15_2),
   // self.f = (self.f.f as i32).wrapping_mul(Li32) as i16;
   "c069593bcd": note("7.3.1", LEAN.shapes15_4),
   // self.f[(Li8 as i64) as usize] = Lf32;
   "c0e245211c": note("7.2.3", LEAN.shapes11_7),
   // x = (g.f as i32).wrapping_add(Li32) as i16;
   "c1a4f50099": note("7.3.1", LEAN.shapes15_4),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64
+  "c1db7399d8": note("7.4.3", LEAN.shapes17_2),
   // x[(x as i64) as usize] = Lu8;
   "c2409a5969": note("7.2.14", LEAN.shapes13_7),
   // self.f = (self.v as u64).wrapping_mul(Lu64);
   "c2729b1a2a": note("7.3.10", LEAN.shapes7_5),
-  // self.narrow = self.f.narrow::<L>().to::<L>().to();
-  "08b9196831": merged(["7.4.2", LEAN.shapes15_1], ["7.4.6", LEAN.shapes16_11]),
   // self.f = (self.f as i32).min(g.f as i32) as i16;
   "c2a92e6f4e": note("7.3.1", LEAN.shapes19_4),
   // self.f = (Lf64 - self.f).sqrt();
   "c2d750a62a": note("7.3.6", LEAN.shapes5_11),
-  // self.f = m(self.f.to::<L>(), Li16, Li32.wrapping_neg() as i16).to::<L>().to();
-  "e42f1ae167": note("7.4.1", LEAN.shapes16_1),
+  // self.f.f = if self.f { self.f } else { self.f };
+  "c2ecf76c31": note("7.3.1", LEAN.shapes20_3),
   // x: (-Lf64),
   "c35f240db9": note("7.2.9", LEAN.shapes1_1),
-  // x.f = IecString::<L>::lit(B).to();
-  "c49c211047": note("7.4.1", LEAN.shapes14_3),
+  // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64));
+  "c45bfa2727": note("7.4.3", LEAN.shapes16_3),
   // self.f[((Li8 as i64) - Li64) as usize] = Li16;
   "c52c7994ca": note("7.2.3", LEAN.shapes11_7),
   // if x.is_nan() || !(-L..L).contains(&x) { return i64::MIN; }
   "c5844eabe9": note("7.9.1", LEAN.shapes8_2),
-  // self.f = m(self.f.to::<L>(), self.f.f[(self.f as i64) as usize].to::<L>()).to::<L>().to();
-  "c58cc5538f": merged(["7.4.1", LEAN.shapes16_1], ["7.2.14", LEAN.shapes16_7]),
   // x.f = x.f;
   "c5d30c56ec": note("7.8.4", LEAN.shapes17_10),
   // match x {
   "c6322760e4": note("7.8.4", LEAN.shapes17_10),
-  // self.f = IecString::<L>::lit(iec_time_text(self.v as i64).as_bytes()).to();
-  "c689147e80": note("7.4.2", LEAN.shapes9_1),
   // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x }
   "c68f0b1ef6": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
   // if (self.f as i32) >= Li32 { break; }
@@ -1168,16 +1144,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c7f76e08cf": note("7.2.6", LEAN.shapes11_14),
   // self.f = ((self.f as f64).sqrt() as f32) + Lf32;
   "c83ad009ae": note("7.3.6", LEAN.shapes8_8),
-  // g.f[((g.f as i64) - Li64) as usize].f = IecString::<L>::lit(B).to();
-  "c86923a1ee": note("7.2.3", LEAN.shapes20_12),
+  // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes());
+  "c867edb1d3": note("7.4.2", LEAN.shapes9_1),
   // self.f = [Li16; L];
   "c8927952f2": note("7.6.4", LEAN.shapes11_12),
   // self.f = (!self.f) | self.f;
   "c8ac3c10c1": note("7.3.8", LEAN.shapes5_12),
   // pub fn m(&mut self, mut x: i16, …) -> i16 {
   "c8ca44a755": note("7.7.2", LEAN.shapes15_7),
-  // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes()).to();
-  "c9573720ef": note("7.4.2", LEAN.shapes9_1),
   // x: std::array::from_fn(|_| T::new()),
   "c9c77500c6": merged(["7.8.2", LEAN.shapes2_7], ["7.8.2", LEAN.shapes2_9]),
   // self.f = (self.f as i32).wrapping_add(self.f as i32) as i16;
@@ -1188,13 +1162,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ca823a2c56": merged(["7.9.3", LEAN.shapes17_1], ["7.8.4", LEAN.shapes17_10]),
   // self.f = m(L, …i16, &mut self.f, …);
   "ca94bceedc": note("7.4.5", LEAN.shapes14_8),
-  // x = { let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) }.to::<L>
-  "cb2199fcf3": note("7.4.3", LEAN.shapes17_4),
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(self.f as i32) as i16;
   "cbab9cd013": note("7.3.1", LEAN.shapes9_3),
-  // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
-  // (re-keyed from `self.f = self.f.take(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
-  "1bb6d1cb14": note("7.2.6", LEAN.shapes19_11),
   // x = m(&mut x) as i32;
   "cbcde0e5de": note("7.4.6", LEAN.shapes13_15),
   // pub fn m(mut x: i32, x: &mut T) -> bool {
@@ -1217,8 +1186,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "d04295d4c8": note("7.2.3", LEAN.shapes19_3),
   // if (self.f & (!self.f)) & ((self.f as i32) < Li32) {
   "d0865e3847": note("7.5.6", LEAN.shapes15_5),
-  // self.f = self.f.widen::<L>().to::<L>().to();
-  "e9e296435a": note("7.4.2", LEAN.shapes15_1),
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T
   "d231c1a7e5": note("7.7.1", LEAN.shapes17_11),
   // self.f.f = (((self.f as i32) >= Li32) & ((self.f as i32) <= Li32)) | ((self.f as i32) == Li32);
@@ -1247,18 +1214,24 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "d99adbcc4b": note("7.3.3", LEAN.shapes14_6),
   // self.f = (self.f as i32).wrapping_neg() as i8;
   "d9d76a4055": note("7.3.1", LEAN.shapes7_3),
+  // self.f = self.f.with_char(Li8 as i64, Lu8);
+  "da046bfcbb": merged(["7.4.3", LEAN.shapes15_2], ["7.2.3", LEAN.shapes15_3]),
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
   "db57faba5d": note("7.7.1", LEAN.shapes17_11),
-  // self.f = m(self.f.to::<L>(), self.f.to::<L>(), Li16).to::<L>().to();
-  "db96948bf3": note("7.4.1", LEAN.shapes16_1),
   // self.f = (self.char as i32).wrapping_add(self.f as i32) as i16;
   "dbc172da6a": note("7.3.1", LEAN.shapes9_3),
   // pub fn len(mut str: IecString<L>) -> i16 {
   "dbcd1088a5": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
+  // x = x;
+  "dbdc75774e": note("7.4.4", LEAN.shapes12_6),
   // self.f = match self.f { L => self.f.m_get(), _ => panic!(S) };
   "dc1e3df820": note("7.8.7", LEAN.shapes19_6),
+  // self.f.f = IecString::<L>::lit(B);
+  "dc277bd73f": note("7.4.2", LEAN.shapes2_6),
   // pub fn m(&mut self) -> IecString<L> {
   "dc8437c26a": note("7.7.3", LEAN.shapes18_10),
+  // self.f.m(&IecWString::<L>::lit(&[Lu16, …]));
+  "dc950bfb03": note("7.4.8", LEAN.shapes2_6),
   // self.f = ({ m(self.f); self.f } as i32).wrapping_add(Li32) as i16;
   "dd1daf8424": merged(["7.3.1", LEAN.shapes9_3], ["7.9.3", LEAN.shapes9_10]),
   // pub fn m(mut x: i32, x: &mut f64) -> i32 {
@@ -1279,14 +1252,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "de956f2a12": note("7.2.5", LEAN.shapes8_4),
   // self.f = len(self.v.to::<L>());
   "dea089f2fd": note("7.4.6", LEAN.shapes14_18),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8).to();
-  "deb9c88c25": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3]),
+  // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
+  "deaa2bbf15": note("7.2.7", LEAN.shapes8_6),
   // self.f.__numbers_upper_N = self.__numbers_upper_N;
   "debabdec0d": note("7.2.3", LEAN.shapes15_13),
   // __inout_index_N: Li64,
   "def43ae4d0": note("7.6.3", LEAN.shapes18_1),
-  // self.f = m(&mut self.f).to();
-  "df1778304b": note("7.4.1", LEAN.shapes13_8),
   // pub fn m(&mut self, x: &mut i16) -> i16 {
   "dfc9d07c2c": note("7.7.2", LEAN.shapes15_7),
   // self.f.clamp();
@@ -1295,10 +1266,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "e02b80c3c1": note("7.2.3", LEAN.shapes11_7),
   // self.f = ((self.f as i32) | (self.f as i32)) as i8;
   "e1456a0eae": note("7.3.1", LEAN.shapes8_3),
-  // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
-  "60fefc4d63": note("7.5.9", LEAN.shapes11_8),
-  // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
-  "e205f81b84": note("7.4.1", LEAN.shapes16_1),
+  // self.f.f.m(&IecWString::<L>::lit(&[Lu16, …]));
+  "e19e17485d": note("7.4.8", LEAN.shapes15_12),
   // if (self.f as i32) <= Li32 { break; }
   "e2e0d67858": note("7.3.3", LEAN.shapes11_16),
   // x.f = L;
@@ -1319,8 +1288,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "e6646a0bd0": note("7.4.7", LEAN.shapes15_11),
   // x = x.wrapping_add(Li32) as i16;
   "e6ef5a4585": note("7.3.1", LEAN.shapes14_4),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), x[(x as i64) as usize]));
+  "e6fd2dc9fd": note("7.4.3", LEAN.shapes17_2),
   // self.f = (self.f as i32).max(g.f as i32) as i16;
   "e708298af7": note("7.3.1", LEAN.shapes19_4),
+  // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes());
+  "e763b5dd7a": note("7.4.2", LEAN.shapes9_1),
   // { let x = false; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "e76a0c7276": note("7.8.5", LEAN.shapes20_13),
   // if x > x.wrapping_sub(x) { break; }
@@ -1337,20 +1310,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "e7e871371f": note("7.6.1", LEAN.shapes5_7),
   // self.units = len(self.narrow.to::<L>());
   "e8162bb9aa": note("7.4.6", LEAN.shapes14_18),
-  // x = x.with_char(x.wrapping_add(x) as i64, x.char_at(x as i64)).to();
-  "e8210b694c": merged(["7.4.1", LEAN.shapes16_1], ["7.4.3", LEAN.shapes16_3]),
   // pub fn fb_init(&mut self, mut x: bool) -> bool {
   "e82fbd8112": note("7.7.1", LEAN.shapes2_11),
   // x: Lu32,
   "e8954e2b0d": merged(["7.2.8", LEAN.shapes4_1], ["7.2.11", LEAN.shapes4_2], ["7.2.11", LEAN.shapes1_10]),
   // if self.f > self.f.m() { break; }
   "e8a1222ae6": note("7.5.7", LEAN.shapes14_7),
-  // self.f = IecString::<L>::lit(x!(S, self.v).as_bytes()).to();
-  "e921bd1d7e": note("7.4.2", LEAN.shapes9_1),
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 
   "e9a5cabd36": note("7.3.9", LEAN.shapes17_12),
-  // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16).to::<L>().to();
-  "0a2a55e976": note("7.4.1", LEAN.shapes16_1),
   // self.copied = self.copied;
   "ea53989ac8": note("keep:`x := x` stays ALLOWED self_assignment (7.8.9 moves this text into that reason); removed by 7.11.1", LEAN.shapes11_20),
   // if ((x == L) | (x == L)) | ((x as i32) == Li32) {
@@ -1359,8 +1326,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "eb533b340b": note("7.2.3", LEAN.shapes14_2),
   // self.f = self.f.f[((Li8 as i64) - Li64) as usize].f.f;
   "ebc60e2668": note("7.2.3", LEAN.shapes11_7),
-  // x = str.to();
-  "ec1b55e90b": note("7.4.1", LEAN.shapes12_7),
   // if (x == L) | (x == L) {
   "ec21aafede": note("7.5.6", LEAN.shapes13_13),
   // x: (-Li16),
@@ -1395,8 +1360,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f06209ef9e": note("7.5.7", LEAN.shapes14_15),
   // x[(x as i64).wrapping_sub(__grid_lower_N as i64) as usize][(x as i64).wrapping_sub(__grid_lower_N as i64) as usize
   "f07cf2da87": note("7.2.3", LEAN.shapes17_3),
-  // x = x.with_char(x as i64, x.char_at(x as i64)).to();
-  "f0973f1bcc": note("7.4.3", LEAN.shapes15_2),
   // x[(x.wrapping_add(x) as i64) as usize] = x[(x.wrapping_add(x) as i64) as usize];
   "f10c6b31a0": note("7.2.14", LEAN.shapes16_7),
   // self.f = self.v.m(&mut self.__output_N);
@@ -1405,8 +1368,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f22b4df758": note("7.5.6", LEAN.shapes9_12),
   // self.f = true as u8;
   "f2987aca6a": note("7.2.10", LEAN.shapes3_11),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), { m(x); *x }.cha
-  "f31583df05": note("7.4.3", LEAN.shapes17_2),
   // pub fn m(&mut self, mut x: i16, …) {
   "f327cfe40a": note("7.7.1", LEAN.shapes18_9),
   // self.f = ((self.f as i32) ^ (self.f as i32)) as u16;
@@ -1427,6 +1388,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f5ca982c14": merged(["7.7.2", LEAN.shapes15_7], ["7.7.2", LEAN.shapes15_14]),
   // pub fn m(&mut self, g: &mut Globals) -> i16 {
   "f62e4d99a5": note("7.7.5", LEAN.shapes15_6),
+  // (*x).m(&{ m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_sub(x).wrapping_add(Li32).max(
+  "f6f7b781df": note("7.4.3", LEAN.shapes17_2),
   // pub fn m(mut x: i8) -> bool {
   "f75c7acc4a": note("7.7.1", LEAN.shapes13_12),
   // m(self.p);
@@ -1443,8 +1406,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f9bdd4950a": note("7.8.2", LEAN.shapes2_7),
   // pub fn init(&mut self) {
   "fa7d5f176f": note("7.7.2", LEAN.shapes2_12),
-  // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
-  "9358115574": note("7.5.9", LEAN.shapes11_8),
+  // self.f = (if false { Li64 } else { Li64 }) as i16;
+  "faa5102f23": note("7.2.7", LEAN.shapes10_4),
   // let mut map: i16 = Li16;
   "faf5605030": note("7.7.3", LEAN.shapes18_10),
   // self.m();
@@ -1457,8 +1420,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "fbfd8ba027": note("7.3.1", LEAN.shapes16_6),
   // self.f[(Li8 as i64) as usize] = (self.f[(Li8 as i64) as usize] as i32).wrapping_add(Li32) as i16;
   "fcc10694ff": note("7.2.3", LEAN.shapes12_2),
-  // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.wrapping_add(x) as i64), Lu8).to();
-  "fcc1e3ee2e": merged(["7.9.3", LEAN.shapes17_1], ["7.4.3", LEAN.shapes17_2]),
   // if self.f > self.__numbers_upper_N { break; }
   "fd16368fa8": note("7.2.3", LEAN.shapes15_13),
   // pub fn m_set(&mut self, mut x: i16) {

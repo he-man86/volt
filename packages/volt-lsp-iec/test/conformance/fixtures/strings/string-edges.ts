@@ -324,7 +324,7 @@ export const STRING_MODEL_TESTS: readonly LanguageTest[] = [
   // committed `tr_45_string_embedded_nul` recording says 0. `three` re-asks that cell exactly; `lit`/`bare` ask it where the
   // capacity holds the whole literal (an initializer), `assigned` where the literal is STORED at run time, `copy` whether an
   // assignment carries the bytes behind the NUL, `wideCopy` the same out of the STRING(3).
-  { ...whole("string_literal_nul_tail", "the bytes behind a $00 inside a STRING literal: initializer, run-time store and copy (transpile-restructure 3.1 M1)",
+  whole("string_literal_nul_tail", "the bytes behind a $00 inside a STRING literal: initializer, run-time store and copy (transpile-restructure 3.1 M1)",
     `FUNCTION_BLOCK FB_LANG_string_literal_nul_tail
 VAR
 \ti : INT;
@@ -364,7 +364,7 @@ lenLit := LEN(lit);
 lenAssigned := LEN(assigned);
 lenCopy := LEN(copy);
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure 3.1 M1): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. The literal is a source of its own length: 'ab$00cd' over 'ZZZZZZZZZZ' writes six bytes (the NUL inside it and its terminator among them) and keeps 'ZZZZ' at [6..9]; a STRING(3) copied into a STRING(10) writes four and keeps 'Z' from [4]." } },
+`),
 
   // M2 narrow: STRING(10) := STRING(20) whose bytes behind the length are not 0. The source is 'abcdefghijklmnopqrst' with a
   // 0 stored at [3] (length 3, 'efgh…t' behind it); `full` is the same 20 characters with no 0, so the cut at the capacity
@@ -401,7 +401,7 @@ END_FUNCTION_BLOCK
   // M2 wide: STRING(20) := STRING(10). The source is 'abcdefghij' with a 0 at [3]. The whole source buffer (11 bytes) puts
   // 'efghij' and a 0 at [4..10] and leaves 'Z' at [11..19]; len+1 bytes leaves 'Z' from [4]; a copy the size of the
   // DESTINATION would read past the source into its neighbour (`after`, 'QQQQ…').
-  { ...whole("string_assign_tail_wide", "STRING(20) := STRING(10) whose bytes behind the terminator are not 0 (transpile-restructure 3.1 M2)",
+  whole("string_assign_tail_wide", "STRING(20) := STRING(10) whose bytes behind the terminator are not 0 (transpile-restructure 3.1 M2)",
     `FUNCTION_BLOCK FB_LANG_string_assign_tail_wide
 VAR
 \ti : INT;
@@ -425,12 +425,12 @@ FOR i := 16 TO 20 DO
 END_FOR
 lenDst := LEN(dst);
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure 3.1 M2): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. STRING(20) := STRING(10) writes the source's eleven bytes ([4..9] 'efghij' behind its 0 included) and keeps 'Z' at [11..19]." } },
+`),
 
   // M3: the WSTRING twins of M1 and M2 — units are WORDs, the escape is four hex digits, the filler "Z" is 90. The literal
   // twin asks every cell the STRING one does: the sizeless `bare` and the three lengths too (counted to the first 0 by
   // `lengths` — LEN takes a STRING).
-  { ...whole("wstring_literal_nul_tail", "the units behind a $0000 inside a WSTRING literal: initializer, run-time store and copy (transpile-restructure 3.1 M3)",
+  whole("wstring_literal_nul_tail", "the units behind a $0000 inside a WSTRING literal: initializer, run-time store and copy (transpile-restructure 3.1 M3)",
     `FUNCTION_BLOCK FB_LANG_wstring_literal_nul_tail
 VAR
 \ti : INT;
@@ -467,7 +467,7 @@ FOR i := 0 TO 10 DO
 \twideCopyUnits[i] := wideCopy[i];
 END_FOR
 ${lengths([["lit", "lenLit"], ["assigned", "lenAssigned"], ["copy", "lenCopy"]])}END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure 3.1 M3): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. The WSTRING twin of string_literal_nul_tail, unit for unit." } },
+`),
 
   whole("wstring_assign_tail_narrow", "WSTRING(10) := WSTRING(20) whose units behind the terminator are not 0 (transpile-restructure 3.1 M3)",
     `FUNCTION_BLOCK FB_LANG_wstring_assign_tail_narrow
@@ -494,7 +494,7 @@ END_FOR
 END_FUNCTION_BLOCK
 `),
 
-  { ...whole("wstring_assign_tail_wide", "WSTRING(20) := WSTRING(10) whose units behind the terminator are not 0 (transpile-restructure 3.1 M3)",
+  whole("wstring_assign_tail_wide", "WSTRING(20) := WSTRING(10) whose units behind the terminator are not 0 (transpile-restructure 3.1 M3)",
     `FUNCTION_BLOCK FB_LANG_wstring_assign_tail_wide
 VAR
 \ti : INT;
@@ -516,7 +516,7 @@ FOR i := 16 TO 20 DO
 \thi[i] := dst[i];
 END_FOR
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure 3.1 M3): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. The WSTRING twin of string_assign_tail_wide, unit for unit." } },
+`),
 
   // M4: two strings whose bytes differ only behind the terminator ('abc' + 0 + 'def' / 'xyz'), at one capacity and across
   // two, and the WSTRING twin. Every operator, so an ordering that reads past the 0 shows in at least one cell.
@@ -747,12 +747,13 @@ dLeft := LEFT(src, 3);
 dUser := F_StrTail10();
 dConv := WSTRING_TO_STRING(w);
 ${dumps([["cat", "dCat"], ["left", "dLeft"], ["user", "dUser"], ["conv", "dConv"]])}END_FUNCTION_BLOCK
-`), residue: [...dumpPaths("cat", 5, 19), ...dumpPaths("left", 4, 19), ...dumpPaths("conv", 4, 19)], deferred: { transpile: "2026-10-08 (transpile-restructure gate 3a): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. The user FUNCTION's STRING(10) result carries its eleven bytes ('efghij' behind its 0 included) and keeps 'Z' at [11..19]. CONCAT, LEFT and WSTRING_TO_STRING return a 255-unit buffer, so their store writes all 20 units and the terminator at [20] — residue behind the result's own terminator (`residue`, different on every run), no 'Z' kept." } },
+`), residue: [...dumpPaths("cat", 5, 19), ...dumpPaths("left", 4, 19), ...dumpPaths("conv", 4, 19)] },
 
   // M2 into other DESTINATIONS (gate 3a): an ARRAY element, a STRUCT member, a VAR_IN_OUT (the store inside a FUNCTION, both
-  // sides by reference) and an FB's VAR_INPUT (the call's pass is the store), each 'Z'-filled before and dumped [0..20];
-  // the source holds 'efghij' behind a 0 at [3]. No name is `s` or `st`: S and ST are IL operators CODESYS refuses as names.
-  { ...whole("string_store_destination_kinds_tail", "a string store into an ARRAY element, a STRUCT member, a VAR_IN_OUT and an FB VAR_INPUT, each 'Z'-filled (transpile-restructure gate 3a)",
+  // sides by reference), an FB's VAR_INPUT (the call's pass is the store) and — gate 3c — an FB's VAR_OUTPUT STRING(10) copied
+  // out by `=>` into a wider variable, each 'Z'-filled before and dumped [0..20]; the source holds 'efghij' behind a 0 at
+  // [3]. No name is `s` or `st`: S and ST are IL operators CODESYS refuses as names.
+  { ...whole("string_store_destination_kinds_tail", "a string store into an ARRAY element, a STRUCT member, a VAR_IN_OUT, an FB VAR_INPUT and an FB VAR_OUTPUT's => copy-out, each 'Z'-filled (transpile-restructure gate 3a, 3c)",
     `TYPE ST_StrTailHolder :
 STRUCT
 \ttext : STRING(20);
@@ -774,6 +775,14 @@ VAR_INPUT
 END_VAR
 END_FUNCTION_BLOCK
 
+FUNCTION_BLOCK FB_StrTailOut
+VAR_OUTPUT
+\to : STRING(10);
+END_VAR
+o := 'abcdefghij';
+o[3] := 0;
+END_FUNCTION_BLOCK
+
 FUNCTION_BLOCK FB_LANG_string_store_destination_kinds_tail
 VAR
 \ti : INT;
@@ -783,17 +792,62 @@ VAR
 \tviaInOut : STRING(20);
 \tok : BOOL;
 \tfbIn : FB_StrTailIn;
-${dumpArrays(["arr", "rec", "inOut", "input"])}END_VAR
+\tviaOut : STRING(20);
+\tfbOut : FB_StrTailOut;
+${dumpArrays(["arr", "rec", "inOut", "input", "out"])}END_VAR
 src := 'abcdefghij';
 src[3] := 0;
 arr[0] := 'ZZZZZZZZZZZZZZZZZZZZ';
 rec.text := 'ZZZZZZZZZZZZZZZZZZZZ';
 viaInOut := 'ZZZZZZZZZZZZZZZZZZZZ';
 fbIn.p := 'ZZZZZZZZZZZZZZZZZZZZ';
+viaOut := 'ZZZZZZZZZZZZZZZZZZZZ';
 arr[0] := src;
 rec.text := src;
 ok := F_StrTailInOut(dest := viaInOut, source := src);
 fbIn(p := src);
-${dumps([["arr", "arr[0]"], ["rec", "rec.text"], ["inOut", "viaInOut"], ["input", "fbIn.p"]])}END_FUNCTION_BLOCK
-`), pouName: "FB_LANG_string_store_destination_kinds_tail", plcPrgVar: "inst : FB_LANG_string_store_destination_kinds_tail;", deferred: { transpile: "2026-10-08 (transpile-restructure gate 3a): a string store writes the SOURCE's units — up to the destination's capacity, then the terminator — and leaves the destination's units behind them as they were; both backends rebuild the destination from zeros, so the 'Z' (90) filler CODESYS keeps behind the copy reads 0. Model 2 (§3.2), task 3.6. An ARRAY element, a STRUCT member, a VAR_IN_OUT and an FB VAR_INPUT each take the source's eleven bytes ('efghij' behind its 0 included) and keep 'Z' at [11..19], as a plain variable does (M2)." } },
+fbOut(o => viaOut);
+${dumps([["arr", "arr[0]"], ["rec", "rec.text"], ["inOut", "viaInOut"], ["input", "fbIn.p"], ["out", "viaOut"]])}END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_string_store_destination_kinds_tail", plcPrgVar: "inst : FB_LANG_string_store_destination_kinds_tail;" },
+  // M2 into a FUNCTION's VAR_INPUT (transpile-restructure 3.6, design §3.2): the pass is a store into a STACK buffer with no
+  // prior value of its own. The same FUNCTION is called twice — first with a 20-'Y' literal (`dirty*`), then with a STRING(10)
+  // holding 'abc' + 0 + 'efghij' (`p*`) — and `p[0..20]` is dumped through `p[i]` into VAR_IN_OUT arrays each time.
+  // RECORDED (CODESYS 3.5.21.40, 2026-10-08): `p` is 'abc' + 0 + 'efghij' + 0 at [0..10] — the pass is M2's store, eleven
+  // units — and [11..19] are the units the FIRST call left in the same stack frame. Recorded twice with a 20-'Z' first call
+  // (90, identical) and then, gate 3c, with a 20-'Y' one (89): the units FOLLOW the previous call, so they are a
+  // deterministic carry-over of the function's frame, not residue (`LanguageTest.residue` is memory no program wrote). The
+  // model starts a function's VAR_INPUT at zeros and writes 0 there — a known divergence (`deferred.transpile`).
+  { ...whole("string_store_function_input_tail", "a STRING(10) with units behind its terminator passed to a FUNCTION's VAR_INPUT STRING(20): what stands behind the stored units (transpile-restructure 3.6)",
+    `FUNCTION F_StrTailInput : BOOL
+VAR_INPUT
+\tp : STRING(20);
+END_VAR
+VAR_IN_OUT
+\tlo : ARRAY[0..15] OF BYTE;
+\thi : ARRAY[16..20] OF BYTE;
+END_VAR
+VAR
+\ti : INT;
+END_VAR
+FOR i := 0 TO 15 DO
+\tlo[i] := p[i];
+END_FOR
+FOR i := 16 TO 20 DO
+\thi[i] := p[i];
+END_FOR
+F_StrTailInput := TRUE;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_store_function_input_tail
+VAR
+\tsrc : STRING(10);
+\tokDirty : BOOL;
+\tokP : BOOL;
+${dumpArrays(["dirty", "p"])}END_VAR
+src := 'abcdefghij';
+src[3] := 0;
+okDirty := F_StrTailInput(p := 'YYYYYYYYYYYYYYYYYYYY', lo := dirtyLo, hi := dirtyHi);
+okP := F_StrTailInput(p := src, lo := pLo, hi := pHi);
+END_FUNCTION_BLOCK
+`), deferred: { transpile: "2026-10-08 (transpile-restructure gate 3c): a FUNCTION's VAR_INPUT STRING(20) holds, behind the units a call's pass stores, the units the PREVIOUS call through the same frame left there — p[11..19] read 89 after a 20-'Y' call, 90 after a 20-'Z' one (record:exec, both reproducible); both backends start the input at zeros and read 0. Modelling it means a function frame that persists between calls at the vendor's stack layout. Only reachable by reading behind a function input's terminator; niche: accepted loss (0 occurrences in the corpora: 0 of the corpora's FUNCTIONs with a STRING/WSTRING VAR_INPUT index it)" } },
 ]

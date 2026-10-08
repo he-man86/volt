@@ -110,3 +110,11 @@ END_PROGRAM
     expect(operand?.kind === "load" && operand.place.slot).toBe(0)
   })
 })
+
+// The refusal names the capacity that did not fold, once per declaration (gate 3c review: it read 'the capacity of
+// STRING does not fold here', twice).
+test("string-capacity names the capacity expression, once", () => {
+  const { diagnostics } = lowerSource("PROGRAM P\nVAR n : INT := 5; x : STRING(n); END_VAR\nx := 'abc';\nEND_PROGRAM\n", "P")
+  const refusals = diagnostics.filter((d) => d.code === "string-capacity")
+  expect(refusals.map((d) => d.message)).toEqual(["the capacity of STRING(n) does not fold here"])
+})

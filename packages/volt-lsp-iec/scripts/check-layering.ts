@@ -102,8 +102,6 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
 export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
-  // an enum's storage reads the string capacity default (`withStringCapacity`), which task 3.3 deletes
-  "4b transpile/lower/values/enums.ts → transpile/lower/storage/layout.ts: lower/values is a leaf and must not import lower/storage",
   // design.md §4.2 puts `AttributeLookup` in project/prepare.ts, and the shared state (`core/shared.ts` `Shared.attributes`)
   // reads it: the design's placement and rule 4b disagree — reported to the gate (step 1.6d; core/shared.ts since 1.6.21)
   "4b transpile/lower/core/shared.ts → transpile/lower/project/prepare.ts: lower/core is a leaf and must not import lower/project",

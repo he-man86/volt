@@ -44,7 +44,8 @@ export interface ElementaryTypeRef {
   unfoldedLength?: true
   /** A capacity written as a NAME or an expression (`STRING(n)`), as written — the compiler names the type by it, not by
    *  its fold: "too long for destination type 'STRING(n)'" (`ce_string_length_constant_*`, `prag_const_*_string_length`,
-   *  both vendors 2026-10-03). Undefined for a literal capacity. */
+   *  both vendors 2026-10-03). An `unfoldedLength` capacity keeps its text too, so a refusal can name what did not fold.
+   *  Undefined for a literal capacity. */
   lengthText?: string
   /** A SUBRANGE of an integer type (`INT(0..10)`): its bounds, folded in the declaring scope — absent when either does not
    *  fold, and for every other type. Its values convert as its base (`v + 1` is an INT, `dt_subrange_arithmetic_result`)

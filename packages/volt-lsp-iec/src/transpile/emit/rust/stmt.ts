@@ -1,6 +1,6 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
-import type { IrPou, IrStmt } from "../../ir/index.js"
-import { stringKind } from "../../../frontend/types/index.js"
+import type { IrPou, IrStmt, Place } from "../../ir/index.js"
+import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { stmtCall } from "./calls.js"
 import { expr, unparen, unparenHead } from "./expr.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
@@ -47,13 +47,20 @@ function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: I
   const field = place(p, s.target, slots)
   const bit = s.target.path.at(-1)
   if (bit?.kind !== "bit") {
-    // A string stored INTO a place whose capacity is a GENERIC — a STRING VAR_IN_OUT (`inoutType`) — cannot name
-    // that capacity, in a turbofish or in a literal's own type, so the copy into it is left for Rust to infer
-    // from the target. Harmless where the capacity is a number: `to()` is the same truncating copy.
-    const into = s.target.type
     const value = expr(p, s.value, slots)
-    const copied = stringKind(into) !== undefined ? `${value}.to()` : value
-    push(p, `${unparen(field)} = ${unparen(copied)};`, indent, s.span)
+    // A STRING INTO A STRING OF ANOTHER CAPACITY IS A STORE INTO THE PLACE'S OWN BUFFER (model 2): `min(n, m)` units of
+    // the source and a 0, the place's units behind them kept — `IecStr::store`, the interpreter's `storeString`;
+    // `assignTo` hands the value over at its own capacity. Both capacities are the types' const generics, so a STRING
+    // VAR_IN_OUT's generic one (`inoutType`) needs no name — which is why an in-out on either side stores too. At one
+    // capacity the store writes every unit, so it IS the plain copy, and prints as one.
+    if (stringKind(s.target.type) !== undefined && (!sameCapacity(s.value.type, s.target.type) || generic(s.target) || (s.value.kind === "load" && generic(s.value.place)))) {
+      const bare = unparen(field)
+      // a method call binds tighter than `*`: a dereferenced place is the receiver only in parentheses
+      const receiver = bare.startsWith("*") ? `(${bare})` : bare
+      push(p, `${receiver}.store(&${unparen(value)});`, indent, s.span)
+      return
+    }
+    push(p, `${unparen(field)} = ${unparen(value)};`, indent, s.span)
     return
   }
   // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
@@ -97,3 +104,9 @@ function stmtSwitch(p: Printer, s: Extract<IrStmt, { kind: "switch" }>, slots: I
   push(p, "}", indent)
   return
 }
+
+/** Two string types of one capacity. */
+const sameCapacity = (a: Type, b: Type): boolean => a.kind === "elementary" && b.kind === "elementary" && a.length === b.length
+
+/** A place whose Rust string type has a GENERIC capacity: a STRING VAR_IN_OUT (`inoutType`). */
+const generic = (place: Place): boolean => place.root === "inout"

@@ -13,7 +13,7 @@ import { sharedState } from "../core/shared.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { fieldIn, rootType, typeAlong } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { convert } from "../values/convert.js"
+import { assignTo, convert } from "../values/convert.js"
 import { binaryOf } from "../core/build.js"
 
 /** The layouts that are a UNION's, by upper-cased name — their members overlay one another. Shared by every lowering
@@ -85,7 +85,7 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
       .filter((f) => f.name.toUpperCase() !== found.member.toUpperCase())
       .map((f) => {
         const to: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: f.name }], type: f.type }
-        return { kind: "assign", target: to, value: convert({ kind: "load", place: written, type: written.type, span }, f.type), span }
+        return assignTo(to, { kind: "load", place: written, type: written.type, span }, span)
       })
   }
   const from = member(found.member)
@@ -110,7 +110,7 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
         const above = binaryOf("mul", binaryOf("div", load(dst.place), k(unit * 256n), ulint, span), k(unit * 256n), ulint, span)
         value = binaryOf("add", value, above, ulint, span)
       }
-      out.push({ kind: "assign", target: dst.place, value: convert(value, dst.place.type), span })
+      out.push(assignTo(dst.place, value, span))
     }
   }
   return out
