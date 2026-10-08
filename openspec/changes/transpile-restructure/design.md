@@ -587,6 +587,53 @@ choice is not.
 - `emit.test.ts:696` ("a FOR whose limit is a different type", then `loops.test.ts`) changes for the typed-limit refusal, citing
   the `for_limit_wider_than_counter_*` recordings.
 
+### §3.1 Decision: loops (task 2.2, 2026-10-08, on 2.1's measurements)
+
+**Target.** No loop bound in the semantics; FOR step and limit judged as CODESYS judges them; labels from the IR. Most of it
+already exists (2.1: RC 27 landed in f052467157, RC 35/36/39 in `lower/statements/loops.ts`); what is left is one refusal, one
+replay hole and one printer rewrite.
+
+**The cap: option (a), as built, under the names that exist.** `run(pou, { loopGuard })` throws `LoopGuardError` (a
+`RangeError`, not an `IecFault`); `emitRust(pou, { loopGuard })` prints the assert; the user's emission (`rate:fixtures` `shown`)
+carries none. Deciding measure: no cap is needed for speed (`tr_27_*` with no guard: 141–662 ms).
+- Rejected: (b) `#[cfg(volt_loop_guard)]` (the guard is already an emit option; a cfg is a second switch); renaming to
+  `loopBudget`/`HarnessBudget` (task 2.3's wording: 17 files of churn, no behaviour).
+- **Counting rule:** one body entry after a head test = one pass, both backends; already pinned at N and N+1 for FOR/WHILE/REPEAT
+  (`pipeline/control.test.ts`, `emit-build.test.ts` guard 3 vs 2). It stays.
+- **The hole 2.1(c) found:** `compareFault` runs `run()` unguarded, and only `execSkip` keeps a runaway out (the error text cannot:
+  `arithedge_uint_div_by_zero` carries the done-flag text). `compareFault` runs under `HARNESS_LOOP_GUARD`; a `LoopGuardError`
+  there FAILS the case by name ("runs past the harness guard") — it is never a refusal and never a fault match.
+
+**Step (RC 35): kept as built.** Folded step asked by value (wrapped to the counter, direction from the signed literal); a
+variable step asked by type (`classifyConversion(counter, step) === "incompatible"` → `for-step-type`). A runtime step is read
+every pass (`for_runtime_step_changed_in_body`: 4 passes, not 20), so `statements/loops.test.ts` ("reads its limit and its step on
+every pass") and `places/bounds.test.ts` keep their premise, unchanged; lean 7.5.9 may bind the step once per pass, never hoist it.
+
+**Literal limit (RC 36) and loop depth (RC 39): kept as built** — `beside` (a constant the counter cannot hold keeps its own
+type, compared in the `for-compare` meet; `tr_36_*` confirmed) and `lw.loops` → `exit-outside-loop` (`cc2_exit_outside_loop`
+rated `refused`, no rust column). Tasks 2.5 and 2.7 are checks, not code.
+
+**Typed limit wider than the counter (RC 13's transpiler half): the one new refusal.** A limit whose FRONT-END type is a named
+type that does not convert implicitly into the counter (`classifyConversion(counter, limit) === "incompatible"`) is refused with a
+new code `for-limit-type` ("invalid"). Asked by the front-end type, not the IR shape: `UPPER_BOUND(arr, 1)` may fold to a DINT
+const, and an expression of untyped literals (`TO (100 + 100)`) must stay asked by value. Refused: `for_limit_wider_than_counter_
+dint_var`, `_dint_expr`, `_upper_bound` (rated `lsp-gap`; their `rust`/`tier` columns go). Stay confirmed: `_uint_expr`,
+`_negative_step`, `tr_36_*`. `emit/rust/loops.test.ts` "a FOR whose limit is a different type" changes to the refusal, citing
+those three recordings. A named DINT CONSTANT limit is unrecorded: 2.6 records `for_limit_wider_than_counter_dint_constant`
+in its batch before trusting the rule there.
+- Rejected "refuse every non-literal limit": `_uint_expr` (UINT `n - 1` on UINT) is recorded as accepted.
+
+**Labels.** `emit/rust/loops.ts` asks `ir/walk.loopUses` before printing `'loop_N`/`'body_N`, and stops rewriting printed lines
+(`lines[…].replace`). Accept: S on the rust layer identical.
+
+**Stays refused, by code:** `for-step-type`, `for-bound-call` (a call in the step, or in a limit tested on both arms of a runtime
+step — its run count is unrecorded), `exit-outside-loop`, new `for-limit-type`. A FOR to the counter's maximum is NOT refused: it
+wraps and runs until an EXIT (`for_counter_at_type_max`), so lean 5.4/7.5.4 may not print it as a Rust range.
+
+**Migration.** 2.3 = `compareFault` under the guard (red first: a runaway fixture without `execSkip` hangs today); no renames.
+2.4, 2.5, 2.7 = verify the F/refusal lists above, no code. 2.6 = `for-limit-type` (+ the one recording). 2.8 = labels. 2.9 as
+written.
+
 ### 3.2 Strings (model 2): RC 11, 34, 45; appendix string items
 
 **Home.**
