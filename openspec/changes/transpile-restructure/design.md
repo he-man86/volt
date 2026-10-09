@@ -1101,6 +1101,49 @@ the reinterpretation edge values), then the IR nodes. 4.4: escape pass, frame la
 83 lowered pointer rows stay lowered and every confirmed `indirect` row stays confirmed. Then 4.5-4.13 per fixture,
 4.14 merge, 4.15, 4.16.
 
+### §3.3 Decision (step 4d): IR, both backends, RC 44, RC 14, RC 15 (tasks 4.3-4.7, 2026-10-09)
+
+**Target.** The image is a PLACE, not a family of byte nodes: `Place.root` gains `"image"` with `at: IrExpr` (the byte
+address; `path` holds at most a trailing `bit`). A variable of an escaped frame and every data dereference lower to one;
+a reinterpretation is a load of an image place at another type. One new expression, `base` (a frame's image address:
+`this`, the routine's locals, a program/GVL), and `image?: { size, align }` on `IrLayout` (an escaped FB type),
+`IrRoutine` (escaped locals) and the program/GVL frames. `walk.ts` visits `at`. Faults added to `ir/faults.ts`:
+`address-outside-image`, `address-across-frames` (order or difference of two regions — unrecorded, never our layout's).
+- Deciding measure: ir/ has 12 `Place`-typed fields (load, assign target, in-out binding, `back`, freeze temp, call and
+  invoke instance and lent, select arm, guard, bind), all resolved by ONE function per backend (`interp/frame.ts`, `emit/rust/place.ts`).
+- Rejected: 4.2's load-bytes / store-bytes / reinterpret nodes — each of those 12 consumers would need a byte twin, and a
+  missed one silently keeps the tag path; a `reinterpret` convert node — only an image value is ever reinterpreted.
+
+**Lowering.** `lower/pointers/escape.ts`, a pass over the whole program BEFORE bodies lower (one body's `ADR(inst.x)`
+escapes the FB type for every body): a frame escapes when an address of its data is STORED (a pointer/reference
+variable, an initializer, `REF=`). Erased forms do not escape: form 2 borrows, the cursor, the ANY `diSize` (4.9 adds the
+ANY reinterpretation). The FB TYPE is the escape unit for instances (one body serves all of them). `at` is folded from
+`storage/bytes.byteOffset`; an index step folds as `(i - lower)·size` after its existing bound check. A VAR_IN_OUT bound
+to an image place is an `IrCopy` with `back` (built); a callee that itself reaches the image during that call is
+`call-inout-alias`. Data `pointerTargets`, `pointerKey` and the data tag go; `IrSelect` stays for instance handles only.
+
+**Backends.** `semantics/memory.ts`: one growable buffer, little-endian load/store per elementary type, a region table
+(static regions at instantiation: a program/GVL, every instance of an escaped FB type in declaration order — inside its
+parent's region at the measured offset when the parent escapes; a stack region per call of an escaped routine). Rust:
+`Mem` in `runtime/pointer.ts`, printed on demand, threaded as its own `m: &mut Mem` to the routines that reach it — not
+inside `g`, whose global in-outs (`call-inout-global`) would then conflict with it. An escaped instance struct holds its
+`__base`. Twin cases `memory.cases.ts` through `runtime-twins.test.ts` (the `string.cases.ts` pattern), before any caller.
+Null is 0 and the image starts at IMAGE_BASE = 2^32, so a step below a first element never reaches 0.
+
+**RC 44 (4.5)** is IMAGE_BASE: `ELEMENT_TAG_BIAS` (11 uses) goes, `tr_44` stays confirmed. **RC 14 (4.6)**: a latch
+through a pointer is one conditional image store — no arms left to latch in; `tr_14` stays confirmed. **RC 15 (4.7)**:
+`b := a` of an escaped FB type copies a's region into b's, so `b.p` keeps `ADR(a.x)` (`sameA` TRUE); `tr_15` lowers.
+
+**Stays refused, by code:** 4.2's list, plus `pointer-outlives` (a pointer read after its stack region is gone reads
+residue, unrecorded) and `layout-unmeasured` on any FB field offset a program observes (walk, difference, cross-field
+order) until 4.3's FB-header recording lands; equality and dereference need no offset.
+
+**Migration.** Owner acceptance of §3.3 is taken from the go to continue (2026-10-09). 4.3: ONE recorder batch per
+vendor (FB header with and without IMPLEMENTS, a WSTRING layout, DINT-as-REAL at qNaN/sNaN/±0/denormal/±max), then the
+IR (G, walk totality). 4.4: `dynamic-memory` first (failing `__NEW`-only test); `memory.ts` + `Mem` unwired with twins;
+then escape pass, layout and the data-pointer switch in one commit (S-out lists the moved rows; the 83 lowered pointer
+rows stay lowered, every confirmed `indirect` row stays confirmed). 4.5-4.7 then verify/lower their fixtures.
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**
