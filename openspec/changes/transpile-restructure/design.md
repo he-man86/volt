@@ -1047,6 +1047,56 @@ size and pedantic delta on tier `indirect`), then transpiler LOC.
 **RC 20 (output timing)** is independent of the representation: routine outputs are copied out after the invoke, as FB outputs
 already are (`tr_20_output_index_moved_by_callee`). It lands in `calls/outputs.ts` in this phase, because it shares the binding code.
 
+### §3.3 Decision: pointers (task 4.2, 2026-10-09, on 4.1's measurements)
+
+**Target.** Option (b), narrowed: a DATA pointer is a byte address into one little-endian image per program; a pointer
+or reference to an FB INSTANCE is an instance handle (the interface scheme). Form 2 borrows and the cursor stay as built.
+
+**Why, by the criterion.** Fixtures: (b) lowers 45 for the first time plus `pointer_step_past_end` (diverges today);
+(a)/(d) 14, 12 of them only with a program-wide lend registry (the interface module's size again). The 13 lowered rows
+(b) put at risk do not regress: the 12 `mem_reference_to_fb_*`-style rows point at a whole instance, which is a handle,
+not bytes; `lib_stu_wide` waits on one WSTRING layout recording. Rust cost: +12% on the nine spikes all three build
+(203 vs 181 lines) plus a 36-line `Mem` runtime, paid only by frames that escape; pedantic 0 in all three. Corpus: every
+option unblocks the same 2 POUs; (b) clears pointer codes in 136 POUs, (a)/(d) in 71.
+Rejected: (a) tags — a third of (b)'s reach, byte view refused forever, still needs the registry; (d) enum — (a)'s reach
+with a Rust type per pointer (186 lines); (c) for a STORED pointer — the borrow checker loses at two live aliases.
+
+**The image.** The escape unit is the declaring FRAME (an instance, a program, a routine's locals, a GVL): when any data
+variable in it has its address taken (ADR, REF=, a stored pointer/reference to it), the whole frame's data is laid out by
+`storage/bytes.ts` in the image — the neighbour-after-the-array (`pointer_step_past_end`) and contiguous arrays
+(`adr_difference_two_arrays`) are measured facts about a frame, not about one variable. An FB-typed field of an escaped
+frame keeps its own struct and reserves its measured SIZEOF; loads/stores are `from_le_bytes`/`to_le_bytes` (IR:
+load-bytes, store-bytes, reinterpret), the interpreter's twin is `semantics/memory.ts` over a DataView. A difference of
+two addresses is 32-bit unsigned (measured, zero-extended); order and difference across two frames are unrecorded and
+fault by name at run time, never answer our layout's order.
+
+**Edge agreement (owner item from gate 4b).** Vendor agreement on the recorded paths suffices for the CHOICE: where all
+three options build, all agree with CODESYS, so the options differ in reach, not arithmetic. It does not suffice for
+reinterpretation: before 4.9/4.12 lower `tr_17`/`tr_28`, one batch records a DINT read as a REAL at a quiet and a
+signalling NaN, ±0, a denormal and ±max; from 4.4 the interpreter twin makes edge agreement measurable as for any row.
+The owner accepts this choice before 4.3.
+
+**Tag schemes (4.14).** Data pointer tags go (addresses). Pointer-to-instance and interface tags merge into one
+instance-handle scheme in `core/tags.ts`. `__inout_binding` stays its own: folding it into the image would make every
+VAR_IN_OUT target escape. `instanceRelative` (transpile-st-to-rust) is decided with the merge. `staticKey` options
+(4.15): `pointers/state.pointerKey` goes for data (an escaped variable is an offset); `interfaceKey` stays as the handle's
+key; `KEY_STEP`/`SUFFIX_STEP`/`SAME_STEP` stay — they write a key, a Rust name suffix and a value-and-type comparison.
+
+**Stays refused, by code:** `pointer-shape` (ADR of a BIT: no byte address measured), `cursor-overrun` (a cursor is form 2,
+not the image), `sizeof-unmeasured`, `layout-unmeasured` (new: a type with no recorded layout — the FB header position
+until recorded), `newdel_*` (no memory pool), `call-inout-alias`, `place-not-local`, the interface codes; a pointer→DWORD
+conversion is vendor-refused. Supersedes transpile-st-to-rust "multi-target handle (`pointer-targets`)", "form 2 first"
+(built, kept), "REFERENCE/POINTER inputs as borrows" and "`VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref`".
+
+**architecture.md (4.16):** "pointers will become indices into that same frame" becomes "a frame whose data address is
+taken lives in the program's byte image, laid out as CODESYS lays it out; a data pointer is an address into it, a pointer
+to an instance a handle, a pointer that never outlives the call a borrow."
+
+**Migration.** 4.3: ONE recorder batch per vendor first (FB header position with and without IMPLEMENTS, WSTRING layout,
+the reinterpretation edge values), then the IR nodes. 4.4: escape pass, frame layout, `Mem` + `memory.ts`; accept = the
+83 lowered pointer rows stay lowered and every confirmed `indirect` row stays confirmed. Then 4.5-4.13 per fixture,
+4.14 merge, 4.15, 4.16.
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**
