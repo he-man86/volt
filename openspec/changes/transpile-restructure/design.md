@@ -1563,6 +1563,52 @@ in any order, and refusing them would lose the recorded `state_call_after_global
 `fb_init_before_slot_method_*`. `init_gvl_program_slot_order{,_renamed}` stay refused (their slot methods stamp a global
 clock; and the GVL frame).
 
+### §3.4 Decision (step 5d): STRUCT field scope, `insideInstance`, the read walk, model delta (tasks 5.8-5.10, 2026-10-09)
+
+**Measured at b277626431** (lowering each fixture; a census of the six corpora, 1823 distinct STRUCT types). Refused today:
+`init_struct_field_fb_init_scope_{sibling,shadow}` and `init_this_in_initializer_argument` `fb-init-argument` (the argument
+is lowered in the declaring POU's scope, where a struct field is no name); `init_struct_field_fb_init_scope{,_dynamic}`
+`init-not-constant` (a STRUCT field's dynamic initializer — a STRUCT has no init frame, `instance-init.ts`). Corpora: 0
+STRUCT fields declaring FB_Init arguments, 0 STRUCT field initializers that are not constant (all 7 candidates are
+`SIZEOF(THIS^)`), 0 FB_Init arguments naming THIS — every corpus FB_Init argument is a literal; 74 STRUCT fields are FB
+instances, none with arguments.
+
+**5.8 Choice: resolve a STRUCT field's FB_Init argument in the struct's scope, nothing more.** `fbInitInput` gains one
+branch for a field instance whose holder is a STRUCT: a bare name is first a field of that struct declared BEFORE the
+instance — read as `holder.field`, its runtime value at that point of the walk (recorded by `_dynamic`, 1, though that fixture stays refused below;
+`_sibling`: 4) — else a global, looked up in `lw.globals` by name, never through the declaring POU's scope (`_shadow`:
+the field's 4, not the global's 11; `_local` stays the vendors' refusal). A later field of the struct is
+`init-reads-later`. This lifts `_sibling` and `_shadow`. Rejected: a STRUCT init frame (`STRUCT.__init` like an FB's,
+so a dynamic field initializer runs) — new frame kind, routine on a non-FB in both backends, for 0 corpus occurrences;
+inlining a struct's dynamic initializers into each declaring frame — the same name-rewrite plus per-instance duplication,
+same 0.
+
+**`insideInstance` made consistent: refuse both.** The instance ITSELF is a read of it: a place rooted at an instance
+declared with a structured initializer whose path reaches the FB or stops ON it (`holder.Get()`'s instance, `x := holder`)
+is `init-reads-instance`, as `holder.started` is. Rejected: lifting both — what a sibling sees after the structured
+initializer is unrecorded, and an initializer reading such an instance is not a corpus shape (no corpus declaration combines
+an FB instance's structured initializer with a sibling reading it), so no recording is made for it.
+
+**5.9: the read walk is `childrenOf`.** `initReadChildren` loses its `select` and freeze/lent skips; what stays is
+semantics, not a skip: `ADR(x)` reads only its indices, and an invoke reads inputs, in-outs, then its instance. A read
+inside a select arm or a freeze now reaches `init-reads-later`/`init-reads-instance`. S-out over every fixture; a fixture
+that moves to a refusal is a hidden read the old walk let through — kept refused, named in tasks.md.
+
+**Stays refused, by name.** `init-not-constant` for a STRUCT field's dynamic initializer, and `fb-init-argument` for an
+FB_Init argument that is neither a constant, a variable nor a struct field (`THIS`, `THIS^.n`, any expression) — both
+niche: accepted loss (0 occurrences in the corpora); `init_struct_field_fb_init_scope{,_dynamic}` and
+`init_this_in_initializer_argument` get that reason as `deferred.transpile` and stay `not-lowered`. `init-reads-instance`
+at its widened scope above. Everything §3.4 and 5c list, unchanged.
+
+**5.10 model delta.** `IrPou.init` doc: "the ordered init step: per frame in recorded order, per declaration a dynamic
+initializer, a constant after the first statement (the position rule), or an instance's whole init (per class: fields,
+FB_Init; then its structured initializer); then the slot methods". `IrSlot.init`: "the folded constant, or the type's
+start when the step assigns it". `IrFresh`: "the complete static `IrInit`; dynamic elements are the statements after it".
+architecture.md's initialization paragraph says the same in prose plus the refused list; the map delta in tasks.md.
+
+**Migration.** 5.8 (red src tests for the struct-scope branch and `holder.Get()`, then the two fixtures F) → 5.9 (red src
+test: a select and a freeze read in an initializer) → 5.10. No recording: every fact used is recorded (M5.1.2).
+
 ---
 
 ## 4. Old → new map
