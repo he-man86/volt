@@ -6,7 +6,7 @@ import type { Lowering } from "../core/lowering.js"
 import { exprText, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
-import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, pointerTargets, refuseAfterStore } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, readTargets, refuseAfterStore } from "./state.js"
 import { lowerPlace } from "../places/places.js"
 import { refuseUnionWrite } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
@@ -94,7 +94,7 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   if (source.type.kind === "elementary")
     return lw.bail("pointer-value", `an integer (${exprText(operand)}) stored as a pointer — its value is a byte address`, e.span)
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
-  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
+  const targets = readTargets(lw, key)
   // COPYING a multi-target pointer is not built: the copy would have to carry every arm, and its own reads would
   // select over them. Form 3 covers the pointer that HOLDS several targets, not yet the one copied from it.
   if (targets !== undefined && targets.length > 1)
@@ -239,8 +239,13 @@ function addressOperand(lw: Lowering, e: Expr): IrExpr | undefined {
  *  cannot hold x (it keeps a tag). */
 export function imageAddressOf(lw: Lowering, x: Expr, pointer: Holder | undefined, span: Span): IrExpr | undefined {
   const place = lowerPlace(lw, x)
+  return place && imagePlaceAddress(lw, place, exprText(x), pointer, span)
+}
+
+/** `imageAddressOf` of a place already lowered — `text` is how a message names it. */
+export function imagePlaceAddress(lw: Lowering, place: Place, text: string, pointer: Holder | undefined, span: Span): IrExpr | undefined {
   // TAKING AN ADDRESS IS A READ (`addressOf` says why the union refusal names it)
-  if (place === undefined || refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow")) return undefined
+  if (refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow")) return undefined
   if (place.path.some((s) => s.kind === "bit")) return lw.bail("pointer-shape", "the address of a bit", span)
   // `ADR(p^)` of a pointer into the image is where `p` points: already an image place, so nothing escapes
   const type: Type = pointer?.type ?? { kind: "pointer", target: place.type }
@@ -248,7 +253,7 @@ export function imageAddressOf(lw: Lowering, x: Expr, pointer: Holder | undefine
   if (place.guard !== undefined) return lw.bail("pointer-shape", "the address of a dereference", span)
   noteStore(lw, pointer, place)
   if (escapeKey(lw, place) === undefined)
-    return lw.bail("pointer-targets", `${pointer === undefined ? "an address compared" : `${pointer.name} holds addresses, and`} ${exprText(x)} is not in the image — a routine's local, a VAR_IN_OUT's target, a string's characters or an instance keep a tag`, span)
+    return lw.bail("pointer-targets", `${pointer === undefined ? "an address compared" : `${pointer.name} holds addresses, and`} ${text} is not in the image — a routine's local, a VAR_IN_OUT's target, a string's characters or an instance keep a tag`, span)
   return { kind: "address", place, type, span }
 }
 

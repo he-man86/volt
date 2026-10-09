@@ -226,4 +226,52 @@ END_GET
 END_PROPERTY
 `,
   },
+  // transpile-restructure 4.13 (f): an FB instance declared in a GVL, held by an interface and called through it — from
+  // the program, and from another FB's body. Each call bumps the one instance.
+  {
+    name: "interface_holds_gvl_instance",
+    deferred: {
+      transpile:
+        "2026-10-09 (transpile-restructure 4.13 (f)): the interface now holds the GVL instance at its global place (`lendPlace`), and the call through it meets the blocker a direct `gInst.Bump()` meets — the METHOD takes the globals the instance lives in (rustc E0499, `call-global-instance`); niche: accepted loss (0 occurrences in the corpora: no assignment or call argument in the six corpora stores a VAR_GLOBAL FB instance into an interface-typed variable — text census 2026-10-09; the 5 name-only matches, bakon-nano ReadParametersFromAGM's `Device:= Device`, are a local `Device : CIA405.DEVICE` shadowing the GVL's instance)",
+    },
+    pouName: "GVL_LANG_itf_gvl_inst",
+    kind: "gvl",
+    feature: "an interface variable holding a GVL's FB instance, its method called from PLC_PRG and from another FB",
+    fromDoc: "openspec transpile-restructure design.md §3.3 Decision (step 4f), task 4.13",
+    plcPrgVar: "itfGvl : ITF_LANG_gvl_bump; gotPrg : INT; gvlUser : FB_LANG_gvl_itf_user; gotUser : INT; gotDirect : INT;",
+    plcPrgBody: "itfGvl := gLangItfInst;\ngotPrg := itfGvl.Bump();\ngvlUser();\ngotUser := gvlUser.got;\ngotDirect := gLangItfInst.v;",
+    source: `VAR_GLOBAL
+	gLangItfInst : FB_LANG_gvl_bumped;
+END_VAR
+
+INTERFACE ITF_LANG_gvl_bump
+
+METHOD Bump : INT
+END_METHOD
+
+END_INTERFACE
+
+FUNCTION_BLOCK FB_LANG_gvl_bumped IMPLEMENTS ITF_LANG_gvl_bump
+VAR
+	v : INT := 7;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Bump : INT
+v := v + 1;
+Bump := v;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_gvl_itf_user
+VAR_OUTPUT
+	got : INT;
+END_VAR
+VAR
+	held : ITF_LANG_gvl_bump;
+END_VAR
+held := gLangItfInst;
+got := held.Bump();
+END_FUNCTION_BLOCK
+`,
+  },
 ]

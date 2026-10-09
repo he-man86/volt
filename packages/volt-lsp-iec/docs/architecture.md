@@ -310,9 +310,30 @@ found are expected failures naming their task.
 *Places, not references.* ST's memory model is one static image — instances are fixed allocations, `VAR_IN_OUT`
 is a pointer, `POINTER TO`/`REFERENCE TO` are real aliases, GVLs are global mutable state. Mapping any of that
 to Rust `&mut` loses to the borrow checker the moment two aliases live at once, so **nothing lowers to a Rust
-reference**. A POU is a flat frame of slots; a name is a slot index; pointers will become indices into that
-same frame. The emitted struct's `&mut self` is the only borrow in the output, which is what makes 100%
-coverage reachable rather than a wall at the first aliasing construct.
+reference**. A POU is a flat frame of slots; a name is a slot index; a frame whose data address is taken lives in the
+program's byte image, laid out as CODESYS lays it out; a data pointer is an address into it, a pointer to an instance a
+handle, a pointer that never outlives the call a borrow — and a pointer the image cannot hold keeps a tag. The emitted
+struct's `&mut self` is the only borrow in the output, which is what makes 100% coverage reachable rather than a wall at
+the first aliasing construct.
+
+*Pointers* (transpile-restructure §3.3). Which frames reach the image is decided by the escape pass before the bodies
+lower for real (`lower/pointers/escape.ts`): a lowering that only records, then lowering again on its answer until it
+finds nothing new — and, until no use has read a pointer's target set that later grew (`pointers/state.ts`
+`grownTargets`; each lowering starts with the sets the previous one ended with). The image is a `Place` root (`image`,
+with its byte address `at`), folded to `semantics/memory.ts` in the interpreter and to `Mem` in Rust. Tags stay only
+where the image cannot hold the target, in three schemes that number through `lower/core/tags.ts` (0 is none, the k-th
+is k + 1), each for one reason: the INSTANCE HANDLE (`interfaces/tags.ts` `instanceHandle`) — every interface value and
+every pointer or reference to a whole FB instance, one table, so a value names the same instance in whichever variable
+holds it; the residual DATA TAG — a pointer to a routine's local, a VAR_IN_OUT's target, a STRING's characters or a
+non-image ANY argument, numbered per `pointerKey`, a copy into a pointer of several targets re-mapped so NULL stays NULL;
+and `__inout_binding` (`calls/last-binding.ts`) — folding it into the image would make every VAR_IN_OUT target escape.
+Form 2 (a `POINTER TO` parameter only dereferenced is a borrow) and the string cursor stay as built. Refused by name:
+`pointer-shape` (the address of a BIT, of a dereference), `cursor-overrun`, `sizeof-unmeasured`, `layout-unmeasured`,
+`dynamic-memory` (`__NEW`/`__DELETE`), `call-inout-alias`, `place-not-local`, `image-stack` (an escaped routine local),
+`pointer-outlives`, `pointer-targets` (a pointer that would hold both a tag and an index, or a tag and an address; a
+copy of a pointer of several targets; a target set that still grew after `ESCAPE_PASSES` lowerings, `entry/lower-unit.ts`),
+`interface-instance` (an instance at a runtime index), `interface-instance-relative`, `call-global-instance` (a METHOD
+called on a GVL's instance, directly or through an interface); a pointer→DWORD conversion is vendor-refused.
 
 *The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
 constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —

@@ -5,8 +5,9 @@
 
 import type { Place } from "../../ir/index.js"
 import type { Type } from "../../../frontend/types/index.js"
-import { frameState, type Lowering } from "../core/lowering.js"
-import { sharedState } from "../core/shared.js"
+import { type FbType, frameState, type Lowering } from "../core/lowering.js"
+import { instanceHandle } from "../interfaces/tags.js"
+import { type Shared, sharedState } from "../core/shared.js"
 import { unionOf } from "../storage/unions.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { sameTarget } from "../places/path.js"
@@ -14,7 +15,8 @@ import { tagOfIndex } from "../core/tags.js"
 
 /**
  * A pointer's or reference's ONE target (design §9 form 1): every address stored into the variable names the same place, or
- * elements of the same array. The pointer's value is 0 when null, 1 for its variable, and k + ELEMENT_TAG_BIAS (2^32) for
+ * elements of the same array. The pointer's value is 0 when null, 1 for its variable (a whole FB instance: its instance
+ * handle, `targetTag`), and k + ELEMENT_TAG_BIAS (2^32) for
  * element k (from 0), so a step below the first element does not reach 0 (`address.ts`) — so `p = 0` and `__ISVALIDREF`
  * are plain comparisons, and `p[i]` / `p + n·SIZEOF(T)` step whole elements.
  */
@@ -100,6 +102,41 @@ export const pointerFrame = frameState<PointerFrame>(() => ({
 export const pointerTargets = sharedState(() => new Map<string, PointerTarget[]>())
 
 /**
+ * A TARGET SET READ WHILE IT STILL GROWS (transpile-restructure 4.13 (a), design.md §3.3 step 4f). A use lowers on the
+ * targets recorded SO FAR: a dereference lowered before the store that adds a second target erased to the first, and read
+ * it where CODESYS reads the second (conformance `pointer_target_set_grows_after_read`: 33, where the erasure gave 22).
+ * Each use that read a key's set notes how many it saw; a key that ended the lowering with more grew under a use, and
+ * the escape loop lowers again with the final sets SEEDED (`lower-unit.ts`), so every use sees them all from the start.
+ */
+const targetsRead = sharedState(() => new Map<string, number>())
+
+/** The targets of `key` as a use reads them — the count it saw is noted (`targetsRead`). */
+export function readTargets(lw: Lowering, key: string | undefined): PointerTarget[] | undefined {
+  if (key === undefined) return undefined
+  const targets = pointerTargets(lw).get(key)
+  const seen = targetsRead(lw).get(key)
+  if (seen === undefined || (targets?.length ?? 0) < seen) targetsRead(lw).set(key, targets?.length ?? 0)
+  return targets
+}
+
+/** The keys whose target set grew after a use read it, with their final sets — what the next lowering is seeded with. */
+export function grownTargets(shared: Shared): ReadonlyMap<string, readonly PointerTarget[]> {
+  const final = pointerTargets({ shared })
+  const grown = new Map<string, readonly PointerTarget[]>()
+  for (const [key, seen] of targetsRead({ shared })) {
+    const targets = final.get(key)
+    if (targets !== undefined && targets.length > seen) grown.set(key, targets)
+  }
+  return grown
+}
+
+/** Start a lowering with the target sets an earlier one ended with (`grownTargets`), in their recorded order — so a
+ *  store finds its target where the earlier lowering put it, and writes the same tag. */
+export function seedTargets(shared: Shared, seed: ReadonlyMap<string, readonly PointerTarget[]>): void {
+  for (const [key, targets] of seed) pointerTargets({ shared }).set(key, [...targets])
+}
+
+/**
  * The pointers whose STORE was refused, by `pointerKey`, with that refusal's code. A later use of one has no recorded
  * target for the reason the store gave, and repeats it (`refuseAfterStore`). It said `pointer-order`, "before any
  * address was stored into it", which was false — one was stored, and refused — and the pointer census counted every
@@ -156,13 +193,31 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
   }
   const known = pointerTargets(lw).get(key) ?? []
   const at = known.findIndex((t) => sameTarget(t, target))
-  if (at >= 0) return BigInt(tagOfIndex(at))
+  if (at >= 0) return targetTag(lw, known[at]!, at)
   // A SECOND TARGET IS FORM 3, not a refusal. It was `pointer-targets` — "the handle form is not built yet" — and
   // the handle is what this is: the store writes a TAG, and a read selects the arm the tag names
   // (`refuse_pointer_two_targets`: `p := ADR(a); p := ADR(b); seen := p^` reads b, measured).
   pointerTargets(lw).set(key, [...known, target])
-  return BigInt(tagOfIndex(known.length))
+  return targetTag(lw, target, known.length)
 }
+
+/**
+ * The TAG a pointer's `index`-th target is written as. A whole FB INSTANCE is named by its INSTANCE HANDLE — the one
+ * numbering an interface's instances share (`interfaces/tags.instanceHandle`, transpile-restructure 4.14) — so a value
+ * names the same instance whichever pointer, reference or interface holds it. Anything else keeps the pointer's own
+ * numbering (`core/tags.ts`): a DATA tag, which stays only where the image cannot hold the target (design.md §3.3 step
+ * 4f — a routine's local, a VAR_IN_OUT's target, a STRING's characters, an ANY argument).
+ */
+export function targetTag(lw: Lowering, target: PointerTarget, index: number): bigint {
+  const fb = target.base.type
+  if (target.element === undefined && target.chars === undefined && fb.kind === "function_block")
+    return BigInt(instanceHandle(lw, target.base, fb as FbType))
+  return BigInt(tagOfIndex(index))
+}
+
+/** Whether a pointer's value names its target by its INSTANCE HANDLE (`targetTag`) — always a tag, one target or several. */
+export const byHandle = (target: PointerTarget): boolean =>
+  target.element === undefined && target.chars === undefined && target.base.type.kind === "function_block"
 
 /**
  * THE VALUE OF A POINTER TO ARRAY ELEMENT k (counted from 0) is k + ELEMENT_TAG_BIAS. It was k + 1, which put the

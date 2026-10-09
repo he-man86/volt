@@ -16,6 +16,7 @@ import { Lowering } from "../core/lowering.js"
 import { newShared, type Shared } from "../core/shared.js"
 import { covers, type Escapes, escapesSeen, isEmpty, joined, runOnEscapes } from "../pointers/escape.js"
 import { layOutImage } from "../pointers/image.js"
+import { grownTargets, type PointerTarget, seedTargets } from "../pointers/state.js"
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
 import { finishInterfaces } from "./finish.js"
@@ -46,15 +47,29 @@ export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProjec
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
   let answer: Escapes | undefined
+  // the target sets a use read while they still grew (`pointers/state.grownTargets`), each as it ended — design.md §3.3
+  // step 4f, task 4.13 (a): the next lowering starts with them, so no use lowers on part of a set
+  const seed = new Map<string, readonly PointerTarget[]>()
   for (let pass = 1; ; pass++) {
     const shared = newShared(prepared.attributes, unit.name.text, prepared.libraryUnits)
     if (answer !== undefined) runOnEscapes(shared, answer)
+    seedTargets(shared, seed)
     const lowered = lowerOnce(unit, scope, prepared.project, shared)
     const seen = escapesSeen(shared)
+    const grown = grownTargets(shared)
     const settled = answer === undefined ? isEmpty(seen) : covers(answer, seen)
-    if (settled || pass === ESCAPE_PASSES) return lowered
-    answer = answer === undefined ? seen : joined(answer, seen)
+    if (settled && grown.size === 0) return lowered
+    if (pass === ESCAPE_PASSES) return grown.size === 0 ? lowered : stillGrowing(unit, grown)
+    if (!settled) answer = answer === undefined ? seen : joined(answer, seen)
+    for (const [key, targets] of grown) seed.set(key, targets)
   }
+}
+
+/** A target set that still grew under a use in the last lowering the escape loop takes — refused, never lowered on part
+ *  of a set. (Each lowering is seeded with every set the previous one ended with, so one more lowering settles any set.) */
+function stillGrowing(unit: TopLevel, grown: ReadonlyMap<string, readonly PointerTarget[]>): LoweredPou {
+  const keys = [...grown.keys()].join(", ")
+  return { diagnostics: [lowerDiagnostic("pointer-targets", `the targets of ${keys} still grew after a use read them, ${ESCAPE_PASSES} lowerings on`, unit.span)] }
 }
 
 /** One lowering of the unit, on the escape answer `shared` carries (none on the first). */

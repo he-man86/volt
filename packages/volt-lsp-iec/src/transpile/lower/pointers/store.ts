@@ -6,14 +6,15 @@ import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import { cursorOf } from "./cursor.js"
-import { elemOf } from "../../../frontend/types/index.js"
+import { elemOf, elementaryRef } from "../../../frontend/types/index.js"
 import { binaryOf, cast } from "../core/build.js"
-import { noteRefusedStore, pointerFrame, pointerKey, type PointerTarget, pointerTargets, recordTarget } from "./state.js"
+import { byHandle, noteRefusedStore, pointerFrame, pointerKey, type PointerTarget, pointerTargets, recordTarget } from "./state.js"
 import { addressOf, addressValue, adrOperand, imageAddressOf, pointerValue } from "./address.js"
 import { holderOf, holdsAddresses, noteCopy, noteStore } from "./escape.js"
 import { describePointer } from "./deref.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
+import { NO_TAG } from "../core/tags.js"
 
 /** `p := <pointer value>` — its target recorded for every body that dereferences `p`. */
 export function storePointer(lw: Lowering, target: Place, value: Expr, span: Span): IrStmt | undefined {
@@ -57,10 +58,22 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
     // `__ISVALIDREF` and `p[i]` are all built on. Those two encodings cannot share a variable, so a pointer that
     // names several ELEMENTS is refused rather than given a tag that its index arithmetic would then read.
     const targets = pointerTargets(lw).get(key) ?? []
-    if (targets.length > 1) {
-      if (targets.some((t) => t.element !== undefined || t.chars !== undefined))
-        return lw.bail("pointer-targets", "a pointer that names several variables, one of them an array element — the value would be both a tag and an index", span)
+    if (targets.length > 1 && targets.some((t) => t.element !== undefined || t.chars !== undefined))
+      return lw.bail("pointer-targets", "a pointer that names several variables, one of them an array element — the value would be both a tag and an index", span)
+    // A WHOLE FB INSTANCE IS ITS HANDLE, one target or several (`state.targetTag`, transpile-restructure 4.14): `ADR(inst)`
+    // writes it, and a copy carries it as it is — every instance pointer numbers through the one handle table
+    if (byHandle(stored.target)) written = stored.value.kind === "const" ? { ...stored.value, value: tag } : stored.value
+    else if (targets.length > 1) {
       written = { kind: "const", value: tag, type: target.type, span }
+      // A POINTER COPIED IN (`p := src`) re-maps the source's value: its target's tag here, and NULL stays NULL. Writing
+      // the tag alone made a null source non-null (conformance `pointer_null_copied_into_multi_target`, transpile-restructure
+      // 4.13 (b)). The source names one target (`pointerValue` refuses a copy of several), so its non-null value is that one.
+      if (stored.value.kind !== "const") {
+        if (lw.conditional === 0) pointerFrame(lw).boundPointers.add(key)
+        const none: IrExpr = { kind: "const", value: BigInt(NO_TAG), type: target.type, span }
+        const cond: IrExpr = { kind: "binary", op: "ne", left: stored.value, right: none, type: elementaryRef("BOOL"), span }
+        return { kind: "if", cond, then: [{ kind: "assign", target, value: written, span }], else: [{ kind: "assign", target, value: none, span }], span }
+      }
     }
   }
   if (lw.conditional === 0) pointerFrame(lw).boundPointers.add(key)
@@ -89,7 +102,8 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   const targets = pointerTargets(lw).get(key) ?? []
   if (targets.length > 1 && targets.some((t) => t.element !== undefined || t.chars !== undefined))
     return lw.bail("pointer-targets", "a reference rebound across an array element and a variable — the value would be both a tag and an index", s.span)
-  const value = targets.length > 1 ? ({ kind: "const", value: tag, type: target.type, span: s.span } as IrExpr) : address.value
+  // a whole FB instance is its handle, one target or several (`state.targetTag`)
+  const value = targets.length > 1 || byHandle(address.target) ? ({ kind: "const", value: tag, type: target.type, span: s.span } as IrExpr) : address.value
   if (lw.conditional === 0) pointerFrame(lw).boundPointers.add(key)
   return { kind: "assign", target, value, span: s.span }
 }

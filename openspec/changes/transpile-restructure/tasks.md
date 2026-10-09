@@ -3398,7 +3398,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Tests (end of step, once each): `bun typecheck` clean; `bun run lint` clean; `bun test src/transpile` 458 pass / 0
     fail; `bun test test/conformance` 6299 pass / 0 fail; `bun test test/frontend` 45 pass / 0 fail; `bun test test/corpus`
     19 pass / 1 skip.
-- [ ] 4.13 Appendix pointer items, each recorded first, then fixed or refused by name.
+- [x] 4.13 Appendix pointer items, each recorded first, then fixed or refused by name.
   - What: (a) a target set read while growing (`pointers/state.ts`); (b) a null source copied into a multi-target pointer
     (`pointers/store.ts`); (c) `0 = p` recognition (`expressions/operators.ts`); (d) `r.3` on a REFERENCE (`places/places.ts`); (e) an ANY
     input given a REFERENCE TO failing E0308 (`pointers/any.ts`); (f) a GVL FB never callable through an interface (`interfaces/lend.ts`
@@ -3406,21 +3406,121 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: as listed.
   - Accept: each has a fixture plus F or a named refusal; M.
   - Depends: 4.4.
-- [ ] 4.14 The three tag schemes per 4.2.
+  - Done 2026-10-09 (step 4f; design.md "§3.3 Decision (step 4f)" and its "As built"). Recorded FIRST, one CODESYS
+    record:exec batch for the eight (`memory/pointer-model.ts`, `oop/interface.ts`), then one more for
+    `any_input_given_reference_size` (the diSize-only variant, which the pValue fixture moves off the E0308 path):
+    every value as the items predict. Each src test below was red before its fix and green after (checked by reverting
+    the product files).
+    - (a) `pointer_target_set_grows_after_read` (33; we gave 22) — confirmed. A use reads a target set through
+      `state.readTargets`, which notes the count it saw; `grownTargets` names the keys that ended with more, and
+      `lower-unit.ts` lowers again SEEDED with their final sets (`seedTargets`); still growing at `ESCAPE_PASSES` is
+      refused `pointer-targets` by name. Src: `pointers/deref.test.ts` "a dereference lowered before the store that adds a
+      target reads every target".
+    - (b) `pointer_null_copied_into_multi_target` (copiedNull TRUE, readBack 11; we gave FALSE) — confirmed.
+      `store.storePointer`: a copy into a pointer of several targets is `IF src <> 0 THEN p := tag ELSE p := 0`. Src:
+      new `pointers/store.test.ts`.
+    - (c) `pointer_zero_on_left_compare` (an image pointer) and `_local` (a tag) — confirmed; refused `pointer-value`
+      before. `operators.pointerNullCompare` normalizes the zero to the right. Src: `expressions/operators.test.ts`.
+    - (d) `reference_bit_access` (bit3 TRUE, bit2 FALSE, w 1) and `_local` (TRUE, 9) — confirmed; refused
+      `bit-on-reference` before. `places.bitPlace` steps through the reference. Src: `places/places.test.ts`; the
+      `entry/totality.test.ts` case that pinned `bit-on-reference` (pro2193 MapperInputs' `slice.0`, a root input) now
+      reads `pointer-root-input` — its premise ("phase 4 aliasing") is what the recording refutes.
+    - (e) `any_input_given_reference` (diSize 2, pValue^ 5) and `_size` (2; rustc E0308 before, verified) —
+      confirmed. `any.anyArgumentTypes` and `bindAnyAddress` step through the reference (`address.imagePlaceAddress`
+      split out of `imageAddressOf`). Src: `pointers/any.test.ts`.
+    - (f) `interface_holds_gvl_instance` (8, 9, 9) — not-lowered, refused by name: `lendPlace` answers the global place,
+      and the call meets the direct call's blocker (the METHOD takes `g`; rustc E0499 when let through), now
+      `call-global-instance` in `dispatch.ts` instead of `interface-context`; niche: accepted loss (0 occurrences in
+      the corpora — see the gate review fix below) — `deferred.transpile` on the fixture. Src:
+      `interfaces/tags.test.ts`.
+    - Corpus (`probe-lowering-refusals.ts` before/after): lowered POUs 54 = 54; `bit-on-reference` gone from 3 pro2193
+      POUs (MapperInputs/MapperOutputs now `pointer-order,pointer-root-input`, IQ_Handling loses the code); nothing else
+      moved.
+    - `source-map.test.ts` RENAMED_TARGETS 150 -> 159, read: 7 of the image class, 2 of one new class (the NULL-keeping
+      copy's `if`). `test/frontend/baseline.ts`: CEILING_EXCEPTIONS for the 6 bit accesses through a REFERENCE (untyped
+      by design, as every bit access); the frontend baselines' counts rewritten (new fixtures only).
+  - Gate review fixes (step 4f gate, 2026-10-09):
+    - The seeding's side effect on a COPY is pinned: a pointer copied while its target set still grows (`q := p; F := F
+      + q^; p := ADR(b)` in a loop) read 22 silently at HEAD and is now refused `pointer-targets` (a copy of a pointer of
+      several targets). Fixture `pointer_target_set_grows_copied` (CODESYS record:exec: 33) — not-lowered; src
+      `pointers/deref.test.ts` "a pointer copied before the store that adds a target is refused by name" (red on a HEAD
+      copy, green here).
+    - The seeding's other new lowering is measured: a FUNCTION's local pointer dereferenced before its first store
+      (`F := p^; p := ADR(a);`, `pointer-order` at HEAD) now lowers and faults as a null dereference. Fixture
+      `pointer_deref_before_first_store`: CODESYS stops ("The operation has timed out." at start, as `cc_fp_ptr_deref`
+      records a plain null dereference) — confirmed, a fault match; src `pointers/deref.test.ts` "... faults as a null
+      dereference, as the vendor stops".
+    - (f)'s niche count now counts the CONSTRUCT: no assignment or call argument in the six corpora stores a VAR_GLOBAL
+      FB instance into an interface-typed variable (text census over every project's own code: GVL FB instances awa 11,
+      bakon 3, lenze 5, pro2193 52; the 5 name-only matches, bakon-nano ReadParametersFromAGM `Device:= Device`, are a
+      local `Device : CIA405.DEVICE` shadowing the GVL's) — `deferred.transpile` reads "0 occurrences".
+    - Diagnostics measured, not only runs: CODESYS `record:language` (instance transpile-restructure) for the eleven
+      4.13 fixtures — every one builds with no error and no warning, and the LSP agrees (`test/conformance` green); parse
+      census "fixtures codesys: unrecorded, no LSP parse error" back to 152 (builds, no LSP parse error 3083 -> 3094).
+      TwinCAT build recordings not taken: like the 152 other transpile fixtures without one, CODESYS is the exec oracle
+      these answer to (twincat unrecorded 161 -> 163, the two new fixtures).
+    - Stale text: `places.bitPlace`'s comment no longer cites `slice.0` as phase-4 aliasing (a REFERENCE is stepped
+      through before it); architecture.md's `pointer-targets` entry names the copy of a multi-target pointer and the
+      "still grew after `ESCAPE_PASSES` lowerings" refusal.
+- [x] 4.14 The three tag schemes per 4.2.
   - What: merged into one scheme, or each kept with the reason 4.2 recorded, all numbering through `core/tags.ts`; the
     transpile-st-to-rust `instanceRelative` task resolved or left with a reason.
   - Where: `lower/pointers/state.ts`, `interfaces/tags.ts`, `calls/last-binding.ts`, `core/tags.ts`.
   - Accept: S-out; design.md P1's "Tag encodings" row states the final home.
   - Depends: 4.4.
-- [ ] 4.15 Remove the `staticKey` named options 1.7.11 listed, where the model made them unnecessary; the rest carry a reason.
+  - Done 2026-10-09 (step 4f). Kept three, each with its reason, all numbering through `core/tags.ts`: the INSTANCE
+    HANDLE (`interfaces/tags.instanceHandle`, split out of `tagOf`) now numbers interfaces AND pointers/references to a
+    whole FB instance (`state.targetTag`/`byHandle`: `ADR(inst)` writes the handle, a copy carries it, the select arms
+    read it); the residual DATA TAG; `__inout_binding`. Census first: 18 instance-pointer fixtures, all single-target, all
+    frame variables — so dispatching/lending a MULTI-target instance pointer as an interface is not built (0 fixtures, 0
+    corpus POUs where it would be the sole blocker; design.md "As built"). `instanceRelative` stays with RC 18's reason.
+    S measured: `snapshot:transpile` ir,outputs,edge identical over all 5413 fixtures against a baseline of the tree with
+    the handle switched off (a lone instance's handle is 1, as its tag was; the store keeps the address's span). Src:
+    `pointers/store.test.ts` "ADR of an instance writes the instance handle an interface holding it would write" (red
+    with the handle off). design.md P1 "Tag encodings" row states the final homes.
+  - Gate review fix (S against HEAD, not against the tree itself): the baseline the step compared to had been written
+    by the new code with the handle switched off. Re-measured against HEAD: `snapshot:transpile write --baseline` on a
+    `git archive HEAD` copy (rustc cache and corpus shared; path prefix normalized), then `check` on the working tree:
+    all 5404 HEAD fixtures identical in ir, rust, outputs AND edge — every 4.13-4.15 edit is output-neutral on every
+    existing fixture; only the 11 new fixtures differ (not in the baseline). The handle's 2n for an instance pointer
+    shows only where an interface numbered another instance first (`store.test.ts`; 0 fixtures). `.snapshot/baseline`
+    is now HEAD's.
+- [x] 4.15 Remove the `staticKey` named options 1.7.11 listed, where the model made them unnecessary; the rest carry a reason.
   - Where: `lower/places/path.ts` and callers.
   - Accept: S-out; no option without a written reason.
   - Depends: 4.14.
-- [ ] 4.16 Model delta.
+  - Done 2026-10-09 (step 4f). The G check (a throw on a constant index that is not a bigint): none over every fixture
+    (lowered by a census script), the six corpora (`probe-lowering-refusals.ts`) and `bun test src` — only the synthetic
+    `1` against `1n` case in `path.test.ts`. So `SAME_STEP` folded into `KEY_STEP`: `sameStep` compares KEY_STEP
+    writings and `sameTarget` is `staticKey` equality plus `element`/`chars`; the synthetic case left the test with its
+    premise (a runtime index added: no target's twin). Stay, each with its reason in `path.ts` / design.md P1: `SUFFIX_STEP`
+    (a Rust name, not a key), `pointerKey` (residual tagged pointers, a UNION's members, the ANY holder), `interfaceKey`
+    (the handle's key). S: `snapshot:transpile check --layers ir` identical.
+- [x] 4.16 Model delta.
   - What: architecture.md "Places, not references" rewritten per 4.2; the refused list in docs; the map delta.
   - Where: `docs/architecture.md`; this file.
   - Accept: M.
   - Depends: 4.5-4.15.
+  - Done 2026-10-09 (step 4f). architecture.md "Places, not references": line 313's "pointers will become indices into
+    that same frame" replaced by 4.2's sentence plus "a pointer the image cannot hold keeps a tag", and a new *Pointers*
+    paragraph: the escape pass (and the seeded re-lowering), the image as a Place root, the three tag schemes and their
+    homes, form 2 and the cursor, and the refused list by code. `core/tags.ts`'s header states the three schemes.
+    - M (`rate:fixtures`, 4.13-4.15 together): mapped 5404 -> 5413 (the nine new fixtures; no existing row changed):
+      confirmed 2854 -> 2862, not-lowered 375 -> 376 (`interface_holds_gvl_instance`), refused 1990, diverges 11, lsp-gap
+      82, unaskable 92; tier `indirect` 424 -> 432 rows (419 -> 427 clean); edge agree 3088 -> 3096, disagree 3, not-run
+      185; total pedantic 32372 -> 32395; allowed `dead_code` 5643 -> 5651; shapes 1762 -> 1770, constructs 2005 -> 2035;
+      notes resolved: none.
+    - Tests (end of step, once each): `bun typecheck` clean; `bun run lint` clean (the one size warning is
+      `last-binding.ts`'s, unchanged); `bun test src` 2147 pass / 0 fail; `bun test test/conformance` 6319 pass / 0 fail (after
+      the RENAMED_TARGETS read); `bun test test/frontend` 45 pass / 0 fail; `bun test test/analysis` 13 pass / 0 fail;
+      `bun test test/corpus` 19 pass / 1 skip.
+    - Gate (step 4f, after the review fixes): M (`rate:fixtures`) mapped 5413 -> 5415: confirmed 2862 -> 2863
+      (`pointer_deref_before_first_store`), not-lowered 376 -> 377 (`pointer_target_set_grows_copied`), refused 1990,
+      diverges 11, lsp-gap 82, unaskable 92; tier `indirect` 432 -> 433 rows (427 -> 428 clean); edge agree 3096 -> 3097,
+      disagree 3, not-run 185. Tests, full, `VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`: `bun typecheck` clean; `bun run
+      lint` clean; `bun test src` 2149 pass / 1 skip / 0 fail; `bun test test/conformance` 6320 pass / 0 fail; `bun test
+      test/frontend` 45 pass / 0 fail; `bun test test/analysis` 13 pass / 0 fail; `bun test test/corpus` 19 pass / 1
+      skip (frontend and analysis baselines rewritten for the new fixtures' counts and the new build recordings only).
 
 ## 5. Model 4: instance initialization (RC 22, 23, 24, 25; RC 30 closed upstream)
 

@@ -24,10 +24,12 @@ describe("lower — total, never silently wrong", () => {
     expect(diagnostics[0]!.span.startLine).toBe(5)
   })
 
-  test("bit access through a REFERENCE names the aliasing blocker, not a bad bit index", () => {
-    // pro2193 MapperInputs.pou: `slice : REFERENCE TO BYTE; bit1 := slice.0;` — phase 4, and its code must say so
+  test("bit access through a REFERENCE reads through it: an unbound root input says so, not a bad bit index", () => {
+    // pro2193 MapperInputs.pou: `slice : REFERENCE TO BYTE; bit1 := slice.0;`. It was `bit-on-reference` ("phase 4"); the
+    // bit is the referenced byte's (conformance `reference_bit_access`, transpile-restructure 4.13 (d)), so what is left
+    // is the root's input nobody binds
     const { diagnostics } = lowerSource("PROGRAM P\nVAR_INPUT slice : REFERENCE TO BYTE; END_VAR\nVAR b : BOOL; w : WORD; END_VAR\nb := slice.0;\nEND_PROGRAM\n")
-    expect(diagnostics.map((d) => d.code)).toEqual(["bit-on-reference"])
+    expect(diagnostics.map((d) => d.code)).toEqual(["pointer-root-input"])
     const beyond = lowerSource("PROGRAM P\nVAR b : BOOL; w : WORD; END_VAR\nb := w.16;\nEND_PROGRAM\n")
     expect(beyond.diagnostics.map((d) => d.code)).toEqual(["bit-index"])
   })

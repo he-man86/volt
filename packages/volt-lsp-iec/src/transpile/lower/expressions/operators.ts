@@ -149,10 +149,14 @@ export function lowerBinary(lw: Lowering, e: Extract<Expr, { kind: "binary" }>):
 }
 
 /** `p = 0` / `p <> 0` on a POINTER or an interface — null is 0; `null` when `e` is no such compare. */
-function pointerNullCompare(lw: Lowering, e: Extract<Expr, { kind: "binary" }>): IrExpr | undefined | null {
+function pointerNullCompare(lw: Lowering, written: Extract<Expr, { kind: "binary" }>): IrExpr | undefined | null {
   // `p = 0` / `p <> 0` on a POINTER — null is 0 (conformance `keyword_null_pointer_init`). A REFERENCE is read through
   // like any other use, so `r = 0` compares its target: this took references too and tested the stored index, where
   // `r = m - 5` (the same comparison) dereferenced — measured only for a pointer (transpiler review 2026-09-15).
+  // `0 = p` / `0 <> p` is the same compare, the zero normalized to the right (conformance `pointer_zero_on_left_compare`,
+  // `_local`: both read as CODESYS answers them; refused `pointer-value` before transpile-restructure 4.13 (c)).
+  const zeroLeft = written.left.kind === "literal" && written.left.value === 0n && written.right.kind !== "literal"
+  const e = zeroLeft ? { ...written, left: written.right, right: written.left } : written
   if ((e.op !== "=" && e.op !== "<>") || e.right.kind !== "literal" || e.right.value !== 0n) return null
   const kind = inferExprType(e.left, lw.scope, lw.project).kind
   // an interface is null the same way (conformance `itf_call_dispatches_on_instance`)

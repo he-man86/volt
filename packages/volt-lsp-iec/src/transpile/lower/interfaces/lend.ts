@@ -28,13 +28,15 @@ export const instanceRelative = (root: Lowering, tag: number): boolean => interf
 
 /**
  * Where `body` reaches the instance a tag names: its own place, when the instance is of the body's frame — otherwise a
- * `lent` place, a `&mut` its callers lend it, appended the first time it is needed (design §24). The POU has no caller,
- * and a GVL instance is not lent beside the globals every body already holds.
+ * `lent` place, a `&mut` its callers lend it, appended the first time it is needed (design §24). The POU has no caller.
+ * A GVL instance is no lend at all: its place is `global`, which every body holds (`g`) — so it is that place, in every
+ * body (conformance `interface_holds_gvl_instance`; refused `interface-context` before transpile-restructure 4.13 (f)). A
+ * call that already holds `g` mutably stays refused where its binding is (`call-inout-global`).
  */
 export function lendPlace(root: Lowering, body: Lowering, tag: number, span: Span): Place | undefined {
   const instance = interfaceTables(body).instances[indexOfTag(tag)]!
-  if (instance.context === body.frameContext) return instance.place
-  if (body === root || instance.context === "GLOBAL")
+  if (instance.context === body.frameContext || instance.context === "GLOBAL") return instance.place
+  if (body === root)
     return body.bail("interface-context", `an instance of ${instance.fb.name} held where no caller can lend it`, span)
   let at = interfaceFrame(body).lends.findIndex((l) => l.tag === tag)
   if (at < 0) at = interfaceFrame(body).lends.push({ tag, type: instance.fb }) - 1

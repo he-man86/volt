@@ -184,3 +184,27 @@ describe("an ANY input's pValue stored into a pointer is the argument's address 
     expect(lowerSource(src("b := F(v := d, io := e);" + NL + "b := F(v := e, io := e);"), "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-alias"])
   })
 })
+
+/**
+ * AN ANY INPUT GIVEN A REFERENCE TO IS GIVEN THE REFERENCED VARIABLE (transpile-restructure 4.13 (e)). The variant was
+ * lowered for the REFERENCE's own type, so its hidden VAR_IN_OUT was a reference the call bound an INT to (rustc E0308),
+ * and a `pValue` stored into a pointer asked the reference's byte size (`any-input`). Recorded: conformance
+ * `any_input_given_reference` (diSize 2, `pValue^` 5).
+ */
+describe("an ANY input given a REFERENCE TO", () => {
+  const FN = "FUNCTION F : DINT\nVAR_INPUT v : ANY; END_VAR\nVAR_OUTPUT seen : INT; END_VAR\nVAR pi : POINTER TO INT; END_VAR\nF := v.diSize;\npi := v.pValue;\nseen := pi^;\nEND_FUNCTION\n"
+  const SIZE = "FUNCTION G : DINT\nVAR_INPUT v : ANY; END_VAR\nG := v.diSize;\nEND_FUNCTION\n"
+  test("is the referenced variable: its size, and its value through pValue", () => {
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR x : INT := 5; rx : REFERENCE TO INT; n : DINT; seen : INT; END_VAR\nrx REF= x;\nn := F(v := rx, seen => seen);\nEND_PROGRAM\n\n${FN}`, "P")
+    expect(diagnostics).toEqual([])
+    const p = run(pou!)
+    p.scan()
+    expect([p.get("n"), p.get("seen")]).toEqual([2n, 5n])
+  })
+  test("the variant's hidden VAR_IN_OUT has the referenced type, not the reference's", () => {
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR x : INT := 5; rx : REFERENCE TO INT; n : DINT; END_VAR\nrx REF= x;\nn := G(rx);\nEND_PROGRAM\n\n${SIZE}`, "P")
+    expect(diagnostics).toEqual([])
+    const hidden = pou!.routines.flatMap((r) => r.inouts).filter((s) => s.name.startsWith("__any_"))
+    expect(hidden.map((s) => s.type.kind === "elementary" && s.type.name)).toEqual(["INT"])
+  })
+})

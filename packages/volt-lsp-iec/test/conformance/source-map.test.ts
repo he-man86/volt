@@ -61,7 +61,11 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 141 -> 150 (2026-10-09, review of step 4d), read, the same image class and nothing else: the two new fixtures that
 // hold an FB in the image, `pointer_order_one_past_end` (2: `sum`) and `bool_byte_two_through_pointer` (7: `eqT`, `nb`,
 // `taken` twice, `raw`, `c`, `notRaw`).
-const RENAMED_TARGETS = 150
+// 150 -> 159 (2026-10-09, transpile-restructure 4.13), read: the image class again, 7 — `pointer_zero_on_left_compare`
+// (`isNull`, `notNullBefore`, `isNullAfter`, `notNull`) and `reference_bit_access` (`bit3`, `bit2`, `after`) — and ONE new
+// class, 2: a pointer copied into a pointer of several targets keeps NULL NULL (4.13 (b)), so `p := src` is
+// `if src != 0 { p = tag } else { p = 0 }` and its mapped line is the `if` (`pointer_null_copied_into_multi_target`, twice).
+const RENAMED_TARGETS = 159
 
 interface Program {
   name: string

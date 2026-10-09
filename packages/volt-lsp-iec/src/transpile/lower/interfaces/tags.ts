@@ -52,14 +52,25 @@ export function implementsInterface(lw: Lowering, fb: string, itf: string): bool
   return false
 }
 
-/** The tag of an FB instance — given at its first store, 1 and up. */
+/** The tag of an FB instance an interface is given — its handle (`instanceHandle`), for an instance an interface can hold. */
 function tagOf(lw: Lowering, place: Place, fb: FbType, span: Span): number | undefined {
   const tracked =
     place.guard === undefined &&
     (place.root === undefined || place.root === "this" || place.root === "global") &&
     staticPath(place)
   if (!tracked) return lw.bail("interface-instance", "an interface stored with a local, an in-out, a dereference or an element at a runtime index", span)
-  const context = place.root === "global" ? "GLOBAL" : lw.frameContext
+  return instanceHandle(lw, place, fb)
+}
+
+/**
+ * THE INSTANCE HANDLE (transpile-restructure 4.14, design.md §3.3 step 4f): one numbering of the FB instances a POU's
+ * values may name — an interface's (`tagOf`) and a pointer's or reference's to a whole instance (`pointers/state.ts`
+ * `recordTarget`) alike — given at the first store, 1 and up (`core/tags.ts`). One numbering, so a value means the same
+ * instance whichever variable holds it. The instance is named by its place in a context: a GVL's, a routine's locals,
+ * or the frame's. A static place, not under a dereference: the caller says so.
+ */
+export function instanceHandle(lw: Lowering, place: Place, fb: FbType): number {
+  const context = place.root === "global" ? "GLOBAL" : place.root === "local" ? lw.routineContext : lw.frameContext
   const known = interfaceTables(lw).instances.findIndex((x) => x.context === context && sameTarget({ base: x.place }, { base: place }))
   if (known >= 0) return tagOfIndex(known)
   const index = interfaceTables(lw).instances.length

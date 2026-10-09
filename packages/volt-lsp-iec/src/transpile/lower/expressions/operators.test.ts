@@ -118,3 +118,22 @@ test("unary minus on a 32/64-bit unsigned operand negates in the signed type of 
     -5n, -5n, -5, -5n, 1n, true, true,
   ])
 })
+
+/**
+ * `0 = p` / `0 <> p` IS `p = 0` / `p <> 0` (transpile-restructure 4.13 (c)). Only a zero on the RIGHT was recognised, so the
+ * zero on the left fell through to arithmetic and was refused `pointer-value` ("a pointer's value used as a number").
+ * Recorded: conformance `pointer_zero_on_left_compare` (a pointer into the instance) and `_local` (a FUNCTION's tag).
+ */
+describe("a zero on the left of a pointer compare", () => {
+  test("compares as the zero on the right, for a pointer that holds an address and for one that keeps a tag", () => {
+    const image = run(ir(wrap("isNull := 0 = p;\np := ADR(a);\nnotNull := 0 <> p;", "a : INT; p : POINTER TO INT; isNull : BOOL; notNull : BOOL;"), "P"))
+    image.scan()
+    expect([image.get("isNull"), image.get("notNull")]).toEqual([true, true])
+    const local =
+      "PROGRAM P\nVAR isNull : BOOL; notNull : BOOL; END_VAR\nisNull := F(notNull => notNull);\nEND_PROGRAM\n\n" +
+      "FUNCTION F : BOOL\nVAR_OUTPUT notNull : BOOL; END_VAR\nVAR a : INT; p : POINTER TO INT; END_VAR\nF := 0 = p;\np := ADR(a);\nnotNull := 0 <> p;\nEND_FUNCTION\n"
+    const tagged = run(ir(local, "P"))
+    tagged.scan()
+    expect([tagged.get("isNull"), tagged.get("notNull")]).toEqual([true, true])
+  })
+})

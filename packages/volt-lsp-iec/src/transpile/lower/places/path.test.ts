@@ -63,14 +63,20 @@ test("staticKey: root, slot and static path — a runtime index or a bit has non
   expect(suffixOf(slot("io"), p([runtime]))).toBeUndefined()
 })
 
-test("sameStep and sameTarget: one field (any case), or one constant index of the same value and type", () => {
+// 4.15: the steps compare as `staticKey` writes them (KEY_STEP). They compared an index by value AND type (`1` against
+// `1n`), a distinction lowering never makes — measured: no constant index that is not a bigint over every fixture, the
+// six corpora and `bun test src` — so the case that pinned it (a number index, built only here) went with it.
+test("sameStep and sameTarget: one field (any case), or one constant index of the same value", () => {
   const big: Access = { kind: "index", index: { kind: "const", value: 1n, type: INT, span: undefined as never }, lower: 0n }
-  const num: Access = { kind: "index", index: { kind: "const", value: 1, type: INT, span: undefined as never }, lower: 0n }
+  const two: Access = { kind: "index", index: { kind: "const", value: 2n, type: INT, span: undefined as never }, lower: 0n }
   expect(sameStep(field("a"), field("A"))).toBe(true)
   expect(sameStep(big, index)).toBe(true)
-  expect(sameStep(big, num)).toBe(false)
+  expect(sameStep(big, two)).toBe(false)
   expect(sameStep(field("a"), big)).toBe(false)
   const base = (path: Access[]) => ({ base: { slot: 1, path, type: INT, span: undefined as never } })
   expect(sameTarget(base([field("a"), big]), base([field("A"), index]))).toBe(true)
   expect(sameTarget(base([field("a")]), base([field("b")]))).toBe(false)
+  // a runtime index names no place yet, so it is no target's twin — not even its own
+  const runtime: Access = { kind: "index", index: { kind: "load", place: { slot: 9, path: [], type: INT, span: undefined as never }, type: INT, span: undefined as never }, lower: 0n }
+  expect(sameTarget(base([runtime]), base([runtime]))).toBe(false)
 })

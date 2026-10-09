@@ -14,6 +14,7 @@
 import type { LanguageTest } from "../../types.js"
 
 const doc = "openspec transpile-restructure design.md §3.3 (task 4.1)"
+const doc413 = "openspec transpile-restructure design.md §3.3 Decision (step 4f), task 4.13"
 
 export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
   {
@@ -197,5 +198,127 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
       "inst_bool_two();\neqT := inst_bool_two.eqT; nb := inst_bool_two.nb; taken := inst_bool_two.taken; raw := inst_bool_two.raw; notRaw := inst_bool_two.notRaw;",
     source:
       "FUNCTION_BLOCK FB_MEM_bool_two\nVAR_OUTPUT\n\teqT : BOOL;\n\tnb : BOOL;\n\ttaken : BOOL;\n\traw : BYTE;\n\tnotRaw : BYTE;\nEND_VAR\nVAR\n\tb : BOOL;\n\tc : BOOL;\n\tpb : POINTER TO BYTE;\nEND_VAR\npb := ADR(b);\npb^ := 2;\neqT := b = TRUE;\nnb := NOT b;\ntaken := FALSE;\nIF b THEN\n\ttaken := TRUE;\nEND_IF\nraw := pb^;\nc := NOT b;\npb := ADR(c);\nnotRaw := pb^;\nEND_FUNCTION_BLOCK\n",
+  },
+  // ─── transpile-restructure 4.13: the appendix pointer items (transpile-review-2026-09-29 Appendix A), recorded first ───
+  // (a) a pointer's target set read while it still grows: the read lowered before the store that gives it its second
+  // target. A FUNCTION's local is no image variable, so its pointer keeps a tag (design.md §3.3 step 4f).
+  {
+    name: "pointer_target_set_grows_after_read",
+    pouName: "F_MEM_ptr_grow",
+    kind: "function" as const,
+    feature: "a pointer read in a loop before the store that gives it its second target: the second pass reads the second target",
+    fromDoc: doc413,
+    plcPrgVar: "grown : INT;",
+    plcPrgBody: "grown := F_MEM_ptr_grow();",
+    source:
+      "FUNCTION F_MEM_ptr_grow : INT\nVAR\n\ta : INT := 11;\n\tb : INT := 22;\n\tp : POINTER TO INT;\n\tk : INT;\nEND_VAR\nF_MEM_ptr_grow := 0;\np := ADR(a);\nFOR k := 1 TO 2 DO\n\tF_MEM_ptr_grow := F_MEM_ptr_grow + p^;\n\tp := ADR(b);\nEND_FOR\nEND_FUNCTION\n",
+  },
+  // (a), copied: the same growing set read through a COPY made each pass (`q := p; ... q^`) — a copy of a pointer of
+  // several targets, refused `pointer-targets` by name (it read 22 silently before the seeded re-lowering; review of 4f).
+  {
+    name: "pointer_target_set_grows_copied",
+    pouName: "F_MEM_ptr_grow_copy",
+    kind: "function" as const,
+    feature: "a pointer copied in a loop before the store that gives it its second target, the copy dereferenced: the second pass reads the second target",
+    fromDoc: doc413,
+    plcPrgVar: "grownCopy : INT;",
+    plcPrgBody: "grownCopy := F_MEM_ptr_grow_copy();",
+    source:
+      "FUNCTION F_MEM_ptr_grow_copy : INT\nVAR\n\ta : INT := 11;\n\tb : INT := 22;\n\tp : POINTER TO INT;\n\tq : POINTER TO INT;\n\tk : INT;\nEND_VAR\nF_MEM_ptr_grow_copy := 0;\np := ADR(a);\nFOR k := 1 TO 2 DO\n\tq := p;\n\tF_MEM_ptr_grow_copy := F_MEM_ptr_grow_copy + q^;\n\tp := ADR(b);\nEND_FOR\nEND_FUNCTION\n",
+  },
+  // (a), before any store: a FUNCTION's local pointer dereferenced before the store that gives it its only target. Every
+  // call starts with the pointer NULL, so the read is a null dereference (refused `pointer-order` before the seeded
+  // re-lowering; review of 4f). Does the vendor stop?
+  {
+    name: "pointer_deref_before_first_store",
+    pouName: "F_MEM_ptr_deref_first",
+    kind: "function" as const,
+    feature: "a FUNCTION's local pointer dereferenced before the store that gives it its target: a null dereference on every call",
+    fromDoc: doc413,
+    plcPrgVar: "derefFirst : INT;",
+    plcPrgBody: "derefFirst := F_MEM_ptr_deref_first();",
+    source:
+      "FUNCTION F_MEM_ptr_deref_first : INT\nVAR\n\ta : INT := 11;\n\tp : POINTER TO INT;\nEND_VAR\nF_MEM_ptr_deref_first := p^;\np := ADR(a);\nEND_FUNCTION\n",
+  },
+  // (b) a NULL pointer copied into a pointer that names several variables stays NULL; a non-null copy names its target.
+  {
+    name: "pointer_null_copied_into_multi_target",
+    pouName: "F_MEM_ptr_null_copy",
+    kind: "function" as const,
+    feature: "a null single-target pointer copied into a pointer with two targets: the copy is null; copied again once set, it reads the target",
+    fromDoc: doc413,
+    plcPrgVar: "copiedNull : BOOL; copiedSet : BOOL; readBack : INT;",
+    plcPrgBody: "readBack := F_MEM_ptr_null_copy(copiedNull => copiedNull, copiedSet => copiedSet);",
+    source:
+      "FUNCTION F_MEM_ptr_null_copy : INT\nVAR_OUTPUT\n\tcopiedNull : BOOL;\n\tcopiedSet : BOOL;\nEND_VAR\nVAR\n\ta : INT := 11;\n\tb : INT := 22;\n\tnever : BOOL;\n\tsrc : POINTER TO INT;\n\tp : POINTER TO INT;\nEND_VAR\nIF never THEN\n\tsrc := ADR(a);\nEND_IF\np := ADR(b);\np := ADR(a);\np := src;\ncopiedNull := p = 0;\nsrc := ADR(a);\np := src;\ncopiedSet := p <> 0;\nF_MEM_ptr_null_copy := p^;\nEND_FUNCTION\n",
+  },
+  // (c) `0 = p` / `0 <> p` — the zero on the LEFT, on a pointer that holds an address (an FB field's) and on one that keeps a tag.
+  {
+    name: "pointer_zero_on_left_compare",
+    pouName: "FB_MEM_zero_left",
+    kind: "function_block" as const,
+    feature: "`0 = p` and `0 <> p` on a pointer into the instance, before and after an address is stored",
+    fromDoc: doc413,
+    plcPrgVar: "inst_zero_left : FB_MEM_zero_left; zIsNull : BOOL; zNotNullBefore : BOOL; zIsNullAfter : BOOL; zNotNull : BOOL;",
+    plcPrgBody: "inst_zero_left();\nzIsNull := inst_zero_left.isNull; zNotNullBefore := inst_zero_left.notNullBefore; zIsNullAfter := inst_zero_left.isNullAfter; zNotNull := inst_zero_left.notNull;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_zero_left\nVAR_OUTPUT\n\tisNull : BOOL;\n\tnotNullBefore : BOOL;\n\tisNullAfter : BOOL;\n\tnotNull : BOOL;\nEND_VAR\nVAR\n\ta : INT;\n\tp : POINTER TO INT;\nEND_VAR\np := 0;\nisNull := 0 = p;\nnotNullBefore := 0 <> p;\np := ADR(a);\nisNullAfter := 0 = p;\nnotNull := 0 <> p;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "pointer_zero_on_left_compare_local",
+    pouName: "F_MEM_zero_left_local",
+    kind: "function" as const,
+    feature: "`0 = p` and `0 <> p` on a FUNCTION's pointer to its own local (a tag), before and after an address is stored",
+    fromDoc: doc413,
+    plcPrgVar: "lIsNull : BOOL; lNotNull : BOOL;",
+    plcPrgBody: "lIsNull := F_MEM_zero_left_local(notNull => lNotNull);",
+    source:
+      "FUNCTION F_MEM_zero_left_local : BOOL\nVAR_OUTPUT\n\tnotNull : BOOL;\nEND_VAR\nVAR\n\ta : INT;\n\tp : POINTER TO INT;\nEND_VAR\nF_MEM_zero_left_local := 0 = p;\np := ADR(a);\nnotNull := 0 <> p;\nEND_FUNCTION\n",
+  },
+  // (d) `r.3` on a REFERENCE: a bit of the referenced variable, read and written.
+  {
+    name: "reference_bit_access",
+    pouName: "FB_MEM_ref_bit",
+    kind: "function_block" as const,
+    feature: "`rw.3` read and `rw.0 := TRUE` / `rw.3 := FALSE` written through a REFERENCE TO WORD into the instance",
+    fromDoc: doc413,
+    plcPrgVar: "inst_ref_bit : FB_MEM_ref_bit; rBit3 : BOOL; rBit2 : BOOL; rAfter : WORD;",
+    plcPrgBody: "inst_ref_bit();\nrBit3 := inst_ref_bit.bit3; rBit2 := inst_ref_bit.bit2; rAfter := inst_ref_bit.after;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_ref_bit\nVAR_OUTPUT\n\tbit3 : BOOL;\n\tbit2 : BOOL;\n\tafter : WORD;\nEND_VAR\nVAR\n\tw : WORD;\n\trw : REFERENCE TO WORD;\nEND_VAR\nw := 16#0008;\nrw REF= w;\nbit3 := rw.3;\nbit2 := rw.2;\nrw.0 := TRUE;\nrw.3 := FALSE;\nafter := w;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "reference_bit_access_local",
+    pouName: "F_MEM_ref_bit_local",
+    kind: "function" as const,
+    feature: "`rw.3` read and `rw.0 := TRUE` written through a FUNCTION's REFERENCE TO WORD to its own local (a tag)",
+    fromDoc: doc413,
+    plcPrgVar: "lBit3 : BOOL; lAfter : WORD;",
+    plcPrgBody: "lBit3 := F_MEM_ref_bit_local(after => lAfter);",
+    source:
+      "FUNCTION F_MEM_ref_bit_local : BOOL\nVAR_OUTPUT\n\tafter : WORD;\nEND_VAR\nVAR\n\tw : WORD := 16#0008;\n\trw : REFERENCE TO WORD;\nEND_VAR\nrw REF= w;\nF_MEM_ref_bit_local := rw.3;\nrw.0 := TRUE;\nafter := w;\nEND_FUNCTION\n",
+  },
+  // (e) an ANY input given a REFERENCE TO: the argument is the variable referenced — its size, and its value through pValue.
+  {
+    name: "any_input_given_reference",
+    pouName: "F_MEM_any_ref",
+    kind: "function" as const,
+    feature: "a REFERENCE TO INT passed to an ANY input: diSize is the INT's, and pValue^ reads the referenced INT",
+    fromDoc: doc413,
+    plcPrgVar: "anyX : INT := 5; anyRef : REFERENCE TO INT; anySize : DINT; anySeen : INT;",
+    plcPrgBody: "anyRef REF= anyX;\nanySize := F_MEM_any_ref(v := anyRef, seen => anySeen);",
+    source:
+      "FUNCTION F_MEM_any_ref : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR_OUTPUT\n\tseen : INT;\nEND_VAR\nVAR\n\tpi : POINTER TO INT;\nEND_VAR\nF_MEM_any_ref := v.diSize;\npi := v.pValue;\nseen := pi^;\nEND_FUNCTION\n",
+  },
+  {
+    name: "any_input_given_reference_size",
+    pouName: "F_MEM_any_ref_size",
+    kind: "function" as const,
+    feature: "a REFERENCE TO INT passed to an ANY input that reads only diSize: the argument lent is the referenced INT",
+    fromDoc: doc413,
+    plcPrgVar: "anySzX : INT := 5; anySzRef : REFERENCE TO INT; anySzOnly : DINT;",
+    plcPrgBody: "anySzRef REF= anySzX;\nanySzOnly := F_MEM_any_ref_size(v := anySzRef);",
+    source:
+      "FUNCTION F_MEM_any_ref_size : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nF_MEM_any_ref_size := v.diSize;\nEND_FUNCTION\n",
   },
 ]

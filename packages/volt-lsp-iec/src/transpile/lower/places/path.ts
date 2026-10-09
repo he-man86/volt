@@ -95,10 +95,11 @@ export function sameStorage(a: Type, b: Type): boolean {
 
 /**
  * How one STATIC step — a field, or an index that is a constant — is written into a key. The keys below are one identity,
- * written three ways, each kept as it was (phase 1 is output-neutral; 4.15 decides whether they become one):
- * `KEY_STEP` (a field upper-cased, an index `[v]`) — `staticKey`, `placeKey`; `SUFFIX_STEP` (`_name` in source casing,
- * `_v`) — a specialized routine's name (`suffixOf`); `SAME_STEP` — what `sameStep`/`sameTarget` compare, where an
- * index's value is compared by value AND type, as `===` did.
+ * written two ways (transpile-restructure 4.15, design.md §3.3 step 4f): `KEY_STEP` (a field upper-cased, an index `[v]`)
+ * — `staticKey`, `placeKey`, `sameStep`, `sameTarget`; `SUFFIX_STEP` (`_name` in source casing, `_v`) stays its own,
+ * because it is a RUST NAME (a specialized routine's, `suffixOf`), not a key. A third writing, `SAME_STEP`, compared an
+ * index by value AND type (`1` against `1n`); measured over every fixture, the six corpora and `bun test src`, lowering
+ * builds no constant index that is not a bigint — so it folded into `KEY_STEP`.
  */
 interface StepWriting {
   field(name: string): string
@@ -106,7 +107,6 @@ interface StepWriting {
 }
 const KEY_STEP: StepWriting = { field: (name) => name.toUpperCase(), index: (value) => `[${String(value)}]` }
 const SUFFIX_STEP: StepWriting = { field: (name) => `_${name}`, index: (value) => `_${String(value)}` }
-const SAME_STEP: StepWriting = { field: (name) => name.toUpperCase(), index: (value) => `[${typeof value}:${String(value)}]` }
 
 /** One step written for a key — undefined when it is not static (an index computed at run time, a bit). */
 function stepKey(step: Access, writing: StepWriting): string | undefined {
@@ -142,16 +142,16 @@ export const staticPath = (place: Place): boolean => staticSteps(place.path, KEY
 
 /** Two steps that are the same static step: one field, or one constant index. */
 export const sameStep = (a: Access, b: Access): boolean => {
-  const key = stepKey(a, SAME_STEP)
-  return key !== undefined && key === stepKey(b, SAME_STEP)
+  const key = stepKey(a, KEY_STEP)
+  return key !== undefined && key === stepKey(b, KEY_STEP)
 }
 
-/** Two pointer targets naming the same variable (or the same array) — through fields and constant indices only. */
+/** Two pointer targets naming the same variable (or the same array) — the one place identity (`staticKey`), through
+ *  fields and constant indices only, and the same view of it (an element, a string's characters). */
 export function sameTarget(a: PointerTarget, b: PointerTarget): boolean {
-  if (a.base.slot !== b.base.slot || a.base.root !== b.base.root || (a.element === undefined) !== (b.element === undefined)) return false
-  if ((a.chars === undefined) !== (b.chars === undefined)) return false
-  if (a.base.path.length !== b.base.path.length) return false
-  return a.base.path.every((step, i) => sameStep(step, b.base.path[i]!))
+  if ((a.element === undefined) !== (b.element === undefined) || (a.chars === undefined) !== (b.chars === undefined)) return false
+  const key = staticKey(a.base)
+  return key !== undefined && key === staticKey(b.base)
 }
 
 /**

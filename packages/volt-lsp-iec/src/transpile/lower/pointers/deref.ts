@@ -6,7 +6,7 @@ import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrSelect, IrStmt, Place } from "../../ir/index.js"
 import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import { borrowedInOut } from "./borrowed.js"
-import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, pointerTargets, refuseAfterStore } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, readTargets, refuseAfterStore, targetTag } from "./state.js"
 import { storageOf } from "../storage/layout.js"
 import { sameStorage } from "../places/path.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
@@ -14,7 +14,6 @@ import { binaryOf, cast } from "../core/build.js"
 import { assignTo, convert } from "../values/convert.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { tagOfIndex } from "../core/tags.js"
 import { holdsAddresses } from "./escape.js"
 import { byteSize } from "../storage/bytes.js"
 
@@ -47,7 +46,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   // target to know, so no store has to come first, and an FB's pointer input a caller fills is read where it points
   if (holdsAddresses(lw, pointer)) return unsuppliedRoot(lw, pointer, span) ? undefined : imageDeref(lw, pointer, extra, span)
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
+  const targets = readTargets(lw, key)
   // ONE TARGET IS FORM 1 AND ERASES: the deref is that place, no tag is ever built, and that is the common case.
   // Several is form 3, and a PLACE cannot express it — the READ path builds an `IrSelect` before reaching here
   // (`selectThrough`), so anything still arriving with several targets is a use that has no select form yet: a
@@ -114,7 +113,7 @@ export function unsuppliedRoot(lw: Lowering, pointer: Place, span: Span): boolea
  */
 function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bigint; place: Place }[] | undefined {
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
+  const targets = readTargets(lw, key)
   if (targets === undefined || targets.length < 2) return undefined
   // A target inside a VAR_IN_OUT is exact only while the body that bound it runs (`recordTarget`), and an arm is
   // selected wherever the tag is read — so the two do not combine yet.
@@ -122,7 +121,7 @@ function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bigint; p
     lw.bail("pointer-targets", "a pointer naming several variables, one of them an array element or inside a bound VAR_IN_OUT", span)
     return undefined
   }
-  return targets.map((t, i) => ({ tag: BigInt(tagOfIndex(i)), place: t.base }))
+  return targets.map((t, i) => ({ tag: targetTag(lw, t, i), place: t.base }))
 }
 
 export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr | undefined {

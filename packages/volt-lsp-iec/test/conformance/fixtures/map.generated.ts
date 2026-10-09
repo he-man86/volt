@@ -14,9 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2854
+ *     confirmed     2863
  *     refused       1990
- *     not-lowered    375
+ *     not-lowered    377
  *     lsp-gap         82
  *     diverges        11
  *     unaskable       92
@@ -27,7 +27,7 @@
  *     control                 158      147
  *     aggregate               138      138
  *     call                    277      274
- *     indirect                424      419
+ *     indirect                433      428
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
@@ -44,7 +44,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5643
+ *     dead_code                               5651
  *     clippy::self_assignment                   39
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -58,7 +58,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3088
+ *     agree         3097
  *     disagree         3
  *     not-run        185
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -79,15 +79,15 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 32372 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               8024
- *     clippy::cast_possible_truncation         5100
- *     clippy::cast_lossless                    4721
+ *   pedantic — 32398 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               8037
+ *     clippy::cast_possible_truncation         5101
+ *     clippy::cast_lossless                    4723
  *     clippy::cast_sign_loss                   3576
  *     clippy::uninlined_format_args            3375
  *     clippy::unreadable_literal               2856
- *     clippy::missing_panics_doc               1133
- *     clippy::manual_assert                     882
+ *     clippy::missing_panics_doc               1135
+ *     clippy::manual_assert                     887
  *     clippy::format_push_string                750
  *     clippy::many_single_char_names            378
  *
@@ -103,8 +103,8 @@
  *     string_escapes_named                            13
  *     initprg_adr_of_earlier                        12.5
  *
- *   shape — 1762 distinct emission shapes over 3276 lowered fixtures, 2005 distinct constructs.
- *   681 constructs carry a review note (`NOTES`): 3107 fixtures are improvable, 3012 touch a construct with alternatives.
+ *   shape — 1771 distinct emission shapes over 3285 lowered fixtures, 2036 distinct constructs.
+ *   681 constructs carry a review note (`NOTES`): 3116 fixtures are improvable, 3021 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
@@ -151,6 +151,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ambg_read_bare: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "0908129e76", notes: ["1307e33bbf", "b9787e0d18"] },
   ambg_write_bare: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.5, shape: "b7319d2684", notes: ["0e0d715a81", "1307e33bbf", "b9787e0d18"] },
   ampersand_operator_rejected: { evidence: "refused" },
+  any_input_given_reference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 5.2, shape: "cac74aa4a7", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "63d29bd1a0", "96a5b25b66", "ad25627749", "dbdc75774e", "dd94ff18a2", "fbde4d6e1e"] },
+  any_input_given_reference_size: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 7.9, shape: "546699d601", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "ad25627749", "dd94ff18a2", "fbde4d6e1e"] },
   ar_abs_type: { evidence: "refused" },
   ar_adr_type: { evidence: "refused" },
   ar_bitadr_type: { evidence: "refused" },
@@ -2308,6 +2310,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   interface_empty_impl: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "198ab55c44", notes: ["1307e33bbf"] },
   interface_extends_another: { evidence: "confirmed", tier: "call", rust: "compiles", pedantic: 2, edge: "not-run", size: 1.9, shape: "0733ae9492", notes: ["3d737b5821"] },
   interface_extends_another_impl: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1, shape: "a50ba5e42d" },
+  interface_holds_gvl_instance: { evidence: "not-lowered" },
   interface_method_with_return_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "51d4ab684e", notes: ["11f6ad8ec5", "1307e33bbf"] },
   interface_method_with_return_type_impl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "51d4ab684e", notes: ["11f6ad8ec5", "1307e33bbf"] },
   interface_missing_implementation: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "198ab55c44", notes: ["1307e33bbf"] },
@@ -3541,11 +3544,17 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   plat_xword_meet_dint: { evidence: "refused" },
   plat_xword_sizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "069aeee405", notes: ["4bf3f61062", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
   pointer_byte_walk_struct_padding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 4.3, shape: "1e4247062b", notes: ["054b93382f", "06bb3a6005", "1d7709a031", "521ba042ac", "63d29bd1a0", "65df8e0418", "90c445f7cb", "a497507b30", "dd94ff18a2", "e8954e2b0d", "fbde4d6e1e"] },
+  pointer_deref_before_first_store: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.2, shape: "e9de88c67b", notes: ["11f6ad8ec5", "1307e33bbf", "dd94ff18a2"] },
+  pointer_null_copied_into_multi_target: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "e3784c8835", notes: ["11f6ad8ec5", "1307e33bbf", "687428cc81", "de132e5019", "e496034f7b"] },
   pointer_order_compare: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 3.8, shape: "9742350415", notes: ["687428cc81", "de132e5019", "fbde4d6e1e"] },
   pointer_order_one_past_end: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 21, edge: "agree", size: 4.7, shape: "d9b30395d0", notes: ["0e0d715a81", "1307e33bbf", "521ba042ac", "687428cc81", "75cc82a569", "dd94ff18a2", "de132e5019", "fbde4d6e1e"] },
   pointer_step_past_end: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 4.7, shape: "9346a0b5e1", notes: ["1307e33bbf", "687428cc81", "75cc82a569", "dd94ff18a2", "de132e5019", "f7ea0fc7a1", "fbde4d6e1e"] },
+  pointer_target_set_grows_after_read: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.1, shape: "368d50bf3f", notes: ["11f6ad8ec5", "1307e33bbf", "521ba042ac", "5370b79269"] },
+  pointer_target_set_grows_copied: { evidence: "not-lowered" },
   pointer_to_dword_roundtrip: { evidence: "refused" },
   pointer_to_lword_roundtrip: { evidence: "not-lowered" },
+  pointer_zero_on_left_compare: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 5.3, shape: "b8a56b82ca", notes: ["45292dbd9c", "687428cc81", "75cc82a569", "de132e5019", "fbde4d6e1e"] },
+  pointer_zero_on_left_compare_local: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "d21b90b1ac", notes: ["11f6ad8ec5", "687428cc81", "de132e5019"] },
   power_operator_rejected: { evidence: "refused" },
   prag_attribute_block_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_brace_in_value: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -4120,6 +4129,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   refdecl_to_fb: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 3.4, shape: "b44222ba40", notes: ["1307e33bbf", "8d8ff2c804", "ad25627749", "dd94ff18a2", "fa7d5f176f", "fbde4d6e1e"] },
   refdecl_to_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 6.2, shape: "ce291c82d6", notes: ["1307e33bbf", "dd94ff18a2", "fbde4d6e1e"] },
   refdecl_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 6.9, shape: "fd0699ea26", notes: ["1307e33bbf", "dd94ff18a2", "fbde4d6e1e"] },
+  reference_bit_access: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 5.4, shape: "951d2f15f4", notes: ["1d7709a031", "65df8e0418", "687428cc81", "dd94ff18a2", "de132e5019", "fbde4d6e1e"] },
+  reference_bit_access_local: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "b9f3175f0b", notes: ["11f6ad8ec5", "1d7709a031", "5c499dbdc8", "65df8e0418", "687428cc81", "dd94ff18a2", "de132e5019", "e496034f7b"] },
   reflection: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   refuse_adr_difference: { evidence: "not-lowered" },
   refuse_fb_called_positionally: { evidence: "refused" },

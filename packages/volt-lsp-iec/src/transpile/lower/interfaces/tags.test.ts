@@ -63,3 +63,22 @@ test("an interface naming an instance's own field stays with that instance: cros
   // (appended after FB_S's own METHOD, a METHOD of FB_S — `METHOD Area` also opens the interface's prototype)
   expect(codes(`PROGRAM P\nVAR sq : FB_S; END_VAR\nsq.Poke(shape := sq);\nEND_PROGRAM\n${shapes}${poke}`)).toContain("interface-lend-alias")
 })
+
+// AN FB INSTANCE IN A GVL, HELD BY AN INTERFACE (transpile-restructure 4.13 (f)): `lendPlace` refused every GLOBAL tag
+// (`interface-context`, "held where no caller can lend it"), which was not the blocker: its place is `global`, which every
+// body holds. What is left is the one a direct `gInst.Bump()` meets — the METHOD takes the globals the instance lives in
+// (`call-global-instance`; rustc E0499 when it was let through). Recorded: conformance `interface_holds_gvl_instance`.
+test("an interface holding a GVL instance is refused as a call on a GVL instance, from the program and from an FB body", () => {
+  const head =
+    "VAR_GLOBAL\n\tgInst : FB_Bumped;\nEND_VAR\n\n" +
+    "INTERFACE I_Bump\nMETHOD Bump : INT\nEND_METHOD\nEND_INTERFACE\n\n" +
+    "FUNCTION_BLOCK FB_Bumped IMPLEMENTS I_Bump\nVAR v : INT := 7; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump : INT\nv := v + 1;\nBump := v;\nEND_METHOD\n\n"
+  const user = "FUNCTION_BLOCK FB_User\nVAR_OUTPUT got : INT; END_VAR\nVAR held : I_Bump; END_VAR\nheld := gInst;\ngot := held.Bump();\nEND_FUNCTION_BLOCK\n\n"
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  const fromProgram = codes(`${head}PROGRAM P\nVAR i : I_Bump; got : INT; END_VAR\ni := gInst;\ngot := i.Bump();\nEND_PROGRAM\n`)
+  const fromFb = codes(`${head}${user}PROGRAM P\nVAR user : FB_User; END_VAR\nuser();\nEND_PROGRAM\n`)
+  for (const got of [fromProgram, fromFb]) {
+    expect(got).toContain("call-global-instance")
+    expect(got).not.toContain("interface-context")
+  }
+})

@@ -146,10 +146,12 @@ function step(lw: Lowering, base: Place, access: Access, type: Type, span: Span)
  */
 function bitPlace(lw: Lowering, e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
   const index = Number(e.member.name)
-  const base = lowerPlace(lw, e.base, notABit)
+  // `r.3` on a REFERENCE is a bit of what it references — implicitly dereferenced, as `r.x` and `r[i]` are
+  // (conformance `reference_bit_access`, `_local`; refused `bit-on-reference` before transpile-restructure 4.13 (d))
+  const base = throughReference(lw, lowerPlace(lw, e.base, notABit), e.base.span)
   if (base === undefined) return undefined
-  // A bit of something that is not an integer says what it is instead: `slice.0` with `slice : REFERENCE TO BYTE`
-  // (pro2193 MapperInputs.pou) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
+  // A bit of something that is not an integer says what it is instead (`bit-on-struct`, `bit-on-array`, ...): a
+  // `bit-index` there would send the reader to the wrong cause. (A REFERENCE never reaches here — stepped through above.)
   if (base.type.kind !== "elementary") return lw.bail(`bit-on-${base.type.kind}`, `bit ${index} of a ${base.type.kind}`, e.span)
   const t = base.type.elem
   if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)

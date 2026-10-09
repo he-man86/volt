@@ -16,6 +16,7 @@ import { assignTo, convert } from "../values/convert.js"
 import { methodOf } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { propertyRoutine } from "../calls/property.js"
+import { inGlobals } from "../calls/reentrancy.js"
 import { interfaceTables } from "./state.js"
 import { tempPlace } from "../core/temps.js"
 import { interfaceChainOf } from "../core/chain.js"
@@ -35,6 +36,10 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
     // the instance where this body can reach it: its own, or lent to it by its callers
     const place = lendPlace(root, lw, tag, span)
     if (place === undefined) return
+    // a GVL instance: its place is the globals' (`lendPlace`), and its METHOD takes the globals it lives in — the blocker a
+    // direct `gInst.M()` meets (`calls/invoke.ts`), named the same (conformance `interface_holds_gvl_instance`)
+    if (inGlobals(lw, place))
+      return void lw.bail("call-global-instance", `an instance of ${interfaceTables(lw).instances[indexOfTag(tag)]!.fb.name} declared in a GVL is called through an interface`, span)
     const call = arm(place, interfaceTables(lw).instances[indexOfTag(tag)]!.fb)
     // one arm per tag — a revisit (an escalated `foreign`) is here to refuse, not to add a second
     if (call !== undefined && !arms.some((a) => a.tag === BigInt(tag))) arms.push({ tag: BigInt(tag), call })

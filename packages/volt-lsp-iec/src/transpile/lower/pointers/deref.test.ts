@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { IecFault } from "../../semantics/index.js"
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
@@ -111,4 +112,44 @@ describe("a pointer whose store was refused", () => {
     )
     expect(got).toEqual(["pointer-value | an integer (lw) stored as a pointer — its value is a byte address"])
   })
+})
+
+/**
+ * A TARGET SET READ WHILE IT STILL GROWS (transpile-restructure 4.13 (a)). `p^` lowered while `p` had one recorded target
+ * erased to it, and the store that adds the second target comes later in the source — so in a loop the second pass read
+ * the first target again. The escape loop now lowers once more with the final sets seeded (`state.grownTargets`).
+ * Recorded: conformance `pointer_target_set_grows_after_read` (11 + 22 = 33; the erasure gave 22).
+ */
+test("a dereference lowered before the store that adds a target reads every target", () => {
+  const src =
+    "PROGRAM P\nVAR grown : INT; END_VAR\ngrown := F();\nEND_PROGRAM\n\n" +
+    "FUNCTION F : INT\nVAR a : INT := 11; b : INT := 22; p : POINTER TO INT; k : INT; END_VAR\nF := 0;\np := ADR(a);\nFOR k := 1 TO 2 DO\n\tF := F + p^;\n\tp := ADR(b);\nEND_FOR\nEND_FUNCTION\n"
+  const p = run(ir(src, "P"))
+  p.scan()
+  expect(p.get("grown")).toBe(33n)
+})
+
+// The same growing set read through a COPY made each pass: before the seeded re-lowering the copy erased to the one
+// target the set had when `q := p` lowered and answered 22 silently (the vendor's 11 + 22 = 33,
+// `pointer_target_set_grows_copied`). Seeded, `p` names two variables when it is copied, and a copy of such a pointer
+// builds no arms of its own: refused by name, never the wrong number (review of transpile-restructure 4f).
+test("a pointer copied before the store that adds a target is refused by name, not read with one target", () => {
+  const src =
+    "FUNCTION F : INT\nVAR a : INT := 11; b : INT := 22; p : POINTER TO INT; q : POINTER TO INT; k : INT; END_VAR\nF := 0;\np := ADR(a);\nFOR k := 1 TO 2 DO\n\tq := p;\n\tF := F + q^;\n\tp := ADR(b);\nEND_FOR\nEND_FUNCTION\n\n" +
+    "PROGRAM P\nVAR g : INT; END_VAR\ng := F();\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(pou).toBeUndefined()
+  expect(diagnostics[0]?.code).toBe("pointer-targets")
+})
+
+// A FUNCTION's local pointer dereferenced BEFORE the store that gives it its target: refused `pointer-order` until the
+// seeded re-lowering, which lowers it with the final set — and every call starts with the pointer NULL, so the read is
+// a null dereference. The vendor stops there too (`pointer_deref_before_first_store`: the application never answers,
+// as `cc_fp_ptr_deref` records for a plain null dereference; review of transpile-restructure 4f).
+test("a FUNCTION's pointer dereferenced before its first store faults as a null dereference, as the vendor stops", () => {
+  const src =
+    "PROGRAM P\nVAR x : INT; END_VAR\nx := F();\nEND_PROGRAM\n\n" +
+    "FUNCTION F : INT\nVAR a : INT := 11; p : POINTER TO INT; END_VAR\nF := p^;\np := ADR(a);\nEND_FUNCTION\n"
+  const runner = run(ir(src, "P"))
+  expect(() => runner.scan()).toThrow(IecFault)
 })

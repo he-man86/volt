@@ -3,6 +3,7 @@
  */
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "../index.js"
+import { run } from "../../interp/index.js"
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
@@ -40,5 +41,24 @@ describe("lower — STRING (design §18)", () => {
   test("a non-ASCII character typed into a STRING is refused — which byte it becomes is not measured", () => {
     const { diagnostics } = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  text : STRING := 'héllo';"))
     expect(diagnostics.map((d) => d.code)).toEqual(["string-non-ascii"])
+  })
+})
+
+/**
+ * `r.3` ON A REFERENCE IS A BIT OF WHAT IT REFERENCES (transpile-restructure 4.13 (d)) — implicitly dereferenced, as `r.x`
+ * and `r[i]` already were. It was refused `bit-on-reference`. Recorded: conformance `reference_bit_access` (bit 3 TRUE,
+ * bit 2 FALSE, and after `r.0 := TRUE; r.3 := FALSE` the WORD is 1) and `_local` (a FUNCTION's reference, a tag).
+ */
+describe("a bit through a REFERENCE", () => {
+  test("is read and written on the referenced variable — one the image holds, and a FUNCTION's local", () => {
+    const image = run(ir(wrap("w := 16#0008;\nrw REF= w;\nb3 := rw.3;\nb2 := rw.2;\nrw.0 := TRUE;\nrw.3 := FALSE;", "w : WORD; rw : REFERENCE TO WORD; b3 : BOOL; b2 : BOOL;"), "P"))
+    image.scan()
+    expect([image.get("b3"), image.get("b2"), image.get("w")]).toEqual([true, false, 1n])
+    const local =
+      "PROGRAM P\nVAR b3 : BOOL; after : WORD; END_VAR\nb3 := F(after => after);\nEND_PROGRAM\n\n" +
+      "FUNCTION F : BOOL\nVAR_OUTPUT after : WORD; END_VAR\nVAR w : WORD := 16#0008; rw : REFERENCE TO WORD; END_VAR\nrw REF= w;\nF := rw.3;\nrw.0 := TRUE;\nafter := w;\nEND_FUNCTION\n"
+    const tagged = run(ir(local, "P"))
+    tagged.scan()
+    expect([tagged.get("b3"), tagged.get("after")]).toEqual([true, 9n])
   })
 })

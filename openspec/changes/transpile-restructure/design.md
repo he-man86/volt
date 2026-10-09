@@ -50,8 +50,8 @@ copies have already drifted:
 | Constant folding | 3 mechanisms (two AST folds, one IR fold) | AST: `types/const/fold` (one typed fold after lean 10.2); IR: `transpile/semantics/fold`; the one lowering entry `lower/values/fold.foldExpr`. The two folds stay two **by design** (§1 P3a) and are held together by `test/conformance/fold-agreement.test.ts`. | 1.8.9, 7.10.2 |
 | Nested-lowering diagnostic drain | 12 | `lower/core/nested.ts` | 1.7.6 |
 | Field lookup by upper-cased name | about 15 | `lower/places/path.fieldOf` | 1.7.10 |
-| Place / instance identity | 5 static-place keys + `pointerKey` + `interfaceKey` + `instanceKey` | `lower/places/path.staticKey` (with named options until model 3) | 1.7.11, 4.15 |
-| Tag encodings | 3 (pointer tags, interface instance tags, `__inout_binding`) | `lower/core/tags.ts` owns the encoding (0 = none, k+1 numbering, the key); whether the three *schemes* merge is model 3's decision | 1.7.19, 4.14 |
+| Place / instance identity | 5 static-place keys + `pointerKey` + `interfaceKey` + `instanceKey` | `lower/places/path.staticKey` — `sameStep`/`sameTarget` compare through it since 4.15 (`SAME_STEP` folded into `KEY_STEP`); `SUFFIX_STEP` stays (a Rust name, not a key); `pointerKey` (residual tagged pointers, a UNION's members, the ANY holder) and `interfaceKey` (the handle's key) stay | 1.7.11, 4.15 |
+| Tag encodings | 3 (pointer tags, interface instance tags, `__inout_binding`) | `lower/core/tags.ts` owns the encoding (0 = none, k+1 numbering). Final homes (4.14): the INSTANCE HANDLE `interfaces/tags.instanceHandle` (interfaces and pointers/references to a whole instance, one table); the residual DATA TAG `pointers/state.recordTarget`/`targetTag` (targets the image cannot hold); `__inout_binding` `calls/last-binding.ts` (the image would make every in-out target escape) | 1.7.19, 4.14 |
 | Text formatters | 2, hand-mirrored (TS and Rust) | `semantics/text.ts`, mirrored by `emit/rust/runtime/text.ts`, held by `text.cases.ts` | 1.3.2, 1.5.15 |
 | `initOf` | 2 in the emitter | `emit/rust/values.initOf` | 1.5.5, 5.4 |
 | The globals parameter list | 4 renderings | `emit/rust/names.globalsParams`/`globalsArgs` | 1.5.3, 7.7.5 |
@@ -1320,6 +1320,30 @@ index), `interface-instance` (a runtime-indexed instance), `image-stack`.
 
 **Model delta (4.16).** architecture.md line 313 gets 4.2's sentence plus "a pointer the image cannot hold keeps a tag";
 the refused list above into docs; the map delta in tasks.md. Migration: 4.13 (record, then a–f) → 4.14 → 4.15 → 4.16.
+
+**As built (step 4f, 2026-10-09) — where reality changed the plan, and why.**
+- (a) The re-lowering alone cannot help: the next lowering would read the same partial set at the same use. Each lowering
+  is SEEDED with the sets the previous one ended with (`state.grownTargets`/`seedTargets`), in their recorded order, so a
+  store finds its target and writes the same tag; a set still growing after `ESCAPE_PASSES` is refused `pointer-targets`
+  by name rather than lowered on part of a set. Every read of a set goes through `state.readTargets`.
+- (b) Built for a SINGLE-target source (a copy of several stays refused `pointer-targets`, as before): `p := src` into a
+  pointer of several targets is `IF src <> 0 THEN p := tag ELSE p := 0`. A copy of an INSTANCE pointer is a plain copy —
+  both number through the handle table (4.14).
+- (e) A REFERENCE argument is stepped through in the two places that read the argument: `anyArgumentTypes` (the variant
+  is lowered for the referenced type — the E0308 was a hidden VAR_IN_OUT of the reference's type) and `bindAnyAddress`.
+- (f) `lendPlace` answers the GVL instance's `global` place as planned, and the call then meets the blocker a DIRECT
+  `gInst.M()` meets: the METHOD takes `g`, the instance lives in `g` (rustc E0499). The dispatch arm is refused
+  `call-global-instance`, the direct call's code — niche: accepted loss (0 occurrences in the corpora:
+  no corpus code stores a VAR_GLOBAL FB instance into an interface; tasks.md 4.13 gate review). The fixture records the reason (`deferred.transpile`) and rates `not-lowered`.
+- 4.14: the NUMBERING merged (`instanceHandle`; a pointer to a whole instance writes its handle, a copy carries it), which
+  is all the 18 instance-pointer fixtures reach — every one single-target, every target a frame variable (census
+  2026-10-09). Dispatching and lending a MULTI-target instance pointer as an interface is not built: 0 fixtures and 0
+  corpus POUs where it is the sole blocker (the residual codes are co-blocked everywhere but the 4 POUs above, none of
+  them this shape), so `p^.M()` over several instances keeps `pointer-targets`. S held: IR, outputs and edge identical
+  over all fixtures (the handle of a lone instance is 1, as its tag was).
+- 4.15: the G check found no constant index that is not a bigint (every fixture, the six corpora, `bun test src` — only
+  a synthetic case in `path.test.ts`), so `SAME_STEP` folded into `KEY_STEP` and `sameTarget` is `staticKey` equality
+  plus `element`/`chars`.
 
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 

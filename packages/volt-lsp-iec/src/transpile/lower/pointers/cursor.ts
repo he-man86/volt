@@ -5,7 +5,7 @@
 import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { IrBinding, IrExpr, Place } from "../../ir/index.js"
-import { type Cursor, pointerFrame, pointerKey, pointerTargets } from "./state.js"
+import { type Cursor, pointerFrame, pointerKey, readTargets } from "./state.js"
 import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
 import { binaryOf, cast } from "../core/build.js"
 import { convert } from "../values/convert.js"
@@ -51,7 +51,7 @@ export function cursorChar(lw: Lowering, pointer: Place, extra: IrExpr | undefin
  *  other pointer. Several targets, or one scoped to an in-out's binding, fall through to `pointeePlace`, which refuses them. */
 function charsThrough(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
   const key = pointer.type.kind === "pointer" ? pointerKey(lw, pointer) : undefined
-  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
+  const targets = readTargets(lw, key)
   const target = targets?.length === 1 ? targets[0]! : undefined
   if (target?.chars === undefined || target.scopedTo !== undefined) return null
   return cursorCharAt(pointer, { ...target.base, guard: pointer, span }, target.chars, extra, span)
@@ -202,7 +202,7 @@ function pointedString(lw: Lowering, value: Expr): Place | undefined {
   const pointer = lowerPlace(lw, value)
   if (pointer?.type.kind !== "pointer") return undefined
   const key = pointerKey(lw, pointer)
-  const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
+  const targets = readTargets(lw, key)
   if (targets?.length !== 1 || targets[0]!.element !== undefined) return undefined
   return pointeePlace(lw, pointer, undefined, value.span)
 }

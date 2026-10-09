@@ -3,7 +3,7 @@
  */
 
 import type { Lowering, RoutineSymbol } from "../core/lowering.js"
-import type { CallArg, Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
+import { type CallArg, type Expr, exprText, type Span, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { byteSize } from "../storage/bytes.js"
 import { routineFacts } from "../calls/facts.js"
@@ -15,7 +15,8 @@ import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { aliases, lendGuards } from "../calls/binding.js"
 import { pointerFrame } from "./state.js"
 import { escapesOf, type Holder, holderHoldsAddresses } from "./escape.js"
-import { imageAddressOf } from "./address.js"
+import { imagePlaceAddress } from "./address.js"
+import { throughReference } from "./deref.js"
 
 /** `anyArg.diSize` — an ANY input's size, which the call handed in as a hidden DINT (conformance `state_any_input_sizes`);
  *  `null` when the base is no ANY input. */
@@ -111,9 +112,13 @@ export function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract
     if (name === undefined || arg.output || arg.value === undefined || !any.has(name)) continue
     // a failed lowering is not this pass's to report — the argument goes on to the ANY branch of `lowerInvoke`
     const before = lw.diagnostics.length
-    const place = lw.inArgument(() => lowerPlace(lw, arg.value!))
+    const raw = lw.inArgument(() => lowerPlace(lw, arg.value!))
+    // a REFERENCE argument is the variable it references, as everywhere else it is used: the variant is lowered for THAT
+    // type (conformance `any_input_given_reference`: diSize 2 for a REFERENCE TO INT) — lowered for the reference's own
+    // type, its hidden VAR_IN_OUT was a reference the call bound an INT to (rustc E0308, transpile-restructure 4.13 (e))
+    const place = raw?.guard === undefined ? throughReference(lw, raw, arg.value.span) : undefined
     lw.diagnostics.length = before
-    if (place !== undefined && place.guard === undefined) out.set(name, place.type)
+    if (place !== undefined) out.set(name, place.type)
   }
   return out
 }
@@ -147,11 +152,12 @@ export function bindAnyArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k
  * does, and an argument the image cannot hold makes the holder a tag from the next lowering on (`imageAddressOf`).
  */
 function bindAnyAddress(lw: Lowering, b: InvokeBindings, arg: CallArg, k: number, name: string, input: number): true | undefined {
-  const place = lowerPlace(lw, arg.value!)
+  // a REFERENCE argument is the variable it references (`anyArgumentTypes`): its size, and its address
+  const place = throughReference(lw, lowerPlace(lw, arg.value!), arg.span)
   if (place === undefined) return undefined
   const size = byteSize(lw, place.type)
   if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
-  const address = imageAddressOf(lw, arg.value!, anyHolder(b.routine.key, name), arg.span)
+  const address = imagePlaceAddress(lw, place, exprText(arg.value!), anyHolder(b.routine.key, name), arg.span)
   if (address === undefined) return undefined
   b.inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
   b.inputs[input] = address

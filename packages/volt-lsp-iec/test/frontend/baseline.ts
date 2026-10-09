@@ -588,6 +588,18 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ),
   { baseline: "type-dump", measure: "fixtures twincat: call UNKNOWN, on an untyped operand", by: 1, fixture: "calls_adr_on_bit_access", task: "ADR of a bit access (the front-end types no bit access, by design: `call-arguments` `isBitAccess`)", why: "ADR(w.3), which TwinCAT builds, measured 2026-10-06" },
   { baseline: "type-dump", measure: "fixtures codesys: call UNKNOWN, on an untyped operand", by: 1, fixture: "calls_adr_on_bit_access", task: "ADR of a bit access (the front-end types no bit access, by design: `call-arguments` `isBitAccess`)", why: "ADR(w.3), CODESYS's single-bit warning measured 2026-10-06" },
+  // transpile-restructure 4.13 (d), 2026-10-09: the bit accesses through a REFERENCE the two new fixtures record (`rw.3`,
+  // `rw.2`, `rw.0`, `rw.3` and `rw.3`, `rw.0`) — new ground, untyped as every bit access is
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    ([["reference_bit_access", 4], ["reference_bit_access_local", 2]] as const).map(([fixture, by]) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: member UNKNOWN`,
+      by,
+      fixture,
+      task: "a bit access (the front-end types no bit access, by design: `call-arguments` `isBitAccess`)",
+      why: "`rw.N` through a REFERENCE TO WORD, read and written — CODESYS runs both (record:exec 2026-10-09)",
+    })),
+  ),
   ...(["calls_constant_called", "calls_sqrt_of_bool", "calls_sqrt_of_string"] as const).map((fixture) => ({
     baseline: "type-dump",
     measure: "findings",

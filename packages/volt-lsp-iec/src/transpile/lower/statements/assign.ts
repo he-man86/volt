@@ -18,7 +18,7 @@ import { lowerQueryInterface } from "../interfaces/query.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerPropertySet } from "../calls/property.js"
 import { registerWholeCopy } from "../calls/last-binding.js"
-import { pointerTargets } from "../pointers/state.js"
+import { readTargets } from "../pointers/state.js"
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
 import { escapesOf } from "../pointers/escape.js"
@@ -166,7 +166,7 @@ function holdsOwnAddress(lw: Lowering, t: Type, seen = new Set<string>()): boole
   seen.add(name)
   return (lw.layouts.get(name)?.fields ?? []).some((f) =>
     f.type.kind === "pointer" || f.type.kind === "reference"
-      ? (pointerTargets(lw).get(`FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
+      ? (readTargets(lw, `FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
       : holdsOwnAddress(lw, f.type, seen),
   )
 }
