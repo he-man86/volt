@@ -1279,6 +1279,48 @@ verified. One mechanism the plan left open is fixed here, so 4.14 does not re-de
   another instance is refused by the same rule — every binding of a copied FB type whose places are not global, made in a
   frame that is not single, is `call-fb-inout`, whatever its key.
 
+### §3.3 Decision (step 4f): appendix items, tag schemes, `staticKey`, model delta (tasks 4.13-4.16, 2026-10-09)
+
+**Target.** Tags stay only where 4d's image cannot hold the target, and there are exactly three schemes, each with one
+reason: INSTANCE HANDLES (interface variables AND pointers/references to an FB instance, one table in `interfaces/tags.ts`),
+the RESIDUAL DATA TAG (a pointer whose target is a routine local, a VAR_IN_OUT's target, a non-image ANY argument or a
+STRING's characters — numbered per `pointerKey`), and `__inout_binding` (4.2: in the image every in-out target escapes).
+All number through `core/tags.ts` (already true since 1.7.19).
+- Deciding measure (corpus probe, `probe-lowering-refusals.ts`, 250 refused POUs): pointer/interface codes are the SOLE
+  blockers of 4 POUs (3 `pointer-root-input`, 1 `pointer-order`); the residual-tag codes `pointer-outlives` (42 POUs),
+  `pointer-targets` (16), `pointer-order` (48) and `interface-instance` (13, e.g. `itfVacuums[i] := Vacuum[i]`) are
+  each co-blocked by other codes in every POU but that one.
+- Rejected: stack regions per call so data tags go entirely (`image-stack` for routine locals) — unblocks 0 POUs alone
+  and adds per-call allocation to both backends; one table for data and instance tags — a data tag indexes ITS pointer's
+  target list, a handle the POU's instances, so merging re-keys every residual pointer for no reach; keeping
+  pointer-to-instance on data tags — two numberings of one instance, so `itf := ref^` (refused `interface-instance` today)
+  would need a translation select.
+
+**Appendix items (4.13).** ONE recorder batch per vendor for all six fixtures first. (a) a target set read while growing:
+the escape loop's fixed point also re-lowers while a residual target set grew after a use read it (inside
+`ESCAPE_PASSES`); rejected: building arms at finish, a second home of arm building (P1). (b) a pointer copied into a
+multi-target pointer re-maps the source's tag through a select (NO_TAG → NO_TAG), never writes its constant. (c) `0 = p`
+/ `0 <> p`: the operator normalizes the zero to the right. (d) `r.3`: the bit step applies to the reference's implicit
+dereference. (e) an ANY given a REFERENCE TO: the argument is the referenced place. (f) a GVL instance through an
+interface: `lendPlace` answers its `global` place (every body holds `g`); a call that already holds `g` mutably stays
+`call-inout-global`. Each lands red-first as F or, where the recording says otherwise, a named refusal.
+
+**Tag schemes (4.14).** The pointer-to-instance arms move into the handle table (`tagOf`); a dereference of an instance
+pointer is the handle, dispatched and lent as an interface's. S-out set: the 12 `mem_reference_to_fb_*`-style rows stay
+lowered. `instanceRelative` stays with RC 18's reason (niche: accepted loss, 0 occurrences in the corpora: an absolute
+handle needs a lend path from `g` to every static instance).
+
+**`staticKey` options (4.15).** Corrects 4.2: `pointerKey` STAYS — it keys the residual tagged pointers, a UNION's members
+(4e) and the ANY holder, none a path. `interfaceKey` stays (the handle's key). `SAME_STEP` folds into `KEY_STEP` if a G
+check (throw on any constant index that is not a bigint, over the suite) finds no other value type — then `sameTarget` is
+`staticKey` equality plus `element`/`chars`; otherwise it stays with that reason. `SUFFIX_STEP` stays: a Rust name, not a key.
+
+**Stays refused, by code:** 4e's list, plus `pointer-outlives`, `pointer-targets` (a pointer holding both a tag and an
+index), `interface-instance` (a runtime-indexed instance), `image-stack`.
+
+**Model delta (4.16).** architecture.md line 313 gets 4.2's sentence plus "a pointer the image cannot hold keeps a tag";
+the refused list above into docs; the map delta in tasks.md. Migration: 4.13 (record, then a–f) → 4.14 → 4.15 → 4.16.
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**
