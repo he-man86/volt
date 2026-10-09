@@ -12,6 +12,8 @@ export type FaultKind =
   | "division-overflow"
   | "logarithm-of-zero"
   | "zero-to-negative-power"
+  | "address-outside-image"
+  | "address-across-frames"
 
 /** The text of each fixed fault, as both backends print it. */
 export const FAULT_TEXT: Readonly<Record<FaultKind, string>> = {
@@ -21,6 +23,8 @@ export const FAULT_TEXT: Readonly<Record<FaultKind, string>> = {
   "division-overflow": "a division overflowed its type, which stops the task on CODESYS",
   "logarithm-of-zero": "the logarithm of zero stops the task on CODESYS",
   "zero-to-negative-power": "zero to a negative power stops the task on CODESYS",
+  "address-outside-image": "an access through an address outside every variable whose address the program took",
+  "address-across-frames": "an order of two addresses in different variables, which the vendor's layout decides",
 }
 
 /** An index outside its array's bounds — `index` as the ST wrote it (the dimension's lower bound added back). */

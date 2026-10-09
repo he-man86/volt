@@ -2,17 +2,53 @@
  * A VARIABLE PATH AS A RUST ACCESS — how a harness reads the emitted program where the interpreter reads it. Test support,
  * not the emitter: the emitter prints, and a harness reaching into what it printed is the conformance suite's concern.
  */
-import type { IrPou } from "../../../src/transpile/ir/index.js"
+import type { Access, IrExpr, IrPou, Place } from "../../../src/transpile/ir/index.js"
 import { namesVariable, parsePath } from "../../../src/transpile/ir/path.js"
 import { fieldNames } from "../../../src/transpile/emit/rust/names.js"
-import { peelArray, type Type } from "../../../src/frontend/types/index.js"
+import { rustType } from "../../../src/transpile/emit/rust/types.js"
+import { toImage } from "../../../src/transpile/semantics/memory.js"
+import { elementaryRef, isBoolValued, peelArray, type Type } from "../../../src/frontend/types/index.js"
+
+/** The harness's names for the values a generated `scan` is handed (`transpile-replay.test.ts`, `backends.test.ts`). */
+const ROOTS = { pou: "p", globals: "g", image: "mem" } as const
+
+/** How a harness reaches one variable of the emitted program: an expression that reads it, and a statement that writes
+ *  a Rust value into it — each over the harness's own `p`, `g` and `mem`. */
+export interface RustAccess {
+  readonly type: Type
+  readonly read: string
+  write(value: string): string
+}
+
+const NO_SPAN = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
 
 /**
- * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → the Rust field access under a POU value, and the
- * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads. `global`: the path
- * reaches an FB's VAR_STAT through an instance, and `expr` is then under the `Globals` value.
+ * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → how to read and write it in the emitted Rust, and the
+ * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads. An FB's VAR_STAT
+ * reached through an instance is a field of `Globals`; a variable the byte image holds (`IrSlot.image`), or a field of an
+ * instance whose data it holds, is its bytes in `Mem` — found by the one rewrite the interpreter's runner asks too.
  */
-export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type; global: boolean } {
+export function rustAccess(pou: IrPou, path: string): RustAccess {
+  const { place, rootType, address, global } = placeOf(pou, path)
+  const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
+  const image = toImage(place, { type: rootType, ...(address === undefined ? {} : { address }) }, layouts)
+  const type = place.type
+  if (image.root !== "image") {
+    const text = `${global ? ROOTS.globals : ROOTS.pou}.${fieldPath(pou, place, rootType)}`
+    return { type, read: text, write: (value) => `${text} = ${value};` }
+  }
+  if (type.kind !== "elementary") throw new Error(`${path} is a composite the image holds — read its elements`)
+  const at = `${addressText(pou, image.at!)} + ${image.path.reduce((n, s) => n + (s.kind === "index" ? (Number((s.index as { value: bigint }).value) - Number(s.lower)) * s.size! : 0), 0)}`
+  const read = isBoolValued(type) ? `(${ROOTS.image}.ld::<1>(${at})[0] != 0)` : `${rustType(type)}::from_le_bytes(${ROOTS.image}.ld(${at}))`
+  // a seed's `as _` names its type here: the bytes stored are the variable's own width
+  const typed = (value: string): string => `(${value.endsWith(" as _") ? value.slice(0, -5) : `(${value})`} as ${rustType(type)})`
+  const write = (value: string): string =>
+    isBoolValued(type) ? `${ROOTS.image}.st(${at}, [u8::from(${value})]);` : `${ROOTS.image}.st(${at}, ${typed(value)}.to_le_bytes());`
+  return { type, read, write }
+}
+
+/** A path as the place it names, under the POU's frame or the application's globals. */
+function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; address?: number; global: boolean } {
   // the IDE's path grammar (`ir/path.ts`), the one the interpreter's `get` reads
   const parts = parsePath(path)
   const head = parts[0]
@@ -20,35 +56,71 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
   const names = (declared: string): boolean => first !== undefined && namesVariable(declared, first)
   const slot = pou.slots.findIndex((s) => names(s.name))
   // not the POU's own: a GVL variable, or the `__clock` a harness sets — a field of `Globals`, as the interpreter finds it
-  const variables = pou.globals.filter((s) => s.section !== "program")
-  const named = slot < 0 ? variables.findIndex((s) => names(s.name)) : -1
-  if (slot < 0 && named < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-  let expr = named >= 0 ? fieldNames(variables)[named]! : fieldNames(pou.slots)[slot]!
-  let type = named >= 0 ? variables[named]!.type : pou.slots[slot]!.type
-  let global = named >= 0
+  const global = slot < 0 ? pou.globals.findIndex((s) => s.section !== "program" && names(s.name)) : -1
+  if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+  let root = global >= 0 ? pou.globals[global]! : pou.slots[slot]!
+  let at = global >= 0 ? global : slot
+  let inGlobals = global >= 0
+  let type = root.type
+  let steps: Access[] = []
   for (const part of parts.slice(1)) {
     if (part.kind === "name") {
-      const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
-      const layout = pou.layouts.find((l) => l.name.toUpperCase() === typeName)
-      const i = layout?.fields.findIndex((f) => namesVariable(f.name, part.name)) ?? -1
-      const shared = i < 0 ? layout?.statics?.find((s) => namesVariable(s.name, part.name)) : undefined
+      const named = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
+      const layout = pou.layouts.find((l) => l.name.toUpperCase() === named)
+      const field = layout?.fields.find((f) => namesVariable(f.name, part.name))
+      // an FB's VAR_STAT, named through an instance, is the one global every instance shares
+      const shared = field === undefined ? layout?.statics?.find((s) => namesVariable(s.name, part.name)) : undefined
       if (shared !== undefined) {
-        // an FB's VAR_STAT is a field of `Globals`, named as `emitRust` names the GVL variables
-        const variables = pou.globals.filter((s) => s.section !== "program")
-        expr = fieldNames(variables)[variables.indexOf(pou.globals[shared.global]!)]!
-        type = pou.globals[shared.global]!.type
-        global = true
+        root = pou.globals[shared.global]!
+        at = shared.global
+        inGlobals = true
+        steps = []
+        type = root.type
         continue
       }
-      if (layout === undefined || i < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-      expr += `.${fieldNames(layout.fields)[i]}`
-      type = layout.fields[i]!.type
+      if (field === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
+      steps.push({ kind: "field", name: field.name })
+      type = field.type
     } else {
       const array = peelArray(type)
       if (array === undefined) throw new Error(`${path} indexes a non-array`)
-      expr += `[${part.index - array.lower}]`
+      steps.push({ kind: "index", index: { kind: "const", value: part.index, type: elementaryRef("LINT"), span: NO_SPAN }, lower: array.lower, length: array.length })
       type = array.element
     }
   }
-  return { expr, type, global }
+  const place: Place = { slot: at, path: steps, type, span: NO_SPAN, ...(inGlobals ? { root: "global" as const } : {}) }
+  return { place, rootType: root.type, ...(root.image === undefined ? {} : { address: root.image }), global: inGlobals }
+}
+
+/** A place's struct path under its root — `inst.arr[2].x` as the emitter names the fields. */
+function fieldPath(pou: IrPou, place: Place, rootType: Type): string {
+  const slots = place.root === "global" ? pou.globals.filter((s) => s.section !== "program") : pou.slots
+  const own = place.root === "global" ? slots.indexOf(pou.globals[place.slot]!) : place.slot
+  let text = fieldNames(slots)[own]!
+  let type = rootType
+  for (const step of place.path) {
+    if (step.kind === "field") {
+      const named = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
+      const layout = pou.layouts.find((l) => l.name.toUpperCase() === named)!
+      const i = layout.fields.findIndex((f) => f.name.toUpperCase() === step.name.toUpperCase())
+      text += `.${fieldNames(layout.fields)[i]}`
+      type = layout.fields[i]!.type
+    } else if (step.kind === "index") {
+      const array = peelArray(type)!
+      text += `[${Number((step.index as { value: bigint }).value - array.lower)}]`
+      type = array.element
+    }
+  }
+  return text
+}
+
+/** An image address as the harness reaches it: a constant, or an instance's `__base` field plus its offsets. */
+function addressText(pou: IrPou, at: IrExpr): string {
+  if (at.kind === "const") return String(at.value)
+  if (at.kind === "binary" && at.op === "add") return `${addressText(pou, at.left)} + ${addressText(pou, at.right)}`
+  if (at.kind === "load") {
+    const root = at.place.root === "global" ? pou.globals[at.place.slot]! : pou.slots[at.place.slot]!
+    return `${at.place.root === "global" ? ROOTS.globals : ROOTS.pou}.${fieldPath(pou, at.place, root.type)}`
+  }
+  throw new Error(`an image address the harness cannot read (${at.kind})`)
 }

@@ -63,10 +63,6 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
     kind: "function_block" as const,
     feature: "a pointer stepped one element past an array's end: not NULL, reads (and writes) the variable declared after it",
     fromDoc: doc,
-    deferred: {
-      transpile:
-        "2026-10-09 (transpile-restructure 4.1): CODESYS reads and writes `after` through ADR(arr[3]) + SIZEOF(INT) (past = 99, afterWritten = 77, isNull FALSE) — a byte address; both backends lower the step as element tag 4 of `arr` and fault, 'array index 4 is outside its bounds', where the vendor finishes the scan. Only a byte arena (design.md §3.3 option (b)) answers it; under (a) or (d) the step past the target must be refused by name instead of lowered. Decided by 4.2, built by 4.4.",
-    },
     plcPrgVar:
       "inst_past_end : FB_MEM_step_past_end; isNull : BOOL; past : INT; back : INT; afterWritten : INT; lastKept : INT;",
     plcPrgBody:
@@ -99,5 +95,107 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
       "inst_ptr_dword();\nsame := inst_ptr_dword.same; lowSame := inst_ptr_dword.lowSame; nonZero := inst_ptr_dword.nonZero;",
     source:
       "FUNCTION_BLOCK FB_MEM_ptr_dword\nVAR_OUTPUT\n\tsame : BOOL;\n\tlowSame : BOOL;\n\tnonZero : BOOL;\nEND_VAR\nVAR\n\tarr : ARRAY[0..3] OF INT := [11, 22, 33, 44];\n\tp : POINTER TO INT;\n\tq : POINTER TO INT;\n\tdw : DWORD;\n\tlw : LWORD;\nEND_VAR\np := ADR(arr[1]);\ndw := p;\nnonZero := dw <> 0;\nq := dw;\nsame := q = p;\nlw := p;\nlowSame := dw = LWORD_TO_DWORD(lw);\nEND_FUNCTION_BLOCK\n",
+  },
+  // ─── transpile-restructure 4.3 (design.md §3.3 Decision step 4d, Migration): the ONE batch the image needs first ───
+  // Where an FB's fields sit behind its header (with and without IMPLEMENTS), measured from outside as `ADR(field) -
+  // ADR(instance)` on its inputs and outputs and from inside as `ADR(loc) - ADR(THIS^)` on a private VAR; a WSTRING's
+  // size and alignment inside a struct; and a DINT read as a REAL through a pointer at the edge bit patterns (a quiet
+  // and a signalling NaN, ±0, the smallest denormal, ±max), with the REAL's bits read back through a POINTER TO DWORD.
+  {
+    name: "fb_header_offsets_plain",
+    pouName: "FB_MEM_hdr_plain",
+    kind: "function_block" as const,
+    feature: "an FB's field offsets behind its header, from outside (inputs, outputs) and from inside (a VAR via THIS^)",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (task 4.3)",
+    plcPrgVar: "inst_hdr_plain : FB_MEM_hdr_plain; size : ULINT; offIn : ULINT; offOutD : ULINT; offOutW : ULINT; offLoc : ULINT;",
+    plcPrgBody:
+      "inst_hdr_plain();\nsize := SIZEOF(inst_hdr_plain); offIn := ADR(inst_hdr_plain.inB) - ADR(inst_hdr_plain); offOutD := ADR(inst_hdr_plain.outD) - ADR(inst_hdr_plain); offOutW := ADR(inst_hdr_plain.outW) - ADR(inst_hdr_plain); offLoc := inst_hdr_plain.offLoc;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_hdr_plain\nVAR_INPUT\n\tinB : BYTE;\nEND_VAR\nVAR_OUTPUT\n\toutD : DINT;\n\toutW : WORD;\n\toffLoc : ULINT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR\nloc := loc + 1;\noffLoc := ADR(loc) - ADR(THIS^);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "fb_header_offsets_implements",
+    pouName: "FB_MEM_hdr_impl",
+    kind: "function_block" as const,
+    feature: "the same FB IMPLEMENTS one interface: where its fields sit behind the header and the interface pointer",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (task 4.3)",
+    plcPrgVar: "inst_hdr_impl : FB_MEM_hdr_impl; size : ULINT; offIn : ULINT; offOutD : ULINT; offOutW : ULINT; offLoc : ULINT;",
+    plcPrgBody:
+      "inst_hdr_impl();\nsize := SIZEOF(inst_hdr_impl); offIn := ADR(inst_hdr_impl.inB) - ADR(inst_hdr_impl); offOutD := ADR(inst_hdr_impl.outD) - ADR(inst_hdr_impl); offOutW := ADR(inst_hdr_impl.outW) - ADR(inst_hdr_impl); offLoc := inst_hdr_impl.offLoc;",
+    source:
+      "INTERFACE I_MEM_hdr_impl\nMETHOD Mh : DINT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_MEM_hdr_impl IMPLEMENTS I_MEM_hdr_impl\nVAR_INPUT\n\tinB : BYTE;\nEND_VAR\nVAR_OUTPUT\n\toutD : DINT;\n\toutW : WORD;\n\toffLoc : ULINT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR\nloc := loc + 1;\noffLoc := ADR(loc) - ADR(THIS^);\nEND_FUNCTION_BLOCK\n\nMETHOD Mh : DINT\nMh := outD;\nEND_METHOD\n",
+  },
+  {
+    name: "wstring_layout_in_struct",
+    pouName: "DUT_MEM_wstr_layout",
+    kind: "dut",
+    feature: "a WSTRING(3)'s size and alignment between two BYTEs of a struct",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (task 4.3)",
+    plcPrgVar: "sv : DUT_MEM_wstr_layout; size : ULINT; wsSize : ULINT; offWs : ULINT; offAfter : ULINT;",
+    plcPrgBody: "size := SIZEOF(sv); wsSize := SIZEOF(sv.ws); offWs := ADR(sv.ws) - ADR(sv); offAfter := ADR(sv.after) - ADR(sv);",
+    source: "TYPE DUT_MEM_wstr_layout :\nSTRUCT\n\tb : BYTE;\n\tws : WSTRING(3);\n\tafter : BYTE;\nEND_STRUCT\nEND_TYPE\n",
+  },
+  {
+    name: "reinterpret_dint_as_real_edges",
+    deferred: {
+      transpile:
+        "2026-10-09 (transpile-restructure 4d): recorded for 4.9/4.12 — CODESYS keeps every bit of a DINT read as a REAL, the signalling NaN 16#7FA00000 included (bSnan), as the emitted Rust's f32 does; the INTERPRETER's REAL is a JavaScript number, whose NaN is always 16#7FC00000, so its bSnan reads the quiet one. Every other path agrees.",
+    },
+    pouName: "FB_MEM_reinterp_edges",
+    kind: "function_block" as const,
+    feature: "a DINT read as a REAL through a pointer at a quiet and a signalling NaN, ±0, the smallest denormal and ±max",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (task 4.3)",
+    plcPrgVar:
+      "inst_reinterp : FB_MEM_reinterp_edges; rQnan : REAL; rSnan : REAL; rPzero : REAL; rNzero : REAL; rDenorm : REAL; rMax : REAL; rMin : REAL; bQnan : DWORD; bSnan : DWORD; bNzero : DWORD; bDenorm : DWORD; bMin : DWORD; denormPos : BOOL; nanSelf : BOOL;",
+    plcPrgBody:
+      "inst_reinterp();\nrQnan := inst_reinterp.rQnan; rSnan := inst_reinterp.rSnan; rPzero := inst_reinterp.rPzero; rNzero := inst_reinterp.rNzero; rDenorm := inst_reinterp.rDenorm; rMax := inst_reinterp.rMax; rMin := inst_reinterp.rMin;\nbQnan := inst_reinterp.bQnan; bSnan := inst_reinterp.bSnan; bNzero := inst_reinterp.bNzero; bDenorm := inst_reinterp.bDenorm; bMin := inst_reinterp.bMin; denormPos := inst_reinterp.denormPos; nanSelf := inst_reinterp.nanSelf;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_reinterp_edges\nVAR_OUTPUT\n\trQnan : REAL;\n\trSnan : REAL;\n\trPzero : REAL;\n\trNzero : REAL;\n\trDenorm : REAL;\n\trMax : REAL;\n\trMin : REAL;\n\tbQnan : DWORD;\n\tbSnan : DWORD;\n\tbNzero : DWORD;\n\tbDenorm : DWORD;\n\tbMin : DWORD;\n\tdenormPos : BOOL;\n\tnanSelf : BOOL;\nEND_VAR\nVAR\n\tdQnan : DINT := 2143289344;\n\tdSnan : DINT := 2141192192;\n\tdPzero : DINT := 0;\n\tdNzero : DINT := -2147483647 - 1;\n\tdDenorm : DINT := 1;\n\tdMax : DINT := 2139095039;\n\tdMin : DINT := -8388609;\n\tpr : POINTER TO REAL;\n\tpd : POINTER TO DWORD;\nEND_VAR\npr := ADR(dQnan);\nrQnan := pr^;\npr := ADR(dSnan);\nrSnan := pr^;\npr := ADR(dPzero);\nrPzero := pr^;\npr := ADR(dNzero);\nrNzero := pr^;\npr := ADR(dDenorm);\nrDenorm := pr^;\npr := ADR(dMax);\nrMax := pr^;\npr := ADR(dMin);\nrMin := pr^;\npd := ADR(rQnan);\nbQnan := pd^;\npd := ADR(rSnan);\nbSnan := pd^;\npd := ADR(rNzero);\nbNzero := pd^;\npd := ADR(rDenorm);\nbDenorm := pd^;\npd := ADR(rMin);\nbMin := pd^;\ndenormPos := rDenorm > 0.0;\nnanSelf := rQnan = rQnan;\nEND_FUNCTION_BLOCK\n",
+  },
+  // ─── review of step 4d: three questions the image answered with no recording behind it ───
+  // A FB whose VAR comes BEFORE its VAR_INPUT and VAR_OUTPUT: whether the fields sit in DECLARATION order or in section
+  // order (`fb_header_offsets_plain` declares them in section order, so it cannot tell the two apart); an end pointer
+  // one past an array ordered against the array's own addresses, in PLC_PRG and in an FB whose array a POINTER follows;
+  // and a BOOL whose byte a POINTER TO BYTE set to 2, compared with TRUE and negated.
+  {
+    name: "fb_offsets_var_before_input",
+    pouName: "FB_MEM_var_first",
+    kind: "function_block" as const,
+    feature: "an FB declaring VAR before VAR_INPUT and VAR_OUTPUT: its field offsets from outside and via THIS^",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (review of step 4d)",
+    plcPrgVar: "inst_var_first : FB_MEM_var_first; size : ULINT; offIn : ULINT; offOutD : ULINT; offLoc : ULINT;",
+    plcPrgBody:
+      "inst_var_first();\nsize := SIZEOF(inst_var_first); offIn := ADR(inst_var_first.inB) - ADR(inst_var_first); offOutD := ADR(inst_var_first.outD) - ADR(inst_var_first); offLoc := inst_var_first.offLoc;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_var_first\nVAR\n\tloc : INT;\nEND_VAR\nVAR_INPUT\n\tinB : BYTE;\nEND_VAR\nVAR_OUTPUT\n\toutD : ULINT;\n\toffLoc : ULINT;\nEND_VAR\nloc := loc + 1;\noffLoc := ADR(loc) - ADR(THIS^);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "pointer_order_one_past_end",
+    pouName: "FB_MEM_end_loop",
+    kind: "function_block" as const,
+    feature: "`WHILE p < pEnd` with pEnd one past an array's end, over a PLC_PRG array and an FB array a POINTER follows",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (review of step 4d)",
+    plcPrgVar:
+      "inst_end_loop : FB_MEM_end_loop; arrEnd : ARRAY[0..3] OF INT := [1, 2, 3, 4]; pE : POINTER TO INT; pEndE : POINTER TO INT; sumPrg : INT; sumFb : INT; endAfter : BOOL;",
+    plcPrgBody:
+      "sumPrg := 0;\npE := ADR(arrEnd[0]);\npEndE := ADR(arrEnd[0]) + SIZEOF(arrEnd);\nWHILE pE < pEndE DO\n\tsumPrg := sumPrg + pE^;\n\tpE := pE + SIZEOF(INT);\nEND_WHILE\nendAfter := pEndE > ADR(arrEnd[3]);\ninst_end_loop();\nsumFb := inst_end_loop.sum;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_end_loop\nVAR_OUTPUT\n\tsum : INT;\nEND_VAR\nVAR\n\tarr : ARRAY[0..3] OF INT := [10, 20, 30, 40];\n\tp : POINTER TO INT;\n\tpEnd : POINTER TO INT;\nEND_VAR\nsum := 0;\np := ADR(arr[0]);\npEnd := ADR(arr[0]) + SIZEOF(arr);\nWHILE p < pEnd DO\n\tsum := sum + p^;\n\tp := p + SIZEOF(INT);\nEND_WHILE\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_two_through_pointer",
+    deferred: {
+      transpile:
+        "2026-10-09 (review of step 4d): CODESYS keeps the byte 2 a BOOL — `b = TRUE` is FALSE (the bytes compared), `NOT b` is TRUE and stores the byte 1 (bit 0 flipped), `IF b` is taken (non-zero) — where both backends read a BOOL's byte as `<> 0`, so eqT is TRUE, nb FALSE and notRaw 0; niche: accepted loss (0 occurrences in the corpora: 4 ADR of a BOOL, none stores a byte other than 0 or 1 through it)",
+    },
+    pouName: "FB_MEM_bool_two",
+    kind: "function_block" as const,
+    feature: "a BOOL whose byte is set to 2 through a POINTER TO BYTE: compared with TRUE, negated, tested by IF, read back as a BYTE",
+    fromDoc: "openspec transpile-restructure design.md §3.3 (review of step 4d)",
+    plcPrgVar: "inst_bool_two : FB_MEM_bool_two; eqT : BOOL; nb : BOOL; taken : BOOL; raw : BYTE; notRaw : BYTE;",
+    plcPrgBody:
+      "inst_bool_two();\neqT := inst_bool_two.eqT; nb := inst_bool_two.nb; taken := inst_bool_two.taken; raw := inst_bool_two.raw; notRaw := inst_bool_two.notRaw;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_bool_two\nVAR_OUTPUT\n\teqT : BOOL;\n\tnb : BOOL;\n\ttaken : BOOL;\n\traw : BYTE;\n\tnotRaw : BYTE;\nEND_VAR\nVAR\n\tb : BOOL;\n\tc : BOOL;\n\tpb : POINTER TO BYTE;\nEND_VAR\npb := ADR(b);\npb^ := 2;\neqT := b = TRUE;\nnb := NOT b;\ntaken := FALSE;\nIF b THEN\n\ttaken := TRUE;\nEND_IF\nraw := pb^;\nc := NOT b;\npb := ADR(c);\nnotRaw := pb^;\nEND_FUNCTION_BLOCK\n",
   },
 ]

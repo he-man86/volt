@@ -312,15 +312,26 @@ END_PROGRAM
 
   // Transpiler review 2026-09-15. Why missed: every pointer test took the address of a whole variable or of an element with
   // the index LAST, and every one used the pointer's own target type — no test named a place with an index inside its
-  // path, or a byte-sized pointer over a wider variable.
-  test("an address is refused when an index before its last step is read at run time, or its type is not the pointer's", () => {
-    const decls = "TYPE T_S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR arr : ARRAY[1..3] OF T_S; grid : ARRAY[1..3] OF ARRAY[1..3] OF INT; i : INT := 1; j : INT := 2; n : INT; p : POINTER TO INT; pb : POINTER TO BYTE; rv : REFERENCE TO INT; END_VAR\n"
-    const code = (body: string) => lowerSource(`${decls}${body}\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
-    expect(code("p := ADR(arr[i].x);")).toEqual(["pointer-runtime-index"])
-    expect(code("p := ADR(grid[i][j]);")).toEqual(["pointer-runtime-index"])
-    expect(code("rv REF= arr[i].x;")).toEqual(["pointer-runtime-index"])
-    expect(code("pb := ADR(n);")).toEqual(["pointer-type"])
-    // still lowered: a constant index before the last step, and a runtime index as the last step
+  // path, or a byte-sized pointer over a wider variable. Both were REFUSED while a pointer was a tag: its target was a
+  // place replayed at every dereference, which would read `i` again then. MODEL 3 (design.md §3.3 step 4d) makes the
+  // pointer the ADDRESS, taken once where `ADR` is — so `p := ADR(arr[i].x); i := 3` still reads arr[1].x, and a POINTER
+  // TO BYTE over an INT reads its bytes, as CODESYS does (`pointer_byte_walk_struct_padding`).
+  test("an address is taken where ADR is — an index before its last step read then — and any pointer type reads its bytes", () => {
+    const decls = "TYPE T_S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR arr : ARRAY[1..3] OF T_S; grid : ARRAY[1..3] OF ARRAY[1..3] OF INT; i : INT := 1; j : INT := 2; n : INT; p : POINTER TO INT; pb : POINTER TO BYTE; rv : REFERENCE TO INT; b : BYTE; END_VAR\n"
+    const lowered = (body: string) => lowerSource(`${decls}${body}\nEND_PROGRAM\n`, "P")
+    const code = (body: string) => lowered(body).diagnostics.map((d) => d.code)
+    const after = (body: string, name: string) => {
+      const { pou, diagnostics } = lowered(body)
+      expect(diagnostics).toEqual([])
+      const r = run(pou!)
+      r.scan()
+      return r.get(name)
+    }
+    expect(after("arr[1].x := 11; arr[3].x := 33; p := ADR(arr[i].x); i := 3; n := p^;", "n")).toBe(11n)
+    expect(after("grid[1][2] := 12; grid[3][2] := 32; p := ADR(grid[i][j]); i := 3; n := p^;", "n")).toBe(12n)
+    expect(after("arr[1].x := 11; rv REF= arr[i].x; i := 3; n := rv;", "n")).toBe(11n)
+    expect(after("n := 16#0102; pb := ADR(n); b := pb^;", "b")).toBe(2n)
+    // and as before: a constant index before the last step, and a runtime index as the last step
     expect(code("p := ADR(arr[2].x); n := p^;")).toEqual([])
     expect(code("p := ADR(grid[2][i]); n := p^;")).toEqual([])
   })
@@ -521,15 +532,16 @@ describe("the shapes the corpus cannot reach", () => {
     }
   })
 
-  test("a pointer stepped over an element occupying no bytes is reported, not divided by", () => {
-    // `byteSize` legitimately answers 0 for a struct with no laid-out fields; `% 0n` throws on BigInt
+  test("a pointer stepped over an element occupying no bytes steps bytes, never divides by the element", () => {
+    // `byteSize` legitimately answers 0 for a struct with no laid-out fields; `% 0n` threw on BigInt while a step was
+    // counted in elements. Model 3 steps a pointer by BYTES (design.md §3.3 step 4d): nothing is divided by.
     const r = lowered(
       "Q",
       "TYPE EMPTY : STRUCT END_STRUCT END_TYPE\n\nPROGRAM Q\nVAR\n\tarr : ARRAY[0..2] OF EMPTY;\n" +
         "\tp : POINTER TO EMPTY;\n\tq : POINTER TO EMPTY;\nEND_VAR\np := ADR(arr[0]);\nq := p + 4;\nEND_PROGRAM\n",
     )
     expect(r.threw).toBeNull()
-    expect(r.codes).toContain("pointer-step")
+    expect(r.codes).toEqual([])
   })
 
   test("the ordinary temporal literals still lower, so the refusal did not widen", () => {

@@ -12,6 +12,7 @@ import { place } from "./place.js"
 import { guarded, type Printer } from "./printer.js"
 import { isCopy } from "./types.js"
 import { initOf, literal } from "./values.js"
+import { imageAddress, loadImage } from "./image.js"
 
 /**
  * Drop an outer paren pair the position does not need.
@@ -113,6 +114,9 @@ export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
       return exprSelect(p, e, slots)
     case "load":
       return exprLoad(p, e, slots)
+    // `ADR(x)` of a variable in the image: the address its place reaches (`image.ts`)
+    case "address":
+      return imageAddress(p, e.place, slots)
     case "convert":
       return exprConvert(p, e, slots)
     case "builtin":
@@ -125,6 +129,7 @@ export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
 }
 
 function exprLoad(p: Printer, e: Extract<IrExpr, { kind: "load" }>, slots: IrPou["slots"]): string {
+  if (e.place.root === "image") return guarded(p, e.place, loadImage(p, e.place, slots), slots)
   const field = place(p, e.place, slots)
   const bit = e.place.path.at(-1)
   // bit 0 needs no shift — `x >> 0` is `clippy::identity_op`, and the mask alone says the same thing

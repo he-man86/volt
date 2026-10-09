@@ -58,9 +58,9 @@ describe("BLINK", () => {
 
   test.skipIf(skipRustSuite())("runs in the emitted Rust exactly as in the interpreter — a library block inside a library block", async () => {
     const pou = lowered()
-    const at = (path: string) => rustAccess(pou, path).expr
+    const at = (path: string) => rustAccess(pou, path)
     const scans = CLOCK_MS.map((ms) =>
-      [`    g.${at(CLOCK)} = ${BigInt(ms) * 1_000_000n};`, "    p.scan(&mut g);", `    println!("{}", p.${at("b.OUT")});`].join("\n"),
+      [`    ${at(CLOCK).write(String(BigInt(ms) * 1_000_000n))}`, "    p.scan(&mut g);", `    println!("{}", ${at("b.OUT").read});`].join("\n"),
     )
     const program = [emitRust(pou).code, "fn main() {", "    let mut g = Globals::new();", "    let mut p = P::new();", ...scans, "}", ""].join("\n")
     const dir = await mkdtemp(join(tmpdir(), "volt-util-"))

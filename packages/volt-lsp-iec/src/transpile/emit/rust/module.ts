@@ -28,6 +28,7 @@ import { printCall, printRoutine } from "./routine.js"
 import { INLINE, runtimeText, usedIn } from "./runtime/index.js"
 import { block } from "./stmt.js"
 import { printStruct } from "./structs.js"
+import { memNew } from "./image.js"
 
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */
 export interface Emitted {
@@ -41,6 +42,8 @@ export interface Emitted {
   usesGlobals: boolean
   /** The program calls PROGRAMs: `scan` takes `prg: &mut Programs` (`Programs::new()`), after `g`. */
   usesPrograms: boolean
+  /** The program has a byte image: `scan` takes `__mem: &mut Mem` (`Mem::new()`), after `prg` (`image.ts`). */
+  usesImage: boolean
 }
 
 /** How a HARNESS emits a POU — the default emission, what a user gets, sets none of this. */
@@ -59,7 +62,7 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
     ["Programs", storage.programs, storage.programNames],
   ] as const) {
     if (slots.length === 0) continue
-    printStruct(p, struct, slots, names, undefined, () => {})
+    printStruct(p, struct, ...held(slots, names), undefined, () => {})
   }
   // One plain struct per DUT and FB the frame holds, each with a `new` at its declared initial values. No `Default`
   // derive — Rust derives it only for arrays up to 32 elements — so every value starts through `new`.
@@ -68,8 +71,17 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   printPou(p, pou, fields)
   // a FUNCTION has no instance: a free fn beside the structs
   for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
+  // the program's own image, which the runtime's `Mem` starts from (`image.ts`)
+  if (pou.image !== undefined) for (const line of ["", ...memNew(pou.image)]) push(p, line, 0)
   appendRuntime(p)
   return withPrelude(p)
+}
+
+/** The slots a Rust struct holds, with their names: every one but those the byte image holds (`IrSlot.image`), which are
+ *  reached through `Mem` alone — a copy in the struct as well would be a second value of one variable. */
+function held<S extends { image?: number }>(slots: readonly S[], names: readonly string[]): [S[], string[]] {
+  const kept = slots.flatMap((s, i) => (s.image === undefined ? [i] : []))
+  return [kept.map((i) => slots[i]!), kept.map((i) => names[i]!)]
 }
 
 /** The application's global storage, as two structs so a call borrows two things: the GVL variables (`Globals`, handed
@@ -89,14 +101,16 @@ function printerFor(pou: IrPou, options: EmitOptions) {
   const access = pou.globals.map((s) =>
     s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
   )
-  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), routineFnNames(pou.routines), { access, slots: pou.globals }, variables.length > 0, programs.length > 0)
+  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), routineFnNames(pou.routines), { access, slots: pou.globals }, variables.length > 0, programs.length > 0, pou.image !== undefined)
   p.loopGuard = options.loopGuard
   return { p, layouts, fields, storage }
 }
 
 /** A DUT's or FB's struct: an FB's body as its `call`, and its METHODs and ACTIONs. */
 function printLayout(p: Printer, pou: IrPou, layout: IrLayout, names: readonly string[]): void {
-  printStruct(p, rustName(layout.name), layout.fields, names, undefined, () => {
+  // a STRUCT's offsets say where its fields sit when it is in the image; its Rust struct holds them all the same
+  const [fields, fieldNames] = layout.kind === "function_block" ? held(layout.fields, names) : [layout.fields, names]
+  printStruct(p, rustName(layout.name), fields, fieldNames, undefined, () => {
     if (layout.body !== undefined) printCall(p, layout, names)
     for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
   })
@@ -105,7 +119,7 @@ function printLayout(p: Printer, pou: IrPou, layout: IrLayout, names: readonly s
 /** The POU's own struct: `new`, the `init` its `call_after_global_init_slot` methods need, and `scan`. */
 function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
   const globals = globalsParams(p).map((param) => `, ${param}`).join("")
-  printStruct(p, rustName(pou.name), pou.slots, fields, pou.span, () => {
+  printStruct(p, rustName(pou.name), ...held(pou.slots, fields), pou.span, () => {
     push(p, "", 0)
     // once, before the first scan: each instance's `call_after_global_init_slot` method (IrPou.init) — only a POU that has one
     if (pou.init !== undefined) {
@@ -116,7 +130,7 @@ function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
       push(p, "", 0)
     }
     // a global only `init` reads — an FB_Init argument — leaves `g` unused in the scan (found in a review, 2026-09-15)
-    if (p.usesGlobals || p.usesPrograms) push(p, "#[allow(unused_variables)]", 1)
+    if (p.usesGlobals || p.usesPrograms || p.usesImage) push(p, "#[allow(unused_variables)]", 1)
     push(p, `pub fn scan(&mut self${globals}) {`, 1)
     block(p, pou.body, pou.slots, 2)
     push(p, "}", 1)
@@ -134,11 +148,11 @@ function appendRuntime(p: Printer): void {
 
 /** The finished emission — the string prelude in front of a program that holds a string, the source map shifted past it. */
 function withPrelude(p: Printer): Emitted {
-  const { usesGlobals, usesPrograms } = p
+  const { usesGlobals, usesPrograms, usesImage } = p
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a
   // shared module when the emitter emits whole projects rather than one POU at a time.
-  if (!usedIn("string", code(p))) return { code: code(p), sourceMap: p.sourceMap, usesGlobals, usesPrograms }
+  if (!usedIn("string", code(p))) return { code: code(p), sourceMap: p.sourceMap, usesGlobals, usesPrograms, usesImage }
   const prelude = runtimeText("string")
   const offset = prelude.split("\n").length - 1
   return {
@@ -146,5 +160,6 @@ function withPrelude(p: Printer): Emitted {
     sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })),
     usesGlobals,
     usesPrograms,
+    usesImage,
   }
 }

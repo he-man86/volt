@@ -13,7 +13,10 @@ import type { Scope } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
 import { Lowering } from "../core/lowering.js"
-import { newShared } from "../core/shared.js"
+import { newShared, type Shared } from "../core/shared.js"
+import { covers, type Escapes, escapesSeen, runOnEscapes } from "../pointers/escape.js"
+import { layOutImage } from "../pointers/image.js"
+import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
 import { finishInterfaces } from "./finish.js"
 import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
@@ -28,12 +31,42 @@ import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
 import { type BodyRefusal, bodyOf, calledLayout } from "../calls/routines.js"
 
-/** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
-export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, libraryUnits }: LoweringProject): LoweredPou {
+/** How many lowerings the escape pass may take to reach its fixed point (`pointers/escape.ts`): the first finds what is
+ *  stored, the second lowers on that answer — and finds the same, unless a body only the answer let lower stores more. */
+const ESCAPE_PASSES = 4
+
+/**
+ * Lower one already-bound unit. The workspace path: the caller owns the project scope and its index.
+ *
+ * THE ESCAPE PASS (model 3, design.md §3.3 step 4d) is a lowering of its own: the first lowering records every address
+ * store and copy; when it stored none, it IS the result. Otherwise the unit is lowered again on that answer — which
+ * variables the byte image holds, which pointers hold tags — until a lowering finds nothing its answer did not have.
+ */
+export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProject): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
+  let answer: Escapes | undefined
+  for (let pass = 1; ; pass++) {
+    const shared = newShared(prepared.attributes, unit.name.text, prepared.libraryUnits)
+    if (answer !== undefined) runOnEscapes(shared, answer)
+    const lowered = lowerOnce(unit, scope, prepared.project, shared)
+    const seen = escapesSeen(shared)
+    const settled = answer === undefined ? seen.types.size + seen.variables.size + seen.tagged.size === 0 : covers(answer, seen)
+    if (settled || pass === ESCAPE_PASSES) { if (process.env.ZZ_PASSES) console.log("ZZPASS", unit.name.text, pass, settled); return lowered }
+    answer = answer === undefined ? seen : joined(answer, seen)
+  }
+}
 
-  const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text, libraryUnits))
+/** Two escape answers as one. */
+const joined = (a: Escapes, b: Escapes): Escapes => ({
+  types: new Set([...a.types, ...b.types]),
+  variables: new Set([...a.variables, ...b.variables]),
+  tagged: new Set([...a.tagged, ...b.tagged]),
+})
+
+/** One lowering of the unit, on the escape answer `shared` carries (none on the first). */
+function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" }>, scope: Scope, project: Scope, shared: Shared): LoweredPou {
+  const lowering = new Lowering(scope, project, shared)
   // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
   // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
   // through network text, not through here.
@@ -60,7 +93,24 @@ export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, l
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
   const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
-  return { pou, diagnostics: [] }
+  return withImage(lowering, pou)
+}
+
+/**
+ * The POU with its byte image laid out and every place that reaches it rewritten (`pointers/image.ts`,
+ * `image-rewrite.ts`) — the POU as it was when nothing escaped and no place reaches the image.
+ */
+function withImage(lowering: Lowering, pou: IrPou): LoweredPou {
+  const slots = [...pou.slots]
+  const globals = [...pou.globals]
+  const laid = layOutImage(lowering, slots, globals, pou.span)
+  if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
+  const bodies = [pou.body, ...(pou.init === undefined ? [] : [pou.init]), ...pou.layouts.flatMap((l) => (l.body === undefined ? [] : [l.body])), ...pou.routines.map((r) => r.body)]
+  if (laid === undefined && !anyImage(bodies)) return { pou, diagnostics: [] }
+  const rewritten = rewriteImage(lowering, { slots, globals, body: pou.body, ...(pou.init === undefined ? {} : { init: pou.init }), span: pou.span })
+  if (rewritten === undefined) return { diagnostics: lowering.diagnostics }
+  const image = laid ?? { size: 0, bytes: [], regions: [] }
+  return { pou: { ...pou, slots, globals, ...rewritten, image }, diagnostics: [] }
 }
 
 /**

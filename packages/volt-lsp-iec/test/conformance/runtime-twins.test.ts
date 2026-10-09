@@ -25,6 +25,8 @@ import {
 } from "../../src/transpile/semantics/text.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
 import { visible } from "../../src/transpile/semantics/string.js"
+import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type MemoryType } from "../../src/transpile/semantics/memory.cases.js"
+import { FAULT_TEXT } from "../../src/transpile/ir/faults.js"
 import { RUNS } from "./support/recordings.js"
 import { buildRust } from "./support/rustc-cache.js"
 import { RUSTC, skipRustSuite } from "./support/rustc.js"
@@ -175,7 +177,54 @@ function stringCaseRust(input: StringInput): string {
 const stringCaseUnits = (c: StringCase): string =>
   `[${Array.from({ length: c.input.m }, (_, i) => (i < c.expected.length ? c.expected.charCodeAt(i) : 0)).join(", ")}]`
 
+/** Every byte-image case, its rule's cases flattened. */
+const MEMORY_CASE_LIST = Object.values(MEMORY_CASES).flat()
+
+/** An IEC type of the memory cases as its Rust type. */
+const RUST_OF: Readonly<Record<MemoryType, string>> = { BOOL: "bool", BYTE: "u8", SINT: "i8", WORD: "u16", INT: "i16", DWORD: "u32", DINT: "i32", REAL: "f32", LINT: "i64", LREAL: "f64" }
+
+/** A byte-image case as one Rust expression: the image, its stores, its read printed as the case prints it — or the fault
+ *  it stopped on, caught (`fault_of` maps the panic text back to its kind). */
+function memoryCaseRust(input: MemoryInput): string {
+  const at = (offset: number): string => `IMAGE_BASE + ${offset}`
+  const stores = input.stores.map((st) =>
+    st.type === "BOOL" ? `m.st(${at(st.at)}, [u8::from(${String(st.value)})]);` : `m.st(${at(st.at)}, (${String(st.value)}${RUST_OF[st.type]}).to_le_bytes());`,
+  )
+  const r = input.read
+  const read =
+    "order" in r
+      ? `m.order(${at(r.order[0])}, ${at(r.order[1])}).to_string()`
+      : r.load === "BOOL"
+        ? `(m.ld::<1>(${at(r.at)})[0] != 0).to_string()`
+        : r.load === "REAL" || r.load === "LREAL"
+          ? `format!("{:x}", ${RUST_OF[r.load]}::from_le_bytes(m.ld(${at(r.at)})).to_bits())`
+          : `${RUST_OF[r.load]}::from_le_bytes(m.ld(${at(r.at)})).to_string()`
+  const regions = CASE_IMAGE.regions.map(([s0, e0]) => `(${s0}, ${e0})`).join(", ")
+  return `std::panic::catch_unwind(|| { let ${stores.length === 0 ? "" : "mut "}m = Mem::image(${CASE_IMAGE.size}, &[], &[${regions}]); ${stores.join(" ")} ${read} }).unwrap_or_else(fault_of)`
+}
+
+const NEWLINE = String.fromCharCode(10)
+
+/** The Rust that maps a caught panic back to `fault: <kind>`, every image fault's text written once in `ir/faults.ts`. */
+const FAULT_OF = `fn fault_of(e: Box<dyn std::any::Any + Send>) -> String {
+    let text = e.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| e.downcast_ref::<String>().cloned()).unwrap_or_default();
+${(["null-dereference", "address-outside-image", "address-across-frames"] as const).map((k) => `    if text == ${JSON.stringify(FAULT_TEXT[k])} { return "fault: ${k}".to_string(); }`).join(NEWLINE)}
+    format!("panic: {text}")
+}
+`
+
 describe("runtime twins — the case tables hold their recordings", () => {
+  test("every byte-image case that names a recording reads what CODESYS recorded, from the input it ran", () => {
+    const named = MEMORY_CASE_LIST.filter((c) => c.recording !== undefined)
+    expect(named.length).toBeGreaterThan(0)
+    const got = named.map((c) => {
+      const out = typed(recorded(c), c.name)
+      const input = typed(recordedInput(c), c.name)
+      return `${c.name}: ${BigInt(out.text).toString(16)} from ${input.text}`
+    })
+    expect(got).toEqual(named.map((c) => `${c.name}: ${c.expected} from ${String(c.input.stores[0]!.value)}`))
+  })
+
   test("every REAL -> integer case is the recorded cell of the fixture it names", () => {
     expect(REAL_TO_INT_CASES).toHaveLength(192)
     const bad: string[] = []
@@ -248,6 +297,13 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const got = await runTwin("string_store", runtimeText("string"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
     expect(got).toHaveLength(STRING_CASE_LIST.length)
     expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${stringCaseUnits(c)}`))
+  }, 60_000)
+
+  test("runtime/pointer.ts: Mem over every byte-image case — the signalling NaN a REAL keeps included", async () => {
+    const program = `${runtimeText("mem")}
+${FAULT_OF}`
+    const got = await runTwin("memory", program, ["{ std::panic::set_hook(Box::new(|_| {})); 0 }", ...MEMORY_CASE_LIST.map((c) => memoryCaseRust(c.input))])
+    expect(MEMORY_CASE_LIST.map((c, i) => `${c.name}: ${got[i + 1]}`)).toEqual(MEMORY_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
   }, 60_000)
 
   test("runtime/numeric.ts: iec_r2i32 / iec_r2i64 over every recorded REAL -> integer cell", async () => {

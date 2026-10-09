@@ -4,7 +4,7 @@
 
 import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
-import type { IrExpr } from "../../ir/index.js"
+import type { IrExpr, Place } from "../../ir/index.js"
 import { lookup, targetOf } from "../../../frontend/symbols/index.js"
 import { elementaryRef, elementaryTypeOn, resolveNamedType, type Type } from "../../../frontend/types/index.js"
 import { storageOf } from "../storage/layout.js"
@@ -47,7 +47,20 @@ export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr
 export function adrDifference(lw: Lowering, e: Extract<Expr, { kind: "binary" }>): IrExpr | null | undefined {
   const [a, b] = [adrOperand(e.left, { parens: false }), adrOperand(e.right, { parens: false })]
   if (a === undefined || b === undefined) return undefined
-  const [left, right] = [lowerPlace(lw, a), lowerPlace(lw, b)]
+  const lowered = [lowerPlace(lw, a), lowerPlace(lw, b)]
+  if (lowered[0] === undefined || lowered[1] === undefined) return null
+  // a place reached through a pointer that holds an address (root "image", slot 0, path [] — `pointers/deref.ts`) names
+  // no variable here: two of them are not "one variable", and `byteOffset` would walk an empty path to 0 (review 4d gate:
+  // `ADR(p^) - ADR(q^)` was folded to 0). Its offset is known only at run time, and an ADR as an integer operand is not
+  // lowered, so refused by name (0 ADR differences of any shape in the six corpora).
+  if (lowered[0].root === "image" || lowered[1].root === "image") {
+    lw.bail("adr-offset", "a difference of addresses through a dereferenced pointer", e.span)
+    return null
+  }
+  // two places in ONE variable are measured inside it; only two DIFFERENT variables are moved onto the instance — so an
+  // FB whose own layout is not measured (a pointer field, an in-out, a VAR_TEMP) still answers `ADR(arr[2]) - ADR(arr[0])`
+  const same = lowered[0].slot === lowered[1].slot && lowered[0].root === lowered[1].root
+  const [left, right] = same ? lowered : lowered.map((p) => onInstance(lw, p!))
   if (left === undefined || right === undefined) return null
   const [from, to] = [byteOffset(lw, left), byteOffset(lw, right)]
   if (left.slot !== right.slot || left.root !== right.root || from === undefined || to === undefined || from < to) {
@@ -55,4 +68,12 @@ export function adrDifference(lw: Lowering, e: Extract<Expr, { kind: "binary" }>
     return null
   }
   return { kind: "const", value: from - to, type: elementaryRef("ULINT"), span: e.span }
+}
+
+/** An FB, METHOD or ACTION body's own field as a step on `THIS^` — so `ADR(loc) - ADR(THIS^)` is two places in ONE
+ *  variable, the instance (`fb_header_offsets_plain`: 32). Any other place as it is. Asked only of two places in
+ *  different variables (review 4d). */
+function onInstance(lw: Lowering, place: Place): Place {
+  if (place.root !== undefined || lw.selfType?.kind !== "function_block") return place
+  return { ...place, root: "this", slot: 0, path: [{ kind: "field", name: lw.slots[place.slot]!.name }, ...place.path] }
 }

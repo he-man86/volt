@@ -610,6 +610,39 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
+  // transpile-restructure 4.3 recorded the byte image's layout and reinterpretation (`memory/pointer-model.ts`): the FB
+  // header's two fixtures take `SIZEOF` of an FB instance, which the front-end types UNKNOWN until SIZEOF has a result
+  // type, and the DINT-as-REAL fixture initializes two DINTs with negated untyped numbers (`-2147483647 - 1`, `-8388609`)
+  // — LT14's class, one operation on them among them. New ground measured, not a regression.
+  // (review of step 4d: `fb_offsets_var_before_input`, the same FB header question with VAR declared first)
+  ...(["fb_header_offsets_plain", "fb_header_offsets_implements", "fb_offsets_var_before_input"] as const).flatMap((fixture) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`,
+      by: 1,
+      fixture,
+      task: "frontend-conformance 4.3.4 (SIZEOF's result type)",
+      why: "SIZEOF of an FB instance (transpile-restructure 4.3, the FB header's offsets) — no result type yet",
+    })),
+  ),
+  ...(["codesys", "twincat"] as const).flatMap((vendor) => [
+    {
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`,
+      by: 2,
+      fixture: "reinterpret_dint_as_real_edges",
+      task: LITERAL_TYPING,
+      why: "the DINT edge patterns `-2147483647 - 1` and `-8388609` (transpile-restructure 4.3) — negated untyped numbers, LT14's class",
+    },
+    {
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: binary UNKNOWN`,
+      by: 1,
+      fixture: "reinterpret_dint_as_real_edges",
+      task: LITERAL_TYPING,
+      why: "`-2147483647 - 1`, an operation on two untyped numbers (transpile-restructure 4.3) — typed by its context, LT14's",
+    },
+  ]),
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */

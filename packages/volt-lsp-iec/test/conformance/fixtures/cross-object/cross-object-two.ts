@@ -425,10 +425,9 @@ END_FUNCTION_BLOCK
 `,
     "inst : FB_X2_walker;", "inst();"),
 
-  // The same walk with the stride held in a VARIABLE. CODESYS walks it exactly as the inline SIZEOF above, but the
-  // transpiler's pointer is an element INDEX (design §9 form 1), so a step in bytes must divide by the element size at
-  // lowering — which a variable does not. Recorded anyway: it is the vendor truth this needs when the byte-addressed
-  // form lands, and the LSP must still report nothing on it.
+  // The same walk with the stride held in a VARIABLE. CODESYS walks it exactly as the inline SIZEOF above. It waited
+  // while the transpiler's pointer was an element INDEX (design §9 form 1), which a variable step cannot divide; model 3
+  // makes the pointer a byte address (transpile-restructure 4.4), so the variable step lowers as the bytes it is.
   {
     ...fb("xo2_pointer_step_variable", "FB_X2_strider", "a pointer stepped by a VARIABLE holding SIZEOF, not by the constant itself",
       `FUNCTION_BLOCK FB_X2_strider
@@ -449,6 +448,5 @@ seenId := cursor^.id;
 END_FUNCTION_BLOCK
 `,
       "inst : FB_X2_strider;", "inst();"),
-    deferred: { transpile: "a pointer stepped by a VARIABLE number of bytes — the model holds an element index, so the step must divide by the element size where it is lowered (`pointer-step`, 2026-09-16)" },
   },
 ]

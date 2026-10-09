@@ -6,6 +6,10 @@ import { peelArray, type Type, typeZero } from "../../../frontend/types/index.js
 import { rustName } from "./names.js"
 import { isReal32, rustType, stringPath } from "./types.js"
 
+/** Where the byte image starts — `semantics/memory.ts`'s, which the emitter may not import (layering rule 4); an address
+ *  at or past it is printed in hex (`literal`). */
+const IMAGE_BASE = 1n << 32n
+
 /** Each layout the program holds, by its upper-cased name, with its fields' Rust names. */
 export type Layouts = ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>
 
@@ -46,6 +50,9 @@ function shortestF32(v: number): string {
 
 export function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
+  // an ADDRESS in the byte image, printed from where the image starts (`runtime/pointer.ts` `IMAGE_BASE`)
+  // (hex, grouped by four: one literal, which no position needs parenthesized and clippy reads without a lint)
+  if (t.kind === "pointer" && typeof v === "bigint" && v >= IMAGE_BASE) return `0x${v.toString(16).replace(/\B(?=(?:[0-9a-f]{4})+$)/g, "_")}`
   if (typeof v === "string") return `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
   // A REAL CONSTANT TOO BIG FOR ITS WIDTH IS AN INFINITY, not a compile error. `x : REAL := 3.5E38` is accepted by
   // CODESYS and holds `REAL#Infinity` (`bound_real_above_max`), while Rust refuses `3.5e38f32` outright —

@@ -20,6 +20,7 @@ import {
 import { lowerExpr } from "./expressions.js"
 import { convert } from "../values/convert.js"
 import { adrDifference } from "../builtins/sizeof.js"
+import { pointerCompare } from "../pointers/address.js"
 import { calendarArithmetic } from "./calendar.js"
 import { lowerPlace } from "../places/places.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
@@ -119,6 +120,9 @@ export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, ex
 export function lowerBinary(lw: Lowering, e: Extract<Expr, { kind: "binary" }>): IrExpr | undefined {
   const nullCompare = pointerNullCompare(lw, e)
   if (nullCompare !== null) return nullCompare
+  // two addresses compared or ordered (model 3, design.md §3.3 step 4d)
+  const addresses = pointerCompare(lw, e)
+  if (addresses !== null) return addresses
   if (e.op === "-") {
     const difference = adrDifference(lw, e)
     if (difference !== undefined) return difference ?? undefined

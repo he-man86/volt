@@ -8,6 +8,7 @@ import { tmp } from "./names.js"
 import { place } from "./place.js"
 import { guardLine, type Printer, push } from "./printer.js"
 import { rustType } from "./types.js"
+import { storeImage } from "./image.js"
 
 export function block(p: Printer, list: readonly IrStmt[], slots: IrPou["slots"], indent: number): void {
   if (list.length === 0) {
@@ -44,6 +45,8 @@ export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: numbe
 
 function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
   guardLine(p, s.target, slots, indent)
+  // a store into the image moves the value's bytes (`image.ts`)
+  if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots), slots), indent, s.span)
   const field = place(p, s.target, slots)
   const bit = s.target.path.at(-1)
   if (bit?.kind !== "bit") {

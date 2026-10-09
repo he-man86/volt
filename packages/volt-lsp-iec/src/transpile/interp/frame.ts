@@ -3,7 +3,7 @@
  * (the frame, the per-call locals, the globals, a bound VAR_IN_OUT, a lent instance), its path, its dereference guard.
  */
 import type { Access, IrBinding, IrExpr, IrLayout, IrRoutine, Place } from "../ir/index.js"
-import { bool, fit, IecFault, LoweringBug, num, storeAs, storeString, type Val } from "../semantics/index.js"
+import { bool, fit, IecFault, indexAddress, LoweringBug, type Memory, num, storeAs, storeString, type Val } from "../semantics/index.js"
 import { indexOutOfBounds } from "../ir/faults.js"
 
 /** Where a value lives: a container (a frame, a record, an array) and the key into it. */
@@ -31,6 +31,8 @@ export abstract class Frame {
     readonly routines: ReadonlyMap<string, IrRoutine>,
     /** The application's globals — ONE array every body shares. */
     readonly globals: Val[],
+    /** The program's byte image (`semantics/memory.ts`) — ONE every body shares. */
+    readonly memory: Memory,
     /** The harness's loop guard (`RunOptions`) — undefined runs every pass. */
     readonly guard: number | undefined,
     /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
@@ -75,6 +77,8 @@ export abstract class Frame {
         return this.lent[place.slot]!.container
       case "this":
         return { THIS: this.root as Val }
+      case "image":
+        throw new LoweringBug("an image place has no container — it is read and written through the image")
     }
   }
 
@@ -92,11 +96,42 @@ export abstract class Frame {
         return this.lent[place.slot]!.key
       case "this":
         return "THIS"
+      case "image":
+        throw new LoweringBug("an image place has no key — it is read and written through the image")
     }
+  }
+
+  /** The byte address an `image` place reaches: its `at`, then each index step's checked `(i - lower) · size`. */
+  address(place: Place): bigint {
+    let at = num(this.expr(place.at!)) as bigint
+    for (const step of place.path)
+      if (step.kind === "index") at = indexAddress(at, num(this.expr(step.index)) as bigint, step.lower, step.length, step.size!)
+    return at
+  }
+
+  /** An `image` place read: the bytes at its address as its type — the integer a trailing bit is taken from, then the bit. */
+  private readImage(place: Place): Val {
+    if (place.guard !== undefined && this.read(place.guard) === 0n) throw new IecFault("null-dereference")
+    const bit = place.path.at(-1)
+    const at = this.address(place)
+    if (bit?.kind !== "bit") return this.memory.load(at, place.type, this.layouts)
+    return ((num(this.memory.load(at, bit.of, this.layouts)) as bigint) >> BigInt(bit.index)) & 1n ? true : false
+  }
+
+  /** An `image` place written, as its type stores the value — a trailing bit set or cleared in its integer. */
+  private writeImage(place: Place, value: Val): void {
+    if (place.guard !== undefined && this.read(place.guard) === 0n) throw new IecFault("null-dereference")
+    const bit = place.path.at(-1)
+    const at = this.address(place)
+    if (bit?.kind !== "bit") return this.memory.store(at, place.type, storeAs(value, place.type), this.layouts)
+    const current = num(this.memory.load(at, bit.of, this.layouts)) as bigint
+    const mask = 1n << BigInt(bit.index)
+    this.memory.store(at, bit.of, fit(bool(value) ? current | mask : current & ~mask, bit.of), this.layouts)
   }
 
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
   locate(place: Place): Located {
+    if (place.root === "image") throw new LoweringBug("an image place located as a container — it has none")
     // a dereference: the pointer holds 0 when null, and CODESYS stops the application on that access — so does this
     if (place.guard !== undefined && this.read(place.guard) === 0n) throw new IecFault("null-dereference")
     const steps = place.path
@@ -123,10 +158,11 @@ export abstract class Frame {
   /** A place with no step and no dereference — a variable itself, the commonest place there is — is its root's slot,
    *  reached without walking a path or building a result for one. */
   private static plain(place: Place): boolean {
-    return place.path.length === 0 && place.guard === undefined
+    return place.path.length === 0 && place.guard === undefined && place.root !== "image"
   }
 
   read(place: Place): Val {
+    if (place.root === "image") return this.readImage(place)
     if (Frame.plain(place)) return this.base(place)[this.baseKey(place)]!
     const { container, key, bit } = this.locate(place)
     const value = (container as Record<string | number, Val>)[key]!
@@ -136,6 +172,10 @@ export abstract class Frame {
 
   /** `source` — a string store's source capacity (`compileWrite`): the store then keeps the place's units behind it. */
   write(place: Place, value: Val, source?: number): void {
+    if (place.root === "image") {
+      if (source !== undefined) throw new LoweringBug("a string store into the image, which holds no string")
+      return this.writeImage(place, value)
+    }
     if (Frame.plain(place)) {
       const base = this.base(place)
       const key = this.baseKey(place)
@@ -159,7 +199,7 @@ export abstract class Frame {
  *  frame, the locals or the globals, read directly; anything else walks its path ({@link Frame.read}). */
 export function compileRead(place: Place): (m: Frame) => Val {
   const slot = place.slot
-  if (place.path.length === 0 && place.guard === undefined)
+  if (place.path.length === 0 && place.guard === undefined && place.root !== "image")
     switch (place.root) {
       case undefined:
         return (m) => m.root[m.keys[slot]!]!

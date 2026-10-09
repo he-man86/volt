@@ -23,6 +23,8 @@ import { inGlobals, programReentrant, programTarget, routineCallee } from "./ree
 import { fieldIndex, staticPath } from "../places/path.js"
 import { positionalBinding, positionalOf } from "./parameters.js"
 import { bindCursorArgument, cursorInputsOf } from "../pointers/cursor.js"
+import { type Holder, holderHoldsAddresses } from "../pointers/escape.js"
+import { addressValue } from "../pointers/address.js"
 import { bindBorrowedArgument, borrowedInputsOf } from "../pointers/borrowed.js"
 import { interfaceArgument } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -205,6 +207,16 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
     const tag = interfaceArgument(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, arg.value!, arg.span, foreign)
     if (tag === undefined) return undefined
     b.inputs[k] = tag
+    b.order.push(k)
+    return true
+  }
+  // A POINTER INPUT that holds addresses (model 3) is handed one — `ADR(x)` of a variable the image holds, a pointer, a
+  // step — recorded for the escape pass under the routine's own key for it, as the routine's body names it
+  const holder: Holder = { type: slot.type, key: `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, name: `the pointer input ${slot.name}` }
+  if (slot.type.kind === "pointer" && holderHoldsAddresses(lw, holder, arg.span)) {
+    const address = addressValue(lw, arg.value!, holder)
+    if (address === undefined) return undefined
+    b.inputs[k] = address
     b.order.push(k)
     return true
   }

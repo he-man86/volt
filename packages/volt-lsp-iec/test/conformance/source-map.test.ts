@@ -54,7 +54,14 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // `out1 := __QUERYINTERFACE(ia, ib)` (refused by both vendors — it stores a BOOL into a STRING — and lowered all the same).
 // 38 -> 41 (2026-10-06, analysis-conformance 3.8), read, the documented `match` class: `calls_queryinterface_legal`'s
 // `ok := __QUERYINTERFACE(src, dst)` (built and run by CODESYS), whose three arms set `dst`.
-const RENAMED_TARGETS = 41
+// 41 -> 141 (2026-10-09, transpile-restructure 4.4), read, ONE new class: a variable the program's byte image holds
+// (model 3, design.md §3.3 step 4d — a variable whose address is stored, an escaped FB type's field) is stored through
+// `Mem` at its address — `{ let __v = …; let __a = 0x1_0000_0000; __mem.st(__a, …); }` or `self.__base.wrapping_add(n)`
+// — which names no field; 100 assignments across the pointer fixtures that hold such a variable.
+// 141 -> 150 (2026-10-09, review of step 4d), read, the same image class and nothing else: the two new fixtures that
+// hold an FB in the image, `pointer_order_one_past_end` (2: `sum`) and `bool_byte_two_through_pointer` (7: `eqT`, `nb`,
+// `taken` twice, `raw`, `c`, `notRaw`).
+const RENAMED_TARGETS = 150
 
 interface Program {
   name: string

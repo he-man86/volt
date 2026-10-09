@@ -9,6 +9,7 @@ import type { IrPou, IrRoutine } from "../../ir/index.js"
 interface GlobalsUse {
   readonly usesGlobals: boolean
   readonly usesPrograms: boolean
+  readonly usesImage?: boolean
 }
 
 /**
@@ -80,12 +81,12 @@ export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = 
 
 /** `g` and `prg` before a generated call's arguments, as far as the program has them. */
 export function globalsArgs(uses: GlobalsUse): string[] {
-  return [...(uses.usesGlobals ? ["g"] : []), ...(uses.usesPrograms ? ["prg"] : [])]
+  return [...(uses.usesGlobals ? ["g"] : []), ...(uses.usesPrograms ? ["prg"] : []), ...(uses.usesImage === true ? ["__mem"] : [])]
 }
 
 /** The parameters every generated body declares for them — the same list as `globalsArgs`, typed. */
 export function globalsParams(uses: GlobalsUse): string[] {
-  return [...(uses.usesGlobals ? ["g: &mut Globals"] : []), ...(uses.usesPrograms ? ["prg: &mut Programs"] : [])]
+  return [...(uses.usesGlobals ? ["g: &mut Globals"] : []), ...(uses.usesPrograms ? ["prg: &mut Programs"] : []), ...(uses.usesImage === true ? ["__mem: &mut Mem"] : [])]
 }
 
 /**

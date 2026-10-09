@@ -10,11 +10,11 @@
  */
 import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX_MIN, IEC_POW, IEC_R2I32, IEC_R2I64 } from "./numeric.js"
 import { PARSE } from "./parse.js"
-import { IEC_DEREF } from "./pointer.js"
+import { IEC_DEREF, MEM } from "./pointer.js"
 import { IEC_STR } from "./string.js"
 import { TEXT } from "./text.js"
 
-type RuntimeId =
+export type RuntimeId =
   | "string"
   | "iec_max_min"
   | "text"
@@ -27,6 +27,7 @@ type RuntimeId =
   | "iec_log"
   | "iec_pow"
   | "iec_div"
+  | "mem"
 
 interface RuntimeHelper {
   readonly id: RuntimeId
@@ -51,11 +52,12 @@ const HELPERS: Readonly<Record<RuntimeId, RuntimeHelper>> = {
   iec_log: { id: "iec_log", deps: [], rust: IEC_LOG, usedBy: ["iec_log("] },
   iec_pow: { id: "iec_pow", deps: [], rust: IEC_POW, usedBy: ["iec_pow("] },
   iec_div: { id: "iec_div", deps: [], rust: IEC_DIV, usedBy: ["iec_div("] },
+  mem: { id: "mem", deps: [], rust: MEM, usedBy: ["Mem"] },
 }
 
 /** The helpers appended AFTER the code, each when the code calls it — in this order, each one asked of the code as it stands
  *  after the ones before it were appended. */
-export const INLINE: readonly RuntimeId[] = ["iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div"]
+export const INLINE: readonly RuntimeId[] = ["iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div", "mem"]
 
 /** A helper's text followed by its deps' — `runtimeText("string")` is the blob a string program starts with. */
 export function runtimeText(id: RuntimeId): string {

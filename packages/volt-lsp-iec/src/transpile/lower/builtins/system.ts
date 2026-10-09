@@ -18,6 +18,7 @@ import { interfaceFrame } from "../interfaces/state.js"
  *  for any other name. */
 export function lowerSystemCall(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: string): IrExpr | undefined | null {
   if (name === "SIZEOF" || name === "XSIZEOF") return sizeOf(lw, e)
+  if (name === "__NEW") return refuseDynamicMemory(lw, e.span)
   // `MOVE(v)` is v — the IEC assignment operator, which the corpus writes around a variable, a constant and a variable
   // AT a direct address (conformance `co_move_operator`).
   if (name === "MOVE") {
@@ -61,3 +62,15 @@ export function lowerSystemCall(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   }
   return null
 }
+
+/**
+ * `__NEW` and `__DELETE`: the recording project has no memory pool, so what an allocation answers — and what a pointer to
+ * one reads — is unrecorded (the `newdel_*` fixtures are unaskable). Refused by its own name, before a byte address
+ * could stand for an allocation CODESYS never ran (design.md §3.3, 4.2 review 4c).
+ */
+export function refuseDynamicMemory(lw: Lowering, span: Expr["span"]): undefined {
+  return lw.bail("dynamic-memory", "__NEW or __DELETE — an allocation, which the recording project has no memory pool for", span)
+}
+
+/** Whether `e` is a `__NEW(…)` call. */
+export const isNew = (e: Expr): boolean => e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "__NEW"

@@ -27,6 +27,10 @@ export interface IrSlot {
   /** An FB's own VAR_IN_OUT reached from its METHOD or ACTION — a parameter the call binds to the in-out the FB's running
    *  body holds (conformance `callshape_inout_in_method_from_body`). */
   ofInstance?: boolean
+  /** Stored in the program's byte image (design.md §3.3 step 4d): a POU or global slot at this ABSOLUTE address, a
+   *  layout's field at this offset from its instance's `__base`, a struct's field at this offset from the struct. Such a
+   *  slot is reached only through an `image` place; the Rust struct does not hold it. */
+  image?: number
 }
 
 /**
@@ -58,6 +62,23 @@ export interface IrLayout {
   statics?: readonly { name: string; global: number }[]
   /** The FB instances its body is lent per call (`lent` places), each an interface's tag of another frame (design §24). */
   lent?: readonly { tag: number; type: Type }[]
+  /** A struct whose bytes the image holds: its measured size, the stride of an array of it (`semantics/memory.ts`). */
+  size?: number
+}
+
+/**
+ * THE PROGRAM'S BYTE IMAGE (design.md §3.3 step 4d): every variable whose address a program stores, laid out as CODESYS
+ * lays it out, from `IMAGE_BASE` (`semantics/memory.ts`). Lowering allocates every region statically — a program's or
+ * GVL's variable alone (where a program places its variables is not measured), an instance's measured runs of fields —
+ * so a backend allocates nothing: it starts from `bytes` and checks every access against `regions`.
+ */
+export interface IrImage {
+  /** Bytes from `IMAGE_BASE`. */
+  size: number
+  /** The initial bytes that are not 0, as runs: an offset from `IMAGE_BASE` and the bytes from there. */
+  bytes: readonly (readonly [number, readonly number[]])[]
+  /** Each region as `[start, end)` offsets from `IMAGE_BASE`; an access, an order or a difference stays inside one. */
+  regions: readonly (readonly [number, number])[]
 }
 
 /**
@@ -102,5 +123,7 @@ export interface IrPou {
   /** Run once before the first scan: each instance's `call_after_global_init_slot` METHOD (conformance
    *  `state_call_after_global_init_counts` — once per instance, however many scans follow). */
   init?: readonly IrStmt[]
+  /** The byte image, when any variable's address is stored. */
+  image?: IrImage
   span: Span
 }

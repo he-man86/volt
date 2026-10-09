@@ -39,6 +39,8 @@ const loop = (body: IrStmt[]): IrLoop => ({ kind: "loop", init: [], test: { cond
 /** One node of every kind the IR has, with what `childrenOf` must answer for it. */
 const KINDS: Record<string, [IrNode, IrNode[]]> = {
   place: [place(0, c(1n)), [c(1n)]],
+  "image place": [{ ...place(0, c(1n)), root: "image", at: c(7n), guard: place(2) }, [c(7n), c(1n), place(2)]],
+  address: [{ kind: "address", place: place(3), type: INT, span }, [place(3)]],
   const: [c(1n), []],
   fresh: [{ kind: "fresh", init: 0n, type: INT, span }, []],
   load: [load(place(0)), [place(0)]],
@@ -73,7 +75,7 @@ describe("childrenOf", () => {
     // the kinds of the two unions, the place, and the two binding forms — `never` in the switch makes a new kind a
     // compile error there; this makes forgetting it here a test failure
     expect(Object.keys(KINDS).sort()).toEqual(
-      ["assign", "binary", "break", "builtin", "call", "const", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "invoke", "load", "loop", "place", "return", "select", "switch", "unary"].sort(),
+      ["address", "assign", "binary", "break", "builtin", "call", "const", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "return", "select", "switch", "unary"].sort(),
     )
     for (const [kind, [node, children]] of Object.entries(KINDS)) expect([kind, childrenOf(node)]).toEqual([kind, children])
   })
@@ -125,6 +127,14 @@ describe("the walks", () => {
     expect(seen).toEqual([1, 0, 3, 2]) // childrenOf's order: an invoke's instance before its inputs
     expect(out).toEqual(assign(place(10, load(place(11))), { ...invoke(load(place(12))), instance: place(13) }))
     expect(body[0]).toEqual(assign(place(0, load(place(1))), { ...invoke(load(place(2))), instance: place(3) }))
+  })
+  test("mapPlaces maps an image place's address and an address node's place", () => {
+    const at = load(place(1))
+    const image: Place = { ...place(0), root: "image", at }
+    const seen: number[] = []
+    const out = mapPlaces({ kind: "address", place: image, type: INT, span } as IrExpr, (p) => (seen.push(p.slot), { ...p, slot: p.slot + 10 }))
+    expect(seen).toEqual([1, 0])
+    expect(out).toEqual({ kind: "address", place: { ...image, slot: 10, at: load(place(11)) }, type: INT, span })
   })
   test("blocksOf, exitsAfter and loopUses", () => {
     expect(blocksOf(KINDS.if![0] as IrStmt)).toHaveLength(2)

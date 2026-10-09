@@ -115,7 +115,13 @@ function reflectiveMapPlaces<T>(node: T, f: (p: Place) => Place): T {
 function handReads(e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
   const walk = (x: IrExpr): string | undefined => handReads(x, onPlace)
   const first = (xs: readonly IrExpr[]): string | undefined => xs.reduce<string | undefined>((f, x) => f ?? walk(x), undefined)
-  const readsPlace = (place: Place): string | undefined => {
+  // model 3 (transpile-restructure 4.3): an image place reads its address first; `ADR(x)` reads what x's place
+  // reads on the way — its address, indices and guard — but not x
+  const readsPlace = (place: Place, itself = true): string | undefined => {
+    if (place.at !== undefined) {
+      const address = handReads(place.at, onPlace)
+      if (address !== undefined) return address
+    }
     for (const access of place.path)
       if (access.kind === "index") {
         const inside = handReads(access.index, onPlace)
@@ -125,7 +131,7 @@ function handReads(e: IrExpr, onPlace: (place: Place) => string | undefined): st
       const through = readsPlace(place.guard)
       if (through !== undefined) return through
     }
-    return onPlace(place)
+    return itself ? onPlace(place) : undefined
   }
   const readsInvoke = (x: IrInvoke): string | undefined => {
     const inputs = x.inputs.reduce<string | undefined>((f, i) => f ?? handReads(i, onPlace), undefined)
@@ -137,6 +143,8 @@ function handReads(e: IrExpr, onPlace: (place: Place) => string | undefined): st
   switch (e.kind) {
     case "load":
       return readsPlace(e.place)
+    case "address":
+      return readsPlace(e.place, false)
     case "convert":
       return walk(e.value)
     case "unary":

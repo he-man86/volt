@@ -9,7 +9,7 @@ import type { EdgeVerdict } from "../../fixtures/map-row.js"
 import { compareOutcomes } from "../differential.js"
 import { interpRender, rustRender, seedable } from "../display.js"
 import { runPaths } from "../run-paths.js"
-import { rustAccess } from "../rust-access.js"
+import { type RustAccess, rustAccess } from "../rust-access.js"
 import { preludeLines } from "./shape.js"
 // the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
 import { runtimeText } from "../../../../src/transpile/emit/rust/runtime/index.js"
@@ -99,11 +99,8 @@ export function edgeSeeds(t: Type): EdgeSeed[] {
   ]
 }
 
-interface EdgePath {
+interface EdgePath extends RustAccess {
   path: string
-  type: Type
-  global: boolean
-  expr: string
 }
 /** What one fixture's edge run seeds and compares — or why it cannot run. */
 export type EdgePlan =
@@ -164,7 +161,7 @@ const EDGE_INTERP_GUARD = 1_000_000
  */
 export function edgeHarness(
   pou: IrPou,
-  emitted: { usesGlobals: boolean; usesPrograms: boolean },
+  emitted: { usesGlobals: boolean; usesPrograms: boolean; usesImage: boolean },
   plan: EdgePlan,
   body: string,
 ): string {
@@ -172,23 +169,21 @@ export function edgeHarness(
     "notRun" in plan
       ? "fn __volt_edge() {}\n"
       : (() => {
-          const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
-          const arms = plan.variants.flatMap((v, k) =>
-            v.seed === undefined ? [] : [`        ${k} => { ${v.seed.p.global ? "g" : "p"}.${v.seed.p.expr} = ${v.seed.s.rust}; }`],
-          )
+          const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : []), ...(emitted.usesImage ? ["&mut mem"] : [])].join(", ")
+          const arms = plan.variants.flatMap((v, k) => (v.seed === undefined ? [] : [`        ${k} => { ${v.seed.p.write(v.seed.s.rust)} }`]))
           const scans =
             plan.clock === undefined
               ? `    for _ in 0..${plan.cycles} { p.scan(${args}); }`
-              : `    for i in 1..=${plan.cycles}u64 { g.${plan.clock.expr} = (i * 10_000_000) as _; p.scan(${args}); }`
+              : `    for i in 1..=${plan.cycles}u64 { ${plan.clock.write("(i * 10_000_000) as _")} p.scan(${args}); }`
           const prints = plan.paths.map((p) => {
             const kind = seedable(p.type)
-            const field = `${p.global ? "g" : "p"}.${p.expr}${kind === "real" ? ".to_bits()" : kind === "string" ? ".units()" : ""}`
+            const field = kind === "real" ? `(${p.read}).to_bits()` : `${p.read}${kind === "string" ? ".units()" : ""}`
             return `    println!("{}\\t${p.path}\\t{${kind === "string" ? ":?" : ""}}", k, ${field});`
           })
           return `#[allow(unused_mut, unused_variables, clippy::all)]
 fn __volt_edge_run(k: usize) {
     let mut p = ${pou.name}::new();
-${emitted.usesGlobals ? "    let mut g = Globals::new();\n" : ""}${emitted.usesPrograms ? "    let mut prg = Programs::new();\n" : ""}${pou.init === undefined ? "" : `    p.init(${args});\n`}    match k {
+${emitted.usesGlobals ? "    let mut g = Globals::new();\n" : ""}${emitted.usesPrograms ? "    let mut prg = Programs::new();\n" : ""}${emitted.usesImage ? "    let mut mem = Mem::new();\n" : ""}${pou.init === undefined ? "" : `    p.init(${args});\n`}    match k {
 ${arms.join("\n")}
         _ => {}
     }

@@ -1144,6 +1144,62 @@ IR (G, walk totality). 4.4: `dynamic-memory` first (failing `__NEW`-only test); 
 then escape pass, layout and the data-pointer switch in one commit (S-out lists the moved rows; the 83 lowered pointer
 rows stay lowered, every confirmed `indirect` row stays confirmed). 4.5-4.7 then verify/lower their fixtures.
 
+### §3.3 Decision (step 4d, as built): where reality moved the plan above (tasks 4.3-4.7, 2026-10-09)
+
+The step-4d plan held: data pointers are byte addresses into one image per program, the image is a `Place` root, both
+backends implement it, RC 44/14/15 pass. Seven choices moved while building it; each is the smaller change the
+measurements allowed, and each is written down here so the next step does not re-decide it.
+
+- **4.3's recordings settled the layout.** `fb_header_offsets_plain`/`_implements`: an FB's fields sit behind an 8-byte
+  header plus 8 per IMPLEMENTS interface, in DECLARATION order across VAR_INPUT, VAR_OUTPUT and VAR (inB 8, outD 12,
+  outW 16, offLoc 24, loc 32, SIZEOF 40; +8 each with one interface). `storage/bytes.fieldBytes` now answers FB field
+  offsets, so `ADR(inst.f) - ADR(inst)` and `ADR(loc) - ADR(THIS^)` fold (both fixtures lower and are confirmed).
+  `wstring_layout_in_struct`: a WSTRING(n) is 2·(n+1) bytes aligned to 2. `reinterpret_dint_as_real_edges`: CODESYS keeps
+  every bit of a DINT read as a REAL, the signalling NaN included. `layout-unmeasured` is registered; with the header
+  measured, the only layouts left unmeasured fall back to one region per field (below), so it is raised only for an
+  escaped type with no layout at all.
+- **The escape unit for a PROGRAM's or GVL's variables is the VARIABLE, not the frame.** Where a program places its
+  variables is not measured (4.1), so the frame's other variables could never be observed beside an escaped one; putting
+  only the escaped variable in the image (a region of its own, `IrSlot.image` its address) answers the same and leaves
+  every other variable — and every harness read of it — where it was. An FB TYPE stays the unit for instances (measured).
+- **Unmeasured layouts are runs of one.** A derived FB, an FB with a VAR_IN_OUT or a METHOD's VAR_INST, a field after a
+  pointer or another field of unmeasured size: each image field is a region of its own, 16 bytes from the next, so a
+  dereference and an equality work (they need no offset, §3.3 4d) and a walk, a difference or an order across two
+  regions faults by name (`address-outside-image`, `address-across-frames`) instead of answering our layout. A field the
+  image does not hold (a pointer, a STRING, an instance) stays in the struct and ends a run. An EXTENDS family escapes
+  together, and a derived FB keeps its base's fields at the base's offsets: one body serves both.
+- **The escape pass is a lowering, run to a fixed point** (`lower/pointers/escape.ts`, `entry/lower-unit.ts`). A
+  syntactic pass would need lowering's place resolution (sections, scopes, references, unions) a second time, a second
+  home for each of those rules (P1). The first lowering records every address store and copy; with none it IS the result,
+  so a program without one lowers exactly once and exactly as before (S-out). Otherwise the unit lowers again on that
+  answer until nothing new is found (4 passes at most; the fixtures and corpus settle in 2).
+- **Data TAGS stay where the image cannot hold the target** — a routine's local (no region per call is built), a
+  VAR_IN_OUT's target, an ANY's `pValue`, a STRING's characters, a pointer, an FB instance (the handle). A pointer holds
+  addresses or tags, never both: a store of a tag's target marks its pointer TAGGED, closed over copies both ways, and a
+  tagged pointer lowers exactly as form 1/3 did. So `pointerTargets`, `pointerKey`, the data tag and `ELEMENT_TAG_BIAS`
+  remain for those pointers; they go with the targets the later tasks move (4.9 ANY, 4.14 the schemes, 4.15 `staticKey`).
+- **`base` is a load, regions are lowering's.** The instance's region address is a hidden `__base` FIELD (the
+  `__inout_binding` mechanism), set by its initial value; lowering allocates every static region (`lower/pointers/
+  image.ts`) and hands the backends `IrPou.image` — size, initial bytes, regions — so a backend allocates nothing (P4).
+  No `image` sizes ride on `IrLayout`/`IrRoutine`; a struct the image holds carries its `size` and field offsets.
+  An instance of an escaped type where no static region is — a METHOD's or FUNCTION's local, a VAR_TEMP — is refused
+  `image-stack`.
+- **One new expression is `address`, not `base`**: `ADR(x)` of an image place, the address its `at` and checked index
+  steps reach. An image place keeps its INDEX steps (each with its element `size`): the bounds check is the element
+  place's, with its fault text. `address_order` (a builtin) orders two addresses inside one region. A VAR_IN_OUT bound to
+  an image place is an `IrCopy` with `back`; its address is frozen where it is written (`callshape_inout_pointer_before_call`),
+  and a callee that also reaches the image while holding the copy is `call-inout-alias`. `Mem` is threaded to EVERY
+  generated body of a program that has an image (as `g` is), not only to the bodies that reach it.
+- **The interpreter's REAL keeps no NaN bits.** A REAL is a JavaScript number, whose NaN is always the positive quiet one:
+  a bit-exact readback of a NaN (`tr_28_*`'s sign, the sNaN of `reinterpret_dint_as_real_edges`) diverges in the
+  interpreter while the emitted Rust keeps the bits as CODESYS does. Those three fixtures run as expected failures naming
+  it; `memory.cases.ts` marks the sNaN case for the TypeScript side. 4.9/4.12 decide the value model's NaN.
+
+`dynamic-memory` (`__NEW`, `__DELETE`) is registered and raised before any of this (failing test first). The refused list
+by code is 4.2's plus `image-stack`; `pointer-step`, `pointer-runtime-index` and `pointer-type` are no longer raised for a
+pointer that holds addresses (it steps bytes, takes its address where `ADR` is, and reads any type over its target's
+bytes); they stay for tagged pointers.
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**

@@ -14,11 +14,13 @@ import { charsOf } from "./cursor.js"
 import { sameStorage } from "../places/path.js"
 import { binaryOf, cast } from "../core/build.js"
 import { convert } from "../values/convert.js"
-import { describePointer, unsuppliedInput } from "./deref.js"
+import { describePointer, unsuppliedInput, unsuppliedRoot } from "./deref.js"
 import { byteSize } from "../storage/bytes.js"
 import { constantValue } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { NO_TAG } from "../core/tags.js"
+import { escapeKey, type Holder, holderOf, holdsAddresses, noteCopy, noteStore } from "./escape.js"
+import { isNew, refuseDynamicMemory } from "../builtins/system.js"
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
@@ -67,6 +69,7 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
 export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value: IrExpr; target?: PointerTarget } | undefined {
   if (e.kind === "paren") return pointerValue(lw, e.inner, pointerType)
   if (e.kind === "literal" && e.value === 0n) return { value: { kind: "const", value: BigInt(NO_TAG), type: pointerType, span: e.span } }
+  if (isNew(e)) return refuseDynamicMemory(lw, e.span)
   const adr = adrOperand(e)
   if (adr !== undefined) return addressOf(lw, adr, pointerType, e.span)
   // `anyArg.pValue` — the address of the variable the call passed. An ANY input is a hidden VAR_IN_OUT bound to it, per
@@ -134,6 +137,107 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
     return lw.bail("pointer-step", "a pointer stepped by something other than whole elements of its array", e.span)
   const step: IrExpr = { kind: "const", value: count / size, type: pointerType, span: stepped.right.span }
   return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
+}
+
+// ─── a pointer that holds addresses into the image (design.md §3.3 step 4d) ─────────────────────────────────────────
+
+/**
+ * A value stored into a pointer that holds ADDRESSES (`escape.holdsAddresses`): `0`; `ADR(x)` of a variable the image
+ * holds — its byte address; another such pointer; or either stepped by a number of BYTES (`p + SIZEOF(INT)`, `ADR(sv) + 5`),
+ * as CODESYS steps a pointer. What it is given is recorded for the escape pass (`noteStore`, `noteCopy`): the address of
+ * something the image cannot hold makes the pointer one that holds tags, decided before the bodies lower again.
+ */
+export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | undefined {
+  const pointerType = pointer.type
+  if (e.kind === "paren") return addressValue(lw, e.inner, pointer)
+  if (e.kind === "literal" && e.value === 0n) return { kind: "const", value: 0n, type: pointerType, span: e.span }
+  if (isNew(e)) return refuseDynamicMemory(lw, e.span)
+  const adr = adrOperand(e)
+  if (adr !== undefined) return imageAddressOf(lw, adr, pointer, e.span)
+  // `anyArg.pValue` names the variable a call passed, through a hidden VAR_IN_OUT — a tag (`pointerValue`)
+  if (e.kind === "member" && e.base.kind === "ident_expr" && pointerFrame(lw).anyInputs.has(e.base.name.toUpperCase()) && e.member.name.toUpperCase() === "PVALUE") {
+    noteStore(lw, pointer, undefined)
+    return lw.bail("any-input", `${e.base.name}.pValue stored into a pointer that holds addresses`, e.span)
+  }
+  if (e.kind === "binary" && (e.op === "+" || e.op === "-")) {
+    const from = addressValue(lw, e.left, pointer)
+    const bytes = from === undefined ? undefined : lowerExpr(lw, e.right)
+    if (from === undefined || bytes === undefined) return undefined
+    if (bytes.type.kind !== "elementary") return lw.bail("pointer-value", "a pointer stepped by something that is not a number of bytes", e.span)
+    return binaryOf(e.op === "+" ? "add" : "sub", from, cast(bytes, pointerType), pointerType, e.span)
+  }
+  if (e.kind !== "ident_expr" && e.kind !== "member" && e.kind !== "index") return lw.bail("pointer-value", "a pointer value this does not model", e.span)
+  const source = lowerPlace(lw, e)
+  if (source === undefined) return undefined
+  if (source.type.kind === "elementary")
+    return lw.bail("pointer-value", `an integer (${exprText(e)}) stored as a pointer — its value is a byte address`, e.span)
+  if (source.type.kind !== "pointer") return lw.bail("pointer-value", "a pointer value this does not model", e.span)
+  noteCopy(lw, pointer, holderOf(lw, source, ""))
+  if (!holdsAddresses(lw, source)) return lw.bail("pointer-targets", `${describePointer(lw, source)} holds a tag, copied into a pointer that holds addresses`, e.span)
+  if (unsuppliedRoot(lw, source, e.span)) return undefined
+  return convert({ kind: "load", place: source, type: source.type, span: e.span }, pointerType)
+}
+
+/**
+ * TWO ADDRESSES COMPARED — a pointer that holds addresses, or `ADR(x)` of a variable the image holds, on either side:
+ * `=`/`<>` compare the addresses; `<`, `<=`, `>`, `>=` ORDER them, inside one region only (`address_order`; across two
+ * the order is our layout's, which faults by name — `pointer_order_compare`). `null` when the comparison is not that
+ * shape — a pointer that holds tags, `p = 0` — so the caller goes on as before.
+ */
+export function pointerCompare(lw: Lowering, e: Extract<Expr, { kind: "binary" }>): IrExpr | undefined | null {
+  const ops: Readonly<Record<string, "eq" | "ne" | "lt" | "le" | "gt" | "ge">> = { "=": "eq", "<>": "ne", "<": "lt", "<=": "le", ">": "gt", ">=": "ge" }
+  const op = ops[e.op]
+
+  if (op === undefined || !isAddress(lw, e.left) || !isAddress(lw, e.right)) return null
+  const left = addressOperand(lw, e.left)
+  const right = left === undefined ? undefined : addressOperand(lw, e.right)
+  if (left === undefined || right === undefined) return undefined
+  const bool = elementaryRef("BOOL")
+  if (op === "eq" || op === "ne") return { kind: "binary", op, left, right: convert(right, left.type), type: bool, span: e.span }
+  const dint = elementaryRef("DINT")
+  const order: IrExpr = { kind: "builtin", name: "address_order", args: [left, convert(right, left.type)], type: dint, span: e.span }
+  return { kind: "binary", op: op!, left: order, right: { kind: "const", value: 0n, type: dint, span: e.span }, type: bool, span: e.span }
+}
+
+/** Whether one side of a comparison is an ADDRESS: `ADR(x)` of a variable the image holds (or of an image place), or a
+ *  pointer that holds addresses — asked before anything is lowered for real, so a comparison of tags goes on as before. */
+function isAddress(lw: Lowering, e: Expr): boolean {
+  if (e.kind === "paren") return isAddress(lw, e.inner)
+  const adr = adrOperand(e)
+  const shaped = adr !== undefined || e.kind === "ident_expr" || e.kind === "member" || e.kind === "index"
+  if (!shaped) return false
+  const before = lw.diagnostics.length
+  const place = lowerPlace(lw, adr ?? e)
+  lw.diagnostics.length = before
+  if (place === undefined) return false
+  if (adr !== undefined) return place.root === "image" || escapeKey(lw, place) !== undefined
+  return place.type.kind === "pointer" && holdsAddresses(lw, place)
+}
+
+/** One side of `pointerCompare` (`isAddress` said it is one), lowered: the address. */
+function addressOperand(lw: Lowering, e: Expr): IrExpr | undefined {
+  if (e.kind === "paren") return addressOperand(lw, e.inner)
+  const adr = adrOperand(e)
+  if (adr !== undefined) return imageAddressOf(lw, adr, undefined, e.span)
+  const place = lowerPlace(lw, e)
+  return place && { kind: "load", place, type: place.type, span: e.span }
+}
+
+/** `ADR(x)` stored into `pointer` (compared, when there is none): x's byte address in the image — refused when the image
+ *  cannot hold x (it keeps a tag). */
+export function imageAddressOf(lw: Lowering, x: Expr, pointer: Holder | undefined, span: Span): IrExpr | undefined {
+  const place = lowerPlace(lw, x)
+  // TAKING AN ADDRESS IS A READ (`addressOf` says why the union refusal names it)
+  if (place === undefined || refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow")) return undefined
+  if (place.path.some((s) => s.kind === "bit")) return lw.bail("pointer-shape", "the address of a bit", span)
+  // `ADR(p^)` of a pointer into the image is where `p` points: already an image place, so nothing escapes
+  const type: Type = pointer?.type ?? { kind: "pointer", target: place.type }
+  if (place.root === "image") return { kind: "address", place, type, span }
+  if (place.guard !== undefined) return lw.bail("pointer-shape", "the address of a dereference", span)
+  noteStore(lw, pointer, place)
+  if (escapeKey(lw, place) === undefined)
+    return lw.bail("pointer-targets", `${pointer === undefined ? "an address compared" : `${pointer.name} holds addresses, and`} ${exprText(x)} is not in the image — a routine's local, a VAR_IN_OUT's target, a string's characters or an instance keep a tag`, span)
+  return { kind: "address", place, type, span }
 }
 
 /**

@@ -26,6 +26,8 @@ describe("emit/rust", () => {
     expect(code).toContain("self.si = -128i8;")
   })
 
+  // MODEL 3: the target a REFERENCE binds lives in the image, which is no Rust lvalue — the in-out is a COPY of it lent
+  // for the call and stored back after it, taken through the null check (`lower/pointers/image-rewrite.ts`)
   test("a VAR_IN_OUT bound through a reference binds its target, checked for null first", () => {
     // Why missed (transpiler review 2026-09-15): a VAR_IN_OUT argument printed `&mut <place>` with no check, where the
     // interpreter checks the guard when it binds — and no test bound one through a reference or a pointer.
@@ -35,8 +37,9 @@ describe("emit/rust", () => {
     )
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
-    expect(code).toContain("iec_deref(self.rv);")
-    expect(code).toContain("self.adder.call(&mut self.n);")
+    expect(code).toContain("let mut __copy_0 = { iec_deref(self.rv); i16::from_le_bytes(__mem.ld(self.rv)) };")
+    expect(code).toContain("self.adder.call(__mem, &mut __copy_0);")
+    expect(code).toContain("let __a = self.rv; __mem.st(__a, __v.to_le_bytes());")
   })
 })
 

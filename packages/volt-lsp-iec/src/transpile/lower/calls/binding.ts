@@ -159,13 +159,20 @@ export function bindWhereWritten(lw: Lowering, b: InvokeBindings, span: Span): (
       written.push({ kind: "freeze", temp, value: { kind: "load", place: guard, type: guard.type, span: binding.span } })
       guard = temp
     }
+    // a place in the byte image is where its ADDRESS says (model 3): the address is frozen where the in-out is written
+    let address = binding.at
+    if (address !== undefined) {
+      const temp = tempPlace(lw, "inout_address", address.type, binding.span)
+      written.push({ kind: "freeze", temp, value: address })
+      address = { kind: "load", place: temp, type: address.type, span: binding.span }
+    }
     const path = binding.path.map((step): Access => {
       if (step.kind !== "index" || step.index.kind === "const") return step
       const temp = tempPlace(lw, "inout_index", step.index.type, binding.span)
       written.push({ kind: "freeze", temp, value: step.index })
       return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
     })
-    inouts[entry.inout] = { ...binding, path, ...(guard === undefined ? {} : { guard }) }
+    inouts[entry.inout] = { ...binding, path, ...(guard === undefined ? {} : { guard }), ...(address === undefined ? {} : { at: address }) }
   }
   return written
 }

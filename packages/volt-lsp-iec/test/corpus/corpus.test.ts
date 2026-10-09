@@ -53,7 +53,7 @@ import {
 import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { libraryRank } from "../../src/frontend/symbols/index.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerUnit } from "../../src/transpile/index.js"
-import type { IrBuiltinName, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
+import type { IrBuiltinName, IrExpr, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { STRUCTURE_ONLY, parseNetworkText } from "../../src/network/index.js"
@@ -605,13 +605,19 @@ const REACH = { bodies: 304, lowered: 54 }
 // that lowered as empty ST.
 const ROUTINES = { routines: 14, routinesFromRunning: 14 }
 
-/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Kept by hand so ADDING one shows up here. */
-const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
-const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const
+/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Checked by the compiler
+ *  both ways, as BUILTINS is below: it held eight expression kinds while the IR defined eleven (`fresh`, `select`, and
+ *  `address` added by 4.4 without a line here — review 4d), so a kind nothing built could not be reported. */
+const EXPR_KINDS = ["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address"] as const satisfies readonly IrExpr["kind"][]
+const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const satisfies readonly IrStmt["kind"][]
+const EXPR_KINDS_ARE_EXHAUSTIVE: [Exclude<IrExpr["kind"], (typeof EXPR_KINDS)[number]>] extends [never] ? true : never = true
+const STMT_KINDS_ARE_EXHAUSTIVE: [Exclude<IrStmt["kind"], (typeof STMT_KINDS)[number]>] extends [never] ? true : never = true
+void EXPR_KINDS_ARE_EXHAUSTIVE
+void STMT_KINDS_ARE_EXHAUSTIVE
 const BUILTINS = [
   "max", "min", "limit", "sel", "trunc", "abs", "expt", "shl", "shr", "rol", "ror", "mux",
   "sqrt", "ln", "log", "exp", "sin", "cos", "tan", "asin", "acos", "atan",
-  "char", "setchar",
+  "char", "setchar", "address_order",
 ] as const satisfies readonly IrBuiltinName[]
 // THE LIST IS THE IR'S, checked by the compiler both ways: `satisfies` refuses a name the IR does not define, and this
 // refuses an IR builtin the list forgot. It held `len`…`find` for a day after the IR stopped defining them, because
@@ -625,9 +631,14 @@ void BUILTINS_ARE_EXHAUSTIVE
  * 31 -> 24 on 2026-09-25 because the IR has 24: the nine string builtins are gone (the Standard library is ST now)
  * and `char`/`setchar` replaced them — still every one built, by the library bodies real code calls.
  */
-const COVERED_EXPR_KINDS = 8
+// 8 -> 10 on 2026-10-09 (review 4d) because the list grew to the IR's 11: `fresh` and `address` are built, `select` (the
+// multi-target tag read, `pointers/deref.ts`) is built by nothing — no fixture and no corpus POU reaches it since the
+// byte image answers a pointer that holds addresses
+const COVERED_EXPR_KINDS = 10
 const COVERED_STMT_KINDS = 9
-const COVERED_BUILTINS = 24
+// 24 -> 25 on 2026-10-09 (transpile-restructure 4.4): `address_order`, two pointers ordered in the byte image, is built
+// by the FIXTURES' pointer compares (`pointer_order_compare`); the corpus alone builds none (measured, review 4d)
+const COVERED_BUILTINS = 25
 
 /**
  * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.

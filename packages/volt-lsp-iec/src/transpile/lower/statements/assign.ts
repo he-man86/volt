@@ -21,6 +21,9 @@ import { registerWholeCopy } from "../calls/last-binding.js"
 import { pointerTargets } from "../pointers/state.js"
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
+import { escapesOf } from "../pointers/escape.js"
+import { byteRun, imageRuns } from "../pointers/image.js"
+import { ADDRESS, BASE_FIELD, offsetBy } from "../../semantics/index.js"
 
 /**
  * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
@@ -137,9 +140,13 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   // Only the IMPLICIT store is refused. `STRING_TO_INT('123')` is an explicit conversion and stays, which is the
   // whole difference CODESYS draws.
   if (refuseImplicitString(lw, value, target.type, s.span) || refuseCursorOverrun(lw, target, value.type, s.span)) return undefined
-  // A pointer target is kept FRAME-RELATIVE (`pointerKey`: `FB:<name>.<field>`), so an instance copied whole would
-  // point at its OWN member where CODESYS copies the address and keeps the source's (`tr_15_fb_copy_keeps_pointer_address`:
-  // rb=7, `b.p = ADR(a.x)`). A target outside the copied instance is not modelled: refused (transpile-review 15).
+  // AN INSTANCE WHOSE DATA THE IMAGE HOLDS, copied whole: its bytes move, its own region stays (`instanceCopy`)
+  const imaged = instanceCopy(lw, target, value, s.span)
+  if (imaged !== null) return imaged
+  // A pointer that holds a TAG keeps its target FRAME-RELATIVE (`pointerKey`: `FB:<name>.<field>`), so an instance copied
+  // whole would point at its OWN member where CODESYS copies the address and keeps the source's
+  // (`tr_15_fb_copy_keeps_pointer_address`: rb=7, `b.p = ADR(a.x)`). A pointer that holds an address is copied as the
+  // address it is (model 3); a tag's target outside the copied instance is not modelled: refused (transpile-review 15).
   if (holdsOwnAddress(lw, target.type))
     return lw.bail("copy-instance-pointer", "a whole-value store of an instance whose POINTER or REFERENCE field targets its own member — the copy would re-target it", s.span)
   registerWholeCopy(lw, target.type)
@@ -162,6 +169,58 @@ function holdsOwnAddress(lw: Lowering, t: Type, seen = new Set<string>()): boole
       ? (pointerTargets(lw).get(`FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
       : holdsOwnAddress(lw, f.type, seen),
   )
+}
+
+/**
+ * `b := a` OF AN FB WHOSE DATA THE IMAGE HOLDS (model 3, design.md §3.3 step 4d; RC 15): the instance's struct is copied —
+ * its pointers keep the addresses they hold, as CODESYS copies them (`tr_15`: `b.p = ADR(a.x)`) — but `b` keeps its own
+ * region (`__base`), and then the bytes of every run of image fields move from `a`'s region into `b`'s. `null` when the
+ * store is no such copy; refused (`copy-instance-pointer`) when the copy holds such an instance below its top — an
+ * element, a field — whose region the struct copy would share.
+ */
+function instanceCopy(lw: Lowering, target: Place, value: IrExpr, span: Span): IrStmt[] | undefined | null {
+  const escaped = escapesOf(lw).types
+  const t = target.type
+  const own = t.kind === "function_block" && escaped.has(t.name.toUpperCase())
+  if (!own && !holdsEscaped(lw, t, escaped)) return null
+  if (!own || value.kind !== "load" || [...(lw.layouts.get(t.name.toUpperCase())?.fields ?? [])].some((f) => holdsEscaped(lw, f.type, escaped)))
+    return lw.bail("copy-instance-pointer", "a whole-value store of instances whose data lives in the byte image, held below the value's top", span)
+  const runs = imageRuns(lw, t.name)
+  if (runs === undefined) return lw.bail("layout-unmeasured", `${t.name}'s data has its address stored, and where it sits in an instance is not measured`, span)
+  const base = (p: Place): Place => ({ ...p, path: [...p.path, { kind: "field", name: BASE_FIELD }], type: ADDRESS, span })
+  const load = (p: Place): IrExpr => ({ kind: "load", place: p, type: p.type, span })
+  const kept = tempPlace(lw, "base", ADDRESS, span)
+  const bytes = runs.runs.map(([start, end]): IrStmt => {
+    const at = (p: Place): Place => ({ slot: 0, root: "image", at: offsetBy(load(base(p)), start), path: [], type: byteRun(end - start), span })
+    return { kind: "assign", target: at(target), value: load(at(value.place)), span }
+  })
+  return [
+    { kind: "assign", target: kept, value: load(base(target)), span },
+    assignTo(target, value, span),
+    { kind: "assign", target: base(target), value: load(kept), span },
+    ...bytes,
+  ]
+}
+
+/**
+ * A value stored whole into `target` by a call's argument — an FB's VAR_INPUT stored before the call, its VAR_OUTPUT read
+ * with `=>` after it: an instance whose data the image holds is copied as `b := a` copies it (`instanceCopy`), so the
+ * copy and its source never share one region (review 4d); anything else is the plain store.
+ */
+export function storeArgument(lw: Lowering, target: Place, value: IrExpr, span: Span): IrStmt[] | undefined {
+  const imaged = instanceCopy(lw, target, value, span)
+  return imaged === null ? [assignTo(target, value, span)] : imaged
+}
+
+/** Whether a value of `t` holds an instance of an escaped FB type, at any depth. */
+function holdsEscaped(lw: Lowering, t: Type, escaped: ReadonlySet<string>, seen = new Set<string>()): boolean {
+  if (t.kind === "array") return holdsEscaped(lw, t.element, escaped, seen)
+  if (t.kind !== "struct" && t.kind !== "function_block") return false
+  const name = t.name.toUpperCase()
+  if (escaped.has(name) && t.kind === "function_block") return true
+  if (seen.has(name)) return false
+  seen.add(name)
+  return (lw.layouts.get(name)?.fields ?? []).some((f) => f.section !== "VAR_STAT" && holdsEscaped(lw, f.type, escaped, seen))
 }
 
 /**

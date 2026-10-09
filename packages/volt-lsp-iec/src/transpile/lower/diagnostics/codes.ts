@@ -91,6 +91,15 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "exit-outside-loop": "invalid",
   "copy-instance-pointer": "not-modelled",
   "cursor-overrun": "not-modelled",
+  // `__NEW` / `__DELETE`: the recording project has no memory pool, so what an allocation answers is unrecorded
+  // (the `newdel_*` fixtures are unaskable) — refused by name before a byte address could stand for one (4.4)
+  "dynamic-memory": "not-measured",
+  // an instance whose data lives in the program's byte image, held where a region per call would be needed — a
+  // METHOD's or FUNCTION's local, a VAR_TEMP (design.md §3.3 step 4d)
+  "image-stack": "not-modelled",
+  // a type whose byte layout the program observes and no recording measured — a derived FB, an FB with a VAR_IN_OUT
+  // or a METHOD's VAR_INST, whose data an address is stored into (design.md §3.3, 4.4)
+  "layout-unmeasured": "not-measured",
   "for-bound-call": "unclassified",
   "for-limit-type": "invalid",
   "for-step-type": "invalid",

@@ -73,6 +73,9 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     case "char":
     case "setchar":
       return stringBuiltin(name, args, type, argTypes)
+    // an order of two addresses needs the image they point into — the interpreter's machine computes it (`Memory.order`)
+    case "address_order":
+      throw new LoweringBug("address_order has no value without the program's image")
     case "sqrt":
     case "ln":
     case "log":

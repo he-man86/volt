@@ -110,6 +110,8 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   },
   char: (e, args) => `${args[0]}.char_at(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`,
   setchar: (e, args, argv) => `${args[0]}.with_char(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`,
+  // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
+  address_order: (_e, _args, argv) => `__mem.order(${argv[0]}, ${argv[1]})`,
   ln: logarithm,
   log: logarithm,
   sqrt: math,

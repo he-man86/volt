@@ -10,21 +10,24 @@ import { lookup } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
 import { fieldIn, fieldOf, rootType, typeAlong } from "../places/path.js"
 import { unionsOf } from "./unions.js"
+import { elementarySize } from "../../semantics/index.js"
 
 /**
  * A stored type's byte size and alignment, as the 64-bit simulator lays it out (conformance `mem_sizeof_*`,
- * `mem_member_offsets`): an integer, REAL, TIME or date its bit width in bytes, aligned to it; a BOOL one byte; a STRING(n)
- * n + 1 (the terminator); an array whole elements; a struct its fields (`fieldBytes`). Undefined for anything unmeasured:
- * a BIT (packed with its neighbours), a WSTRING, a pointer or a reference.
+ * `mem_member_offsets`): an integer, REAL, TIME or date its bit width in bytes, aligned to it, and a BOOL one byte
+ * (`semantics/memory.elementarySize`, the one rule); a STRING(n) n + 1 (the terminator); a WSTRING(n) 2·(n + 1), aligned
+ * to 2 (`wstring_layout_in_struct`: a WSTRING(3) after a BYTE is SIZEOF 8 at offset 2); an array whole elements; a struct
+ * its fields (`fieldBytes`). Undefined for anything unmeasured: a BIT (packed with its neighbours), a pointer, a reference.
  */
 export function byteSize(lw: Lowering, t: Type): { size: bigint; align: bigint } | undefined {
   if (t.kind === "elementary") {
     const e = t.elem
-    if (e.name === "BIT") return undefined
-    if (e.family === "bool") return { size: 1n, align: 1n }
-    if (e.family === "string") return e.name === "STRING" && t.length !== undefined ? { size: BigInt(t.length) + 1n, align: 1n } : undefined
-    if (["int", "bitstring", "real", "time", "date"].includes(e.family) && e.bits >= 8) return { size: BigInt(e.bits / 8), align: BigInt(e.bits / 8) }
-    return undefined
+    if (e.family === "string") {
+      if (t.length === undefined) return undefined
+      return e.name === "STRING" ? { size: BigInt(t.length) + 1n, align: 1n } : { size: 2n * (BigInt(t.length) + 1n), align: 2n }
+    }
+    const size = elementarySize(t)
+    return size === undefined ? undefined : { size: BigInt(size), align: BigInt(size) }
   }
   const array = peelArray(t)
   if (array !== undefined) {
@@ -36,13 +39,21 @@ export function byteSize(lw: Lowering, t: Type): { size: bigint; align: bigint }
 
 /**
  * A struct's size, alignment and each field's offset: every field aligned to its own alignment, the whole padded to the
- * widest (`b BYTE; i INT; d DINT; x BOOL; l LREAL` is offsets 0/2/4/8/16, size 24). An FB instance also carries a
- * pointer-sized header (`b BYTE; d DINT` is 16), and where it sits is not measured — so an FB has a size but its fields
- * have no offset. VAR_TEMP and VAR_STAT are not instance storage, and neither are lowering's own temps. Undefined for a
- * derived type (where its base's part and header sit) and an FB with VAR_IN_OUT (the in-out is stored in the instance,
- * not in `fields`) — neither measured; both were answered as if absent (transpiler review 2026-09-15).
+ * widest (`b BYTE; i INT; d DINT; x BOOL; l LREAL` is offsets 0/2/4/8/16, size 24). An FB instance starts with a
+ * pointer-sized header and one pointer per interface it IMPLEMENTS, then its fields in DECLARATION order across its
+ * sections (transpile-restructure 4.3, `fb_header_offsets_plain`: VAR_INPUT `inB` at 8, VAR_OUTPUT `outD` 12, `outW` 16,
+ * `offLoc` 24, VAR `loc` 32, SIZEOF 40; `fb_header_offsets_implements`: every one 8 later, SIZEOF 48; and DECLARATION,
+ * not section, order where the two differ — `fb_offsets_var_before_input`: VAR `loc` at 8, VAR_INPUT `inB` 10, VAR_OUTPUT
+ * `outD` 16, SIZEOF 32, review 4d). VAR_TEMP and
+ * VAR_STAT are not instance storage, and neither are lowering's own temps. Undefined for a derived type (where its base's
+ * part and header sit) and an FB with VAR_IN_OUT (the in-out is stored in the instance, not in `fields`) — neither
+ * measured; both were answered as if absent (transpiler review 2026-09-15).
  */
-export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
+export function fieldBytes(
+  lw: Lowering,
+  t: Extract<Type, { kind: "struct" | "function_block" }>,
+  unmeasured?: Set<string>,
+): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
   const layout = lw.layouts.get(t.name.toUpperCase())
   // a UNION's size (its widest member, aligned?) is not measured
   if (layout === undefined || unionsOf(lw).has(t.name.toUpperCase())) return undefined
@@ -68,23 +79,9 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
     for (const list of s.symbols.values())
       if (list.some((sym) => sym.kind === "method" && (sym.ast as { varSections?: readonly { sectionKind: string }[] }).varSections?.some((v) => v.sectionKind === "VAR_INST"))) return undefined
   const isFb = t.kind === "function_block"
-  // A VAR CONSTANT THE COMPILER REPLACES TAKES NO ROOM, and each IMPLEMENTS adds a pointer (transpile-review 26).
-  // Measured on the one-DINT FB (16): a scalar LINT constant leaves it 16, the same under `const_non_replaced` makes
-  // it 24, a STRUCT constant 32; one interface 24, two 32. Where the interface pointers sit is not measured, so an FB
-  // still has no field offsets; a constant of any other kind (a STRING, an ARRAY), and an interface in a packed FB,
-  // are refused rather than guessed.
-  const replaced = new Set<string>()
-  for (const sec of isFb ? (pending?.unit.varSections ?? []) : [])
-    if (sec.constant === true)
-      for (const d of sec.decls) {
-        if (lw.attributes.get(d)?.has("const_non_replaced") === true) continue
-        for (const n of d.names) {
-          const type = fieldIn(layout.fields, n.text)?.type
-          if (type?.kind === "struct") continue
-          if (type?.kind !== "elementary" || type.elem.family === "string") return undefined
-          replaced.add(n.text.toUpperCase())
-        }
-      }
+  // each IMPLEMENTS adds a pointer, with the header before the fields (4.3); an interface in a packed FB is refused
+  const replaced = isFb ? replacedConstants(lw, layout, pending) : new Set<string>()
+  if (replaced === undefined) return undefined
   const interfaces = implementedInterfaces(lw, isFb ? pending : undefined)
   if (interfaces === undefined) return undefined
   if (packed && interfaces > 0n) return undefined
@@ -109,7 +106,15 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
     }
     bitsUsed = 0
     const b = byteSize(lw, field.type)
-    if (b === undefined) return undefined
+    // THE IMAGE'S LAYOUT (`pointers/image.ts`) goes on past a field of unmeasured size — a pointer, an interface — with
+    // the fields after it in a run of their own, 16 bytes on: no program can tell where that run sits, since a walk,
+    // a difference or an order across two runs faults (design.md §3.3 step 4d). SIZEOF stops there (`unmeasured` unset).
+    if (b === undefined) {
+      if (unmeasured === undefined) return undefined
+      unmeasured.add(field.name.toUpperCase())
+      offset = alignUp(offset + 16n, 8n)
+      continue
+    }
     if (!packed) offset = alignUp(offset, b.align)
     offsets.set(field.name.toUpperCase(), offset)
     offset += b.size
@@ -117,7 +122,28 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   }
   // A PACKED layout is not rounded up at the end either. For a struct this was invisible — `align` stays 1 there, so
   // the round-up did nothing — but an FB's starts at 8 for its header, which turned the measured 13 back into 16.
-  return { size: packed ? offset : alignUp(offset, align), align: packed ? 1n : align, ...(isFb ? {} : { offsets }) }
+  return { size: packed ? offset : alignUp(offset, align), align: packed ? 1n : align, offsets }
+}
+
+/**
+ * A VAR CONSTANT THE COMPILER REPLACES TAKES NO ROOM (transpile-review 26): the FB's constants it replaces, by upper-cased
+ * name. Measured on the one-DINT FB (16): a scalar LINT constant leaves it 16, the same under `const_non_replaced` makes it
+ * 24, a STRUCT constant 32. A constant of any other kind (a STRING, an ARRAY) is refused — undefined — rather than guessed.
+ */
+function replacedConstants(lw: Lowering, layout: { readonly fields: readonly { name: string; type: Type }[] }, pending: PendingBody | undefined): Set<string> | undefined {
+  const replaced = new Set<string>()
+  for (const sec of pending?.unit.varSections ?? [])
+    if (sec.constant === true)
+      for (const d of sec.decls) {
+        if (lw.attributes.get(d)?.has("const_non_replaced") === true) continue
+        for (const n of d.names) {
+          const type = fieldIn(layout.fields, n.text)?.type
+          if (type?.kind === "struct") continue
+          if (type?.kind !== "elementary" || type.elem.family === "string") return undefined
+          replaced.add(n.text.toUpperCase())
+        }
+      }
+  return replaced
 }
 
 /**
@@ -133,13 +159,14 @@ function implementedInterfaces(lw: Lowering, pending: PendingBody | undefined): 
   return BigInt(chains.length)
 }
 
-/** A place's byte offset from the start of its root variable — through struct fields and constant indices only. */
+/** A place's byte offset from the start of its root variable — through struct and FB fields (an FB's measured since 4.3)
+ *  and constant indices only. */
 export function byteOffset(lw: Lowering, place: Place): bigint | undefined {
   let offset = 0n
-  const walked = typeAlong(lw, rootType(lw, place), place.path, { fields: "struct", element: "sized" }, (step, type) => {
+  const walked = typeAlong(lw, rootType(lw, place), place.path, { fields: "composite", element: "sized" }, (step, type) => {
     if (type === undefined) return null
     if (step.kind === "field") {
-      if (type.kind !== "struct") return null
+      if (type.kind !== "struct" && type.kind !== "function_block") return null
       const at = fieldBytes(lw, type)?.offsets?.get(step.name.toUpperCase())
       if (at === undefined || fieldOf(lw, type.name, step.name) === undefined) return null
       offset += at

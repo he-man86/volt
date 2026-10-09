@@ -89,24 +89,26 @@ test("S= and R= through a pointer naming several variables latch the target, not
 describe("a pointer whose store was refused", () => {
   const codes = (src: string) => lowerSource(src, "PLC_PRG").diagnostics.map((d) => `${d.code} | ${d.message}`)
 
+  // A POINTER TO BYTE at a STRUCT (the shape this was found on) is the byte view model 3 holds (design.md §3.3 step
+  // 4d); a POINTER TO INT at a STRING is still refused — a string is no image type, so the pointer keeps a TAG
   test("a dereference after a refused store repeats the store's code, not pointer-order", () => {
     const got = codes(
-      "TYPE S : STRUCT\n\tb : BYTE;\n\td : DWORD;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tsv : S;\n\tpb : POINTER TO BYTE;\n\tx : BYTE;\nEND_VAR\npb := ADR(sv);\nx := pb^;\npb := pb + 1;\nEND_PROGRAM\n",
+      "PROGRAM PLC_PRG\nVAR\n\ttxt : STRING;\n\tps : POINTER TO INT;\n\tx : INT;\nEND_VAR\nps := ADR(txt);\nx := ps^;\nps := ps + 2;\nEND_PROGRAM\n",
     )
     expect(got.some((d) => d.startsWith("pointer-order"))).toBe(false)
     expect(got[0]!.startsWith("pointer-type")).toBe(true)
     expect(got.slice(1)).toEqual([
-      "pointer-type | the pointer variable pb dereferenced after its store was refused (pointer-type)",
-      "pointer-type | the pointer variable pb copied after its store was refused (pointer-type)",
+      "pointer-type | the pointer variable ps dereferenced after its store was refused (pointer-type)",
+      "pointer-type | the pointer variable ps copied after its store was refused (pointer-type)",
     ])
   })
 
+  // A pointer that holds an ADDRESS needs no store before its dereference (model 3): the refused store is its only
+  // diagnostic, and it still names the integer for what it is
   test("an integer stored into a pointer is pointer-value, not pointer-order", () => {
     const got = codes(
       "PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..3] OF INT;\n\tp : POINTER TO INT;\n\tq : POINTER TO INT;\n\tlw : LWORD;\n\tv : INT;\nEND_VAR\np := ADR(arr[1]);\nlw := 5;\nq := lw;\nv := q^;\nEND_PROGRAM\n",
     )
-    expect(got.some((d) => d.startsWith("pointer-order"))).toBe(false)
-    expect(got[0]).toBe("pointer-value | an integer (lw) stored as a pointer — its value is a byte address")
-    expect(got[1]).toBe("pointer-value | the pointer variable q dereferenced after its store was refused (pointer-value)")
+    expect(got).toEqual(["pointer-value | an integer (lw) stored as a pointer — its value is a byte address"])
   })
 })

@@ -106,9 +106,9 @@ describe("StringUtils", () => {
   test.skipIf(skipRustSuite())("the emitted Rust answers every case as the interpreter does", async () => {
     const pou = lowered()
     const prints = CASES.map(([name]) => {
-      const { expr, type } = rustAccess(pou, name)
+      const { read, type } = rustAccess(pou, name)
       const text = type.kind === "elementary" && type.elem.family === "string"
-      return `    println!("{}", ${text ? `String::from_utf8_lossy(p.${expr}.units())` : `p.${expr}`});`
+      return `    println!("{}", ${text ? `String::from_utf8_lossy(${read}.units())` : read});`
     })
     const program = [emitRust(pou).code, "fn main() {", "    let mut p = P::new();", "    p.scan();", ...prints, "}", ""].join("\n")
     const dir = await mkdtemp(join(tmpdir(), "volt-stu-"))

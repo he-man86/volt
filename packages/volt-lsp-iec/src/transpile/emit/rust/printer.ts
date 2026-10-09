@@ -9,6 +9,7 @@ import { expr, unparen } from "./expr.js"
 import { tmp } from "./names.js"
 import { place } from "./place.js"
 import type { Layouts } from "./values.js"
+import { storeImage } from "./image.js"
 
 /** One POU's printer: the state every print function reads and writes. */
 export class Printer {
@@ -40,6 +41,8 @@ export class Printer {
     readonly usesGlobals: boolean,
     /** The program reaches PROGRAM instances — every generated call is handed `prg` too, as any body may call one. */
     readonly usesPrograms = false,
+    /** The program has a byte image — every generated call is handed `__mem` too (`image.ts`). */
+    readonly usesImage = false,
   ) {}
 }
 
@@ -65,7 +68,9 @@ export function lend(p: Printer, b: IrBinding, i: number, param: IrPou["slots"][
 
 /** After the call, each copy marked `back` stored to its place: `self.points = __copy_0;` (an own field lent to an own METHOD). */
 export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-  return bindings.flatMap((b, i) => ("kind" in b && b.back !== undefined ? [`${place(p, b.back, slots)} = ${tmp("copy", i)};`] : [])).join(" ")
+  return bindings
+    .flatMap((b, i) => ("kind" in b && b.back !== undefined ? [b.back.root === "image" ? storeImage(p, b.back, tmp("copy", i), slots) : `${place(p, b.back, slots)} = ${tmp("copy", i)};`] : []))
+    .join(" ")
 }
 
 /**

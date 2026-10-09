@@ -19,8 +19,9 @@ import type { IrInit, IrValue } from "./program.js"
 export type Access =
   | { kind: "field"; name: string }
   /** `length` is absent on an `ARRAY[*]` in-out's dimension: its index is already offset by the bound the call was
-   *  handed (`lower` 0), and the array it was bound to knows its own length. */
-  | { kind: "index"; index: IrExpr; lower: bigint; length?: number }
+   *  handed (`lower` 0), and the array it was bound to knows its own length. `size` is set under an `image` root
+   *  only: the element's byte size, the step the checked index moves the address by (`Place.at`). */
+  | { kind: "index"; index: IrExpr; lower: bigint; length?: number; size?: number }
   | { kind: "bit"; index: number; of: Type }
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */
@@ -37,7 +38,14 @@ export interface Place {
    *  `this`: the instance an FB, METHOD or ACTION body runs on — `THIS^` (`slot` is unused).
    *  `lent`: an FB instance of another frame, lent to this body for the call by its caller (`IrRoutine.lent`,
    *  `IrLayout.lent`) — how a call through an interface reaches the instance its tag names (design §24). */
-  root?: "inout" | "local" | "global" | "this" | "lent"
+  root?: "inout" | "local" | "global" | "this" | "lent" | "image"
+  /**
+   * `image` roots only: the BYTE ADDRESS the place starts at, in the program's little-endian image (design.md §3.3 step
+   * 4d, `semantics/memory.ts`) — a variable whose address a program stores, or a data pointer's target. Its `path` then
+   * holds only `index` steps, each with its element's `size` (checked against its bounds, then `(i - lower) · size`
+   * added to `at`), and a trailing `bit`; every field step is already folded into `at`. `slot` is unused.
+   */
+  at?: IrExpr
   /**
    * A DEREFERENCE: this place is a pointer's or reference's one target (design §9 form 1), reached through `guard`, the
    * pointer variable — which holds 0 when null, so a backend faults before the access (the interpreter throws, Rust
@@ -70,7 +78,20 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect
+export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect | IrAddress
+
+/**
+ * `ADR(x)` OF A VARIABLE IN THE IMAGE — the byte address an `image` place starts at: its `at`, plus each index step's
+ * checked `(i - lower) · size`, exactly the address a load or store of the place would reach, read without the access
+ * (design.md §3.3 step 4d). `type` is the pointer's. Lowering builds it over the variable's own place; the image pass
+ * (`lower/pointers/image.ts`) rewrites that place to its `image` form, so a backend only ever sees an `image` place here.
+ */
+export interface IrAddress {
+  kind: "address"
+  place: Place
+  type: Type
+  span: Span
+}
 
 /**
  * A READ THROUGH A POINTER OR REFERENCE THAT MAY NAME SEVERAL VARIABLES (design §9 form 3, `pointer-model.md`).
@@ -193,6 +214,9 @@ export type IrBuiltinName =
   | "char"
   /** `(s, i, c)`: `s` with `s[i] := c` — the node's type is the string's. See `semantics/string.ts` `setChar` for the model. */
   | "setchar"
+  /** `(a, b)`: two image addresses ORDERED — -1, 0 or 1 as a DINT — once both lie in one region of the image; two regions'
+   *  order is our layout's, never the vendor's, so it faults (`address-across-frames`, design.md §3.3 step 4d). */
+  | "address_order"
 
 /** The one-argument math functions: the argument is already converted to the node's `type` (design §12). */
 export type IrMathName = "sqrt" | "ln" | "log" | "exp" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan"

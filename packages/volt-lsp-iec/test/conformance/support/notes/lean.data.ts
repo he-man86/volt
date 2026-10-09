@@ -301,15 +301,6 @@ export const LEAN = {
   shapes1_11: {
     improvement: "Statements after an unconditional RETURN/EXIT are still printed (`return; self.n = 99i16; ...`, the body after `break 'loop_2;`). rustc reports unreachable_code, and the policy allows it. The printer could stop emitting a block after a diverging statement; the ST line is dead either way.",
   },
-  shapes1_12: {
-    improvement: "Pointers and references are `usize` tags, null-checked by a free function and dispatched by `match` when there are several targets.",
-    alternatives: [
-      "today: `usize` tag, `0` = NULL, `iec_deref(p)` check, then a static target or a `match` over tags",
-      "a per-pointer `enum` (Null, X, Y) with the match on variants: typed and exhaustive, no `_ => panic` arm, but more code per pointer type",
-      "keep usize (my choice): it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
-    ],
-    chosen: "keep usize: it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
-  },
   shapes2_1: {
     improvement: "The same ST construct `x := x + 1` is emitted two ways. A body statement is widened to i32 and narrowed back; the FOR step is added in the counter's own type. For add, sub, mul and neg, truncating the wide wrapping result equals wrapping in the narrow type, so an assign whose value is convert(promoted add/sub/mul of operands converted up from T) back to T can be printed narrow. Comparisons (`(self.runs as i32) > 10i32`) can also be printed narrow, because a sign-preserving widening keeps the order.",
     alternatives: [

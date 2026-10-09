@@ -162,9 +162,19 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
     }
   })
 
-  test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {
-    const { diagnostics } = lowerSource("PROGRAM P\nVAR b : BYTE; n : DINT; END_VAR\nn := CLEN(ADR(b));\nEND_PROGRAM\n", "P", LIBS)
-    expect(diagnostics.map((d) => d.code)).toContain("pointer-order")
+  // It was refused (`pointer-order`) while a pointer was a tag: no string to walk. MODEL 3 (design.md §3.3 step 4d)
+  // makes it the BYTE's address — what CODESYS hands the function — and a walk past that one byte reaches no variable
+  // the program took the address of: it faults by name, never reads our layout's next variable.
+  test("a cursor handed anything but a string's address walks its bytes, and faults by name past them — not guessed", () => {
+    const after = (b: number) => {
+      const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR b : BYTE := ${b}; n : DINT; END_VAR\nn := CLEN(ADR(b));\nEND_PROGRAM\n`, "P", LIBS)
+      expect(diagnostics).toEqual([])
+      const p = run(pou!)
+      p.scan()
+      return p.get("n")
+    }
+    expect(after(0)).toBe(0n)
+    expect(() => after(65)).toThrow("an access through an address outside every variable whose address the program took")
   })
 })
 

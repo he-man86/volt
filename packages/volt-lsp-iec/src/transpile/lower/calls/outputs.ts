@@ -12,9 +12,9 @@ import { isInFrame } from "./specialize.js"
 import { lowerPlace } from "../places/places.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
-import { assignTo } from "../values/convert.js"
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
+import { storeArgument } from "../statements/assign.js"
 
 /** `name => target`: a VAR_OUTPUT bound to the caller's place, copied out after the call; left empty, nothing binds here. */
 export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, bound: number, param: IrSlot | undefined): true | undefined {
@@ -50,7 +50,7 @@ export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside:
 }
 
 /** `q => y`: the output read out of the instance after the call, into a variable it converts to as an assignment does. */
-export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | undefined {
+export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt[] | undefined {
   const written = lowerPlace(lw, arg.value!)
   const target = written === undefined ? undefined : guardWrite(lw, written, arg.span, FULL_WRITE)
   if (target === undefined) return undefined
@@ -66,5 +66,6 @@ export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: I
   // an output copied out through a STRING cursor is a whole-string store into `p^` (`cursor_whole_store_capacity`)
   if (refuseCursorOverrun(lw, target, field.type, arg.span)) return undefined
   const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
-  return assignTo(target, value, arg.span)
+  // an instance whose data the image holds is copied by value, its own region kept (`storeArgument`)
+  return storeArgument(lw, target, value, arg.span)
 }

@@ -194,6 +194,16 @@ const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
     "mem_fb_var_constant_struct: SIZEOF(inst_fb_var_constant_struct)",
     "mem_fb_implements_one: SIZEOF(inst_fb_implements_one)",
     "mem_fb_implements_two: SIZEOF(inst_fb_implements_two)",
+    // lowered for the first time by model 3 (transpile-restructure 4.3/4.4) — the same SIZEOF the AST fold sizes not
+    "xo2_pointer_walk_across_objects: SIZEOF(DUT_X2_slot)",
+    "xo2_pointer_step_variable: SIZEOF(DUT_X2_slot)",
+    "mem_pointer_index_struct_array: SIZEOF(DUT_MEM_pt)",
+    "pointer_byte_walk_struct_padding: SIZEOF(sv)",
+    "fb_header_offsets_plain: SIZEOF(inst_hdr_plain)",
+    "fb_header_offsets_implements: SIZEOF(inst_hdr_impl)",
+    "wstring_layout_in_struct: SIZEOF(sv)",
+    // review of step 4d: the FB that declares VAR before VAR_INPUT (recorded SIZEOF 32, IR 32)
+    "fb_offsets_var_before_input: SIZEOF(inst_var_first)",
   ].map((id) => [id, SIZEOF_LAYOUT]),
   ...[
     "ca_direct_address_expression: %MW30 + 1",

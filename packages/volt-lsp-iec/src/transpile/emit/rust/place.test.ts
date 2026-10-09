@@ -5,7 +5,9 @@ import { lowerSource } from "../../lower/index.js"
 
 
 describe("emit/rust", () => {
-  test("a pointer is a usize index of its one target; every access through it checks for null first", () => {
+  // MODEL 3 (design.md §3.3 step 4d): a data pointer holds a BYTE ADDRESS into the program's image, where the variables
+  // whose address it stores live — it was "a usize index of its one target" (form 1's tag) until the decision of 4.2
+  test("a data pointer is a usize address into the image; every access through it checks for null first", () => {
     const { pou, diagnostics } = lowerSource(
       "PROGRAM Ptrs\nVAR iValue : INT := 7; pInt : POINTER TO INT; iCopy : INT; arr : ARRAY[0..2] OF INT; pa : POINTER TO INT; END_VAR\npInt := ADR(iValue);\niCopy := pInt^;\npa := ADR(arr[1]);\npa[1] := 5;\nEND_PROGRAM\n",
       "Ptrs",
@@ -13,9 +15,9 @@ describe("emit/rust", () => {
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
     expect(code).toContain("pub p_int: usize,")
-    expect(code).toContain("self.p_int = 1;")
-    expect(code).toContain("self.i_copy = { iec_deref(self.p_int); self.i_value };")
-    expect(code).toContain("as usize]") // the element index crosses into the pointer explicitly
+    expect(code).toContain("self.p_int = 0x1_0000_0000;") // iValue is the image's first variable, at its start
+    expect(code).toContain("self.i_copy = { iec_deref(self.p_int); i16::from_le_bytes(__mem.ld(self.p_int)) };")
+    expect(code).toContain("iec_ix(") // the element index is checked against its bounds, then scaled to bytes
     expect(code).toContain("iec_deref(self.pa);") // a write through a pointer is checked on the line before
     expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
   })

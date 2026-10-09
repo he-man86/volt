@@ -15,6 +15,8 @@ import { assignTo, convert } from "../values/convert.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { tagOfIndex } from "../core/tags.js"
+import { holdsAddresses } from "./escape.js"
+import { byteSize } from "../storage/bytes.js"
 
 /**
  * A REFERENCE IS IMPLICITLY DEREFERENCED — `r.x` MEANS `r^.x`, and `r[1]` means `r^[1]`.
@@ -41,6 +43,9 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     if (extra !== undefined) return lw.bail("pointer-index", "an index on a borrowed pointer parameter", span)
     return { ...borrowed, span }
   }
+  // A POINTER THAT HOLDS ADDRESSES (design.md §3.3 step 4d): `p^` is the image at its value, `p[i]` i elements on — no
+  // target to know, so no store has to come first, and an FB's pointer input a caller fills is read where it points
+  if (holdsAddresses(lw, pointer)) return unsuppliedRoot(lw, pointer, span) ? undefined : imageDeref(lw, pointer, extra, span)
   const key = pointerKey(lw, pointer)
   const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   // ONE TARGET IS FORM 1 AND ERASES: the deref is that place, no tag is ever built, and that is the common case.
@@ -77,6 +82,27 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
   const step = { kind: "index" as const, index, lower: target.element.lower, length: target.element.length }
   return { ...target.base, path: [...target.base.path, step], type: target.element.type, guard: pointer, span }
+}
+
+/** `p^` (`p[extra]`) of a pointer that holds addresses: the image at its value, as the pointer's target type — guarded by
+ *  the pointer, so NULL faults as a null dereference before the image is asked. */
+function imageDeref(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): Place {
+  const type = storageOf(lw, (pointer.type as Extract<Type, { kind: "pointer" | "reference" }>).target, span)
+  let at: IrExpr = { kind: "load", place: pointer, type: pointer.type, span }
+  if (extra !== undefined) {
+    const lint = elementaryRef("LINT")
+    const size = byteSize(lw, type)!.size
+    at = binaryOf("add", at, cast(binaryOf("mul", convert(extra, lint), { kind: "const", value: size, type: lint, span }, lint, span), pointer.type), pointer.type, span)
+  }
+  return { slot: 0, root: "image", at, path: [], type, span, guard: pointer }
+}
+
+/** THE POU'S OWN POINTER INPUT, which no caller fills (`unsuppliedInput`'s root case) — refused, true when refused. An FB's
+ *  input a caller fills is no such thing for a pointer that holds addresses: it is read where it points. */
+export function unsuppliedRoot(lw: Lowering, pointer: Place, span: Span): boolean {
+  if (pointer.root !== undefined || lw.routineMode || lw.slots[pointer.slot]?.section !== "VAR_INPUT") return false
+  if (lw.shared.root === "" || lw.displayName !== lw.shared.root) return false
+  return unsuppliedInput(lw, pointer, span) === undefined
 }
 
 /**

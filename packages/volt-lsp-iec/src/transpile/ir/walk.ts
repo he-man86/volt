@@ -6,7 +6,7 @@
  * key but `type`/`span`/`of`) followed whatever a node happened to carry — a `Type`'s scope included, had the skip list
  * missed one key. Every other walk over the IR is built on `childrenOf`.
  */
-import type { IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
+import type { IrBinding, IrCopy, IrExpr, IrFreeze, IrInvoke, Place } from "./expr.js"
 import type { IrCall, IrLoop, IrStmt } from "./stmt.js"
 
 /** Every node a walk visits: an expression, a statement, a place, and the two binding forms a call carries. */
@@ -18,7 +18,8 @@ export const isPlace = (n: IrNode): n is Place => !("kind" in n)
 /** The nodes `node` holds directly, in evaluation order where it has one. */
 export function childrenOf(node: IrNode): IrNode[] {
   if (isPlace(node)) {
-    const out: IrNode[] = node.path.flatMap((step) => (step.kind === "index" ? [step.index] : []))
+    // an image place's address first, then its indices — the order a backend computes the byte address in
+    const out: IrNode[] = [...(node.at === undefined ? [] : [node.at]), ...node.path.flatMap((step) => (step.kind === "index" ? [step.index] : []))]
     if (node.guard !== undefined) out.push(node.guard)
     return out
   }
@@ -27,6 +28,7 @@ export function childrenOf(node: IrNode): IrNode[] {
     case "fresh":
       return []
     case "load":
+    case "address":
       return [node.place]
     case "binary":
       return [node.left, node.right]
@@ -75,7 +77,7 @@ export function childrenOf(node: IrNode): IrNode[] {
   }
 }
 
-const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select"])
+const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address"])
 const STMT_KINDS: ReadonlySet<string> = new Set(["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"])
 const isExpr = (n: IrNode): n is IrExpr => !isPlace(n) && EXPR_KINDS.has(n.kind)
 const isStmt = (n: IrNode): n is IrStmt => !isPlace(n) && STMT_KINDS.has(n.kind)
@@ -121,17 +123,19 @@ export function holdsCall(root: IrNode | readonly IrNode[]): boolean {
 }
 
 /** `node` with every place in it rewritten by `f`, innermost first: a path's indices and a guard are mapped before the
- *  place that holds them. Nothing else changes; a node without a place in it comes back as a copy. */
-export function mapPlaces<T extends IrNode>(node: T, f: (p: Place) => Place): T {
-  return mapNode(node, f) as T
+ *  place that holds them. Nothing else changes; a node without a place in it comes back as a copy. `bind`, when given,
+ *  then rewrites each call's VAR_IN_OUT binding — a place `f` mapped may become a copy lent for the call. */
+export function mapPlaces<T extends IrNode>(node: T, f: (p: Place) => Place, bind?: (b: IrBinding) => IrBinding): T {
+  return mapNode(node, f, bind) as T
 }
 
-function mapNode(n: IrNode, f: (p: Place) => Place): IrNode {
-  const m = <U extends IrNode>(x: U): U => mapNode(x, f) as U
+function mapNode(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => IrBinding) | undefined): IrNode {
+  const m = <U extends IrNode>(x: U): U => mapNode(x, f, bind) as U
+  const bindings = (xs: readonly IrBinding[]): IrBinding[] => xs.map((x) => (bind === undefined ? m(x) : bind(m(x))))
   const ms = <U extends IrNode>(xs: readonly U[]): U[] => xs.map(m)
   if (isPlace(n)) {
     const path = n.path.map((step) => (step.kind === "index" ? { ...step, index: m(step.index) } : step))
-    return f({ ...n, path, ...(n.guard === undefined ? {} : { guard: m(n.guard) }) })
+    return f({ ...n, ...(n.at === undefined ? {} : { at: m(n.at) }), path, ...(n.guard === undefined ? {} : { guard: m(n.guard) }) })
   }
   switch (n.kind) {
     case "const":
@@ -141,6 +145,7 @@ function mapNode(n: IrNode, f: (p: Place) => Place): IrNode {
     case "return":
       return { ...n }
     case "load":
+    case "address":
       return { ...n, place: m(n.place) }
     case "binary":
       return { ...n, left: m(n.left), right: m(n.right) }
@@ -156,7 +161,7 @@ function mapNode(n: IrNode, f: (p: Place) => Place): IrNode {
         ...(n.instance === undefined ? {} : { instance: m(n.instance) }),
         inputs: ms(n.inputs),
         ...(n.order === undefined ? {} : { order: n.order.map((o) => (typeof o === "number" ? o : m(o))) }),
-        inouts: ms(n.inouts),
+        inouts: bindings(n.inouts),
         ...(n.lent === undefined ? {} : { lent: ms(n.lent) }),
       }
     case "dispatch":
@@ -185,7 +190,7 @@ function mapNode(n: IrNode, f: (p: Place) => Place): IrNode {
       return {
         ...n,
         instance: m(n.instance),
-        inouts: ms(n.inouts),
+        inouts: bindings(n.inouts),
         ...(n.lent === undefined ? {} : { lent: ms(n.lent) }),
         ...(n.bind === undefined ? {} : { bind: { ...n.bind, place: m(n.bind.place) } }),
       }
@@ -273,6 +278,10 @@ export function initReadChildren(n: IrNode): IrNode[] {
       return [...n.inputs, ...n.inouts.map((b) => ("kind" in b && b.kind === "copy" ? b.value : b)), ...(n.instance === undefined ? [] : [n.instance])]
     case "select":
       return []
+    // `ADR(x)` takes an address, which is the same whenever it is taken — no read of `x` (`lower/init/sequence.reads`);
+    // what its place's index expressions read, it reads
+    case "address":
+      return childrenOf(n.place)
     default:
       return childrenOf(n)
   }

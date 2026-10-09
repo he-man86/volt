@@ -33,15 +33,17 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
 
 // transpile-review 15: `b := a` copied an FB instance whose POINTER field holds ADR(its own member); the copy's pointer
 // re-targeted to b's member, where CODESYS keeps a's address (`tr_15_fb_copy_keeps_pointer_address`: rb=7, sameA=TRUE,
-// sameB=FALSE). A foreign target is not modelled, so the whole-value store is refused; a copy of an FB without a pointer
-// field still lowers.
-test("a whole-value store of an FB whose pointer field targets its own member is refused", () => {
+// sameB=FALSE). Model 3 (design.md §3.3 step 4d, task 4.7) holds that address: the copy lowers and its pointer reads a's
+// member. A pointer that keeps a TAG — at a string's characters, which the image does not hold — still re-targets, so
+// that whole-value store stays refused; a copy of an FB without a pointer field lowers as it always did.
+test("a whole-value store of an FB whose pointer field holds a TAG of its own member is refused; an address is copied", () => {
   const codes = (fields: string, read: string) =>
     lowerSource(
       `FUNCTION_BLOCK FB_P\nVAR_INPUT set : INT; END_VAR\nVAR x : INT := 5; ${fields} seen : INT; END_VAR\nIF set <> 0 THEN x := set; END_IF\nseen := ${read};\nEND_FUNCTION_BLOCK\n` +
         "PROGRAM P\nVAR a : FB_P; b : FB_P; rb : INT; END_VAR\nb := a;\na(set := 7);\nb(set := 0);\nrb := b.seen;\nEND_PROGRAM\n",
       "P",
     ).diagnostics.map((d) => d.code)
-  expect(codes("p : POINTER TO INT := ADR(x);", "p^")).toEqual(["copy-instance-pointer"])
+  expect(codes("p : POINTER TO INT := ADR(x);", "p^")).toEqual([])
+  expect(codes("txt : STRING := 'abc'; pb : POINTER TO BYTE := ADR(txt);", "BYTE_TO_INT(pb^)")).toEqual(["copy-instance-pointer"])
   expect(codes("", "x")).toEqual([])
 })

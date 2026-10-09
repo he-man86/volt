@@ -168,9 +168,9 @@ describe.skipIf(skipRustSuite())("the emitted Rust", () => {
     const at = (path: string) => rustAccess(pou!, path)
     const lines = clock.map((ms) =>
       [
-        `    g.${at(CLOCK).expr} = ${BigInt(ms) * 1_000_000n};`,
+        `    ${at(CLOCK).write(String(BigInt(ms) * 1_000_000n))}`,
         "    p.scan(&mut g);",
-        `    println!("{} {}", p.${at("t.Q").expr}, p.${at("t.ET").expr});`,
+        `    println!("{} {}", ${at("t.Q").read}, ${at("t.ET").read});`,
       ].join("\n"),
     )
     const program = `${emitted.code}\nfn main() {\n    let mut g = Globals::new();\n    let mut p = PLC_PRG::new();\n${lines.join("\n")}\n}\n`

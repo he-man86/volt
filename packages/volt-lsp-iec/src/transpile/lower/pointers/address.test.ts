@@ -12,22 +12,22 @@ function ir(src: string, name?: string) {
   return pou!
 }
 
-test("a stepped pointer names the byte view when there is no array, and the element rule when there is", () => {
-  // `size === undefined` meant "no element to step at all" and was reported as "not whole elements of its ARRAY",
-  // which names an array that does not exist. Measured (pointer-model.md §3): 88 stepped uses in the corpus,
-  // almost all of them walking a byte's bits through a pointer to a single BOOL — every one is this case.
+// Both were refused (`pointer-step`) while a pointer was a tag — "the byte-addressable view" for a step off a single
+// variable, "whole elements of its array" for a step that is not one. MODEL 3 (design.md §3.3 step 4d) IS that view:
+// a pointer is a byte address and steps by bytes (`pointer_step_past_end`, `pointer_byte_walk_struct_padding`), so a
+// step of 3 bytes into a DINT array reads the DINT whose bytes start there, little-endian.
+test("a stepped pointer steps BYTES — off a single variable, and by less than an element", () => {
   const single =
     `PROGRAM P\nVAR b : BOOL; p : POINTER TO BOOL; q : POINTER TO BOOL; END_VAR\n` +
     `p := ADR(b);\nq := p + 1;\nEND_PROGRAM\n`
-  const one = lowerSource(single, "P").diagnostics.find((d) => d.code === "pointer-step")
-  expect(one?.message).toContain("byte-addressable view")
+  expect(lowerSource(single, "P").diagnostics).toEqual([])
 
-  // an ARRAY element stepped by a non-multiple keeps the rule it actually broke
   const arr =
-    `PROGRAM P\nVAR xs : ARRAY[0..3] OF DINT; p : POINTER TO DINT; q : POINTER TO DINT; END_VAR\n` +
-    `p := ADR(xs[0]);\nq := p + 3;\nEND_PROGRAM\n`
-  const two = lowerSource(arr, "P").diagnostics.find((d) => d.code === "pointer-step")
-  expect(two?.message).toContain("whole elements of its array")
+    `PROGRAM P\nVAR xs : ARRAY[0..3] OF DINT := [16#44332211, 16#08776655, 0, 0]; p : POINTER TO DINT; q : POINTER TO DINT; v : DINT; END_VAR\n` +
+    `p := ADR(xs[0]);\nq := p + 3;\nv := q^;\nEND_PROGRAM\n`
+  const runner = run(ir(arr, "P"))
+  runner.scan()
+  expect(runner.get("v")).toBe(0x77665544n)
 })
 
 // transpile-review 44: array element k was tagged k+1 with 0 as NULL, so `ADR(arr[0]) - SIZEOF(INT)` read as NULL, and a

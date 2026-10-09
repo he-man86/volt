@@ -29,7 +29,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { LoopGuardError, lowerSource, run, type IrPou } from "../../src/transpile/index.js"
-import { rustAccess } from "./support/rust-access.js"
+import { type RustAccess, rustAccess } from "./support/rust-access.js"
 import type { Type } from "../../src/frontend/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
@@ -77,7 +77,7 @@ const realSeedFor = (path: string): number => REAL_SEEDS[pathHash(path) % REAL_S
 interface Case {
   name: string
   pou: IrPou
-  paths: { path: string; type: Type; global: boolean; expr: string }[]
+  paths: ({ path: string } & RustAccess)[]
   cycles: number
   /**
    * The source calls a TRANSCENDENTAL (`EXPT`, `SQRT`, `LN`, `SIN`, …), so its REAL results compare within a few ULP
@@ -104,8 +104,7 @@ function prepare(t: LanguageTest): Case | undefined {
   const paths: Case["paths"] = []
   for (const path of runPaths(t, ALL_TESTS)) {
     try {
-      const { expr, type, global } = rustAccess(pou, path)
-      paths.push({ path, type, global, expr })
+      paths.push({ path, ...rustAccess(pou, path) })
     } catch {
       // a path the emitter cannot address is not a divergence — it is outside this gate's reach
     }
@@ -203,14 +202,14 @@ function rustProgram(c: Case): string {
   const setup = [
     ...(emitted.usesGlobals ? ["    let mut g = Globals::new();"] : []),
     ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
+    ...(emitted.usesImage ? ["    let mut mem = Mem::new();"] : []),
   ]
-  const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
+  const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : []), ...(emitted.usesImage ? ["&mut mem"] : [])].join(", ")
   const seeds: string[] = []
   for (const p of c.paths) {
     const kind = seedable(p.type)
     if (kind === undefined) continue
     const n = seedFor(p.path)
-    const root = p.global ? "g" : "p"
     const value =
       kind === "bool"
         ? n % 2 === 1
@@ -220,14 +219,12 @@ function rustProgram(c: Case): string {
           ? // the SAME ladder value the interpreter is handed, printed so Rust reads it as the f64 it is
             `(${realSeedFor(p.path).toExponential()}f64) as _`
           : `${n} as _`
-    seeds.push(`    ${root}.${p.expr} = ${value};`)
+    seeds.push(`    ${p.write(value)}`)
   }
   const prints = c.paths.map((p) => {
     const family = p.type.kind === "elementary" ? p.type.elem.family : undefined
-    const root = p.global ? "g" : "p"
     // reals print their BITS, strings their units — see the header
-    const field =
-      family === "real" ? `${root}.${p.expr}.to_bits()` : `${root}.${p.expr}${family === "string" ? ".units()" : ""}`
+    const field = family === "real" ? `(${p.read}).to_bits()` : `${p.read}${family === "string" ? ".units()" : ""}`
     return `    println!("${p.path}\\t{${family === "string" ? ":?" : ""}}", ${field});`
   })
   // INIT BEFORE THE SEEDS, because `run(pou)` executes `pou.init` at CONSTRUCTION — before a caller can set
@@ -240,7 +237,7 @@ function rustProgram(c: Case): string {
 }
 
 let emitCache: WeakMap<IrPou, ReturnType<typeof import("../../src/transpile/index.js").emitRust>> | undefined
-function emitFor(c: Case): { code: string; usesGlobals?: boolean; usesPrograms?: boolean } {
+function emitFor(c: Case): { code: string; usesGlobals?: boolean; usesPrograms?: boolean; usesImage?: boolean } {
   emitCache ??= new WeakMap()
   const hit = emitCache.get(c.pou)
   if (hit !== undefined) return hit
@@ -315,8 +312,7 @@ function prepareProbe(name: string, source: string): Case | undefined {
   const paths: Case["paths"] = []
   for (const slot of pou.slots) {
     try {
-      const { expr, type, global } = rustAccess(pou, slot.name)
-      paths.push({ path: slot.name, type, global, expr })
+      paths.push({ path: slot.name, ...rustAccess(pou, slot.name) })
     } catch {
       // not addressable from outside — not this gate's business
     }
@@ -384,8 +380,7 @@ test("a place the interpreter cannot read is an answer to compare, not a place d
   const source = "PROGRAM PLC_PRG\nVAR\n\ta : ARRAY[0..2] OF INT;\nEND_VAR\na[0] := 1;\nEND_PROGRAM\n"
   const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
   if (pou === undefined) throw new Error("the source does not lower")
-  const { expr, type, global } = rustAccess(pou, "a[5]")
-  const b = interpreterOutcome({ name: "unreadable", pou, paths: [{ path: "a[5]", type, global, expr }], cycles: 1, transcendental: false })
+  const b = interpreterOutcome({ name: "unreadable", pou, paths: [{ path: "a[5]", ...rustAccess(pou, "a[5]") }], cycles: 1, transcendental: false })
   if (b === undefined || b.faulted) throw new Error("the program itself runs")
   expect(b.values.get("a[5]")).toBe("unreadable: array index 5 is outside its bounds")
 })

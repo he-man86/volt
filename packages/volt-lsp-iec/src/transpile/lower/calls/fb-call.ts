@@ -22,9 +22,11 @@ import { fbOutputCopy } from "./outputs.js"
 import { guardWrite } from "../places/access-guards.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { refuseImplicitString } from "../statements/assign.js"
-import { assignTo } from "../values/convert.js"
+import { refuseImplicitString, storeArgument } from "../statements/assign.js"
 import { boundName, boundOf, openDims } from "../places/bounds.js"
+import { refuseDynamicMemory } from "../builtins/system.js"
+import { holdsAddresses } from "../pointers/escape.js"
+import { storePointer } from "../pointers/store.js"
 
 /**
  * `inst(a := x, q => y)` → the input assignments, the call, the output assignments (IrCall). A FUNCTION, a METHOD or
@@ -33,6 +35,7 @@ import { boundName, boundOf, openDims } from "../places/bounds.js"
  * `state_empty_argument`); an empty output reads into nothing.
  */
 export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind: "call_stmt" }>["call"]): IrStmt[] | undefined {
+  if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "__DELETE") return refuseDynamicMemory(lw, call.span)
   if (isSuper(call.callee)) return lowerSuperCall(lw, call)
   const routed = routineCallStatement(lw, call)
   if (routed !== null) return routed
@@ -158,21 +161,24 @@ function fbArguments(
     const member: Place = { ...instance, path: [...instance.path, { kind: "field", name: field.name }], type: field.type, span: arg.span }
     const stmt = arg.output ? fbOutputCopy(lw, arg, member, field) : fbInputStore(lw, arg, member, field)
     if (stmt === undefined) return undefined
-    ;(arg.output ? after : before).push(stmt)
+    ;(arg.output ? after : before).push(...(Array.isArray(stmt) ? stmt : [stmt]))
   }
   return { before, after, bound }
 }
 
 /** `a := x`: the input stored into the instance's field before the call — an interface input as the tag it holds. */
-function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | undefined {
+function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | IrStmt[] | undefined {
   // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
   // storing into it is not recorded — refused as the store it is
   if (guardWrite(lw, member, arg.span, ["constant"]) === undefined) return undefined
   // an FB keeps an interface input as it keeps any (`itf_fb_input_left_out`): the tag stored into its field
   if (field.type.kind === "interface") return storeInterface(lw, member, arg.value!, arg.span)
+  // a pointer input that holds addresses (model 3) is handed one, as a store into the field (`pointers/store.ts`)
+  if (field.type.kind === "pointer" && holdsAddresses(lw, member)) return storePointer(lw, member, arg.value!, arg.span)
   const value = lowerExpr(lw, arg.value!, field.type)
   if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
-  return assignTo(member, value, arg.span)
+  // an instance whose data the image holds is copied by value, its own region kept (`storeArgument`)
+  return storeArgument(lw, member, value, arg.span)
 }
 
 /**

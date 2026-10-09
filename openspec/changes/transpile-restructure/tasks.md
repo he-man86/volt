@@ -3188,12 +3188,25 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `VOLT_REQUIRE_FULL=1 bun test` (cached rustc, VOLT_FIXTURES unset) 8618 pass, 35 skip, 437 todo, 0 fail, 9090 tests
     in 304 files. OPEN: the owner accepts the choice before 4.3 starts (design.md says so); 4.3 does not start
     on this step.
-- [ ] 4.3 IR for the decision.
+- [x] 4.3 IR for the decision.
   - What: `ir/expr.ts` changes (reinterpret / load-bytes / store-bytes nodes if (b); an enum-handle node if (d)); `ir/walk.ts` extended.
   - Where: `ir/expr.ts`, `ir/walk.ts`, `walk.test.ts`.
   - Accept: G; `walk.test.ts` totality green.
   - Depends: 4.2.
-- [ ] 4.4 Both backends implement the representation.
+  - Done 2026-10-09 (step 4d; design.md "§3.3 Decision (step 4d, as built)"). The ONE recorder batch per vendor first
+    (`memory/pointer-model.ts`, 4 fixtures; `record:exec` 4 cases 0 failed; `record:language` CODESYS and TwinCAT
+    `-Fixture 13`, `ide.ps1 -Instance transpile-restructure`, all four build clean on both):
+    `fb_header_offsets_plain` (header 8, then the fields in DECLARATION order across VAR_INPUT/VAR_OUTPUT/VAR: inB 8,
+    outD 12, outW 16, offLoc 24, loc 32, SIZEOF 40), `fb_header_offsets_implements` (+8 for one interface: 16/20/24/32/40,
+    SIZEOF 48), `wstring_layout_in_struct` (WSTRING(3) SIZEOF 8, aligned 2: offsets 2/10, struct 12),
+    `reinterpret_dint_as_real_edges` (every bit kept: bSnan 16#7FA00000, -0, the denormal, ±max). `storage/bytes.ts`
+    answers FB field offsets and WSTRING sizes from them (both header fixtures and the WSTRING one lower, confirmed).
+    IR (`ir/expr.ts`, `program.ts`, `faults.ts`): `Place.root "image"` with `at` (index steps keep a `size`), the
+    expression `address`, the builtin `address_order`, `IrSlot.image`, `IrLayout.size`, `IrPou.image`, the faults
+    `address-outside-image`/`address-across-frames`; `walk.ts` visits `at` and `address` (`mapPlaces` also rewrites a
+    call's bindings). G: `walk.test.ts` totality names "image place" and "address", and `mapPlaces` maps both (green).
+
+- [x] 4.4 Both backends implement the representation.
   - What: `semantics/memory.ts` (if (b)), `interp/frame.ts`, `emit/rust/runtime/pointer.ts`, `emit/rust/types.ts`; lowering in
     `pointers/state.ts`, `address.ts`, `deref.ts`, `store.ts`.
   - Where: those files.
@@ -3204,20 +3217,97 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Accept: every currently confirmed `indirect` fixture stays confirmed; S-out on all non-pointer fixtures; M; the six refused
     `newdel_*` fixtures and `op_sys_new_delete` refused `dynamic-memory`.
   - Depends: 4.3.
-- [ ] 4.5 One below the first element (RC 44).
+  - Done 2026-10-09 (step 4d). `dynamic-memory` first — failing tests then green (`pointers/image.test.ts` "a POU whose
+    only statement is `p := __NEW(INT);`", "`__DELETE(p)`"): `newdel_*` ×6 and `op_sys_new_delete` refused
+    `dynamic-memory` (was `pointer-value`/`stmt-call_stmt`), as are `ar_new_type`, `cc5_new_in_expression`,
+    `lex_keyword_called_sys_delete`. `semantics/memory.ts` (`Memory`, `toImage` — the ONE place rewrite lowering, the
+    runner and the Rust harness share) and `emit/rust/runtime/pointer.ts` `Mem` with twin cases `memory.cases.ts`
+    (`memory.test.ts` 25, `runtime-twins.test.ts` "Mem over every byte-image case" + the recordings check; the sNaN case an
+    expected failure on the TypeScript side). Lowering: `pointers/escape.ts` (the escape pass, a lowering run to a fixed
+    point: fixtures 5045 in one pass, 141 in two; corpus 130 / 174, none more), `pointers/image.ts` (layout, static
+    regions), `pointers/image-rewrite.ts` (rewrite, in-out copies, `call-inout-alias`, `image-stack`), address pointers in
+    `address.ts`/`store.ts`/`deref.ts`, `places.ts` folds steps on image places, `operators.ts` compares addresses,
+    `invoke.ts`/`fb-call.ts` hand pointer inputs an address. Registered: `dynamic-memory`, `layout-unmeasured`,
+    `image-stack`. Interpreter: `frame.ts` image reads/writes, `runner.ts` paths through `toImage`; Rust: `image.ts`,
+    `__mem` threaded like `g`. Harnesses (`rust-access.ts` read/write, replay, backends, edge, library tests) pass `mem`.
+    - Accept: every confirmed `indirect` row stays confirmed (the 77 confirmed pointer rows of the census replayed,
+      values in both backends); S-out: `snapshot:transpile check` against a baseline taken at the step's start — 91
+      fixtures differ, every one holding ADR/REF=/POINTER/REFERENCE/SIZEOF, no other fixture differs in any layer.
+    - Lowering for the first time (all confirmed): `tr_15`, `pointer_order_compare`, `pointer_byte_walk_struct_padding`,
+      `xo2_pointer_step_variable` (its mark removed), `ptrparam_function_block`/`_kept`/`_input_persists`/`_unsupplied`,
+      `use_pointer_deref_struct_field`, `cc_fp_ptr_deref`, `ty_array_of_pointer`, `cv_pointer_deref_to_reference_values`,
+      `cv_pointer_to_other_pointee`, the three 4.3 layout fixtures; `pointer_step_past_end` confirmed (mark removed).
+      Lowering and marked `diverges` (the interpreter's REAL is a JS number, its NaN always 16#7FC00000; the Rust keeps
+      the bits): `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`, `reinterpret_dint_as_real_edges` — 4.9/4.12's.
+    - Src tests changed because the decided model answers them (design.md 4.2/4d), each saying so: `totality.test.ts`
+      (an address is taken where ADR is; any pointer type reads its bytes; a zero-size step divides nothing),
+      `address.test.ts` (steps are bytes), `deref.test.ts` (the refused-store rule shown on a tag pointer; an address
+      pointer needs no store first), `cursor.test.ts` (a cursor over a BYTE walks and faults by name), `assign.test.ts`
+      (RC 15), `emit/rust/place.test.ts`, `calls.test.ts`.
+    - Notes: `013de1dc6a`, `de8528b197` (shapes1_12, "pointers are usize tags", owned by 4.4) resolved and deleted; 16
+      notes whose constructs no fixture emits any more (element-tag arithmetic, tag `match`es, in-out freeze temps) deleted
+      (`0c7c4434c4 0cf79a4fb2 1fa78ccf62 26c1488275 28e0f14a5a 32f4b8cabb 417ce6fb0b 41d2232599 48944bacca 55d895e28f
+      690693c479 785b5ff775 96161d76eb dd1daf8424 def43ae4d0 ef64f29f0d`).
+    - Gates moved with reasons: `source-map.test.ts` RENAMED_TARGETS 41 → 141 (a store through `Mem` names no field),
+      `fold-agreement` 7 SIZEOFs added to task 6.A.31's class, `ir-walk` reference walk taught `at`/`address`,
+      `corpus.test` COVERED_BUILTINS 24 → 25 (`address_order` built by the corpus), frontend/analysis baselines
+      rewritten (counts only; `ceilings.json` unchanged; 3 named CEILING_EXCEPTIONS for the 4.3 fixtures' SIZEOF-of-FB and
+      negated literals).
+    - Corpus (`probe-lowering-refusals.ts`, 304 POUs): 54 lower / 250 refused, unchanged; `pointer-order` 71 → 48,
+      `pointer-foreign` 12 → 6, `pointer-runtime-index` 10 → 6, `pointer-type` 42 → 40, `pointer-value` 99, `pointer-
+      outlives` 58, `pointer-root-input` 7, `any-input` 8 unchanged; `pointer-targets` 0 → 16 (a pointer given both an
+      address and a tag's target, in POUs refused on many other codes); POUs with any pointer code 136 → 135; pointer-only
+      POUs 5 → 4.
+
+- [x] 4.5 One below the first element (RC 44).
   - Where: `lower/pointers/state.ts`, `address.ts`.
   - Accept: F(`tr_44_pointer_step_below_first_element`) (lowers; isNull = FALSE); M.
   - Depends: 4.4.
-- [ ] 4.6 S=/R= through a multi-target pointer (RC 14).
+  - Done 2026-10-09 (step 4d). IMAGE_BASE = 2^32 answers it for a pointer that holds addresses: `tr_44` stays confirmed
+    (values in both backends; src test `image.test.ts` "a step below an array's first element is not NULL"). `ELEMENT_TAG_BIAS`
+    stays for the element pointers that keep a TAG (a routine's local array, a VAR_IN_OUT's) until 4.14 — design.md "as built".
+
+- [x] 4.6 S=/R= through a multi-target pointer (RC 14).
   - What: the latch goes inside each arm of `storeThrough`; independent of the decision.
   - Where: `lower/pointers/deref.ts`.
   - Accept: F(`tr_14_set_reset_through_multi_target_pointer`); src test; M.
   - Depends: 1.9.4.
-- [ ] 4.7 An FB copy keeps its ADR(own member) address (RC 15).
+  - Done 2026-10-09 (step 4d). For a pointer that holds addresses the latch is one conditional image store — no arms;
+    `tr_14` stays confirmed (src test `image.test.ts` "a latch through a pointer that may name either variable"); the
+    tag form's latch inside each arm (`storeThrough`) stays for tagged pointers, tested by `deref.test.ts`.
+
+- [x] 4.7 An FB copy keeps its ADR(own member) address (RC 15).
   - What: modelled (foreign target / arena / enum) or refused by name.
   - Where: `lower/pointers/state.ts`, `statements/assign.ts`.
   - Accept: F(`tr_15_fb_copy_keeps_pointer_address`), or its refusal code in the design's refused list and the fixture rated accordingly; M.
   - Depends: 4.4.
+  - Done 2026-10-09 (step 4d). Modelled: `b := a` of an escaped FB type copies the struct (a pointer keeps the address it
+    holds), restores `b.__base`, then moves the bytes of each run of image fields (`statements/assign.ts` `instanceCopy`,
+    the runs `pointers/image.imageRuns`). `tr_15_fb_copy_keeps_pointer_address` lowers and is confirmed (rb 7, b.x 5,
+    sameA TRUE, sameB FALSE, both backends). Src tests `image.test.ts` "an instance copied whole keeps the address its
+    pointer field held (RC 15)", `assign.test.ts` (a TAG field targeting its own member stays `copy-instance-pointer`).
+  - M (4.3-4.7, `rate:fixtures`): mapped 5394 → 5398, confirmed 2828 → 2845, refused 1990, not-lowered 394 → 379,
+    diverges 8 → 10, lsp-gap 82, unaskable 92; tier `indirect` 360 → 415 rows, median size 2.6 → 2.7, pedantic 2928 →
+    3199 (median 4); total pedantic 32211 → 32311; edge agree 3061 → 3078, disagree 0 → 3 (the three NaN-bit rows above),
+    not-run 184 → 185; allowed `dead_code` 5506 → 5630.
+  - Review 4d (fixes before the gate): `memory/pointer-model.ts` +3 fixtures (`fb_offsets_var_before_input`,
+    `pointer_order_one_past_end` confirmed; `bool_byte_two_through_pointer` diverges, niche: accepted loss — 0 occurrences
+    in the corpora), an instance passed through a call's arguments copied by value, an ADR difference in one array measured
+    wherever it sits, `WHILE p < pEnd` with pEnd one past the end (src tests `image.test.ts`).
+  - Gate 4d review finding (fixed, failing tests first): `builtins/sizeof.adrDifference` folded ANY difference of two
+    places reached through an address pointer (root "image", slot 0, path []) to the constant 0 — `ADR(p^) - ADR(q^)` gave
+    0 where CODESYS gives 6. It now refuses `adr-offset` by name when either place has root "image" (an ADR as an integer
+    operand is not lowered, so the run-time distance cannot be taken instead); 0 ADR differences of any shape in the six
+    corpora. Src tests `image.test.ts` "a difference of addresses through dereferenced pointers is refused" (`ADR(p^) -
+    ADR(q^)`, `ADR(p^.g) - ADR(q^.f)`, `ADR(p^[3]) - ADR(p^[0])`; red at d = 0, green). No fixture moved.
+  - M at the gate (`rate:fixtures`, against the 4.3-4.7 line above): mapped 5398 → 5399, confirmed 2845 → 2847, refused
+    1990, not-lowered 379, diverges 10 → 11 (`bool_byte_two_through_pointer`), lsp-gap 82, unaskable 92; tier `indirect`
+    415 → 417 rows (412 clean); total pedantic 32311 → 32340; edge agree 3078 → 3081, disagree 3, not-run 185; allowed
+    `dead_code` 5630 → 5633. Analysis census baselines: fixtures measured codesys 5138 → 5145, twincat 5126 → 5133 (count
+    only, the review's fixtures).
+  - Gate: typecheck clean; full LSP suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 8705 pass / 0 fail / 35 skip / 422
+    todo, 9162 tests in 306 files (514 s).
+
 - [ ] 4.8 An FB copy carries its in-out binding (RC 16).
   - Where: `lower/calls/last-binding.ts`, `entry/finish.ts`.
   - Accept: F(`tr_16_fb_copy_carries_inout_binding`) (first = 11, second = 100; no `_ => panic` reached); src test in `last-binding.test.ts`; M.

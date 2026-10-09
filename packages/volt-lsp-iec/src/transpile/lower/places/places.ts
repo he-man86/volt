@@ -3,8 +3,10 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import { type Expr, isSelfRef, selfRefKind } from "../../../frontend/syntax/index.js"
-import type { IrExpr, Place } from "../../ir/index.js"
+import { type Expr, isSelfRef, selfRefKind, type Span } from "../../../frontend/syntax/index.js"
+import type { Access, IrExpr, Place } from "../../ir/index.js"
+import { imageStep } from "../../semantics/index.js"
+import { imageType } from "../pointers/escape.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { listVariableShadows, qualifiedGlobal } from "./globals.js"
 import { pointeePlace, throughReference } from "../pointers/deref.js"
@@ -30,7 +32,7 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     const field = fieldIn(layout?.fields, e.member.name)
     if (field === undefined) return lw.bail(notAMember, "member access is not lowered yet", e.span)
-    return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
+    return step(lw, base, { kind: "field", name: field.name }, field.type, e.span)
   }
   if (e.kind === "index" || (e.kind === "deref" && !isSelfRef(e))) {
     const indexed = lowerAccess(lw, e, notAMember)
@@ -124,9 +126,16 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
       place = { ...place, path: [...place.path, { kind: "index", index: offset, lower: 0n }], type: elementOf(place.type)!, span: e.span }
       continue
     }
-    place = { ...place, path: [...place.path, { kind: "index", index, lower: array!.lower, length: array!.length }], type: array!.element, span: e.span }
+    place = step(lw, place, { kind: "index", index, lower: array!.lower, length: array!.length }, array!.element, e.span)
   }
   return place && { place }
+}
+
+/** One more step on a place, reaching `type` — on a place in the byte image, folded into its address (`imageStep`). */
+function step(lw: Lowering, base: Place, access: Access, type: Type, span: Span): Place {
+  if (base.root !== "image") return { ...base, path: [...base.path, access], type, span }
+  imageType(lw, base.type)
+  return { ...imageStep(base, access, base.type, lw.layouts), type, span }
 }
 
 /**

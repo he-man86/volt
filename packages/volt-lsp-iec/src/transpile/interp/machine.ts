@@ -12,7 +12,7 @@
  */
 import type { IrExpr, IrStmt } from "../ir/index.js"
 import {
-  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, LoweringBug, ord, selectedArg, shortCircuit,
+  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, LoweringBug, num, ord, selectedArg, shortCircuit,
   unaryValue, type Val,
 } from "../semantics/index.js"
 import { type Cell, compileRead, compileWrite, Frame } from "./frame.js"
@@ -44,7 +44,7 @@ export class Machine extends Frame implements Caller {
   }
 
   enterFrame(root: Record<string | number, Val>, keys: readonly (string | number)[], inouts: readonly Cell[], locals: Val[], lent: readonly Cell[], body: readonly IrStmt[]): void {
-    new Machine(root, keys, inouts, this.layouts, this.routines, this.globals, this.guard, locals, lent).block(body)
+    new Machine(root, keys, inouts, this.layouts, this.routines, this.globals, this.memory, this.guard, locals, lent).block(body)
   }
 }
 
@@ -85,6 +85,9 @@ function compileExpr(e: IrExpr): Run<Val> {
       return (m) => instantiate(e.type, e.init, m.layouts)
     case "load":
       return compileRead(e.place)
+    // `ADR(x)` of a variable in the image: the address its place reaches, read without the access
+    case "address":
+      return (m) => m.address(e.place)
     case "invoke":
       return (m) => invoke(m, e)
     case "dispatch": {
@@ -117,6 +120,8 @@ function compileExpr(e: IrExpr): Run<Val> {
     // cannot disagree.
     case "builtin": {
       const args = e.args.map(compiledExpr)
+      // two addresses ordered: inside one region of the image only (`Memory.order`)
+      if (e.name === "address_order") return (m) => m.memory.order(num(args[0]!(m)) as bigint, num(args[1]!(m)) as bigint)
       // SEL and MUX evaluate only the input their selector picks (`IrBuiltinName`)
       if (e.name === "sel" || e.name === "mux") {
         const name = e.name

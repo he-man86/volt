@@ -18,13 +18,20 @@ describe("emit/rust/runtime — the registry", () => {
   })
 
   test("each helper appended after the code defines the fn its call names, and nothing else asks for it", () => {
-    for (const id of INLINE) {
+    for (const id of INLINE.filter((x) => x !== "mem")) {
       const text = runtimeText(id)
       expect(text.startsWith(`fn ${id}`)).toBe(true)
       expect(text.endsWith("\n")).toBe(true)
       expect(usedIn(id, `${id}(1)`)).toBe(true)
       expect(usedIn(id, id)).toBe(false)
     }
-    expect(INLINE).toEqual(["iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div"])
+    expect(INLINE).toEqual(["iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div", "mem"])
+  })
+
+  test("the byte image is a TYPE, asked for by its name: Mem, its methods and the index step it walks with", () => {
+    const text = runtimeText("mem")
+    for (const item of ["pub struct Mem", "fn ld<", "fn st<", "fn order(", "fn iec_ix("]) expect(text).toContain(item)
+    expect(usedIn("mem", "let mut __mem = Mem::new();")).toBe(true)
+    expect(usedIn("mem", "let memory = 1;")).toBe(false)
   })
 })

@@ -217,28 +217,29 @@ interface RustRun {
  *  `compareRust` reads back. */
 function recordedScan(c: LanguageTest, pou: IrPou, emitted: ReturnType<typeof emitRust>): string {
   const prints = Object.keys(RUNS[c.name]!.values!).map((name) => {
-    const { expr, type, global } = rustAccess(pou, name)
+    const { read, type } = rustAccess(pou, name)
     // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
     // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
     const family = type.kind === "elementary" ? type.elem.family : undefined
-    // an FB's VAR_STAT read through an instance lives in the application's globals
-    const field = `${global ? "g" : "p"}.${expr}${family === "string" ? ".units()" : ""}`
+    // an FB's VAR_STAT read through an instance lives in the application's globals, an image-held variable in `mem`
+    const field = `${read}${family === "string" ? ".units()" : ""}`
     return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
   })
   // a program that reaches globals or calls PROGRAMs scans against one of each, created once like the IDE's application
   const setup = [
     ...(emitted.usesGlobals ? ["    let mut g = Globals::new();"] : []),
     ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
+    ...(emitted.usesImage ? ["    let mut mem = Mem::new();"] : []),
   ]
-  const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
+  const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : []), ...(emitted.usesImage ? ["&mut mem"] : [])].join(", ")
   // a POU with an init step (a `call_after_global_init_slot` method) runs it once, before the first scan
   const init = pou.init === undefined ? [] : [`    p.init(${args});`]
   // a CLOCKED fixture scans on the instants the recording saw: `CLOCK` assigned before each scan
-  const clock = c.clock === undefined ? undefined : rustAccess(pou, CLOCK).expr
+  const clock = c.clock === undefined ? undefined : rustAccess(pou, CLOCK)
   const scans =
     clock === undefined
       ? [`    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`]
-      : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    g.${clock} = ${clockAt(c, RUNS[c.name]!, i + 1)!}; p.scan(${args});`)
+      : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    ${clock.write(String(clockAt(c, RUNS[c.name]!, i + 1)!))} p.scan(${args});`)
   const scan = [...setup, ...init, ...scans].join("\n")
   return `    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n`
 }

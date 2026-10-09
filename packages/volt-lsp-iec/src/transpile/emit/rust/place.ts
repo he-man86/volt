@@ -9,6 +9,8 @@ import type { Printer } from "./printer.js"
 
 /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
 export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
+  // an image place is no lvalue: it is read and written through `Mem` (`image.ts`), and a site that reached here missed that
+  if (at.root === "image") throw new Error("emit: an image place printed as a Rust lvalue")
   // A BORROW NEEDS NO `*` WHEN A FIELD OR AN INDEX FOLLOWS — Rust auto-derefs through `.x` and `[i]`, so
   // `(*path).used` is `path.used` and `clippy::explicit_auto_deref` says so. It IS needed when the place is the
   // whole value (`*v = x`, `*v + 1`) and when a BIT step follows, which shifts the value itself.

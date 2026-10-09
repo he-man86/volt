@@ -5,7 +5,7 @@
 import type { Access, IrLayout, IrPou, Place } from "../ir/index.js"
 import { elementaryRef, peelArray, type Type } from "../../frontend/types/index.js"
 import type { Span } from "../../frontend/syntax/index.js"
-import { instantiate, storeAs, type Val, visible } from "../semantics/index.js"
+import { instantiate, Memory, storeAs, toImage, type Val, visible } from "../semantics/index.js"
 import { namesVariable, parsePath } from "../ir/path.js"
 import type { Located } from "./frame.js"
 import { Machine } from "./machine.js"
@@ -34,7 +34,7 @@ const INDEX_TYPE = elementaryRef("LINT")
 /** A variable path as a PLACE, and the cell it lands in on the POU's machine — `inst.q` is the slot `inst`, then its field
  *  `Q`; `arr[2]` one index step (the dimension's lower bound subtracted, the bounds checked, by `Frame.locate`). Shared by
  *  `get` and `set`, so a test reads exactly where the program writes. */
-function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, IrLayout>, path: string): { at: Located; type: Type } {
+function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, IrLayout>, path: string): ({ at: Located } | { image: Place }) & { type: Type } {
   // the IDE's path grammar (`ir/path.ts`): a quoted name unquoted, `a[1, 2]` one index segment per dimension
   const parts = parsePath(path)
   const head = parts[0]
@@ -45,6 +45,7 @@ function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, 
   if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let root: Place["root"] = global >= 0 ? "global" : undefined
   let at = global >= 0 ? global : slot
+  let rootSlot = global >= 0 ? pou.globals[global]! : pou.slots[slot]!
   let steps: Access[] = []
   let type: Type = global >= 0 ? pou.globals[global]!.type : pou.slots[slot]!.type
   for (const part of parts.slice(1)) {
@@ -56,6 +57,7 @@ function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, 
       if (shared !== undefined) {
         root = "global"
         at = shared.global
+        rootSlot = pou.globals[shared.global]!
         steps = []
         type = pou.globals[shared.global]!.type
         continue
@@ -71,7 +73,10 @@ function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, 
       type = array.element
     }
   }
-  return { at: machine.locate({ slot: at, path: steps, type, span: NO_SPAN, ...(root === undefined ? {} : { root }) }), type }
+  const place: Place = { slot: at, path: steps, type, span: NO_SPAN, ...(root === undefined ? {} : { root }) }
+  // a variable the image holds, or a field of an instance whose data it holds, is read where the program writes it
+  const imaged = toImage(place, { type: rootSlot.type, ...(rootSlot.image === undefined ? {} : { address: rootSlot.image }) }, layouts)
+  return imaged.root === "image" ? { image: imaged, type } : { at: machine.locate(place), type }
 }
 
 /** A value as the IDE shows it: a string is what stands before its terminator, not the buffer behind it
@@ -89,18 +94,22 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
   const globals = pou.globals.map((s) => instantiate(s.type, s.init, layouts))
-  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, options.loopGuard)
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, new Memory(pou.image), options.loopGuard)
   if (pou.init !== undefined) machine.block(pou.init)
 
   return {
     frame,
     get: (path) => {
-      const { container, key } = resolvePath(pou, machine, layouts, path).at
+      const found = resolvePath(pou, machine, layouts, path)
+      if ("image" in found) return shown(machine.read(found.image))
+      const { container, key } = found.at
       return shown((container as Record<string | number, Val>)[key]!)
     },
     // stored as the variable's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
     set: (path, value) => {
-      const { at, type } = resolvePath(pou, machine, layouts, path)
+      const found = resolvePath(pou, machine, layouts, path)
+      if ("image" in found) return machine.write(found.image, value)
+      const { at, type } = found
       ;(at.container as Record<string | number, Val>)[at.key] = storeAs(value, type)
     },
     scan: () => void machine.block(pou.body),
