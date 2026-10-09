@@ -1200,6 +1200,52 @@ by code is 4.2's plus `image-stack`; `pointer-step`, `pointer-runtime-index` and
 pointer that holds addresses (it steps bytes, takes its address where `ADR` is, and reads any type over its target's
 bytes); they stay for tagged pointers.
 
+### §3.3 Decision (step 4e): RC 16, 17, 18, 20 and the unblocked fixtures (tasks 4.8-4.12, 2026-10-09)
+
+**Target.** An ANY's `pValue` is an ADDRESS into the image (RC 17); RC 16 is fixed inside `__inout_binding`; RC 18 and the
+interpreter's NaN bits are accepted losses by name; RC 20 and `tr_34` are verify-only. No new recordings: the `tr_16`,
+`tr_17` and `tr_18` answers are committed, the reinterpretation edges were recorded at 4.3.
+
+**RC 17 (4.9).** Measured: pro2193 stores `in.pValue` into a program-held UNION of pointers (`Increment`, `BitLogic`:
+`uInput.p1_Byte := input.pValue`, the arm picked by `diSize`) at 273 call sites in 41 files — not niche. Rule: a STORED
+`pValue` is an address store of each call site's argument, so that argument escapes by 4d's units (its FB type, or the
+program/GVL variable) and `pValue` lowers to `address` of it; `diSize` stays the call's constant; `pr^` reads the bytes at
+the pointer's type, `pb^ := 16#FF` writes one byte of four. A UNION whose members are all address pointers is one address:
+reading another arm is that address at the arm's target type. An argument the image cannot hold (a routine local, a
+VAR_IN_OUT's target, a STRING's characters) keeps the tag and its `pointer-type` on a mismatched type; an argument that
+is no place keeps `any-input`. Rejected: a per-arm bit cast over the tagged `pValue` — a second reinterpretation home
+beside the image (P1), with no answer for a narrower write; a refusal — 4.2 chose reach.
+
+**RC 16 (4.8).** Stays in `__inout_binding` (4.2: in the image every in-out target would escape). `w2 := w` already copies
+the hidden field, and binding tags are numbered per POU (instance, bound places), so a METHOD dispatch on an FB type in
+`copiedWhole` arms EVERY binding tag of that type made in the frame, not only the receiver's; a tag made in another frame
+stays `call-fb-inout`. Cheap (the arm set's filter), so fixed although the corpora have 0 copied-whole shapes (their 2
+`call-fb-inout` POUs are runtime-indexed receivers and stay refused). Rejected: refusing `w2 := w` — CODESYS runs it.
+
+**RC 18 (4.10).** Stays `interface-instance-relative` — niche: accepted loss (0 occurrences in the corpora; their 35
+`__QUERYINTERFACE` write locals). Answering it needs an absolute instance handle lent from any frame (a global's arm
+reaching another frame's child), a lend path from `g` to every static instance — not the per-frame lend 4.14 merges.
+
+**RC 20 (4.11).** Verify: the copy-out closed upstream (8ce61e47f8), `tr_20` confirmed, src test in `calls/outputs.test.ts`,
+the transpile-st-to-rust task already reads "superseded by 4.11", the LSP false positive is filed in
+`lsp-transpile-review-gaps`; `tr_43_output_dint_to_int` stays 6.17's.
+
+**4.12 and the NaN bits (owner item of gate 4b).** `tr_34_lib_prim_char_behind` is confirmed (the chars path): verify. The
+interpreter's REAL stays a JavaScript number — niche: accepted loss (1 occurrence in the corpora: bakon-nano
+`ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE). `tr_28_minmax_limit_nan_signed_zero_{real,
+lreal}`, `reinterpret_dint_as_real_edges` and `memory.cases.ts`'s sNaN keep their expected-failure marks, with that reason;
+the emitted Rust keeps every bit, as CODESYS does. Rejected: NaN-carrying interpreter values — every float operation
+would have to reproduce x86's NaN propagation and default NaN (16#FFC00000 from SQRT(-1)) for one occurrence;
+canonicalizing a stored NaN to x86's default — fixes `tr_28`, breaks the recorded quiet NaN 16#7FC00000 (a guess).
+
+**Stays refused, by code:** `pointer-type` (tagged pointers, and a form-2 argument of another type: 40 corpus POUs, all
+but one — lenze `SafetyPLC_WordsToUDT`, also `pointer-root-input` — blocked by other codes too), `any-input` (a non-place
+argument; `TypeClass` unmeasured), `call-fb-inout`, `interface-instance-relative`.
+
+**Migration.** 4.8 (src test red first) → 4.9 (the escape rule, then the union rule; the four `tr_17` lower and confirm;
+the pro2193 `any-input`/`pointer-type` POU counts before and after in tasks.md) → 4.10 and 4.12 (reasons on the marks, no
+code) → 4.11 (verify).
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**
