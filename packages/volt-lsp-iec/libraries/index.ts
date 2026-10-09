@@ -24,7 +24,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { libraryResolution } from "../src/frontend/library/index.js"
+import { libraryResolution, parseLibraryManifest } from "../src/frontend/library/index.js"
 import type { LibraryFile } from "../src/transpile/index.js"
 
 const REPO = import.meta.dirname
@@ -63,13 +63,13 @@ export function writtenVersions(): { library: string; version: string }[] {
 export function withImplementations(files: readonly LibraryFile[]): LibraryFile[] {
   const out = [...files]
   const key = (uri: string): string => uri.replaceAll("\\", "/").toLowerCase()
-  for (const manifest of files.filter((f) => key(f.uri).endsWith(".library"))) {
-    const resolved = libraryResolution(manifest.source)
+  for (const { uri, source } of files) {
+    const manifest = parseLibraryManifest(uri, source)
+    const resolved = manifest && libraryResolution(source)
     const dir = resolved && implementationDir(resolved.library, resolved.version)
-    if (dir === undefined) continue
-    const folder = manifest.uri.slice(0, manifest.uri.length - manifest.uri.split(/[\\/]/).at(-1)!.length)
+    if (manifest === undefined || dir === undefined) continue
     for (const name of readdirSync(dir).filter((n) => /\.pou$/.test(n))) {
-      const file = { uri: folder + name, source: readFileSync(join(dir, name), "utf8") }
+      const file = { uri: manifest.dir + name, source: readFileSync(join(dir, name), "utf8") }
       const at = out.findIndex((f) => key(f.uri) === key(file.uri))
       if (at >= 0) out[at] = file
       else out.push(file)

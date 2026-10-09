@@ -127,6 +127,7 @@ test("a referenced library's namespace resolves when its manifest is bound", () 
   const packMl: LibraryManifest = {
     uri: "App/Library Manager/PackML/PackML.library",
     folder: "PackML",
+    dir: "App/Library Manager/PackML/",
     namespace: "PACK_ML",
     library: "PackML",
     dependencies: [],

@@ -1893,7 +1893,8 @@ are fixed in the move.
 
 ### 4.8 types/, symbols/, syntax/, libraries/
 - See §2.7.
-- `libraries/index.ts` takes the manifest's `folder` instead of slicing the URI (l.70).
+- `libraries/index.ts` takes the manifest's directory instead of slicing the URI (l.70): `LibraryManifest.dir`, the folder
+  as its uri writes it (`folder` is the lower-cased name, which would change a body's uri; 1.8.8).
 
 ### 4.9 Names added after 2026-09-29 (task 0.1 inventory, 2026-10-07, at 3f42db0e71)
 

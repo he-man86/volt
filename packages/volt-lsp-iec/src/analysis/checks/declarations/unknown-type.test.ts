@@ -110,7 +110,7 @@ test("a qualified type whose first qualifier names something — silent", () => 
   // not (`DED.IO_SYSTEM_TYPE` is "Unknown type", `lib_ns_direct_dependency_only`); the manifest does not say which (LB2)
   const lib = { uri: "w/Library Manager/Lib/T.dut", source: "TYPE T :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" }
   const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
-  const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }])
+  const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", dir: "w/Library Manager/Lib/", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }])
   const own = files[0]!
   const said = computeDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
   expect(said.filter((d) => d.severity === "error").map((d) => d.message)).toEqual([])

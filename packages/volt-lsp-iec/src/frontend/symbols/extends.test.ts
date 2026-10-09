@@ -27,6 +27,7 @@ const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 const manifest = (folder: string, library: string, namespace: string, dependencies: string[] = []): LibraryManifest => ({
   uri: `${LIB(folder)}/${folder}.library`,
   folder: folder.toLowerCase(),
+  dir: `${LIB(folder)}/`,
   namespace,
   library,
   dependencies,

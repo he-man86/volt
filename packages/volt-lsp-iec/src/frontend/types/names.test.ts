@@ -69,6 +69,7 @@ test("a referenced library's namespace resolves bare, as a library namespace —
   const manifest: LibraryManifest = {
     uri: "Application/Library Manager/Empty/Empty.library",
     folder: "Empty",
+    dir: "Application/Library Manager/Empty/",
     namespace: "EmptyNs",
     library: "Empty",
     dependencies: [],
@@ -86,7 +87,7 @@ test("E33: `.name` names the global past every local and member (sym_global_name
 
 // ─── the enum members (rules EN1–EN6, frontend-conformance 3.3, `fixtures/names/enums.ts`, both vendors 2026-10-02) ───
 const enums = (source: string, uri = "E.dut") => ({ uri, source })
-const UTIL: LibraryManifest = { uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }
+const UTIL: LibraryManifest = { uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }
 const TWO = "TYPE E_A : (en_x := 3, en_y := 4);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE"
 
 test("EN2/EN3: a member one enum declares names that member; one two enums declare is ambiguous (enum_same_member_two_enums)", () => {

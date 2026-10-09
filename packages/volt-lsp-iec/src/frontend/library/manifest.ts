@@ -16,6 +16,10 @@ export interface LibraryManifest {
   uri: string
   /** The `Library Manager/<folder>` this manifest describes — how its declaration files are recognised. */
   folder: string
+  /** The directory the manifest sits in, exactly as its uri writes it (case, separators and `%20` kept, the trailing
+   *  separator included) — what a file beside it is named under: the library repo's bodies (`libraries/index.ts`) take
+   *  this uri prefix so each replaces its declaration under the very uri lowering keys it by. */
+  dir: string
   /** The name the source qualifies with. */
   namespace: string
   /** The manifest's own LIBRARY line — the library's TITLE, which is how other manifests name it. */
@@ -55,5 +59,6 @@ export function parseLibraryManifest(uri: string, source: string): LibraryManife
   // against the titles seen; one that names no library is ignored rather than guessed at
   const dependencies = (/^DEPENDENCIES[ \t]+(\S.*)$/m.exec(source)?.[1] ?? "").split(",").map((d) => d.trim()).filter((d) => d !== "")
   const materialization = Number(/^MATERIALIZATION[ 	]+(\d+)/m.exec(source)?.[1] ?? 1)
-  return namespace === undefined || namespace === "" || folder === undefined ? undefined : { uri, folder, namespace, library, dependencies, materialization }
+  const dir = uri.slice(0, uri.length - uri.split(/[\\/]/).at(-1)!.length)
+  return namespace === undefined || namespace === "" || folder === undefined ? undefined : { uri, folder, dir, namespace, library, dependencies, materialization }
 }

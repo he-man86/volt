@@ -60,7 +60,7 @@ test("a qualified library base the symbol table linked is found (`EXTENDS Standa
   // `unit_fb_extends_qualified` builds on CODESYS; `unit_fb_extends_qualified_unknown` is both messages, the base as written
   const ton = "FUNCTION_BLOCK TON\nVAR_INPUT\n  PT : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
   const lib = "file:///w/Library Manager/Standard"
-  const manifest = { uri: `${lib}/Standard.library`, folder: "standard", namespace: "Standard", library: "Standard", dependencies: [], materialization: 2 }
+  const manifest = { uri: `${lib}/Standard.library`, folder: "standard", dir: `${lib}/`, namespace: "Standard", library: "Standard", dependencies: [], materialization: 2 }
   const run = (src: string) => {
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable(

@@ -39,6 +39,7 @@ test("libraryManifestDiagnostics: every older format names what the workspace la
       {
         uri,
         folder: "Library Manager/Standard",
+        dir: "/w/Library Manager/Standard/",
         namespace: "Standard",
         library: "Standard",
         dependencies: [],
@@ -64,6 +65,7 @@ test("libraryManifestDiagnostics: an older manifest names an older CLI as a poss
     {
       uri,
       folder: "Library Manager/Standard",
+      dir: "/w/Library Manager/Standard/",
       namespace: "Standard",
       library: "Standard",
       dependencies: [],

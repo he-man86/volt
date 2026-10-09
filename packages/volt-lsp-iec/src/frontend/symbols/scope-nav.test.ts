@@ -98,7 +98,7 @@ test("lookup: a global variable before a POU of the same name, in either file or
 test("resolveGvlMember: a library's list named through the library's namespace (`Ns.GVL.v`)", () => {
   const lib = "App/Library Manager/StringUtils/GVL_UTF8.gvl"
   const project = buildSymbolTable([file(lib, "VAR_GLOBAL\n HALFSHIFT : INT := 10;\nEND_VAR")], [
-    { uri: "App/Library Manager/StringUtils/StringUtils.library", folder: "StringUtils", namespace: "Stu", library: "StringUtils", dependencies: [], materialization: 4 },
+    { uri: "App/Library Manager/StringUtils/StringUtils.library", folder: "StringUtils", dir: "App/Library Manager/StringUtils/", namespace: "Stu", library: "StringUtils", dependencies: [], materialization: 4 },
   ])
   const expr = parseSource("PROGRAM P\nx := Stu.GVL_UTF8.HALFSHIFT;\nEND_PROGRAM", { networkText: true })
   const statement = bodyStatements((expr.units[0] as { body: Parameters<typeof bodyStatements>[0] }).body).statements[0] as { value: Parameters<typeof resolveGvlMember>[0] }
@@ -158,7 +158,7 @@ test("lookup: an application global before a same-named device instance, whateve
 // diagnosis …))", `lib_ns_library_member_own_type_other_enum`, CODESYS 2026-10-02).
 const LM = "App/Library Manager"
 const manifest = (folder: string, namespace: string, dependencies: string[] = []) => ({
-  uri: `${LM}/${folder}/${folder}.library`, folder, namespace, library: folder, dependencies, materialization: 4,
+  uri: `${LM}/${folder}/${folder}.library`, folder, dir: `${LM}/${folder}/`, namespace, library: folder, dependencies, materialization: 4,
 })
 const TWO_ERRORS = () =>
   buildSymbolTable(

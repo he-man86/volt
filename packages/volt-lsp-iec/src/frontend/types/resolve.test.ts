@@ -27,6 +27,7 @@ const manifest = (
 ): LibraryManifest => ({
   uri: `${LIB(folder)}/${folder}.library`,
   folder: folder.toLowerCase(),
+  dir: `${LIB(folder)}/`,
   namespace,
   library,
   dependencies,

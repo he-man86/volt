@@ -335,7 +335,7 @@ test("infer: a library enum's member through namespace and type is that enum's v
   const project = build.buildSymbolTable([
     { uri: lib, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }) },
     { uri: "F.pou", parseResult: pr, source: src },
-  ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
+  ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
   const t = inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project)
   expect(renderType(t)).toBe("WEEKDAY")
 })
@@ -353,7 +353,7 @@ test("infer: a POU a namespace holds is no static base — `Ns.Func`, `Ns.FB.x` 
       { uri: "App/Library Manager/Util/F_Void.pou", source: libFun, parseResult: parseSource(libFun, { networkText: true }) },
       { uri: "App/Library Manager/Util/FB_T.pou", source: libFb, parseResult: parseSource(libFb, { networkText: true }) },
       { uri: "F.pou", parseResult: pr, source: src },
-    ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
+    ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
     return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project).kind
   }
   expect(typed("Util.F_Void")).toBe(UNKNOWN.kind)
@@ -375,10 +375,10 @@ test("infer: a dependency's namespace through a library's namespace is a static 
       { uri: "App/Library Manager/Standard/LEN.pou", source: lenSrc, parseResult: parseSource(lenSrc, { networkText: true }) },
       { uri: "F.pou", parseResult: pr, source: src },
     ], [
-      { uri: "App/Library Manager/CAA Device Diagnosis/CAA Device Diagnosis.library", folder: "CAA Device Diagnosis", namespace: "DED", library: "CAA Device Diagnosis", dependencies: ["CommFB"], materialization: 4 },
-      { uri: "App/Library Manager/CommFB/CommFB.library", folder: "CommFB", namespace: "CommFB", library: "CommFB", dependencies: [], materialization: 4 },
-      { uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: ["Standard"], materialization: 4 },
-      { uri: "App/Library Manager/Standard/Standard.library", folder: "Standard", namespace: "Standard", library: "Standard", dependencies: [], materialization: 4 },
+      { uri: "App/Library Manager/CAA Device Diagnosis/CAA Device Diagnosis.library", folder: "CAA Device Diagnosis", dir: "App/Library Manager/CAA Device Diagnosis/", namespace: "DED", library: "CAA Device Diagnosis", dependencies: ["CommFB"], materialization: 4 },
+      { uri: "App/Library Manager/CommFB/CommFB.library", folder: "CommFB", dir: "App/Library Manager/CommFB/", namespace: "CommFB", library: "CommFB", dependencies: [], materialization: 4 },
+      { uri: "App/Library Manager/Util/Util.library", folder: "Util", dir: "App/Library Manager/Util/", namespace: "Util", library: "Util", dependencies: ["Standard"], materialization: 4 },
+      { uri: "App/Library Manager/Standard/Standard.library", folder: "Standard", dir: "App/Library Manager/Standard/", namespace: "Standard", library: "Standard", dependencies: [], materialization: 4 },
     ])
     return renderType(inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project))
   }

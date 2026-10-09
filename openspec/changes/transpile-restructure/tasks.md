@@ -2037,7 +2037,9 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     devices and the manifests (`build.bindFile`/`relink`), while `LibraryBase` binds a LOWERING project from the
     libraries' bodies — different contents, and rebinding the replay on it is a change of what the LSP is asked, not a
     move (G+LSP requires it unchanged). `project-libraries.ts` already builds `PROJECT_BASE` with `libraryBase`.
-- [ ] 1.8.8 `libraries/index.ts` takes the manifest's `folder` instead of slicing the URI (l.70).
+- [x] 1.8.8 `libraries/index.ts` takes the manifest's directory (`LibraryManifest.dir`, the folder as its uri writes
+  it) instead of slicing the URI (l.70). (Proposed as the manifest's `folder`; rejected — `folder` is the lower-cased
+  name with `%20` decoded, so it would change every body's uri; see below and design.md §4.8.)
   - Where: `libraries/index.ts`.
   - Accept: G, S.
   - Depends: 1.6.20.
@@ -2050,6 +2052,23 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     `LibraryManifest`, read it here; that is a front-end change outside this task's Where, so it waits for the gate.
   - Gate 1.8a+1.9 (2026-10-08): left open, unchanged — the review raised nothing on it, and the default is a front-end
     API change better done with an owner's yes than inside a gate; it blocks nothing in phase 2.
+  - Done 2026-10-09 (step 1.8b, the owner default). `LibraryManifest.dir` (`frontend/library/manifest.ts`): the directory
+    the manifest sits in exactly as its uri writes it (case, separators, `%20` kept, trailing separator included);
+    `parseLibraryManifest` fills it — the one slice, moved from `libraries/index.ts`. `withImplementations` reads each
+    file through `parseLibraryManifest` and names the bodies `manifest.dir + <element>.pou`. One behaviour edge, 0 in
+    the corpora: a `.library` with no NAMESPACE line is not a manifest to it any more, as it already was to the binder
+    and `prepare.ts` (all 695 manifests in the six corpora and the fixtures name one; the bridge always writes it).
+    New `src/frontend/library/manifest.test.ts` (2; red first). Nineteen hand-written `LibraryManifest` literals in
+    ten src tests gain their `dir`. T: old vs new `withImplementations` byte-identical over the six corpora (17685
+    files, 695 manifests, 15 resolved by the repo, 250 files replaced); `bun typecheck` clean; test/conformance +
+    test/libraries 6422 pass / 356 todo / 0 fail; test/frontend 45 pass / 0 fail, baselines unchanged;
+    `rate:fixtures` leaves `map.generated.ts` unchanged; lint as before (1 function over 80, `lastBinding`, pre-existing).
+  - Gate 1.8b (2026-10-09). Review: one low finding, fixed (record only, no code, so no failing test): this task's
+    heading still named the manifest's `folder`, the design the step measured and rejected; it now names
+    `LibraryManifest.dir` (design.md §4.8 already did). Numbers (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): `bun typecheck`
+    clean; `bun test` 8848 pass, 35 skip, 399 todo, 0 fail (9282 tests, 308 files, 593 s); `bun run rate:fixtures` leaves
+    `map.generated.ts` unchanged (edge agree 3107, disagree 3, not-run 207); `bun run lint` green (layering 4 known; size
+    0 ceilings, 1 function over 80, `lastBinding`, pre-existing; citations strict, 5 planned).
 - [x] 1.8.9 The fold-agreement test (design.md P3a).
   - What: for every constant expression the lowered fixtures fold, `types/const/fold.constEval` (AST) and `semantics/fold.constantValue`
     (IR) give the same value and type; each disagreement found is an expected failure naming its RC or a new 6.A task.

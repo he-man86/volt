@@ -398,7 +398,7 @@ END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
   // the library materialized nothing; its manifest still binds the namespace (`bindLibraryNamespaces`)
-  expect(vgUndeclared(src, [{ uri: "App/Library Manager/PackML/PackML.library", folder: "PackML", namespace: "PACK_ML", library: "PackML", dependencies: [], materialization: 4 }])).toEqual([]) // known → resolves
+  expect(vgUndeclared(src, [{ uri: "App/Library Manager/PackML/PackML.library", folder: "PackML", dir: "App/Library Manager/PackML/", namespace: "PACK_ML", library: "PackML", dependencies: [], materialization: 4 }])).toEqual([]) // known → resolves
 })
 
 // network-unknown-member — the network-text analogue of ST's `a.b` member check (wired once the qualified_only binder
@@ -1181,7 +1181,7 @@ test("network text: `.ENO` with no EN on a FUNCTION's box is CODESYS's 'The assi
   // And a member head used to count as a path to a variable whatever it named, so `Lib.F(a, b).ENO` passed for an FB
   // call: a namespace qualifying a POU names a function.
   const lib = "file:///w/Library Manager/Util"
-  const manifest = { uri: `${lib}/Util.library`, folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
+  const manifest = { uri: `${lib}/Util.library`, folder: "Util", dir: `${lib}/`, namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
   const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
   const source = "The assignment source is incorrect."
   const missing = "An inconsistent element has been detected (Missing EN pin). Consider making a correction."

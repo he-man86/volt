@@ -108,8 +108,8 @@ test("a project kept current through random rebinds is the project a fresh build
 // the front, and the alias would win over a project unit of the same name — `IMPLEMENTS I_Foo` checked against the
 // library's interface, a false `missing-interface-implementation` (review of 2.P, 2026-10-02).
 const MANIFESTS: LibraryManifest[] = [
-  { uri: "file:///p/Library%20Manager/LibA.library", folder: "LibA", namespace: "LA", library: "Lib A", dependencies: [], materialization: 2 },
-  { uri: "file:///p/Library%20Manager/LibB.library", folder: "LibB", namespace: "LB", library: "Lib B", dependencies: ["Lib A"], materialization: 2 },
+  { uri: "file:///p/Library%20Manager/LibA.library", folder: "LibA", dir: "file:///p/Library%20Manager/", namespace: "LA", library: "Lib A", dependencies: [], materialization: 2 },
+  { uri: "file:///p/Library%20Manager/LibB.library", folder: "LibB", dir: "file:///p/Library%20Manager/", namespace: "LB", library: "Lib B", dependencies: ["Lib A"], materialization: 2 },
 ]
 
 test("a bare name a project unit and a library unit share finds the project's unit, not the namespace's alias", () => {
