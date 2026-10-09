@@ -178,11 +178,15 @@ describe("findPlace and the init sequence's read walk (1.7.4)", () => {
     expect(all(load(place(0, load(place(1)))))).toEqual(["1", "0"])
     expect(findPlace(load(place(0, load(place(1)))), named)).toBe("1")
   })
-  test("initReadChildren: a call's inputs, then its bindings (a copy's value only), then its instance — no select, freeze or lent", () => {
-    const call: IrInvoke = { ...invoke(load(place(1))), instance: place(3), order: [0, freeze], inouts: [copy, place(7)], lent: [place(4)] }
-    expect(all(call, initReadChildren)).toEqual(["1", "7", "3"])
-    expect(all(call)).toEqual(["3", "1", "9", "8", "7", "4"])
+  // task 5.9 (design.md §3.4 step 5d): the walk skipped a select, a call's freezes and its lent places, so a read there
+  // reached no guard. What stays is semantics, not a skip: a call reads its inputs, its freezes' values (the temp is
+  // written), its bindings (a copy's value only), its lent places, then its instance; a select its tag and every arm.
+  test("initReadChildren: a call's inputs, freezes, bindings (a copy's value only), lent places, then its instance; a select's tag and arms", () => {
+    const frozen: IrFreeze = { kind: "freeze", temp: place(9), value: load(place(6)) }
+    const call: IrInvoke = { ...invoke(load(place(1))), instance: place(3), order: [0, frozen], inouts: [copy, place(7)], lent: [place(4)] }
+    expect(all(call, initReadChildren)).toEqual(["1", "6", "7", "4", "3"])
+    expect(all(call)).toEqual(["3", "1", "9", "6", "8", "7", "4"])
     const select: IrExpr = { kind: "select", tag: load(place(2)), arms: [{ tag: 1n, place: place(5) }], type: INT, span }
-    expect(all(select, initReadChildren)).toEqual([])
+    expect(all(select, initReadChildren)).toEqual(["2", "5"])
   })
 })

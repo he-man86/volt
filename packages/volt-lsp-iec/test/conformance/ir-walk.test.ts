@@ -111,7 +111,8 @@ function reflectiveMapPlaces<T>(node: T, f: (p: Place) => Place): T {
   return (isPlaceLike(node) ? f(out as unknown as Place) : out) as unknown as T
 }
 
-/** `init/sequence.ts` `reads` (with `readsInvoke`, `readsPlace`) until 1.7.4. */
+/** `init/sequence.ts` `reads` (with `readsInvoke`, `readsPlace`) until 1.7.4 — it skipped a `select`, a call's freezes and
+ *  its lent places; task 5.9 enters them, so the walk now reads MORE (the check below: this walk's order is a subsequence). */
 function handReads(e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
   const walk = (x: IrExpr): string | undefined => handReads(x, onPlace)
   const first = (xs: readonly IrExpr[]): string | undefined => xs.reduce<string | undefined>((f, x) => f ?? walk(x), undefined)
@@ -169,7 +170,7 @@ const visitOrder = (walk: (onPlace: (p: Place) => string | undefined) => unknown
   return seen
 }
 
-test("touchesOnlyItsOwn, writesOnlyLocals, mapPlaces and the init read walk answer as the walks they replaced (1.7.4)", () => {
+test("touchesOnlyItsOwn, writesOnlyLocals and mapPlaces answer as the walks they replaced (1.7.4); the init read walk reads all they read, in their order (5.9)", () => {
   let lowered = 0
   let exprs = 0
   const differ: string[] = []
@@ -194,7 +195,10 @@ test("touchesOnlyItsOwn, writesOnlyLocals, mapPlaces and the init read walk answ
         exprs += 1
         const now = visitOrder((onPlace) => findPlace(e, onPlace, initReadChildren))
         const then = visitOrder((onPlace) => handReads(e, onPlace))
-        if (now.join(",") !== then.join(",")) differ.push(`${t.name}: reads ${e.kind}`)
+        // task 5.9 removed the skips (design.md §3.4 step 5d): every place the old walk read is still read, in its order
+        let at = 0
+        for (const p of now) if (p === then[at]) at += 1
+        if (at !== then.length) differ.push(`${t.name}: reads ${e.kind}`)
       })
     }
   }

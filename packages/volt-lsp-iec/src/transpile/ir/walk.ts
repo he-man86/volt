@@ -266,20 +266,25 @@ export function writesOnlyLocals(root: IrNode | readonly IrNode[]): boolean {
 }
 
 /**
- * THE INIT SEQUENCE'S READ WALK — what an initializer reads (`lower/init/sequence.ts`): an expression's children in
- * `childrenOf`'s order, except that a call reads its inputs, then its in-out bindings (a copy only its value), then its
- * instance, and that a `select`, a call's freezes and lent places are not entered. That skip set and order are the
- * walk's own today, kept as this explicit option until task 5.9 removes it.
+ * THE INIT SEQUENCE'S READ WALK — what an initializer reads (`lower/init/sequence.ts`): `childrenOf`, every node entered
+ * (task 5.9: a `select`, a call's freezes and lent places were skipped, so a read there reached no guard). What differs is
+ * semantics, not a skip: `ADR(x)` takes an address, the same whenever it is taken — it reads only its place's index
+ * expressions; a freeze READS its value and writes its temp; a call reads its inputs, its freezes, its in-out bindings (a
+ * copy only its value — its `back` is written after the call), its lent places, then the instance it runs on.
  */
 export function initReadChildren(n: IrNode): IrNode[] {
   if (isPlace(n)) return childrenOf(n)
   switch (n.kind) {
     case "invoke":
-      return [...n.inputs, ...n.inouts.map((b) => ("kind" in b && b.kind === "copy" ? b.value : b)), ...(n.instance === undefined ? [] : [n.instance])]
-    case "select":
-      return []
-    // `ADR(x)` takes an address, which is the same whenever it is taken — no read of `x` (`lower/init/sequence.reads`);
-    // what its place's index expressions read, it reads
+      return [
+        ...n.inputs,
+        ...(n.order ?? []).filter((o): o is IrFreeze => typeof o !== "number"),
+        ...n.inouts.map((b) => ("kind" in b && b.kind === "copy" ? b.value : b)),
+        ...(n.lent ?? []),
+        ...(n.instance === undefined ? [] : [n.instance]),
+      ]
+    case "freeze":
+      return [n.value]
     case "address":
       return childrenOf(n.place)
     default:

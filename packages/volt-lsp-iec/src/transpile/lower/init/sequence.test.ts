@@ -84,6 +84,68 @@ test("the guards see a read wherever it is — a call's argument, an index, a st
   expect(q.get("seen")).toBe(5n)
 })
 
+// transpile-restructure 5.8 (design.md §3.4 step 5d): `insideInstance` refused `holder.started` and let `holder.Get()`
+// through — a METHOD run on the instance reads it as much as a field does, and what either sees after the structured
+// initializer is unrecorded. The instance ITSELF (a place stopping ON it, reached through struct fields too) is now a read
+// of it, as its fields are; `ADR(holder)` stays no read. Why missed: the test above read fields only.
+test("an instance declared with a structured initializer: a method run on it or the instance itself is a read too", () => {
+  const GET = "METHOD Get : INT\nGet := started;\nEND_METHOD\n\n"
+  const FB_G = FB_I + GET
+  expect(codes(F_INC + FB_G, "holder : FB_I := (started := 9);\n\tseen : INT := F_Inc(holder.Get());")).toEqual(["init-reads-instance"])
+  // reached through a STRUCT field (an FB without FB_Init: an enclosing structured initializer on one with FB_Init is
+  // `fb-init-order`)
+  const FB_N = "FUNCTION_BLOCK FB_N\nVAR\n\tstarted : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n" + GET
+  const T_H = "TYPE T_H :\nSTRUCT\n\tinner : FB_N;\nEND_STRUCT\nEND_TYPE\n\n"
+  expect(codes(F_INC + T_H + FB_N, "holder : T_H := (inner := (started := 9));\n\tseen : INT := F_Inc(holder.inner.Get());")).toEqual(["init-reads-instance"])
+  // ...as its field is
+  expect(codes(F_INC + T_H + FB_N, "holder : T_H := (inner := (started := 9));\n\tseen : INT := F_Inc(holder.inner.started);")).toEqual(["init-reads-instance"])
+  // without a structured initializer it still lowers (the instance's FB_Init ran at its position: 5)
+  const read = lower(F_INC + FB_G, "holder : FB_I;\n\tseen : INT := F_Inc(holder.Get());")
+  expect(read.diagnostics).toEqual([])
+  const p = run(read.pou!)
+  p.scan()
+  expect(p.get("seen")).toBe(6n)
+  // an address is no read
+  expect(codes(FB_G, "holder : FB_I := (started := 9);\n\tp : POINTER TO FB_I := ADR(holder);")).toEqual([])
+  // gate 5d review: a place stopping on the STRUCT holding the instance copies its state as much (it gave 9)
+  expect(codes(T_H + FB_N, "holder : T_H := (inner := (started := 9));\n\tcopy : T_H := holder;")).toEqual(["init-reads-instance"])
+})
+
+// gate 5d review: an instance passed as an INTERFACE lowers to a tag, its place lent to the callee only after the guards
+// ran (`interfaces/lend.ts`), so the read walk never met it — a later instance with a structured initializer answered 3
+// (its initializer applied before i's, declared earlier). Why missed: 5.9's walk test built its lent place by hand.
+test("an instance handed to a call as an interface reaches the guards", () => {
+  const I_X = "INTERFACE I_X\nMETHOD Get : INT\nEND_METHOD\nEND_INTERFACE\n\n"
+  const FB_X = "FUNCTION_BLOCK FB_X IMPLEMENTS I_X\nVAR\n\tn : INT := 7;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := n;\nEND_METHOD\n\n"
+  const F_GET = "FUNCTION F_Get : INT\nVAR_INPUT\n\titf : I_X;\nEND_VAR\nF_Get := itf.Get();\nEND_FUNCTION\n\n"
+  const pre = I_X + FB_X + F_GET
+  expect(codes(pre, "i : INT := F_Get(itf := later);\n\tlater : FB_X := (n := 3);")).toEqual(["init-reads-later"])
+  expect(codes(pre, "i : INT := F_Get(itf := later);\n\tlater : FB_X;")).toEqual(["init-reads-later"])
+  expect(codes(pre, "x : FB_X := (n := 3);\n\ti : INT := F_Get(itf := x);")).toEqual(["init-reads-instance"])
+  // an earlier instance with no structured initializer still lowers: its 7
+  const r = lower(pre, "x : FB_X;\n\ti : INT := F_Get(itf := x);")
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  expect(p.get("i")).toBe(7n)
+})
+
+// transpile-restructure 5.9 (design.md §3.4 step 5d): the read walk skipped a call's FREEZES — an in-out's index taken
+// where it is written, ahead of a later argument's call — so `arr[cfg.n]` read a later struct's field and lowered clean
+// (answering arr[0] + 1). The walk is `childrenOf` now; what it reads there reaches the guards.
+test("a read inside a call's freeze reaches the guards", () => {
+  const T_P = "TYPE T_P :\nSTRUCT\n\tn : INT := 4;\nEND_STRUCT\nEND_TYPE\n\n"
+  const F_NEXT = "FUNCTION F_Next : INT\nF_Next := 1;\nEND_FUNCTION\n\n"
+  const F_IO = "FUNCTION F_Io : INT\nVAR_IN_OUT\n\tx : INT;\nEND_VAR\nVAR_INPUT\n\tv : INT;\nEND_VAR\nF_Io := x + v;\nEND_FUNCTION\n\n"
+  expect(codes(T_P + F_NEXT + F_IO, "arr : ARRAY[0..4] OF INT;\n\ti : INT := F_Io(x := arr[cfg.n], v := F_Next());\n\tcfg : T_P;")).toEqual(["init-reads-later"])
+  // an earlier index still lowers, read where the in-out is written (arr[2] + 1)
+  const r = lower(F_NEXT + F_IO, "arr : ARRAY[0..4] OF INT := [1, 2, 3, 4, 5];\n\tk : INT := 2;\n\ti : INT := F_Io(x := arr[k], v := F_Next());")
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  expect(p.get("i")).toBe(4n)
+})
+
 test("and the ordinary shapes still lower", () => {
   expect(codes(F_INC, "other : INT := -7;\n\ti : INT := F_Inc(other);")).toEqual([])
   expect(codes("", "x : INT := 5;\n\tp : POINTER TO INT := ADR(x);")).toEqual([])

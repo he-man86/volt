@@ -9,16 +9,14 @@ import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
 import type { IrExpr, IrInit, IrRoutine, IrSlot, IrStmt, Place } from "../../ir/index.js"
-import { lowerPlace } from "../places/places.js"
 import { INIT_ATTRIBUTE, initMethod, instancePaths, pathFields, slotMethodCall } from "./attributes.js"
 import { chainNamesOf, declaredChain, scopeChain } from "../core/chain.js"
 import { ownProgram, programReentrant, programTarget, routineCallee } from "../calls/reentrancy.js"
 import { calledRoutine } from "../calls/routines.js"
 import { holdsCall, type IrNode, isPlace, someNode } from "../../ir/walk.js"
-import { foldConstant } from "../values/fold.js"
-import { convert, stored, valueAs } from "../values/convert.js"
 import { instanceInitRoutine } from "./instance-init.js"
-import { fieldIn, fieldIndex } from "../places/path.js"
+import { fbInitInput, siblingsUnset } from "./fb-init-args.js"
+import { fieldIn } from "../places/path.js"
 import { fieldsOf, namedIn, startStatement, startsAsStatement, structuredUnread, enclosingStructuredFree } from "./position.js"
 
 /**
@@ -69,33 +67,6 @@ function ownInitWork(lw: Lowering, t: Fb, what: "fb-init" | "init-step"): boolea
     // be reached, or its base's initializers never run on it and the field silently keeps its default.
     chainNamesOf(t).some((name) => pendingInitsOf(lw, name) > 0)
   )
-}
-
-/**
- * The variable an FB_Init argument reads, when the recordings cover it (`fb_init_argument_from_variable`, `_from_global`):
- * a plain elementary variable whose initial value arrives — the POU's own VAR or VAR_INPUT declared before the instance, or
- * a global. The review of that batch found the rest accepted unrecorded — a struct field's declaration read in the POU's
- * scope, a later or VAR_TEMP variable, an instance's field, a global an FB_Init writes (checked after the walk).
- * `declaring` lowers the argument where the instance is declared; `holder`, in a PROGRAM lowered as its instance, is that
- * instance — the variable read is then its field (review: the recorded case was refused once the program had a METHOD).
- */
-function recordedArgument(st: InitStep, expr: Expr, instanceSlot: number, declaring: Lowering = st.lw, holder?: Place): Place | undefined {
-  const lw = st.lw
-  if (expr.kind !== "ident_expr") return undefined
-  const read = lowerPlace(declaring, expr)
-  if (read === undefined || read.path.length > 0 || read.type.kind !== "elementary") return undefined
-  if (read.root === undefined) {
-    const declared = declaring.slots[read.slot]
-    // declared before the instance, its initializer has run; declared after it with one that RUNS, it has not, and the
-    // variable is still at its default (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). A later one
-    // whose initializer folds starts at that value here, which is not recorded.
-    const settled = read.slot < instanceSlot || initFrame(declaring).pendingInits.some((p) => p.slot === read.slot)
-    if (!(settled && (declared?.section === "VAR" || declared?.section === "VAR_INPUT"))) return undefined
-    return holder === undefined ? read : { ...holder, path: [...holder.path, { kind: "field", name: declared!.name }], type: read.type }
-  }
-  if (read.root !== "global" || lw.globals[read.slot]?.section === "program") return undefined
-  st.globalArguments.add(read.slot)
-  return read
 }
 
 /** Whether init statements write a global, through any routine or FB body they call. */
@@ -212,78 +183,6 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
   return true
 }
 
-/** One FB_Init input: `bInitRetains` TRUE, `bInCopyCode` FALSE, a declared argument that folds, or a variable the
- *  recordings cover — `false` (the refusal reported) when none applies. */
-function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, given: ReadonlyMap<string, Expr>, args: readonly CallArg[], declaring: Lowering, holder: Place | undefined): IrExpr | false {
-  const { lw, span } = st
-  const name = slot.name.toUpperCase()
-  const expr = given.get(name)
-  const folded = name === "BINITRETAINS" ? true : name === "BINCOPYCODE" ? false : expr === undefined ? undefined : foldConstant(declaring, expr)
-  let input: IrExpr | undefined = folded === undefined ? undefined : { kind: "const", value: stored(valueAs(folded, slot.type), slot.type), type: slot.type, span }
-  // A variable gives its value when FB_Init runs — its initial value, recorded (`fb_init_argument_from_variable`: 4,
-  // `fb_init_argument_from_global`: 6). Only in a declaration of the POU's own, where the name means the same place
-  // in the init step; inside an FB it names that FB's field. An interface would need its instances tracked.
-  if (input === undefined && expr !== undefined && declaring === lw && place.path.length === 0) {
-    const read = recordedArgument(st, expr, place.slot)
-    if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
-  }
-  const held = place.path[0]
-  if (input === undefined && expr !== undefined && place.path.length === 1 && held?.kind === "field" && ownProgram(st, place)) {
-    const holder: Place = { ...place, path: [], type: (place.root === "global" ? lw.globals : lw.slots)[place.slot]!.type }
-    const read = recordedArgument(st, expr, fieldIndex(declaring.slots, held.name), declaring, holder)
-    if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
-  }
-  // ...and an instance held by an FB instance: the variable is the HOLDER's field (transpile-review 23 — it was
-  // refused, `tr_23_fb_init_argument_from_pending_init`)
-  const last = place.path.at(-1)
-  if (input === undefined && expr !== undefined && holder?.type.kind === "function_block" && last?.kind === "field" && lw.bodies.get(holder.type.name.toUpperCase())?.lowering === declaring) {
-    const read = recordedArgument(st, expr, fieldIndex(declaring.slots, last.name), declaring, holder)
-    if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
-  }
-  // NO ARGUMENT AT ALL IS NOT A GAP IN LOWERING — the vendor refuses that declaration too: an FB whose
-  // FB_Init takes an extra input cannot be instantiated without one ("Specified 'FB_Init' method requires
-  // exactly 1 inputs", conformance `fb_init_argument_left_out`, and `checks/oop/fb-init-instantiation.ts`
-  // reports it).
-  //
-  // EXCEPT WHERE THE BARE DECLARATION IS THE HARNESS'S OWN, which is the only place the corpus hits it.
-  // `lowerUnit` lowers a POU by synthesizing `inst : ThatPOU;` and calling it (`rootInstance`), and that
-  // declaration passes nothing — so an FB whose inherited FB_Init takes `invert` can never lower as a
-  // root, however complete the transpiler becomes. Measured 2026-09-24: every corpus project builds with
-  // ZERO errors, so CODESYS accepts the two POUs this was blocking; what it would refuse is Volt's own
-  // scaffold, which it never sees. Filing that under `fb-init-argument` put a harness limit in the work
-  // list with a 100% conversion rate — it reported `reach 2, sole 2`, the best ratio on the board, for
-  // something no amount of lowering can close. Its own code, for the reason `pointer-root-input` has one.
-  //
-  // The note said "it is the ROOT" and was guarded by `lw.isRoot`, which is set on the one lowering that
-  // reaches this and so discriminated nothing — an ordinary `inst : FB_Need;` inside a PROGRAM got the
-  // same claim. What discriminates is the instance being the root's own, which is named for the POU.
-  const rootsOwn =
-    lw.isRoot &&
-    place.root === undefined &&
-    place.path.length === 0 &&
-    lw.shared.root !== "" &&
-    lw.slots[place.slot]?.name.toUpperCase() === lw.shared.root.toUpperCase()
-  if (input === undefined && args.length === 0 && rootsOwn)
-    return (
-      lw.bail(
-        "fb-init-root",
-        `${t.name}'s FB_Init input ${slot.name} has no argument in the instance the HARNESS declares — ` +
-          "lowering a POU on its own synthesizes a bare declaration, and the vendor never sees it",
-        span,
-      ) ?? false
-    )
-  if (input === undefined)
-    return (
-      lw.bail(
-        "fb-init-argument",
-        `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass` +
-          (args.length === 0 ? " — it is declared with no argument at all, which the vendor refuses too" : ""),
-        span,
-      ) ?? false
-    )
-  return input
-}
-
 /**
  * The instances inside one (field by field, recursively), with the type's own field initializers interleaved — PER CLASS
  * of its EXTENDS chain, the base first: that class's own fields in declaration order (an initializer that runs, or a
@@ -350,7 +249,9 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
       if (runs.length > 0) started = true
       const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: typeZero(field.type) })
       const start = fbInitCalls.length
-      if (!visit(st, fieldPlace, declaredArgs(lw, owner, field.name), nested, declared[i]!, clear, place, namedIn(structured, field.name))) return false
+      const args = declaredArgs(lw, owner, field.name)
+      if (t.kind === "struct" && !siblingsUnset(st, field.name, args, structured)) return false
+      if (!visit(st, fieldPlace, args, nested, declared[i]!, clear, place, namedIn(structured, field.name))) return false
       const inside = fbInitCalls.splice(start)
       if (inside.length === 0) continue
       if (!initializeUpTo(st, place, initialized, run, ordered, i + 1)) return false

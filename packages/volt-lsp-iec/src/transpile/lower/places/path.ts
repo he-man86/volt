@@ -190,8 +190,8 @@ export const instanceKey = (lw: Lowering, p: Place): string | undefined =>
   (p.root === undefined || p.root === "global") && !throughInstance(lw, p) ? placeKey(lw, p) : undefined
 
 /**
- * A place that reads INSIDE a function block instance declared with a structured initializer — at any depth, not only
- * one held directly in the frame.
+ * A place that reads INSIDE a function block instance declared with a structured initializer, or stops ON it (a METHOD run
+ * on it, the instance itself — design.md §3.4 step 5d) — at any depth, not only one held directly in the frame.
  * `holder : T_H; seen : INT := holder.inner.started` reaches an FB through a STRUCT field and slipped past a check
  * that only looked at the root slot's kind.
  */
@@ -210,5 +210,20 @@ export const insideInstance =
       if (access.kind !== "index" && (access.kind !== "field" || on.kind !== "struct")) return null
       return undefined
     })
-    return "stopped" in walked ? (walked.stopped ?? undefined) : undefined
+    if ("stopped" in walked) return walked.stopped ?? undefined
+    // a place stopping ON the instance — a METHOD run on it, the instance copied — reads it as much as its field does
+    // (design.md §3.4 step 5d: `holder.Get()` and `holder.started` alike); so does one stopping on a STRUCT or array that
+    // holds one (gate 5d: `copy : T_H := holder` copied the instance's structured-initialized state)
+    return holdsInstance(lw, walked.type) ? nameAt(place.path.length) : undefined
   }
+
+/** Whether a value of `t` is or holds an FB instance — a struct's field or an array's element, at any depth. */
+function holdsInstance(lw: Lowering, t: Type | undefined, seen = new Set<string>()): boolean {
+  if (t === undefined) return false
+  if (t.kind === "function_block") return true
+  const element = peelArray(t)?.element
+  if (element !== undefined) return holdsInstance(lw, element, seen)
+  if (t.kind !== "struct" || seen.has(t.name.toUpperCase())) return false
+  seen.add(t.name.toUpperCase())
+  return (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type, seen))
+}

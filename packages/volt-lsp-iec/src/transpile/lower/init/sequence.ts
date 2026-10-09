@@ -24,7 +24,7 @@ import { insideInstance } from "../places/path.js"
 import { lowerStmt } from "../statements/statements.js"
 import { initFrame, type PendingInit } from "./state.js"
 import { type Expr, selfRefKind } from "../../../frontend/syntax/index.js"
-import type { Type } from "../../../frontend/types/index.js"
+import { BUILTIN_OPERATOR_NAMES, type Type } from "../../../frontend/types/index.js"
 import { adrOperand } from "../pointers/address.js"
 
 /**
@@ -49,10 +49,12 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). The init step's
     // position rule makes that so for a scalar or an aggregate (`position.ts`: the later constant is a statement after
     // this one). A later INSTANCE's or struct's fields are folded per TYPE, so what this would see of them is not
-    // recorded: refused — read by name or through THIS, or its address (or THIS) handed to a call (design.md §3.4).
+    // recorded: refused — read by name or through THIS, or its address (or THIS, or itself by name) handed to a call
+    // (design.md §3.4).
     const later =
       values.reduce<string | undefined>((f, v) => f ?? reads(v, laterInstance(lw, pending.slot)), undefined) ??
       lendsLaterInstance(lw, pending) ??
+      handed(lw, pending)[0] ??
       derefsLaterInstance(lw, pending, values)
     if (later !== undefined)
       return lw.bail(
@@ -66,7 +68,9 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // `initseq_fb_init_declared_last`). The init step interleaves these statements with the FB_Inits by declaration
     // (transpile-review 23), which answers that — except for an instance declared with a STRUCTURED initializer, applied
     // after its FB_Init (`fb_init_and_structured_initializer`), where what a sibling reads of it is not recorded (§3.4).
-    const instance = values.reduce<string | undefined>((f, v) => f ?? reads(v, insideInstance(lw)), undefined)
+    const instance =
+      values.reduce<string | undefined>((f, v) => f ?? reads(v, insideInstance(lw)), undefined) ??
+      handedPlaces(lw, pending).reduce<string | undefined>((f, p) => f ?? insideInstance(lw)(p), undefined)
     if (instance !== undefined)
       return lw.bail(
         "init-reads-instance",
@@ -97,9 +101,9 @@ export function lowerPendingInit(lw: Lowering, pending: PendingInit): IrStmt[] |
 
 /**
  * The first place the expression READS for which `onPlace` gives a name — or undefined. Every expression that can
- * hold a read is walked: a call's inputs, its in-out bindings and the instance it runs on, and the index
- * expressions inside a place (`arr[k]` reads `k` too). Each of those was a hole, and each let a guard through. The walk
- * is `ir/walk.ts`'s, with the read order and skip set this walk has always had (`initReadChildren`, until task 5.9).
+ * hold a read is walked: a call's inputs, its freezes, its in-out bindings, its lent places and the instance it runs on,
+ * a select's tag and arms, and the index expressions inside a place (`arr[k]` reads `k` too). Each of those was a hole,
+ * and each let a guard through. The walk is `ir/walk.ts`'s `initReadChildren` — `childrenOf` with no skip (task 5.9).
  *
  * `ADR(x)` is deliberately NOT a read of `x`: it takes an ADDRESS, which is the same whenever it is taken, and the
  * corpus writes it 180 times.
@@ -169,6 +173,42 @@ function rootName(e: Expr): string | undefined {
   if (e.kind === "ident_expr") return e.name
   if (e.kind === "paren") return rootName(e.inner)
   return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? rootName(e.base) : undefined
+}
+
+/**
+ * The frame slots an initializer hands a call BY NAME (`F_Get(itf := inst)`). As an INTERFACE the instance lowers to a
+ * tag, and its place is lent to the callee only after the guards ran (`interfaces/lend.ts`), so `reads` never meets it
+ * (gate 5d: a later instance with a structured initializer answered its structured value). Judged here by name: a later
+ * one as `init-reads-later`, one declared with a structured initializer as `init-reads-instance`.
+ */
+function handedSlots(lw: Lowering, pending: PendingInit): number[] {
+  const out: number[] = []
+  const walk = (node: unknown): void => {
+    if (node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const e = node as Expr
+    // an operator (`ADR(x)`, `SIZEOF(x)`) takes no instance as an interface; `lendsLaterInstance` judges an address
+    if (e.kind === "call" && !(e.callee.kind === "ident_expr" && BUILTIN_OPERATOR_NAMES.has(e.callee.name.toUpperCase())))
+      for (const arg of e.args) {
+        let value = arg.value
+        while (value?.kind === "paren") value = value.inner
+        const at = value?.kind === "ident_expr" ? lw.byName.get(value.name.toUpperCase()) : undefined
+        if (at !== undefined) out.push(at)
+      }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child)
+  }
+  walk(pending.expr)
+  return out
+}
+
+/** `handedSlots`' later struct or instance slots, by name. */
+function handed(lw: Lowering, pending: PendingInit): string[] {
+  return handedSlots(lw, pending).flatMap((at) => (at >= pending.slot && holdsFolded(lw.slots[at]!.type) ? [lw.slots[at]!.name] : []))
+}
+
+/** `handedSlots` as the places they are, for `insideInstance`. */
+function handedPlaces(lw: Lowering, pending: PendingInit): Place[] {
+  return handedSlots(lw, pending).map((at) => ({ slot: at, path: [], type: lw.slots[at]!.type, span: pending.span }))
 }
 
 /** A later struct or instance slot whose ADDRESS the initializer hands to a call — `F(ADR(later))`, or `F(THIS)` while

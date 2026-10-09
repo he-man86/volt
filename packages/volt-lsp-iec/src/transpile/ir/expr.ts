@@ -253,6 +253,9 @@ export interface IrConst {
  *
  * Both backends already had the function: `instantiate` in the interpreter and `initOf` in the emitter. This node is
  * the thing that lets `resetTemps` reach them.
+ *
+ * `init` is the COMPLETE static `IrInit` (design.md §3.4); an aggregate's DYNAMIC elements and fields are the statements
+ * after it, re-evaluated every call (`var_temp_dynamic_aggregate_init`, `lower/init/temp-resets.ts`).
  */
 export interface IrFresh {
   kind: "fresh"

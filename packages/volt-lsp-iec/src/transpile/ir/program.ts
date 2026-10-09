@@ -16,7 +16,9 @@ export interface IrSlot {
   type: Type
   /** `temp`: a lowering-owned slot. `program`: a called PROGRAM's one instance, in `IrPou.globals`. */
   section: VarSectionKind | "temp" | "program"
-  /** The initial value: the declaration's, constant-folded, or the type's zero (`lower/core` `zeroInit`). */
+  /** The initial value: the declaration's folded constant, or — when the init step assigns it (a dynamic initializer, a
+   *  constant after the frame's first step statement: the position rule, design.md §3.4) — the type's start
+   *  (`lower/core` `zeroInit`). */
   init: IrInit
   /** A VAR_IN_OUT CONSTANT: no store into it lowers, however it is written (conformance `inout_const_write_5`). */
   constant?: boolean
@@ -129,8 +131,11 @@ export interface IrPou {
   /** The application's global storage the POU reaches: GVL variables, and the instance of every PROGRAM it calls — one
    *  each, shared by every body (conformance `fbcall_program_writes_global`: the called program's VAR persists). */
   globals: readonly IrSlot[]
-  /** Run once before the first scan: each instance's `call_after_global_init_slot` METHOD (conformance
-   *  `state_call_after_global_init_counts` — once per instance, however many scans follow). */
+  /** THE ORDERED INIT STEP, run once before the first scan (`lower/init/step.ts`, design.md §3.4): per frame in recorded
+   *  order (the POU's, then the PROGRAMs it calls, in call order), per declaration a dynamic initializer, a constant after
+   *  the frame's first statement (the position rule), or an instance's whole init — per class of its EXTENDS chain, base
+   *  first, its own fields then its FB_Init; then its structured initializer; then every `call_after_global_init_slot`
+   *  METHOD (conformance `state_call_after_global_init_counts` — once per instance, however many scans follow). */
   init?: readonly IrStmt[]
   /** The byte image, when any variable's address is stored. */
   image?: IrImage

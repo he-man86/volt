@@ -15,6 +15,10 @@ import type { LanguageTest } from "../../types.js"
 
 const doc = "openspec transpile-restructure design.md §3.4 (task 5.1)"
 
+/** Why a STRUCT field's dynamic initializer stays refused (design.md §3.4 step 5d). */
+const STRUCT_FIELD_DYNAMIC =
+  "2026-10-09 (transpile-restructure 5.8, design.md §3.4 step 5d): a STRUCT field with a dynamic initializer — a STRUCT has no init frame, so lowering refuses it (`init-not-constant`). niche: accepted loss (0 occurrences in the corpora: every STRUCT field initializer in the six is constant; the 7 candidates are SIZEOF(THIS^))"
+
 /** The FB_Init header every probe here declares. */
 const FB_INIT = "METHOD FB_Init : BOOL\nVAR_INPUT\n\tbInitRetains : BOOL;\n\tbInCopyCode : BOOL;\nEND_VAR\n"
 /** The same with one argument `v`. */
@@ -110,6 +114,7 @@ END_FUNCTION_BLOCK
 `,
     plcPrgVar: "rec : DUT_LANG_sfs; holder : FB_LANG_sfs_holder; seqAtScan : INT;",
     plcPrgBody: "holder();\nseqAtScan := gLangSfsSeq;",
+    deferred: { transpile: STRUCT_FIELD_DYNAMIC },
   },
   // ...the same field's argument naming a variable of the POU that DECLARES the struct variable: the struct type cannot
   // see it, unless CODESYS resolves the argument where the struct is instantiated.
@@ -203,6 +208,7 @@ END_TYPE
 `,
     plcPrgVar: "rec : DUT_LANG_sfsd; seqAtScan : INT;",
     plcPrgBody: "seqAtScan := gLangSfsdSeq;",
+    deferred: { transpile: STRUCT_FIELD_DYNAMIC },
   },
   // Measure item 4: the order across a GVL's scalar initializers and FB instance, a PROGRAM's own initializers and FB
   // instance, PLC_PRG's, and every instance's `call_after_global_init_slot` method. Each event stamps itself; PLC_PRG
@@ -374,6 +380,10 @@ END_FUNCTION_BLOCK
 `,
     plcPrgVar: "inst : FB_LANG_initthisa;",
     plcPrgBody: "inst();",
+    deferred: {
+      transpile:
+        "2026-10-09 (transpile-restructure 5.8, design.md §3.4 step 5d): `THIS^.n` and `THIS` as FB_Init arguments are neither a constant, a variable nor a struct field, so lowering refuses them (`fb-init-argument`). niche: accepted loss (0 occurrences in the corpora: every corpus FB_Init argument is a literal)",
+    },
   },
   // transpile-restructure 5.6 (design.md §3.4): an EXTENDS chain holding a field INSTANCE that runs FB_Init — where that
   // FB_Init falls against the base's FB_Init and the derived class's field initializers and FB_Init. `inst`: the field

@@ -260,8 +260,8 @@ transpile/
                     ast-walk.ts tags.ts
     values/         literals.ts fold.ts enums.ts convert.ts promote.ts
     storage/        layout.ts declare.ts statics.ts addresses.ts bytes.ts unions.ts
-    init/           state.ts step.ts sequence.ts fb-init.ts instance-init.ts initial-values.ts temp-resets.ts
-                    attributes.ts
+    init/           state.ts step.ts sequence.ts fb-init.ts fb-init-args.ts instance-init.ts initial-values.ts
+                    temp-resets.ts position.ts attributes.ts
     places/         places.ts names.ts self.ts globals.ts bounds.ts path.ts access-guards.ts
     pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts
     expressions/    expressions.ts operators.ts calendar.ts partial-access.ts
@@ -359,6 +359,25 @@ an implicit string crossing (`assign-string`), unmeasured escapes (`string-escap
 `string-non-ascii`), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
 a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun`), REAL_TO_STRING
 (`conversion-type`).
+
+*Initialization* (transpile-restructure §3.4). An initializer is a statement that RUNS, once before the first scan, in
+declaration order — not a constant expression. `IrSlot.init` holds the folded constant (an `IrInit` complete to every
+element: an enum's default, an alias's `:=`); everything else is ONE ordered walk, `lower/init/step.ts`, into
+`IrPou.init`: the POU's frame, then the PROGRAMs its body calls in call order, then the `call_after_global_init_slot`
+METHODs. Per declaration a dynamic initializer, a constant after the frame's first statement (the position rule,
+`init/position.ts`: a later declaration still holds its type's start), or an instance's whole init — per class of its
+EXTENDS chain, base first, its own fields then its FB_Init (arguments in the containing frame; a STRUCT field
+instance's in the struct's scope: its earlier fields, then globals), then its structured initializer. A METHOD's or
+FUNCTION's VAR and a VAR_TEMP restart every call: `IrFresh` with the static part, then the dynamic elements as
+statements (`init/temp-resets.ts`). What an initializer reads is `ir/walk.ts` `initReadChildren` — `childrenOf`, an
+`ADR` reading only its indices. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path),
+`init-reads-instance` (an instance declared with a structured initializer, its field, a METHOD on it, the instance
+itself or a struct holding it — also handed to a call by name, as an interface lends it after the guards ran),
+`fb-init-order` (a nested structured initializer reaching an FB_Init, or setting the sibling a STRUCT field instance's
+argument reads), `fb-init-argument` (an argument neither a constant, a variable nor an elementary struct field — THIS
+among them, and in a struct any expression naming something), `init-frame-order` (a PROGRAM not first called by the POU's
+own top-level statements), `init-slot-order` (several slot methods whose order could show), `init-not-constant` (a GVL
+initializer that runs; a STRUCT field's dynamic initializer — a STRUCT has no init frame), `init-composite-scalar`.
 
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
 a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering

@@ -220,3 +220,74 @@ test("a structured initializer a running initializer reads, or one reaching a ne
   own.scan()
   expect([own.get("d.seen"), own.get("d.k")]).toEqual([0n, 9n])
 })
+
+// transpile-restructure 5.8 (design.md §3.4 step 5d; M5.1.2): a STRUCT field instance's FB_Init argument resolves in the
+// STRUCT's scope — an earlier field of that struct (`init_struct_field_fb_init_scope_sibling`: 4), a field before a global
+// of the same name (`_shadow`: the field's 4, not the global's 11), else a global; never the declaring POU's (`_local`:
+// both vendors refuse). It was lowered in the declaring POU's scope, where a struct field is no name: `fb-init-argument`.
+// A LATER field of the struct is not initialized yet: `init-reads-later`. Why missed: no test declared an FB_Init argument
+// on a STRUCT field.
+test("a STRUCT field instance's FB_Init argument resolves in the struct's scope: earlier fields, then globals", () => {
+  const target = "FUNCTION_BLOCK FB_T\nVAR got : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; v : INT; END_VAR\ngot := v;\nEND_METHOD\n"
+  const struct = (fields: string) => `TYPE DUT :\nSTRUCT\n${fields}\nEND_STRUCT\nEND_TYPE\n`
+  const gvl = [{ uri: "file:///project/GVL_S.gvl", source: "VAR_GLOBAL\n  first : INT := 11;\n  gSeed : INT := 6;\nEND_VAR\n" }]
+  const holderFb = "FUNCTION_BLOCK FB_H\nVAR h : DUT; END_VAR\nEND_FUNCTION_BLOCK\n"
+  const source = (fields: string, decls = "rec : DUT;") => `PROGRAM P\nVAR ${decls} END_VAR\n;\nEND_PROGRAM\n${target}${struct(fields)}${holderFb}`
+  const got = (fields: string, path: string, decls?: string) => {
+    const lowered = lowerSource(source(fields, decls), "P", gvl)
+    expect(lowered.diagnostics).toEqual([])
+    const runner = run(lowered.pou!)
+    runner.scan()
+    return runner.get(path)
+  }
+  // an earlier field, named like a global: the field (`_sibling`, `_shadow`)
+  expect(got("first : INT := 4;\nheld : FB_T(v := first);", "rec.held.got")).toBe(4n)
+  // a global, in PLC_PRG and inside an FB (`init_struct_field_fb_init_scope`'s `viaGlobal`: 6)
+  expect(got("held : FB_T(v := gSeed);", "rec.held.got")).toBe(6n)
+  expect(got("held : FB_T(v := gSeed);", "holder.h.held.got", "holder : FB_H;")).toBe(6n)
+  const codes = (fields: string, decls?: string) => lowerSource(source(fields, decls), "P", gvl).diagnostics.map((d) => d.code)
+  // a later field of the struct: not initialized yet
+  expect(codes("held : FB_T(v := last);\nlast : INT := 4;")).toEqual(["init-reads-later"])
+  // a variable of the POU declaring the struct variable is no name in the struct (`_local`: both vendors refuse)
+  expect(codes("held : FB_T(v := seed);", "seed : INT := 4; rec : DUT;")).toEqual(["fb-init-argument"])
+  // NOT RECORDED, a conservative refusal: such a variable shadowing a GLOBAL of its name — the struct's scope would give
+  // the global (6), no fixture records it (`_local` has no global of that name). niche: accepted loss (0 occurrences in
+  // the corpora: every corpus FB_Init argument is a literal)
+  expect(codes("held : FB_T(v := gSeed);", "gSeed : INT := 4; rec : DUT;")).toEqual(["fb-init-argument"])
+})
+
+// gate 5d review: what the struct-scope lowering (5.8) let through unrecorded or wrong. Why missed: the 5.8 test above
+// declared the struct variable bare, its arguments as bare names of elementary fields.
+test("a STRUCT field instance's FB_Init argument: refused where the struct's scope gives no recorded answer", () => {
+  const target = "FUNCTION_BLOCK FB_T\nVAR got : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; v : INT; END_VAR\ngot := v;\nEND_METHOD\n"
+  const struct = (name: string, fields: string) => `TYPE ${name} :\nSTRUCT\n${fields}\nEND_STRUCT\nEND_TYPE\n`
+  const gvl = [{ uri: "file:///project/GVL_S.gvl", source: "VAR_GLOBAL CONSTANT\n  first : INT := 11;\nEND_VAR\n" }]
+  const lowered = (decls: string, more = "", fields = "first : INT := 4;\nheld : FB_T(v := first);") =>
+    lowerSource(`PROGRAM P\nVAR ${decls} END_VAR\n;\nEND_PROGRAM\n${target}${struct("DUT", fields)}${more}`, "P", gvl)
+  const codes = (decls: string, more?: string, fields?: string) => lowered(decls, more, fields).diagnostics.map((d) => d.code)
+  // an ENCLOSING structured initializer setting the sibling the argument reads: whether FB_Init sees it is not recorded
+  // (on an FB instance's own declaration it is applied after FB_Init, `fb_init_and_structured_initializer`) — it saw 7/9
+  expect(codes("rec : DUT := (first := 7);")).toEqual(["fb-init-order"])
+  expect(codes("holder : FB_H;", "FUNCTION_BLOCK FB_H\nVAR rr : DUT := (first := 9); END_VAR\nEND_FUNCTION_BLOCK\n")).toEqual(["fb-init-order"])
+  expect(codes("o : DUT_O;", struct("DUT_O", "inner : DUT := (first := 9);"))).toEqual(["fb-init-order"])
+  // ...one setting another field still lowers: the sibling's 4
+  const other = lowered("rec : DUT := (spare := 7);", "", "first : INT := 4;\nspare : INT;\nheld : FB_T(v := first);")
+  expect(other.diagnostics).toEqual([])
+  const r = run(other.pou!)
+  r.scan()
+  expect(r.get("rec.held.got")).toBe(4n)
+  // an EXPRESSION naming anything is not judged in the struct's scope (the global constant's 11, a POU constant the struct
+  // cannot see): `fb-init-argument`, as design.md §3.4 step 5d keeps any expression
+  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := first + 0);")).toEqual(["fb-init-argument"])
+  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := -first);")).toEqual(["fb-init-argument"])
+  expect(codes("rec : DUT; END_VAR VAR CONSTANT seed : INT := 4;", "", "held : FB_T(v := seed + 0);")).toEqual(["fb-init-argument"])
+  // ...a literal one still folds
+  const literal = lowered("rec : DUT;", "", "held : FB_T(v := -3 + 1);")
+  expect(literal.diagnostics).toEqual([])
+  const l = run(literal.pou!)
+  l.scan()
+  expect(l.get("rec.held.got")).toBe(-2n)
+  // a sibling that is not an elementary value (a STRUCT, an FB instance) is no argument for an INT input
+  expect(codes("rec : DUT;", struct("DUT2", "a : INT := 1;"), "first : DUT2;\nheld : FB_T(v := first);")).toEqual(["fb-init-argument"])
+  expect(codes("rec : DUT;", "", "first : FB_T(v := 3);\nheld : FB_T(v := first);")).toEqual(["fb-init-argument"])
+})

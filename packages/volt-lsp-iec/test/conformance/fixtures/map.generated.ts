@@ -14,9 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2900
+ *     confirmed     2902
  *     refused       1991
- *     not-lowered    358
+ *     not-lowered    356
  *     lsp-gap         83
  *     diverges        11
  *     unaskable       92
@@ -25,9 +25,9 @@
  *     decl                    741      741
  *     arith                  1540     1538
  *     control                 158      147
- *     aggregate               133      133
+ *     aggregate               134      134
  *     call                    298      295
- *     indirect                445      440
+ *     indirect                446      441
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
@@ -44,8 +44,8 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5652
- *     clippy::self_assignment                   40
+ *     dead_code                               5654
+ *     clippy::self_assignment                   42
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
  *     clippy::approx_constant                    6
@@ -58,7 +58,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3105
+ *     agree         3107
  *     disagree         3
  *     not-run        207
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -79,8 +79,8 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 32627 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               8179
+ *   pedantic — 32633 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               8185
  *     clippy::cast_possible_truncation         5134
  *     clippy::cast_lossless                    4756
  *     clippy::cast_sign_loss                   3593
@@ -103,8 +103,8 @@
  *     string_escapes_named                            13
  *     initprg_adr_of_later                          12.6
  *
- *   shape — 1798 distinct emission shapes over 3315 lowered fixtures, 2063 distinct constructs.
- *   681 constructs carry a review note (`NOTES`): 3146 fixtures are improvable, 3051 touch a construct with alternatives.
+ *   shape — 1799 distinct emission shapes over 3317 lowered fixtures, 2064 distinct constructs.
+ *   681 constructs carry a review note (`NOTES`): 3148 fixtures are improvable, 3053 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
@@ -2262,8 +2262,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   init_struct_field_fb_init_scope: { evidence: "not-lowered" },
   init_struct_field_fb_init_scope_dynamic: { evidence: "not-lowered" },
   init_struct_field_fb_init_scope_local: { evidence: "lsp-gap" },
-  init_struct_field_fb_init_scope_shadow: { evidence: "not-lowered" },
-  init_struct_field_fb_init_scope_sibling: { evidence: "not-lowered" },
+  init_struct_field_fb_init_scope_shadow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "bd1452d065", notes: ["1307e33bbf", "8a9bb48ddb", "fa7d5f176f"] },
+  init_struct_field_fb_init_scope_sibling: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "bd1452d065", notes: ["1307e33bbf", "8a9bb48ddb", "fa7d5f176f"] },
   init_this_in_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 4.1, shape: "324c1d2c0a", notes: ["1307e33bbf", "fa7d5f176f"] },
   init_this_in_initializer_argument: { evidence: "not-lowered" },
   initord_array_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 14, edge: "not-run", size: 4.3, shape: "bdff577fb3", notes: ["1307e33bbf", "a497507b30", "abf2bb6e4e", "bea3694884", "fbde4d6e1e"] },

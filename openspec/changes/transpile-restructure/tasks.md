@@ -139,8 +139,8 @@ its RC or lean id in this file.
     | `calledLayout`'s doc about VAR_TEMP | open (it still reads "Refused, until recorded: an FB with VAR_TEMP") | 6.A.13 |
     | SHL/SHR of an untyped literal into a 64-bit destination | open | 6.A.14 |
     | `0 = p` / `0 <> p` refused | open | 4.13 (c) |
-    | the init-sequence read walk skips `select` and an invoke's freezes | open | 5.9 |
-    | `insideInstance` refuses `holder.started`, allows `holder.Get()` | open | 5.8 |
+    | the init-sequence read walk skips `select` and an invoke's freezes | closed (5.9, step 5d: `initReadChildren` is `childrenOf`) | 5.9 |
+    | `insideInstance` refuses `holder.started`, allows `holder.Get()` | closed (5.8, step 5d: both refused, `init-reads-instance`) | 5.8 |
     | an FB instance in a GVL is never callable through an interface (`lendPlace`) | open | 4.13 (f) |
     | `r.3` on a REFERENCE refused | open | 4.13 (d) |
     | an assignment chain and a store through a REFERENCE skip the implicit STRING→number refusal | the chain closed upstream (RC 38); the REFERENCE store open | 8531164eca; 6.13 |
@@ -152,7 +152,7 @@ its RC or lean id in this file.
     | inferred STRING(N)/ARRAY[1..N] fold N in project scope | closed by frontend-conformance 4.6.2 | 62bcb30d65; 6.A.22 verify |
     | a negated or parenthesised untyped real literal in SIN/SQRT infers UNKNOWN | open | 6.A.23 |
     | `enumValueType` resolves without the asker | open | 6.5 |
-    | (grouped) a STRUCT field's FB_Init arguments folded in the declaring POU's scope | open | 5.8 |
+    | (grouped) a STRUCT field's FB_Init arguments folded in the declaring POU's scope | closed (5.8, step 5d: the struct's scope — earlier fields, then globals) | 5.8 |
     | (grouped) a pointer's target set read while still growing | open | 4.13 (a) |
     | (grouped) a null source copied into a multi-target pointer becomes non-null | open | 4.13 (b) |
     | (grouped) GVL1.x and GVL2.x in two plain lists share one slot | open | 6.A.17 |
@@ -3793,22 +3793,94 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       11, unaskable 92, edge agree 3105, disagree 3, not-run 207).
     - Numbers: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning; full suite
       (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8837 pass, 35 skip, 401 todo, 0 fail (9273 tests, 618 s).
-- [ ] 5.8 Appendix init items.
+- [x] 5.8 Appendix init items.
   - What: the scope of a STRUCT field's FB_Init arguments (per `init_struct_field_fb_init_scope`); `insideInstance` refusing
     `holder.started` while allowing `holder.Get()`, made consistent.
   - Where: `lower/init/fb-init.ts`, `init/sequence.ts`, `places/path.ts`.
   - Accept: fixtures plus F or a named refusal.
   - Depends: 5.7.
-- [ ] 5.9 The init-sequence read walk no longer skips `select` and freezes (appendix).
+  - Done 2026-10-09 (step 5d; design.md "§3.4 Decision (step 5d)", followed as written). No recording (every fact is
+    M5.1.2's). A STRUCT field instance's FB_Init argument naming a bare name resolves in the STRUCT's scope
+    (`fb-init-args.ts` `structField`): a field declared before the instance is read as `holder.field` at that point of the
+    walk, before a global of the same name; a later field `init-reads-later`; a variable of the POU declaring the struct
+    variable `fb-init-argument` (whatever global shares its name); otherwise a constant or a global, read as
+    `fb_init_argument_from_global` reads one. `insideInstance` (`places/path.ts`) now also answers a place stopping ON an
+    instance declared with a structured initializer — a METHOD run on it (`holder.Get()`, also through a struct field), the
+    instance copied — `init-reads-instance`, as `holder.started`; `ADR(holder)` stays no read. The FB_Init argument code
+    moved out of `fb-init.ts` (440 lines with the branch, over the 400 limit) into `lower/init/fb-init-args.ts`
+    (`recordedArgument`, `fbInitInput`, `structField`; the refusal tail split out as `refuseInput` to keep `fbInitInput`
+    within 80 lines); the move changes no logic. F: `init_struct_field_fb_init_scope_sibling` (4) and `_shadow` (the
+    field's 4) confirmed (Rust and interpreter, edge agree). Stay `not-lowered`, with `deferred.transpile` "niche: accepted
+    loss (0 occurrences in the corpora)": `init_struct_field_fb_init_scope{,_dynamic}` (`init-not-constant`: a STRUCT
+    field's dynamic initializer — a STRUCT has no init frame; the 7 corpus candidates are `SIZEOF(THIS^)`) and
+    `init_this_in_initializer_argument` (`fb-init-argument`: `THIS^.n` / `THIS` as an argument; every corpus FB_Init
+    argument is a literal). `_local` stays the vendors' refusal (`lsp-gap`, unchanged). Src tests (red first):
+    `fb-init.test.ts` (earlier field, field before global, a global in PLC_PRG and in an FB, a later field
+    `init-reads-later`, a POU local `fb-init-argument` even where it shadows a global), `sequence.test.ts` (`holder.Get()`
+    and `holder.inner.Get()` refused; without a structured initializer it lowers: 6; `ADR(holder)` no read).
+- [x] 5.9 The init-sequence read walk no longer skips `select` and freezes (appendix).
   - What: drop the skip option kept in 1.7.4.
   - Where: `ir/walk.ts`, `lower/init/sequence.ts`.
   - Accept: a src test with a select or freeze read in an initializer; S-out.
   - Depends: 5.7.
-- [ ] 5.10 Model delta.
+  - Done 2026-10-09 (step 5d). `initReadChildren` is `childrenOf` with no skip: a select reads its tag and every arm; a
+    call its inputs, its freezes, its in-out bindings, its lent places, then its instance. What stays is semantics: `ADR(x)`
+    reads only its indices, a freeze its value (its temp is written), a copy binding its value (its `back` is written
+    after the call). Src tests (red first): `ir/walk.test.ts` (the order; a select's tag and arm), `sequence.test.ts`
+    (`F_Io(x := arr[cfg.n], v := F_Next())` with `cfg` a later struct: `init-reads-later` — it lowered clean and answered
+    arr[0] + 1; an earlier index still lowers: 4). `test/conformance/ir-walk.test.ts`'s 1.7.4 oracle (`handReads`, the old
+    walk) now checks that every place the old walk read is still read, in its order (a subsequence) — its premise "the
+    same walk" ended with this task by design; 11 fixture expressions read more (selects, freezes, lent places). S-out:
+    `rate:fixtures` moved no fixture's shape or rating beyond 5.8's two lifted fixtures — no fixture moved to a refusal
+    (no hidden read in the fixtures).
+- [x] 5.10 Model delta.
   - What: `ir/program.ts` docs (`IrPou.init`, `IrFresh`) corrected; architecture.md initialization paragraph; the map delta.
   - Where: `ir/program.ts`, `docs/architecture.md`; this file.
   - Accept: M.
   - Depends: 5.3-5.9.
+  - Done 2026-10-09 (step 5d). `IrPou.init` (`ir/program.ts`): the ordered init step — frames in recorded order, per
+    declaration a dynamic initializer, a constant after the first statement, or an instance's whole init (per class: fields,
+    FB_Init; then its structured initializer); then the slot methods (it named the slot methods only). `IrSlot.init`: the
+    folded constant, or the type's start when the step assigns it. `IrFresh` (`ir/expr.ts`): the complete static
+    `IrInit`, the dynamic elements the statements after it. `docs/architecture.md`: an *Initialization* paragraph beside
+    *Loops*, *Strings* and *Pointers* (the walk, the position rule, the struct scope, the per-call restart, the read walk,
+    every refusal by name), and `init/`'s file list (`fb-init-args.ts`, `position.ts`).
+  - M (`rate:fixtures`, steps 5.8-5.10): 5435 fixtures; confirmed 2900 -> 2902, refused 1991, not-lowered 358 -> 356,
+    lsp-gap 83, diverges 11, unaskable 92; edge agree 3105 -> 3107, disagree 3, not-run 207; no confirmed fixture lost.
+    Model 4 over 5.1-5.10: confirmed 2863 -> 2902, not-lowered 377 -> 356 (with 5.1's and 5c's new fixtures counted).
+  - Numbers (end of step, no VOLT_FIXTURES): `bun test test/conformance` 6399 pass, 356 todo, 0 fail (340 s); `bun test
+    test/frontend` 45 pass; `bun test test/analysis` 13 pass; `bun test src/transpile` 482 pass; `bun typecheck` clean;
+    `bun run lint` (package) green but the pre-existing `last-binding.ts` function-size warning. Full suite: the gate's.
+  - Gate 5d review fixes (2026-10-09; src tests red first — `fb-init.test.ts` "refused where the struct's scope gives no
+    recorded answer", `sequence.test.ts` "an instance handed to a call as an interface", the copy line in the 5.8 test):
+    - (medium) An ENCLOSING structured initializer setting the sibling a STRUCT field instance's FB_Init argument reads (`rec :
+      DUT := (first := 7)`, an FB's `rr : DUT := (first := 9)`, an outer struct's `inner : DUT := (first := 9)`) was in the
+      slot at construction — FB_Init saw 7/9, unrecorded (on an FB instance's own declaration applied after FB_Init). Now
+      `fb-init-order` (`fb-init-args.ts` `siblingsUnset`, called from `visitFields` per struct field); a structured
+      initializer setting another field still lowers (4). niche: accepted loss (0 STRUCT fields with FB_Init arguments in
+      the corpora).
+    - (medium) A STRUCT field instance's argument that is an EXPRESSION naming anything (`first + 0`, `-first`, `seed + 0`)
+      folded in the declaring POU's scope — the global constant's 11 for a field `first`, a POU constant the struct cannot
+      see. Now `fb-init-argument`, as design.md §3.4 step 5d keeps any expression; a literal expression still folds (`-3 +
+      1`: -2). niche: accepted loss (every corpus FB_Init argument is a literal).
+    - (medium) An instance handed to a call BY NAME as an interface (`F_Get(itf := later)`) lowers to a tag, its place lent
+      only after the guards ran (`interfaces/lend.ts`), so the read walk never met it: a later instance with a structured
+      initializer gave 3. `sequence.ts` `handedSlots` judges a call's bare-name arguments (operators such as `ADR`,
+      `SIZEOF` excepted): a later struct/instance `init-reads-later`, an instance declared with a structured initializer
+      `init-reads-instance`; an earlier plain instance still lowers (7).
+    - (low) `insideInstance` refused a place stopping ON an FB but not on the STRUCT (or array) holding one: `copy : T_H :=
+      holder` copied the structured-initialized state (9). Now any place whose type holds an instance (`path.ts`
+      `holdsInstance`) — `init-reads-instance`.
+    - (low) `structField` passed a STRUCT- or FB-typed sibling to an elementary input (`{A: 1n}` in an INT). Now
+      `fb-init-argument`, as `recordedArgument` requires an elementary variable.
+    - (low) The src test pinning `fb-init-argument` for a POU local shadowing a global (`gSeed`) claimed a vendor fact: the
+      struct's scope would give the global (6), unrecorded. Kept as a conservative refusal, named so in the test and in
+      `structField`'s doc — niche: accepted loss (0 occurrences in the corpora).
+    - M (`rate:fixtures`): unchanged (5435 fixtures, confirmed 2902, refused 1991, not-lowered 356, lsp-gap 83, diverges
+      11, unaskable 92, edge agree 3107, disagree 3, not-run 207) — no fixture moved.
+    - Numbers: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning;
+      `bun test src/transpile` 484 pass; full suite (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8846 pass, 35 skip, 399
+      todo, 0 fail (9280 tests, 605 s).
 
 ## 6. Remaining open root causes (one task each, in the new structure)
 
