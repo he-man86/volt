@@ -1394,6 +1394,48 @@ the refused list above into docs; the map delta in tasks.md. Migration: 4.13 (re
 
 **Couplings.** Lean 7 (routine signatures) and 8 (derives, aggregate syntax) sit on this model's final `new()`/`init()` shape.
 
+### §3.4 Decision: initialization (task 5.2, 2026-10-09, on 5.1's measurements)
+
+**Target.** ONE declaration-ordered walk, `init/step.ts`, replaces today's three phases (every FB_Init, then the structured
+initializers, then the rest of the frame's own initializers, then the slot methods). Frames in the recorded order (M5.1.4):
+each GVL, then the POU, then each PROGRAM it calls. Within a frame, per declaration in order, exactly one of:
+- a CONSTANT initializer: folded into `IrSlot.init`, applied by `new()`/`instantiate` — unless an earlier step statement
+  reads the slot (`cfold_non_constant_argument` 0; `init_this_in_initializer` reads a later field's default 0), then the
+  slot starts at its type default and the constant is a statement at its position;
+- a DYNAMIC initializer: the assignment at its position (aggregates: the static part stays in `init`, each dynamic
+  element or field is an assignment after it, in element order — M5.1.7);
+- an INSTANCE: its whole init, then the next declaration. Per class of the EXTENDS chain, base first: that class's own
+  fields (recursively, nested instances at their position; `T.__init` split at each, as today), then that class's
+  FB_Init with its arguments evaluated NOW in the containing frame (M5.1.1, RC 22, RC 23); then the instance's
+  structured initializer (M5.1.3). A STRUCT field instance's arguments resolve in the struct's scope — its earlier
+  fields' runtime values, then globals (M5.1.2).
+Then every `call_after_global_init_slot` method, after all frames. THIS is legal in an initializer (M5.1.5): it is the
+frame's own place, at its current state.
+
+**The VAR_TEMP reset** is the same walk over a routine's VAR_TEMP (METHOD/FUNCTION: VAR) at body entry, every call
+(M5.1.6, M5.1.7): `IrFresh` stays, carrying the fully resolved static `IrInit` (5.3/5.4), and the dynamic elements are the
+statements after it. `IrPou.init` doc: "the ordered init step: dynamic initializers, FB_Inits, structured initializers,
+slot methods"; `IrSlot.init`: "the folded constant, or the type default when the step assigns it".
+
+**Rejected.** All fields first, then FB_Inits — M5.1.1 shows base FB_Init before derived fields. Keeping the three
+phases — contradicts M5.1.1/2/5. `IrFresh` with a folded init only — M5.1.7 re-evaluates dynamic elements per call.
+Everything a statement (no constant `init`) — moves every fixture's `new()` for no recorded difference (S-out lost).
+Arguments of a STRUCT field's FB_Init folded in the declaring POU's scope (today) — refused on both vendors (`_local`).
+
+**Stays refused, by code.** `init-reads-instance` keeps exactly its present scope: a read of an instance's field is legal
+by the walk's order (an earlier instance is complete, a later one at its defaults), except of an instance with a
+STRUCTURED initializer — whether a sibling sees that value is unrecorded (`fb_init_and_structured_initializer` pins it
+only against its own FB_Init); the walk applies it right after that FB_Init. `fb-init-order` is lifted (EXTENDS measured). New `init-slot-order`: slot
+methods in more than one frame — their order among themselves is neither declaration nor frame order (M5.1.4, moves
+with names) — niche: accepted loss (0 occurrences in the corpora: no `call_after_global_init_slot`). `fb-init-argument`
+for positional / VAR_IN_OUT / VAR_OUTPUT FB_Init arguments and the global-written-while-read case, unchanged.
+`attr-init-unreached` for an instance in an array element, a non-PROGRAM global or a routine local, unchanged.
+
+**Migration.** 5.3 element defaults (`typeDefault` complete) → 5.4 one `initOf` → 5.5 VAR_TEMP reset as above → 5.6 the
+walk with per-class fields/FB_Init (RC 22, EXTENDS) → 5.7 interleaving across declarations and frames, the constant-
+read-early rule (RC 23) → 5.8 the STRUCT field scope and `insideInstance` → 5.9 the read
+walk sees `select`/freeze → 5.10 the IR docs above and architecture.md.
+
 ---
 
 ## 4. Old → new map
