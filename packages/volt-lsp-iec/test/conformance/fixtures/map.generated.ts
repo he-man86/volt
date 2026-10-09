@@ -109,7 +109,7 @@
  *     7.9.3 18, 7.4.2 17, 7.2.4 16, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.5.7 13, 7.6.3 13, 7.2.5 12
  *     7.2.7 12, keep 12, 7.5.6 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8, 7.2.10 8
  *     7.3.6 8, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.4.8 6, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5
- *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.5.2 4, 7.3.8 3, 7.4.9 3, 7.7.6 3, 4.2 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
+ *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.5.2 4, 7.3.8 3, 7.4.9 3, 7.7.6 3, 4.4 2, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
  *     7.4.7 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.7.7 1
  *     7.8.1 1, 7.8.11 1, 7.9.2 1
  */
@@ -5543,7 +5543,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep usize (my choice): it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
     ],
     chosen: "keep usize: it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
-    tasks: ["4.2"],
+    tasks: ["4.4"],
   },
   // self.sum = (self.sum as i32).wrapping_add(self.f as i32) as i16;
   "0153115496": {
@@ -10558,7 +10558,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep usize (my choice): it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
     ],
     chosen: "keep usize: it maps directly to CODESYS's integer-valued pointer, stays compact, and the refusals (pointer-step, pointer-value) already keep arithmetic out",
-    tasks: ["4.2"],
+    tasks: ["4.4"],
   },
   // self.f = self.f.wrapping_shr(Li16 as u32) as u32;
   "de956f2a12": {

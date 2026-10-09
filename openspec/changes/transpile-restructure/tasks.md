@@ -3133,7 +3133,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       Gate: `bun typecheck` clean; `bun run lint` green (package; repo oxlint warnings only, none in volt-lsp-iec);
       `rate:fixtures` unchanged (mapped 5394, confirmed 2828, refused 1990, not-lowered 394, diverges 8, edge agree 3061,
       disagree 0, not-run 184); full suite `VOLT_REQUIRE_FULL=1 bun test` (cached rustc, VOLT_FIXTURES unset) 8618 pass, 35 skip, 437 todo, 0 fail, 9090 tests in 304 files.
-- [ ] 4.2 Design "§3.3 Decision: pointers".
+- [x] 4.2 Design "§3.3 Decision: pointers".
   - What: the decision by fixtures, then Rust cost, then LOC; whether the three tag schemes unify (and why not, if not); which `staticKey`
     options become removable; the refused list by code; which transpile-st-to-rust pointer tasks it supersedes (update 0.8's list); the
     rewrite of architecture.md's "pointers will become indices" paragraph.
@@ -3145,6 +3145,49 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: `design.md`; `openspec/changes/transpile-st-to-rust/tasks.md`.
   - Accept: committed.
   - Depends: 4.1.
+  - Done 2026-10-09 (step 4c; the decision written at 34c44c3640, checked and corrected here; no product code, no
+    fixture, no recording). design.md "§3.3 Decision: pointers": option (b) narrowed — a DATA pointer is a byte address
+    into one little-endian image per program, a pointer/reference to an FB instance an instance handle (the interface
+    scheme); form 2 borrows and the cursor stay. By the criterion: fixtures (b) 45 first-time lowerings plus
+    `pointer_step_past_end` vs (a)/(d) 14 (12 needing a program-wide lend registry), the 13 at-risk lowered rows kept
+    (12 instance handles, `lib_stu_wide` waits on one WSTRING layout recording); Rust cost +12% on the nine spikes all three
+    build (203 vs 181 lines, (d) 186) plus a 36-line `Mem` runtime paid only by escaping frames, pedantic 0 in all three;
+    corpus: the same 2 POUs unblocked by every option, pointer codes cleared in 136 POUs by (b), 71 by (a)/(d).
+    Each item the section must also say:
+    - tag schemes: data pointer tags go (addresses); pointer-to-instance and interface tags merge into one instance-handle
+      scheme in `core/tags.ts`; `__inout_binding` stays separate (folding it in would make every VAR_IN_OUT target
+      escape); `instanceRelative` decided with the merge (4.14);
+    - `staticKey` options (4.15): `pointers/state.pointerKey` goes for data; `interfaceKey` stays (the handle's key);
+      `KEY_STEP`/`SUFFIX_STEP`/`SAME_STEP` stay, each with its reason;
+    - stays refused, by registered code: `pointer-shape`, `cursor-overrun`, `sizeof-unmeasured`, `call-inout-alias`,
+      `place-not-local`, the `interface-*` codes, `dynamic-memory` on `__NEW`/`__DELETE`; `layout-unmeasured` is NEW and
+      4.4 registers it; a pointer→DWORD conversion is vendor-refused;
+    - supersedes (0.8's list, the hand-off's four 4.2 lines): "multi-target handle (`pointer-targets`)", "form 2 first"
+      (built, kept), "REFERENCE/POINTER inputs of a routine as borrows" (interface inputs: the handle), "`VAR_IN_OUT`,
+      `POINTER TO`, `REFERENCE TO`, `expr-deref` on the phase-3 model". transpile-st-to-rust is archived, so per the
+      hand-off the commit names these lines instead of ticking the archived file;
+    - architecture.md (line 313, "pointers will become indices into that same frame"): the replacement sentence is in
+      the section; 4.16 writes it.
+    - Owner item (4b): vendor agreement on the recorded paths suffices for the CHOICE (where all three build, all agree
+      with CODESYS — the options differ in reach, not arithmetic); it does NOT suffice for reinterpretation — one
+      batch records a DINT read as a REAL at a quiet and a signalling NaN, ±0, a denormal and ±max before 4.9/4.12
+      lower `tr_17`/`tr_28`, folded into 4.3's single recorder batch per vendor.
+    Corrections made while checking: the architecture.md paragraph is at line 313 (the Measure list said 132);
+    `layout-unmeasured` is not registered yet (said so, owner 4.4); `newdel_*` is a fixture family, not a code — its code
+    is `stmt-call_stmt`. Review fix (4c, low): that last correction was itself wrong — `stmt-call_stmt` sits only on
+    `__DELETE` (the generic "is not a callable instance yet", fb-call.ts:75) and the `__NEW` expression is refused only by
+    `pointer-value`, which (b) clears (repro: baseline ir.jsonl, every `newdel_*` and `op_sys_new_delete` carries exactly
+    that pair); so the list now names a NEW code `dynamic-memory`, raised on `__NEW` and `__DELETE`, which 4.4 registers
+    with a failing test first (a `__NEW`-only POU). Doc/plan only — no failing test is possible before 4.4, since
+    `pointer-value` refuses the expression today. `newdel_in_method_with_pragma` lowers because its `__NEW` is in a
+    METHOD nothing calls (never lowered) — consistent. Niche: 0 `__NEW(`/`__DELETE(` in test-corpus.
+    Ticking 4.2 retagged the two `shapes1_12` notes (`013de1dc6a`, `de8528b197`: "pointers are `usize` tags") from 4.2 to
+    4.4, the task that changes that representation (notes.test: a ticked task may own no note item); map regenerated.
+    Gate: `bun typecheck` clean; `openspec validate` valid; `rate:fixtures` unchanged except the two tags (mapped 5394,
+    confirmed 2828, refused 1990, not-lowered 394, diverges 8, edge agree 3061, disagree 0, not-run 184); full suite
+    `VOLT_REQUIRE_FULL=1 bun test` (cached rustc, VOLT_FIXTURES unset) 8618 pass, 35 skip, 437 todo, 0 fail, 9090 tests
+    in 304 files. OPEN: the owner accepts the choice before 4.3 starts (design.md says so); 4.3 does not start
+    on this step.
 - [ ] 4.3 IR for the decision.
   - What: `ir/expr.ts` changes (reinterpret / load-bytes / store-bytes nodes if (b); an enum-handle node if (d)); `ir/walk.ts` extended.
   - Where: `ir/expr.ts`, `ir/walk.ts`, `walk.test.ts`.
@@ -3154,7 +3197,12 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - What: `semantics/memory.ts` (if (b)), `interp/frame.ts`, `emit/rust/runtime/pointer.ts`, `emit/rust/types.ts`; lowering in
     `pointers/state.ts`, `address.ts`, `deref.ts`, `store.ts`.
   - Where: those files.
-  - Accept: every currently confirmed `indirect` fixture stays confirmed; S-out on all non-pointer fixtures; M.
+  - Also (4.2, review 4c): register `dynamic-memory` (`not-measured`) in `lower/diagnostics/codes.ts` and raise it on every
+    `__NEW` expression and `__DELETE` statement BEFORE `pointer-value` becomes lowerable, so no `__NEW` lowers to an image
+    address CODESYS never ran (no memory pool in the recording project). Failing test first: a POU whose only statement
+    is `p := __NEW(INT);` (no `__DELETE`) is refused `dynamic-memory`, not lowered.
+  - Accept: every currently confirmed `indirect` fixture stays confirmed; S-out on all non-pointer fixtures; M; the six refused
+    `newdel_*` fixtures and `op_sys_new_delete` refused `dynamic-memory`.
   - Depends: 4.3.
 - [ ] 4.5 One below the first element (RC 44).
   - Where: `lower/pointers/state.ts`, `address.ts`.

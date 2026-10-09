@@ -1042,7 +1042,7 @@ size and pedantic delta on tier `indirect`), then transpiler LOC.
 - which `staticKey` named options (1.7.11) the model makes removable (task 4.15);
 - what stays refused, each by its registered code;
 - which transpile-st-to-rust pointer tasks it supersedes (0.8);
-- how architecture.md's "pointers will become indices" paragraph (line 132) is rewritten.
+- how architecture.md's "pointers will become indices" paragraph (line 313 at 34c44c3640) is rewritten.
 
 **RC 20 (output timing)** is independent of the representation: routine outputs are copied out after the invoke, as FB outputs
 already are (`tr_20_output_index_moved_by_callee`). It lands in `calls/outputs.ts` in this phase, because it shares the binding code.
@@ -1083,8 +1083,12 @@ VAR_IN_OUT target escape. `instanceRelative` (transpile-st-to-rust) is decided w
 key; `KEY_STEP`/`SUFFIX_STEP`/`SAME_STEP` stay — they write a key, a Rust name suffix and a value-and-type comparison.
 
 **Stays refused, by code:** `pointer-shape` (ADR of a BIT: no byte address measured), `cursor-overrun` (a cursor is form 2,
-not the image), `sizeof-unmeasured`, `layout-unmeasured` (new: a type with no recorded layout — the FB header position
-until recorded), `newdel_*` (no memory pool), `call-inout-alias`, `place-not-local`, the interface codes; a pointer→DWORD
+not the image), `sizeof-unmeasured`, `layout-unmeasured` (new, registered in `diagnostics/codes.ts` by 4.4: a type with no recorded layout — the FB header position
+until recorded), `dynamic-memory` (new, `not-measured`, registered by 4.4 and raised on the `__NEW` expression itself and on
+`__DELETE`: the recording project has no memory pool, so the `newdel_*` fixtures are unaskable — today `__NEW` is refused only
+through `pointer-value`, which (b) clears, and `__DELETE` only by the generic `stmt-call_stmt` "not a callable instance yet", so
+without its own code a `p := __NEW(T);` with no `__DELETE` would lower to an image address CODESYS never ran;
+`newdel_in_method_with_pragma` lowers today only because its `__NEW` sits in a METHOD nothing calls), `call-inout-alias`, `place-not-local`, the interface codes; a pointer→DWORD
 conversion is vendor-refused. Supersedes transpile-st-to-rust "multi-target handle (`pointer-targets`)", "form 2 first"
 (built, kept), "REFERENCE/POINTER inputs as borrows" and "`VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref`".
 

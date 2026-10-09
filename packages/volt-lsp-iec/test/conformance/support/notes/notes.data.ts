@@ -16,7 +16,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn x<const T: usize>(mut __grid_lower_N: i32, mut __grid_upper_N: i32, mut __grid_lower_N: i32, mut __grid_upp
   "00fc50d055": note("7.7.1", LEAN.shapes17_11),
   // pub p: usize,
-  "013de1dc6a": note("4.2", LEAN.shapes1_12),
+  "013de1dc6a": note("4.4", LEAN.shapes1_12),
   // self.f = Lu8;
   // self.sum = (self.sum as i32).wrapping_add(self.f as i32) as i16;
   "0153115496": note("7.3.1", LEAN.shapes11_15),
@@ -1245,7 +1245,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if !((x < x) & (x < x)) { break; }
   "de2f16610e": note("7.5.7", LEAN.shapes14_7),
   // pub x: usize,
-  "de8528b197": note("4.2", LEAN.shapes1_12),
+  "de8528b197": note("4.4", LEAN.shapes1_12),
   // self.f = self.f.wrapping_shr(Li16 as u32) as u32;
   "de956f2a12": note("7.2.5", LEAN.shapes8_4),
   // self.f = len(self.v.to::<L>());
