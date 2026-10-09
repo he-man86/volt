@@ -9,7 +9,10 @@
  *
  * Exact only where the instance is named ONE way: every call of that FB on a static place — fields and constant indices —
  * of its frame or the globals, not reached through another instance (a holder's or a program's, which another frame names
- * too), bound to places this frame can lend again. Anything else is refused (`call-fb-inout`).
+ * too), bound to places this frame can lend again. An instance copied whole carries the source's binding
+ * (`tr_16_fb_copy_carries_inout_binding`), so every binding of the FB type is an arm — but only where its places cannot
+ * depend on which frame instance made it (an equal instance key is frame-relative, so it proves nothing under a copy).
+ * Anything else is refused (`call-fb-inout`).
  */
 
 import { elementaryRef, type Type, typeZero } from "../../../frontend/types/index.js"
@@ -35,14 +38,14 @@ interface BindingRecords {
   /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
    *  refuses, as what the instance then holds is not recorded. */
   readonly superRebinds: Set<string>
-  /** The FBs an instance of which is stored WHOLE (`b := a`) — the copy carries the source's in-out binding, which no arm
-   *  of `lastBinding` lends, so a METHOD reaching the in-out is refused (transpile-review 16). */
+  /** The FBs an instance of which is stored WHOLE (`b := a`) — the copy carries the source's in-out binding, so a METHOD
+   *  reaching the in-out arms every binding of the FB type, not only the receiver's (transpile-review 16). */
   readonly copiedWhole: Set<string>
 }
 
 export const bindingRecords = sharedState<BindingRecords>(() => ({ bodyCalls: [], superRebinds: new Set(), copiedWhole: new Set() }))
 
-/** A value of `t` stored whole: every FB it holds is copied with its in-out binding — for `lastBinding` to refuse. */
+/** A value of `t` stored whole: every FB it holds is copied with its in-out binding — for `lastBinding` to arm. */
 export function registerWholeCopy(lw: Lowering, t: Type, seen = new Set<string>()): void {
   if (t.kind === "array") return registerWholeCopy(lw, t.element, seen)
   if (t.kind !== "struct" && t.kind !== "function_block") return
@@ -91,7 +94,10 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
     const bindings = [...new Set(calls.flatMap((c) => (c.instance === undefined || c.binding === undefined ? [] : [`${c.instance}#${c.binding}`])))]
     const tagFor = (c: (typeof calls)[number]) => BigInt(tagOfIndex(bindings.indexOf(`${c.instance}#${c.binding}`)))
     for (const c of calls) if (c.instance !== undefined && c.binding !== undefined) c.call.bind = { place: tagOf(c.call.instance), tag: tagFor(c) }
-    const mine = calls.filter((c) => c.instance === key)
+    // `b := a` copies a's binding tag into b (`tr_16_fb_copy_carries_inout_binding`: first=11): where an instance of the FB
+    // is copied whole, the receiver can hold ANY binding the FB's calls made, so every one is an arm (design.md §3.3 4e)
+    const copied = bindingRecords(lw).copiedWhole.has(fb)
+    const mine = copied ? calls : calls.filter((c) => c.instance === key)
     let fresh = false
     const fail = (why: string) => {
       refuse(why)
@@ -104,10 +110,8 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
     else if (mine.some((c) => c.binding === undefined)) fail("while a call of the instance binds a place this cannot lend again")
     // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
     else if (bindingRecords(lw).superRebinds.has(fb)) fail("while its SUPER^ binds the in-out to another place, which is not recorded")
-    // the copy carries the SOURCE's binding (`tr_16_fb_copy_carries_inout_binding`: first=11), a tag no arm lends
-    else if (bindingRecords(lw).copiedWhole.has(fb)) fail("while an instance of it is copied whole, carrying a binding no call of its own made")
     else if (mine.length === 0 && calls.length > 0) fail("never called on this instance, while it is called on others — a copy's binding is not recorded")
-    else if (key.startsWith("GLOBAL") && mine.some((c) => !single(c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
+    else if (mine.some((c) => c.instance!.startsWith("GLOBAL") && !single(c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
       fail("bound from a frame of which there can be several instances, which the one binding cannot name")
     else
       for (const c of mine) {
@@ -116,6 +120,15 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
         const places = c.call.inouts as readonly Place[]
         if (c.context !== lw.frameContext && places.some((p) => p.root !== "global")) {
           fail("bound by a call in another frame")
+          break
+        }
+        // under a whole copy the receiver's tag can come from ANY instance of the frame type: the tag a call made is the same
+        // in every instance of a frame type, and the instance key is frame-relative (`inner` in x1 and x2 is one key), so an
+        // equal key does not prove the same instance — an arm lending the places from the RUNNING frame writes the wrong
+        // instance's variable (reviews of 4e). Armed only where those places cannot depend on the frame instance: globals,
+        // or the root PROGRAM's one frame
+        if (copied && !single(c.context) && places.some((p) => p.root !== "global")) {
+          fail("bound by a call on another instance of a frame of which there can be several, whose places a copy's binding cannot name")
           break
         }
         const params = layoutNow()?.inouts ?? []

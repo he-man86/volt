@@ -1246,6 +1246,39 @@ argument; `TypeClass` unmeasured), `call-fb-inout`, `interface-instance-relative
 the pro2193 `any-input`/`pointer-type` POU counts before and after in tasks.md) → 4.10 and 4.12 (reasons on the marks, no
 code) → 4.11 (verify).
 
+### §3.3 Decision (step 4e, as built): how a stored `pValue` reaches its call sites (tasks 4.8-4.12, 2026-10-09)
+
+The plan held: RC 16 inside `__inout_binding`, RC 17 by address, RC 18 and the NaN bits accepted losses, RC 20 and `tr_34`
+verified. One mechanism the plan left open is fixed here, so 4.14 does not re-decide it.
+
+- **A stored `pValue` is a hidden POINTER input, not the hidden VAR_IN_OUT.** The variant's `__any_<v>` in-out cannot
+  carry an address: bound to an image place it is an `IrCopy` with `back`, so a write through the pointer would be undone
+  by the copy-back (and is `call-inout-alias`). So a variant whose body stores `v.pValue` into a pointer that holds
+  addresses takes `__anyadr_<v>`, a POINTER TO BYTE input, INSTEAD of the in-out; each call site fills it with
+  `ADR(argument)`, an address store into the ANY's holder `ROUTINE:<variant>.__any_<v>` — the key a pointer input of a
+  routine already uses (`calls/invoke.ts`), so escape, tagging and copies follow 4d's rules unchanged.
+- **Which variant is decided by the escape answer** (`Escapes.anyAddresses`), because the in-out is declared before the
+  body lowers: the lowering that first sees the store records it, the next one declares the input (and the call sites
+  store, so the argument escapes), the one after lowers on the escaped argument — three passes for this shape, within
+  `ESCAPE_PASSES` (4). A call site whose argument the image cannot hold tags the holder, the tag closes over the
+  `p := v.pValue` copy, and the variant is the in-out one again (`pointer-type` on a mismatched dereference, as before).
+- **The union rule is no code**: the members of a UNION of pointers share one `pointerKey`, so they hold addresses or
+  tags together, and an arm read is `imageDeref` at that arm's type.
+- Rejected: keeping the in-out AND adding the address (the copy-back above); filling the address only where the argument
+  is already in the image (the first lowering would then never make it escape).
+- **Accepted loss (review of 4e)**: a variable handed to an ANY by address is in the image, so a call that lends it to a
+  VAR_IN_OUT of a callee that reaches the image is `call-inout-alias` even where the two do not overlap (`F(v := d, io :=
+  e)` once `e` is an ANY argument elsewhere); the tag path lowered it. Niche: accepted loss (0 occurrences in the corpora
+  — the only routines storing a pValue, pro2193's `Increment` and `BitLogic`, declare no VAR_IN_OUT).
+- **RC 16's arms (review of 4e)**: a copy carries the source's binding, so every binding of a copied FB type is an arm —
+  but the tag a frame-relative call writes is the same in every instance of its frame type, so an arm lending a binding
+  ANOTHER instance's call made is built only where its places cannot depend on the frame instance (globals, or the root
+  PROGRAM's one frame); otherwise `call-fb-inout`. Lending it from the running frame wrote the wrong instance's variable
+  (`tr_16_fb_copy_across_frame_instances`: CODESYS x1.a = 11, x2.a = 1). Under a copy an EQUAL instance key proves
+  nothing either: the key is frame-relative (`inner` in x1 and in x2 is one key), so a copy into the same-named field of
+  another instance is refused by the same rule — every binding of a copied FB type whose places are not global, made in a
+  frame that is not single, is `call-fb-inout`, whatever its key.
+
 ### 3.4 Instance initialization (model 4): RC 22, 23, 24, 25, 30
 
 **Home.**

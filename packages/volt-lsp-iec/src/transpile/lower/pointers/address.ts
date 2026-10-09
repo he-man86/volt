@@ -19,7 +19,8 @@ import { byteSize } from "../storage/bytes.js"
 import { constantValue } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { NO_TAG } from "../core/tags.js"
-import { escapeKey, type Holder, holderOf, holdsAddresses, noteCopy, noteStore } from "./escape.js"
+import { escapeKey, type Holder, holderOf, holdsAddresses, noteAnyAddress, noteCopy, noteStore } from "./escape.js"
+import { anyHolder } from "./any.js"
 import { isNew, refuseDynamicMemory } from "../builtins/system.js"
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
@@ -154,10 +155,21 @@ export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | u
   if (isNew(e)) return refuseDynamicMemory(lw, e.span)
   const adr = adrOperand(e)
   if (adr !== undefined) return imageAddressOf(lw, adr, pointer, e.span)
-  // `anyArg.pValue` names the variable a call passed, through a hidden VAR_IN_OUT — a tag (`pointerValue`)
+  // `anyArg.pValue` stored here is the argument's image ADDRESS (`tr_17_any_pvalue_*`, design.md §3.3 step 4e): the
+  // variant's hidden POINTER input, which each call site fills (`any.bindAnyAddress`) — from the lowering after the one
+  // that first sees this store, which is when the call sites learn to (`noteAnyAddress`)
   if (e.kind === "member" && e.base.kind === "ident_expr" && pointerFrame(lw).anyInputs.has(e.base.name.toUpperCase()) && e.member.name.toUpperCase() === "PVALUE") {
-    noteStore(lw, pointer, undefined)
-    return lw.bail("any-input", `${e.base.name}.pValue stored into a pointer that holds addresses`, e.span)
+    const input = e.base.name.toUpperCase()
+    if (!pointerFrame(lw).anyTargets.has(input) && !pointerFrame(lw).anyAddresses.has(input)) {
+      noteStore(lw, pointer, undefined)
+      return lw.bail("any-input", `${e.base.name}.pValue, whose argument this call site does not name as a variable`, e.span)
+    }
+    const holder = anyHolder(lw.routineContext.slice("ROUTINE:".length), input)
+    noteAnyAddress(lw, holder)
+    noteCopy(lw, pointer, holder)
+    const given = pointerFrame(lw).anyAddresses.get(input)
+    if (given === undefined) return lw.bail("any-input", `${e.base.name}.pValue stored into a pointer that holds addresses, before its call sites hand an address`, e.span)
+    return convert({ kind: "load", place: { slot: given.slot, path: [], type: lw.localSlots[given.slot]!.type, span: e.span, root: "local" }, type: lw.localSlots[given.slot]!.type, span: e.span }, pointerType)
   }
   if (e.kind === "binary" && (e.op === "+" || e.op === "-")) {
     const from = addressValue(lw, e.left, pointer)

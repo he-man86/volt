@@ -14,6 +14,8 @@ import { callHolds, type InvokeBindings } from "../calls/invoke.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { aliases, lendGuards } from "../calls/binding.js"
 import { pointerFrame } from "./state.js"
+import { escapesOf, type Holder, holderHoldsAddresses } from "./escape.js"
+import { imageAddressOf } from "./address.js"
 
 /** `anyArg.diSize` — an ANY input's size, which the call handed in as a hidden DINT (conformance `state_any_input_sizes`);
  *  `null` when the base is no ANY input. */
@@ -29,8 +31,10 @@ export function anyDiSize(lw: Lowering, e: Extract<Expr, { kind: "member" }>): I
 /** `anyArg.diSize` of an ANY input this variant was given a VARIABLE for — its byte size, known here — else undefined. */
 export function anySize(lw: Lowering, e: Expr): bigint | undefined {
   if (e.kind !== "member" || e.base.kind !== "ident_expr" || e.member.name.toUpperCase() !== "DISIZE") return undefined
-  const slot = pointerFrame(lw).anyTargets.get(e.base.name.toUpperCase())
-  return slot === undefined ? undefined : byteSize(lw, lw.inoutSlots[slot]!.type)?.size
+  const name = e.base.name.toUpperCase()
+  const slot = pointerFrame(lw).anyTargets.get(name)
+  const type = slot === undefined ? pointerFrame(lw).anyAddresses.get(name)?.type : lw.inoutSlots[slot]!.type
+  return type === undefined ? undefined : byteSize(lw, type)?.size
 }
 
 /** Each routine's ANY / ANY_* input slots — the inputs a call fills with its argument's size, not its value. */
@@ -38,6 +42,52 @@ export const anyInputsOf = routineFacts<ReadonlySet<number>>()
 
 /** The prefix of the hidden VAR_IN_OUT an ANY input is given where a call names a variable for it. */
 export const ANY_TARGET = "__any_"
+
+/** The prefix of the hidden POINTER input an ANY input is given where its `pValue` is an image address. */
+export const ANY_ADDRESS = "__anyadr_"
+
+/** `pValue`'s type: the compiler's `__SYSTEM.AnyType.pValue` (`frontend/types/system.ts`). */
+const PVALUE: Type = { kind: "pointer", target: elementaryRef("BYTE") }
+
+/**
+ * THE ANY INPUT'S ADDRESS HOLDER (model 3, transpile-restructure 4.9, design.md §3.3 step 4e): a routine variant that stores
+ * `v.pValue` into a pointer that holds addresses (`tr_17_any_pvalue_*`) is handed its argument's image ADDRESS, as a pointer
+ * input is (`calls/invoke.ts`), under one key both the body and every call site name: `ROUTINE:<variant>.__any_<v>`.
+ * A call site whose argument the image cannot hold stores a tag into it, and the variant keeps the hidden VAR_IN_OUT.
+ */
+export const anyHolder = (routineKey: string, input: string): Holder => ({
+  type: PVALUE,
+  key: `ROUTINE:${routineKey}.${ANY_TARGET}${input.toUpperCase()}`,
+  name: `${input}.pValue`,
+})
+
+/** Whether the variant `routineKey`'s ANY input `input` is handed an address: a body stored its `pValue` into a pointer
+ *  that holds addresses (an earlier lowering found it, `escape.noteAnyAddress`) and no call site's argument made it a tag. */
+export function anyByAddress(lw: Lowering, routineKey: string, input: string, span: Span): boolean {
+  const holder = anyHolder(routineKey, input)
+  return escapesOf(lw).anyAddresses.has(holder.key!) && holderHoldsAddresses(lw, holder, span)
+}
+
+/** Each variant's ANY inputs handed an address, to the index in its `inputs` of the hidden POINTER input. */
+export const anyAddressInputsOf = routineFacts<ReadonlyMap<string, number>>()
+
+/**
+ * The hidden POINTER inputs of the ANY inputs this variant is handed an address for (`anyByAddress`), appended to `inputs`.
+ * Answers the inputs it declared, which take no hidden VAR_IN_OUT (`routine-frame.hiddenInOuts`).
+ */
+export function declareAnyAddresses(lw: Lowering, r: Lowering, targets: ReadonlyMap<string, Type>, key: string, inputs: number[], span: Span): ReadonlySet<string> {
+  const byInput = new Map<string, number>()
+  for (const [input, type] of targets) {
+    if (!anyByAddress(lw, key, input, span)) continue
+    const slot = r.localSlots.length
+    r.localSlots.push({ name: `${ANY_ADDRESS}${input}`, type: PVALUE, section: "VAR_INPUT", init: 0n })
+    pointerFrame(r).anyAddresses.set(input, { slot, type })
+    byInput.set(input, inputs.length)
+    inputs.push(slot)
+  }
+  anyAddressInputsOf(lw).set(key, byInput)
+  return new Set(byInput.keys())
+}
 
 /**
  * The ANY / ANY_* VAR_INPUTs a call names a plain VARIABLE for, and that variable's type — read from the routine's AST,
@@ -70,6 +120,8 @@ export function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract
 
 /** An ANY argument: the routine sees its size — SIZEOF's layout (conformance `state_any_input_sizes`) — of a variable. */
 export function bindAnyArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k: number, name: string): true | undefined {
+  const byAddress = anyAddressInputsOf(lw).get(b.routine.key)?.get(name)
+  if (byAddress !== undefined) return bindAnyAddress(lw, b, arg, k, name, byAddress)
   // An ANY argument is lent as a hidden VAR_IN_OUT, so it passes what every other lent place passes:
   // `through` (which dereferences a REFERENCE and refuses a write through a VAR_IN_OUT CONSTANT) and then
   // the bit and global guards. It used to pass none of them — measured 2026-09-17, a GVL variable given to
@@ -86,6 +138,24 @@ export function bindAnyArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, k
   b.anyPlaces.set(name, place)
   b.inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
   b.order.push(k)
+  return true
+}
+
+/**
+ * An ANY argument handed BY ADDRESS (`anyByAddress`): its size, as any ANY argument's, and its image address in the hidden
+ * POINTER input — `ADR(argument)` stored into the ANY's holder, so the argument escapes as any address store's target
+ * does, and an argument the image cannot hold makes the holder a tag from the next lowering on (`imageAddressOf`).
+ */
+function bindAnyAddress(lw: Lowering, b: InvokeBindings, arg: CallArg, k: number, name: string, input: number): true | undefined {
+  const place = lowerPlace(lw, arg.value!)
+  if (place === undefined) return undefined
+  const size = byteSize(lw, place.type)
+  if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
+  const address = imageAddressOf(lw, arg.value!, anyHolder(b.routine.key, name), arg.span)
+  if (address === undefined) return undefined
+  b.inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
+  b.inputs[input] = address
+  b.order.push(k, input)
   return true
 }
 

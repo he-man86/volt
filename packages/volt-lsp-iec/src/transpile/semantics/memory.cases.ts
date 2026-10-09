@@ -76,5 +76,5 @@ export const MEMORY_CASES: Readonly<Record<string, readonly Case<MemoryInput, st
  * them, as CODESYS does).
  */
 export const MEMORY_INTERPRETER_DIVERGENCES: Readonly<Record<string, string>> = {
-  "a signalling NaN": "a REAL is a JavaScript number, whose NaN is always 7fc00000 (design.md §3.3 step 4d; 4.9 decides)",
+  "a signalling NaN": "a REAL is a JavaScript number, whose NaN is always 7fc00000 — niche: accepted loss (1 occurrence in the corpora: bakon-nano ReadParametersFromAGM views a REAL's bytes through a POINTER TO ARRAY OF BYTE) (design.md §3.3 step 4e)",
 }

@@ -27,21 +27,25 @@ import { unionsOf } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
 import { pointerKey } from "./state.js"
 
-/** One pass's answer: the FB types and the variables the image holds, and the pointers that hold tags. */
+/** One pass's answer: the FB types and the variables the image holds, the pointers that hold tags, and the ANY inputs
+ *  whose `pValue` a body stores into a pointer that holds addresses (by their holder key, `any.anyHolder`). */
 export interface Escapes {
   readonly types: ReadonlySet<string>
   readonly variables: ReadonlySet<string>
   readonly tagged: ReadonlySet<string>
+  readonly anyAddresses: ReadonlySet<string>
 }
 
-const NONE: Escapes = { types: new Set(), variables: new Set(), tagged: new Set() }
+const NONE: Escapes = { types: new Set(), variables: new Set(), tagged: new Set(), anyAddresses: new Set() }
 
-/** What one lowering saw: each address store (its pointer's key, its target's escape key — none for a tag), each copy. */
+/** What one lowering saw: each address store (its pointer's key, its target's escape key — none for a tag), each copy,
+ *  each ANY input whose `pValue` was stored into a pointer that holds addresses. */
 interface Seen {
   readonly stores: { pointer: string | undefined; target: string | undefined }[]
   readonly copies: [string, string][]
+  readonly anyAddresses: Set<string>
 }
-const seenOf = sharedState<Seen>(() => ({ stores: [], copies: [] }))
+const seenOf = sharedState<Seen>(() => ({ stores: [], copies: [], anyAddresses: new Set() }))
 
 /** The answer a lowering runs on — the previous pass's (`lower-unit.ts`), or none on the first. */
 const given = new WeakMap<Shared, Escapes>()
@@ -73,8 +77,20 @@ export function escapesSeen(shared: Shared): Escapes {
     types: families(shared, new Set(targets.flatMap((t) => (t.startsWith("TYPE:") ? [t.slice(5)] : [])))),
     variables: new Set(targets.filter((t) => !t.startsWith("TYPE:"))),
     tagged,
+    anyAddresses: seen.anyAddresses,
   }
 }
+
+/** Two escape answers as one. */
+export const joined = (a: Escapes, b: Escapes): Escapes => ({
+  types: new Set([...a.types, ...b.types]),
+  variables: new Set([...a.variables, ...b.variables]),
+  tagged: new Set([...a.tagged, ...b.tagged]),
+  anyAddresses: new Set([...a.anyAddresses, ...b.anyAddresses]),
+})
+
+/** Whether an answer holds nothing — a lowering that stored no address needs no second one. */
+export const isEmpty = (e: Escapes): boolean => e.types.size + e.variables.size + e.tagged.size + e.anyAddresses.size === 0
 
 /**
  * The escaped FB types closed over EXTENDS, both ways: a base's body runs on a derived instance and a derived body reads
@@ -97,7 +113,7 @@ function families(shared: Shared, types: Set<string>): Set<string> {
 /** Whether `b` adds nothing to `a` — the passes have reached their fixed point. */
 export function covers(a: Escapes, b: Escapes): boolean {
   const all = (x: ReadonlySet<string>, y: ReadonlySet<string>): boolean => [...y].every((k) => x.has(k))
-  return all(a.types, b.types) && all(a.variables, b.variables) && all(a.tagged, b.tagged)
+  return all(a.types, b.types) && all(a.variables, b.variables) && all(a.tagged, b.tagged) && all(a.anyAddresses, b.anyAddresses)
 }
 
 /**
@@ -117,6 +133,12 @@ export const holderOf = (lw: Lowering, pointer: Place, name: string): Holder => 
  *  compared, stored nowhere, has no pointer: its target is in the image all the same, so the two can be compared. */
 export function noteStore(lw: Lowering, pointer: Holder | undefined, target: Place | undefined): void {
   seenOf(lw).stores.push({ pointer: pointer?.key, target: target === undefined ? undefined : escapeKey(lw, target) })
+}
+
+/** `p := v.pValue` into a pointer that holds addresses: the ANY input's holder (`any.anyHolder`) asks its call sites for
+ *  their argument's address from the next lowering on. */
+export function noteAnyAddress(lw: Lowering, holder: Holder): void {
+  if (holder.key !== undefined) seenOf(lw).anyAddresses.add(holder.key)
 }
 
 /** `to := from`, two pointers: one kind of value. */

@@ -725,6 +725,79 @@ shared := shared + 10;
 END_METHOD
 `,
   },
+  // Task 16, the shapes around it (review of transpile-restructure 4e): the copy's target never called itself, so the
+  // copied binding is the only one it holds; and the copy made the other way, the SOURCE then calling its METHOD.
+  {
+    name: "tr_16_fb_copy_into_uncalled_carries_inout_binding",
+    pouName: "FB_LANG_tr16b_worker",
+    kind: "function_block",
+    feature: "an FB instance with a VAR_IN_OUT, never called, assigned whole from a called instance; its METHOD writes the in-out",
+    fromDoc: "07-pragmas.md#no_assign",
+    note: "Review of transpile-restructure 4e (lower/calls/last-binding.ts: every binding of a copied FB type is an arm). Cf. tr_16_fb_copy_carries_inout_binding.",
+    plcPrgVar: "w : FB_LANG_tr16b_worker; w2 : FB_LANG_tr16b_worker; first : INT := 1; second : INT := 100;",
+    plcPrgBody: ["w(shared := first);", "w2 := w;", "w2.AddTen();"].join("\n"),
+    source: `FUNCTION_BLOCK FB_LANG_tr16b_worker
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+`,
+  },
+  {
+    name: "tr_16_fb_copy_reverse_carries_inout_binding",
+    pouName: "FB_LANG_tr16c_worker",
+    kind: "function_block",
+    feature: "two FB instances each called with its own VAR_IN_OUT, the first assigned whole from the second; the first's METHOD writes the in-out",
+    fromDoc: "07-pragmas.md#no_assign",
+    note: "Review of transpile-restructure 4e (lower/calls/last-binding.ts: every binding of a copied FB type is an arm). Cf. tr_16_fb_copy_carries_inout_binding.",
+    plcPrgVar: "w : FB_LANG_tr16c_worker; w2 : FB_LANG_tr16c_worker; first : INT := 1; second : INT := 100;",
+    plcPrgBody: ["w(shared := first);", "w2(shared := second);", "w := w2;", "w.AddTen();"].join("\n"),
+    source: `FUNCTION_BLOCK FB_LANG_tr16c_worker
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+`,
+  },
+  // ...and the copy taken from ANOTHER instance of a frame type there are several of: x1's inner is bound to x1.a, copied
+  // into x2's w2, and x2's METHOD writes through it (an OUTPUT read and an INPUT written from outside: with both a plain VAR
+  // CODESYS refuses the copy, "'w2' is no input of ...", record:exec 2026-10-09). The lowering lent `a` from the running frame (x2.a) with no
+  // diagnostic; it now refuses (`call-fb-inout`). Whose `a` CODESYS writes is what this records.
+  {
+    name: "tr_16_fb_copy_across_frame_instances",
+    pouName: "FB_LANG_tr16d_holder",
+    kind: "function_block",
+    feature: "an FB holding an instance with a VAR_IN_OUT bound to its own variable; one holder's instance copied into another holder's, whose METHOD writes the in-out",
+    fromDoc: "07-pragmas.md#no_assign",
+    note: "Review of transpile-restructure 4e (lower/calls/last-binding.ts lent the copied binding's places from the running frame). Cf. tr_16_fb_copy_carries_inout_binding.",
+    plcPrgVar: "x1 : FB_LANG_tr16d_holder; x2 : FB_LANG_tr16d_holder;",
+    plcPrgBody: ["x1();", "x2();", "x2.w2 := x1.inner;", "x2.Use();"].join("\n"),
+    source: `FUNCTION_BLOCK FB_LANG_tr16d_holder
+VAR_INPUT
+	w2 : FB_LANG_tr16_worker;
+END_VAR
+VAR_OUTPUT
+	inner : FB_LANG_tr16_worker;
+END_VAR
+VAR
+	a : INT := 1;
+END_VAR
+inner(shared := a);
+END_FUNCTION_BLOCK
+
+METHOD Use
+w2.AddTen();
+END_METHOD
+`,
+  },
   // Task 22: does an instance's implicit initialization (its non-constant field initializers) complete BEFORE its
   // FB_Init (11-fb-lifecycle.md:23)? Three initializer shapes, each read inside FB_Init. The lowering runs FB_Init
   // first: a null dereference for ADR(), and seen=0 / a=7 for the call.

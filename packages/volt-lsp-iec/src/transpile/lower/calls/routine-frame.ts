@@ -54,9 +54,12 @@ export function hiddenInOuts(
   cursors: ReadonlyMap<string, CursorArgument>,
   statements: StatementList,
   key: string,
+  byAddress: ReadonlySet<string>,
 ): void {
-  // the ANY inputs this variant was given a variable for: one hidden VAR_IN_OUT each, which `pValue` names
+  // the ANY inputs this variant was given a variable for: one hidden VAR_IN_OUT each, which `pValue` names — unless its
+  // pValue is an image address (`any.declareAnyAddresses`)
   for (const [input, type] of targets) {
+    if (byAddress.has(input)) continue
     pointerFrame(r).anyTargets.set(input, r.inoutSlots.length)
     r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: typeZero(type) })
   }
@@ -78,7 +81,8 @@ export function hiddenInOuts(
   cursorInputsOf(lw).set(key, cursorByInput)
   const borrowedByInput = new Map<number, number>()
   for (const [name, slot] of borrowedPointerSlots(r, statements)) {
-    if (pointerFrame(r).cursors.has(name)) continue
+    // a string cursor, or an ANY input's hidden address (`any.declareAnyAddresses`) — no parameter the body names
+    if (pointerFrame(r).cursors.has(name) || [...pointerFrame(r).anyAddresses.values()].some((a) => r.localSlots[a.slot] === slot)) continue
     const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
     pointerFrame(r).borrowedPointers.set(name, r.inoutSlots.length)
     borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)

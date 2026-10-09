@@ -47,13 +47,75 @@ test("a METHOD called from outside its FB reaches the in-out the instance was la
     "FUNCTION_BLOCK FB_X\nVAR_INPUT bind : BOOL; END_VAR\nVAR a : INT := 1; END_VAR\nIF bind THEN\n  PW(shared := a);\nELSE\n  PW.AddTen();\nEND_IF\nEND_FUNCTION_BLOCK\n" +
     "PROGRAM PW\nVAR_IN_OUT shared : INT; END_VAR\nEND_PROGRAM\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
   expect(lowerSource(shared, "P").diagnostics.map((d) => d.code)).toContain("call-fb-inout")
-  // SUPER^ binding the in-out to another place, and an instance copied whole: what the instance holds is not recorded
+  // SUPER^ binding the in-out to another place: what the instance holds is not recorded
   const rebinding = "FUNCTION_BLOCK FB_D EXTENDS FB_W\nVAR other : INT := 500; END_VAR\nSUPER^(shared := other);\nEND_FUNCTION_BLOCK\n"
   expect(codes("d : FB_D;", "d(shared := first);\nd.AddTen();", rebinding)).toContain("call-fb-inout")
-  expect(codes("w2 : FB_W;", "worker(shared := first);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
-  // ...and with the TARGET called first (transpile-review 16, `tr_16_fb_copy_carries_inout_binding`): its own arm was
-  // armed, the copied tag had none, and the METHOD faulted where CODESYS writes through the copied binding (first=11)
-  expect(codes("w2 : FB_W;", "worker(shared := first);\nw2(shared := second);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
+})
+
+// Recorded (`tr_16_fb_copy_carries_inout_binding`: first = 11, second = 100): `w2 := w` copies the in-out binding w holds,
+// and w2's METHOD writes through it. It was refused (`call-fb-inout`), and before that faulted: the dispatch armed only the
+// tags w2's own calls made, while the copy carries w's (transpile-restructure 4.8, design.md §3.3 step 4e). Why missed:
+// the arms were the receiver's calls — a copy was never a way for an instance to hold a binding.
+test("an FB copied whole carries its in-out binding: the copy's METHOD writes through the SOURCE's (RC 16)", () => {
+  const worker = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const program = (vars: string, body: string, extra = "") =>
+    `PROGRAM P\nVAR worker : FB_W; w2 : FB_W; first : INT := 1; second : INT := 100; ${vars} END_VAR\n${body}\nEND_PROGRAM\n${worker}${extra}`
+  const values = (body: string) => {
+    const runner = run(ir(program("", body), "P"))
+    runner.scan()
+    return [runner.get("first"), runner.get("second")]
+  }
+  // the fixture's shape: the target called first, then overwritten whole
+  expect(values("worker(shared := first);\nw2(shared := second);\nw2 := worker;\nw2.AddTen();")).toEqual([11n, 100n])
+  // the target never called: its only binding is the copied one (`tr_16_fb_copy_into_uncalled_carries_inout_binding`)
+  expect(values("worker(shared := first);\nw2 := worker;\nw2.AddTen();")).toEqual([11n, 100n])
+  // copied the other way: worker now holds w2's binding (`tr_16_fb_copy_reverse_carries_inout_binding`)
+  expect(values("worker(shared := first);\nw2(shared := second);\nworker := w2;\nworker.AddTen();")).toEqual([1n, 110n])
+  // a binding made in another frame (the holder's body) has no arm here: still refused
+  const holder = "FUNCTION_BLOCK FB_H\nVAR inner : FB_W; v : INT; END_VAR\ninner(shared := v);\nEND_FUNCTION_BLOCK\n"
+  const codes = lowerSource(program("h : FB_H;", "h();\nw2 := h.inner;\nw2.AddTen();", holder), "P").diagnostics.map((d) => d.code)
+  expect(codes).toContain("call-fb-inout")
+})
+
+// Recorded (`tr_16_fb_copy_across_frame_instances`: x1.a = 11, x2.a = 1): a copy taken from ANOTHER instance of the same
+// frame type (review of 4e). The binding `x1.inner(shared := a)` made names x1's `a`, but the tag a frame-relative call
+// writes is the same in x1 and in x2, so an arm lending `a` from the RUNNING frame wrote x2.a: it lowered with no
+// diagnostic and answered x1.a = 1, x2.a = 11. A binding made on another instance arms only where its places cannot
+// depend on which frame instance made it (globals, or the root PROGRAM's one frame); here it is refused (`call-fb-inout`).
+// Why missed: the frame guard compared frame TYPES, which was enough while every arm was the receiver's own call.
+test("a binding copied from another instance of a multi-instance frame is refused, not lent from the running frame", () => {
+  const worker = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const fbX = (method: string) =>
+    `FUNCTION_BLOCK FB_X\nVAR_INPUT w2 : FB_W; END_VAR\nVAR_OUTPUT inner : FB_W; END_VAR\nVAR a : INT := 1; END_VAR\ninner(shared := a);\nEND_FUNCTION_BLOCK\n${method}`
+  const codes = (body: string, method: string) =>
+    lowerSource(`PROGRAM P\nVAR x1 : FB_X; x2 : FB_X; END_VAR\nx1();\nx2();\n${body}\nEND_PROGRAM\n${fbX(method)}${worker}`, "P").diagnostics.map((d) => d.code)
+  // the program copies x1's inner into x2's w2, and x2's METHOD writes through it
+  expect(codes("x2.w2 := x1.inner;\nx2.Use();", "METHOD Use\nw2.AddTen();\nEND_METHOD\n")).toContain("call-fb-inout")
+  // the METHOD copies a peer's inner, given by reference
+  expect(codes("x2.CopyFrom(src := x1);", "METHOD CopyFrom\nVAR_IN_OUT src : FB_X; END_VAR\nw2 := src.inner;\nw2.AddTen();\nEND_METHOD\n")).toContain("call-fb-inout")
+  // ...or by value
+  expect(codes("x2.CopyFrom(src := x1.inner);", "METHOD CopyFrom\nVAR_INPUT src : FB_W; END_VAR\nw2 := src;\nw2.AddTen();\nEND_METHOD\n")).toContain("call-fb-inout")
+})
+
+// Review of 4e (the review fix above): the copy can land in the SAME-NAMED field of another instance. The instance key is
+// frame-relative — `inner` in x1 and in x2 is the one key "inner" in FB:FB_X — so x2.inner holding x1.inner's binding
+// matched "the receiver's own call" and the arm lent `a` from the running frame (x2.a): it lowered with no diagnostic and
+// answered a1 = 1, a2 = 11, where CODESYS writes x1.a (the same read/write rules as `tr_16_fb_copy_across_frame_instances`:
+// x1.a = 11, x2.a = 1). Under a whole copy an equal key no longer proves the same instance, so every binding whose places
+// are not global, made in a frame that is not single, is refused (`call-fb-inout`). Why missed: the guard compared keys,
+// and the tests only copied between differently named fields (w2 vs inner).
+test("a binding copied into the same-named field of another frame instance is refused", () => {
+  const worker = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const codes = (section: string, body: string, method: string) =>
+    lowerSource(
+      `PROGRAM P\nVAR x1 : FB_X; x2 : FB_X; a1 : INT; a2 : INT; END_VAR\nx1();\nx2();\n${body}\na1 := x1.a;\na2 := x2.a;\nEND_PROGRAM\n` +
+        `FUNCTION_BLOCK FB_X\n${section} inner : FB_W; END_VAR\nVAR a : INT := 1; END_VAR\ninner(shared := a);\nEND_FUNCTION_BLOCK\n${method}${worker}`,
+      "P",
+    ).diagnostics.map((d) => d.code)
+  // a METHOD copies a peer's inner into its own inner
+  expect(codes("VAR_OUTPUT", "x2.CopyFrom(src := x1);", "METHOD CopyFrom\nVAR_IN_OUT src : FB_X; END_VAR\ninner := src.inner;\ninner.AddTen();\nEND_METHOD\n")).toContain("call-fb-inout")
+  // the program copies x1.inner into x2.inner, and x2's METHOD writes through it
+  expect(codes("VAR_INPUT", "x2.inner := x1.inner;\nx2.Use();", "METHOD Use\ninner.AddTen();\nEND_METHOD\n")).toContain("call-fb-inout")
 })
 
 // Recorded (`callshape_inout_base_method_from_derived_method`: 11, `callshape_inout_base_method_from_outside_derived`: 21,

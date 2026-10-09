@@ -139,7 +139,7 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
     name: "reinterpret_dint_as_real_edges",
     deferred: {
       transpile:
-        "2026-10-09 (transpile-restructure 4d): recorded for 4.9/4.12 — CODESYS keeps every bit of a DINT read as a REAL, the signalling NaN 16#7FA00000 included (bSnan), as the emitted Rust's f32 does; the INTERPRETER's REAL is a JavaScript number, whose NaN is always 16#7FC00000, so its bSnan reads the quiet one. Every other path agrees.",
+        "2026-10-09 (transpile-restructure 4d): recorded for 4.12 — CODESYS keeps every bit of a DINT read as a REAL, the signalling NaN 16#7FA00000 included (bSnan), as the emitted Rust's f32 does; the INTERPRETER's REAL is a JavaScript number, whose NaN is always 16#7FC00000, so its bSnan reads the quiet one. Every other path agrees. Decided 4.12 (design.md §3.3 step 4e): the interpreter's REAL stays a JavaScript number — niche: accepted loss (1 occurrence in the corpora: bakon-nano `ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE).",
     },
     pouName: "FB_MEM_reinterp_edges",
     kind: "function_block" as const,

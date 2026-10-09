@@ -3308,32 +3308,96 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Gate: typecheck clean; full LSP suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 8705 pass / 0 fail / 35 skip / 422
     todo, 9162 tests in 306 files (514 s).
 
-- [ ] 4.8 An FB copy carries its in-out binding (RC 16).
+- [x] 4.8 An FB copy carries its in-out binding (RC 16).
   - Where: `lower/calls/last-binding.ts`, `entry/finish.ts`.
   - Accept: F(`tr_16_fb_copy_carries_inout_binding`) (first = 11, second = 100; no `_ => panic` reached); src test in `last-binding.test.ts`; M.
   - Depends: 4.4.
-- [ ] 4.9 ANY pValue and the pointer's type (RC 17).
+  - Done 2026-10-09 (step 4e). Failing test first (`last-binding.test.ts` "an FB copied whole carries its in-out binding",
+    red on `call-fb-inout`, then green): a METHOD dispatch on an FB type in `copiedWhole` arms EVERY binding tag of the type
+    (`mine` = all the FB's calls), not only the receiver's; the per-arm "bound by a call in another frame" refusal is
+    unchanged, so a tag made in another frame stays `call-fb-inout` (tested: `w2 := h.inner` with `inner` bound in FB_H's
+    body). `entry/finish.ts` needed nothing. Two old expectations moved with the recorded answer (independent ground: the
+    `tr_16` recording): `w2 := worker` with w2 called first, and with w2 never called, now run (first = 11). `tr_16` lowers
+    and is confirmed (first 11, second 100, both backends).
+  - Review fixes (step 4e). (1) A copy taken from ANOTHER instance of a frame type there are several of lent the copied
+    binding's places from the running frame: recorded `tr_16_fb_copy_across_frame_instances` (CODESYS x1.a = 11, x2.a = 1),
+    refused `call-fb-inout` (`not-lowered`); plus `tr_16_fb_copy_into_uncalled_carries_inout_binding` and
+    `tr_16_fb_copy_reverse_carries_inout_binding`, both confirmed. (2) The guard for (1) compared instance keys, but the key
+    is frame-relative (`inner` in x1 and in x2 is one key in FB:FB_X): a copy into the SAME-NAMED field of another instance
+    (`inner := src.inner` in a METHOD, or `x2.inner := x1.inner` then `x2.Use()`) passed it and lowered with no diagnostic,
+    a1 = 1, a2 = 11 where CODESYS writes x1.a. Failing test first (`last-binding.test.ts` "a binding copied into the
+    same-named field of another frame instance is refused", red on `[]`, then green): under a whole copy every binding whose
+    places are not global, made in a frame that is not single, is refused whatever the key. Refused, not recorded: it is the
+    `tr_16_fb_copy_across_frame_instances` shape with the field renamed, and the refusal is the answer either way.
+  - M at the gate (`rate:fixtures`, against the 4.8-4.12 line below): mapped 5404, confirmed 2852 -> 2854 (`tr_16` uncalled,
+    reverse), not-lowered 374 -> 375 (`tr_16` across frame instances), refused 1990, diverges 11, lsp-gap 82, unaskable 92;
+    tier `indirect` 422 -> 424 rows (417 -> 419 clean); total pedantic 32358 -> 32372; edge agree 3086 -> 3088, disagree 3,
+    not-run 185; allowed `dead_code` 5643; shapes 1761 -> 1762 over 3276 lowered, constructs 2005, noted constructs 677 -> 681.
+    Fix (2) moved no fixture (the map's diff against HEAD is the same before and after it).
+  - Gate (step 4e): typecheck clean; full LSP suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 8726 pass / 0 fail / 35
+    skip / 418 todo, 9179 tests in 306 files (601 s). (`bun run lint`: oxlint is not installed in this tree — not run.)
+- [x] 4.9 ANY pValue and the pointer's type (RC 17).
   - What: reinterpret under (b), or a `pointer-type` refusal plus arm pruning by constant diSize under (a)/(d).
   - Where: `lower/pointers/any.ts`.
   - Accept: F(`tr_17_any_pvalue_dint_via_real`, `_byte_via_sint`, `_uint_via_int`, `_dint_write_via_byte`) or their named refusal;
     `state_any_int_pointer_increment` still lowers; M.
   - Depends: 4.4.
-- [ ] 4.10 `__QUERYINTERFACE` into a global (RC 18).
+  - Done 2026-10-09 (step 4e; design.md "§3.3 Decision (step 4e, as built)"). Failing tests first (`pointers/any.test.ts`
+    "an ANY input's pValue stored into a pointer is the argument's address (RC 17)": REAL/SINT/INT views 1.0/-1/-1, a
+    one-byte write 16#010203FF, red on `pointer-type`, then green; the old "refused" test replaced by the recorded values).
+    A `pValue` stored into a pointer that holds addresses is recorded for the escape pass (`escape.noteAnyAddress`, a new
+    `Escapes.anyAddresses`); from the next lowering on, that variant takes a hidden POINTER input (`__anyadr_<v>`,
+    `any.declareAnyAddresses`) in place of the hidden VAR_IN_OUT, and every call site fills it with `ADR(argument)` stored
+    into the ANY's holder `ROUTINE:<variant>.__any_<v>` (`any.bindAnyAddress` over `imageAddressOf`), so the argument
+    escapes by 4d's units; an argument the image cannot hold tags the holder (closed over the `p := v.pValue` copy), which
+    puts the variant back on the VAR_IN_OUT and `pointer-type`. The union rule needed no code: a UNION of address pointers
+    is one pointer key, so `u.p1_Byte := v.pValue` then `u.p4_Dint^` reads the bytes at DINT (src test "a UNION of
+    pointers given pValue is one address"). `diSize` pruning reads the argument's type from either home (`anySize`). The
+    four `tr_17` lower and are confirmed (both backends, edge agree); `state_any_int_pointer_increment` stays confirmed
+    (size 4.1 -> 5.9: its four arguments now live in the image). Its 9 notes on constructs no fixture emits any more are
+    deleted (`431373ac5d 57ce9e2ee4 64cc413c0b cca22914d5 d39e19d533 d8e4a747d3 dd8988b5d4 e3343dab4f efd31f3397`); the
+    7.7.9 one (diSize passed at run time) is re-keyed to the new signature `f7ee3854dd`. Found on the way: a stray
+    `ZZ_PASSES` debug print in `entry/lower-unit.ts` (4d) deleted; `joined` moved beside `covers` in `escape.ts`.
+    - Corpus (`probe-lowering-refusals.ts`, 304 POUs; before = HEAD e6f73cf519 in a worktree): 54 lower / 250 refused,
+      unchanged; pro2193 `any-input` 8 -> 8 and `pointer-type` 33 -> 33 POUs (all six corpora: 8 -> 8, 40 -> 40), so none
+      of those is a stored pValue of a place; `pointer-outlives` 58 -> 42 (pro2193's `Increment`/`BitLogic` callers: the
+      pValue is no longer a tag into a VAR_IN_OUT); POUs with any pointer code 135 -> 131; `pointer-targets` 16,
+      `pointer-value` 99, `call-fb-inout` 2 unchanged; `LubricationPumpFB` is now refused only `graphical-body`.
+- [x] 4.10 `__QUERYINTERFACE` into a global (RC 18).
   - What: compute the foreign edge as `storeInterface` does and model it (CODESYS accepts: r1 = r2 = 1).
   - Where: `lower/interfaces/query.ts`.
   - Accept: F(`tr_18_queryinterface_into_global`); M.
   - Depends: 4.4.
-- [ ] 4.11 Routine outputs copied out after the call (RC 20).
+  - Done 2026-10-09 (step 4e, no code; design.md §3.3 step 4e). Stays refused `interface-instance-relative`: niche:
+    accepted loss (0 occurrences in the corpora; their 35 `__QUERYINTERFACE` write locals). `tr_18` stays `not-lowered`.
+- [x] 4.11 Routine outputs copied out after the call (RC 20).
   - Where: `lower/calls/outputs.ts`, `calls/binding.ts` (freeze loop).
   - Accept: F(`tr_20_output_index_moved_by_callee`) (arr[1] = arr2[1] = 5); src test; the LSP false positive stays in
     `KNOWN_DIVERGENCES.codesys` and is Filed; the transpile-st-to-rust VAR_OUTPUT task is ticked "superseded by 4.11"; M.
   - Depends: 1.9.4.
-- [ ] 4.12 Fixtures the pointer model unblocks.
+  - Done 2026-10-09 (step 4e, verify). The copy-out closed upstream (8ce61e47f8): `tr_20` confirmed (rust vendor, edge
+    agree), src test `calls/outputs.test.ts` (and `init/step.test.ts`); the LSP false positive stays in
+    `KNOWN_DIVERGENCES.codesys` (`support/divergences.ts`) and is filed in `lsp-transpile-review-gaps` tasks.md; the archived
+    transpile-st-to-rust line reads "*Superseded by transpile-restructure 4.11.*"; `tr_43_output_dint_to_int` stays 6.17's.
+- [x] 4.12 Fixtures the pointer model unblocks.
   - What: `tr_34_lib_prim_char_behind` (RC 34; u = 'abcBC', lenU = 5) and, if the decision supports reinterpretation,
     `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` now lower.
   - Where: per 4.2.
   - Accept: F(`tr_34_lib_prim_char_behind`); `tr_28_*` lower (their values are 6.7's) or stay refused by the code 4.2 names.
   - Depends: 4.4, 3.6.
+  - Done 2026-10-09 (step 4e). `tr_34_lib_prim_char_behind` confirmed (the chars path; verify). `tr_28_*` lower since 4.4;
+    the interpreter's REAL stays a JavaScript number: niche: accepted loss (1 occurrence in the corpora: bakon-nano
+    `ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE). `tr_28_minmax_limit_nan_signed_zero_
+    {real,lreal}`, `reinterpret_dint_as_real_edges` and `memory.cases.ts`'s sNaN keep their expected-failure marks, now with
+    that reason (`fixtures/semantics/execution.ts`, `fixtures/memory/pointer-model.ts`, `MEMORY_INTERPRETER_DIVERGENCES`);
+    the emitted Rust keeps every bit.
+  - M (4.8-4.12, `rate:fixtures`, against 4d's gate line): mapped 5399, confirmed 2847 -> 2852 (`tr_16`, the four `tr_17`),
+    refused 1990, not-lowered 379 -> 374, diverges 11, lsp-gap 82, unaskable 92; tier `indirect` 417 -> 422 rows (412 -> 417
+    clean); total pedantic 32340 -> 32358; edge agree 3081 -> 3086, disagree 3, not-run 185; allowed `dead_code` 5633 -> 5643;
+    shapes 1756 -> 1761, constructs 1995 -> 2005, noted constructs 685 -> 677.
+  - Tests (end of step, once each): `bun typecheck` clean; `bun run lint` clean; `bun test src/transpile` 458 pass / 0
+    fail; `bun test test/conformance` 6299 pass / 0 fail; `bun test test/frontend` 45 pass / 0 fail; `bun test test/corpus`
+    19 pass / 1 skip.
 - [ ] 4.13 Appendix pointer items, each recorded first, then fixed or refused by name.
   - What: (a) a target set read while growing (`pointers/state.ts`); (b) a null source copied into a multi-target pointer
     (`pointers/store.ts`); (c) `0 = p` recognition (`expressions/operators.ts`); (d) `r.3` on a REFERENCE (`places/places.ts`); (e) an ANY

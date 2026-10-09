@@ -21,7 +21,7 @@ import { childScopesByName, findChildScope, type Scope } from "../../../frontend
 import { declareGlobals, declareInOuts, declareVars } from "../storage/declare.js"
 import { inOutSections, prefixed } from "./parameters.js"
 import { type Type, typeZero } from "../../../frontend/types/index.js"
-import { anyArgumentTypes } from "../pointers/any.js"
+import { anyArgumentTypes, declareAnyAddresses } from "../pointers/any.js"
 import { type CursorArgument, cursorArgumentTypes } from "../pointers/cursor.js"
 import { typeKey } from "./variants.js"
 import { libraryOf } from "../../../frontend/library/index.js"
@@ -229,7 +229,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const inputs = routineInputs(lw, r, sections, key)
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
-    hiddenInOuts(lw, r, targets, cursors, parsed.statements, key)
+    hiddenInOuts(lw, r, targets, cursors, parsed.statements, key, declareAnyAddresses(lw, r, targets, key, inputs, span))
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     if (frame !== undefined) instanceInOuts(lw, r, sym, frame, parsed.statements)

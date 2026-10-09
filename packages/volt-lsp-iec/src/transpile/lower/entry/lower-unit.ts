@@ -14,7 +14,7 @@ import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
 import { Lowering } from "../core/lowering.js"
 import { newShared, type Shared } from "../core/shared.js"
-import { covers, type Escapes, escapesSeen, runOnEscapes } from "../pointers/escape.js"
+import { covers, type Escapes, escapesSeen, isEmpty, joined, runOnEscapes } from "../pointers/escape.js"
 import { layOutImage } from "../pointers/image.js"
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
@@ -51,18 +51,11 @@ export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProjec
     if (answer !== undefined) runOnEscapes(shared, answer)
     const lowered = lowerOnce(unit, scope, prepared.project, shared)
     const seen = escapesSeen(shared)
-    const settled = answer === undefined ? seen.types.size + seen.variables.size + seen.tagged.size === 0 : covers(answer, seen)
-    if (settled || pass === ESCAPE_PASSES) { if (process.env.ZZ_PASSES) console.log("ZZPASS", unit.name.text, pass, settled); return lowered }
+    const settled = answer === undefined ? isEmpty(seen) : covers(answer, seen)
+    if (settled || pass === ESCAPE_PASSES) return lowered
     answer = answer === undefined ? seen : joined(answer, seen)
   }
 }
-
-/** Two escape answers as one. */
-const joined = (a: Escapes, b: Escapes): Escapes => ({
-  types: new Set([...a.types, ...b.types]),
-  variables: new Set([...a.variables, ...b.variables]),
-  tagged: new Set([...a.tagged, ...b.tagged]),
-})
 
 /** One lowering of the unit, on the escape answer `shared` carries (none on the first). */
 function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" }>, scope: Scope, project: Scope, shared: Shared): LoweredPou {

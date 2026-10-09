@@ -47,6 +47,10 @@ export interface PointerFrame {
   readonly anyInputs: Set<string>
   /** Each ANY input whose call site named a variable, to the hidden VAR_IN_OUT bound to it — what `pValue` is. */
   readonly anyTargets: Map<string, number>
+  /** Each ANY input whose `pValue` this variant stores into a pointer that holds addresses (model 3, transpile-restructure
+   *  4.9): the hidden POINTER input each call fills with its argument's image address, and the argument's type (its
+   *  `diSize`). Such an input has no `anyTargets` in-out — the argument is in the image, not lent. */
+  readonly anyAddresses: Map<string, { slot: number; type: Type }>
   /**
    * FORM 2 (`pointer-model.md` §8 step 1) — each `POINTER TO T` parameter this routine only DEREFERENCES, upper-cased,
    * to the hidden VAR_IN_OUT the call binds to whatever the caller took an `ADR` of.
@@ -83,6 +87,7 @@ export const pointerFrame = frameState<PointerFrame>(() => ({
   boundPointers: new Set(),
   anyInputs: new Set(),
   anyTargets: new Map(),
+  anyAddresses: new Map(),
   borrowedPointers: new Map(),
   cursors: new Map(),
 }))

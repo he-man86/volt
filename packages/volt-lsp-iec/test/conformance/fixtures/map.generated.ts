@@ -14,9 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2847
+ *     confirmed     2854
  *     refused       1990
- *     not-lowered    379
+ *     not-lowered    375
  *     lsp-gap         82
  *     diverges        11
  *     unaskable       92
@@ -27,7 +27,7 @@
  *     control                 158      147
  *     aggregate               138      138
  *     call                    277      274
- *     indirect                417      412
+ *     indirect                424      419
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
@@ -44,7 +44,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5633
+ *     dead_code                               5643
  *     clippy::self_assignment                   39
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -58,7 +58,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3081
+ *     agree         3088
  *     disagree         3
  *     not-run        185
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -79,15 +79,15 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 32340 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               8014
- *     clippy::cast_possible_truncation         5097
- *     clippy::cast_lossless                    4715
+ *   pedantic — 32372 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               8024
+ *     clippy::cast_possible_truncation         5100
+ *     clippy::cast_lossless                    4721
  *     clippy::cast_sign_loss                   3576
  *     clippy::uninlined_format_args            3375
  *     clippy::unreadable_literal               2856
- *     clippy::missing_panics_doc               1130
- *     clippy::manual_assert                     878
+ *     clippy::missing_panics_doc               1133
+ *     clippy::manual_assert                     882
  *     clippy::format_push_string                750
  *     clippy::many_single_char_names            378
  *
@@ -103,16 +103,16 @@
  *     string_escapes_named                            13
  *     initprg_adr_of_earlier                        12.5
  *
- *   shape — 1756 distinct emission shapes over 3269 lowered fixtures, 1995 distinct constructs.
- *   685 constructs carry a review note (`NOTES`): 3100 fixtures are improvable, 3005 touch a construct with alternatives.
+ *   shape — 1762 distinct emission shapes over 3276 lowered fixtures, 2005 distinct constructs.
+ *   681 constructs carry a review note (`NOTES`): 3107 fixtures are improvable, 3012 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
  *     7.3.1 97, 7.2.3 47, 7.3.3 31, 7.2.6 30, 7.7.1 24, 7.4.4 23, 7.8.6 22, 7.2.2 19, 7.4.3 19, 7.6.1 18, 7.7.3 18
  *     7.4.2 17, 7.2.9 15, 7.4.6 15, 7.7.5 15, 7.7.8 15, 7.7.2 14, 7.9.3 14, 7.5.7 13, 7.2.5 12, 7.2.7 12, keep 12
  *     7.5.6 11, 7.6.3 11, 7.8.7 11, 7.9.1 11, 7.2.14 10, 7.3.5 10, 7.6.2 10, 7.8.2 10, 7.2.8 8, 7.2.10 8, 7.3.6 8
- *     7.2.4 7, 7.4.5 7, 7.6.5 7, 7.7.9 7, 7.8.3 7, 7.8.10 7, 7.4.8 6, 7.6.6 6, 7.8.4 6, 7.8.5 6, 7.3.9 5, 7.3.12 5
- *     7.8.8 5, 7.2.11 4, 7.3.13 4, 7.5.2 4, 7.3.8 3, 7.4.9 3, 7.7.6 3, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
+ *     7.2.4 7, 7.4.5 7, 7.6.5 7, 7.8.3 7, 7.8.10 7, 7.4.8 6, 7.6.6 6, 7.8.5 6, 7.3.9 5, 7.3.12 5, 7.8.4 5, 7.8.8 5
+ *     7.2.11 4, 7.3.13 4, 7.5.2 4, 7.7.9 4, 7.3.8 3, 7.4.9 3, 7.7.6 3, 7.2.12 2, 7.3.2 2, 7.3.10 2, 7.3.11 2
  *     7.4.7 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.3.4 1, 7.3.7 1, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.7.7 1
  *     7.8.1 1, 7.8.11 1, 7.9.2 1
  */
@@ -4361,7 +4361,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sqrt_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 6, shape: "ca8c93cf2a", notes: ["1307e33bbf", "1671e97e30", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "a1adee154e"] },
   standard_len_wstring_rejected: { evidence: "refused" },
   state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 43, edge: "agree", size: 4.6, shape: "0aa36188a1", notes: ["040107266f", "06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "1707972c33", "5d9850550d", "63d29bd1a0", "687428cc81", "6a98109119", "72543de594", "dbdc75774e", "dd28a02e7e", "de132e5019"] },
-  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 16, edge: "agree", size: 4.1, shape: "bb8a69ea37", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "431373ac5d", "4a6baf16b3", "57ce9e2ee4", "63d29bd1a0", "64cc413c0b", "687428cc81", "870b70e195", "c5d30c56ec", "c6322760e4", "ca823a2c56", "cca22914d5", "d39e19d533", "d8e4a747d3", "dd8988b5d4", "dd94ff18a2", "de132e5019", "e3343dab4f", "efd31f3397", "fbde4d6e1e"] },
+  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 16, edge: "agree", size: 5.9, shape: "1978fe0c17", notes: ["11f6ad8ec5", "687428cc81", "c5d30c56ec", "c6322760e4", "c6dbfd854f", "ca823a2c56", "ce1d8df0a5", "dd94ff18a2", "de132e5019", "dfe7ec241e", "f7cd52625c", "f7ee3854dd", "fbde4d6e1e"] },
   state_call_after_global_init_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.2, shape: "2eea5ff574", notes: ["1307e33bbf", "4979768984", "fa7d5f176f"] },
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 3.6, shape: "0de54de31a", notes: ["1307e33bbf", "271163608b", "4979768984", "964296462a"] },
   state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 4.5, shape: "65d4956fd3", notes: ["1307e33bbf", "4979768984", "58a7e6289b", "abf2bb6e4e"] },
@@ -4691,11 +4691,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "89bc326c16", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 13.5, shape: "83f02d7bfb", notes: ["45292dbd9c", "687428cc81", "75cc82a569", "ad25627749", "dd94ff18a2", "de132e5019", "f7ea0fc7a1", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 5.9, shape: "c008d75591", notes: ["1307e33bbf", "39e68c53af", "687428cc81", "75cc82a569", "dd94ff18a2", "de132e5019", "fbde4d6e1e"] },
-  tr_16_fb_copy_carries_inout_binding: { evidence: "not-lowered" },
-  tr_17_any_pvalue_byte_via_sint: { evidence: "not-lowered" },
-  tr_17_any_pvalue_dint_via_real: { evidence: "not-lowered" },
-  tr_17_any_pvalue_dint_write_via_byte: { evidence: "not-lowered" },
-  tr_17_any_pvalue_uint_via_int: { evidence: "not-lowered" },
+  tr_16_fb_copy_across_frame_instances: { evidence: "not-lowered" },
+  tr_16_fb_copy_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 3.4, shape: "b62f73c6b3", notes: ["06bb3a6005", "1307e33bbf", "39e68c53af", "5ed54bb657", "63d29bd1a0"] },
+  tr_16_fb_copy_into_uncalled_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 3.4, shape: "e366b53167", notes: ["06bb3a6005", "0cbdff077d", "1307e33bbf", "39e68c53af", "63d29bd1a0"] },
+  tr_16_fb_copy_reverse_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 3.4, shape: "b62f73c6b3", notes: ["06bb3a6005", "1307e33bbf", "39e68c53af", "5ed54bb657", "63d29bd1a0"] },
+  tr_17_any_pvalue_byte_via_sint: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 6.8, shape: "a738093310", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dbdc75774e", "dd94ff18a2"] },
+  tr_17_any_pvalue_dint_via_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 6.8, shape: "fd5027c26c", notes: ["11f6ad8ec5", "1707972c33", "6a98109119", "dbdc75774e", "dd94ff18a2"] },
+  tr_17_any_pvalue_dint_write_via_byte: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 6.3, shape: "bb28246d90", notes: ["11f6ad8ec5", "5c499dbdc8", "687428cc81", "dbdc75774e", "dd94ff18a2", "de132e5019"] },
+  tr_17_any_pvalue_uint_via_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 6.8, shape: "30e175633f", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dbdc75774e", "dd94ff18a2"] },
   tr_18_queryinterface_into_global: { evidence: "not-lowered" },
   tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
@@ -7015,11 +7018,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Lowering temps in a PROGRAM/FB body become persistent pub struct fields (`pub __chain_value_3: bool`, `pub __property_1: i16`). They are written before they are read in the same statement, so they should be Rust locals (`let chain = self.c;`), or passed directly (`self.fb_upw.threshold_set(100i16)`). Today they grow the FB's state and its PartialEq, and trip pub_underscore_fields.",
     tasks: ["7.6.1"],
   },
-  // pub fn m(mut x: i32, mut x: i16, x: &mut i64) -> bool {
-  "431373ac5d": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
-  },
   // self.f.__numbers_lower_N = self.__numbers_lower_N;
   "43449862b7": {
     improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
@@ -7434,11 +7432,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "emit the folded literal",
     tasks: ["7.2.2"],
   },
-  // *x = { m(x.f); *x }.wrapping_add(x as i32);
-  "57ce9e2ee4": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
-    tasks: ["7.9.3"],
-  },
   // self.f = IecString::<L>::lit(iec_lreal_text(self.v).as_bytes());
   "57f6f7d814": {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
@@ -7769,11 +7762,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     tasks: ["7.3.1"],
-  },
-  // *x = { m(x.f); *x }.wrapping_add(x as i64);
-  "64cc413c0b": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
-    tasks: ["7.9.3"],
   },
   // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = (p as i32).wrapping_sub(Li32).max(Li32) as i16; m(__arg_N, …) };
   "650e10d85c": {
@@ -10040,6 +10028,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b). It matches the program-instance form already emitted.",
     tasks: ["7.6.6", "7.8.10"],
   },
+  // { let x = { m(x.f); i64::m(x.m(x.f)) }.wrapping_add(x as i64); let x = x.f; x.m(x, ….m()); }
+  "c6dbfd854f": {
+    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
+  },
   // if (self.f as i32) >= Li32 { break; }
   "c7ac9a5e64": {
     improvement: "Comparing a variable with an in-range literal of the variable's own type widens both sides.",
@@ -10155,11 +10148,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
     tasks: ["7.7.8"],
   },
-  // *x = ({ m(x.f); *x } as i32).wrapping_add(x as i32) as i16;
-  "cca22914d5": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
-    tasks: ["7.9.3"],
-  },
   // if (self.f.f.f as i32) > Li32 {
   "cd54e9d497": {
     improvement: "Leave out the widening casts on a comparison whose two sides already have the same Rust type, or the same signedness with one side a literal that fits. `self.q = self.cv == 0;`, `helpissameignorecase = chartoupper(by1) == chartoupper(by2);`, `if self.x.drive.travelled > 10 {`.",
@@ -10170,6 +10158,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "compare in the common type when both sides are the same type",
     why: "promotion cannot change the result of an ordering between two values of one type",
     tasks: ["7.3.3"],
+  },
+  // { let x = { m(x.f); i32::m(x.m(x.f)) }.wrapping_add(x as i32); let x = x.f; x.m(x, ….m()); }
+  "ce1d8df0a5": {
+    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
   },
   // pub fn m_get(&mut self, prg: &mut Programs) -> i16 {
   "ceb0cb99a7": {
@@ -10262,11 +10255,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) narrow-in/narrow-out → the operand's own wrapping_neg/wrapping_abs; unsigned ABS → the operand; widened result → plain `-`",
     tasks: ["7.3.1"],
   },
-  // pub fn m(mut x: i32, mut x: i16, x: &mut i16) -> bool {
-  "d39e19d533": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
-  },
   // self.f = Li64.wrapping_sub(Li64) as i8;
   "d46e26c2aa": {
     improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/values/fold.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
@@ -10310,11 +10298,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
     tasks: ["7.4.4"],
-  },
-  // pub fn m(mut x: i32, mut x: i16, x: &mut i32) -> bool {
-  "d8e4a747d3": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
   },
   // self.f = (self.f as i32) == Li32;
   "d99adbcc4b": {
@@ -10411,11 +10394,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
     tasks: ["7.7.9"],
   },
-  // pub fn m(mut x: i32, mut x: i16, x: &mut i8) -> bool {
-  "dd8988b5d4": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
-  },
   // fn m(x: usize) { if x == L { panic!(S); } }
   "dd94ff18a2": {
     improvement: "The helper is `assert!(at != 0, \"dereference of a null pointer\")`, which states the check in one line.",
@@ -10482,6 +10460,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
     tasks: ["7.7.2"],
   },
+  // { let x = ({ m(x.f); i16::m(x.m(x.f)) } as i32).wrapping_add(x as i32) as i16; let x = x.f; x.m(x, ….m()); }
+  "dfe7ec241e": {
+    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
+    tasks: ["7.9.3"],
+  },
   // self.f.clamp();
   "e007ef42d8": {
     improvement: "Every METHOD, ACTION and FUNCTION carries `#[allow(unused_mut, unused_variables, unused_assignments)]` (438 of 2333 files), including bodies with no locals or parameters at all, such as `widen`, `clamp` and `narrow`. Emit each allow only when the routine has a local, parameter or initialiser that can trigger it. Also: LIMIT over INT operands is printed widened and narrowed back: `(self.i_raw as i32).max(0i32).min(100i32) as i16`. The result of min/max over same-typed operands cannot leave that type, so `self.i_raw.max(0i16).min(100i16)` is equal for all inputs. Skip the promotion for min, max and limit when all operands share a type.",
@@ -10517,11 +10500,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
     tasks: ["7.3.3"],
-  },
-  // x.f = L;
-  "e3343dab4f": {
-    improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
-    tasks: ["7.8.4"],
   },
   // x = __values_upper_N.wrapping_mul(Li32) as i64;
   "e37b53617c": {
@@ -10864,11 +10842,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "same semantics, and the interpreter's setChar needs no change",
     tasks: ["7.4.4", "7.9.3"],
   },
-  // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i8;
-  "efd31f3397": {
-    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. Each ANY_INT monomorph still receives its diSize as a `mut input: i32` param and emits `match input`, though since transpile-review 17 only the arm for its own size is lowered (the others dereferenced pValue as a type it is not), so the match has one arm and the param could be dropped.",
-    tasks: ["7.9.3"],
-  },
   // g.f.count = (g.f.count as i32).wrapping_add(g.f as i32) as i16;
   "eff90824ac": {
     improvement: "INT/SINT +, - and * widen to i32 and narrow back. Several emissions are correct here (see alternatives).",
@@ -11022,6 +10995,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
     tasks: ["7.7.1"],
   },
+  // { let x = ({ m(x.f); i8::m(x.m(x.f)) } as i32).wrapping_add((x as i8) as i32) as i8; let x = x.f; x.m(x, ….m()); }
+  "f7cd52625c": {
+    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. Each ANY_INT monomorph still receives its diSize as a `mut input: i32` param and emits `match input`, though since transpile-review 17 only the arm for its own size is lowered (the others dereferenced pValue as a type it is not), so the match has one arm and the param could be dropped.",
+    tasks: ["7.9.3"],
+  },
   // m(self.p);
   "f7ea0fc7a1": {
     improvement: "When a pointer's target is an array element, lowering adds (lower-1) to the handle and then hands the emitter an index step with `lower` set, which the emitter subtracts again, so the lower bound cancels at runtime. For ARRAY[3..7], probe ptr_neg_step emits `self.arr[((self.p as i64).wrapping_add(2i64) - 3i64) as usize]`, which is just `self.p - 1`. It also mixes `wrapping_add` with a plain `-` in one expression. If pointeePlace built a zero-based index (`p - 1 (+ extra)`) with `lower: 0n`, the emitter would print `[(self.p as i64 - 1) as usize]`. With lower 0 it already prints `.wrapping_add(-1i64)`, and that could be a plain `- 1`. Also: `ADR(arr[1])` with a constant index emits `self.p = 1i64.wrapping_sub(-1i64) as usize;`, and `ADR(arr[7])` over ARRAY[3..7] emits `self.p = 7i64.wrapping_sub(2i64) as usize;`. When last.index is a const, the handle is a compile-time constant (2 and 5). It should be emitted as `self.p = 2;`, the same way a scalar ADR already emits `self.p = 1;`. Also: The null check is emitted even when every value ever stored into the pointer is a non-zero constant, with no `p := 0` and no stepping. In mem_adr_of_inout_member it reads `self.p = 1; iec_deref(self.p); io.y = 99i16;`, and that check can never fire. Lowering already knows every store into a form-1 pointer (lw.shared.pointers). If none of them can produce 0, it could drop `guard`. But a single-target pointer's field starts at 0 and can be read before any store in a later scan, so this is only safe when a store dominates the deref in the same body. That is the case the scoped VAR_IN_OUT path already proves (`boundPointers`). Also: The helper is `fn iec_deref(at: usize) { if at == 0 { panic!(\"dereference of a null pointer\"); } }`. clippy::manual_assert flags it in every pointer fixture (mem_pointer_index_struct_array: 2, mem_adr_of_inout_member: 1). `assert!(at != 0, \"dereference of a null pointer\");` says the same thing in the idiomatic way, and the panic message does not change.",
@@ -11038,6 +11016,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "fold in addressOf when last.index.kind === 'const' and emit the literal handle",
     why: "it is identical to the scalar-ADR form `self.p = 1;` and costs about 3 lines",
     tasks: ["7.2.4", "7.2.4", "7.9.3", "7.9.3"],
+  },
+  // pub fn m(x: &mut T, mut x: i32, mut x: i16, mut x: usize) -> bool {
+  "f7ee3854dd": {
+    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
+    tasks: ["7.7.9"],
   },
   // self.f = m(-Li32, …, &mut self.f);
   "f7faf582da": {
