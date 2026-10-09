@@ -454,7 +454,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 0 occurrences in the corpora). MEASURED_SILENT in `transpile-replay.test.ts`.
   // 81 -> 82, FOR MEASUREMENT (gate 2c, no fixture moved): `for_step_typed_literal_on_narrower_counter` (`BY INT#-1` on a
   // BYTE, "Cannot convert type 'INT' to type 'BYTE'"; lsp-transpile-review-gaps 2.1).
-  "lsp-gap": 82,
+  // 82 -> 83, FOR MEASUREMENT (transpile-restructure 5.1, no fixture moved): `init_struct_field_fb_init_scope_local` (a
+  // STRUCT field's FB_Init argument naming a local of the declaring POU, "Identifier '…' not defined" on both vendors) —
+  // niche: accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
+  "lsp-gap": 83,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

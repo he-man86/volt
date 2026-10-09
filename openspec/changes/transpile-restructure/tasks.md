@@ -3524,13 +3524,99 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ## 5. Model 4: instance initialization (RC 22, 23, 24, 25; RC 30 closed upstream)
 
-- [ ] 5.1 Measure.
+- [x] 5.1 Measure.
   - What: record `init_extends_interleaving`, `init_struct_field_fb_init_scope`, `init_structured_after_fb_init` (or cite its existing
     recording), `init_gvl_program_slot_order`, `init_this_in_initializer`, `var_temp_dynamic_init_method`,
     `var_temp_dynamic_init_function`, and `var_temp_dynamic_aggregate_init` (a VAR_TEMP array and struct with a dynamic initializer).
   - Where: `test/conformance/fixtures/declarations/` and `oop/`; numbers here.
   - Accept: committed recordings.
   - Depends: 1.9.4.
+  - Done 2026-10-09 (step 5a, measure only — no product code). Ten fixtures: `oop/init-model.ts` (new, `INIT_MODEL_TESTS`)
+    holds `init_extends_interleaving`, `init_struct_field_fb_init_scope` and its twins `_local` and `_sibling`,
+    `init_gvl_program_slot_order`, `init_this_in_initializer` and its twin `_argument`; `declarations/section-semantics.ts`
+    (`initModel`) holds `var_temp_dynamic_init_method`, `_function` and `var_temp_dynamic_aggregate_init`. Most cells read
+    a STAMP — a fixture-own FUNCTION bumping a global counter, called from field initializers, FB_Init bodies and
+    `call_after_global_init_slot` methods — so every initialization event of a fixture sits on one line. Recorded in one
+    batch per vendor: `record:exec` (CODESYS simulation; two fixtures re-recorded after the build refusals below),
+    `record:language` on CODESYS and on TwinCAT (Project13); every recording below holds on both builds.
+    `init_structured_after_fb_init` is NOT a new fixture: `fb_init_and_structured_initializer` (`oop/lifecycle.ts`) records
+    it — FB_Init saw `seenBefore` 0 and the structured `started := 9` stayed (`fb-init.test.ts` cites it).
+    - M5.1.1 EXTENDS (`init_extends_interleaving`): per class, in declaration order — base field 1, base FB_Init 2,
+      derived field 3, derived FB_Init 4 (the base's FB_Init runs BEFORE the derived fields' initializers, not "all fields
+      first"); a derived FB without its own FB_Init: base field 5, base FB_Init 6, its field 7. One instance completes
+      before the next starts (`plain` 5-7 after `inst` 1-4).
+    - M5.1.2 A STRUCT field instance (`init_struct_field_fb_init_scope`): declaration order inside the struct — `before`
+      1, `viaGlobal`'s FB_Init 2, `viaLiteral`'s 3, `after` 4 (PLC_PRG's `rec`), then `holder.h` 5-8; a global argument
+      gives 6, a literal 3. The scope: an argument naming a local of the POU declaring the struct variable is REFUSED on
+      both vendors ("Identifier 'sfslSeed' not defined", `_local`); one naming an EARLIER field of the same struct gives
+      its initial value (4, `_sibling`). So the arguments resolve in the struct's scope (its fields, then globals), never
+      the declaring POU's (appendix item, 5.8). Gate 5a's twins pin the rest: a field named like a global (global
+      `sfsgFirst` 11, field 4, `_shadow`) gives the FIELD's 4 — fields before globals; an earlier field with a DYNAMIC
+      initializer (`first : INT := F_stamp()`, `_dynamic`) gives `got` 1 and the clock stays at 1 — the argument reads the
+      field's runtime value, the initializer runs once; a static fold of the type's declared initializer is not the
+      model. `_local` is an `lsp-gap` (the LSP checks no STRUCT field's FB_Init
+      arguments) — niche: accepted loss (0 occurrences in the corpora: no STRUCT field declares FB_Init arguments),
+      `deferred.lsp`; `map.test.ts` lsp-gap 82 -> 83.
+    - M5.1.3 cited above (FB_Init first, then the structured initializer).
+    - M5.1.4 Across frames (`init_gvl_program_slot_order`): the GVL first, in declaration order (`gBefore` 1, the GVL
+      instance's field 2 and FB_Init 3, `gAfter` 4); then PLC_PRG (5, `local` 6/7, 8); then the PROGRAM PLC_PRG calls,
+      `PRG_LANG_gps` (9, `inst` 10/11, 12); then every `call_after_global_init_slot` method after every initializer and
+      FB_Init: `PRG_LANG_gps.inst` 13, the GVL instance 14, `PLC_PRG.local` 15 — the slot methods' order among
+      themselves is neither declaration nor frame order (one recording; 5.2 does not guess beyond it). `seqAtScan` 15:
+      nothing runs again in the first scan. Gate 5a's twin `init_gvl_program_slot_order_renamed` (the GVL `Z_GVL_LANG_gpsn`
+      sorts AFTER PLC_PRG, the called PROGRAM `A_PRG_LANG_gpsn` BEFORE it): the frames' stamps are the same — GVL 1-4,
+      PLC_PRG 5-8, PROGRAM 9-12 — so the frame order is the GVL, then PLC_PRG, then the PROGRAM it calls, not
+      alphabetical or object-tree order. The slot methods MOVED with the names: the GVL instance 13, the PROGRAM's 14,
+      `PLC_PRG.local` 15 (the original: the PROGRAM's 13, the GVL's 14) — their order among themselves follows the
+      names in some way two recordings do not settle; 5.2 keeps it unmodelled (no fixture reads two slot methods'
+      order against each other beyond these two).
+    - M5.1.5 THIS (`init_this_in_initializer`): `THIS^.n` in a field initializer reads an earlier field's value (7) and a
+      later field's default (0, its 9 not yet applied) — the declaration-ordered walk, THIS legal there. As FB_Init
+      arguments of an inner instance (`_argument`): `THIS^.n` by value 7, and `THIS` as a pointer the inner FB_Init reads
+      through, 7 — the owner's earlier fields are initialized when its inner instance's FB_Init runs.
+    - M5.1.6 A METHOD's and a FUNCTION's VAR (`var_temp_dynamic_init_method`, `_function`): re-evaluated on every call
+      (method: 9 then 10, `* 2 + 1` 19 then 21 in the second scan; function: global 9/10, 19/21, an input `k * 3` 6/15).
+      Found while recording: CODESYS refuses VAR_TEMP in a FUNCTION too, so both probes use VAR, the routine's temporary
+      section. Gate 5a recorded it as its own fixture, `type_var_temp_in_function` (both vendors: "VAR_TEMP declaration
+      not allowed in this place", TwinCAT quoting the kind; record:exec "does not compile" alike) — the LSP's
+      `var-section-placement` allowed it ("allowed in FUNCTION (live-calibrated)", no recording behind it) and its src
+      test pinned that; both corrected (the src test red first), the fixture `refused`, not an lsp-gap (0 VAR_TEMP in a
+      FUNCTION in the six corpora, so no corpus diagnostic moved). `type_var_temp_in_method`'s note corrected.
+    - M5.1.7 A dynamic VAR_TEMP aggregate (`var_temp_dynamic_aggregate_init`, an FB called with `k := 3` then `k := 5`):
+      every element and field is re-evaluated on every call — `[k, 0 + F(k), g]` gives [3, 6, 9] then [5, 10, 10], `(a :=
+      k, c := F(g))` gives (3, 4, 18) then (5, 4, 20), the unwritten `b` its type's 4 each call. So §3.4's reset form is
+      STATEMENTS, not `IrFresh` with a folded init. Found while recording: inside an ARRAY initializer `F(k)` is CODESYS's
+      repeat count ("Number 'F' of array initialisations is no constant value", even as `F(n := k)`), so the call is
+      written `0 + F(k)`; and a variable named `st` is refused as a token ("Unexpected token 'st'") — renamed `rec`.
+    - Lowering today (each fixture's first refusal): `init_extends_interleaving` fb-init-order; `init_struct_field_fb_init_scope`,
+      `init_gvl_program_slot_order`, all three `var_temp_dynamic_*` init-not-constant (the method's also call-body);
+      `_local`, `_sibling`, `init_this_in_initializer_argument` fb-init-argument; `init_this_in_initializer` expr-member.
+      All nine the vendor runs are `not-lowered` — no divergence mark.
+    - Front-end leads (recorded, not worked on): a VAR_GLOBAL list binds no scope in the front-end dumps, so a GVL
+      initializer is NOSCOPE (fold-dump decl, type-dump literal and call, resolution-dump bare name) — pinned as named
+      ceiling exceptions in `test/frontend/baseline.ts` (none raises a ceiling); `namesFixture` also matches resolution's
+      `fixture <vendor> <name>:` lines. (A variable named `s` or `r` is NOT a lead — gate 5a corrected this note: the
+      parser REPORTS errors on such a declaration (`r : INT;` gives 5 errors and a failed declaration, not a silent
+      drop), CODESYS's refusal is already recorded by `cc_reserved_name_r`, `_s_upper` and `_s_string` (all `refused`;
+      `docs/reserved-il-operators.md`), and no ceiling exception names it.)
+    - M (`rate:fixtures`): 5415 -> 5425 fixtures; confirmed 2863 (unchanged), refused 1990, not-lowered 377 -> 386,
+      lsp-gap 82 -> 83, diverges 11, unaskable 92; tiers and edge unchanged (edge agree 3097, disagree 3, not-run 185).
+    - Numbers (end of step, no VOLT_FIXTURES): `bun test test/conformance` 6321 pass, 386 todo, 0 fail (341 s); `bun test
+      test/frontend` 45 pass; `bun test test/analysis` 13 pass (fixtures baselines rewritten: +10 measured, +2 GAP per
+      vendor excepted for `_local`); `bun typecheck` clean; `bun run lint` (package) green but the pre-existing
+      `last-binding.ts` size warning. Full suite: the gate's.
+  - Gate 5a (2026-10-09). Review fixes, each recorded first (one batch per vendor: `record:exec`, `record:language` on
+    CODESYS and on TwinCAT Project13): `type_var_temp_in_function` (VAR_TEMP in a FUNCTION refused on both vendors; the
+    LSP's `var-section-placement` now flags it, src test red first; M5.1.6), `init_gvl_program_slot_order_renamed` (the
+    frame order holds under reordered names; the slot methods' order moves with them; M5.1.4),
+    `init_struct_field_fb_init_scope_shadow` and `_dynamic` (fields before globals; the runtime value, the initializer run
+    once; M5.1.2); the front-end lead about `s`/`r` corrected (no gap). Named ceiling exceptions for the twins' GVL
+    NOSCOPE cells; front-end and analysis baselines rewritten (analysis: `checkVarSectionPlacement` TP 9 -> 10 per vendor,
+    corpus unchanged).
+    - M (`rate:fixtures`): 5425 -> 5429 fixtures; confirmed 2863 (unchanged), refused 1990 -> 1991, not-lowered 386 -> 389,
+      lsp-gap 83, diverges 11, unaskable 92; edge agree 3097 -> 3098, disagree 3, not-run 185.
+    - Numbers: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning; full suite
+      (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8754 pass, 35 skip, 432 todo, 0 fail (9221 tests, 585 s).
 - [ ] 5.2 Design "§3.4 Decision: initialization".
   - What: the one ordered walk, the static-versus-dynamic split, the VAR_TEMP reset form decided by `var_temp_dynamic_aggregate_init`,
     the lift of `init-reads-instance`, the IR doc corrections.

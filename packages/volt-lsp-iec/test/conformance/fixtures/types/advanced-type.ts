@@ -130,7 +130,7 @@ END_METHOD
     kind: "function_block",
     feature: "VAR_TEMP inside a METHOD body — TC rejects (placement restriction)",
     fromDoc: "02-variables.md",
-    note: "DISCOVERY: VAR_TEMP is only allowed in PROGRAM / FUNCTION POU declarations, not inside method bodies. TC errors with 'VAR_TEMP declaration not allowed in this place'. LSP doesn't currently validate VAR section kind by parent POU type — TC-only gap worth adding.",
+    note: "DISCOVERY: VAR_TEMP is not allowed in a METHOD body — both vendors: 'VAR_TEMP declaration not allowed in this place'. Nor in a FUNCTION (`type_var_temp_in_function`, 2026-10-09; this note said 'allowed in PROGRAM / FUNCTION'): a PROGRAM or FUNCTION_BLOCK holds VAR_TEMP. The LSP's var-section-placement checks both.",
     plcPrgVar: "fb_vtmp : FB_LANG_type_var_temp_in_method;",
     plcPrgBody: "fb_vtmp.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_type_var_temp_in_method
@@ -147,6 +147,27 @@ END_VAR
 iScratch := 10;
 iResult := iScratch + 5;
 END_METHOD
+`,
+  },
+  {
+    name: "type_var_temp_in_function",
+    pouName: "F_LANG_type_var_temp_in_function",
+    kind: "function",
+    feature: "VAR_TEMP directly in a FUNCTION — allowed, or refused as in a METHOD? (transpile-restructure gate 5a review)",
+    fromDoc: "02-variables.md",
+    note: "LIVE (2026-10-09): refused on both vendors — CODESYS 'VAR_TEMP declaration not allowed in this place' (record:language and record:exec), TwinCAT \"'VAR_TEMP' declaration not allowed in this place\"; a FUNCTION's temporaries are its VAR. The LSP's var-section-placement said 'allowed in FUNCTION (live-calibrated)' with no recording behind it; fixed in the same step.",
+    plcPrgVar: "res : INT;",
+    plcPrgBody: "res := F_LANG_type_var_temp_in_function(k := 4);",
+    source: `FUNCTION F_LANG_type_var_temp_in_function : INT
+VAR_INPUT
+	k : INT;
+END_VAR
+VAR_TEMP
+	t : INT;
+END_VAR
+t := k + 1;
+F_LANG_type_var_temp_in_function := t;
+END_FUNCTION
 `,
   },
 

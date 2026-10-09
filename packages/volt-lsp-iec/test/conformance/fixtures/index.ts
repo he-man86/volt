@@ -75,6 +75,7 @@ import { MEMORY_MODEL_TESTS } from "./memory/memory-model.js"
 import { POINTER_PARAMETER_TESTS } from "./memory/pointer-parameters.js"
 import { POINTER_INTO_SCALAR_TESTS } from "./memory/pointer-into-scalar.js"
 import { POINTER_MODEL_TESTS } from "./memory/pointer-model.js"
+import { INIT_MODEL_TESTS } from "./oop/init-model.js"
 import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
@@ -163,6 +164,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },
+  { name: "init-model", tests: INIT_MODEL_TESTS },
   { name: "identifier", tests: IDENTIFIER_TESTS },
   { name: "network-unresolved", tests: NETWORK_UNRESOLVED_TESTS },
   { name: "network-graphical", tests: NETWORK_GRAPHICAL_TESTS },

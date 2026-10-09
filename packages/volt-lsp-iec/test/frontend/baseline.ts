@@ -559,6 +559,57 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ).flatMap(([vendor, fixture, counts, why]) =>
     Object.entries(counts).map(([measure, by]) => ({ baseline: `fixtures.${vendor}`, measure, by, fixture, task: "none: niche, accepted loss (analysis-conformance 3.7–3.9)", why })),
   ),
+  // transpile-restructure 5.1 (2026-10-09): a STRUCT field's FB_Init argument naming a local of the declaring POU, which
+  // both vendors refuse ("Identifier '…' not defined" and its conversion echo) and the LSP does not check — the fixture's
+  // `deferred.lsp`. New ground measured, not a regression.
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: `fixtures.${vendor}`,
+    measure: "total: GAP",
+    by: 2,
+    fixture: "init_struct_field_fb_init_scope_local",
+    task: "none: niche, accepted loss (0 STRUCT fields with FB_Init arguments in the corpora)",
+    why: "a STRUCT field's FB_Init argument resolves in the struct's scope; the LSP checks no STRUCT field's FB_Init arguments",
+  })),
+  // …and the front-end dumps over 5.1's fixtures. A VAR_GLOBAL list binds no scope in the dumps, so a GVL initializer is
+  // NOSCOPE (its declaration in fold-dump, its literal in type-dump, a FUNCTION it calls in resolution-dump) — the
+  // fixtures need a global that moves and a GVL initializer that stamps its order. The struct-scope gap above shows in
+  // resolution-dump (the vendors' "not defined", recorded only) and type-dump (their conversion echo, no store typed).
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 2, "init_gvl_program_slot_order"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 1, "init_struct_field_fb_init_scope"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 1, "var_temp_dynamic_init_method"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 1, "var_temp_dynamic_init_function"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 1, "var_temp_dynamic_aggregate_init"],
+        ["type-dump", `fixtures ${vendor}: literal NOSCOPE`, 1, "init_struct_field_fb_init_scope"],
+        ["type-dump", `fixtures ${vendor}: literal NOSCOPE`, 1, "var_temp_dynamic_init_method"],
+        ["type-dump", `fixtures ${vendor}: literal NOSCOPE`, 1, "var_temp_dynamic_init_function"],
+        ["type-dump", `fixtures ${vendor}: literal NOSCOPE`, 1, "var_temp_dynamic_aggregate_init"],
+        ["type-dump", "findings", 1, "init_struct_field_fb_init_scope_local"],
+        ["resolution-dump", "findings", 2, "init_gvl_program_slot_order"],
+        ["resolution-dump", `fixtures ${vendor}: bare name NOSCOPE`, 2, "init_gvl_program_slot_order"],
+        ["type-dump", `fixtures ${vendor}: call NOSCOPE`, 2, "init_gvl_program_slot_order"],
+        ["resolution-dump", "findings", 1, "init_struct_field_fb_init_scope_local"],
+        ["resolution-dump", `messages ${vendor}: recorded only`, 1, "init_struct_field_fb_init_scope_local"],
+        // gate 5a's review twins: the renamed slot-order probe (the same GVL initializers as its original) and the
+        // global the struct field shadows (`sfsgFirst : INT := 11`)
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 2, "init_gvl_program_slot_order_renamed"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 1, "init_struct_field_fb_init_scope_shadow"],
+        ["type-dump", `fixtures ${vendor}: literal NOSCOPE`, 1, "init_struct_field_fb_init_scope_shadow"],
+        ["type-dump", `fixtures ${vendor}: call NOSCOPE`, 2, "init_gvl_program_slot_order_renamed"],
+        ["resolution-dump", "findings", 2, "init_gvl_program_slot_order_renamed"],
+        ["resolution-dump", `fixtures ${vendor}: bare name NOSCOPE`, 2, "init_gvl_program_slot_order_renamed"],
+      ] as const
+    ).map(([baseline, measure, by, fixture]) => ({
+      baseline,
+      measure,
+      by,
+      fixture,
+      task: "none: a GVL binds no scope in the front-end dumps; the struct-scope cell is niche, accepted loss (0 in the corpora)",
+      why: "transpile-restructure 5.1's instance-initialization fixtures (2026-10-09), new ground measured, not a regression",
+    })),
+  ),
   // …and the front-end dumps over the same new cells (analysis-conformance 3.7–3.9, 2026-10-06), each a type the front-end
   // does not give where the vendor answers: INI has no result type, a STRUCT instance or THIS/SUPER out of place called or
   // dereferenced is untyped where the vendor refuses it, a bit access's address, a negated number as a FOR bound, a REAL
@@ -666,8 +717,13 @@ export function allowanceOf(name: string, exceptions: readonly CeilingException[
 
 /** Does finding `f` name `fixture` — by its file (`…/fixture/F.pou …`, the dumps) or as `<vendor> <fixture>: …` (the bound census)? */
 function namesFixture(f: string, fixture: string): boolean {
-  // a dump's site (`fixture/<name>/<file>`), a census line (`codesys <name>: …`), the parse census's (`codesys fixture/<name> — …`)
-  return f.includes(`/${fixture}/`) || new RegExp(`^(codesys|twincat) ${fixture}: `).test(f) || f.includes(`fixture/${fixture} `)
+  // a dump's site (`fixture/<name>/<file>`), a census line (`codesys <name>: …`), the parse census's (`codesys fixture/<name> — …`),
+  // resolution's message agreement (`fixture codesys <name>: recorded only …`)
+  return (
+    f.includes(`/${fixture}/`) ||
+    new RegExp(`^(fixture )?(codesys|twincat) ${fixture}: `).test(f) ||
+    f.includes(`fixture/${fixture} `)
+  )
 }
 
 /** Held against a measurement: what rose above its ceiling (plus a named exception's allowance), what fell below it

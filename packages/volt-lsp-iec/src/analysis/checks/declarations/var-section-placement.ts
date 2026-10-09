@@ -1,6 +1,8 @@
 /**
  * var-section-placement (D.2 · declarations/). Flags a VAR-section kind not allowed for the containing POU:
- *   - VAR_TEMP — rejected in METHOD / ACTION / INTERFACE (C0174); allowed in FUNCTION (live-calibrated),
+ *   - VAR_TEMP — rejected in FUNCTION / METHOD / ACTION / INTERFACE (C0174); a FUNCTION's temporaries are its VAR
+ *     (`type_var_temp_in_function`, refused on both vendors, recorded 2026-10-09 — this said "allowed in FUNCTION
+ *     (live-calibrated)" with no recording behind it),
  *   - VAR_GLOBAL — allowed only in a GVL (C0169),
  *   - VAR_CONFIG — allowed only in a config list, never in a POU (C0168, its own docs-exact message).
  *
@@ -53,7 +55,7 @@ export function checkVarSectionPlacement(ctx: CheckContext, out: DiagnosticItem[
 function misplacedSection(unit: TopLevel, section: VarSection): string | undefined {
   if (
     section.sectionKind === "VAR_TEMP" &&
-    (unit.kind === "method" || unit.kind === "action" || unit.kind === "interface")
+    (unit.kind === "function" || unit.kind === "method" || unit.kind === "action" || unit.kind === "interface")
   ) {
     return "VAR_TEMP"
   }

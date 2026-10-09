@@ -1,6 +1,6 @@
 /**
  * var-section-placement — a VAR-section kind not allowed for the containing POU: VAR_TEMP in a
- * METHOD/ACTION/INTERFACE, or VAR_GLOBAL outside a GVL. Vendor-keyed wording; conformance-only before.
+ * FUNCTION/METHOD/ACTION/INTERFACE, or VAR_GLOBAL outside a GVL. Vendor-keyed wording; conformance-only before.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
@@ -22,8 +22,12 @@ test("VAR_TEMP in a METHOD is flagged, vendor-keyed (TC quotes the kind)", () =>
   expect(sections(src, "twincat")).toEqual(["'VAR_TEMP' declaration not allowed in this place"])
 })
 
-test("VAR_TEMP in a FUNCTION body (allowed) is not flagged", () => {
-  expect(sections(`FUNCTION Fn : INT\nVAR_TEMP t : INT; END_VAR\nFn := t;\nEND_FUNCTION`, "codesys")).toEqual([])
+// Both vendors refuse it (`type_var_temp_in_function`, record:language + record:exec 2026-10-09); this test said
+// "allowed (live-calibrated)" with no recording behind it.
+test("VAR_TEMP in a FUNCTION is flagged, vendor-keyed", () => {
+  const src = `FUNCTION Fn : INT\nVAR_TEMP t : INT; END_VAR\nFn := t;\nEND_FUNCTION`
+  expect(sections(src, "codesys")).toEqual(["VAR_TEMP declaration not allowed in this place"])
+  expect(sections(src, "twincat")).toEqual(["'VAR_TEMP' declaration not allowed in this place"])
 })
 
 test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
