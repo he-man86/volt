@@ -7,6 +7,23 @@
  * duplication. So the lists live here and the gates import them.
  */
 import type { Vendor } from "../../../src/analysis/index.js"
+
+/**
+ * THE ACCEPTED VENDOR-ROUTINE DIVERGENCES OF THE TRANSPILER (transpile-restructure design.md §7.2, task 6.21) — the three
+ * expected failures no task will close. CODESYS's SIN / COS / TAN run on the x87 FPU: a huge angle is reduced with FSIN's
+ * 66-bit approximation of pi, and the kernel after it is a hardware polynomial a few ULPs from the correctly rounded value.
+ * Both backends compute IEEE libm, correctly rounded; the cause is set out at `src/transpile/semantics/math.ts` and is
+ * deliberately not emulated (only the reduction half could be). Each fixture's `deferred.transpile` is its entry here.
+ */
+export const X87_TRIG_DIVERGENCES = {
+  op_math_trig:
+    "x87 trig kernel (accepted, design.md §7.2): COS(1.5708) is -3.6732051033465756E-06 in CODESYS, -3.673205103346574e-6 here — the exact value to 300 bits is -3.6732051033465738e-6, so this side is correctly rounded and the FPU's kernel is a few ULPs out; 1.5708 is below pi, so no argument reduction is involved (2026-09-19). Not emulated (`semantics/math.ts`).",
+  mathdom_sin_large:
+    "x87 argument reduction (accepted, design.md §7.2): CODESYS reduces a huge angle with the x87 FPU's 66-bit pi, not an exact one — SIN(1.0E18) is -0.9928161040530035 there and -0.9929693207404051 here (2026-09-19). Reproducible, deliberately not emulated (`semantics/math.ts`).",
+  mathdom_cos_large:
+    "x87 argument reduction (accepted, design.md §7.2): CODESYS reduces a huge angle with the x87 FPU's 66-bit pi — reducing by round(pi * 2^64) / 2^64 reproduces its 0.11965025504785125 to all seventeen digits, against 0.11837199021871073 from an exact reduction (2026-09-19). Deliberately not emulated (`semantics/math.ts`).",
+} as const
+
 /**
  * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not. THREE, as of the end of
  * 2026-09-20, from 79 that morning.

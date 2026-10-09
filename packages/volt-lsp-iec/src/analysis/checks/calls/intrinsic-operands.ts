@@ -109,7 +109,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if (name === "ADR") {
       // a literal HOLE (a malformed address, an enum `Type#Value`) is not refused as an operand: it has no type, and
       // CODESYS reports that instead (`lit_address_unsized_under_adr`, `analysis/shared/hole`)
-      if (arg.kind === "literal" && !literalHole(arg, ctx.project)) {
+      if (arg.kind === "literal" && !literalHole(arg, ctx.project, ctx.uri)) {
         emit(out, arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131
       } else {
         const t = inferExprType(arg, scope, ctx.project)

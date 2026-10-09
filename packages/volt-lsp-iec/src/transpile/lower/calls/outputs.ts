@@ -23,8 +23,16 @@ export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg
   if (arg.value === undefined) return true
   const target = bindInOut(lw, arg, param, callHolds(b), routine.body, routine.fb, b.instance)
   if (target === undefined || isInFrame(target)) return undefined
-  if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
-    return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
+  // As an ASSIGNMENT decides (`isAssignable`), as the FB path does (`fbOutputCopy`, `tr_43_output_*`): one it refuses is
+  // `call-output-type`. One it converts is not lowered here — the copy-out stores the callee's type, unconverted — and is
+  // refused by name: niche: accepted loss (0 occurrences in the corpora — of the 35 routine output bindings the six corpora
+  // write, FUNCTION 1, METHOD 14, interface METHOD 17, PROGRAM 3, none converts: a census of the `=>` bindings themselves,
+  // callee VAR_OUTPUT against target type, 2026-10-09; transpile-restructure 6.17).
+  if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length) {
+    const elementary = target.type.kind === "elementary" && param.type.kind === "elementary"
+    if (!elementary || !isAssignable(target.type, param.type)) return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
+    return lw.bail("call-output-convert", `${param.name} converts on its way out of ${routine.name}, which this call path does not lower`, arg.span)
+  }
   // COPIED OUT AFTER THE CALL, not lent before it: the callee writes a copy, and the target — its index read then —
   // takes it once the call returns. A METHOD moving its FB's `k`, or a FUNCTION moving a global, lands the output in
   // `arr[k]` at the index it moved to (`tr_20_output_index_moved_by_callee`: arr[1] = 5). A target through a

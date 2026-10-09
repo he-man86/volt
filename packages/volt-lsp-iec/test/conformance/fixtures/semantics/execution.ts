@@ -819,6 +819,32 @@ const CASES: readonly ExecCase[] = [
     vars: "narrow : STRING := 'abc'; wide : WSTRING := \"abc\"; intoWide : WSTRING; intoNarrow : STRING; same : BOOL;",
     body: "intoWide := narrow; intoNarrow := wide; same := narrow = wide;",
   },
+  // transpile-restructure 6.13 (RC 38's appendix line): a store THROUGH A REFERENCE is the implicit store into its target
+  // — a STRING into an INT, an INT into a STRING, a STRING into a WSTRING, each refused (CODESYS record:exec 2026-10-09:
+  // "Cannot convert type 'STRING' to type 'REFERENCE TO INT'") — and the explicit conversion beside them (12).
+  {
+    name: "tr_38_ref_store_string_into_int",
+    vars: "v : INT; str : STRING := '12'; ri : REFERENCE TO INT;",
+    body: "ri REF= v; ri := str;",
+    rejects: "Cannot convert type 'STRING' to type 'REFERENCE TO INT'",
+  },
+  {
+    name: "tr_38_ref_store_int_into_string",
+    vars: "i : INT := 5; s1 : STRING; rs : REFERENCE TO STRING;",
+    body: "rs REF= s1; rs := i;",
+    rejects: "Cannot convert type 'INT' to type 'REFERENCE TO STRING'",
+  },
+  {
+    name: "tr_38_ref_store_string_into_wstring",
+    vars: "str : STRING := 'ab'; w : WSTRING; rw : REFERENCE TO WSTRING;",
+    body: "rw REF= w; rw := str;",
+    rejects: "Cannot convert type 'STRING' to type 'REFERENCE TO WSTRING'",
+  },
+  {
+    name: "tr_38_ref_store_explicit_conversion",
+    vars: "v : INT; str : STRING := '12'; ri : REFERENCE TO INT; readBack : INT;",
+    body: "ri REF= v; ri := STRING_TO_INT(str); readBack := v;",
+  },
   {
     // The AST keeps a literal's `$` escapes raw ('a$Tb' is four characters of text); CODESYS counts one per escape?
     name: "string_escapes",
@@ -1079,6 +1105,35 @@ const CASES: readonly ExecCase[] = [
       "mulUdintLit := ud * 5000000000;",
       "mx := MAX(ud, 5000000000);",
     ].join(" "),
+  },
+  // transpile-restructure 6.2 gate: rule LT12 (`lt_literal_negative_in_comparison_unsigned`) was recorded for -1 only, a
+  // SINT literal, bare. Does a negative literal of another class — INT (-200), DINT (-40000), LINT (-3000000000) —
+  // beside a narrower UNSIGNED variable convert into UDINT too, and does a parenthesised -1 or a constant expression
+  // (0 - 1)? One question per fixture, so a refusal of one does not hide the others' values.
+  {
+    name: "tr_6_negative_int_beside_unsigned",
+    vars: "u : USINT := 255; ui : UINT := 3; b1 : BOOL; b2 : BOOL;",
+    body: "b1 := u > -200; b2 := ui > -200;",
+  },
+  {
+    name: "tr_6_negative_dint_beside_unsigned",
+    vars: "ui : UINT := 3; b : BOOL;",
+    body: "b := ui > -40000;",
+  },
+  {
+    name: "tr_6_negative_lint_beside_unsigned",
+    vars: "ui : UINT := 3; b : BOOL;",
+    body: "b := ui > -3000000000;",
+  },
+  {
+    name: "tr_6_negative_paren_beside_unsigned",
+    vars: "ui : UINT := 3; b : BOOL;",
+    body: "b := ui > (-1);",
+  },
+  {
+    name: "tr_6_negative_expression_beside_unsigned",
+    vars: "ui : UINT := 3; b : BOOL;",
+    body: "b := ui > 0 - 1;",
   },
 
   // task 14: S= / R= through a pointer that MAY point at one of two places (assigned on both arms of an IF) — still a

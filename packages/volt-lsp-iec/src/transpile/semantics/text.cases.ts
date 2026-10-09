@@ -107,3 +107,19 @@ export const LONG_CALENDAR_TEXT_CASES: readonly Case<LongCalendarInput, string>[
   long(9, "LTOD", 3723n * 1_000_000_000n + 500_000_000n, "LTOD#01:02:03.500000000"),
   long(10, "LTOD", 3723n * 1_000_000_000n + 1000n, "LTOD#01:02:03.000001000"),
 ]
+
+const ltime = (i: number, ns: bigint, expected: string): Case<bigint, string> => ({
+  name: `tr_32 ${ns}`,
+  input: ns,
+  expected,
+  recording: { fixture: "tr_32_fmt_ltime_past_i64", variable: `inst.s${i}`, input: `inst.v${i}` },
+})
+
+/** LTIME → STRING either side of 2^63 ns and at the u64's maximum: an LTIME is UNSIGNED and prints whole
+ *  (`tr_32_fmt_ltime_past_i64`, transpile-review 32; `iec_ltime_text(ns: u64)`, transpile-restructure 6.10). */
+export const LTIME_TEXT_CASES: readonly Case<bigint, string>[] = [
+  ltime(0, 2n ** 63n - 1n, "LTIME#106751d23h47m16s854ms775us807ns"),
+  ltime(1, 2n ** 63n, "LTIME#106751d23h47m16s854ms775us808ns"),
+  ltime(2, 106752n * DAY, "LTIME#106752d"),
+  ltime(3, 2n ** 64n - 1n, "LTIME#213503d23h34m33s709ms551us615ns"),
+]

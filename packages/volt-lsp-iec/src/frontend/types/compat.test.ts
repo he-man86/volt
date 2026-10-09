@@ -14,7 +14,7 @@ const E_BYTE = "TYPE EB :\n(\n\tOff := 0,\n\tOn := 1\n) BYTE;\nEND_TYPE"
 
 test("isAssignable: widening, narrowing, isolation, enums", () => {
   const p = proj(`TYPE Color : (Red, Green); END_TYPE\nTYPE Mode : (A, B); END_TYPE`)
-  const T = (n: string) => resolveNamedType(n, p)
+  const T = (n: string) => resolveNamedType(n, p, undefined)
   expect(isAssignable(T("INT"), T("SINT"))).toBe(true) // widening up the rank
   expect(isAssignable(T("INT"), T("DINT"))).toBe(false) // narrowing — not implicit
   expect(isAssignable(T("BOOL"), T("INT"))).toBe(false) // BOOL isolated
@@ -30,7 +30,7 @@ test("isAssignable: widening, narrowing, isolation, enums", () => {
 
 test("classifyConversion: identity / widen / narrow / sign-change / incompatible", () => {
   const p = proj("")
-  const T = (n: string) => resolveNamedType(n, p)
+  const T = (n: string) => resolveNamedType(n, p, undefined)
   expect(classifyConversion(T("INT"), T("INT"))).toBe("identity")
   expect(classifyConversion(T("INT"), T("SINT"))).toBe("widen") // narrower rank → wider
   expect(classifyConversion(T("REAL"), T("INT"))).toBe("widen") // int → real is implicit
@@ -52,7 +52,7 @@ test("classifyConversion: identity / widen / narrow / sign-change / incompatible
 })
 
 test("compat: an enum with a written base converts as that base, both ways (cv_enum_base_*_into_scalars, cv_scalars_into_enum_with_base)", () => {
-  const enumOf = (src: string, name: string): Type => resolveNamedType(name, proj(src))
+  const enumOf = (src: string, name: string): Type => resolveNamedType(name, proj(src), undefined)
   const eb = enumOf(E_BYTE, "EB")
   expect(eb).toMatchObject({ kind: "enum", base: { name: "BYTE" } })
   const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
@@ -71,8 +71,8 @@ test("compat: an enum with a written base converts as that base, both ways (cv_e
 test("compat: a value of another enum converts with a warning, not an error (cv_enum_into_other_enum, unit_enum_extends_enum)", () => {
   const src = `${E_PLAIN}\n${E_BYTE}`
   const p = proj(src)
-  expect(classifyConversion(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe("enum-change")
-  expect(isAssignable(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe(true)
+  expect(classifyConversion(resolveNamedType("E", p, undefined), resolveNamedType("EB", p, undefined))).toBe("enum-change")
+  expect(isAssignable(resolveNamedType("E", p, undefined), resolveNamedType("EB", p, undefined))).toBe(true)
 })
 
 test("compat: an integer into a pointer on a 64-bit target — 32 bits refused, signed a change of sign, the rest silent (cv_integers_into_pointer)", () => {

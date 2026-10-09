@@ -40,15 +40,12 @@ const CONTEXTS: LanguageTest[] = [
   fb("lt_literal_in_comparison", "an untyped literal beside a narrower variable: SINT = 200, SINT < 300, INT = 70000, INT > -40000",
     "\tsi : SINT := 100;\n\ti : INT := 1000;\n\tb1 : BOOL;\n\tb2 : BOOL;\n\tb3 : BOOL;\n\tb4 : BOOL;",
     "b1 := si = 200;\nb2 := si < 300;\nb3 := i = 70000;\nb4 := i > -40000;"),
-  {
-    ...fb("lt_literal_negative_in_comparison_unsigned", "an untyped negative literal beside an unsigned variable: USINT = -1, UINT > -1",
-      "\tu : USINT := 255;\n\tui : UINT := 3;\n\tb1 : BOOL;\n\tb2 : BOOL;",
-      "b1 := u = -1;\nb2 := ui > -1;"),
-    deferred: {
-      transpile:
-        "2026-10-03, CODESYS run: `ui > -1` is FALSE (b2) — the literal converts into UDINT, 4294967295 (\"signed Type 'SINT' to unsigned Type 'UDINT'\", rule LT12) — and lowering compares the two as numbers (TRUE); the LSP's half is types/arith/operators negativeLiteralComparisonTarget, the transpiler's is transpile-restructure's (task 5.3)",
-    },
-  },
+  // CODESYS 2026-10-03: `ui > -1` is FALSE (b2) — the literal converts into UDINT, 4294967295 ("signed Type 'SINT' to
+  // unsigned Type 'UDINT'", rule LT12): the LSP's `negativeLiteralComparisonTarget`, lowering's `negativeBesideUnsigned`
+  // (transpile-restructure 6.2)
+  fb("lt_literal_negative_in_comparison_unsigned", "an untyped negative literal beside an unsigned variable: USINT = -1, UINT > -1",
+    "\tu : USINT := 255;\n\tui : UINT := 3;\n\tb1 : BOOL;\n\tb2 : BOOL;",
+    "b1 := u = -1;\nb2 := ui > -1;"),
   fb("lt_literal_case_label", "untyped CASE labels at a SINT selector's extremes, and a range",
     "\tsi : SINT := -128;\n\tout : INT;\n\tout2 : INT;\n\tsi2 : SINT := 127;",
     "CASE si OF\n-128: out := 1;\n0..10: out := 2;\n127: out := 3;\nEND_CASE\nCASE si2 OF\n-128: out2 := 1;\n127: out2 := 3;\nEND_CASE"),

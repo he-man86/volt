@@ -2,15 +2,16 @@
  * IR TYPES AS RUST TYPES — the one mapping, built on the front-end's type predicates (`types/predicates`): this file asks
  * them and defines none of its own (design.md P4).
  */
-import { floatBits, holdsIntegerBits, isBit, isBoolValued, peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
+import { floatBits, holdsIntegerBits, isBoolValued, peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
 import { rustName } from "./names.js"
 
 /** The family an elementary type is EMITTED as — its own, except a BIT, which is a "bitstring" of one bit that the
  *  Rust holds (and CODESYS reads) as a BOOL. The one place that decision is made: `rustType` and `convert` both
- *  ask here, so a type cannot be `bool` in one and a bitstring in the other (transpile-review task 31). */
+ *  ask here, so a type cannot be `bool` in one and a bitstring in the other (transpile-review task 31) — and it asks
+ *  the front-end's `isBoolValued`, the one BIT-is-BOOL rule (transpile-restructure 6.9). */
 export function emittedFamily(t: Type): string | undefined {
   if (t.kind !== "elementary") return undefined
-  return isBit(t) ? "bool" : t.elem.family
+  return isBoolValued(t) ? "bool" : t.elem.family
 }
 
 /** IEC elementary type → Rust type, derived from the type's own facts (family · bits · signed). */

@@ -3906,106 +3906,247 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 Each task: a src test red first, the fix, then F and M. A RC closed upstream or by frontend-conformance (0.1) becomes "verify in the
 new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 30 is task 5.4.
 
-- [ ] 6.1 RC 2.3: a CONSTANT reference lowers to its folded value.
+- [x] 6.1 RC 2.3: a CONSTANT reference lowers to its folded value.
   - Where: `lower/places/names.ts`, `values/fold.ts`, `types/const/fold.ts` (`asConstant`).
   - Accept: F(`named_const_expression_keeps`) (d2 = 128 and e = 258 read); `named_const_literal_wrap` stays confirmed; G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.2 RC 6: an out-of-range literal keeps its own type.
+  - Done 2026-10-09 (step 6a, verify). Closed upstream (cf95980537): `named_const_expression_keeps` and `named_const_literal_wrap`
+    confirmed (rust vendor, edge agree); the fold is `types/const/fold.ts` (`frontend/types/const/fold.test.ts`), the lowering
+    test `pipeline/arith.test.ts`. No code change.
+- [x] 6.2 RC 6: an out-of-range literal keeps its own type.
   - Where: `types/literal.ts` `contextLiteralType` (range rule), `values/convert.adopt`, `values/promote.meet`.
   - Accept: F(`tr_6_literal_beyond_dint_neighbour`) (gNegLint TRUE, sumNegLint -2999999995, sumUdLint 5000000005, …);
     F(`lt_literal_negative_in_comparison_unsigned`) (`ui > -1` FALSE as CODESYS records it: an untyped negative literal beside
     an unsigned operand is not converted into the unsigned type — rule LT12; filed by 0a, see 0.2);
     `cc_literal_3e9_into_dint` stays confirmed; G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.3 RC 12: LDT/LDATE/LTOD → STRING.
+  - Done 2026-10-09 (step 6a). `tr_6_literal_beyond_dint_neighbour` and `cc_literal_3e9_into_dint` stay confirmed (lowering's
+    `values/convert.ts` `beside`, src `values/promote.test.ts`). F(`lt_literal_negative_in_comparison_unsigned`): new
+    `expressions/operators.ts` `negativeBesideUnsigned` — an untyped NEGATIVE literal compared with a narrower UNSIGNED operand
+    converts into the type the front-end's `negativeLiteralComparisonTarget` names (UDINT on CODESYS, rule LT12) before the
+    meet, as an explicit `convert` of the literal at its own type (SINT), so the pair meets in UDINT and the IR fold
+    still reads the literal as -1 (`fold-agreement.test.ts`); `ui > -1` is FALSE as recorded (was TRUE). Src `values/promote.test.ts` "…converts into UDINT (LT12)" (red first:
+    b2/b3 TRUE). The fixture's `deferred.transpile` is gone; it rates confirmed (rust vendor, edge agree; the one fixture whose
+    Rust changed in 6a-6d). The shared `contextLiteralType` home (H5) stays open: LT14 still pins the classes where it and
+    `literalCheckType` disagree, each needing a recording before a switch — not this task's Accept.
+    - Corpus (`probe-lowering-refusals.ts`, a HEAD worktree vs the 6a-6d tree): identical, 304 POUs, 250 refused.
+    - M (6a-6d together, `rate:fixtures`): mapped 5441 (+6 new fixtures); confirmed 2902 -> 2904 (`lt_literal_negative_in_
+      comparison_unsigned`, `tr_38_ref_store_explicit_conversion`), refused 1991 -> 1994 (the three `tr_38_ref_store_*`), not-lowered
+      356 -> 357 (`tr_43_routine_output_word_to_int`), lsp-gap 83 -> 84 (`tr_43_routine_output_dint_to_int`), diverges 11 -> 10,
+      unaskable 92; tier `indirect` 446 -> 447 (441 -> 442 clean); edge agree 3107 -> 3108, disagree 3, not-run 207; pedantic
+      32633 -> 32677; allowed `dead_code` 5654 -> 5670; median size 3.1; shapes 1799 -> 1800, constructs 2064 -> 2065, noted
+      constructs 681. Only `lt_literal_negative_in_comparison_unsigned`'s Rust changed among existing fixtures. No note resolved.
+    - Tests (end of 6a-6d, once each): `bun typecheck` clean; `bun run lint` (package) green but the pre-existing `last-binding.ts`
+      size warning; `bun test src/transpile src/frontend src/analysis scripts` 1808 pass / 0 fail; `bun test test/conformance`
+      6414 pass, 357 todo, 0 fail; `bun test test/frontend` 45 pass (baselines rewritten for the six new fixtures: counts only, no
+      disagreement row moved); `bun run test:corpus` 19 pass, 1 skip.
+    - Gate 6a+6d (2026-10-10), three findings on 6.2, each failing test first, decided by RECORDINGS (five new fixtures
+      `tr_6_negative_{int,dint,lint,paren,expression}_beside_unsigned`, `fixtures/semantics/execution.ts`; CODESYS
+      record:exec, then record:language on CODESYS and TwinCAT, one batch each):
+      - (medium) LT12 applied to every negative literal class though only -1 (SINT) was recorded. Recorded now: -200 (INT)
+        and -40000 (DINT) beside a UINT/USINT convert into UDINT, -3000000000 (LINT) into ULINT, every one FALSE on CODESYS;
+        TwinCAT converts into UINT / UDINT / ULINT. So the rule holds for every class, its target being the unsigned type as
+        wide as the WIDER of the literal's own class and 32 bits (CODESYS) / the operand (TwinCAT):
+        `types/arith/operators.ts` `negativeLiteralComparisonTarget` (it gave UDINT for the LINT literal — the same run value,
+        the wrong type). Src `analysis/checks/types/narrowing.test.ts` "…of a wider class…" (red first: no LINT warning),
+        `lower/values/promote.test.ts` "LT12 for every negative literal class…".
+      - (medium) the transpiler's dialect branch: lowering now asks the rule with `EXEC_ORACLE_DIALECT` (new,
+        `lower/conditions.ts`, the one `prepareProject` binds every lowering project with — it already bound "codesys",
+        so the TwinCAT branch was unreachable there; now it is said by name, not read back off the project). No
+        `dialectOf` in `src/transpile`.
+      - (low) a parenthesised literal: CODESYS `ui > (-1)` is FALSE with the SINT → UDINT warning (TwinCAT: SINT → UINT), as
+        the bare literal; `ui > 0 - 1` is TRUE, no CODESYS warning — a constant expression is no literal. Both halves read
+        the operand through `types/literal.ts` `unparenthesised` (new); the bound census's LT12 explainer too. The
+        transpiler was TRUE on the paren form (red first). TwinCAT warns "unsigned Type 'UINT' to signed Type 'INT'" on
+        `0 - 1`, which the LSP cannot type (an operation on untyped numbers is context-typed, LT14): niche: accepted loss
+        (0 occurrences in the corpora — no comparison of an unsigned operand with a constant expression of untyped numbers),
+        a named GAP exception in `test/frontend/baseline.ts`.
+      - The five rate confirmed (rust vendor, edge agree). Corpus (`probe-lowering-refusals.ts`): 304 POUs, 250 refused,
+        unchanged.
+- [x] 6.3 RC 12: LDT/LDATE/LTOD → STRING.
   - Where: `semantics/text.ts` + `text.cases.ts` (the 11 recorded cells, incl. the wrap past 2262), `runtime/text.ts`, `emit/rust/convert.ts`,
     `types/predicates.hasTextFormat` for the gate in `builtins/conversions.ts`.
   - Accept: F(`tr_12_fmt_long_dates`) (the Rust compiles); twin test green.
   - Depends: 1.9.4.
-- [ ] 6.4 RC 19: a METHOD's in-out shadows a field or VAR_STAT.
+  - Done 2026-10-09 (step 6a, verify). Closed upstream (2564e50b83): `tr_12_fmt_long_dates` confirmed (rust vendor), the 11
+    `LONG_CALENDAR_TEXT_CASES` twin green. `builtins/conversions.ts` `hasText` now asks `types/predicates.hasTextFormat` (it
+    asked `isTemporal` of the name — the same predicate; output-neutral).
+- [x] 6.4 RC 19: a METHOD's in-out shadows a field or VAR_STAT.
   - Where: `lower/places/names.ts`.
   - Accept: F(`tr_19_method_inout_shadows_member`, `tr_19_method_inout_shadows_var_stat`) (res = v = 101).
   - Depends: 1.9.4.
-- [ ] 6.5 RC 21: a FUNCTION keyed and scoped by symbol identity.
+  - Done 2026-10-09 (step 6a, verify). Closed upstream (ad6825592f): both `tr_19_*` confirmed (rust vendor); src
+    `places/names.test.ts`. No code change.
+- [x] 6.5 RC 21: a FUNCTION keyed and scoped by symbol identity.
   - What: bare calls use `symbols/precedence.pickForAsker`; `resolveNamedType` requires an asker, its callers (entry/lower-unit,
     places/globals, storage/layout, storage/bytes, types/infer `enumValueType` — appendix) pass one.
   - Where: `lower/calls/variants.ts`, `calls/namespace.ts`, `types/resolve.ts`.
   - Accept: F(`tr_21_namespace_qualified_first`, `tr_21_namespace_bare_first`) (a = 1020, b = 3); G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.7 RC 28: MAX/MIN/LIMIT on REAL.
+  - Done 2026-10-09 (step 6a). Bare calls already pick by `pickForAsker` (`calls/invoke.ts`, closed upstream cf64cc0ba2;
+    `tr_21_namespace_*` confirmed, src `calls/namespace.test.ts`). `resolveNamedType(name, project, askerUri, depth = 0)`: the
+    asker is REQUIRED (no default; a caller with no file says `undefined` — tests, the compiler's own structs). Callers: lowering
+    `entry/lower-unit`, `builtins/sizeof`, `pointers/image` (`scopeUri(lw.scope)`), `places/globals` (`sym.uri`),
+    `storage/layout` (the type's own `sym.uri` for its EXTENDS base); `types/infer/expr` (`scopeUri(scope)`),
+    `types/infer/member` `enumValueType` (the value's own `sym.uri` — the appendix line); the analysis callers through
+    `ctx.uri` (`analysis/shared/hole.ts` `enumTypedLiteral`/`literalHole`/`literalHoleWithin` take it, `isHole` passes
+    `scopeUri(scope)`); `test/frontend/bound-census.ts`. H3 for 6.5: `calls/invoke.ts` (a namespace FUNCTION) and
+    `init/fb-init.ts` (`FB_Init`) read `lookupLocal`, not the map. Src `frontend/types/resolve.test.ts` "an enum value is of
+    the enum its own library declares…" (red first: CBML's FROMCBML typed as CBM's E_X). design.md §6.1 row 14 updated.
+- [x] 6.7 RC 28: MAX/MIN/LIMIT on REAL.
   - What: compare-select `IF a>b THEN a ELSE b` (MIN: `a<b`), LIMIT = MIN(MAX(mn, in), mx).
   - Where: `ir/expr.ts` contract, `semantics/builtins.ts` + `numeric.cases.ts`, `emit/rust/builtins.ts`.
   - Accept: `semantics/builtins.test.ts` on the recorded NaN and ±0 cells; twin test; F(`tr_28_minmax_limit_nan_signed_zero_{real,lreal}`)
     once 4.12 lowers them.
   - Depends: 1.9.4, 4.12.
-- [ ] 6.8 RC 29 verified in the new home.
+  - Done 2026-10-09 (step 6b). Closed upstream in both backends (7da3814d3d). New case table `semantics/numeric.cases.ts`
+    `SELECT_CASES` — the 18 recorded cells of `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` (w1-w9 as bits, each naming the
+    NaN or -0 bits it ran on); new `semantics/builtins.test.ts` runs them through `builtinValue` (values, `Object.is`); the twin
+    (`test/conformance/runtime-twins.test.ts`) holds them to the recording and runs `iec_fmax`/`iec_fmin` (LIMIT as
+    MIN(MAX)) — the bits, the NaN's sign included. The two `tr_28_*` keep their marks: 4.12 decided the interpreter's REAL stays
+    a JavaScript number (niche: accepted loss, the NaN's sign bit); the Rust keeps every bit (the twin shows it).
+    `scripts/check-citations.ts` PLANNED loses the `semantics/builtins.test.ts` entry.
+- [x] 6.8 RC 29 verified in the new home.
   - What: closed upstream (3dd773b9d7): `RESERVED_FN_NAMES` (new, call, scan, clone, to_owned, clone_into, into, try_into) in `names.ts`.
   - Where: `emit/rust/names.ts`, `names.test.ts`.
   - Accept: all eight `tr_29_method_named_{clone,to_owned,into,try_into}_{result,no_result}` stay confirmed, edge agree.
   - Depends: 1.9.4.
-- [ ] 6.9 RC 31: BIT conversions decide bool-ness via `isBoolValued`.
+  - Done 2026-10-09 (step 6b, verify). `RESERVED_FN_NAMES` in `emit/rust/names.ts` (`names.test.ts`); all eight
+    `tr_29_method_named_*` confirmed, rust vendor, edge agree. No code change.
+- [x] 6.9 RC 31: BIT conversions decide bool-ness via `isBoolValued`.
   - Where: `emit/rust/convert.ts`.
   - Accept: F(`tr_31_bit_conversions`) (compiles; 'TRUE'; INT_TO_BIT(2) = TRUE).
   - Depends: 1.9.4.
-- [ ] 6.10 RC 32: `iec_ltime_text(ns: u64)`, no `i64` cast for LTIME (the LDT/LDATE `as i64` stays, per RC 12).
+  - Done 2026-10-09 (step 6b). `tr_31_bit_conversions` confirmed (rust vendor); src `emit/rust/convert.test.ts`.
+    `emit/rust/types.ts` `emittedFamily` — the one place the emitter decides bool-ness — asks `isBoolValued` (it asked
+    `isBit` and the family; the same answer, output-neutral).
+- [x] 6.10 RC 32: `iec_ltime_text(ns: u64)`, no `i64` cast for LTIME (the LDT/LDATE `as i64` stays, per RC 12).
   - Where: `runtime/text.ts`, `emit/rust/convert.ts`.
   - Accept: F(`tr_32_fmt_ltime_past_i64`); twin test.
   - Depends: 6.3.
-- [ ] 6.11 RC 33: LREAL_TO_STRING rounds a tie half-up (17 exact digits).
+  - Done 2026-10-09 (step 6b). Closed upstream (2bb72d5428): `tr_32_fmt_ltime_past_i64` confirmed; `iec_ltime_text(ns: u64)`
+    and the uncast LTIME in `emit/rust/convert.ts` (`convert.test.ts`). New `LTIME_TEXT_CASES` (`semantics/text.cases.ts`,
+    the four recorded cells either side of 2^63 ns and at the u64 maximum), run by `text.test.ts` (`ltimeText`) and the twin
+    (recording and input held; `iec_ltime_text(<n>u64)`).
+- [x] 6.11 RC 33: LREAL_TO_STRING rounds a tie half-up (17 exact digits).
   - Where: `runtime/text.ts`; the cells in `text.cases.ts`.
   - Accept: F(`tr_33_fmt_lreal_tie`); twin test.
   - Depends: 1.9.4.
-- [ ] 6.12 RC 37: CASE labels out of type or inverted are refused (CODESYS refuses all four).
+  - Done 2026-10-09 (step 6b, verify). Closed upstream (69caa32921): `tr_33_fmt_lreal_tie` confirmed; `LREAL_TIE_CASES` in
+    `text.test.ts` and the twin. No code change.
+- [x] 6.12 RC 37: CASE labels out of type or inverted are refused (CODESYS refuses all four).
   - Where: `lower/statements/case.ts`.
   - Accept: `tr_37_case_label_wraps_300`, `_wraps_minus_212`, `tr_37_case_range_inverted`, `_beyond_type` refused by the transpiler; the
     LSP half is already met (all four rate `refused`; lsp-transpile-review-gaps 1.3, ticked by 0.7).
   - Depends: 1.9.4.
-- [ ] 6.13 RC 38: implicit STRING↔WSTRING and non-string→STRING refused via `types/compat.classifyConversion`.
+  - Done 2026-10-09 (step 6c, verify). Closed upstream (194319e648): the four `tr_37_*` refused; src
+    `statements/case.test.ts`. No code change.
+- [x] 6.13 RC 38: implicit STRING↔WSTRING and non-string→STRING refused via `types/compat.classifyConversion`.
   - What: stores, chain links, stores through a REFERENCE (appendix), arguments and compares; LEN(WSTRING) (appendix).
   - Where: `lower/statements/assign.ts`, `expressions/operators.ts`, `calls/outputs.ts`, `calls/binding.ts`.
   - Accept: `string_wstring_mixing` and `uop_*` refused (rows lose tier and rust; the `uop_neg_real` edge disagreement gone);
     `standard_len_wstring_rejected` refused; any LSP half Filed; M.
   - Depends: 1.9.4.
-- [ ] 6.14 RC 40: DATE/DT/TOD ± LTIME is refused.
+  - Done 2026-10-09 (step 6c). Stores, chain links, arguments and compares closed upstream (8531164eca); `string_wstring_mixing`,
+    every `uop_*` and `standard_len_wstring_rejected` stay refused. The open line — a store THROUGH A REFERENCE — recorded FIRST
+    (CODESYS record:exec, one batch with 6.17's two): `tr_38_ref_store_string_into_int`, `_int_into_string`,
+    `_string_into_wstring` ("Cannot convert type 'STRING' to type 'REFERENCE TO INT'" …) and `_explicit_conversion` (12).
+    `statements/assign.ts` `storeValue` asks `refuseImplicitString` of the reference's target (all three lowered);
+    `refuseImplicitString` decides through `types/compat.classifyConversion` (`incompatible`, a string side) — the same answers.
+    Src `statements/assign.test.ts` "a store through a REFERENCE refuses…" (red first). The three rate refused — the LSP objects
+    already, so there is no LSP half (lsp-transpile-review-gaps 1.5 ticked with that); `_explicit_conversion` confirmed.
+- [x] 6.14 RC 40: DATE/DT/TOD ± LTIME is refused.
   - Where: `types/arith/temporal.ts`, `lower/expressions/calendar.ts`.
   - Accept: `tr_40_date_plus_ltime`, `tr_40_dt_plus_ltime`, `tr_40_tod_minus_ltime`, `tr_40_ltime_plus_date` refused by the transpiler and the
     LSP (the lsp-gap closes); G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.15 RC 41: MUX/SEL evaluate only the selected input; LIMIT follows the recorded order.
+  - Done 2026-10-09 (step 6c, verify). Closed upstream (1d84643239): the four `tr_40_*` refused by the transpiler
+    (`expressions/operators.ts` via `narrowDateWideDuration`; src `expressions/calendar.test.ts`) and the LSP. No code change.
+- [x] 6.15 RC 41: MUX/SEL evaluate only the selected input; LIMIT follows the recorded order.
   - Where: `ir/expr.ts` (evaluation contract per builtin), `semantics/builtins.ts`, `lower/builtins/value-functions.ts`, `emit/rust/builtins.ts`.
   - Accept: F(`tr_41_mux_side_effects`, `tr_41_sel_side_effects`, `tr_41_limit_evaluation_order`) (x = 4); both edge disagreements gone.
   - Depends: 1.9.4.
-- [ ] 6.16 RC 42: `typeKey` keys arrays by element plus bounds, recursively.
+  - Done 2026-10-09 (step 6c, verify). Closed upstream (03b9de81e9): the three `tr_41_*` confirmed, edge agree; SEL/MUX
+    evaluate only the selected input in `interp/machine.ts` (`selectedArg`) and `emit/rust/builtins.ts` (`builtins.test.ts`).
+    No code change.
+- [x] 6.16 RC 42: `typeKey` keys arrays by element plus bounds, recursively.
   - Where: `lower/calls/variants.ts`.
   - Accept: F(`tr_42_any_array_variant_key`) (the Rust compiles).
   - Depends: 1.9.4.
-- [ ] 6.17 RC 43: output bindings use `isAssignable`, on both paths.
+  - Done 2026-10-09 (step 6c, verify). Closed upstream (62ebd765b1): `tr_42_any_array_variant_key` confirmed (rust vendor);
+    `calls/variants.ts` `typeKey` keys element and bounds recursively (`calls/specialize.test.ts`). No code change.
+- [x] 6.17 RC 43: output bindings use `isAssignable`, on both paths.
   - Where: `lower/calls/outputs.ts`.
   - Accept: F(`tr_43_output_word_to_int` a = -1, `_word_to_udint` 65535, `_int_to_real` -3.0); `tr_43_output_dint_to_int` refused.
   - Depends: 4.11.
-- [ ] 6.18 RC 46: EXPT.
+  - Done 2026-10-09 (step 6d). The FB path closed upstream (900c8c30b6): the three `tr_43_output_*` confirmed,
+    `tr_43_output_dint_to_int` refused. The ROUTINE path (`calls/outputs.ts` `bindOutputArgument`) decides by `isAssignable`
+    too: one an assignment refuses stays `call-output-type`; one it converts is refused by name, `call-output-convert` (new,
+    not-modelled) — its copy-out stores the callee's type unconverted; niche: accepted loss (0 occurrences in the corpora: no
+    corpus POU is refused `call-output-type` or `call-output-convert`, `probe-lowering-refusals.ts`). Recorded (CODESYS
+    record:exec): `tr_43_routine_output_word_to_int` (t = -1; not-lowered, its `deferred.transpile` gives the reason) and
+    `tr_43_routine_output_dint_to_int` ("Cannot convert type 'DINT' to type 'INT'"; the LSP accepts it — lsp-gap,
+    `MEASURED_SILENT`, the map.test ceiling 83 -> 84, Filed lsp-transpile-review-gaps 2.4). Src `calls/outputs.test.ts` "a
+    routine output binding decides by the assignment relation…" (red first).
+  - Gate 6a+6d (2026-10-10), two findings on 6.17:
+    - (low) the niche count was a count of REFUSED POUs, not of the pattern. Counted now as the bindings themselves (every
+      `=>` in a call of a FUNCTION / METHOD / PROGRAM across the six corpora, the callee's VAR_OUTPUT type against the
+      target's): 35 routine output bindings — FUNCTION 1, METHOD 14, interface METHOD 17, PROGRAM 3 — none converting (the
+      179 converting ones are all FB outputs, the path that converts; 6 more are FB array elements `arr[i](q => …)`). The
+      reason now says so (`outputs.ts`, `outputs.test.ts`, `tr_43_routine_output_word_to_int`'s `deferred.transpile`).
+      This task's title is met as: both paths DECIDE by `isAssignable`; the FB path converts, the routine path refuses
+      the converting half by name (`call-output-convert`, niche) — its copy-out does not carry a `convert`.
+    - (low) the six fixtures (`tr_38_ref_store_*`, `tr_43_routine_output_*`) had run recordings only. Now record:language on
+      CODESYS and TwinCAT (one batch each, with the five `tr_6_negative_*`): the three `tr_38_ref_store_*` are "Cannot
+      convert type 'STRING' to type 'REFERENCE TO INT'" (and twins) on both, and the LSP agrees; `_explicit_conversion`
+      builds clean on both; `tr_43_routine_output_dint_to_int` is "Cannot convert type 'DINT' to type 'INT'" on both and
+      `_word_to_int` the WORD → INT sign warning on both — neither said by the LSP (lsp-transpile-review-gaps 2.4, named GAP
+      exceptions in `test/frontend/baseline.ts`). "unrecorded, no LSP parse error" back to 152 (CODESYS) / 163 (TwinCAT).
+- [x] 6.18 RC 46: EXPT.
   - What: a correctly rounded pow with C semantics for the edge cells, and a stop on 0 ** finite-negative in both backends. Measure first
     whether `1e19**8` needs an exact integer-exponent path.
   - Where: `semantics/math.ts` + `numeric.cases.ts`, `ir/faults.ts` (`exptDomain`), `runtime/numeric.ts` `iec_expt`, `emit/rust/builtins.ts`.
   - Accept: F(the seven diverging `tr_46_exptdom_*`); `_nan_pow_zero` and `_zero_pow_minus_inf` stay confirmed; `op_math_expt` and
     `expt_mixed_width` edge ULP agreement; twin test.
   - Depends: 1.9.4.
-- [ ] 6.19 RC 47: int→REAL rounds once (the bigint rounded to 24 bits with a sticky bit).
+  - Done 2026-10-09 (step 6d, verify). Closed upstream (c581ac19e3): all nine `tr_46_exptdom_*` confirmed (the two
+    zero-to-a-finite-negative as a stop match); `op_math_expt` and `expt_mixed_width` confirmed (edge not-run: libm). Measured:
+    1E19 ** 8 NEEDS the exact integer-exponent path in the interpreter (JavaScriptCore's pow is ULPs out; `semantics/math.ts`
+    `integerPower`); the Rust's `powf` answers 1E+152 as recorded. New `EXPT_CASES` (`numeric.cases.ts`, the nine cells, a
+    value or `stop`), run by `math.test.ts` and the twin (recording held; `iec_pow`'s bits, its panic caught as `stop`).
+- [x] 6.19 RC 47: int→REAL rounds once (the bigint rounded to 24 bits with a sticky bit).
   - Where: `semantics/convert.ts` `toReal`; the cell in `numeric.cases.ts`.
   - Accept: F(`tr_47_i2r_lint_to_real_double_round`); the edge disagreement gone.
   - Depends: 1.9.4.
-- [ ] 6.20 RC 48: the vendor oracle only for discriminating recordings.
+  - Done 2026-10-09 (step 6d, verify). Closed upstream (bc17d0a441): `tr_47_i2r_lint_to_real_double_round` confirmed, edge
+    agree. New `INT_TO_REAL_CASES` (`numeric.cases.ts`, its four recorded cells), run by `convert.test.ts` (`coerce`) and the
+    twin (recording held; Rust `as f32`, the emitter's conversion).
+- [x] 6.20 RC 48: the vendor oracle only for discriminating recordings.
   - What: rate all-default recordings `compiles` (exempting `prim_default_*`), or give the `cc_` fixtures discriminating initializers and
     re-record — choose, and write the reason here. Also closes the appendix line "UDINT op DINT fixtures run only on zeros".
   - Where: `test/conformance/support/transpile/correctness.ts`, `fixtures/batches/check-coverage.ts`.
   - Accept: M (the 158 affected rows move as chosen).
   - Depends: 1.8.4.
-- [ ] 6.21 The trig vendor-routine divergences stay named (design.md §7.2).
+  - Done 2026-10-09 (step 6d, verify). Chosen upstream (0ca79f7bae) and kept: an all-default recording from all-default constants
+    rates `compiles`, `prim_default_*` exempt (`support/transpile/correctness.ts`). The reason: re-recording the `cc_` fixtures
+    with discriminating initializers would change the question each one asks, while the rating makes the claim honest at no
+    cost. It closes "UDINT op DINT fixtures run only on zeros" too. Today 168 confirmed rows rate `compiles` (41 `cc_`).
+- [x] 6.21 The trig vendor-routine divergences stay named (design.md §7.2).
   - What: `op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large` keep their expected-failure marks, each with the x87 argument-reduction
     reason in `support/divergences.ts` and a pointer to `semantics/math.ts`.
   - Where: `test/conformance/support/divergences.ts`, `semantics/math.ts`.
   - Accept: G; the three marks carry the reason; 8.2 counts them as accepted.
   - Depends: 1.9.4.
+  - Done 2026-10-09 (step 6d). The three reasons live in `test/conformance/support/divergences.ts` `X87_TRIG_DIVERGENCES`
+    (the x87 kernel / the 66-bit argument reduction, each pointing at `semantics/math.ts`); each fixture's `deferred.transpile`
+    reads its entry. All three still diverge (expected failures). design.md §7.2 updated.
+  - Gate 6a+6d end (2026-10-10): `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size
+    warning; M (`rate:fixtures`): mapped 5441 -> 5446 (the five `tr_6_negative_*`), confirmed 2904 -> 2909, refused 1994,
+    not-lowered 357, lsp-gap 84, diverges 10, unaskable 92; arith 1545 lowered (1543 clean); edge agree 3108 -> 3113, disagree
+    3, not-run 207. Baselines rewritten (counts; the analysis census's three new GAP rows named). Full suite
+    (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8883 pass, 35 skip, 400 todo, 0 fail (9318 tests, 579 s).
+    One commit for 6a-6d and this gate, as with 1.6a-1.6d: the four steps share files (`numeric.cases.ts`,
+    `runtime-twins.test.ts`, `execution.ts`, the recordings, the map and every baseline) and no intermediate tree was kept.
 
 ### 6.A Appendix A and B items (LOW, unverified: record first, then fix, refuse, or close with the recording as the reason)
 

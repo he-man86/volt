@@ -10,7 +10,7 @@
  *   the task MainTask (and no other name)                              prag_if_defined_task(_absent)
  *   no project compile define                                          prag_project_defined_in_body
  */
-import { bodyStatements, type BodyParse, type BodySpan, type ConditionWorld, type DeviceFacts, type Target, type TopLevel } from "../../frontend/syntax/index.js"
+import { bodyStatements, type BodyParse, type BodySpan, type ConditionWorld, type DeviceFacts, type Dialect, type Target, type TopLevel } from "../../frontend/syntax/index.js"
 import { bodyConditionWorld, type Scope } from "../../frontend/symbols/index.js"
 
 const EXEC_ORACLE_DEVICE: DeviceFacts = Object.freeze({ littleEndian: true, simulation: true, fpu: true, registerSize: 64, packMode: 8 })
@@ -18,6 +18,10 @@ const EXEC_ORACLE_DEVICE: DeviceFacts = Object.freeze({ littleEndian: true, simu
  *  LINT (`plat_xint_into_lint`, `ty_dint_to_uxint`). Lowering binds its project with it (frontend-conformance 4.1.1; the
  *  transpiler's own platform-name rewrite is handed to transpile-restructure, task 5.3). */
 export const EXEC_ORACLE_TARGET: Target = Object.freeze({ pointerBits: 64 as const })
+/** The exec oracle's DIALECT — CODESYS: the run recordings are CODESYS's (`codesys.run.json`; there is no TwinCAT run
+ *  recording), so lowering binds its project as CODESYS and every dialect-dependent rule it asks answers CODESYS's (rule
+ *  LT12's `negativeLiteralComparisonTarget`, transpile-restructure 6.2). */
+export const EXEC_ORACLE_DIALECT: Dialect = "codesys"
 const EXEC_ORACLE_PROJECT: NonNullable<ConditionWorld["project"]> = Object.freeze({ defines: new Set<string>(), tasks: new Set(["MainTask"]) })
 
 /** One exec world per names world, so `bodyStatements`' cache keeps one tree per body (lowering keys maps on its nodes). */

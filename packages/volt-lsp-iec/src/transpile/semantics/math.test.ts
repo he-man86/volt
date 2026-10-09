@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test"
+import { IecFault } from "./faults.js"
 import { expt } from "./math.js"
+import { EXPT_CASES } from "./numeric.cases.js"
 
 /**
  * EXPT is C's `pow`, correctly rounded — what CODESYS answers and Rust's `powf` computes (transpile-review-2026-09-29
@@ -41,4 +43,17 @@ test("EXPT with an integer exponent is correctly rounded, as Rust's powf is", ()
   expect(expt(2, 1024)).toBe(Infinity)
   expect(expt(1 + 2 ** -52, 2 ** 52)).toBe(2.718281828459045) // e, from the nearest double above 1
   expect(expt(1 + 2 ** -52, -(2 ** 52))).toBe(0.3678794411714424)
+})
+
+// transpile-restructure 6.18: the table (`numeric.cases.ts` `EXPT_CASES`), every recorded `tr_46_exptdom_*` cell
+test("EXPT answers every recorded domain-edge cell — a value, or the task stopping", () => {
+  const got = EXPT_CASES.map((c) => {
+    try {
+      const v = expt(c.input.x, c.input.y)
+      return `${c.name}: ${c.input.type === "REAL" ? Math.fround(v) : v}`
+    } catch (error) {
+      return `${c.name}: ${error instanceof IecFault ? "stop" : String(error)}`
+    }
+  })
+  expect(got).toEqual(EXPT_CASES.map((c) => `${c.name}: ${c.expected}`))
 })

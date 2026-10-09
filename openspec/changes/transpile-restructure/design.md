@@ -2109,7 +2109,7 @@ own copy (the copies are the hand-off list at the end of tasks.md).
 | 11 | enum numbering and default | met | `src/frontend/types/enums.ts` `enumMemberValue` (numbering), `enumDefault`, `inlineEnumDefault`, `enumStorage`/`enumValueStorage`/`enumBase` (storage, recorded DT5–DT6), `strictEnum`; the transpiler already imports `enumDefault`/`inlineEnumDefault` (frontend-conformance 1.37) | `lower/constants.ts` `enumStorage` (hand-off H7) |
 | 12 | `calendarNanoseconds` | met | `src/frontend/syntax/literal/calendar.ts` (syntax index); `lower/constants.ts` already imports it (frontend-conformance 1.22) — 1.1.12 is a verification | none |
 | 13 | infer split, `fbChainSections` on `extendsChain`, `resolveCallee` for lowering | met | `src/frontend/types/infer/expr.ts`, `infer/member.ts`, `infer/callee.ts`; `fbChainSections` (callee.ts, private) runs on `extendsChain`; `resolveCallee` is on the types index | lowering's parameter view (6.B.4) |
-| 14 | `resolveNamedType` with a required asker (RC 21) | not provided, because frontend-conformance kept the asker optional (`resolveNamedType(name, project, depth = 0, askerUri = undefined)`): callers without a file (the compiler's own structs in `types/system.ts`, tests) and the library precedence rules it recorded (3.4) did not need it required. 6.5 makes it required | `src/frontend/types/resolve.ts` `resolveNamedType`, `namespaceOf` (qualified types resolve in their namespace, 3.4.2) | the callers 6.5 lists |
+| 14 | `resolveNamedType` with a required asker (RC 21) | not provided, because frontend-conformance kept the asker optional (`resolveNamedType(name, project, depth = 0, askerUri = undefined)`): callers without a file (the compiler's own structs in `types/system.ts`, tests) and the library precedence rules it recorded (3.4) did not need it required. 6.5 makes it required | `src/frontend/types/resolve.ts` `resolveNamedType`, `namespaceOf` (qualified types resolve in their namespace, 3.4.2) | the callers 6.5 lists. **Met by 6.5 (2026-10-09):** `resolveNamedType(name, project, askerUri, depth = 0)`, the asker required (a caller with no file says `undefined`); every caller passes one — lowering (`entry/lower-unit`, `places/globals`, `storage/layout`, `builtins/sizeof`, `pointers/image`), `types/infer` (`enumValueType` asks as the value's own file), and the analysis checks through `ctx.uri` |
 | 15 | every one exported from its layer's index | met, two exceptions | `src/frontend/{syntax,symbols,types}/index.ts` (curated named exports); `src/frontend/index.ts` re-exports them. Not on an index: `wrapToWidth` (1.1.14), `fbChainSections` (private; nothing outside infer needs it) | — |
 
 ### 6.2 Root causes that live in the front-end: status (frontend-conformance task 5.2)
@@ -2156,7 +2156,7 @@ this file has a line in it.
 
 ### 7.2 Accepted vendor-routine divergences
 
-The trig family `op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large` (fixtures.test.ts:1211-1219): CODESYS's SIN/COS/TAN run on
+The trig family `op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large` (their reasons are `test/conformance/support/divergences.ts` `X87_TRIG_DIVERGENCES` since 6.21): CODESYS's SIN/COS/TAN run on
 the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir/values.ts` (then `semantics/math.ts`) and
 deliberately not emulated. They stay as named expected failures, each with that reason in `support/divergences.ts`, and are the only
 open marks besides the refusals the model decisions name (task 6.21; 8.2's target).

@@ -11,6 +11,7 @@
  * Same LanguageTest shape as pragmas — see `test/conformance/types.ts` (`LanguageTest`) for field docs.
  */
 import type { LanguageTest } from "../../types.js"
+import { X87_TRIG_DIVERGENCES } from "../../support/divergences.js"
 
 export const OPERATOR_TESTS: readonly LanguageTest[] = [
   // ========================================================================
@@ -480,7 +481,7 @@ END_METHOD
     // and CODESYS is the one a few ULPs out — its trig is the x87 FPU's. 1.5708 is below pi and reduces to
     // itself, so what shows here is the hardware KERNEL, not the 66-bit argument reduction that explains
     // `mathdom_sin_large`. See `transpile/semantics/math.ts`.
-    deferred: { transpile: "COS near π/2 differs from CODESYS by a few ULPs — the x87 kernel's own error, not modelled" },
+    deferred: { transpile: X87_TRIG_DIVERGENCES.op_math_trig },
     plcPrgVar: "fb_trig : FB_LANG_op_math_trig;",
     plcPrgBody: "fb_trig.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_trig

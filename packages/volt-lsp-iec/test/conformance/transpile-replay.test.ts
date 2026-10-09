@@ -785,6 +785,10 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     "enum_library_member_vs_project_program",
     // (`callarg_no_argument_variable_default` left 2026-10-06, analysis-conformance 3.8: a VARIABLE default is no default
     // on CODESYS, `call-arguments` 4b.)
+    // transpile-restructure 6.17, recorded 2026-10-09: a FUNCTION's DINT output bound => an INT, "Cannot convert type 'DINT'
+    // to type 'INT'" — the LSP refuses the FB path's twin (`tr_43_output_dint_to_int`) and not this one
+    // (lsp-transpile-review-gaps 2.4). The transpiler refuses it (`call-output-type`).
+    "tr_43_routine_output_dint_to_int",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {

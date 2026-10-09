@@ -219,3 +219,100 @@ export const REAL_TO_INT_CASES: readonly Case<RealToIntInput, bigint>[] = [
   r2i("r2ilad_lint_pos_11", "LREAL", "LINT", 1e+30, -9223372036854775808n),
   r2i("r2ilad_lint_neg_11", "LREAL", "LINT", -1e+30, -9223372036854775808n),
 ]
+
+/** MAX, MIN or LIMIT (`mn, in, mx`) over REAL or LREAL arguments, NaN and the two zeros among them. */
+export interface SelectInput {
+  readonly fn: "max" | "min" | "limit"
+  readonly type: "REAL" | "LREAL"
+  readonly args: readonly number[]
+}
+
+/**
+ * THE COMPARE-SELECT TABLE (transpile-restructure 6.7, RC 28): MAX(a, b) is `IF a > b THEN a ELSE b`, MIN(a, b)
+ * `IF a < b THEN a ELSE b` — the SECOND argument on a tie or a NaN — and LIMIT(mn, in, mx) is MIN(MAX(mn, in), mx). Every
+ * cell `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` recorded, as the BITS of the result (`w1`…`w9`, read through a
+ * pointer: NaN and -0 do not compare), each naming the recorded bits of the NaN or -0 it ran on (`wn`, `wnz`). The NaN is
+ * CODESYS's SQRT(-1), sign bit set — which the Rust keeps and a JavaScript number cannot (`semantics/builtins.test.ts`
+ * compares the value, the twin the bits; tasks 4.12 and 6.7: niche: accepted loss).
+ */
+export const SELECT_CASES: readonly Case<SelectInput, bigint>[] = (["REAL", "LREAL"] as const).flatMap((type) => {
+  const fixture = `tr_28_minmax_limit_nan_signed_zero_${type.toLowerCase()}`
+  const bits = type === "REAL"
+    ? { one: 1065353216n, nan: 4290772992n, five: 1084227584n, zero: 0n, minusZero: 2147483648n }
+    : { one: 4607182418800017408n, nan: 18444492273895866368n, five: 4617315517961601024n, zero: 0n, minusZero: 9223372036854775808n }
+  const cell = (w: number, fn: SelectInput["fn"], args: number[], expected: bigint): Case<SelectInput, bigint> => ({
+    name: `${fixture} w${w}`,
+    input: { fn, type, args },
+    expected,
+    recording: { fixture, variable: `w${w}`, input: args.some((a) => Number.isNaN(a)) ? "wn" : "wnz" },
+  })
+  return [
+    cell(1, "max", [NaN, 1], bits.one),
+    cell(2, "max", [1, NaN], bits.nan),
+    cell(3, "min", [NaN, 1], bits.one),
+    cell(4, "min", [1, NaN], bits.nan),
+    cell(5, "limit", [0, NaN, 5], bits.five),
+    cell(6, "limit", [NaN, 1, 5], bits.one),
+    cell(7, "limit", [0, 1, NaN], bits.nan),
+    cell(8, "max", [-0, 0], bits.zero),
+    cell(9, "max", [0, -0], bits.minusZero),
+  ]
+})
+
+/** EXPT's base and exponent, in REAL or LREAL. */
+export interface ExptInput {
+  readonly type: "REAL" | "LREAL"
+  readonly x: number
+  readonly y: number
+}
+
+const expt = (fixture: string, type: ExptInput["type"], x: number, y: number, expected: number | "stop"): Case<ExptInput, number | "stop"> => ({
+  name: fixture,
+  input: { type, x, y },
+  expected,
+  recording: { fixture, variable: "res", input: "e" },
+})
+
+/**
+ * THE EXPT TABLE (transpile-restructure 6.18, RC 46): C's `pow`, correctly rounded, at every domain edge CODESYS recorded
+ * (`tr_46_exptdom_*`): 1 to a NaN, -1 to ±inf and a NaN to 0 are 1; 0 to -inf is +inf; an exact huge power (1E19 ** 8 is
+ * 1E+152, where repeated multiplication is ULPs out — the exact integer-exponent path `semantics/math.ts` `integerPower`
+ * answers it); 0 to a finite negative STOPS the task (`stop`: the recording's "The operation has timed out.", as LN(0)).
+ * `math.test.ts` runs them against `expt`; the twin harness against the Rust runtime's `iec_pow`.
+ */
+export const EXPT_CASES: readonly Case<ExptInput, number | "stop">[] = [
+  expt("tr_46_exptdom_one_pow_nan", "LREAL", 1, NaN, 1),
+  expt("tr_46_exptdom_real_one_pow_nan", "REAL", 1, NaN, 1),
+  expt("tr_46_exptdom_minus_one_pow_inf", "LREAL", -1, Infinity, 1),
+  expt("tr_46_exptdom_minus_one_pow_minus_inf", "LREAL", -1, -Infinity, 1),
+  expt("tr_46_exptdom_nan_pow_zero", "LREAL", NaN, 0, 1),
+  expt("tr_46_exptdom_zero_pow_minus_inf", "LREAL", 0, -Infinity, Infinity),
+  expt("tr_46_exptdom_1e19_pow_8", "LREAL", 1e19, 8, 1e152),
+  expt("tr_46_exptdom_zero_pow_minus_one", "LREAL", 0, -1, "stop"),
+  expt("tr_46_exptdom_zero_pow_minus_half", "LREAL", 0, -0.5, "stop"),
+]
+
+/** A 64-bit integer converted to REAL. */
+export interface IntToRealInput {
+  readonly from: "LINT" | "ULINT" | "LWORD"
+  readonly value: bigint
+}
+
+const i2r = (variable: string, input: string, from: IntToRealInput["from"], value: bigint, expected: number): Case<IntToRealInput, number> => ({
+  name: `tr_47 ${from} ${value}`,
+  input: { from, value },
+  expected,
+  recording: { fixture: "tr_47_i2r_lint_to_real_double_round", variable, input },
+})
+
+/**
+ * THE 64-BIT INTEGER → REAL CELLS (transpile-restructure 6.19, RC 47): rounded ONCE, straight to 24 bits. 2^60 + 2^36 + 1
+ * sits where rounding through LREAL first lands exactly on REAL's halfway point and ties down; CODESYS says 2^60 + 2^37
+ * (`tr_47_i2r_lint_to_real_double_round`). `convert.test.ts` runs them through `coerce`; the twin through Rust's `as f32`.
+ */
+export const INT_TO_REAL_CASES: readonly Case<IntToRealInput, number>[] = [
+  i2r("out", "v", "LINT", 1152921573326323713n, 1152921642045800448),
+  i2r("outNeg", "vn", "LINT", -1152921573326323713n, -1152921642045800448),
+  i2r("outU", "vu", "ULINT", 1152921573326323713n, 1152921642045800448),
+  i2r("outW", "vw", "LWORD", 1152921573326323713n, 1152921642045800448),
+]

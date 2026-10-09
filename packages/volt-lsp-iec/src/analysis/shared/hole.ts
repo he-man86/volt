@@ -9,7 +9,7 @@
  * false positives on the arithmetic fixtures alone.
  */
 import { addressShape, typedLiteralForm, type Expr, type Span } from "../../frontend/syntax/index.js"
-import { lookup, type Scope } from "../../frontend/symbols/index.js"
+import { lookup, type Scope, scopeUri } from "../../frontend/symbols/index.js"
 import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
@@ -74,9 +74,9 @@ function valuelessCall(e: Expr, scope: Scope, project: Scope): boolean {
 }
 
 /** A `<word>#<operand>` literal whose word is an ENUM type — IEC's typed enum literal, which CODESYS does not support. */
-export function enumTypedLiteral(text: string, project: Scope): boolean {
+export function enumTypedLiteral(text: string, project: Scope, askerUri: string | undefined): boolean {
   const form = typedLiteralForm(text)
-  return form.kind === "component" && resolveNamedType(form.prefix, project).kind === "enum"
+  return form.kind === "component" && resolveNamedType(form.prefix, project, askerUri).kind === "enum"
 }
 
 /**
@@ -86,10 +86,10 @@ export function enumTypedLiteral(text: string, project: Scope): boolean {
  * failure. Any other `<word>#<operand>` is reported as no component of its word (`checks/types/typed-literal`) and
  * carries no hole: the vendor stops there.
  */
-export function literalHole(e: Expr, project: Scope): boolean {
+export function literalHole(e: Expr, project: Scope, askerUri: string | undefined): boolean {
   if (e.kind !== "literal") return false
   if (e.literalKind === "address") return addressShape(e.text).kind === "malformed"
-  return e.literalKind === "typed" && enumTypedLiteral(e.text, project)
+  return e.literalKind === "typed" && enumTypedLiteral(e.text, project, askerUri)
 }
 
 /** The built-in calls whose type is their one operand's (ABS) or a pointer to it (ADR). */
@@ -125,14 +125,14 @@ export function bareConversionArgument(e: Expr): Expr | undefined {
  * An operation that passes a LITERAL hole's type through, however deep (`NOT ABS(%M0.1)`). Only a literal hole: a name
  * that did not resolve is a hole by the `explained` gate below, and what ADR or ABS of one says is not recorded.
  */
-function passesLiteralHole(e: Expr, project: Scope): boolean {
+function passesLiteralHole(e: Expr, project: Scope, askerUri: string | undefined): boolean {
   const operand = passThroughOperand(e)
-  return operand !== undefined && literalHoleWithin(operand, project)
+  return operand !== undefined && literalHoleWithin(operand, project, askerUri)
 }
 
 /** A literal hole, under parentheses or operations that pass its type through. */
-export const literalHoleWithin = (e: Expr, project: Scope): boolean =>
-  e.kind === "literal" ? literalHole(e, project) : e.kind === "paren" ? literalHoleWithin(e.inner, project) : passesLiteralHole(e, project)
+export const literalHoleWithin = (e: Expr, project: Scope, askerUri: string | undefined): boolean =>
+  e.kind === "literal" ? literalHole(e, project, askerUri) : e.kind === "paren" ? literalHoleWithin(e.inner, project, askerUri) : passesLiteralHole(e, project, askerUri)
 
 /** True when `e` is a hole the COMPILER has too — see the header for why both halves are needed. */
 export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): boolean {
@@ -151,8 +151,8 @@ export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): b
   if (unknown && valuelessCall(e, scope, project)) return true
   // TWO LITERALS ARE HOLES ON THEIR OWN EVIDENCE TOO, and for the same reason: nothing else names the failure
   // (`literalHole`) — and so is an operation that passes such a hole's type through (`passThroughOperand`).
-  if (e.kind === "literal") return literalHole(e, project)
-  if (passesLiteralHole(e, project)) return true
+  if (e.kind === "literal") return literalHole(e, project, scopeUri(scope))
+  if (passesLiteralHole(e, project, scopeUri(scope))) return true
   // A TYPE'S NAME written as a value is no hole: C0230 names it, and the vendors type it as the type itself — `out :=
   // T_Alias` is that one message, no conversion of an unknown beside it (`tav_alias_as_value`, `_as_target`, both vendors
   // 2026-10-06). A STRUCT's name CALLED is (`dt_struct_type_name_called`).

@@ -4,7 +4,7 @@
  */
 
 import { type Fb, initFrame, type InitStep, pendingInitsOf } from "./state.js"
-import { lookup, type Symbol } from "../../../frontend/symbols/index.js"
+import { lookup, lookupLocal, type Symbol } from "../../../frontend/symbols/index.js"
 import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
@@ -29,7 +29,7 @@ import { fieldsOf, namedIn, startStatement, startsAsStatement, structuredUnread,
 function fbInits(fb: Fb): Symbol[] {
   const chain: Symbol[] = []
   for (const s of scopeChain(fb.scope)) {
-    const own = (s.symbols.get("fb_init") ?? []).find((sym) => sym.kind === "method" && sym.owner === s)
+    const own = lookupLocal(s, "FB_Init").find((sym) => sym.kind === "method" && sym.owner === s)
     if (own !== undefined) chain.unshift(own)
   }
   return chain

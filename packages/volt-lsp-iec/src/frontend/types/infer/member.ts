@@ -80,7 +80,8 @@ export function memberScopeOf(written: Type): Scope | undefined {
 export function enumValueType(sym: Symbol, project: Scope): Type | undefined {
   if (sym.kind !== "enum_value") return undefined
   if (sym.owner.kind !== "enum") return implicitEnumOf(sym) !== undefined ? IMPLICIT_ENUM : undefined
-  const resolved = resolveNamedType(sym.owner.name, project)
+  // asked as the value's own file: of two libraries' same-named enums, its own (transpile-restructure 6.5)
+  const resolved = resolveNamedType(sym.owner.name, project, sym.uri)
   return resolved.kind === "enum" ? resolved : { kind: "enum", name: sym.owner.name, scope: sym.owner }
 }
 

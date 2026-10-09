@@ -9,9 +9,9 @@ import {
   elementaryRef,
   elemOf,
   inferExprType,
+  hasTextFormat,
   isBoolValued,
   isReal,
-  isTemporal,
   stringKind,
   type Type,
   UNKNOWN,
@@ -49,11 +49,13 @@ const isString = (t: Type | undefined): boolean => t !== undefined && stringKind
 // LTIME joins the list: its text is a TIME's with the `LTIME#` prefix and three units below a millisecond, and
 // every component boundary is measured (`conversions/to-string-format.ts`). REAL and LREAL deliberately do NOT —
 // see the note where the refusal is raised.
-// the temporal half is `types/isTemporal` — the Rust emitter dispatches on the SAME predicate, so a type added
-// to the table reaches both sites or neither. BOOL and LREAL are named because each has its own renderer.
+// the temporal half is `types/hasTextFormat` (`isTemporal` asked of a Type; transpile-restructure 6.3) — the Rust
+// emitter dispatches on the SAME predicate, so a type added to the table reaches both sites or neither. BOOL and LREAL
+// are named because each has its own renderer.
 const hasText = (t: Type | undefined): boolean => {
-  const name = t === undefined ? undefined : elemOf(t)?.name
-  return isInt(t, true) || (name !== undefined && (name === "BOOL" || name === "LREAL" || isTemporal(name)))
+  if (t === undefined) return false
+  const name = elemOf(t)?.name
+  return isInt(t, true) || name === "BOOL" || name === "LREAL" || hasTextFormat(t)
 }
 const parses = (t: Type): boolean => isInt(t) || isReal(t)
 

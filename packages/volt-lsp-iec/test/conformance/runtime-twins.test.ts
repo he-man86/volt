@@ -16,11 +16,20 @@ import { rustType } from "../../src/transpile/index.js"
 // the runtime registry — a deep path, test support only (it is not surface)
 import { runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
 import type { Case } from "../../src/transpile/semantics/cases.js"
-import { REAL_TO_INT_CASES, type RealToIntInput } from "../../src/transpile/semantics/numeric.cases.js"
+import {
+  EXPT_CASES,
+  type ExptInput,
+  INT_TO_REAL_CASES,
+  REAL_TO_INT_CASES,
+  type RealToIntInput,
+  SELECT_CASES,
+  type SelectInput,
+} from "../../src/transpile/semantics/numeric.cases.js"
 import {
   LONG_CALENDAR_TEXT_CASES,
   LREAL_TEXT_CASES,
   LREAL_TIE_CASES,
+  LTIME_TEXT_CASES,
   type LongCalendarInput,
 } from "../../src/transpile/semantics/text.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
@@ -108,6 +117,42 @@ function realToInt(input: RealToIntInput): string {
   const value = input.from === "REAL" ? f32(input.value) : f64(input.value)
   const wide = elem.bits >= 64
   return `iec_r2i${wide ? 64 : 32}(${value}) as ${rustType(to)}`
+}
+
+/** The recorded NaN (CODESYS's SQRT(-1), sign bit set) and -0 a compare-select case runs on, as the Rust it is. */
+function selectArg(value: number, type: SelectInput["type"]): string {
+  const real = type === "REAL"
+  if (Number.isNaN(value)) return real ? "f32::from_bits(0xffc00000)" : "f64::from_bits(0xfff8000000000000)"
+  if (Object.is(value, -0)) return real ? "-0.0f32" : "-0.0f64"
+  return `${value}.0${real ? "f32" : "f64"}`
+}
+
+/** A compare-select case as the emitter prints it (`iec_fmax`, `iec_fmin`; LIMIT as MIN(MAX(mn, in), mx)), its bits. */
+function selectCaseRust(input: SelectInput): string {
+  const [a, b, c] = input.args.map((v) => selectArg(v, input.type))
+  const value = input.fn === "limit" ? `iec_fmin(iec_fmax(${a}, ${b}), ${c})` : `iec_f${input.fn}(${a}, ${b})`
+  return `${value}.to_bits()`
+}
+
+/** An EXPT case as the emitter prints it — `iec_pow` over f64, narrowed for a REAL — as its bits in hex, or `stop` when
+ *  it panics (the task stopping). */
+function exptCaseRust(input: ExptInput): string {
+  const arg = (v: number): string => (input.type === "REAL" ? f32(v) : f64(v))
+  const call = `iec_pow(${arg(input.x)}, ${arg(input.y)})`
+  const bits = input.type === "REAL" ? `(${call} as f32).to_bits()` : `${call}.to_bits()`
+  return `std::panic::catch_unwind(|| format!("{:x}", ${bits})).unwrap_or_else(|_| "stop".to_string())`
+}
+
+/** An EXPT case's expected answer as `exptCaseRust` prints it. */
+function exptExpected(c: (typeof EXPT_CASES)[number]): string {
+  if (c.expected === "stop") return "stop"
+  const view = new DataView(new ArrayBuffer(8))
+  if (c.input.type === "REAL") {
+    view.setFloat32(0, c.expected)
+    return view.getUint32(0).toString(16)
+  }
+  view.setFloat64(0, c.expected)
+  return view.getBigUint64(0).toString(16)
 }
 
 /** Build `runtime` + a `main` printing each expression on its own line, run it, and return the lines. */
@@ -239,15 +284,50 @@ describe("runtime twins — the case tables hold their recordings", () => {
     expect(bad).toEqual([])
   })
 
+  test("every compare-select case is the recorded bits of the fixture it names, from the NaN or -0 it ran on", () => {
+    const got = SELECT_CASES.map((c) => {
+      const out = typed(recorded(c), c.name)
+      const input = typed(recordedInput(c), c.name)
+      return `${c.name}: ${out.text} from ${input.text}`
+    })
+    const ran = (c: (typeof SELECT_CASES)[number]): string => {
+      const real = c.input.type === "REAL"
+      return c.recording!.input === "wn" ? (real ? "4290772992" : "18444492273895866368") : real ? "2147483648" : "9223372036854775808"
+    }
+    expect(got).toEqual(SELECT_CASES.map((c) => `${c.name}: ${c.expected} from ${ran(c)}`))
+  })
+
+  test("every EXPT case is the recorded cell of the fixture it names — its result, or the task stopping — from the exponent it ran", () => {
+    const got = EXPT_CASES.map((c) => {
+      const rec = RUNS[c.recording!.fixture]
+      if (c.expected === "stop") return `${c.name}: ${rec?.error}`
+      const res = typed(recorded(c), c.name)
+      const e = typed(recordedInput(c), c.name)
+      return `${c.name}: ${res.type}#${Number(res.text)} from ${Number(e.text)}`
+    })
+    expect(got).toEqual(
+      EXPT_CASES.map((c) => `${c.name}: ${c.expected === "stop" ? "The operation has timed out." : `${c.input.type}#${c.expected} from ${c.input.y}`}`),
+    )
+  })
+
+  test("every 64-bit integer -> REAL case is the recorded cell, from the integer it ran", () => {
+    const got = INT_TO_REAL_CASES.map((c) => {
+      const out = typed(recorded(c), c.name)
+      const input = typed(recordedInput(c), c.name)
+      return `${c.name}: ${out.type}#${Math.fround(Number(out.text))} from ${input.type}#${input.text}`
+    })
+    expect(got).toEqual(INT_TO_REAL_CASES.map((c) => `${c.name}: REAL#${c.expected} from ${c.input.from}#${c.input.value}`))
+  })
+
   test("every text case names a recording — but the -0 cell, which no fixture ran", () => {
     const lreal = Object.values(LREAL_TEXT_CASES).flat()
     expect(lreal).toHaveLength(25)
-    const unrecorded = [...lreal, ...LREAL_TIE_CASES, ...LONG_CALENDAR_TEXT_CASES].filter((c) => c.recording === undefined)
+    const unrecorded = [...lreal, ...LREAL_TIE_CASES, ...LONG_CALENDAR_TEXT_CASES, ...LTIME_TEXT_CASES].filter((c) => c.recording === undefined)
     expect(unrecorded.map((c) => c.name)).toEqual(["-0"])
   })
 
   test("every text case that names a recording prints what CODESYS recorded", () => {
-    const named = [...Object.values(LREAL_TEXT_CASES).flat(), ...LREAL_TIE_CASES, ...LONG_CALENDAR_TEXT_CASES].filter(
+    const named = [...Object.values(LREAL_TEXT_CASES).flat(), ...LREAL_TIE_CASES, ...LONG_CALENDAR_TEXT_CASES, ...LTIME_TEXT_CASES].filter(
       (c) => c.recording !== undefined,
     )
     expect(named.map((c) => `${c.name}: ${quoted(recorded(c), c.name)}`)).toEqual(named.map((c) => `${c.name}: ${c.expected}`))
@@ -268,6 +348,21 @@ describe("runtime twins — the case tables hold their recordings", () => {
     expect(seen.length).toBeGreaterThan(300)
     const got = seen.map(({ c, v }) => `${c.name} ${v.path}: ${asShown(recordedAt(c.fixture, v.path), `${c.fixture} ${v.path}`)}`)
     expect(got).toEqual(seen.map(({ c, v }) => `${c.name} ${v.path}: ${shown(c.expected, v)}`))
+  })
+
+  test("every LTIME text case's input is the value its fixture ran", () => {
+    const UNIT: Readonly<Record<string, bigint>> = {
+      d: 86_400_000_000_000n,
+      h: 3_600_000_000_000n,
+      m: 60_000_000_000n,
+      s: 1_000_000_000n,
+      ms: 1_000_000n,
+      us: 1000n,
+      ns: 1n,
+    }
+    const ns = (text: string): bigint =>
+      [...typed(text, "LTIME").text.matchAll(/(\d+)(ms|us|ns|d|h|m|s)/g)].reduce((sum, [, n, unit]) => sum + BigInt(n!) * UNIT[unit!]!, 0n)
+    expect(LTIME_TEXT_CASES.map((c) => `${c.name}: ${ns(recordedInput(c))}`)).toEqual(LTIME_TEXT_CASES.map((c) => `${c.name}: ${c.input}`))
   })
 
   test("every long-calendar text case's input is the value its fixture ran", () => {
@@ -293,6 +388,12 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     expect(g).toEqual(expected)
   }, 60_000)
 
+  test("runtime/text.ts: iec_ltime_text over every LTIME case, the u64 handed over uncast", async () => {
+    const got = await runTwin("text_ltime", runtimeText("text"), LTIME_TEXT_CASES.map((c) => `iec_ltime_text(${c.input}u64)`))
+    const { got: g, expected } = compare(LTIME_TEXT_CASES, got)
+    expect(g).toEqual(expected)
+  }, 60_000)
+
   test("runtime/string.ts: IecStr::store / with_char over every string case", async () => {
     const got = await runTwin("string_store", runtimeText("string"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
     expect(got).toHaveLength(STRING_CASE_LIST.length)
@@ -304,6 +405,31 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
 ${FAULT_OF}`
     const got = await runTwin("memory", program, ["{ std::panic::set_hook(Box::new(|_| {})); 0 }", ...MEMORY_CASE_LIST.map((c) => memoryCaseRust(c.input))])
     expect(MEMORY_CASE_LIST.map((c, i) => `${c.name}: ${got[i + 1]}`)).toEqual(MEMORY_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
+  }, 60_000)
+
+  test("runtime/numeric.ts: iec_fmax / iec_fmin over every recorded compare-select cell, the NaN's sign bit kept", async () => {
+    const got = await runTwin("numeric_select", runtimeText("iec_fmax") + runtimeText("iec_fmin"), SELECT_CASES.map((c) => selectCaseRust(c.input)))
+    const { got: g, expected } = compare(SELECT_CASES, got)
+    expect(g).toEqual(expected)
+  }, 60_000)
+
+  test("runtime/numeric.ts: iec_pow over every recorded EXPT cell — C's pow, and the stop on 0 to a finite negative", async () => {
+    const got = await runTwin("numeric_expt", runtimeText("iec_pow"), [
+      "{ std::panic::set_hook(Box::new(|_| {})); 0 }",
+      ...EXPT_CASES.map((c) => exptCaseRust(c.input)),
+    ])
+    expect(EXPT_CASES.map((c, i) => `${c.name}: ${got[i + 1]}`)).toEqual(EXPT_CASES.map((c) => `${c.name}: ${exptExpected(c)}`))
+  }, 60_000)
+
+  test("emit/rust/convert.ts: a 64-bit integer `as f32` over every recorded integer -> REAL cell — one rounding", async () => {
+    const rust = { LINT: "i64", ULINT: "u64", LWORD: "u64" } as const
+    const got = await runTwin("numeric_i2r", "", INT_TO_REAL_CASES.map((c) => `format!("{:x}", (${c.input.value}${rust[c.input.from]} as f32).to_bits())`))
+    const bits = (v: number): string => {
+      const view = new DataView(new ArrayBuffer(4))
+      view.setFloat32(0, v)
+      return view.getUint32(0).toString(16)
+    }
+    expect(INT_TO_REAL_CASES.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(INT_TO_REAL_CASES.map((c) => `${c.name}: ${bits(c.expected)}`))
   }, 60_000)
 
   test("runtime/numeric.ts: iec_r2i32 / iec_r2i64 over every recorded REAL -> integer cell", async () => {

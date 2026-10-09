@@ -95,12 +95,12 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
           // an operation that passes its operand's type through (NOT, a negation, ABS, ADR) reports its operand as an
           // operator does — measured for a LITERAL hole only (`hole.ts` `passThroughOperand`)
           const through = passThroughOperand(x)
-          if (through !== undefined && literalHoleWithin(through, ctx.project)) push(ctx.messages.unknownType(compilerExprText(through, metType(scope))), through)
+          if (through !== undefined && literalHoleWithin(through, ctx.project, ctx.uri)) push(ctx.messages.unknownType(compilerExprText(through, metType(scope))), through)
           // a BARE conversion converts its argument to ANY, and keeps its own type: `TO_INT(%M0.1)` is "Cannot convert
           // type 'Unknown type: '%M?0.1'' to type 'ANY'" and nothing more (`lit_address_unsized_as_conversion_argument`,
           // `lit_enum_typed_as_conversion_argument`, CODESYS 2026-10-01)
           const converted = bareConversionArgument(x)
-          if (converted !== undefined && literalHoleWithin(converted, ctx.project))
+          if (converted !== undefined && literalHoleWithin(converted, ctx.project, ctx.uri))
             push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(converted, metType(scope))), "ANY"), converted)
           if (x.kind !== "binary") return
           for (const operand of [x.left, x.right]) if (hole(operand, scope)) push(ctx.messages.unknownType(compilerExprText(operand, metType(scope))), operand)

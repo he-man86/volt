@@ -79,6 +79,13 @@ export function literalCapacityType(lit: Literal): string | undefined {
   return undefined
 }
 
+/** `e` with its parentheses taken off: `(-1)` is the operand `-1` (rule LT12 reads a parenthesised literal as the literal,
+ *  `tr_6_negative_paren_beside_unsigned`, both vendors 2026-10-09). */
+export function unparenthesised(e: Expr): Expr {
+  while (e.kind === "paren") e = e.inner
+  return e
+}
+
 /** An integer literal, written plain or negated (`5`, `-5`) — an operand that takes its type from the other one. */
 export const isIntLiteral = (e: Expr): boolean =>
   (e.kind === "literal" && e.literalKind === "int") ||

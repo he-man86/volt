@@ -38,13 +38,19 @@ never changes a recording or a fixture's expectation to match the LSP.
     `test/conformance/support/divergences.ts` `KNOWN_DIVERGENCES.codesys`, recorded 2026-09-29).
   - Accept: the LSP reports nothing on the fixture; it leaves `KNOWN_DIVERGENCES.codesys`; a src test beside the call check.
   - Transpiler half: transpile-restructure 4.11.
-- [ ] 1.5 RC 38 — the LSP half of implicit STRING↔WSTRING and non-string→STRING refusals, if transpile-restructure 6.13 finds one.
+- [x] 1.5 RC 38 — the LSP half of implicit STRING↔WSTRING and non-string→STRING refusals, if transpile-restructure 6.13 finds one.
   - What: on 2026-10-07 the LSP already refuses the listed fixtures (`string_wstring_mixing`, every `uop_*`,
     `standard_len_wstring_rejected` rate `refused`), so there is no known LSP half. transpile-restructure 6.13 (stores, chain links,
     stores through a REFERENCE, arguments, compares) appends here any shape it records that the LSP accepts; if it finds none, 6.13
     ticks this task with that result.
   - Fixtures: `string_wstring_mixing`, `uop_*`, and whatever 6.13 records.
   - Accept: every shape 6.13 files rates `refused`, or this task is ticked by 6.13 with "no LSP half found".
+  - Ticked by transpile-restructure 6.13 (2026-10-09): no LSP half found. The one shape 6.13 recorded, a store THROUGH A
+    REFERENCE (`tr_38_ref_store_string_into_int`, `_int_into_string`, `_string_into_wstring`: "Cannot convert type 'STRING' to
+    type 'REFERENCE TO INT'"), rates `refused` — the LSP already objects.
+    Checked against the BUILD recordings at transpile-restructure's 6a-6d gate (record:language 2026-10-09, both vendors): the
+    three are "Cannot convert type 'STRING' to type 'REFERENCE TO INT'" (and the INT/STRING, STRING/WSTRING twins) on CODESYS
+    and TwinCAT alike, and the LSP's diagnostics agree with both recordings.
 
 ## 2. Filed later
 
@@ -66,3 +72,10 @@ Appended by transpile-restructure steps, one line each, in the commit that finds
   `text[0]` = BYTE#99. 26 uses in the fixtures before 3.1, +171 in the string-model fixtures of 3.1, gate 3a, 3.6, gate 3c, 3.8-3.11 and gate 3d (per vendor), 5 in the corpora
   (all pro2193). Each 3.1 fixture's count is a named ceiling exception (`test/frontend/baseline.ts` `STRING_INDEX_ROWS`),
   removed when the read is typed.
+- [ ] 2.4 RC 43, the routine path (transpile-restructure 6.17, recorded 2026-10-09) — a FUNCTION's DINT VAR_OUTPUT bound `o => t`
+  into an INT is "Cannot convert type 'DINT' to type 'INT'" on CODESYS, and the LSP accepts it; it refuses the FB path's twin
+  (`tr_43_output_dint_to_int`, `refused`). Fixture `tr_43_routine_output_dint_to_int` (`lsp-gap`, `MEASURED_SILENT`; TwinCAT records
+  the same error, record:language 2026-10-09). Its converting twin, a WORD output into an INT (`tr_43_routine_output_word_to_int`), earns
+  "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'" on both vendors, which the LSP does not say either; both
+  are named GAP exceptions in `test/frontend/baseline.ts` until this task lands. The
+  output binding of a FUNCTION / METHOD call judged by the assignment relation (`isAssignable`), as the FB call's is.

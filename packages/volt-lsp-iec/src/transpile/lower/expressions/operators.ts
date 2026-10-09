@@ -9,13 +9,18 @@ import type { Expr } from "../../../frontend/syntax/index.js"
 import {
   checkedNegationType,
   elementaryRef,
+  elementaryTypeRef,
   elemOf,
   inferExprType,
+  integerLiteralType,
   inTypeGroup,
   isIntegerType,
   narrowDateWideDuration,
+  negativeLiteralComparisonTarget,
   promoteForRuntime,
   type Type,
+  unparenthesised,
+  untypedNumberValue,
 } from "../../../frontend/types/index.js"
 import { lowerExpr } from "./expressions.js"
 import { convert } from "../values/convert.js"
@@ -25,6 +30,7 @@ import { calendarArithmetic } from "./calendar.js"
 import { lowerPlace } from "../places/places.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { meet } from "../values/promote.js"
+import { EXEC_ORACLE_DIALECT } from "../conditions.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent: neither is an
  *  operator in CODESYS, and the parser refuses both (`parse/expression` `REFUSED_OPERATORS`), so no tree holds one. */
@@ -211,6 +217,8 @@ function arithmetic(lw: Lowering, e: Extract<Expr, { kind: "binary" }>, op: IrBi
   if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
   else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
 
+  if (COMPARISONS.has(op))
+    [left, right] = [negativeBesideUnsigned(e.left, left, right), negativeBesideUnsigned(e.right, right, left)]
   const met = meet(lw, [left, right], { kind: "binary", lift: LIFTED.has(op), operator: e.op }, e.span)
   if (met === undefined) return undefined
   ;[left, right] = met.operands as [IrExpr, IrExpr]
@@ -225,4 +233,31 @@ function arithmetic(lw: Lowering, e: Extract<Expr, { kind: "binary" }>, op: IrBi
     if (typeof folded === "number") return { kind: "const", value: real.bits === 32 ? Math.fround(folded) : folded, type, span: e.span }
   }
   return { kind: "binary", op, left: convert(left, operands), right: convert(right, operands), type, span: e.span }
+}
+
+/**
+ * An untyped NEGATIVE integer literal compared with a narrower UNSIGNED operand converts INTO the type
+ * `negativeLiteralComparisonTarget` names (rule LT12) on the exec oracle's dialect (`EXEC_ORACLE_DIALECT`, CODESYS — the
+ * one whose run is recorded): the unsigned type of the literal's own width or 32 bits, so `ui > -1` with `ui : UINT := 3`
+ * is FALSE — the -1 is 4294967295 (`lt_literal_negative_in_comparison_unsigned`, recorded 2026-10-03, the build warning
+ * "signed Type 'SINT' to unsigned Type 'UDINT'"); -200, -40000 (UDINT) and -3000000000 (ULINT) compare FALSE as well, and so
+ * does a parenthesised -1, while the constant expression 0 - 1 compares as a number (`tr_6_negative_*_beside_unsigned`,
+ * 2026-10-09). Compared as numbers it was TRUE. `written` is the operand's source, `lowered` its IR, `other` the other
+ * operand's IR; anything else comes back as it was.
+ *
+ * An explicit `convert` node, not the constant retyped: the literal stays the -1 it is written as (the IR fold and the AST
+ * fold agree on it, `fold-agreement.test.ts`), the conversion is the vendor's, and the pair then meets in UDINT — retyped,
+ * `beside` widened the 4294967295 past the UDINT the vendor compares in.
+ */
+function negativeBesideUnsigned(written: Expr, lowered: IrExpr, other: IrExpr): IrExpr {
+  const value = untypedNumberValue(unparenthesised(written))
+  if (typeof value !== "bigint" || value >= 0n || lowered.kind !== "const" || other.kind === "const") return lowered
+  const operand = elemOf(other.type)
+  if (operand === undefined) return lowered
+  const into = negativeLiteralComparisonTarget(operand, value, EXEC_ORACLE_DIALECT)
+  const own = integerLiteralType(value)
+  if (into === undefined || own === undefined) return lowered
+  // the literal as its own type (SINT for -1), not the neighbour's it was lowered beside
+  const literal: IrExpr = { ...lowered, type: elementaryTypeRef(own) }
+  return { kind: "convert", value: literal, type: elementaryTypeRef(into), span: lowered.span }
 }

@@ -47,7 +47,7 @@ export function resolveTypeExpr(
       // two referenced libraries exporting the same element (see symbols/precedence.ts). It was dropped here
       // while every other arm threaded it, so the one lookup that can be ambiguous was the one without it.
       if ((t.qualifiers?.length ?? 0) > 0) return resolveQualifiedType(t.qualifiers!.map((q) => q.text), t.name.text, project, depth, askerUri)
-      return withSubrange(resolveNamedType(t.name.text, project, depth, askerUri), t, valueScope)
+      return withSubrange(resolveNamedType(t.name.text, project, askerUri, depth), t, valueScope)
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
@@ -102,13 +102,12 @@ function scopeOf(project: Scope, name: string, uri: string | undefined, askerUri
  * `askerUri` is the file the name was written in. When several top-level things share the name — which
  * happens whenever a project references two libraries that export the same element — it is what tells them
  * apart: the asker's own library first, then one it depends on. See `symbols/precedence.ts`.
+ *
+ * REQUIRED, never defaulted (transpile-restructure 6.5, RC 21; design.md §6.1 row 14): a default of `undefined` let every
+ * caller forget it, and an uninformed answer is whichever candidate was bound first — an enum value of CBML's `E_X` typed
+ * as CBM's. A caller with no file (the compiler's own structs, a test of a project with one candidate) says `undefined`.
  */
-export function resolveNamedType(
-  name: string,
-  project: Scope,
-  depth = 0,
-  askerUri: string | undefined = undefined,
-): Type {
+export function resolveNamedType(name: string, project: Scope, askerUri: string | undefined, depth = 0): Type {
   // …unless the project's dialect does not have it: `LDATE`/`LTOD`/`LDT` are CODESYS's (see
   // `CODESYS_ONLY_TYPES`), and on TwinCAT the name reaches the symbol lookup like any other unknown one. A platform
   // integer is the project's TARGET's width (`platform.ts`); on an unknown target it is no type this can name, and no
@@ -164,7 +163,7 @@ export function namespaceOf(qualifiers: readonly string[], project: Scope, asker
  * A qualifier naming nothing (`NoSuchLib.T`) is UNKNOWN — "Unknown type" (`analysis/shared/resolution` `unknownQualifiedTypeName`).</p>
  */
 function resolveQualifiedType(qualifiers: readonly string[], name: string, project: Scope, depth: number, askerUri: string | undefined): Type {
-  if (qualifiers[0]!.startsWith("__")) return resolveNamedType(name, project, depth, askerUri)
+  if (qualifiers[0]!.startsWith("__")) return resolveNamedType(name, project, askerUri, depth)
   const ns = namespaceOf(qualifiers, project, askerUri)
   if (ns === undefined) return UNKNOWN
   const syms = lookupLocal(ns, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind))

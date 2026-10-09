@@ -6,7 +6,7 @@
  *
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
-import { bareEnumMember, isLibrarySymbol, lookup, targetOf, type Scope } from "../../symbols/index.js"
+import { bareEnumMember, isLibrarySymbol, lookup, scopeUri, targetOf, type Scope } from "../../symbols/index.js"
 import { globalClash } from "../names.js"
 import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { bitwiseLiteralOperandType, checkedMeetType, checkedNegationType, literalOperandType } from "../arith/checked.js"
@@ -242,7 +242,7 @@ function builtinArgumentResult(name: string, call: CallExpr, scope: Scope, proje
   if (call.args.length !== 1 && upper !== "__NEW") return undefined
   const operand = values[0]
   if (upper === "ADR") return pointerTo(operand === undefined ? UNKNOWN : valueOperandType(operand, scope, project))
-  if (upper === "__NEW") return pointerTo(operand?.kind === "ident_expr" ? resolveNamedType(operand.name, project) : UNKNOWN)
+  if (upper === "__NEW") return pointerTo(operand?.kind === "ident_expr" ? resolveNamedType(operand.name, project, scopeUri(scope)) : UNKNOWN)
   if (upper === "SIZEOF") {
     if (operand === undefined) return UNKNOWN
     const sized = sizedOperandType(operand, scope, project)
@@ -359,7 +359,7 @@ function structSizeBound(t: Extract<Type, { kind: "struct" }>, project: Scope, d
 
 /** SIZEOF's operand: a value, or a TYPE named bare (`SIZEOF(LINT)`, `ar_sizeof_type`). */
 function sizedOperandType(e: Expr, scope: Scope, project: Scope): Type {
-  if (e.kind === "ident_expr" && lookup(scope, e.name) === undefined) return resolveNamedType(e.name, project)
+  if (e.kind === "ident_expr" && lookup(scope, e.name) === undefined) return resolveNamedType(e.name, project, scopeUri(scope))
   return valueOperandType(e, scope, project)
 }
 

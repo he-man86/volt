@@ -12,7 +12,7 @@ import {
 } from "../../../frontend/syntax/index.js"
 import { build, isLibrarySymbol, type Scope } from "../../../frontend/symbols/index.js"
 import { type LibraryManifest, parseLibraryManifest } from "../../../frontend/library/index.js"
-import { EXEC_ORACLE_TARGET } from "../conditions.js"
+import { EXEC_ORACLE_DIALECT, EXEC_ORACLE_TARGET } from "../conditions.js"
 
 /** How the transpiler reads the text it is handed: the language as Volt defines it, LD/FBD bodies as network text — which
  *  reaches the backend through network text, never through `lowerUnit`, which refuses a body that is not ST (`isStBody`).
@@ -50,7 +50,7 @@ export interface LoweringProject {
 export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): LoweringProject {
   return {
     // on the exec oracle's target, which the platform integers' width is (frontend-conformance 4.1.1)
-    project: build.buildSymbolTable(files, manifests, "codesys", { target: EXEC_ORACLE_TARGET }),
+    project: build.buildSymbolTable(files, manifests, EXEC_ORACLE_DIALECT, { target: EXEC_ORACLE_TARGET }),
     // every file's: a GVL's or a library's unit carries its own. Only the main source's were read once, so the
     // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran
     attributes: new Map<object, ReadonlySet<string>>(files.flatMap(attributesOf)),

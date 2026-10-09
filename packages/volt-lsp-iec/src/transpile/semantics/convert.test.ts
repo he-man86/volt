@@ -9,7 +9,7 @@
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import { coerce } from "./convert.js"
-import { REAL_TO_INT_CASES } from "./numeric.cases.js"
+import { INT_TO_REAL_CASES, REAL_TO_INT_CASES } from "./numeric.cases.js"
 import { fit } from "./store.js"
 
 const toReal = (v: bigint, from: string) => fit(coerce(v, elementaryRef("REAL"), elementaryRef(from)), elementaryRef("REAL"))
@@ -64,4 +64,10 @@ test("REAL -> integer: every recorded cell of the 192", () => {
     const to = elementaryRef(c.input.to)
     expect(fit(coerce(c.input.value, to, elementaryRef(c.input.from)), to), c.name).toBe(c.expected)
   }
+})
+
+test("every recorded 64-bit integer -> REAL cell rounds once (`INT_TO_REAL_CASES`, tr_47_i2r_lint_to_real_double_round)", () => {
+  expect(INT_TO_REAL_CASES.map((c) => `${c.name}: ${toReal(c.input.value, c.input.from)}`)).toEqual(
+    INT_TO_REAL_CASES.map((c) => `${c.name}: ${c.expected}`),
+  )
 })

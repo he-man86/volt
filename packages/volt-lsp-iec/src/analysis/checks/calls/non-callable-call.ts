@@ -26,7 +26,7 @@ const NON_CALLABLE_TYPE = new Set(["elementary", "enum", "struct", "array", "poi
 /** The invoked name for the C0035 message (`i` in `i()`, the member in `a.b()`, `.g` as written in `.g()`). */
 function calleeName(e: Expr, scope?: Scope, ctx?: CheckContext): string {
   // an ENUM type's value is named as written, the type with it: 'E.Busy' (`calls_enum_value_called`, both vendors 2026-10-06)
-  if (e.kind === "member" && scope !== undefined && ctx !== undefined && e.base.kind === "ident_expr" && resolveNamedType(e.base.name, ctx.project).kind === "enum")
+  if (e.kind === "member" && scope !== undefined && ctx !== undefined && e.base.kind === "ident_expr" && resolveNamedType(e.base.name, ctx.project, ctx.uri).kind === "enum")
     return ctx.source.slice(e.span.start, e.span.end)
   // `.gCall(1)` is "… instead of '.gCall'", the dot kept (`expr_global_namespace_call_non_callable`, both vendors)
   if (e.kind === "global_expr") return `.${e.name.name}`

@@ -53,6 +53,7 @@
  * See `semantics/math.ts` for why neither is emulated.
  */
 import type { LanguageTest } from "../../types.js"
+import { X87_TRIG_DIVERGENCES } from "../../support/divergences.js"
 
 /** `arg` is built from `seed`, so the value is computed rather than folded. */
 function domain(slug: string, seed: string, arg: string, feature: string): LanguageTest {
@@ -99,8 +100,8 @@ export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
 
   // ── TAN at the pole, and the three with no domain edge, as the baseline
   domain("mathdom_tan_at_pole", "1.5707963267948966", "TAN(seed)", "TAN at pi/2, where the true value is infinite"),
-  { ...domain("mathdom_sin_large", "1.0E18", "SIN(seed)", "SIN of a very large angle — no edge, asked for the baseline"), deferred: { transpile: "2026-09-19: CODESYS reduces a huge angle with the x87 FPU's 66-bit pi, not an exact one — SIN(1.0E18) is -0.9928161040530035 there and -0.9929693207404051 here. Reproducible, deliberately not emulated (`semantics/math.ts`)." } },
-  { ...domain("mathdom_cos_large", "1.0E18", "COS(seed)", "COS of a very large angle"), deferred: { transpile: "2026-09-19: CODESYS reduces a huge angle with the x87 FPU's 66-bit pi — reducing by round(pi * 2^64) / 2^64 reproduces its 0.11965025504785125 to all seventeen digits, against 0.11837199021871073 from an exact reduction. Deliberately not emulated (`semantics/math.ts`)." } },
+  { ...domain("mathdom_sin_large", "1.0E18", "SIN(seed)", "SIN of a very large angle — no edge, asked for the baseline"), deferred: { transpile: X87_TRIG_DIVERGENCES.mathdom_sin_large } },
+  { ...domain("mathdom_cos_large", "1.0E18", "COS(seed)", "COS of a very large angle"), deferred: { transpile: X87_TRIG_DIVERGENCES.mathdom_cos_large } },
   domain("mathdom_atan_large", "1.0E18", "ATAN(seed)", "ATAN of a very large argument — approaches pi/2"),
 
   // ── and what the functions do with a NaN and an infinity they are HANDED, now that both are known to exist

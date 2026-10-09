@@ -51,7 +51,7 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
     // C0218 — a label that is a genuine non-constant variable (enum members / VAR CONSTANT are fine).
     // An enum's `Type#Value` is no constant either: CODESYS gives it no type (`analysis/shared/hole`), and as a label it says
     // exactly this (`lit_enum_typed_case_label`, 2026-10-01).
-    const enumLiteral = e.kind === "literal" && e.literalKind === "typed" && enumTypedLiteral(e.text, ctx.project)
+    const enumLiteral = e.kind === "literal" && e.literalKind === "typed" && enumTypedLiteral(e.text, ctx.project, ctx.uri)
     // …nor is a member two enums declare, which names nothing (rule EN3, `enum_same_member_case_label`, both vendors)
     const ambiguous = e.kind === "ident_expr" && resolveBareName(scope, e.name).kind === "ambiguous"
     if (enumLiteral || ambiguous || constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())

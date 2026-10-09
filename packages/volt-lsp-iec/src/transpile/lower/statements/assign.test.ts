@@ -47,3 +47,16 @@ test("a whole-value store of an FB whose pointer field holds a TAG of its own me
   expect(codes("txt : STRING := 'abc'; pb : POINTER TO BYTE := ADR(txt);", "BYTE_TO_INT(pb^)")).toEqual(["copy-instance-pointer"])
   expect(codes("", "x")).toEqual([])
 })
+
+// transpile-restructure 6.13 (RC 38, the appendix line "a store through a REFERENCE skips the implicit STRING→number
+// refusal"): `ri := str` with `ri : REFERENCE TO INT` is the same implicit store as `v := str`, which CODESYS refuses
+// (`tr_38_ref_store_*`); it lowered to a conversion no vendor makes. The explicit STRING_TO_INT stays legal.
+test("a store through a REFERENCE refuses an implicit STRING conversion as a plain store does", () => {
+  const head =
+    "PROGRAM P\nVAR\n\ti : INT := 5;\n\tv : INT;\n\tstr : STRING := '12';\n\tw : WSTRING;\n\tri : REFERENCE TO INT;\n\trs : REFERENCE TO STRING;\n\trw : REFERENCE TO WSTRING;\nEND_VAR\nri REF= v;\nrs REF= str;\nrw REF= w;\n"
+  const codes = (body: string) => lowerSource(`${head}${body}\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+  expect(codes("ri := str;")).toEqual(["assign-string"])
+  expect(codes("rs := i;")).toEqual(["assign-string"])
+  expect(codes("rw := str;")).toEqual(["assign-string"])
+  expect(codes("ri := STRING_TO_INT(str);")).toEqual([])
+})

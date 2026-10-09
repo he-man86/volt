@@ -9,7 +9,7 @@
  */
 
 import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
-import type { Scope } from "../../../frontend/symbols/index.js"
+import { type Scope, scopeUri } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
 import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
 import { Lowering } from "../core/lowering.js"
@@ -217,7 +217,7 @@ function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
  * a test needs — write the variable, run a scan, read it back. An `ARRAY[*]` has no size to own, so it stays refused.
  */
 function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
-  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project), unit.name.span)
+  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project, scopeUri(lw.scope)), unit.name.span)
   // A POU THAT SUCCEEDS AND DOES NOTHING IS THE ONE OUTCOME THIS FILE REFUSES EVERYWHERE ELSE. An empty body was
   // returned with no diagnostic when the unit resolved to something that is not an FB — which cannot happen for a
   // PROGRAM or FUNCTION_BLOCK that bound, so it is a lowering bug, and it was reported as a clean run.

@@ -1358,4 +1358,25 @@ d := 100000;
 END_FUNCTION_BLOCK
 `,
     "fb1 : FB_CS_outDI43; si : INT;", "fb1(d => si);"),
+  // transpile-restructure 6.17: the same two questions on the ROUTINE path — a FUNCTION's WORD output bound => an INT (CODESYS
+  // record:exec 2026-10-09: -1), and its DINT output => an INT ("Cannot convert type 'DINT' to type 'INT'").
+  withDeferred(
+    "2026-10-09 (transpile-restructure 6.17): a routine's output is copied out after the call (`outputs.ts` `bindOutputArgument`) as the callee's type, unconverted, so one an assignment converts is refused by name, `call-output-convert`; niche: accepted loss (0 occurrences in the corpora: of the 35 routine output bindings the six corpora write — FUNCTION 1, METHOD 14, interface METHOD 17, PROGRAM 3 — none converts, a census of the `=>` bindings themselves, callee VAR_OUTPUT against target type, 2026-10-09)",
+    routineOutput("tr_43_routine_output_word_to_int", "F_CS_outWI43r", "WORD", "16#FFFF", "INT"),
+  ),
+  routineOutput("tr_43_routine_output_dint_to_int", "F_CS_outDI43r", "DINT", "100000", "INT"),
 ]
+
+/** A FUNCTION whose VAR_OUTPUT `o` (`out`, set to `value`) PLC_PRG binds `o => t` into a `into` variable. */
+function routineOutput(name: string, pouName: string, out: string, value: string, into: string): LanguageTest {
+  return {
+    name,
+    pouName,
+    kind: "function",
+    feature: `a FUNCTION's ${out} output (${value}) bound => a${into === "INT" ? "n" : ""} ${into} variable`,
+    fromDoc: doc,
+    source: `FUNCTION ${pouName} : BOOL\nVAR_OUTPUT\n\to : ${out};\nEND_VAR\no := ${value};\n${pouName} := TRUE;\nEND_FUNCTION\n`,
+    plcPrgVar: `t : ${into}; ok : BOOL;`,
+    plcPrgBody: `ok := ${pouName}(o => t);`,
+  }
+}

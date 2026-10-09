@@ -457,7 +457,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 82 -> 83, FOR MEASUREMENT (transpile-restructure 5.1, no fixture moved): `init_struct_field_fb_init_scope_local` (a
   // STRUCT field's FB_Init argument naming a local of the declaring POU, "Identifier '…' not defined" on both vendors) —
   // niche: accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
-  "lsp-gap": 83,
+  // 83 -> 84, FOR MEASUREMENT (transpile-restructure 6.17, no fixture moved): `tr_43_routine_output_dint_to_int` (a
+  // FUNCTION's DINT output => an INT, "Cannot convert type 'DINT' to type 'INT'"; lsp-transpile-review-gaps 2.4).
+  "lsp-gap": 84,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

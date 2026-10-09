@@ -83,7 +83,7 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   const statics: { name: string; global: number }[] = []
   const base = (name: string | undefined): void => {
     if (name === undefined) return
-    const baseType = storageOf(lw, resolveNamedType(name, lw.project), where)
+    const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where)
     const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
     if (layout === undefined) return void lw.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, where)
     nested.inherit(layout.fields)

@@ -63,6 +63,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-no-result": "invalid",
   "call-open-array": "unclassified",
   "call-output": "unclassified",
+  "call-output-convert": "not-modelled",
   "call-output-type": "unclassified",
   "call-param": "unclassified",
   "call-positional": "unclassified",

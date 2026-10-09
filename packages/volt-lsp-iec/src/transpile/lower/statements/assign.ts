@@ -10,7 +10,7 @@ import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { assignTo, convert } from "../values/convert.js"
-import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
+import { classifyConversion, elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import { bindReference, storePointer } from "../pointers/store.js"
 import { pointeePlace, storeThrough } from "../pointers/deref.js"
 import { unionCopies } from "../storage/unions.js"
@@ -127,7 +127,9 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
     const pointee = pointeePlace(lw, target, undefined, s.span)
     if (pointee === undefined || guardWrite(lw, pointee, s.span, ["constant"]) === undefined) return undefined
     const written = lowerExpr(lw, s.value, pointee.type)
-    return written && assignTo(pointee, written, s.span)
+    // the same implicit store as into the target itself: `ri := str` is refused as `v := str` is (`tr_38_ref_store_*`)
+    if (written === undefined || refuseImplicitString(lw, written, pointee.type, s.span)) return undefined
+    return assignTo(pointee, written, s.span)
   }
   const value = lowerExpr(lw, s.value, target.type)
   if (value === undefined) return undefined
@@ -235,7 +237,10 @@ function holdsEscaped(lw: Lowering, t: Type, escaped: ReadonlySet<string>, seen 
 export function refuseImplicitString(lw: Lowering, value: IrExpr, target: Type, span: Span): boolean {
   const from = elemOf(value.type)
   const to = elemOf(target)
-  if (from === undefined || to === undefined || (from.family !== "string" && to.family !== "string") || from.name === to.name) return false
+  if (from === undefined || to === undefined || (from.family !== "string" && to.family !== "string")) return false
+  // the conversion relation decides (`types/compat`): a string family accepts only itself, at any capacity
+  // (transpile-restructure 6.13)
+  if (classifyConversion(target, value.type) !== "incompatible") return false
   lw.bail("assign-string", `a ${from.name} converted implicitly to a ${to.name}, which is not a conversion the vendor makes implicitly`, span)
   return true
 }

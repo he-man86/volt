@@ -48,3 +48,18 @@ test("a routine's output is copied out after the call, at the index the callee m
   runner.scan()
   expect(["arr[0]", "arr[1]", "arr2[0]", "arr2[1]"].map((v) => runner.get(v))).toEqual([0n, 5n, 0n, 5n])
 })
+
+// transpile-restructure 6.17 (RC 43's routine half): a FUNCTION's or METHOD's output decides by the assignment relation
+// too. One an assignment refuses (DINT => INT, recorded on the FB path) is `call-output-type`; one it converts (WORD =>
+// INT, INT => REAL) is not lowered on this path — its copy-out stores the callee's type unconverted — and is refused
+// by name, `call-output-convert`: niche: accepted loss (0 of the corpora's 35 routine output bindings convert). Same-typed outputs lower.
+test("a routine output binding decides by the assignment relation, and a converting one is refused by name", () => {
+  const src = (into: string, out: string) =>
+    `PROGRAM P\nVAR t : ${into}; b : BOOL; END_VAR\nb := F_O(o => t);\nEND_PROGRAM\nFUNCTION F_O : BOOL\nVAR_OUTPUT o : ${out}; END_VAR\nF_O := TRUE;\nEND_FUNCTION\n`
+  const codes = (into: string, out: string) => lowerSource(src(into, out), "P").diagnostics.map((d) => d.code)
+  expect(codes("INT", "DINT")).toEqual(["call-output-type"])
+  expect(codes("STRING", "INT")).toEqual(["call-output-type"])
+  expect(codes("INT", "WORD")).toEqual(["call-output-convert"])
+  expect(codes("REAL", "INT")).toEqual(["call-output-convert"])
+  expect(codes("INT", "INT")).toEqual([])
+})

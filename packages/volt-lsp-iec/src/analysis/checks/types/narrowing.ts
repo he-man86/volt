@@ -6,7 +6,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
+import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, unparenthesised, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -213,9 +213,12 @@ function durationScaleWarnings(op: string, left: Expr, right: Expr, scope: Scope
 /**
  * An untyped NEGATIVE literal compared with an UNSIGNED variable converts the LITERAL, into the type
  * `negativeLiteralComparisonTarget` names (rule LT12): its narrowest type converting, with the warning that conversion
- * earns. Undefined when the pair is no comparison of one literal and one other operand.
+ * earns. Undefined when the pair is no comparison of one literal and one other operand. A parenthesised literal is the
+ * same operand (`ui > (-1)` warns as `ui > -1` does, `tr_6_negative_paren_beside_unsigned`, both vendors 2026-10-09).
  */
-function negativeLiteralComparison(left: Expr, right: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] | undefined {
+function negativeLiteralComparison(written: Expr, writtenRight: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] | undefined {
+  const left = unparenthesised(written)
+  const right = unparenthesised(writtenRight)
   const [literal, other] = isIntLiteral(left) && !isIntLiteral(right) ? [left, right] : isIntLiteral(right) && !isIntLiteral(left) ? [right, left] : []
   if (literal === undefined || other === undefined) return undefined
   const value = negatedValue(literal)

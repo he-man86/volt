@@ -40,7 +40,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { bodyConditionWorld, gvlBlockOf, lookup, lookupLocal, lookupMember, rootOf, scopeForUnit, targetOf, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, gvlBlockOf, lookup, lookupLocal, lookupMember, rootOf, scopeForUnit, scopeUri, targetOf, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -69,6 +69,7 @@ import {
   resolveTypeExpr,
   isElementaryTypeName,
   negativeLiteralComparisonTarget,
+  unparenthesised,
   selectionValueArguments,
   SHORT_CIRCUIT_OPERATORS,
   strictEnum,
@@ -653,9 +654,10 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         if (from !== undefined && arg !== undefined) store(elementaryTypeRef(from), arg, scope, undefined, undefined, undefined, twice)
       }
       // an untyped NEGATIVE literal compared with an unsigned operand converts into the type the rule names (rule LT12,
-      // `types/arith/operators` `negativeLiteralComparisonTarget`)
+      // `types/arith/operators` `negativeLiteralComparisonTarget`) — a parenthesised one too (`tr_6_negative_paren_beside_unsigned`)
       if (x.kind === "binary" && COMPARISONS.has(x.op))
-        for (const [lit, other] of [[x.left, x.right], [x.right, x.left]] as const) {
+        for (const [written, other] of [[x.left, x.right], [x.right, x.left]] as const) {
+          const lit = unparenthesised(written)
           const value = constEval(lit, scope)
           const operand = inferExprType(other, scope, b.project)
           if (!isSignedUntypedNumber(lit) || typeof value !== "bigint" || operand.kind !== "elementary") continue
@@ -730,7 +732,7 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
       // an ENUM member's value converts into the enum (`cc5_enum_init_not_convertible`: "Cannot convert type 'LREAL' to type
       // 'DUT_C5_ODD'")
       if (unit.kind === "type_decl" && unit.body.kind === "enum") {
-        const enumType = resolveNamedType(unit.name.text, b.project)
+        const enumType = resolveNamedType(unit.name.text, b.project, scopeUri(scope))
         for (const member of unit.body.values) if (member.value !== undefined) store(enumType, member.value, scope)
       }
       if ("varSections" in unit)

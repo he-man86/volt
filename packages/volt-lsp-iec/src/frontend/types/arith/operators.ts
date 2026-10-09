@@ -9,6 +9,7 @@ import { isDuration, isIntegerType, isNumericType } from "../predicates.js"
 import { elementaryType, inTypeGroup } from "../elementary.js"
 import { elementaryTypeRef, type Type } from "../type.js"
 import { integerOfWidth } from "../width.js"
+import { integerLiteralType } from "../literal.js"
 import { durationScaleConversion, narrowDateWideDuration } from "./temporal.js"
 
 /** The arithmetic operators — they meet their operands (`checked.ts` `checkedMeetType`). */
@@ -96,15 +97,19 @@ export function comparisonConverts(bits: number, dialect: Dialect | undefined): 
 }
 
 /**
- * The type an untyped NEGATIVE literal converts INTO when it is compared with an UNSIGNED operand (rule LT12,
- * `lt_literal_negative_in_comparison_unsigned`, 2026-10-03): `u = -1` (USINT) and `ui > -1` (UINT) convert the literal
- * into the operand's own type on TwinCAT, and into UDINT on CODESYS, which compares a narrower operand at 32 bits. A 32- or
- * 64-bit operand is unmeasured on EITHER vendor: undefined, as for a signed operand or a non-negative literal (`si = 200`
- * is silent on both — a literal beside a narrower variable converts nothing).
+ * The type an untyped NEGATIVE literal converts INTO when it is compared with an UNSIGNED operand (rule LT12): the
+ * unsigned integer as wide as the WIDER of the literal's own class (`integerLiteralType`) and — on CODESYS — 32 bits, on
+ * TwinCAT the operand. Recorded on both vendors: `u = -1` (USINT) and `ui > -1` (UINT) convert SINT into UDINT on CODESYS
+ * and into USINT / UINT on TwinCAT (`lt_literal_negative_in_comparison_unsigned`, 2026-10-03); -200 (INT) into UDINT /
+ * UINT, -40000 (DINT) into UDINT on both, -3000000000 (LINT) into ULINT on both (`tr_6_negative_{int,dint,lint}_beside_
+ * unsigned`, 2026-10-09). A 32- or 64-bit operand is unmeasured on EITHER vendor: undefined, as for a signed operand or a
+ * non-negative literal (`si = 200` is silent on both — a literal beside a narrower variable converts nothing).
  */
 export function negativeLiteralComparisonTarget(operand: ElementaryType, value: bigint, dialect: Dialect | undefined): ElementaryType | undefined {
   if (value >= 0n || operand.signed || (operand.family !== "int" && operand.family !== "bitstring") || operand.bits >= 32) return undefined
-  return dialect === "twincat" ? operand : integerOfWidth(32, false)
+  const own = integerLiteralType(value)
+  if (own === undefined) return undefined
+  return integerOfWidth(Math.max(own.bits, dialect === "twincat" ? operand.bits : 32), false)
 }
 
 /** The families `-` converts its operand from, loudly. Integers, bit strings and reals are already what it computes in. */

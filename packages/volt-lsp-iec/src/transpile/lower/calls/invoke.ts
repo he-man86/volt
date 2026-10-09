@@ -97,7 +97,7 @@ function invokeTarget(lw: Lowering, call: Extract<Expr, { kind: "call" }>): { ro
     // `Stu.StrTrimA(…)` — a library FUNCTION named through its library's NAMESPACE (the `.library` manifest's), which
     // is the same function the bare name reaches, looked up among that library's own symbols only
     const ns = namespaceOf(lw, callee.base)!
-    const sym = ns.symbols.get(callee.member.name.toLowerCase())?.find((s) => s.kind === "function")
+    const sym = lookupLocal(ns, callee.member.name).find((s) => s.kind === "function")
     if (sym === undefined) return lw.bail("expr-call", `${ns.name}.${callee.member.name} is no FUNCTION of that namespace`, call.span)
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else if (callee.kind === "member") {

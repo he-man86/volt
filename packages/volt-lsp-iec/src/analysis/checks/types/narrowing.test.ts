@@ -73,6 +73,31 @@ test("an untyped NEGATIVE literal beside an unsigned variable converts the liter
   ])
 })
 
+// transpile-restructure 6.2 gate (both vendors 2026-10-09, `tr_6_negative_*_beside_unsigned`): the literal converts into an
+// unsigned type as wide as the WIDER of its own class and — CODESYS — 32 bits, TwinCAT the operand; a parenthesised literal
+// is the same operand; a constant expression (0 - 1) is not a literal and stays out of the rule.
+test("an untyped NEGATIVE literal of a wider class converts into the unsigned type of its own width, parenthesised too (`tr_6_negative_*_beside_unsigned`)", () => {
+  const vars = "u : USINT; ui : UINT; b : BOOL;"
+  expect(signMessages(vars, "b := ui > -40000;\nb := ui > -3000000000;\nb := ui > (-1);", "codesys")).toEqual([
+    "Implicit conversion from signed Type 'DINT' to unsigned Type 'UDINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'LINT' to unsigned Type 'ULINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UDINT' : Possible change of sign",
+  ])
+  expect(signMessages(vars, "b := u > -200;\nb := ui > -200;", "codesys")).toEqual([
+    "Implicit conversion from signed Type 'INT' to unsigned Type 'UDINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'INT' to unsigned Type 'UDINT' : Possible change of sign",
+  ])
+  expect(signMessages(vars, "b := ui > -40000;\nb := ui > -3000000000;\nb := ui > (-1);", "twincat")).toEqual([
+    "Implicit conversion from signed Type 'DINT' to unsigned Type 'UDINT' : possible change of sign",
+    "Implicit conversion from signed Type 'LINT' to unsigned Type 'ULINT' : possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : possible change of sign",
+  ])
+  expect(signMessages(vars, "b := u > -200;", "twincat")).toEqual([
+    "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : possible change of sign",
+  ])
+  expect(signMessages(vars, "b := ui > 0 - 1;", "codesys")).toEqual([])
+})
+
 test("a CASE label converts into the selector's type: 200 under a SINT selector is USINT → SINT (`lt_literal_case_label_out_of_range`)", () => {
   expect(signMessages("si : SINT; out : INT;", "CASE si OF\n100: out := 1;\n200: out := 2;\nEND_CASE", "codesys")).toEqual([
     "Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : Possible change of sign",

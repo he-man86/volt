@@ -73,3 +73,26 @@ test("an integer literal that does not fit its neighbour's type keeps its own an
     true, -2999999995n, 5000000003n, false, false, false, 15000000000n, 5000000000n,
   ])
 })
+
+// rule LT12 (`lt_literal_negative_in_comparison_unsigned`, CODESYS 2026-10-03): an untyped NEGATIVE literal compared with a
+// narrower UNSIGNED operand converts INTO UDINT (the build warns "signed Type 'SINT' to unsigned Type 'UDINT'"), so
+// `ui > -1` with `ui : UINT := 3` is FALSE and `u = -1` with `u : USINT := 255` FALSE; comparing them as numbers gave TRUE.
+test("an untyped negative literal compared with a narrower unsigned operand converts into UDINT (LT12)", () => {
+  const vars = "u : USINT := 255; ui : UINT := 3; b1 : BOOL; b2 : BOOL; b3 : BOOL; b4 : BOOL;"
+  const body = ["b1 := u = -1;", "b2 := ui > -1;", "b3 := -1 < ui;", "b4 := ui <> -1;"].join("\n")
+  const runner = run(ir(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P"))
+  runner.scan()
+  expect(["b1", "b2", "b3", "b4"].map((n) => runner.get(n))).toEqual([false, false, false, true])
+})
+
+// transpile-restructure 6.2 gate (CODESYS record:exec + record:language 2026-10-09, `tr_6_negative_*_beside_unsigned`): LT12
+// holds for every negative literal class, each into the unsigned type of its own width or 32 bits — -200 (INT) and
+// -40000 (DINT) into UDINT, -3000000000 (LINT) into ULINT — so each compares FALSE; a parenthesised -1 is the literal
+// (FALSE); the constant expression 0 - 1 is no literal and compares as a number (TRUE).
+test("LT12 for every negative literal class, parenthesised too; a constant expression compares as a number", () => {
+  const vars = "u : USINT := 255; ui : UINT := 3; b1 : BOOL; b2 : BOOL; b3 : BOOL; b4 : BOOL; b5 : BOOL; b6 : BOOL;"
+  const body = ["b1 := u > -200;", "b2 := ui > -200;", "b3 := ui > -40000;", "b4 := ui > -3000000000;", "b5 := ui > (-1);", "b6 := ui > 0 - 1;"].join("\n")
+  const runner = run(ir(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P"))
+  runner.scan()
+  expect(["b1", "b2", "b3", "b4", "b5", "b6"].map((n) => runner.get(n))).toEqual([false, false, false, false, false, true])
+})

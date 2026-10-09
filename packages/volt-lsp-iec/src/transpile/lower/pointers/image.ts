@@ -17,6 +17,7 @@ import { ADDRESS, BASE_FIELD, IMAGE_BASE, instantiate, storeValue } from "../../
 import type { Lowering } from "../core/lowering.js"
 import { alignUp, byteSize, fieldBytes } from "../storage/bytes.js"
 import { elementaryRef, peelArray, resolveNamedType, type Type } from "../../../frontend/types/index.js"
+import { scopeUri } from "../../../frontend/symbols/index.js"
 import { escapesOf, imageType } from "./escape.js"
 import { baseOf } from "../core/chain.js"
 import type { Span } from "../../../frontend/syntax/index.js"
@@ -40,7 +41,7 @@ const INSTANCE_FIELD: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OU
 export function imageRuns(lw: Lowering, name: string): Runs | undefined {
   const layout = lw.layouts.get(name.toUpperCase())
   if (layout === undefined) return undefined
-  const type = resolveNamedType(layout.name, lw.project)
+  const type = resolveNamedType(layout.name, lw.project, scopeUri(lw.scope))
   const unmeasured = new Set<string>()
   const unit = lw.bodies.get(name.toUpperCase())?.unit
   const bytes = type.kind === "function_block" && unit?.kind !== "program" ? fieldBytes(lw, type, unmeasured) : undefined

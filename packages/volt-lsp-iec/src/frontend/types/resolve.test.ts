@@ -14,7 +14,8 @@ import { parseSource } from "../syntax/index.js"
 import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { enumDefault } from "./enums.js"
 import type { LibraryManifest } from "../library/index.js"
-import { build, type Scope } from "../symbols/index.js"
+import { build, childScopesByName, lookupLocal, type Scope } from "../symbols/index.js"
+import { enumValueType } from "./infer/member.js"
 import { UNKNOWN } from "./index.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
@@ -51,7 +52,7 @@ const MANIFESTS = [
 
 /** The member set the name resolves to, from the point of view of `askerUri`. */
 const membersSeenFrom = (project: ReturnType<typeof build.buildSymbolTable>, askerUri: string): string[] => {
-  const t = resolveNamedType("ETRIG", project, 0, askerUri)
+  const t = resolveNamedType("ETRIG", project, askerUri)
   const scope = t.kind === "function_block" ? t.scope : undefined
   return [...(scope?.symbols.keys() ?? [])].sort()
 }
@@ -89,7 +90,7 @@ describe("a type name with two candidates", () => {
     const forward = build.buildSymbolTable(FILES, MANIFESTS)
     const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
     const anon = (p: ReturnType<typeof build.buildSymbolTable>) => {
-      const t = resolveNamedType("ETRIG", p)
+      const t = resolveNamedType("ETRIG", p, undefined)
       return [...((t.kind === "function_block" ? t.scope : undefined)?.symbols.keys() ?? [])]
     }
     expect(anon(reverse)).toEqual(anon(forward))
@@ -225,12 +226,31 @@ TYPE MyAlias : INT; END_TYPE
 TYPE Color : (Red, Green); END_TYPE
 TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
 FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
-  const intT = resolveNamedType("INT", p)
+  const intT = resolveNamedType("INT", p, undefined)
   expect(intT.kind).toBe("elementary")
   expect(intT.kind === "elementary" && intT.elem.bits).toBe(16)
-  expect(resolveNamedType("MyAlias", p)).toMatchObject({ kind: "elementary", name: "INT" })
-  expect(resolveNamedType("Color", p).kind).toBe("enum")
-  expect(resolveNamedType("Pt", p)).toMatchObject({ kind: "struct" })
-  expect(resolveNamedType("FB_A", p).kind).toBe("function_block")
-  expect(resolveNamedType("SomeLibType", p)).toEqual(UNKNOWN) // unresolvable → skip
+  expect(resolveNamedType("MyAlias", p, undefined)).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(resolveNamedType("Color", p, undefined).kind).toBe("enum")
+  expect(resolveNamedType("Pt", p, undefined)).toMatchObject({ kind: "struct" })
+  expect(resolveNamedType("FB_A", p, undefined).kind).toBe("function_block")
+  expect(resolveNamedType("SomeLibType", p, undefined)).toEqual(UNKNOWN) // unresolvable → skip
+})
+
+// ─── AN ENUM VALUE'S TYPE ASKS AS ITS OWN FILE (transpile-restructure 6.5, RC 21; design.md §6.1 row 14) ────────────────
+// `enumValueType` resolved its enum's NAME with no asker, so of two libraries exporting an enum `E_X` the value `FROMCBML`
+// of CBML's was typed as whichever `E_X` was bound first — CBM's, with no such member. The value's own file asks.
+test("an enum value is of the enum its own library declares, whatever order the files were bound in", () => {
+  const ENUMS = [
+    file(`${LIB("CAA Behaviour Model")}/E_X.dut`, "TYPE E_X :\n(\n\tA,\n\tFROMCBM\n);\nEND_TYPE\n"),
+    file(`${LIB("CBML")}/E_X.dut`, "TYPE E_X :\n(\n\tA,\n\tFROMCBML\n);\nEND_TYPE\n"),
+  ]
+  for (const files of [ENUMS, [...ENUMS].reverse()]) {
+    const project = build.buildSymbolTable(files, MANIFESTS)
+    for (const [member, folder] of [["FROMCBM", "CAA Behaviour Model"], ["FROMCBML", "CBML"]] as const) {
+      const owner = childScopesByName(project, "E_X").find((s) => s.defUri === `${LIB(folder)}/E_X.dut`)!
+      const sym = lookupLocal(owner, member)[0]!
+      const t = enumValueType(sym, project)
+      expect(t?.kind === "enum" ? t.scope?.defUri : t?.kind).toBe(`${LIB(folder)}/E_X.dut`)
+    }
+  }
 })

@@ -683,6 +683,30 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
+  // transpile-restructure 6a-6d gate (record:language 2026-10-09, both vendors): a FUNCTION's output bound `o => t` into
+  // another type — DINT into INT the vendor refuses, WORD into INT it warns about — and the LSP says neither (it judges the
+  // FB path's twins, not the routine's): lsp-transpile-review-gaps 2.4
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (["tr_43_routine_output_dint_to_int", "tr_43_routine_output_word_to_int"] as const).map((fixture) => ({
+      baseline: `fixtures.${vendor}`,
+      measure: "total: GAP",
+      by: 1,
+      fixture,
+      task: "lsp-transpile-review-gaps 2.4 (a routine output binding judged by the assignment relation)",
+      why: "a FUNCTION's VAR_OUTPUT bound into another type — 'Cannot convert type 'DINT' to type 'INT'' / the WORD → INT sign warning, both vendors, recorded 2026-10-09",
+    })),
+  ),
+  // …and TwinCAT's warning on `ui > 0 - 1`, the UINT converting into the INT the constant expression is: the front-end
+  // types an operation on untyped numbers by its context (LT14), so the pair has no INT to name — niche: accepted loss
+  // (0 occurrences in the corpora: no comparison of an unsigned operand with a constant expression of untyped numbers)
+  {
+    baseline: "fixtures.twincat",
+    measure: "total: GAP",
+    by: 1,
+    fixture: "tr_6_negative_expression_beside_unsigned",
+    task: "none: niche: accepted loss (0 occurrences in the corpora)",
+    why: "TwinCAT warns 'unsigned Type 'UINT' to signed Type 'INT'' on `ui > 0 - 1` (record:language 2026-10-09); CODESYS is silent",
+  },
   // transpile-restructure 4.3 recorded the byte image's layout and reinterpretation (`memory/pointer-model.ts`): the FB
   // header's two fixtures take `SIZEOF` of an FB instance, which the front-end types UNKNOWN until SIZEOF has a result
   // type, and the DINT-as-REAL fixture initializes two DINTs with negated untyped numbers (`-2147483647 - 1`, `-8388609`)
@@ -716,6 +740,28 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why: "`-2147483647 - 1`, an operation on two untyped numbers (transpile-restructure 4.3) — typed by its context, LT14's",
     },
   ]),
+  // transpile-restructure 6.2's gate (2026-10-09): rule LT12 asked of every negative literal class, parenthesised, and as a
+  // constant expression (`tr_6_negative_*_beside_unsigned`, both vendors) — negated untyped numbers, a parenthesised one and
+  // `0 - 1`, each typed by its context (LT14's class). New ground measured, not a regression.
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 2, "tr_6_negative_int_beside_unsigned", "-200 beside a USINT and a UINT"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_6_negative_dint_beside_unsigned", "-40000 beside a UINT"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_6_negative_lint_beside_unsigned", "-3000000000 beside a UINT"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_6_negative_paren_beside_unsigned", "(-1) beside a UINT"],
+        ["paren UNKNOWN", 1, "tr_6_negative_paren_beside_unsigned", "(-1) beside a UINT, the parenthesised literal"],
+        ["binary UNKNOWN", 1, "tr_6_negative_expression_beside_unsigned", "`0 - 1` beside a UINT, an operation on two untyped numbers"],
+      ] as const
+    ).map(([kind, by, fixture, why]) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: ${kind}`,
+      by,
+      fixture,
+      task: LITERAL_TYPING,
+      why,
+    })),
+  ),
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */

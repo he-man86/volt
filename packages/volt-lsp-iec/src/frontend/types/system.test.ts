@@ -14,7 +14,7 @@ import type { Expr } from "../syntax/index.js"
 const project = () => build.buildSymbolTable([], [], "codesys")
 
 test("VERSION is a STRUCT of four UINT components (`ty_version_type`, `ty_version_component_type`)", () => {
-  const t = resolveNamedType("VERSION", project())
+  const t = resolveNamedType("VERSION", project(), undefined)
   expect(t.kind).toBe("struct")
   expect(renderType(t)).toBe("VERSION")
 })
@@ -31,6 +31,6 @@ test("an ANY / ANY_* input is the compiler's AnyType: diSize a DINT, pValue a PO
 test("a project's own VERSION type wins over the compiler's", () => {
   const src = `TYPE VERSION :\nSTRUCT\n\tmine : BOOL;\nEND_STRUCT\nEND_TYPE`
   const p = build.buildSymbolTable([{ uri: "VERSION.dut", source: src, parseResult: parseSource(src, { networkText: true }) }], [], "codesys")
-  const t = resolveNamedType("VERSION", p)
+  const t = resolveNamedType("VERSION", p, undefined)
   expect(t.kind === "struct" && t.scope?.symbols.has("mine")).toBe(true)
 })

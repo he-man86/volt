@@ -37,6 +37,7 @@ export { integerOfWidth, widthOf, wrapToWidth } from "./width.js"
 export {
   integerLiteralType,
   isIntLiteral,
+  unparenthesised,
   literalCapacityType,
   literalCheckType,
   literalContextConversion,
