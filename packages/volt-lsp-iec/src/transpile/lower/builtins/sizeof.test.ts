@@ -28,3 +28,27 @@ test("SIZEOF of an FB skips a replaced scalar VAR CONSTANT and adds a pointer pe
   expect(sized("", "I_A, I_B")).toBe(32n)
   expect(sized("VAR CONSTANT sv : STRING := 'abc'; END_VAR")).toEqual(["sizeof-unmeasured"])
 })
+
+// transpile-restructure 4.0: the 8 bytes per IMPLEMENTS are measured for interfaces that EXTEND nothing
+// (`mem_fb_implements_one`/`_two`). Whether an interface that EXTENDS another adds one pointer or one per interface in its
+// chain is not measured (0 interfaces that EXTEND another in the six corpora — the one grep hit is a comment), so SIZEOF of such an FB is refused, not guessed.
+test("SIZEOF of an FB implementing an interface that EXTENDS another is refused as unmeasured", () => {
+  const { pou, diagnostics } = lowerSource(
+    "INTERFACE I_A\nEND_INTERFACE\nINTERFACE I_B EXTENDS I_A\nEND_INTERFACE\nFUNCTION_BLOCK FB_K IMPLEMENTS I_B\nVAR kept : DINT; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR inst : FB_K; n : ULINT; END_VAR\nn := SIZEOF(inst);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(pou).toBeUndefined()
+  expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
+})
+
+// transpile-restructure 4a (gate review): an IMPLEMENTS name that resolves to no interface declaration has no chain to
+// measure — whether it EXTENDS anything is unknown — so its 8 bytes are not assumed either; before 4.0 it was answered
+// 8 bytes like a measured one.
+test("SIZEOF of an FB implementing a name that is no interface declaration is refused as unmeasured", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION_BLOCK FB_K IMPLEMENTS I_Missing\nVAR kept : DINT; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR inst : FB_K; n : ULINT; END_VAR\nn := SIZEOF(inst);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(pou).toBeUndefined()
+  expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
+})

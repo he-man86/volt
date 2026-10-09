@@ -7,7 +7,7 @@ import { parseSource, type TopLevel } from "../../../frontend/syntax/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { prepareProject, TRANSPILE_PARSE } from "../project/prepare.js"
 import { Lowering } from "./lowering.js"
-import { chainNames, declaredChain, interfaceChainOf, pouChain, scopeChain } from "./chain.js"
+import { chainNames, declaredChain, implementsOf, interfaceChainOf, pouChain, scopeChain } from "./chain.js"
 
 const SOURCE = `
 INTERFACE I_A
@@ -18,7 +18,7 @@ INTERFACE I_C EXTENDS I_B, I_A
 END_INTERFACE
 FUNCTION_BLOCK FB_Base
 END_FUNCTION_BLOCK
-FUNCTION_BLOCK FB_Mid EXTENDS FB_Base
+FUNCTION_BLOCK FB_Mid EXTENDS FB_Base IMPLEMENTS I_C, I_A
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK FB_Top EXTENDS FB_Mid
 END_FUNCTION_BLOCK
@@ -55,4 +55,10 @@ test("an interface's chain: itself first, depth first through each EXTENDS list,
 test("by the binder's link: nearest first", () => {
   expect(scopeChain(project.children.find((s) => s.name === "FB_Top")).map((s) => s.name)).toEqual(["FB_Top", "FB_Mid", "FB_Base"])
   expect(scopeChain(undefined)).toEqual([])
+})
+
+test("a unit's own IMPLEMENTS list, in source order — none for an FB without one, none inherited from its base", () => {
+  expect(implementsOf(unit("FB_Mid")).map((i) => i.text)).toEqual(["I_C", "I_A"])
+  expect(implementsOf(unit("FB_Base"))).toEqual([])
+  expect(implementsOf(unit("FB_Top"))).toEqual([])
 })

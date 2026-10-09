@@ -2945,12 +2945,43 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 
 ## 4. Model 3: pointers and references (RC 14, 15, 16, 17, 18, 20, 26, 44)
 
-- [ ] 4.0 RC 26: SIZEOF of an FB (the layout the arena option needs).
+- [x] 4.0 RC 26: SIZEOF of an FB (the layout the arena option needs).
   - What: skip replaced scalar VAR CONSTANTs; add 8 bytes per implemented interface.
   - Where: `lower/storage/bytes.ts`, over `core/chain.implementsOf`.
   - Accept: F(`mem_fb_var_constant_scalar` 16, `mem_fb_implements_one` 24, `mem_fb_implements_two` 32); `mem_fb_var_constant_non_replaced`
     and `mem_fb_var_constant_struct` stay confirmed; M.
   - Depends: 1.9.4.
+  - Done 2026-10-08 (verify in the new home; RC 26 closed upstream at 381a1810ed). All five fixtures confirmed before and
+    after, no divergence mark to remove (`mem_fb_var_constant_scalar` 16, `_non_replaced` 24, `_struct` 32,
+    `mem_fb_implements_one` 24, `_two` 32). `core/chain.implementsOf(unit)` added (design.md §4's planned name: a unit's own
+    IMPLEMENTS list; a PROGRAM none, a base's not included); `storage/bytes.fieldBytes` and
+    `interfaces/tags.implementsInterface` read through it (the two readers of `unit.implements`). Found while verifying: the
+    8 bytes are measured only for interfaces that EXTEND nothing — an IMPLEMENTS of an interface that EXTENDS another was
+    counted as 8 unmeasured; it is now refused `sizeof-unmeasured` (0 interfaces that EXTEND another in the six corpora — corrected at 4a: the one grep hit, pro2193 `Arrays.pou:12`, is a
+    comment). Src tests:
+    `builtins/sizeof.test.ts` "SIZEOF of an FB implementing an interface that EXTENDS another is refused as unmeasured" (red
+    before, green after), `core/chain.test.ts` "a unit's own IMPLEMENTS list ...".
+    - M (`rate:fixtures`): no change — mapped 5388, confirmed 2828, diverges 7, refused 1989, not-lowered 390; edge agree
+      3060, disagree 0, not-run 184. `map.generated.ts` byte-identical.
+    - Numbers (implement agent, targeted + end-of-step): lower/{core,interfaces,storage,builtins} 45 pass; `bun test
+      test/conformance` 6248 pass, 390 todo, 0 fail; `bun test test/frontend` 45 pass; `bun typecheck` clean; `bun run lint`
+      green. Full suite: the gate's.
+  - Gate 4a (2026-10-09). Review findings, both fixed:
+    - The niche count was wrong: `grep -rniE "INTERFACE\s+\w+\s+EXTENDS" test-corpus` has one hit, a comment (pro2193
+      `99 Library/Functions/Arrays.pou:12`); anchored to a declaration it finds 0. Corrected above; the verdict (refuse,
+      not guess) stands.
+    - The guard also refused an EMPTY chain (an IMPLEMENTS name that resolves to no interface declaration) under the
+      EXTENDS reason. Kept as a refusal — whether such an interface EXTENDS anything is unknown, and before 4.0 it was
+      answered 8 bytes like a measured one — but named: `storage/bytes.implementedInterfaces` (split out of `fieldBytes`,
+      which the size check put at 84 lines) refuses a chain longer than 1 and an empty chain as two separate, documented
+      cases. Src test `builtins/sizeof.test.ts` "SIZEOF of an FB implementing a name that is no interface declaration is
+      refused as unmeasured" (pins the existing refusal: red with the empty-chain check removed, green with it).
+    - M (`rate:fixtures`): no change — mapped 5388, confirmed 2828, diverges 7, refused 1989, not-lowered 390; edge agree
+      3060, disagree 0, not-run 184. `map.generated.ts` byte-identical.
+    - Numbers: `bun typecheck` clean; `bun run lint` exit 0 (no function over 80 lines); `bun test` (VOLT_REQUIRE_FULL=1,
+      VOLT_FIXTURES unset, rustc cache on) 8615 pass, 35 skip, 433 todo, 0 fail (9083 tests, 304 files, 648 s; 7 diverge as
+      expected failures) — +3 over 3d's 8612 (4.0's two src tests, 4a's one); `bun run test:corpus` 19 pass, 1 skip;
+      `bun test scripts` 37 pass; `bun run check` 18 passed; `openspec validate` valid.
 - [ ] 4.1 Measure.
   - What: the census starting from `transpile-st-to-rust/pointer-model.md` (re-run parse-based, diffed against 2026-09-20): every
     `indirect` fixture, every not-lowered pointer/any/interface/call-fb-inout row (`scripts/probe-lowering-refusals.ts`), every pointer

@@ -3,7 +3,8 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import { baseOf, scopeChain } from "../core/chain.js"
+import type { PendingBody } from "../core/shared.js"
+import { baseOf, implementsOf, interfaceChainOf, scopeChain } from "../core/chain.js"
 import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
@@ -84,7 +85,8 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
           replaced.add(n.text.toUpperCase())
         }
       }
-  const interfaces = BigInt(isFb && pending?.unit.kind === "function_block" ? (pending.unit.implements?.length ?? 0) : 0)
+  const interfaces = implementedInterfaces(lw, isFb ? pending : undefined)
+  if (interfaces === undefined) return undefined
   if (packed && interfaces > 0n) return undefined
   let offset = isFb ? 8n + 8n * interfaces : 0n
   let align = isFb ? 8n : 1n
@@ -116,6 +118,19 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   // A PACKED layout is not rounded up at the end either. For a struct this was invisible — `align` stays 1 there, so
   // the round-up did nothing — but an FB's starts at 8 for its header, which turned the measured 13 back into 16.
   return { size: packed ? offset : alignUp(offset, align), align: packed ? 1n : align, ...(isFb ? {} : { offsets }) }
+}
+
+/**
+ * How many interface pointers an FB's own IMPLEMENTS list adds (8 bytes each, measured for interfaces that EXTEND
+ * nothing: `mem_fb_implements_one`/`_two`). Undefined — refused — for an interface that EXTENDS another (one pointer, or
+ * one per interface in its chain? not measured; transpile-restructure 4.0) and for an IMPLEMENTS name that resolves to no
+ * interface declaration (whether it EXTENDS anything is unknown; 4a).
+ */
+function implementedInterfaces(lw: Lowering, pending: PendingBody | undefined): bigint | undefined {
+  const chains = (pending === undefined ? [] : implementsOf(pending.unit)).map((i) => interfaceChainOf(lw, i.text))
+  if (chains.some((c) => c.length > 1)) return undefined
+  if (chains.some((c) => c.length === 0)) return undefined
+  return BigInt(chains.length)
 }
 
 /** A place's byte offset from the start of its root variable — through struct fields and constant indices only. */

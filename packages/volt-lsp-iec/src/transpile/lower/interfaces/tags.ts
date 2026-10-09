@@ -39,7 +39,7 @@ import { foreignWrite } from "./query.js"
 import { lowerPlace } from "../places/places.js"
 import { heldAt } from "./lend.js"
 import { interfaceTables } from "./state.js"
-import { declaredChain, interfaceChainOf } from "../core/chain.js"
+import { declaredChain, implementsOf, interfaceChainOf } from "../core/chain.js"
 import { indexOfTag, NO_TAG, tagOfIndex } from "../core/tags.js"
 
 /** Whether the FB, or a base FB of it, IMPLEMENTS the interface — itself or one that EXTENDS it. */
@@ -47,7 +47,7 @@ export function implementsInterface(lw: Lowering, fb: string, itf: string): bool
   const wanted = itf.toUpperCase()
   for (const ast of declaredChain(lw, lookup(lw.project, fb)?.symbol.ast as TopLevel | undefined, 32)) {
     if (ast.kind !== "function_block") return false
-    if ((ast.implements ?? []).some((i) => interfaceChainOf(lw, i.text).some((a) => a.name.text.toUpperCase() === wanted))) return true
+    if (implementsOf(ast).some((i) => interfaceChainOf(lw, i.text).some((a) => a.name.text.toUpperCase() === wanted))) return true
   }
   return false
 }

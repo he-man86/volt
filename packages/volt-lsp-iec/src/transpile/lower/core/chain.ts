@@ -29,6 +29,10 @@ type Unit = PendingBody["unit"]
 /** An FB's base, if it EXTENDS one — a PROGRAM never does. */
 export const baseOf = (unit: Unit) => (unit.kind === "function_block" ? unit.extends : undefined)
 
+/** The interfaces a unit's own IMPLEMENTS list names, in source order — a PROGRAM implements none, and a base FB's list
+ *  is not included (walk the EXTENDS chain for those). */
+export const implementsOf = (unit: Unit | TopLevel) => (unit.kind === "function_block" ? (unit.implements ?? []) : [])
+
 /**
  * BY THE BODIES: `unit` and its bases, NEAREST FIRST, each reached through the body lowering queued for it (`lw.bodies`).
  * `complete` is false when a base has no queued body or the chain comes back to a unit it holds.
