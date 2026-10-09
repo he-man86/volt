@@ -158,11 +158,13 @@ function splitTopLevel(toks: Token[]): Token[][] {
 function parseElement(g: Token[]): AggregateElement {
   if (g.length === 0) return { kind: "unparsed", span: zeroSpan() }
   const span = joinSpans(g[0].span, g[g.length - 1].span)
-  if (g.length >= 2 && g[1].text === ":=") return { kind: "field", name: g[0].text, value: parseValue(g.slice(2)), span }
+  if (g.length >= 2 && g[1].text === ":=") return { kind: "field", name: g[0].text, value: parseValue(g.slice(2), true), span }
   return parseValue(g)
 }
 
-function parseValue(g: Token[]): AggregateElement {
+/** `field`: the value of a struct field — where a name then a group is that name's CALL (`c := F(g)`,
+ *  `var_temp_dynamic_aggregate_init`), the name-then-group repeat being an ARRAY element's rule only. */
+function parseValue(g: Token[], field = false): AggregateElement {
   if (g.length === 0) return { kind: "unparsed", span: zeroSpan() }
   const span = joinSpans(g[0].span, g[g.length - 1].span)
   const lead = g[0].text
@@ -178,10 +180,11 @@ function parseValue(g: Token[]): AggregateElement {
   //   - a group after a LITERAL is a repeat whose count is the whole expression before it: `[INT#2+INT#3(7)]` is five
   //     sevens (`decl_repeat_count_expression`), as `[5(7)]` is — a literal is no callee;
   //   - a group after a name INSIDE an expression is that name's call: `[K+L(7)]` is "Program name, function or function
-  //     block instance expected instead of 'L'" (`decl_repeat_count_expression_names`) — the element is a value.
+  //     block instance expected instead of 'L'" (`decl_repeat_count_expression_names`) — the element is a value;
+  //   - a STRUCT FIELD's `F(g)` is a call (`var_temp_dynamic_aggregate_init`: `c := F(g)` evaluated per call).
   const open = g[g.length - 1].text === ")" ? openerOfLast(g) : -1
   const before = open >= 1 ? g[open - 1] : undefined
-  const counted = before !== undefined && (open === 1 ? before.kind === "identifier" || isLiteral(before) : isLiteral(before))
+  const counted = before !== undefined && (open === 1 && !field ? before.kind === "identifier" || isLiteral(before) : isLiteral(before))
   if (counted && g.length - open >= 3 && lead !== "[" && lead !== "(" && lead !== "STRUCT") {
     const count = parseExprFromTokens(g.slice(0, open))
     if (count !== undefined) return { kind: "repeat", count, value: parseValue(g.slice(open + 1, -1)), span }

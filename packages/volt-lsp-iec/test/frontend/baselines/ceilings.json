@@ -67,7 +67,8 @@
     "corpus: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 53,
     "corpus: deref UNKNOWN": 16,
     "corpus: global_expr UNKNOWN": 0,
-    "corpus: ident_expr NOSCOPE": 439,
+    "corpus: call NOSCOPE": 4,
+    "corpus: ident_expr NOSCOPE": 435,
     "corpus: ident_expr UNKNOWN": 324,
     "corpus: ident_expr UNKNOWN, a device instance (the front-end lacks the type the vendor gives it)": 109,
     "corpus: index UNKNOWN": 92,
@@ -135,7 +136,7 @@
   "fold-dump": {
     "findings": 0,
     "corpus Library Manager: decl NOSCOPE": 20059,
-    "corpus: decl NOSCOPE": 1405,
+    "corpus: decl NOSCOPE": 1401,
     "fixtures codesys: decl NOSCOPE": 18,
     "fixtures twincat: decl NOSCOPE": 18,
     "run: initializer does not fold": 0

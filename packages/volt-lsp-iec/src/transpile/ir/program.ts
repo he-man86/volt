@@ -16,7 +16,7 @@ export interface IrSlot {
   type: Type
   /** `temp`: a lowering-owned slot. `program`: a called PROGRAM's one instance, in `IrPou.globals`. */
   section: VarSectionKind | "temp" | "program"
-  /** The initial value: the declaration's, constant-folded, or the type's zero (`types` `typeZero`). */
+  /** The initial value: the declaration's, constant-folded, or the type's zero (`lower/core` `zeroInit`). */
   init: IrInit
   /** A VAR_IN_OUT CONSTANT: no store into it lowers, however it is written (conformance `inout_const_write_5`). */
   constant?: boolean
@@ -34,12 +34,21 @@ export interface IrSlot {
 }
 
 /**
- * A slot's initial value: a scalar, or an aggregate initializer's — an array's elements in order (an element left out,
- * or `undefined`, starts at its type's own initial value), or the fields of a struct or FB instance it names, by
+ * A slot's initial value, COMPLETE — no backend picks a default: a scalar; an array's stated `elements` in order and every
+ * remaining one at `rest` (lowering states `rest`: the element type's start for an array declared without an
+ * initializer — an enum's default, an alias's `:=`, an initialized alias-of-array's, a struct's own fields — and for a
+ * partial initializer's tail the element type's start without an alias's `:=`: an alias of INT 0, an enum its default;
+ * `array_element_type_default`, `array_element_enum_partial_tail`); or the fields of a struct or FB instance it names, by
  * upper-cased name (every other field at its TYPE's initial value). Conformance `array_initializers`,
  * `init_struct_by_field`, `init_array_of_structs`, `init_fb_instance_inputs`.
  */
-export type IrInit = IrValue | { readonly elements: readonly (IrInit | undefined)[] } | { readonly fields: Readonly<Record<string, IrInit>> }
+export type IrInit = IrValue | IrArrayInit | { readonly fields: Readonly<Record<string, IrInit>> }
+
+/** An array's initial value: `elements` stated, then every remaining element at `rest` (`IrInit`). */
+export interface IrArrayInit {
+  readonly elements: readonly IrInit[]
+  readonly rest: IrInit
+}
 
 /**
  * The storage of a composite type — a DUT struct, or an FB instance's variables. A slot or field whose `type` is a

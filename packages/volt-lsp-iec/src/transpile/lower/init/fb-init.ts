@@ -7,7 +7,7 @@ import { type Fb, initFrame, type InitStep, pendingInitsOf } from "./state.js"
 import { lookup, type Symbol } from "../../../frontend/symbols/index.js"
 import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
-import type { Lowering } from "../core/lowering.js"
+import { type Lowering, zeroInit } from "../core/lowering.js"
 import type { IrExpr, IrInit, IrRoutine, IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { lowerPlace } from "../places/places.js"
 import { INIT_ATTRIBUTE, initMethod, instancePaths, pathFields, slotMethodCall } from "./attributes.js"
@@ -19,6 +19,7 @@ import { foldConstant } from "../values/fold.js"
 import { convert, stored, valueAs } from "../values/convert.js"
 import { instanceInitRoutine } from "./instance-init.js"
 import { fieldIn, fieldIndex } from "../places/path.js"
+import { fieldsOf, namedIn, startStatement, startsAsStatement, structuredUnread, enclosingStructuredFree } from "./position.js"
 
 /**
  * Every FB_Init of an FB type's EXTENDS chain, the base's first. FB_Init (conformance `fb_init_runs_with_declared_arguments`,
@@ -140,7 +141,7 @@ export function unreached(st: InitStep, where: string): undefined {
  * FB_Init arguments the place is declared with, lowered in `declaring`; `init` / `clearInit`: the declaring slot's initial
  * value, and a way to take a structured initializer out of it — to be applied after FB_Init instead.
  */
-export function visit(st: InitStep, place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, holder?: Place): boolean {
+export function visit(st: InitStep, place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, holder?: Place, given?: IrInit): boolean {
   const t = place.type
   if (!reachesFbInit(st, t, "init-step")) return true
   if (peelArray(t) !== undefined) return unreached(st, "an array") ?? false
@@ -151,11 +152,16 @@ export function visit(st: InitStep, place: Place, args: readonly CallArg[], decl
   const program = t.kind === "function_block" && place.path.length === 0 && ownProgram(st, place)
   if (program && !programFbInitsQuiet(st, t)) return false
   const inits = t.kind === "function_block" && !program ? fbInits(t) : []
-  const mine: IrStmt[] = []
-  if (t.kind === "function_block" && inits.length > 0 && !callFbInits(st, place, t, inits, args, declaring, init, clearInit, mine, holder)) return false
+  if (!enclosingStructuredFree(st, t, inits.length > 0, given)) return false
+  // each class's FB_Init call by its class (upper-cased), run after that class's own fields; the structured initializer after the whole init (M5.1.3)
+  const mine = new Map<string, IrStmt>()
+  const after: IrStmt[] = []
+  if (t.kind === "function_block" && inits.length > 0 && !callFbInits(st, place, t, inits, args, declaring, init, clearInit, mine, after, holder)) return false
   if (t.kind === "function_block" && !instancePaths(st, place, t)) return false
   if (t.kind === "function_block" && !slotMethodCall(st, place, t)) return false
-  return visitFields(st, place, t, inits, declaring, mine)
+  // the structured initializer it is created with that FB_Init did not take (`after`): an enclosing one's (`given`), else its own
+  if (!structuredUnread(st, t, fieldsOf(given) ?? fieldsOf(init))) return false
+  return visitFields(st, place, t, declaring, mine, after, fieldsOf(given) ?? (inits.length === 0 ? fieldsOf(init) : undefined))
 }
 
 /** A PROGRAM's own FB_Inits, allowed only while they call nothing and write no global. */
@@ -169,14 +175,11 @@ function programFbInitsQuiet(st: InitStep, t: Fb): boolean {
   return true
 }
 
-/** The instance's FB_Init calls into `mine`, each input from the declaration's arguments; then a structured initializer on
- *  it re-applied after FB_Init (`st.reapplied`) and taken out of the declaration (`clearInit`). */
-function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[], args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, mine: IrStmt[], holder: Place | undefined): boolean {
+/** The instance's FB_Init calls into `mine`, by the class declaring each, each input from the declaration's arguments;
+ *  then a structured initializer on it re-applied after its FB_Init (`after`, `fb_init_and_structured_initializer`) and
+ *  taken out of the declaration (`clearInit`). */
+function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[], args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, mine: Map<string, IrStmt>, after: IrStmt[], holder: Place | undefined): boolean {
   const { lw, span } = st
-  // Inner first is recorded for a holder with no EXTENDS (`fb_init_nested_in_fb_init`). With a base chain, whether a
-  // field's FB_Init runs before the base's or the derived's is not — the review of that batch found it guessed.
-  if (t.scope?.baseScope !== undefined && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => reachesFbInit(st, f.type, "fb-init")))
-    return lw.bail("fb-init-order", `${t.name} extends a base and holds an instance running FB_Init — their order is not recorded`, span) ?? false
   const given = new Map<string, Expr>()
   for (const arg of args) {
     if (arg.param === undefined || arg.output || arg.value === undefined) return lw.bail("fb-init-argument", `${t.name} declared with a positional FB_Init argument`, span) ?? false
@@ -194,7 +197,7 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
     }
     if (programReentrant(lw, routineCallee(lw, routine), programTarget(place)) !== undefined)
       return lw.bail("call-program-reentrant", `${sym.owner.name}'s FB_Init may reach the PROGRAM its instance lives in, which it runs moved out of`, span) ?? false
-    mine.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
+    mine.set(sym.owner.name.toUpperCase(), { kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
   }
   if (typeof init === "object" && "fields" in init) {
     const fields = lw.layouts.get(t.name.toUpperCase())?.fields ?? []
@@ -202,7 +205,7 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
       const field = fieldIn(fields, name)
       if (field === undefined || typeof value === "object")
         return lw.bail("fb-init-order", `${t.name} declared with FB_Init arguments and a nested structured initializer — applied after FB_Init, not modelled`, span) ?? false
-      st.reapplied.push({ kind: "assign", target: { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, value: { kind: "const", value, type: field.type, span }, span })
+      after.push({ kind: "assign", target: { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, value: { kind: "const", value, type: field.type, span }, span })
     }
     clearInit()
   }
@@ -282,11 +285,16 @@ function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, given: Rea
 }
 
 /**
- * The instances inside one (field by field, recursively), with the type's own field initializers interleaved — then the
- * instance's own FB_Init calls (`mine`), after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's
- * saw 5) — all into `st.fbInitCalls`.
+ * The instances inside one (field by field, recursively), with the type's own field initializers interleaved — PER CLASS
+ * of its EXTENDS chain, the base first: that class's own fields in declaration order (an initializer that runs, or a
+ * field instance's whole init), then that class's FB_Init (`mine`) — all into `st.fbInitCalls`. Recorded
+ * (`init_extends_interleaving`: base field 1, base FB_Init 2, derived field 3, derived FB_Init 4;
+ * `init_extends_field_instance`: the derived class's field instance's FB_Init at its position, after the base's FB_Init
+ * and before the derived one, with and without a derived FB_Init; `_in_base`: the base's field instance before the base's
+ * FB_Init); without EXTENDS an instance's own FB_Init after those of the instances inside it (`fb_init_nested_in_fb_init`:
+ * the outer's saw 5). These recordings lift both `fb-init-order` refusals of an EXTENDS chain (transpile-restructure 5.6).
  */
-function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "struct" }>, inits: readonly Symbol[], declaring: Lowering, mine: readonly IrStmt[]): boolean {
+function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "struct" }>, declaring: Lowering, mine: ReadonlyMap<string, IrStmt>, after: readonly IrStmt[], structured: Readonly<Record<string, IrInit>> | undefined): boolean {
   const { lw, span, fbInitCalls } = st
   const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
   const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
@@ -294,56 +302,96 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
   // in declaration order (`declarations/init-sequence.ts`). Lowered once per FB TYPE into an implicit routine,
   // because a routine is already the thing that runs a body on an instance; `invoke` binds this one.
   //
-  // FUNCTION BLOCKS ONLY, and the whole EXTENDS chain, BASE FIRST. Both halves were wrong and both were silent:
-  //   - a STRUCT has no entry in `lw.bodies`, so a `?? declaring` fallback handed this the DECLARING POU's
-  //     lowering and built `STRUCT.__INIT` out of the POU's own pending inits, whose slot indices index the POU's
-  //     frame. It wrote into an unrelated struct field, ran the statement twice, and where the index was out of
-  //     range it threw out of the interpreter;
-  //   - a DERIVED FB got only its own, so a base's `p : POINTER TO INT := ADR(m)` left `d.p` at 0 with no
-  //     diagnostic — the exact "silently started at its default" failure `init-not-constant` exists to prevent.
-  // The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
+  // FUNCTION BLOCKS ONLY, and each class of the EXTENDS chain over its OWN fields. A STRUCT has no entry in `lw.bodies`,
+  // so a `?? declaring` fallback once built `STRUCT.__INIT` out of the declaring POU's pending inits, whose slot indices
+  // index the POU's frame; and a DERIVED FB once got only its own, so a base's `p : POINTER TO INT := ADR(m)` left `d.p`
+  // at 0. The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
   // same indices they have in the base's own frame.
   //
-  // BEFORE the instance's FB_Init (transpile-review 22): CODESYS completes the implicit initialization first — FB_Init
+  // BEFORE the class's FB_Init (transpile-review 22): CODESYS completes the implicit initialization first — FB_Init
   // dereferences an `ADR(m)` field and reads a call-initialized one (`tr_22_fb_init_reads_adr_field`,
-  // `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone. Whether a DERIVED type's initializers
-  // run before its BASE's FB_Init is not recorded: refused.
+  // `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone.
   //
   // INTERLEAVED with the instances inside it, by declaration (transpile-review 23): a field running FB_Init does so at
   // its own position, so the initializers declared before it have run and those after it have not
   // (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). The sequence is split there, one routine per part.
   const chain = t.kind === "function_block" ? chainNamesOf(t) : []
-  // the depth of the most basic FB_Init in the chain — a type below it initializes after a base's FB_Init could run
-  const firstFbInit = Math.min(...inits.map((sym) => chain.findIndex((name) => name.toUpperCase() === sym.owner.name.toUpperCase())))
-  const initialized = chain.filter((type) => pendingInitsOf(lw, type) > 0)
-  const below = initialized.find((type) => chain.indexOf(type) > firstFbInit)
-  if (below !== undefined) return lw.bail("fb-init-order", `${below}'s field initializers and a base's FB_Init — which runs first is not recorded`, span) ?? false
-  const ordered: IrStmt[] = []
-  const run = { from: 0 }
   const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
+  const classes = classRanges(lw, chain, layoutFields)
+  if (classes === undefined) return lw.bail("fb-init-order", `${t.name}'s fields are not its bases' fields followed by its own — which class a field belongs to is not known`, span) ?? false
   // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
   // which then started from 0 where the 9 is re-applied (review of the fixture batch)
   const declared = st.declaredInits.get(t.name.toUpperCase()) ?? layoutFields.map((f) => f.init)
   st.declaredInits.set(t.name.toUpperCase(), declared)
-  for (const [i, field] of [...layoutFields].entries()) {
-    const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: typeZero(field.type) })
-    const start = fbInitCalls.length
-    if (!visit(st, { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(lw, owner, field.name), nested, declared[i]!, clear, place)) return false
-    const inside = fbInitCalls.splice(start)
-    if (inside.length === 0) continue
-    if (!initializeUpTo(st, place, initialized, run, ordered, i + 1)) return false
-    ordered.push(...inside)
+  const ordered: IrStmt[] = []
+  // THE POSITION RULE in the instance's frame (`position.ts`): from its first step statement on, a later constant field is a
+  // statement at its position, THIS instance's field zeroed at the start of its walk (`zeroed`), never the TYPE's layout
+  // (gate 5c); the instance's own structured initializer re-applied after its whole init (`reapplied`).
+  const [zeroed, reapplied]: IrStmt[][] = [[], []]
+  let started = false
+  for (const { type, from, to } of classes) {
+    const frame = type === undefined ? undefined : lw.bodies.get(type.toUpperCase())?.lowering
+    const pending = frame === undefined ? [] : initFrame(frame).pendingInits
+    const initialized = pending.length > 0 ? [type!] : []
+    const run = { from }
+    for (let i = from; i < to; i++) {
+      const field = layoutFields[i]!
+      const fieldPlace: Place = { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }
+      const runs = pending.filter((p) => p.slot === i)
+      // an aggregate's static part, when its dynamic elements run (`target`), is a constant like any other
+      const constant = frame !== undefined && initFrame(frame).constants.has(i)
+      if (started && runs.every((p) => p.target !== undefined) && startsAsStatement(st, field.type, declared[i]!, constant)) {
+        if (!initializeUpTo(st, place, initialized, run, ordered, i)) return false
+        zeroed.push(startStatement(fieldPlace, zeroInit(field.type)))
+        ordered.push(startStatement(fieldPlace, declared[i]!))
+        const own = namedIn(structured, field.name)
+        if (own !== undefined) reapplied.push(startStatement(fieldPlace, own))
+      }
+      if (runs.length > 0) started = true
+      const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: typeZero(field.type) })
+      const start = fbInitCalls.length
+      if (!visit(st, fieldPlace, declaredArgs(lw, owner, field.name), nested, declared[i]!, clear, place, namedIn(structured, field.name))) return false
+      const inside = fbInitCalls.splice(start)
+      if (inside.length === 0) continue
+      if (!initializeUpTo(st, place, initialized, run, ordered, i + 1)) return false
+      ordered.push(...inside)
+      started = true
+    }
+    if (!initializeUpTo(st, place, initialized, run, ordered, to)) return false
+    const fbInit = type === undefined ? undefined : mine.get(type.toUpperCase())
+    if (fbInit !== undefined) {
+      ordered.push(fbInit)
+      started = true
+    }
   }
-  if (!initializeUpTo(st, place, initialized, run, ordered, Number.POSITIVE_INFINITY)) return false
-  // an instance's own FB_Init runs after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's saw 5)
-  fbInitCalls.push(...ordered, ...mine)
+  fbInitCalls.push(...zeroed, ...ordered, ...after, ...reapplied)
   return true
+}
+
+/**
+ * The field range each class of an EXTENDS chain declares, base first — `[from, to)` into the instance's layout fields,
+ * the last class's running to the end (hidden fields added after the layout included). A struct is one range with no
+ * class. Undefined when a base has no layout, or its fields are not the instance's first fields, by name.
+ */
+function classRanges(lw: Lowering, chain: readonly string[], fields: readonly IrSlot[]): { type: string | undefined; from: number; to: number }[] | undefined {
+  if (chain.length === 0) return [{ type: undefined, from: 0, to: fields.length }]
+  const out: { type: string; from: number; to: number }[] = []
+  let from = 0
+  for (const [k, type] of chain.entries()) {
+    const own = lw.layouts.get(type.toUpperCase())?.fields
+    if (own === undefined) return undefined
+    const to = k === chain.length - 1 ? fields.length : own.length
+    if (to < from || own.slice(0, to).some((f, i) => fields[i]?.name.toUpperCase() !== f.name.toUpperCase())) return undefined
+    out.push({ type, from, to })
+    from = to
+  }
+  return out
 }
 
 /** The initializers of the fields from `run.from` up to `to`, each type's part run on the instance (into `ordered`). */
 function initializeUpTo(st: InitStep, place: Place, initialized: readonly string[], run: { from: number }, ordered: IrStmt[], to: number): boolean {
   for (const type of initialized) {
-    const routine = instanceInitRoutine(st.lw, type, run.from, to)
+    const routine = instanceInitRoutine(st.lw, type, run.from, to, place.type.kind === "function_block" ? place.type.name : type)
     if (routine === null) return false
     if (routine !== undefined) ordered.push({ kind: "eval", value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span: st.span }, span: st.span })
   }

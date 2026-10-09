@@ -488,11 +488,15 @@ END_PROGRAM
     expect(p.get("other")).toBe(0n) // the init step read the DEFAULT, not the 1 the body writes
     expect(p.get("iCount")).toBe(1n)
 
-    // What IS still reported: reading a declaration that comes LATER, whose own initializer has not run.
-    // `i : INT := ABS(other); other : INT := -7;` is 0 on SP21, and a constant initializer is the slot's starting
-    // value here rather than a statement — so this would answer 7. Refused rather than guessed.
+    // Reading a declaration that comes LATER reads it before its own initializer has run: `i : INT := ABS(other); other :
+    // INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). It was refused while a constant was the slot's starting
+    // value rather than a statement (it would have answered 7); the init step's position rule makes the later constant a
+    // statement after `i`'s (transpile-restructure 5.7, `init/position.ts`).
     const later = lowerSource(wrap(";", "i : INT := ABS(other);\n  other : INT := -7;"))
-    expect(later.diagnostics.map((d) => d.code)).toEqual(["init-reads-later"])
+    expect(later.diagnostics).toEqual([])
+    const q = run(later.pou!)
+    q.scan()
+    expect([q.get("i"), q.get("other")]).toEqual([0n, -7n])
   })
 })
 

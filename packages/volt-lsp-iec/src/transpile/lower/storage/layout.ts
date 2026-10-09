@@ -58,7 +58,8 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   // LowerDiagnostic and never a throw. CODESYS rejects the shape too, so nothing is lost by refusing it; what was
   // lost was the difference between "refused" and "crashed". The corpus has no self-referential type, which is why
   // `TOTALITY` never saw it — found by aiming at `calls.ts`'s uncovered refusals (0.7).
-  if (buildingOf(lw).has(key)) {
+  // (a type whose layout is SET while its build finishes — its init sequence lowering `THIS` — is laid out, not recursive)
+  if (buildingOf(lw).has(key) && !lw.layouts.has(key)) {
     lw.bail("layout-recursive", `${name} contains itself, so it has no size`, where)
     return { ...t, name }
   }
@@ -123,10 +124,6 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_STAT")) declareStatics(lw, nested, t.name, section, statics)
     nested.displayName = ast.name.text
     lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending", ...(sym?.uri === undefined ? {} : { uri: sym.uri }) })
-    // Built HERE, though it RUNS in the init step: a field initializer may store an address (`p : POINTER TO X :=
-    // ADR(y)`), and a body that dereferences that pointer is only allowed to once the store is known. The body
-    // lowers later — on the first call — so this has to come first.
-    buildInitSequence(nested)
   } else {
     lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, where)
     return
@@ -134,6 +131,16 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   drain(lw, nested)
   // the live frame: temps the FB's body adds when a call lowers it are fields of the instance too
   lw.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: nested.slots, ...(statics.length > 0 ? { statics } : {}) })
+  // Built HERE, though it RUNS in the init step: a field initializer may store an address (`p : POINTER TO X :=
+  // ADR(y)`), and a body that dereferences that pointer is only allowed to once the store is known. The body lowers
+  // later — on the first call — so this has to come first; and AFTER the layout is set, so an initializer naming the
+  // instance itself (`self : POINTER TO X := THIS`, `THIS^.n`) finds its type laid out rather than being built
+  // (`tr_22_fb_init_reads_this_field`, `init_this_in_initializer`; it was `layout-recursive`).
+  if (lw.bodies.get(t.name.toUpperCase())?.lowering === nested) {
+    const before = nested.diagnostics.length
+    buildInitSequence(nested)
+    drain(lw, nested, before)
+  }
 }
 
 /** Whether a value of `t` holds an FB instance — it is one, or an element or a field at any depth is. */

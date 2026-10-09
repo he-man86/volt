@@ -1,6 +1,6 @@
 /** A FRESH VALUE OF A TYPE — what a slot, a field or an element starts at. */
-import type { IrInit, IrLayout, IrValue } from "../ir/index.js"
-import { peelArray, type Type, typeZero } from "../../frontend/types/index.js"
+import type { IrInit, IrLayout } from "../ir/index.js"
+import { peelArray, type Type } from "../../frontend/types/index.js"
 import type { Val } from "./value.js"
 import { fit } from "./store.js"
 
@@ -15,9 +15,12 @@ export function instantiate(type: Type, init: IrInit, layouts: ReadonlyMap<strin
     return Object.fromEntries(layout.fields.map((f) => [f.name.toUpperCase(), instantiate(f.type, named[f.name.toUpperCase()] ?? f.init, layouts)]))
   }
   const array = peelArray(type)
-  // every element starts at its OWN type's zero — a BOOL array's is FALSE, not the array slot's placeholder — unless an
-  // aggregate initializer gave it one
-  const elements = typeof init === "object" && "elements" in init ? init.elements : []
-  if (array !== undefined) return Array.from({ length: array.length }, (_, i) => instantiate(array.element, elements[i] ?? typeZero(array.element), layouts))
-  return fit(init as IrValue, type)
+  // an array's stated elements, then every remaining one at `rest` — the complete `IrInit` lowering made; no default
+  // is picked here (transpile-restructure 5.3)
+  if (array !== undefined) {
+    if (typeof init !== "object" || !("elements" in init)) throw new Error("instantiate: an array whose initial value states no elements")
+    return Array.from({ length: array.length }, (_, i) => instantiate(array.element, i < init.elements.length ? init.elements[i]! : init.rest, layouts))
+  }
+  if (typeof init === "object") throw new Error(`instantiate: a ${type.kind} with an aggregate initial value`)
+  return fit(init, type)
 }

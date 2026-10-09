@@ -3,7 +3,7 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import { exprText, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { exprText, type Expr, selfRefKind, type Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, readTargets, refuseAfterStore } from "./state.js"
@@ -265,6 +265,9 @@ export function imagePlaceAddress(lw: Lowering, place: Place, text: string, poin
 export function adrOperand(value: Expr | undefined, { parens = true }: { parens?: boolean } = {}): Expr | undefined {
   if (value === undefined) return undefined
   if (value.kind === "paren" && parens) return adrOperand(value.inner)
+  // a bare `THIS` IS the address of the instance — `ADR(THIS^)` (`tr_22_fb_init_reads_this_field`: `self : POINTER TO FB :=
+  // THIS`, read through in FB_Init; `initseq_this`). It did not resolve as a name.
+  if (value.kind === "ident_expr" && selfRefKind(value.name) === "THIS") return { kind: "deref", base: value, span: value.span }
   return value.kind === "call" && value.callee.kind === "ident_expr" && value.callee.name.toUpperCase() === "ADR" && value.args.length === 1
     ? value.args[0]!.value
     : undefined

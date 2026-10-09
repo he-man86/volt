@@ -3,12 +3,12 @@
  * refusals of an overlap or an address shared by several instances.
  */
 
-import type { Lowering } from "../core/lowering.js"
+import { type Lowering, zeroInit } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
 import { bodyChain } from "../core/chain.js"
 import type { Span, VarDecl } from "../../../frontend/syntax/index.js"
 import type { Place } from "../../ir/index.js"
-import { elementaryRef, peelArray, type Type, typeZero } from "../../../frontend/types/index.js"
+import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
 
 /** Every variable bound AT an address, and every bare address, as the BIT RANGE it covers — one interpretation, the
  *  measured one (`addressBits`): its area, its range under byte and under word addressing, and the frame that
@@ -73,7 +73,7 @@ export function addressPlace(lw: Lowering, text: string, span: Span): Place | un
   if (known !== undefined) return { slot: known, path: [], type, span, root: "global" }
   if (!reserveAddress(lw, text, m, key, span)) return undefined
   lw.shared.globals.byName.set(key, lw.shared.globals.slots.length)
-  lw.shared.globals.slots.push({ name: key, type, section: "VAR", init: typeZero(type) })
+  lw.shared.globals.slots.push({ name: key, type, section: "VAR", init: zeroInit(type) })
   return { slot: lw.shared.globals.slots.length - 1, path: [], type, span, root: "global" }
 }
 

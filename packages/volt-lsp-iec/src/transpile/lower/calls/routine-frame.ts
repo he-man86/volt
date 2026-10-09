@@ -5,11 +5,11 @@
  * `calledRoutine` (`routines.ts`, transpile-restructure 1.9.4).
  */
 
-import type { FbType, Lowering, RoutineSymbol } from "../core/lowering.js"
+import { type FbType, type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { StatementList, VarSection } from "../../../frontend/syntax/index.js"
 import { declareInOuts, declareOpenBounds, declareVars } from "../storage/declare.js"
 import { positionalOf, positionalParameters } from "./parameters.js"
-import { ANY_FAMILIES, elementaryRef, type Type, typeZero } from "../../../frontend/types/index.js"
+import { ANY_FAMILIES, elementaryRef, type Type } from "../../../frontend/types/index.js"
 import { ANY_TARGET, anyInputsOf } from "../pointers/any.js"
 import { CURSOR, type CursorArgument, cursorInputsOf } from "../pointers/cursor.js"
 import { BORROWED, borrowedInputsOf, borrowedPointerSlots } from "../pointers/borrowed.js"
@@ -61,7 +61,7 @@ export function hiddenInOuts(
   for (const [input, type] of targets) {
     if (byAddress.has(input)) continue
     pointerFrame(r).anyTargets.set(input, r.inoutSlots.length)
-    r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: typeZero(type) })
+    r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: zeroInit(type) })
   }
   // FORM 2: a `POINTER TO T` parameter this body only dereferences becomes a hidden VAR_IN_OUT of T, and every
   // `p^` becomes the place the CALL binds to it. One lowering serves every call site — which is the whole point,
@@ -76,7 +76,7 @@ export function hiddenInOuts(
     r.inoutByName.set(`${input}^`, inout)
     cursorByInput.set(local, inout)
     if (shares === undefined)
-      r.inoutSlots.push({ name: `${CURSOR}${r.localSlots[local]!.name}`, type: text, section: "VAR_IN_OUT", init: typeZero(text) })
+      r.inoutSlots.push({ name: `${CURSOR}${r.localSlots[local]!.name}`, type: text, section: "VAR_IN_OUT", init: zeroInit(text) })
   }
   cursorInputsOf(lw).set(key, cursorByInput)
   const borrowedByInput = new Map<number, number>()
@@ -86,7 +86,7 @@ export function hiddenInOuts(
     const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
     pointerFrame(r).borrowedPointers.set(name, r.inoutSlots.length)
     borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)
-    r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: typeZero(pointee) })
+    r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: zeroInit(pointee) })
   }
   borrowedInputsOf(lw).set(key, borrowedByInput)
 }

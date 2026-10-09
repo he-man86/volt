@@ -209,6 +209,9 @@ const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
     "ca_direct_address_expression: %MW30 + 1",
     "var_input_constant: iLimit",
     "var_input_constant_default_as_step: n",
+    // lowered for the first time by model 4 (transpile-restructure 5.5: a FUNCTION's VAR initializer that runs per call)
+    "var_input_constant_default_in_init: n * 10",
+    "var_input_constant_default_in_init: n",
     "flw_assign_input_constant: limit_",
     "inout_const_string_literal_3: text = 'abc'",
     "inout_const_variable_7: value * 2",

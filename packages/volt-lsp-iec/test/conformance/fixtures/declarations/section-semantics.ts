@@ -237,6 +237,72 @@ END_FUNCTION_BLOCK
     plcPrgVar: "inst : FB_LANG_tr25;",
     plcPrgBody: "inst();",
   },
+  // openspec transpile-restructure 5.3 (design.md §3.4 step 5c): the two element defaults `array_element_type_default`
+  // does not record — a PARTIAL initializer on an ENUM array (its tail at the enum's default 3, or the family zero), and
+  // an alias OF an alias (its element at the inner alias's 5, at its own 6, or 0) — asked before the IrInit's `rest` states them.
+  {
+    name: "array_element_enum_partial_tail",
+    pouName: "FB_LANG_aeept",
+    kind: "function_block",
+    feature: "a partial initializer on an ARRAY OF an enum whose default is not 0 — the tail at the enum's default or the family zero",
+    fromDoc: "06-data-types.md",
+    source: `TYPE DUT_LANG_aeept_E :
+(
+	A := 3,
+	B := 4
+);
+END_TYPE
+
+FUNCTION_BLOCK FB_LANG_aeept
+VAR
+	ep : ARRAY[0..2] OF DUT_LANG_aeept_E := [DUT_LANG_aeept_E.B];
+	r_ep0 : INT;
+	r_ep1 : INT;
+	r_ep2 : INT;
+END_VAR
+r_ep0 := ep[0];
+r_ep1 := ep[1];
+r_ep2 := ep[2];
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_aeept;",
+    plcPrgBody: "inst();",
+  },
+  {
+    name: "array_element_alias_of_alias",
+    pouName: "FB_LANG_aeaa",
+    kind: "function_block",
+    feature: "an alias of an initialized alias, with and without its own initializer — as a variable and as an array element",
+    fromDoc: "06-data-types.md",
+    source: `TYPE DUT_LANG_aeaa_Base : INT := 5;
+END_TYPE
+
+TYPE DUT_LANG_aeaa_Plain : DUT_LANG_aeaa_Base;
+END_TYPE
+
+TYPE DUT_LANG_aeaa_Own : DUT_LANG_aeaa_Base := 6;
+END_TYPE
+
+FUNCTION_BLOCK FB_LANG_aeaa
+VAR
+	ps : DUT_LANG_aeaa_Plain;
+	os : DUT_LANG_aeaa_Own;
+	pa : ARRAY[0..1] OF DUT_LANG_aeaa_Plain;
+	oa : ARRAY[0..1] OF DUT_LANG_aeaa_Own;
+	r_ps : INT;
+	r_os : INT;
+	r_pa1 : INT;
+	r_oa1 : INT;
+END_VAR
+r_ps := ps;
+r_os := os;
+r_pa1 := pa[1];
+r_oa1 := oa[1];
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_aeaa;",
+    plcPrgBody: "inst();",
+  },
   // Task 30: a composite VAR_TEMP is reset on every call, but the Rust reset writes the type's zero instead of the
   // declared initializer. Each call reads, then overwrites the element it read — so the SECOND call of a scan only
   // reads the initializer again if the reset honours it.

@@ -71,3 +71,42 @@ test("initializers and FB_Init interleave in declaration order, so an FB_Init ar
   // in the POU's own frame
   expect(got(program("x : INT := F_Inc(3);\nh : FB_T(v := x);") + holder("h : FB_T(v := 1);"), "h.got")).toBe(4n)
 })
+
+// transpile-restructure 5.7 — the position rule, in an instance's frame too: from the frame's first step statement on, a
+// later constant is a statement at its position (`init_this_in_initializer`: `THIS^.m` before `m : INT := 9` reads 0, the
+// earlier `n` 7). Called PROGRAMs initialize in the order the POU's body first CALLS them (`init_frame_order_several`:
+// called b then a; `_renamed`: declared Z, A and called A, Z — initialized in call order both times); one the body does
+// not call, beside another, is `init-frame-order`. Several init-slot METHODs whose order could show are
+// `init-slot-order` (it moved with the names, M5.1.4).
+test("the position rule in an instance's frame; called PROGRAMs in call order; the orders not recorded refused", () => {
+  const thisLater =
+    "PROGRAM P\nVAR inst : FB_T; END_VAR\ninst();\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_T\nVAR n : INT := 7; viaThisEarlier : INT := THIS^.n; viaThisLater : INT := THIS^.m; m : INT := 9; END_VAR\nEND_FUNCTION_BLOCK\n"
+  const t = run(ir(thisLater, "P"))
+  t.scan()
+  expect(["inst.n", "inst.viaThisEarlier", "inst.viaThisLater", "inst.m"].map((v) => t.get(v))).toEqual([7n, 7n, 0n, 9n])
+  const stamps = (calls: string) =>
+    "VAR_GLOBAL gSeq : INT; END_VAR\nFUNCTION F_Next : INT\ngSeq := gSeq + 1;\nF_Next := gSeq;\nEND_FUNCTION\n" +
+    `PROGRAM P\nVAR own : INT := F_Next(); pa : INT; pz : INT; END_VAR\n${calls}\npa := A_Prg.own;\npz := Z_Prg.own;\nEND_PROGRAM\n` +
+    "PROGRAM Z_Prg\nVAR own : INT := F_Next(); END_VAR\n;\nEND_PROGRAM\nPROGRAM A_Prg\nVAR own : INT := F_Next(); END_VAR\n;\nEND_PROGRAM\n"
+  const ordered = run(ir(stamps("A_Prg();\nZ_Prg();"), "P"))
+  ordered.scan()
+  expect(["own", "pa", "pz"].map((v) => ordered.get(v))).toEqual([1n, 2n, 3n])
+  const reversed = run(ir(stamps("Z_Prg();\nA_Prg();"), "P"))
+  reversed.scan()
+  expect(["own", "pz", "pa"].map((v) => reversed.get(v))).toEqual([1n, 2n, 3n])
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  expect(codes(stamps("A_Prg();\nIF Z_Prg.own > 0 THEN ; END_IF"))).toEqual(["init-frame-order"])
+  // gate 5c: the recordings call the PROGRAMs as bare statements; a read before the call, or a first call inside a branch
+  // that never runs, was ordered by the first call in silence
+  expect(codes(stamps("pz := Z_Prg.own;\nA_Prg();\nZ_Prg();"))).toEqual(["init-frame-order"])
+  expect(codes(stamps("IF pa > 100 THEN Z_Prg(); END_IF\nA_Prg();\nZ_Prg();"))).toEqual(["init-frame-order"])
+  // gate 5c (second review): a PROGRAM reached through another POU — `Mid` calls Z_Prg before the root names it — was ordered
+  // by the root's own call statements (A before Z) in silence; the recordings call them only from the root
+  const mid = "PROGRAM Mid\nZ_Prg();\nEND_PROGRAM\n"
+  expect(codes(stamps("Mid();\nA_Prg();\nZ_Prg();") + mid)).toEqual(["init-frame-order"])
+  expect(codes(stamps("A_Prg();\nZ_Prg();\nMid();") + mid)).toEqual(["init-frame-order"])
+  const slot = (name: string) =>
+    `FUNCTION_BLOCK ${name}\nVAR stamp : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD Boot\nstamp := F_Next();\nEND_METHOD\n`
+  expect(codes(`VAR_GLOBAL gSeq : INT; END_VAR\nFUNCTION F_Next : INT\ngSeq := gSeq + 1;\nF_Next := gSeq;\nEND_FUNCTION\nPROGRAM P\nVAR a : FB_A; b : FB_B; END_VAR\na();\nb();\nEND_PROGRAM\n${slot("FB_A")}${slot("FB_B")}`)).toEqual(["init-slot-order"])
+})

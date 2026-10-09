@@ -53,9 +53,20 @@ test("a DERIVED function block runs its base's field initializers too", () => {
 
 test("the guards see a read wherever it is — a call's argument, an index, a struct's depth", () => {
   // Each of these lowered clean and answered as though the later declaration were already initialized. The walk
-  // handled `load`/`convert`/`unary`/`binary`/`builtin` and stopped at everything else.
-  expect(codes(F_INC, "i : INT := F_Inc(other);\n\tother : INT := -7;")).toEqual(["init-reads-later"])
-  expect(codes("", "arr : ARRAY[0..3] OF INT := [10,11,12,13];\n\ti : INT := arr[k];\n\tk : INT := 2;")).toEqual(["init-reads-later"])
+  // handled `load`/`convert`/`unary`/`binary`/`builtin` and stopped at everything else. A later SCALAR or ARRAY now reads
+  // its type's zero — its constant is a statement after the read (the position rule, transpile-restructure 5.7;
+  // `cfold_non_constant_argument`: 0) — wherever the read is; a later INSTANCE's or struct's fields, folded per type, stay
+  // refused, wherever the read is too.
+  const scalar = lower(F_INC, "i : INT := F_Inc(other);\n\tother : INT := -7;\n\tarr : ARRAY[0..3] OF INT := [10,11,12,13];\n\tj : INT := arr[k];\n\tk : INT := 2;")
+  expect(scalar.diagnostics).toEqual([])
+  const s = run(scalar.pou!)
+  s.scan()
+  expect(["i", "other", "j", "k"].map((v) => s.get(v))).toEqual([1n, -7n, 10n, 2n])
+  const T_P = "TYPE T_P :\nSTRUCT\n\tn : INT := 4;\nEND_STRUCT\nEND_TYPE\n\n"
+  expect(codes(F_INC + T_P, "i : INT := F_Inc(cfg.n);\n\tcfg : T_P;")).toEqual(["init-reads-later"])
+  expect(codes(F_INC + FB_I, "i : INT := F_Inc(later.started);\n\tlater : FB_I;")).toEqual(["init-reads-later"])
+  // gate 5c: through a POINTER an earlier initializer aimed at the later struct — it answered the type-folded 4
+  expect(codes(T_P, "p : POINTER TO T_P := ADR(cfg);\n\ti : INT := p^.n;\n\tcfg : T_P;")).toEqual(["init-reads-later"])
   // An instance's field is read AFTER its FB_Init when the instance is declared first — the init step interleaves them
   // by declaration (`initseq_after_fb_init`: 5; transpile-review 23) — so only an instance whose STRUCTURED initializer
   // is applied after every FB_Init is still refused, wherever the read is

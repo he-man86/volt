@@ -3,13 +3,13 @@
  * VAR_IN_OUT parameters and an `ARRAY[*]`'s hidden bounds.
  */
 
-import type { Lowering } from "../core/lowering.js"
+import { type Lowering, zeroInit } from "../core/lowering.js"
 import { nested } from "../core/nested.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { Expr, VarDecl, VarSection } from "../../../frontend/syntax/index.js"
 import { bindAddress } from "./addresses.js"
 import { holdsInstance, storageOf } from "./layout.js"
-import { aggregateInit, aliasInit, elementDefaults, runnableInit, scalarInit } from "../init/initial-values.js"
+import { aggregateInit, aliasInit, type DynamicLeaves, elementDefaults, runnableInit, scalarInit } from "../init/initial-values.js"
 import {
   constantSlotType,
   elementaryRef,
@@ -18,23 +18,22 @@ import {
   enumDefault,
   inlineEnumDefault,
   type Type,
-  typeZero,
 } from "../../../frontend/types/index.js"
 import { enumeratorValue } from "../values/enums.js"
 import type { IrInit } from "../../ir/index.js"
 import { stored } from "../values/convert.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { boundName, openDims } from "../places/bounds.js"
-import { initFrame } from "../init/state.js"
+import { initFrame, type PendingInit } from "../init/state.js"
 
 /**
- * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal.
+ * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal — or, for a
+ * VAR_TEMP and a ROUTINE's VAR/VAR_TEMP, a statement of the per-run reset (`resetTemps`).
  *
- * Only the POU'S OWN FRAME asks for it, because only the POU's own init step can run one. This function is also
- * how a LAYOUT's fields and a ROUTINE's locals are declared, and neither has an init step of its own: an FB
- * instance's field initializer runs per instance, which is the same machinery the FB_Init calls use and a larger
- * change than this. Defaulting to `false` is what keeps those refusing rather than silently taking the default —
- * which is the bug the refusal was added for.
+ * Only a caller that RUNS them asks for it: the POU's own frame and an FB's layout (the init step, `__INIT`), a METHOD's
+ * or FUNCTION's locals (`routines.ts`, every call). Defaulting to `false` is what keeps every other declaration — a
+ * GVL, a VAR_OUTPUT scratch, a PROPERTY's locals — refusing rather than silently taking the default, which is the bug
+ * the refusal was added for.
  */
 export function declareVars(lw: Lowering, sections: readonly VarSection[], deferInit = false): void {
   // a VAR_EXTERNAL declares no storage: its name is the global's (`globalPlace`) — a slot here would be a local copy
@@ -57,7 +56,6 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
   // alias to INT and the alias's initializer went with it.
   const decl = { ...written, init: written.init ?? aliasInit(lw, written.type) }
-  const attempt = (): IrInit | undefined => startValue(lw, sec, written, decl, resolved, type)
   // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
   // and the expression is queued in declaration order (`InitFrame.pendingInits`), which is what `ADR(x)`, `THIS`
   // and a call to a user FUNCTION are.
@@ -68,10 +66,9 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // left a half-built global or layout in the cache that nothing would ever re-report. That is gone: every
   // path here either folds and reports, or defers without trying.
   //
-  // A GLOBAL or a ROUTINE's local is not deferred: the init step walks the POU's frame, and whether either
-  // would run there is not measured.
-  // `deferInit` is the caller saying it HAS an init step. A layout's fields and a routine's locals do not, so
-  // deferring there would queue a statement nothing ever emits — the slot silently at its default again.
+  // A GLOBAL is not deferred: the init step walks the POU's frame, and a GVL frame is not walked yet (task 5.7).
+  // `deferInit` is the caller saying it RUNS them (an init step or a per-run reset); without it, deferring would queue
+  // a statement nothing ever emits — the slot silently at its default again.
   // A REFERENCE DECLARATION BINDS, WHICHEVER OPERATOR WAS WRITTEN — measured, not assumed.
   //
   // The first version keyed this on `initOp === "REF="` alone. `declarations/reference-binding.ts` then asked
@@ -83,10 +80,14 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // And it is never a constant either way: it names a place to bind, not a value to fold, so the constant
   // path would answer "not a compile-time constant" about a declaration that is perfectly ordinary.
   const binds = type.kind === "reference" || decl.initOp === "REF="
-  const deferrable =
-    deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && (binds || !foldsToConstant(lw, decl.init))
+  const steps = deferInit && !lw.globalMode
+  const deferrable = steps && decl.init !== undefined && runnableInit(decl.init) && (binds || !foldsToConstant(lw, decl.init))
+  // AN AGGREGATE'S DYNAMIC ELEMENTS RUN TOO (transpile-restructure 5.5): the static part is the slot's initial value, each
+  // element or field that is not a constant a statement after it, in element order (`var_temp_dynamic_aggregate_init`:
+  // `[k, 0 + F(k), g]` and `(a := k, c := F(g))` re-evaluated per call). Only the declaration's own initializer.
+  const dynamic: DynamicLeaves | undefined = steps && written.init?.kind === "aggregate_init" ? { leaves: [] } : undefined
   const before = lw.diagnostics.length
-  const init = deferrable ? undefined : attempt()
+  const init = deferrable ? undefined : startValue(lw, sec, written, decl, resolved, type, dynamic)
   const deferred = deferrable
   // A DROPPED INITIALIZER MUST HAVE SAID SO. `attempt()` answering undefined means the declaration's initial
   // value did not become the slot's — and the ONLY acceptable version of that is a refusal the caller can see.
@@ -106,12 +107,12 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // — and `lowerUnit` returns diagnostics rather than a POU whenever any exist. The LSP made this same fix for
   // its own cascade (`ParseResult.failedDeclarations`).
   const failed = !deferred && decl.init !== undefined && init === undefined
-  declareNames(lw, sec, decl, type, { init, deferred, failed, binds })
+  declareNames(lw, sec, decl, type, { init, deferred, failed, binds, leaves: failed ? [] : (dynamic?.leaves ?? []) })
 }
 
 /** A declaration's initial value: its initializer folded or built, or — with none — its type's (an enum's at its measured
  *  default). */
-function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDecl, resolved: Type, type: Type): IrInit | undefined {
+function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDecl, resolved: Type, type: Type, dynamic: DynamicLeaves | undefined): IrInit | undefined {
   // ONLY a variable that takes the TYPE's default asks where that default is, and for an ENUM that is not always
   // zero — `enumDefault` carries the measured rule. A variable WITH an initializer never asks; neither does
   // folding a VALUE of the same enum, which is a constant its declaration states.
@@ -120,7 +121,7 @@ function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDe
       ? (enumDefault(lw.project, resolved, enumeratorValue(lw)) ?? inlineEnumDefault(written.type, enumeratorValue(lw)))
       : undefined
   if (decl.init === undefined) return enumStart === undefined ? elementDefaults(lw, written.type, type) : stored(enumStart, type)
-  return decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type) : scalarInit(lw, decl.init, type, sec.constant === true)
+  return decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type, written.type, dynamic) : scalarInit(lw, decl.init, type, sec.constant === true)
 }
 
 /** Each name of a declaration becomes a slot — a duplicate refused by name — and a deferred initializer its init-step entry. */
@@ -129,8 +130,15 @@ function declareNames(
   sec: VarSection,
   decl: VarDecl,
   type: Type,
-  { init, deferred, failed, binds }: { init: IrInit | undefined; deferred: boolean; failed: boolean; binds: boolean },
+  { init, deferred, failed, binds, leaves }: { init: IrInit | undefined; deferred: boolean; failed: boolean; binds: boolean; leaves: DynamicLeaves["leaves"] },
 ): void {
+  // run on every run of the body: a VAR_TEMP's, and every local of a METHOD or FUNCTION (its VAR is its temporary section)
+  const perRun = sec.sectionKind === "VAR_TEMP" || lw.routineMode
+  const queue = (pending: PendingInit): void => {
+    if (!perRun) return void initFrame(lw).pendingInits.push(pending)
+    const temps = initFrame(lw).tempInits
+    temps.set(pending.slot, [...(temps.get(pending.slot) ?? []), pending])
+  }
   for (const name of decl.names) {
     // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.
     // CODESYS rejects it outright — "A local variable named 'iCounter' is already defined", "Duplicate definition
@@ -141,17 +149,16 @@ function declareNames(
     // rather than the section.
     if (lw.declared(name.text)) lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
     else {
-      const slot = lw.slots.length
+      // a routine's local is numbered in ITS locals, as `lw.slot` files it
+      const slot = lw.routineMode ? lw.localSlots.length : lw.slots.length
       lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
+      if (sec.constant === true && !lw.routineMode && !lw.globalMode) initFrame(lw).constants.add(slot)
       // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
       // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
       // store through an unbound reference.
-      if (deferred) {
-        const pending = { name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) }
-        // a VAR_TEMP's runs on every run of its body, not once before the first (`resetTemps`)
-        if (sec.sectionKind === "VAR_TEMP") initFrame(lw).tempInits.set(slot, pending)
-        else initFrame(lw).pendingInits.push(pending)
-      }
+      if (deferred) queue({ name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) })
+      const variable: Expr = { kind: "ident_expr", name: name.text, span: name.span }
+      for (const leaf of leaves) queue({ name, type, expr: leaf.expr, span: leaf.span, slot, target: leaf.at(variable) })
     }
   }
 }
@@ -179,7 +186,7 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
       for (const name of decl.names) {
         lw.inoutByName.set(name.text.toUpperCase(), lw.inoutSlots.length)
         const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}
-        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: typeZero(type), ...constant })
+        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: zeroInit(type), ...constant })
       }
     }
 }

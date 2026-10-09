@@ -6,7 +6,7 @@
  */
 import type { Identifier, Span, TypeExpr, VarSection } from "../../../frontend/syntax/index.js"
 import type { lookup, Scope } from "../../../frontend/symbols/index.js"
-import { DEFAULT_STRING_LENGTH, resolveTypeExpr, type Type, typeZero } from "../../../frontend/types/index.js"
+import { DEFAULT_STRING_LENGTH, peelArray, resolveTypeExpr, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { IrInit, IrLayout, IrSlot } from "../../ir/index.js"
 import { emittedKind } from "../diagnostics/codes.js"
 import type { LowerDiagnostic } from "../diagnostics/diagnostic.js"
@@ -132,16 +132,16 @@ export class Lowering {
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit): void {
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
-      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
+      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
       return
     }
     if (this.routineMode) {
       this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
-      this.localSlots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
+      this.localSlots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
       return
     }
     this.byName.set(name.text.toUpperCase(), this.slots.length)
-    this.slots.push({ name: name.text, type, section, init: init ?? typeZero(type) })
+    this.slots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
   }
 
   /** `where` is the scope the declaration belongs to — this one by default; a type declared by another POU (an
@@ -170,4 +170,18 @@ export class Lowering {
     if (t.unfoldedLength === true) this.bail("string-capacity", `the capacity of ${t.name}(${t.lengthText}) does not fold here`, at)
     return { ...t, length: DEFAULT_STRING_LENGTH }
   }
+}
+
+/**
+ * A type's ZERO as a complete `IrInit` — what a slot declared without a start of its own holds: the family zero for a
+ * scalar, an array with every element at its element's zero (`rest`; a struct or FB element at its own fields) — never a
+ * scalar placeholder for an array, which left the backends to pick each element's default (transpile-restructure 5.3).
+ * A struct or FB slot keeps the scalar `typeZero`: a backend builds it from its layout, and `{ fields }` on a slot means
+ * "declared with a structured initializer" (`insideInstance`).
+ */
+export function zeroInit(type: Type): IrInit {
+  const array = peelArray(type)
+  if (array === undefined) return typeZero(type)
+  const element = array.element
+  return { elements: [], rest: element.kind === "struct" || element.kind === "function_block" ? { fields: {} } : zeroInit(element) }
 }

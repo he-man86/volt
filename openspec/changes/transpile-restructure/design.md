@@ -1510,6 +1510,59 @@ The same rule in a type's `__INIT` frame. Rejected: deciding at declaration (whe
 known only once its layout's init is built). `init-reads-later` then narrows to a later INSTANCE's field, by any path (§3.4);
 `init-frame-order` and `init-slot-order` as §3.4; `init_gvl_program_slot_order{,_renamed}` lifted only to 5.7's recording.
 
+### §3.4 Decision (step 5c, as built): where reality moved the plan above (tasks 5.3-5.7, 2026-10-09)
+
+**Recorded first** (one batch per vendor: `record:exec`, `record:language` on CODESYS and on TwinCAT Project13; all build
+clean on both): `array_element_enum_partial_tail`, `array_element_alias_of_alias` (`declarations/section-semantics.ts`),
+`init_extends_field_instance`, `init_extends_field_instance_in_base`, `init_frame_order_several`,
+`init_frame_order_several_renamed` (`oop/init-model.ts`).
+
+**5.3.** The tail of a partial array initializer is NOT the family zero: an ENUM array's tail is the enum's default
+(`array_element_enum_partial_tail`: `[E.B]` gives B, A, A — 4, 3, 3), an alias-of-INT's is 0 (`r_alias_part2`). The rule:
+the element type's start WITHOUT an alias's `:=` (`tailStart`). Storage erases an enum to its integer, so the tail is read
+from the element's DECLARED type — the declaration's, a struct or FB field's (`fieldWritten`), through array aliases
+(`arrayWritten`); where none is at hand an elementary tail is refused by name (`aggregate-init`) rather than started at a
+zero that may be an enum's wrong value. An alias OF an alias takes its own `:=` only (`array_element_alias_of_alias`:
+`Plain : Base` with `Base : INT := 5` is 0, `Own : Base := 6` is 6) — `aliasInit`'s ponytail was right, now recorded. Every
+array slot's `IrInit` is complete: `lower/core` `zeroInit` (no scalar placeholder for an array) is `lw.slot`'s default.
+Found by the fail-loud backends: `arr : ARRAY[0..1] OF INT := 1` (and a struct's, an FB's) lowered with the scalar
+dropped in silence — CODESYS refuses it (`litc_*_init_*`); now `init-composite-scalar` (invalid).
+
+**5.4.** As planned; `initOf` prints a stated-nothing array as `[x; N]` / `from_fn`, so an undeclared array of an enum or
+alias prints compact (`array_element_type_default`'s shape moved, values not).
+
+**5.5.** As planned, plus: the PARSER read `c := F(g)` in a STRUCT initializer as a repeat with count `F` — the
+name-then-group repeat is an ARRAY element's rule only (`frontend/syntax/parse/initializer.ts`; `var_temp_dynamic_aggregate_init`
+records the call). A routine's dynamic locals are `routineLocalInits`, after the VAR_OUTPUT resets; one reading its own or a
+later local stays `init-reads-later`. A dynamic element inside `n(…)` is refused (how often it is evaluated is unrecorded).
+
+**5.6.** As planned, plus three things the plan did not see: (a) a bare `THIS` is `ADR(THIS^)` (`adrOperand`) — it did not
+resolve; (b) a type's init sequence is built AFTER its layout is set (`buildLayout`), so `THIS` / `THIS^.n` in an initializer
+find the type laid out (it was `layout-recursive`); (c) a BASE's field initializers run on a derived instance as a routine OF
+THE DERIVED TYPE (`instanceInitRoutine`'s `on`), as a base METHOD is lowered per frame — filed under the base, the Rust
+called a method the derived struct does not have (or the derived type's own `__init` of that name). `tr_22_fb_init_reads_this_field`,
+`initseq_this` and `init_this_in_initializer` pass; `init_this_in_initializer_argument` stays `fb-init-argument` (an FB_Init
+argument that is neither a constant nor a variable — `THIS^.n`, `THIS` — is 5.8's scope).
+
+**5.7.** As planned, with these readings: (a) NOT a statement under the position rule: a VAR CONSTANT (a compile-time value,
+folded where read — `InitFrame.constants`), a slot already at its type's zero, and an instance's or struct's own field values
+(folded per type, `position.ts`); (b) `init-reads-later` refuses a read of a later struct or instance slot of the frame by
+name or through `THIS^`, and its address (or a bare `THIS`) handed to a call; a called body reaching the frame's storage is
+not checked — the root POU's frame is no global a body can name, and GVL frames are not walked; (c) the structured
+initializer an instance is declared with is applied right after THAT instance's init (M5.1.3), not after every FB_Init;
+(d) called PROGRAMs initialize in the order the POU's body first CALLS them (`init_frame_order_several`: called b, a →
+initialized b, a; `_renamed`: declared Z, A, called A, Z → A, Z; neither declaration nor name order) — more than one with
+statements where one is not called by the POU's own body is `init-frame-order`; (e) GVL frames: several GVLs initialize in
+the order they were CREATED in the project (`init_frame_order_several`: a, b; `_renamed`: Z before A, created in that
+order) — a fact the text does not state. GVL frames are not walked (a GVL's non-constant initializer stays
+`init-not-constant`, an instance there `attr-init-unreached`), so neither of the two GVL fixtures lowers; a walk of
+several GVLs would need `init-frame-order` for that reason; (f) `init-slot-order` refuses several init-slot METHODs only
+where their order could SHOW — one calls anything, writes a global, or touches storage another may write (a called
+PROGRAM's, a dereference's, an in-out's) — instead of any two: several that each touch only their own instance run alike
+in any order, and refusing them would lose the recorded `state_call_after_global_init_counts` and
+`fb_init_before_slot_method_*`. `init_gvl_program_slot_order{,_renamed}` stay refused (their slot methods stamp a global
+clock; and the GVL frame).
+
 ---
 
 ## 4. Old → new map

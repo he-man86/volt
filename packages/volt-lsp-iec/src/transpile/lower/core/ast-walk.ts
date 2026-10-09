@@ -113,3 +113,33 @@ export function borrowedPointerNames(r: Lowering, statements: readonly unknown[]
   walk(statements, false)
   return borrowed
 }
+
+/**
+ * The names whose FIRST MENTION in `statements` — any identifier, at any depth, a read included — is the callee of a
+ * call STATEMENT at the top level of the list, with the source offset of that call (`init/step.ts` orders the called
+ * PROGRAMs' initialization by it: `init_frame_order_several{,_renamed}` record only bodies that call them as bare
+ * statements). A name mentioned first anywhere else — read, called inside an expression or a branch — is absent: which
+ * order that gives is not recorded (gate 5c).
+ */
+export function leadingCalls(statements: readonly unknown[]): Map<string, number> {
+  const mentioned = new Map<string, number>()
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(walk)
+    if (node === null || typeof node !== "object") return
+    const n = node as { kind?: string; name?: unknown; span?: { start: number } }
+    if (n.kind === "ident_expr" && typeof n.name === "string" && n.span !== undefined) {
+      const name = n.name.toUpperCase()
+      if (!mentioned.has(name) || mentioned.get(name)! > n.span.start) mentioned.set(name, n.span.start)
+    }
+    astChildren(node).forEach(walk)
+  }
+  walk(statements)
+  const leading = new Map<string, number>()
+  for (const s of statements as { kind?: string; call?: { callee?: { kind?: string; name?: string; span?: { start: number } } } }[]) {
+    const callee = s.kind === "call_stmt" ? s.call?.callee : undefined
+    if (callee?.kind !== "ident_expr" || callee.name === undefined || callee.span === undefined) continue
+    const name = callee.name.toUpperCase()
+    if (!leading.has(name) && mentioned.get(name) === callee.span.start) leading.set(name, callee.span.start)
+  }
+  return leading
+}

@@ -2,13 +2,13 @@
  * PROPERTY accessors as routines: a GET read and a SET assigned.
  */
 
-import type { FbType, Lowering, RoutineSymbol } from "../core/lowering.js"
+import { type FbType, type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { Expr, Property, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrDispatch, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { bodyOf, once, routineLowering } from "./routines.js"
 import { childScopesByName, lookupMember } from "../../../frontend/symbols/index.js"
 import { storageOf } from "../storage/layout.js"
-import { inferExprType, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
+import { inferExprType, UNKNOWN } from "../../../frontend/types/index.js"
 import { declareVars } from "../storage/declare.js"
 import { lowerBlock } from "../statements/statements.js"
 import { isSuper } from "./super.js"
@@ -44,7 +44,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)
     r.localByName.set(sym.name.toUpperCase(), 0)
-    r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: typeZero(type) })
+    r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: zeroInit(type) })
     declareVars(r, part.varSections)
     const body = lowerBlock(r, parsed.statements)
     if (drain(lw, r)) return undefined

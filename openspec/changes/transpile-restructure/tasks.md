@@ -3659,24 +3659,51 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     - M unchanged (5429 fixtures, confirmed 2863, not-lowered 389, lsp-gap 83, diverges 11).
     - Numbers: `bun typecheck` clean; `openspec validate` valid; full suite (`VOLT_REQUIRE_FULL=1 bun test`, no
       VOLT_FIXTURES) 8754 pass, 35 skip, 432 todo, 0 fail (9221 tests, 581 s).
-- [ ] 5.3 Element defaults (RC 25).
+- [x] 5.3 Element defaults (RC 25).
   - What: `types/defaults.typeDefault` covers enum (via `types/enums`), alias initializer, alias array and elements;
     `init/initial-values.ts` fills `IrInit` completely; `semantics/instantiate.ts` and `emit/rust/values.initOf` no longer call `typeZero`
     for an element.
   - Where: `types/defaults.ts`, `lower/init/initial-values.ts`, `semantics/instantiate.ts`, `emit/rust/values.ts`.
   - Accept: F(`array_element_type_default`); partial tails stay zero (r_alias_part2 = 0); G+LSP; M.
   - Depends: 5.2.
-- [ ] 5.4 RC 30 verified in the new home; the free `initOf` folded in.
+  - Done 2026-10-09 (step 5c; design.md "§3.4 Decision (step 5c, as built)"). Recorded first, one batch per vendor
+    (`record:exec`, `record:language` on CODESYS and on TwinCAT Project13, all six of the step's fixtures; both build clean):
+    `array_element_enum_partial_tail` — an ENUM array's partial tail is the enum's DEFAULT (`[E.B]` gives 4, 3, 3), not the
+    family zero the plan said; `array_element_alias_of_alias` — an alias of an initialized alias takes its own `:=` only
+    (`Plain : Base` 0, `Own : Base := 6` 6; the `aliasInit` ponytail was right, now cited). `IrInit`'s array form is
+    `{ elements, rest }` (`ir/program.ts` `IrArrayInit`), complete: `lower/core` `zeroInit` is every slot's default (no scalar
+    placeholder for an array); `aggregateInit` states `rest` by `tailStart` — the element's start without an alias's `:=`,
+    read from the DECLARED element type (storage erases an enum; `arrayWritten`, `fieldWritten`), an elementary tail with no
+    declaration at hand refused by name; `elementDefaults` compact. `instantiate` and `initOf` read `rest` and THROW on an
+    array init without elements — which found `arr : ARRAY[0..1] OF INT := 1` (and a struct's, an FB's: `litc_*_init_*`,
+    `arrinit_scalar_into_struct_array`, `cc3_input_defaults`) lowering with the scalar dropped in silence: now
+    `init-composite-scalar` (invalid; all `refused` by CODESYS already, so only their Rust columns go). The element fact
+    stays in `lower/init/initial-values.ts` (`typeDefault` not built — §3.4 step 5c). Src tests: `initial-values.test.ts`
+    (the tail, alias-of-alias, the compact `IrInit`, the composite refusal).
+- [x] 5.4 RC 30 verified in the new home; the free `initOf` folded in.
   - What: RC 30 was fixed upstream (e06405f97c: `fresh` prints the init-aware `initOf`). The free `initOf(t, IrValue)` becomes a case of
     the one `initOf(t, IrInit)`.
   - Where: `emit/rust/values.ts`, `expr.ts`.
   - Accept: `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` stay confirmed, edge agree; S-out; one `initOf` left (grep).
   - Depends: 5.3.
-- [ ] 5.5 A dynamic VAR_TEMP initializer runs on every call (RC 24).
+  - Done 2026-10-09 (step 5c, with 5.3). One `initOf(layouts, t, IrInit)` left (grep: `initOfValue` gone); it prints a
+    stated-nothing array as `[x; N]` / `from_fn`, so only fixtures whose undeclared array takes a non-zero element default
+    moved shape (`array_element_type_default`), values unchanged; `decl_temp_array_init_resets`, `decl_temp_struct_init_resets`
+    confirmed, edge agree. S-out was not measured apart from 5.3 (the two landed as one edit).
+- [x] 5.5 A dynamic VAR_TEMP initializer runs on every call (RC 24).
   - Where: `lower/init/temp-resets.ts`, per 5.2's form.
   - Accept: F(`var_temp_dynamic_init`, `var_temp_dynamic_init_method`, `_function`, `var_temp_dynamic_aggregate_init`); M.
   - Depends: 5.4.
-- [ ] 5.6 Field initializers before FB_Init (RC 22).
+  - Done 2026-10-09 (step 5c). `declare.ts` defers a METHOD's/FUNCTION's VAR and VAR_TEMP (`routines.ts` passes
+    `deferInit`; every local of a routine runs per call) into `tempInits` (now a list per slot, by LOCAL slot); `routineLocalInits`
+    runs them after the VAR_OUTPUT resets, a read of its own or a later local `init-reads-later`. An aggregate's dynamic
+    elements and fields (`DynamicLeaves`) are statements after the `IrFresh` of its static part (VAR_TEMP: every run; an
+    FB/PROGRAM VAR: once, at its position); one inside `n(…)` refused. Front-end fix found on the way: the parser read a
+    STRUCT field's `F(g)` as a repeat with count `F` — the name-then-group repeat is an array element's rule only
+    (`parse/initializer.ts`, src test first). F: `var_temp_dynamic_init`, `_method`, `_function`, `var_temp_dynamic_aggregate_init`
+    confirmed (Rust and interpreter); also lifted: the 22 `initord_*` fixtures (a FUNCTION's VAR initialized from a global —
+    they were `init-not-constant`), `var_input_constant_default_in_init`. Src test: `temp-resets.test.ts`.
+- [x] 5.6 Field initializers before FB_Init (RC 22).
   - Where: `lower/init/step.ts`, `init/instance-init.ts`.
   - Accept: F(`tr_22_fb_init_reads_adr_field`, `tr_22_fb_init_reads_call_field`); `tr_22_fb_init_reads_this_field` passes if 5.2 lifts THIS,
     else stays not-lowered with its reason written here; the EXTENDS order per `init_extends_interleaving`; FIRST recorded
@@ -3684,7 +3711,20 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     with and without the derived FB_Init; field in the base) — `fb-init-order`'s EXTENDS site lifted only to the order
     recorded; its nested-structured-initializer site stays (niche); M.
   - Depends: 5.2.
-- [ ] 5.7 Declaration-ordered interleaving (RC 23).
+  - Done 2026-10-09 (step 5c). Recorded first (the 5.3 batch): `init_extends_field_instance` — a derived class's field
+    instance's FB_Init at its position, after the base's FB_Init and before the derived FB_Init (1-6), the same without a
+    derived FB_Init (7-11); `init_extends_field_instance_in_base` — the base's field instance between its fields, before the
+    base's FB_Init (1-6). `visitFields` walks per class of the chain, base first: its own fields (`classRanges`), then its
+    FB_Init (`mine` by class); both `fb-init-order` EXTENDS sites gone; the nested-structured site stays (niche, 0). Three
+    findings: a bare `THIS` is `ADR(THIS^)` (`adrOperand`); a type's init sequence is built after its layout is set
+    (`buildLayout`; THIS in an initializer was `layout-recursive`); a base's initializers run on a derived instance as a
+    routine OF THE DERIVED TYPE (`instanceInitRoutine` `on` — the Rust called a method the derived struct lacks). F:
+    `tr_22_fb_init_reads_adr_field`, `_call_field` stay confirmed; `tr_22_fb_init_reads_this_field` passes (THIS lifted);
+    `init_extends_interleaving`, both new fixtures, `initseq_this`, `expr_this_as_pointer`, `mem_private_method_of_same_type_instance` confirmed.
+    `init_this_in_initializer_argument` stays not-lowered: `fb-init-argument` (`THIS^.n` / `THIS` as an FB_Init argument —
+    neither a constant nor a variable; 5.8's scope). Src test: `fb-init.test.ts` (the per-class order; the pinned
+    `fb-init-order` refusal replaced by the recorded order).
+- [x] 5.7 Declaration-ordered interleaving (RC 23).
   - Where: `lower/init/step.ts`, `init/sequence.ts`, `init/fb-init.ts`.
   - Accept: F(`tr_23_fb_init_argument_from_pending_init` got = 4, `tr_23_fb_init_argument_from_pending_init_reversed` got = 0);
     `init-reads-instance` stays at its present scope (§3.4: an instance with a structured initializer); `init-reads-later`
@@ -3693,6 +3733,66 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
     with a stamping initializer, and a renamed twin — the frame order lifted to it, `init-frame-order` refusing until
     then; `init-slot-order` for more than one slot method; `initseq_*` fixtures stay confirmed; M.
   - Depends: 5.6.
+  - Done 2026-10-09 (step 5c). Recorded first (the 5.3 batch): `init_frame_order_several{,_renamed}` — called PROGRAMs
+    initialize in the order the POU's body first CALLS them (b, a; A, Z), GVLs in the order they were CREATED (a, b; Z, A),
+    which no text states. `init/step.ts` is one declaration-ordered walk: the POU's frame (an initializer that runs, a
+    constant once started, an instance's whole init then its structured initializer), then the called PROGRAMs in call order
+    (`calledOrder`; more than one not called by the POU's body: `init-frame-order`), then the slot methods. The position rule
+    (`init/position.ts`) in the POU's frame and in each instance's frame (the TYPE's field cleared to zero, the constant a
+    statement at its position); a VAR CONSTANT, a slot at its zero, and an instance's/struct's own fields are never one.
+    `init-reads-later` narrowed to a later struct/instance slot read by name or `THIS^`, or its address (or `THIS`) handed to a
+    call. `init-slot-order` (not-measured): several slot methods whose order could show (one calls anything, writes a global,
+    or touches a PROGRAM's/dereferenced/in-out storage) — narrower than §3.4's "more than one" so the recorded
+    `state_call_after_global_init_counts`, `fb_init_before_slot_method_*` stay confirmed (design.md as built (f)). GVL frames
+    stay unwalked (`init-not-constant`, `attr-init-unreached`), so `init_frame_order_several{,_renamed}` and
+    `init_gvl_program_slot_order{,_renamed}` stay not-lowered. F: `tr_23_*` (4, 0) and `initseq_*` (8 confirmed;
+    `initseq_fb_init_declared_last` not-lowered as before) unchanged; `cfold_non_constant_argument` (0) and
+    `init_this_in_initializer` (`THIS^.m` before `m := 9` reads 0) confirmed; `init-reads-instance` unchanged. Src tests:
+    `step.test.ts` (position rule in an instance frame, call order both ways, both refusals), `sequence.test.ts` and
+    `totality.test.ts` (the pinned scalar `init-reads-later` replaced by the recorded 0; a later struct/instance still refused).
+  - M (`rate:fixtures`, steps 5.3-5.7): 5429 -> 5435 fixtures; confirmed 2863 -> 2900, refused 1991, not-lowered 389 -> 358,
+    lsp-gap 83, diverges 11, unaskable 92; edge agree 3098 -> 3105, disagree 3, not-run 185 -> 207; no confirmed fixture lost.
+  - Gate 5c (2026-10-09). Review fixes, each src test red first:
+    - (high) The position rule in an instance's frame wrote the TYPE's layout to zero, so every construction the walk does
+      not follow (a VAR_TEMP's per-run reset) started the field at 0 (`tmp.k` 0, was 5), and a structured initializer on the
+      instance or struct (`i : FB := (k := 7)`, `sv : ST := (late := 9)`) was overwritten by the type's constant. Now the
+      instance's field is zeroed by a statement at the start of ITS walk, the layout untouched, and the instance's own
+      structured initializer (or an enclosing one's for a field) re-applied after its whole init — the recorded order after
+      FB_Init (`fb_init_and_structured_initializer`). `fb-init.test.ts`.
+    - (medium) `calledOrder` ordered by the first call anywhere; now only a PROGRAM first NAMED by a top-level call
+      statement (what the recordings show) is ordered — read first, called first in a branch or an expression:
+      `init-frame-order` (`leadingCalls` replaces `firstCalls`). `step.test.ts`.
+    - (medium) A dynamic leaf inside a repeated NESTED aggregate (`[2([F_Next(), 7])]`) is `aggregate-init`, as a repeated
+      dynamic value is. `initial-values.test.ts`.
+    - (low) `init-reads-later` also catches a read through a dereference while an initializer of the frame aims a pointer
+      or reference at a later struct/instance (`p : POINTER TO T_P := ADR(cfg); i : INT := p^.n;`). `sequence.test.ts`.
+    - (low, skipped) The baseline's ceiling exceptions for `init_frame_order_several{,_renamed}` are the known dump limit
+      (a VAR_GLOBAL list binds no scope in the front-end dumps, 5.1's lead), not a second GVL unresolved: both NOSCOPE
+      lines are the two VAR_GLOBAL lists of the fixture's ONE .gvl file. The comment in `baseline.ts` says so now.
+    - M (`rate:fixtures`): unchanged (5435 fixtures, confirmed 2900, not-lowered 358, edge agree 3105); six confirmed
+      fixtures' Rust shape moved (the zeroing statement): `tr_22_fb_init_reads_this_field`, `init_this_in_initializer`,
+      `cfold_non_constant_argument`, `initseq_adr_of_later`, `initseq_this`, `refdecl_target_after`.
+    - Second review (2026-10-09), each src test red first, all three refused by name (no recording; not measured):
+      - (medium) A type's running initializer reading a field the instance's structured initializer names answered by the
+        field's POSITION (declared before the type's first running initializer: 7, the structured value; after: 5, the
+        declared one); `fb_init_and_structured_initializer` records only what FB_Init sees. Now `init-reads-instance`
+        (`position.ts` `structuredUnread`; by name, THIS^ or address, every class of the chain; with or without FB_Init).
+        Corpora: 5 structured initializers on a declaration in all six, two on an FB (`TON (PT := …)`, a library
+        `L_IMHP_ModuleHandler`) — library types, no user initializer reads them. `fb-init.test.ts`.
+      - (medium) An ENCLOSING structured initializer reaching a nested instance that runs FB_Init (`o : Outer := (inner :=
+        (k := 9))`) was in place at construction, FB_Init saw 9 (on the instance's own declaration: 0, recorded). Now
+        `fb-init-order`, as the instance's own nested structured value — niche: accepted loss (0 occurrences in the
+        corpora: no nested structured initializer). `position.ts` `enclosingStructuredFree`; `fb-init.test.ts`.
+      - (medium) `calledOrder`'s doc promised `init-frame-order` for a PROGRAM reached through another POU; the code looked
+        at the root's own statements only (`Mid(); A_Prg(); Z_Prg();`, Mid calling Z_Prg: A before Z in silence). Now any
+        lowered body other than the root's (a PROGRAM's, an FB's, a METHOD's, an ACTION's, a FUNCTION's) that CALLS one of
+        the ordered PROGRAMs, or runs an action/method on it, is `init-frame-order`. A READ from another POU still orders
+        by the root's calls: a first cut on the touched sets (reads included) lost the seven confirmed `initord_chain*`
+        (each PROGRAM's initializer reads the next one's instance), so it was narrowed to calls. `step.test.ts`.
+    - M (`rate:fixtures`): unchanged (5435 fixtures, confirmed 2900, refused 1991, not-lowered 358, lsp-gap 83, diverges
+      11, unaskable 92, edge agree 3105, disagree 3, not-run 207).
+    - Numbers: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning; full suite
+      (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8837 pass, 35 skip, 401 todo, 0 fail (9273 tests, 618 s).
 - [ ] 5.8 Appendix init items.
   - What: the scope of a STRUCT field's FB_Init arguments (per `init_struct_field_fb_init_scope`); `insideInstance` refusing
     `holder.started` while allowing `holder.Get()`, made consistent.

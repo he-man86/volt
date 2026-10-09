@@ -600,6 +600,16 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
         ["type-dump", `fixtures ${vendor}: call NOSCOPE`, 2, "init_gvl_program_slot_order_renamed"],
         ["resolution-dump", "findings", 2, "init_gvl_program_slot_order_renamed"],
         ["resolution-dump", `fixtures ${vendor}: bare name NOSCOPE`, 2, "init_gvl_program_slot_order_renamed"],
+        // transpile-restructure 5.7's frame-order probes (step 5c): one stamping initializer in each of the two VAR_GLOBAL
+        // lists of the fixture's ONE .gvl file (lines 3 and 7) — the same dump limit as above, not a second GVL unresolved
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 2, "init_frame_order_several"],
+        ["type-dump", `fixtures ${vendor}: call NOSCOPE`, 2, "init_frame_order_several"],
+        ["resolution-dump", "findings", 2, "init_frame_order_several"],
+        ["resolution-dump", `fixtures ${vendor}: bare name NOSCOPE`, 2, "init_frame_order_several"],
+        ["fold-dump", `fixtures ${vendor}: decl NOSCOPE`, 2, "init_frame_order_several_renamed"],
+        ["type-dump", `fixtures ${vendor}: call NOSCOPE`, 2, "init_frame_order_several_renamed"],
+        ["resolution-dump", "findings", 2, "init_frame_order_several_renamed"],
+        ["resolution-dump", `fixtures ${vendor}: bare name NOSCOPE`, 2, "init_frame_order_several_renamed"],
       ] as const
     ).map(([baseline, measure, by, fixture]) => ({
       baseline,

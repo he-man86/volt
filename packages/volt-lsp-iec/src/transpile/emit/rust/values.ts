@@ -2,7 +2,7 @@
  * IR VALUES AS RUST EXPRESSIONS — a constant's literal, a string's units, and the expression a variable starts at.
  */
 import type { IrInit, IrLayout, IrValue } from "../../ir/index.js"
-import { peelArray, type Type, typeZero } from "../../../frontend/types/index.js"
+import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { rustName } from "./names.js"
 import { isReal32, rustType, stringPath } from "./types.js"
 
@@ -12,15 +12,6 @@ const IMAGE_BASE = 1n << 32n
 
 /** Each layout the program holds, by its upper-cased name, with its fields' Rust names. */
 export type Layouts = ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>
-
-/** The Rust expression a variable of `t` starts at: a literal, a layout's `new()`, or an array of fresh elements. */
-function initOfValue(t: Type, init: IrValue): string {
-  if (t.kind === "struct" || t.kind === "function_block") return `${rustName(t.name)}::new()`
-  const array = peelArray(t)
-  if (array === undefined) return literal(init, t)
-  const element = initOfValue(array.element, typeZero(array.element))
-  return array.element.kind === "elementary" ? `[${element}; ${array.length}]` : `std::array::from_fn(|_| ${element})`
-}
 
 /** A STRING's bytes as a Rust byte-string literal: printable ASCII as itself, every other byte as `\xNN`. */
 function byteString(text: string): string {
@@ -78,8 +69,11 @@ export function literal(v: IrValue, t: Type): string {
 }
 
 /**
- * A slot's initial value as a Rust expression: a struct or FB instance at its TYPE's values (`new()`), with the fields
- * an aggregate initializer names set over them; an array element by element, each left out at its type's own.
+ * THE ONE `initOf`: a slot's initial value as a Rust expression — a scalar's literal; a struct or FB instance at its TYPE's
+ * values (`new()`), with the fields an aggregate initializer names set over them; an array's stated elements, then every
+ * remaining one at `rest` — `[x; N]` (an elementary element) or `std::array::from_fn` when it states none. It reads the
+ * `IrInit` lowering made complete; it picks no default (transpile-restructure 5.3/5.4 — the free `initOfValue` and its
+ * `typeZero` per element are gone).
  */
 export function initOf(layouts: Layouts, t: Type, init: IrInit): string {
   if (t.kind === "struct" || t.kind === "function_block") {
@@ -91,7 +85,12 @@ export function initOf(layouts: Layouts, t: Type, init: IrInit): string {
     return sets.length === 0 ? base : `{ let mut v = ${base}; ${sets.join(" ")} v }`
   }
   const array = peelArray(t)
-  const elements = typeof init === "object" && "elements" in init ? init.elements : undefined
-  if (array === undefined || elements === undefined) return initOfValue(t, init as IrValue)
-  return `[${Array.from({ length: array.length }, (_, i) => initOf(layouts, array.element, elements[i] ?? typeZero(array.element))).join(", ")}]`
+  if (array === undefined) {
+    if (typeof init === "object") throw new Error(`initOf: a ${t.kind} slot with an aggregate initial value`)
+    return literal(init, t)
+  }
+  if (typeof init !== "object" || !("elements" in init)) throw new Error("initOf: an array slot whose initial value states no elements")
+  const rest = initOf(layouts, array.element, init.rest)
+  if (init.elements.length === 0) return array.element.kind === "elementary" ? `[${rest}; ${array.length}]` : `std::array::from_fn(|_| ${rest})`
+  return `[${Array.from({ length: array.length }, (_, i) => (i < init.elements.length ? initOf(layouts, array.element, init.elements[i]!) : rest)).join(", ")}]`
 }

@@ -31,15 +31,23 @@ export interface PendingInit {
   span: Span
   slot: number
   op?: "REF="
+  /** One dynamic ELEMENT or FIELD of an aggregate initializer (`arr[1]`, `rec.c`) — the place it assigns; the slot's own
+   *  `IrInit` holds the static part (`var_temp_dynamic_aggregate_init`: each re-evaluated per call, M5.1.7). Absent: the
+   *  whole variable is `name`. */
+  target?: Expr
 }
 
 /** A frame's initializers that run rather than fold (each was a field of the `Lowering`). */
 export interface InitFrame {
   /** Every non-constant initializer of the frame, in declaration order (`PendingInit`). */
   readonly pendingInits: PendingInit[]
-  /** A VAR_TEMP's initializer that is not a constant, by slot: it runs at the start of EVERY run of the body
-   *  (`resetTemps`), never in the run-once init step — `var_temp_dynamic_init` reads 9 then 10 (transpile-review 24). */
-  readonly tempInits: Map<number, PendingInit>
+  /** A VAR_TEMP's initializer that is not a constant — and a METHOD's or FUNCTION's VAR's, its temporary section — by
+   *  slot (a routine's: its LOCAL slot): it runs at the start of EVERY run of the body (`resetTemps`), never in the
+   *  run-once init step — `var_temp_dynamic_init` reads 9 then 10 (transpile-review 24), `var_temp_dynamic_init_method`,
+   *  `_function` likewise. Several per slot for an aggregate's dynamic elements (`PendingInit.target`). */
+  readonly tempInits: Map<number, PendingInit[]>
+  /** The frame's VAR CONSTANT slots — compile-time values, never a statement of the walk (`position.ts`). */
+  readonly constants: Set<number>
   /** `pendingInits` lowered, memoized — built BEFORE any body, so a pointer this step fills is known to be filled
    *  when a body dereferences it (`pointerTargets`), and consumed by the init step at the end. `statements`
    *  undefined means the build failed or is in progress. `bySlot` is the same statements, per declaration they
@@ -47,13 +55,13 @@ export interface InitFrame {
   initSequence?: { statements: IrStmt[] | undefined; bySlot?: { slot: number; statements: IrStmt[] }[] }
 }
 
-export const initFrame = frameState<InitFrame>(() => ({ pendingInits: [], tempInits: new Map() }))
+export const initFrame = frameState<InitFrame>(() => ({ pendingInits: [], tempInits: new Map(), constants: new Set() }))
 
 /**
  * A POU's init step while `initStep` builds it: the lowering, the span every statement is reported at, the root POU's
  * symbol and its project-tree application (for `instance-path`), the memos of the instance walk, the globals an FB_Init
- * argument reads, and the four statement lists in the order they run — the instance paths, the FB_Init calls (with the
- * initializers interleaved), the structured initializers re-applied after FB_Init, the init-slot METHOD calls.
+ * argument reads, and the three statement lists in the order they run — the instance paths, one instance's walk while
+ * `visit` builds it (its fields, FB_Inits and structured initializer, `fbInitCalls`), the init-slot METHOD calls.
  */
 export interface InitStep {
   readonly lw: Lowering
@@ -68,7 +76,6 @@ export interface InitStep {
   readonly known: Map<string, boolean>
   readonly out: IrStmt[]
   readonly fbInitCalls: IrStmt[]
-  readonly reapplied: IrStmt[]
   readonly slotCalls: IrStmt[]
   /** each layout's declared field initializers, as the first instance found them (`visitFields`) */
   readonly declaredInits: Map<string, IrInit[]>

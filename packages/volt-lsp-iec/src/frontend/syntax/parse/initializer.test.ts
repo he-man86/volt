@@ -83,3 +83,10 @@ test("array of struct initializers, and a struct with a nested-array field", () 
 test("expression elements are kept as Exprs", () => {
   expect(shapes(agg("[foo, bar + 1]"))).toEqual(["ident_expr", "binary"])
 })
+
+// A FIELD's `name(…)` is a CALL, not a repeat: `(a := k, c := F(g))` gives c = F(g) on every call
+// (`var_temp_dynamic_aggregate_init`, CODESYS record:exec 2026-10-09: 18 then 20). The name-then-group repeat is the ARRAY
+// element's rule (`[1, i(7)]`); read as a repeat here, the field held a repeat lowering refuses.
+test("a struct field's name(…) is its call, not a repeat", () => {
+  expect(shapes(agg("(a := k, c := F(g))"))).toEqual(["a:=ident_expr", "c:=call"])
+})

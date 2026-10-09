@@ -23,6 +23,9 @@ import { findPlace, initReadChildren } from "../../ir/walk.js"
 import { insideInstance } from "../places/path.js"
 import { lowerStmt } from "../statements/statements.js"
 import { initFrame, type PendingInit } from "./state.js"
+import { type Expr, selfRefKind } from "../../../frontend/syntax/index.js"
+import type { Type } from "../../../frontend/types/index.js"
+import { adrOperand } from "../pointers/address.js"
 
 /**
  * `lw.pendingInits`, lowered as the assignments they are — or undefined when one of them cannot be.
@@ -43,27 +46,31 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
 
     // A LATER DECLARATION HAS NOT BEEN INITIALIZED YET, and neither has a CONSTANT one: the whole sequence runs in
-    // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). Here a
-    // constant initializer is the slot's STARTING VALUE rather than a statement, so an earlier initializer would
-    // read -7 and answer 7. Refused until the constants are sequenced too.
-    const later = values.reduce<string | undefined>((f, v) => f ?? reads(v, laterThan(lw, pending.slot)), undefined)
+    // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). The init step's
+    // position rule makes that so for a scalar or an aggregate (`position.ts`: the later constant is a statement after
+    // this one). A later INSTANCE's or struct's fields are folded per TYPE, so what this would see of them is not
+    // recorded: refused — read by name or through THIS, or its address (or THIS) handed to a call (design.md §3.4).
+    const later =
+      values.reduce<string | undefined>((f, v) => f ?? reads(v, laterInstance(lw, pending.slot)), undefined) ??
+      lendsLaterInstance(lw, pending) ??
+      derefsLaterInstance(lw, pending, values)
     if (later !== undefined)
       return lw.bail(
         "init-reads-later",
-        `${pending.name.text}'s initial value reads ${later}, which is declared after it and has not been initialized yet`,
+        `${pending.name.text}'s initial value reaches ${later}, an instance declared after it whose fields are not initialized yet`,
         pending.span,
       )
 
     // AN FB INSTANCE'S FIELD, whose own FB_Init runs at ITS declaration's position — `seen : INT := holder.started`
     // is 5 with `holder` declared first and 0 with it declared last (`initseq_after_fb_init`,
     // `initseq_fb_init_declared_last`). The init step interleaves these statements with the FB_Inits by declaration
-    // (transpile-review 23), which answers that — except for an instance declared with a STRUCTURED initializer, which
-    // is applied after every FB_Init (`fb_init_and_structured_initializer`), so what a sibling reads of it is not.
+    // (transpile-review 23), which answers that — except for an instance declared with a STRUCTURED initializer, applied
+    // after its FB_Init (`fb_init_and_structured_initializer`), where what a sibling reads of it is not recorded (§3.4).
     const instance = values.reduce<string | undefined>((f, v) => f ?? reads(v, insideInstance(lw)), undefined)
     if (instance !== undefined)
       return lw.bail(
         "init-reads-instance",
-        `${pending.name.text}'s initial value reads ${instance}, an instance declared with a structured initializer applied after the FB_Inits`,
+        `${pending.name.text}'s initial value reads ${instance}, an instance declared with a structured initializer applied after its FB_Init`,
         pending.span,
       )
     out.push(...assigned)
@@ -77,7 +84,8 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
 export function lowerPendingInit(lw: Lowering, pending: PendingInit): IrStmt[] | undefined {
   const lowered = lowerStmt(lw, {
     kind: "assign",
-    target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
+    // an aggregate's dynamic element or field assigns its own place (`arr[1] :=`, `rec.c :=`), the rest the variable
+    target: pending.target ?? { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
     value: pending.expr,
     // `REF=` from the DECLARATION, carried through `pendingInits` — `bindReference` is what records the
     // reference`s target, and an assign with no `op` is a store through a reference nothing bound.
@@ -109,3 +117,83 @@ export const laterThan =
   (lw: Lowering, slot: number) =>
   (place: Place): string | undefined =>
     place.root === undefined && place.slot >= slot ? (lw.slots[place.slot]?.name ?? "a later declaration") : undefined
+
+/** The frame slot a place of this frame is in — its own, or the field `THIS^.f` names — or undefined for other storage. */
+function frameSlotOf(lw: Lowering, place: Place): number | undefined {
+  if (place.root === undefined) return place.slot
+  const first = place.path[0]
+  return place.root === "this" && first?.kind === "field" ? lw.byName.get(first.name.toUpperCase()) : undefined
+}
+
+/** Whether a slot of `type` holds a struct or an FB instance — whose fields are folded per type (`position.ts`). */
+function holdsFolded(type: Type): boolean {
+  return type.kind === "array" ? holdsFolded(type.element) : type.kind === "struct" || type.kind === "function_block"
+}
+
+/** A place in a STRUCT or INSTANCE slot of this frame at `slot` or later — what an initializer may not reach yet. */
+const laterInstance =
+  (lw: Lowering, slot: number) =>
+  (place: Place): string | undefined => {
+    const at = frameSlotOf(lw, place)
+    const target = at === undefined ? undefined : lw.slots[at]
+    return at !== undefined && at >= slot && target !== undefined && holdsFolded(target.type) ? target.name : undefined
+  }
+
+/** The struct or instance slot an initializer of the frame aims a pointer or reference at — `ADR(cfg)`, `ADR(cfg.n)`,
+ *  `REF= cfg` — at `slot` or later, when the initializer `values` read through a dereference: what it reaches there is
+ *  the later instance's type-folded fields (gate 5c: `p : POINTER TO T_P := ADR(cfg); i : INT := p^.n; cfg : T_P;`
+ *  answered 4). Which pointer is read is not followed — any dereference while such an address is taken. */
+function derefsLaterInstance(lw: Lowering, pending: PendingInit, values: readonly IrExpr[]): string | undefined {
+  if (!values.some((v) => reads(v, (place) => (place.guard !== undefined ? "deref" : undefined)) !== undefined)) return undefined
+  for (const other of initFrame(lw).pendingInits) {
+    const operand = other.op === "REF=" ? other.expr : addressTaken(other.expr)
+    const name = operand === undefined ? undefined : rootName(operand)
+    const at = name === undefined ? undefined : lw.byName.get(name.toUpperCase())
+    if (at !== undefined && at >= pending.slot && holdsFolded(lw.slots[at]!.type)) return `${lw.slots[at]!.name} (through a pointer)`
+  }
+  return undefined
+}
+
+/** The operand of the first `ADR(…)` anywhere in an initializer expression. */
+function addressTaken(node: unknown): Expr | undefined {
+  if (node === null || typeof node !== "object") return undefined
+  if (Array.isArray(node)) return node.reduce<Expr | undefined>((f, n) => f ?? addressTaken(n), undefined)
+  const e = node as Expr
+  const operand = e.kind === "call" ? adrOperand(e) : undefined
+  if (operand !== undefined) return operand
+  return Object.entries(node).reduce<Expr | undefined>((f, [key, child]) => f ?? (key === "span" ? undefined : addressTaken(child)), undefined)
+}
+
+/** The variable a member, index or dereference chain starts at. */
+function rootName(e: Expr): string | undefined {
+  if (e.kind === "ident_expr") return e.name
+  if (e.kind === "paren") return rootName(e.inner)
+  return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? rootName(e.base) : undefined
+}
+
+/** A later struct or instance slot whose ADDRESS the initializer hands to a call — `F(ADR(later))`, or `F(THIS)` while
+ *  the frame holds one — where the callee may read it. */
+function lendsLaterInstance(lw: Lowering, pending: PendingInit): string | undefined {
+  const later = lw.slots.slice(pending.slot).find((s) => holdsFolded(s.type))
+  if (later === undefined) return undefined
+  let found: string | undefined
+  const seen = new WeakSet<object>()
+  const walk = (node: unknown, inCall: boolean): void => {
+    if (found !== undefined || node === null || typeof node !== "object" || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) return node.forEach((n) => walk(n, inCall))
+    const e = node as Expr
+    // `THIS^.n` reads `n`, which `reads` judges; only a bare THIS lends the instance
+    if (e.kind === "deref" && e.base.kind === "ident_expr" && selfRefKind(e.base.name) === "THIS") return
+    if (inCall && e.kind === "ident_expr" && selfRefKind(e.name) === "THIS") found = `${later.name} (through THIS)`
+    const operand = inCall && e.kind === "call" ? undefined : adrOperand(e)
+    if (inCall && operand !== undefined) {
+      const name = operand.kind === "ident_expr" ? operand.name.toUpperCase() : undefined
+      const at = name === undefined ? undefined : lw.byName.get(name)
+      if (at !== undefined && at >= pending.slot && holdsFolded(lw.slots[at]!.type)) found = lw.slots[at]!.name
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child, inCall || e.kind === "call")
+  }
+  walk(pending.expr, false)
+  return found
+}

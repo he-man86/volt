@@ -12,7 +12,7 @@
  * variable shared by every instance, and a PROPERTY getter runs once per read with its own VAR started over.
  */
 
-import { type FbType, Lowering, type RoutineSymbol } from "../core/lowering.js"
+import { type FbType, Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import type { IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
@@ -20,7 +20,7 @@ import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
 import { childScopesByName, findChildScope, type Scope } from "../../../frontend/symbols/index.js"
 import { declareGlobals, declareInOuts, declareVars } from "../storage/declare.js"
 import { inOutSections, prefixed } from "./parameters.js"
-import { type Type, typeZero } from "../../../frontend/types/index.js"
+import { type Type } from "../../../frontend/types/index.js"
 import { anyArgumentTypes, declareAnyAddresses } from "../pointers/any.js"
 import { type CursorArgument, cursorArgumentTypes } from "../pointers/cursor.js"
 import { typeKey } from "./variants.js"
@@ -30,7 +30,7 @@ import { storageOf } from "../storage/layout.js"
 import { overridesCalled } from "../core/ast-walk.js"
 import { chainOf } from "../core/chain.js"
 import { lowerBlock } from "../statements/statements.js"
-import { resetTemps } from "../init/temp-resets.js"
+import { resetTemps, routineLocalInits } from "../init/temp-resets.js"
 import { interfaceFrame } from "../interfaces/state.js"
 import { drain, nested } from "../core/nested.js"
 import { hiddenInOuts, instanceInOuts, routineInputs } from "./routine-frame.js"
@@ -223,17 +223,20 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (ast.kind !== "action" && ast.returnType !== undefined) {
       const type = storageOf(r, r.resolve(ast.returnType), ast.returnType.span)
       r.localByName.set(sym.name.toUpperCase(), 0)
-      r.localSlots.push({ name: sym.name, type, section: "VAR", init: typeZero(type) })
+      r.localSlots.push({ name: sym.name, type, section: "VAR", init: zeroInit(type) })
       result = 0
     }
     const inputs = routineInputs(lw, r, sections, key)
-    declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
+    // a METHOD's or FUNCTION's VAR is its temporary section: an initializer that is not a constant runs on every call
+    declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"), true)
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     hiddenInOuts(lw, r, targets, cursors, parsed.statements, key, declareAnyAddresses(lw, r, targets, key, inputs, span))
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     if (frame !== undefined) instanceInOuts(lw, r, sym, frame, parsed.statements)
-    const body = [...resets, ...lowerBlock(r, parsed.statements)]
+    const inits = routineLocalInits(r)
+    if (inits === undefined) return void drain(lw, r)
+    const body = [...resets, ...inits, ...lowerBlock(r, parsed.statements)]
     if (drain(lw, r)) return undefined
     return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: interfaceFrame(r).lends }
   })

@@ -16,7 +16,7 @@ import type { IrImage, IrInit, IrLayout, IrSlot } from "../../ir/index.js"
 import { ADDRESS, BASE_FIELD, IMAGE_BASE, instantiate, storeValue } from "../../semantics/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { alignUp, byteSize, fieldBytes } from "../storage/bytes.js"
-import { elementaryRef, peelArray, resolveNamedType, type Type, typeZero } from "../../../frontend/types/index.js"
+import { elementaryRef, peelArray, resolveNamedType, type Type } from "../../../frontend/types/index.js"
 import { escapesOf, imageType } from "./escape.js"
 import { baseOf } from "../core/chain.js"
 import type { Span } from "../../../frontend/syntax/index.js"
@@ -161,9 +161,10 @@ function withBase(lw: Lowering, name: string): void {
 function instancesIn(lw: Lowering, runs: ReadonlyMap<string, Runs>, layout: Layout, t: Type, init: IrInit): IrInit | undefined {
   const array = peelArray(t)
   if (array !== undefined) {
-    const elements = typeof init === "object" && "elements" in init ? init.elements : []
-    const placed = Array.from({ length: array.length }, (_, k) => instancesIn(lw, runs, layout, array.element, elements[k] ?? typeZero(array.element)))
-    return placed.every((p) => p === undefined) ? undefined : { elements: placed.map((p, k) => p ?? elements[k]) }
+    if (typeof init !== "object" || !("elements" in init)) throw new Error("an array whose initial value states no elements")
+    const at = (k: number): IrInit => (k < init.elements.length ? init.elements[k]! : init.rest)
+    const placed = Array.from({ length: array.length }, (_, k) => instancesIn(lw, runs, layout, array.element, at(k)))
+    return placed.every((p) => p === undefined) ? undefined : { elements: placed.map((p, k) => p ?? at(k)), rest: init.rest }
   }
   if (t.kind !== "function_block" && t.kind !== "struct") return undefined
   const fields = lw.layouts.get(t.name.toUpperCase())?.fields ?? []

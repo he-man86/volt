@@ -113,7 +113,8 @@ test("FB_Init: an inner instance's runs first, and an argument may name a variab
   expect(held.get("holder.held.started")).toBe(3n)
   // Review of that batch: only what the recordings cover takes a variable argument. A struct field's declaration was read
   // in the POU's scope (a local the struct cannot see), and a later or VAR_TEMP variable, or a global an FB_Init writes,
-  // gave values no recording shows; a derived FB holding FB_Init instances got an order none shows either.
+  // gave values no recording shows. (A derived FB holding FB_Init instances was refused here too, `fb-init-order`, until
+  // `init_extends_field_instance` recorded its order — transpile-restructure 5.6, the test below.)
   const codes = (decls: string, extra = "") => lowerSource(source(decls, extra), "P", seedList).diagnostics.map((d) => d.code)
   expect(codes("h : ST_H;", "TYPE ST_H :\nSTRUCT\n  held : FB_In(startValue := seed);\nEND_STRUCT\nEND_TYPE\n")).toContain("fb-init-argument")
   expect(codes("fromLater : FB_In(startValue := later); later : INT := 3;")).toContain("fb-init-argument")
@@ -122,10 +123,31 @@ test("FB_Init: an inner instance's runs first, and an argument may name a variab
   ).toContain("fb-init-argument")
   const globalWriter = "FUNCTION_BLOCK FB_Wg\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\ngSeed := startValue;\nEND_METHOD\n"
   expect(codes("w : FB_Wg(startValue := 1); fromGlobal : FB_In(startValue := gSeed);", globalWriter)).toContain("fb-init-argument")
-  const derived =
-    "FUNCTION_BLOCK FB_B2\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nEND_METHOD\n" +
-    "FUNCTION_BLOCK FB_D2 EXTENDS FB_B2\nVAR l : FB_In(startValue := 2); END_VAR\nEND_FUNCTION_BLOCK\n"
-  expect(codes("d : FB_D2(startValue := 1);", derived)).toContain("fb-init-order")
+})
+
+// transpile-restructure 5.6: an EXTENDS chain initializes PER CLASS, the base first — that class's own fields in declaration
+// order (a field instance's whole init at its position), then that class's FB_Init (`init_extends_interleaving`: 1-4;
+// `init_extends_field_instance`: base field 1, base FB_Init 2, `before` 3, the inner FB_Init 4, `after` 5, derived FB_Init 6,
+// and without a derived FB_Init the same less the last; `_in_base`: the base's field instance before the base's FB_Init).
+// Both chain sites of `fb-init-order` refused this (the whole chain's fields first, every FB_Init after, was a guess).
+test("an EXTENDS chain initializes per class: its fields, a field instance's FB_Init at its position, then its FB_Init", () => {
+  const fbInit = "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\n"
+  const src =
+    "VAR_GLOBAL gSeq : INT; END_VAR\n" +
+    "FUNCTION F_Next : INT\ngSeq := gSeq + 1;\nF_Next := gSeq;\nEND_FUNCTION\n" +
+    "PROGRAM P\nVAR inst : FB_D; plain : FB_P; inBase : FB_D2; END_VAR\ninst();\nplain();\ninBase();\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_In\nVAR innerInit : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit + "innerInit := F_Next();\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_B\nVAR baseField : INT := F_Next(); baseInit : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit + "baseInit := F_Next();\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR before : INT := F_Next(); inner : FB_In; after : INT := F_Next(); derivedInit : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit + "derivedInit := F_Next();\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_P EXTENDS FB_B\nVAR before : INT := F_Next(); inner : FB_In; after : INT := F_Next(); END_VAR\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION_BLOCK FB_B2\nVAR baseBefore : INT := F_Next(); inner : FB_In; baseAfter : INT := F_Next(); baseInit : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit + "baseInit := F_Next();\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_D2 EXTENDS FB_B2\nVAR derivedField : INT := F_Next(); derivedInit : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit + "derivedInit := F_Next();\nEND_METHOD\n"
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  const read = (paths: string[]) => paths.map((v) => runner.get(v))
+  expect(read(["inst.baseField", "inst.baseInit", "inst.before", "inst.inner.innerInit", "inst.after", "inst.derivedInit"])).toEqual([1n, 2n, 3n, 4n, 5n, 6n])
+  expect(read(["plain.baseField", "plain.baseInit", "plain.before", "plain.inner.innerInit", "plain.after"])).toEqual([7n, 8n, 9n, 10n, 11n])
+  expect(read(["inBase.baseBefore", "inBase.inner.innerInit", "inBase.baseAfter", "inBase.baseInit", "inBase.derivedField", "inBase.derivedInit"])).toEqual([12n, 13n, 14n, 15n, 16n, 17n])
 })
 
 // transpile-review 22: an instance's non-constant field initializers ran AFTER its FB_Init, so FB_Init dereferenced a
@@ -141,4 +163,60 @@ test("an instance's field initializers run before its FB_Init", () => {
   const runner = run(ir(src, "P"))
   runner.scan()
   expect(["viaAdr.seen", "called.seen", "called.a"].map((v) => runner.get(v))).toEqual([7n, 7n, 100n])
+})
+
+// Gate 5c: the position rule in an instance's frame turned a constant field after a running initializer into a walk
+// statement — and wrote the TYPE's layout to zero for it. A structured initializer on the instance (`(k := 7)`) was then
+// overwritten by the type's 5 (it is applied after the instance's init, as `fb_init_and_structured_initializer` records
+// for FB_Init); and every construction of the type the walk does not follow — a VAR_TEMP's reset on every run — started
+// the field at 0. Why missed: no fixture puts a structured initializer, or a VAR_TEMP, on such a type.
+test("the position rule in an instance keeps the instance's structured initializer and the type's own initial values", () => {
+  const pre =
+    "VAR_GLOBAL\ng : INT;\nEND_VAR\nFUNCTION F_Next : INT\ng := g + 1;\nF_Next := g;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB\nVAR x : INT := F_Next(); k : INT := 5; END_VAR\nEND_FUNCTION_BLOCK\n"
+  const structured = run(ir(`${pre}PROGRAM P\nVAR i : FB := (k := 7); out : INT; END_VAR\nout := i.k;\nEND_PROGRAM\n`, "P"))
+  structured.scan()
+  expect(structured.get("out")).toEqual(7n)
+  const inStruct =
+    "FUNCTION_BLOCK FB_In\nVAR v : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nv := 3;\nEND_METHOD\n" +
+    "TYPE ST :\nSTRUCT\nin : FB_In;\nlate : INT := 8;\nEND_STRUCT\nEND_TYPE\n" +
+    "PROGRAM P\nVAR sv : ST := (late := 9); out : INT; END_VAR\nout := sv.late;\nEND_PROGRAM\n"
+  const struct = run(ir(inStruct, "P"))
+  struct.scan()
+  expect(struct.get("out")).toEqual(9n)
+  const temp = run(ir(`${pre}PROGRAM P\nVAR i : FB; out : INT; END_VAR\nVAR_TEMP tmp : FB; END_VAR\nout := tmp.k;\ntmp.k := 77;\nEND_PROGRAM\n`, "P"))
+  temp.scan()
+  expect(temp.get("out")).toEqual(5n)
+  temp.scan()
+  expect(temp.get("out")).toEqual(5n)
+})
+
+// Gate 5c (second review): a type's running initializer reading a field the instance's structured initializer names gave
+// two answers by declaration position — the field declared before the type's first running initializer is folded with the
+// structured value in place (`seen` 7), after it a position statement with the structured value re-applied at the end
+// (`seen` 5). Neither is recorded (`fb_init_and_structured_initializer` covers FB_Init only): `init-reads-instance`. And an
+// ENCLOSING structured initializer reaching a nested instance that runs FB_Init (`(inner := (k := 9))`) was in place at
+// construction, so FB_Init saw 9 where the same value on the instance's own declaration is applied after it (seen 0,
+// recorded): `fb-init-order`, as the instance's own nested structured value is. Why missed: no test put a structured
+// initializer on a type with a running initializer reading the field, or one level up from an FB_Init.
+test("a structured initializer a running initializer reads, or one reaching a nested FB_Init, is refused by name", () => {
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  const pre = "VAR_GLOBAL\ng : INT;\nEND_VAR\nFUNCTION F_Next : INT\ng := g + 1;\nF_Next := g;\nEND_FUNCTION\n"
+  const fb = (decls: string) => `FUNCTION_BLOCK FB\nVAR ${decls} END_VAR\nEND_FUNCTION_BLOCK\n`
+  const prg = "PROGRAM P\nVAR i : FB := (k := 7); out : INT; END_VAR\ni();\nout := i.seen;\nEND_PROGRAM\n"
+  expect(codes(pre + fb("x : INT := F_Next(); k : INT := 5; seen : INT := k + x - x;") + prg)).toEqual(["init-reads-instance"])
+  expect(codes(pre + fb("k : INT := 5; x : INT := F_Next(); seen : INT := k + x - x;") + prg)).toEqual(["init-reads-instance"])
+  expect(codes(pre + fb("k : INT := 5; x : INT := F_Next(); seen : INT := THIS^.k + x - x;") + prg)).toEqual(["init-reads-instance"])
+  // a running initializer reading another field still lowers, the structured value kept (the gate 5c case above)
+  const other = run(ir(pre + fb("x : INT := F_Next(); k : INT := 5; seen : INT := x;") + prg, "P"))
+  other.scan()
+  expect([other.get("out"), other.get("i.k")]).toEqual([1n, 7n])
+  const inner =
+    "FUNCTION_BLOCK Inner\nVAR k : INT; seen : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nseen := k;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK Outer\nVAR inner : Inner; END_VAR\nEND_FUNCTION_BLOCK\n"
+  expect(codes(`${inner}PROGRAM P\nVAR o : Outer := (inner := (k := 9)); END_VAR\no();\nEND_PROGRAM\n`)).toEqual(["fb-init-order"])
+  // on the instance's own declaration: applied after FB_Init (recorded, seen 0)
+  const own = run(ir(`${inner}PROGRAM P\nVAR d : Inner := (k := 9); END_VAR\nd();\nEND_PROGRAM\n`, "P"))
+  own.scan()
+  expect([own.get("d.seen"), own.get("d.k")]).toEqual([0n, 9n])
 })
