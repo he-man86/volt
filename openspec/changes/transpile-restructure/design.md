@@ -1466,6 +1466,50 @@ walk with per-class fields/FB_Init (RC 22, EXTENDS) → 5.7 interleaving across 
 read-early rule (RC 23) → 5.8 the STRUCT field scope and `insideInstance` → 5.9 the read
 walk sees `select`/freeze → 5.10 the IR docs above and architecture.md.
 
+### §3.4 Decision (step 5c): element defaults, one `initOf`, VAR_TEMP, per-class init, the position rule (tasks 5.3-5.7, 2026-10-09)
+
+**Measured at 988e96fa94** (lowering each fixture): `array_element_type_default`, `decl_temp_{array,struct}_init_resets`,
+`var_temp_dynamic_init`, `tr_22_fb_init_reads_{adr,call}_field`, `tr_23_*` are already confirmed. Refused:
+`var_temp_dynamic_init_{method,function}` and `var_temp_dynamic_aggregate_init` (`init-not-constant`: `declare.ts` never defers
+in `routineMode`, and an aggregate is not `runnableInit`); `init_extends_interleaving` (`fb-init-order`, `fb-init.ts:320`);
+`tr_22_fb_init_reads_this_field` (`place-not-local`, THIS); `init_this_in_initializer` (`expr-member`); `cfold_non_constant_argument`
+(`init-reads-later`). The backends still pick an element default: `elements[i] ?? typeZero(element)` (`instantiate.ts:21`,
+`values.ts:96`) and `initOfValue`'s `typeZero(array.element)` (`values.ts:21`). The Rust baseline prints 866 uniform `[x; N]`, up
+to N = 100000 — which decides 5.3's form.
+
+**5.3 Choice: a complete, compact `IrInit`.** An array's init becomes `{ elements: IrInit[], rest: IrInit }` — the stated
+elements, then every remaining one at `rest` — with no `undefined` hole and no scalar placeholder for an array. Lowering states
+`rest`: the element type's start for an undeclared array (`elementDefaults`: enum, alias `:=`, alias array, a struct's `{ fields: {} }`
+= its layout's fields), the family zero for a partial initializer's tail (r_alias_part2 = 0). Both backends then only read:
+`instantiate` and `initOf` lose `typeZero`, and `initOf` prints `rest` as today's `[x; N]` / `from_fn`, so S-out holds. The element
+fact stays in `lower/init/initial-values.ts`, not `types/defaults.ts`: it folds an alias initializer and numbers an enum with the
+lowering's `enumeratorValue`, which `types/` may not import; `typeDefault` is not built (task text corrected). Rejected: a full
+`elements` list (100000-entry IR, Rust text moves); `typeZero` left in the backends (a backend picking a default, undone in 1.1.4).
+Batch-recorded first in 5.3 (one run per vendor): an enum array's partial tail and an alias-of-alias element (the `aliasInit`
+ponytail) — unrecorded, each refused by name until then.
+
+**5.4.** The free `initOfValue` becomes `initOf`'s leaf case; one `initOf(layouts, t, IrInit)` left (grep).
+
+**5.5 VAR_TEMP / routine locals.** `declare.ts` defers in `routineMode` too: a METHOD/FUNCTION's VAR and VAR_TEMP dynamic
+initializer is queued in `tempInits` (keyed by the local slot), and `resetTemps` walks `localSlots` in `routineMode`. An aggregate
+with a dynamic leaf splits in `aggregateInit`: the static part is the slot's `IrInit` (the dynamic leaf at its `rest`/type start),
+each dynamic leaf an assignment `arr[i] :=` / `rec.f :=` after the `IrFresh`, in element order (M5.1.7) — for VAR_TEMP every run,
+for an FB/PROGRAM VAR once at its position in the step. A dynamic leaf reading its own aggregate or a later temp stays
+`init-reads-later`. A GVL's dynamic aggregate stays `init-not-constant` until 5.7 walks GVL frames. Rejected: everything a
+statement (S-out lost on every array).
+
+**5.6 per class.** `fb-init.ts:320` goes: per class of the chain, base first, `instanceInitRoutine(class, its field range)` then that
+class's FB_Init — the existing range split, cut at class boundaries as well as at field instances. THIS in an initializer lowers to
+the frame's own place (`[]` in the step, the bound instance in `__INIT`); `tr_22_..._this_field`, `init_this_in_initializer` must
+pass, else stay not-lowered with the remaining code written in 5.6. The EXTENDS-with-field-instance site (`fb-init.ts:179`) is lifted
+only to 5.6's recording; the nested-structured site (`:204`) stays (niche, 0).
+
+**5.7 position rule.** Decided in `step.ts` after the walk, not in `declare.ts`: from a frame's first step statement on, each later
+slot whose `init` is a non-default constant gets `slot := const` at its position and `init` = its type start (the existing `clear`).
+The same rule in a type's `__INIT` frame. Rejected: deciding at declaration (whether an earlier instance's init emits anything is
+known only once its layout's init is built). `init-reads-later` then narrows to a later INSTANCE's field, by any path (§3.4);
+`init-frame-order` and `init-slot-order` as §3.4; `init_gvl_program_slot_order{,_renamed}` lifted only to 5.7's recording.
+
 ---
 
 ## 4. Old → new map
