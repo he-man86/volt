@@ -660,7 +660,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // stored through a POINTER TO STRING(20) into a STRING(5), which CODESYS builds and runs by writing past the variable
   // into its neighbour; lowering refuses it by name (`cursor-overrun`; the local pointer form `pointer-type`). No fixture
   // moved.
-  "not-lowered": 390,
+  // 390 -> 394, FOR MEASUREMENT. transpile-restructure 4.1 (2026-10-09): four pointer-model questions CODESYS builds and
+  // runs, recorded before §3.3 decides the representation (`fixtures/memory/pointer-model.ts`) — pointer order compares,
+  // an ADR difference across two arrays, a byte pointer walking a padded STRUCT, a pointer through an LWORD and back; each
+  // refused by name (`pointer-value`, `adr-offset`, `pointer-type`). No fixture moved. Until 4b two of them also carried
+  // `pointer-order` — a knock-on of their own refused store, "before any address was stored" though one was; a use after
+  // a refused store now repeats that store's code, and an integer stored as a pointer is `pointer-value`.
+  "not-lowered": 394,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

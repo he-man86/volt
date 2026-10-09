@@ -74,6 +74,7 @@ import { EXECUTION_TESTS } from "./semantics/execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory/memory-model.js"
 import { POINTER_PARAMETER_TESTS } from "./memory/pointer-parameters.js"
 import { POINTER_INTO_SCALAR_TESTS } from "./memory/pointer-into-scalar.js"
+import { POINTER_MODEL_TESTS } from "./memory/pointer-model.js"
 import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
@@ -229,6 +230,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "memory-model", tests: MEMORY_MODEL_TESTS },
   { name: "pointer-parameters", tests: POINTER_PARAMETER_TESTS },
   { name: "pointer-into-scalar", tests: POINTER_INTO_SCALAR_TESTS },
+  { name: "pointer-model", tests: POINTER_MODEL_TESTS },
   // ── call semantics: FB instances, methods, actions, functions, a program and a global (phase 3) ──
   { name: "fb-call", tests: FB_CALL_TESTS },
   // ── inheritance: which bodies and methods EXTENDS and SUPER^ run (phase 3½) ──

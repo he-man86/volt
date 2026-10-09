@@ -15,17 +15,17 @@
  *
  *   evidence
  *     confirmed     2828
- *     refused       1989
- *     not-lowered    390
+ *     refused       1990
+ *     not-lowered    394
  *     lsp-gap         82
- *     diverges         7
+ *     diverges         8
  *     unaskable       92
  *
  *   tier                     lowered    clean
  *     decl                    758      758
  *     arith                  1542     1540
  *     control                 162      151
- *     aggregate               146      146
+ *     aggregate               147      147
  *     call                    276      273
  *     indirect                360      356
  *
@@ -57,7 +57,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3060
+ *     agree         3061
  *     disagree         0
  *     not-run        184
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -76,15 +76,15 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
 
  *
- *   pedantic — 32190 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7956
- *     clippy::cast_possible_truncation         5092
- *     clippy::cast_lossless                    4677
- *     clippy::cast_sign_loss                   3587
+ *   pedantic — 32211 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7958
+ *     clippy::cast_possible_truncation         5097
+ *     clippy::cast_lossless                    4678
+ *     clippy::cast_sign_loss                   3592
  *     clippy::uninlined_format_args            3366
- *     clippy::unreadable_literal               2870
+ *     clippy::unreadable_literal               2874
  *     clippy::missing_panics_doc               1132
- *     clippy::manual_assert                     851
+ *     clippy::manual_assert                     852
  *     clippy::format_push_string                748
  *     clippy::many_single_char_names            377
  *
@@ -100,8 +100,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1735 distinct emission shapes over 3244 lowered fixtures, 1838 distinct constructs.
- *   703 constructs carry a review note (`NOTES`): 3075 fixtures are improvable, 2990 touch a construct with alternatives.
+ *   shape — 1736 distinct emission shapes over 3245 lowered fixtures, 1839 distinct constructs.
+ *   703 constructs carry a review note (`NOTES`): 3076 fixtures are improvable, 2991 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
@@ -136,6 +136,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   addr_qx_roundtrip: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "1efd6b27b1", notes: ["687428cc81", "73505351ad", "de132e5019"] },
   addr_same_word_twice: { evidence: "not-lowered" },
   addr_word_inside_dword: { evidence: "not-lowered" },
+  adr_difference_two_arrays: { evidence: "not-lowered" },
   all_constant_division_in_real_context: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 5.2, shape: "d95821dc47", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "d365a76953", "f5a6eb5ecf"] },
   ambg_different_types: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "0908129e76", notes: ["1307e33bbf", "b9787e0d18"] },
   ambg_fb_instance_call: { evidence: "refused" },
@@ -3532,6 +3533,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   plat_xword_into_string: { evidence: "refused" },
   plat_xword_meet_dint: { evidence: "refused" },
   plat_xword_sizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "069aeee405", notes: ["4bf3f61062", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
+  pointer_byte_walk_struct_padding: { evidence: "not-lowered" },
+  pointer_order_compare: { evidence: "not-lowered" },
+  pointer_step_past_end: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 21, edge: "agree", size: 2.7, shape: "6a9e51dcf4", notes: ["013de1dc6a", "1307e33bbf", "41d2232599", "687428cc81", "75cc82a569", "abe3ae1f0b", "dd94ff18a2", "de132e5019", "f7ea0fc7a1"] },
+  pointer_to_dword_roundtrip: { evidence: "refused" },
+  pointer_to_lword_roundtrip: { evidence: "not-lowered" },
   power_operator_rejected: { evidence: "refused" },
   prag_attribute_block_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_brace_in_value: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },

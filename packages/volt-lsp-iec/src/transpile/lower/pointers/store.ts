@@ -8,7 +8,7 @@ import type { Expr, Span, Statement } from "../../../frontend/syntax/index.js"
 import { cursorOf } from "./cursor.js"
 import { elemOf } from "../../../frontend/types/index.js"
 import { binaryOf, cast } from "../core/build.js"
-import { pointerFrame, pointerKey, pointerTargets, recordTarget } from "./state.js"
+import { noteRefusedStore, pointerFrame, pointerKey, pointerTargets, recordTarget } from "./state.js"
 import { addressOf, pointerValue } from "./address.js"
 import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -33,12 +33,13 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
   }
   const key = pointerKey(lw, target)
   if (key === undefined) return lw.bail("pointer-place", "a pointer stored somewhere this does not track", span)
+  const from = lw.diagnostics.length
   const stored = pointerValue(lw, value, target.type)
-  if (stored === undefined) return undefined
+  if (stored === undefined) return noteRefusedStore(lw, key, from)
   let written = stored.value
   if (stored.target !== undefined) {
     const tag = recordTarget(lw, key, stored.target, span)
-    if (tag === undefined) return undefined
+    if (tag === undefined) return noteRefusedStore(lw, key, from)
     // THE VALUE IS THE TAG once the pointer has more than one target. With one it stays what `addressOf` gave —
     // 1 for a variable, the element index + ELEMENT_TAG_BIAS for an array — which is form 1's encoding and what `p = 0`,
     // `__ISVALIDREF` and `p[i]` are all built on. Those two encodings cannot share a variable, so a pointer that
@@ -60,10 +61,11 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   if (target === undefined) return undefined
   const key = target.type.kind === "reference" ? pointerKey(lw, target) : undefined
   if (key === undefined) return lw.bail("assign-op", "REF= into something that is not a tracked reference", s.span)
+  const from = lw.diagnostics.length
   const address = addressOf(lw, s.value, target.type, s.span)
-  if (address === undefined) return undefined
+  if (address === undefined) return noteRefusedStore(lw, key, from)
   const tag = recordTarget(lw, key, address.target, s.span)
-  if (tag === undefined) return undefined
+  if (tag === undefined) return noteRefusedStore(lw, key, from)
   // THE TAG, once the reference names more than one variable — `storePointer` says why the two encodings cannot
   // share a slot. A reference rebound after its declaration is the shape this exists for
   // (`refdecl_rebound_by_statement`: before 1, after 2).

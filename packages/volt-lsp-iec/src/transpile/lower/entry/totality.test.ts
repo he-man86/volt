@@ -134,9 +134,10 @@ END_PROGRAM
     runner.scan()
     expect(["siArg", "iArg", "dArg", "lArg", "done"].map((v) => runner.get(v))).toEqual([6n, 7n, 8n, 9n, true])
     // An ANY argument that is no variable has no address to hand on: `pValue` is refused — and the dereferences that
-    // follow then have no target, which is the same refusal reported where each of them stands.
+    // follow then have no target for that same reason, so they repeat `any-input` where each stands. They said
+    // `pointer-order` ("before any address was stored"), false — one was stored and refused (transpile-restructure 4b).
     const literal = lowerSource(`PROGRAM P\nVAR done : BOOL; END_VAR\ndone := F_Inc(7, 5);\nEND_PROGRAM\n${source}`, "P").diagnostics.map((d) => d.code)
-    expect([literal[0], ...new Set(literal.slice(1))]).toEqual(["any-input", "pointer-order"])
+    expect([literal[0], ...new Set(literal.slice(1))]).toEqual(["any-input", "any-input"])
   })
 
   // A referenced library's NAMESPACE, read from its `<folder>.library` manifest and bound over the units it materialized

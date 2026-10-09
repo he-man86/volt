@@ -6,7 +6,7 @@ import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, IrSelect, IrStmt, Place } from "../../ir/index.js"
 import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import { borrowedInOut } from "./borrowed.js"
-import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, pointerTargets } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, pointerTargets, refuseAfterStore } from "./state.js"
 import { storageOf } from "../storage/layout.js"
 import { sameStorage } from "../places/path.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
@@ -54,7 +54,10 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   // undifferentiated pile — and the sections are the whole question: a VAR_INPUT is design §9 form 2 (bind it to
   // the caller's place), a field or a local with several stores is form 3 (the tagged handle), and they are
   // different work. `--why pointer-order` could not tell them apart.
-  if (target === undefined) return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", `${describePointer(lw, pointer)} dereferenced before any address was stored into it`, span)
+  if (target === undefined) {
+    if (refuseAfterStore(lw, key, describePointer(lw, pointer), "dereferenced", span)) return undefined
+    return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", `${describePointer(lw, pointer)} dereferenced before any address was stored into it`, span)
+  }
   if (target.scopedTo !== undefined && (target.scopedTo !== lw || !pointerFrame(lw).boundPointers.has(key!)))
     return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {

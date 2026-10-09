@@ -94,6 +94,29 @@ export const pointerFrame = frameState<PointerFrame>(() => ({
  */
 export const pointerTargets = sharedState(() => new Map<string, PointerTarget[]>())
 
+/**
+ * The pointers whose STORE was refused, by `pointerKey`, with that refusal's code. A later use of one has no recorded
+ * target for the reason the store gave, and repeats it (`refuseAfterStore`). It said `pointer-order`, "before any
+ * address was stored into it", which was false — one was stored, and refused — and the pointer census counted every
+ * such knock-on as a cross-frame blocker (transpile-restructure 4b, gate review of 4.1).
+ */
+export const refusedStores = sharedState(() => new Map<string, string>())
+
+/** Remember that the store into `key` was refused, by the first diagnostic `lw` added at index `from` or later. */
+export function noteRefusedStore(lw: Lowering, key: string, from: number): undefined {
+  const code = lw.diagnostics[from]?.code
+  if (code !== undefined && !refusedStores(lw).has(key)) refusedStores(lw).set(key, code)
+  return undefined
+}
+
+/** A use of a pointer whose store was refused: refused again by the store's code, saying so. False when none was. */
+export function refuseAfterStore(lw: Lowering, key: string | undefined, described: string, use: string, span: Span): boolean {
+  const code = key === undefined ? undefined : refusedStores(lw).get(key)
+  if (code === undefined) return false
+  lw.bail(code, `${described} ${use} after its store was refused (${code})`, span)
+  return true
+}
+
 /** Where a pointer or reference variable lives, as a key every body that reaches it agrees on — undefined for one this
  *  does not track (a field of another instance, an element, a VAR_IN_OUT). */
 export function pointerKey(lw: Lowering, p: Place): string | undefined {

@@ -2982,7 +2982,7 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       VOLT_FIXTURES unset, rustc cache on) 8615 pass, 35 skip, 433 todo, 0 fail (9083 tests, 304 files, 648 s; 7 diverge as
       expected failures) — +3 over 3d's 8612 (4.0's two src tests, 4a's one); `bun run test:corpus` 19 pass, 1 skip;
       `bun test scripts` 37 pass; `bun run check` 18 passed; `openspec validate` valid.
-- [ ] 4.1 Measure.
+- [x] 4.1 Measure.
   - What: the census starting from `transpile-st-to-rust/pointer-model.md` (re-run parse-based, diffed against 2026-09-20): every
     `indirect` fixture, every not-lowered pointer/any/interface/call-fb-inout row (`scripts/probe-lowering-refusals.ts`), every pointer
     `rejects` fixture, each with its predicted verdict under (a) tags, (b) arena, (d) per-pointer enum. A spike of (a), (b), (d) on the
@@ -2991,10 +2991,157 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
   - Where: this file (census table, spike numbers); fixtures in `test/conformance/fixtures/memory/`.
   - Accept: the census table here; recordings committed.
   - Depends: 4.0.
+  - Done 2026-10-09 (at 3dfe0444e3; single-use scratch probes for the census, the predictions, the escape classes and the
+    spike, deleted — nothing under `scripts/`; `scripts/probe-lowering-refusals.ts` run as it is). No product code changed.
+    - New recordings (`test/conformance/fixtures/memory/pointer-model.ts`, `POINTER_MODEL_TESTS`, six fixtures, each in an FB
+      so its layout is the declarations'; `record:exec` ONE batch, CODESYS 3.5.21.40 simulation, 6 cases, 1 refused at build;
+      `pointer_to_lword_roundtrip` re-recorded alone after its LWORD moved to VAR_TEMP — the first recording read the
+      address itself, which no run reproduces; `record:language` on both vendors, `ide.ps1 -Instance transpile-restructure`,
+      CODESYS fixture copy and TwinCAT `-Fixture 13`: all build clean except the DWORD one, which both refuse identically):
+      - `pointer_order_compare`: pointers ORDER as addresses — `ADR(arr[1]) < ADR(arr[3])` TRUE, `>`/`>=` FALSE, `<=` TRUE,
+        `p <= ADR(same)` TRUE, `p < ADR(same)` FALSE; two members of one instance order by declaration (`first < second`).
+      - `adr_difference_two_arrays`: two arrays of one FB are contiguous (`ADR(second[0]) - ADR(first[0])` = 8 for a 4-INT
+        `first`; within = 6); a pointer stepped by that difference reads the OTHER array (crossed = 21, crossedLast = 23).
+        The reverse difference stored into a LINT is 4294967288 (2^32 - 8): the difference of two addresses is a 32-bit
+        unsigned value on the 64-bit simulator, widened by zero extension.
+      - `pointer_byte_walk_struct_padding`: `STRUCT b BYTE; d DWORD; w WORD; c BYTE` is SIZEOF 12, laid out
+        17 0 0 0 | 161 162 163 164 | 177 178 | 193 0 — padding bytes 0, little-endian; `ADR(sv) + 5 := 16#FF` changes byte 1
+        of `d` (16#A4A3FFA1 = -1532756063), a byte store at `ADR(sv.w)` its low byte (16#B2EE). `storage/bytes.ts` agrees.
+      - `pointer_step_past_end`: `ADR(arr[3]) + SIZEOF(INT)` is not NULL, reads the variable declared after the array
+        (99) and a store through it writes that variable (77); stepping back reads arr[3] (44). Today both backends lower it
+        as element tag 4 and FAULT ("array index 4 is outside its bounds"): rated `diverges`, run as an expected failure
+        (`deferred.transpile` names 4.2/4.4).
+      - `pointer_to_lword_roundtrip`: a pointer through an LWORD and back (stepped there by SIZEOF(INT)) dereferences
+        correctly (22, then 33), compares equal to the original and is non-zero.
+      - `pointer_to_dword_roundtrip`: refused by both vendors at build, "Cannot convert type 'POINTER TO INT' to type
+        'DWORD'" and back; the LSP refuses it too (`refused`).
+    - Census of the fixtures (5394 mapped, at this step's map):
+      | group | rows | (a) tags | (b) arena | (d) enum |
+      |---|---:|---|---|---|
+      | tier `indirect`, lowered (design.md's "185" was 2026-09-29; 360 now): 70 vendor-refused, 5 hold a pointer, 285 do not (bit access, in-out copies, dispatch, global roots) | 360 | the 285 and the 70: unchanged | unchanged | unchanged |
+      | lowered with POINTER/REFERENCE/ADR/REF= in the source, any tier, not vendor-refused (77 confirmed, 4 lsp-gap, 1 unaskable, 1 diverges; call 27, decl 26, aggregate 12, arith 9, indirect 5, control 4) | 83 | keep | keep 69 if the arena holds every escaped variable; 12 escape an FB instance (`mem_reference_to_fb_*` ×4, `mem_pointer_deref_method`, `mem_pointer_to_instance_method`, `mem_pointer_to_pointer_member`, `mem_private_method_via_*` ×2, `refdecl_to_fb`, `xo_reference_to_fb_call`, `xo_reference_property`) whose field offsets `bytes.ts` does not have (the header's position is unmeasured), 1 a WSTRING (`lib_stu_wide`, unmeasured) — measured first or refused; `pointer_step_past_end` confirms | keep |
+      | not lowered, a pointer code, not vendor-refused — byte view (`pointer-value` 16, `pointer-type` 11, `adr-offset` 2, `pointer-step` 1, `cursor-overrun` 1; at 4b `cv_xword_into_pointer` joins as `pointer-value` — an LWORD stored into a pointer, mis-coded `pointer-order` — and `pointer_order_compare` leaves for the row below) | 31 | refused by that code | lowers | refused by that code |
+      | not lowered — a target in another frame (`pointer-order`/`pointer-foreign`/`pointer-place`/`copy-instance-pointer`: the `ptrparam_*` five, `cc_fp_ptr_deref`, `cv_pointer_to_other_pointee`, `cv_reference_to_pointer`, `cv_pointer_deref_to_reference_values`, `ty_array_of_pointer`, `use_pointer_deref_struct_field`, `tr_15`; 13 → 12 at 4b, `cv_xword_into_pointer` moved to the byte view) | 12 | lowers with a program-wide target registry and per-call lending (pointer-model.md's "foreign half", ~ the interface module's size) | lowers | as (a) |
+      | `pointer_order_compare` (`pointer-value`; moved here at 4b) — `<`/`<=` on two pointers into ONE array, and on two members of ONE instance: answered by element indices and the instance's declaration order, no byte address | 1 | lowers (element tags; the field order the layout has) | lowers | lowers |
+      | `tr_16_fb_copy_carries_inout_binding` (`call-fb-inout`) | 1 | lowers (an arm per binding tag) | lowers | lowers |
+      | not lowered for a reason no pointer model touches (`call-inout-alias` 5, `place-not-local` 3, interface codes 3 incl. `tr_18`) | 11 | unchanged | unchanged | unchanged |
+      | `calls_adr_on_bit_access` (`pointer-shape`: ADR of a BIT) | 1 | refused | refused (a bit has no measured byte address) | refused |
+      | `newdel_*`/`op_sys_new_delete` (unaskable: no memory pool in the recording project) | 7 | refused `pointer-value` | `stmt-call_stmt` stays | refused |
+      | rejects: vendor-refused with POINTER/REFERENCE/ADR in the source (71 named for pointers; lowering also refuses 39 with a pointer code, lowers 19 — the LSP refuses them) | 87 | unchanged (the front-end refuses) | unchanged | unchanged |
+      Rule, applied mechanically per row (one code decides a row: R before "unchanged" before L*): `pointer-value`, `-type`,
+      `-step`, `adr-offset`, `cursor-overrun` need byte addresses → (b) only; `pointer-order`, `-foreign`, `-place`,
+      `copy-instance-pointer` need a cross-frame target set → (a)/(d) with the registry, (b) without; `call-fb-inout` → all. A `pointer-order` that only FOLLOWS a refused store of the same variable is no code of its own (4b: lowering repeats the store's code there).
+      Overrides read from the source: `tr_15` (its `pointer-value` is an EQUALITY with an ADR, which program-wide tags
+      answer — the spike below), `calls_adr_on_bit_access`, `cv_pointer_deref_to_reference_values` (ADR(p^) is p), and at 4b `pointer_order_compare` (an ORDER of two pointers into one target, as `tr_15`'s equality: element tags and declaration order answer it).
+      Fixtures lowering for the first time: (a) 14 (12 need the registry; at 4b `cv_xword_into_pointer` out, `pointer_order_compare` in), (b) 45 plus `pointer_step_past_end` confirmed and
+      13 lowered rows at risk until FB/WSTRING layouts are measured, (d) 14 (as (a)). RC fixtures: `tr_14`, `tr_20`, `tr_34`, `tr_44`
+      are ALREADY `confirmed` (closed upstream: 4.5, 4.6, 4.11's fixture and 4.12's `tr_34` are verification, not work);
+      open: `tr_15`, `tr_16`, `tr_17` ×4, `tr_18`, `tr_28` ×2.
+    - Census of the corpus (parse-based, Library Manager excluded; six corpora, CodesysTestProject declares none):
+      | | 2026-09-20 (pointer-model.md) | 2026-10-09 |
+      |---|---:|---:|
+      | pointer/reference declarations | 192 | 192 (116 POINTER, 76 REFERENCE; pro2193 121, lenze-mid 32, twincat-project14 21, bakon-nano 12, awa-palletizer 6) |
+      | FUNCTION/METHOD VAR_INPUT / FB VAR_INPUT / FUNCTION/METHOD locals / FB VAR | 63 / 36 / 59 / 34 | 64 / 35 / 59 / 34 |
+      | targets visible: exactly one / two or more / none | 79 / 13 / 100 (96 parameters) | 50 / 10 / 99 (all parameters) + 33 assigned only non-ADR values (another pointer, a `pValue`, arithmetic) |
+      | deref `^` / `p[i]` / `p ± n` / passed to a call / tested against 0 / other compare | 391 / 12 / 88 / 404 / 16 on 10 / 1 | 159 / 6 / 47 / 134 / 10 on 10 / 1; `__ISVALIDREF` 32 on 28 |
+      The use counts are a METHOD difference, not a corpus change: this census counts uses in the ST bodies of the declaring
+      file only (an FB field from every unit of its file, a routine local from its own body); uses from other files
+      (`inst.p^`) and in network-text bodies are not counted, and the 2026-09-20 probe's scope is not recorded (deleted).
+      Blockers (`probe-lowering-refusals.ts`, 304 POUs with code: 54 lower, 250 refused; 2026-09-24 had 56 lowered):
+      `pointer-order` 177 → 105 (after `REF=`) → 109 (09-24) → 106 → 71 at 4b (35 POUs carried it only as a knock-on of the same variable's refused store); `pointer-value` 81 → 99; `pointer-targets` 1 → 0; now
+      also `pointer-outlives` 58, `pointer-type` 42, `pointer-foreign` 12, `pointer-runtime-index` 10, `any-input` 8,
+      `pointer-root-input` 7, `call-fb-inout` 2, `pointer-shape` 1; interface codes `interface-type` 151, `-value` 80,
+      `-query` 80, `-input` 35, `-place` 21, `-instance` 13, `-call-shape` 10; `call-inout-global` 109. Sole blockers: only
+      `pointer-order` (2: `MapperBase`, `MapperOutputs`); 5 POUs are stopped by pointer codes alone (those two and three
+      `pointer-root-input`). Every option unblocks the SAME 2 POUs; (b)'s codes appear in 146 POUs, (a)/(d)'s in 106 — at 4b, knock-ons removed, 136 and 71 (overlap 71 → 46).
+    - Spike (design.md §3.3's ten fixtures; each option hand-written in ONE style — structs, `call`/`scan`, the fixture's
+      semantics only — built with rustc 1.96.0 `-O -F unsafe_code`, linted with clippy pedantic + perf, run, and compared
+      with the CODESYS recording on every path it prints; (b) shares a 36-line `Mem` runtime, counted apart). EDGE agreement
+      cannot be measured for a hand-written option (it needs the interpreter twin, which (b) and (d) do not have); vendor
+      agreement is measured instead. Lines (non-blank, non-comment, above `main`):
+      | fixture | (a) | (b) | (d) | note |
+      |---|---:|---:|---:|---|
+      | `tr_44_pointer_step_below_first_element` | 20 | 20 | 23 | today's emission already biases element tags by 2^32 (RC 44 closed) |
+      | `tr_15_fb_copy_keeps_pointer_address` | 30 | 30 | 31 | (a)/(d): b's call is lent a.x by its caller; (b): the copy copies x's bytes, no lending |
+      | `tr_17_any_pvalue_dint_via_real` | refused | 17 | refused | (b) reads the DINT's 4 bytes as a REAL |
+      | `tr_34_lib_prim_char_behind` | 30 | 29 | 32 | |
+      | `state_any_int_pointer_increment` | 13 | 29 | 13 | (a)=(d): specialized per argument type, arms pruned by diSize; (b): one routine over (address, diSize) |
+      | `lib_prim_string_cursor_offset` (cursor) | 10 | 11 | 10 | (d) erases to (a) (form 2) |
+      | `itf_call_dispatches_on_instance` (interface) | 27 | 27 | 27 | (b) keeps (a)'s tags: an address still has to be matched to the instance's type |
+      | `tr_16_fb_copy_carries_inout_binding` (FB copy) | 22 | 21 | 21 | |
+      | `type_dut_union` | 10 | 12 | 10 | no pointer: (a)=(d) copy-through stores; (b) the union as its bytes |
+      | `lib_stu_length` (StringUtils `StrLenA`/`StrIsNullOrEmptyA`) | 19 | 24 | 19 | (a): specialized per caller capacity; (b): one unspecialized walk |
+      | total | 181 (9) | 220 (10) + 36 | 186 (9) | on the nine all three build: 181 / 203 / 186 |
+      Every program that builds agrees with CODESYS on every path it prints (4/4, 7/7, 4/4, 8/8, 5/5, 2/2 and 3/3, 5/5, 2/2,
+      3/3, 5/5 and 6/6). rustc 187-352 ms each, no option measurably slower; clippy pedantic 0 everywhere except one
+      `cast_possible_truncation` in each `state_any_int_pointer_increment` option. Today's EMITTED (a), for scale (map rows,
+      string prelude included): `tr_44` 85 lines / pedantic 17, `tr_34` 266 / 61, `state_any…` 155 / 16, cursor 239 / 46,
+      interface 114 / 18, union 50 / 8, `lib_stu_length` 256 / 50, all edge `agree`. Cost baselines for 4.2's second
+      criterion: tier `indirect` 360 rows, median size 2.6, pedantic 2928 (median 4); the 83 lowered pointer rows median
+      size 3.1, pedantic 1574 (median 4). Transpiler LOC today: `lower/pointers/` 1033 (non-test), `lower/interfaces/` 485,
+      `calls/last-binding.ts` 139, `core/tags.ts` 17, `emit/rust/runtime/pointer.ts` 6.
+    - What a hand spike does not show, for 4.2: (b)'s arena needs an escape pass and a layout pass in lowering, every
+      routine reaching an escaped variable takes the image (`m: &Mem`/`&mut Mem` threaded like `g`/`prg`), an FB copy copies
+      escaped bytes rather than the handle, and the interpreter gains `semantics/memory.ts`; (a)/(d)'s 13 cross-frame rows (12 at 4b)
+      need the per-variable lend registry (pointer-model.md: the interface module's size again). (d) differs from (a) only
+      where a tag is STORED (tr_44, tr_15, tr_16, interface); everywhere a pointer is erased (cursor, borrow, ANY) the two
+      are one emission.
+    - Tests (targeted + end of step): `VOLT_FIXTURES=<the six> bun test test/conformance` 205 pass, 10 skip, 4 todo, 0 fail;
+      `bun test test/frontend` 45 pass after `VOLT_WRITE_BASELINE=1` rewrote six baselines, counts only (files 10776 → 10788,
+      expressions +390 per vendor, recorded values 10039 → 10148, `ident_expr untyped, a type named where the operator takes
+      one` 8 → 11 / 10 → 13 — the `SIZEOF(INT)` operands; no finding, `ceilings.json` unchanged); `bun test test/conformance` (full, once) 6248 pass, 394 todo, 1 fail — the evidence
+      ratchet's `not-lowered` ceiling, raised 390 → 394 FOR MEASUREMENT with its reason in `map.test.ts` (four of the new
+      fixtures are refused by name, none moved), after which `map.test.ts` 21 pass; 8 diverge as expected failures
+      (`pointer_step_past_end` the new one); lsp-replay LSP-only 0 on both vendors; `bun typecheck` clean; `bun run lint`
+      green.
+    - M (`rate:fixtures`): mapped 5388 → 5394, confirmed 2828, refused 1989 → 1990, not-lowered 390 → 394, diverges 7 → 8,
+      lowered aggregate 146 → 147; edge agree 3060 → 3061, disagree 0, not-run 184; pedantic 32190 → 32211.
+    - Gate 4b (2026-10-09), the three review findings:
+      1. KNOCK-ON `pointer-order` — fixed at the root, failing tests first (`pointers/deref.test.ts` "a pointer whose store
+         was refused", red then green). A refused store (`storePointer`/`bindReference`, incl. `recordTarget`'s
+         `pointer-outlives`) is remembered with its code (`pointers/state.ts` `refusedStores`); a later deref or copy of
+         that pointer with no target repeats THAT code — "the pointer variable pb dereferenced after its store was refused
+         (pointer-type)" — instead of the false "before any address was stored into it". An INTEGER stored into a pointer
+         (`q := lw`, an LWORD) is now `pointer-value`, "an integer (lw) stored as a pointer — its value is a byte address"
+         (it named the LWORD "the pointer variable lw"). `entry/totality.test.ts`'s ANY assertion expected the knock-on to
+         read `pointer-order`; its premise is the one the review refuted, so it now expects `any-input` twice.
+         Fixtures (not-lowered, codes before → after; no rating moved, the map is unchanged): `pointer_byte_walk_struct_padding`
+         pointer-type,pointer-order,pointer-value → pointer-type,pointer-value; `pointer_to_lword_roundtrip` and
+         `cv_pointer_through_lword_values` lose `pointer-order`; `cv_xword_into_pointer` pointer-order → pointer-value (moved
+         to the byte-view row above); `tr_28_minmax_*` ×2 and `cursor_whole_store_capacity` lose it; `initseq_this`,
+         `expr_this_as_pointer`, `mem_private_method_of_same_type_instance` are `place-not-local` alone;
+         `cv_pointer_deref_to_reference_values` `pointer-shape` alone. Rows with a byte-view AND a cross-frame code: 8 → 2
+         (`tr_15`, `decl_pointer_to_pointer_deref_typed`). The review named the latter wrongly: its `pp` is never stored,
+         so its `pointer-order` is true; it stays. Left as they are, both cross-frame on both sides: `ty_array_of_pointer`
+         (`pointer-place` on `a[1]`, whose element has no key, then `pointer-order` on its deref) and `ptrparam_kept`
+         (the deref is lowered before the body that refuses the store).
+         Corpus (`probe-lowering-refusals.ts`, 304 POUs, 54 lower / 250 refused, unchanged): `pointer-order` 106 → 71 —
+         35 POUs carried it only after a refused store of the same variable (bakon-nano's AGM FBs, lenze-mid's motion FBs,
+         pro2193's HMI/buttons/XY-control); all other codes unchanged (`pointer-value` 99, `pointer-type` 42,
+         `pointer-foreign` 12, `pointer-outlives` 58); sole `pointer-order` blockers still 2, pointer-only POUs still 5.
+         POUs carrying any pointer code (what (b) lowers) 146 → 136; an (a)/(d) cross-frame code 106 → 71; both 71 → 46.
+         The census table, rule and "Blockers" lines above carry the corrected figures, marked "at 4b".
+      2. `pointer_order_compare` — taken: moved out of the byte-view row into its own row, lowerable by all three (an order
+         of element tags within one array; two members by the instance's declaration order, which the layout has), as an
+         override beside `tr_15`. First-time lowering: (a) 14 (12 need the registry), (b) 45, (d) 14.
+      3. EDGE agreement — taken as an open item: written into 4.2's What as an owner decision before 4.3 (whether vendor
+         agreement on the recorded paths suffices, or (b)'s byte reinterpretation is first recorded on NaN/±0/denormal/
+         extreme inputs, `tr_17` above all).
+      Also: `test/analysis/baselines/fixtures.{codesys,twincat}.json` rewritten (`VOLT_WRITE_BASELINE=1`), counts only —
+      4.1's six fixtures measured (5132 → 5138 / 5120 → 5126), TP +2 each (`cannotConvert`, `checkAssignmentTypes`,
+      `checkPointerConversion`: the DWORD fixture both vendors refuse), no FP; 4.1 had not rewritten them.
+      Gate: `bun typecheck` clean; `bun run lint` green (package; repo oxlint warnings only, none in volt-lsp-iec);
+      `rate:fixtures` unchanged (mapped 5394, confirmed 2828, refused 1990, not-lowered 394, diverges 8, edge agree 3061,
+      disagree 0, not-run 184); full suite `VOLT_REQUIRE_FULL=1 bun test` (cached rustc, VOLT_FIXTURES unset) 8618 pass, 35 skip, 437 todo, 0 fail, 9090 tests in 304 files.
 - [ ] 4.2 Design "§3.3 Decision: pointers".
   - What: the decision by fixtures, then Rust cost, then LOC; whether the three tag schemes unify (and why not, if not); which `staticKey`
     options become removable; the refused list by code; which transpile-st-to-rust pointer tasks it supersedes (update 0.8's list); the
     rewrite of architecture.md's "pointers will become indices" paragraph.
+    OPEN FOR THE OWNER (4b gate review): design.md §3.3 Measure item 3 asked for EDGE agreement; 4.1 measured VENDOR
+    agreement on the recorded paths instead (a hand-written option has no interpreter twin). 4.2 states whether that
+    suffices for the decision, or records the inputs it leaves unchecked first — above all (b)'s byte reinterpretation on
+    values nobody recorded (`tr_17`'s DINT read as a REAL at a NaN pattern, ±0, denormals, the extremes) — and the owner
+    accepts the choice before 4.3.
   - Where: `design.md`; `openspec/changes/transpile-st-to-rust/tasks.md`.
   - Accept: committed.
   - Depends: 4.1.

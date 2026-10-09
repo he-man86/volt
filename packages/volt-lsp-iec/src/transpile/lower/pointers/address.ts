@@ -3,10 +3,10 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { Expr, Span } from "../../../frontend/syntax/index.js"
+import { exprText, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
-import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, pointerTargets } from "./state.js"
+import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, pointerTargets, refuseAfterStore } from "./state.js"
 import { lowerPlace } from "../places/places.js"
 import { refuseUnionWrite } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
@@ -84,6 +84,11 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
     return lw.bail("pointer-value", "a pointer value this does not model", e.span)
   const source = lowerPlace(lw, operand)
   if (source === undefined) return undefined
+  // AN INTEGER STORED AS A POINTER (`q := lw`, an LWORD holding an address) is a BYTE VIEW, the same fact as storing a
+  // pointer into an integer — it said `pointer-order`, "the pointer variable lw copied before any address was stored
+  // into it", naming an LWORD a pointer and filing a byte-view question under the cross-frame ones (4b).
+  if (source.type.kind === "elementary")
+    return lw.bail("pointer-value", `an integer (${exprText(operand)}) stored as a pointer — its value is a byte address`, e.span)
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
   const targets = key === undefined ? undefined : pointerTargets(lw).get(key)
   // COPYING a multi-target pointer is not built: the copy would have to carry every arm, and its own reads would
@@ -93,8 +98,10 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   const target = targets?.[0]
   // the COPY path reaches it first: the corpus writes `start1 := adr_bit0_Of_Byte` and only then `start1^`, so a
   // guard on the dereference alone never sees the input (see `unsuppliedInput`)
-  if (target === undefined)
+  if (target === undefined) {
+    if (refuseAfterStore(lw, key, describePointer(lw, source), "copied", e.span)) return undefined
     return unsuppliedInput(lw, source, e.span) ?? lw.bail("pointer-order", `${describePointer(lw, source)} copied before any address was stored into it`, e.span)
+  }
   const loaded: IrExpr = { kind: "load", place: source, type: source.type, span: operand.span }
   if (stepped === undefined) return { value: convert(loaded, pointerType), target }
   // measured: `p + SIZEOF(T)` is the next element (conformance `mem_pointer_index_struct_array`) — a step of whole elements
