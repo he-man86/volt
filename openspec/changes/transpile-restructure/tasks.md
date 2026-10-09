@@ -3617,12 +3617,48 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
       lsp-gap 83, diverges 11, unaskable 92; edge agree 3097 -> 3098, disagree 3, not-run 185.
     - Numbers: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning; full suite
       (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES) 8754 pass, 35 skip, 432 todo, 0 fail (9221 tests, 585 s).
-- [ ] 5.2 Design "§3.4 Decision: initialization".
+- [x] 5.2 Design "§3.4 Decision: initialization".
   - What: the one ordered walk, the static-versus-dynamic split, the VAR_TEMP reset form decided by `var_temp_dynamic_aggregate_init`,
     the lift of `init-reads-instance`, the IR doc corrections.
   - Where: `design.md`.
   - Accept: committed.
   - Depends: 5.1.
+  - Done 2026-10-09 (step 5b, design only — no product code; committed as a2b42f56e7). design.md "§3.4 Decision:
+    initialization" answers each item of What on 5.1's measurements: the ONE declaration-ordered walk `init/step.ts`
+    (frames GVL, POU, called PROGRAMs — M5.1.4; per class of the EXTENDS chain base first, own fields then FB_Init with
+    arguments evaluated in the containing frame — M5.1.1; the structured initializer right after that FB_Init — M5.1.3; a
+    STRUCT field instance's arguments in the struct's scope — M5.1.2; THIS legal — M5.1.5; slot methods last); the
+    static-versus-dynamic split (constants folded into `IrSlot.init` unless an earlier step statement reads the slot, then a
+    statement at its position — `cfold_non_constant_argument`, `init_this_in_initializer`; dynamic elements as assignments
+    after the static part); the VAR_TEMP reset form decided by `var_temp_dynamic_aggregate_init` (M5.1.7: `IrFresh` with the
+    resolved static `IrInit` PLUS the dynamic elements as statements, every call, METHOD/FUNCTION VAR included — M5.1.6);
+    `init-reads-instance` kept to its present scope (an instance with a structured initializer; `fb_init_and_structured_initializer`
+    pins it only against its own FB_Init), `fb-init-order` lifted, `init-slot-order` new (niche: accepted loss, 0
+    occurrences in the corpora — no `call_after_global_init_slot`); the IR doc corrections for `IrPou.init` and `IrSlot.init`
+    (applied by 5.10); the rejected alternatives and the 5.3-5.10 migration. Checked against the code at a2b42f56e7: every
+    refusal code it keeps exists (`init-reads-instance`, `fb-init-order`, `fb-init-argument`, `attr-init-unreached` in
+    `lower/diagnostics/codes.ts`; the structured-initializer scope in `lower/init/sequence.ts`), and every fixture it cites is
+    in `map.generated.ts`. No fixture, recording or test changed; M unchanged from gate 5a (5429 fixtures, confirmed 2863,
+    not-lowered 389, lsp-gap 83, diverges 11).
+  - Gate 5b (2026-10-09). Review fixes, design only (no fixture, recording or code changed):
+    - EXTENDS with a field instance running FB_Init (`fb-init.ts` EXTENDS site) is NOT recorded by `init_extends_interleaving`
+      (scalar fields only) and is common — a text census of the six corpora finds about 800 FBs that extend a base and
+      hold such a field — so it is not niche: §3.4 no longer lifts that site by extrapolation; 5.6 records it first and
+      lifts it to the recording. The nested-structured-initializer site stays `fb-init-order`: niche: accepted loss (0
+      occurrences in the corpora — no declaration combines FB_Init arguments with any initializer).
+    - The constant fold is by POSITION: folded only while no step statement precedes it in its frame; after the first
+      one, every constant is a statement at its position — exact for reads AND writes through any path (THIS, a pointer
+      handed to an FB_Init, a called body). A later INSTANCE's fields (folded per type) stay refused by `init-reads-later`,
+      kept and widened from by-name to any path; §3.4 now names it.
+    - `init-slot-order` widened to more than one slot method anywhere (same frame, other frame, other slot value) —
+      niche: accepted loss (0 `call_after_global_init_slot` in the corpora).
+    - The order among several GVLs and several called PROGRAMs is unrecorded: new `init-frame-order` refuses step
+      statements in more than one GVL / called-PROGRAM frame until 5.7 records it.
+    - 5.7's Accept corrected: `init-reads-instance` stays at its present scope (§3.4); design.md's pre-decision bullet
+      points to the Decision.
+    - M unchanged (5429 fixtures, confirmed 2863, not-lowered 389, lsp-gap 83, diverges 11).
+    - Numbers: `bun typecheck` clean; `openspec validate` valid; full suite (`VOLT_REQUIRE_FULL=1 bun test`, no
+      VOLT_FIXTURES) 8754 pass, 35 skip, 432 todo, 0 fail (9221 tests, 581 s).
 - [ ] 5.3 Element defaults (RC 25).
   - What: `types/defaults.typeDefault` covers enum (via `types/enums`), alias initializer, alias array and elements;
     `init/initial-values.ts` fills `IrInit` completely; `semantics/instantiate.ts` and `emit/rust/values.initOf` no longer call `typeZero`
@@ -3643,12 +3679,19 @@ by G+LSP and S. Otherwise it builds the home in the front-end structure, accepte
 - [ ] 5.6 Field initializers before FB_Init (RC 22).
   - Where: `lower/init/step.ts`, `init/instance-init.ts`.
   - Accept: F(`tr_22_fb_init_reads_adr_field`, `tr_22_fb_init_reads_call_field`); `tr_22_fb_init_reads_this_field` passes if 5.2 lifts THIS,
-    else stays not-lowered with its reason written here; the EXTENDS order per `init_extends_interleaving`; M.
+    else stays not-lowered with its reason written here; the EXTENDS order per `init_extends_interleaving`; FIRST recorded
+    (one batch per vendor, §3.4): an EXTENDS chain holding a field instance that runs FB_Init (field in the derived class,
+    with and without the derived FB_Init; field in the base) — `fb-init-order`'s EXTENDS site lifted only to the order
+    recorded; its nested-structured-initializer site stays (niche); M.
   - Depends: 5.2.
 - [ ] 5.7 Declaration-ordered interleaving (RC 23).
   - Where: `lower/init/step.ts`, `init/sequence.ts`, `init/fb-init.ts`.
   - Accept: F(`tr_23_fb_init_argument_from_pending_init` got = 4, `tr_23_fb_init_argument_from_pending_init_reversed` got = 0);
-    `init-reads-instance` lifted where legal; `initseq_*` fixtures stay confirmed; M.
+    `init-reads-instance` stays at its present scope (§3.4: an instance with a structured initializer); `init-reads-later`
+    kept for a later instance's field, by any path (§3.4); the constant fold by position (a constant after the frame's
+    first step statement is a statement); FIRST recorded (one batch per vendor): two GVLs and two called PROGRAMs, each
+    with a stamping initializer, and a renamed twin — the frame order lifted to it, `init-frame-order` refusing until
+    then; `init-slot-order` for more than one slot method; `initseq_*` fixtures stay confirmed; M.
   - Depends: 5.6.
 - [ ] 5.8 Appendix init items.
   - What: the scope of a STRUCT field's FB_Init arguments (per `init_struct_field_fb_init_scope`); `insideInstance` refusing

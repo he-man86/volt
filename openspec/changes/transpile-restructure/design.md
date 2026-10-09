@@ -1390,7 +1390,7 @@ the refused list above into docs; the map delta in tasks.md. Migration: 4.13 (re
   initializer re-evaluated per call, statements; if every aggregate VAR_TEMP initializer in the fixtures folds, `IrFresh` with a
   resolved init.
 - `init-reads-instance` (init-sequence.ts 61-71) is lifted where the order makes the read legal, and refused only where CODESYS's
-  order still reads an uninitialized field.
+  order still reads an uninitialized field. (§3.4 Decision, below: kept at its present scope, not lifted.)
 
 **Couplings.** Lean 7 (routine signatures) and 8 (derives, aggregate syntax) sit on this model's final `new()`/`init()` shape.
 
@@ -1398,17 +1398,39 @@ the refused list above into docs; the map delta in tasks.md. Migration: 4.13 (re
 
 **Target.** ONE declaration-ordered walk, `init/step.ts`, replaces today's three phases (every FB_Init, then the structured
 initializers, then the rest of the frame's own initializers, then the slot methods). Frames in the recorded order (M5.1.4):
-each GVL, then the POU, then each PROGRAM it calls. Within a frame, per declaration in order, exactly one of:
-- a CONSTANT initializer: folded into `IrSlot.init`, applied by `new()`/`instantiate` — unless an earlier step statement
-  reads the slot (`cfold_non_constant_argument` 0; `init_this_in_initializer` reads a later field's default 0), then the
-  slot starts at its type default and the constant is a statement at its position;
+each GVL, then the POU, then each PROGRAM it calls — recorded for ONE GVL and ONE called PROGRAM only; the order among
+several GVLs, and among several called PROGRAMs, is recorded first in 5.7 (one batch: two GVLs and two called PROGRAMs,
+each with a stamping initializer, plus a renamed twin), and until it is, `init-frame-order` refuses by name a step
+statement in more than one GVL frame or in more than one called-PROGRAM frame. Within a frame, per declaration in order,
+exactly one of:
+- a CONSTANT initializer: folded into `IrSlot.init`, applied by `new()`/`instantiate`, ONLY while no step statement
+  precedes it in its frame's walk. From the frame's first step statement on, every later constant of the frame is a
+  statement at its position and its slot starts at its type default (`cfold_non_constant_argument` 0;
+  `init_this_in_initializer` reads a later field's default 0). The rule is by POSITION, not by an analysis of what an
+  earlier statement reads or writes: a statement reaches a later slot through THIS, a pointer handed to an FB_Init, or a
+  called body as easily as by name, and a write after the fold (`pOwner^.later := 1` from an inner FB_Init, then
+  `later : INT := 9`) is as wrong as a read (CODESYS's walk gives 9; folding gives 1). By position it is exact for every
+  path, so nothing is left to decide. A LATER INSTANCE's fields are the exception: their constants are folded per TYPE
+  (`T.__init`, shared by every instance), so an instance has no per-instance "not yet initialized" state to start in,
+  and what an earlier statement sees of it is unrecorded. `init-reads-later` (`lower/init/sequence.ts`) is kept and
+  refuses it: a step statement that reads or writes a later declaration — by name (today's scope, including `k.v` of a
+  later instance `k`), or by passing THIS, `ADR`/`REF=` of the frame or of a later slot, or a pointer into the frame to
+  a call or an FB_Init, or by calling a routine whose body reaches the frame's storage (a GVL's variables, `PRG.x`) —
+  wherever the target is a later INSTANCE's field; a later scalar or aggregate slot of the frame needs no refusal (the
+  position rule sequences it);
 - a DYNAMIC initializer: the assignment at its position (aggregates: the static part stays in `init`, each dynamic
   element or field is an assignment after it, in element order — M5.1.7);
 - an INSTANCE: its whole init, then the next declaration. Per class of the EXTENDS chain, base first: that class's own
-  fields (recursively, nested instances at their position; `T.__init` split at each, as today), then that class's
-  FB_Init with its arguments evaluated NOW in the containing frame (M5.1.1, RC 22, RC 23); then the instance's
-  structured initializer (M5.1.3). A STRUCT field instance's arguments resolve in the struct's scope — its earlier
-  fields' runtime values, then globals (M5.1.2).
+  fields, then that class's FB_Init with its arguments evaluated NOW in the containing frame (M5.1.1, RC 22, RC 23);
+  then the instance's structured initializer (M5.1.3). M5.1.1 records only SCALAR fields in an EXTENDS chain; a class of
+  a chain holding a field INSTANCE that runs FB_Init (where that FB_Init falls against the base's FB_Init and the
+  derived FB_Init) is not recorded, and it is common (about 800 FBs of the six corpora extend a base and hold such a
+  field). So 5.6 records it first (one batch per vendor: a base with a stamping FB_Init, a derived class holding a field
+  instance whose FB_Init stamps, with and without its own FB_Init, and a twin with the field in the BASE) and lifts
+  `fb-init-order` at `fb-init.ts`'s EXTENDS site only to the order recorded; until then that site stays refused.
+  Without EXTENDS, nested instances run at their position (`fb_init_nested_in_fb_init`; `T.__init` split at each, as
+  today). A STRUCT field instance's arguments resolve in the struct's scope — its earlier fields' runtime values, then
+  globals (M5.1.2).
 Then every `call_after_global_init_slot` method, after all frames. THIS is legal in an initializer (M5.1.5): it is the
 frame's own place, at its current state.
 
@@ -1422,12 +1444,20 @@ phases — contradicts M5.1.1/2/5. `IrFresh` with a folded init only — M5.1.7 
 Everything a statement (no constant `init`) — moves every fixture's `new()` for no recorded difference (S-out lost).
 Arguments of a STRUCT field's FB_Init folded in the declaring POU's scope (today) — refused on both vendors (`_local`).
 
-**Stays refused, by code.** `init-reads-instance` keeps exactly its present scope: a read of an instance's field is legal
-by the walk's order (an earlier instance is complete, a later one at its defaults), except of an instance with a
-STRUCTURED initializer — whether a sibling sees that value is unrecorded (`fb_init_and_structured_initializer` pins it
-only against its own FB_Init); the walk applies it right after that FB_Init. `fb-init-order` is lifted (EXTENDS measured). New `init-slot-order`: slot
-methods in more than one frame — their order among themselves is neither declaration nor frame order (M5.1.4, moves
-with names) — niche: accepted loss (0 occurrences in the corpora: no `call_after_global_init_slot`). `fb-init-argument`
+**Stays refused, by code.** `init-reads-instance` keeps exactly its present scope: a read of an EARLIER instance's field
+is legal by the walk's order (that instance is complete), except of an instance with a STRUCTURED initializer — whether
+a sibling sees that value is unrecorded (`fb_init_and_structured_initializer` pins it only against its own FB_Init); the
+walk applies it right after that FB_Init. A read of a LATER instance's field is `init-reads-later` (above), not a read
+"at its defaults". `fb-init-order` is lifted only where recorded: its EXTENDS site (`fb-init.ts`, a chain holding a field
+instance that runs FB_Init) stays until 5.6's recording, and its NESTED-structured-initializer site (an instance declared
+with FB_Init arguments and a nested structured initializer, or one naming an unknown field) stays — M5.1.3 /
+`fb_init_and_structured_initializer` records a FLAT structured initializer only; niche: accepted loss (0 occurrences in
+the corpora: no declaration combines FB_Init arguments with any initializer). New `init-slot-order`:
+more than one `call_after_global_init_slot` method in the program — in one frame or several, with the same slot number
+or different ones (the attribute's value is a priority neither §3.4 nor `init/attributes.ts` models); their order among
+themselves is neither declaration nor frame order (M5.1.4, moves with names) and every recording holds one per frame
+with the value `'50000'` — niche: accepted loss (0 occurrences in the corpora: no `call_after_global_init_slot`).
+`init-frame-order` (above) until 5.7's recording. `fb-init-argument`
 for positional / VAR_IN_OUT / VAR_OUTPUT FB_Init arguments and the global-written-while-read case, unchanged.
 `attr-init-unreached` for an instance in an array element, a non-PROGRAM global or a routine local, unchanged.
 
