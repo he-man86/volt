@@ -3,6 +3,7 @@
 import type { IrExpr, IrPou, Place } from "../../ir/index.js"
 import { elementOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
+import { rustType } from "./types.js"
 import { expr } from "./expr.js"
 import { tmp } from "./names.js"
 import type { Printer } from "./printer.js"
@@ -59,30 +60,51 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
         type = elementOf(type)!
         continue
       }
-      // AN INDEX MINUS ITS LOWER BOUND PRINTS ONE WAY (7.2.3): an `ARRAY[*]` dimension's offset is the IR's LINT `sub` of
-      // two values widened from 32 bits or fewer, which cannot overflow — so the plain `-` a declared bound prints, not
-      // the `wrapping_sub` a LINT subtraction prints elsewhere
+      // AN INDEX MINUS ITS LOWER BOUND PRINTS ONE WAY (7.2.3, 7.2.14): an `ARRAY[*]` dimension's offset is the IR's LINT
+      // `sub` of two values widened from 32 bits or fewer — each converted once to `usize` and subtracted there wrapping,
+      // as a declared bound comes off (below): a position under 0 wraps to a huge one and panics
       const offset = step.index
       if (step.lower === 0n && offset.kind === "binary" && offset.op === "sub" && widenedNarrow(offset.left) && widenedNarrow(offset.right)) {
-        text += `[(${expr(p, offset.left, slots)} - ${expr(p, offset.right, slots)}) as usize]`
+        const own = (x: Extract<IrExpr, { kind: "convert" }>): string => `${expr(p, x.value, slots)} as usize`
+        text += `[(${own(offset.left)}).wrapping_sub(${own(offset.right)})]`
         type = elementOf(type)!
         continue
       }
-      const index = castTo(expr(p, step.index, slots), step.index.type, "i64")
-      // NOT `unparen`ed, and that is the whole point: `as` binds TIGHTER than the arithmetic operators, so
-      // stripping the printer's parentheses off `(self.li / 2i64)` leaves `self.li / 2i64 as usize`, which Rust
-      // reads as `self.li / (2i64 as usize)` — E0277, `cannot divide i64 by usize`. `arr[li / 2]` is the reaching
-      // case and no fixture has one, so the suite stayed green over an emission that does not compile.
-      // a negative offset wraps to a huge usize, so an index below the lower bound panics like one above the upper
-      text += step.lower === 0n ? `[${index} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
+      if (step.index.kind === "const") {
+        // a constant outside the array: the run-time check a bare position would not compile without
+        const index = castTo(expr(p, step.index, slots), step.index.type, "i64")
+        text += step.lower === 0n ? `[${index} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
+        type = elementOf(type)!
+        continue
+      }
+      // A RUNTIME INDEX CASTS ONCE (7.2.14): from its own type straight to `usize` — on a 64-bit target `i as usize` is
+      // `(i as i64) as usize` for every integer of 64 bits or fewer (sign- or zero-extended alike), so a widening the
+      // IR put in front of it is skipped too — and the lower bound comes off in `usize`'s wrapping arithmetic: an index
+      // below the bound, a negative one included, wraps to a huge position and panics like one above the upper.
+      // NOT `unparen`ed: `as` binds TIGHTER than the arithmetic operators, so `(self.li / 2i64)` must keep its
+      // parentheses or Rust reads `self.li / (2i64 as usize)` — E0277.
+      const own = widenedIndex(step.index) ? step.index.value : step.index
+      const printed = expr(p, own, slots)
+      const cast = rustType(own.type) !== "usize"
+      const lower = step.lower > 0n ? `.wrapping_sub(${step.lower})` : `.wrapping_add(${-step.lower})`
+      text += step.lower === 0n ? `[${cast ? `${printed} as usize` : printed}]` : `[${cast ? `(${printed} as usize)` : printed}${lower}]`
       type = elementOf(type)!
     }
   }
   return text
 }
 
+/** An index the IR widened from a narrower integer, every value kept (a signed one sign-extended, an unsigned one
+ *  zero-extended) — the same `usize` either way. */
+function widenedIndex(e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> {
+  if (e.kind !== "convert" || !isIntegral(e.value.type) || !isIntegral(e.type)) return false
+  const [from, to] = [e.value.type, e.type]
+  if (from.kind !== "elementary" || to.kind !== "elementary" || from.elem.bits === undefined || to.elem.bits === undefined) return false
+  return from.elem.signed === to.elem.signed ? to.elem.bits >= from.elem.bits : !from.elem.signed && to.elem.bits > from.elem.bits
+}
+
 /** An integer of 32 bits or fewer widened to a LINT — two of them subtract without overflow. */
-const widenedNarrow = (e: IrExpr): boolean => e.kind === "convert" && isIntegral(e.value.type) && e.value.type.kind === "elementary" && e.value.type.elem.bits <= 32
+const widenedNarrow = (e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> => e.kind === "convert" && isIntegral(e.value.type) && e.value.type.kind === "elementary" && e.value.type.elem.bits <= 32
 
 /** The PROGRAM's own place and the member path under it — a call runs it moved out of `Programs` and puts it back.
  *  It used to return the program's TYPE as well, for `std::mem::replace(&mut p, T::new())`; `mem::take` needs no

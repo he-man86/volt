@@ -39,6 +39,19 @@ function shortestF32(v: number): string {
   return `${Number(f.toPrecision(9))}`
 }
 
+/**
+ * A LONG LITERAL'S DIGITS GROUPED BY THREE (7.2.11): an integer part of six digits or more from the right, a fraction of
+ * six or more from the left (`1_709_078_400`, `0.100_000_001_490_116_12`) — clippy's `unreadable_literal` asks exactly
+ * that, and leaves five digits or fewer bare. An exponent stays as written.
+ */
+function grouped(text: string): string {
+  return text.replace(/^(-?)(\d+)(?:\.(\d+))?/, (_m, sign: string, whole: string, fraction: string | undefined) => {
+    const w = whole.length > 5 ? whole.replace(/\B(?=(?:\d{3})+$)/g, "_") : whole
+    const f = fraction === undefined ? "" : `.${fraction.length > 5 ? fraction.replace(/(\d{3})(?=\d)/g, "$1_") : fraction}`
+    return `${sign}${w}${f}`
+  })
+}
+
 export function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   // an ADDRESS in the byte image, printed from where the image starts (`runtime/pointer.ts` `IMAGE_BASE`)
@@ -53,7 +66,8 @@ export function literal(v: IrValue, t: Type): string {
     return `(${v < 0 ? "-" : ""}${t.kind === "elementary" ? rustType(t) : "f64"}::INFINITY)`
   if (typeof v === "number" && isReal32(t) && !Number.isFinite(Math.fround(v)))
     return `(${v < 0 ? "-" : ""}f32::INFINITY)`
-  const text = `${typeof v === "number" && isReal32(t) ? shortestF32(v) : v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
+  const digits = grouped(`${typeof v === "number" && isReal32(t) ? shortestF32(v) : v}`)
+  const text = `${digits}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?[\d_]+)(f\d\d)$/, "$1.0$2")
   // A NEGATIVE CONSTANT IS PARENTHESIZED, because in Rust a method call binds TIGHTER than unary minus — the
   // classic `-1.abs()` trap. The emitter makes a constant the RECEIVER of a method in a dozen places
   // (`wrapping_*`, `max`/`min`, `limit`, `abs`, the shifts and rotates, `round`, `clone`, the string helpers),
@@ -78,8 +92,8 @@ function typedLiteral(v: IrValue, t: Type): string {
   if (t.kind !== "elementary") return literal(v, t)
   if (typeof v === "number" && (!Number.isFinite(v) || (isReal32(t) && !Number.isFinite(Math.fround(v)))))
     return `${v < 0 ? "-" : ""}${rustType(t)}::INFINITY`
-  const text = typeof v === "number" ? (isReal32(t) ? shortestF32(v) : `${v}`) : `${v}`
-  return typeof v === "number" && /^-?\d+$/.test(text) ? `${text}.0` : text
+  const text = grouped(typeof v === "number" ? (isReal32(t) ? shortestF32(v) : `${v}`) : `${v}`)
+  return typeof v === "number" && /^-?[\d_]+$/.test(text) ? `${text}.0` : text
 }
 
 /**

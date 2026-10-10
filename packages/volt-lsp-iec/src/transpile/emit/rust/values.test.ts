@@ -63,3 +63,27 @@ describe("emit/rust — a VAR_TEMP reset", () => {
     expect(call).toContain("self.sx = { let mut v = ST_P::new(); v.a = 9; v };")
   })
 })
+
+/**
+ * A LONG LITERAL GROUPS ITS DIGITS (7.2.11) — an integer part or a fraction of six digits or more, by three, as clippy's
+ * `unreadable_literal` asks (`1_709_078_400u32`); five or fewer stay as they are. A REAL prints from its rounded f32
+ * value (7.2.12): the fewest digits naming that f32, never the f64 decimal of the value before rounding.
+ */
+describe("emit/rust — a literal's digits", () => {
+  test("six or more digits group by three, in the integer part and the fraction; five stay bare", () => {
+    const code = rust(
+      "PROGRAM P\nVAR\n  d : UDINT;\n  u : ULINT;\n  t : INT;\n  big : LREAL;\n  small : LREAL;\nEND_VAR\nd := 1709078400;\nu := 1000000000;\nt := 12345;\nbig := 1234567.125;\nsmall := 0.000001;\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("self.d = 1_709_078_400u32;")
+    expect(code).toContain("self.u = 1_000_000_000u64;")
+    expect(code).toContain("self.t = 12345i16;")
+    expect(code).toContain("self.big = 1_234_567.125f64;")
+    expect(code).toContain("self.small = 0.000_001f64;")
+  })
+
+  test("a REAL literal prints the shortest decimal of its f32, a field's initializer too", () => {
+    const code = rust("PROGRAM P\nVAR\n  a : REAL := REAL#0.1;\n  b : REAL;\nEND_VAR\nb := 3.14159;\nEND_PROGRAM\n")
+    expect(code).toContain("a: 0.1,")
+    expect(code).toContain("self.b = 3.14159f32;")
+  })
+})

@@ -84,13 +84,16 @@ describe("every note is tagged with the task that owns it", () => {
 
   test("no item of a merged note rides on another item's owner (the 0b review)", () => {
     // shapes6_4 (the hand-written `impl Default`) rode in 870b70e195 under 7.2.8 with no task of its own: now 7.8.11's —
-    // in fbde4d6e1e since 7.2.8 printed field literals bare (`x: L,`), where every field note's items met
-    expect(NOTES["fbde4d6e1e"]!.tasks).toEqual(["7.8.8", "7.2.11", "7.2.12", "7.2.12", "7.8.11", "7.2.11"])
-    // a `keep` note's other items ask for changes: each names the task that makes it
-    // (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
-    expect(NOTES["1d7709a031"]!.tasks.slice(1)).toEqual(["7.3.1"])
-    expect(NOTES["1307e33bbf"]!.tasks.slice(1)).toEqual(["7.3.5"])
-    expect(NOTES["496b8acb56"]!.tasks.slice(1)).toEqual(["7.6.6"])
+    // in fbde4d6e1e since 7.2.8 printed field literals bare (`x: L,`), where every field note's items met (its 7.2.11 and 7.2.12
+    // items went when those landed)
+    expect(NOTES["fbde4d6e1e"]!.tasks).toEqual(["7.8.8", "7.8.11"])
+    // a `keep` note's other items ask for changes: each names the task that makes it, and stays when 7.2.13 removed
+    // the `keep` items beside it (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
+    expect(NOTES["1d7709a031"]!.tasks).toEqual(["7.3.1"])
+    expect(NOTES["1307e33bbf"]!.tasks).toEqual(["7.3.5"])
+    expect(NOTES["496b8acb56"]!.tasks).toEqual(["7.6.6"])
+    // 7.2.13: the notes of the group-2 constructs that held only `keep` items are gone
+    for (const id of ["6a98109119", "a497507b30", "4a6baf16b3", "687428cc81"]) expect(NOTES[id]).toBeUndefined()
   })
 
   test("the authored NOTES all carry a valid tag (transpile-restructure's tasks.md)", () => {

@@ -5164,29 +5164,60 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     5535 fixtures against the step-start baseline; `fold-agreement` 513 compared, 30 disagree (30 known); full suite
     (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 9103 pass / 35 skip / 389 todo / 0 fail across 314 files (6Bb's 9084 ->
     9103).
-- [ ] 7.2.11 Digit separators for large literals (`unreadable_literal` 3681 minus the loop-cap share).
+- [x] 7.2.11 Digit separators for large literals (`unreadable_literal` 3681 minus the loop-cap share).
   - Notes: 4bf3f61062, 093ad5cc7a.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 2.3.
-- [ ] 7.2.12 An f32 literal printed from its rounded value.
+  - Done 2026-10-10 (step 7.2c). `values.ts` `grouped`: an integer part or a fraction of six digits or more groups by three
+    (`1_709_078_400u32`, `0.000_001f64`, `0.100_000_001_490_116_12f64`), exactly what clippy's `unreadable_literal` asks;
+    five or fewer stay bare; in `literal` and `typedLiteral` alike. Test-first `values.test.ts`. Notes: 093ad5cc7a,
+    4bf3f61062 deleted (their construct normalizes the same, the item is done), fbde4d6e1e's two 7.2.11 items removed.
+    M: `unreadable_literal` 802 -> 2 (step 7.2c's numbers under 7.2.14).
+- [x] 7.2.12 An f32 literal printed from its rounded value.
   - Notes: 74845f98c6.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
-- [ ] 7.2.13 Remove the `keep` items of the notes attached to group-2 constructs (1307e33bbf, 6a98109119, a497507b30, 1d7709a031,
+  - Done 2026-10-10 (step 7.2c). Verified, no code: `values.ts` `shortestF32` already prints the shortest decimal of the
+    ROUNDED f32 (`Math.fround(v)` first) in `literal` and in a field's `typedLiteral` (`0.1f32`, `a: 0.1,`, `3.14159f32`);
+    a new `values.test.ts` test pins it. Its items in fbde4d6e1e (shapes4_3, shapes5_15) removed.
+- [x] 7.2.13 Remove the `keep` items of the notes attached to group-2 constructs (1307e33bbf, 6a98109119, a497507b30, 1d7709a031,
   4a6baf16b3, 687428cc81, 496b8acb56, as tagged in 0.6): a note whose every item is `keep` is deleted; the items another task owns
   stay under it (1307e33bbf 7.3.5, 1d7709a031 7.2.5 + 7.3.1, a497507b30 7.2.5, 4a6baf16b3 7.2.2, 496b8acb56 7.6.6 — owned since 0b).
   - Where: `support/notes/notes.data.ts`.
   - Accept: M (no `keep` item left in these notes; 7.11.1's count falls by the notes that held only `keep`).
   - Depends: 0.6.
-- [ ] 7.2.14 A runtime array index without the `(i as i64) as usize` hop.
+  - Done 2026-10-10 (step 7.2c). 6a98109119, a497507b30, 4a6baf16b3, 687428cc81 held only `keep` items: deleted.
+    1307e33bbf (7.3.5), 1d7709a031 (7.3.1) and 496b8acb56 (7.6.6) keep their owned item, as single-item notes now.
+    `notes.test.ts` reads their tasks whole and pins the four deleted. `keep` in the map header 12 -> 5 (the notes 7.7.10,
+    7.8.9 and 7.11.1 still own).
+- [x] 7.2.14 A runtime array index without the `(i as i64) as usize` hop.
   - What: the index is converted once from its own type to `usize` after the lower-bound subtraction in its own width, where the value
     range allows it (lowering decides; the interpreter unchanged).
   - Notes: the 7 runtime-index notes tagged here by 0.6.
   - Where: `lower/places/places.ts`, `emit/rust/place.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.3.
+  - Done 2026-10-10 (step 7.2c). `emit/rust/place.ts`: a runtime index converts once, from its own type straight to
+    `usize` (a widening the IR put in front of it skipped: sign- or zero-extension gives the same `usize`), and the lower
+    bound comes off in `usize`'s wrapping arithmetic — `self.a[(self.i as usize).wrapping_sub(3)]`, `[self.k as usize]`,
+    a negative bound `.wrapping_add(2)`; an `ARRAY[*]` offset `[(i as usize).wrapping_sub(lower as usize)]`. An index
+    below the bound (a negative one included) wraps to a huge position and panics like one above it, for every integer of
+    64 bits or fewer — so no value-range decision is needed in lowering (the task's "where the value range allows it"
+    is every case; the interpreter unchanged). A constant outside its array keeps its run-time form. Test-first
+    `place.test.ts` ("a runtime index converts once…"); the 7.2.3 test's runtime line and its ARRAY[*] pattern read the
+    new form (this task's change). Notes: every 7.2.14 item resolved — 07d4272a6e, 848701ece2, 8d7dcea3f3, 939dcea16f,
+    9f8b867884, a3dcf54f50, acb72c4272, b717a3eba0, c2409a5969, d04295d4c8, f10c6b31a0, faf6085b83 deleted; the 7.2.14
+    items of 4a599db8d8 and bff12f96c5 removed. Re-keyed to their new lines (items kept): 16b713f0f3 -> e8a91161a6,
+    70b25e3c85 -> 8a29ce0c61 (7.6.1), 5163225833 -> 4998dd2ee0 (7.4.3), 569d2b7a40 -> f1e64d31ba (7.4.4), 696a88fa8f
+    -> e22b79e430 (7.3.1), 6a2b5f2826 -> 6f799d0ac4 (7.7.2), 4a599db8d8 -> 9f3b26d1c3 (7.4.6), bff12f96c5 -> 3ee591f45f
+    (7.3.1).
+    Step 7.2c numbers: S-out (`snapshot:transpile check --layers outputs,edge`) identical over 5535 fixtures against the
+    step-start baseline (HEAD 06e14b222c). M (against 7.2b's map): pedantic 15621 -> 14547 (`unreadable_literal` 802 ->
+    2 — the two left are an array length `[0; 100000]` in `ar_sizeof_into_narrow`, printed outside `values.ts`;
+    `cast_lossless` 3784 -> 3637, `cast_possible_truncation` 1844 -> 1707, `cast_sign_loss` 814 -> 824); noted constructs
+    521 -> 503; tiers, lints, edge, allowed counts unchanged.
 
 ### 7.3 One emission per construct: narrow arithmetic and precedence (lean 3; cast_possible_truncation 5666, cast_sign_loss 4361, cast_lossless 4359)
 
