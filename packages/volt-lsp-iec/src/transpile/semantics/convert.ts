@@ -1,5 +1,5 @@
 /** A CONVERSION NODE'S VALUE (`coerce`), before `fit` stores it at the target's width. */
-import type { Type } from "../../frontend/types/index.js"
+import { isBoolValued, type Type } from "../../frontend/types/index.js"
 import type { IrValue } from "../ir/index.js"
 import type { Val } from "./value.js"
 import { fit } from "./store.js"
@@ -41,7 +41,7 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   const family = to.elem.family
   if (family === "string") return toText(v, to, from)
   if (typeof v === "string") return fromText(visible(v), to)
-  if (family === "bool") return toBool(v)
+  if (isBoolValued(to)) return toBool(v)
   const n = typeof v === "boolean" ? (v ? 1n : 0n) : v
   if (family === "real") return toReal(n, to)
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.

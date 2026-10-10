@@ -1,6 +1,6 @@
-/** HOW A TYPE STORES A VALUE (`fit`): the integer wrap at the declared width, REAL as a 32-bit float, BIT as a BOOLEAN, a
+/** HOW A TYPE STORES A VALUE (`fit`): the integer wrap at the declared width, REAL as a 32-bit float, BIT and BOOL as a BOOLEAN, a
  *  STRING cut at its capacity. */
-import { holdsIntegerBits, isBit, type Type, wrapToWidth } from "../../frontend/types/index.js"
+import { holdsIntegerBits, isBoolValued, storeInteger, type Type } from "../../frontend/types/index.js"
 import type { Val } from "./value.js"
 import { held } from "./string.js"
 
@@ -37,17 +37,18 @@ export function fit(v: Val, type: Type): Val {
   // already knew better — `typeZero` starts it `false` and the emitter maps it to Rust `bool` — but an
   // explicit initializer took the integer path below and stored `0n`, so `x : BIT := 0` read back as 0 where CODESYS
   // says FALSE (`bound_bit_at_min` / `_at_max`, 2026-09-18; and `:= -1` or `:= 2` is refused outright, "Cannot
-  // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it.
-  if (isBit(type)) return typeof v === "bigint" ? v !== 0n : v
+  // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it. A BOOL holds the
+  // same value (`isBoolValued`), an integer into it "not zero" as lowering's `valueAs` makes it.
+  if (isBoolValued(type)) return typeof v === "bigint" ? v !== 0n : v
   // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
   // the buffer cut at the target's capacity — as the prelude's `to` copies the units both buffers hold. This is a FRESH
   // buffer (a call's input, a binding); an assignment into a buffer already there is `storeString` (`interp/frame.ts`)
   if (family === "string") return typeof v === "string" && type.length !== undefined ? held(v.slice(0, type.length)) : v
-  // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
-  // the L variants 64-bit nanoseconds (design §16, §17)
-  if (holdsIntegerBits(type) && typeof v === "bigint")
-    return inWidth(v, bits, signed) ? v : wrapToWidth(v, type.elem)
-  return v
+  // an integer is stored as `storeInteger` says, the rule lowering's `stored` reads too (6.B.2): a duration or date wraps
+  // like the integer it is — TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds, the L variants 64-bit
+  // nanoseconds (design §16, §17). `inWidth` only spares the wrap's allocation where the value already fits.
+  if (typeof v !== "bigint") return v
+  return holdsIntegerBits(type) && inWidth(v, bits, signed) ? v : storeInteger(v, type)
 }
 
 /** Whether an integer already lies inside `bits` of the given signedness — two comparisons against bounds computed

@@ -4,6 +4,10 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { prepareProject, TRANSPILE_PARSE } from "../project/prepare.js"
+import { Lowering } from "../core/lowering.js"
+import { implementsInterface } from "./tags.js"
 
 // Interfaces (conformance `itf_*`): an interface variable had no representation (`slot-interface`), so nothing called
 // through one lowered. It holds the tag of its instance, and each call dispatches once every store has lowered.
@@ -81,4 +85,21 @@ test("an interface holding a GVL instance is refused as a call on a GVL instance
     expect(got).toContain("call-global-instance")
     expect(got).not.toContain("interface-context")
   }
+})
+
+// `implementsInterface` walks the FB's whole EXTENDS chain by name, every unit once: it stopped after 32 units (a depth cap
+// the cycle guard of `core/chain.declaredChain` made redundant; transpile-restructure 6.B.3), so an interface implemented
+// 33 or more bases down was not seen.
+test("an FB implements an interface its base implements, however deep the EXTENDS chain", () => {
+  const depth = 40
+  const fbs = Array.from({ length: depth }, (_, i) =>
+    i === 0 ? "FUNCTION_BLOCK FB_0 IMPLEMENTS I_Deep\nEND_FUNCTION_BLOCK\n" : `FUNCTION_BLOCK FB_${i} EXTENDS FB_${i - 1}\nEND_FUNCTION_BLOCK\n`,
+  )
+  const source = "INTERFACE I_Deep\nEND_INTERFACE\n" + fbs.join("")
+  const parseResult = parseSource(source, TRANSPILE_PARSE)
+  const { project } = prepareProject([{ uri: "transpile://deep", parseResult, source }], [])
+  const lw = new Lowering(project, project)
+  expect(implementsInterface(lw, `FB_${depth - 1}`, "I_Deep")).toBe(true)
+  expect(implementsInterface(lw, "FB_5", "I_Deep")).toBe(true)
+  expect(implementsInterface(lw, "FB_5", "I_Other")).toBe(false)
 })

@@ -98,6 +98,9 @@ export function declaredValue(symbol: Symbol): ConstValue | string {
   const integer = integerType(declaredElem(decl.type, symbol))
   const { value, width } = fold(init, symbol.owner, expecting({ folding: new Set() }, unsignedType(integer)))
   if (typeof value === "number") return width === 32 ? Math.fround(value) : value
+  // NOT `storeInteger` (transpile-restructure 6.B.2: this guard is kept): the front-end holds only an INTEGER type's
+  // value at its width (`integerType`: a rank, the platform's `__XINT` read on the project's target). `storeInteger` would
+  // also wrap a duration's or a date's, which this fold has never done and no recording asks of it.
   return typeof value === "bigint" && integer !== undefined ? wrapToWidth(value, integer) : value
 }
 

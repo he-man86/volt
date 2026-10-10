@@ -4642,21 +4642,55 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
 
 ### 6.B Leftovers of the neutral consolidations (every parameter phase 1 kept has a removal task)
 
-- [ ] 6.B.1 BIT-is-BOOL: the sites 1.1.5 did not switch.
+- [x] 6.B.1 BIT-is-BOOL: the sites 1.1.5 did not switch.
   - What: each listed site uses `isBoolValued`, or keeps its own test with a written reason; RC 31's emitter site is 6.9.
   - Where: the sites listed under 1.1.5.
   - Accept: S-out; a grep finds no hand-written BIT/BOOL test outside `types/predicates.ts` without a reason.
   - Depends: 6.9.
-- [ ] 6.B.2 The integer wrap: remove the per-caller family guards 1.1.6 listed.
+  - Done 2026-10-10 (step 6Ba). Switched to `isBoolValued` / `isBit` / `isIntegral` (identical answers): `values/convert.ts`
+    `convert` (the BIT/BOOL pair is one `isBoolValued` test), `storage/bytes.ts` (a BIT field packs: `isBit`),
+    `builtins/conversions.ts` `hasText` (`isBoolValued`; `isInt(t, true)` already held a BIT), `expressions/operators.ts`
+    NOT's operand (`isBoolValued || isIntegral` = bool/bitstring/int), `semantics/memory.ts` (three `family === "bool"`),
+    `semantics/convert.ts` `coerce`, `semantics/store.ts` `fit` (a BOOL holds a BOOLEAN as a BIT does), front-end
+    `types/defaults.ts` `typeZero`, `types/arith/operators.ts` `shortCircuitType` (its `bits === 1` test), `types/layout.ts`
+    (its private `isBit` copy deleted). Kept, with the reason written at the site: `builtins/conversions.ts` `integral` (by
+    NAME; a BIT beside a duration is unrecorded), `types/compat.ts` `bitToBool` (the assignment table is keyed by name).
+    Not BIT-is-BOOL sites (a BOOL-only rule, or a family set that includes BIT, as 1.1.5 listed): `types/arith/checked.ts`,
+    `arith/operators.ts` `notResultType` / `bitwiseResultType` (over an enum's base ElementaryType), `types/builtins.ts`,
+    `const/fold.ts`'s conversion to BOOL, `literal.ts`, `compat.ts`'s ANY_BIT; the emitter decides in `emit/rust/types.ts`
+    (6.9). S identical (all four layers, 5516 fixtures, against a baseline written at the step's start).
+  - Gate review (6Ba+6Bb, 2026-10-10): NOT output-neutral for one input no fixture covered — `coerce` now sends a BIT target
+    through `toBool`, so `REAL_TO_BIT(0.4)` is TRUE where it left the REAL in a BOOL (0.4000000059604645). Recorded:
+    `tr_b1_real_to_bit_into_bool` and `tr_b1_real_to_bit_field` (0.4 TRUE, 0.0 FALSE, -1.5 TRUE, into a BOOL and into BIT
+    struct fields; build clean on both vendors, CODESYS run) — both confirmed, the new answer is the vendor's. (Recorded in
+    the 6Bb commit: the recordings are shared files.)
+- [x] 6.B.2 The integer wrap: remove the per-caller family guards 1.1.6 listed.
   - What: `wrapToWidth` callers go through one `storeInteger(value, type)` rule, or keep a guard with a written reason.
   - Where: `types/width.ts`, `types/const/fold.ts`, `lower/values/convert.ts`, `semantics/store.ts`.
   - Accept: S-out; G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.B.3 EXTENDS: remove the documented parameters 1.7.3 listed.
+  - Done 2026-10-10 (step 6Ba). `types/width.ts` `storeInteger(v, t)` is the one rule — wrapped at the width when
+    `holdsIntegerBits(t)`, unchanged otherwise — on the types index. `values/convert.ts` `stored` is
+    `typeof v === "bigint" ? storeInteger(v, to) : v` (its BIT and no-elem guards were `holdsIntegerBits`'s already);
+    `semantics/store.ts` `fit` stores an integer through it (`inWidth` kept in front only to spare the allocation). Kept,
+    each with its reason written: `fit`'s REAL (fround), BIT/BOOL (a BOOLEAN) and STRING (capacity) — other families' store
+    rules, not integer guards; `const/fold.ts` `declaredValue` keeps `integerType` (the front-end holds only an INTEGER's
+    value at its width; `storeInteger` would also wrap a duration's, unrecorded); the rotate (`semantics/builtins.ts`) is a
+    bit pattern, not a store. Test: `types/width.test.ts` "storeInteger" (red first). S identical.
+- [x] 6.B.3 EXTENDS: remove the documented parameters 1.7.3 listed.
   - What: each site uses the default chain, or the parameter stays with the recorded fixture that needs it.
   - Where: `lower/core/chain.ts` and its callers.
   - Accept: S-out.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 6Ba). The one parameter, `declaredChain`'s `limit` (`implementsInterface`'s 32-unit cap), is
+    gone: the cycle guard ends every walk. The three mechanisms stay, each answering its own question (written in
+    `core/chain.ts`'s header): the binder's link is the TYPE's chain (field order, FB_Init order), the queued bodies what
+    lowering can RUN (a base with no body is `call-base`, not a shorter chain), name lookup the DECLARATION a scope does not
+    carry (a field's FB_Init arguments, IMPLEMENTS and an interface's EXTENDS lists). Tests: `interfaces/tags.test.ts` "an FB
+    implements an interface its base implements, however deep the EXTENDS chain" (40 levels; red first); `core/chain.test.ts`
+    loses its `limit` case. S identical.
+  - Gate note (6Ba/6Bb): 6Bb edits `builtins/conversions.ts` and `expressions/operators.ts` again, so 6Ba's diff alone is
+    saved as `6Ba.patch` in the step's scratchpad; 6Ba's files are those named under 6.B.1-6.B.3.
 - [ ] 6.B.4 Lowering's parameter view delegates to `types/infer/callee`.
   - What: for every difference 1.7.18 wrote down, either the two agree (lowering delegates) or the difference is a recorded CODESYS fact
     and stays with its reason.

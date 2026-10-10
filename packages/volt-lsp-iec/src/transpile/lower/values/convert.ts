@@ -9,13 +9,11 @@ import {
   commonType,
   elementaryRef,
   elemOf,
-  holdsIntegerBits,
   integerLiteralType,
-  isBit,
   isBoolValued,
   isReal,
+  storeInteger,
   type Type,
-  wrapToWidth,
 } from "../../../frontend/types/index.js"
 import { integerFoldType } from "./fold.js"
 
@@ -24,12 +22,10 @@ import { integerFoldType } from "./fold.js"
 export function convert(e: IrExpr, to: Type): IrExpr {
   const from = elemOf(e.type)
   const target = elemOf(to)
-  // A BIT holds a BOOLEAN (`isBit`, design §9) — it is one bit only in the LAYOUT. So a BIT and a BOOL are the same
-  // value and neither `BOOL_TO_BIT` nor a plain store between them converts anything; typed as the 1-bit bit string it
-  // is declared as, every crossing printed `!= 0` against a Rust `bool` (conformance `ct_bit_fields`).
-  if (isBit(e.type) || isBit(to)) {
-    if (isBoolValued(e.type) && isBoolValued(to)) return e
-  }
+  // A BIT holds a BOOLEAN (`isBoolValued`, design §9) — it is one bit only in the LAYOUT. So a BIT and a BOOL are the
+  // same value and neither `BOOL_TO_BIT` nor a plain store between them converts anything; typed as the 1-bit bit string
+  // it is declared as, every crossing printed `!= 0` against a Rust `bool` (conformance `ct_bit_fields`).
+  if (isBoolValued(e.type) && isBoolValued(to)) return e
   // A constant lands at the target's width even when context already typed it so: `si := 128` types the literal SINT
   // on the way in, and this returned it unchanged below — the emitter printed `128i8`, which rustc rejects.
   if (e.kind === "const" && target !== undefined && from?.name === target.name && typeof e.value === "bigint")
@@ -123,7 +119,7 @@ export function valueAs(v: IrValue, to: Type): IrValue {
   if (target === undefined) return v
   if (isReal(to) && typeof v === "bigint") return Number(v)
   // A BIT holds a BOOLEAN, and it is `bitstring` in the type table only because it is one bit of LAYOUT. Without
-  // `isBit` here, `x : BIT := 0` stored `0n` and the emitted Rust printed an integer into a `bool` field
+  // `isBoolValued` here, `x : BIT := 0` stored `0n` and the emitted Rust printed an integer into a `bool` field
   // (`bound_bit_at_min` / `_at_max`, measured 2026-09-18 — CODESYS reads them back FALSE and TRUE).
   if (isBoolValued(to) && typeof v === "bigint") return v !== 0n
   if (!isReal(to) && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
@@ -135,16 +131,10 @@ export function valueAs(v: IrValue, to: Type): IrValue {
  * `value : INT := 40000` holds -25536 and `si := 128` into a SINT -128. Only where a value is stored — an initial value,
  * or a constant converted into its target — never while an operand is still on its way to promotion (`valueAs`). The
  * width used to be left to the backends: the interpreter wrapped on store, the emitter printed `40000i16`, which rustc rejects.
+ * The rule is the front-end's `storeInteger`, which the interpreter's `fit` stores through too (6.B.2): a BIT is no
+ * integer there, so it is not wrapped (this said `rank === undefined` once, which made every TIME and DATE skip the wrap
+ * `fit` made — two backends, one program, two answers).
  */
 export function stored(v: IrValue, to: Type): IrValue {
-  const target = elemOf(to)
-  if (typeof v !== "bigint" || target === undefined) return v
-  // `isBit`, NOT `rank === undefined`, which is what this used to say. Only BIT is an int/bit-string family with
-  // no rank — but so is every TIME and DATE, so the rank guard returned first and made the `"time"`/`"date"`
-  // entries one line below UNREACHABLE. The other copy of this rule (`fit`, `semantics/store.ts`) has no such guard
-  // and does wrap them, so an over-range TIME initializer wrapped in the interpreter and printed as an
-  // out-of-range `u32` literal from the emitter — two backends, one program, two answers.
-  if (isBit(to)) return v
-  if (!holdsIntegerBits(to)) return v
-  return wrapToWidth(v, target)
+  return typeof v === "bigint" ? storeInteger(v, to) : v
 }

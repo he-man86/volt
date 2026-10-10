@@ -5,7 +5,7 @@
  */
 import type { Dialect } from "../../syntax/index.js"
 import type { ElementaryType, TypeFamily } from "../elementary.js"
-import { isDuration, isIntegerType, isNumericType } from "../predicates.js"
+import { isBoolValued, isDuration, isIntegerType, isNumericType } from "../predicates.js"
 import { elementaryType, inTypeGroup } from "../elementary.js"
 import { elementaryTypeRef, type Type } from "../type.js"
 import { integerOfWidth } from "../width.js"
@@ -32,9 +32,8 @@ export function shortCircuitType(l: Type, r: Type): Type | undefined {
   const a = l.kind === "elementary" ? l.elem : undefined
   const b = r.kind === "elementary" ? r.elem : undefined
   if (a === undefined || b === undefined) return undefined
-  const boolean = (e: ElementaryType): boolean => e.family === "bool" || (e.family === "bitstring" && e.bits === 1)
   if (a.family === "bool" && b.family === "bool") return l
-  if (boolean(a) && boolean(b)) return elementaryTypeRef(elementaryType("BOOL")!)
+  if (isBoolValued(l) && isBoolValued(r)) return elementaryTypeRef(elementaryType("BOOL")!)
   const integers = [a, b].filter((e) => e.family !== "bool")
   if (integers.some((e) => (e.family !== "int" && e.family !== "bitstring") || e.bits !== MEASURED_SHORT_CIRCUIT_BITS)) return undefined
   return elementaryTypeRef(integerOfWidth(MEASURED_SHORT_CIRCUIT_BITS, false))

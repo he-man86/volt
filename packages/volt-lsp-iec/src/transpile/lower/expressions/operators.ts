@@ -14,7 +14,9 @@ import {
   inferExprType,
   integerLiteralType,
   inTypeGroup,
+  isBoolValued,
   isIntegerType,
+  isIntegral,
   narrowDateWideDuration,
   negativeLiteralComparisonTarget,
   promoteForRuntime,
@@ -97,7 +99,7 @@ export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, ex
   // the reasoning that a duration is arithmetic on its milliseconds, and the vendor simply does not allow it —
   // which is why the fixture was written rather than the reasoning trusted.
   const negatable = family === "int" || family === "real" || family === "bitstring"
-  const invertible = family === "bool" || family === "bitstring" || family === "int"
+  const invertible = isBoolValued(operand.type) || isIntegral(operand.type)
   if (e.op === "-" && !negatable)
     return lw.bail("unary-op", `unary minus on a ${operand.type.kind === "elementary" ? operand.type.name : operand.type.kind}`, e.span)
   if (e.op === "NOT" && !invertible)

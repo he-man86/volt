@@ -36,11 +36,10 @@ const lw = new Lowering(project, project)
 const unit = (name: string) => lookup(project, name)?.symbol.ast as TopLevel
 const names = (units: readonly { name: { text: string } }[]) => units.map((u) => u.name.text)
 
-test("by name lookup: nearest first, ending where a base does not resolve, at a unit reached again, or at the limit", () => {
+test("by name lookup: nearest first, ending where a base does not resolve or at a unit reached again", () => {
   expect(names(declaredChain(lw, unit("FB_Top")) as never)).toEqual(["FB_Top", "FB_Mid", "FB_Base"])
   expect(names(declaredChain(lw, unit("FB_Lost")) as never)).toEqual(["FB_Lost"])
   expect(names(declaredChain(lw, unit("FB_Loop1")) as never)).toEqual(["FB_Loop1", "FB_Loop2"])
-  expect(names(declaredChain(lw, unit("FB_Top"), 2) as never)).toEqual(["FB_Top", "FB_Mid"])
   expect(declaredChain(lw, undefined)).toEqual([])
   expect(names(pouChain(lw, "FB_Top"))).toEqual(["FB_Top", "FB_Mid", "FB_Base"])
   expect([...chainNames(lw, "fb_mid")]).toEqual(["FB_MID", "FB_BASE"])

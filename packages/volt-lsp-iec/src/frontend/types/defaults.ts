@@ -1,7 +1,7 @@
 /**
  * WHAT A DECLARATION THAT STATES NOTHING GETS — a sizeless STRING's length, and a type's zero value.
  */
-import { isBit } from "./predicates.js"
+import { isBoolValued } from "./predicates.js"
 import type { Type } from "./type.js"
 
 /** The characters a sizeless STRING or WSTRING holds (conformance `string_default_length`, `wstring_basic`). */
@@ -22,5 +22,5 @@ export function typeZero(type: Type): bigint | number | boolean | string {
     return lower <= 0n && upper >= 0n ? 0n : lower
   }
   const family = type.kind === "elementary" ? type.elem.family : undefined
-  return family === "bool" || isBit(type) ? false : family === "real" ? 0 : family === "string" ? "" : 0n
+  return isBoolValued(type) ? false : family === "real" ? 0 : family === "string" ? "" : 0n
 }

@@ -20,6 +20,7 @@ import type { FunctionBlock, TypeDecl, VarDecl, VarSection } from "../syntax/ind
 import { lookup, rootOf, targetOf, type Scope } from "../symbols/index.js"
 import { scalarStorageBytes } from "./builtins.js"
 import { enumStorage } from "./enums.js"
+import { isBit } from "./predicates.js"
 import { resolveTypeExpr } from "./resolve.js"
 import type { Type } from "./type.js"
 
@@ -170,8 +171,6 @@ function laidOut<T extends Extract<Type, { kind: "struct" | "function_block" }>>
   const packed = packFields(fields, layout.start, layout.packed)
   return packed === undefined ? undefined : { size: packed.size, align: packed.align }
 }
-
-const isBit = (t: Type): boolean => t.kind === "elementary" && t.elem.name === "BIT"
 
 /** A pack mode: none (aligned), 1 (packed), or another — unmeasured. */
 function packMode(attributes: TypeDecl["attributes"]): "aligned" | "packed" | undefined {

@@ -55,7 +55,7 @@ const isString = (t: Type | undefined): boolean => t !== undefined && stringKind
 const hasText = (t: Type | undefined): boolean => {
   if (t === undefined) return false
   const name = elemOf(t)?.name
-  return isInt(t, true) || name === "BOOL" || name === "LREAL" || hasTextFormat(t)
+  return isInt(t, true) || isBoolValued(t) || name === "LREAL" || hasTextFormat(t)
 }
 // a bit string parses as an integer does (`tr_a10_string_to_bits_literal_forms`, `tr_a10_string_to_64bit_based`: STRING_TO_BYTE /
 // WORD / DWORD / LWORD of '16#FF', '2#1010', '16#FFFFFFFFFFFFFFFF', 6.A.10)
@@ -237,6 +237,8 @@ function numericConversion(lw: Lowering, e: Call, from: Type | undefined, to: Ty
   const temporal = (t: Type): boolean => ["time", "date"].includes(elemOf(t)?.family ?? "")
   const fromTemporal = temporal(source.type)
   const toTemporal = temporal(to)
+  // a BIT counts as integral here, BOOL does not: the pair's rule is by NAME, and a BIT beside a duration or a date (a
+  // BIT_TO_TIME) has no recording to move it either way (6.B.1: kept, not `isBoolValued`)
   const integral = (name: string): boolean => !real(name) && name !== "BOOL"
   const measured =
     (fromTemporal !== toTemporal && integral(fromName) && integral(toName)) ||

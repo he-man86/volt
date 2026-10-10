@@ -5,7 +5,7 @@
 import type { Lowering } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { baseOf, implementsOf, interfaceChainOf, scopeChain } from "../core/chain.js"
-import { alignUp, packFields, peelArray, type Type } from "../../../frontend/types/index.js"
+import { alignUp, isBit, packFields, peelArray, type Type } from "../../../frontend/types/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
 import { fieldIn, fieldOf, rootType, typeAlong } from "../places/path.js"
@@ -93,7 +93,7 @@ export function fieldBytes(
   // (design.md §3.3 step 4d). SIZEOF stops there (`unmeasured` unset).
   const fields = layout.fields
     .filter((f) => !(f.section === "temp" || f.section === "VAR_TEMP" || f.section === "VAR_STAT" || replaced.has(f.name.toUpperCase())))
-    .map((f) => ({ name: f.name, bytes: f.type.kind === "elementary" && f.type.elem.name === "BIT" ? ("bit" as const) : byteSize(lw, f.type) }))
+    .map((f) => ({ name: f.name, bytes: isBit(f.type) ? ("bit" as const) : byteSize(lw, f.type) }))
   return packFields(fields, { size: isFb ? 8n + 8n * interfaces : 0n, align: isFb ? 8n : 1n }, packed, unmeasured)
 }
 

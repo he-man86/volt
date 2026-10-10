@@ -1,8 +1,16 @@
 /**
  * EXTENDS CHAINS — the one home of every walk down an EXTENDS in `lower/` (transpile-restructure 1.7.3, lean 10.1).
  *
- * Three MECHANISMS reach a base today, and each site keeps the one it used (phase 1 is output-neutral; whether they can
- * be one is task 6.B.3's question, and this list is its input):
+ * Three MECHANISMS reach a base, and each answers its own question, so they stay three (6.B.3: no site keeps a parameter;
+ * `implementsInterface`'s 32-unit cap went — the cycle guard below ends every walk):
+ *
+ * - the BINDER'S LINK is the TYPE's chain: the order the fields lie in and the FB_Inits run in, the members a type has.
+ * - the QUEUED BODIES are what lowering can RUN: a base with no queued body (a library FB, one that did not prepare) is
+ *   a refusal (`call-base`), not a shorter chain — the binder's link does not say whether lowering holds a body.
+ * - NAME LOOKUP reads the DECLARATION — the AST a scope does not carry: a field's FB_Init arguments (`declaredArgs`, a
+ *   STRUCT's too), a unit's IMPLEMENTS list, an interface's EXTENDS list.
+ *
+ * The sites:
  *
  * - BY THE BINDER'S LINK (`symbols.extendsChain`, a scope's `baseScope`): `chainNamesOf` (the field layout order and the
  *   FB_Init order) and `scopeChain` (`init/attributes.initMethod`).
@@ -15,7 +23,7 @@
  *
  * Each walk visits a unit once: a cycle ends it where it closes. Three of the hand-written walks had no guard
  * (`pathFields`, `addressSharedByInstances`, `declaredArgs`) and `initMethod` neither — on a cycle they did not end, so no
- * answer depended on it; `implementsInterface` stopped after 32 steps, which `limit` keeps.
+ * answer depended on it; `implementsInterface` stopped after 32 steps, a cap the guard made redundant (6.B.3).
  */
 
 import type { Lowering } from "./lowering.js"
@@ -56,12 +64,11 @@ export function chainOf(lw: Lowering, unit: Unit): Unit[] | undefined {
 
 /**
  * BY NAME LOOKUP: `start` and what it EXTENDS, NEAREST FIRST — each base the declaration `lookup` finds for an FB's
- * `EXTENDS` name, whatever kind it is; a unit reached again ends it, and so does `limit` units (`implementsInterface`'s
- * 32).
+ * `EXTENDS` name, whatever kind it is; a unit reached again ends it.
  */
-export function declaredChain(lw: Lowering, start: TopLevel | undefined, limit = Infinity): TopLevel[] {
+export function declaredChain(lw: Lowering, start: TopLevel | undefined): TopLevel[] {
   const units: TopLevel[] = []
-  for (let unit = start; unit !== undefined && units.length < limit && !units.includes(unit); ) {
+  for (let unit = start; unit !== undefined && !units.includes(unit); ) {
     units.push(unit)
     const base = unit.kind === "function_block" ? unit.extends : undefined
     unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)

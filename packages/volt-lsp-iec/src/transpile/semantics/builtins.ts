@@ -113,7 +113,8 @@ function bitValue(name: "shl" | "shr" | "rol" | "ror", args: readonly Val[], typ
     case "rol":
     case "ror": {
       // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`) — or in the
-      // node's `bits`, the bits above them kept as they are (conformance `rotate_of_expression`)
+      // node's `bits`, the bits above them kept as they are (conformance `rotate_of_expression`). Its `asUintN` is the
+      // pattern it rotates, not a store: `storeInteger` (6.B.2) would sign the result and drop the bits above
       const bits = rotateBits ?? widthOf(type, name)
       const width = BigInt(bits)
       const left = ((countOf(args[1]!) % width) + width) % width

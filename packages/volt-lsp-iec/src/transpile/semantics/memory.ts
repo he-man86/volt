@@ -12,7 +12,7 @@
  */
 import type { Access, IrExpr, IrImage, IrLayout, Place } from "../ir/index.js"
 import { indexOutOfBounds } from "../ir/faults.js"
-import { elementaryRef, floatBits, isBit, peelArray, type Type } from "../../frontend/types/index.js"
+import { elementaryRef, floatBits, isBit, isBoolValued, peelArray, type Type } from "../../frontend/types/index.js"
 import { IecFault, LoweringBug } from "./faults.js"
 import type { Val } from "./value.js"
 
@@ -25,7 +25,7 @@ export const IMAGE_BASE = 1n << 32n
 export function elementarySize(t: Type): number | undefined {
   if (t.kind !== "elementary" || isBit(t)) return undefined
   const { family, bits } = t.elem
-  if (family === "bool") return 1
+  if (isBoolValued(t)) return 1
   return ["int", "bitstring", "real", "time", "date"].includes(family) && bits >= 8 ? bits / 8 : undefined
 }
 
@@ -44,7 +44,7 @@ export function imageSize(t: Type, layouts: ReadonlyMap<string, IrLayout>): numb
 /** An elementary value stored at `at`, little-endian. */
 function storeElementary(view: DataView, at: number, t: Type, v: Val): void {
   const size = elementarySize(t)!
-  if (t.kind === "elementary" && t.elem.family === "bool") return view.setUint8(at, v === true ? 1 : 0)
+  if (isBoolValued(t)) return view.setUint8(at, v === true ? 1 : 0)
   const float = floatBits(t)
   if (float === 32) return view.setFloat32(at, v as number, true)
   if (float === 64) return view.setFloat64(at, v as number, true)
@@ -55,7 +55,7 @@ function storeElementary(view: DataView, at: number, t: Type, v: Val): void {
 /** An elementary value loaded from `at`, little-endian, as its type holds it. */
 function loadElementary(view: DataView, at: number, t: Type): Val {
   const size = elementarySize(t)!
-  if (t.kind === "elementary" && t.elem.family === "bool") return view.getUint8(at) !== 0
+  if (isBoolValued(t)) return view.getUint8(at) !== 0
   const float = floatBits(t)
   if (float === 32) return view.getFloat32(at, true)
   if (float === 64) return view.getFloat64(at, true)

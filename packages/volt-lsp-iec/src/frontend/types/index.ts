@@ -33,7 +33,7 @@ export {
 export { conversionSides, isConversionName, parseConversionName } from "./conversion-name.js"
 export { DEFAULT_STRING_LENGTH, typeZero } from "./defaults.js"
 export { elementOf, peelArray } from "./arrays.js"
-export { integerOfWidth, widthOf, wrapToWidth } from "./width.js"
+export { integerOfWidth, storeInteger, widthOf, wrapToWidth } from "./width.js"
 export {
   integerLiteralType,
   isIntLiteral,

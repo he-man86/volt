@@ -129,6 +129,8 @@ function integerIntoPointer(rhs: ElementaryTypeRef, target: Target | undefined):
   return classifyElementary(target.pointerBits === 64 ? "ULINT" : "UDINT", rhs.name)
 }
 
+/** The assignment table reads a BIT as the BOOL it holds — by NAME, as the table is keyed (6.B.1: `isBoolValued` asks a
+ *  `Type`, which this has none of). */
 function bitToBool(name: string): string {
   return name === "BIT" ? "BOOL" : name
 }
