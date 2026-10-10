@@ -3,10 +3,10 @@
  * (conformance `overflow_*`, `cc_literal_*`, `cc_fp_literal_*`).
  */
 import { expect, test } from "bun:test"
-import { parseSource, type Expr, type FunctionBlock } from "../syntax/index.js"
+import { parseSource, type Expr, type FunctionBlock, type Literal } from "../syntax/index.js"
 import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef } from "./type.js"
-import { integerLiteralType, literalCheckType } from "./literal.js"
+import { integerLiteralType, literalCapacityType, literalCheckType, REAL_MAX_MAGNITUDE } from "./literal.js"
 
 test("the narrowest of SINT, USINT, INT, UINT, DINT, UDINT, LINT, ULINT that holds the value", () => {
   const named = (v: bigint) => integerLiteralType(v)?.name
@@ -43,4 +43,26 @@ test("a value the target holds is not checked at all — `us := 5`, `b := 255`, 
 
 test("only an integer or bit-string target: REAL, TIME and BOOL are not measured", () => {
   expect([checkedAs("300", "REAL"), checkedAs("300", "TIME"), checkedAs("300", "BOOL")]).toEqual([undefined, undefined, undefined])
+})
+
+// transpile-restructure 6.A.21 (Appendix A): a TYPED REAL literal fits up to f32's largest, 3.4028234663852886E38, exactly —
+// REAL#3.4028234E38 builds (it holds 3.40282347E+38), REAL#3.4028235E38 and its negation are "too large", as is
+// REAL#3.4028236E38 (`tr_a21_typed_real_*`, CODESYS record:exec 2026-10-10). The bound was 3.402823E38, so the first was
+// called too large; and it was one of two constants, the untyped literal's check holding the other.
+test("a typed REAL literal is too large only past f32's largest — the one REAL bound, typed and untyped alike", () => {
+  expect(REAL_MAX_MAGNITUDE.get("REAL")).toBe(Math.fround(3.4028234663852886e38))
+  const capacity = (text: string) => literalCapacityType(literalInit(text) as Literal)
+  expect(capacity("REAL#3.4028234E38")).toBeUndefined()
+  expect(["REAL#3.4028235E38", "REAL#3.4028236E38"].map(capacity)).toEqual(["REAL", "REAL"])
+  // the untyped literal's warning (`cc_real_init_max`: 3.4028235E38 warns LREAL -> REAL) reads the same bound
+  expect(checkedAs("3.4028234E38", "REAL")).toBeUndefined()
+  expect(checkedAs("3.4028235E38", "REAL")).toBe("LREAL")
+})
+
+// …and a TYPED REAL literal too large for REAL is that error alone — no LREAL → REAL warning beside it: the "beyond REAL's
+// largest is an LREAL" rule is the UNTYPED literal's (`tr_a21_typed_real_rounds_to_max`: CODESYS and TwinCAT record only
+// "Constant 'REAL#3.4028235E38' too large for type 'REAL'"; the LSP warned LREAL → REAL beside it).
+test("a typed REAL literal is checked as its own type, never as an LREAL", () => {
+  expect(checkedAs("REAL#3.4028235E38", "REAL")).toBeUndefined()
+  expect(checkedAs("REAL#-3.4028235E38", "REAL")).toBeUndefined()
 })

@@ -30,7 +30,7 @@ const NAMED: Record<string, string | null> = {
   accepts_output_into_other_type: "refused",
   addr_bit_inside_byte: "not-lowered",
   decl_bracket_init_no_assign_fb: "lsp-gap",
-  decl_subrange_unsigned: "diverges",
+  op_math_trig: "diverges",
   cc_vg_jump_in_disabled_network: null, // unaskable
 }
 

@@ -29,7 +29,7 @@ import {
 import { aliasElem, elementaryType } from "../elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
-import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
+import { isUntypedNumber, literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
 import { enumStorage } from "../enums.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType, staticNameOf, insideOwnBody } from "./member.js"
@@ -407,7 +407,8 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A one-argument math function hands back the real it was given (`builtins.ts` `mathResultType`).
   if (call.callee.kind === "ident_expr" && MATH_ARG_TYPED.has(call.callee.name.toUpperCase()) && call.args.length === 1) {
     const arg = call.args[0]?.value
-    const result = mathResultType(arg === undefined ? UNKNOWN : inferExprType(arg, scope, project), arg?.kind === "literal")
+    // a literal however written — negated, parenthesised — as a bare one (`tr_a23_*`, 6.A.23: SIN(-1.5) is LREAL)
+    const result = mathResultType(arg === undefined ? UNKNOWN : inferExprType(arg, scope, project), arg !== undefined && (arg.kind === "literal" || isUntypedNumber(arg)))
     if (result !== undefined) return result
   }
   // Otherwise a built-in call: a conversion, or an operator with a FIXED result (`builtins.ts` `builtinCallResult`).

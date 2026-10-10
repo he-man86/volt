@@ -17,9 +17,14 @@ const ANY_INT_RANGE: { readonly min: bigint; readonly max: bigint } = {
   max: ELEMENTARY_TYPES.get("ULINT")!.range!.max,
 }
 
-/** Largest finite magnitude for the floating types (doc 06), for REAL/LREAL overflow of a constant. */
+/**
+ * Largest finite magnitude for the floating types, for REAL/LREAL overflow of a constant: f32's and f64's largest, EXACTLY.
+ * REAL's was doc 06's rounded 3.402823E38, below f32's 3.4028234663852886E38 — so REAL#3.4028234E38, which CODESYS builds
+ * (holding 3.40282347E+38), was called too large; REAL#3.4028235E38 above it is (`tr_a21_typed_real_*`, 6.A.21). The one
+ * REAL bound: the untyped literal's check (`literalCheckType`) reads it too.
+ */
 export const REAL_MAX_MAGNITUDE: ReadonlyMap<string, number> = new Map([
-  ["REAL", 3.402823e38],
+  ["REAL", 3.4028234663852886e38],
   ["LREAL", 1.7976931348623157e308],
 ])
 
@@ -86,6 +91,14 @@ export function unparenthesised(e: Expr): Expr {
   return e
 }
 
+/** An UNTYPED number as it is written — a literal, negated or in parentheses at any depth (`-1.5`, `(2.0)`, `-(0.5)`): a
+ *  one-argument math function reads it as a bare literal (6.A.23, `tr_a23_*`). */
+export function isUntypedNumber(e: Expr): boolean {
+  const x = unparenthesised(e)
+  if (x.kind === "unary" && x.op === "-") return isUntypedNumber(x.operand)
+  return x.kind === "literal" && (x.literalKind === "int" || x.literalKind === "real")
+}
+
 /** An integer literal, written plain or negated (`5`, `-5`) — an operand that takes its type from the other one. */
 export const isIntLiteral = (e: Expr): boolean =>
   (e.kind === "literal" && e.literalKind === "int") ||
@@ -115,8 +128,9 @@ export function literalCheckType(value: Expr, target: Type): Type | undefined {
   const lit = negated ? value.operand : value
   // A real literal beyond REAL's largest value is an LREAL: `rv : REAL := 3.4028235E38` warns LREAL → REAL, `1.5E8` and
   // `2.5E-10` do not (conformance `cc_real_init_max`, `_sci_fraction`, `_tiny`). A literal too small for a REAL is unmeasured.
-  if (lit.kind === "literal" && typeof lit.value === "number" && target.kind === "elementary" && target.elem.family === "real")
-    return target.elem.bits === 32 && Math.abs(lit.value) > 3.4028234663852886e38 ? elementaryRef("LREAL") : undefined
+  // An UNTYPED one: a typed `REAL#3.4028235E38` is its own type, too large — the one error (`tr_a21_*`, 6.A.21)
+  if (lit.kind === "literal" && lit.literalKind === "real" && typeof lit.value === "number" && target.kind === "elementary" && target.elem.family === "real")
+    return target.elem.bits === 32 && Math.abs(lit.value) > REAL_MAX_MAGNITUDE.get("REAL")! ? elementaryRef("LREAL") : undefined
   if (lit.kind !== "literal" || lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
   const family = target.kind === "elementary" ? target.elem.family : undefined
   const range = target.kind === "elementary" && (family === "int" || family === "bitstring") ? target.elem.range : undefined

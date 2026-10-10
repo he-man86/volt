@@ -762,6 +762,46 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why,
     })),
   ),
+  // transpile-restructure 6.A (2026-10-10): the Appendix A/B recordings write untyped numbers where their context types them
+  // — the MIN MOD -1 dividends and `0 - 1` divisors (`arithedge_*_mod_min_by_minus_one`), SHL / SHR of an untyped literal
+  // (`tr_a14_*`, the call typed by its destination: the finding the fixtures record), negated and parenthesised real
+  // literals handed to SIN / SQRT / COS / EXP (`tr_a23_*`), a subrange's negative bounds (`tr_a25_subrange_defaults`),
+  // `5.5 MOD 2.0` (`tr_a20_*`) — each typed by its context (LT14's class) — and one `s[i]` through a REFERENCE TO STRING
+  // (`tr_a18_char_store_through_reference`, the string index the hand-off types). New ground measured, not a regression.
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ...(["sint", "int", "dint", "lint"] as const).flatMap((t): (readonly [string, number, string, string])[] => [
+          ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, `arithedge_${t}_mod_min_by_minus_one`, "the minimum, written negated"],
+          ["binary UNKNOWN", 1, `arithedge_${t}_mod_min_by_minus_one`, "`0 - 1`, an operation on two untyped numbers"],
+        ]),
+        ["call UNKNOWN", 7, "tr_a14_shift_untyped_literal_wide", "SHL / SHR of an untyped literal by a constant count"],
+        ["call UNKNOWN", 6, "tr_a14_shift_untyped_literal_variable_count", "SHL / SHR of an untyped literal, by a variable count and nested"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_a23_negated_real_literal_sin_into_int", "SIN(-1.5)'s argument"],
+        ["paren UNKNOWN", 1, "tr_a23_parenthesised_real_literal_sqrt_into_int", "SQRT((2.0))'s argument"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 2, "tr_a23_signed_real_literal_in_math", "SIN(-1.5)'s and EXP((-1.0))'s negated literals"],
+        ["paren UNKNOWN", 3, "tr_a23_signed_real_literal_in_math", "(2.0), (0.5) and (-1.0) as arguments"],
+        ["unary UNKNOWN", 1, "tr_a23_signed_real_literal_in_math", "COS(-(0.5))'s argument, a negated parenthesis"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 3, "tr_a25_subrange_defaults", "the subranges' negative bounds -5, -10, -2"],
+        ["binary UNKNOWN", 1, "tr_a20_real_mod_in_initializer", "`5.5 MOD 2.0`, refused on both vendors"],
+      ] as const
+    ).map(([kind, by, fixture, why]) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: ${kind}`,
+      by,
+      fixture,
+      task: LITERAL_TYPING,
+      why,
+    })),
+  ),
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "type-dump",
+    measure: `fixtures ${vendor}: index UNKNOWN`,
+    by: 1,
+    fixture: "tr_a18_char_store_through_reference",
+    task: STRING_INDEX_TASK,
+    why: "transpile-restructure 6.A.18: `rs[1] := 88` through a REFERENCE TO STRING — the string index the hand-off types",
+  })),
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */

@@ -1365,6 +1365,116 @@ END_FUNCTION_BLOCK
     routineOutput("tr_43_routine_output_word_to_int", "F_CS_outWI43r", "WORD", "16#FFFF", "INT"),
   ),
   routineOutput("tr_43_routine_output_dint_to_int", "F_CS_outDI43r", "DINT", "100000", "INT"),
+  // transpile-restructure 6.A.5 (Appendix A): `x := F(o => x)` writes x twice — the output copied out, and the result
+  // stored. Which write lands last? A FUNCTION, and a METHOD (the routine path's other caller).
+  {
+    name: "tr_a5_function_output_and_result_same_variable",
+    pouName: "F_CS_outRes5",
+    kind: "function",
+    feature: "a FUNCTION's result and its VAR_OUTPUT both written into one variable: x := F(o => x)",
+    fromDoc: doc,
+    source: "FUNCTION F_CS_outRes5 : INT\nVAR_OUTPUT\n\to : INT;\nEND_VAR\no := 2;\nF_CS_outRes5 := 1;\nEND_FUNCTION\n",
+    plcPrgVar: "x : INT; y : INT;",
+    plcPrgBody: "x := F_CS_outRes5(o => x);\ny := F_CS_outRes5(o => y) + 10;",
+  },
+  fb("tr_a5_method_output_and_result_same_variable", "FB_CS_outRes5m", "a METHOD's result and its VAR_OUTPUT both written into one variable: x := inst.M(o => x)",
+    `FUNCTION_BLOCK FB_CS_outRes5m
+END_FUNCTION_BLOCK
+
+METHOD Both : INT
+VAR_OUTPUT
+	o : INT;
+END_VAR
+o := 2;
+Both := 1;
+END_METHOD
+`,
+    "inst : FB_CS_outRes5m; x : INT;", "x := inst.Both(o => x);"),
+  // transpile-restructure 6.A.11 (Appendix A): a base METHOD reached through SUPER^ from a middle FB's METHOD, on an
+  // instance of a leaf FB that overrides it and has a VAR_IN_OUT nobody binds. `SUPER^.Hit()` in `Run` is the BASE's Hit,
+  // never the leaf's override, so the leaf's in-out is not reached: does it run?
+  fb("tr_a11_super_method_on_overriding_leaf", "FB_CS_supBase11", "a middle FB's METHOD calling SUPER^.M(), run on a leaf instance that overrides M and leaves its VAR_IN_OUT unbound",
+    `FUNCTION_BLOCK FB_CS_supBase11
+VAR
+	hits : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Hit
+hits := hits + 1;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_supMid11 EXTENDS FB_CS_supBase11
+END_FUNCTION_BLOCK
+
+METHOD Hit
+hits := hits + 100;
+END_METHOD
+
+METHOD Run
+SUPER^.Hit();
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_supLeaf11 EXTENDS FB_CS_supMid11
+VAR_IN_OUT
+	io : INT;
+END_VAR
+io := io + 1;
+END_FUNCTION_BLOCK
+
+METHOD Hit
+io := io + 1000;
+END_METHOD
+`,
+    "leaf : FB_CS_supLeaf11;", "leaf.Run();"),
+  // transpile-restructure 6.A.12 (Appendix A): an FB body calling its own METHOD bare, leaving the METHOD's VAR_OUTPUT
+  // unconnected — does the call run (the counter moves) and the output stay the METHOD's own business?
+  fb("tr_a12_bare_method_call_unconnected_output", "FB_CS_bareOut12", "an FB body calling its own METHOD bare with an unconnected VAR_OUTPUT",
+    `FUNCTION_BLOCK FB_CS_bareOut12
+VAR_OUTPUT
+	calls : INT;
+	seen : INT;
+END_VAR
+Count();
+Count(o => seen);
+END_FUNCTION_BLOCK
+
+METHOD Count
+VAR_OUTPUT
+	o : INT;
+END_VAR
+calls := calls + 1;
+o := calls * 10;
+END_METHOD
+`,
+    "inst : FB_CS_bareOut12;", "inst();", 2),
+  // transpile-restructure 6.A.19 (Appendix A grouped): an FB call binding a VAR_IN_OUT to `arr[i]` beside an input whose
+  // expression moves i — is the in-out's element chosen before or after the input runs, and does the order the call
+  // WRITES them in matter? `seen` is io * 100 + inp.
+  fb("tr_a19_fb_call_inout_beside_moving_input", "FB_CS_ioOrder19", "an FB call's VAR_IN_OUT arr[i] beside an input that moves i, written in both orders",
+    `FUNCTION F_CS_bump19 : INT
+VAR_IN_OUT
+	k : INT;
+END_VAR
+k := k + 1;
+F_CS_bump19 := k;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_ioOrder19
+VAR_INPUT
+	inp : INT;
+END_VAR
+VAR_IN_OUT
+	io : INT;
+END_VAR
+VAR_OUTPUT
+	seen : INT;
+END_VAR
+seen := io * 100 + inp;
+END_FUNCTION_BLOCK
+`,
+    "inoutFirst : FB_CS_ioOrder19; inputFirst : FB_CS_ioOrder19; arr : ARRAY[0..3] OF INT := [1, 2, 3, 4]; i : INT; j : INT; s1 : INT; s2 : INT;",
+    "inoutFirst(io := arr[i], inp := F_CS_bump19(i), seen => s1);\ninputFirst(inp := F_CS_bump19(j), io := arr[j], seen => s2);"),
 ]
 
 /** A FUNCTION whose VAR_OUTPUT `o` (`out`, set to `value`) PLC_PRG binds `o => t` into a `into` variable. */

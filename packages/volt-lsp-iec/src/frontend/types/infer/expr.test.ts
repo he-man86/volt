@@ -412,3 +412,12 @@ test("infer: a FUNCTION called inside its own body has no result (cc2_call_recur
   const stmts = bodyStatements((pr.units[0] as unknown as FunctionBlock).body).statements
   expect(inferExprType((stmts.at(-1) as { value: Expr }).value, findChildScope(project, "F_x")!, project)).toEqual(UNKNOWN)
 })
+
+// transpile-restructure 6.A.23 (Appendix A): a NEGATED or PARENTHESISED untyped real literal handed to a one-argument math
+// function is the literal it writes — LREAL, as a bare one is: `i := SIN(-1.5)` and `i := SQRT((2.0))` are "Cannot convert
+// type 'LREAL' to type 'INT'" (`tr_a23_*_into_int`, CODESYS record:exec 2026-10-10). They inferred UNKNOWN: only a bare
+// literal was asked.
+test("infer: SIN / SQRT / COS / EXP of a negated or parenthesised real literal is LREAL, as of a bare one", () => {
+  for (const call of ["SIN(1.5)", "SIN(-1.5)", "SQRT((2.0))", "COS(-(0.5))", "EXP((-1.0))"])
+    expect(renderType(inferExpr("", "VAR\n probe : LREAL;\nEND_VAR", call))).toBe("LREAL")
+})

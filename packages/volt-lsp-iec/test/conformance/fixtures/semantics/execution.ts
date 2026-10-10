@@ -1314,6 +1314,176 @@ const CASES: readonly ExecCase[] = [
     ].join("\n"),
     body: "out := LINT_TO_REAL(v); outNeg := LINT_TO_REAL(vn); outU := ULINT_TO_REAL(vu); outW := LWORD_TO_REAL(vw);",
   },
+
+  // transpile-restructure 6.A.1 (Appendix A): a conversion from a finer tick to a coarser one — LTIME to TIME, and every
+  // long date type to a 32-bit one — drops the sub-unit remainder: truncated, or rounded? Each source holds a remainder
+  // just below one target unit (…999999 ns), exactly half of one (…500 µs) and below half; one question per pair.
+  {
+    name: "tr_a1_ltime_to_time_subunit",
+    vars: "below : LTIME := LTIME#1S500MS999US999NS; half : LTIME := LTIME#2MS500US; tiny : LTIME := LTIME#999US999NS; t1 : TIME; t2 : TIME; t3 : TIME;",
+    body: "t1 := LTIME_TO_TIME(below); t2 := LTIME_TO_TIME(half); t3 := LTIME_TO_TIME(tiny);",
+  },
+  {
+    name: "tr_a1_ldt_to_dt_subunit",
+    vars: "below : LDT := LDT#2024-02-29-13:05:09.999999999; half : LDT := LDT#2024-02-29-13:05:09.5; d1 : DT; d2 : DT;",
+    body: "d1 := LDT_TO_DT(below); d2 := LDT_TO_DT(half);",
+  },
+  {
+    name: "tr_a1_ldt_to_tod_date_subunit",
+    vars: "below : LDT := LDT#2024-02-29-23:59:59.999999999; half : LDT := LDT#2024-02-29-13:05:09.0005; tod1 : TOD; tod2 : TOD; day1 : DATE;",
+    body: "tod1 := LDT_TO_TOD(below); tod2 := LDT_TO_TOD(half); day1 := LDT_TO_DATE(below);",
+  },
+  {
+    name: "tr_a1_ltod_to_tod_dt_subunit",
+    vars: "below : LTOD := LTOD#23:59:59.999999999; half : LTOD := LTOD#00:00:00.0005; tod1 : TOD; tod2 : TOD; dt1 : DT;",
+    body: "tod1 := LTOD_TO_TOD(below); tod2 := LTOD_TO_TOD(half); dt1 := LTOD_TO_DT(below);",
+  },
+
+  // transpile-restructure 6.A.2 (Appendix A): is a REAL expression's intermediate rounded to a 32-bit float at every step
+  // (SSE), or carried wider (x87) until the store? `(big + one) - big` is 0 per step and 1 carried; `huge * three / three`
+  // is Infinity per step and 3E38 carried; a REAL sum stored into an LREAL shows whether the sum was a REAL at all.
+  {
+    name: "tr_a2_real_intermediate_per_step",
+    vars: [
+      "big : REAL := 1.0E8; one : REAL := 1.0; huge : REAL := 3.0E38; three : REAL := 3.0; lrZero : LREAL;",
+      "d1 : REAL; d2 : REAL; lr1 : LREAL; lr2 : LREAL; lr3 : LREAL;",
+    ].join(" "),
+    body: "d1 := (big + one) - big; d2 := huge * three / three; lr1 := big + one; lr2 := huge * three; lr3 := (big + one) + lrZero;",
+  },
+
+  // transpile-restructure 6.A.10 (Appendix A): STRING_TO_<int> of text written as a based or typed literal — does the
+  // parse read '16#FF' as 255 or stop at the '#' (16)? Every base, a type prefix, a typed based one, lower-case hex
+  // digits, an underscore separator, a sign before a base and a leading space; then the bit-string targets.
+  {
+    name: "tr_a10_string_to_int_literal_forms",
+    vars: [
+      "sHex : STRING := '16#FF'; sBin : STRING := '2#101'; sOct : STRING := '8#17'; sTyped : STRING := 'INT#5';",
+      "sTypedHex : STRING := 'INT#16#1F'; sLowerHex : STRING := '16#ff'; sUnder : STRING := '1_000'; sNegHex : STRING := '-16#F';",
+      "sSpaceHex : STRING := ' 16#FF'; sBadHex : STRING := '16#G';",
+      "iHex : INT; iBin : INT; iOct : INT; iTyped : INT; iTypedHex : INT; iLowerHex : INT; iUnder : INT; iNegHex : INT; iSpaceHex : INT; iBadHex : INT;",
+    ].join(" "),
+    body: [
+      "iHex := STRING_TO_INT(sHex); iBin := STRING_TO_INT(sBin); iOct := STRING_TO_INT(sOct); iTyped := STRING_TO_INT(sTyped);",
+      "iTypedHex := STRING_TO_INT(sTypedHex); iLowerHex := STRING_TO_INT(sLowerHex); iUnder := STRING_TO_INT(sUnder);",
+      "iNegHex := STRING_TO_INT(sNegHex); iSpaceHex := STRING_TO_INT(sSpaceHex); iBadHex := STRING_TO_INT(sBadHex);",
+    ].join(" "),
+  },
+  {
+    name: "tr_a10_string_to_bits_literal_forms",
+    vars: [
+      "sHex : STRING := '16#FF'; sWide : STRING := '16#FFFFFF'; sBin : STRING := '2#1010'; sTyped : STRING := 'DWORD#16#10';",
+      "wHex : WSTRING := \"16#FF\"; b : BYTE; dw : DWORD; d : DINT; w : WORD; dwTyped : DWORD; iWide : INT;",
+    ].join(" "),
+    body: "b := STRING_TO_BYTE(sHex); dw := STRING_TO_DWORD(sWide); d := STRING_TO_DINT(sWide); w := STRING_TO_WORD(sBin); dwTyped := STRING_TO_DWORD(sTyped); iWide := WSTRING_TO_INT(wHex);",
+  },
+
+  // transpile-restructure 6.A.21 (Appendix A): where a TYPED REAL literal stops fitting. f32's largest is
+  // 3.4028234663852886E38; 3.4028235E38 lies above it but rounds to it, 3.4028236E38 rounds to Infinity. One per case.
+  { name: "tr_a21_typed_real_below_max", vars: "rl : REAL := REAL#3.4028234E38; back : REAL;", body: "back := rl;" },
+  { name: "tr_a21_typed_real_rounds_to_max", vars: "rl : REAL := REAL#3.4028235E38; back : REAL;", body: "back := rl;" },
+  { name: "tr_a21_typed_real_rounds_to_infinity", vars: "rl : REAL := REAL#3.4028236E38; back : REAL;", body: "back := rl;" },
+  { name: "tr_a21_typed_real_negative_rounds_to_max", vars: "rl : REAL := REAL#-3.4028235E38; back : REAL;", body: "back := rl;" },
+
+  // transpile-restructure 6.A.18 (uniform write guards): the store kinds whose guard list (1.7.5) left a check out, asked
+  // where the left-out check could matter — a character stored through a REFERENCE TO STRING (`s[i] :=` checks
+  // `constant` only, not `through-reference`), and a FOR loop counting a REFERENCE TO INT (the FOR variable checks `union`
+  // and `constant`, not `through-reference`). Does each write the referenced variable?
+  {
+    name: "tr_a18_char_store_through_reference",
+    vars: "txt : STRING := 'abc'; rs : REFERENCE TO STRING; back : STRING;",
+    body: "rs REF= txt; rs[1] := 88; back := txt;",
+  },
+  {
+    name: "tr_a18_for_counter_through_reference",
+    vars: "v : INT; rv : REFERENCE TO INT; n : INT; after : INT;",
+    body: "rv REF= v; FOR rv := 1 TO 3 DO n := n + 1; END_FOR; after := v;",
+  },
+
+  // transpile-restructure 6.A.20 (Appendix A): MOD of two REAL constants in a declaration's initializer, where the
+  // constant fold runs — refused as `MOD` on a REAL operand is in a body (`meet_*_mod_real`)?
+  { name: "tr_a20_real_mod_in_initializer", vars: "rl : REAL := 5.5 MOD 2.0; back : REAL;", body: "back := rl;" },
+
+  // transpile-restructure 6.A.23 (Appendix A): a NEGATED or PARENTHESISED untyped real literal handed to SIN / SQRT —
+  // typed as the bare literal is (LREAL)? The values, and the same calls stored into an INT, which names the type.
+  {
+    name: "tr_a23_signed_real_literal_in_math",
+    vars: "sn : REAL; q : LREAL; c : LREAL; e : REAL;",
+    body: "sn := SIN(-1.5); q := SQRT((2.0)); c := COS(-(0.5)); e := EXP((-1.0));",
+  },
+  { name: "tr_a23_bare_real_literal_sin_into_int", vars: "i : INT;", body: "i := SIN(1.5);" },
+  { name: "tr_a23_negated_real_literal_sin_into_int", vars: "i : INT;", body: "i := SIN(-1.5);" },
+  { name: "tr_a23_parenthesised_real_literal_sqrt_into_int", vars: "i : INT;", body: "i := SQRT((2.0));" },
+
+  // 6.A.10's second round (the first answered '16#FF' 255, '-16#F' -16, '16#G' 0, '1_000' 1000, 'INT#5' 0): where does
+  // the based form stop — an underscore inside hex digits, doubled or at either end of a decimal, a base with no digits,
+  // a digit outside its base, a '+' before a base, a base CODESYS has no literal for — read into a DINT, so no width cuts.
+  {
+    name: "tr_a10_string_to_dint_based_edges",
+    vars: [
+      "sHexUnder : STRING := '16#FF_FF'; sDoubleUnder : STRING := '1__0'; sLeadUnder : STRING := '_5'; sTrailUnder : STRING := '5_';",
+      "sNoDigits : STRING := '16#'; sOctNine : STRING := '8#19'; sPlusHex : STRING := '+16#F'; sBase3 : STRING := '3#12';",
+      "sBase10 : STRING := '10#99'; sHexTail : STRING := '16#1FZ'; sZeroHex : STRING := '016#F';",
+      "dHexUnder : DINT; dDoubleUnder : DINT; dLeadUnder : DINT; dTrailUnder : DINT; dNoDigits : DINT; dOctNine : DINT; dPlusHex : DINT;",
+      "dBase3 : DINT; dBase10 : DINT; dHexTail : DINT; dZeroHex : DINT;",
+    ].join(" "),
+    body: [
+      "dHexUnder := STRING_TO_DINT(sHexUnder); dDoubleUnder := STRING_TO_DINT(sDoubleUnder); dLeadUnder := STRING_TO_DINT(sLeadUnder);",
+      "dTrailUnder := STRING_TO_DINT(sTrailUnder); dNoDigits := STRING_TO_DINT(sNoDigits); dOctNine := STRING_TO_DINT(sOctNine);",
+      "dPlusHex := STRING_TO_DINT(sPlusHex); dBase3 := STRING_TO_DINT(sBase3); dBase10 := STRING_TO_DINT(sBase10);",
+      "dHexTail := STRING_TO_DINT(sHexTail); dZeroHex := STRING_TO_DINT(sZeroHex);",
+    ].join(" "),
+  },
+  // …and a based number wider than its target: wrapped as a decimal one is (`xf_string_to_int_far_too_large`), or held?
+  {
+    name: "tr_a10_string_to_int_based_wider_than_target",
+    vars: "sFFFF : STRING := '16#FFFF'; s8000 : STRING := '16#8000'; sBig : STRING := '16#123456789'; i1 : INT; i2 : INT; u1 : UINT; si : SINT; d1 : DINT;",
+    body: "i1 := STRING_TO_INT(sFFFF); i2 := STRING_TO_INT(s8000); u1 := STRING_TO_UINT(sFFFF); si := STRING_TO_SINT(sFFFF); d1 := STRING_TO_DINT(sBig);",
+  },
+
+  // 6.A.10's third round (the second: '_5' 5, '1__0' 10, '16#FF_FF' 65535, '+16#F' 16, '016#F' 16, '3#12' 3): an
+  // underscore after a sign or a space, alone, doubled before a digit, first in a based number's digits, and a space
+  // inside the digits; then the 64-bit targets of a based number that fills or passes 64 bits.
+  {
+    name: "tr_a10_string_to_dint_underscore_sign_edges",
+    vars: [
+      "sNegUnder : STRING := '-1_0'; sPlusLead : STRING := '+_5'; sSpaceLead : STRING := ' _5'; sOnly : STRING := '_';",
+      "sNegLead : STRING := '-_5'; sHexLead : STRING := '16#_F'; sBinUnder : STRING := '2#1_0'; sDoubleLead : STRING := '__5';",
+      "sSpaceInside : STRING := '1 0'; sTabLead : STRING := '$T16#F';",
+      "dNegUnder : DINT; dPlusLead : DINT; dSpaceLead : DINT; dOnly : DINT; dNegLead : DINT; dHexLead : DINT; dBinUnder : DINT;",
+      "dDoubleLead : DINT; dSpaceInside : DINT; dTabLead : DINT;",
+    ].join(" "),
+    body: [
+      "dNegUnder := STRING_TO_DINT(sNegUnder); dPlusLead := STRING_TO_DINT(sPlusLead); dSpaceLead := STRING_TO_DINT(sSpaceLead);",
+      "dOnly := STRING_TO_DINT(sOnly); dNegLead := STRING_TO_DINT(sNegLead); dHexLead := STRING_TO_DINT(sHexLead);",
+      "dBinUnder := STRING_TO_DINT(sBinUnder); dDoubleLead := STRING_TO_DINT(sDoubleLead); dSpaceInside := STRING_TO_DINT(sSpaceInside);",
+      "dTabLead := STRING_TO_DINT(sTabLead);",
+    ].join(" "),
+  },
+  {
+    name: "tr_a10_string_to_64bit_based",
+    vars: [
+      "sAllOnes : STRING := '16#FFFFFFFFFFFFFFFF'; sSign : STRING := '16#8000000000000000'; sPast : STRING := '16#1FFFFFFFFFFFFFFFF';",
+      "sDecMax : STRING := '18446744073709551615'; lw : LWORD; ul : ULINT; li : LINT; lPast : LWORD; ulDec : ULINT; liDec : LINT;",
+    ].join(" "),
+    body: "lw := STRING_TO_LWORD(sAllOnes); ul := STRING_TO_ULINT(sAllOnes); li := STRING_TO_LINT(sSign); lPast := STRING_TO_LWORD(sPast); ulDec := STRING_TO_ULINT(sDecMax); liDec := STRING_TO_LINT(sDecMax);",
+  },
+
+  // 6.A.14's second round (the first: SHL(1, 40) into an LWORD or LINT is 2^40, into a DWORD 0): is that the CONSTANT
+  // fold (every operand a literal) or the literal's type? The same literal with a COUNT that is a variable, a constant
+  // count past 63, and into a DWORD with a variable count.
+  {
+    name: "tr_a14_shift_untyped_literal_variable_count",
+    vars: "n40 : INT := 40; n33 : INT := 33; lw5 : LWORD; dw2 : DWORD; lw6 : LWORD; lw7 : LWORD; li2 : LINT;",
+    body: "lw5 := SHL(1, n40); dw2 := SHL(1, n33); lw6 := SHL(1, 65); lw7 := SHR(SHL(1, 40), 8); li2 := SHL(1, n40);",
+  },
+
+  // transpile-restructure 6.A.14 (Appendix A): SHL / SHR of an UNTYPED literal stored into a 64-bit destination — is the
+  // literal shifted as a DINT (the count masked to 31, so SHL(1, 40) is 256) or in the destination's width (2^40)?
+  {
+    name: "tr_a14_shift_untyped_literal_wide",
+    vars: "lw1 : LWORD; lw2 : LWORD; li : LINT; uli : ULINT; dw : DWORD; lw3 : LWORD; lw4 : LWORD;",
+    body: "lw1 := SHL(1, 40); lw2 := SHL(1, 33); li := SHL(1, 40); uli := SHL(3, 62); dw := SHL(1, 40); lw3 := SHR(16#80000000, 4); lw4 := SHL(16#FF, 28);",
+  },
 ]
 
 /** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a

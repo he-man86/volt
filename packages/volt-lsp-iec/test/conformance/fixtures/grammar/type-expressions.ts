@@ -89,14 +89,22 @@ export const TYPE_EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   inVar("decl_subrange_on_xword", "T2 — a subrange of __XWORD: `__XWORD(0..5)`", "\tv : __XWORD(0..5);", "out := 1;"),
   inVar("decl_subrange_one_bound_real", "T2/T3 — parentheses after REAL holding one value: `REAL(5)`",
     "\tv : REAL(5);", "out := 1;"),
-  {
-    ...inVar("decl_subrange_unsigned", "T2 — a subrange of an unsigned type: `UINT(1..5)`, the default its lower bound?",
-      "\tv : UINT(1..5);", "out := UINT_TO_INT(v);"),
-    deferred: {
-      transpile:
-        "a subrange variable with no initializer starts at its LOWER BOUND: CODESYS runs `v : UINT(1..5)` as 1, both backends as 0 — the subrange's default is the Type model's (DT3, task 4.7.1; T hand-off for `defaultValueOf`); not niche, 83 subrange declarations without an initializer in the corpora (2026-10-01)",
-    },
-  },
+  // its default is its lower bound, 1 — `types/typeZero` (transpile-restructure 6.A.25; it diverged, both backends 0)
+  inVar("decl_subrange_unsigned", "T2 — a subrange of an unsigned type: `UINT(1..5)`, the default its lower bound?",
+    "\tv : UINT(1..5);", "out := UINT_TO_INT(v);"),
+  // transpile-restructure 6.A.25 (Appendix A grouped, "subrange bounds dropped"): the default of a subrange with no
+  // initializer, systematically — a signed range above 0 (`INT(3..9)`), one holding 0 (`INT(-5..5)`: its lower bound, or
+  // 0?), one wholly negative, one starting at 0, an ARRAY's elements, a STRUCT's field and a named subrange DUT.
+  withTypes("tr_a25_subrange_defaults", "T2 — the default of every shape of subrange declared with no initializer",
+    "TYPE DUT_LANG_tr_a25_range : INT(3..9);\nEND_TYPE\n\nTYPE DUT_LANG_tr_a25_holder :\nSTRUCT\n\tf : INT(3..9);\nEND_STRUCT\nEND_TYPE\n",
+    [
+      "VAR",
+      "\ta : INT(3..9);\n\tb : INT(-5..5);\n\tc : DINT(-10..-2);\n\td : INT(0..9);\n\tarr : ARRAY[0..1] OF INT(3..9);",
+      "\th : DUT_LANG_tr_a25_holder;\n\tn : DUT_LANG_tr_a25_range;",
+      "\tra : INT;\n\trb : INT;\n\trc : DINT;\n\trd : INT;\n\tr0 : INT;\n\tr1 : INT;\n\trf : INT;\n\trn : INT;\n\tout : INT;",
+      "END_VAR",
+    ].join("\n"),
+    "ra := a + 0;\nrb := b + 0;\nrc := c + 0;\nrd := d + 0;\nr0 := arr[0] + 0;\nr1 := arr[1] + 0;\nrf := h.f + 0;\nrn := n + 0;\nout := 1;"),
 
   // ─── T3 FB_Init arguments on the type ───────────────────────────────────────────────────────────────────────────────
   withTypes("decl_fb_init_empty_parens", "T3 — a function block instance with empty parentheses: `inst : FB();`",

@@ -4150,108 +4150,338 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
 
 ### 6.A Appendix A and B items (LOW, unverified: record first, then fix, refuse, or close with the recording as the reason)
 
-- [ ] 6.A.1 LTIME_TO_TIME / LDT_TO_DT sub-unit truncation.
+- [x] 6.A.1 LTIME_TO_TIME / LDT_TO_DT sub-unit truncation.
   - Where: `lower/builtins/conversions.ts`.
   - Accept: recording plus F or close.
   - Depends: 1.9.4.
-- [ ] 6.A.2 REAL intermediates rounded per step (`real-overflow.ts`).
+  - Done 2026-10-10 (step 6Aa). Recorded first (CODESYS record:exec, one batch with every 6.A fixture):
+    `tr_a1_ltime_to_time_subunit`, `tr_a1_ldt_to_dt_subunit`, `tr_a1_ldt_to_tod_date_subunit`, `tr_a1_ltod_to_tod_dt_subunit`
+    (fixtures/semantics/execution.ts) — a remainder just below one target unit, half of one and below half, every coarser pair
+    (LTIME→TIME, LDT→DT/TOD/DATE, LTOD→TOD/DT). CODESYS TRUNCATES everywhere (LTIME#1s500ms999us999ns → T#1s500ms,
+    LTOD#23:59:59.999999999 → TOD#23:59:59.999, LDT …23:59:59.999999999 → the same DATE). `tickConversion`'s `div` already does:
+    closed with the recording, no code change; all four confirmed (TwinCAT has no LDT/LTOD: its three build recordings refuse
+    them, as the existing `xf_ldt_*` do).
+- [x] 6.A.2 REAL intermediates rounded per step (`real-overflow.ts`).
   - Where: `semantics/arith.ts`.
   - Accept: recording plus F or close.
   - Depends: 1.9.4.
-- [ ] 6.A.3 MIN MOD -1 (live run; Appendix B mod-min-by-minus-one).
+  - Done 2026-10-10 (step 6Aa). Recorded `tr_a2_real_intermediate_per_step`: `(big + one) - big` 0, `huge * three / three`
+    Infinity, a REAL sum stored into an LREAL 1E8 — every REAL intermediate rounded to f32 per step (SSE). `fit` already rounds
+    each node: closed with the recording (confirmed), no code change.
+- [x] 6.A.3 MIN MOD -1 (live run; Appendix B mod-min-by-minus-one).
   - Where: `semantics/arith.ts`, `runtime/numeric.ts`.
   - Accept: recording plus F or close; the answer written here (7.3.13 reads it).
   - Depends: 1.9.4.
-- [ ] 6.A.4 SHL/SHR/ROL counts through BigInt.
+  - Done 2026-10-10 (step 6Aa). Recorded `arithedge_{sint,int,dint,lint}_mod_min_by_minus_one` (operators/arithmetic-edges.ts,
+    beside `div_min_by_minus_one`; the two that stop recorded each alone, a fault poisoning a batch). THE ANSWER (7.3.13 reads
+    it): DINT and LINT `MIN MOD -1` STOP THE TASK, as `MIN / -1` does (x86's `idiv`); SINT and INT answer 0 (computed in DINT,
+    where -128 / -32768 are no minimum). Both backends answered 0. `semantics/arith.ts` throws `division-overflow` for MOD as
+    for `/` in the computation width; `emit/rust/expr.ts` prints `%` (which panics on exactly that overflow) instead of
+    `wrapping_rem`. Src `semantics/arith.test.ts` (new, red first); `emit/rust/expr.test.ts`, `names.test.ts` read the new `%`.
+    All four confirmed. The MOD construct changed in every fixture holding one: 24 NOTES re-keyed to the `x % x` construct
+    (support/notes/notes.data.ts, text unchanged).
+- [x] 6.A.4 SHL/SHR/ROL counts through BigInt.
   - Where: `semantics/builtins.ts`.
   - Accept: a src test with a count above 2^53; S-out.
   - Depends: 1.9.4.
-- [ ] 6.A.5 `x := F(o => x)`: which write wins.
+  - Done 2026-10-10 (step 6Aa). `semantics/builtins.ts` `bitValue` masks / reduces the count as the exact bigint it is
+    (`countOf`; a non-integer count is a LoweringBug); `Number()` rounded a ULINT count above 2^53. Src
+    `semantics/builtins.test.ts` "SHL / SHR / ROL / ROR read a count above 2^53 exactly" (2^53 + 1 and 2^64 - 1; red first).
+    S-out ✓ (`snapshot:transpile check --layers outputs,edge` against a baseline written from the HEAD source: no fixture's
+    output or edge verdict moved but the 6.A fixtures' own).
+  - Gate review fix (6Aa+6Ae gate, 2026-10-10): `countOf` threw its LoweringBug for a count that is no integer, which
+    lowering let through — SHL(dw0, 2.0) threw out of the scan, and out of `lowerSource` itself in an initializer (6.A.9's
+    `constantValue` re-throws it); at HEAD `Number()` quietly gave 4. What CODESYS does with a REAL count is unrecorded:
+    `lower/builtins/value-functions.ts` `lowerShift` refuses a count of any type but an integer or bit string by name,
+    `shift-count` (not-measured, `lower/diagnostics/codes.ts`). Src `value-functions.test.ts` (body and initializer, red first).
+- [x] 6.A.5 `x := F(o => x)`: which write wins.
   - Where: `lower/calls/outputs.ts`.
   - Accept: recording plus F.
   - Depends: 4.11.
-- [ ] 6.A.6 Const-generic in-out names colliding (`<x>_<n>`).
+  - Done 2026-10-10 (step 6Aa). Recorded `tr_a5_function_output_and_result_same_variable` (`x := F(o => x)` 1, `y := F(o => y) +
+    10` 11) and `tr_a5_method_output_and_result_same_variable` (1) — calls/call-shapes.ts. The RESULT wins: the output is copied
+    out, then the call's value stored. Both backends already do (F: both confirmed); no code change.
+- [x] 6.A.6 Const-generic in-out names colliding (`<x>_<n>`).
   - Where: `emit/rust/names.ts`.
   - Accept: a src test plus a fix.
   - Depends: 1.9.4.
-- [ ] 6.A.8 Exact refusal codes contradicting their prefix families.
+  - Done 2026-10-10 (step 6Ab). `emit/rust/types.ts` `inoutType`: an open array's dimension generics are `D_<NAME>_<d>` beside a
+    STRING's `N_<NAME>` — `grid : ARRAY[*, *]` (`N_GRID_2`) beside `grid_2 : STRING` (`N_GRID_2`) declared one generic twice
+    (E0403). Within the arrays the names cannot meet (distinct fields; the dimension is the digits after the last `_`). Src
+    `emit/rust/types.test.ts` (red first). The only fixtures touched are the ones with an open-array in-out of 2+ dimensions
+    (`N_GRID_2` → `D_GRID_2`).
+- [x] 6.A.8 Exact refusal codes contradicting their prefix families.
   - Where: `lower/diagnostics/codes.ts`.
   - Accept: `codes.test.ts` asserts each code's kind agrees with its prefix or carries a written reason.
   - Depends: 1.2.2.
-- [ ] 6.A.9 `constantValue` swallows non-LoweringBug throws.
+  - Done 2026-10-10 (step 6Ab). `lower/diagnostics/codes.ts` `FAMILY_EXCEPTIONS`: each exact code inside a prefix family whose
+    kind differs carries its reason — `expr-call`, `stmt-call_stmt` (unsorted call shapes, not a missing kind), `layout-base`
+    (inherits the base's own refusal), `layout-union` (two refusals under one code), `layout-unmeasured` (not-measured),
+    `layout-recursive` (invalid); `routine-var_output` classified `not-measured` (its own message says so — the family's kind),
+    so the unclassified ratchet 84 → 83. `codes.test.ts`: every exact code in a family agrees or has a reason; every reason
+    names a code that still differs.
+- [x] 6.A.9 `constantValue` swallows non-LoweringBug throws.
   - Where: `semantics/fold.ts`.
   - Accept: a src test; S-out.
   - Depends: 1.3.3.
-- [ ] 6.A.10 STRING_TO_<int> of '16#FF' / '2#101' / 'INT#5'.
+  - Done 2026-10-10 (step 6Ab). `semantics/fold.ts` `constantValue` answers "not constant" only on a FAULT — a `RangeError`, as
+    every fault the interpreter throws is (`IecFault`, and the index / character-position faults whose text names a number; the
+    conformance harness's fault test is the same) — and re-throws anything else (a `TypeError` out of a value function, a
+    `LoweringBug`). Src `semantics/fold.test.ts` (new; the TypeError case red first). S-out ✓ (as 6.A.4): no fold in the
+    fixtures threw anything else.
+- [x] 6.A.10 STRING_TO_<int> of '16#FF' / '2#101' / 'INT#5'.
   - Where: `semantics/parse.ts`, `runtime/parse.ts`.
   - Accept: recording plus F; twin cells.
   - Depends: 3.5.
-- [ ] 6.A.11 `overridesCalled` resolves SUPER^.M() against the frame.
+  - Done 2026-10-10 (step 6Ab). Recorded in three rounds, each answer asking the next (`tr_a10_string_to_int_literal_forms`,
+    `_bits_literal_forms`, `_dint_based_edges`, `_int_based_wider_than_target`, `_dint_underscore_sign_edges`, `_64bit_based`;
+    48 cells). The rule (`semantics/parse.ts` `parseInteger`, mirrored line for line by `runtime/parse.ts` `iec_parse_int`):
+    after spaces and tabs, with NO sign a based number written `2#`, `8#` or `16#` reads its digits in that base ('16#FF' 255,
+    '2#101' 5, '8#17' 15, '16#ff' 255), no other base ('3#12' 3, '10#99' 10, '016#F' 16) and none after a sign ('-16#F' -16,
+    '+16#F' 16); else a sign and decimal digits; an underscore anywhere among the digits skipped ('1_000' 1000, '_5' 5, '-_5'
+    -5, '16#_F' 15), any other character ending them ('16#G' 0, 'INT#5' 0, '1 0' 1); 64-bit wrap, then the target's ('16#FFFF'
+    INT -1, '16#123456789' DINT 591751049). It read decimal digits only ('16#FF' was 16). The bit-string targets parse the same
+    (`STRING_TO_BYTE`/`WORD`/`DWORD`/`LWORD`, measured here): `lower/builtins/conversions.ts` `parses` admits them — which
+    lowers the eight `xp_{string,wstring}_to_{byte,word,dword,lword}` (not-lowered → confirmed). Twin cells:
+    `semantics/parse.cases.ts` (48 cells, each naming its recording), `parse.test.ts` (red first), `runtime-twins.test.ts` (each
+    cell and its input held to `codesys.run.json`; `iec_parse_int` built and run). Unasked: a base written with an underscore in
+    it ('1_6#F'). All six confirmed.
+  - Gate review (6Aa+6Ae gate, 2026-10-10): "wraps at 64 bits" was written as recorded, but the one recorded number past
+    2^64 ('16#1FFFFFFFFFFFFFFFF' → all ones, `lPast`) has its low 64 bits all ones, where wrapping, saturating and dropping the
+    extra digits agree. Recording a number where they part needs a new fixture recorded on CODESYS and built on both vendors —
+    not trivial — and the corpora hold no STRING_TO_LWORD/_ULINT/_LINT call: niche: accepted loss (0 occurrences in the
+    corpora). `semantics/parse.ts` `parseInteger`'s doc now says so instead of claiming the wrap as recorded.
+- [x] 6.A.11 `overridesCalled` resolves SUPER^.M() against the frame.
   - Where: `lower/core/ast-walk.ts`, `calls/super.ts`.
   - Accept: a src test plus F.
   - Depends: 1.9.4.
-- [ ] 6.A.12 A bare METHOD call with an unconnected VAR_OUTPUT in an FB body.
+  - Done 2026-10-10 (step 6Ab). Recorded `tr_a11_super_method_on_overriding_leaf` (call-shapes.ts): a middle FB's METHOD calling
+    `SUPER^.Hit()`, run on a leaf that overrides Hit and leaves its VAR_IN_OUT unbound — CODESYS runs it (hits 1; it warns the
+    leaf's Hit accesses the in-out from outside). `lower/core/ast-walk.ts` `overridesCalled`: `SUPER^.M()` is the BASE's M, a
+    member of the chain, never an override — looked up against the frame it bound the leaf's in-out into the middle METHOD and
+    the call faulted ("call through an interface that holds no instance", 6.A.28's message). Src `lower/core/ast-walk.test.ts`
+    (new, red first). F: confirmed. A base METHOD reached through SUPER^ that itself calls an override using the leaf's in-out
+    stays refused `call-fb-inout`, as before (checked, unchanged).
+- [x] 6.A.12 A bare METHOD call with an unconnected VAR_OUTPUT in an FB body.
   - Where: `lower/calls/invoke.ts`.
   - Accept: recording plus F.
   - Depends: 4.11.
-- [ ] 6.A.13 The stale `calledLayout` doc about VAR_TEMP.
+  - Done 2026-10-10 (step 6Ac). Recorded `tr_a12_bare_method_call_unconnected_output` (call-shapes.ts): an FB body calling its
+    own METHOD bare (`Count();`) and with the output bound to its own field (`Count(o => seen)`) — CODESYS runs both (calls 4,
+    seen 40 after two scans). Both were refused `call-inout-alias`: the unconnected output's temp was a FIELD of the instance
+    the call holds, and the bound field aliased it. `lower/calls/outputs.ts` `bindUnconnectedOutputs`: a copy of the output's
+    initial value lent `&mut` and written back nowhere (`IrCopy.discarded`, `ir/expr.ts`; `emit/rust/printer.ts`
+    `lend`/`lentCopies`), no frame temp; `calls/binding.ts` `bindPlace`: a VAR_OUTPUT copied out after the call is no lent
+    `&mut`, so a place the call holds is no alias. Src `lower/calls/outputs.test.ts` (red first). F: confirmed — and five more
+    lower and confirm (`oopb_abstract_method_output_default`, `oopb_concrete_method_output_default`,
+    `oopb_implicit_abstract_output_default`, `sym_method_output_param_bound`; `inh_override_input_as_output`,
+    `oopb_base_output_type_mismatch` lower too, refused by the vendor). Three NOTES about the persistent `__output_N` field
+    resolved (deleted: `1647895e3b`, `782a04d94c`, `f1b8c2a1e6`).
+  - Gate review fix (6Aa+6Ae gate, 2026-10-10): `docs/data-model.md` documents `IrCopy.discarded` on `IrBinding`'s copy.
+- [x] 6.A.13 The stale `calledLayout` doc about VAR_TEMP.
   - Where: `lower/calls/routines.ts`.
   - Accept: doc fixed.
   - Depends: 1.6.18.
-- [ ] 6.A.14 SHL/SHR of an untyped literal into a 64-bit destination.
+  - Done 2026-10-10 (step 6Ac). `lower/calls/routines.ts` `calledLayout`'s doc: an FB's VAR_TEMP starts over on every call
+    (`resetTemps`, conformance `life_fb_var_temp_calls`) — no longer "refused, until recorded".
+- [x] 6.A.14 SHL/SHR of an untyped literal into a 64-bit destination.
   - Where: `lower/builtins/value-functions.ts`.
   - Accept: recording plus F.
   - Depends: 1.9.4.
-- [ ] 6.A.15 A huge repeat count builds every leaf before the size check.
+  - Done 2026-10-10 (step 6Ac). Recorded `tr_a14_shift_untyped_literal_wide` and `_variable_count` (execution.ts): SHL(1, 40)
+    into an LWORD or LINT is 2^40, into a DWORD 0; SHL(1, 65) into an LWORD 2; with a VARIABLE count SHL(1, n40) into an LWORD
+    is 2^40 and SHL(1, n33) into a DWORD 2; `SHR(SHL(1, 40), 8)` 2^32. So an untyped literal shifted by a constant count folds
+    in 64 bits (count masked to 63), and by a variable count shifts in the destination's width when that is 64 bits (DINT
+    otherwise). Lowering shifted every one in DINT (SHL(1, 40) was 256). `lower/builtins/value-functions.ts`
+    `untypedShiftOperand` (the expected type flows `lowerExpr` → `lowerBuiltin` → `lowerValueFunction`); ROL/ROR untouched
+    (6.A.30). F: both confirmed. The AST fold leaves a body's untyped shift unfolded (no context, frontend-conformance 4.6.1's
+    `UNTYPED_OPERAND`): the eight new fold disagreements are `fold-agreement.test.ts` KNOWN — niche: accepted loss (0
+    occurrences in the corpora: the 268 `SHL/SHR(<literal>, …)` there are all declaration initializers, where the context types
+    them and the folds agree).
+  - Gate review fixes (6Aa+6Ae gate, 2026-10-10): `untypedShiftOperand` used `lowerExpr`'s `expected` as "the type it is
+    stored into", but a binary operator hands its right operand the LEFT operand's type — `lw0 + SHL(1, n40)` shifted in 64
+    bits (2^40) and `SHL(1, n40) + lw0` in DINT (256), and the same unrecorded widening reached call arguments, FOR bounds and
+    comparisons. And a negative literal was guessed LINT (SHR(-8, 1) into a LINT -4, where an LWORD reading gives 2^63 - 4),
+    a named CONSTANT count took the variable-count path (SHL(1, C40) into a DWORD 256, where the literal-count fold gives 0).
+    None of it recorded, all niche (0 body shifts of an untyped literal in the six corpora; the 268 initializers there all
+    have a literal count and a non-negative literal): only the recorded shapes lower — a non-negative literal by a literal
+    count anywhere (the compile-time fold), by a plain variable count only as the WHOLE value of a `:=` store (`lowerExpr`'s
+    new `stored`, passed by `statements/assign.ts` alone) — and the rest is refused by name, `shift-untyped-width`
+    (not-measured). Src `value-functions.test.ts` (the recorded stores' values; both operand orders, a MAX argument, a
+    negative literal, a named constant count refused; red first). No fixture moved.
+- [x] 6.A.15 A huge repeat count builds every leaf before the size check.
   - Where: `lower/init/initial-values.ts`.
   - Accept: a src test (check first); S-out.
   - Depends: 1.9.4.
-- [ ] 6.A.16 An X address bit index above 7.
+  - Done 2026-10-10 (step 6Ac). Checked first: `[100000000000(1)]` into ARRAY[0..1] hung (killed at 60 s).
+    `lower/init/initial-values.ts` checks a repeat against the array's capacity BEFORE building its leaves. Src
+    `initial-values.test.ts` "a repeat count past the array refuses before it builds a leaf" (< 1 s). S-out ✓ (as 6.A.4).
+- [x] 6.A.16 An X address bit index above 7.
   - Where: `lower/storage/addresses.ts`.
   - Accept: recording plus refusal.
   - Depends: 1.9.4.
-- [ ] 6.A.17 GVL1.x / GVL2.x sharing one slot.
+  - Done 2026-10-10 (step 6Ac). Recorded `tr_a16_mx_bit_index_8`, `_qx_bit_index_15`, `_ix_bit_index_9`
+    (declarations/addresses.ts): CODESYS (and TwinCAT) ACCEPT a bit index above 7 and count it on into the next byte — `%MX0.8`
+    is bit 0 of `%MB1` (next 1). No refusal to add: `storage/addresses.ts` `addressBits` already counts `n * 8 + bit`. Closed
+    with the recording: the QX and IX cells confirmed; the MX cell is not-lowered by the existing alias refusal (`var-at`: a
+    BOOL overlapping a BYTE needs the byte-addressable area), not by the bit index.
+- [x] 6.A.17 GVL1.x / GVL2.x sharing one slot.
   - Where: `lower/places/globals.ts`.
   - Accept: a src test plus a fix.
   - Depends: 1.9.4.
-- [ ] 6.A.18 Uniform write guards.
+  - Done 2026-10-10 (step 6Ad). Recorded `tr_a17_two_lists_one_name_both_qualified` (names/name-rules.ts, two plain lists each
+    declaring `g_a17`): outA 3, outB 5, and writing list a's leaves b's 5 — two variables. `lower/places/globals.ts`
+    `listPrefix`: a list's variable is keyed `<list>.<name>` when the list is `qualified_only` or another list declares the name
+    (bare, such a name is ambiguous and refused, `ambg_*`); it was keyed by the bare name, one slot. `emit/rust/module.ts`
+    numbers the second Rust field (`g_a17_2`) where it threw. Src `lower/places/places.test.ts` (red first). F: confirmed.
+  - Gate review fix (6Aa+6Ae gate, 2026-10-10): `emit/rust/module.ts` had turned `fieldNames`' contract-name refusal off for
+    EVERY global, so two different ST names snaking to one field (GVL_a.myVal, GVL_b.my_val) were silently suffixed `_2`,
+    and which list kept the plain name followed which body reached it first (globals are declared lazily). Now a slot of a
+    name another list declares carries its list (`IrSlot.list`, set by `places/globals.ts` `listVariable`; `ir/program.ts`,
+    `docs/data-model.md`) and its field is `<list>_<name>` (`gvl_one_g`, `gvl_two_g` in either reach order); the refusal is
+    back for everything else. Src `emit/rust/module.test.ts` (both reach orders; myVal/my_val refused; red first).
+- [x] 6.A.18 Uniform write guards.
   - What: every store applies the full `guardWrite` set, removing the per-site lists of 1.7.5; the differences recorded first.
   - Where: `lower/places/access-guards.ts`.
   - Accept: a src test per store kind; M.
   - Depends: 1.7.5, 1.9.4.
-- [ ] 6.A.19 An FB body call stores its inputs before binding its in-outs.
+  - Done 2026-10-10 (step 6Ad). The differences recorded first: a character stored through a REFERENCE TO STRING
+    (`tr_a18_char_store_through_reference`: 'aXc', already right) and a FOR loop counting a REFERENCE TO INT
+    (`tr_a18_for_counter_through_reference`: CODESYS counts the referenced variable, v 4; lowering counted the reference's own
+    slot, v 0). The per-site lists are gone: every store names one of three (`places/access-guards.ts`) — PLAIN_WRITE
+    (`open-array`, `constant`) for a plain `:=`, a reference's target and an FB input stored into its instance (the stores that
+    model an interface and a union member themselves); FULL_WRITE (`interface`, `through-reference`, `union`, `constant`) for a
+    lent place (in-out binding, ANY argument); STORE_WRITE (`open-array` + FULL_WRITE) for every other store (chain link, latch,
+    FB output, FOR variable, character). Behaviour moved only where recorded (the FOR variable); the rest of each change is a
+    check that cannot fire (an integer is no interface, a STRING place no ARRAY[*]). The character store now writes the place
+    `guardWrite` returns. Src: `statements/loops.test.ts` (FOR through a REFERENCE, red first), `places/access-guards.test.ts`
+    (every store kind into a VAR_IN_OUT CONSTANT refused: latch, character, output, input into a lent instance, a reference's
+    target, in-out binding, ANY argument; the `:=`, chain and FOR in the test above). M (whole run, at the end).
+  - Gate review (6Aa+6Ae gate, 2026-10-10): beside the recorded FOR change, the uniform sets ADD checks no recording stands
+    behind — an FB output `q => target`, a latch S=/R= and a chain link now also check `open-array`; a character store
+    `s[i] :=` (was `constant` only) also checks `interface`, `through-reference`, `union` and `open-array`; a FOR variable
+    also `interface` and `open-array`. They are UNRECORDED REFUSALS, never a changed value, and no fixture moved; the review's
+    example (a character store into a UNION's STRING member) is refused before the store by `layout-union` at HEAD and now
+    alike (probed). Kept, and named here as unrecorded refusals: none of them fires in a fixture.
+- [x] 6.A.19 An FB body call stores its inputs before binding its in-outs.
   - Where: `lower/calls/fb-call.ts`.
   - Accept: recording plus F.
   - Depends: 1.9.4.
-- [ ] 6.A.20 The const fold accepts `**`, `&` and REAL MOD.
+  - Done 2026-10-10 (step 6Ad). Recorded `tr_a19_fb_call_inout_beside_moving_input` (call-shapes.ts): `fb(io := arr[i], inp :=
+    Bump(i))` binds arr[0] (101), `fb(inp := Bump(j), io := arr[j])` arr[1] (201) — an in-out is bound WHERE IT IS WRITTEN, on
+    the FB path as on the routine path (`callshape_inout_binding_order`). It was refused `call-inout-order`.
+    `lower/calls/fb-call.ts` `fbArguments`: an in-out written before an input holding a call has its runtime parts frozen into
+    temps there (`calls/binding.ts` `frozenWhereWritten`, factored out of `bindWhereWritten`; `movedInOut` deleted); a copied
+    value stays refused. Src `lower/calls/fb-call.test.ts`. F: confirmed.
+- [x] 6.A.20 The const fold accepts `**`, `&` and REAL MOD.
   - What: remove them; `const/fold.test.ts` drops the `**` case (its premise is contradicted by the input contract).
   - Where: `types/const/fold.ts`.
   - Accept: G+LSP (or verified closed by frontend-conformance).
   - Depends: 1.9.4.
-- [ ] 6.A.21 REAL_MAX_MAGNITUDE below f32::MAX, and the second constant in infer.
+  - Done 2026-10-10 (step 6Ad). `**` and `&` closed by frontend-conformance 2.5a (verified: the parse refuses them;
+    `const/fold.test.ts` holds no `**` case). REAL MOD recorded: `tr_a20_real_mod_in_initializer` (`rl : REAL := 5.5 MOD 2.0`)
+    "MOD is not defined for REAL", both vendors. `types/const/fold.ts` `foldNumber` no longer folds MOD; the LSP was silent
+    there (an untyped real literal is UNKNOWN beside another, and `binaryOpError` skipped the operand):
+    `analysis/shared/rules.ts` names an untyped real literal LREAL for MOD (only MOD — the other operators beside a string or
+    BOOL are unrecorded). Src `const/fold.test.ts`, `checks/types/binary-operators.test.ts` (red first). G+LSP: the fixture
+    rates refused; corpus gate, lsp-replay, build oracle green.
+- [x] 6.A.21 REAL_MAX_MAGNITUDE below f32::MAX, and the second constant in infer.
   - Where: `types/elementary.ts`, `types/infer/*`.
   - Accept: G+LSP; one constant.
   - Depends: 1.9.4.
-- [ ] 6.A.22 Inferred STRING(N)/ARRAY[1..N] folded in project scope.
+  - Done 2026-10-10 (step 6Ad). Recorded `tr_a21_typed_real_below_max` (REAL#3.4028234E38 builds, holds 3.40282347E+38),
+    `_rounds_to_max` (3.4028235E38), `_rounds_to_infinity` (3.4028236E38), `_negative_rounds_to_max` — the last three "too large
+    for type 'REAL'", both vendors: the bound is f32's largest EXACTLY. `types/literal.ts` `REAL_MAX_MAGNITUDE` REAL is
+    3.4028234663852886e38 (was 3.402823e38, so the first was called too large), and `literalCheckType` reads it — ONE constant.
+    The same recordings showed an LSP false positive beside the error (an LREAL → REAL warning for a TYPED literal): the "beyond
+    REAL's largest is an LREAL" rule is the untyped literal's only. `primitive-bounds.ts` writes doc 06's 3.402823E38 out
+    (`DOCUMENTED_LARGEST`) so its recorded texts stay. Src `types/literal.test.ts` (two tests, red first). G+LSP.
+- [x] 6.A.22 Inferred STRING(N)/ARRAY[1..N] folded in project scope.
   - Where: `types/infer/expr.ts`.
   - Accept: G+LSP.
   - Depends: 1.1.13.
-- [ ] 6.A.23 A negated or parenthesised real literal in SIN/SQRT infers UNKNOWN.
+  - Done 2026-10-10 (step 6Ae). Verified closed by frontend-conformance 4.6.2 (62bcb30d65, rule CE8: `infer/expr` resolves a
+    variable's type, its STRING(n) and array bounds, in its declaring scope): `ce_string_length_constant_assign` / `_init`
+    confirmed, `checks/types/string-constant.test.ts` holds it. G+LSP green.
+- [x] 6.A.23 A negated or parenthesised real literal in SIN/SQRT infers UNKNOWN.
   - Where: `types/infer/expr.ts`, `types/literal.ts`.
   - Accept: G+LSP.
   - Depends: 1.1.13.
-- [ ] 6.A.24 Member access does not walk EXTENDS.
+  - Done 2026-10-10 (step 6Ae). Recorded `tr_a23_bare_real_literal_sin_into_int`, `_negated_…_sin_into_int`,
+    `_parenthesised_…_sqrt_into_int` (each "Cannot convert type 'LREAL' to type 'INT'", both vendors) and
+    `tr_a23_signed_real_literal_in_math` (the values; LREAL → REAL warned). `types/literal.ts` `isUntypedNumber` (negated or
+    parenthesised at any depth); `infer/expr.ts` hands `mathResultType` "a literal" for one — SIN(-1.5), SQRT((2.0)),
+    COS(-(0.5)), EXP((-1.0)) are LREAL (were UNKNOWN). Src `infer/expr.test.ts` (red first). The two refusals the LSP missed
+    rate refused. G+LSP.
+- [x] 6.A.24 Member access does not walk EXTENDS.
   - Where: `types/infer/member.ts` on `lookupMember` / `extendsChain`.
   - Accept: G+LSP.
   - Depends: 1.1.13.
-- [ ] 6.A.25 Subrange bounds dropped.
+  - Done 2026-10-10 (step 6Ae). Verified closed by frontend-conformance 3.2.3 (461b70fc4d: `infer/member` uses `lookupMember`,
+    which walks EXTENDS). G+LSP green.
+- [x] 6.A.25 Subrange bounds dropped.
   - Where: `types/resolve.ts`.
   - Accept: recording (`a : INT(3..9)`), then refuse the subrange by name or model it; G+LSP.
   - Depends: 1.9.4.
-- [ ] 6.A.26 Qualified `Lib.T` resolved by its bare name.
+  - Done 2026-10-10 (step 6Ae). Recorded `tr_a25_subrange_defaults` (grammar/type-expressions.ts): a subrange with no
+    initializer starts at 0 when its range holds 0, else at its LOWER bound — INT(3..9) 3, INT(-5..5) 0, DINT(-10..-2) -10 (not
+    the bound nearer 0), INT(0..9) 0, an ARRAY's elements, a STRUCT's field and a named subrange DUT 3
+    (`decl_subrange_unsigned`: UINT(1..5) 1). Modelled in `types/defaults.ts` `typeZero` (the slot default every backend reads).
+    Src `lower/init/initial-values.test.ts` (red first). F(`decl_subrange_unsigned`): its divergence mark removed, confirmed
+    (partial-run.test.ts's "diverges" row now `op_math_trig`); `tr_a25_subrange_defaults` confirmed. `decl_subrange_reversed`
+    (refused) now starts at its written lower bound 10 — outside the input contract. G+LSP.
+- [x] 6.A.26 Qualified `Lib.T` resolved by its bare name.
   - Where: `types/resolve.ts` (qualifiers).
   - Accept: G+LSP.
   - Depends: 6.5.
+  - Done 2026-10-10 (step 6Ae). Verified closed by frontend-conformance 3.4.2 (1bdaf58172: `types/resolve` `namespaceOf`,
+    `resolveQualifiedType`; `resolve.test.ts` "a qualified type name", `lib_ns_type_qualified*`). G+LSP green.
+  - Steps 6Aa-6Ae end (implement agent, 2026-10-10; the gate commits). Recorded in ONE CODESYS record:exec batch (29 fixtures)
+    and two follow-ups (the 6.A.10 / 6.A.14 second and third rounds, the two MIN MOD -1 cells that stop), then every new fixture
+    build-recorded on CODESYS and TwinCAT (`ide.ps1 -Instance transpile-restructure`, CODESYS fixture copy, TwinCAT
+    `-Fixture 13`; both IDEs closed). 38 new fixtures: 31 confirmed, 7 refused (the LSP objects to each), 1 not-lowered
+    (`tr_a16_mx_bit_index_8`, the alias refusal). M (`rate:fixtures`): mapped 5446 -> 5484, confirmed 2909 -> 2952, refused
+    1994 -> 2001, not-lowered 357 -> 346, lsp-gap 84, diverges 10 -> 9, unaskable 92; lowered/clean decl 748/748, arith
+    1575/1573, control 158/147, aggregate 135/135, call 297/294, indirect 460/455; edge agree 3113 -> 3160, disagree 3, not-run
+    207 -> 210; median size 3.1; pedantic 32694 -> 33578; surviving lints unchanged; ALLOWED excused: dead_code 5670 -> 5883,
+    the rest unchanged; 73 existing rows changed (the MOD construct's Rust, 6.A.3; the newly lowered and re-rated ones); NOTES
+    681 -> 678 (3 resolved by 6.A.12, 24 re-keyed by 6.A.3); shapes 1805 -> 1844. Baselines rewritten: `test/frontend`
+    (counts; the new fixtures' context-typed untyped numbers, SHL/SHR of untyped literals and one `s[i]` are named
+    `CEILING_EXCEPTIONS` in `frontend/baseline.ts`, no ceiling raised) and `test/analysis` (TP counts only, no new FP or
+    GAP). Runs at the end: `bun typecheck` clean; `bun run lint` green but the pre-existing `last-binding.ts` size warning;
+    `bun test src scripts` 2233 pass; `test/frontend` 45 pass; `test/analysis` 13 pass; `test/conformance` (whole, no
+    VOLT_FIXTURES) 6509 pass, 0 fail; `test/corpus` + `test/catalog` + `test/libraries` 189 pass. S-out against a baseline
+    of the HEAD source: only the 6.A fixtures, the four MIN MOD -1, `decl_subrange_unsigned`/`_reversed` and the newly lowered
+    ones moved.
+    Per step, for separate commits — 6Aa: `semantics/arith.ts`(+test), `semantics/builtins.ts`(+test), `emit/rust/expr.ts`,
+    `expr.test.ts`, `names.test.ts`, `support/notes/notes.data.ts` (re-key), fixtures `tr_a1_*`, `tr_a2_*`, `tr_a5_*`,
+    `arithedge_*_mod_min_by_minus_one`. 6Ab: `emit/rust/types.ts`(+test), `lower/diagnostics/codes.ts`(+test),
+    `semantics/fold.ts`(+new test), `semantics/parse.ts`, `parse.cases.ts`, `parse.test.ts`, `emit/rust/runtime/parse.ts`,
+    `runtime-twins.test.ts`, `lower/builtins/conversions.ts`, `lower/core/ast-walk.ts`(+new test), fixtures `tr_a10_*`,
+    `tr_a11_*`. 6Ac: `lower/calls/outputs.ts`(+test), `calls/binding.ts` (the VAR_OUTPUT alias), `ir/expr.ts`
+    (`IrCopy.discarded`), `emit/rust/printer.ts`, notes.data.ts (3 deleted), `lower/calls/routines.ts` (doc),
+    `lower/builtins/value-functions.ts`, `builtins.ts`, `expressions/expressions.ts`, `fold-agreement.test.ts` (UNTYPED_SHIFT),
+    `lower/init/initial-values.ts`(+test), fixtures `tr_a12_*`, `tr_a14_*`, `tr_a16_*` (declarations/addresses.ts). 6Ad:
+    `lower/places/globals.ts`, `emit/rust/module.ts`, `places.test.ts`, `places/access-guards.ts`(+test),
+    `statements/assign.ts`, `statements/loops.ts`(+test), `calls/fb-call.ts`(+test), `calls/binding.ts`
+    (`frozenWhereWritten`), `types/const/fold.ts`(+test), `analysis/shared/rules.ts`, `binary-operators.test.ts`,
+    `types/literal.ts` (REAL bound, typed-literal rule)(+test), `fixtures/types/primitive-bounds.ts`, fixtures `tr_a17_*`
+    (names/name-rules.ts), `tr_a18_*`, `tr_a19_*`, `tr_a20_*`, `tr_a21_*`. 6Ae: `types/literal.ts` (`isUntypedNumber`),
+    `types/infer/expr.ts`(+test), `types/defaults.ts`, `initial-values.test.ts` (subrange), `grammar/type-expressions.ts`
+    (`tr_a25_*`, `decl_subrange_unsigned`'s mark), `partial-run.test.ts`, fixtures `tr_a23_*`. Shared by all five (one commit
+    is the honest unit, as for 6a-6d): `fixtures/semantics/execution.ts`, `calls/call-shapes.ts`, the three recordings,
+    `map.generated.ts`, `frontend/baseline.ts` + `frontend/baselines/*`, `analysis/baselines/*`, design.md (§4 fold.ts row,
+    §6 status rows 6.A.20/21/23/25).
+  - Gate 6Aa+6Ae (2026-10-10): the review's seven findings, each written under its task — fixed: 6.A.4 (`shift-count`),
+    6.A.14 (`shift-untyped-width`: only the recorded shapes lower), 6.A.17 (`IrSlot.list`, the field-name refusal back),
+    6.A.12 (data-model.md `discarded`); niche, documented: 6.A.10 (a number past 2^64, 0 in the corpora); noted: 6.A.18 (the
+    unrecorded refusals the uniform sets add). Two new codes, both not-measured. `bun typecheck` clean; package lint green
+    but the pre-existing `last-binding.ts` size warning. M (`rate:fixtures`): unchanged from the steps' run — mapped 5484,
+    confirmed 2952, refused 2001, not-lowered 346, lsp-gap 84, diverges 9, unaskable 92; edge agree 3160, disagree 3, not-run
+    210. Full suite (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES, rustc cache sampled): 8995 pass / 0 fail (35 skip, 389
+    todo; 9419 tests, 313 files; was 8883 at 6a+6d). Committed one commit per step, 6Aa → 6Ae; a file two steps touch goes
+    with the later one, and the files every step shares (execution.ts, call-shapes.ts, the three recordings, map.generated.ts,
+    the baselines, design.md, tasks.md) with 6Ae — so 6Aa-6Ad alone are the code, and the tree is green at 6Ae.
 - [ ] 6.A.27 Unsigned counter with a negative constant step.
   - Where: `lower/statements/loops.ts`.
   - Accept: absorbed by 2.4; closed with a reference to it.

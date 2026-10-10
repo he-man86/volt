@@ -15,6 +15,12 @@ export const DEFAULT_STRING_LENGTH = 80
  * (consolidate-lsp-structure B8). Was the transpiler's `defaultValueOf` (transpile-restructure 1.1.4).
  */
 export function typeZero(type: Type): bigint | number | boolean | string {
+  // A SUBRANGE starts at 0 when its range holds 0, else at its LOWER bound: INT(3..9) 3, INT(-5..5) 0, DINT(-10..-2) -10
+  // (`tr_a25_subrange_defaults`, `decl_subrange_unsigned`: UINT(1..5) 1; transpile-restructure 6.A.25)
+  if (type.kind === "elementary" && type.subrange !== undefined) {
+    const { lower, upper } = type.subrange
+    return lower <= 0n && upper >= 0n ? 0n : lower
+  }
   const family = type.kind === "elementary" ? type.elem.family : undefined
   return family === "bool" || isBit(type) ? false : family === "real" ? 0 : family === "string" ? "" : 0n
 }

@@ -84,3 +84,26 @@ test("a dynamic element inside a repeated nested aggregate is refused like a rep
   expect(codes("a : ARRAY[0..1] OF INT := [2(F_Next())];")).toEqual(["aggregate-init"])
   expect(codes("a : ARRAY[0..1] OF ARRAY[0..1] OF INT := [2([F_Next(), 7])];")).toEqual(["aggregate-init"])
 })
+
+// transpile-restructure 6.A.15 (Appendix A): `n(v)` built all n leaves BEFORE the size check, so a repeat count far past
+// the array — `[100000000000(1)]` into two elements — ran out of memory (or ran for minutes) instead of refusing.
+test("a repeat count past the array refuses before it builds a leaf", () => {
+  const started = performance.now()
+  const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR a : ARRAY[0..1] OF INT := [100000000000(1)]; END_VAR\nEND_PROGRAM\n", "P")
+  expect(pou).toBeUndefined()
+  expect(diagnostics.map((d) => [d.code, d.message])).toEqual([["aggregate-init", expect.stringContaining("more elements than the array holds")]])
+  expect(performance.now() - started).toBeLessThan(1000)
+})
+
+// transpile-restructure 6.A.25 (Appendix A grouped, "subrange bounds dropped"): a subrange declared with no initializer
+// starts at 0 when its range holds 0, else at its LOWER bound — INT(3..9) 3, INT(-5..5) 0, DINT(-10..-2) -10, INT(0..9)
+// 0, an ARRAY's elements, a STRUCT's field and a named subrange DUT alike (`tr_a25_subrange_defaults`, CODESYS record:exec
+// 2026-10-10; `decl_subrange_unsigned`: UINT(1..5) is 1). Every one started at 0.
+test("a subrange with no initializer starts at 0 inside its range, else at its lower bound", () => {
+  const source =
+    "TYPE R : INT(3..9);\nEND_TYPE\nTYPE H :\nSTRUCT\n\tf : INT(3..9);\nEND_STRUCT\nEND_TYPE\n" +
+    "PROGRAM P\nVAR a : INT(3..9); b : INT(-5..5); c : DINT(-10..-2); d : INT(0..9); u : UINT(1..5); arr : ARRAY[0..1] OF INT(3..9); h : H; n : R; END_VAR\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["a", "b", "c", "d", "u", "arr[0]", "arr[1]", "h.f", "n"].map((v) => runner.get(v))).toEqual([3n, 0n, -10n, 0n, 1n, 3n, 3n, 3n, 3n])
+})
