@@ -153,10 +153,13 @@ function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrP
 }
 
 function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): string {
+  // an infix OPERAND is no receiver: a negative constant needs no parentheses there (`self.f * -0.5f64`, 7.2.9) — a
+  // method receiver keeps them (`literal`), and every receiver below reads `l` as printed
+  const operand = (x: IrExpr, text: string): string => (x.kind === "const" && text.startsWith("(-") ? unparen(text) : text)
   const l = expr(p, e.left, slots)
-  const r = expr(p, e.right, slots)
+  const r = operand(e.right, expr(p, e.right, slots))
   const infix = INFIX[e.op]
-  if (infix !== undefined) return `(${l} ${infix} ${r})`
+  if (infix !== undefined) return `(${operand(e.left, l)} ${infix} ${r})`
   // Rust's `&`/`|` on bool evaluate both sides, as AND/OR do in the interpreter; `&&`/`||` are AND_THEN/OR_ELSE.
   // BOOL AND printed `&&`, so a call on the right ran in one backend and not the other (transpiler review 2026-09-15).
   if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`
@@ -172,6 +175,8 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   //
   // AND `%`, NOT `wrapping_rem`: `MIN MOD -1` stops the task as `MIN / -1` does (6.A.3, x86's `idiv` computes both), and
   // Rust's `%` panics on exactly that overflow where `wrapping_rem` answered 0.
+  // …and by a constant lowering proved harmless (`IrBinary.nonzeroDivisor`, 7.2.6) it is plain `%`: no zero to answer
+  if (e.op === "mod" && !real && e.nonzeroDivisor === true) return `(${operand(e.left, l)} % ${r})`
   if (e.op === "mod" && !real)
     return `({ let ${tmp("mod_l")} = ${unparen(l)}; let ${tmp("mod_r")} = ${unparen(r)}; if ${tmp("mod_r")} == 0 { 0 } else { ${tmp("mod_l")} % ${tmp("mod_r")} } })`
   // INTEGER DIVISION IS NOT WRAPPING. `wrapping_div` returns the minimum for `MIN / -1` and carries on, and
@@ -186,5 +191,6 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // measured `1.0E38 / 1.0E-38` overflowing to `REAL#Infinity` with the scan completing, so the result was
   // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
   // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `semantics/arith.ts`.
-  return real && e.op === "div" ? `${use(p, "iec_div")}(${unparen(l)}, ${unparen(r)})` : `(${l} ${plain} ${r})`
+  // (a constant divisor lowering proved nonzero needs no check: `IrBinary.nonzeroDivisor`, 7.2.6)
+  return real && e.op === "div" && e.nonzeroDivisor !== true ? `${use(p, "iec_div")}(${unparen(l)}, ${unparen(r)})` : `(${operand(e.left, l)} ${plain} ${r})`
 }

@@ -64,3 +64,10 @@ describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
     expect(code).toContain("fn iec_ltime_text<const N: usize>(ns: u64) -> IecString<N>")
   })
 })
+
+test("a constant cast prints as a literal of the target type — a REAL's f32 value, exactly (7.2.10)", () => {
+  const { pou } = lowerSource("PROGRAM P\nVAR a : LREAL; b : LREAL; c : DINT; END_VAR\na := SQRT(REAL#0.1);\nb := SQRT(4);\nc := TRUNC(REAL#2.5);\nEND_PROGRAM\n")
+  const code = emitRust(pou!).code
+  expect(code).toContain("0.10000000149011612f64.sqrt()") // the f32 0.1, widened — not the f64 0.1
+  expect(code).not.toContain(" as f64).sqrt()")
+})

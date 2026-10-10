@@ -21,8 +21,9 @@ import { lowerUnit } from "./lower-unit.js"
 /** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
  *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from.
  *  `base`, when given, holds the project's libraries already bound (`libraryBase`); `libraries` is then only the
- *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. */
-export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase): LoweredPou {
+ *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. `fold`
+ *  false keeps the IR as the rules built it, before the constant fold (`lowerUnit`). */
+export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase, fold = true): LoweredPou {
   const parseResult = parseSource(source, TRANSPILE_PARSE)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
@@ -34,19 +35,19 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     return { diagnostics: [lowerDiagnostic("parse", `${read.unparsed.uri} did not parse: ${first.message}`, first.span)] }
   }
   const own = [{ uri, parseResult, source }, ...read.files]
-  if (base === undefined) return lowerPrepared(parseResult, name, prepareProject(own, read.manifests))
+  if (base === undefined) return lowerPrepared(parseResult, name, prepareProject(own, read.manifests), fold)
   // A CALLER'S MISTAKE, SAID AS ONE — both were silent. A file already in the base is taken off by uri afterwards, and
   // its copy in the base with it, so every later program lowered against a base missing that file; a manifest beside a
   // base was dropped, since the base's are the ones linked against.
   const twice = own.find((f) => base.uris.has(f.uri))
   if (twice !== undefined) throw new Error(`${twice.uri} is already bound in the library base — hand in only the program's own files`)
   if (read.manifests.length > 0) throw new Error("a .library manifest handed beside a library base — bind it into the base (`libraryBase`)")
-  return lowerOnBase(parseResult, name, own, base)
+  return lowerOnBase(parseResult, name, own, base, fold)
 }
 
 /** The program's files bound on the base for this lowering only — and taken off again whatever happens, so the next
  *  program starts from the libraries alone. */
-function lowerOnBase(parseResult: ReturnType<typeof parseSource>, name: string | undefined, own: readonly ParsedFile[], base: LibraryBase): LoweredPou {
+function lowerOnBase(parseResult: ReturnType<typeof parseSource>, name: string | undefined, own: readonly ParsedFile[], base: LibraryBase, fold: boolean): LoweredPou {
   const project = base.prepared.project
   for (const f of own) build.bindFile(project, f)
   build.relink(project, base.manifests)
@@ -58,7 +59,7 @@ function lowerOnBase(parseResult: ReturnType<typeof parseSource>, name: string |
       // the program's own over the base's — layered, not copied: the base can hold thousands
       attributes: { get: (key) => attributes.get(key) ?? base.prepared.attributes.get(key) },
       libraryUnits: libraryUnits.length === 0 ? base.prepared.libraryUnits : new Set([...base.prepared.libraryUnits, ...libraryUnits]),
-    })
+    }, fold)
   } finally {
     for (const f of own) build.unbindFile(project, f.uri)
     // Taking the files off leaves the base's order canonical and its links as they were — unless a program unit shared
@@ -75,7 +76,7 @@ function isRunnable(u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
 }
 
 /** Find the program to lower in `parseResult` and lower it against a bound project. */
-export function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name: string | undefined, prepared: LoweringProject): LoweredPou {
+export function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name: string | undefined, prepared: LoweringProject, fold = true): LoweredPou {
   const unit = parseResult.units
     .filter(isRunnable)
     .find((u) => name === undefined || u.name.text.toUpperCase() === name.toUpperCase())
@@ -90,5 +91,5 @@ export function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name:
   const scope = scopeForUnit(prepared.project, unit)
   if (scope === undefined)
     return { diagnostics: [lowerDiagnostic("no-scope", `${unit.name.text} did not bind`, unit.span)] }
-  return lowerUnit(unit, scope, prepared)
+  return lowerUnit(unit, scope, prepared, fold)
 }

@@ -57,7 +57,7 @@ const shift: BuiltinPrinter = (e, args) => {
   const count = constCount(e.args[1]!)
   // a constant count prints bare, and a shift by 0 is its operand (a partial access `.%B0`, lean 2.4)
   if (count === 0n) return args[0]!
-  return `${args[0]}.wrapping_${e.name}(${count ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+  return `${args[0]}.wrapping_${e.name}(${count ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32", e.args[1]))})`
 }
 
 /** A character position that is a non-negative constant — printed bare where the parameter is an `i64`. */
@@ -69,7 +69,7 @@ const constCount = (count: IrExpr): bigint | undefined =>
 
 // With `bits`, the LOW bits rotate as a `u8`/`u16` and the promoted bits above them are kept (`IrBuiltin.bits`).
 const rotate: BuiltinPrinter = (e, args, argv) => {
-  const rotate = `rotate_${e.name === "rol" ? "left" : "right"}(${constCount(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+  const rotate = `rotate_${e.name === "rol" ? "left" : "right"}(${constCount(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32", e.args[1]))})`
   if (e.bits === undefined) return `${args[0]}.${rotate}`
   return `({ let ${tmp("rot")} = ${argv[0]}; (${tmp("rot")} & !${(1n << BigInt(e.bits)) - 1n}) | ((${tmp("rot")} as u${e.bits}).${rotate} as ${rustType(e.type)}) })`
 }
@@ -78,10 +78,10 @@ const rotate: BuiltinPrinter = (e, args, argv) => {
 // answers `-inf` and carries on. Nothing else in this group stops anything — `EXP(1000)` is an infinity
 // and runs. Measured in `operators/math-domain.ts`.
 const logarithm: BuiltinPrinter = (e, args, _argv, p) =>
-  fromF64(`${use(p, "iec_log")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}).${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
+  fromF64(`${use(p, "iec_log")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64", e.args[0]))}).${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
 
 // through f64 and back, the same path the interpreter takes — `f32::ln` is a different float32 routine
-const math: BuiltinPrinter = (e, args) => fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64")}.${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
+const math: BuiltinPrinter = (e, args) => fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64", e.args[0])}.${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
 
 /** Every builtin's printer, by name. */
 const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
@@ -102,7 +102,7 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // -2147483648, not a wrap and not Rust's saturating `as` (`runtime/numeric.ts` `iec_trunc_i32`) — then `as` wraps
   // that into INT for TRUNC_INT.
   trunc: (e, args, _argv, p) => {
-    const call = `${use(p, "iec_trunc_i32")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))})`
+    const call = `${use(p, "iec_trunc_i32")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64", e.args[0]))})`
     return rustType(e.type) === "i32" ? call : `(${call} as ${rustType(e.type)})`
   },
   shl: shift,
@@ -118,15 +118,15 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   },
   // `iec_pow`: EXPT(0, finite negative) stops the task on CODESYS, where `powf` answers inf (`semantics/math.ts` `expt`)
   expt: (e, args, _argv, p) =>
-    fromF64(`${use(p, "iec_pow")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type)),
+    fromF64(`${use(p, "iec_pow")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64", e.args[0]))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64", e.args[1]))})`, rustType(e.type)),
   abs: (e, args) => {
     // `abs` would panic on a signed minimum in a debug build; an unsigned type has no `abs` at all
     const t = e.type.kind === "elementary" ? e.type.elem : undefined
     return isReal(e.type) ? `${args[0]}.abs()` : t?.signed ? `${args[0]}.wrapping_abs()` : args[0]!
   },
   // a constant position prints bare: the parameter is an i64 (7.2.3)
-  char: (e, args) => `${args[0]}.char_at(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`,
-  setchar: (e, args, argv) => `${args[0]}.with_char(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`,
+  char: (e, args) => `${args[0]}.char_at(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64", e.args[1]))})`,
+  setchar: (e, args, argv) => `${args[0]}.with_char(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64", e.args[1]))}, ${argv[2]})`,
   // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
   address_order: (_e, _args, argv, p) => `${mem(p, "order")}(${argv[0]}, ${argv[1]})`,
   ln: logarithm,

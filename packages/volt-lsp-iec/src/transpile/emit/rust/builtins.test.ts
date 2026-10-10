@@ -16,7 +16,8 @@ describe("emit/rust", () => {
     expect(code).toContain(".min(")
     // SEL runs ONLY the input it selects — CODESYS leaves the unselected call's counter untouched
     // (conformance `tr_41_sel_side_effects`, recorded; transpile-review-2026-09-29 task 41)
-    expect(code).toContain("if self.g { 2i64 } else { 1i64 }")
+    // …its literal arms typed at the result type (7.2.7), not met at LINT and cast back
+    expect(code).toContain("self.y = if self.g { 2i16 } else { 1i16 };")
   })
 
   // transpile-review-2026-09-29 task 28 (conformance `tr_28_minmax_limit_nan_signed_zero_*`, recorded as bits): a REAL

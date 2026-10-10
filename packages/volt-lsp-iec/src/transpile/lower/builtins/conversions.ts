@@ -2,6 +2,7 @@
  * The type conversions `X_TO_Y` / `TO_Y` as explicit IR nodes.
  */
 
+import { holdsCall } from "../../ir/walk.js"
 import type { Lowering } from "../core/lowering.js"
 import { type Expr, hasFrontendAttribute, type Span, type TypeDecl } from "../../../frontend/syntax/index.js"
 import {
@@ -298,7 +299,12 @@ function tickConversion(source: IrExpr, to: Type, span: Span): IrExpr | undefine
   // ONCE (`xf_ldate_to_date_call_once`, `xf_date_to_ldate_call_once`), so there is nothing to mask.
   if (part !== "all" && !(part === "day" && DATE_PART[fromName] === "day")) {
     const inDay: IrExpr = { kind: "binary", op: "mod", left: count, right: w(dayTicks), type: work, span }
-    count = part === "inDay" ? inDay : { kind: "binary", op: "sub", left: count, right: inDay, type: work, span }
+    // the whole days of a count that reads nothing twice are `count / day * day`, one read (shapes10_2, 7.2.6); one
+    // holding a call keeps `count - count MOD day`, both reads — CODESYS runs that call twice (`xf_dt_to_date_call_once`)
+    const days: IrExpr = holdsCall(count)
+      ? { kind: "binary", op: "sub", left: count, right: inDay, type: work, span }
+      : { kind: "binary", op: "mul", left: { kind: "binary", op: "div", left: count, right: w(dayTicks), type: work, span }, right: w(dayTicks), type: work, span }
+    count = part === "inDay" ? inDay : days
   }
   return { kind: "convert", value: count, type: to, span }
 }

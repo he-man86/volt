@@ -8,13 +8,14 @@ import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrPou, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { mapExprs } from "../../ir/walk.js"
-import { constantValue } from "../../semantics/index.js"
+import { constantValue, constValue, selectedArg } from "../../semantics/index.js"
 import { enumConstant } from "./enums.js"
 import {
   constEval,
   elementaryRef,
   type ElementaryType,
   elementaryTypeRef,
+  isIntegral,
   parseConversionName,
   stringKind,
   type Type,
@@ -132,6 +133,9 @@ const FOLDED_BUILTINS: ReadonlySet<string> = new Set(["max", "min", "limit", "se
  * infinity, a string), and one of a type a literal does not spell (an address).
  */
 function foldedExpr(e: IrExpr): IrExpr {
+  const selection = selected(e)
+  if (selection !== e) return selection
+  if (e.kind === "binary" && (e.op === "div" || e.op === "mod") && e.left.kind !== "const" && harmlessDivisor(e.op, e.right)) return { ...e, nonzeroDivisor: true }
   if (e.kind !== "unary" && e.kind !== "binary" && e.kind !== "convert" && !(e.kind === "builtin" && FOLDED_BUILTINS.has(e.name))) return e
   const operands = e.kind === "unary" ? [e.operand] : e.kind === "binary" ? [e.left, e.right] : e.kind === "convert" ? [e.value] : e.args
   if (!operands.every((o) => o.kind === "const")) return e
@@ -145,6 +149,47 @@ function foldedExpr(e: IrExpr): IrExpr {
   if (typeof value === "bigint" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)))
     return { kind: "const", value, type: e.type, span: e.span }
   return e
+}
+
+/**
+ * A SELECTION TYPED AT ITS RESULT (lean 2.6, 7.2.7): SEL or MUX over a constant selector is the arm it picks (only that
+ * arm is ever evaluated); a conversion of a SEL or MUX whose arms are constants, or values widened from the conversion's
+ * own type, converts each arm instead — `(if g { 10i64 } else { 20i64 }) as i16` is `if g { 10i16 } else { 20i16 }`;
+ * and a value widened and narrowed straight back is itself. Each holds because a selection only picks: the arm it
+ * answers is the arm, converted the same either way.
+ */
+function selected(e: IrExpr): IrExpr {
+  if (e.kind === "builtin" && (e.name === "sel" || e.name === "mux") && e.args[0]!.kind === "const") {
+    const chosen = e.args[selectedArg(e.name, constValue(e.args[0]!.value, e.args[0]!.type), e.args.length)]!
+    return sameType(chosen.type, e.type) ? chosen : e
+  }
+  if (e.kind !== "convert") return e
+  const inner = e.value
+  if (inner.kind === "convert" && sameType(inner.value.type, e.type) && holdsEvery(inner.type, e.type)) return inner.value
+  if (inner.kind !== "builtin" || (inner.name !== "sel" && inner.name !== "mux") || e.type.kind !== "elementary") return e
+  const arms = inner.args.slice(1)
+  const narrowable = (a: IrExpr): boolean => a.kind === "const" || (a.kind === "convert" && sameType(a.value.type, e.type) && holdsEvery(a.type, e.type))
+  if (!arms.every((a) => sameType(a.type, inner.type) && narrowable(a))) return e
+  return { ...inner, type: e.type, args: [inner.args[0]!, ...arms.map((a) => foldedExpr({ kind: "convert", value: a, type: e.type, span: a.span }))] }
+}
+
+/** Two elementary types of one name (a STRING's capacity aside: no string is selected through here). */
+const sameType = (a: Type, b: Type): boolean => a.kind === "elementary" && b.kind === "elementary" && a.name === b.name && stringKind(a) === undefined
+
+/** Whether the integer type `wide` holds every value of the integer type `narrow` — a widening a narrowing undoes. */
+function holdsEvery(wide: Type, narrow: Type): boolean {
+  if (!isIntegral(wide) || !isIntegral(narrow) || wide.kind !== "elementary" || narrow.kind !== "elementary") return false
+  if (narrow.elem.signed && !wide.elem.signed) return false
+  return narrow.elem.signed === wide.elem.signed ? wide.elem.bits >= narrow.elem.bits : wide.elem.bits > narrow.elem.bits
+}
+
+/** A divisor no zero check need guard (7.2.6): a constant other than 0 — and, for MOD, other than -1 — by the value its
+ *  TYPE holds (`constValue`, as the interpreter reads it): an untyped `1.0E-46` beside a REAL is 0 there, and faults. */
+function harmlessDivisor(op: "div" | "mod", divisor: IrExpr): boolean {
+  if (divisor.kind !== "const") return false
+  const v = constValue(divisor.value, divisor.type)
+  if (typeof v === "bigint") return v !== 0n && (op === "div" || v !== -1n)
+  return typeof v === "number" && Number.isFinite(v) && v !== 0
 }
 
 /**

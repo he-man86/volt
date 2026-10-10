@@ -69,28 +69,43 @@ export function literal(v: IrValue, t: Type): string {
 }
 
 /**
+ * A CONSTANT AT A TYPED POSITION (7.2.8, 7.2.9) — a struct field's initializer, where the field's declared type fixes the
+ * literal's: no suffix (`li: 0,`, `l25: 2.5,`) and no parentheses round a negative one (`im5: -5,`), which only a method
+ * RECEIVER needs (`literal`). A REAL keeps its point (`0.0`), an infinity its path (`-f32::INFINITY`).
+ */
+function typedLiteral(v: IrValue, t: Type): string {
+  if (typeof v !== "bigint" && typeof v !== "number") return literal(v, t)
+  if (t.kind !== "elementary") return literal(v, t)
+  if (typeof v === "number" && (!Number.isFinite(v) || (isReal32(t) && !Number.isFinite(Math.fround(v)))))
+    return `${v < 0 ? "-" : ""}${rustType(t)}::INFINITY`
+  const text = typeof v === "number" ? (isReal32(t) ? shortestF32(v) : `${v}`) : `${v}`
+  return typeof v === "number" && /^-?\d+$/.test(text) ? `${text}.0` : text
+}
+
+/**
  * THE ONE `initOf`: a slot's initial value as a Rust expression — a scalar's literal; a struct or FB instance at its TYPE's
  * values (`new()`), with the fields an aggregate initializer names set over them; an array's stated elements, then every
  * remaining one at `rest` — `[x; N]` (an elementary element) or `std::array::from_fn` when it states none. It reads the
  * `IrInit` lowering made complete; it picks no default (transpile-restructure 5.3/5.4 — the free `initOfValue` and its
  * `typeZero` per element are gone).
  */
-export function initOf(layouts: Layouts, t: Type, init: IrInit): string {
+export function initOf(layouts: Layouts, t: Type, init: IrInit, typed = false): string {
   if (t.kind === "struct" || t.kind === "function_block") {
     const base = `${rustName(t.name)}::new()`
     const named = typeof init === "object" && "fields" in init ? init.fields : undefined
     const entry = layouts.get(t.name.toUpperCase())
     if (named === undefined || entry === undefined) return base
-    const sets = entry.layout.fields.flatMap((f, i) => (named[f.name.toUpperCase()] === undefined ? [] : [`v.${entry.fields[i]} = ${initOf(layouts, f.type, named[f.name.toUpperCase()]!)};`]))
+    // each `v.f = …` stores into a declared field: a typed position
+    const sets = entry.layout.fields.flatMap((f, i) => (named[f.name.toUpperCase()] === undefined ? [] : [`v.${entry.fields[i]} = ${initOf(layouts, f.type, named[f.name.toUpperCase()]!, true)};`]))
     return sets.length === 0 ? base : `{ let mut v = ${base}; ${sets.join(" ")} v }`
   }
   const array = peelArray(t)
   if (array === undefined) {
     if (typeof init === "object") throw new Error(`initOf: a ${t.kind} slot with an aggregate initial value`)
-    return literal(init, t)
+    return typed ? typedLiteral(init, t) : literal(init, t)
   }
   if (typeof init !== "object" || !("elements" in init)) throw new Error("initOf: an array slot whose initial value states no elements")
-  const rest = initOf(layouts, array.element, init.rest)
+  const rest = initOf(layouts, array.element, init.rest, typed)
   if (init.elements.length === 0) return array.element.kind === "elementary" ? `[${rest}; ${array.length}]` : `std::array::from_fn(|_| ${rest})`
-  return `[${Array.from({ length: array.length }, (_, i) => (i < init.elements.length ? initOf(layouts, array.element, init.elements[i]!) : rest)).join(", ")}]`
+  return `[${Array.from({ length: array.length }, (_, i) => (i < init.elements.length ? initOf(layouts, array.element, init.elements[i]!, typed) : rest)).join(", ")}]`
 }

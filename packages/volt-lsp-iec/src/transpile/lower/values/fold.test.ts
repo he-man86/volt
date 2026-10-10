@@ -109,3 +109,22 @@ test("a constant index inside its array is the element's position, its lower bou
   expect(step(inside)).toMatchObject({ kind: "index", lower: 0n, index: { kind: "const", value: 2n } })
   expect(step(outside)).toMatchObject({ kind: "index", lower: 3n })
 })
+
+test("a selection is typed at its result: a constant selector picks its arm, literal arms convert one by one (7.2.7)", () => {
+  const [picked, mux, sel] = body(
+    "PROGRAM P\nVAR a : INT := 1; b : INT := 2; k : INT := 1; g : BOOL; x : INT; y : INT; z : INT; END_VAR\nx := SEL(FALSE, a, b);\ny := MUX(k, 10, 20, 30);\nz := SEL(g, a, b);\nEND_PROGRAM\n",
+  )
+  expect(picked!.kind === "assign" && picked!.value).toMatchObject({ kind: "load" })
+  const arms = mux!.kind === "assign" && mux!.value.kind === "builtin" ? mux!.value.args.slice(1) : []
+  expect(arms.map((a) => (a.kind === "const" && a.type.kind === "elementary" ? `${a.value} ${a.type.name}` : a.kind))).toEqual(["10 INT", "20 INT", "30 INT"])
+  // INT arms are not widened and narrowed back
+  expect(sel!.kind === "assign" && sel!.value).toMatchObject({ kind: "builtin", name: "sel", args: [{ kind: "load" }, { kind: "load" }, { kind: "load" }] })
+})
+
+// 7.10+7.2b gate review: a divisor is "nonzero" by the value its TYPE holds, not by the raw literal — `1.0E-46` beside a
+// REAL is 0 as a REAL (the interpreter rounds it through `constValue` and faults), so its division keeps its zero check.
+test("a real divisor that rounds to 0 in its type is not proven nonzero (7.2.6)", () => {
+  const [tiny, real] = body("PROGRAM P\nVAR x : REAL := 1; y : REAL; z : REAL; END_VAR\ny := x / 1.0E-46;\nz := x / 0.5;\nEND_PROGRAM\n")
+  expect(tiny!.kind === "assign" && tiny!.value.kind === "binary" && tiny!.value.nonzeroDivisor).toBeFalsy()
+  expect(real!.kind === "assign" && real!.value.kind === "binary" && real!.value.nonzeroDivisor).toBe(true)
+})

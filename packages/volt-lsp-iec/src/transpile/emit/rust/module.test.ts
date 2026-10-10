@@ -34,7 +34,7 @@ describe("emit/rust", () => {
     const emitted = emitRust(pou!)
     expect([emitted.usesGlobals, emitted.usesPrograms]).toEqual([true, true])
     expect(emitted.code).toContain("pub struct Globals {")
-    expect(emitted.code).toContain("g_shared: 3i16,")
+    expect(emitted.code).toContain("g_shared: 3,")
     expect(emitted.code).toContain("pub struct Programs {")
     expect(emitted.code).toContain("pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {")
     // Every body is handed `g` and `prg`, as any body may call a PROGRAM (conformance `state_program_called_from_fb`); a
@@ -50,7 +50,7 @@ describe("emit/rust", () => {
     expect(code).toContain("pub struct Counter {")
     expect(code).toContain("pub i_count: i16,")
     expect(code).toContain("pub fn scan(&mut self) {")
-    expect(code).toContain("max_count: 3i16,") // the declared initial value, not Default's zero
+    expect(code).toContain("max_count: 3,") // the declared initial value, not Default's zero
     // The whole point of the flat-frame decision: `&mut self` is the ONLY borrow in the output.
     expect(code.match(/&mut/g)).toEqual(["&mut"])
     expect(code).not.toContain("&'")

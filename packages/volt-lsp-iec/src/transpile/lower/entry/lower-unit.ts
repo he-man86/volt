@@ -43,8 +43,11 @@ const ESCAPE_PASSES = 4
  * THE ESCAPE PASS (model 3, design.md §3.3 step 4d) is a lowering of its own: the first lowering records every address
  * store and copy; when it stored none, it IS the result. Otherwise the unit is lowered again on that answer — which
  * variables the byte image holds, which pointers hold tags — until a lowering finds nothing its answer did not have.
+ *
+ * The constants fold last (`values/fold.ts` `foldPou`). `fold` false skips it: the IR as the rules built it, every
+ * constant sub-expression still in place — what `fold-agreement.test.ts` compares the AST fold against.
  */
-export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProject): LoweredPou {
+export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProject, fold = true): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
   let answer: Escapes | undefined
@@ -55,7 +58,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, prepared: LoweringProjec
     const shared = newShared(prepared.attributes, unit.name.text, prepared.libraryUnits)
     if (answer !== undefined) runOnEscapes(shared, answer)
     seedTargets(shared, seed)
-    const lowered = lowerOnce(unit, scope, prepared.project, shared)
+    const lowered = lowerOnce(unit, scope, prepared.project, shared, fold)
     const seen = escapesSeen(shared)
     const grown = grownTargets(shared)
     const settled = answer === undefined ? isEmpty(seen) : covers(answer, seen)
@@ -74,7 +77,7 @@ function stillGrowing(unit: TopLevel, grown: ReadonlyMap<string, readonly Pointe
 }
 
 /** One lowering of the unit, on the escape answer `shared` carries (none on the first). */
-function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" }>, scope: Scope, project: Scope, shared: Shared): LoweredPou {
+function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" }>, scope: Scope, project: Scope, shared: Shared, fold: boolean): LoweredPou {
   const lowering = new Lowering(scope, project, shared)
   // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
   // a POU that "succeeds" and does nothing. Refuse it explicitly, before anything is declared; FBD/LD reach the backend
@@ -104,7 +107,7 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
   // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2)
   const lowered = withImage(lowering, pou)
-  return lowered.pou === undefined ? lowered : { ...lowered, pou: foldPou(lowered.pou) }
+  return lowered.pou === undefined || !fold ? lowered : { ...lowered, pou: foldPou(lowered.pou) }
 }
 
 /**

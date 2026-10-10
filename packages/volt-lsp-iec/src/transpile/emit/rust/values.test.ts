@@ -42,7 +42,7 @@ describe("emit/rust — a negative constant keeps its sign inside a method call"
   })
 
   test("a type minimum is still emitted as Rust accepts it", () => {
-    expect(rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")).toContain("mn: (-128i8),")
+    expect(rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")).toContain("mn: -128,")
   })
 })
 
@@ -60,6 +60,6 @@ describe("emit/rust — a VAR_TEMP reset", () => {
     // the reset at the top of `call`, not the declaration in `new()`
     const call = code.slice(code.indexOf("pub fn call("))
     expect(call).toContain("self.arr = [5i16, 6i16, 7i16];")
-    expect(call).toContain("self.sx = { let mut v = ST_P::new(); v.a = 9i16; v };")
+    expect(call).toContain("self.sx = { let mut v = ST_P::new(); v.a = 9; v };")
   })
 })

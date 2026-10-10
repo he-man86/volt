@@ -283,6 +283,10 @@ export interface IrBinary {
   right: IrExpr
   type: Type
   span: Span
+  /** A `div` or `mod` whose divisor is a constant proven harmless: not 0 (and, for MOD, not -1) — no zero check is
+   *  needed, so the Rust prints plain `/` and `%` (lowering decides it, `lower/values/fold.ts`; the interpreter computes
+   *  the same either way). */
+  nonzeroDivisor?: true
 }
 export interface IrUnary {
   kind: "unary"

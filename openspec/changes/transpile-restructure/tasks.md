@@ -5029,7 +5029,14 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     deleted from `lint-policy.ts` (the generator refuses an entry that excuses nothing): `clippy::unnecessary_min_or_max`
     (10 -> 0, 7.2.7's M) and `clippy::manual_clamp` (1 -> 0); `absurd_extreme_comparisons` and `unused_comparisons` 4 -> 6
     each, their reasons widened by name (a negative literal beside an unsigned operand folds to its maximum:
-    `lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`).
+    `lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`). `fold-agreement.test.ts`: 513 ->
+    492 constant expressions compared (21 sub-expressions are now inside the constant their parent folded to), 30 -> 29
+    disagreements — `tr_a14_shift_untyped_literal_variable_count: SHL(1, 40)` is no longer an IR node of its own (its
+    parent `SHR(SHL(1, 40), 8)` keeps its mark), so its mark is removed as the test demands.
+    Gate 7.10+7.2b review: that removal lost coverage, not a disagreement — the AST fold still answers nothing for
+    `SHL(1, 40)` (UNTYPED_SHIFT). `fold-agreement.test.ts` now walks the IR BEFORE the fold (`lowerSource`'s new `fold`
+    argument, false: `lowerPrepared` / `lowerUnit` skip `foldPou`), so every constant sub-expression is compared again:
+    492 -> 513 compared, 29 -> 30 disagreements, the `SHL(1, 40)` mark back.
 - [x] 7.2.3 A constant array index prints as a usize literal, the lower bound subtracted at lowering; the index offset printed one way.
   - Notes: 3d737b5821, 7886e7bd17, 03b3e8b80c, 2506fd8442, 4e213fd264, 6a2b5f2826, eb533b340b; 5dcbae07c6, 7918d10820, d8a5dd49a9.
   - Where: `lower/places/places.ts`, `emit/rust/place.ts`.
@@ -5075,7 +5082,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     2107 -> 1886, `cast_sign_loss` 977 -> 815); allowed `eq_op` 17 -> 16; tier decl 754 -> 771, arith 1594 -> 1577 (a
     folded body reaches a lower band); constructs 2146 -> 2076, noted 654 -> 581; rows changed `shape` 185, `pedantic`
     152, `notes` 236, `size`/`lints`/`edge`/`evidence` 0; median size 3.1.
-- [ ] 7.2.6 MOD and real `/` by a nonzero constant other than -1 print plain `%` and `/` (lean 2.5), decided in lowering (an IR flag
+- [x] 7.2.6 MOD and real `/` by a nonzero constant other than -1 print plain `%` and `/` (lean 2.5), decided in lowering (an IR flag
   "divisor proven nonzero").
   - Also: the whole-days truncation `count - count MOD day` lowers as `count / day * day` (one read of `count`; review item
     shapes10_2, owned here by 0b).
@@ -5083,26 +5090,80 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `lower/expressions/operators.ts`, `ir/expr.ts`, `emit/rust/expr.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
-- [ ] 7.2.7 Fold MAX, MIN, LIMIT, SEL and MUX of all-constant arguments, and TRUNC of a constant; literal arms typed at the result type (lean 2.6).
+  - Done 2026-10-10 (step 7.2b). `IrBinary.nonzeroDivisor` (new, optional): set by `fold.ts`'s pass on a `div`/`mod` whose
+    divisor is a constant other than 0 (and, for MOD, other than -1); `emit/rust/expr.ts` prints plain `l % r` and `l / r`
+    (a REAL division without `iec_div`) — the interpreter computes the same either way. The whole-days truncation: a count
+    that holds no call is `count / day * day` (one read); one holding a call keeps `count - count MOD day` and its two
+    reads, which is what CODESYS does (`xf_dt_to_date_call_once` records `calls` = 2: one read would change the answer).
+    New `expr.test.ts` test (a constant divisor plain, a variable and -1 kept). Notes resolved: every 7.2.6 item (30
+    notes at the start of 7.2a: those whose MOD/`/` took a constant divisor went with their constructs; the rest name no
+    constant divisor — 1bb6d1cb14, 55fe85cf23, 561f3f5e13, 6256abaa7b, df9a7dcbc7 — and their items are removed; 6e691851a6
+    keeps its 7.3.9 item; ec738d7743, fc9bec370c re-keyed to their new lines with their 7.8.4 items).
+    Gate 7.10+7.2b review: `harmlessDivisor` read the divisor's raw IR value; an untyped real literal beside a REAL
+    reaches the IR unrounded (`x / 1.0E-46` holds 1e-46 typed REAL), so a divisor that is 0 as a REAL was "nonzero" and
+    the Rust printed a plain `/` (+inf) where the interpreter faults (division by zero). It now reads the value the type
+    holds (`constValue`, the interpreter's own); test-first in `values/fold.test.ts` (0 corpus occurrences, a one-line
+    fix). The root (lowering rounding an untyped real literal stored as REAL) is left: every other reader already rounds
+    through `constValue` or the printer, and it is not this step's.
+- [x] 7.2.7 Fold MAX, MIN, LIMIT, SEL and MUX of all-constant arguments, and TRUNC of a constant; literal arms typed at the result type (lean 2.6).
   - Notes: 7402369985, 779b38c9e9, 8cd84736a1, 96b55e688b, ef06033fe1.
   - Where: `lower/builtins/value-functions.ts`.
   - Accept: S-out, M (`unnecessary_min_or_max` falls).
   - Depends: 6.15, 6.7.
-- [ ] 7.2.8 No literal suffix at typed positions (field initializers, `Self {}`).
+  - Done 2026-10-10 (step 7.2b). The all-constant folds landed with 7.2.2 (MAX/MIN/LIMIT/SEL/MUX/TRUNC of constants;
+    `unnecessary_min_or_max` 10 -> 0, its allow deleted). New in `fold.ts` `selected`: SEL or MUX over a constant selector is
+    the arm it picks; a conversion of a SEL/MUX whose arms are constants or values widened from the conversion's own type
+    converts each arm (`(if g { 10i64 } else { 20i64 }) as i16` -> `if g { 10i16 } else { 20i16 }`); a value widened and
+    narrowed straight back is itself (`holdsEvery`). New `values/fold.test.ts` test; `builtins.test.ts`'s SEL line now
+    reads the arms at INT. Notes resolved: 2db51dfb96, 3b823fe0e7, 8b3a192776, 96b55e688b, ba75ffae84, 12a2ae661a (a
+    non-constant selector over variables: nothing to fold), and 7.3.1's 14e2fedf17 and 5a9bc1030e (arms widened and
+    narrowed back — gone). Re-tagged: a LIMIT over a variable computed in DINT (9d3d81580d, deaa2bbf15) -> 7.3.1 (the
+    narrow-arithmetic rule).
+- [x] 7.2.8 No literal suffix at typed positions (field initializers, `Self {}`).
   - Notes: 1707972c33, 06bb3a6005, e8954e2b0d, 90c445f7cb, 870b70e195, afa5d14dd9, a29db6178b.
   - Where: `emit/rust/values.ts`, `structs.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
-- [ ] 7.2.9 Negative-literal parentheses only at receiver positions.
+  - Done 2026-10-10 (step 7.2b). `values.ts` `typedLiteral`: a struct field's initializer (`Self { .. }`, `structs.ts`),
+    an array's elements under it and each `v.f = …` of an aggregate initializer print bare — no suffix (`li: 0,`,
+    `l25: 2.5,`), a REAL keeping its point (`0.0`). A routine's typed `let` is unchanged (not named here). Pinned texts
+    updated (`calls.test.ts`, `module.test.ts`, `values.test.ts`). Notes: 90c445f7cb, afa5d14dd9 resolved; the 7.2.8 items
+    of 06bb3a6005, 1707972c33, 74845f98c6, 870b70e195, a29db6178b, e8954e2b0d removed — their constructs (`x: Li32,`,
+    `x: Lf64,`, `x: Li64,`, `x: Lu32,`) are all `x: L,` now, so their other items (7.2.11, 7.2.12, 7.8.11) moved into that
+    construct's note fbde4d6e1e beside its 7.8.8 item; a29db6178b's 7.8.8 item to `v: L,` (667cafe298). The field-literal
+    constructs other tasks' notes were keyed to were re-keyed: 7.8.3's 055df7e5f8, 3489b7781f, 8b9a7c5eea, 9689b156ea,
+    d5d625ee73, e4b6325c44; 7.8.2's 1f2f8205f9, 4026548939, 683d4b1944, f9bdd4950a; 7.7.8's 68cdda5f1a, 79fd4d52a6; 7.6.1's
+    5b7909c564, fbbfa869cf (one construct now); 7.6.3's 0b358286cb; 7.5.9's 60fefc4d63, 9358115574.
+- [x] 7.2.9 Negative-literal parentheses only at receiver positions.
   - Notes: 65df8e0418, ec9a760059, b501abe431, 159ca60812, 12e93440b3, c35f240db9, 6f9ae8fd3a, 5c40a4e5a8, 682fffc71e.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
-- [ ] 7.2.10 A constant cast prints as a typed literal (`castTo` of a const).
+  - Done 2026-10-10 (step 7.2b). `literal` keeps its parentheses (every receiver reads it); a typed position prints a
+    negative bare (`im5: -5,`, `-f32::INFINITY`), and an infix operand of an arithmetic or comparison operator too
+    (`self.f * -0.5f64`, `x < -1i32`) — `expr.ts` `exprBinary`'s `operand`. Notes resolved (15): 060ccf97cc, 12e93440b3,
+    159ca60812, 36d4b59ee2, 5c40a4e5a8, 65df8e0418, 66ef68b08a, 682fffc71e, 6f9ae8fd3a, 78615154a3, aba7baaaaa,
+    b501abe431, c35f240db9, d2d239250b, ec9a760059.
+- [x] 7.2.10 A constant cast prints as a typed literal (`castTo` of a const).
   - Notes: 14a38342eb, 9d8cd15435, 9fb47c3123.
   - Where: `emit/rust/convert.ts`, `values.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
+  - Done 2026-10-10 (step 7.2b). A `convert` of a constant folds in lowering (7.2.2). `convert.ts` `castTo` takes the IR
+    value: a constant the target holds exactly prints as a literal of it (`4.0f64`, `2i64`; a REAL's f32 value, so
+    `SQRT(REAL#0.1)` is `0.10000000149011612f64.sqrt()`, not the f64 0.1), parenthesized when negative (a cast lands in
+    receiver positions); every builtin and conversion site passes its argument. New `convert.test.ts` test. Its notes
+    (14a38342eb, 395880371f, 63f801635e, 83389dfa8a, 9d8cd15435, 9fb47c3123, b6a5a933fb, f2987aca6a) went with 7.2.2's fold.
+    Step 7.2b numbers: S-out identical over 5535 fixtures; M (against 7.2a's map): pedantic 15700 -> 15621
+    (`cast_lossless` 3819 -> 3784, `cast_possible_truncation` 1886 -> 1844); tier decl 771 -> 773, arith 1577 -> 1575;
+    constructs 2077 -> 2026, noted 581 -> 521 (fixtures touching a noted construct 3231 -> 3346: the field notes met on
+    `x: L,`, which most fixtures emit); rows changed `shape` 3151, `pedantic` 39, `notes` 3084, `size`/`lints`/`edge`/
+    `evidence` 0; median size 3.1; allowed counts unchanged (`dead_code` 42, `eq_op` 16).
+    Gate 7.10+7.2b (2026-10-10, after its two review fixes under 7.2.2 and 7.2.6): typecheck clean; `rate:fixtures`
+    regenerated, the map byte-identical to 7.2b's; S-out (`snapshot:transpile check --layers outputs,edge`) identical over
+    5535 fixtures against the step-start baseline; `fold-agreement` 513 compared, 30 disagree (30 known); full suite
+    (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 9103 pass / 35 skip / 389 todo / 0 fail across 314 files (6Bb's 9084 ->
+    9103).
 - [ ] 7.2.11 Digit separators for large literals (`unreadable_literal` 3681 minus the loop-cap share).
   - Notes: 4bf3f61062, 093ad5cc7a.
   - Where: `emit/rust/values.ts`.

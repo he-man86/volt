@@ -39,7 +39,7 @@ export function printStruct(p: Printer, name: string, slots: readonly { type: Ty
   // `new` seeds the declared initial values.
   push(p, "pub fn new() -> Self {", 1)
   push(p, "Self {", 2)
-  for (const [i, slot] of slots.entries()) push(p, `${names[i]}: ${initOf(p.layouts, slot.type, slot.init)},`, 3)
+  for (const [i, slot] of slots.entries()) push(p, `${names[i]}: ${initOf(p.layouts, slot.type, slot.init, true)},`, 3)
   push(p, "}", 2)
   push(p, "}", 1)
   members()

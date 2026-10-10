@@ -34,8 +34,9 @@ import { forEachExpr, type IrNode } from "../../src/transpile/ir/walk.js"
 import { constantValue } from "../../src/transpile/semantics/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
-import { lowering, SELECTION, whole } from "./support/fixture-suite.js"
-import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./support/project-libraries.js"
+import { SELECTION, whole } from "./support/fixture-suite.js"
+import { PROJECT_BASE, PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "./support/project-libraries.js"
+import { lowerSource } from "../../src/transpile/index.js"
 import { RECORDING_ENVIRONMENT } from "./support/recording-environment.js"
 
 /** The libraries as the LSP binds them, once; each fixture's own source is bound on top for its walk, then taken off. */
@@ -230,9 +231,11 @@ whole("the AST fold and the IR fold give every constant expression the lowered f
   const disagree = new Map<string, string>()
   const agreeing = new Set<string>()
   for (const t of SELECTION.selected) {
-    const pou = lowering(t).pou
-    if (pou === undefined) continue
     const { source, gvls } = assembleFixture(t, ALL_TESTS)
+    // the IR BEFORE the constant fold (`lowerSource`'s `fold` false): folded, an all-constant expression is one `const`
+    // and every constant sub-expression under it is gone — no longer compared, so a disagreement there went unseen
+    const pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE, false).pou
+    if (pou === undefined) continue
     const own = { uri: `file:///fold-agreement/${t.name}.pou`, source, parseResult: parseSource(source, { networkText: true }) }
     const lists = gvls.map((g) => ({ uri: g.uri, source: g.source, parseResult: parseSource(g.source, { networkText: true }) }))
     const ast = astExpressions(own.parseResult.units)

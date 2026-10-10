@@ -22,7 +22,7 @@ describe("emit/rust", () => {
     // PARENTHESIZED: in Rust a method call binds tighter than unary minus, so every negative constant is
     // wrapped — see `literal`. The type MINIMUMS still compile this way (`(-128i8)` keeps Rust's own
     // special case for `-128i8`, verified against rustc for all four widths).
-    expect(code).toContain("big: (-25536i16),")
+    expect(code).toContain("big: -25536,") // a typed position: no suffix, no parentheses (7.2.8, 7.2.9)
     expect(code).toContain("self.si = -128i8;")
   })
 

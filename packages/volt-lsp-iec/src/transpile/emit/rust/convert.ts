@@ -1,10 +1,10 @@
 /** CONVERSIONS AS RUST — the `convert` node by the measured rules (design §11), and the casts a builtin adds. */
-import type { IrExpr, IrPou } from "../../ir/index.js"
+import type { IrExpr, IrPou, IrValue } from "../../ir/index.js"
 import { isTemporal, type Type } from "../../../frontend/types/index.js"
 import { expr, unparen } from "./expr.js"
 import { type Printer, use } from "./printer.js"
 import type { RuntimeId } from "./runtime/index.js"
-import { emittedFamily, rustType, stringPath, stringType } from "./types.js"
+import { emittedFamily, isReal32, rustType, stringPath, stringType } from "./types.js"
 
 /**
  * `text as target`, or `text` unchanged when it already IS that Rust type — the twin of the identity rule in
@@ -12,8 +12,29 @@ import { emittedFamily, rustType, stringPath, stringType } from "./types.js"
  * helpers `as f64`, the string helpers `as i64`. Parenthesized when it does cast, because every one of these
  * lands in a receiver or an argument position.
  */
-export function castTo(text: string, from: Type, target: string): string {
+export function castTo(text: string, from: Type, target: string, value?: IrExpr): string {
+  // A CONSTANT IS CAST WHERE IT IS PRINTED (7.2.10): `4i64`, not `(4i8 as i64)` — when the target holds it exactly
+  const typed = value?.kind === "const" ? castLiteral(typeof value.value === "number" && isReal32(from) ? Math.fround(value.value) : value.value, target) : undefined
+  if (typed !== undefined) return typed
   return rustType(from) === target ? text : `(${text} as ${target})`
+}
+
+/** A constant (a REAL's already its f32) as a literal of the Rust numeric type `target`, when that type holds it exactly (parenthesized when
+ *  negative: a cast lands in receiver positions); undefined when it does not. */
+function castLiteral(v: IrValue, target: string): string | undefined {
+  const int = /^([iu])(8|16|32|64)$/.exec(target)
+  const signedRange = (bits: number): [bigint, bigint] => [-(1n << BigInt(bits - 1)), (1n << BigInt(bits - 1)) - 1n]
+  let text: string | undefined
+  if (typeof v === "bigint" && int !== null) {
+    const bits = Number(int[2])
+    const [lo, hi] = int[1] === "i" ? signedRange(bits) : [0n, (1n << BigInt(bits)) - 1n]
+    if (v >= lo && v <= hi) text = `${v}${target}`
+  } else if (typeof v === "bigint" && target === "f64" && v >= -(1n << 53n) && v <= 1n << 53n) {
+    text = `${v}.0f64`
+  } else if (typeof v === "number" && target === "f64" && Number.isFinite(v)) {
+    text = `${Number.isInteger(v) ? `${v}.0` : `${v}`}f64`.replace(/^(-?\d+(?:\.\d+)?e[+-]?\d+)\.0f64$/, "$1f64")
+  }
+  return text === undefined ? undefined : text.startsWith("-") ? `(${text})` : text
 }
 
 /** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
@@ -73,7 +94,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     }
     // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past printed a negative
     // duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
-    if (isTemporal(source)) return written(temporalText(source), unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64")))
+    if (isTemporal(source)) return written(temporalText(source), unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64", e.value)))
     if (source === "LREAL") return written("iec_lreal_text", unparen(value))
     const text = from === "bool" ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })` : `format!("{}", ${unparen(value)})`
     return `${stringPath(e.type)}::lit(${text}.as_bytes())`
@@ -94,7 +115,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     const wide = e.type.kind === "elementary" && e.type.elem.bits >= 64
     // the helper already RETURNS the register width; casting i32 to i32 is what `unnecessary_cast` names
     const helper = use(p, wide ? "iec_r2i64" : "iec_r2i32")
-    const call = `${helper}(${unparen(castTo(value, e.value.type, "f64"))})`
+    const call = `${helper}(${unparen(castTo(value, e.value.type, "f64", e.value))})`
     return target === (wide ? "i64" : "i32") ? call : `(${call} as ${target})`
   }
   return `(${value} as ${target})`

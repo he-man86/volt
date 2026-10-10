@@ -75,3 +75,14 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("self.y = -self.x;")
   })
 })
+
+test("MOD and a REAL `/` by a constant lowering proved harmless print plain `%` and `/`; by a variable or -1 they keep their check (7.2.6)", () => {
+  const code = rust(
+    "PROGRAM P\nVAR i : DINT := 7; z : DINT := 3; a : DINT; b : DINT; c : DINT; x : REAL := 1.5; y : REAL; w : REAL; END_VAR\na := i MOD 4;\nb := i MOD z;\nc := i MOD -1;\ny := x / 2.0;\nw := x / x;\nEND_PROGRAM\n",
+  )
+  expect(code).toContain("self.a = self.i % 4i32;")
+  expect(code).toContain("self.b = { let __mod_l = self.i; let __mod_r = self.z;")
+  expect(code).toContain("self.c = { let __mod_l = self.i; let __mod_r = -1i32;")
+  expect(code).toContain("self.y = self.x / 2.0f32;")
+  expect(code).toContain("self.w = iec_div(self.x, self.x);")
+})
