@@ -62,6 +62,25 @@ export function registerBodyCall(lw: Lowering, call: IrCall): void {
   bindingRecords(lw).bodyCalls.push({ call, instance: instanceKey(lw, call.instance), binding: keys.includes(undefined) ? undefined : keys.join(";"), context: lw.frameContext })
 }
 
+type BodyCall = BindingRecords["bodyCalls"][number]
+
+/** A frame with ONE instance: the POU's own, or the root PROGRAM lowered as its instance — the only frames whose places a
+ *  PROGRAM's one binding can name (review: bound from an FB with two instances, the tag lent the running one's field). */
+const singleFrame = (lw: Lowering, context: string) => context === `POU:${lw.shared.root.toUpperCase()}` || context === `FB:${lw.shared.root.toUpperCase()}`
+
+/** Why the FB's recorded calls give no binding a dispatch can arm from, over every call (`calls`) and this instance's
+ *  (`mine`); undefined when they do. */
+function bindingRefusal(lw: Lowering, fb: string, calls: readonly BodyCall[], mine: readonly BodyCall[]): string | undefined {
+  if (calls.some((c) => c.instance === undefined)) return "while another call of the FB names its instance some other way"
+  if (mine.some((c) => c.binding === undefined)) return "while a call of the instance binds a place this cannot lend again"
+  // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
+  if (bindingRecords(lw).superRebinds.has(fb)) return "while its SUPER^ binds the in-out to another place, which is not recorded"
+  if (mine.length === 0 && calls.length > 0) return "never called on this instance, while it is called on others — a copy's binding is not recorded"
+  if (mine.some((c) => c.instance!.startsWith("GLOBAL") && !singleFrame(lw, c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
+    return "bound from a frame of which there can be several instances, which the one binding cannot name"
+  return undefined
+}
+
 /** `inst.M()` reaching the FB's own VAR_IN_OUT from outside its run — a dispatch on the binding `inst` was last called with. */
 export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, span: Span): IrDispatch | undefined {
   const refuse = (why: string): undefined => lw.bail("call-fb-inout", `${routine.name} reaches its FB's VAR_IN_OUT from outside the FB's run, ${why}`, span)
@@ -103,16 +122,8 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
       refuse(why)
       refused = true
     }
-    // a frame with ONE instance: the POU's own, or the root PROGRAM lowered as its instance — the only frames whose places a
-    // PROGRAM's one binding can name (review: bound from an FB with two instances, the tag lent the running one's field)
-    const single = (context: string) => context === `POU:${lw.shared.root.toUpperCase()}` || context === `FB:${lw.shared.root.toUpperCase()}`
-    if (calls.some((c) => c.instance === undefined)) fail("while another call of the FB names its instance some other way")
-    else if (mine.some((c) => c.binding === undefined)) fail("while a call of the instance binds a place this cannot lend again")
-    // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
-    else if (bindingRecords(lw).superRebinds.has(fb)) fail("while its SUPER^ binds the in-out to another place, which is not recorded")
-    else if (mine.length === 0 && calls.length > 0) fail("never called on this instance, while it is called on others — a copy's binding is not recorded")
-    else if (mine.some((c) => c.instance!.startsWith("GLOBAL") && !single(c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
-      fail("bound from a frame of which there can be several instances, which the one binding cannot name")
+    const unbindable = bindingRefusal(lw, fb, calls, mine)
+    if (unbindable !== undefined) fail(unbindable)
     else
       for (const c of mine) {
         const tag = tagFor(c)
@@ -127,7 +138,7 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
         // equal key does not prove the same instance — an arm lending the places from the RUNNING frame writes the wrong
         // instance's variable (reviews of 4e). Armed only where those places cannot depend on the frame instance: globals,
         // or the root PROGRAM's one frame
-        if (copied && !single(c.context) && places.some((p) => p.root !== "global")) {
+        if (copied && !singleFrame(lw, c.context) && places.some((p) => p.root !== "global")) {
           fail("bound by a call on another instance of a frame of which there can be several, whose places a copy's binding cannot name")
           break
         }

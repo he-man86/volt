@@ -6397,6 +6397,31 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `docs/architecture.md`, `docs/data-model.md`, `README.md`, `scripts/README.md`.
   - Accept: `check-citations` reports 0.
   - Depends: 2.10, 3.12, 4.16, 5.10, 7.11.4.
+  - Done 2026-10-10 (step 8a), NOT ticked: its Depends has 7.11.4 open (7.4.6, 7.6.4 and the reopened 7.8.4, 7.8.8 are
+    the owner's — 7.11.2's record). Accept met: `check-citations --strict` 0 missing (3 planned, none under
+    `src/transpile`). Each doc read against the code (the folder listing against `ls`, every "`file` `symbol`" pair
+    against its file by a scratch scan, every refusal code named against `diagnostics/codes.ts`, every code a model
+    decision's "Stays refused" names against the doc). What was stale, now true:
+    - architecture.md: the folder tree missed nine files — `semantics/memory.ts`, `pointers/escape.ts`, `image.ts`,
+      `image-rewrite.ts` (model 3's passes), `emit/rust/image.ts`, `precedence.ts`, `locals.ts`, `tail.ts`; `foldedCall`
+      is `lower/init/initial-values.ts`'s (was cited in `lower/values/fold.ts`); the loops paragraph lacked
+      `for-bound-call` and `exit-outside-loop` (§3.1's "Stays refused"); the pointers paragraph lacked `pointer-type`,
+      `pointer-step`, `pointer-runtime-index`, `pointer-order` (the tagged-pointer half of §3.3 step 4d), `pointer-value`,
+      `pointer-foreign` / `pointer-root-input`, `any-input` and `call-fb-inout` (§3.3 step 4e) — all still raised. Every
+      code the doc names exists. The ownership rows of design.md §2.8 are all in the map (one owner each).
+    - data-model.md's IR sketch: `IrPou.image` / `IrImage`, the `image` root with `at`, an index step's `size`,
+      `IrLayout.size`, `IrSlot.scoped`, the `address` and `count` nodes, `binary`'s `nonzeroDivisor` / `noWrap`, the
+      array init's `rest`, a STRING value as its whole buffer (model 2), and the three fault kinds added since
+      (`unbound-inout`, `address-outside-image`, `address-across-frames`) were missing; the Type facts match `type.ts` /
+      `elementary.ts`, plus one sentence: the transpiler is where a sizeless STRING gets `DEFAULT_STRING_LENGTH`.
+    - README.md's `src/transpile/` row names the layers and the four models; `scripts/README.md` already names every
+      script (checked file by file), unchanged.
+  - Gate 8a review (2026-10-10), fixed: (a) data-model.md said the transpiler gives a sizeless STRING its capacity in ONE
+    place, `Lowering.resolve`; it is three sites in `lower/` — `Lowering.sized` (which `resolve` calls), `conversions.ts`
+    `defaultCapacity` and `system.ts`'s `__POUNAME` — now named. (b) architecture.md said `pointer-foreign` is a pointer
+    INPUT followed "in a routine"; `deref.ts` `unsuppliedInput` EXCLUDES routine mode (a METHOD's inputs are supplied) and
+    raises it for an FB body lowered as any POU but the root — now said so. (c) 8.3's record cited the deleted pre-split
+    files bare, which failed `check-citations --strict` (2 missing); re-worded as history, now 0 missing (3 planned).
 - [ ] 8.2 Final map delta against 0.2.
   - What: edge, size median and top ten (under the 7.1.4 definition, with the 0.2 value re-computed under it), pedantic, lint totals,
     ALLOWED excused counts, notes remaining, open divergence marks. The target: only the refusals the model decisions name and the trig
@@ -6404,11 +6429,104 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: this file.
   - Accept: M; every open mark is in one of those two lists.
   - Depends: 8.1.
+  - Measured 2026-10-10 (step 8a), NOT ticked: 8.1 is not ticked, and the second half of the Accept is not met (below).
+    `rate:fixtures` at 63fa53b70b regenerates `map.generated.ts` identically (2m22s), so the header is today's.
+    0.2 (3f42db0e71) → now:
+    - evidence: confirmed 2806 → 2984, refused 1989 → 2016, not-lowered 389 → 346, lsp-gap 76 → 85, diverges 5 → 9,
+      unaskable 92 → 95 (5357 → 5535 fixtures).
+    - tier (lowered / clean): 3225 / 3206 → 3413 / 3402 — decl 773 / 773, arith 1574 / 1574, control 161 / 151,
+      aggregate 147 / 147, call 297 / 297, indirect 461 / 460.
+    - edge: agree 3046 → 3191, disagree 0 → 3, not-run 179 → 219 (the platform's libm 71 → 74, the Rust does not build
+      65 → 73, no elementary variable 43 → 66, the interpreter's loop guard gives up on every variant 0 → 6). The three
+      disagreements are `reinterpret_dint_as_real_edges` and `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` — the
+      interpreter's REAL is a JavaScript number with no NaN bits; all three are `diverges` rows decided in design.md §3.3
+      step 4e, so the spec's "except where the map names a known divergence" holds.
+    - size (7.1.4's definition, runtime-registry lines not counted): 0.2 RE-COMPUTED under it — a scratch script (not
+      kept, probes are single use) in a worktree at 3f42db0e71 lowered and emitted every fixture with that tree's code
+      and counted without `STRING_PRELUDE` and the eight helpers that tree appended (`iec_deref`, `iec_r2i64`,
+      `iec_r2i32`, `iec_fmax`, `iec_fmin`, `iec_log`, `iec_pow`, `iec_div`): 3225 lowered, median 3.1 (the old
+      definition on the same run also 3.1, = 0.2's figure, which validates the run), the ten largest identical to 0.2's
+      (string_positions_low 33.5 … string_to_real_parse 11). Now: median 3.1 → 2.7; the ten largest
+      string_positions_low 27.2, string_positions_high 26, string_insert_delete_replace_find 20.5,
+      string_edge_positions 19.2, string_conversions_formats 15.5, string_len_left_right_mid 14.5,
+      tr_a10_string_to_dint_based_edges 11.7, string_escapes_named 11.5, tr_a27_for_unsigned_counters_negative_step
+      11.5, tr_a10_string_to_dint_underscore_sign_edges 10.8.
+    - pedantic: 30845 → 1863; the ten most frequent now cast_possible_truncation 787, cast_sign_loss 561,
+      cast_possible_wrap 299, pub_underscore_fields 87, struct_excessive_bools 44, cast_precision_loss 31,
+      used_underscore_binding 12, float_cmp 11, cast_lossless 10, single_match_else 7 (0.2's must_use_candidate 7854,
+      cast_lossless 4266, uninlined_format_args 3222, unreadable_literal 2810, missing_panics_doc 1065, manual_assert
+      818, format_push_string 716 are out of the top ten).
+    - surviving lints: 24 findings of 10 kinds → 15 of 5: unreachable_patterns 6, clippy::match_overlapping_arm 5,
+      clippy::match_single_binding 2, clippy::bool_comparison 1 (new: `bool_byte_two_through_pointer`),
+      overlapping_range_endpoints 1. Gone: collapsible_if 4, too_many_arguments 2 (now ALLOWED), assign_op_pattern,
+      identity_op, neg_cmp_op_on_partial_ord, nonminimal_bool.
+    - ALLOWED, fixtures excused: 11 entries → 12. dead_code 5263 → 42 (the self-assignment message only, 7.11.3's
+      gate), self_assignment 34 → 42, eq_op 17 → 15, absurd_extreme_comparisons 3 → 6, approx_constant 6 → 6,
+      unused_comparisons 3 → 6, never_loop 1 → 1, manual_range_patterns 1 → 1, unreachable_code 2 → 1; new
+      missing_panics_doc 386, unused_assignments 7, too_many_arguments 2; gone unnecessary_min_or_max 10, manual_clamp 1.
+    - notes: 723 noted constructs → 41; improvable fixtures 3056 → 3163 (fbde4d6e1e, a 7.8.8 note, touches nearly every
+      lowered fixture), touching a construct with alternatives 2971 → 153; per owning task keep 16, 7.4.6 14, 7.8.8 5,
+      7.8.4 4, 7.6.4 2. shapes 1716 → 1863 over 3225 → 3413 lowered; constructs 1798 → 1964.
+    - Open marks, counted as 0.2 counted them (the transpiler's `diverges` rows): 5 → 9. 0.2's `decl_subrange_unsigned`
+      and `lt_literal_negative_in_comparison_unsigned` are confirmed now. Of the 9:
+      - the trig family of §7.2 (3): `op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large`;
+      - OUTSIDE both lists (6), each `niche: accepted loss` with its corpus count in its `deferred.transpile`:
+        `reinterpret_dint_as_real_edges`, `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` (§3.3 step 4e: the
+        interpreter's REAL stays a JavaScript number), `string_store_function_input_tail` (§3.2 step 3c: a FUNCTION
+        frame's residue), `wstring_parse_trailing_spaces` (§3.2 step 3d), `bool_byte_two_through_pointer` (review of
+        4d, this file's 4.7 record; not in design.md).
+      Beside them, 10 `not-lowered` fixtures carry a `deferred.transpile` reason (refusals, not marks, as 0.2 counted):
+      5 named by a model decision — `init_struct_field_fb_init_scope{,_dynamic}`, `init_this_in_initializer_argument`
+      (§3.4 step 5d), `interface_holds_gvl_instance` (`call-global-instance`, §3.3 4.13 (f)), `real_to_string_digits`
+      (`conversion-type`, §3.2) — and 5 not: `tr_43_routine_output_word_to_int` (`call-output-convert`, 6.17, niche),
+      `decl_array_star_in_{function,method}_input` (`place-shape`, niche, 2026-10-01) and
+      `instance_path_{with_reflection,in_program_with_method}` (the simulator's path segment, user decision 2026-09-15).
+      The LSP's marks are not this change's: 329 `KNOWN_DIVERGENCES` entries, the same fixture set as at 0.0 (diffed by
+      name), and 59 `deferred.lsp` lsp-gap rows.
+    - Accept: M met; "every open mark in one of the two lists" NOT met — the 6 marks above are accepted losses by the
+      owner's later triage rule ("niche: accepted loss (N occurrences)"), which design.md §7.2's target predates. The
+      OWNER decides: amend the target to "the model decisions' refusals, the trig family, and the named niche losses",
+      or reopen those 6.
 - [ ] 8.3 Final review.
   - What: spec, layering and a fresh-implementation review over the whole change; fix or file.
   - Where: all touched files.
   - Accept: lint (layering, size, citations) green; the size ceiling list for `src/transpile/**` empty.
   - Depends: 8.2.
+  - Reviewed 2026-10-10 (step 8a, a measure step: nothing in `src/` changed), NOT ticked: 8.2 is not, and R1 is a fix.
+    - Lint green: layering (`KNOWN_TRANSPILE_VIOLATIONS` empty; the one known violation is `services → network`, not the
+      transpiler's), size (every `src/transpile` file within 400 / 600, ceiling list empty: "0 listed"), citations (0
+      missing). `dead-exports.ts --scope src/transpile`: no finding. `openspec validate transpile-restructure`: valid.
+    - Spec: each scenario holds on a confirmed fixture — a loop past a million passes (`tr_27_loop_cap_for_1000001`,
+      `_repeat_1000001`, `_while_5000000`), bytes past the terminator ('4321', `tr_34_lib_prim_char_behind`), a pointer
+      into an instance surviving a copy (`tr_15_fb_copy_keeps_pointer_address`); the edge agreement's three
+      disagreements are named divergences (8.2); prelude on demand: `dead_code` 5263 → 42.
+    - Layering / docs: the drift 8.1 lists (nine unlisted files, one misplaced citation, ten refusal codes missing from
+      the refused lists, the IR sketch behind model 3) — fixed by 8.1.
+    - Fresh-implementation review. `src/transpile` was 30 files / 11,255 lines at 3f42db0e71 (its old calls, emit and lower
+      files 1657, 1369 and 860 lines) and is 151 files / 19,561 lines now (largest `ir/walk.ts` 384; colocated tests 5,631 → 9,840 lines):
+      the growth is models 3 and 4 (escape pass, image, init step) plus the split, not duplication — every concern of
+      design.md §2.8 has one owner, the folds are held by `fold-agreement.test.ts`, the backends by the twin harness.
+      Findings:
+      - R1 (FIX, product code — for the gate or a fix step, not done here): `lower/calls/last-binding.ts`
+        `lastBinding` is 87 lines; design.md §8 and architecture.md require the over-80 warning list empty since 1.9.4.
+        It grew past 80 in 6Af (32f0e21262, the `unbound-inout` fault). Split it (its `refuse` closure and the
+        per-binding arm building are the natural seams).
+        FIXED by the 8a gate (red first: `check-size` warned "1 function(s) over 80 lines ... 87 lastBinding"): the
+        refusal chain over the FB's recorded calls is `bindingRefusal` and the one-instance frame test `singleFrame`,
+        both module functions beside it; same messages, same order. `check-size` now lists no function over 80.
+    - GATE 8a (2026-10-10): four review findings, all fixed (8.1's (a)-(c), R1 above). `bun typecheck` clean; `bun run
+      lint` green (layering 1 known, not the transpiler's; size 0 listed, no function over 80; citations 0 missing);
+      `rate:fixtures` regenerates `map.generated.ts` identically (confirmed 2984, edge agree 3191 / disagree 3 / not-run
+      219); full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9167 pass / 35 skip / 389 todo / 0 fail, 9591 tests
+      across 316 files (594s); `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run check` 18 passed. Nothing ticked:
+      8.1 waits on 7.11.4 (owner), 8.2 on 8.1 and the owner's target decision (R3), 8.3 on 8.2.
+      - R2 (FILED here for the owner): 83 of the registry's 133 refusal codes are `unclassified` (84 of 116 at 0.0) —
+        every code this change added is classified, the older ones are not. `codes.ts` calls the refusal the product
+        for 82% of corpus bodies; classifying the rest is a follow-up change of its own (each code's kind by its call
+        sites and recordings), not this change's scope.
+      - R3 = 8.2's open Accept (six niche marks outside the target's two lists) — the owner's.
+      - R4: 7.4.6, 7.6.4 (never started) and 7.8.4, 7.8.8 (reopened by the 7.7b+7.11 gate) hold 7.11.2 / 7.11.4 and
+        through them 8.1-8.4 — the owner decides build or close; nothing else in phases 0-7 is open.
 - [ ] 8.4 Archive.
   - What: check each spec delta describes what was built; every hand-off of design.md §7.1 has a line in `lsp-transpile-review-gaps`;
     every transpile-st-to-rust task 0.8/4.2 marked superseded is ticked there with its reference. Archive this change and

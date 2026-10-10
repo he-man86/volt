@@ -327,7 +327,11 @@ interface ElementaryType {        // the checkable-facts table (frontend/types/e
 
 `length` (a STRING's stated capacity — a sizeless `STRING` has none; the default is the transpiler's vendor fact) and
 `bounds` (an array's folded dimensions, read by the transpiler, which stores the array) are facts the resolver writes; a
-consumer that needs one and finds it absent skips (an UNKNOWN), it never assumes the default.
+consumer that needs one and finds it absent skips (an UNKNOWN), it never assumes the default. Only the transpiler gives
+a sizeless STRING its capacity, `DEFAULT_STRING_LENGTH` (a vendor fact), at three sites in `lower/`: `Lowering.sized`
+(`lower/core/lowering.ts`, for every declared type `Lowering.resolve` resolves; an `unfoldedLength` capacity is refused
+`string-capacity` there), `defaultCapacity` (`lower/builtins/conversions.ts`, the STRING type a conversion's name states) and the
+`__POUNAME` constant (`lower/builtins/system.ts`).
 
 ## transpile IR
 
@@ -336,8 +340,9 @@ The transpiler's one contract (`transpile/ir/`, `architecture.md` "Backend"): wh
 identifier; a backend that has to decide something means the lowering is incomplete.
 
 ```ts
-type IrValue = bigint | number | boolean | string           // a STRING holds its bytes one char each
-type IrInit = IrValue | { elements: (IrInit | undefined)[] } | { fields: Record<string, IrInit> }
+type IrValue = bigint | number | boolean | string  // a STRING: its whole buffer one unit per char, trailing zeros trimmed
+                                                   // (`semantics/string.ts` `held`); TIME in ms, LTIME in ns
+type IrInit = IrValue | { elements: IrInit[]; rest: IrInit } | { fields: Record<string, IrInit> }   // rest: every element not stated
 
 // the program — one POU lowered, with everything it reaches
 interface IrPou {
@@ -345,29 +350,38 @@ interface IrPou {
   layouts: IrLayout[]          // each STRUCT and FB: its fields, an FB's body, in-outs, VAR_STAT, lent instances
   routines: IrRoutine[]        // each METHOD, ACTION and FUNCTION reached, lowered once per frame (and ANY variant)
   globals: IrSlot[]            // the application's storage: GVL variables, each called PROGRAM's instance
-  init?: IrStmt[]              // run once before the first scan
+  init?: IrStmt[]              // the ordered init step, run once before the first scan (model 4, `lower/init/step.ts`)
+  image?: IrImage              // the byte image, when a program stores an address (model 3)
   span: Span
 }
-interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; constant?: boolean; readOnly?: boolean; ofInstance?: boolean; image?: number; list?: string; readAs?: Type; declared?: Type }
+interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; scoped?: true; constant?: boolean; readOnly?: boolean; ofInstance?: boolean; image?: number; list?: string; readAs?: Type; declared?: Type }
+// scoped: a temp written at one site before every read — a slot to the interpreter, a `let` of its fn in Rust (7.6.1)
+// image: the slot's byte offset when the image holds it
 // list: a GVL variable whose name another list also declares — two globals (6.A.17), each Rust field named `<list>_<name>`
 // readAs: a CONSTANT whose slot is wider than its type to hold its unwrapped fold — every read of it is converted to its
 // type's run-time width by lowering (`places/access-guards` `loadValue`, 6.A.29); no backend reads it. declared: that
 // constant's declared type, which SIZEOF measures (`builtins/sizeof`: SIZEOF(B) of a BYTE held as 256 is 1, 6Af)
-interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[] }
+interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[]; size?: number }  // size: an image struct's measured bytes
+// the program's byte image, laid out as CODESYS lays it out from IMAGE_BASE (`semantics/memory.ts`); a backend allocates nothing
+interface IrImage { size: number; bytes: [offset: number, bytes: number[]][]; regions: [start: number, end: number][] }
 interface IrRoutine { name: string; key: string; kind: "method" | "action" | "function"; fb?: string; uri?: string; locals: IrSlot[]; inputs: number[]; inouts: IrSlot[]; result?: number; body: IrStmt[]; lent?: { tag: number; type: Type }[] }
 
-// a place — a root slot and a path, never an address (the application is one tree of owned values)
-interface Place { slot: number; path: Access[]; type: Type; span: Span; root?: "inout" | "local" | "global" | "this" | "lent"; guard?: Place }
-type Access = { kind: "field"; name: string } | { kind: "index"; index: IrExpr; lower: bigint; length?: number } | { kind: "bit"; index: number; of: Type }
+// a place — a root slot and a path; only an `image` root is an address: `at`, its byte address, with every field step
+// folded into it and each index step carrying its element's `size` (model 3)
+interface Place { slot: number; path: Access[]; type: Type; span: Span; root?: "inout" | "local" | "global" | "this" | "lent" | "image"; at?: IrExpr; guard?: Place }
+type Access = { kind: "field"; name: string } | { kind: "index"; index: IrExpr; lower: bigint; length?: number; size?: number } | { kind: "bit"; index: number; of: Type }
 
 type IrExpr =
   | { kind: "const"; value: IrValue }                         | { kind: "fresh"; init: IrInit }
   | { kind: "load"; place: Place }                            | { kind: "convert"; value: IrExpr }   // every widening explicit
-  | { kind: "binary"; op: IrBinOp; left: IrExpr; right: IrExpr } | { kind: "unary"; op: "neg" | "not"; operand: IrExpr }
+  | { kind: "binary"; op: IrBinOp; left: IrExpr; right: IrExpr; nonzeroDivisor?: true; noWrap?: true }   // both decided by lowering
+  | { kind: "unary"; op: "neg" | "not"; operand: IrExpr }
   | { kind: "builtin"; name: IrBuiltinName; args: IrExpr[]; bits?: number }
   | { kind: "invoke"; routine: string; instance?: Place; inputs: IrExpr[]; order?: (number | IrFreeze)[]; inouts: IrBinding[]; lent?: Place[] }
   | { kind: "dispatch"; tag: IrExpr; arms: { tag: bigint; call: IrInvoke }[]; fault: "no-instance" | "unbound-inout" }   // a call through an interface, or a METHOD reaching its FB's in-out by the last binding (6.A.28)
   | { kind: "select"; tag: IrExpr; arms: { tag: bigint; place: Place }[] }       // a read through a multi-target pointer
+  | { kind: "address"; place: Place }                         // ADR of an image place: its byte address (model 3)
+  | { kind: "count"; array: Place; dim: number }              // an ARRAY[*] in-out's element count of one dimension (7.7.8)
   // …each with `type: Type; span: Span`
 type IrBinding = Place | { kind: "copy"; value: IrExpr; type: Type; back?: Place; discarded?: true; span: Span }  // discarded: an unconnected VAR_OUTPUT's copy, lent `&mut`, read by nothing after the call (6.A.12)
 
@@ -384,7 +398,8 @@ type IrStmt =
 // lowering's answer: the program, or why not — never a throw (`transpile/lower/diagnostics/`)
 interface LoweredPou { pou?: IrPou; diagnostics: LowerDiagnostic[] }
 interface LowerDiagnostic { code: string; kind: LowerCodeKind; message: string; span: Span }   // `code` from the registry (`codes.ts`)
-type FaultKind = "null-dereference" | "no-instance" | "division-by-zero" | "division-overflow" | "logarithm-of-zero" | "zero-to-negative-power"
+type FaultKind = "null-dereference" | "no-instance" | "unbound-inout" | "division-by-zero" | "division-overflow" | "logarithm-of-zero"
+  | "zero-to-negative-power" | "address-outside-image" | "address-across-frames"
 ```
 
 The walk over all of it is `ir/walk.ts` `childrenOf` — total over every node kind (`walk.test.ts` holds one case per

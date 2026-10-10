@@ -251,7 +251,7 @@ transpile/
   ir/               expr.ts stmt.ts program.ts — the node contract; walk.ts — the one exhaustive walk (childrenOf) every
                     IR walk is built on; path.ts — the IDE path grammar; faults.ts — fault kinds and their texts
   semantics/        value.ts store.ts convert.ts arith.ts operators.ts builtins.ts math.ts text.ts parse.ts string.ts
-                    instantiate.ts fold.ts faults.ts; cases.ts and the *.cases.ts tables the twin tests share
+                    memory.ts instantiate.ts fold.ts faults.ts; cases.ts and the *.cases.ts tables the twin tests share
   lower/
     entry/          lower-unit.ts lower-source.ts checks.ts finish.ts — where a POU's lowering starts and ends
     project/        prepare.ts library-base.ts — the transpiler's input assembly (files, libraries, attributes)
@@ -263,7 +263,8 @@ transpile/
     init/           state.ts step.ts sequence.ts fb-init.ts fb-init-args.ts instance-init.ts initial-values.ts
                     temp-resets.ts position.ts attributes.ts
     places/         places.ts names.ts self.ts globals.ts bounds.ts path.ts access-guards.ts
-    pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts
+    pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts escape.ts image.ts
+                    image-rewrite.ts — the escape pass, the image layout and its rewrite are model 3's
     expressions/    expressions.ts operators.ts calendar.ts partial-access.ts
     builtins/       arity.ts builtins.ts value-functions.ts system.ts clock.ts conversions.ts sizeof.ts
     statements/     statements.ts assign.ts loops.ts case.ts
@@ -272,8 +273,9 @@ transpile/
     interfaces/     state.ts tags.ts lend.ts dispatch.ts query.ts
     conditions.ts   the exec oracle's condition world (read by project/ and calls/)
   interp/           machine.ts frame.ts calls.ts runner.ts — executes the IR, decides nothing
-  emit/rust/        module.ts structs.ts names.ts types.ts values.ts printer.ts place.ts expr.ts convert.ts
-                    builtins.ts calls.ts stmt.ts loops.ts routine.ts — prints the IR, decides nothing
+  emit/rust/        module.ts structs.ts names.ts types.ts values.ts printer.ts precedence.ts place.ts image.ts
+                    expr.ts convert.ts builtins.ts calls.ts stmt.ts loops.ts routine.ts locals.ts tail.ts — prints the
+                    IR, decides nothing
     runtime/        string.ts text.ts parse.ts numeric.ts pointer.ts — the Rust the emitted code carries, by
                     registry (index.ts); the mirror of semantics/
 ```
@@ -300,7 +302,7 @@ within 400 lines, a test within 600, a function within 80 — the last reported,
 **The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
 never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold
 (`semantics/fold.ts` `constantValue`) serves lowering after its conversions are in (an initializer holding a call,
-`lower/values/fold.ts` `foldedCall`), through the interpreter's own arithmetic. They cannot be one function without
+`lower/init/initial-values.ts` `foldedCall`), through the interpreter's own arithmetic. They cannot be one function without
 `types/` depending on the IR, so they are held together the way the backends are: `test/conformance/fold-agreement.test.ts`
 folds every constant expression the lowered fixtures hold with both and requires the same value; the disagreements it
 found are expected failures naming their task.
@@ -330,7 +332,15 @@ and `__inout_binding` (`calls/last-binding.ts`) — folding it into the image wo
 Form 2 (a `POINTER TO` parameter only dereferenced is a borrow) and the string cursor stay as built. Refused by name:
 `pointer-shape` (the address of a BIT, of a dereference), `cursor-overrun`, `sizeof-unmeasured`, `layout-unmeasured`,
 `dynamic-memory` (`__NEW`/`__DELETE`), `call-inout-alias`, `place-not-local`, `image-stack` (an escaped routine local),
-`pointer-outlives`, `pointer-targets` (a pointer that would hold both a tag and an index, or a tag and an address; a
+for a TAGGED pointer (a pointer that holds addresses does all of these) `pointer-type` (read or given as another type than
+its target), `pointer-step` and `pointer-runtime-index` (stepped, or the address of a runtime-indexed place) and
+`pointer-order` (dereferenced or copied before any address was stored into it), `pointer-value` (a pointer's value used
+as a number, an integer stored as a pointer), `pointer-foreign` (a pointer INPUT followed in an FB body
+lowered as any POU but the root — an FB reached by a call: its caller's address would have to be lent per call; a
+METHOD/ACTION/FUNCTION routine's inputs are supplied by its caller and not refused) and `pointer-root-input` (a pointer
+INPUT followed in the root POU, which has no caller to supply it — a harness limit, not a work item), `any-input` (an ANY
+argument that is no named variable, or whose size is unmeasured), `call-fb-inout` (a METHOD reaching its FB's
+VAR_IN_OUT where no binding can be known), `pointer-outlives`, `pointer-targets` (a pointer that would hold both a tag and an index, or a tag and an address; a
 copy of a pointer of several targets; a target set that still grew after `ESCAPE_PASSES` lowerings, `entry/lower-unit.ts`),
 `interface-instance` (an instance at a runtime index), `interface-instance-relative`, `call-global-instance` (a METHOD
 called on a GVL's instance, directly or through an interface); a pointer→DWORD conversion is vendor-refused.
@@ -343,7 +353,8 @@ not a second type model. **If a backend ever has to decide something, the loweri
 so only a harness bounds a runaway: `loopGuard` on `run` and `emitRust`, one body entry after a head test counted as one
 pass in both backends, and its `LoopGuardError` is never a fault match. A FOR step and limit are judged by their front-end
 type (`for-step-type`, `for-limit-type`: a DINT limit on an INT counter does not compile), an expression of untyped
-literals by its value. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
+literals by its value. Refused by name besides those two: `for-bound-call` (a call in the step, or in a limit tested on
+both arms of a runtime step — its run count is unrecorded) and `exit-outside-loop`. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
 (`ir/walk.loopUses`).
 
 *Strings* (transpile-restructure §3.2). A STRING(n) is ONE buffer of n units plus the terminator at n: the interpreter

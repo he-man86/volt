@@ -88,7 +88,7 @@ services ← server), lint-enforced. See [`docs/architecture.md`](./docs/archite
 | `src/network-text/` · `src/network/` | the network-text (FBD/LD) lexer · parser · AST · its analysis and services (reusing the shared core). |
 | `src/index.ts` · `src/source-extensions.ts` · `src/workspace-refs.ts` | the package barrel · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
 | `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics. |
-| `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution. |
+| `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution: `lower/` (every decision, refusals by name) → `ir/` (the contract) → `interp/` (the oracle, running `semantics/`, the value model) and `emit/rust/` (the printer, whose `runtime/` mirrors `semantics/`); its four models — loops, strings, pointers, initialization — in `docs/architecture.md`. |
 | `libraries/` | the library repo: each referenced library's elements written in ST, per version, for the transpiler (never the LSP). |
 | `test/conformance/` · `test/corpus/` | oracle replay (LSP diagnostics, transpiler execution) · real-project ratchet. |
 | `test/catalog/` · `test/frontend/` · `test/libraries/` | the C-code catalog · front-end baselines, censuses and the layering gate · the library repo. Map: [`test/README.md`](./test/README.md). |
