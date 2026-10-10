@@ -38,8 +38,12 @@ export function arith(op: string, a: Val, b: Val, type?: Type): Val {
     //
     // So the width that matters is the one the operation COMPUTES in — `e.type`, the promoted type — and not the
     // slot's. Every other overflow in this function wraps on store and none of them trap.
+    //
+    // MOD TRAPS ON THE SAME DIVISION. x86's `idiv` computes the quotient and the remainder at once, so `MIN MOD -1` —
+    // whose remainder, 0, fits — stops exactly where `MIN / -1` does (6.A.3, `arithedge_*_mod_min_by_minus_one`,
+    // 2026-10-10): DINT and LINT stop, SINT and INT answer 0.
     const elem = type !== undefined ? elemOf(type) : undefined
-    if (op === "div" && elem?.signed === true && elem.bits !== undefined) {
+    if ((op === "div" || op === "mod") && elem?.signed === true && elem.bits !== undefined) {
       const quotient = l / r
       if (BigInt.asIntN(elem.bits, quotient) !== quotient)
         throw new IecFault("division-overflow")

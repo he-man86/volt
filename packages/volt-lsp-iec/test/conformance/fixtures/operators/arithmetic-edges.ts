@@ -74,6 +74,15 @@ export const ARITHMETIC_EDGE_TESTS: readonly LanguageTest[] = INTEGERS.flatMap((
         `x := ${min};\nd := 0 - 1;\nout := x / d;`,
         `${t.name} at its minimum divided by minus one — the result does not fit the type`,
       ),
+      // transpile-restructure 6.A.3 (Appendix B mod-min-by-minus-one): the remainder of the same division is 0 and fits
+      // — but x86's `idiv` computes both at once, so does MOD trap where `/` does?
+      edge(
+        t.name,
+        "mod_min_by_minus_one",
+        `\tx : ${t.name};\n\td : ${t.name};\n\tout : ${t.name};`,
+        `x := ${min};\nd := 0 - 1;\nout := x MOD d;`,
+        `${t.name} at its minimum modulo minus one — the remainder fits, the quotient beside it does not`,
+      ),
     )
   return cases
 })

@@ -103,9 +103,10 @@ function bitValue(name: "shl" | "shr" | "rol" | "ror", args: readonly Val[], typ
     case "shr": {
       // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (conformance `shift_count_*`,
       // `shift_negative_count`). The value is already promoted, and a bigint `>>` is arithmetic on a negative —
-      // SHR(SINT -128, 1) is -64, as measured.
+      // SHR(SINT -128, 1) is -64, as measured. The count is masked as the exact integer it is: a ULINT count above 2^53
+      // went through `Number()` and lost its low bits (6.A.4).
       const bits = widthOf(type, name)
-      const count = BigInt(Number(num(args[1]!)) & (bits - 1))
+      const count = countOf(args[1]!) & BigInt(bits - 1)
       const value = num(args[0]!) as bigint
       return name === "shl" ? value << count : value >> count
     }
@@ -115,13 +116,20 @@ function bitValue(name: "shl" | "shr" | "rol" | "ror", args: readonly Val[], typ
       // node's `bits`, the bits above them kept as they are (conformance `rotate_of_expression`)
       const bits = rotateBits ?? widthOf(type, name)
       const width = BigInt(bits)
-      const left = BigInt(((Number(num(args[1]!)) % bits) + bits) % bits)
+      const left = ((countOf(args[1]!) % width) + width) % width
       const by = name === "rol" ? left : (width - left) % width
       const value = num(args[0]!) as bigint
       const unsigned = BigInt.asUintN(bits, value)
       return (value - unsigned) | BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width)))
     }
   }
+}
+
+/** A shift or rotate count as the exact integer it is — never through `Number()`, which rounds one above 2^53 (6.A.4). */
+const countOf = (v: Val): bigint => {
+  const n = num(v)
+  if (typeof n !== "bigint") throw new LoweringBug("a shift or rotate count that is not an integer, which lowering should have typed")
+  return n
 }
 
 /** CHAR and SETCHAR — a string's byte read, or stored and cut at the capacity lowering stated. */

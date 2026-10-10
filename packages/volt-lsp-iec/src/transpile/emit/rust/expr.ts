@@ -167,8 +167,11 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // emitted `let a = b` SHADOWED the parameter `a`, so the very next binding — `let d = a` — read the left
   // operand instead of the right, and `7 MOD 3` compiled to `7 % 7` = 0 where the interpreter answers 1.
   // A silent wrong answer, and one no recorded case caught because no fixture names a parameter `a`.
+  //
+  // AND `%`, NOT `wrapping_rem`: `MIN MOD -1` stops the task as `MIN / -1` does (6.A.3, x86's `idiv` computes both), and
+  // Rust's `%` panics on exactly that overflow where `wrapping_rem` answered 0.
   if (e.op === "mod" && !real)
-    return `({ let ${tmp("mod_l")} = ${unparen(l)}; let ${tmp("mod_r")} = ${unparen(r)}; if ${tmp("mod_r")} == 0 { 0 } else { ${tmp("mod_l")}.wrapping_rem(${tmp("mod_r")}) } })`
+    return `({ let ${tmp("mod_l")} = ${unparen(l)}; let ${tmp("mod_r")} = ${unparen(r)}; if ${tmp("mod_r")} == 0 { 0 } else { ${tmp("mod_l")} % ${tmp("mod_r")} } })`
   // INTEGER DIVISION IS NOT WRAPPING. `wrapping_div` returns the minimum for `MIN / -1` and carries on, and
   // CODESYS STOPS THE TASK there (`arithedge_dint_div_min_by_minus_one`, `arithedge_lint_*`). Plain `/` panics
   // on exactly the two cases the vendor stops on — a zero divisor and that one overflow — so it is both the

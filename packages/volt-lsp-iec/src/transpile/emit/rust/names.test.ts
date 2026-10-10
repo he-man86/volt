@@ -68,7 +68,7 @@ describe("emit/rust — generated bindings cannot collide with an ST name", () =
   test("MOD does not shadow a parameter named like its own temporaries", () => {
     const line = rust(MOD_IN_FUNCTION)
       .split("\n")
-      .find((l) => l.includes("wrapping_rem"))!
+      .find((l) => l.includes("__mod_l"))!
     expect(line).toBeDefined()
     // the right operand must still read the PARAMETER `a`, not a binding introduced one statement earlier
     expect(line).not.toMatch(/let a = /)

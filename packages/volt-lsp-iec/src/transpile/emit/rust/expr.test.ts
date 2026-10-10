@@ -56,7 +56,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("self.d = self.a || self.b;")
   })
 
-  test("MOD guards a zero divisor — 0, as measured, where Rust's % panics — and NOT of an INT is a u16", () => {
+  test("MOD guards a zero divisor — 0, as measured, where Rust's % panics — and keeps `%`'s MIN MOD -1 panic (6.A.3); NOT of an INT is a u16", () => {
     const { pou, diagnostics } = lowerSource("PROGRAM M\nVAR a : INT := 7; z : INT; m : INT; w : DINT; END_VAR\nm := a MOD z;\nw := NOT a;\nEND_PROGRAM\n", "M")
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
@@ -64,7 +64,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     // the bindings carry the reserved prefix — they used to be `a` and `d`, which shadowed a parameter of
     // those names and made `7 MOD 3` compile to `7 % 7`; see the hygiene describe below
     expect(code).toContain(
-      "self.m = ({ let __mod_l = self.a as i32; let __mod_r = self.z as i32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }) as i16;",
+      "self.m = ({ let __mod_l = self.a as i32; let __mod_r = self.z as i32; if __mod_r == 0 { 0 } else { __mod_l % __mod_r } }) as i16;",
     )
     expect(code).toContain("self.w = (!(self.a as u16)) as i32;")
   })
