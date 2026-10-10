@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { emitRust } from "./index.js"
-import { unparenHead } from "./expr.js"
+import { head } from "./expr.js"
+import { Prec, printed } from "./precedence.js"
 import { lowerSource } from "../../lower/index.js"
 
 function rust(src: string): string {
@@ -65,7 +66,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     // the bindings carry the reserved prefix — they used to be `a` and `d`, which shadowed a parameter of
     // those names and made `7 MOD 3` compile to `7 % 7`; see the hygiene describe below
     expect(code).toContain(
-      "self.m = ({ let __mod_l = i32::from(self.a); let __mod_r = i32::from(self.z); if __mod_r == 0 { 0 } else { __mod_l % __mod_r } }) as i16;",
+      "self.m = { let __mod_l = i32::from(self.a); let __mod_r = i32::from(self.z); if __mod_r == 0 { 0 } else { __mod_l % __mod_r } } as i16;",
     )
     expect(code).toContain("self.w = i32::from(!(self.a as u16));")
   })
@@ -96,7 +97,8 @@ describe("emit/rust — the forms the narrow rule exposed", () => {
     expect(code).toContain("self.g = (97u8..=122u8).contains(&self.c);")
     expect(code).toContain("self.g = (97u8..123u8).contains(&self.c);")
     expect(code).toContain("self.w &= 255u16;")
-    expect(unparenHead("({ s }.char_at(1) < 3u8)")).toBe("{ s }.char_at(1) < 3u8")
-    expect(unparenHead("({ s })")).toBe("({ s })")
+    expect(head(printed("{ s }.char_at(1) < 3u8", Prec.Compare))).toBe("{ s }.char_at(1) < 3u8")
+    expect(head(printed("{ s }", Prec.Postfix))).toBe("({ s })")
+    expect(head(printed("if g { 1 } else { 2 }", Prec.Block))).toBe("(if g { 1 } else { 2 })")
   })
 })

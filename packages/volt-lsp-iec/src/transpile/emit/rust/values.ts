@@ -44,7 +44,7 @@ function shortestF32(v: number): string {
  * six or more from the left (`1_709_078_400`, `0.100_000_001_490_116_12`) — clippy's `unreadable_literal` asks exactly
  * that, and leaves five digits or fewer bare. An exponent stays as written.
  */
-function grouped(text: string): string {
+export function grouped(text: string): string {
   return text.replace(/^(-?)(\d+)(?:\.(\d+))?/, (_m, sign: string, whole: string, fraction: string | undefined) => {
     const w = whole.length > 5 ? whole.replace(/\B(?=(?:\d{3})+$)/g, "_") : whole
     const f = fraction === undefined ? "" : `.${fraction.length > 5 ? fraction.replace(/(\d{3})(?=\d)/g, "$1_") : fraction}`

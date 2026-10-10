@@ -24,6 +24,7 @@ import {
   type RealToIntInput,
   SELECT_CASES,
   type SelectInput,
+  SQRT_CASES,
   TRUNC_CASES,
 } from "../../src/transpile/semantics/numeric.cases.js"
 import {
@@ -324,6 +325,12 @@ describe("runtime twins — the case tables hold their recordings", () => {
     expect(got).toEqual(SELECT_CASES.map((c) => `${c.name}: ${c.expected} from ${ran(c)}`))
   })
 
+  test("every REAL SQRT case is the recorded cell of the fixture it names, from the REAL it ran", () => {
+    const number = (text: string, where: string): number => Number(typed(text, where).text)
+    const got = SQRT_CASES.map((c) => `${c.name}: ${Math.fround(number(recorded(c), c.name))} from ${number(recordedInput(c), c.name)}`)
+    expect(got).toEqual(SQRT_CASES.map((c) => `${c.name}: ${c.expected} from ${c.input.value}`))
+  })
+
   test("every EXPT case is the recorded cell of the fixture it names — its result, or the task stopping — from the exponent it ran", () => {
     const got = EXPT_CASES.map((c) => {
       const rec = RUNS[c.recording!.fixture]
@@ -448,6 +455,30 @@ ${FAULT_OF}`
     const got = await runTwin("numeric_select", runtimeText("iec_fmax") + runtimeText("iec_fmin"), SELECT_CASES.map((c) => selectCaseRust(c.input)))
     const { got: g, expected } = compare(SELECT_CASES, got)
     expect(g).toEqual(expected)
+  }, 60_000)
+
+  // 7.3.6: a REAL SQRT is printed `f32::sqrt` — the recorded cells, and the f64 round trip it replaced over the REAL edges
+  // and a stride through every bit pattern (the exhaustive 2^32 run, measured once, found 0 differences)
+  test("emit/rust/builtins.ts: f32::sqrt over every recorded REAL SQRT cell, and the f64 round trip over a stride of all REALs", async () => {
+    const bits = (v: number): string => {
+      const view = new DataView(new ArrayBuffer(4))
+      view.setFloat32(0, v)
+      return `0x${view.getUint32(0).toString(16)}`
+    }
+    const shown = (v: number): string => (Number.isNaN(v) ? "nan" : bits(v))
+    const sweep = [
+      "{ let same = |a: f32, b: f32| (a.is_nan() && b.is_nan()) || a.to_bits() == b.to_bits();",
+      "let mut diff = 0u32; let mut i: u64 = 0;",
+      "while i <= u64::from(u32::MAX) { let x = f32::from_bits(i as u32); if !same(x.sqrt(), (f64::from(x).sqrt()) as f32) { diff += 1; } i += 4099; }",
+      "for x in [0.0f32, -0.0, f32::INFINITY, f32::NEG_INFINITY, f32::NAN, f32::MIN_POSITIVE, f32::MAX, f32::from_bits(1), 2.0, -1.0] { if !same(x.sqrt(), (f64::from(x).sqrt()) as f32) { diff += 1; } }",
+      "diff }",
+    ].join(" ")
+    const got = await runTwin("numeric_sqrt", "", [
+      ...SQRT_CASES.map((c) => `{ let r = f32::from_bits(${bits(c.input.value)}).sqrt(); if r.is_nan() { "nan".to_string() } else { format!("0x{:x}", r.to_bits()) } }`),
+      sweep,
+    ])
+    expect(SQRT_CASES.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(SQRT_CASES.map((c) => `${c.name}: ${shown(c.expected)}`))
+    expect(got.at(-1)).toBe("0")
   }, 60_000)
 
   test("runtime/numeric.ts: iec_pow over every recorded EXPT cell — C's pow, and the stop on 0 to a finite negative", async () => {

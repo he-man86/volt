@@ -1,22 +1,23 @@
 /** CONVERSIONS AS RUST — the `convert` node by the measured rules (design §11), and the casts a builtin adds. */
 import type { IrExpr, IrPou, IrValue } from "../../ir/index.js"
 import { isTemporal, type Type } from "../../../frontend/types/index.js"
-import { expr, unparen } from "./expr.js"
+import { print } from "./expr.js"
+import { at, Prec, printed, type Printed } from "./precedence.js"
 import { type Printer, use } from "./printer.js"
 import type { RuntimeId } from "./runtime/index.js"
 import { emittedFamily, isReal32, rustType, stringPath, stringType } from "./types.js"
+import { grouped } from "./values.js"
 
 /**
- * `text as target`, or `text` unchanged when it already IS that Rust type — the twin of the identity rule in
- * `convert`, for the casts a BUILTIN adds on top of an argument the IR already typed: `SHL`s `as u32`, the math
- * helpers `as f64`, the string helpers `as i64`. Parenthesized when it does cast, because every one of these
- * lands in a receiver or an argument position.
+ * `value as target` (or `target::from(value)`), or `value` unchanged when it already IS that Rust type — the twin of the
+ * identity rule in `convert`, for the casts a BUILTIN adds on top of an argument the IR already typed: `SHL`s `as u32`,
+ * the math helpers `as f64`, the string helpers `as i64`.
  */
-export function castTo(text: string, from: Type, target: string, value?: IrExpr): string {
+export function castTo(value: Printed, from: Type, target: string, constant?: IrExpr): Printed {
   // A CONSTANT IS CAST WHERE IT IS PRINTED (7.2.10): `4i64`, not `(4i8 as i64)` — when the target holds it exactly
-  const typed = value?.kind === "const" ? castLiteral(typeof value.value === "number" && isReal32(from) ? Math.fround(value.value) : value.value, target) : undefined
+  const typed = constant?.kind === "const" ? castLiteral(typeof constant.value === "number" && isReal32(from) ? Math.fround(constant.value) : constant.value, target) : undefined
   if (typed !== undefined) return typed
-  return rustType(from) === target ? text : cast(text, rustType(from), target)
+  return rustType(from) === target ? value : cast(value, rustType(from), target)
 }
 
 /** The widenings Rust has a `From` for — each keeps every value of its source (7.3.5). */
@@ -32,16 +33,16 @@ const LOSSLESS: Readonly<Record<string, readonly string[]>> = {
 }
 
 /**
- * `text` (of the Rust type `from`) as a `target`: `target::from(text)` when that widening keeps every value, `(text as
- * target)` when it truncates or reinterprets (7.3.5: clippy's `cast_lossless` names every `as` of the first kind).
+ * `value` (of the Rust type `from`) as a `target`: `target::from(value)` when that widening keeps every value, `value as
+ * target` when it truncates or reinterprets (7.3.5: clippy's `cast_lossless` names every `as` of the first kind).
  */
-export function cast(text: string, from: string, target: string): string {
-  return LOSSLESS[from]?.includes(target) === true ? `${target}::from(${unparen(text)})` : `(${text} as ${target})`
+export function cast(value: Printed, from: string, target: string): Printed {
+  return LOSSLESS[from]?.includes(target) === true ? printed(`${target}::from(${at(value, Prec.Block)})`, Prec.Postfix) : printed(`${at(value, Prec.As)} as ${target}`, Prec.As)
 }
 
-/** A constant (a REAL's already its f32) as a literal of the Rust numeric type `target`, when that type holds it exactly (parenthesized when
- *  negative: a cast lands in receiver positions); undefined when it does not. */
-function castLiteral(v: IrValue, target: string): string | undefined {
+/** A constant (a REAL's already its f32) as a literal of the Rust numeric type `target`, when that type holds it exactly
+ *  (a negative one binds as a unary minus); undefined when it does not. */
+function castLiteral(v: IrValue, target: string): Printed | undefined {
   const int = /^([iu])(8|16|32|64)$/.exec(target)
   const signedRange = (bits: number): [bigint, bigint] => [-(1n << BigInt(bits - 1)), (1n << BigInt(bits - 1)) - 1n]
   let text: string | undefined
@@ -54,12 +55,13 @@ function castLiteral(v: IrValue, target: string): string | undefined {
   } else if (typeof v === "number" && target === "f64" && Number.isFinite(v)) {
     text = `${Number.isInteger(v) ? `${v}.0` : `${v}`}f64`.replace(/^(-?\d+(?:\.\d+)?e[+-]?\d+)\.0f64$/, "$1f64")
   }
-  return text === undefined ? undefined : text.startsWith("-") ? `(${text})` : text
+  if (text !== undefined) text = grouped(text)
+  return text === undefined ? undefined : printed(text, text.startsWith("-") ? Prec.Unary : Prec.Postfix)
 }
 
 /** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
-export function fromF64(text: string, target: string): string {
-  return target === "f64" ? text : `(${text} as ${target})`
+export function fromF64(value: Printed, target: string): Printed {
+  return target === "f64" ? value : printed(`${at(value, Prec.As)} as ${target}`, Prec.As)
 }
 
 /** Each temporal type's formatter (`runtime/text.ts`), by its canonical name. */
@@ -81,11 +83,13 @@ function temporalText(source: string): RuntimeId {
   return id
 }
 
-export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>, slots: IrPou["slots"]): string {
+export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>, slots: IrPou["slots"]): Printed {
   // The measured rules (design §11), each where Rust's bare `as` means something else: a float → int `as`
   // TRUNCATES and SATURATES, where CODESYS rounds half away from zero (`f64::round` is exactly that) and wraps
   // (through i64, then `as` between ints wraps); `as bool` does not exist; nor does `bool as f32`.
-  const value = expr(p, e.value, slots)
+  const value = print(p, e.value, slots)
+  const receiver = at(value, Prec.Postfix)
+  const bare = at(value, Prec.Block)
   const from = emittedFamily(e.value.type)
   const to = emittedFamily(e.type)
   const target = rustType(e.type)
@@ -102,29 +106,29 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     const target = stringType(e.type)
     const source = stringType(e.value.type)
     const how = target.name === source.name ? "to" : target.name === "IecString" ? "narrow" : "widen"
-    return `${value}.${how}::<${target.capacity}>()`
+    return printed(`${receiver}.${how}::<${target.capacity}>()`, Prec.Postfix)
   }
   if (to === "string") {
     const source = e.value.type.kind === "elementary" ? e.value.type.name : ""
     // a formatter writes into the STRING it answers, at the target's capacity (`runtime/text.ts`, lean 9.4)
-    const written = (id: RuntimeId, arg: string): string => {
+    const written = (id: RuntimeId, arg: string): Printed => {
       const target = stringType(e.type)
       if (target.name !== "IecString") throw new Error(`emit: ${source}_TO_${e.type.kind === "elementary" ? e.type.name : "?"} has no formatter`)
-      return `${use(p, id)}::<${target.capacity}>(${arg})`
+      return printed(`${use(p, id)}::<${target.capacity}>(${arg})`, Prec.Postfix)
     }
     // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past printed a negative
     // duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
-    if (isTemporal(source)) return written(temporalText(source), unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64", e.value)))
-    if (source === "LREAL") return written("iec_lreal_text", unparen(value))
-    const text = from === "bool" ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })` : `format!("{}", ${unparen(value)})`
-    return `${stringPath(e.type)}::lit(${text}.as_bytes())`
+    if (isTemporal(source)) return written(temporalText(source), at(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64", e.value), Prec.Block))
+    if (source === "LREAL") return written("iec_lreal_text", bare)
+    const text = from === "bool" ? `(if ${bare} { "TRUE" } else { "FALSE" })` : `format!("{}", ${bare})`
+    return printed(`${stringPath(e.type)}::lit(${text}.as_bytes())`, Prec.Postfix)
   }
   // the parse helpers already RETURN `f64` / `i64`; casting to the same type is `unnecessary_cast`
   if (from === "string") {
-    const parsed = `${use(p, to === "real" ? "iec_parse_real" : "iec_parse_int")}(${value}.units())`
-    return target === (to === "real" ? "f64" : "i64") ? parsed : `(${parsed} as ${target})`
+    const parsed = printed(`${use(p, to === "real" ? "iec_parse_real" : "iec_parse_int")}(${receiver}.units())`, Prec.Postfix)
+    return target === (to === "real" ? "f64" : "i64") ? parsed : printed(`${parsed.text} as ${target}`, Prec.As)
   }
-  if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
+  if (to === "bool") return from === "bool" ? value : printed(`${at(value, Prec.Compare + 1)} != ${from === "real" ? "0.0" : "0"}`, Prec.Compare)
   if (from === "bool") return to === "real" ? cast(cast(value, "bool", "u8"), "u8", target) : cast(value, "bool", target)
   // REAL -> INTEGER IS DONE AT THE DESTINATION'S REGISTER WIDTH, then wrapped into the target — the emitted
   // twin of `coerce` in the interpreter, where the 192 measured cells are set out. This went through a 64-bit
@@ -135,8 +139,8 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     const wide = e.type.kind === "elementary" && e.type.elem.bits >= 64
     // the helper already RETURNS the register width; casting i32 to i32 is what `unnecessary_cast` names
     const helper = use(p, wide ? "iec_r2i64" : "iec_r2i32")
-    const call = `${helper}(${unparen(castTo(value, e.value.type, "f64", e.value))})`
-    return target === (wide ? "i64" : "i32") ? call : `(${call} as ${target})`
+    const call = printed(`${helper}(${at(castTo(value, e.value.type, "f64", e.value), Prec.Block)})`, Prec.Postfix)
+    return target === (wide ? "i64" : "i32") ? call : printed(`${call.text} as ${target}`, Prec.As)
   }
   return cast(value, rustType(e.value.type), target)
 }

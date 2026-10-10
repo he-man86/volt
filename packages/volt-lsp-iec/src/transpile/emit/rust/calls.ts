@@ -5,13 +5,14 @@
 import type { IrBinding, IrExpr, IrPou, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall } from "../../ir/walk.js"
 import { rustFaultLiteral } from "../../ir/faults.js"
-import { expr, unparen } from "./expr.js"
+import { expr } from "./expr.js"
+import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
 import { movedOut, place } from "./place.js"
 import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, type Printer, push, typeOf } from "./printer.js"
 import { isCopy } from "./types.js"
 
-export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): string {
+export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): Printed {
   // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
   const routine = p.routines.get(e.routine)!
   // An input holding a call makes its evaluation order visible: every input is then taken into a `let`, in the order
@@ -21,9 +22,9 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   const onProgram = e.instance !== undefined && e.instance.root === "global" && p.globals.slots[e.instance.slot]?.section === "program"
   const hoisted = onProgram || e.inputs.some(holdsCall)
   const inputLets = hoisted
-    ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let ${tmp("arg", k)} = ${unparen(expr(p, e.inputs[k]!, slots))};` : `${place(p, k.temp, slots)} = ${unparen(expr(p, k.value, slots))};`)).join(" ")
+    ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let ${tmp("arg", k)} = ${expr(p, e.inputs[k]!, slots, Prec.Block)};` : `${place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`)).join(" ")
     : ""
-  const inputs = e.inputs.map((a, k) => (hoisted ? tmp("arg", k) : unparen(expr(p, a, slots))))
+  const inputs = e.inputs.map((a, k) => (hoisted ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)
   const args = callArguments(p, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
   const fn = p.fnNames.get(routine.key)!
@@ -33,20 +34,20 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   // hold the value across the copy-back / the move-back, which a `()` needs no help with: the call runs as a
   // statement and the block's own value is the unit it would have carried.
   const yields = routine.result !== undefined
-  const call =
+  const call: Printed =
     e.instance === undefined
-      ? `${fn}(${args})`
+      ? printed(`${fn}(${args})`, Prec.Postfix)
       : moved !== undefined
         ? yields
-          ? `{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); let ${tmp("result")} = ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; ${tmp("result")} }`
-          : `{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; }`
-        : guarded(p, e.instance, `${place(p, e.instance, slots)}.${fn}(${args})`, slots)
+          ? printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); let ${tmp("result")} = ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; ${tmp("result")} }`, Prec.Postfix)
+          : printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; }`, Prec.Postfix)
+        : guarded(p, e.instance, printed(`${place(p, e.instance, slots)}.${fn}(${args})`, Prec.Postfix), slots)
   // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
   const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : guarded(p, b, text, slots)), call)
   const lets = [inputLets, lentCopies(p, e.inouts, slots)].filter((l) => l !== "").join(" ")
   const back = copiesBack(p, e.inouts, slots)
-  if (back !== "") return yields ? `{ ${lets} let ${tmp("back")} = ${checked}; ${back} ${tmp("back")} }` : `{ ${lets} ${checked}; ${back} }`
-  return lets === "" ? checked : `{ ${lets} ${checked} }`
+  if (back !== "") return printed(yields ? `{ ${lets} let ${tmp("back")} = ${checked.text}; ${back} ${tmp("back")} }` : `{ ${lets} ${checked.text}; ${back} }`, Prec.Postfix)
+  return lets === "" ? checked : printed(`{ ${lets} ${checked.text} }`, Prec.Postfix)
 }
 
 /** A generated call's arguments: `g`/`prg`, the inputs, each VAR_IN_OUT lent (`lend`), then each instance lent to the
@@ -55,21 +56,21 @@ function callArguments(p: Printer, inputs: readonly string[], inouts: readonly I
   return [...globalsArgs(p), ...inputs, ...inouts.map((b, i) => lend(p, b, i, params[i]!, slots)), ...lent.map((l) => lendMut(p, l, slots))].join(", ")
 }
 
-export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }>, slots: IrPou["slots"]): string {
+export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }>, slots: IrPou["slots"]): Printed {
   // a call through an interface: its value picks the instance; none — a null interface — panics (design §22).
   //
   // `panic!` IS `!`, which coerces to any type, so the arm needs no help — EXCEPT when there is no other arm.
   // An interface nothing is ever stored into makes every arm `!`, so the match itself is `!`, which no cast
   // takes (E0605) and rustc calls unreachable (found in a review, 2026-09-15). A closure of the call's own
   // type fixes that, and it was applied to EVERY dispatch, which is 19 `clippy::redundant_closure_call`.
-  const arms = e.arms.map((a) => `${a.tag} => ${expr(p, a.call, slots)},`).join(" ")
+  const arms = e.arms.map((a) => `${a.tag} => ${expr(p, a.call, slots, Prec.Block)},`).join(" ")
   const typed = e.type.kind === "unknown" ? "()" : typeOf(p, e.type)
   const nothing = `panic!(${rustFaultLiteral(e.fault)})`
   const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
-  return `(match ${expr(p, e.tag, slots)} { ${arms} _ => ${none} })`
+  return printed(`match ${expr(p, e.tag, slots, Prec.Block)} { ${arms} _ => ${none} }`, Prec.Block)
 }
 
-export function exprSelect(p: Printer, e: Extract<IrExpr, { kind: "select" }>, slots: IrPou["slots"]): string {
+export function exprSelect(p: Printer, e: Extract<IrExpr, { kind: "select" }>, slots: IrPou["slots"]): Printed {
   // a read through a pointer that may name several variables (form 3): the tag picks the place. `panic!` for a
   // tag no arm names, which is the null dereference `iec_deref` raises for the single-target form — and the
   // same closure trick when there is no arm at all, for the reason the `dispatch` note above gives.
@@ -82,9 +83,9 @@ export function exprSelect(p: Printer, e: Extract<IrExpr, { kind: "select" }>, s
   // and wrapping it in `match tag { _ => … }` is a match on nothing — `clippy::match_single_binding`, plus
   // the closure `dispatch` needs only because a `!` match cannot be CAST. Here it is assigned, and `!`
   // coerces to any type on the way in, so the bare `panic!` is both correct and what a reader expects.
-  if (e.arms.length === 0) return nothing
+  if (e.arms.length === 0) return printed(nothing, Prec.Postfix)
   const arms = e.arms.map((a) => `${a.tag} => ${read(a.place)},`).join(" ")
-  return `(match ${expr(p, e.tag, slots)} { ${arms} _ => ${nothing} })`
+  return printed(`match ${expr(p, e.tag, slots, Prec.Block)} { ${arms} _ => ${nothing} }`, Prec.Block)
 }
 
 export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots: IrPou["slots"], indent: number): void {
@@ -99,7 +100,7 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   const back = copiesBack(p, s.inouts, slots)
   // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
   if (s.bind !== undefined)
-    push(p, `${place(p, s.bind.place, slots)} = ${expr(p, { kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots)};`, indent, s.span)
+    push(p, `${place(p, s.bind.place, slots)} = ${expr(p, { kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots, Prec.Block)};`, indent, s.span)
   // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
   // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
   if (s.instance.root === "global" && p.globals.slots[s.instance.slot]?.section === "program") {

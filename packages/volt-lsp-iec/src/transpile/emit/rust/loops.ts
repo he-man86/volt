@@ -1,7 +1,7 @@
 /** LOOPS AS RUST — the one IR loop as one Rust `loop`, and EXIT and CONTINUE as breaks out of its two labels. */
 import type { IrPou, IrStmt } from "../../ir/index.js"
 import { loopUses } from "../../ir/walk.js"
-import { negated } from "./expr.js"
+import { head, negated } from "./expr.js"
 import { tmp } from "./names.js"
 import { type Printer, push } from "./printer.js"
 import { block, stmt } from "./stmt.js"
@@ -22,7 +22,7 @@ export function stmtLoop(p: Printer, s: Extract<IrStmt, { kind: "loop" }>, slots
   if (p.loopGuard !== undefined) push(p, `let mut ${tmp("guard", frame.n)}: u64 = 0;`, indent)
   push(p, `${uses.exits ? `'loop_${frame.n}: ` : ""}loop {`, indent, s.span)
   if (s.test !== undefined && !s.test.atEnd)
-    push(p, `if ${negated(p, s.test.cond, slots)} { break; }`, indent + 1)
+    push(p, `if ${head(negated(p, s.test.cond, slots))} { break; }`, indent + 1)
   if (p.loopGuard !== undefined) {
     const guard = String(p.loopGuard).replace(/\B(?=(\d{3})+(?!\d))/g, "_")
     push(p, `${tmp("guard", frame.n)} += 1;`, indent + 1)
@@ -35,7 +35,7 @@ export function stmtLoop(p: Printer, s: Extract<IrStmt, { kind: "loop" }>, slots
   push(p, "}", indent + 1)
   for (const step of s.step) stmt(p, step, slots, indent + 1)
   if (s.test !== undefined && s.test.atEnd)
-    push(p, `if ${negated(p, s.test.cond, slots)} { break; }`, indent + 1)
+    push(p, `if ${head(negated(p, s.test.cond, slots))} { break; }`, indent + 1)
   push(p, "}", indent)
   return
 }

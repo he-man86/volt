@@ -121,7 +121,9 @@ function exactAs(e: IrExpr, t: Type): IrExpr | undefined {
     if (!holdsEvery(e.type, from) || !holdsEvery(t, from)) return undefined
     return sameType(from, t) ? e.value : { kind: "convert", value: e.value, type: t, span: e.span }
   }
-  if (e.kind === "builtin" && (e.name === "max" || e.name === "min" || e.name === "limit") && integerBits(t) !== undefined) {
+  // MAX/MIN/LIMIT pick one of their operands: of REALs widened to LREAL (and constants an f32 holds) too — the compare-select
+  // keeps its order, its NaN and its signed zeros through an exact widening (7.3.7)
+  if (e.kind === "builtin" && (e.name === "max" || e.name === "min" || e.name === "limit") && (integerBits(t) !== undefined || real32(t))) {
     const args = e.args.map((a) => exactAs(a, t))
     return args.every((a) => a !== undefined) ? { ...e, args: args as IrExpr[], type: t } : undefined
   }
@@ -165,6 +167,8 @@ function narrowed(e: IrExpr): IrExpr {
   if (e.kind === "convert") {
     const [to, from] = [integerBits(e.type), integerBits(e.value.type)]
     const inner = e.value
+    // a REAL selection computed in LREAL, stored back into a REAL (7.3.7): `iec_fmax(self.n, 2.5f32)`, no f64 round trip
+    if (real32(e.type) && inner.kind === "builtin" && isReal(inner.type)) return exactAs(inner, e.type) ?? e
     if (to === undefined || from === undefined || to > from || inner.kind === "convert" || inner.kind === "const") return e
     return ringAs(inner, e.type) ?? e
   }

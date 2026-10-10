@@ -108,7 +108,7 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
   // callee read the REAL's storage as an INT — a value no backend defines (transpile-restructure 7.3.1 found it: the
   // interpreter's answer changed once the INT arithmetic on it computed narrow). Only the real/integer crossing is
   // recorded; two integer types of another width or sign are not, and stay lent as before.
-  if (numeric(param.type) !== undefined && numeric(target.type) !== undefined && numeric(param.type) !== numeric(target.type))
+  if (param.section !== "VAR_OUTPUT" && numeric(param.type) !== undefined && numeric(target.type) !== undefined && numeric(param.type) !== numeric(target.type))
     return lw.bail("call-inout-type", `${param.name} is a ${numeric(param.type)} bound to a ${numeric(target.type)}`, arg.span)
   return target
 }

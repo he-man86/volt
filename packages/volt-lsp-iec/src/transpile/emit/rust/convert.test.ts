@@ -66,10 +66,11 @@ describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
 })
 
 test("a constant cast prints as a literal of the target type — a REAL's f32 value, exactly (7.2.10)", () => {
-  const { pou } = lowerSource("PROGRAM P\nVAR a : LREAL; b : LREAL; c : DINT; END_VAR\na := SQRT(REAL#0.1);\nb := SQRT(4);\nc := TRUNC(REAL#2.5);\nEND_PROGRAM\n")
+  // (EXP, not SQRT: a REAL SQRT computes in f32 since 7.3.6 — `0.1f32.sqrt()` — and the digits group, 7.2.11)
+  const { pou } = lowerSource("PROGRAM P\nVAR a : LREAL; b : LREAL; c : DINT; END_VAR\na := EXP(REAL#0.1);\nb := SQRT(4);\nc := TRUNC(REAL#2.5);\nEND_PROGRAM\n")
   const code = emitRust(pou!).code
-  expect(code).toContain("0.10000000149011612f64.sqrt()") // the f32 0.1, widened — not the f64 0.1
-  expect(code).not.toContain(" as f64).sqrt()")
+  expect(code).toContain("0.100_000_001_490_116_12f64.exp()") // the f32 0.1, widened — not the f64 0.1
+  expect(code).not.toContain(" as f64).exp()")
 })
 
 /**
@@ -89,4 +90,21 @@ test("a lossless widening prints T::from, a truncating or reinterpreting cast `a
   expect(code).toContain("self.i2 = self.di as i16;")
   expect(code).toContain("self.ud = self.di as u32;")
   expect(code).toContain("self.lr = f64::from(self.ui);")
+})
+
+/**
+ * A TICK CONVERSION IN THE WIDTH IT NEEDS (7.3.9, 7.3.10): a 32-bit source scaled down, at the same tick, or cut to its
+ * day stays in its own u32 (`self.t / 1000u32`, `self.d`); one scaled up computes in u64, where the product cannot
+ * overflow, with a plain `*`; the whole days `count / day * day` are at most the count, a plain `*` too. And a widening
+ * that keeps every value followed by a conversion is that one conversion (`self.u as i16`).
+ */
+test("tick conversions compute in the width they need, a product that cannot overflow with `*`; a cast chain is one cast", () => {
+  const code = rust(
+    "PROGRAM P\nVAR t : TOD := TOD#1:0:0; d : DATE := D#2024-1-1; dt1 : DT; dt2 : DT; ldd : LDATE; dt3 : DT := DT#2024-1-1-10:0:0; dd : DATE; u : UINT := 40000; e : INT; END_VAR\ndt1 := TOD_TO_DT(t);\ndt2 := DATE_TO_DT(d);\nldd := DATE_TO_LDATE(d);\ndd := DT_TO_DATE(dt3);\ne := UINT_TO_INT(u);\nEND_PROGRAM\n",
+  )
+  expect(code).toContain("self.dt1 = self.t / 1000u32;")
+  expect(code).toContain("self.dt2 = self.d;")
+  expect(code).toContain("self.ldd = u64::from(self.d) * 1_000_000_000u64;")
+  expect(code).toContain("self.dd = self.dt3 / 86400u32 * 86400u32;")
+  expect(code).toContain("self.e = self.u as i16;")
 })

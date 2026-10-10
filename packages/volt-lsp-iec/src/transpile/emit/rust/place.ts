@@ -4,9 +4,23 @@ import type { IrExpr, IrPou, Place } from "../../ir/index.js"
 import { elementOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
 import { rustType } from "./types.js"
-import { expr } from "./expr.js"
+import { expr, print } from "./expr.js"
+import { at as atLeast, Prec, printed, type Printed } from "./precedence.js"
 import { tmp } from "./names.js"
 import type { Printer } from "./printer.js"
+
+/** A place as an expression: a dereferenced whole value is a unary `*v` (parenthesized only where a receiver needs it),
+ *  anything else a path. */
+export function placeExpr(p: Printer, at: Place, slots: IrPou["slots"]): Printed {
+  const text = place(p, at, slots)
+  return DEREF.test(text) ? printed(text.slice(1, -1), Prec.Unary) : printed(text, Prec.Postfix)
+}
+
+/** The one parenthesized form `place` prints: a dereferenced name, `(*v)`. */
+const DEREF = /^\(\*[\w.]+\)$/
+
+/** A place as an assignment's left-hand side: `*v = x`, not `(*v) = x`. */
+export const lvalue = (text: string): string => (DEREF.test(text) ? text.slice(1, -1) : text)
 
 /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
 export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
@@ -65,7 +79,7 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
       // as a declared bound comes off (below): a position under 0 wraps to a huge one and panics
       const offset = step.index
       if (step.lower === 0n && offset.kind === "binary" && offset.op === "sub" && widenedNarrow(offset.left) && widenedNarrow(offset.right)) {
-        const own = (x: Extract<IrExpr, { kind: "convert" }>): string => `${expr(p, x.value, slots)} as usize`
+        const own = (x: Extract<IrExpr, { kind: "convert" }>): string => `${expr(p, x.value, slots, Prec.As)} as usize`
         text += `[(${own(offset.left)}).wrapping_sub(${own(offset.right)})]`
         type = elementOf(type)!
         continue
@@ -73,8 +87,8 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
       if (step.index.kind === "const") {
         // a constant outside the array: the run-time check a bare position would not compile without — the constant
         // printed as an `i64` literal, which rustc's constant evaluation sees through (an `i64::from(…)` it does not)
-        const index = castTo(expr(p, step.index, slots), step.index.type, "i64", step.index)
-        text += step.lower === 0n ? `[${index} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
+        const index = castTo(print(p, step.index, slots), step.index.type, "i64", step.index)
+        text += step.lower === 0n ? `[${atLeast(index, Prec.As)} as usize]` : `[(${atLeast(index, Prec.Add)} - ${step.lower}i64) as usize]`
         type = elementOf(type)!
         continue
       }
@@ -82,13 +96,15 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
       // `(i as i64) as usize` for every integer of 64 bits or fewer (sign- or zero-extended alike), so a widening the
       // IR put in front of it is skipped too — and the lower bound comes off in `usize`'s wrapping arithmetic: an index
       // below the bound, a negative one included, wraps to a huge position and panics like one above the upper.
-      // NOT `unparen`ed: `as` binds TIGHTER than the arithmetic operators, so `(self.li / 2i64)` must keep its
-      // parentheses or Rust reads `self.li / (2i64 as usize)` — E0277.
+      // `as` binds TIGHTER than the arithmetic operators, so `(self.li / 2i64)` keeps its parentheses before one, or Rust
+      // reads `self.li / (2i64 as usize)` — E0277.
       const own = widenedIndex(step.index) ? step.index.value : step.index
-      const printed = expr(p, own, slots)
+      const index = print(p, own, slots)
       const cast = rustType(own.type) !== "usize"
       const lower = step.lower > 0n ? `.wrapping_sub(${step.lower})` : `.wrapping_add(${-step.lower})`
-      text += step.lower === 0n ? `[${cast ? `${printed} as usize` : printed}]` : `[${cast ? `(${printed} as usize)` : printed}${lower}]`
+      text += step.lower === 0n
+        ? `[${cast ? `${atLeast(index, Prec.As)} as usize` : atLeast(index, Prec.Block)}]`
+        : `[${cast ? `(${atLeast(index, Prec.As)} as usize)` : atLeast(index, Prec.Postfix)}${lower}]`
       type = elementOf(type)!
     }
   }

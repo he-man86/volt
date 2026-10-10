@@ -5349,31 +5349,80 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     `needless_bitwise_bool` 183 -> 152, `invalid_upcast_comparisons` 20 -> 0); surviving lints `assign_op_pattern` 1 -> 0,
     `identity_op` 1 -> 0; allowed `eq_op` 16 -> 15; tier decl 773 -> 774, arith 1575 -> 1574 (clean 1573 both), call 298 ->
     297 (clean 295 -> 294); edge not-run 221 -> 220 (`does not build` 75 -> 74); constructs 2026 -> 2035, noted 503 -> 370.
-- [ ] 7.3.6 REAL SQRT in f32 (proven identical).
+- [x] 7.3.6 REAL SQRT in f32 (proven identical).
   - Notes: c2d750a62a, 428230e030.
   - Where: `emit/rust/builtins.ts`.
   - Accept: twin cells plus S-out.
   - Depends: 1.9.4.
-- [ ] 7.3.7 REAL MAX/MIN with an untyped real literal needs no f64 round-trip.
+  - Done 2026-10-10 (step 7.3b). `emit/rust/builtins.ts` `math`: SQRT of a REAL into a REAL is `x.sqrt()` in f32. Proven,
+    not argued: IEEE sqrt rounds correctly and 53 >= 2·24 + 2, so the f64 round trip's double rounding is innocuous — and
+    measured exhaustively over all 2^32 REAL bit patterns on this platform (a scratch Rust program, -O, 16 lanes, 2 min 19
+    s): 0 differences. Twin cells: new `semantics/numeric.cases.ts` `SQRT_CASES` (the recorded `sqrt_precision`
+    ofRealIntoReal / ofReal and `domain_sqrt_negative`), held to their recordings in `runtime-twins.test.ts`, and a Rust
+    twin running `f32::sqrt` over them plus the f64 round trip against `f32::sqrt` over the REAL edges and a stride of 4,099
+    through every bit pattern (0 differences). The 7.2.10 text pin `0.10000000149011612f64.sqrt()` reads EXP instead
+    (`0.100_000_001_490_116_12f64.exp()`): SQRT of a REAL constant is `0.1f32.sqrt()` now. Notes resolved (8): 20494df40a,
+    2b6fabd208, 7ccd0079f0, a0a25e1bb6, a33add7872, c2ca296181, c2d750a62a, fdc2e175fa.
+  - Gate review 7.2c+7.5b (2026-10-10): the full suite's `dead-exports` test (7.10.4) found `SqrtInput` exported and read
+    nowhere else — now module-private in `numeric.cases.ts`.
+- [x] 7.3.7 REAL MAX/MIN with an untyped real literal needs no f64 round-trip.
   - Notes: 5c9bb13706.
   - Where: `lower/builtins/value-functions.ts`.
   - Accept: S-out, M.
   - Depends: 6.7.
-- [ ] 7.3.8 A precedence-aware printer: delete `unparen`/`unparenHead` and the literal-paren special case.
+  - Done 2026-10-10 (step 7.3b). In 7.3.1's pass (`lower/values/promote.ts` `narrowed`, not `value-functions.ts`: the same
+    rule, one place): MAX/MIN/LIMIT of REALs met in LREAL with constants an f32 holds exactly, stored straight back into a
+    REAL, compute in REAL (`iec_fmax(self.n, 2.5f32)`) — the compare-select picks an operand and the exact widening kept its
+    order, NaN and signed zeros; a literal an f32 does not hold (0.1) keeps LREAL. Test `promote.test.ts` (shapes and
+    values). Notes resolved: 5c9bb13706.
+- [x] 7.3.8 A precedence-aware printer: delete `unparen`/`unparenHead` and the literal-paren special case.
   - Notes: b7bf67b59d, c8ac3c10c1, f474d0ca12.
   - Where: `emit/rust/expr.ts`, new `emit/rust/precedence.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
-- [ ] 7.3.9 Cast-chain simplification (u16→i32→u16).
+  - Done 2026-10-10 (step 7.3b). New `emit/rust/precedence.ts`: `Prec` (Rust's binding strengths), `Printed` (text +
+    strength), `at(r, min)` and `infix(l, op, r)` — an operand is parenthesized only where it binds looser, a right operand
+    of the same strength, a comparison beside a comparison, another operator beside a bit or shift operator (clippy's
+    `precedence`), a cast left of `<`/`<=`/`<<` (a generic otherwise), an `&&` beside `||`. Every expression printer
+    (`expr.ts`, `builtins.ts`, `convert.ts` incl. `castTo`/`cast`/`fromF64`, `calls.ts`, `image.ts`, `printer.ts` `guarded`,
+    `place.ts` `placeExpr`) answers a `Printed`; `expr(p, e, slots, min)` places it. Deleted: `unparen`, `unparenHead` and
+    the negative-literal special case beside an operator (`operand`); a negative literal is a unary minus (`(-1i32).max(x)`
+    as a receiver, `x * -0.5f64` as an operand). What stays position-specific: `head` (an `if`/`match` head parenthesizes a
+    block-like value, a block RECEIVER `{ … }.char_at(i)` stands bare) and `lvalue` (`*v = x`). Tests: new
+    `precedence.test.ts`; text pins in `expr.test.ts` and `convert.test.ts` read the bare forms (`{ … } as i16`, `self.dt3 /
+    86400u32 * 86400u32`). Notes resolved (3): b7bf67b59d, c8ac3c10c1, f474d0ca12.
+- [x] 7.3.9 Cast-chain simplification (u16→i32→u16).
   - Notes: e9a5cabd36.
   - Where: `lower/values/convert.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1.
-- [ ] 7.3.10 TIME/DATE→LTIME widening multiplies without wrapping.
+  - Done 2026-10-10 (step 7.3b). `lower/values/convert.ts` `unchained` (called by `fold.ts`'s conversion rule, which it
+    generalizes): an integer widened into a type that holds every value of it, then converted to an integer type, is that
+    one conversion (u16 -> DINT -> INT is `self.u as i16`; to its own type, the value). The temporal chains
+    (`u64::from(self.d) as u32` for DATE_TO_DT, TOD_TO_DT) went with 7.3.10's widths. Test `convert.test.ts` (emit). Notes
+    resolved (5): 4b3bf9305d, 5b2b842197, 72d7e39495, b18c6f96bc, e423691859.
+- [x] 7.3.10 TIME/DATE→LTIME widening multiplies without wrapping.
   - Notes: 6b4f1bb990, c2729b1a2a.
   - Where: `lower/builtins/conversions.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1.
+  - Done 2026-10-10 (step 7.3b). `lower/builtins/conversions.ts` `tickConversion`: a 32-bit source not scaled up (a
+    down-scale, the same tick, the day part after either) computes in UDINT, its own width (`self.t / 1000u32`, `self.d`,
+    `self.dt3 / 86400u32 * 86400u32`); one scaled up computes in ULINT, where (2^32 - 1) · 10^9 < 2^64 cannot overflow, so
+    the product is marked `IrBinary.noWrap` (new) and prints plain `*` (`u64::from(self.d) * 1_000_000_000u64`); the whole
+    days `count / day * day` are at most the count, `noWrap` too. Test `convert.test.ts`. Notes resolved (2): b4433b4d4d,
+    b6277ac29b. Also in this step: `convert.ts` `castLiteral` groups its digits like `literal` (7.2.11's rule; it printed
+    `0.10000000149011612f64`).
+    Step 7.3b numbers: S-out identical over 5535 fixtures against the step-start baseline but `cc5_in_out_type_mismatch`
+    (refused since 7.3a). M (against 7.3a's map): pedantic 9705 -> 9674 (`cast_possible_truncation` 806 -> 774,
+    `cast_possible_wrap` 300 -> 301); surviving and allowed lints unchanged (the bare operands added none); constructs 2035
+    -> 2032, noted 370 -> 351; tiers and edge unchanged. Re-keyed to their new lines (14, items kept): 3f69566d70 ->
+    30c4deeec9, 921e5bc37e -> 756ba59393, 0bb715a9a0 -> 62891f3570, e86c517757 -> e19d1f70e4 (7.3.13); 9a4f16d3bf ->
+    1097a31590, ba70c7f432 -> 8f827d085b (7.4.4); 2e20d3f400 -> 0f67e47dd7, ab6512a512 -> d8e8c0322e (7.4.9); aa7094c2a1 ->
+    3f8601dd97 (7.8.4); d7064e78d6 -> 5c910ed5e5, de8e299e9d -> 85a411f8be, 3b228d08cb -> fcab9a09d2, cf7c4043f7 ->
+    af2043b3cc, f22b4df758 -> 2b02494029 (7.5.6). `src/transpile/pipeline/control.test.ts` "FOR / REPEAT / WHILE run every
+    pass" timed out (5.2-7.0 s against its 5 s) in this session also with `narrowPou` switched off and on DINT loops no step
+    of this group changes — machine load, left for the gate's full run to judge.
 - [ ] 7.3.11 Keep promotion where it is needed: guard tests pin DIV (MIN/-1 measured), mixed sign, shifts and wider stores as promoted.
   - Where: `lower/values/promote.test.ts`.
   - Accept: G.

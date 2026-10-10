@@ -150,3 +150,15 @@ export function holdsEvery(wide: Type, narrow: Type): boolean {
   if (narrow.elem.signed && !wide.elem.signed) return false
   return narrow.elem.signed === wide.elem.signed ? wide.elem.bits >= narrow.elem.bits : wide.elem.bits > narrow.elem.bits
 }
+
+/**
+ * A CAST CHAIN AS ONE CONVERSION (7.3.9): an integer widened into a type that holds every value of it, then converted to
+ * an integer type, is that one conversion from the source (u16 -> DINT -> INT is the reinterpreting u16 -> INT; u16 ->
+ * DINT -> UINT is the u16 itself) — the widening kept the value, and the outer conversion wraps the same value the same
+ * way. Anything else is `e` as it is.
+ */
+export function unchained(e: Extract<IrExpr, { kind: "convert" }>): IrExpr {
+  const inner = e.value
+  if (inner.kind !== "convert" || !isIntegral(e.type) || !holdsEvery(inner.type, inner.value.type)) return e
+  return sameType(inner.value.type, e.type) ? inner.value : { ...e, value: inner.value }
+}

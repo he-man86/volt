@@ -149,3 +149,18 @@ test("a comparison of one type's values, or a constant that type holds, compares
     ["lt", "BOOL", "REAL", ["2.5", "REAL"]],
   ])
 })
+
+// 7.3.7: MAX/MIN/LIMIT of a REAL and an untyped real literal an f32 holds meet in LREAL, and stored back into the REAL the
+// selection computes in REAL — it picks an operand, and the widening kept every one; a literal an f32 does not hold (0.1)
+// keeps the LREAL computation
+test("a REAL selection with an exact real literal, stored back into a REAL, computes in REAL", () => {
+  const src = "PROGRAM P\nVAR n : REAL := 3.5; a : REAL; b : REAL; c : REAL; END_VAR\na := MAX(n, 2.5);\nb := LIMIT(0.5, n, 10.0);\nc := MIN(n, 0.1);\nEND_PROGRAM\n"
+  expect(storedShapes(src)).toEqual([
+    ["max", "REAL", "REAL", ["2.5", "REAL"]],
+    ["limit", "REAL", ["0.5", "REAL"], "REAL", ["10", "REAL"]],
+    ["convert", "REAL", ["min", "LREAL", ["convert", "LREAL", "REAL"], ["0.1", "LREAL"]]],
+  ])
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  expect(["a", "b", "c"].map((v) => runner.get(v))).toEqual([3.5, 3.5, Math.fround(0.1)])
+})

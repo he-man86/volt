@@ -343,3 +343,27 @@ export const TRUNC_CASES: readonly Case<TruncInput, bigint>[] = [
   trunc("trunc_beyond_dint", "toDint", "negGiant", "LREAL", -3e9, -2147483648n),
   trunc("conversion_trunc_real_to_dint", "fb_tr.diTruncated", "fb_tr.rValue", "REAL", 7.9, 7n),
 ]
+
+/** SQRT of a REAL — computed in f32 by both backends (transpile-restructure 7.3.6). */
+interface SqrtInput {
+  readonly value: number
+}
+
+const sqrtCell = (fixture: string, variable: string, input: string, value: number, expected: number): Case<SqrtInput, number> => ({
+  name: `${fixture} ${variable}`,
+  input: { value },
+  expected,
+  recording: { fixture, variable, input },
+})
+
+/**
+ * THE REAL SQRT CELLS: SQRT(REAL 2.0) into a REAL and into an LREAL (`sqrt_precision`: float32's 1.4142135381698608 —
+ * the REAL computes in REAL) and SQRT(REAL -1.0) (`domain_sqrt_negative`: NaN, the task carries on). The emitter prints a
+ * REAL SQRT as `f32::sqrt`, which equals the f64 round trip on every one of the 2^32 REAL inputs (7.3.6: IEEE sqrt rounds
+ * correctly and 53 >= 2·24 + 2, so the double rounding is innocuous; measured exhaustively 2026-10-10, 0 differences).
+ */
+export const SQRT_CASES: readonly Case<SqrtInput, number>[] = [
+  sqrtCell("sqrt_precision", "ofRealIntoReal", "r2", 2, Math.fround(Math.SQRT2)),
+  sqrtCell("sqrt_precision", "ofReal", "r2", 2, Math.fround(Math.SQRT2)),
+  sqrtCell("domain_sqrt_negative", "fb_domain_sqrt_negative.out", "fb_domain_sqrt_negative.x", -1, NaN),
+]

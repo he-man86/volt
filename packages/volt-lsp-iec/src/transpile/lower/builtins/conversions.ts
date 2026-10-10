@@ -287,10 +287,15 @@ function tickConversion(source: IrExpr, to: Type, span: Span): IrExpr | undefine
   // before taking the part within the day, and that intermediate is 1.78e12 — four hundred times what a UDINT
   // holds. The old special case dodged it by masking in SECONDS first, which only works because those two ticks
   // are a factor of 1000 apart; at 64 bits the rule needs no such ordering.
-  const work = elementaryRef("ULINT")
+  // …BUT A 32-BIT SOURCE THAT IS NOT SCALED UP never grows past itself (7.3.9, 7.3.10): a down-scale (TOD -> DT divides
+  // by 1000), the same tick (DATE -> DT) and the day part after either stay at or below the source, so they compute in the
+  // source's own width (UDINT: `self.v / 1000`, not `(u64::from(self.v) / 1000) as u32`). And an UP-scale of one cannot
+  // overflow the ULINT it computes in — at most (2^32 - 1) · 10^9 < 2^64 — so it multiplies without wrapping (`noWrap`).
+  const narrow = fromElem.bits <= 32
+  const work = elementaryRef(narrow && fromTick <= toTick ? "UDINT" : "ULINT")
   const w = (value: bigint): IrExpr => ({ kind: "const", value, type: work, span })
   let count: IrExpr = convert(source, work)
-  if (fromTick > toTick) count = { kind: "binary", op: "mul", left: count, right: w(fromTick / toTick), type: work, span }
+  if (fromTick > toTick) count = { kind: "binary", op: "mul", left: count, right: w(fromTick / toTick), type: work, span, ...(narrow ? { noWrap: true as const } : {}) }
   else if (toTick > fromTick) count = { kind: "binary", op: "div", left: count, right: w(toTick / fromTick), type: work, span }
   const dayTicks = 86_400_000_000_000n / toTick
   const part = DATE_PART[toName] ?? "all" // a duration has no calendar part to keep
@@ -300,10 +305,11 @@ function tickConversion(source: IrExpr, to: Type, span: Span): IrExpr | undefine
   if (part !== "all" && !(part === "day" && DATE_PART[fromName] === "day")) {
     const inDay: IrExpr = { kind: "binary", op: "mod", left: count, right: w(dayTicks), type: work, span }
     // the whole days of a count that reads nothing twice are `count / day * day`, one read (shapes10_2, 7.2.6); one
-    // holding a call keeps `count - count MOD day`, both reads — CODESYS runs that call twice (`xf_dt_to_date_call_once`)
+    // holding a call keeps `count - count MOD day`, both reads — CODESYS runs that call twice (`xf_dt_to_date_call_once`).
+    // The product is at most the count, so it multiplies without wrapping (`noWrap`, 7.3.10).
     const days: IrExpr = holdsCall(count)
       ? { kind: "binary", op: "sub", left: count, right: inDay, type: work, span }
-      : { kind: "binary", op: "mul", left: { kind: "binary", op: "div", left: count, right: w(dayTicks), type: work, span }, right: w(dayTicks), type: work, span }
+      : { kind: "binary", op: "mul", left: { kind: "binary", op: "div", left: count, right: w(dayTicks), type: work, span }, right: w(dayTicks), type: work, span, noWrap: true }
     count = part === "inDay" ? inDay : days
   }
   return { kind: "convert", value: count, type: to, span }

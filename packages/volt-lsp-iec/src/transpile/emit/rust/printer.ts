@@ -5,7 +5,8 @@
 import type { IrBinding, IrCopy, IrPou, IrRoutine, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
-import { expr, unparen } from "./expr.js"
+import { expr } from "./expr.js"
+import { at, Prec, printed, type Printed } from "./precedence.js"
 import { tmp } from "./names.js"
 import { place } from "./place.js"
 import type { Layouts } from "./values.js"
@@ -103,20 +104,20 @@ export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: Ir
  * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
  */
 export function lentCopies(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-  return bindings.flatMap((b, i) => ("kind" in b ? [`let ${written(b) ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots)};`] : [])).join(" ")
+  return bindings.flatMap((b, i) => ("kind" in b ? [`let ${written(b) ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots, Prec.Block)};`] : [])).join(" ")
 }
 
 /** A copy the callee may write — one written back, or an unconnected output's, discarded — is lent `&mut`; else `&`. */
 const written = (b: IrCopy): boolean => b.back !== undefined || b.discarded === true
 
 /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
-export function guarded(p: Printer, target: Place, text: string, slots: IrPou["slots"]): string {
-  if (target.guard === undefined) return text
+export function guarded(p: Printer, target: Place, value: Printed, slots: IrPou["slots"]): Printed {
+  if (target.guard === undefined) return value
   const pointer = place(p, target.guard, slots)
   // ONE GUARD PER STATEMENT: the statement's own line checked this pointer already (`Printer.checked`)
-  if (pointer === p.checked) return text
-  // the guarded value is the BLOCK's tail — it stands alone there, so a `(*v)` needs no parentheses of its own
-  return `{ ${use(p, "iec_deref")}(${pointer}); ${unparen(text)} }`
+  if (pointer === p.checked) return value
+  // the guarded value is the BLOCK's tail — it stands alone there, so a `*v` needs no parentheses of its own
+  return printed(`{ ${use(p, "iec_deref")}(${pointer}); ${at(value, Prec.Block)} }`, Prec.Postfix)
 }
 
 /** A write through a dereference is checked on the line before it. */

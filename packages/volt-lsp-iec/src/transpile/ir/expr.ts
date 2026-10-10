@@ -287,6 +287,10 @@ export interface IrBinary {
    *  needed, so the Rust prints plain `/` and `%` (lowering decides it, `lower/values/fold.ts`; the interpreter computes
    *  the same either way). */
   nonzeroDivisor?: true
+  /** A `mul` lowering proved cannot leave its type — a 32-bit tick count scaled up in ULINT (`lower/builtins/conversions.ts`
+   *  `tickConversion`, 7.3.10) — so the Rust prints plain `*`, not `wrapping_mul` (the interpreter computes the same either
+   *  way). */
+  noWrap?: true
 }
 export interface IrUnary {
   kind: "unary"

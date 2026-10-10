@@ -3,10 +3,11 @@ import type { IrPou, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall, sameNode } from "../../ir/walk.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { stmtCall } from "./calls.js"
-import { expr, unparen, unparenHead } from "./expr.js"
+import { expr, head, print } from "./expr.js"
+import { at, Prec } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
-import { place } from "./place.js"
+import { lvalue, place } from "./place.js"
 import { guardLine, type Printer, push } from "./printer.js"
 import { rustType } from "./types.js"
 import { storeImage } from "./image.js"
@@ -59,24 +60,22 @@ function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: I
 
 function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
   // a store into the image moves the value's bytes (`image.ts`)
-  if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots), slots), indent, s.span)
+  if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots, Prec.Block), slots), indent, s.span)
   const field = place(p, s.target, slots)
   const bit = s.target.path.at(-1)
   if (bit?.kind !== "bit") {
-    const value = expr(p, s.value, slots)
+    const value = print(p, s.value, slots)
     // A STRING INTO A STRING OF ANOTHER CAPACITY IS A STORE INTO THE PLACE'S OWN BUFFER (model 2): `min(n, m)` units of
     // the source and a 0, the place's units behind them kept — `IecStr::store`, the interpreter's `storeString`;
     // `assignTo` hands the value over at its own capacity. Both capacities are the types' const generics, so a STRING
     // VAR_IN_OUT's generic one (`inoutType`) needs no name — which is why an in-out on either side stores too. At one
     // capacity the store writes every unit, so it IS the plain copy, and prints as one.
     if (stringKind(s.target.type) !== undefined && (!sameCapacity(s.value.type, s.target.type) || generic(s.target) || (s.value.kind === "load" && generic(s.value.place)))) {
-      const bare = unparen(field)
-      // a method call binds tighter than `*`: a dereferenced place is the receiver only in parentheses
-      const receiver = bare.startsWith("*") ? `(${bare})` : bare
-      push(p, `${receiver}.store(&${unparen(value)});`, indent, s.span)
+      // a method call binds tighter than `*`: a dereferenced place is the receiver in its parentheses, `(*v).store(…)`
+      push(p, `${field}.store(&${at(value, Prec.Unary)});`, indent, s.span)
       return
     }
-    push(p, `${unparen(field)} ${compound(s, unparen(field), unparen(value))};`, indent, s.span)
+    push(p, `${lvalue(field)} ${compound(s, lvalue(field), at(value, Prec.Block))};`, indent, s.span)
     return
   }
   // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
@@ -86,7 +85,7 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
   // reserved prefix, for the reason the MOD expansion above spells out: `v` and `w` are ordinary IEC
   // identifiers, and a routine's parameters and VAR_TEMPs are Rust locals in the same scope as this block
   push(p,
-    `{ let ${tmp("bit_v")} = ${expr(p, s.value, slots)}; let ${tmp("bit_w")} = &mut ${field}; *${tmp("bit_w")} = if ${tmp("bit_v")} { *${tmp("bit_w")} | ${one} } else { *${tmp("bit_w")} & !${one} }; }`,
+    `{ let ${tmp("bit_v")} = ${expr(p, s.value, slots, Prec.Block)}; let ${tmp("bit_w")} = &mut ${field}; *${tmp("bit_w")} = if ${tmp("bit_v")} { *${tmp("bit_w")} | ${one} } else { *${tmp("bit_w")} & !${one} }; }`,
     indent,
     s.span,
   )
@@ -94,7 +93,7 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
 }
 
 function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["slots"], indent: number): void {
-  push(p, `if ${unparenHead(expr(p, s.cond, slots))} {`, indent, s.span)
+  push(p, `if ${head(print(p, s.cond, slots))} {`, indent, s.span)
   block(p, s.then, slots, indent + 1)
   if (s.else.length > 0) {
     push(p, "} else {", indent)
@@ -105,7 +104,7 @@ function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["sl
 }
 
 function stmtSwitch(p: Printer, s: Extract<IrStmt, { kind: "switch" }>, slots: IrPou["slots"], indent: number): void {
-  push(p, `match ${unparenHead(expr(p, s.selector, slots))} {`, indent, s.span)
+  push(p, `match ${head(print(p, s.selector, slots))} {`, indent, s.span)
   for (const arm of s.arms) {
     const pattern = arm.labels
       .map((l) => (l.lo === l.hi ? `${l.lo}` : `${l.lo}..=${l.hi}`))

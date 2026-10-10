@@ -6,7 +6,8 @@
 import type { IrImage, IrPou, Place } from "../../ir/index.js"
 import { isBoolValued, peelArray, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
-import { expr, unparen } from "./expr.js"
+import { expr, print } from "./expr.js"
+import { at, Prec, printed, type Printed } from "./precedence.js"
 import { rustName, tmp } from "./names.js"
 import { type Printer, use } from "./printer.js"
 import { rustType } from "./types.js"
@@ -21,14 +22,14 @@ export function mem(p: Printer, method: "ld" | "ld_bool" | "st" | "order"): stri
 }
 
 /** The byte address an `image` place reaches: its `at`, then each index step checked and scaled (`iec_ix`). */
-export function imageAddress(p: Printer, at: Place, slots: IrPou["slots"]): string {
-  let text = unparen(expr(p, at.at!, slots))
-  for (const step of at.path) {
+export function imageAddress(p: Printer, place: Place, slots: IrPou["slots"]): Printed {
+  let address = print(p, place.at!, slots)
+  for (const step of place.path) {
     if (step.kind !== "index") continue
-    const index = unparen(castTo(expr(p, step.index, slots), step.index.type, "i64"))
-    text = `${use(p, "iec_ix")}(${text}, ${index}, ${step.lower}i64, ${step.length}, ${step.size})`
+    const index = at(castTo(print(p, step.index, slots), step.index.type, "i64"), Prec.Block)
+    address = printed(`${use(p, "iec_ix")}(${at(address, Prec.Block)}, ${index}, ${step.lower}i64, ${step.length}, ${step.size})`, Prec.Postfix)
   }
-  return text
+  return address
 }
 
 /** The bytes of a type the image holds. */
@@ -72,29 +73,29 @@ function storeAt(p: Printer, t: Type, a: string, v: string, depth: number): stri
 }
 
 /** A read of an `image` place: its value — or, through a trailing bit, that bit of its integer. */
-export function loadImage(p: Printer, at: Place, slots: IrPou["slots"]): string {
-  const bit = at.path.at(-1)
-  const address = imageAddress(p, at, slots)
+export function loadImage(p: Printer, place: Place, slots: IrPou["slots"]): Printed {
+  const bit = place.path.at(-1)
+  const address = at(imageAddress(p, place, slots), Prec.Block)
   if (bit?.kind === "bit") {
     const word = `${rustType(bit.of)}::from_le_bytes(${mem(p, "ld")}(${address}))`
-    return `((${bit.index === 0 ? word : `(${word} >> ${bit.index})`} & 1) != 0)`
+    return printed(`(${bit.index === 0 ? word : `(${word} >> ${bit.index})`} & 1) != 0`, Prec.Compare)
   }
-  if (at.type.kind === "elementary") return loadAt(p, at.type, address, 0)
-  return `{ let ${tmp("a")} = ${address}; ${loadAt(p, at.type, tmp("a"), 0)} }`
+  if (place.type.kind === "elementary") return printed(loadAt(p, place.type, address, 0), Prec.Postfix)
+  return printed(`{ let ${tmp("a")} = ${address}; ${loadAt(p, place.type, tmp("a"), 0)} }`, Prec.Postfix)
 }
 
-/** A store of `value` into an `image` place, as one statement: the value first, then the address, as a plain store
- *  evaluates them — a trailing bit set or cleared in its integer. */
-export function storeImage(p: Printer, at: Place, value: string, slots: IrPou["slots"]): string {
+/** A store of `value` (standing alone: a `let`'s initializer) into an `image` place, as one statement: the value first,
+ *  then the address, as a plain store evaluates them — a trailing bit set or cleared in its integer. */
+export function storeImage(p: Printer, place: Place, value: string, slots: IrPou["slots"]): string {
   const [v, a] = [tmp("v"), tmp("a")]
-  const bit = at.path.at(-1)
-  const head = `let ${v} = ${unparen(value)}; let ${a} = ${imageAddress(p, at, slots)};`
+  const bit = place.path.at(-1)
+  const head = `let ${v} = ${value}; let ${a} = ${at(imageAddress(p, place, slots), Prec.Block)};`
   if (bit?.kind === "bit") {
     const one = `(1${rustType(bit.of)} << ${bit.index})`
     const w = tmp("w")
     return `{ ${head} let ${w} = ${rustType(bit.of)}::from_le_bytes(${mem(p, "ld")}(${a})); ${storeAt(p, bit.of, a, `(if ${v} { ${w} | ${one} } else { ${w} & !${one} })`, 0)} }`
   }
-  return `{ ${head} ${storeAt(p, at.type, a, v, 0)} }`
+  return `{ ${head} ${storeAt(p, place.type, a, v, 0)} }`
 }
 
 /** The program's own `Mem::new()`: the image lowering laid out — its size, its initial bytes, its regions. */

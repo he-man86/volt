@@ -21,7 +21,7 @@ import {
   type Type,
 } from "../../../frontend/types/index.js"
 import { isConstantCallee, oneArgument } from "../builtins/arity.js"
-import { holdsEvery, sameType, stored } from "./convert.js"
+import { holdsEvery, sameType, stored, unchained } from "./convert.js"
 import { targetOf } from "../../../frontend/symbols/index.js"
 
 /** `asConstant`: `e` is a CONSTANT's own initializer; `declared`: the type of the declaration `e` initializes — see `constEval`. */
@@ -165,7 +165,7 @@ function selected(e: IrExpr): IrExpr {
   }
   if (e.kind !== "convert") return e
   const inner = e.value
-  if (inner.kind === "convert" && sameType(inner.value.type, e.type) && holdsEvery(inner.type, e.type)) return inner.value
+  if (inner.kind === "convert") return unchained(e)
   if (inner.kind !== "builtin" || (inner.name !== "sel" && inner.name !== "mux") || e.type.kind !== "elementary") return e
   const arms = inner.args.slice(1)
   const narrowable = (a: IrExpr): boolean => a.kind === "const" || (a.kind === "convert" && sameType(a.value.type, e.type) && holdsEvery(a.type, e.type))

@@ -1,6 +1,11 @@
 /**
  * EXPRESSIONS AS RUST — the dispatch over the IR's expression kinds, and the ones printed here: a constant, a fresh
- * composite, a load, a unary and a binary; `NOT` flipped where it can be; the outer parentheses a position does not need.
+ * composite, a load, a unary and a binary; `NOT` flipped where it can be. Every printer answers a `Printed` — its text and
+ * how tightly it binds (`precedence.ts`, 7.3.8) — and its POSITION adds the parentheses it needs: a receiver
+ * (`Prec.Postfix`), an operand (`infix`), or a statement's whole value (`Prec.Block`, none at all). The printer used to
+ * parenthesize every binary, cast and unary and strip the outer pair again where an expression stood alone
+ * (`unparen`: 2,722 `unused_parens` across the fixtures before it), which a receiver must never get wrong:
+ * `(-1i32).max(x)` without its parentheses is `-(1.max(x))`.
  */
 import type { IrExpr, IrPou } from "../../ir/index.js"
 import { holdsCall, sameNode } from "../../ir/walk.js"
@@ -9,70 +14,12 @@ import { exprBuiltin } from "./builtins.js"
 import { exprDispatch, exprInvoke, exprSelect } from "./calls.js"
 import { exprConvert } from "./convert.js"
 import { tmp } from "./names.js"
-import { place } from "./place.js"
+import { placeExpr } from "./place.js"
+import { at, infix, Prec, printed, type Printed } from "./precedence.js"
 import { guarded, holdsString, type Printer, use } from "./printer.js"
 import { isCopy } from "./types.js"
 import { initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
-
-/**
- * Drop an outer paren pair the position does not need.
- *
- * The printer parenthesizes every binary, every cast and every unary, which is the only way a printer with no
- * precedence table can be correct — and it means a complete expression arrives at a STATEMENT position already
- * wrapped. `self.q1 = ((self.a as i32) / (self.b as i32));` is what rustc's own `unused_parens` names, and it was
- * emitted 2,722 times across the conformance fixtures.
- *
- * ONLY WHERE THE EXPRESSION STANDS ALONE — an assignment's right-hand side, an `if` condition, a `match` selector.
- * Never at a RECEIVER: `literal()`'s comment above spells out what `(-1i32).max(x)` costs without its parens, and
- * the balanced walk below is what keeps `(a + b).to()` — whose first `(` does not close at the end — untouched.
- */
-export function unparen(text: string): string {
-  if (!text.startsWith("(") || !text.endsWith(")")) return text
-  let depth = 0
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    // the emitted Rust carries string literals (`panic!`, byte strings), and a paren inside one is not structure
-    if (c === '"') {
-      while (++i < text.length && text[i] !== '"') if (text[i] === "\\") i++
-      continue
-    }
-    if (c === "(") depth++
-    else if (c === ")" && --depth === 0) return i === text.length - 1 ? unparen(text.slice(1, -1)) : text
-  }
-  return text
-}
-
-/**
- * `unparen`, EXCEPT where a bare `{` would be read as the body rather than the scrutinee.
- *
- * An `if` condition and a `match` selector are the one position Rust treats specially: `if { … } { … }` and
- * `match match k { … } { … }` are ambiguous at best. `SEL` prints `({ … })` and `MUX` prints `(match … { … })`,
- * so an `IF SEL(…)` or a `CASE MUX(…)` reaches exactly that — and no fixture writes one, so the suite would not
- * have said. Everywhere else a block-like expression unwraps fine, which is why this is not inside `unparen`:
- * putting it there kept the parentheses on 83 assignment right-hand sides that did not need them.
- */
-export function unparenHead(text: string): string {
-  const inner = text.startsWith("(") ? text.slice(1, -1).trimStart() : ""
-  const blockLike = ["{", "match ", "if ", "unsafe ", "loop ", "while "].some((s) => inner.startsWith(s))
-  // a block that is a method's RECEIVER (`{ …; s }.char_at(i) < c`) is no head: rustc reads it as the operand it is
-  return blockLike && !(inner.startsWith("{") && inner[closingBrace(inner) + 1] === ".") ? text : unparen(text)
-}
-
-/** Where the brace `text` opens with closes (string literals skipped), or -1. */
-function closingBrace(text: string): number {
-  let depth = 0
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (c === '"') {
-      while (++i < text.length && text[i] !== '"') if (text[i] === "\\") i++
-      continue
-    }
-    if (c === "{") depth++
-    else if (c === "}" && --depth === 0) return i
-  }
-  return -1
-}
 
 /** `wrapping_add` and friends — IEC integers wrap at their width; Rust's `+` would panic in debug. */
 const WRAPPING: Readonly<Record<string, string>> = { add: "add", sub: "sub", mul: "mul", div: "div", mod: "rem" }
@@ -96,7 +43,7 @@ const INFIX: Readonly<Record<string, string>> = {
 const INVERSE: Readonly<Record<string, string>> = { eq: "ne", ne: "eq", lt: "ge", le: "gt", gt: "le", ge: "lt" }
 
 /** `NOT e`, as a comparison flipped where it is one — the loop test's `if !<cond> { break; }`. */
-export function negated(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
+export function negated(p: Printer, e: IrExpr, slots: IrPou["slots"]): Printed {
   // a comparison flips; `NOT NOT x` is `x`; a constant is the other constant. A REPEAT's test arrives already
   // negated (`UNTIL` is the exit condition), so without the double-negation case every REPEAT printed
   // `if !(!(n > 5)) { break; }` — three of the four `nonminimal_bool` findings left after the first pass.
@@ -109,22 +56,32 @@ export function negated(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
   const ordering = e.kind === "binary" && e.op !== "eq" && e.op !== "ne"
   const overReals = (x: IrExpr): boolean => isReal(x.type)
   if (e.kind === "binary" && INVERSE[e.op] !== undefined && !(ordering && (overReals(e.left) || overReals(e.right))))
-    return unparen(expr(p, { ...e, op: INVERSE[e.op] } as IrExpr, slots))
-  if (e.kind === "unary" && e.op === "not") return unparen(expr(p, e.operand, slots))
-  if (e.kind === "const" && typeof e.value === "boolean") return e.value ? "false" : "true"
-  return `!${expr(p, e, slots)}`
+    return print(p, { ...e, op: INVERSE[e.op] } as IrExpr, slots)
+  if (e.kind === "unary" && e.op === "not") return print(p, e.operand, slots)
+  if (e.kind === "const" && typeof e.value === "boolean") return printed(e.value ? "false" : "true", Prec.Postfix)
+  return printed(`!${prefixed("!", print(p, e, slots))}`, Prec.Unary)
 }
 
-export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
+/** `e` as Rust text where at least `min` binds — a receiver by default (`Prec.Postfix`), parenthesized when it binds
+ *  looser; `Prec.Block` where it stands alone (a statement's value, an argument, a `let`'s initializer). */
+export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"], min: Prec = Prec.Postfix): string {
+  return at(print(p, e, slots), min)
+}
+
+/** `e` printed, with how tightly it binds. */
+export function print(p: Printer, e: IrExpr, slots: IrPou["slots"]): Printed {
   switch (e.kind) {
-    case "const":
+    case "const": {
       if (holdsString(e.type)) use(p, "string")
-      return literal(e.value, e.type)
+      // a negative literal is a unary minus: a receiver parenthesizes it (`(-1i32).max(x)`), an operand need not
+      const text = literal(e.value, e.type)
+      return text.startsWith("(-") ? printed(text.slice(1, -1), Prec.Unary) : printed(text, Prec.Postfix)
+    }
     // A fresh composite — the emitted twin of the interpreter's `instantiate`, and the same `initOf` a slot's
     // declaration already uses. Only a VAR_TEMP reset reaches it.
     case "fresh":
       if (holdsString(e.type)) use(p, "string")
-      return initOf(p.layouts, e.type, e.init)
+      return printed(initOf(p.layouts, e.type, e.init), Prec.Postfix)
     case "invoke":
       return exprInvoke(p, e, slots)
     case "dispatch":
@@ -147,41 +104,44 @@ export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
   }
 }
 
-function exprLoad(p: Printer, e: Extract<IrExpr, { kind: "load" }>, slots: IrPou["slots"]): string {
+function exprLoad(p: Printer, e: Extract<IrExpr, { kind: "load" }>, slots: IrPou["slots"]): Printed {
   if (e.place.root === "image") return guarded(p, e.place, loadImage(p, e.place, slots), slots)
-  const field = place(p, e.place, slots)
+  const field = placeExpr(p, e.place, slots)
   const bit = e.place.path.at(-1)
   // bit 0 needs no shift — `x >> 0` is `clippy::identity_op`, and the mask alone says the same thing
-  if (bit?.kind === "bit")
-    return guarded(p, e.place, `((${bit.index === 0 ? field : `(${field} >> ${bit.index})`} & 1) != 0)`, slots)
+  if (bit?.kind === "bit") {
+    const word = at(field, Prec.Postfix)
+    return guarded(p, e.place, printed(`(${bit.index === 0 ? word : `(${word} >> ${bit.index})`} & 1) != 0`, Prec.Compare), slots)
+  }
   // a whole struct, instance or array is copied, never moved out of `self` — but only a struct or an FB
   // instance needs `.clone()` to do it. Everything else the emitter prints IS `Copy`: the elementary types,
   // `IecStr` (which derives it), a pointer's `usize`, an interface's tag, and an array of any of those.
   // `.clone()` on a `Copy` value is `clippy::clone_on_copy` and reads as if something were being deep-copied.
-  return guarded(p, e.place, isCopy(e.type) ? field : `${field}.clone()`, slots)
+  return guarded(p, e.place, isCopy(e.type) ? field : printed(`${at(field, Prec.Postfix)}.clone()`, Prec.Postfix), slots)
 }
 
-function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrPou["slots"]): string {
-  const operand = expr(p, e.operand, slots)
-  if (e.op === "not") return `(!${operand})`
+/** A prefix operator's operand: one that starts with the same sign keeps its parentheses (`-(-5.0f32)`, `!(!x)`) — `--x`
+ *  is clippy's `double_neg`. */
+const prefixed = (sign: string, r: Printed): string => (r.text.startsWith(sign) ? `(${r.text})` : at(r, Prec.Unary))
+
+function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrPou["slots"]): Printed {
+  const operand = print(p, e.operand, slots)
+  if (e.op === "not") return printed(`!${prefixed("!", operand)}`, Prec.Unary)
   // An integer's minimum has no positive counterpart in its own width, and Rust's `-` PANICS on it in a debug
   // build — found by the differential test (conformance `unary_minus_at_the_edge`, a DINT at its minimum).
-  return isReal(e.type) ? `(-${operand})` : `${operand}.wrapping_neg()`
+  return isReal(e.type) ? printed(`-${prefixed("-", operand)}`, Prec.Unary) : printed(`${at(operand, Prec.Postfix)}.wrapping_neg()`, Prec.Postfix)
 }
 
-function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): string {
-  // an infix OPERAND is no receiver: a negative constant needs no parentheses there (`self.f * -0.5f64`, 7.2.9) — a
-  // method receiver keeps them (`literal`), and every receiver below reads `l` as printed
-  const operand = (x: IrExpr, text: string): string => (x.kind === "const" && text.startsWith("(-") ? unparen(text) : text)
+function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): Printed {
   const range = rangeTest(p, e, slots)
   if (range !== undefined) return range
-  const l = expr(p, e.left, slots)
-  const r = operand(e.right, expr(p, e.right, slots))
-  const infix = INFIX[e.op]
-  if (infix !== undefined) return `(${operand(e.left, l)} ${infix} ${r})`
+  const l = print(p, e.left, slots)
+  const r = print(p, e.right, slots)
+  const operator = INFIX[e.op]
+  if (operator !== undefined) return infix(l, operator, r)
   // Rust's `&`/`|` on bool evaluate both sides, as AND/OR do in the interpreter; `&&`/`||` are AND_THEN/OR_ELSE.
   // BOOL AND printed `&&`, so a call on the right ran in one backend and not the other (transpiler review 2026-09-15).
-  if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`
+  if (e.op === "and" || e.op === "or" || e.op === "xor") return infix(l, e.op === "and" ? "&" : e.op === "or" ? "|" : "^", r)
   const wrapping = WRAPPING[e.op]
   const real = isReal(e.type)
   // MOD by zero is 0, measured (`mod_by_zero`), where Rust's `%` panics; each operand is evaluated once, left first.
@@ -195,15 +155,16 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // AND `%`, NOT `wrapping_rem`: `MIN MOD -1` stops the task as `MIN / -1` does (6.A.3, x86's `idiv` computes both), and
   // Rust's `%` panics on exactly that overflow where `wrapping_rem` answered 0.
   // …and by a constant lowering proved harmless (`IrBinary.nonzeroDivisor`, 7.2.6) it is plain `%`: no zero to answer
-  if (e.op === "mod" && !real && e.nonzeroDivisor === true) return `(${operand(e.left, l)} % ${r})`
+  if (e.op === "mod" && !real && e.nonzeroDivisor === true) return infix(l, "%", r)
   if (e.op === "mod" && !real)
-    return `({ let ${tmp("mod_l")} = ${unparen(l)}; let ${tmp("mod_r")} = ${unparen(r)}; if ${tmp("mod_r")} == 0 { 0 } else { ${tmp("mod_l")} % ${tmp("mod_r")} } })`
+    return printed(`{ let ${tmp("mod_l")} = ${at(l, Prec.Block)}; let ${tmp("mod_r")} = ${at(r, Prec.Block)}; if ${tmp("mod_r")} == 0 { 0 } else { ${tmp("mod_l")} % ${tmp("mod_r")} } }`, Prec.Postfix)
   // INTEGER DIVISION IS NOT WRAPPING. `wrapping_div` returns the minimum for `MIN / -1` and carries on, and
   // CODESYS STOPS THE TASK there (`arithedge_dint_div_min_by_minus_one`, `arithedge_lint_*`). Plain `/` panics
   // on exactly the two cases the vendor stops on — a zero divisor and that one overflow — so it is both the
   // simpler emission and the correct one. `+`, `-` and `*` really do wrap and keep their helpers.
-  // the argument of a call needs no parentheses of its own — `wrapping_add((x as i32))` is one pair too many
-  if (wrapping !== undefined && !real && e.op !== "div") return `${l}.wrapping_${wrapping}(${unparen(r)})`
+  // …and a product lowering proved fits (`IrBinary.noWrap`, 7.3.10) is plain `*`: nothing to wrap
+  if (e.op === "mul" && e.noWrap === true && !real) return infix(l, "*", r)
+  if (wrapping !== undefined && !real && e.op !== "div") return printed(`${at(l, Prec.Postfix)}.wrapping_${wrapping}(${at(r, Prec.Block)})`, Prec.Postfix)
   const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
   // A REAL DIVISION BY ZERO STOPS THE TASK, and nothing else about an infinity does. This wrapped EVERY real
   // operation in a finiteness check, on the reading that an infinite RESULT is what stops it; `real-overflow.ts`
@@ -211,7 +172,8 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
   // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `semantics/arith.ts`.
   // (a constant divisor lowering proved nonzero needs no check: `IrBinary.nonzeroDivisor`, 7.2.6)
-  return real && e.op === "div" && e.nonzeroDivisor !== true ? `${use(p, "iec_div")}(${unparen(l)}, ${unparen(r)})` : `(${operand(e.left, l)} ${plain} ${r})`
+  if (real && e.op === "div" && e.nonzeroDivisor !== true) return printed(`${use(p, "iec_div")}(${at(l, Prec.Block)}, ${at(r, Prec.Block)})`, Prec.Postfix)
+  return infix(l, plain, r)
 }
 
 /**
@@ -220,12 +182,36 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
  * tests are its bounds. The same answer, a NaN included (every test false, no range holds it); `x` holds no call, so
  * reading it once is reading it twice.
  */
-function rangeTest(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): string | undefined {
+function rangeTest(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): Printed | undefined {
   if (e.op !== "and" && e.op !== "and_then") return undefined
   const [lo, hi] = [e.left, e.right]
   if (lo.kind !== "binary" || hi.kind !== "binary" || lo.op !== "ge" || (hi.op !== "le" && hi.op !== "lt")) return undefined
   if (lo.right.kind !== "const" || hi.right.kind !== "const" || holdsCall(lo.left) || !sameNode(lo.left, hi.left)) return undefined
-  const bound = (c: IrExpr): string => unparen(expr(p, c, slots))
-  return `(${bound(lo.right)}..${hi.op === "le" ? "=" : ""}${bound(hi.right)}).contains(&${unparen(expr(p, lo.left, slots))})`
+  const bound = (c: IrExpr): string => expr(p, c, slots, Prec.Unary)
+  return printed(`(${bound(lo.right)}..${hi.op === "le" ? "=" : ""}${bound(hi.right)}).contains(&${expr(p, lo.left, slots, Prec.Unary)})`, Prec.Postfix)
 }
 
+/**
+ * `r` heading an `if` or a `match`: a block-like value (`if`, `match`, a block not followed by a method call) there would
+ * be read as the statement's body, so it is parenthesized — the one position Rust treats specially; anything else bare.
+ */
+export function head(r: Printed): string {
+  if (r.prec === Prec.Block) return `(${r.text})`
+  if (!r.text.startsWith("{")) return r.text
+  return r.text[closingBrace(r.text) + 1] === "." ? r.text : `(${r.text})`
+}
+
+/** Where the brace `text` opens with closes (string literals skipped), or -1. */
+function closingBrace(text: string): number {
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '"') {
+      while (++i < text.length && text[i] !== '"') if (text[i] === "\\") i++
+      continue
+    }
+    if (c === "{") depth++
+    else if (c === "}" && --depth === 0) return i
+  }
+  return -1
+}
