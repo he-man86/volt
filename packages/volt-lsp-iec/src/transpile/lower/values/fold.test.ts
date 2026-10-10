@@ -84,3 +84,28 @@ test("a negative literal is a constant: the all-constant fold and MIN/MAX's meet
     3000000000n, 3000000000n, 2999999995n, 2999999995n, 2999999995n, -4000000000n, -5n,
   ])
 })
+
+/** The statements of a lowered PROGRAM's body, as the IR holds them (the fold pass is the last thing lowering does). */
+function body(src: string) {
+  const { pou, diagnostics } = lowerSource(src)
+  expect(diagnostics).toEqual([])
+  return pou!.body
+}
+
+test("an all-constant expression lowers to the constant it evaluates to — a faulting one is kept for run time (7.2.2)", () => {
+  const [sum, shifted, division] = body(
+    "PROGRAM P\nVAR d : DINT; w : WORD; q : DINT; z : DINT := 0; END_VAR\nd := 2000000000 + 2000000000 - 1;\nw := SHL(WORD#1, 3) OR 16#4;\nq := 7 / z;\nEND_PROGRAM\n",
+  )
+  expect(sum!.kind === "assign" && sum!.value).toMatchObject({ kind: "const", value: -294967297n })
+  expect(shifted!.kind === "assign" && shifted!.value).toMatchObject({ kind: "const", value: 12n })
+  expect(division!.kind === "assign" && division!.value.kind).not.toBe("const")
+  const [divByZero] = body("PROGRAM P\nVAR q : DINT; END_VAR\nq := 7 / 0;\nEND_PROGRAM\n")
+  expect(divByZero!.kind === "assign" && divByZero!.value.kind).not.toBe("const")
+})
+
+test("a constant index inside its array is the element's position, its lower bound subtracted once (7.2.3)", () => {
+  const [inside, outside] = body("PROGRAM P\nVAR a : ARRAY[3..7] OF INT; i : INT := 9; END_VAR\na[5] := 1;\na[i] := 2;\nEND_PROGRAM\n")
+  const step = (s: (typeof inside)) => (s!.kind === "assign" ? s!.target.path[0] : undefined)
+  expect(step(inside)).toMatchObject({ kind: "index", lower: 0n, index: { kind: "const", value: 2n } })
+  expect(step(outside)).toMatchObject({ kind: "index", lower: 3n })
+})

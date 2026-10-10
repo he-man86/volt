@@ -2,7 +2,7 @@
  * STRING cursors: a POINTER TO BYTE (or WORD) walking a string's characters.
  */
 
-import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
+import { elementaryRef, elemOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { IrBinding, IrExpr, Place } from "../../ir/index.js"
 import { type Cursor, pointerFrame, pointerKey, readTargets } from "./state.js"
@@ -73,7 +73,12 @@ function cursorCharAt(pointer: Place, text: Place, unit: Type, extra: IrExpr | u
   const lint = elementaryRef("LINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: lint, span })
   const width = elemOf(unit)?.name === "WORD" ? 2n : 1n
-  let index = binaryOf("sub", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), n(1n), lint, span)
+  const at = cast({ kind: "load", place: pointer, type: pointer.type, span }, lint)
+  // a byte cursor plus a CONSTANT is `p + (c - 1)` — `(p - 1) + c` in LINT's wrapping arithmetic, one operation, and `p`
+  // itself for `p^[1]` (lean 2.3, 7.2.4)
+  const constant = width === 1n && extra?.kind === "const" && typeof extra.value === "bigint" && isIntegral(extra.type) ? BigInt.asIntN(64, extra.value - 1n) : undefined
+  if (constant !== undefined) return { place: text, index: constant === 0n ? at : binaryOf("add", at, n(constant), lint, span), unit }
+  let index = binaryOf("sub", at, n(1n), lint, span)
   if (width > 1n) index = binaryOf("div", index, n(width), lint, span)
   if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
   return { place: text, index, unit }

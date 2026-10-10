@@ -53,11 +53,23 @@ const maxMin: BuiltinPrinter = (e, args, argv, p) =>
 // Rust's own features, each proven to match at the edges (design §13, §14): `wrapping_shl`/`wrapping_shr`
 // mask the count to the width's bits exactly as CODESYS does and shift a signed value arithmetically;
 // `rotate_left`/`rotate_right` take the count modulo the width.
-const shift: BuiltinPrinter = (e, args) => `${args[0]}.wrapping_${e.name}(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+const shift: BuiltinPrinter = (e, args) => {
+  const count = constCount(e.args[1]!)
+  // a constant count prints bare, and a shift by 0 is its operand (a partial access `.%B0`, lean 2.4)
+  if (count === 0n) return args[0]!
+  return `${args[0]}.wrapping_${e.name}(${count ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+}
+
+/** A character position that is a non-negative constant — printed bare where the parameter is an `i64`. */
+const constPosition = (at: IrExpr): bigint | undefined => (at.kind === "const" && typeof at.value === "bigint" && at.value >= 0n && at.value < 1n << 63n ? at.value : undefined)
+
+/** A shift or rotate count that is a constant a `u32` holds — printed bare, Rust reads it as the `u32` the call takes. */
+const constCount = (count: IrExpr): bigint | undefined =>
+  count.kind === "const" && typeof count.value === "bigint" && count.value >= 0n && count.value < 1n << 32n ? count.value : undefined
 
 // With `bits`, the LOW bits rotate as a `u8`/`u16` and the promoted bits above them are kept (`IrBuiltin.bits`).
 const rotate: BuiltinPrinter = (e, args, argv) => {
-  const rotate = `rotate_${e.name === "rol" ? "left" : "right"}(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+  const rotate = `rotate_${e.name === "rol" ? "left" : "right"}(${constCount(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
   if (e.bits === undefined) return `${args[0]}.${rotate}`
   return `({ let ${tmp("rot")} = ${argv[0]}; (${tmp("rot")} & !${(1n << BigInt(e.bits)) - 1n}) | ((${tmp("rot")} as u${e.bits}).${rotate} as ${rustType(e.type)}) })`
 }
@@ -112,8 +124,9 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
     const t = e.type.kind === "elementary" ? e.type.elem : undefined
     return isReal(e.type) ? `${args[0]}.abs()` : t?.signed ? `${args[0]}.wrapping_abs()` : args[0]!
   },
-  char: (e, args) => `${args[0]}.char_at(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`,
-  setchar: (e, args, argv) => `${args[0]}.with_char(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`,
+  // a constant position prints bare: the parameter is an i64 (7.2.3)
+  char: (e, args) => `${args[0]}.char_at(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`,
+  setchar: (e, args, argv) => `${args[0]}.with_char(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`,
   // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
   address_order: (_e, _args, argv, p) => `${mem(p, "order")}(${argv[0]}, ${argv[1]})`,
   ln: logarithm,

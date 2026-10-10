@@ -6,7 +6,9 @@
 
 import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
-import type { IrExpr, IrValue } from "../../ir/index.js"
+import type { IrExpr, IrPou, IrStmt, IrValue, Place } from "../../ir/index.js"
+import { mapExprs } from "../../ir/walk.js"
+import { constantValue } from "../../semantics/index.js"
 import { enumConstant } from "./enums.js"
 import {
   constEval,
@@ -14,6 +16,7 @@ import {
   type ElementaryType,
   elementaryTypeRef,
   parseConversionName,
+  stringKind,
   type Type,
 } from "../../../frontend/types/index.js"
 import { isConstantCallee, oneArgument } from "../builtins/arity.js"
@@ -114,4 +117,60 @@ const LINT_MAX = (1n << 63n) - 1n
 export function integerFoldType(operands: readonly IrExpr[]): Type {
   const needsUlint = operands.some((o) => o.kind === "const" && typeof o.value === "bigint" && o.value > LINT_MAX)
   return elementaryRef(needsUlint ? "ULINT" : "LINT")
+}
+
+/** The builtins a fold may answer: pure value functions whose two backends compute alike. Not the math functions —
+ *  the Rust takes the platform's libm there, which the interpreter does not reproduce (the edge layer's `not-run`) —
+ *  nor the string or image ones. */
+const FOLDED_BUILTINS: ReadonlySet<string> = new Set(["max", "min", "limit", "sel", "mux", "trunc", "shl", "shr", "rol", "ror", "abs"])
+
+/**
+ * AN ALL-CONSTANT EXPRESSION IS ITS VALUE (lean 2, transpile-restructure 7.2.2): a unary, binary, conversion or pure
+ * builtin over constants becomes the constant it evaluates to — through the interpreter's own functions
+ * (`semantics/fold.constantValue`), so both backends read the one answer they computed alike. Kept as it is: one that
+ * FAULTS (`1 / 0` stops the task, and must still at run time), one whose value is no finite number or boolean (a NaN, an
+ * infinity, a string), and one of a type a literal does not spell (an address).
+ */
+function foldedExpr(e: IrExpr): IrExpr {
+  if (e.kind !== "unary" && e.kind !== "binary" && e.kind !== "convert" && !(e.kind === "builtin" && FOLDED_BUILTINS.has(e.name))) return e
+  const operands = e.kind === "unary" ? [e.operand] : e.kind === "binary" ? [e.left, e.right] : e.kind === "convert" ? [e.value] : e.args
+  if (!operands.every((o) => o.kind === "const")) return e
+  // an ADDRESS of a constant: ADR(arr[2]) is a constant handle (`self.p = 2;`, lean 2.3) — a non-negative one, as a usize
+  if (e.kind === "convert" && e.type.kind === "pointer") {
+    const handle = constantValue(e)
+    return typeof handle === "bigint" && handle >= 0n ? { kind: "const", value: handle, type: e.type, span: e.span } : e
+  }
+  if (e.type.kind !== "elementary" || stringKind(e.type) !== undefined) return e
+  const value = constantValue(e)
+  if (typeof value === "bigint" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)))
+    return { kind: "const", value, type: e.type, span: e.span }
+  return e
+}
+
+/**
+ * A CONSTANT INDEX IS ITS ELEMENT (7.2.3): an index step whose index folded to a constant inside the array is that
+ * element's 0-based position — the lower bound subtracted here, once — so the Rust indexes `[3]`. One outside the
+ * array is kept as written: it stops the task at run time, as it does today.
+ */
+function foldedPlace(p: Place): Place {
+  if (!p.path.some((s) => s.kind === "index" && s.index.kind === "const")) return p
+  const path = p.path.map((s) => {
+    if (s.kind !== "index" || s.index.kind !== "const" || typeof s.index.value !== "bigint" || s.length === undefined) return s
+    const at = s.index.value - s.lower
+    return at < 0n || at >= BigInt(s.length) ? s : { ...s, index: { ...s.index, value: at, type: elementaryRef("LINT") }, lower: 0n }
+  })
+  return { ...p, path }
+}
+
+/** Every body of a lowered POU with its all-constant expressions folded (`foldedExpr`) and its constant indices made
+ *  positions (`foldedPlace`) — the last thing lowering does, so every rule above it saw the expression as written. */
+export function foldPou(pou: IrPou): IrPou {
+  const block = (body: readonly IrStmt[]): IrStmt[] => body.map((s) => mapExprs(s, foldedExpr, foldedPlace))
+  return {
+    ...pou,
+    body: block(pou.body),
+    ...(pou.init === undefined ? {} : { init: block(pou.init) }),
+    layouts: pou.layouts.map((l) => (l.body === undefined ? l : { ...l, body: block(l.body) })),
+    routines: pou.routines.map((r) => ({ ...r, body: block(r.body) })),
+  }
 }

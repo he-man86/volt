@@ -77,3 +77,13 @@ describe("emit/rust", () => {
     expect(code).toContain("_ => ") // out-of-range K picks the last input
   })
 })
+
+test("a constant shift or rotate count prints bare, and a shift by 0 is its operand (7.2.5)", () => {
+  const code = rust(
+    "PROGRAM P\nVAR w : WORD := 16#1234; a : WORD; b : WORD; c : WORD; n : INT := 2; d : WORD; END_VAR\na := SHL(w, 3);\nb := ROL(w, 4);\nc := SHR(w, 0);\nd := SHL(w, n);\nEND_PROGRAM\n",
+  )
+  expect(code).toContain("self.a = (self.w as i32).wrapping_shl(3) as u16;")
+  expect(code).toContain("self.b = self.w.rotate_left(4);")
+  expect(code).toContain("self.c = (self.w as i32) as u16;") // the promotion is lean 3's (7.3)
+  expect(code).toContain("self.d = (self.w as i32).wrapping_shl(self.n as u32) as u16;")
+})

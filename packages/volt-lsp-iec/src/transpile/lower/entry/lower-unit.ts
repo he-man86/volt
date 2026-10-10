@@ -19,6 +19,7 @@ import { layOutImage } from "../pointers/image.js"
 import { grownTargets, type PointerTarget, seedTargets } from "../pointers/state.js"
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
+import { foldPou } from "../values/fold.js"
 import { finishInterfaces } from "./finish.js"
 import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { openDims } from "../places/bounds.js"
@@ -101,7 +102,9 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
   const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
-  return withImage(lowering, pou)
+  // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2)
+  const lowered = withImage(lowering, pou)
+  return lowered.pou === undefined ? lowered : { ...lowered, pou: foldPou(lowered.pou) }
 }
 
 /**

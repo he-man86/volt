@@ -5001,30 +5001,80 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.2 Constants folded in lowering, in one place (lean 2)
 
-- [ ] 7.2.1 Negation of a constant folds to a typed literal (lean 2.1): done by RC 7; verify and delete the remaining notes.
+- [x] 7.2.1 Negation of a constant folds to a typed literal (lean 2.1): done by RC 7; verify and delete the remaining notes.
   - Where: `lower/expressions/operators.ts`.
   - Accept: M (notes deleted).
   - Depends: 0.6.
-- [ ] 7.2.2 An all-constant integer or real expression prints as its folded literal.
+  - Done 2026-10-10 (step 7.2a). Verified: `expressions/operators.ts` lowers a negative literal as the constant it is
+    (RC 7, `negative_literal_constant_fold`), and any `neg` left over a constant now folds with every other all-constant
+    expression (7.2.2). No note was left owned by 7.2.1.
+- [x] 7.2.2 An all-constant integer or real expression prints as its folded literal.
   - Notes: 63d29bd1a0, 57a8f5a4c8, 09eeda28bb, 24588decbd, 58988cbee9.
   - Where: `lower/values/fold.ts` via `semantics/fold`; `expressions/operators.ts`.
   - Accept: S-out, M.
   - Depends: 6.2.
-- [ ] 7.2.3 A constant array index prints as a usize literal, the lower bound subtracted at lowering; the index offset printed one way.
+  - Done 2026-10-10 (step 7.2a). `lower/values/fold.ts` `foldPou`, the last thing `entry/lower-unit.ts` does (after the
+    image rewrite, so every rule above it saw the expression as written): every unary, binary, conversion and pure builtin
+    (MAX, MIN, LIMIT, SEL, MUX, TRUNC, the shifts and rotates, ABS — not the libm functions, whose Rust is the platform's)
+    over constants becomes the constant `semantics/fold.constantValue` gives — the interpreter's own functions; one that
+    faults (`7 / 0`), one whose value is no finite number or boolean, and a string are kept; a conversion of a constant
+    into a POINTER is its constant handle when non-negative (`ADR(arr[2])` -> `self.p = 2;`). `ir/walk.ts` `mapExprs` is
+    the bottom-up expression rewriter it runs on (beside `mapPlaces`). New `values/fold.test.ts` tests (the LINT-width
+    fold, a shift, a faulting division kept). Notes resolved (their constructs are gone): 0e60621ff1, 09eeda28bb,
+    24588decbd, 2f368e2e5b, 57a8f5a4c8, 58988cbee9, 58d4f235fd, 63c4ea9498, 63dc3d3963, 6e95d900d2, 745a764511,
+    924a0fdb2f, 9a4cb2346e, 9b7b8014c4, d365a76953, d46e26c2aa, f5a6eb5ecf; the 7.2.2 items of 4a6baf16b3 and 63d29bd1a0.
+    The same fold resolved notes other tasks own, deleted with their constructs: 7.2.7's 21672c09ea, 8cd84736a1,
+    97e71b49fa, faa5102f23; 7.2.10's 14a38342eb, 395880371f, 63f801635e, 83389dfa8a, 9d8cd15435, 9fb47c3123, b6a5a933fb,
+    f2987aca6a; 7.3.3's 907aa92bfc; 7.2.14's 250357816b (a constant index). The two allowed lints the fold emptied are
+    deleted from `lint-policy.ts` (the generator refuses an entry that excuses nothing): `clippy::unnecessary_min_or_max`
+    (10 -> 0, 7.2.7's M) and `clippy::manual_clamp` (1 -> 0); `absurd_extreme_comparisons` and `unused_comparisons` 4 -> 6
+    each, their reasons widened by name (a negative literal beside an unsigned operand folds to its maximum:
+    `lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`).
+- [x] 7.2.3 A constant array index prints as a usize literal, the lower bound subtracted at lowering; the index offset printed one way.
   - Notes: 3d737b5821, 7886e7bd17, 03b3e8b80c, 2506fd8442, 4e213fd264, 6a2b5f2826, eb533b340b; 5dcbae07c6, 7918d10820, d8a5dd49a9.
   - Where: `lower/places/places.ts`, `emit/rust/place.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
-- [ ] 7.2.4 Constant ADR tags and constant cursor or pointer offsets fold.
+  - Done 2026-10-10 (step 7.2a). `fold.ts` `foldedPlace`: an index step whose index folded to a constant inside the array
+    becomes its 0-based position (the lower bound subtracted there, once; `lower` 0, a LINT index), and `emit/rust/place.ts`
+    prints it bare (`self.a[2]`); one outside the array keeps its run-time check (a bare one rustc refuses to build — 44
+    `out_of_bounds_indexing` fixtures said so before that guard). The offset printed one way: an `ARRAY[*]` dimension's
+    `sub` of two values widened from 32 bits or fewer prints `[((i as i64) - (lower as i64)) as usize]`, the fixed array's
+    form, not `wrapping_sub` (it cannot overflow). A constant character position prints bare (`char_at(1)`,
+    `with_char(1, …)`). New tests: `values/fold.test.ts` (position, lower 0), `place.test.ts` (bare index, the ARRAY[*]
+    form, an out-of-range index kept). Notes resolved: 03b3e8b80c, 191ba38aad, 2506fd8442, 3d737b5821, 44a9549a6b,
+    4e213fd264, 5dcbae07c6, 628bc6e2ed, 67c71ff35c, 6d48208e3e, 7073e4cc28, 7886e7bd17, 789e5223f1, 7918d10820,
+    91f6be3675, 9b12fdbfc8, 9ca82cec1d, a0d3389a70, a4ff08580b, abe3ae1f0b, ae08e85841, b4183b4f7f, c0e245211c,
+    c52c7994ca, d8a5dd49a9, e02b80c3c1, eb533b340b, ebc60e2668, f07cf2da87, f59561bd3c, fcc10694ff; the 7.2.3 items of
+    1e5d67a16e, 45292dbd9c, 6a2b5f2826, 75cc82a569, 9804d49d82, da046bfcbb, e91195fc19. Re-tagged: the ARRAY[*] bounds
+    carried as fields (15_13: 43449862b7, debabdec0d, e37b53617c, fd16368fa8) -> 7.7.8; a RUNTIME index's form (19_3:
+    848701ece2, 8d7dcea3f3, 9f8b867884, acb72c4272, d04295d4c8) -> 7.2.14. Re-keyed to their new lines (items kept):
+    29a005f929, 8b00400a34, 9804d49d82, e91195fc19 (7.2.6/7.8.4), 1be212b44b, 5d3437b284, 9edcbf6da4 (7.2.14),
+    1e5d67a16e (7.3.1), da046bfcbb (7.4.3).
+- [x] 7.2.4 Constant ADR tags and constant cursor or pointer offsets fold.
   - Notes: 41d2232599, 0c7c4434c4.
   - Where: `lower/pointers/address.ts`, `pointers/cursor.ts`.
   - Accept: S-out, M.
   - Depends: 4.16, 7.2.2.
-- [ ] 7.2.5 A constant shift or rotate count prints bare; partial access skips `>> 0` (lean 2.4).
+  - Done 2026-10-10 (step 7.2a). A constant ADR handle folds (7.2.2's pointer conversion: `ADR(arr[1])` was
+    `1i64.wrapping_sub(-1i64) as usize`). A byte cursor plus a constant is `p + (c - 1)` (`pointers/cursor.ts`: `(p - 1) +
+    c` in LINT's wrapping arithmetic is the same value), `p` itself for `p^[1]`. The 11_1 form (an element pointer's index
+    adding then subtracting its lower bound) is no longer emitted since model 3 (no fixture has it). Notes: f7ea0fc7a1
+    deleted (both its items 7.2.4's); the 7.2.4 items of 54a84537d5, 569d2b7a40, 7cfee53212, a021273b0d, b4c569e1b3,
+    e6075a580f removed (their cursor extra is not a constant — no fold applies); 7cfee53212 re-keyed to its new line.
+- [x] 7.2.5 A constant shift or rotate count prints bare; partial access skips `>> 0` (lean 2.4).
   - Notes: 346e81a0f2, 5228723708, de956f2a12, fdfbae2680.
   - Where: `lower/builtins/value-functions.ts`, `expressions/partial-access.ts`.
   - Accept: S-out, M.
   - Depends: 7.2.2.
+  - Done 2026-10-10 (step 7.2a). `builtins.ts`: a constant count a u32 holds prints bare (`wrapping_shl(3)`,
+    `rotate_left(4)`), and a shift by a constant 0 (a partial access `.%B0`) is its operand. New `builtins.test.ts` test.
+    Notes resolved: 17bfcf56b6, 253e416b11, 2c27c13c32, 317cab8d16, 346e81a0f2, 37e2b15787, 5228723708, af004404ec,
+    de956f2a12, fdfbae2680; the 7.2.5 items of 1d7709a031 and a497507b30. Step 7.2a numbers: S-out identical over 5535
+    fixtures; M (against 7.9's map): pedantic 16332 -> 15700 (`cast_lossless` 4081 -> 3819, `cast_possible_truncation`
+    2107 -> 1886, `cast_sign_loss` 977 -> 815); allowed `eq_op` 17 -> 16; tier decl 754 -> 771, arith 1594 -> 1577 (a
+    folded body reaches a lower band); constructs 2146 -> 2076, noted 654 -> 581; rows changed `shape` 185, `pedantic`
+    152, `notes` 236, `size`/`lints`/`edge`/`evidence` 0; median size 3.1.
 - [ ] 7.2.6 MOD and real `/` by a nonzero constant other than -1 print plain `%` and `/` (lean 2.5), decided in lowering (an IR flag
   "divisor proven nonzero").
   - Also: the whole-days truncation `count - count MOD day` lowers as `count / day * day` (one read of `count`; review item

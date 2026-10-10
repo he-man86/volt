@@ -1,7 +1,7 @@
 /** A PLACE AS A RUST LVALUE — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)` — and a PROGRAM's
  *  instance as a call runs it, moved out of `Programs`. */
-import type { IrPou, Place } from "../../ir/index.js"
-import { elementOf, type Type } from "../../../frontend/types/index.js"
+import type { IrExpr, IrPou, Place } from "../../ir/index.js"
+import { elementOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
 import { expr } from "./expr.js"
 import { tmp } from "./names.js"
@@ -51,6 +51,23 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
       // WIDENED TO i64 ONLY WHEN IT IS NOT ONE. An index is usually already `i64` after lowering, and the
       // unconditional `as i64` printed `(0i64 as i64) as usize` — a cast to its own type inside parentheses
       // neither rustc nor clippy has any use for.
+      // a constant index is already its element's position (`lower/values/fold.ts` `foldedPlace`, 7.2.3): `[3]`
+      // (inside the array only: an index outside it keeps its run-time check, as a constant one rustc would refuse to build)
+      const at = step.index.kind === "const" && typeof step.index.value === "bigint" ? step.index.value : undefined
+      if (at !== undefined && step.lower === 0n && step.length !== undefined && at >= 0n && at < BigInt(step.length)) {
+        text += `[${at}]`
+        type = elementOf(type)!
+        continue
+      }
+      // AN INDEX MINUS ITS LOWER BOUND PRINTS ONE WAY (7.2.3): an `ARRAY[*]` dimension's offset is the IR's LINT `sub` of
+      // two values widened from 32 bits or fewer, which cannot overflow — so the plain `-` a declared bound prints, not
+      // the `wrapping_sub` a LINT subtraction prints elsewhere
+      const offset = step.index
+      if (step.lower === 0n && offset.kind === "binary" && offset.op === "sub" && widenedNarrow(offset.left) && widenedNarrow(offset.right)) {
+        text += `[(${expr(p, offset.left, slots)} - ${expr(p, offset.right, slots)}) as usize]`
+        type = elementOf(type)!
+        continue
+      }
       const index = castTo(expr(p, step.index, slots), step.index.type, "i64")
       // NOT `unparen`ed, and that is the whole point: `as` binds TIGHTER than the arithmetic operators, so
       // stripping the printer's parentheses off `(self.li / 2i64)` leaves `self.li / 2i64 as usize`, which Rust
@@ -63,6 +80,9 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
   }
   return text
 }
+
+/** An integer of 32 bits or fewer widened to a LINT — two of them subtract without overflow. */
+const widenedNarrow = (e: IrExpr): boolean => e.kind === "convert" && isIntegral(e.value.type) && e.value.type.kind === "elementary" && e.value.type.elem.bits <= 32
 
 /** The PROGRAM's own place and the member path under it — a call runs it moved out of `Programs` and puts it back.
  *  It used to return the program's TYPE as well, for `std::mem::replace(&mut p, T::new())`; `mem::take` needs no

@@ -126,11 +126,22 @@ export function holdsCall(root: IrNode | readonly IrNode[]): boolean {
  *  place that holds them. Nothing else changes; a node without a place in it comes back as a copy. `bind`, when given,
  *  then rewrites each call's VAR_IN_OUT binding — a place `f` mapped may become a copy lent for the call. */
 export function mapPlaces<T extends IrNode>(node: T, f: (p: Place) => Place, bind?: (b: IrBinding) => IrBinding): T {
-  return mapNode(node, f, bind) as T
+  return mapNode(node, f, bind, undefined) as T
 }
 
-function mapNode(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => IrBinding) | undefined): IrNode {
-  const m = <U extends IrNode>(x: U): U => mapNode(x, f, bind) as U
+/** `node` with every expression rewritten by `f`, innermost first: an expression's operands — and a place's indices and
+ *  guard — are rewritten before it. Places, statements and everything else are kept (`lower/values/fold.ts` `foldPou`). */
+export function mapExprs<T extends IrNode>(node: T, f: (e: IrExpr) => IrExpr, place: (p: Place) => Place = (p) => p): T {
+  return mapNode(node, place, undefined, f) as T
+}
+
+function mapNode(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => IrBinding) | undefined, expr: ((e: IrExpr) => IrExpr) | undefined): IrNode {
+  const out = mapShallow(n, f, bind, expr)
+  return expr !== undefined && isExpr(out) ? expr(out) : out
+}
+
+function mapShallow(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => IrBinding) | undefined, expr: ((e: IrExpr) => IrExpr) | undefined): IrNode {
+  const m = <U extends IrNode>(x: U): U => mapNode(x, f, bind, expr) as U
   const bindings = (xs: readonly IrBinding[]): IrBinding[] => xs.map((x) => (bind === undefined ? m(x) : bind(m(x))))
   const ms = <U extends IrNode>(xs: readonly U[]): U[] => xs.map(m)
   if (isPlace(n)) {

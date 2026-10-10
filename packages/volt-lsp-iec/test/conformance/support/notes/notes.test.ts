@@ -86,7 +86,8 @@ describe("every note is tagged with the task that owns it", () => {
     // shapes6_4 (the hand-written `impl Default`) rode in 870b70e195 under 7.2.8 with no task of its own: now 7.8.11's
     expect(NOTES["870b70e195"]!.tasks).toEqual(["7.2.8", "7.8.11"])
     // a `keep` note's other items ask for changes: each names the task that makes it
-    expect(NOTES["1d7709a031"]!.tasks.slice(1)).toEqual(["7.2.5", "7.3.1"])
+    // (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
+    expect(NOTES["1d7709a031"]!.tasks.slice(1)).toEqual(["7.3.1"])
     expect(NOTES["1307e33bbf"]!.tasks.slice(1)).toEqual(["7.3.5"])
     expect(NOTES["496b8acb56"]!.tasks.slice(1)).toEqual(["7.6.6"])
   })

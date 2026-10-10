@@ -20,9 +20,9 @@ export const ALLOWED: Readonly<Record<string, string>> = {
   unreachable_code:
     "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run",
   unused_comparisons:
-    "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it",
+    "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers)",
   "clippy::absurd_extreme_comparisons":
-    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the FLIPPED comparison (`i > 127i8`) since that pass, and clippy reads the flipped form where rustc read the original",
+    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the FLIPPED comparison (`i > 127i8`) since that pass, and clippy reads the flipped form where rustc read the original; and the same folded negative literal beside an unsigned operand",
   // NO `non_camel_case_types` / `non_snake_case` HERE. Both were written from reasoning — a POU struct keeps the
   // ST spelling, a field may not be snake by Rust's rule — and neither fires: the emitter already carries
   // `#[allow(non_camel_case_types)]` on every struct, and `snake()` makes every field name valid. Measured over
@@ -36,10 +36,6 @@ export const ALLOWED: Readonly<Record<string, string>> = {
     "the ST computes a value FROM a variable and itself, on purpose: `realovf_divide_by_computed_zero` needs a zero the constant folder cannot see (`zero := num - num`), and `mathdom_ln_zero` needs one for `LN(0)`",
   "clippy::approx_constant":
     "the fixture's own literal. `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, and `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints",
-  "clippy::unnecessary_min_or_max":
-    "`max_min_basic` and `max_extensible` put LITERALS through MIN/MAX to ask what the operators do with them, so the chain folds; the emission is faithful. `limit_inverted_bounds` asks what LIMIT answers when MN > MX, so `(-5i64).max(100).min(0)` IS the question — CODESYS answers MX, and `limit` prints MIN(MAX(…)) for exactly that reason",
-  "clippy::manual_clamp":
-    "NOT `clamp`, deliberately and with a measurement behind it: Rust's `clamp` PANICS when MN > MX and CODESYS answers MX (`limit_inverted_bounds`). `MIN(MAX(IN, MN), MX)` is the measured behaviour — see the comment at the `limit` case in `emit.ts`",
   "clippy::never_loop":
     "`stmt_exit_inner` is a FOR whose body is a bare EXIT — the fixture exists to ask what EXIT does to an inner loop, so a loop that runs once is the question rather than a defect",
   "clippy::manual_range_patterns":
