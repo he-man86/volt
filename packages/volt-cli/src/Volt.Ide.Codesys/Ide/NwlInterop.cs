@@ -171,6 +171,17 @@ namespace Volt.Ide.Codesys
                     "match what this adapter was written against, and a graphical write would land nothing.");
             try { return Activator.CreateInstance(t, args)!; }
             catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+            // An older object model lacks the constructor: SP18 (NWLObject 4.1.0.0) has no Operand(string), measured
+            // 2026-10-10 — every graphical write there failed as INTERNAL_ERROR "Constructor on type ... not found".
+            // NotSupportedException makes it an UNSUPPORTED refusal (PushService) that says why.
+            catch (MissingMethodException)
+            {
+                throw new NotSupportedException(
+                    $"CODESYS: this CODESYS version cannot take an LD/FBD body from Volt — its graphical object model " +
+                    $"({Describe(asm)}) has no '{typeName}' constructor for ({string.Join(", ", args.Select(a => a?.GetType().Name ?? "null"))}). " +
+                    "Volt writes LD/FBD against CODESYS V3.5 SP21 or later. Structured text and declarations still sync; " +
+                    "edit this body in the IDE, or update CODESYS.");
+            }
         }
 
         /// <summary>Set a property that must be writable.</summary>
