@@ -28,7 +28,7 @@ describe("emit/rust", () => {
 
   test("a STRING VAR_IN_OUT, whose capacity is a generic, is stored into — and stored from — at any capacity", () => {
     const code = rust("FUNCTION F : BOOL\nVAR_IN_OUT dest : STRING(20); source : STRING(10); END_VAR\ndest := source;\nF := TRUE;\nEND_FUNCTION\n\nPROGRAM P\nVAR a : STRING(20); b : STRING(10); ok : BOOL; END_VAR\nok := F(dest := a, source := b);\nEND_PROGRAM\n")
-    expect(code).toContain("(*dest).store(&*source);")
+    expect(code).toContain("dest.store(source);") // each borrow as itself: auto-deref'd, reborrowed (7.8.6)
   })
 })
 

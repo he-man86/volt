@@ -13,8 +13,12 @@ import type { Printer } from "./printer.js"
  *  anything else a path. */
 export function placeExpr(p: Printer, at: Place, slots: IrPou["slots"]): Printed {
   const text = place(p, at, slots)
-  return DEREF.test(text) ? printed(text.slice(1, -1), Prec.Unary) : printed(text, Prec.Postfix)
+  return DEREF.test(text) ? { ...printed(text.slice(1, -1), Prec.Unary), receiver: text.slice(2, -1) } : printed(text, Prec.Postfix)
 }
+
+/** The borrow a dereferenced whole place names — `v` for `(*v)` — which a call lends as itself: passed where a `&mut`
+ *  or `&` is expected, Rust reborrows it (lean 7.8.6: `&mut (*v)` was the spelled-out reborrow). Undefined otherwise. */
+export const borrowOf = (text: string): string | undefined => (DEREF.test(text) ? text.slice(2, -1) : undefined)
 
 /** The one parenthesized form `place` prints: a dereferenced name, `(*v)`. */
 const DEREF = /^\(\*[\w.]+\)$/

@@ -14,3 +14,9 @@ test("an allowed pedantic lint is excused, not counted; another pedantic one is 
   expect(split.pedantic).toEqual(["clippy::cast_possible_wrap"])
   expect(split.found).toEqual([{ code: "clippy::bool_comparison", line: 4 }])
 })
+
+// 7.8.9: `x := x` stays ALLOWED, and the review's note on it (ea53989ac8) is that entry's reason now
+test("the self_assignment reason carries the review note's text", () => {
+  expect(ALLOWED["clippy::self_assignment"]).toContain("ea53989ac8")
+  expect(ALLOWED["clippy::self_assignment"]).toContain("could be dropped when target and source are the same side-effect-free place with no conversion")
+})

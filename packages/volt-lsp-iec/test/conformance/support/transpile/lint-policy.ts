@@ -31,7 +31,7 @@ export const ALLOWED: Readonly<Record<string, string>> = {
   // all 2,295 lowered fixtures, both excused nothing. An entry that excuses nothing is the decoration this block
   // warns about, and the generator now refuses to write a map while one exists.
   "clippy::self_assignment":
-    "the ST says `n := n`. `cc3_empty_and_noop` asks what a no-op assignment does, and every `cfold_*` fixture uses one to give the recorder a statement to read — the emission is faithful and the lint is about the fixture, not the printer",
+    "the ST says `n := n`. `cc3_empty_and_noop` asks what a no-op assignment does, and every `cfold_*` fixture uses one to give the recorder a statement to read — the emission is faithful and the lint is about the fixture, not the printer. The review (note ea53989ac8, transpile-restructure 7.8.9) put it so: ST `x := x;` prints `self.copied = self.copied;`, clippy::self_assignment (a correctness-group lint) in initseq_member_of_struct and cc3_empty_and_noop; it could be dropped when target and source are the same side-effect-free place with no conversion — and is kept, because the statement is the fixture's question",
 
   // ── the fixture asks exactly this. Each names the fixture whose ST produced it; without one, it is a defect. ──
   "clippy::eq_op":

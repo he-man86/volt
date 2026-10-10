@@ -3,7 +3,7 @@
  */
 import type { IrInit, IrLayout, IrValue } from "../../ir/index.js"
 import { peelArray, type Type } from "../../../frontend/types/index.js"
-import { rustName } from "./names.js"
+import { rustName, tmp } from "./names.js"
 import { isCopy, isReal32, rustType, stringPath } from "./types.js"
 
 /** Where the byte image starts — `semantics/memory.ts`'s, which the emitter may not import (layering rule 4); an address
@@ -144,6 +144,7 @@ export function initOf(layouts: Layouts, t: Type, init: IrInit, typed = false): 
   const stated = init.elements.map((e) => initOf(layouts, array.element, e, typed))
   const listed = `[${Array.from({ length: array.length }, (_, i) => stated[i] ?? rest).join(", ")}]`
   if (!copy || init.elements.length >= array.length) return listed
-  const stored = `{ let mut a = [${rest}; ${array.length}]; ${stated.map((e, i) => `a[${i}] = ${e};`).join(" ")} a }`
+  const a = tmp("array")
+  const stored = `{ let mut ${a} = [${rest}; ${array.length}]; ${stated.map((e, i) => `${a}[${i}] = ${e};`).join(" ")} ${a} }`
   return stored.length < listed.length ? stored : listed
 }

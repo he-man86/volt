@@ -38,6 +38,7 @@ export const TEMP_PURPOSES = {
   w: "the image word a bit is stored into",
   k: "an array index while an image array is loaded or stored (`__k_<depth>`)",
   e: "an array element while an image array is stored (`__e_<depth>`)",
+  array: "an array initial value built from a repeat and a store per stated element (`values.ts` `initOf`)",
 } as const
 
 /** One purpose of `TEMP_PURPOSES`. */

@@ -6219,33 +6219,72 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     3.3, sum of sizes unchanged (an initializer is one line either way). The emitted Rust 15,886,780 -> 15,980,026 bytes:
     the derives (`, Eq` on ~14,000 struct blocks, `Copy, ` on 212) outweigh the shorter initializers — characters, not
     lines. Re-keyed for another task: 78bb74e841 -> 4122d874b7 (7.8.10, the copy-back now without `.clone()`).
-- [ ] 7.8.6 Remove the `(*x)` and `&mut (*x)` deref noise.
+- [x] 7.8.6 Remove the `(*x)` and `&mut (*x)` deref noise.
   - Notes: 98ba0d2e70, 0d14fd327c, 3d7b4a7836, 0b51d542e8, 7e45a342fc, 8064ae1570, ca81b2092d, 28af8caf65, 29dc1a9c14, 01e84968c3, 52d85b7cdc, f0065dbd0b.
   - Where: `emit/rust/place.ts`, `printer.ts`.
   - Accept: S-out, M.
   - Depends: 4.16.
-- [ ] 7.8.7 No parentheses around a statement-level `match` (unnecessary_semicolon 9).
+  - Done 2026-10-10 (step 7.8b). A borrow — an in-out or a lent instance, `place` printing it `(*v)` — is passed and called
+    on as itself: `printer.ts` `lend` / `lendMut` hand `v` where a `&mut` or `&` is expected (Rust reborrows; `place.ts`
+    `borrowOf`), and in a postfix position it is its name, which Rust auto-derefs (`precedence.ts`: a `Printed` carries
+    its `receiver`, `at(…, Prec.Postfix)` prints it; `placeExpr` sets it): `txt.units()`, `__lent_0.area()`,
+    `target.call()` (`calls.ts` `receiverOf`), `dest.store(source)`, `__str_p.set_char(…)` (`stmt.ts`). Where the whole
+    VALUE is read it stays `*v` (`.wrapping_mul(*v)`, `*v as i32`). `&mut (*` in the emission 84 -> 0, `(*v).` 612 -> 0,
+    `(*v)` 700 -> 4 (an `as` operand). Tests `emit/rust/calls.test.ts` ("an in-out passed on and a borrow as a receiver
+    print as the borrow, with no explicit dereference"); `stmt.test.ts`'s generic-capacity store pin reads
+    `dest.store(source);` (its premise, a store at any capacity, kept). Notes resolved: every 7.8.6 item (20 notes).
+- [x] 7.8.7 No parentheses around a statement-level `match` (unnecessary_semicolon 9).
   - Notes: 0cbdff077d, 59c341cb0f, 82e802ebc9, 26bfea40dc, 4b5007906a, 5ed54bb657.
   - Where: `emit/rust/calls.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.8.
-- [ ] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
+  - Done 2026-10-10 (step 7.8b). `emit/rust/stmt.ts`: a call through an interface as a statement is a bare `match … { … }`
+    — no parentheses — with its `;` only where the arms yield a value the statement drops (a `()` match with one is
+    clippy's `unnecessary_semicolon`). `(match ` in the emission 32 -> 8 (left: a match that is an operand). Pedantic
+    `unnecessary_semicolon` 12 -> out of the top ten. Covered by the conformance fixtures it changed
+    (`itf_call_dispatches_on_instance`, `callshape_inout_*`, `tr_16_*`: S-out identical, all build). Notes resolved:
+    every 7.8.7 item (11 notes, their `(*__lent_N)` halves 7.8.6's).
+- [x] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
   - Also: a REFERENCE bound at its declaration (`REF=`) to a variable of the same instance gets its constant tag in `new()`, so
     its `init()`/`__init()` chain goes (review item shapes6_2, owned here by 0b).
   - Notes: ad25627749, fbde4d6e1e.
   - Where: `lower/init/initial-values.ts`.
   - Accept: S-out, M.
   - Depends: 5.10, 4.16.
-- [ ] 7.8.9 `x := x` stays ALLOWED `self_assignment`: note ea53989ac8's text becomes that ALLOWED entry's reason; the note stays tagged
+  - NOT BUILT (step 7.8b, 2026-10-10): niche: accepted loss. Counted in the six corpora's PROJECT code (library
+    materializations excluded): 2 declarations bind a pointer or reference at declaration — pro2193 ONTIME's
+    `refSeconds : REFERENCE TO UDINT REF= udiSeconds;` and `refCycles … REF= udiCycles;` — and no `POINTER TO … := ADR(…)`
+    (248 in the materialized libraries, which are not lowered). Not trivial since model 3: the target is an image address
+    relative to the instance's `__base` (`self.ref_ = self.__base.wrapping_add(24);` in `__init`), known only where the
+    parent's initial value sets that base (`instancesIn`, `lower/pointers/image.ts`); folding it into that initial value
+    moves the binding ahead of the init sequence (model 4) for both backends, which needs its own proof that no
+    FB_Init or initializer reads it first. Its items (667cafe298, 45292dbd9c, 75cc82a569, ad25627749 and fbde4d6e1e's
+    first) re-tagged `keep:niche: accepted loss (2 occurrences in the corpora: …)`; `notes.test.ts`'s fbde4d6e1e pin
+    reads the new tag.
+- [x] 7.8.9 `x := x` stays ALLOWED `self_assignment`: note ea53989ac8's text becomes that ALLOWED entry's reason; the note stays tagged
   `keep` and is deleted by 7.11.1.
   - Where: `support/transpile/lint-policy.ts`, `support/notes/notes.data.ts`.
   - Accept: M (the reason carries the text).
   - Depends: 0.6.
-- [ ] 7.8.10 The reserved-prefix rule is structural: the unprefixed `t` (TRUNC), `program` and `v` use `tmp()`; the program move-out is
+  - Done 2026-10-10 (step 7.8b). `support/transpile/lint-policy.ts`: the `clippy::self_assignment` reason now carries
+    note ea53989ac8's text and names it; the note stays, tagged `keep`, for 7.11.1. Test
+    `support/transpile/lint-policy.test.ts` ("the self_assignment reason carries the review note's text").
+- [x] 7.8.10 The reserved-prefix rule is structural: the unprefixed `t` (TRUNC), `program` and `v` use `tmp()`; the program move-out is
   one spelling.
   - Where: `emit/rust/names.ts`, `builtins.ts`, `calls.ts`, `values.ts`.
   - Accept: S-out; the collision test in `names.test.ts` asserts every generated binding is `__`-prefixed.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 7.8b). What was left unprefixed: the FB-call move-out's `program` (`calls.ts` `stmtCall`, now
+    `tmp("program")` — one spelling with the METHOD form, `__program`) and 7.8.3's own `a` (the partial array initializer,
+    now `tmp("array")`, a new `TEMP_PURPOSES` row). TRUNC's `t` lives in the runtime helper `iec_trunc_*` since lean 9,
+    a fn of its own that no ST name reaches, and the initializer's `v` went with struct-update syntax (7.8.3). Test
+    `emit/rust/names.test.ts` ("every binding the printer generates is `__`-prefixed": every ST name starts with `u`, and
+    every other `let` in the generated bodies — a program moved out, a METHOD on it, an array initializer, MOD, a bit
+    store, ROL, TRUNC, a struct initializer — must be `__…`; red with `program` / `a`). Notes resolved: every 7.8.10 item
+    (1 note left, 4122d874b7 — its `.clone()` gone with 7.8.1: the copy-back of a Copy field is a copy). Step 7.8b
+    numbers: S-out identical but the 7.7b line; M (against 7.8a's map): 228 rows changed, 218 shapes; pedantic 1875 ->
+    1863; surviving lints unchanged; constructs 1968 -> 1964, noted 77 -> 45; size median 3.3 and the sum unchanged. The
+    emitted Rust 15,980,026 -> 15,977,442 bytes.
 - [ ] 7.8.11 No hand-written `impl Default` beside `new()` (clippy `new_without_default`).
   - What: every struct today gets `pub fn new()` plus a five-line `impl Default { fn default() -> Self { Self::new() } }`; it gets
     `new()` and `#[allow(clippy::new_without_default)]` instead (the reviewer's choice: one uniform shape), unless 7.8.1's derives

@@ -8,7 +8,7 @@ import { rustFaultLiteral } from "../../ir/faults.js"
 import { expr } from "./expr.js"
 import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
-import { movedOut, place } from "./place.js"
+import { borrowOf, movedOut, place } from "./place.js"
 import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, letTemp, type Printer, push, reachOfBody, typeOf } from "./printer.js"
 import { isCopy } from "./types.js"
 
@@ -47,7 +47,7 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
         ? yields
           ? printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); let ${tmp("result")} = ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; ${tmp("result")} }`, Prec.Postfix)
           : printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; }`, Prec.Postfix)
-        : guarded(p, e.instance, printed(`${place(p, e.instance, slots)}.${fn}(${args})`, Prec.Postfix), slots)
+        : guarded(p, e.instance, printed(`${receiverOf(place(p, e.instance, slots))}.${fn}(${args})`, Prec.Postfix), slots)
   // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
   const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : guarded(p, b, text, slots)), call)
   const lets = [inputLets, lentCopies(p, e.inouts, slots)].filter((l) => l !== "").join(" ")
@@ -55,6 +55,9 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   if (back !== "") return printed(yields ? `{ ${lets} let ${tmp("back")} = ${checked.text}; ${back} ${tmp("back")} }` : `{ ${lets} ${checked.text}; ${back} }`, Prec.Postfix)
   return lets === "" ? checked : printed(`{ ${lets} ${checked.text} }`, Prec.Postfix)
 }
+
+/** A place as a method's receiver: a lent or in-out instance is its borrow, which Rust auto-derefs (7.8.6). */
+const receiverOf = (text: string): string => borrowOf(text) ?? text
 
 /**
  * WHICH INPUTS ARE TAKEN INTO A `let __arg_k` BEFORE THE CALL (lean 7.6.6) — only those whose evaluation order a call
@@ -142,7 +145,7 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   for (const b of s.inouts) if (!("kind" in b)) guardLine(p, b, slots, indent)
   const params = p.layouts.get(s.fb.toUpperCase())?.layout.inouts ?? []
   const bound = callArguments(p, `layout:${s.fb.toUpperCase()}`, [], s.inouts, params, s.lent ?? [], slots)
-  const instance = place(p, s.instance, slots)
+  const instance = receiverOf(place(p, s.instance, slots))
   const lets = lentCopies(p, s.inouts, slots)
   const back = copiesBack(p, s.inouts, slots)
   // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
@@ -153,7 +156,8 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   if (movesOut(p, s.instance, `layout:${s.fb.toUpperCase()}`, s.inouts, s.lent ?? [])) {
     // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
     const moved = movedOut(p, s.instance, slots)
-    push(p, `{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::take(&mut ${moved.program}); program${moved.member}.call(${bound}); ${moved.program} = program;${back === "" ? "" : ` ${back}`} }`, indent, s.span)
+    const program = tmp("program")
+    push(p, `{ ${lets}${lets === "" ? "" : " "}let mut ${program} = std::mem::take(&mut ${moved.program}); ${program}${moved.member}.call(${bound}); ${moved.program} = ${program};${back === "" ? "" : ` ${back}`} }`, indent, s.span)
     return
   }
   push(p, lets === "" && back === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); ${back} }`, indent, s.span)

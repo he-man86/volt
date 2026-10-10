@@ -25,16 +25,19 @@ export const enum Prec {
   Postfix,
 }
 
-/** An expression as Rust text, with how tightly it binds. */
+/** An expression as Rust text, with how tightly it binds — and, for a dereferenced borrow (`*v`), the name it reads as
+ *  in a receiver position, where Rust auto-derefs (`v.char_at(i)`, not `(*v).char_at(i)`; lean 7.8.6). */
 export interface Printed {
   readonly text: string
   readonly prec: Prec
+  readonly receiver?: string
 }
 
 export const printed = (text: string, prec: Prec): Printed => ({ text, prec })
 
-/** `r` where at least `min` binds: parenthesized when it binds looser. */
-export const at = (r: Printed, min: Prec): string => (r.prec < min ? `(${r.text})` : r.text)
+/** `r` where at least `min` binds: parenthesized when it binds looser — a dereferenced borrow in a postfix position (a
+ *  method's receiver, a field, an index) its name, which Rust auto-derefs (7.8.6). */
+export const at = (r: Printed, min: Prec): string => (r.receiver !== undefined && min === Prec.Postfix ? r.receiver : r.prec < min ? `(${r.text})` : r.text)
 
 /** Each infix operator's strength. */
 const INFIX: Readonly<Record<string, Prec>> = {

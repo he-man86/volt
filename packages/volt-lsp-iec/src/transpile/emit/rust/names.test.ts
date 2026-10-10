@@ -207,3 +207,24 @@ test("a user FUNCTION named like a runtime helper gets a suffixed fn, and the he
   expect(code).toContain("iec_div_(self.x, self.y)")
   expect(code).toContain("iec_div(self.x, self.y)")
 })
+
+// 7.8.10: the reserved-prefix rule is STRUCTURAL — every binding the printer makes up is a `tmp()`, `__<purpose>`, and
+// no generated binding takes an unprefixed name an ST variable could hold (the program move-out's `program`, an array
+// initializer's `a` were). Every ST name below starts with `u`, so a binding that is neither one of them nor `__…` is
+// the printer's own, unprefixed.
+test("every binding the printer generates is `__`-prefixed", () => {
+  const src =
+    "TYPE uSt : STRUCT uA : INT; uB : INT; END_STRUCT END_TYPE\n" +
+    "PROGRAM uPrgD\nVAR uN : INT; END_VAR\nuN := uN + 1;\nEND_PROGRAM\n" +
+    "PROGRAM uPrgC\nVAR uRuns : INT; END_VAR\nuPrgD();\nuRuns := uRuns + 1;\nEND_PROGRAM\nMETHOD uBump : INT\nVAR_INPUT uAmount : INT; END_VAR\nuPrgD();\nuBump := uAmount;\nEND_METHOD\n" +
+    "FUNCTION uF : INT\nVAR_INPUT uX : INT; uY : INT; uR : REAL; END_VAR\nVAR uArr : ARRAY[1..40] OF INT := [1, 2]; uS : uSt := (uA := 3); uW : WORD; END_VAR\n" +
+    "uW.2 := uX > 0;\nuW := ROL(uW, uY);\nuF := uX MOD uY + uArr[1] + uS.uA + REAL_TO_INT(TRUNC(uR));\nEND_FUNCTION\n" +
+    "PROGRAM P\nVAR uV : INT; uZ : INT; END_VAR\nuPrgC();\nuZ := uPrgC.uBump(uAmount := uV);\nuV := uF(uV, 3, 2.5);\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  // the generated bodies only: a runtime helper (`iec_*`) is a fn of its own, whose locals no ST name reaches
+  const code = emitRust(pou!).code.split(/(?=^\s*(?:pub )?fn )/m).filter((chunk) => !/^\s*(?:pub )?fn iec_/.test(chunk)).join("")
+  const generated = [...code.matchAll(/\blet (?:mut )?([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]!).filter((n) => !/^_?u/.test(n))
+  expect(generated.length).toBeGreaterThan(0)
+  expect(generated.filter((n) => !n.startsWith("__"))).toEqual([])
+})

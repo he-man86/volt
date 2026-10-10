@@ -8,7 +8,7 @@ import { peelArray, stringKind, type Type } from "../../../frontend/types/index.
 import { expr } from "./expr.js"
 import { at, Prec, printed, type Printed } from "./precedence.js"
 import { type GlobalsUse, tmp } from "./names.js"
-import { place } from "./place.js"
+import { borrowOf, place } from "./place.js"
 import type { Layouts } from "./values.js"
 import { storeImage } from "./image.js"
 import type { DeadParams } from "./locals.js"
@@ -95,7 +95,9 @@ export function inFrame<T>(p: Printer, fields: readonly string[], frame: Frame, 
 /** An instance lent to a call (design §24): `&mut place` — and `THIS^`, already `&mut self`, reborrowed as `&mut *self`
  *  (`&mut self` is a `&mut &mut`, E0596; review of the interface-input batch, 2026-09-15). */
 export function lendMut(p: Printer, target: Place, slots: IrPou["slots"]): string {
-  return target.root === "this" && target.path.length === 0 ? "&mut *self" : `&mut ${place(p, target, slots)}`
+  if (target.root === "this" && target.path.length === 0) return "&mut *self"
+  const text = place(p, target, slots)
+  return borrowOf(text) ?? `&mut ${text}`
 }
 
 /**
@@ -111,7 +113,8 @@ export function lend(p: Printer, b: IrBinding, i: number, param: IrPou["slots"][
     return written(b) ? `&mut ${tmp("copy", i)}` : `${byValue(param) ? "" : "&"}${tmp("copy", i)}`
   }
   if (byValue(param)) return place(p, b, slots)
-  return `${param.readOnly === true ? "&" : "&mut "}${place(p, b, slots)}`
+  const text = place(p, b, slots)
+  return borrowOf(text) ?? `${param.readOnly === true ? "&" : "&mut "}${text}`
 }
 
 /** A copy lent with no `let` of its own (`lend`): a literal — no place a `&mut` beside it could borrow — never one written. */

@@ -121,5 +121,22 @@ test("a PROGRAM whose callee does not reach Programs is called in place, with no
   expect(code).toContain("self.seen = prg.prg_c.bump(prg.prg_c.runs);")
   expect(code).toContain("prg.prg_c.reset();")
   // PRG_E calls PRG_C, so it reaches Programs and still runs moved out
-  expect(code).toContain("{ let mut program = std::mem::take(&mut prg.prg_e); program.call(prg); prg.prg_e = program; }")
+  expect(code).toContain("{ let mut __program = std::mem::take(&mut prg.prg_e); __program.call(prg); prg.prg_e = __program; }")
+})
+
+// 7.8.6: a borrow (an in-out, a lent instance) is passed on and called on as itself — Rust reborrows it where a `&mut`
+// is expected and auto-derefs it as a receiver: no `&mut (*v)`, no `(*v).m()`
+test("an in-out passed on and a borrow as a receiver print as the borrow, with no explicit dereference", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION F_Inner : INT\nVAR_IN_OUT v : INT; txt : STRING(10); END_VAR\nIF txt = 'ab' THEN\nv := v + 1;\nEND_IF\nF_Inner := v;\nEND_FUNCTION\n" +
+      "FUNCTION F_Outer : INT\nVAR_IN_OUT v : INT; txt : STRING(10); END_VAR\nF_Outer := F_Inner(v, txt) * v;\nEND_FUNCTION\n" +
+      "PROGRAM P\nVAR n : INT; t : STRING(10) := 'ab'; res : INT; END_VAR\nres := F_Outer(n, t);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("f_inner(v, txt)")
+  expect(code).not.toContain("&mut (*")
+  expect(code).toContain(".wrapping_mul(*v)")
+  expect(code).not.toMatch(/\(\*\w+\)\./) // a receiver: `txt.units()`, not `(*txt).units()`
 })

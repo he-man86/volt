@@ -130,6 +130,6 @@ test("Copy arrays repeat, a struct initializer is struct-update syntax, a short 
   expect(code).toContain("fbs: std::array::from_fn(|_| FB_K::new()),")
   // every field of ST_Q named: no `..ST_Q::new()` to update from (clippy's `needless_update`)
   expect(code).toContain("q: ST_Q { p: ST_P { a: 1, ..ST_P::new() }, c: 2 },")
-  expect(code).toContain("few: { let mut a = [0; 30]; a[0] = 4; a[1] = 5; a },")
+  expect(code).toContain("few: { let mut __array = [0; 30]; __array[0] = 4; __array[1] = 5; __array },")
   expect(code).toContain("most: [7, 8, 0],")
 })

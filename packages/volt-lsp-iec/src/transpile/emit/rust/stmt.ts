@@ -8,7 +8,7 @@ import { expr, head, print } from "./expr.js"
 import { at, Prec, printed } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
-import { lvalue, place } from "./place.js"
+import { borrowOf, lvalue, place } from "./place.js"
 import { guardLine, letTemp, type Printer, push } from "./printer.js"
 import { rustType } from "./types.js"
 import { storeImage } from "./image.js"
@@ -60,6 +60,12 @@ export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: numbe
       return
     // a `#[must_use]` fn called for nothing (`locals.mustUse`, 7.7.13): its value is discarded by name
     case "eval": {
+      // a call through an interface as a statement is a bare `match … { … }` (lean 7.8.7) — its `;` only where the arms
+      // yield a value the statement drops: on a `()` match it is clippy's `unnecessary_semicolon`
+      if (s.value.kind === "dispatch") {
+        push(p, `${expr(p, s.value, slots, Prec.Block)}${s.value.type.kind === "unknown" ? "" : ";"}`, indent, s.span)
+        return
+      }
       const discarded = s.value.kind === "invoke" && mustUse(p, p.routines.get(s.value.routine)!)
       push(p, `${discarded ? "let _ = " : ""}${expr(p, s.value, slots)};`, indent, s.span)
       return
@@ -94,7 +100,7 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
   // own index: the IR reads the place and stores into it, so such a call runs twice, as `with_char` keeps it (review)
   const v = s.value
   if (v.kind === "builtin" && v.name === "setchar" && v.args[0]!.kind === "load" && sameNode(v.args[0]!.place, s.target) && !holdsCall(s.target) && !holdsCall(v.args[1]!) && !holdsCall(v.args[2]!))
-    return push(p, setCharIn(p, v, field, slots), indent, s.span)
+    return push(p, setCharIn(p, v, borrowOf(field) ?? field, slots), indent, s.span)
   const bit = s.target.path.at(-1)
   if (bit?.kind !== "bit") {
     const value = print(p, s.value, slots)
@@ -104,8 +110,8 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
     // VAR_IN_OUT's generic one (`inoutType`) needs no name — which is why an in-out on either side stores too. At one
     // capacity the store writes every unit, so it IS the plain copy, and prints as one.
     if (stringKind(s.target.type) !== undefined && (!sameCapacity(s.value.type, s.target.type) || generic(s.target) || (s.value.kind === "load" && generic(s.value.place)))) {
-      // a method call binds tighter than `*`: a dereferenced place is the receiver in its parentheses, `(*v).store(…)`
-      push(p, `${field}.store(&${at(value, Prec.Unary)});`, indent, s.span)
+      // a borrow is its own receiver and its own argument, auto-deref'd and reborrowed (7.8.6)
+      push(p, `${borrowOf(field) ?? field}.store(${value.receiver ?? `&${at(value, Prec.Unary)}`});`, indent, s.span)
       return
     }
     push(p, `${lvalue(field)} ${compound(s, lvalue(field), at(value, Prec.Block))};`, indent, s.span)
