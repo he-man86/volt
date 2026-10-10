@@ -20,7 +20,10 @@
  * bodyless declarations and stays refused, rather than running another version's code as if it were its own.
  *
  * The one thing a library needs that ST cannot say is what the language provides and the library only uses — `TIME()`
- * for the timers, `s[i]` for the string functions — and the transpiler owns those, as CODESYS does.
+ * for the timers, `s[i]` for the string functions — and the transpiler owns those, as CODESYS does. One element is
+ * both: `Standard.LEN_INTERNAL`, the count every Standard string function takes, which the transpiler lowers as its own
+ * primitive (`src/transpile/lower/builtins/length.ts`) — its body here is kept, the declaration being the vendor's, and
+ * is that primitive's oracle (`test/libraries/standard.test.ts`).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"

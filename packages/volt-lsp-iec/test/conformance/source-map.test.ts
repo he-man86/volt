@@ -72,7 +72,11 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // { … })…`). Two gone: `tr_20_output_index_moved_by_callee`'s METHOD prints no `*o = 0i16` reset any more (its store comes
 // first, 7.7.3) — the mapping DEFECT noted at 30 -> 34 went with it; and an own PROPERTY set with a call-free value is the
 // setter's input itself (7.6.2), `self.p_set(3i16)`, no assignment through a `__property_N` temp.
-const RENAMED_TARGETS = 161
+// 161 -> 163 (2026-10-10, gate 7.4c), each read: no new class — two FUNCTION results as the fn's tail (7.7.3's class
+// above), in the two new fixtures that take a lent string where it is written (`string_input_lent_inout_later_call`'s
+// `F_LentInoutMid := MID(…)`, `string_input_lent_inout_wider`'s `F_LentWiderFrozen := CONCAT(…)`): the tail is the block
+// `{ __input_copy_1 = io.to::<10>(); mid_…(…) }`, which reads as an assignment only through the freeze inside it.
+const RENAMED_TARGETS = 163
 
 interface Program {
   name: string

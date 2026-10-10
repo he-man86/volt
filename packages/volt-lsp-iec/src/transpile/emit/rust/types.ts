@@ -4,7 +4,7 @@
  */
 import { floatBits, holdsIntegerBits, isBoolValued, peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
 import { rustName } from "./names.js"
-import type { IrLayout } from "../../ir/index.js"
+import type { IrExpr, IrLayout, Place } from "../../ir/index.js"
 
 /** The family an elementary type is EMITTED as — its own, except a BIT, which is a "bitstring" of one bit that the
  *  Rust holds (and CODESYS reads) as a BOOL. The one place that decision is made: `rustType` and `convert` both
@@ -74,6 +74,18 @@ export function inoutType(slot: { type: Type; readOnly?: boolean }, name: string
   const generics = t.dims.slice(1).map((_, d) => `D_${name.toUpperCase()}_${d + 2}`)
   const inner = generics.reduceRight((element, n) => `[${element}; ${n}]`, rustType(t.element))
   return { param: `${name}: ${borrow}[${inner}]`, generics: generics.map((n) => `const ${n}: usize`) }
+}
+
+/**
+ * WHETHER A STORE OF `value` INTO `target` IS THE PLAIN COPY `x = v`: not a string, or a string of one capacity on both
+ * sides of which neither is a STRING VAR_IN_OUT — whose Rust capacity is the generic `N_*` (`inoutType`) whatever its
+ * type's number says, so `*str` into an `IecString<255>` is E0308 even when the variant's in-out is a STRING(255). Any
+ * other string store is `IecStr::store` (model 2).
+ */
+export function plainCopy(target: Pick<Place, "type" | "root">, value: IrExpr): boolean {
+  if (stringKind(target.type) === undefined) return true
+  const capacity = (t: Type): number | undefined => (t.kind === "elementary" ? t.length : undefined)
+  return capacity(value.type) === capacity(target.type) && target.root !== "inout" && !(value.kind === "load" && value.place.root === "inout")
 }
 
 /** `<const N: usize, …>` after a fn name, or nothing. */

@@ -117,8 +117,11 @@ export function lend(p: Printer, b: IrBinding, i: number, param: IrPou["slots"][
   return borrowOf(text) ?? `${param.readOnly === true ? "&" : "&mut "}${text}`
 }
 
-/** A copy lent with no `let` of its own (`lend`): a literal — no place a `&mut` beside it could borrow — never one written. */
-const inline = (b: IrCopy): boolean => !written(b) && b.value.kind === "const"
+/** A copy lent with no `let` of its own (`lend`), never one written: a literal — no place a `&mut` beside it could borrow —
+ *  or a FUNCTION's result or a conversion, the temporaries a Standard string input is lent (`lower/calls/string-inputs.ts`:
+ *  that call binds nothing writable, and lowering takes a copy into a temp where it is written whenever the order could
+ *  show). A copy of a place stays a `let`. */
+const inline = (b: IrCopy): boolean => !written(b) && (b.value.kind === "const" || b.value.kind === "invoke" || b.value.kind === "convert")
 
 /** After the call, each copy marked `back` stored to its place: `self.points = __copy_0;` (an own field lent to an own METHOD). */
 export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {

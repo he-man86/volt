@@ -25,6 +25,7 @@ import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { anyArgumentTypes, declareAnyAddresses } from "../pointers/any.js"
 import { type CursorArgument, cursorArgumentTypes } from "../pointers/cursor.js"
 import { typeKey } from "./variants.js"
+import { declareStringInputs, type StringInput, stringInputArguments } from "./string-inputs.js"
 import { libraryOf } from "../../../frontend/library/index.js"
 import { execBodyStatements } from "../conditions.js"
 import { storageOf } from "../storage/layout.js"
@@ -222,9 +223,12 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
   // argument's, so the routine is lowered once per argument type — the variant in its name.
   const targets = call === undefined ? new Map<string, Type>() : anyArgumentTypes(lw, sym, call)
   const cursors = call === undefined ? new Map<string, CursorArgument>() : cursorArgumentTypes(lw, sym, call)
+  // a Standard string FUNCTION's STRING(255) input lent the caller's string, read-only — per capacity (`string-inputs.ts`)
+  const strings = call === undefined || frame !== undefined ? new Map<string, StringInput>() : stringInputArguments(lw, sym, call)
   const variant = [
     ...[...targets].map(([n, t]) => `${n}=${typeKey(t)}`),
     ...[...cursors].map(([n, c]) => `${n}^=${c.offset ? "@" : ""}${c.shares === undefined ? typeKey(c.type) : `${c.shares}^`}`),
+    ...[...strings].map(([n, s]) => `${n}&=${typeKey(s.type)}`),
   ].join(",")
   // A FUNCTION is named by its SYMBOL, not its bare name: a project FUNCTION and a library's element of the same name are
   // two routines (transpile-review 21, `tr_21_namespace_*`), so a library's carries its library's folder.
@@ -252,7 +256,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       r.localSlots.push({ name: sym.name, type, section: "VAR", init: zeroInit(type) })
       result = 0
     }
-    const inputs = routineInputs(lw, r, sections, key)
+    const inputs = routineInputs(lw, r, sections, key, declareStringInputs(lw, r, strings, key))
     // a METHOD's or FUNCTION's VAR is its temporary section: an initializer that is not a constant runs on every call
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"), true)
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))

@@ -19,12 +19,15 @@ import { pointerFrame } from "../pointers/state.js"
 import { shadowedInOutsOf } from "./binding.js"
 import { nested } from "../core/nested.js"
 
-/** The routine's inputs, in order — the slots a call stores its inputs into — recorded under `key` for its callers. */
-export function routineInputs(lw: Lowering, r: Lowering, sections: readonly VarSection[], key: string): number[] {
+/** The routine's inputs, in order — the slots a call stores its inputs into — recorded under `key` for its callers. An
+ *  input `lent` names (upper-cased) is no slot here: this variant takes it as a read-only in-out (`string-inputs.ts`). */
+export function routineInputs(lw: Lowering, r: Lowering, sections: readonly VarSection[], key: string, lent: ReadonlySet<string>): number[] {
   const firstInput = r.localSlots.length
   // an ANY / ANY_* input is a hidden DINT the call fills with its argument's size (conformance `state_any_input_sizes`)
   for (const section of sections.filter((s) => s.sectionKind === "VAR_INPUT"))
-    for (const decl of section.decls) {
+    for (const declared of section.decls) {
+      const decl = { ...declared, names: declared.names.filter((n) => !lent.has(n.text.toUpperCase())) }
+      if (decl.names.length === 0) continue
       if (decl.type.kind !== "named_type" || !ANY_FAMILIES.has(decl.type.name.text.toUpperCase())) {
         declareVars(r, [{ ...section, decls: [decl] }])
         continue

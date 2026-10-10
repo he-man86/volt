@@ -5,12 +5,12 @@
  */
 import type { IrExpr, IrRoutine, IrStmt } from "../../ir/index.js"
 import { diverges, type IrNode, isPlace, someNode, somePlace } from "../../ir/walk.js"
-import { stringKind } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { closingBrace, head, print } from "./expr.js"
 import { at, Prec } from "./precedence.js"
 import { type Printer, push } from "./printer.js"
 import { block } from "./stmt.js"
+import { plainCopy } from "./types.js"
 
 /** What a body ends in that yields the result: the value of a store of it, or an IF each branch of which ends so. */
 type Yield =
@@ -36,15 +36,13 @@ export function resultTail(routine: IrRoutine): Tail | undefined {
   const end = routine.body.findIndex(diverges)
   const body = end >= 0 && routine.body[end]!.kind === "return" ? routine.body.slice(0, end) : routine.body
   if (someNode(body, (n) => !isPlace(n) && n.kind === "return")) return undefined
-  const type = routine.locals[result]!.type
   const named = (n: IrNode | readonly IrNode[]): boolean => somePlace(n, (at) => at.root === "local" && at.slot === result)
   const tail = (list: readonly IrStmt[]): Tail | undefined => {
     const last = list.at(-1)
     const before = list.slice(0, -1)
     if (last === undefined || named(before)) return undefined
     if (last.kind === "assign" && last.target.root === "local" && last.target.slot === result && last.target.path.length === 0) {
-      const plain = stringKind(type) === undefined || (last.value.type.kind === "elementary" && type.kind === "elementary" && last.value.type.length === type.length)
-      return plain && !named(last.value) ? { before, yields: { kind: "value", value: last.value, span: last.span } } : undefined
+      return plainCopy(last.target, last.value) && !named(last.value) ? { before, yields: { kind: "value", value: last.value, span: last.span } } : undefined
     }
     if (last.kind !== "if" || last.else.length === 0 || named(last.cond)) return undefined
     const [then, otherwise] = [tail(last.then), tail(last.else)]

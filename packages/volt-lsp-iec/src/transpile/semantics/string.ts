@@ -44,6 +44,13 @@ export function storeString(dst: string, m: number, src: string, n: number): str
   return held(src.padEnd(k, "\0").slice(0, k) + "\0" + dst.slice(k + 1))
 }
 
+/**
+ * HOW MANY UNITS A STRING HOLDS — its units before the first 0: `Standard.LEN_INTERNAL`, whose ST body counts them one
+ * `s[i]` at a time (`WHILE STR[n] <> 0`), which stops at n = the capacity at the latest, where `s[n]` is the terminator.
+ * Mirrored by the prelude's `IecStr::length` (`units().len()`).
+ */
+export const lengthOf = (s: string): number => visible(s).length
+
 /** The string a buffer holds — its units before the first 0. */
 export function visible(s: string): string {
   const end = s.indexOf("\0")

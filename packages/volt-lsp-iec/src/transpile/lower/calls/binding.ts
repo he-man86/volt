@@ -15,9 +15,10 @@ import { openDims } from "../places/bounds.js"
 import { sameStorage, staticPath } from "../places/path.js"
 import type { Type } from "../../../frontend/types/index.js"
 import type { InvokeBindings } from "./invoke.js"
-import { holdsCall, touchesOnlyItsOwn, writesOnlyLocals } from "../../ir/walk.js"
+import { holdsCall, type IrNode, touchesOnlyItsOwn, writesOnlyLocals } from "../../ir/walk.js"
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
+import { inputWhereWritten, stringInputsOf } from "./string-inputs.js"
 
 /** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calledRoutine`). */
 export const shadowedInOutsOf = frameState(() => new Set<string>())
@@ -145,8 +146,22 @@ export function bindWhereWritten(lw: Lowering, b: InvokeBindings, span: Span): (
       written.push(entry)
       continue
     }
-    if (!order.slice(at + 1).some((later) => typeof later === "number" && inputs[later] !== undefined && holdsCall(inputs[later]))) continue
     const binding = inouts[entry.inout]!
+    // a lent string input is taken where it is written when the order could show, as its input copy was — through a
+    // later argument, an input or an in-out binding alike (`string-inputs.ts`)
+    if (stringInputsOf(lw).get(routine.key)?.has(entry.inout) === true) {
+      // an in-frame binding is a place of the caller's frame (`specialize.ts`), read where the others are
+      const later = order.slice(at + 1).flatMap((k): IrNode[] => {
+        if (typeof k === "number") return inputs[k] === undefined ? [] : [inputs[k]]
+        const bound = inouts[k.inout]
+        return bound === undefined ? [] : [isInFrame(bound) ? bound.place : bound]
+      })
+      const taken = inputWhereWritten(lw, binding as IrBinding, routine.inouts[entry.inout]!.type, later, span)
+      if (taken.freeze !== undefined) written.push(taken.freeze)
+      inouts[entry.inout] = taken.binding
+      continue
+    }
+    if (!order.slice(at + 1).some((later) => typeof later === "number" && inputs[later] !== undefined && holdsCall(inputs[later]))) continue
     // an output copied out after the call reads its index then, whatever a later argument did to it
     if (entry.output === true && "kind" in binding && binding.kind === "copy" && binding.back !== undefined) continue
     const name = routine.inouts[entry.inout]!.name

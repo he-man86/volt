@@ -11,7 +11,7 @@
 import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX, IEC_MIN, IEC_POW, IEC_R2I32, IEC_R2I64, IEC_TRUNC_I32 } from "./numeric.js"
 import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
 import { IEC_DEREF, IEC_IX, MEM, MEM_AT, MEM_LD, MEM_LD_BOOL, MEM_ORDER, MEM_REGION, MEM_ST } from "./pointer.js"
-import { IEC_STR } from "./string.js"
+import { IEC_STR, IEC_STR_LENGTH } from "./string.js"
 import {
   IEC_CIVIL,
   IEC_DATE_TEXT,
@@ -31,6 +31,7 @@ import {
 const HELPERS = {
   // ── FRONT: the string family ──
   string: { deps: [], rust: IEC_STR },
+  string_length: { deps: ["string"], rust: IEC_STR_LENGTH },
   string_write: { deps: ["string"], rust: IEC_STR_WRITE },
   iec_max: { deps: [], rust: IEC_MAX },
   iec_min: { deps: [], rust: IEC_MIN },

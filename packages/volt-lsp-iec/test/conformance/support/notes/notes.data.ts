@@ -19,8 +19,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "098f7b0911": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // v: L,
   "667cafe298": note("7.8.8", LEAN.shapes6_2),
-  // self.f = len(self.f.to::<L>());
-  "21ef64a1e0": note("7.4.6", LEAN.shapes14_18),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u16;
   "30c4deeec9": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // self.f = f64::m(self.f).sin() as f32;
@@ -33,18 +31,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "90ad40cc20": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // self.p = L;
   "45292dbd9c": note("7.8.8", LEAN.shapes1_8),
-  // if len(self.f.f[self.f as usize].to::<L>()) > self.f {
-  "8b4fc46c1e": note("7.4.6", LEAN.shapes16_11),
   // p: L,
   "75cc82a569": note("7.8.8", LEAN.shapes1_8),
-  // x = i32::m(m(&mut str));
-  "50ff398988": note("7.4.6", LEAN.shapes13_15),
-  // self.f = len(self.narrow.to::<L>());
-  "8986d5305c": note("7.4.6", LEAN.shapes14_18),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i16;
   "756ba59393": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
-  // self.narrow.m(&self.f.narrow::<L>());
-  "a1c2206655": note("7.4.6", LEAN.shapes16_11),
   // self.f = L;
   "ad25627749": note("7.8.8", LEAN.shapes1_8),
   // self.f = m(self.f).log10() as f32;
@@ -61,30 +51,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ca823a2c56": note("7.8.4", LEAN.shapes17_10),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;
   "62891f3570": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
-  // self.f = len(self.v.to::<L>());
-  "dea089f2fd": note("7.4.6", LEAN.shapes14_18),
-  // self.units = len(self.narrow.to::<L>());
-  "e8162bb9aa": note("7.4.6", LEAN.shapes14_18),
   // *x = (i32::m(x) / i32::m(x)) as i16;
   "d96bb286f4": note("keep:the promoted division is the measured rule (MIN / -1 wraps in SINT/INT, computed in DINT); a narrow wrapping_div gives the same values but needs a narrow node that does not trap where the promoted one does not, and the interpreter has none (7.3.11)", LEAN.shapes14_5),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i8;
   "e19d1f70e4": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // x: L,
   "fbde4d6e1e": note("7.8.8", LEAN.shapes1_8),
-  // m(&mut str) as i16
-  "07f99bf907": merged(["7.4.6", LEAN.shapes13_15], ["7.4.6", LEAN.shapes12_11]),
-  // m(m(x, …, p), x, i32::m(p).wrapping_sub(Li32).max(Li32) as i16)
-  "1c82d4c275": note("7.4.6", LEAN.shapes12_11),
-  // pub fn m(mut str: IecString<L>, x: i16) -> IecString<L> {
-  "aba7498096": note("7.4.6", LEAN.shapes16_11),
-  // pub fn m(mut str: IecString<L>, len: i16, x: i16) -> IecString<L> {
-  "4567b70381": note("7.4.6", LEAN.shapes16_11),
-  // pub fn m(mut x: IecString<L>, …, x: i16) -> IecString<L> {
-  "3eb9cb867d": note("7.4.6", LEAN.shapes16_11),
-  // pub fn replace(x: IecString<L>, …, x: i16, p: i16) -> IecString<L> {
-  "30fdd454d9": note("7.4.6", LEAN.shapes16_11),
-  // let x: i32 = i32::m(m(&mut x));
-  "b0547ad22e": note("7.4.6", LEAN.shapes13_15),
   // x = L;
   "e496034f7b": note("keep:shapes12_9's guard half - a pointer only ever stored one non-zero tag still needs a proof that a store runs before every read across scans (a persistent field starts at 0); not 7.7.7's dead parameter, which went", LEAN.shapes12_9),
   // m(L, &mut self.f);

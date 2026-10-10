@@ -617,7 +617,7 @@ void STMT_KINDS_ARE_EXHAUSTIVE
 const BUILTINS = [
   "max", "min", "limit", "sel", "trunc", "abs", "expt", "shl", "shr", "rol", "ror", "mux",
   "sqrt", "ln", "log", "exp", "sin", "cos", "tan", "asin", "acos", "atan",
-  "char", "setchar", "address_order",
+  "char", "setchar", "length", "address_order",
 ] as const satisfies readonly IrBuiltinName[]
 // THE LIST IS THE IR'S, checked by the compiler both ways: `satisfies` refuses a name the IR does not define, and this
 // refuses an IR builtin the list forgot. It held `len`…`find` for a day after the IR stopped defining them, because
@@ -638,7 +638,9 @@ const COVERED_EXPR_KINDS = 10
 const COVERED_STMT_KINDS = 9
 // 24 -> 25 on 2026-10-09 (transpile-restructure 4.4): `address_order`, two pointers ordered in the byte image, is built
 // by the FIXTURES' pointer compares (`pointer_order_compare`); the corpus alone builds none (measured, review 4d)
-const COVERED_BUILTINS = 25
+// 25 -> 26 on 2026-10-10 (transpile-restructure 7.4.6): `length`, Standard.LEN_INTERNAL as a primitive, is built by every
+// Standard string function a corpus POU calls (LEN, CONCAT, FIND, …)
+const COVERED_BUILTINS = 26
 
 /**
  * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.

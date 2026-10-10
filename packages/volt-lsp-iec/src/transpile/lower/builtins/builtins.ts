@@ -15,6 +15,7 @@ import { lowerConversion } from "./conversions.js"
 import { BUILTIN_ARITY } from "./arity.js"
 import { lowerValueFunction } from "./value-functions.js"
 import { lowerInvoke } from "../calls/invoke.js"
+import { lowerLength } from "./length.js"
 
 /**
  * The value functions MAX/MIN/LIMIT/SEL → one `builtin` node. Every rule is MEASURED on CODESYS 3.5.21.40
@@ -43,6 +44,9 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>, e
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
   if (name === undefined || arity === undefined) {
+    // Standard.LEN_INTERNAL, the primitive the Standard string functions count with
+    const length = lowerLength(lw, e)
+    if (length !== null) return length
     // a METHOD of an instance, or a project FUNCTION — a routine with a result
     const value = lowerInvoke(lw, e)
     if (value === undefined) return undefined

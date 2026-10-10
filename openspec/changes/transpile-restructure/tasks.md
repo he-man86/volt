@@ -5733,7 +5733,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     layer differs in 395 (`set_char` in the string runtime every string fixture prints). M (against 7.5c's map): pedantic
     9498 -> 9479 (`cast_possible_wrap` 301 -> 285, `missing_panics_doc` 389 -> 386); surviving and allowed lints unchanged;
     size median 3.1, the ten largest unchanged; constructs 2033 -> 2032, noted 324 -> 270.
-- [ ] 7.4.6 Read-only Standard string inputs by `&IecStr<N>`, and a LEN_INTERNAL primitive (`units().len()`).
+- [x] 7.4.6 Read-only Standard string inputs by `&IecStr<N>`, and a LEN_INTERNAL primitive (`units().len()`).
       **Owner 2026-10-10: build it here, properly** ("take our time to do it proper"): the design note first (design.md),
       then the code; no deferral, no niche close.
   - Notes: 185a887a57, 7a85af3c04, cbcde0e5de, dea089f2fd, 21ef64a1e0, 811c8ccd59, 3cacc7bfac, 9c8d21e237, 83ed1aab47, b592939dbf, c001fbb3b1.
@@ -5748,6 +5748,114 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     wherever a body reads `STR[k]` past the caller's capacity N: the 255-copy reads 0 there, `char_at` on N panics — every
     Standard body has to be proven to read only below LEN_INTERNAL first, and a caller wider than 255 still needs the copy
     (`string_input_truncation`). Both need their own design note before code.
+  - Done 2026-10-10 (step 7.4c), after the design note (design.md §3.2 "Decision (step 7.4c)", and its "Built" list for
+    what the code added to it). In the note's three migration steps:
+    (1) LEN_INTERNAL is the IR builtin `length` (`ir/expr.ts`): lowered by `lower/builtins/length.ts` for the library
+    repo's own LEN_INTERNAL only (a project FUNCTION of that name is its own; a Standard version the repo has not written
+    goes on to the call and stays `call-library`); its argument a place (`place-shape` otherwise, as any in-out), a STRING
+    (`call-inout-type`), one a UINT counts (`string-length-width`, new). Interpreter twin `semantics/string.ts`
+    `lengthOf`, Rust the on-demand helper `string_length` (`IecStr::length`, `self.len as u16`). `invoke.ts`
+    `functionCalled` is the one resolution of a callee's FUNCTION, shared with `invokeTarget`. S-out identical (checked
+    alone after this step), `len_internal` 2018 -> 0 in the rust snapshot. The repo's ST body is kept (its declaration is
+    the vendor's) and is the primitive's oracle.
+    (2) The proof, `test/libraries/standard.test.ts`: every one of the nine over every buffer of capacity 0-4 over
+    {0, 'a', 'b'} (REPLACE 0-3: 1.2M runs at 0-4, 38 s; its strings are DELETE's and INSERT's, each held at 0-4), every
+    INT argument in -2..6 and a full STRING(255), passed as a STRING(N) and as the same buffer in a STRING(255); the two
+    agree with no fault after the borrow — the committed test, whose `toContain` on the `#STR&=STRING<N>` routine name
+    holds that its first call IS the borrow, so it cannot pass before it. (Corrected by gate 7.4c: this read "before the
+    borrow and after it". Before the borrow the same comparison WITHOUT that assertion agrees too — re-run on HEAD
+    2f781fb11b's lowering, 10 pass — but there both calls take the input copy, so that run shows only the harness clean,
+    not the borrow.) Mutation-checked: a LEFT that reads `STR[n + 1]` fails it. A test
+    there names every repo FUNCTION with a STRING(255) input, and one holds `length` to the repo's LEN_INTERNAL body.
+    (3) The borrow, `lower/calls/string-inputs.ts`: every STRING(255) VAR_INPUT of a Standard FUNCTION is a read-only
+    in-out of the call's variant — a lendable place lent at its own N <= 255, a literal / FUNCTION result / other place
+    lent as a copy at its own N, anything else (wider than 255, a conversion, a METHOD's result) a copy converted to
+    STRING(255), which is the input copy. Taken where it is written when a later argument's call, or its own, could change
+    something (`inputWhereWritten`, `holdsEffect`); `emit/rust/calls.ts` `hoistedInputs` hoists every input written before
+    such a freeze; `printer.ts` `inline` lends a result or a conversion as a temporary. Refused by name, never a silent
+    copy: a body that writes, lends writable or takes the address of a lent input, `input-borrow-written` (new;
+    `places/access-guards.ts` `refuseLentInput`, `pointers/address.ts`). Found on the way: `emit/rust/types.ts`
+    `plainCopy` — a STRING VAR_IN_OUT's Rust capacity is generic, so a store from one at one capacity is `IecStr::store`
+    (`let mut delete: IecString<255> = *str;` was E0308 in `concat_result_capacity`); the store, the `let` it folds into
+    and the tail it yields share it.
+    Tests: `lower/builtins/length.test.ts` (3), `lower/calls/string-inputs.test.ts` (8; the freeze test mutation-checked),
+    `runtime-twins.test.ts` ("IecStr::length … the interpreter's lengthOf"; the recorded string lengths now held through
+    `lengthOf`), `standard.test.ts` (11 new), corpus.test.ts's builtin list (`length`; COVERED_BUILTINS 25 -> 26).
+    Numbers: S-out (`snapshot:transpile check --layers rust,outputs,edge` against a baseline written at this step's start,
+    HEAD 2f781fb11b) — outputs and edge byte-identical over 5535 fixtures, the rust layer differs in 136. Rust snapshot:
+    `.to::<255>()` 235 -> 20 (137 fixtures -> 3: 12 cuts of a STRING(290)/(300) argument, 8 parse cuts), distinct fns
+    545 -> 409, no fixture printing two variants of a Standard function, emitted lines 240,347 -> 239,626, rust.jsonl
+    15,181,777 -> 15,101,885 bytes. M (against HEAD's map): pedantic 1863 -> 1863; allowed `missing_panics_doc` 386 ->
+    250 (`len_internal`'s `char_at` loop is gone); surviving lints unchanged; size down in 135 fixtures, up in none, median
+    2.7 -> 2.7 (string_positions_low 27.2 -> 26.2, string_insert_delete_replace_find 20.5 -> 19.5, string_len_left_right_mid
+    14.5 -> 13.3); constructs 1964 -> 1965; tier: 7 fixtures call -> indirect (a lent input is an in-out); evidence and
+    edge verdicts unchanged. Notes resolved (every 7.4.6 item, 41 -> 27 noted constructs, 153 -> 25 fixtures touching a
+    construct with alternatives): 21ef64a1e0, 8b4fc46c1e, 50ff398988, 8986d5305c, a1c2206655, dea089f2fd, e8162bb9aa,
+    07f99bf907, 1c82d4c275, aba7498096, 4567b70381, 3eb9cb867d, 30fdd454d9, b0547ad22e. 7.7.12's parameters unchanged
+    (STRREPLACEA has no STRING input; `lint-policy.ts` re-worded). Docs: `docs/architecture.md` (the library primitives),
+    `libraries/index.ts`.
+  - GATE 7.4c (2026-10-10). Four review findings, each with a red-first test; recorded first, one batch per vendor
+    (CODESYS `record:exec`, 3 cases then the split's 3, 0 failed; `record:language` on CODESYS and on TwinCAT Project13,
+    `ide.ps1 -Instance transpile-restructure`, all five build, both IDEs closed): `string_input_lent_later_call_changes`,
+    `string_input_lent_inout_later_call`, `string_input_lent_inout_wider`, `string_inout_wider_unit_read`,
+    `string_inout_wider_copies` (`fixtures/strings/string-edges.ts`). design.md §3.2 "Gate 7.4c".
+    (1, medium) A frozen STRING VAR_IN_OUT was E0308 (`let __input_copy_1: IecString<10> = *io;`, `io` generic over its
+    capacity), reproduced on the review's three programs (HEAD compiled them). The recording showed more than the review
+    did: the in-out is bound at its CALLER's capacity and CODESYS's input copy reads it at its DECLARED one — a STRING(12)
+    'abcdefghijkl' bound to `io : STRING(10)`: LEN(io) 10, LEFT(io, 20) 'abcdefghij', the frozen CONCAT 'abcdefghij1'.
+    HEAD read 12 on both backends; the borrow read 12 too (and the interpreter faulted on unit 11 of LEFT's walk). Fixed
+    at the root, in lowering: a whole STRING VAR_IN_OUT of the routine is not `lendable`; it is lent as a copy at its
+    declared capacity, an explicit `convert` (`io.to::<10>()`, `string-inputs.ts` `callersCapacity`), and a freeze of it
+    is a plain `let` of that copy. A variant's own lent input stays lent (it is bound at the capacity it declares).
+    (2, low) The fault order: a lent place bound after the inputs reported a later argument's fault first (`MID(arr[i],
+    10 / j, 1)`: 'division by zero', HEAD the index). Fixed, not niche-closed (cheap): a lent string that could fault is
+    taken where it is written when a later argument could fault too — `ir/faults.ts` `cannotFault`, an allowlist of
+    what never stops the task (every builtin named, so a new one must say) — and `emit/rust/calls.ts` `hoistedInputs`
+    hoists every input that could fault written before such a freeze (`MID(LEN := 10 / j, STR := arr[i], POS := 10 / j)`
+    faults on the division first, in both backends). A later in-out binding now counts as a later argument for effects
+    too. 0 corpus calls have the shape (a runtime-indexed string argument with a later argument that could fault; 113
+    calls of the nine in the six corpora).
+    (3, medium) No test compiled a freeze. `test/libraries/standard.test.ts` "a lent string taken where it is written
+    builds and computes what the interpreter does": seven programs (a later FUNCTION call; a FUNCTION's and an FB's
+    in-out, twice by METHOD; the wider in-out; both fault orders), each emitted, compiled and run, each printing
+    `__input_copy`, equal to the interpreter — red on the E0308 first; mutation-checked (the fault freeze and the hoist
+    each removed: it fails). The order of a later call that changes the string is now measured, not inferred: written
+    order, the named, reversed `MID(POS := Shrink(), STR := txt, LEN := 2)` included ('x').
+    (4, low) The record overstated the proof's "before the borrow" run — corrected above, re-run on HEAD's lowering.
+    Found beside it, not this step's, recorded and MARKED (`deferred.transpile`, niche: accepted loss, 0 occurrences in
+    the corpora — of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity; the STRING(1)
+    any-length idiom is Tc2_System's, bodiless): a wider-bound STRING in-out read without a Standard function —
+    `io[11]` 108 on CODESYS and in Rust, the interpreter faults (`string_inout_wider_unit_read`); a project FUNCTION's
+    STRING(255) input counts 10 on CODESYS, 12 on both backends, a store into a STRING(20) holds 'abcdefghij' on CODESYS
+    and the interpreter, 'abcdefghijkl' in Rust (`string_inout_wider_copies`). Both edge "disagree" (the two backends
+    differ from each other there), which the marks carry.
+    Tests: `string-inputs.test.ts` 8 -> 10 (the in-out lent as its copy, at 10, LEN and frozen LEFT; the fault order and
+    its control), `ir/faults.test.ts` (new, 2), `standard.test.ts` +1 (the seven compiled programs).
+    `test/conformance/source-map.test.ts` RENAMED_TARGETS 161 -> 163 (two FUNCTION results as the fn's tail, in the new
+    fixtures — 7.7.3's class, each read). `test/frontend/baseline.ts` STRING_INDEX_ROWS +2 (`t[1] := 0`, `io[k]`: the
+    front-end's `s[i]` UNKNOWN class); baselines rewritten, counts only (`VOLT_WRITE_BASELINE=1`: files 11070 -> 11080,
+    recorded values 10812 -> 10835, expressions +190 per vendor, index UNKNOWN 198 -> 200 / 197 -> 199 under the two rows).
+    Numbers. S-out (`snapshot:transpile check --layers rust,outputs,edge`, the baseline written at this step's start,
+    HEAD 2f781fb11b): outputs and edge byte-identical over the 5535; the rust layer differs in 136, as the step's (the
+    gate adds one changed line: `xo4_inout_constant_chain`'s `len(&text.to::<80>())`, its `VAR_IN_OUT CONSTANT text :
+    STRING` now lent as its copy); plus the five new. Rust snapshot over the 5535: `.to::<255>()` 235 -> 20 (as the
+    step), `__input_copy` 0 (all 23 in the new fixtures), rust.jsonl 15,181,777 -> 15,101,909 bytes (the step's
+    15,101,885 + xo4's 24). M (`rate:fixtures`, against HEAD's map): mapped 5535 -> 5540; confirmed 2984 -> 2987, diverges
+    9 -> 11 (the two marked), refused, not-lowered, lsp-gap, unaskable unchanged; tier call 297 -> 294, indirect 461 ->
+    469 (the step's 7, the new: 4 call, 1 indirect); edge agree 3191 -> 3194, disagree 3 -> 5 (the two marked); pedantic
+    1863 -> 1865 (+1 each in `string_input_lent_inout_wider` and `string_inout_wider_copies`); allowed missing_panics_doc
+    386 -> 257 (the step's record said 250; not attributed by fixture — the Rust of the 5535 is the step's but for xo4's
+    line); existing rows: shape and notes 136, size 135 (all down), tier 7 — the step's, the gate changes none.
+    Typecheck clean; lint clean (`cannotFault` lives in `ir/faults.ts`: `ir/walk.ts` would pass 400 lines).
+    `test/analysis` census baselines rewritten, counts only: `checkInoutOwnAccess` TP +2 per vendor — the LSP gives the
+    two recorded "Access to VAR_IN_OUT 'io' … from external context" warnings of `string_input_lent_inout_later_call`;
+    fixtures measured 5276 -> 5281 / 5253 -> 5258.
+    Full suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset): 9203 pass / 35 skip / 389 todo / 0 fail across 319 files
+    (9627 tests, 834 s). Two runs before it: the first failed only the census counts above, the second only
+    `fold-agreement.test.ts`'s whole-fixture test, timed out at 6.6 s of bun's default 5 s under the suite's load. That is
+    not this step's: measured alone four times each, it runs 4.5-4.7 s in this tree and 4.6 s at HEAD 2f781fb11b (the
+    file, lowering every fixture). Left as it is (no raised budget); it sits at its budget on HEAD too and is worth its
+    own look.
 - [x] 7.4.7 An empty-string initializer prints `new()`.
   - Notes: e6646a0bd0.
   - Where: `emit/rust/values.ts`.

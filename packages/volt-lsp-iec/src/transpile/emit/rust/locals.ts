@@ -5,8 +5,8 @@
  */
 import type { IrBinding, IrCall, IrInvoke, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { isPlace, type IrNode, someNode, somePlace, writtenPlaces } from "../../ir/walk.js"
-import { stringKind } from "../../../frontend/types/index.js"
 import { type Printer, reachOfBody } from "./printer.js"
+import { plainCopy } from "./types.js"
 
 /** How many places in the body write each routine-local slot (`writtenPlaces`): an in-out of a callee is written unless
  *  the callee takes it read-only (a VAR_IN_OUT CONSTANT, `IrSlot.readOnly`). */
@@ -22,8 +22,7 @@ export function writeSites(p: Printer, body: IrRoutine["body"]): Map<number, num
  *  `IecStr::store` (another capacity), which reads the buffer it writes into. */
 function plainStore(s: IrStmt): s is Extract<IrStmt, { kind: "assign" }> {
   if (s.kind !== "assign" || s.target.root !== "local" || s.target.path.length > 0) return false
-  const t = s.target.type
-  return stringKind(t) === undefined || (s.value.type.kind === "elementary" && t.kind === "elementary" && s.value.type.length === t.length)
+  return plainCopy(s.target, s.value)
 }
 
 /**

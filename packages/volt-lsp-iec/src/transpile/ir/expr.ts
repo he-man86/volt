@@ -234,6 +234,9 @@ export type IrBuiltinName =
   | "char"
   /** `(s, i, c)`: `s` with `s[i] := c` — the node's type is the string's. See `semantics/string.ts` `setChar` for the model. */
   | "setchar"
+  /** `(s)`: the units of `s` before its first 0, as the node's UINT — `Standard.LEN_INTERNAL`, the one count every Standard
+   *  string function takes (`lower/builtins/length.ts`; `semantics/string.ts` `lengthOf`). */
+  | "length"
   /** `(a, b)`: two image addresses ORDERED — -1, 0 or 1 as a DINT — once both lie in one region of the image; two regions'
    *  order is our layout's, never the vendor's, so it faults (`address-across-frames`, design.md §3.3 step 4d). */
   | "address_order"

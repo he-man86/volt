@@ -5,12 +5,13 @@
 import type { IrBinding, IrDispatch, IrExpr, IrInvoke, IrRoutine, Place } from "../../ir/index.js"
 import { type InFrame, isInFrame, specializeRoutine } from "./specialize.js"
 import { aliases, bindInOut, bindWhereWritten, holding, shadowedInOutsOf } from "./binding.js"
-import type { Lowering } from "../core/lowering.js"
+import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { CallArg, Expr, Span } from "../../../frontend/syntax/index.js"
 import { anyInputsOf, bindAnyArgument, bindAnyTargets } from "../pointers/any.js"
 import { bindOutputArgument, bindUnconnectedOutputs } from "./outputs.js"
 import { UNKNOWN } from "../../../frontend/types/index.js"
 import { lastBinding } from "./last-binding.js"
+import { bindStringInput, stringInputsOf } from "./string-inputs.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
 import { lookup, lookupLocal, lookupMember, pickForAsker, scopeUri } from "../../../frontend/symbols/index.js"
@@ -94,11 +95,8 @@ function invokeTarget(lw: Lowering, call: Extract<Expr, { kind: "call" }>): { ro
     routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`, call)
     instance = thisPlace(frame, callee.base.span)
   } else if (callee.kind === "member" && namespaceOf(lw, callee.base) !== undefined) {
-    // `Stu.StrTrimA(…)` — a library FUNCTION named through its library's NAMESPACE (the `.library` manifest's), which
-    // is the same function the bare name reaches, looked up among that library's own symbols only
-    const ns = namespaceOf(lw, callee.base)!
-    const sym = lookupLocal(ns, callee.member.name).find((s) => s.kind === "function")
-    if (sym === undefined) return lw.bail("expr-call", `${ns.name}.${callee.member.name} is no FUNCTION of that namespace`, call.span)
+    const sym = functionCalled(lw, callee)
+    if (sym === undefined) return lw.bail("expr-call", `${namespaceOf(lw, callee.base)!.name}.${callee.member.name} is no FUNCTION of that namespace`, call.span)
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else if (callee.kind === "member") {
     return memberTarget(lw, call, callee)
@@ -107,19 +105,34 @@ function invokeTarget(lw: Lowering, call: Extract<Expr, { kind: "call" }>): { ro
     routine = methodOf(lw, frame, callee.name, call.span, call)
     instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
-    // a project-level name with several FUNCTIONs behind it (a project one and a library's) means the one the ASKER sees
-    // first (`symbols/precedence.ts`): the project's from project code (transpile-review 21, `tr_21_namespace_*`)
-    const found = lookup(lw.scope, callee.name)
-    const sym =
-      found?.symbol.kind === "function" && found.foundIn === lw.project
-        ? pickForAsker(lw.project, lookupLocal(lw.project, callee.name).filter((s) => s.kind === "function"), (s) => s.uri, scopeUri(lw.scope))
-        : found?.symbol
-    if (sym?.kind !== "function") return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
+    const sym = functionCalled(lw, callee)
+    if (sym === undefined) return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
     // A library FUNCTION lowers like a project one when its body is there — the library repo's (`libraries/`) — and is
     // refused as `call-library` by `calledRoutine` when only the materialized declaration is.
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else return lw.bail("expr-call", "a call of an expression", call.span)
   return routine === undefined ? undefined : { routine, instance }
+}
+
+/**
+ * THE FUNCTION A CALLEE NAMES — undefined when it names none (a METHOD of the calling FB, an instance's member, anything
+ * else). `Stu.StrTrimA(…)`: a library FUNCTION named through its library's NAMESPACE (the `.library` manifest's), the same
+ * function the bare name reaches, looked up among that library's own symbols only. A bare name with several FUNCTIONs
+ * behind it (a project one and a library's) means the one the ASKER sees first (`symbols/precedence.ts`): the project's
+ * from project code (transpile-review 21, `tr_21_namespace_*`).
+ */
+export function functionCalled(lw: Lowering, callee: Expr): RoutineSymbol | undefined {
+  if (callee.kind === "member") {
+    const ns = namespaceOf(lw, callee.base)
+    return ns === undefined ? undefined : lookupLocal(ns, callee.member.name).find((s) => s.kind === "function")
+  }
+  if (callee.kind !== "ident_expr" || ownMember(lw, callee.name) !== undefined) return undefined
+  const found = lookup(lw.scope, callee.name)
+  const sym =
+    found?.symbol.kind === "function" && found.foundIn === lw.project
+      ? pickForAsker(lw.project, lookupLocal(lw.project, callee.name).filter((s) => s.kind === "function"), (s) => s.uri, scopeUri(lw.scope))
+      : found?.symbol
+  return sym?.kind === "function" ? sym : undefined
 }
 
 /** `inst.M(…)`: the METHOD or ACTION of the instance a place names — through an interface, the dispatch; on a PROGRAM's
@@ -184,7 +197,8 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
   if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
   if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
   if (param !== undefined) {
-    const target = bindInOut(lw, arg, param, callHolds(b), routine.body, routine.fb, b.instance)
+    // a Standard string input this variant takes read-only (`string-inputs.ts`): lent as it is, no alias to check
+    const target = stringInputsOf(lw).get(routine.key)?.has(bound) === true ? bindStringInput(lw, arg, param) : bindInOut(lw, arg, param, callHolds(b), routine.body, routine.fb, b.instance)
     if (target === undefined) return undefined
     b.inouts[bound] = target
     b.order.push({ inout: bound })

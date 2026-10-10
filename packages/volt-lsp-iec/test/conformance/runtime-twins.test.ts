@@ -36,7 +36,7 @@ import {
 } from "../../src/transpile/semantics/text.cases.js"
 import { PARSE_INT_CASES, type ParseIntInput } from "../../src/transpile/semantics/parse.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
-import { visible } from "../../src/transpile/semantics/string.js"
+import { lengthOf, visible } from "../../src/transpile/semantics/string.js"
 import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type MemoryType } from "../../src/transpile/semantics/memory.cases.js"
 import { FAULT_TEXT } from "../../src/transpile/ir/faults.js"
 import { RUNS } from "./support/recordings.js"
@@ -209,7 +209,7 @@ function recordedAt(fixture: string, path: string): string {
 /** What a buffer shows where a recording looked at it: the unit (0 past what is held), the string, or its length. */
 function shown(buffer: string, seen: Seen): string {
   if ("unit" in seen) return String(seen.unit < buffer.length ? buffer.charCodeAt(seen.unit) : 0)
-  return "text" in seen ? visible(buffer) : String(visible(buffer).length)
+  return "text" in seen ? visible(buffer) : String(lengthOf(buffer))
 }
 
 /** A recording's value in `shown`'s terms: a BYTE/WORD/INT as its number, a STRING ('…') or WSTRING ("…") as its text. */
@@ -221,8 +221,9 @@ function asShown(value: string, where: string): string {
   return typed(value, where).text
 }
 
-/** A string case as one Rust block: the variable started at zeros, each operation, then every unit of its buffer. */
-function stringCaseRust(input: StringInput): string {
+/** A string case as one Rust block: the variable started at zeros, each operation, then what `read` reads of it — every
+ *  unit of its buffer, unless another read is asked. */
+function stringCaseRust(input: StringInput, read = "format!(\"{:?}\", s.units.iter().map(|&u| u as u32).collect::<Vec<u32>>())"): string {
   const type = input.wide ? "IecWString" : "IecString"
   const unit = input.wide ? "u16" : "u8"
   const units = (text: string): string =>
@@ -230,7 +231,7 @@ function stringCaseRust(input: StringInput): string {
   const ops = input.ops.map((op) =>
     "store" in op ? `s.store(&${type}::<${op.n}>::lit(${units(op.store)}));` : `s.set_char(${op.at}, ${op.unit}${unit});`,
   )
-  return `{ let mut s = ${type}::<${input.m}>::new(); ${ops.join(" ")} format!("{:?}", s.units.iter().map(|&u| u as u32).collect::<Vec<u32>>()) }`
+  return `{ let mut s = ${type}::<${input.m}>::new(); ${ops.join(" ")} ${read} }`
 }
 
 /** The buffer a case expects, as `stringCaseRust` prints it: its m units, zeros past what it holds. */
@@ -442,6 +443,12 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const got = await runTwin("string_store", runtimeText("string"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
     expect(got).toHaveLength(STRING_CASE_LIST.length)
     expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${stringCaseUnits(c)}`))
+  }, 60_000)
+
+  test("runtime/string.ts: IecStr::length (LEN_INTERNAL, 7.4.6) over every string case — the interpreter's lengthOf", async () => {
+    const got = await runTwin("string_length", runtimeText("string_length"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input, "s.length()")))
+    expect(got).toHaveLength(STRING_CASE_LIST.length)
+    expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${lengthOf(c.expected)}`))
   }, 60_000)
 
   test("runtime/pointer.ts: Mem over every byte-image case — the signalling NaN a REAL keeps included", async () => {

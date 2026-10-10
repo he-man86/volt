@@ -4,7 +4,7 @@
  */
 import type { IrBinding, IrExpr, IrPou, IrStmt, Place } from "../../ir/index.js"
 import { holdsCall } from "../../ir/walk.js"
-import { rustFaultLiteral } from "../../ir/faults.js"
+import { cannotFault, rustFaultLiteral } from "../../ir/faults.js"
 import { expr } from "./expr.js"
 import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
@@ -74,15 +74,23 @@ const receiverOf = (text: string): string => borrowOf(text) ?? text
  * A frozen in-out index (`IrFreeze`) is always taken where it is written.
  */
 function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onProgram: boolean): Set<number> {
-  const written = [...(e.order ?? e.inputs.keys())].filter((k): k is number => typeof k === "number")
+  const order = [...(e.order ?? e.inputs.keys())]
+  const written = order.filter((k): k is number => typeof k === "number")
   const constant = (k: number): boolean => e.inputs[k]!.kind === "const"
   if (onProgram) return new Set(written.filter((k) => !constant(k)))
   const last = written.reduce((at, k, i) => (holdsCall(e.inputs[k]!) ? i : at), -1)
-  if (last < 0) return new Set()
   const hoisted = new Set(written.slice(0, last + 1).filter((k) => !constant(k)))
-  const call = written[last]!
+  const call = written[last]
   const inlineAfter = written.slice(last + 1).filter((k) => !constant(k))
-  if (e.instance === undefined && globalsArgs(reachOfBody(p, e.routine)).length === 0 && inlineAfter.every((k) => k > call)) hoisted.delete(call)
+  if (call !== undefined && e.instance === undefined && globalsArgs(reachOfBody(p, e.routine)).length === 0 && inlineAfter.every((k) => k > call)) hoisted.delete(call)
+  // a freeze runs where it is written — a Standard function's string input taken there (`string-inputs.ts`) —, so an
+  // input written before it runs before it too: every one before a freeze that holds a call (which could change what the
+  // input reads), and every one that could fault before a freeze that could (whose fault would else come first)
+  const lastFreeze = (test: (value: IrExpr) => boolean): number => order.reduce<number>((at, k, i) => (typeof k !== "number" && test(k.value) ? i : at), 0)
+  const callFreeze = lastFreeze(holdsCall)
+  const faultFreeze = lastFreeze((v) => !cannotFault(v))
+  for (const [i, k] of order.entries())
+    if (typeof k === "number" && !constant(k) && (i < callFreeze || (i < faultFreeze && !cannotFault(e.inputs[k]!)))) hoisted.add(k)
   return hoisted
 }
 

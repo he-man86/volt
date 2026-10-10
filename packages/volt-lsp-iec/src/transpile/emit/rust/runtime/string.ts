@@ -85,3 +85,13 @@ impl<T: Copy + Eq, const N: usize> Eq for IecStr<T, N> {}
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
 impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{text:?}") } }
 `
+/** `Standard.LEN_INTERNAL` (`IrBuiltinName` `length`): the units before the first 0, which `len` holds — `units().len()`,
+ *  the interpreter's `lengthOf` (`semantics/string.ts`). Lowering refuses a string a UINT cannot count
+ *  (`string-length-width`), so the cast never truncates. Printed on demand, apart from the string type. */
+export const IEC_STR_LENGTH = `// LEN_INTERNAL: the units before the first 0 (a capacity past 65535 is refused in lowering: string-length-width)
+impl<T: Copy, const N: usize> IecStr<T, N> {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // N <= 65535, so the count fits (above)
+    pub fn length(&self) -> u16 { self.len as u16 }
+}
+`

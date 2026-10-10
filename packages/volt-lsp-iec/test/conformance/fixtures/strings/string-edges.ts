@@ -1095,4 +1095,223 @@ FOR i := 0 TO 10 DO
 END_FOR
 END_FUNCTION_BLOCK
 `), pouName: "FB_LANG_cursor_whole_store_capacity", plcPrgVar: "inst : FB_LANG_cursor_whole_store_capacity;" },
+
+  // 7.4.6 gate 7.4c (review): a Standard string FUNCTION's STRING(255) VAR_INPUT is lent where it lies
+  // (`lower/calls/string-inputs.ts`), so where the call READS its string is no longer where an input copy was taken. Each
+  // call here has a later argument that changes the string: a FUNCTION writing it through its VAR_IN_OUT, a METHOD of the
+  // FB writing it — and the last with its arguments named in reverse order, the METHOD written FIRST. The string is reset
+  // before each; `txtAfter` is what the last call left.
+  { ...whole("string_input_lent_later_call_changes", "a Standard string function given a variable a later argument's call changes: LEFT(txt, Cut(t := txt)), MID(txt, 2, Shrink()), CONCAT(txt, Grow()), MID(POS := Shrink(), STR := txt, LEN := 2) (transpile-restructure 7.4.6)",
+    `FUNCTION F_LentLaterCut : INT
+VAR_IN_OUT
+	t : STRING(10);
+END_VAR
+t[1] := 0;
+F_LentLaterCut := 3;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_input_lent_later_call
+VAR
+	txt : STRING(10);
+	viaFunction : STRING(255);
+	viaMethodMid : STRING(255);
+	viaMethodConcat : STRING(255);
+	namedReversed : STRING(255);
+	txtAfter : STRING(10);
+END_VAR
+txt := 'hello';
+viaFunction := LEFT(txt, F_LentLaterCut(t := txt));
+txt := 'hello';
+viaMethodMid := MID(txt, 2, Shrink());
+txt := 'hello';
+viaMethodConcat := CONCAT(txt, Grow());
+txt := 'hello';
+namedReversed := MID(POS := Shrink(), STR := txt, LEN := 2);
+txtAfter := txt;
+END_FUNCTION_BLOCK
+
+METHOD Shrink : INT
+txt := 'x';
+Shrink := 1;
+END_METHOD
+
+METHOD Grow : STRING(10)
+txt := 'q';
+Grow := 'Y';
+END_METHOD
+`), pouName: "FB_LANG_string_input_lent_later_call", plcPrgVar: "inst : FB_LANG_string_input_lent_later_call;" },
+
+  // The same, the string a VAR_IN_OUT: a FUNCTION's, changed by another FUNCTION it is lent to in a later argument, and an
+  // FB's, changed by a METHOD of that FB — the lent string is the CALLER's variable, read through the in-out.
+  { ...whole("string_input_lent_inout_later_call", "a Standard string function given a STRING VAR_IN_OUT a later argument's call changes: MID(io, Cut(t := io), 1) in a FUNCTION, CONCAT(io, Get()) and MID(io, Shrink(), 1) in an FB (transpile-restructure 7.4.6)",
+    `FUNCTION F_LentInoutCut : INT
+VAR_IN_OUT
+	t : STRING(10);
+END_VAR
+t := 'x';
+F_LentInoutCut := 1;
+END_FUNCTION
+
+FUNCTION F_LentInoutMid : STRING(255)
+VAR_IN_OUT
+	io : STRING(10);
+END_VAR
+F_LentInoutMid := MID(io, F_LentInoutCut(t := io), 1);
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_input_lent_inout
+VAR
+	v : STRING(10);
+	inner : FB_LentInoutInner;
+	viaFunction : STRING(255);
+	viaMethodConcat : STRING(255);
+	viaMethodMid : STRING(255);
+	vAfter : STRING(10);
+END_VAR
+v := 'abc';
+viaFunction := F_LentInoutMid(io := v);
+v := 'abc';
+inner(mode := 0, io := v);
+viaMethodConcat := inner.res;
+v := 'abc';
+inner(mode := 1, io := v);
+viaMethodMid := inner.res;
+vAfter := v;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LentInoutInner
+VAR_INPUT
+	mode : INT;
+END_VAR
+VAR_OUTPUT
+	res : STRING(255);
+END_VAR
+VAR_IN_OUT
+	io : STRING(10);
+END_VAR
+IF mode = 0 THEN
+	res := CONCAT(io, Get());
+ELSE
+	res := MID(io, Shrink(), 1);
+END_IF
+END_FUNCTION_BLOCK
+
+METHOD Get : STRING(10)
+io := 'x';
+Get := 'Y';
+END_METHOD
+
+METHOD Shrink : INT
+io := 'x';
+Shrink := 1;
+END_METHOD
+`), pouName: "FB_LANG_string_input_lent_inout", plcPrgVar: "inst : FB_LANG_string_input_lent_inout;" },
+
+  // A STRING(12) bound to a VAR_IN_OUT STRING(10) — the in-out is bound at its CALLER's capacity, wider than the one it
+  // declares — handed on to LEN, to LEFT for more than 10 units, and lent with a later argument's call on the in-out
+  // (taken where it is written).
+  { ...whole("string_input_lent_inout_wider", "a STRING(12) bound to a VAR_IN_OUT STRING(10), then LEN(io), LEFT(io, 20), CONCAT(io, INT_TO_STRING(Touch(t := io))) (transpile-restructure 7.4.6)",
+    `FUNCTION F_LentWiderLen : INT
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_LentWiderLen := LEN(io);
+END_FUNCTION
+
+FUNCTION F_LentWiderLeft : STRING(255)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_LentWiderLeft := LEFT(io, 20);
+END_FUNCTION
+
+FUNCTION F_LentWiderTouch : INT
+VAR_IN_OUT
+\tt : STRING(10);
+END_VAR
+F_LentWiderTouch := 1;
+END_FUNCTION
+
+FUNCTION F_LentWiderFrozen : STRING(255)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_LentWiderFrozen := CONCAT(io, INT_TO_STRING(F_LentWiderTouch(t := io)));
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_input_lent_inout_wider
+VAR
+\tv : STRING(12) := 'abcdefghijkl';
+\tlength : INT;
+\tleft20 : STRING(255);
+\tfrozen : STRING(255);
+END_VAR
+length := F_LentWiderLen(io := v);
+left20 := F_LentWiderLeft(io := v);
+frozen := F_LentWiderFrozen(io := v);
+END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_string_input_lent_inout_wider", plcPrgVar: "inst : FB_LANG_string_input_lent_inout_wider;" },
+
+  // Found beside 7.4.6 (gate 7.4c), a question of its own: a STRING VAR_IN_OUT bound at a WIDER capacity than it declares,
+  // read without a Standard function — a unit past the declared capacity through a runtime index (`io[k]`, k = 11)…
+  { ...whole("string_inout_wider_unit_read", "a STRING(12) bound to a VAR_IN_OUT STRING(10), its unit 11 read through a runtime index",
+    `FUNCTION F_WiderUnit : BYTE
+VAR_INPUT
+\tk : INT;
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_WiderUnit := io[k];
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_inout_wider_unit_read
+VAR
+\tv : STRING(12) := 'abcdefghijkl';
+\tk : INT := 11;
+\tunit11 : BYTE;
+END_VAR
+unit11 := F_WiderUnit(k := k, io := v);
+END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_string_inout_wider_unit_read", plcPrgVar: "inst : FB_LANG_string_inout_wider_unit_read;",
+    deferred: { transpile: "2026-10-10 (transpile-restructure gate 7.4c), recorded: CODESYS reads unit 11 of the CALLER's STRING(12) through the in-out, 108 ('l'); the Rust in-out is generic over the caller's capacity and reads 108, the interpreter reads the in-out at its declared STRING(10) and faults (`character 11 of a string of capacity 10`). niche: accepted loss (0 occurrences in the corpora: of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity — the recipe managers a STRING to a STRING, pro2193's JSON builders a STRING(n) to a STRING(n) — and the STRING(1) any-length idiom is Tc2_System's CONCATX and AppendErrorString, library declarations with no body)" } },
+
+  // …and copied whole: into a project FUNCTION's STRING(255) VAR_INPUT, and stored into a local STRING(20).
+  { ...whole("string_inout_wider_copies", "a STRING(12) bound to a VAR_IN_OUT STRING(10), copied into a project FUNCTION's STRING(255) VAR_INPUT and stored into a STRING(20)",
+    `FUNCTION F_WiderInputLen : INT
+VAR_INPUT
+\ttext : STRING(255);
+END_VAR
+F_WiderInputLen := LEN(text);
+END_FUNCTION
+
+FUNCTION F_WiderPassOn : INT
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_WiderPassOn := F_WiderInputLen(text := io);
+END_FUNCTION
+
+FUNCTION F_WiderStored : STRING(20)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+VAR
+\tlocal : STRING(20);
+END_VAR
+local := io;
+F_WiderStored := local;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_inout_wider_copies
+VAR
+\tv : STRING(12) := 'abcdefghijkl';
+\tviaInput : INT;
+\tstored : STRING(20);
+END_VAR
+viaInput := F_WiderPassOn(io := v);
+stored := F_WiderStored(io := v);
+END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_string_inout_wider_copies", plcPrgVar: "inst : FB_LANG_string_inout_wider_copies;",
+    deferred: { transpile: "2026-10-10 (transpile-restructure gate 7.4c), recorded: CODESYS copies the in-out at its DECLARED capacity both ways — the project FUNCTION's input counts 10, the STRING(20) holds 'abcdefghij' — as the Standard functions' lent input now reads it (`string_input_lent_inout_wider`); both backends copy the caller's 12 into the input (`viaInput` 12), and the Rust store reads the caller's capacity too (`stored` 'abcdefghijkl'; the interpreter's 'abcdefghij'). niche: accepted loss (0 occurrences in the corpora: of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity — the recipe managers a STRING to a STRING, pro2193's JSON builders a STRING(n) to a STRING(n) — and the STRING(1) any-length idiom is Tc2_System's CONCATX and AppendErrorString, library declarations with no body)" } },
 ]

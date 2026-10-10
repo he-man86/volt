@@ -8,6 +8,7 @@ import { elementaryRef, peelArray, type Type } from "../../../frontend/types/ind
 import type { IrExpr, Place } from "../../ir/index.js"
 import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, readTargets, refuseAfterStore } from "./state.js"
 import { lowerPlace } from "../places/places.js"
+import { refuseLentInput } from "../places/access-guards.js"
 import { refuseUnionWrite } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
 import { charsOf } from "./cursor.js"
@@ -32,6 +33,7 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   // reader looking for an assignment that is not there.
   if (place === undefined || refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow"))
     return undefined
+  if (refuseLentInput(lw, place, span, "takes the address of")) return undefined
   if (place.guard !== undefined || place.path.some((s) => s.kind === "bit"))
     return lw.bail("pointer-shape", "the address of a dereference or a bit", span)
   const last = place.path.at(-1)
@@ -246,6 +248,7 @@ export function imageAddressOf(lw: Lowering, x: Expr, pointer: Holder | undefine
 export function imagePlaceAddress(lw: Lowering, place: Place, text: string, pointer: Holder | undefined, span: Span): IrExpr | undefined {
   // TAKING AN ADDRESS IS A READ (`addressOf` says why the union refusal names it)
   if (refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow")) return undefined
+  if (refuseLentInput(lw, place, span, "takes the address of")) return undefined
   if (place.path.some((s) => s.kind === "bit")) return lw.bail("pointer-shape", "the address of a bit", span)
   // `ADR(p^)` of a pointer into the image is where `p` points: already an image place, so nothing escapes
   const type: Type = pointer?.type ?? { kind: "pointer", target: place.type }

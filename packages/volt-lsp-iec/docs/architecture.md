@@ -238,9 +238,14 @@ AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
 semantics the transpiler owns: its elements are ordinary POUs whose bodies the library repo supplies
 (`libraries/<library>/<version>/`, ST, looked up by the manifest's `RESOLUTION`), lowered like project code. The
 only primitives a library needs are language operators — `s[i]` and `TIME()`, the latter read from a `CLOCK`
-global the harness sets per scan — and one pointer form, the STRING CURSOR: a character pointer a caller fills with
-a string's address binds that string by its own type and keeps its byte offset (`PointerFrame.cursors`,
-`lower/pointers/state.ts`), which is what a library like StringUtils walks.
+global the harness sets per scan — plus `Standard.LEN_INTERNAL`, the count every Standard string function takes, as
+the IR builtin `length` (`lower/builtins/length.ts`; `units().len()`, its repo body kept as the primitive's oracle) —
+and one pointer form, the STRING CURSOR: a character pointer a caller fills with a string's address binds that string
+by its own type and keeps its byte offset (`PointerFrame.cursors`, `lower/pointers/state.ts`), which is what a
+library like StringUtils walks. A Standard string FUNCTION's `STRING(255)` input is lent the caller's STRING(N <= 255)
+read-only instead of copied (`lower/calls/string-inputs.ts`): every body reads it only below its length, which
+`test/libraries/standard.test.ts` holds over every short buffer. A whole STRING VAR_IN_OUT keeps a copy at its
+declared capacity — it is bound at its caller's, which CODESYS's input copy does not read (`string_input_lent_inout_wider`).
 
 **The folders** (openspec `transpile-restructure` design.md §2; each test sits next to its module as `<file>.test.ts`):
 

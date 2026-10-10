@@ -1,7 +1,6 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
-import type { IrPou, IrStmt, Place } from "../../ir/index.js"
+import type { IrPou, IrStmt } from "../../ir/index.js"
 import { diverges, holdsCall, sameNode } from "../../ir/walk.js"
-import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { setCharIn } from "./builtins.js"
 import { stmtCall } from "./calls.js"
 import { expr, head, print } from "./expr.js"
@@ -10,7 +9,7 @@ import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
 import { borrowOf, lvalue, place } from "./place.js"
 import { guardLine, letTemp, type Printer, push } from "./printer.js"
-import { rustType } from "./types.js"
+import { plainCopy, rustType } from "./types.js"
 import { storeImage } from "./image.js"
 import { mustUse } from "./locals.js"
 
@@ -109,7 +108,7 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
     // `assignTo` hands the value over at its own capacity. Both capacities are the types' const generics, so a STRING
     // VAR_IN_OUT's generic one (`inoutType`) needs no name — which is why an in-out on either side stores too. At one
     // capacity the store writes every unit, so it IS the plain copy, and prints as one.
-    if (stringKind(s.target.type) !== undefined && (!sameCapacity(s.value.type, s.target.type) || generic(s.target) || (s.value.kind === "load" && generic(s.value.place)))) {
+    if (!plainCopy(s.target, s.value)) {
       // a borrow is its own receiver and its own argument, auto-deref'd and reborrowed (7.8.6)
       push(p, `${borrowOf(field) ?? field}.store(${value.receiver ?? `&${at(value, Prec.Unary)}`});`, indent, s.span)
       return
@@ -181,11 +180,6 @@ function stmtSwitch(p: Printer, s: Extract<IrStmt, { kind: "switch" }>, slots: I
   return
 }
 
-/** Two string types of one capacity. */
-const sameCapacity = (a: Type, b: Type): boolean => a.kind === "elementary" && b.kind === "elementary" && a.length === b.length
-
-/** A place whose Rust string type has a GENERIC capacity: a STRING VAR_IN_OUT (`inoutType`). */
-const generic = (place: Place): boolean => place.root === "inout"
 
 /** The infix operators a store back into its own left operand prints as `op=`. */
 const COMPOUND: ReadonlySet<string> = new Set(["&", "|", "^", "+", "-", "*", "/", "%"])

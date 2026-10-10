@@ -1016,6 +1016,73 @@ copy lowers today is refused after.
 gone from the emission. (2) The proof test (it holds before the borrow and must after). (3) The borrow in `calledRoutine`/`bindPlace`. Accept: S-out (outputs and edge byte-identical over every
 fixture), `test/libraries` green, M; the 7.4.6 notes resolved; 7.7.12's parameters unchanged (integers and cursors).
 
+**Built (step 7.4c, 2026-10-10)**, where it differs from or adds to the above:
+- The binding lives in `lower/calls/string-inputs.ts` (`stringInputArguments` picks the variant in `calledRoutine`,
+  `declareStringInputs` makes the in-outs before `routineInputs`, which skips them, `bindStringInput` binds in
+  `bindArgument`), not in `bindPlace`: a read-only `&` has none of `bindPlace`'s alias questions — `CONCAT(x, x)` lends
+  `x` twice, which `bindPlace` would have copied or (REPLACE, which calls) refused.
+- **No argument keeps a by-value input: every STRING(255) input of the nine is an in-out of the call's variant.** A
+  place `lendable` takes, of capacity N <= 255, is lent as it is; a literal, a FUNCTION's result (typed by its
+  declaration, as `calledRoutine` types the call — a lowered result of another capacity is a `LoweringBug`) and any
+  other STRING(N <= 255) place (a global, a `p^`) are lent as a copy at their own N; everything else — a STRING wider
+  than 255, a conversion, a METHOD's result, whose type only lowering it would tell — is lent as a copy converted to
+  the declared STRING(255), which IS the input copy, cut and all. One kind of variant is what lets them all print alike:
+  a design that kept the input for some arguments printed a second fn wherever both met (`CONCAT(CONCAT(a, b), c)`,
+  REPLACE's `INSERT(DELETE(…), …)`, a wide argument beside a narrow one: +1 fn, +1 pedantic, size up), where now
+  `sharedVariants` merges every variant of a function into one. Measured on the rust snapshot: `.to::<255>()` 235 -> 20
+  (137 fixtures -> 3) — the 20 left are 12 cuts of a STRING(290)/(300) argument (`concat_result_capacity`,
+  `string_input_truncation`: measured) and 8 parse cuts (`string_parse_beyond_255`); distinct fns 545 -> 409, and no
+  fixture prints two variants of a Standard function.
+- **Taken where it is written when the order could show** (`inputWhereWritten`, in `bindWhereWritten`): both backends
+  evaluate the inputs in written order and bind the in-outs (and the copies) after them, where the input copy was
+  taken at its own position. So a lent place a LATER argument's call could change, and a result whose own call could
+  change something, go into a temp at their position: `MID(txt, Shrink(), 1)` with `Shrink` cutting `txt` prints
+  `{ let __input_copy = self.txt; mid(self.shrink(), 1, &__input_copy) }`, reading what the copy read and never holding
+  `&self.txt` beside the call's `&mut self`. "Could change" is `holdsEffect`: any call but a FUNCTION whose body writes
+  only its locals and calls nothing, every in-out read-only, nothing lent — so `MID(txt, LEN(txt) - 1, 2)` lends `txt`
+  as it is, and a result or a conversion that changes nothing is lent inline, `&concat(&self.a, &self.b)` (`emit/rust/printer.ts`
+  `inline`). The emitter hoists every input written before a freeze that holds a call (`hoistedInputs`), so the freeze's
+  call runs after them, as written. A literal is a constant and stays.
+- The emitter's plain-copy rule (`emit/rust/types.ts` `plainCopy`, shared by the store, the `let` it folds into and the
+  tail it yields): a STRING VAR_IN_OUT's Rust capacity is the generic `N_*` whatever the variant's number says, so a
+  store from one is `IecStr::store` even at one capacity — DELETE's variant at STRING(255) (REPLACE hands it its own
+  STRING(255) input) printed `let mut delete: IecString<255> = *str;`, E0308 (`concat_result_capacity`).
+- Rust's twin is the on-demand helper `string_length` (`IecStr::length`, `self.len as u16`; `runtime-twins.test.ts`).
+- The proof runs REPLACE over capacities 0-3 (its two strings and two INTs over 0-4 are 1.2M runs, 38 s); its STR1 is
+  DELETE's and its STR2 INSERT's, each held over 0-4. A test there also names every repo FUNCTION with a STRING(255)
+  input, so a tenth is not borrowed unproven.
+
+**Gate 7.4c (review, 2026-10-10)**, recorded first (CODESYS `record:exec`; `record:language` on CODESYS and on TwinCAT
+Project13, all five build): `string_input_lent_later_call_changes`, `string_input_lent_inout_later_call`,
+`string_input_lent_inout_wider`, `string_inout_wider_unit_read`, `string_inout_wider_copies`.
+- **The order is CODESYS's, measured.** A later argument's call that changes the string — a FUNCTION through its
+  in-out, a METHOD of the FB — does not reach the Standard function's string (`LEFT(txt, Cut(t := txt))` 'hel',
+  `MID(txt, 2, Shrink())` 'he', `CONCAT(txt, Grow())` 'helloY'), and named in reverse, `MID(POS := Shrink(), STR := txt,
+  LEN := 2)`, the METHOD written first does ('x'): written order, as `inputWhereWritten` takes it. It was inferred from
+  the in-out and input recordings; now each shape is a fixture.
+- **A STRING VAR_IN_OUT is bound at its CALLER's capacity, and its input copy reads it at its DECLARED one** — a
+  STRING(12) 'abcdefghijkl' bound to `io : STRING(10)`: LEN(io) 10, LEFT(io, 20) 'abcdefghij', CONCAT(io, …) frozen
+  'abcdefghij1'. HEAD's input copy read the caller's 12 on both backends (LEN 12), and the borrow did too (the
+  interpreter, which reads the in-out at the variant's declared capacity, faulted on unit 11 of LEFT's walk); the
+  freeze's Rust was `let __input_copy_1: IecString<10> = *io;`, E0308 (`io` is generic over its capacity). So a WHOLE
+  STRING VAR_IN_OUT of the routine is not `lendable`: it is lent as a copy at its declared capacity, an explicit
+  `convert` even where the two types read alike (`io.to::<10>()`; `callersCapacity`), and a freeze of it is then a plain
+  `let` of that copy. A variant's own lent input stays lent as it is: it is always bound at the capacity it declares
+  (REPLACE hands DELETE its STR1 by `&`). One existing fixture prints it: `xo4_inout_constant_chain`'s `LEN(text)` of a
+  `VAR_IN_OUT CONSTANT text : STRING` is `len(&text.to::<80>())` (outputs unchanged: its caller is a STRING(12)).
+- **Faults keep the input copy's order.** A lent place is bound after the inputs, so an index it faults on was reported
+  after a later argument's fault (`MID(arr[i], 10 / j, 1)`: 'division by zero', HEAD 'array index 5 is outside its
+  bounds'). A lent string that could fault is now taken where it is written when a later argument — an input or an
+  in-out binding — could fault too (`ir/faults.ts` `cannotFault`: an allowlist of what never stops the task, so a new
+  construct counts as one that could), and the emitter hoists every input that could fault written before such a
+  freeze (`hoistedInputs`), as it hoists every input before a freeze that holds a call. A later lent place is now a
+  "later argument" for effects too (an index holding a call).
+- **Found beside it, not this step's, recorded and marked** (`deferred.transpile`, niche: 0 occurrences in the corpora
+  — no STRING VAR_IN_OUT of the six is bound to a wider string): read OUTSIDE a Standard function, a wider-bound STRING
+  in-out is read at the caller's capacity by index (`io[11]` is 108 on CODESYS and in Rust; the interpreter faults) and
+  at the declared one when copied (a project FUNCTION's STRING(255) input counts 10 on CODESYS, 12 on both backends; a
+  store into a STRING(20) holds 'abcdefghij' on CODESYS and the interpreter, 'abcdefghijkl' in Rust).
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus

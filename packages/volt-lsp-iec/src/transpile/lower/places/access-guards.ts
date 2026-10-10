@@ -2,7 +2,7 @@
  * The guards on a place's access: the checks a WRITE passes (`guardWrite`), a read of a value (`loadValue`).
  */
 
-import type { Lowering } from "../core/lowering.js"
+import { frameState, type Lowering } from "../core/lowering.js"
 import type { IrExpr, IrSlot, Place } from "../../ir/index.js"
 import { convert } from "../values/convert.js"
 import { fieldOf, rootType, typeAlong } from "./path.js"
@@ -85,7 +85,25 @@ export const STORE_WRITE: readonly WriteCheck[] = ["open-array", ...FULL_WRITE]
 function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boolean {
   const slot = place.root === "inout" ? lw.inoutSlots[place.slot] : undefined
   if (slot?.constant !== true) return false
+  if (refuseLentInput(lw, place, span, "writes or lends writable")) return true
   lw.bail("inout-constant-write", `'${slot.name}' is a VAR_IN_OUT CONSTANT — no valid assignment target`, span)
+  return true
+}
+
+/**
+ * THE IN-OUTS OF A ROUTINE'S OWN LOWERING THAT ARE READ-ONLY STRING INPUTS — a Standard function's STRING(255) VAR_INPUT
+ * lent the caller's string (`calls/string-inputs.ts`, 7.4.6). Lowering's, not the IR's.
+ */
+export const lentInputSlotsOf = frameState(() => new Set<number>())
+
+/**
+ * A LENT STRING INPUT THE BODY WRITES, LENDS WRITABLE OR TAKES THE ADDRESS OF — refused by name, true when refused. The
+ * input is read where the caller's string lies only because the library repo's body reads it alone
+ * (`test/libraries/standard.test.ts`); a body that does more is a defect of the repo, never a silent copy.
+ */
+export function refuseLentInput(lw: Lowering, place: Place, span: Span, does: "writes or lends writable" | "takes the address of"): boolean {
+  if (place.root !== "inout" || !lentInputSlotsOf(lw).has(place.slot)) return false
+  lw.bail("input-borrow-written", `the body ${does} its STRING input '${lw.inoutSlots[place.slot]!.name}', which it is lent read-only`, span)
   return true
 }
 

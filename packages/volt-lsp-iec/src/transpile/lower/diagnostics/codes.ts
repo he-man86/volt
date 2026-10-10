@@ -121,6 +121,9 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "init-not-constant": "unclassified",
   "init-composite-scalar": "invalid",
   "inout-constant-write": "unclassified",
+  // a Standard FUNCTION's STRING input borrowed read-only (`calls/string-inputs.ts`) that the library repo's body writes, lends
+  // writable or takes the address of: a defect of the repo's body, never a silent copy (7.4.6)
+  "input-borrow-written": "not-modelled",
   "interface-call-shape": "unclassified",
   "interface-context": "unclassified",
   "interface-any-input": "not-modelled",
@@ -188,6 +191,8 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "string-escape": "not-measured",
   // a STRING(n) whose n the declaring scope cannot fold: the buffer's size is a missing fact (`Lowering.sized`)
   "string-capacity": "not-modelled",
+  // LEN_INTERNAL of a STRING longer than its UINT result counts: the count would wrap (7.4.6)
+  "string-length-width": "not-modelled",
   "string-op": "unclassified",
   "this-in-program": "unclassified",
   "type-unknown": "unclassified",

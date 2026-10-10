@@ -177,6 +177,11 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // a constant position prints bare: the parameter is an i64 (7.2.3)
   char: (e, args, _argv, _p, raw) => call(`${args[0]}.char_at(${position(e, raw)})`),
   setchar: (e, args, argv, _p, raw) => call(`${args[0]}.with_char(${position(e, raw)}, ${argv[2]})`),
+  // LEN_INTERNAL: the string's own count, `units().len()` (`runtime/string.ts` `IecStr::length`)
+  length: (_e, args, _argv, p) => {
+    use(p, "string_length")
+    return call(`${args[0]}.length()`)
+  },
   // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
   address_order: (_e, _args, argv, p) => call(`${mem(p, "order")}(${argv[0]}, ${argv[1]})`),
   ln: logarithm,

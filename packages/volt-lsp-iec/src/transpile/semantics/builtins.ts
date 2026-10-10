@@ -9,7 +9,7 @@ import { bool, num, type Val } from "./value.js"
 import { ord } from "./arith.js"
 import { fit } from "./store.js"
 import { expt, MATH } from "./math.js"
-import { charAt, setChar } from "./string.js"
+import { charAt, lengthOf, setChar } from "./string.js"
 import { LoweringBug } from "./faults.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
@@ -73,6 +73,8 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     case "char":
     case "setchar":
       return stringBuiltin(name, args, type, argTypes)
+    case "length":
+      return fit(BigInt(lengthOf(args[0] as string)), type)
     // an order of two addresses needs the image they point into — the interpreter's machine computes it (`Memory.order`)
     case "address_order":
       throw new LoweringBug("address_order has no value without the program's image")

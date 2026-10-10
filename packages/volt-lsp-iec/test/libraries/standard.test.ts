@@ -187,4 +187,178 @@ describe.skipIf(skipRustSuite())("the emitted Rust", () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+
+  // Gate 7.4c (review): no test compiled a lent string taken where it is written (`calls/string-inputs.ts`
+  // `inputWhereWritten`), nor the inputs hoisted before it (`emit/rust/calls.ts` `hoistedInputs`) — 0 fixtures print
+  // one — so `let __input_copy_1: IecString<10> = *io;` (E0308: `io` is generic over its capacity) went through. Each
+  // program here takes one; it must build and print what the interpreter computes, a fault included.
+  test("a lent string taken where it is written builds and computes what the interpreter does", async () => {
+    const cut = (write: string, result: string) => `FUNCTION Cut : INT\nVAR_IN_OUT\n\tt : STRING(10);\nEND_VAR\n${write}Cut := ${result};\nEND_FUNCTION\n\n`
+    const fb = (body: string, method: string) =>
+      `FUNCTION_BLOCK FB\nVAR_IN_OUT\n\tio : STRING(10);\nEND_VAR\nVAR\n\tres : STRING(255);\nEND_VAR\nres := ${body};\nEND_FUNCTION_BLOCK\n${method}\n`
+    const prg = (decls: string, body: string) => `PROGRAM PLC_PRG\nVAR\n${decls}END_VAR\n${body}END_PROGRAM\n`
+    const viaFb = prg("\tv : STRING(10) := 'abc';\n\tfb : FB;\n\tres : STRING(255);\n", "fb(io := v);\nres := fb.res;\n")
+    const cases: [string, string][] = [
+      // a later argument's call changes the lent variable: the copy reads it before
+      ["later_call", `${cut("t[1] := 0;\n", "3")}${prg("\ttxt : STRING(10) := 'hello';\n\tres : STRING(255);\n", "res := LEFT(txt, Cut(t := txt));\n")}`],
+      // the lent string is a STRING VAR_IN_OUT: a FUNCTION's, an FB's (a METHOD writes it), and one bound to a wider string,
+      // read at its declared capacity as CODESYS reads it (`string_input_lent_inout_wider`: 'abcdefghij1')
+      ["inout_function", `${cut("t := 'x';\n", "1")}FUNCTION F : STRING(255)\nVAR_IN_OUT\n\tio : STRING(10);\nEND_VAR\nF := MID(io, Cut(t := io), 1);\nEND_FUNCTION\n\n${prg("\tv : STRING(10) := 'abc';\n\tres : STRING(255);\n", "res := F(io := v);\n")}`],
+      ["inout_fb_concat", `${fb("CONCAT(io, Get())", "METHOD Get : STRING(10)\nio := 'x';\nGet := 'Y';\nEND_METHOD\n")}${viaFb}`],
+      ["inout_fb_mid", `${fb("MID(io, Shrink(), 1)", "METHOD Shrink : INT\nio := 'x';\nShrink := 1;\nEND_METHOD\n")}${viaFb}`],
+      ["inout_wider", `${cut("", "1")}FUNCTION F : STRING(255)\nVAR_IN_OUT\n\tio : STRING(10);\nEND_VAR\nF := CONCAT(io, INT_TO_STRING(Cut(t := io)));\nEND_FUNCTION\n\n${prg("\tv : STRING(12) := 'abcdefghijkl';\n\tres : STRING(255);\n", "res := F(io := v);\n")}`],
+      // the lent string faults on its index, and so would a later argument: the index's fault is the one reported
+      ["fault_order", prg("\tarr : ARRAY[0..2] OF STRING(10);\n\ti : INT := 5;\n\tj : INT;\n\tres : STRING(255);\n", "res := MID(arr[i], 10 / j, 1);\n")],
+      // an input written before the lent string runs before it: the division's fault is the one reported
+      ["fault_hoisted", prg("\tarr : ARRAY[0..2] OF STRING(10);\n\ti : INT := 5;\n\tj : INT;\n\tres : STRING(255);\n", "res := MID(LEN := 10 / j, STR := arr[i], POS := 10 / j);\n")],
+    ]
+    const dir = await mkdtemp(join(tmpdir(), "volt-std-frozen-"))
+    try {
+      const seen: string[][] = []
+      for (const [name, source] of cases) {
+        const { pou, diagnostics } = lowerSource(source, "PLC_PRG", PROJECT_LOWERING)
+        expect([name, diagnostics]).toEqual([name, []])
+        const code = emitRust(pou!).code
+        expect([name, code.includes("__input_copy")]).toEqual([name, true])
+        let interp: string
+        try {
+          const p = run(pou!)
+          p.scan()
+          interp = String(p.get("res"))
+        } catch (e) {
+          interp = `FAULT ${e instanceof Error ? e.message : String(e)}`
+        }
+        const globals = code.includes("pub struct Globals")
+        const main = `fn main() {\n${globals ? "    let mut g = Globals::new();\n" : ""}    let mut p = PLC_PRG::new();\n    p.scan(${globals ? "&mut g" : ""});\n    println!("{:?}", ${rustAccess(pou!, "res").read});\n}\n`
+        const file = join(dir, `${name}.rs`)
+        const exe = join(dir, `${name}${process.platform === "win32" ? ".exe" : ""}`)
+        const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, `${code}\n${main}`)
+        expect([name, build.stderr]).toEqual([name, ""])
+        const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 30_000 })
+        // a fault: the Rust panics on the same index (`index is 5`) or the same division the interpreter reports
+        const rust = ran.exitCode === 0 ? (JSON.parse(ran.stdout.toString().trim()) as string) : /index is 5/.test(ran.stderr.toString()) ? "FAULT array index 5 is outside its bounds" : /divide by zero|division by zero/.test(ran.stderr.toString()) ? "FAULT division by zero" : `PANIC ${ran.stderr.toString()}`
+        seen.push([name, interp, rust])
+      }
+      expect(seen).toEqual([
+        ["later_call", "hel", "hel"],
+        ["inout_function", "a", "a"],
+        ["inout_fb_concat", "abcY", "abcY"],
+        ["inout_fb_mid", "a", "a"],
+        ["inout_wider", "abcdefghij1", "abcdefghij1"],
+        ["fault_order", "FAULT array index 5 is outside its bounds", "FAULT array index 5 is outside its bounds"],
+        ["fault_hoisted", "FAULT division by zero", "FAULT division by zero"],
+      ])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
+})
+
+/** Every buffer of `capacity` units over {0, 'a', 'b'} — the units behind a terminator among them. */
+function buffers(capacity: number): string[] {
+  let out = [""]
+  for (let i = 0; i < capacity; i++) out = out.flatMap((b) => ["\0", "a", "b"].map((u) => b + u))
+  return out
+}
+const CAPACITIES = [0, 1, 2, 3, 4] as const
+/** Every INT argument the proof runs a function with. */
+const INTS = [-2, -1, 0, 1, 2, 3, 4, 5, 6] as const
+/** A full STRING(255): 255 units and no terminator before the capacity's. */
+const FULL = "ab".repeat(128).slice(0, 255)
+
+describe("LEN_INTERNAL, the primitive (task 7.4.6)", () => {
+  test("`length` counts what the repo's ST body counts, over every buffer of capacity 0-4 and a full STRING(255)", () => {
+    const st = readFileSync(join(REPO, "LEN_INTERNAL.pou"), "utf8").replaceAll("LEN_INTERNAL", "LEN_INTERNAL_ST")
+    const mismatches: string[] = []
+    for (const capacity of [...CAPACITIES, 255]) {
+      const program = `${st}\n\nPROGRAM PLC_PRG\nVAR\n\tx1 : STRING(${capacity});\n\tprimitive : UINT;\n\twalked : UINT;\nEND_VAR\nprimitive := LEN_INTERNAL(x1);\nwalked := LEN_INTERNAL_ST(x1);\nEND_PROGRAM\n`
+      const { pou, diagnostics } = lowerSource(program, "PLC_PRG", PROJECT_LOWERING)
+      expect(diagnostics).toEqual([])
+      const p = run(pou!)
+      for (const buffer of capacity === 255 ? [FULL, `${FULL.slice(0, 7)}\0${FULL.slice(8)}`] : buffers(capacity)) {
+        p.set("x1", buffer)
+        p.scan()
+        if (p.get("primitive") !== p.get("walked")) mismatches.push(`STRING(${capacity}) ${JSON.stringify(buffer)}: ${String(p.get("primitive"))} vs ${String(p.get("walked"))}`)
+      }
+    }
+    expect(mismatches).toEqual([])
+  })
+})
+
+/**
+ * THE PROOF A READ-ONLY STRING INPUT RESTS ON (design.md §3.2 7.4c). A Standard string FUNCTION reads a caller's
+ * STRING(N <= 255) where it lies instead of a STRING(255) copy of it (`calls/string-inputs.ts`). The two differ only where
+ * a body reads STR[k] with N < k <= 255 — the copy reads 0, the borrow faults — or reads STR whole into a destination
+ * whose units past N are not 0. Every body here reads STR only at k <= LEN_INTERNAL(STR) <= N, and whole only into its
+ * own fresh result; this holds it: each function over every buffer of capacity 0-4 over {0, 'a', 'b'} (the units behind
+ * the terminator included), every INT argument in -2..6, and a full STRING(255) — passed as a STRING(N), and as the same
+ * buffer in a STRING(255) (a borrow at 255 is the copy) — must answer alike, and neither may fault. A body change that
+ * breaks it fails here.
+ */
+describe("the Standard string functions read a STRING(N) input as they read its STRING(255) copy (7.4.6)", () => {
+  // each function: its STRING inputs, its INT inputs, its result
+  const FUNCTIONS = {
+    LEN: { strings: ["STR"], ints: [], result: "INT" },
+    LEFT: { strings: ["STR"], ints: ["SIZE"], result: "STRING(255)" },
+    RIGHT: { strings: ["STR"], ints: ["SIZE"], result: "STRING(255)" },
+    MID: { strings: ["STR"], ints: ["LEN", "POS"], result: "STRING(255)" },
+    DELETE: { strings: ["STR"], ints: ["LEN", "POS"], result: "STRING(255)" },
+    CONCAT: { strings: ["STR1", "STR2"], ints: [], result: "STRING(255)" },
+    FIND: { strings: ["STR1", "STR2"], ints: [], result: "INT" },
+    INSERT: { strings: ["STR1", "STR2"], ints: ["POS"], result: "STRING(255)" },
+    REPLACE: { strings: ["STR1", "STR2"], ints: ["L", "P"], result: "STRING(255)" },
+  } as const
+
+  /** Every combination of one value per list. */
+  const product = <T>(lists: readonly (readonly T[])[]): T[][] => lists.reduce<T[][]>((acc, list) => acc.flatMap((a) => list.map((v) => [...a, v])), [[]])
+
+  test("names every FUNCTION of the repo the borrow reaches — each with a STRING(255) VAR_INPUT", () => {
+    const reached = readdirSync(REPO).filter((f) => {
+      const source = readFileSync(join(REPO, f), "utf8")
+      return source.startsWith("FUNCTION ") && (/VAR_INPUT\r?\n([^]*?)END_VAR/.exec(source)?.[1] ?? "").includes("STRING(255)")
+    })
+    expect(reached.map((f) => f.replace(/\.pou$/, "")).sort()).toEqual(Object.keys(FUNCTIONS).sort())
+  })
+
+  for (const [name, { strings, ints, result }] of Object.entries(FUNCTIONS))
+    test(name, () => {
+      const faults: string[] = []
+      const differ: string[] = []
+      // the capacities each STRING input is lent at: every one of 0-4 — 0-3 for REPLACE, whose two strings and two INTs
+      // over 0-4 are 1.2M runs (38 s); its STR1 is DELETE's and its STR2 INSERT's, each held over 0-4 above — and 255
+      // with the full buffer
+      const capacities = strings.length * ints.length > 2 ? CAPACITIES.slice(0, 4) : CAPACITIES
+      const shapes: (readonly number[])[] = [...product(strings.map(() => capacities)), strings.map(() => 255)]
+      for (const caps of shapes) {
+        const decls = strings.flatMap((_, k) => [`\tx${k} : STRING(${caps[k]});\n`, `\tw${k} : STRING(255);\n`])
+        const args = (prefix: string): string => [...strings.map((s, k) => `${s} := ${prefix}${k}`), ...ints.map((n, k) => `${n} := k${k}`)].join(", ")
+        const program = `PROGRAM PLC_PRG\nVAR\n${decls.join("")}${ints.map((_, k) => `\tk${k} : INT;\n`).join("")}\tlent : ${result};\n\tcopied : ${result};\nEND_VAR\nlent := ${name}(${args("x")});\ncopied := ${name}(${args("w")});\nEND_PROGRAM\n`
+        const { pou, diagnostics } = lowerSource(program, "PLC_PRG", PROJECT_LOWERING)
+        expect(diagnostics).toEqual([])
+        // the first call IS the borrow this holds: the variant takes each string as an in-out of the argument's capacity
+        expect(pou!.routines.map((r) => r.name)).toContain(`Standard.${name}#${strings.map((s, k) => `${s}&=STRING${caps[k]}`).join(",")}`)
+        const p = run(pou!)
+        const full = caps.every((c) => c === 255)
+        // the full shape: each input full in turn, the others ''
+        const contents = full ? strings.map((_, k) => strings.map((__, j) => (j === k ? FULL : ""))) : product(caps.map((c) => buffers(c)))
+        for (const texts of contents)
+          for (const values of product(ints.map(() => INTS))) {
+            for (const [k, t] of texts.entries()) {
+              p.set(`x${k}`, t)
+              p.set(`w${k}`, t)
+            }
+            for (const [k, v] of values.entries()) p.set(`k${k}`, BigInt(v))
+            const at = `${name}(${caps.map((c, k) => `STRING(${c}) ${JSON.stringify(texts[k])}`).join(", ")}${values.length > 0 ? `, ${values.join(", ")}` : ""})`
+            try {
+              p.scan()
+            } catch (e) {
+              faults.push(`${at}: ${e instanceof Error ? e.message : String(e)}`)
+              continue
+            }
+            if (p.get("lent") !== p.get("copied")) differ.push(`${at}: ${JSON.stringify(p.get("lent"))} vs ${JSON.stringify(p.get("copied"))}`)
+          }
+      }
+      expect(faults.slice(0, 5)).toEqual([])
+      expect(differ.slice(0, 5)).toEqual([])
+    }, 120_000)
 })
