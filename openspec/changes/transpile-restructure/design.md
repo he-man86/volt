@@ -1726,6 +1726,46 @@ architecture.md's initialization paragraph says the same in prose plus the refus
 **Migration.** 5.8 (red src tests for the struct-scope branch and `holder.Get()`, then the two fixtures F) → 5.9 (red src
 test: a select and a freeze read in an initializer) → 5.10. No recording: every fact used is recorded (M5.1.2).
 
+### §3.4 Decision (step 7.6b): VAR_TEMP as per-run locals (task 7.6.4, 2026-10-10)
+
+**Target.** An FB's or PROGRAM's VAR_TEMP is a local of the fn that runs its body — `let mut plain: i16 = 0;` at the top
+of `call()` / `scan()`, a base's at the top of its `SUPER_` fn — not a `pub` field the struct carries between runs.
+Measured (IR of every fixture, 2026-10-10): 22 frame VAR_TEMPs lower, in 16 fixtures; 20 are named only by the body
+that declares them, 1 by nothing (`mem_sizeof_fb_with_temp`), 1 through an instance path (`oopa_write_var_temp`
+`t.scratch := 2`, which CODESYS refuses: evidence `refused`); none is a base's run by `SUPER^()`, none is PLC_PRG's,
+none has a stored address; no recorded path names one (7.6.4's measure). Corpora: 48 VAR_TEMP sections in 16 files.
+
+**The choice: the IR says what a VAR_TEMP is — per-run storage, a METHOD's VAR exactly.** `IrLayout.locals` and
+`IrPou.locals` (new) hold a body's VAR_TEMP; its places are `root: "local"`, starting at `init` on every run, as an
+`IrRoutine`'s locals do. Lowering declares them as `routines.ts` declares a routine's VAR (`declareVars` per-run, which
+already queues dynamic initializers), `layout.ts` drops VAR_TEMP from `INSTANCE_STORAGE`, and `resetTemps` collapses
+into `routineLocalInits`: the constant reset IS the local's fresh start, only a dynamic initializer stays a statement
+(`init-reads-later` unchanged). `baseBody` declares the base's VAR_TEMP as the `SUPER_` routine's locals, so "not at its
+fn's top" (7.6.4) is gone. The interpreter enters an FB / PROGRAM body with fresh locals (`interp/calls.ts` `call`, the
+scan) where it passed `[]`. The Rust prints them through the code `printRoutine` already has — one `printLocals` over a
+body-shaped view, shared by `printRoutine`, `printCall` and `scan()`: `mut` per variable from `writeSites`, no initial
+value where no read can see it (`lateInit`, `storedFirstAtTop`), `mut` on a late one only if `storedTwice`, `_name` for
+one never read (`unreadOf`). No allow is added. The written/read sets 7.6.4 asked of `calls/facts.ts` exist since 7.7.1
+— read from the IR at emission (`ir/walk.ts` `writtenPlaces`, `emit/rust/locals.ts`); `facts.ts` is not touched.
+- Rejected: emitter-only (keep the field slot, print `section === "VAR_TEMP"` fields as `let`s) — one slot kind with two
+  storages, a second root test in every `locals.ts` analysis, and the interpreter's frame no longer the Rust's; a blanket
+  `#[allow(unused_mut, unused_assignments)]` on `call()`/`scan()` — the allow 7.7.2 deleted; dropping the field only
+  from `new()` — still a field.
+
+**Stays refused, by name.** `var-temp-outside-body`: a VAR_TEMP named anywhere but the body that declares it — a path
+through an instance (`oopa_write_var_temp`: lowered today, refused by CODESYS, so this refusal agrees with it), a METHOD
+or ACTION of the FB, a derived body naming a base's. Lowering keeps each frame's VAR_TEMP names (`IrLayout.statics`'
+way) so such a name is refused, never resolved to a global or field of the same name. The METHOD/ACTION shape gets a
+fixture, recorded in the step's one CODESYS batch; if CODESYS compiles it, it stays refused with that recording as its
+evidence (niche: 0 in the fixtures; corpora counted then). A stored address of a VAR_TEMP follows a routine local's
+pointer rules (`pointers/state.ts` `outlives`, `image-rewrite.ts` `stacked` reading the locals) — 0 fixtures today.
+
+**Migration.** (1) IR + lowering + interpreter (locals, `resetTemps` → `routineLocalInits`, the refusal, its fixture):
+S-out identical; S-ir moves the field indices after a VAR_TEMP. (2) The emitter's shared `printLocals`. Accept: S-out
+(outputs and edge byte-identical over every fixture), `pub` VAR_TEMP fields 22 -> 0, M (`pub_underscore_fields` and
+pedantic may only fall); tests `emit/rust/routine.test.ts` ("an FB's VAR_TEMP is a local of `call()`, `mut` only where
+stored"), `init/temp-resets.test.ts` (the interpreter starts a VAR_TEMP over without a reset statement).
+
 ---
 
 ## 4. Old → new map
