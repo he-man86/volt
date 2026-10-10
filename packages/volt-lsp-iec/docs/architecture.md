@@ -462,6 +462,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Literal typing | `frontend/types/literal` |
 | Type defaults (a type's zero) | `frontend/types/defaults` |
 | Enum numbering and an enum's default | `frontend/types/enums` |
+| A type's byte layout (size, alignment, the field-packing rule) | `frontend/types/layout` (`typeBytes`, `packFields`) — the front-end's SIZEOF; lowering's frames pack with `packFields` (`transpile/lower/storage/bytes`) |
 | Arithmetic result types | `frontend/types/arith/` (`runtime`, `checked`, `temporal`, `operators`) |
 | The EXTENDS chain, FB and interface | `frontend/symbols/extends` `extendsChain` |
 | The transpiler's input assembly (files, libraries, attributes) | `transpile/lower/project` |

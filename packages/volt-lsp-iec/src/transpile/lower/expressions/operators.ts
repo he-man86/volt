@@ -23,6 +23,7 @@ import {
   untypedNumberValue,
 } from "../../../frontend/types/index.js"
 import { lowerExpr } from "./expressions.js"
+import { heldConstantOperation } from "../places/access-guards.js"
 import { convert } from "../values/convert.js"
 import { adrDifference } from "../builtins/sizeof.js"
 import { pointerCompare } from "../pointers/address.js"
@@ -108,6 +109,8 @@ export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, ex
   // — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768` into a DINT is 32768, and a DINT's
   // minimum still negates to itself even into a LINT (conformance `unary_minus_at_the_edge`).
   if (e.op === "NOT") {
+    const held = heldConstantOperation(lw, e, operand)
+    if (held !== null) return held
     const signed = operand.type.kind === "elementary" && operand.type.elem.family === "int" && operand.type.elem.signed
     const bits = signed && operand.type.kind === "elementary" ? operand.type.elem.bits : 0
     const type = signed ? elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD", 64: "LWORD" } as Record<number, string>)[bits]!) : operand.type

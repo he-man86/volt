@@ -82,7 +82,7 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
   if (layoutNow() === undefined) return refuse("on an FB whose layout is not known")
   const tagOf = (p: Place): Place => ({ ...p, path: [...p.path, { kind: "field", name: FIELD }], type: DINT, span })
   const arms: { tag: bigint; call: IrInvoke }[] = []
-  const dispatch: IrDispatch = { kind: "dispatch", tag: { kind: "load", place: tagOf(instance), type: DINT, span }, arms, type: invoke.type, span }
+  const dispatch: IrDispatch = { kind: "dispatch", tag: { kind: "load", place: tagOf(instance), type: DINT, span }, arms, fault: "unbound-inout", type: invoke.type, span }
   const held = [instance, ...invoke.inouts.filter((b): b is Place => b !== undefined && !("kind" in b))]
   const armed = new Set<bigint>()
   let refused = false

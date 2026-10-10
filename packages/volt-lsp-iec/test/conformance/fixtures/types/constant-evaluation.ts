@@ -69,7 +69,10 @@ const BUILTINS: LanguageTest[] = [
   bound("ce_fold_builtin_bound_expt", "CE6 — `LREAL_TO_INT(EXPT(2, 3))` as an array bound", "LREAL_TO_INT(EXPT(2, 3))"),
 ]
 
-// ─── CE6 — SIZEOF ──────────────────────────────────────────────────────────────────────────────────────────────────
+/** A STRUCT DUT `name` of `fields`, `pragma` (an attribute line) above it. */
+const STRUCT_DUT = (name: string, fields: string, pragma = ""): string => `${pragma}TYPE ${name} :\nSTRUCT\n${fields}\nEND_STRUCT\nEND_TYPE\n\n`
+
+// ─── CE6 — SIZEOF──────────────────────────────────────────────────────────────────────────────────────────────────
 
 const SIZEOF: LanguageTest[] = [
   bound("ce_fold_sizeof_bound", "CE6 — `SIZEOF(DINT)` (a type) as an array bound", "SIZEOF(DINT)"),
@@ -77,6 +80,36 @@ const SIZEOF: LanguageTest[] = [
   bound("ce_fold_sizeof_bound_array", "CE6 — `SIZEOF(arr)` (an ARRAY[0..2] OF INT) as an array bound", "SIZEOF(arr)",
     { vars: "\tarr : ARRAY[0..2] OF INT;" }),
   bound("ce_fold_sizeof_bound_string", "CE6 — `SIZEOF(txt)` (a STRING(10)) as an array bound", "SIZEOF(txt)", { vars: "\ttxt : STRING(10);" }),
+  // transpile-restructure 6.A.31: SIZEOF of what has a LAYOUT — a STRUCT (its type and a variable of it), one with a
+  // STRING and a nested STRUCT, a pack_mode 1 STRUCT, a STRUCT of BITs, an ARRAY of STRUCTs and an FB instance — as an
+  // array bound (the corpora write `ARRAY [1..SIZEOF(L_MC4P_PathData)] OF BYTE`)
+  bound("tr_a31_sizeof_bound_struct_type", "6.A.31 — `SIZEOF(<a STRUCT type>)` (BYTE, DINT) as an array bound", "SIZEOF(DUT_LANG_tr_a31_st)",
+    { before: STRUCT_DUT("DUT_LANG_tr_a31_st", "\tb : BYTE;\n\td : DINT;") }),
+  bound("tr_a31_sizeof_bound_struct_var", "6.A.31 — `SIZEOF(sv)` (a STRUCT of BYTE, INT, LREAL, BOOL) as an array bound", "SIZEOF(sv)",
+    { vars: "\tsv : DUT_LANG_tr_a31_sv;", before: STRUCT_DUT("DUT_LANG_tr_a31_sv", "\tb : BYTE;\n\ti : INT;\n\tl : LREAL;\n\tx : BOOL;") }),
+  bound("tr_a31_sizeof_bound_struct_nested", "6.A.31 — `SIZEOF(<a STRUCT holding a STRING(5) and a STRUCT>)` as an array bound", "SIZEOF(DUT_LANG_tr_a31_outer)",
+    { before: STRUCT_DUT("DUT_LANG_tr_a31_inner", "\tw : WORD;\n\tb : BYTE;") + STRUCT_DUT("DUT_LANG_tr_a31_outer", "\tc : BYTE;\n\ttxt : STRING(5);\n\tnest : DUT_LANG_tr_a31_inner;\n\td : DINT;") }),
+  bound("tr_a31_sizeof_bound_struct_packed", "6.A.31 — `SIZEOF(<a pack_mode 1 STRUCT of BOOL, DINT>)` as an array bound", "SIZEOF(DUT_LANG_tr_a31_packed)",
+    { before: STRUCT_DUT("DUT_LANG_tr_a31_packed", "\tx : BOOL;\n\td : DINT;", "{attribute 'pack_mode' := '1'}\n") }),
+  bound("tr_a31_sizeof_bound_struct_bits", "6.A.31 — `SIZEOF(<a STRUCT of nine BITs then an INT>)` as an array bound", "SIZEOF(DUT_LANG_tr_a31_bits)",
+    { before: STRUCT_DUT("DUT_LANG_tr_a31_bits", [1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `\tb${i} : BIT;`).join("\n") + "\n\ti : INT;") }),
+  bound("tr_a31_sizeof_bound_array_of_struct", "6.A.31 — `SIZEOF(arr)` (an ARRAY[0..2] of a STRUCT of DINT, BYTE) as an array bound", "SIZEOF(arr)",
+    { vars: "\tarr : ARRAY[0..2] OF DUT_LANG_tr_a31_el;", before: STRUCT_DUT("DUT_LANG_tr_a31_el", "\td : DINT;\n\tb : BYTE;") }),
+  bound("tr_a31_sizeof_bound_fb_instance", "6.A.31 — `SIZEOF(inner)` (an FB of one VAR_INPUT INT and one VAR DINT) as an array bound", "SIZEOF(inner)",
+    { vars: "\tinner : FB_LANG_tr_a31_inner;", before: "FUNCTION_BLOCK FB_LANG_tr_a31_inner\nVAR_INPUT\n\ti : INT;\nEND_VAR\nVAR\n\td : DINT;\nEND_VAR\nd := d + i;\nEND_FUNCTION_BLOCK\n\n" }),
+  // 6Af gate review: a VAR_INPUT CONSTANT is a per-call parameter (`var_input_constant*`), not a constant the compiler
+  // replaces — does it take room in the instance (24: header 8, LINT 8, DINT 4, padded) or not (16)?
+  bound("tr_a31_sizeof_bound_fb_var_input_constant", "6Af — `SIZEOF(inner)` (an FB of one VAR_INPUT CONSTANT LINT and one VAR DINT) as an array bound", "SIZEOF(inner)",
+    { vars: "\tinner : FB_LANG_tr_a31_vic;", before: "FUNCTION_BLOCK FB_LANG_tr_a31_vic\nVAR_INPUT CONSTANT\n\ti : LINT;\nEND_VAR\nVAR\n\td : DINT;\nEND_VAR\nd := d + LINT_TO_DINT(i);\nEND_FUNCTION_BLOCK\n\n" }),
+  // 6Af gate review (6.A.29): a CONSTANT whose expression overflows its type is HELD unwrapped (B : BYTE := KB + 1 is
+  // monitored BYTE#256) — is its SIZEOF its declared type's (1, 4) or the held value's wider one's (2, 8)? And what does a
+  // width-sensitive operation fold it to as a bound — ROL in BYTE (0) or in the read's DINT (512)?
+  bound("tr_a29_sizeof_bound_widened_byte_constant", "6Af — `SIZEOF(B)` of a BYTE CONSTANT held as 256, as an array bound", "SIZEOF(B)",
+    { constants: "\tKB : BYTE := 255;\n\tB : BYTE := KB + 1;" }),
+  bound("tr_a29_sizeof_bound_widened_dint_constant", "6Af — `SIZEOF(D)` of a DINT CONSTANT held as 2^31, as an array bound", "SIZEOF(D)",
+    { constants: "\tK : DINT := 2147483647;\n\tD : DINT := K + 1;" }),
+  bound("tr_a29_rol_bound_widened_byte_constant", "6Af — `ROL(B, 1)` of a BYTE CONSTANT held as 256, as an array bound", "ROL(B, 1)",
+    { constants: "\tKB : BYTE := 255;\n\tB : BYTE := KB + 1;" }),
 ]
 
 // ─── CE6 — enum values ─────────────────────────────────────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import { enumeratorValue } from "../values/enums.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { unionsOf } from "../storage/unions.js"
 import { fieldIn } from "../places/path.js"
+import { refusedRotateInInitializer } from "../builtins/value-functions.js"
 
 /**
  * An initializer the INIT STEP can run — an ordinary expression, not an aggregate.
@@ -50,8 +51,10 @@ export function scalarInit(lw: Lowering, e: Expr, type: Type, asConstant = false
     return lw.bail("bad-literal", `${e.literalKind} literal outside the representable range: ${e.text}`, e.span)
   const text = e.kind === "literal" && typeof e.value === "string" ? stringLiteralText(lw, e) : undefined
   if (text === null) return undefined
+  if (refusedRotateInInitializer(lw, e, type)) return undefined
   // a CONSTANT's slot holds its unrounded fold, stored at its own type: `DChain : LREAL := C01` (C01 : REAL := 0.1) is 0.1
-  const folded = temporal?.value ?? text ?? foldConstant(lw, e, asConstant) ?? foldedCall(lw, e, type)
+  // folded in its declared type's context: an untyped literal under the NOT or shift it is takes it (`constEval`)
+  const folded = temporal?.value ?? text ?? foldConstant(lw, e, asConstant, elemOf(type)) ?? foldedCall(lw, e, type)
   if (folded === undefined) return lw.bail("init-not-constant", "an initial value that is not a compile-time constant", e.span)
   // A SCALAR CONSTANT ON A COMPOSITE is refused by CODESYS (`litc_array_init_one`, `litc_struct_init_one`,
   // `litc_fb_init_one`) — and here it was dropped in silence: the array's backends printed its zeros, the struct its

@@ -52,7 +52,7 @@ const KINDS: Record<string, [IrNode, IrNode[]]> = {
     { ...invoke(c(1n)), instance: place(3), order: [0, freeze], inouts: [copy], lent: [place(4)] },
     [place(3), c(1n), freeze, copy, place(4)],
   ],
-  dispatch: [{ kind: "dispatch", tag: c(1n), arms: [{ tag: 1n, call: invoke() }], type: INT, span }, [c(1n), invoke()]],
+  dispatch: [{ kind: "dispatch", tag: c(1n), arms: [{ tag: 1n, call: invoke() }], fault: "no-instance", type: INT, span }, [c(1n), invoke()]],
   select: [{ kind: "select", tag: c(1n), arms: [{ tag: 1n, place: place(5) }], type: INT, span }, [c(1n), place(5)]],
   freeze: [freeze, [place(9), c(9n)]],
   copy: [copy, [c(8n), place(8)]],
@@ -113,7 +113,7 @@ describe("the walks", () => {
     const arm = invoke()
     const body: IrStmt[] = [
       { kind: "eval", value: outer, span },
-      { kind: "if", cond: { kind: "dispatch", tag: c(1n), arms: [{ tag: 1n, call: arm }], type: INT, span }, then: [call], else: [], span },
+      { kind: "if", cond: { kind: "dispatch", tag: c(1n), arms: [{ tag: 1n, call: arm }], fault: "no-instance", type: INT, span }, then: [call], else: [], span },
     ]
     expect(callsIn(body)).toEqual([outer, inner, arm, call])
     // a key childrenOf does not name is not walked: a future field holding a Type or a scope can never be followed

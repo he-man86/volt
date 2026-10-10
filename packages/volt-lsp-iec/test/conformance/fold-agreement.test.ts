@@ -75,13 +75,17 @@ const EXPRESSION_KINDS = new Set(["ident_expr", "global_expr", "member", "unary"
 /**
  * The IR expression each span was lowered to: the OUTERMOST node at that span that is not a conversion lowering wrapped
  * around it. Not the deepest: lowering builds helpers under a node with the node's own span (a pointer's target tag, a
- * clock's scale factor), and those are parts of a lowering, not the expression's value.
+ * clock's scale factor), and those are parts of a lowering, not the expression's value. One conversion IS the value: a
+ * CONSTANT whose slot is wider than its type is READ in its type's run-time width (`IrSlot.readAs`, 6.A.29: `D : DINT :=
+ * K + 1` holds 2147483648 and every read of it is -2147483648), so its load with that conversion is the read.
  */
 function irBySpan(bodies: readonly Body[]): Map<string, { expr: IrExpr; slotOf: SlotOf }> {
   const out = new Map<string, { expr: IrExpr; slotOf: SlotOf }>()
+  const isRead = (e: IrExpr, slotOf: SlotOf): boolean =>
+    e.kind === "convert" && e.value.kind === "load" && e.value.place.path.length === 0 && slotOf(e.value.place)?.readAs !== undefined
   // pre-order, so the first node met at a span is the outermost
   for (const { nodes, slotOf } of bodies)
-    forEachExpr(nodes, (e) => void (e.kind !== "convert" && !out.has(key(e.span)) && out.set(key(e.span), { expr: e, slotOf })))
+    forEachExpr(nodes, (e) => void ((e.kind !== "convert" || isRead(e, slotOf)) && !out.has(key(e.span)) && out.set(key(e.span), { expr: e, slotOf })))
   return out
 }
 
@@ -153,10 +157,11 @@ const same = (a: unknown, b: unknown): boolean => kindOf(a) === kindOf(b) && (ty
  * THE DISAGREEMENTS FOUND, each an expected failure naming the task that owns it (task 1.8.9, 2026-10-08). Each still
  * disagrees or the test fails naming the mark to delete.
  *
- * 6.A.31: SIZEOF of a STRUCT, an FB instance, an ARRAY or a packed DUT. The front-end calls it a constant (rightly) and
- * cannot fold it — it has no layout; lowering's layout model (`lower/storage/layout.ts`, `builtins/sizeof.ts`) sizes it
- * as the recordings measured. The AST fold answers nothing rather than something wrong, so the LSP skips a check that
- * needs the value (an array bound written as a SIZEOF) where the IR knows it.
+ * A LIBRARY ENUM'S STORAGE: Util's WEEKDAY is 2 bytes (`dt_library_enum_storage`), a base its materialized declaration
+ * does not carry, so the front-end leaves its size unknown (`types/enums` `enumStorage`) where lowering stores it as an INT
+ * — the known divergence `LIBRARY_ENUM_BASE_NOT_MATERIALIZED` (`support/divergences.ts`). (It was filed under 6.A.31's
+ * layout class until 6.A.31 gave the front-end the layout, `types/layout.ts`, and every STRUCT, FB instance, ARRAY and
+ * packed DUT SIZEOF came to agree.)
  *
  * NOT A CONSTANT: `constancyOf` answers CONSTANT for a read-only PARAMETER (a `VAR_INPUT CONSTANT`, a `VAR_IN_OUT
  * CONSTANT`, and expressions over one) and for a direct address (`%MW30 + 1`) — none a compile-time constant, so
@@ -166,7 +171,7 @@ const same = (a: unknown, b: unknown): boolean => kindOf(a) === kindOf(b) && (ty
  * `VAR_INPUT CONSTANT` or `VAR_IN_OUT CONSTANT` section, and no direct address in a CASE label, array bound or repeat
  * count, in the six corpora.
  */
-const SIZEOF_LAYOUT = "task 6.A.31: the AST fold sizes no STRUCT, FB instance, ARRAY or packed DUT"
+const LIBRARY_ENUM_STORAGE = "LIBRARY_ENUM_BASE_NOT_MATERIALIZED: a library enum's materialized declaration carries no base, so the AST fold has no size for it"
 const NOT_A_CONSTANT = "niche: accepted loss (0 occurrences in the corpora) — constancyOf calls a read-only parameter or a direct address a CONSTANT"
 /** transpile-restructure 6.A.14: a body's SHL / SHR of an untyped literal by a constant count — lowering folds it at 64 bits as
  *  recorded (`tr_a14_*`: SHL(1, 40) 2^40); the AST fold gives an untyped literal under a shift no width without a typed
@@ -174,43 +179,14 @@ const NOT_A_CONSTANT = "niche: accepted loss (0 occurrences in the corpora) — 
  *  An initializer's context types it there (`GC_REC_* : LWORD := SHL(1, 40)`, the corpora's 44 such lines, agree). */
 const UNTYPED_SHIFT =
   "niche: accepted loss (0 occurrences in the corpora of a constant untyped-literal shift in a body: the 268 `SHL/SHR(<literal>, …)` there are all declaration initializers, whose type is the context) — the AST fold gives an untyped literal under a shift no width without a typed context (`UNTYPED_OPERAND`)"
+/** transpile-restructure 6.A.30: a body's ROL / ROR of an untyped literal stored into a variable — lowering rotates it in the
+ *  destination's width as recorded (`tr_a30_rotate_untyped_literal*`: ROL(129, 1) into a WORD 258); the AST fold gives an
+ *  untyped literal under a rotation no width without a typed context and answers nothing, as for a shift (`UNTYPED_SHIFT`).
+ *  An initializer's context types it there (`tr_a30_rotate_untyped_literal_initializer` agrees). */
+const UNTYPED_ROTATE =
+  "niche: accepted loss (0 ROL / ROR of an untyped literal in the six corpora) — the AST fold gives an untyped literal under a rotation no width without a typed context (`UNTYPED_OPERAND`)"
 const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
-  ...[
-    "ct_bit_fields: SIZEOF(flags)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_p1)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_p8)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_p9)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_pAfter)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_pBeforeInt)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_pSplit)",
-    "ct_bit_packing_sizes: SIZEOF(DUT_CT_pBool)",
-    "cp_declaration_pragmas: SIZEOF(packed)",
-    "dt_library_enum_storage_values: SIZEOF(w)",
-    "mem_sizeof_struct_mixed: SIZEOF(sv)",
-    "mem_sizeof_struct_mixed: SIZEOF(arr)",
-    "mem_sizeof_fb_instance: SIZEOF(inst)",
-    "mem_sizeof_fb_baseline_one_dint: SIZEOF(inst_fb_baseline_one_dint)",
-    "mem_sizeof_fb_with_temp: SIZEOF(inst_fb_with_temp)",
-    "mem_sizeof_fb_with_stat: SIZEOF(inst_fb_with_stat)",
-    "mem_fb_pack_mode_aligned_baseline: SIZEOF(inst_fb_pack_mode_aligned_baseline)",
-    "mem_fb_pack_mode_one: SIZEOF(inst_fb_pack_mode_one)",
-    "mem_fb_pack_mode_struct_control: SIZEOF(inst_fb_pack_mode_struct_control)",
-    "mem_fb_var_constant_scalar: SIZEOF(inst_fb_var_constant_scalar)",
-    "mem_fb_var_constant_non_replaced: SIZEOF(inst_fb_var_constant_non_replaced)",
-    "mem_fb_var_constant_struct: SIZEOF(inst_fb_var_constant_struct)",
-    "mem_fb_implements_one: SIZEOF(inst_fb_implements_one)",
-    "mem_fb_implements_two: SIZEOF(inst_fb_implements_two)",
-    // lowered for the first time by model 3 (transpile-restructure 4.3/4.4) — the same SIZEOF the AST fold sizes not
-    "xo2_pointer_walk_across_objects: SIZEOF(DUT_X2_slot)",
-    "xo2_pointer_step_variable: SIZEOF(DUT_X2_slot)",
-    "mem_pointer_index_struct_array: SIZEOF(DUT_MEM_pt)",
-    "pointer_byte_walk_struct_padding: SIZEOF(sv)",
-    "fb_header_offsets_plain: SIZEOF(inst_hdr_plain)",
-    "fb_header_offsets_implements: SIZEOF(inst_hdr_impl)",
-    "wstring_layout_in_struct: SIZEOF(sv)",
-    // review of step 4d: the FB that declares VAR before VAR_INPUT (recorded SIZEOF 32, IR 32)
-    "fb_offsets_var_before_input: SIZEOF(inst_var_first)",
-  ].map((id) => [id, SIZEOF_LAYOUT]),
+  ["dt_library_enum_storage_values: SIZEOF(w)", LIBRARY_ENUM_STORAGE],
   ...[
     "ca_direct_address_expression: %MW30 + 1",
     "var_input_constant: iLimit",
@@ -240,6 +216,13 @@ const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
     "tr_a14_shift_untyped_literal_wide: SHR(16#80000000, 4)",
     "tr_a14_shift_untyped_literal_wide: SHL(16#FF, 28)",
   ].map((id) => [id, UNTYPED_SHIFT]),
+  ...[
+    "tr_a30_rotate_untyped_literal: ROL(129, 1)",
+    "tr_a30_rotate_untyped_literal: ROR(1, 1)",
+    "tr_a30_rotate_untyped_literal: ROL(16#80000001, 1)",
+    "tr_a30_rotate_untyped_literal_into_int: ROL(129, 1)",
+    "tr_a30_rotate_untyped_literal_into_int: ROR(1, 1)",
+  ].map((id) => [id, UNTYPED_ROTATE]),
 ])
 
 whole("the AST fold and the IR fold give every constant expression the lowered fixtures hold the same value", () => {

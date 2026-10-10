@@ -117,8 +117,8 @@ its RC or lean id in this file.
 
     | Line | Status | Commit / task |
     |---|---|---|
-    | FOR with an unsigned counter and a negative constant step emits `-1u8` | closed upstream (absorbed into RC 35) | 8f6ae481e6; 6.A.27 closes by reference |
-    | an unbound FB VAR_IN_OUT reached from a METHOD panics with the "interface" message | open | 6.A.28 |
+    | FOR with an unsigned counter and a negative constant step emits `-1u8` | closed upstream (absorbed into RC 35); every other unsigned counter recorded by 6.A.27 | 8f6ae481e6; 6.A.27 |
+    | an unbound FB VAR_IN_OUT reached from a METHOD panics with the "interface" message | closed (6.A.28: its own fault kind `unbound-inout`) | 6.A.28 |
     | REAL intermediates rounded to f32 per step | open | 6.A.2 |
     | LTIME_TO_TIME / LDT_TO_DT sub-unit truncation | open | 6.A.1 |
     | UDINT op DINT fixtures run only on zeros | closed upstream by the rating (RC 48: an all-default recording rates `compiles`) | 0ca79f7bae; 6.20 |
@@ -161,9 +161,9 @@ its RC or lean id in this file.
     | (grouped) a qualified `Lib.T` resolves by its bare name | closed by frontend-conformance 3.4.2 | 1bdaf58172; 6.A.26 verify |
     | (grouped) an FB body call stores its inputs before binding its in-outs | open | 6.A.19 |
     | (grouped) an ANY input given a REFERENCE TO fails E0308 | open | 4.13 (e) |
-    | (grouped) a named DINT/LINT constant folds unbounded in an initializer | the front-end half closed by frontend-conformance 4.6.1; the lowering half open | 62bcb30d65; 6.A.29 |
+    | (grouped) a named DINT/LINT constant folds unbounded in an initializer | the front-end half closed by frontend-conformance 4.6.1; closed by 6.A.29 (read in the run-time width; past 64 bits refused) | 62bcb30d65; 6.A.29 |
 
-    Appendix B (refuted groups): mod-min-by-minus-one — open (6.A.3); rotate-in-promoted-width — open (6.A.30);
+    Appendix B (refuted groups): mod-min-by-minus-one — open (6.A.3); rotate-in-promoted-width — closed (6.A.30: recorded, an untyped literal rotates in its destination's width);
     const-eval-ignores-declared-int-width — closed upstream (its halves are RC 35, 8f6ae481e6, and RC 25, e171078be2);
     refused-fixture-rust-rejected-expected — closed upstream (RC 38, 8531164eca; RC 46, c581ac19e3).
 
@@ -4482,27 +4482,98 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
     todo; 9419 tests, 313 files; was 8883 at 6a+6d). Committed one commit per step, 6Aa → 6Ae; a file two steps touch goes
     with the later one, and the files every step shares (execution.ts, call-shapes.ts, the three recordings, map.generated.ts,
     the baselines, design.md, tasks.md) with 6Ae — so 6Aa-6Ad alone are the code, and the tree is green at 6Ae.
-- [ ] 6.A.27 Unsigned counter with a negative constant step.
+- [x] 6.A.27 Unsigned counter with a negative constant step.
   - Where: `lower/statements/loops.ts`.
   - Accept: absorbed by 2.4; closed with a reference to it.
   - Depends: 2.4.
-- [ ] 6.A.28 An unbound FB VAR_IN_OUT from a METHOD panics with the "interface" message.
+  - Done 2026-10-10 (step 6Af). Closed by reference to 2.4 / RC 35 (8f6ae481e6: `tr_35_for_byte_step_minus_one`,
+    `_uint_step_minus_two` confirmed). Rule by rule, the counters RC 35 did not record: `tr_a27_for_unsigned_counters_negative_step`
+    (USINT 5 TO 1 BY -1, WORD 9 TO 2 BY -3, UDINT 100 TO 50 BY -45, DWORD 7 TO 3 BY -2, ULINT 20 TO 5 BY -5, LWORD 4 TO 1 BY -1:
+    5, 3, 2, 3, 4, 4 runs, each counter ending past its limit without wrapping), `tr_a27_for_byte_named_constant_step` (a SINT
+    CONSTANT -2 on a BYTE counter: 3 runs, b = 2), `tr_a27_for_uint_negated_parenthesised_step` (BY -(3): 3 runs, u = 0) —
+    all build on both vendors, all confirmed with no code change. No code.
+- [x] 6.A.28 An unbound FB VAR_IN_OUT from a METHOD panics with the "interface" message.
   - Where: `ir/faults.ts` (its own kind), `lower/calls/last-binding.ts`, both backends.
   - Accept: a src test; both backends print the new message.
   - Depends: 1.2.4, 1.9.4.
-- [ ] 6.A.29 A named DINT/LINT constant folds unbounded in an initializer but wraps at run time (`types/const/fold.ts`, Appendix A grouped).
+  - Done 2026-10-10 (step 6Af). `ir/faults.ts` `FaultKind` `unbound-inout` ("a METHOD or ACTION reached its FB's VAR_IN_OUT
+    before any call of the FB bound it"); `IrDispatch.fault` names which stop a tag no arm names is (`no-instance` from
+    `interfaces/dispatch.ts`, `unbound-inout` from `calls/last-binding.ts`); the interpreter (`interp/machine.ts`) throws and the
+    emitted Rust (`emit/rust/calls.ts` `exprDispatch`) panics with `e.fault`. `docs/data-model.md` IrExpr row. Src
+    `lower/calls/last-binding.test.ts` "an in-out reached before any call bound it stops with its own fault" (red first: the
+    interface text), both backends. `callshape_inout_method_before_binding` (the vendor stops, no message) confirmed.
+- [x] 6.A.29 A named DINT/LINT constant folds unbounded in an initializer but wraps at run time (`types/const/fold.ts`, Appendix A grouped).
   - What: record the case (a CONSTANT whose initializer overflows its declared width, used in another initializer and read at run time);
     fold it at its declared width in the initializer too, or close with the recording.
   - Where: `types/const/fold.ts`, `lower/values/fold.ts`.
   - Accept: recording plus F or close; G+LSP.
   - Depends: 6.1.
-- [ ] 6.A.30 Appendix B rotate-in-promoted-width (an ANY-argument ordering bug, no recording).
+  - Done 2026-10-10 (step 6Af). Recorded (codesys.run + both builds) a CONSTANT whose expression overflows its type, read in
+    an initializer, at run time and through another constant: `tr_a29_dint_constant_expression_overflow` (K DINT max, D := K + 1,
+    F := D - 1: the monitor shows D DINT#2147483648 and F DINT#2147483647, but x1 : LINT := D and x2 := D are -2147483648),
+    `_dint_constant_overflow_into_dint`, `_udint_…` (U monitored 4294967296, read 0), `_int_…` (32768 read 32768), `_byte_…`
+    (B : BYTE := 255 + 1 monitored and read 256), `_dword_…` (W monitored 2^32, read 0). So a constant EXPRESSION is held
+    unwrapped (what the monitor shows) and every READ of it is the value in its type's RUN-TIME width — DINT for a narrower
+    type (`named_const_expression_keeps`'s 128 survives), the type itself from 32 bits — while another constant's initializer
+    folds on from the held value. Lowering read the wide slot (x1 2147483648, u 4294967296). Past 64 bits
+    (`tr_a29_lint_constant_expression_overflow`, `_ulint_…`, `_dint_constant_overflow_past_lint`, `Q := K * K * 4`): CODESYS
+    builds clean and fails to log in (code generation; each recorded alone), TwinCAT refuses "Initialisation of constant
+    variable 'D' not constant" (and the constant naming it): `execSkip` (unaskable), lowering refuses `constant-overflow`
+    (invalid). Code: `types/const/fold.ts` `read` (a constant read outside a constant's own initializer, `FoldContext.inConstant`),
+    `constantSlotType` takes a bit string too (BYTE 256 → WORD); `IrSlot.readAs` (`ir/program.ts`, data-model.md),
+    `storage/declare.ts` `constantSlot` (+ `constant-overflow`, and `constant-unsigned-negative` not-measured for an unsigned
+    fold below 0, unrecorded), `places/access-guards.ts` `loadValue` converts a `readAs` slot's load, `core/lowering.ts` `slot`
+    carries it. THE LOWERING HALF of the design §6 row: an initializer is folded with its declared type as the context
+    (`constEval(…, declared)`, `values/fold.ts` `foldConstant`, `init/initial-values.ts` `scalarInit`) — `ce_fold_untyped_in_context_values`
+    (`c1 : WORD := NOT 0`, 65535) not-lowered "init-not-constant" → confirmed. Src `pipeline/arith.test.ts` (two tests, red
+    first), `const/fold.test.ts` (two tests + two `constantSlotType` lines, red first). `fold-agreement.test.ts`: a `readAs`
+    load with its conversion is the read (`irBySpan`). F: all nine value fixtures confirmed. The TwinCAT refusal of a constant
+    past 64 bits is not said by the LSP — niche: accepted loss (0 occurrences in the corpora: such a constant runs on neither
+    vendor), 4 TwinCAT GAPs named CEILING_EXCEPTIONS. G+LSP.
+  - Gate review fixes (6Af gate, 2026-10-10): (1) a NOT, shift or rotation of a constant HELD past its type gave two
+    silent answers — the front-end took the operand's 8-bit pattern (ROL(B, 1) 0), lowering rotated its DINT read with the
+    bits above riding along (256) and NOT inverted 32 bits (4294967039). Recorded (`tr_a29_widened_constant_reads`, run;
+    `tr_a29_rol_bound_widened_byte_constant`, both vendors): ROL(B, 1) 2, ROR 128, SHR 128, NOT 255, in a body, a VARIABLE's
+    and a CONSTANT's initializer alike — the held value, cut to the declared width after. `types/const/fold.ts` `shift` works
+    on the non-negative held value; `places/access-guards.ts` `heldConstantOperation` (NOT in `expressions/operators.ts`, the
+    shifts in `builtins/value-functions.ts` `lowerShift`) lowers such an operation as the front-end's fold, and refuses one
+    the fold has no value for `held-constant-operand` (not-measured). (2) SIZEOF of such a constant measured the wide slot
+    (D 8, B 2); recorded `tr_a29_sizeof_bound_widened_dint_constant` 4 and `_byte_constant` 1, both vendors — the declared
+    type: `IrSlot.declared` (`ir/program.ts`, data-model.md), set with `readAs`, read by `builtins/sizeof.ts`. Src
+    `const/fold.test.ts` "a shift or rotation of a constant held past its type works on the held value",
+    `builtins/value-functions.test.ts` "… folds on the held value", `builtins/sizeof.test.ts` "SIZEOF of a CONSTANT held in a
+    wider slot is its declared type's" (each red first).
+- [x] 6.A.30 Appendix B rotate-in-promoted-width (an ANY-argument ordering bug, no recording).
   - What: record a live case (ROL/ROR with an ANY argument whose evaluation order matters); fix or close with the recording.
   - Where: `lower/builtins/value-functions.ts`, `semantics/builtins.ts`.
   - Accept: recording plus F or close.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 6Af). The ordering question recorded: `tr_a30_rotate_argument_order` (semantics/execution.ts, ROL /
+    ROR / SHL / SHR with both arguments calls that change one variable, and ROL of a promoted BYTE sum into a WORD): the value
+    runs first (x = 4 everywhere; ROL 32, ROR 32, SHL 32, SHR 0, the sum 40) — confirmed, no code. The width question 6.A.14
+    left here (ROL / ROR of an UNTYPED literal): `tr_a30_rotate_untyped_literal` / `_variable_count` (ROL(129, 1) 3 into a BYTE
+    and 258 into a WORD, DWORD, LWORD; ROR(1, 1) 2^(width - 1); ROL(16#80000001, 1) 3 into a DWORD, 2^32 + 2 into an LWORD; a
+    literal and a variable count alike), `_initializer` (the same as VAR and VAR CONSTANT initializers), `_into_int` (258 into
+    an INT, -2^31 into a DINT), `_in_expression` (`ROL(129, 1) OR w0` 258, `d0 OR ROR(1, 1)` 2^31). Lowering rotated the
+    literal in its own 8 bits (3, 128): `value-functions.ts` `untypedRotateOperand` — the whole value of a store into an
+    integer type that holds the literal rotates in that type; an operand of an operator (the destination's width or the other
+    operand's — no recording tells them apart), a negative literal, a destination too narrow refused `shift-untyped-width`
+    (`_in_expression` not-lowered: niche, 0 ROL / ROR of an untyped literal in the six corpora); the initializers fold with
+    their declared type as the context (6.A.29's `constEval(…, declared)`). Src `lower/builtins/value-functions.test.ts`
+    "ROL / ROR of an untyped literal" (three tests, red first). F: the four lowered fixtures confirmed. `fold-agreement`: the
+    five body rotations the AST fold leaves without a context are KNOWN `UNTYPED_ROTATE` (niche, 0 in the corpora).
+  - Gate review fixes (6Af gate, 2026-10-10): (1) the refused shapes were refused in a store only — an initializer folds
+    with its declared type as the context and gave them a silent value (`b1 : BYTE := ROL(16#1FF, 1)` 255, a CONSTANT's the
+    same, `w : WORD := ROL(16#1FFFF, 1)` 65535). `builtins/value-functions.ts` `refusedRotateInInitializer`, called by
+    `init/initial-values.ts` `scalarInit`: the whole initializer is a store's value, a rotation under an operator in it is
+    not — refused `shift-untyped-width` as the store is. Src "an initializer is refused the shapes a store is" (red first).
+    (2) `_in_expression` could not tell the destination's width from the other operand's; recorded
+    `tr_a30_rotate_untyped_literal_operand_width` (ROR(1, 1) OR w0 into a DWORD 2^31 both orders, OR d0 into an LWORD 2^63):
+    the DESTINATION's width. (`w5 := ROR(1, 1) OR d0` into a WORD does not build: "Cannot convert type 'UDINT' to type
+    'WORD'", dropped from the case.) Carrying the destination into an operator's operand is not built: not-lowered, niche:
+    accepted loss (0 ROL / ROR of an untyped literal in the six corpora); the reason in `untypedRotateOperand` names it.
 
-- [ ] 6.A.31 The AST fold sizes no STRUCT, FB instance, ARRAY or packed DUT (SIZEOF); the IR fold does.
+- [x] 6.A.31 The AST fold sizes no STRUCT, FB instance, ARRAY or packed DUT (SIZEOF); the IR fold does.
   - What: found by the fold-agreement test (1.8.9): 24 SIZEOF expressions the front-end calls constant fold to nothing in
     `types/const/fold.constEval` and to the recorded size in `semantics/fold.constantValue` (lowering's layout model,
     `lower/storage/layout.ts`, `builtins/sizeof.ts`). The LSP then skips a check that needs the value (an array bound or a
@@ -4511,6 +4582,61 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - Where: `types/const/fold.ts`, `types/infer/expr.ts` (`sizeofOperandBytes`), `lower/storage/layout.ts`.
   - Accept: the 24 marks removed (the test fails on a stale one); G+LSP.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 6Af). Not niche (lenze-mid writes `ARRAY [1..SIZEOF(L_MC4P_PathData)] OF BYTE` and
+    `[0..((SIZEOF(…) + SIZEOF(…)) - 1)]`). Recorded as array bounds on both vendors (`fixtures/types/constant-evaluation.ts`,
+    the 30000 probe): `tr_a31_sizeof_bound_struct_type` 8, `_struct_var` 24, `_struct_nested` (a STRING(5) and a nested
+    STRUCT) 16, `_struct_packed` (pack_mode 1) 5, `_struct_bits` (nine BITs, an INT) 4, `_array_of_struct` 24, `_fb_instance`
+    16 — the LSP gave none of the seven errors (lsp-gap). The layout's home is the front-end: `frontend/types/layout.ts`
+    `typeBytes` (elementary, enum, array, union — moved from `infer/expr.ts` —, STRUCT, FB instance; undefined for a derived
+    STRUCT / FB, VAR_IN_OUT, a METHOD's VAR_INST, an interface that EXTENDS, a pack mode other than 1, RETAIN / PERSISTENT,
+    pointers) and `packFields` (the packing rule — BIT runs, alignment, the packed tail), which `lower/storage/bytes.ts`
+    `fieldBytes` now packs with (one home; its loop deleted; `alignUp` moved). `infer/expr.ts` `sizeofOperandBytes` reads
+    `typeBytes`; a SIZEOF's TYPE is still measured for a STRUCT (UINT) alone, so `storageBytes` keeps a layout's size a value,
+    never a type; `sizedOperandType` sizes a DUT's or an FB's NAME as a type (it was read as a value: the corpora's 48
+    `SIZEOF(<type name>)` UNKNOWNs are typed, the census key seeded at 0). architecture.md ownership row. Src
+    `frontend/types/layout.test.ts` (two tests). F: the seven rate refused. `fold-agreement.test.ts`: the 31 SIZEOF marks (24
+    at 1.8b, 7 more since) removed; the one left, `dt_library_enum_storage_values: SIZEOF(w)`, is no layout — a library
+    enum's base is not materialized — re-filed under `LIBRARY_ENUM_BASE_NOT_MATERIALIZED`. 505 constant expressions compared,
+    30 disagree, 30 known (was 56). G+LSP.
+  - Step 6Af end (implement agent, 2026-10-10; the gate commits). Recorded in two CODESYS record:exec batches (12, then 6)
+    plus the two past-64-bit cases alone (contaminated in the first batch), every new fixture build-recorded on CODESYS and
+    TwinCAT (`ide.ps1 -Instance transpile-restructure`, TwinCAT `-Fixture 13`; both IDEs closed). 25 new fixtures: 15
+    confirmed, 7 refused, 3 unaskable (and `tr_a30_rotate_untyped_literal_in_expression` not-lowered by name). M
+    (`rate:fixtures`): mapped 5484 -> 5509, confirmed 2952 -> 2967, refused 2001 -> 2008, not-lowered 346 -> 346
+    (`ce_fold_untyped_in_context_values` out, `_in_expression` in), lsp-gap 84, diverges 9, unaskable 92 -> 95; lowered/clean
+    decl 748/748 -> 751/751, arith 1575/1573 -> 1583/1581, control 158/147 -> 161/150, aggregate 135/135 -> 142/142, call
+    297/294 -> 298/295, indirect 460/455; edge agree 3160 -> 3175, disagree 3, not-run 210 -> 217 (the seven refused bound
+    probes, whose Rust does not build); pedantic 33578 -> 33719; dead_code 5883 unchanged; shapes 1844 -> 1860; NOTES 678.
+    Baselines rewritten: `test/frontend` (counts; the new fixtures' FOR steps and ROL / ROR of untyped literals named
+    `CEILING_EXCEPTIONS` in `frontend/baseline.ts`, LT14's literal classes +6 for `tr_a27_…`; ceilings fell: corpus Library
+    Manager binary / paren UNKNOWN 216 -> 194, SIZEOF or ADR 128 -> 87, SIZEOF of a type name 48 -> 0) and `test/analysis`
+    (TP +7 each vendor, the bound probes; the four TwinCAT GAPs of 6.A.29 excepted). Corpus (`probe-lowering-refusals.ts`):
+    54 lower / 250 refused, unchanged; no `constant-overflow`, `constant-unsigned-negative` or `shift-untyped-width`. Runs at
+    the end: `bun typecheck` clean; package lint green but the pre-existing `last-binding.ts` size warning; `bun test src
+    scripts` 2249 pass; `test/frontend` 45 pass; `test/analysis` 13 pass; `test/conformance` (whole, no VOLT_FIXTURES) 6539
+    pass, 0 fail; `test/corpus` + `test/catalog` + `test/libraries` 189 pass.
+  - Gate review fixes (6Af gate, 2026-10-10): (1) the layout answered every project as the 64-bit target — an FB's header
+    and interface slots are pointers, an 8-byte field's place in a STRUCT on a 32-bit target is unmeasured, and the LSP binds
+    most workspaces with no target. `types/layout.ts` `typeBytes`: a STRUCT or an FB instance has a size only where
+    `targetOf` states 64 bits (compat.ts's precedent); an elementary type, an array of one, an enum, a UNION keep theirs. Corpus
+    folds where no device is measured fell (Library Manager decl folds 94414 -> 94380, body 4684 -> 4678); the recording
+    environment states 64 bits, so no fixture moved. Src `layout.test.ts` "a STRUCT or an FB instance has no size where the
+    target is not the measured 64-bit one" (red first). (2) A VAR_INPUT CONSTANT was skipped as a replaced constant; recorded
+    `tr_a31_sizeof_bound_fb_var_input_constant` (both vendors) and `tr_a31_sizeof_fb_var_input_constant` (run): 24 — it is a
+    parameter and takes its room. Fixed in both homes, `types/layout.ts` `fbFields` and `lower/storage/bytes.ts`
+    `replacedConstants`. Src `layout.test.ts`, `builtins/sizeof.test.ts` (red first).
+  - Gate 6Af (2026-10-10): the review's six findings, each written under its task — fixed: 6.A.31 (no layout off the 64-bit
+    target; a VAR_INPUT CONSTANT laid out), 6.A.30 (an initializer refused the shapes a store is; the operand width recorded,
+    the destination's — not built, niche), 6.A.29 (an operation on a held constant folds on the held value; SIZEOF of one
+    its declared type's). Seven new fixtures (four bound probes, three run cases), every one build-recorded on CODESYS and
+    TwinCAT (`ide.ps1 -Instance transpile-restructure`, TwinCAT `-Fixture 13`, both IDEs closed) and the three run cases in one
+    `record:exec` batch. One new code, `held-constant-operand` (not-measured). M (`rate:fixtures`): mapped 5509 -> 5516,
+    confirmed 2967 -> 2969, refused 2008 -> 2012, not-lowered 346 -> 347 (`_operand_width`), lsp-gap 84, diverges 9,
+    unaskable 95; lowered/clean decl 751/751 -> 753/753, arith 1583/1581, control 161/150, aggregate 142/142 -> 146/146,
+    call 298/295, indirect 460/455; edge agree 3175 -> 3177, disagree 3, not-run 217 -> 221 (the four bound probes).
+    Baselines rewritten: `test/frontend` (counts; the new fixtures' UNKNOWNs named `CEILING_EXCEPTIONS`) and `test/analysis`
+    (TP +4 each vendor, the bound probes). `bun typecheck` clean; package lint green but the pre-existing `last-binding.ts`
+    size warning. Full suite (`VOLT_REQUIRE_FULL=1 bun test`, no VOLT_FIXTURES, rustc cache sampled): 9046 pass / 0 fail (35 skip, 390 todo; 9471 tests, 314 files; was 8995 at 6Aa+6Ae). Committed as one commit, 6Af.
 
 (6.A.7, runtime helpers colliding with a user FUNCTION, needs the registry of 7.1.2 and is task 7.1.5.)
 

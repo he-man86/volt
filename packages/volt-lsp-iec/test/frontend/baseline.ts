@@ -379,6 +379,25 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why: "an initializer reading a PROGRAM initialized later, measured 2026-10-07 (analysis-conformance 3.12)",
     })),
   ),
+  // transpile-restructure 6.A.29 (step 6Af): a CONSTANT whose expression folds past every 64-bit integer of its signedness
+  // (`tr_a29_lint_constant_expression_overflow`, `_ulint_…`, `_dint_constant_overflow_past_lint`) — TwinCAT refuses it, and
+  // every constant that names it, "Initialisation of constant variable 'D' not constant"; CODESYS builds it and fails to
+  // generate code (no message). The LSP says nothing: niche: accepted loss (0 occurrences in the corpora — such a constant
+  // cannot run on either vendor). New ground measured, not a regression.
+  ...(
+    [
+      ["tr_a29_lint_constant_expression_overflow", 2],
+      ["tr_a29_ulint_constant_expression_overflow", 1],
+      ["tr_a29_dint_constant_overflow_past_lint", 1],
+    ] as const
+  ).map(([fixture, by]) => ({
+    baseline: "fixtures.twincat",
+    measure: "total: GAP",
+    by,
+    fixture,
+    task: "none planned — niche: accepted loss (0 occurrences in the corpora): TwinCAT's refusal of a CONSTANT folding past 64 bits",
+    why: "a CONSTANT whose expression folds past 64 bits, measured 2026-10-10 (transpile-restructure 6.A.29)",
+  })),
   // the diagnostic census: analysis-conformance 3.3 asked a BIT in every FB section (`fixtures/declarations/declaration-
   // rules.ts`). (In a VAR_IN_OUT CODESYS adds "References to bits are not possible" — its unowned GAP left 2026-10-06,
   // analysis-conformance 3.11: `bit-usage` says it.) And a FUNCTION called with no argument whose one input's default CODESYS refuses
@@ -678,6 +697,10 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "none: niche, accepted loss (analysis-conformance 3.9)",
     why: ANALYSIS_NICHE_WHY.realLabel,
   })),
+  // transpile-restructure 6.A.27 (step 6Af): a negative constant FOR step on every other unsigned counter
+  // (`tr_a27_for_unsigned_counters_negative_step`: USINT, WORD, UDINT, DWORD, ULINT, LWORD) — LT14's classes 'into <counter>
+  // — transpiler <counter>, checker SINT' that `tr_35_*` opened for BYTE and UINT, one literal more each
+  { baseline: "literal-agreement", measure: "fixtures: literals the two disagree on", by: 6, fixture: "tr_a27_for_unsigned_counters_negative_step", task: LITERAL_TYPING, why: "a negative constant FOR step on six unsigned counters (6.A.27) — LT14's class 'into <counter>', one literal more each" },
   { baseline: "literal-agreement", measure: "fixtures: literals the two disagree on", by: 1, fixture: "flw_case_real_label", task: LITERAL_TYPING, why: "a REAL CASE label on an INT selector (analysis-conformance 3.9, niche) — 'into INT', the transpiler's LREAL" },
   { baseline: "literal-agreement", measure: "fixtures: literals the two disagree on", by: 1, fixture: "flw_case_label_beyond_byte", task: LITERAL_TYPING, why: "a CASE label 300 on a BYTE selector (analysis-conformance 3.9) — LT14's class 'into BYTE', one literal more" },
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
@@ -712,7 +735,8 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   // type, and the DINT-as-REAL fixture initializes two DINTs with negated untyped numbers (`-2147483647 - 1`, `-8388609`)
   // — LT14's class, one operation on them among them. New ground measured, not a regression.
   // (review of step 4d: `fb_offsets_var_before_input`, the same FB header question with VAR declared first)
-  ...(["fb_header_offsets_plain", "fb_header_offsets_implements", "fb_offsets_var_before_input"] as const).flatMap((fixture) =>
+  // (6Af gate review: `tr_a31_sizeof_*_fb_var_input_constant`, SIZEOF of an FB with a VAR_INPUT CONSTANT, the same)
+  ...(["fb_header_offsets_plain", "fb_header_offsets_implements", "fb_offsets_var_before_input", "tr_a31_sizeof_bound_fb_var_input_constant", "tr_a31_sizeof_fb_var_input_constant"] as const).flatMap((fixture) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
       baseline: "type-dump",
       measure: `fixtures ${vendor}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`,
@@ -784,6 +808,20 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
         ["unary UNKNOWN", 1, "tr_a23_signed_real_literal_in_math", "COS(-(0.5))'s argument, a negated parenthesis"],
         ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 3, "tr_a25_subrange_defaults", "the subranges' negative bounds -5, -10, -2"],
         ["binary UNKNOWN", 1, "tr_a20_real_mod_in_initializer", "`5.5 MOD 2.0`, refused on both vendors"],
+        // step 6Af: a FOR's negative constant step on an unsigned counter (`tr_a27_*`, the step typed by the counter), and
+        // ROL / ROR of an untyped literal (`tr_a30_*`, the call typed by its destination — the finding the fixtures record)
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 6, "tr_a27_for_unsigned_counters_negative_step", "the six steps BY -1, -3, -45, -2, -5, -1"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_a27_for_byte_named_constant_step", "STEPB : SINT := -2"],
+        ["unary UNKNOWN", 1, "tr_a27_for_uint_negated_parenthesised_step", "BY -(3), a negated parenthesis"],
+        ["paren UNKNOWN", 1, "tr_a27_for_uint_negated_parenthesised_step", "(3) under BY -(3)"],
+        ["call UNKNOWN", 10, "tr_a30_rotate_untyped_literal", "ROL / ROR of an untyped literal by a literal count"],
+        ["call UNKNOWN", 8, "tr_a30_rotate_untyped_literal_variable_count", "ROL / ROR of an untyped literal by a variable count"],
+        ["call UNKNOWN", 6, "tr_a30_rotate_untyped_literal_initializer", "ROL / ROR of an untyped literal as initializers"],
+        ["call UNKNOWN", 2, "tr_a30_rotate_untyped_literal_in_expression", "ROL / ROR of an untyped literal beside a WORD / DWORD"],
+        ["call UNKNOWN", 2, "tr_a30_rotate_untyped_literal_into_int", "ROL / ROR of an untyped literal into an INT / DINT"],
+        // 6Af gate review: the destination's width or the other operand's, told apart (`_operand_width`)
+        ["call UNKNOWN", 3, "tr_a30_rotate_untyped_literal_operand_width", "ROR(1, 1) beside a WORD / DWORD, into a DWORD / LWORD"],
+        ["binary UNKNOWN", 3, "tr_a30_rotate_untyped_literal_operand_width", "the OR over ROR(1, 1) and a WORD / DWORD"],
       ] as const
     ).map(([kind, by, fixture, why]) => ({
       baseline: "type-dump",

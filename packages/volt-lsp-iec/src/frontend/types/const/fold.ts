@@ -52,9 +52,15 @@ export type Constancy = "constant" | "variable" | "unknown"
  *
  * `asConstant`: the expression is a CONSTANT's own initializer, whose value is that fold UNROUNDED — the constant is
  * substituted where it is named, so only the slot's own type rounds it (`DChain`'s slot reads 0.1).
+ *
+ * `declared`: the expression is the initializer of a declaration of that type — an unsigned integer or a bit string is
+ * the context an untyped literal under the NOT or the shift the initializer IS takes (`FoldContext.expected`, as
+ * `declaredValue` folds one): `c1 : WORD := NOT 0` is 65535, `w : WORD := ROL(129, 1)` 258 (`ce_fold_untyped_in_context_values`,
+ * `tr_a30_rotate_untyped_literal_initializer`; transpile-restructure 6.A.29, 6.A.30).
  */
-export function constEval(expr: Expr, scope: Scope, asConstant = false): ConstValue {
-  const { value, width } = evaluate(expr, scope)
+export function constEval(expr: Expr, scope: Scope, asConstant = false, declared?: ElementaryType): ConstValue {
+  const ctx = expecting(asConstant ? { folding: new Set(), inConstant: true } : { folding: new Set() }, unsignedType(integerType(declared)))
+  const { value, width } = fold(expr, scope, ctx)
   return width === 32 && !asConstant && typeof value === "number" ? Math.fround(value) : value
 }
 
@@ -159,6 +165,8 @@ interface FoldContext {
   expected?: ElementaryType
   /** Set by `isRecursiveConstant`: the constant whose initializer is walked, and whether the walk came back to it. */
   cycle?: { start: Symbol; hit: boolean }
+  /** The fold is a CONSTANT's own initializer — a constant named in it is its held value, not its read (`read`). */
+  inConstant?: boolean
 }
 
 /** The global list a symbol's initializer folds inside (its siblings seen bare first), when it is a list's. */
@@ -278,12 +286,26 @@ function symbolValue(sym: Symbol | undefined, ctx: FoldContext): Folded {
   // when that is a constant (`xo3_value_functions_across_objects`; the fold-agreement test, transpile-restructure 1.8.9)
   if (sym.constant === true && sym.varSection === "VAR_EXTERNAL") {
     const global = externalGlobal(rootOf(sym.owner), sym.name)
-    return global?.constant === true ? { ...initialValue(global, ctx), constancy: "constant" } : { value: undefined, constancy: "constant" }
+    return global?.constant === true ? { ...read(initialValue(global, ctx), ctx), constancy: "constant" } : { value: undefined, constancy: "constant" }
   }
-  if (sym.constant === true) return { ...initialValue(sym, ctx), constancy: "constant" }
+  if (sym.constant === true) return { ...read(initialValue(sym, ctx), ctx), constancy: "constant" }
   if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
     return { value: undefined, constancy: "variable" }
   return UNKNOWN_VALUE // a function/type/namespace name is not a value in this position
+}
+
+/**
+ * A CONSTANT's value as a READ outside another constant's initializer sees it: an integer one held unwrapped from an
+ * expression (`initialValue`) in its type's RUN-TIME width — DINT for a narrower one, so `D : SINT := K + 1` (K = 127)
+ * reads 128, but `D : DINT := K + 1` (K at DINT's max) reads -2147483648 in an initializer and at run time and
+ * `U : UDINT := KU + 1` 0 (`tr_a29_dint_constant_expression_overflow`, `_udint_…`, transpile-restructure 6.A.29). Inside
+ * a constant's own initializer the held value folds on: `F : DINT := D - 1` is 2147483647, which the monitor shows
+ * (folded from the wrapped -2147483648 it would be -2147483649). A bit string's alike: B : BYTE := 255 + 1 reads 256,
+ * W : DWORD := 16#FFFFFFFF + 1 reads 0 (`tr_a29_byte_…`, `_dword_constant_expression_overflow`).
+ */
+function read(f: Folded, ctx: FoldContext): Folded {
+  if (ctx.inConstant === true || typeof f.value !== "bigint" || f.elem === undefined || (f.elem.family !== "int" && f.elem.family !== "bitstring")) return f
+  return { ...f, value: wrapToWidth(f.value, f.elem.bits < 32 ? integerOfWidth(32, true) : f.elem) }
 }
 
 /** An enum value: its written value folded in the project, else one more than the member before it (the first 0), in
@@ -326,7 +348,7 @@ function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
     typing.delete(symbol)
   }
   ctx.folding.add(symbol)
-  const inner = expecting({ ...listOf(symbol), folding: ctx.folding, ...withCycle(ctx) }, unsignedType(integerType(e)))
+  const inner = expecting({ ...listOf(symbol), folding: ctx.folding, ...withCycle(ctx), inConstant: true }, unsignedType(integerType(e)))
   const { value } = fold(decl.init, symbol.owner, inner)
   ctx.folding.delete(symbol)
   // `RC : REAL := 10` is a REAL: `RC / 4` is 2.5, not the integer 2 the literal would fold to — and so is a constant of an
@@ -564,7 +586,10 @@ function withType(f: Folded): Result {
 /**
  * A SHIFT OR ROTATION HAPPENS AT ITS OPERAND'S WIDTH: `SHL(BYTE#255, 1)` is 254, `ROL(BYTE#129, 1)` 3, `ROR(BYTE#129, 1)`
  * 192, `SHR(WORD#80, 4)` 5, and an untyped literal shifts at its narrowest type (`SHL(1, 3)` 8) — `ce_fold_sh*`, `ce_fold_ro*`,
- * both vendors 2026-10-03. The bits are the operand's pattern; the result is of the operand's type.
+ * both vendors 2026-10-03. The result is of the operand's type. The bits are the operand's whole non-negative value — a
+ * constant HELD past its type (`B : BYTE := KB + 1`, 256) shifts and rotates as held, cut to its declared width after:
+ * ROL(B, 1) is (512 OR 2) cut to 8 bits, 2, ROR(B, 1) 128, SHR(B, 1) 128 (`tr_a29_rol_bound_widened_byte_constant`, both
+ * vendors, `tr_a29_widened_constant_reads`; 6Af gate review) — and a negative one its pattern in that width.
  */
 function shift(name: string, args: readonly Folded[]): Result | undefined {
   const [operand, count] = args
@@ -572,7 +597,7 @@ function shift(name: string, args: readonly Folded[]): Result | undefined {
   const e = integerTypeOf(operand!)
   if (e === undefined) return undefined
   const bits = BigInt(e.bits)
-  const pattern = BigInt.asUintN(e.bits, operand!.value)
+  const pattern = operand!.value >= 0n ? operand!.value : BigInt.asUintN(e.bits, operand!.value)
   const n = count!.value
   const r =
     name === "SHL" ? pattern << n
@@ -686,13 +711,15 @@ function foldCompare(op: string, l: bigint | number, r: bigint | number): ConstV
  * The integer type a CONSTANT's slot holds its fold in. A constant-EXPRESSION initializer is not narrowed (see
  * `initialValue`), so `D : SINT := K + 1` (K = 127) IS 128 — CODESYS reads D itself back as SINT#128 and `d2 := D` is
  * 128 (conformance `named_const_expression_keeps`, recorded; transpile-review-2026-09-29 task 2.3). A slot of the
- * declared width cannot hold that, so it is the same signedness at the first width that can. Undefined when the declared
- * type already holds the value, or it is not a signed/unsigned integer type (a bit string is unmeasured).
+ * declared width cannot hold that, so it is the same signedness at the first width that can — a bit string the bit string
+ * of that width (`tr_a29_byte_constant_expression_overflow`: B : BYTE := 255 + 1 monitored BYTE#256, 6.A.29). Undefined
+ * when the declared type already holds the value, no wider one of its kind does, or it is no integer or bit string.
  */
 export function constantSlotType(value: bigint, declared: ElementaryType): ElementaryType | undefined {
-  if (declared.family !== "int") return undefined
+  if ((declared.family !== "int" && declared.family !== "bitstring") || declared.rank === undefined) return undefined
   const fits = (bits: number): boolean => (declared.signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value)) === value
   if (fits(declared.bits)) return undefined
   const bits = [16, 32, 64].find((b) => b > declared.bits && fits(b))
-  return bits === undefined ? undefined : integerOfWidth(bits, declared.signed)
+  if (bits === undefined) return undefined
+  return declared.family === "bitstring" ? elementaryType(bits === 16 ? "WORD" : bits === 32 ? "DWORD" : "LWORD") : integerOfWidth(bits, declared.signed)
 }

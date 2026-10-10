@@ -67,6 +67,7 @@ export { renderType } from "./render.js"
 
 // inference
 export { inferExprType } from "./infer/expr.js"
+export { alignUp, packFields, typeBytes, type Bytes, type PackedField } from "./layout.js"
 export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/member.js"
 export { resolveCallee, takesNoPositionalArguments, type CalleeInfo } from "./infer/callee.js"
 export { isSfcStepBase } from "./infer/sfc-step.js"

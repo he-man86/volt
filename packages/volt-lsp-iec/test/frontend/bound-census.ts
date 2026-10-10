@@ -160,6 +160,8 @@ export function boundCensus(): BoundCensus {
     // must still be able to say so (`assign_expr`, typed by its target since frontend-conformance 2.5.6)
     for (const kind of EXPR_KINDS) c.types[`${group}: ${kind} UNKNOWN`] ??= 0
     c.types[`${group}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`] ??= 0
+    // …and SIZEOF of a type name, all typed since transpile-restructure 6.A.31 (a STRUCT's is a UINT; the corpora's 48)
+    c.types[`${group}: call UNKNOWN, SIZEOF of a type name (no result type yet, task 4.3.4)`] ??= 0
     // …and a name shape whose NONEs all came to resolve, the same way (`fixtures codesys: bare name NONE` 5 → 0: the five
     // were names in a conditional branch CODESYS does not compile, which the one statement tree no longer holds —
     // frontend-conformance 2.7.1)

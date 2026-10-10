@@ -76,12 +76,52 @@ test("a named constant from a literal folds to what its type holds; from an expr
   expect(folded("E", list)).toBe(258n)
 })
 
+// transpile-restructure 6.A.29 (conformance `tr_a29_dint_constant_expression_overflow`, `_udint_…`, recorded): "unwrapped"
+// is the RUN-TIME width, not unbounded — a SINT's expression folds in DINT (128 above), but `D : DINT := K + 1` (K at its
+// max) reads -2147483648 in an initializer and at run time, and `U : UDINT := KU + 1` 0. Another constant folds on from
+// the value read: `F : DINT := D - 1` is 2147483647 (the monitor shows DINT#2147483647). Folded unbounded, D read 2147483648.
+test("a named constant from an overflowing expression folds in its type's run-time width", () => {
+  const list = [
+    { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  K : DINT := 2147483647;\n  D : DINT := K + 1;\n  F : DINT := D - 1;\n  KU : UDINT := 4294967295;\n  U : UDINT := KU + 1;\nEND_VAR\n" },
+  ]
+  expect(folded("D", list)).toBe(-2147483648n)
+  expect(folded("F", list)).toBe(2147483647n)
+  expect(folded("U", list)).toBe(0n)
+})
+
+// …and a bit string's alike (`tr_a29_byte_constant_expression_overflow`: B : BYTE := 255 + 1 reads 256 into a WORD;
+// `tr_a29_dword_…`: W : DWORD := 16#FFFFFFFF + 1 reads 0 into an LWORD; `tr_a29_int_…`: I : INT := 32767 + 1 reads 32768).
+// A bit string's read was left as held, so W read 4294967296.
+test("a bit-string constant from an overflowing expression folds in its run-time width too", () => {
+  const list = [
+    { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  KB : BYTE := 255;\n  B : BYTE := KB + 1;\n  KW : DWORD := 16#FFFFFFFF;\n  W : DWORD := KW + 1;\n  KI : INT := 32767;\n  I : INT := KI + 1;\nEND_VAR\n" },
+  ]
+  expect(folded("B", list)).toBe(256n)
+  expect(folded("W", list)).toBe(0n)
+  expect(folded("I", list)).toBe(32768n)
+})
+
+// 6Af gate review (recorded `tr_a29_rol_bound_widened_byte_constant`, both vendors: 2; `tr_a29_widened_constant_reads` run:
+// ROL 2, ROR 128, SHR 128, NOT 255, 2026-10-10): a shift or rotation of a constant HELD past its type works on the whole
+// held value in the declared type's width — ROL(B, 1) of B : BYTE held as 256 is (512 OR 2) cut to 8 bits, 2. The fold took
+// the operand's 8-bit pattern first (0), so ROL gave 0 and SHR 0.
+test("a shift or rotation of a constant held past its type works on the held value", () => {
+  const list = [{ uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  KB : BYTE := 255;\n  B : BYTE := KB + 1;\nEND_VAR\n" }]
+  expect(folded("ROL(B, 1)", list)).toBe(2n)
+  expect(folded("ROR(B, 1)", list)).toBe(128n)
+  expect(folded("SHR(B, 1)", list)).toBe(128n)
+  expect(folded("SHL(B, 1)", list)).toBe(0n)
+})
+
 // transpile-review-2026-09-29 task 2.3 (conformance `named_const_expression_keeps`, recorded: D reads SINT#128, E USINT#258):
 // the constant's slot is the same signedness at the first width that holds its unwrapped fold.
 test("a constant whose fold its declared type cannot hold gets a slot that can", () => {
   expect(constantSlotType(128n, elementaryType("SINT")!)?.name).toBe("INT")
   expect(constantSlotType(258n, elementaryType("USINT")!)?.name).toBe("UINT")
   expect(constantSlotType(127n, elementaryType("SINT")!)).toBeUndefined()
+  // a bit string's slot is the bit string of that width (`tr_a29_byte_constant_expression_overflow`: B monitored BYTE#256)
+  expect(constantSlotType(256n, elementaryType("BYTE")!)?.name).toBe("WORD")
+  expect(constantSlotType(4294967296n, elementaryType("DWORD")!)?.name).toBe("LWORD")
 })
 
 // transpile-review-2026-09-29 task 3 (conformance `real_constant_fold_width`, LIVE): a fold over REAL computes wide and

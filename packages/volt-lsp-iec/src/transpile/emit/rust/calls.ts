@@ -64,7 +64,7 @@ export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }
   // type fixes that, and it was applied to EVERY dispatch, which is 19 `clippy::redundant_closure_call`.
   const arms = e.arms.map((a) => `${a.tag} => ${expr(p, a.call, slots)},`).join(" ")
   const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
-  const nothing = `panic!(${rustFaultLiteral("no-instance")})`
+  const nothing = `panic!(${rustFaultLiteral(e.fault)})`
   const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
   return `(match ${expr(p, e.tag, slots)} { ${arms} _ => ${none} })`
 }

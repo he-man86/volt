@@ -20,7 +20,6 @@ import {
   MATH_ARG_TYPED,
   mathResultType,
   pointerTo,
-  scalarStorageBytes,
   selectionValueArguments,
   sizeofResultType,
   twincatXaddResultType,
@@ -31,7 +30,7 @@ import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
 import { isUntypedNumber, literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
-import { enumStorage } from "../enums.js"
+import { typeBytes } from "../layout.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType, staticNameOf, insideOwnBody } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
@@ -273,59 +272,20 @@ function valueOperandType(e: Expr, scope: Scope, project: Scope): Type {
   return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? inferExprType(e, scope, project) : UNKNOWN
 }
 
-/** SIZEOF's value, in bytes: of a value or a TYPE named bare (`storageBytes`) — what a constant fold reads (`const/fold`). */
+/** SIZEOF's value, in bytes: of a value or a TYPE named bare, as the measured layout lays it out (`layout` `typeBytes`: a
+ *  STRUCT and an FB instance too, transpile-restructure 6.A.31) — what a constant fold reads (`const/fold`). */
 export function sizeofOperandBytes(e: Expr, scope: Scope, project: Scope): bigint | undefined {
-  return storageBytes(sizedOperandType(e, scope, project), project)
+  return typeBytes(sizedOperandType(e, scope, project), project)?.size
 }
 
 /**
- * The bytes a value of `t` occupies where no layout question arises — `builtins` `scalarStorageBytes` (an elementary
- * type, an array of one), an ENUM as its storage (`enums` `enumStorage`: a written base, else INT — `dt_enum_*_storage`),
- * an array of any of these, and a UNION of them: its largest member, rounded up to its most aligned member's natural
- * alignment (BYTE|DWORD 4, BYTE|ARRAY[0..4] OF BYTE 5, LREAL|INT 8 — `dt_union_member_sizes`, `dt_union_*sizeof_bound`,
- * 2026-10-03). Undefined for a STRUCT, an FB, a pointer or anything else whose layout the memory model owns.
+ * The bytes of a value of `t` whose SIZEOF has a measured TYPE (`sizeofResultType`): an elementary type, an enum, an array
+ * of them, a UNION of them (`layout` `typeBytes`). Undefined for one that holds a STRUCT or an FB instance — what type
+ * their SIZEOF has is measured for a STRUCT alone (UINT, above), so a layout's size is a value here, never a type.
  */
 function storageBytes(t: Type, project: Scope): bigint | undefined {
-  if (t.kind === "enum") {
-    const base = enumStorage(t)
-    return base === undefined ? undefined : scalarStorageBytes(base)
-  }
-  if (t.kind === "array") {
-    const element = storageBytes(t.element, project)
-    if (element === undefined || t.bounds === undefined) return undefined
-    return t.bounds.reduce((n, b) => n * (b.upper - b.lower + 1n), element)
-  }
-  if (t.kind === "struct") {
-    if (t.union !== true) return undefined
-    const members = fieldTypes(t, project)
-    if (members === undefined || members.length === 0) return undefined
-    let size = 0n
-    let align = 1n
-    for (const m of members) {
-      const bytes = storageBytes(m, project)
-      const a = alignmentOf(m)
-      if (bytes === undefined || a === undefined) return undefined
-      if (bytes > size) size = bytes
-      if (a > align) align = a
-    }
-    return ((size + align - 1n) / align) * align
-  }
-  return scalarStorageBytes(t)
-}
-
-/** A member's natural alignment: an elementary type's own size up to 8 (a STRING 1, a WSTRING 2 — its code unit: a union of
- *  WSTRING(1) and ARRAY[0..4] OF BYTE is 6, `dt_union_wstring_sizeof_bound`, both vendors 2026-10-03), an array's
- *  element's, an enum's storage. */
-function alignmentOf(t: Type): bigint | undefined {
-  if (t.kind === "array") return alignmentOf(t.element)
-  if (t.kind === "enum") {
-    const base = enumStorage(t)
-    return base === undefined ? undefined : alignmentOf(base)
-  }
-  if (t.kind !== "elementary") return undefined
-  if (t.elem.family === "string") return BigInt(t.elem.bits / 8)
-  const bytes = scalarStorageBytes(t)
-  return bytes === undefined ? undefined : bytes > 8n ? 8n : bytes
+  const holdsLayout = (x: Type): boolean => (x.kind === "array" ? holdsLayout(x.element) : (x.kind === "struct" && x.union !== true) || x.kind === "function_block")
+  return holdsLayout(t) ? undefined : typeBytes(t, project)?.size
 }
 
 /** The declared types of a STRUCT's or UNION's fields, each resolved in its own file — undefined when its scope is not known. */
@@ -359,7 +319,11 @@ function structSizeBound(t: Extract<Type, { kind: "struct" }>, project: Scope, d
 
 /** SIZEOF's operand: a value, or a TYPE named bare (`SIZEOF(LINT)`, `ar_sizeof_type`). */
 function sizedOperandType(e: Expr, scope: Scope, project: Scope): Type {
-  if (e.kind === "ident_expr" && lookup(scope, e.name) === undefined) return resolveNamedType(e.name, project, scopeUri(scope))
+  // a name no scope declares (an elementary type, `SIZEOF(DINT)`), or a DUT's or an FB's — a TYPE, sized as lowering's
+  // `builtins/sizeof.ts` sizes one (`ct_bit_packing_sizes`: `SIZEOF(DUT_CT_p1)`; it was read as a value and had no type)
+  const named = e.kind === "ident_expr" ? lookup(scope, e.name)?.symbol : undefined
+  if (e.kind === "ident_expr" && (named === undefined || named.kind === "type" || named.kind === "function_block"))
+    return resolveNamedType(e.name, project, scopeUri(scope))
   return valueOperandType(e, scope, project)
 }
 

@@ -12,6 +12,7 @@ import { byteOffset, byteSize } from "../storage/bytes.js"
 import { lowerPlace } from "../places/places.js"
 import { oneArgument } from "./arity.js"
 import { adrOperand } from "../pointers/address.js"
+import { slotOf } from "../places/access-guards.js"
 
 /**
  * `SIZEOF(x)` of a variable or a type name — its byte size (`bytes`), as a ULINT constant: a SIZEOF widens into a ULINT
@@ -32,7 +33,9 @@ export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr
   else {
     const place = lowerPlace(lw, arg)
     if (place === undefined) return undefined
-    type = place.type
+    // a CONSTANT held in a wider slot is still of its declared type: SIZEOF(B) of a BYTE held as 256 is 1
+    // (`tr_a29_sizeof_bound_widened_byte_constant`, both vendors; 6Af gate review)
+    type = slotOf(lw, place)?.declared ?? place.type
   }
   const bytes = byteSize(lw, type)
   if (bytes === undefined) return lw.bail("sizeof-unmeasured", "SIZEOF of a type whose layout is not measured", e.span)

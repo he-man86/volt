@@ -129,19 +129,20 @@ export class Lowering {
     return this.routineMode ? this.localByName.has(key) : this.byName.has(key)
   }
 
-  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit): void {
+  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit, extra?: Pick<IrSlot, "readAs" | "declared">): void {
+    const slot: IrSlot = { name: name.text, type, section, init: init ?? zeroInit(type), ...extra }
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
-      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
+      this.shared.globals.slots.push(slot)
       return
     }
     if (this.routineMode) {
       this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
-      this.localSlots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
+      this.localSlots.push(slot)
       return
     }
     this.byName.set(name.text.toUpperCase(), this.slots.length)
-    this.slots.push({ name: name.text, type, section, init: init ?? zeroInit(type) })
+    this.slots.push(slot)
   }
 
   /** `where` is the scope the declaration belongs to — this one by default; a type declared by another POU (an

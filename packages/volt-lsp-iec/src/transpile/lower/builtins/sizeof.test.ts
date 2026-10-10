@@ -52,3 +52,31 @@ test("SIZEOF of an FB implementing a name that is no interface declaration is re
   expect(pou).toBeUndefined()
   expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
 })
+
+// 6Af gate review (recorded `tr_a31_sizeof_bound_fb_var_input_constant`, both vendors, `tr_a31_sizeof_fb_var_input_constant`
+// run, 2026-10-10: 24): a VAR_INPUT CONSTANT is a per-call parameter, not a constant the compiler replaces — it takes its
+// room in the instance. `replacedConstants` skipped it with the replaced VAR CONSTANTs (16).
+test("SIZEOF of an FB lays out its VAR_INPUT CONSTANT", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION_BLOCK G\nVAR_INPUT CONSTANT i : LINT; END_VAR\nVAR d : DINT; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR g : G; n : ULINT; END_VAR\nn := SIZEOF(g);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect(runner.get("n")).toBe(24n)
+})
+
+// 6Af gate review (recorded `tr_a29_sizeof_bound_widened_*_constant`, both vendors, `tr_a29_widened_constant_reads` run,
+// 2026-10-10): a CONSTANT held past its type (`D : DINT := K + 1` 2^31, `B : BYTE := KB + 1` 256) is still of its DECLARED
+// type — SIZEOF(D) 4, SIZEOF(B) 1. SIZEOF measured the wider slot that holds it (8, 2).
+test("SIZEOF of a CONSTANT held in a wider slot is its declared type's", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR s1 : ULINT; s2 : ULINT; END_VAR\nVAR CONSTANT K : DINT := 2147483647; D : DINT := K + 1; KB : BYTE := 255; B : BYTE := KB + 1; END_VAR\ns1 := SIZEOF(D); s2 := SIZEOF(B);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("s1"), runner.get("s2")]).toEqual([4n, 1n])
+})

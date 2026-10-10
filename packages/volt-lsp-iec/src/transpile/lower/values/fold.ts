@@ -11,6 +11,7 @@ import { enumConstant } from "./enums.js"
 import {
   constEval,
   elementaryRef,
+  type ElementaryType,
   elementaryTypeRef,
   parseConversionName,
   type Type,
@@ -21,12 +22,12 @@ import { exprHoldsCall } from "../core/ast-walk.js"
 import { constantValue } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 
-/** `asConstant`: `e` is a CONSTANT's own initializer — see `constEval`. */
-export function foldConstant(lw: Lowering, e: Expr, asConstant = false): IrValue | undefined {
+/** `asConstant`: `e` is a CONSTANT's own initializer; `declared`: the type of the declaration `e` initializes — see `constEval`. */
+export function foldConstant(lw: Lowering, e: Expr, asConstant = false, declared?: ElementaryType): IrValue | undefined {
   // an enum value is a constant too — a CASE label `E_Mode.Busy:` or `Busy:`
   const enumValue = (e.kind === "ident_expr" && lw.holds(e.name)) || (e.kind !== "ident_expr" && e.kind !== "member") ? undefined : enumConstant(lw, e)
   if (enumValue?.kind === "const") return enumValue.value
-  return constEval(e, lw.scope, asConstant)
+  return constEval(e, lw.scope, asConstant, declared)
 }
 
 /**

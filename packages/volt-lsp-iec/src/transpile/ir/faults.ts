@@ -8,6 +8,7 @@
 export type FaultKind =
   | "null-dereference"
   | "no-instance"
+  | "unbound-inout"
   | "division-by-zero"
   | "division-overflow"
   | "logarithm-of-zero"
@@ -19,6 +20,7 @@ export type FaultKind =
 export const FAULT_TEXT: Readonly<Record<FaultKind, string>> = {
   "null-dereference": "dereference of a null pointer",
   "no-instance": "call through an interface that holds no instance",
+  "unbound-inout": "a METHOD or ACTION reached its FB's VAR_IN_OUT before any call of the FB bound it",
   "division-by-zero": "division by zero",
   "division-overflow": "a division overflowed its type, which stops the task on CODESYS",
   "logarithm-of-zero": "the logarithm of zero stops the task on CODESYS",

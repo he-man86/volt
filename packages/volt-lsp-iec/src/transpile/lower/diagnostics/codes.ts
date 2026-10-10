@@ -168,6 +168,15 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "routine-var_output": "not-measured",
   // SHL / SHR / ROL / ROR by a count that is no integer (a REAL): what CODESYS does with one is unrecorded (6Aa+6Ae gate review)
   "shift-count": "not-measured",
+  // a CONSTANT whose expression initializer folds past every 64-bit integer of its signedness: CODESYS builds it and
+  // fails to log in (code generation), TwinCAT refuses it (`tr_a29_lint_constant_expression_overflow`, 6.A.29)
+  "constant-overflow": "invalid",
+  // a CONSTANT of an unsigned type whose expression initializer folds below 0 (`U : USINT := K - 1`, K = 0): what the
+  // monitor shows and what a read of it is are unrecorded (6.A.29)
+  "constant-unsigned-negative": "not-measured",
+  // a NOT, shift or rotation of a CONSTANT held past its type whose operand the constant fold does not fold (an operand
+  // mixing it with a variable): CODESYS folds the recorded shapes on the held value; this one is unrecorded (6Af gate)
+  "held-constant-operand": "not-measured",
   // SHL / SHR of an untyped literal in a shape 6.A.14 did not record — a negative literal, a named constant count, a variable
   // count anywhere but a store's whole value (`builtins/value-functions.ts` `untypedShiftOperand`)
   "shift-untyped-width": "not-measured",

@@ -134,3 +134,69 @@ describe("SHL / SHR of an untyped literal", () => {
     expect(codes("dw : DWORD;", "dw := SHL(1, C40);")).toEqual(["shift-untyped-width"])
   })
 })
+
+// transpile-restructure 6.A.30 (Appendix B rotate-in-promoted-width; recorded `tr_a30_rotate_untyped_literal`, `_variable_count`,
+// `_initializer`, `_into_int`): ROL / ROR rotate an UNTYPED literal in the width of what it is stored into — ROL(129, 1) is 3
+// into a BYTE and 258 into a WORD, DWORD or LWORD, ROR(1, 1) 2^(width - 1), ROL(16#80000001, 1) 3 into a DWORD and 2^32 + 2
+// into an LWORD; by a literal or a variable count, as a body's store, a VARIABLE's initializer and a CONSTANT's. They
+// rotated in the literal's own narrowest width (3, 128, …). Every other shape is unrecorded and refused like SHL's.
+describe("ROL / ROR of an untyped literal", () => {
+  const lower = (vars: string, body: string) => lowerSource(`PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`, "P")
+  const values = (vars: string, body: string, names: string[]) => {
+    const r = lower(vars, body)
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    return names.map((n) => p.get(n))
+  }
+
+  test("a store rotates it in the destination's width, by a literal or a variable count", () => {
+    const vars = "n1 : INT := 1; b1 : BYTE; w1 : WORD; d1 : DWORD; l1 : LWORD; b2 : BYTE; w2 : WORD; d2 : DWORD; l2 : LWORD; d3 : DWORD; l3 : LWORD; w4 : WORD; di : DINT;"
+    const body = "b1 := ROL(129, 1); w1 := ROL(129, 1); d1 := ROL(129, n1); l1 := ROL(129, 1); b2 := ROR(1, 1); w2 := ROR(1, n1); d2 := ROR(1, 1); l2 := ROR(1, 1); d3 := ROL(16#80000001, 1); l3 := ROL(16#80000001, 1); w4 := ROR(1, n1); di := ROR(1, 1);"
+    expect(values(vars, body, ["b1", "w1", "d1", "l1", "b2", "w2", "d2", "l2", "d3", "l3", "w4", "di"])).toEqual([
+      3n, 258n, 258n, 258n, 128n, 32768n, 2147483648n, 9223372036854775808n, 3n, 4294967298n, 32768n, -2147483648n,
+    ])
+  })
+
+  test("an initializer rotates it in the declared type's width, a VARIABLE's and a CONSTANT's", () => {
+    const vars = "w1 : WORD := ROL(129, 1); d1 : DWORD := ROR(1, 1); l1 : LWORD := ROL(16#80000001, 1); w2 : WORD; d2 : DWORD; l2 : LWORD;\nEND_VAR\nVAR CONSTANT CW : WORD := ROL(129, 1); CD : DWORD := ROR(1, 1); CL : LWORD := ROL(16#80000001, 1);"
+    expect(values(vars, "w2 := CW; d2 := CD; l2 := CL;", ["w1", "d1", "l1", "w2", "d2", "l2"])).toEqual([258n, 2147483648n, 4294967298n, 258n, 2147483648n, 4294967298n])
+  })
+
+  test("an unrecorded shape is refused by name", () => {
+    const codes = (vars: string, body: string) => lower(vars, body).diagnostics.map((d) => d.code)
+    // an operand of an operator: which operand's width, or the destination's, is not told apart by a recording
+    expect(codes("w0 : WORD; w3 : WORD;", "w3 := ROL(129, 1) OR w0;")).toEqual(["shift-untyped-width"])
+    // a negative literal, and a destination narrower than the literal
+    expect(codes("d : DWORD;", "d := ROL(-1, 1);")).toEqual(["shift-untyped-width"])
+    expect(codes("b : BYTE;", "b := ROL(16#1FF, 1);")).toEqual(["shift-untyped-width"])
+  })
+
+  // 6Af gate review: an initializer folds with its declared type as the context, and that fold gave every refused shape a
+  // silent value — `b1 : BYTE := ROL(16#1FF, 1)` 255, the same as a CONSTANT's, `w : WORD := ROL(16#1FFFF, 1)` 65535 —
+  // where the store `b1 := ROL(16#1FF, 1)` is refused. An initializer is refused the same shapes as a store.
+  test("an initializer is refused the shapes a store is", () => {
+    const codes = (vars: string) => lower(vars, "").diagnostics.map((d) => d.code)
+    expect(codes("b1 : BYTE := ROL(16#1FF, 1);")).toEqual(["shift-untyped-width"])
+    expect(codes("w : WORD := ROL(16#1FFFF, 1);")).toEqual(["shift-untyped-width"])
+    expect(codes("x : WORD;\nEND_VAR\nVAR CONSTANT CB : BYTE := ROL(16#1FF, 1);")).toEqual(["shift-untyped-width"])
+    expect(codes("w3 : WORD := ROL(129, 1) OR 0;")).toEqual(["shift-untyped-width"])
+    expect(codes("d : DWORD := ROR(-1, 1);")).toEqual(["shift-untyped-width"])
+  })
+})
+
+// 6Af gate review (recorded `tr_a29_widened_constant_reads`, run, and `tr_a29_rol_bound_widened_byte_constant`, both
+// vendors, 2026-10-10): a shift or rotation of a CONSTANT held past its type (B : BYTE := KB + 1, 256) is a constant
+// expression, folded on the held value in the declared width — ROL(B, 1) 2, ROR(B, 1) 128, SHR(B, 1) 128, NOT B 255; in a
+// body, a VARIABLE's initializer and a CONSTANT's alike. The body rotated its run-time read (DINT 256) with the bits above
+// the byte riding along, as an expression's (`rotate_of_expression`): 256.
+test("a shift or rotation of a constant held past its type folds on the held value", () => {
+  const r = lowerSource(
+    "PROGRAM P\nVAR r1 : DWORD; r2 : DWORD; h1 : DWORD; n1 : DWORD; r3 : DWORD := ROL(B, 1); r4 : DWORD; END_VAR\nVAR CONSTANT KB : BYTE := 255; B : BYTE := KB + 1; RB : DWORD := ROL(B, 1); END_VAR\nr1 := ROL(B, 1); r2 := ROR(B, 1); h1 := SHR(B, 1); n1 := NOT B; r4 := RB;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  expect(["r1", "r2", "h1", "n1", "r3", "r4"].map((n) => p.get(n))).toEqual([2n, 128n, 128n, 255n, 2n, 2n])
+})

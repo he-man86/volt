@@ -5,6 +5,7 @@
 import type { Span } from "../../frontend/syntax/index.js"
 import type { Type } from "../../frontend/types/index.js"
 import type { IrInit, IrValue } from "./program.js"
+import type { FaultKind } from "./faults.js"
 
 // ─── places ──────────────────────────────────────────────────────────────────
 
@@ -118,12 +119,16 @@ export interface IrSelect {
 /**
  * A call through an interface variable (design §22): the variable holds which instance it names — 0 for none, else the
  * tag lowering gave that instance — and each arm is the METHOD or PROPERTY accessor invoked on one instance it may name.
- * A value no arm names faults, as a call through a null interface stops the CODESYS application.
+ * A value no arm names faults, as a call through a null interface stops the CODESYS application. The same node carries
+ * a METHOD reaching its FB's VAR_IN_OUT from outside the FB's run (`lower/calls/last-binding.ts`), where the tag is the
+ * binding the instance was last called with and none is an in-out no call bound yet — so `fault` names which stop it is.
  */
 export interface IrDispatch {
   kind: "dispatch"
   tag: IrExpr
   arms: readonly { tag: bigint; call: IrInvoke }[]
+  /** The fault a tag no arm names stops with: a null interface, or an in-out no call bound (transpile-restructure 6.A.28). */
+  fault: Extract<FaultKind, "no-instance" | "unbound-inout">
   type: Type
   span: Span
 }

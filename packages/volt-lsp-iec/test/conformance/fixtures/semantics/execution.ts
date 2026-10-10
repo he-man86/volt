@@ -22,7 +22,13 @@ interface ExecCase {
   /** Set when the case is recorded but its construct is DELIBERATELY refused by decision — the reason, with its date.
    *  The replay reports it as a todo instead of a permanent red that would hide real regressions. */
   deferred?: string
+  /** Set when the vendor has no run to record — the reason, with its date (`LanguageTest.execSkip`). */
+  execSkip?: string
 }
+
+/** Why `record:exec` has nothing for a constant whose fold passes 64 bits (6.A.29). */
+const CONSTANT_PAST_64_BITS =
+  "NOTHING TO MEASURE — recorded alone, each, as \"Login failed...\" (CODESYS record:exec 2026-10-10): the build is clean and code generation fails on a CONSTANT whose expression folds past every 64-bit integer of its signedness, so the application never starts; TwinCAT refuses it \"Initialisation of constant variable 'D' not constant\". Its one question is what the build says"
 
 const CASES: readonly ExecCase[] = [
   { name: "counter_across_cycles", cycles: 5, vars: "count : INT;", body: "count := count + 2;" },
@@ -1484,6 +1490,131 @@ const CASES: readonly ExecCase[] = [
     vars: "lw1 : LWORD; lw2 : LWORD; li : LINT; uli : ULINT; dw : DWORD; lw3 : LWORD; lw4 : LWORD;",
     body: "lw1 := SHL(1, 40); lw2 := SHL(1, 33); li := SHL(1, 40); uli := SHL(3, 62); dw := SHL(1, 40); lw3 := SHR(16#80000000, 4); lw4 := SHL(16#FF, 28);",
   },
+
+  // transpile-restructure 6.A.27 (Appendix A: "FOR with an unsigned counter and a negative constant step emits `-1u8`",
+  // closed by RC 35 for BYTE and UINT — `tr_35_for_byte_step_minus_one`, `_uint_step_minus_two`): every other unsigned
+  // counter, a step larger than one, a named CONSTANT step and a negated parenthesised one. Each loop's last decrement
+  // stays at or above 0, so no reading of the wrap can loop forever.
+  {
+    name: "tr_a27_for_unsigned_counters_negative_step",
+    vars: "us : USINT; w : WORD; ud : UDINT; dw : DWORD; ul : ULINT; lw : LWORD; nUs : INT; nW : INT; nUd : INT; nDw : INT; nUl : INT; nLw : INT;",
+    body: [
+      "FOR us := 5 TO 1 BY -1 DO nUs := nUs + 1; END_FOR FOR w := 9 TO 2 BY -3 DO nW := nW + 1; END_FOR",
+      "FOR ud := 100 TO 50 BY -45 DO nUd := nUd + 1; END_FOR FOR dw := 7 TO 3 BY -2 DO nDw := nDw + 1; END_FOR",
+      "FOR ul := 20 TO 5 BY -5 DO nUl := nUl + 1; END_FOR FOR lw := 4 TO 1 BY -1 DO nLw := nLw + 1; END_FOR",
+    ].join(" "),
+  },
+  {
+    name: "tr_a27_for_byte_named_constant_step",
+    vars: "b : BYTE; n : INT; END_VAR VAR CONSTANT STEPB : SINT := -2;",
+    body: "FOR b := 8 TO 3 BY STEPB DO n := n + 1; END_FOR",
+  },
+  {
+    name: "tr_a27_for_uint_negated_parenthesised_step",
+    vars: "u : UINT; n : INT;",
+    body: "FOR u := 9 TO 1 BY -(3) DO n := n + 1; END_FOR",
+  },
+
+  // transpile-restructure 6.A.29 (Appendix A, grouped: "a named DINT/LINT constant folds unbounded in an initializer but
+  // wraps at run time"). `named_const_expression_keeps` measured a SINT/USINT constant EXPRESSION that overflows: it is
+  // its unwrapped fold (D : SINT := 127 + 1 is SINT#128). Asked here where no wider slot exists or the fold passes 64
+  // bits: each constant read in an initializer (`x1`), at run time (`x2`), and through another constant (`F`).
+  {
+    name: "tr_a29_lint_constant_expression_overflow",
+    execSkip: CONSTANT_PAST_64_BITS,
+    vars: "x1 : LINT := D; x2 : LINT; f1 : LINT := F; f2 : LINT; END_VAR VAR CONSTANT K : LINT := 9223372036854775807; D : LINT := K + 1; F : LINT := D - 1;",
+    body: "x2 := D; f2 := F;",
+  },
+  {
+    name: "tr_a29_ulint_constant_expression_overflow",
+    execSkip: CONSTANT_PAST_64_BITS,
+    vars: "x1 : ULINT := D; x2 : ULINT; END_VAR VAR CONSTANT K : ULINT := 18446744073709551615; D : ULINT := K + 1;",
+    body: "x2 := D;",
+  },
+  {
+    name: "tr_a29_dint_constant_expression_overflow",
+    vars: "x1 : LINT := D; x2 : LINT; f1 : LINT := F; f2 : LINT; END_VAR VAR CONSTANT K : DINT := 2147483647; D : DINT := K + 1; F : DINT := D - 1;",
+    body: "x2 := D; f2 := F;",
+  },
+  {
+    name: "tr_a29_dint_constant_overflow_into_dint",
+    vars: "y1 : DINT := D; y2 : DINT; END_VAR VAR CONSTANT K : DINT := 2147483647; D : DINT := K + 1;",
+    body: "y2 := D;",
+  },
+  {
+    name: "tr_a29_dint_constant_overflow_past_lint",
+    execSkip: CONSTANT_PAST_64_BITS,
+    vars: "q1 : LINT := Q; q2 : LINT; END_VAR VAR CONSTANT K : DINT := 2147483647; Q : DINT := K * K * 4;",
+    body: "q2 := Q;",
+  },
+  {
+    name: "tr_a29_int_constant_expression_overflow",
+    vars: "x1 : DINT := I; x2 : DINT; END_VAR VAR CONSTANT K : INT := 32767; I : INT := K + 1;",
+    body: "x2 := I;",
+  },
+  {
+    name: "tr_a29_byte_constant_expression_overflow",
+    vars: "x1 : WORD := B; x2 : WORD; END_VAR VAR CONSTANT K : BYTE := 255; B : BYTE := K + 1;",
+    body: "x2 := B;",
+  },
+  {
+    name: "tr_a29_dword_constant_expression_overflow",
+    vars: "x1 : LWORD := W; x2 : LWORD; END_VAR VAR CONSTANT K : DWORD := 16#FFFFFFFF; W : DWORD := K + 1;",
+    body: "x2 := W;",
+  },
+  {
+    name: "tr_a29_udint_constant_expression_overflow",
+    vars: "x1 : ULINT := D; x2 : ULINT; END_VAR VAR CONSTANT K : UDINT := 4294967295; D : UDINT := K + 1;",
+    body: "x2 := D;",
+  },
+
+  // transpile-restructure 6.A.30 (Appendix B, rotate-in-promoted-width; 6.A.14 left ROL / ROR of an untyped literal to
+  // it): in what width does ROL / ROR rotate an UNTYPED literal — its own narrowest type, or the destination's? 129
+  // rotated left by 1 is 3 in 8 bits and 258 wider; 1 rotated right by 1 is 2^(width - 1). With a literal count and a
+  // variable one.
+  {
+    name: "tr_a30_rotate_untyped_literal",
+    vars: "b1 : BYTE; w1 : WORD; d1 : DWORD; l1 : LWORD; b2 : BYTE; w2 : WORD; d2 : DWORD; l2 : LWORD; d3 : DWORD; l3 : LWORD;",
+    body: "b1 := ROL(129, 1); w1 := ROL(129, 1); d1 := ROL(129, 1); l1 := ROL(129, 1); b2 := ROR(1, 1); w2 := ROR(1, 1); d2 := ROR(1, 1); l2 := ROR(1, 1); d3 := ROL(16#80000001, 1); l3 := ROL(16#80000001, 1);",
+  },
+  {
+    name: "tr_a30_rotate_untyped_literal_variable_count",
+    vars: "n1 : INT := 1; b1 : BYTE; w1 : WORD; d1 : DWORD; l1 : LWORD; b2 : BYTE; w2 : WORD; d2 : DWORD; l2 : LWORD;",
+    body: "b1 := ROL(129, n1); w1 := ROL(129, n1); d1 := ROL(129, n1); l1 := ROL(129, n1); b2 := ROR(1, n1); w2 := ROR(1, n1); d2 := ROR(1, n1); l2 := ROR(1, n1);",
+  },
+  // …the same rotations as a VARIABLE's initializer and a CONSTANT's (read back at run time), as an operand beside a
+  // WORD / DWORD, and stored into a signed integer
+  {
+    name: "tr_a30_rotate_untyped_literal_initializer",
+    vars: "w1 : WORD := ROL(129, 1); d1 : DWORD := ROR(1, 1); l1 : LWORD := ROL(16#80000001, 1); w2 : WORD; d2 : DWORD; l2 : LWORD; END_VAR VAR CONSTANT CW : WORD := ROL(129, 1); CD : DWORD := ROR(1, 1); CL : LWORD := ROL(16#80000001, 1);",
+    body: "w2 := CW; d2 := CD; l2 := CL;",
+  },
+  {
+    name: "tr_a30_rotate_untyped_literal_in_expression",
+    vars: "w0 : WORD; d0 : DWORD; w3 : WORD; d3 : DWORD;",
+    body: "w3 := ROL(129, 1) OR w0; d3 := d0 OR ROR(1, 1);",
+  },
+  // 6Af gate review: `_in_expression` cannot tell the destination's width from the other operand's (both are WORD, both
+  // DWORD). Here they differ: ROR(1, 1) is 2^31 in a DWORD and 32768 in a WORD — beside a WORD into a DWORD (d4, d6),
+  // beside a DWORD into an LWORD (l7: 2^31, or 2^63). (`w5 := ROR(1, 1) OR d0` into a WORD does not build on CODESYS:
+  // "Cannot convert type 'UDINT' to type 'WORD'", recorded 2026-10-10 and dropped from the case.)
+  {
+    name: "tr_a30_rotate_untyped_literal_operand_width",
+    vars: "w0 : WORD; d0 : DWORD; d4 : DWORD; d6 : DWORD; l7 : LWORD;",
+    body: "d4 := ROR(1, 1) OR w0; d6 := w0 OR ROR(1, 1); l7 := ROR(1, 1) OR d0;",
+  },
+  // 6Af gate review (6.A.29): a BYTE / DINT CONSTANT held past its type (B 256, D 2^31) under SIZEOF and the
+  // width-sensitive operations — in a body and in an initializer, directly and through another CONSTANT
+  {
+    name: "tr_a29_widened_constant_reads",
+    vars: "s1 : ULINT; s2 : ULINT; r1 : DWORD; r2 : DWORD; n1 : DWORD; h1 : DWORD; r3 : DWORD := ROL(B, 1); r4 : DWORD; END_VAR VAR CONSTANT K : DINT := 2147483647; D : DINT := K + 1; KB : BYTE := 255; B : BYTE := KB + 1; RB : DWORD := ROL(B, 1);",
+    body: "s1 := SIZEOF(D); s2 := SIZEOF(B); r1 := ROL(B, 1); r2 := ROR(B, 1); n1 := NOT B; h1 := SHR(B, 1); r4 := RB;",
+  },
+  {
+    name: "tr_a30_rotate_untyped_literal_into_int",
+    vars: "i1 : INT; di : DINT;",
+    body: "i1 := ROL(129, 1); di := ROR(1, 1);",
+  },
 ]
 
 /** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a
@@ -1501,6 +1632,7 @@ function program(c: ExecCase): LanguageTest {
     ...(c.cycles === undefined ? {} : { cycles: c.cycles }),
     ...(c.rejects === undefined ? {} : { refused: c.rejects }),
     ...(c.deferred === undefined ? {} : { deferred: { transpile: c.deferred } }),
+    ...(c.execSkip === undefined ? {} : { execSkip: c.execSkip }),
   }
 }
 
@@ -1582,6 +1714,74 @@ VAR
 	r3 : INT;
 END_VAR
 r3 := LIMIT(FUN_LANG_tr41_Add1(x), FUN_LANG_tr41_Dbl(x), 1000);
+END_FUNCTION_BLOCK
+`,
+  ),
+  // transpile-restructure 6.A.30 (Appendix B: "rotate-in-promoted-width, filed as an ANY-argument ordering bug with no
+  // recording"): ROL / ROR / SHL / SHR with BOTH arguments calls that change the same variable — Next (x + 1, as a BYTE)
+  // then Twice (x * 2) leaves x = 4 and rotates 2 by 4; the other order leaves x = 3 and rotates 3 by 2. `r5` rotates an
+  // EXPRESSION (a BYTE sum, promoted) into a WORD, the shape `rotate_of_expression` measured, with calls in it.
+  withUnits(
+    "tr_a30_rotate_argument_order",
+    "ROL / ROR / SHL / SHR: which argument runs first, when both change one variable?",
+    `FUNCTION FUN_LANG_tr_a30_Next : BYTE
+VAR_IN_OUT
+	c : INT;
+END_VAR
+c := c + 1;
+FUN_LANG_tr_a30_Next := INT_TO_BYTE(c);
+END_FUNCTION
+
+FUNCTION FUN_LANG_tr_a30_Twice : INT
+VAR_IN_OUT
+	c : INT;
+END_VAR
+c := c * 2;
+FUN_LANG_tr_a30_Twice := c;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr_a30_rotate_argument_order
+VAR
+	x1 : INT := 1;
+	x2 : INT := 1;
+	x3 : INT := 1;
+	x4 : INT := 1;
+	x5 : INT := 1;
+	r1 : BYTE;
+	r2 : BYTE;
+	r3 : WORD;
+	r4 : BYTE;
+	r5 : WORD;
+END_VAR
+r1 := ROL(FUN_LANG_tr_a30_Next(x1), FUN_LANG_tr_a30_Twice(x1));
+r2 := ROR(FUN_LANG_tr_a30_Next(x2), FUN_LANG_tr_a30_Twice(x2));
+r3 := SHL(FUN_LANG_tr_a30_Next(x3), FUN_LANG_tr_a30_Twice(x3));
+r4 := SHR(FUN_LANG_tr_a30_Next(x4), FUN_LANG_tr_a30_Twice(x4));
+r5 := ROL(FUN_LANG_tr_a30_Next(x5) + BYTE#16#80, FUN_LANG_tr_a30_Twice(x5));
+END_FUNCTION_BLOCK
+`,
+  ),
+  // 6Af gate review: the run-time twin of `tr_a31_sizeof_bound_fb_var_input_constant` — SIZEOF of an FB whose VAR_INPUT
+  // CONSTANT is a per-call parameter (24 if it takes room, 16 if not)
+  withUnits(
+    "tr_a31_sizeof_fb_var_input_constant",
+    "SIZEOF of an FB instance with a VAR_INPUT CONSTANT",
+    `FUNCTION_BLOCK FB_LANG_tr_a31_vic_run
+VAR_INPUT CONSTANT
+	i : LINT;
+END_VAR
+VAR
+	d : DINT;
+END_VAR
+d := d + LINT_TO_DINT(i);
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_tr_a31_sizeof_fb_var_input_constant
+VAR
+	g : FB_LANG_tr_a31_vic_run;
+	s1 : ULINT;
+END_VAR
+s1 := SIZEOF(g);
 END_FUNCTION_BLOCK
 `,
   ),

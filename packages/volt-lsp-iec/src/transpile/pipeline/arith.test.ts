@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { load } from "../index.js"
+import { lowerSource } from "../lower/index.js"
 
 // End to end, ST -> lower -> interpreter: arithmetic, promotion, conversions, bit operations, the math builtins.
 describe("interp — the executable core", () => {
@@ -315,6 +316,33 @@ END_PROGRAM
 `)
     pou.scan()
     expect(["D", "E", "d1", "e1", "d2", "e2"].map((n) => pou.get(n))).toEqual([128n, 258n, 128n, 258n, 128n, 258n])
+  })
+
+  // transpile-restructure 6.A.29 (conformance `tr_a29_dint_constant_expression_overflow`, `_udint_…`, recorded): the
+  // monitor shows a 32-bit constant's unwrapped fold (D DINT#2147483648, UDINT#4294967296), but every READ of it — in an
+  // initializer and at run time — is the value in its type's run-time width: -2147483648 and 0. A SINT's run-time width
+  // is DINT, so its 128 survives (above). Another constant folds on from the unwrapped value: F := D - 1 is 2147483647.
+  // Lowering read the wide slot as it stood (2147483648, 4294967296).
+  test("a read of it is the value in its declared type's run-time width", () => {
+    const pou = load(`PROGRAM P
+VAR x1 : LINT := D; x2 : LINT; f1 : LINT := F; u1 : ULINT := U; u2 : ULINT; END_VAR
+VAR CONSTANT K : DINT := 2147483647; D : DINT := K + 1; F : DINT := D - 1; KU : UDINT := 4294967295; U : UDINT := KU + 1; END_VAR
+x2 := D; u2 := U;
+END_PROGRAM
+`)
+    pou.scan()
+    expect(["D", "F", "x1", "x2", "f1", "U", "u1", "u2"].map((n) => pou.get(n))).toEqual([2147483648n, 2147483647n, -2147483648n, -2147483648n, 2147483647n, 4294967296n, 0n, 0n])
+  })
+
+  // …and one whose fold no 64-bit integer of its signedness holds is refused: CODESYS builds it and fails to log in
+  // (code generation), TwinCAT refuses it "Initialisation of constant variable 'D' not constant"
+  // (`tr_a29_lint_constant_expression_overflow`, `_ulint_…`, `_dint_constant_overflow_past_lint`, both vendors 2026-10-10).
+  test("one whose fold passes 64 bits is refused by name", () => {
+    const codes = (constants: string) => lowerSource(`PROGRAM P\nVAR x : LINT; END_VAR\nVAR CONSTANT ${constants} END_VAR\nx := 1;\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+    expect(codes("K : LINT := 9223372036854775807; D : LINT := K + 1;")).toContain("constant-overflow")
+    expect(codes("K : ULINT := 18446744073709551615; D : ULINT := K + 1;")).toContain("constant-overflow")
+    expect(codes("K : DINT := 2147483647; Q : DINT := K * K * 4;")).toContain("constant-overflow")
+    expect(codes("K : DINT := 2147483647; D : DINT := K + 1;")).toEqual([])
   })
 })
 

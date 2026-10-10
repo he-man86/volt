@@ -44,7 +44,7 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
     // one arm per tag — a revisit (an escalated `foreign`) is here to refuse, not to add a second
     if (call !== undefined && !arms.some((a) => a.tag === BigInt(tag))) arms.push({ tag: BigInt(tag), call })
   })
-  return { kind: "dispatch", tag: { kind: "load", place: ref, type: ref.type, span }, arms, type, span }
+  return { kind: "dispatch", tag: { kind: "load", place: ref, type: ref.type, span }, arms, fault: "no-instance", type, span }
 }
 
 /** `ref.M(…)` — each instance's METHOD, with the arguments lowered ONCE, against the interface's own declaration. */

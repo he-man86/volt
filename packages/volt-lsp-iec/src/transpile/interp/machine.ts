@@ -96,7 +96,7 @@ function compileExpr(e: IrExpr): Run<Val> {
       return (m) => {
         const t = tag(m)
         const arm = e.arms.find((a) => a.tag === t)
-        if (arm === undefined) throw new IecFault("no-instance")
+        if (arm === undefined) throw new IecFault(e.fault)
         return invoke(m, arm.call)
       }
     }

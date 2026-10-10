@@ -17,10 +17,11 @@ import {
   elemOf,
   enumDefault,
   inlineEnumDefault,
+  promoteForRuntime,
   type Type,
 } from "../../../frontend/types/index.js"
 import { enumeratorValue } from "../values/enums.js"
-import type { IrInit } from "../../ir/index.js"
+import type { IrInit, IrSlot } from "../../ir/index.js"
 import { stored } from "../values/convert.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { boundName, openDims } from "../places/bounds.js"
@@ -51,7 +52,7 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // resolved ONCE: a refusal `resolve` makes (`string-capacity`) is made once per declaration, and `startValue` asks the
   // same resolved type for its enum default
   const resolved = lw.resolve(written.type)
-  const type = constantSlot(lw, sec, written, storageOf(lw, resolved, written.type.span))
+  const { type, widened } = constantSlot(lw, sec, written, storageOf(lw, resolved, written.type.span))
   // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
   // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
   // alias to INT and the alias's initializer went with it.
@@ -107,7 +108,7 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // — and `lowerUnit` returns diagnostics rather than a POU whenever any exist. The LSP made this same fix for
   // its own cascade (`ParseResult.failedDeclarations`).
   const failed = !deferred && decl.init !== undefined && init === undefined
-  declareNames(lw, sec, decl, type, { init, deferred, failed, binds, leaves: failed ? [] : (dynamic?.leaves ?? []) })
+  declareNames(lw, sec, decl, type, { init, deferred, failed, binds, leaves: failed ? [] : (dynamic?.leaves ?? []), widened })
 }
 
 /** A declaration's initial value: its initializer folded or built, or — with none — its type's (an enum's at its measured
@@ -130,7 +131,7 @@ function declareNames(
   sec: VarSection,
   decl: VarDecl,
   type: Type,
-  { init, deferred, failed, binds, leaves }: { init: IrInit | undefined; deferred: boolean; failed: boolean; binds: boolean; leaves: DynamicLeaves["leaves"] },
+  { init, deferred, failed, binds, leaves, widened }: { init: IrInit | undefined; deferred: boolean; failed: boolean; binds: boolean; leaves: DynamicLeaves["leaves"]; widened: Pick<IrSlot, "readAs" | "declared"> | undefined },
 ): void {
   // run on every run of the body: a VAR_TEMP's, and every local of a METHOD or FUNCTION (its VAR is its temporary section)
   const perRun = sec.sectionKind === "VAR_TEMP" || lw.routineMode
@@ -151,7 +152,7 @@ function declareNames(
     else {
       // a routine's local is numbered in ITS locals, as `lw.slot` files it
       const slot = lw.routineMode ? lw.localSlots.length : lw.slots.length
-      lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
+      lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init, widened)
       if (sec.constant === true && !lw.routineMode && !lw.globalMode) initFrame(lw).constants.add(slot)
       // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
       // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
@@ -165,18 +166,35 @@ function declareNames(
 
 /**
  * A CONSTANT's slot is wide enough for its value: an initializer that is a constant EXPRESSION is not narrowed to the
- * declared type (`constantSlotType`), so `D : SINT := K + 1` (K = 127) holds 128 and every read of it is 128
- * (conformance `named_const_expression_keeps`, recorded; transpile-review-2026-09-29 task 2.3).
+ * declared type (`constantSlotType`), so `D : SINT := K + 1` (K = 127) holds 128 (conformance `named_const_expression_keeps`,
+ * recorded; transpile-review-2026-09-29 task 2.3). The slot is what the monitor shows; every READ of it is the value in the
+ * declared type's run-time width (`readAs`; SIZEOF measures the `declared` type, 6Af): a SINT's 128 in DINT, but `D : DINT := K + 1` (K at DINT's max) reads
+ * -2147483648 wherever it is read, as the monitor shows DINT#2147483648 (`tr_a29_dint_constant_expression_overflow`,
+ * 6.A.29). A fold no 64-bit integer of the declared signedness holds is refused: CODESYS fails to generate code for it
+ * and TwinCAT refuses it (`tr_a29_lint_constant_expression_overflow`, `_ulint_…`, `_dint_constant_overflow_past_lint`).
  */
-function constantSlot(lw: Lowering, sec: VarSection, decl: VarDecl, type: Type): Type {
+function constantSlot(lw: Lowering, sec: VarSection, decl: VarDecl, type: Type): { type: Type; widened?: Pick<IrSlot, "readAs" | "declared"> } {
   const init = decl.init
   const elem = elemOf(type)
-  if (sec.constant !== true || sec.sectionKind === "VAR_INPUT" || sec.sectionKind === "VAR_IN_OUT") return type
-  if (elem === undefined || init === undefined || init.kind === "aggregate_init" || init.kind === "literal") return type
-  const folded = foldConstant(lw, init, true)
-  const wide = typeof folded === "bigint" ? constantSlotType(folded, elem) : undefined
-  return wide === undefined ? type : elementaryTypeRef(wide)
+  if (sec.constant !== true || sec.sectionKind === "VAR_INPUT" || sec.sectionKind === "VAR_IN_OUT") return { type }
+  if (elem === undefined || init === undefined || init.kind === "aggregate_init" || init.kind === "literal") return { type }
+  const folded = foldConstant(lw, init, true, elem)
+  if (typeof folded !== "bigint" || (elem.family !== "int" && elem.family !== "bitstring") || elem.rank === undefined || fitsIn(folded, elem)) return { type }
+  // a NEGATIVE fold of an unsigned type: which slot the monitor shows, and what a read of it is, are unrecorded
+  if (folded < 0n && elem.signed !== true) {
+    lw.bail("constant-unsigned-negative", `${decl.names[0]?.text ?? "a constant"} of the unsigned ${elem.name} folds to ${folded} (unrecorded)`, decl.span)
+    return { type }
+  }
+  const wide = constantSlotType(folded, elem)
+  if (wide === undefined) {
+    lw.bail("constant-overflow", `${decl.names[0]?.text ?? "a constant"} folds to ${folded}, which no 64-bit integer of ${elem.name}'s signedness holds`, decl.span)
+    return { type }
+  }
+  return { type: elementaryTypeRef(wide), widened: { readAs: promoteForRuntime(type), declared: type } }
 }
+
+/** Does the integer type `e` hold `value`? */
+const fitsIn = (value: bigint, e: { bits: number; signed?: boolean }): boolean => (e.signed === true ? BigInt.asIntN(e.bits, value) : BigInt.asUintN(e.bits, value)) === value
 
 /** An FB body's VAR_IN_OUT parameters — not storage: each names the caller's variable for the call. */
 export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): void {

@@ -4,7 +4,7 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { Expr } from "../../../frontend/syntax/index.js"
+import { walkExpr, type Expr } from "../../../frontend/syntax/index.js"
 import {
   elementaryRef,
   elemOf,
@@ -22,6 +22,7 @@ import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { meet } from "../values/promote.js"
 import { foldsToConstant } from "../values/fold.js"
+import { heldConstantOperation } from "../places/access-guards.js"
 
 /** The width an integer or bit-string expression is CHECKED in — before run-time promotion. `inferExprType` answers
  *  UNKNOWN beside an untyped literal, which takes the other operand's type when that holds it (`literalCheckType`). */
@@ -95,6 +96,7 @@ export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call"
  * 6.A.30's), which lowers as the operand types itself.
  */
 function untypedShiftOperand(lw: Lowering, name: string, values: readonly Expr[], expected: Type | undefined, stored: boolean): { type?: Type } | { refuse: string } {
+  if (name === "ROL" || name === "ROR") return untypedRotateOperand(name, values, expected, stored)
   if (name !== "SHL" && name !== "SHR") return {}
   const value = unparenthesised(values[0]!)
   const wide = expected !== undefined && elemOf(expected)?.bits === 64 && ["int", "bitstring"].includes(elemOf(expected)!.family)
@@ -108,6 +110,53 @@ function untypedShiftOperand(lw: Lowering, name: string, values: readonly Expr[]
   return wide ? { type: expected } : {}
 }
 
+/**
+ * ROL / ROR OF AN UNTYPED LITERAL rotate in the width of what it is STORED INTO (transpile-restructure 6.A.30, recorded
+ * `tr_a30_rotate_untyped_literal`, `_variable_count`, `_into_int`): ROL(129, 1) is 3 into a BYTE and 258 into a WORD,
+ * DWORD or LWORD, ROR(1, 1) 2^(width - 1) — 2^31 into a DWORD and -2^31 into a DINT —, ROL(16#80000001, 1) 3 into a DWORD
+ * and 2^32 + 2 into an LWORD; a literal count and a variable one alike. (A declaration's initializer is folded with its
+ * declared type as the context, `values/fold.ts` `foldConstant`, `_initializer`.) Lowered at its own narrowest width
+ * every one rotated in 8 bits. Lowered: the whole value of a store whose integer type holds the literal. Refused
+ * `shift-untyped-width`: a negative literal and a destination too narrow for the literal (unrecorded), and an operand of
+ * an operator — which IS recorded, in the DESTINATION's width (`tr_a30_rotate_untyped_literal_operand_width`: ROR(1, 1)
+ * beside a WORD into a DWORD 2^31, beside a DWORD into an LWORD 2^63; 6Af gate review), but carrying the destination
+ * into an operator's operand is not built — niche: accepted loss (0 ROL / ROR of an untyped literal in the six corpora).
+ */
+function untypedRotateOperand(name: string, values: readonly Expr[], expected: Type | undefined, stored: boolean): { type?: Type } | { refuse: string } {
+  const value = unparenthesised(values[0]!)
+  if (!isIntLiteral(value)) return {}
+  if (value.kind === "unary") return { refuse: `${name} of a negative untyped literal (its width is unrecorded)` }
+  if (!stored) return { refuse: `${name} of an untyped literal, not the whole value of a store (an operator's operand: the destination's width, not built)` }
+  const e = expected === undefined ? undefined : elemOf(expected)
+  const literal = value.kind === "literal" && typeof value.value === "bigint" ? value.value : undefined
+  const holds = e !== undefined && literal !== undefined && (e.family === "int" || e.family === "bitstring") && e.rank !== undefined &&
+    (e.signed === true ? BigInt.asIntN(e.bits, literal) : BigInt.asUintN(e.bits, literal)) === literal
+  return holds ? { type: expected } : { refuse: `${name} of an untyped literal stored into a type that does not hold it (unrecorded)` }
+}
+
+/**
+ * AN INITIALIZER IS REFUSED THE SHAPES A STORE IS: a declaration's initializer folds with its declared type as the context
+ * (`values/fold.ts` `foldConstant`), and that fold gave every shape `untypedRotateOperand` refuses a silent value —
+ * `b1 : BYTE := ROL(16#1FF, 1)` 255, a CONSTANT's the same, where the store `b1 := ROL(16#1FF, 1)` is refused (6Af gate
+ * review). The whole initializer is the store's value; a rotation under an operator in it is not. True when one was
+ * refused (reported).
+ */
+export function refusedRotateInInitializer(lw: Lowering, init: Expr, declared: Type): boolean {
+  const whole = unparenthesised(init)
+  let refused = false
+  walkExpr(init, (x) => {
+    if (refused || x.kind !== "call" || x.callee.kind !== "ident_expr") return
+    const name = x.callee.name.toUpperCase()
+    if (name !== "ROL" && name !== "ROR") return
+    const operand = untypedRotateOperand(name, x.args.map((a) => a.value!), declared, x === whole)
+    if ("refuse" in operand) {
+      lw.bail("shift-untyped-width", operand.refuse, x.span)
+      refused = true
+    }
+  })
+  return refused
+}
+
 /** SHL/SHR shift the PROMOTED value; ROL/ROR rotate in the value's own width — an expression's CHECKED width. */
 function lowerShift(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: "SHL" | "SHR" | "ROL" | "ROR", values: readonly Expr[], expected: Type | undefined, stored: boolean): IrExpr | undefined {
   const operand = untypedShiftOperand(lw, name, values, expected, stored)
@@ -115,6 +164,8 @@ function lowerShift(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: "SHL
   const value = lowerExpr(lw, values[0]!, operand.type)
   const count = value === undefined ? undefined : lowerExpr(lw, values[1]!)
   if (value === undefined || count === undefined) return undefined
+  const held = heldConstantOperation(lw, e, value)
+  if (held !== null) return held
   // A COUNT THAT IS NO INTEGER — SHL(dw, 2.0) — reached the interpreter, which masks the count as the exact integer it is
   // (6.A.4) and threw a LoweringBug, out of lowering itself through an initializer's fold. What CODESYS does with one is
   // unrecorded (before 6.A.4, `Number()` quietly took 2.0 as 2): refused by name (6Aa+6Ae gate review).

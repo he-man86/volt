@@ -36,6 +36,14 @@ export interface IrSlot {
   /** A GVL variable whose name another list also declares: its list's name. The two are two globals (6.A.17), and the
    *  emitter names each Rust field `<list>_<name>` — by its list, never by which one a body reached first. */
   list?: string
+  /** A CONSTANT whose slot is wider than its declared type, to hold its unwrapped fold (`constantSlotType`): the monitor
+   *  shows that fold (`tr_a29_dint_constant_expression_overflow`: D DINT#2147483648), but every read of it is the value in
+   *  this type — its declared type's run-time width (-2147483648; a SINT's 128 survives in DINT). Lowering converts each
+   *  load (`places/access-guards.ts` `loadValue`); no backend reads it (transpile-restructure 6.A.29). */
+  readAs?: Type
+  /** Set with `readAs`: the constant's DECLARED type, which SIZEOF measures — SIZEOF(B) of `B : BYTE := KB + 1` held as 256
+   *  in a WORD slot is 1, of `D : DINT := K + 1` 4 (`tr_a29_sizeof_bound_widened_*_constant`, both vendors, 6Af gate). */
+  declared?: Type
 }
 
 /**

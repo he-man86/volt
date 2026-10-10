@@ -5,7 +5,7 @@
 import type { Lowering } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { baseOf, implementsOf, interfaceChainOf, scopeChain } from "../core/chain.js"
-import { peelArray, type Type } from "../../../frontend/types/index.js"
+import { alignUp, packFields, peelArray, type Type } from "../../../frontend/types/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
 import { fieldIn, fieldOf, rootType, typeAlong } from "../places/path.js"
@@ -85,44 +85,16 @@ export function fieldBytes(
   const interfaces = implementedInterfaces(lw, isFb ? pending : undefined)
   if (interfaces === undefined) return undefined
   if (packed && interfaces > 0n) return undefined
-  let offset = isFb ? 8n + 8n * interfaces : 0n
-  let align = isFb ? 8n : 1n
-  const offsets = new Map<string, bigint>()
-  // Consecutive BIT fields PACK, eight to a byte; anything else ends the run, and a BIT after one starts a fresh byte.
-  // Measured (conformance `ct_bit_packing_sizes`): one BIT is 1 and eight are 1, nine are 2, a BYTE then a BIT is 2, a
-  // BIT then an INT is 4 (the bit takes its byte, the INT aligns to 2), and BIT·BYTE·BIT is 3 — the second bit does not
-  // go back into the first byte. A BOOL is a whole byte either way, so two BOOLs are 2. It was refused outright.
-  let bitsUsed = 0
-  for (const field of layout.fields) {
-    if (field.section === "temp" || field.section === "VAR_TEMP" || field.section === "VAR_STAT" || replaced.has(field.name.toUpperCase())) continue
-    if (field.type.kind === "elementary" && field.type.elem.name === "BIT") {
-      // the byte a run of bits sits in is taken once, at the first of them
-      if (bitsUsed === 0) {
-        offsets.set(field.name.toUpperCase(), offset)
-        offset += 1n
-      } else offsets.set(field.name.toUpperCase(), offset - 1n)
-      bitsUsed = (bitsUsed + 1) % 8
-      continue
-    }
-    bitsUsed = 0
-    const b = byteSize(lw, field.type)
-    // THE IMAGE'S LAYOUT (`pointers/image.ts`) goes on past a field of unmeasured size — a pointer, an interface — with
-    // the fields after it in a run of their own, 16 bytes on: no program can tell where that run sits, since a walk,
-    // a difference or an order across two runs faults (design.md §3.3 step 4d). SIZEOF stops there (`unmeasured` unset).
-    if (b === undefined) {
-      if (unmeasured === undefined) return undefined
-      unmeasured.add(field.name.toUpperCase())
-      offset = alignUp(offset + 16n, 8n)
-      continue
-    }
-    if (!packed) offset = alignUp(offset, b.align)
-    offsets.set(field.name.toUpperCase(), offset)
-    offset += b.size
-    if (!packed && b.align > align) align = b.align
-  }
-  // A PACKED layout is not rounded up at the end either. For a struct this was invisible — `align` stays 1 there, so
-  // the round-up did nothing — but an FB's starts at 8 for its header, which turned the measured 13 back into 16.
-  return { size: packed ? offset : alignUp(offset, align), align: packed ? 1n : align, offsets }
+  // THE PACKING RULE IS THE FRONT-END'S (`types/layout` `packFields`, one home: the front-end's SIZEOF folds with it,
+  // transpile-restructure 6.A.31): consecutive BITs share a byte (`ct_bit_packing_sizes`), each other field is aligned to
+  // its own alignment unless packed, the whole rounded up to the widest. THE IMAGE'S LAYOUT (`pointers/image.ts`) goes on
+  // past a field of unmeasured size — a pointer, an interface — with the fields after it in a run of their own, 16 bytes
+  // on: no program can tell where that run sits, since a walk, a difference or an order across two runs faults
+  // (design.md §3.3 step 4d). SIZEOF stops there (`unmeasured` unset).
+  const fields = layout.fields
+    .filter((f) => !(f.section === "temp" || f.section === "VAR_TEMP" || f.section === "VAR_STAT" || replaced.has(f.name.toUpperCase())))
+    .map((f) => ({ name: f.name, bytes: f.type.kind === "elementary" && f.type.elem.name === "BIT" ? ("bit" as const) : byteSize(lw, f.type) }))
+  return packFields(fields, { size: isFb ? 8n + 8n * interfaces : 0n, align: isFb ? 8n : 1n }, packed, unmeasured)
 }
 
 /**
@@ -133,7 +105,9 @@ export function fieldBytes(
 function replacedConstants(lw: Lowering, layout: { readonly fields: readonly { name: string; type: Type }[] }, pending: PendingBody | undefined): Set<string> | undefined {
   const replaced = new Set<string>()
   for (const sec of pending?.unit.varSections ?? [])
-    if (sec.constant === true)
+    // a VAR_INPUT CONSTANT is a per-call parameter, not a constant the compiler replaces: it takes its room
+    // (`tr_a31_sizeof_bound_fb_var_input_constant`, both vendors, 24 — 6Af gate review)
+    if (sec.constant === true && sec.sectionKind !== "VAR_INPUT")
       for (const d of sec.decls) {
         if (lw.attributes.get(d)?.has("const_non_replaced") === true) continue
         for (const n of d.names) {
@@ -183,6 +157,3 @@ export function byteOffset(lw: Lowering, place: Place): bigint | undefined {
   })
   return "stopped" in walked ? undefined : offset
 }
-
-/** `offset` raised to the next multiple of `align`. */
-export const alignUp = (offset: bigint, align: bigint): bigint => ((offset + align - 1n) / align) * align

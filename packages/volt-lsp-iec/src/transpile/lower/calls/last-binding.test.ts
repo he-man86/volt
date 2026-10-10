@@ -4,6 +4,9 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { emitRust } from "../../emit/rust/index.js"
+import { FAULT_TEXT } from "../../ir/faults.js"
+import { IecFault } from "../../semantics/faults.js"
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
@@ -50,6 +53,21 @@ test("a METHOD called from outside its FB reaches the in-out the instance was la
   // SUPER^ binding the in-out to another place: what the instance holds is not recorded
   const rebinding = "FUNCTION_BLOCK FB_D EXTENDS FB_W\nVAR other : INT := 500; END_VAR\nSUPER^(shared := other);\nEND_FUNCTION_BLOCK\n"
   expect(codes("d : FB_D;", "d(shared := first);\nd.AddTen();", rebinding)).toContain("call-fb-inout")
+})
+
+// Recorded (`callshape_inout_method_before_binding`: the application stops, no message): a METHOD reaching its FB's in-out
+// before any call bound it faulted with the INTERFACE text ("call through an interface that holds no instance") — the
+// dispatch on the binding tag is the interface's node, and it carried the interface's fault (transpile-review Appendix A,
+// transpile-restructure 6.A.28). Its own kind now, the same text from both backends.
+test("an in-out reached before any call bound it stops with its own fault, not the interface's", () => {
+  const worker = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const source = `PROGRAM P\nVAR worker : FB_W; first : INT := 1; END_VAR\nworker.AddTen();\nworker(shared := first);\nEND_PROGRAM\n${worker}`
+  const pou = ir(source, "P")
+  expect(() => run(pou).scan()).toThrow(new IecFault("unbound-inout"))
+  const code = emitRust(pou).code
+  expect(code).toContain(`panic!(${JSON.stringify(FAULT_TEXT["unbound-inout"])})`)
+  expect(code).not.toContain(FAULT_TEXT["no-instance"])
+  expect(FAULT_TEXT["unbound-inout"]).not.toEqual(FAULT_TEXT["no-instance"])
 })
 
 // Recorded (`tr_16_fb_copy_carries_inout_binding`: first = 11, second = 100): `w2 := w` copies the in-out binding w holds,

@@ -3,8 +3,12 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { IrExpr, Place } from "../../ir/index.js"
-import type { Span } from "../../../frontend/syntax/index.js"
+import type { IrExpr, IrSlot, Place } from "../../ir/index.js"
+import { convert } from "../values/convert.js"
+import { fieldOf, rootType, typeAlong } from "./path.js"
+import type { Expr, Span } from "../../../frontend/syntax/index.js"
+import { constEval, inferExprType } from "../../../frontend/types/index.js"
+import { forEachExpr } from "../../ir/walk.js"
 import { pointeePlace, selectThrough } from "../pointers/deref.js"
 import { refuseUnionWrite } from "../storage/unions.js"
 import { refuseOpenArray } from "./bounds.js"
@@ -101,5 +105,40 @@ export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | unde
   if (place.type.kind === "pointer") return lw.bail("pointer-value", "a pointer's value used as a number", span)
   if (place.type.kind === "interface")
     return lw.bail("interface-value", "an interface used other than to call through it, store it, or compare it with 0", span)
-  return { kind: "load", place, type: place.type, span }
+  const load: IrExpr = { kind: "load", place, type: place.type, span }
+  const readAs = slotOf(lw, place)?.readAs
+  return readAs === undefined ? load : convert(load, readAs)
+}
+
+/**
+ * A NOT, SHIFT OR ROTATION OF A CONSTANT HELD PAST ITS TYPE (`IrSlot.declared`: `B : BYTE := KB + 1` held as 256) is a
+ * constant expression CODESYS folds on the held value in the declared width — ROL(B, 1) 2, ROR(B, 1) 128, SHR(B, 1) 128,
+ * NOT B 255 (`tr_a29_widened_constant_reads`, run; `tr_a29_rol_bound_widened_byte_constant`, both vendors; 6Af gate
+ * review) — where the run-time read (DINT 256) rotated with the bits above the byte riding along (256) and NOT inverted
+ * all 32 bits. So the front-end's fold (`constEval`) is its value, typed as the front-end types it. Null when `operand`
+ * (`e`'s lowered operand) loads no such constant; undefined, reported, when the fold has no value for it.
+ */
+export function heldConstantOperation(lw: Lowering, e: Expr, operand: IrExpr): IrExpr | null | undefined {
+  let held = false
+  forEachExpr(operand, (x) => {
+    if (x.kind === "load" && slotOf(lw, x.place)?.declared !== undefined) held = true
+  })
+  if (!held) return null
+  const value = constEval(e, lw.scope)
+  const type = inferExprType(e, lw.scope, lw.project)
+  if (typeof value !== "bigint" || type.kind !== "elementary")
+    return lw.bail("held-constant-operand", "a NOT, shift or rotation of a CONSTANT held past its type, with an operand that does not fold (unrecorded)", e.span)
+  return { kind: "const", value, type, span: e.span }
+}
+
+/** The slot a place names WHOLE — a frame's, a routine's or a global's variable, or a field of what the path before it
+ *  reaches — or undefined for an element or anything reached through a pointer. */
+export function slotOf(lw: Lowering, place: Place): IrSlot | undefined {
+  if (place.path.length === 0)
+    return place.root === "local" ? lw.localSlots[place.slot] : place.root === "global" ? lw.shared.globals.slots[place.slot] : place.root === undefined ? lw.slots[place.slot] : undefined
+  const last = place.path[place.path.length - 1]!
+  if (last.kind !== "field") return undefined
+  const along = typeAlong(lw, rootType(lw, place), place.path.slice(0, -1), { fields: "composite", element: "any" }, () => undefined)
+  const owner = "type" in along ? along.type : undefined
+  return owner !== undefined && (owner.kind === "struct" || owner.kind === "function_block") ? fieldOf(lw, owner.name, last.name) : undefined
 }
