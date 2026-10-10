@@ -136,3 +136,16 @@ ${body}
 END_PROGRAM
 `)).toContain("__chain_value")
 })
+
+// 7.8.5: a CONSTANT bit store sets or clears the bit in place; a computed one keeps the `if` on its value
+test("a constant bit store prints as `|=` / `&= !`", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR w : WORD; flag : BOOL; END_VAR\nw.3 := TRUE;\nw.0 := FALSE;\nw.5 := flag;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("self.w |= 1u16 << 3;")
+  expect(code).toContain("self.w &= !(1u16 << 0);")
+  expect(code).toContain("let __bit_v = self.flag;")
+})

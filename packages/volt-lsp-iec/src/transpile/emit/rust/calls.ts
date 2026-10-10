@@ -123,7 +123,7 @@ export function exprSelect(p: Printer, e: Extract<IrExpr, { kind: "select" }>, s
   // same closure trick when there is no arm at all, for the reason the `dispatch` note above gives.
   const read = (at: Place): string => {
     const field = place(p, at, slots)
-    return isCopy(at.type) ? field : `${field}.clone()`
+    return isCopy(at.type, p.layouts) ? field : `${field}.clone()`
   }
   const nothing = `panic!(${rustFaultLiteral("null-dereference")})`
   // NO ARM AT ALL IS JUST THE PANIC. A select with no arms is how lowering spells "this tag can only be 0",

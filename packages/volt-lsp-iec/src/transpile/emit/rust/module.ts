@@ -166,10 +166,18 @@ function sharedVariants(pou: IrPou, names: ReadonlyMap<string, string>, printer:
 function printLayout(p: Printer, pou: IrPou, layout: IrLayout, names: readonly string[]): void {
   // a STRUCT's offsets say where its fields sit when it is in the image; its Rust struct holds them all the same
   const [fields, fieldNames] = layout.kind === "function_block" ? held(layout.fields, names) : [layout.fields, names]
-  printStruct(p, rustName(layout.name), fields, fieldNames, undefined, () => {
-    if (layout.body !== undefined) printCall(p, layout, names)
-    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
-  })
+  printStruct(
+    p,
+    rustName(layout.name),
+    fields,
+    fieldNames,
+    undefined,
+    () => {
+      if (layout.body !== undefined) printCall(p, layout, names)
+      for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
+    },
+    layout.kind,
+  )
 }
 
 /** The POU's own struct: `new`, the `init` its `call_after_global_init_slot` methods need, and `scan`. */

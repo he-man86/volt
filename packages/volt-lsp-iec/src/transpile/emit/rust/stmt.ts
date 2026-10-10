@@ -115,6 +115,12 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
   // through one `&mut`: printed on both sides, an index holding a call ran that call twice (transpiler review
   // 2026-09-15). The value first, as a plain `place = value` evaluates it.
   const one = `(1${rustType(bit.of)} << ${bit.index})`
+  // A CONSTANT BIT is set or cleared in place (lean 7.8.5): `x |= 1u16 << 3;` / `x &= !(1u16 << 3);` — the place
+  // named once all the same, and no `if` on a value known here
+  if (s.value.kind === "const" && typeof s.value.value === "boolean") {
+    push(p, s.value.value ? `${lvalue(field)} |= ${one.slice(1, -1)};` : `${lvalue(field)} &= !${one};`, indent, s.span)
+    return
+  }
   // reserved prefix, for the reason the MOD expansion above spells out: `v` and `w` are ordinary IEC
   // identifiers, and a routine's parameters and VAR_TEMPs are Rust locals in the same scope as this block
   push(p,

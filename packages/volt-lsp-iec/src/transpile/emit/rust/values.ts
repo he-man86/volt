@@ -4,7 +4,7 @@
 import type { IrInit, IrLayout, IrValue } from "../../ir/index.js"
 import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { rustName } from "./names.js"
-import { isReal32, rustType, stringPath } from "./types.js"
+import { isCopy, isReal32, rustType, stringPath } from "./types.js"
 
 /** Where the byte image starts — `semantics/memory.ts`'s, which the emitter may not import (layering rule 4); an address
  *  at or past it is printed in hex (`literal`). */
@@ -112,10 +112,12 @@ function typedLiteral(v: IrValue, t: Type): string {
 
 /**
  * THE ONE `initOf`: a slot's initial value as a Rust expression — a scalar's literal; a struct or FB instance at its TYPE's
- * values (`new()`), with the fields an aggregate initializer names set over them; an array's stated elements, then every
- * remaining one at `rest` — `[x; N]` (an elementary element) or `std::array::from_fn` when it states none. It reads the
- * `IrInit` lowering made complete; it picks no default (transpile-restructure 5.3/5.4 — the free `initOfValue` and its
- * `typeZero` per element are gone).
+ * values, with the fields an aggregate initializer names over them in struct-update syntax (`T { x: 1, ..T::new() }`,
+ * lean 7.8.3); an array's stated elements, then every remaining one at `rest` — a repeat expression `[x; N]` where the
+ * element is `Copy` (nested arrays, Copy structs and interface tags included, lean 7.8.2), `std::array::from_fn` only
+ * where it is not; a partial initializer of a Copy element as that repeat plus a store per stated element, where that
+ * is the shorter text (7.8.3). It reads the `IrInit` lowering made complete; it picks no default
+ * (transpile-restructure 5.3/5.4 — the free `initOfValue` and its `typeZero` per element are gone).
  */
 export function initOf(layouts: Layouts, t: Type, init: IrInit, typed = false): string {
   if (t.kind === "struct" || t.kind === "function_block") {
@@ -123,9 +125,12 @@ export function initOf(layouts: Layouts, t: Type, init: IrInit, typed = false): 
     const named = typeof init === "object" && "fields" in init ? init.fields : undefined
     const entry = layouts.get(t.name.toUpperCase())
     if (named === undefined || entry === undefined) return base
-    // each `v.f = …` stores into a declared field: a typed position
-    const sets = entry.layout.fields.flatMap((f, i) => (named[f.name.toUpperCase()] === undefined ? [] : [`v.${entry.fields[i]} = ${initOf(layouts, f.type, named[f.name.toUpperCase()]!, true)};`]))
-    return sets.length === 0 ? base : `{ let mut v = ${base}; ${sets.join(" ")} v }`
+    // each `f: …` is a declared field: a typed position
+    const sets = entry.layout.fields.flatMap((f, i) => (named[f.name.toUpperCase()] === undefined ? [] : [`${entry.fields[i]}: ${initOf(layouts, f.type, named[f.name.toUpperCase()]!, true)}`]))
+    if (sets.length === 0) return base
+    // every field the struct holds named: no base to update from (clippy's `needless_update`)
+    const held = entry.layout.fields.filter((f) => entry.layout.kind !== "function_block" || (f.image === undefined && f.scoped !== true)).length
+    return `${rustName(t.name)} { ${sets.join(", ")}${sets.length === held ? "" : `, ..${base}`} }`
   }
   const array = peelArray(t)
   if (array === undefined) {
@@ -134,6 +139,11 @@ export function initOf(layouts: Layouts, t: Type, init: IrInit, typed = false): 
   }
   if (typeof init !== "object" || !("elements" in init)) throw new Error("initOf: an array slot whose initial value states no elements")
   const rest = initOf(layouts, array.element, init.rest, typed)
-  if (init.elements.length === 0) return array.element.kind === "elementary" ? `[${rest}; ${array.length}]` : `std::array::from_fn(|_| ${rest})`
-  return `[${Array.from({ length: array.length }, (_, i) => (i < init.elements.length ? initOf(layouts, array.element, init.elements[i]!, typed) : rest)).join(", ")}]`
+  const copy = isCopy(array.element, layouts)
+  if (init.elements.length === 0) return copy ? `[${rest}; ${array.length}]` : `std::array::from_fn(|_| ${rest})`
+  const stated = init.elements.map((e) => initOf(layouts, array.element, e, typed))
+  const listed = `[${Array.from({ length: array.length }, (_, i) => stated[i] ?? rest).join(", ")}]`
+  if (!copy || init.elements.length >= array.length) return listed
+  const stored = `{ let mut a = [${rest}; ${array.length}]; ${stated.map((e, i) => `a[${i}] = ${e};`).join(" ")} a }`
+  return stored.length < listed.length ? stored : listed
 }

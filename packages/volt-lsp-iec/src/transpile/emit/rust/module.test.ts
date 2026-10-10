@@ -132,3 +132,22 @@ test("`new` is #[must_use], and const where every initial value can be", () => {
   expect(code).toContain("impl FB_S {\n    #[must_use]\n    pub fn new() -> Self {")
   expect(code).toContain("impl P {\n    #[must_use]\n    pub fn new() -> Self {") // it holds an FB_S
 })
+
+// 7.8.1: the derives follow the fields — `Copy` for a DUT STRUCT whose fields all are (a store of one then copies, no
+// `.clone()`), `Eq` wherever no REAL/LREAL is in it; an FB instance is never `Copy`
+test("a struct of Copy fields derives Copy and is stored without .clone(); Eq only where no float is in it", () => {
+  const { pou, diagnostics } = lowerSource(
+    "TYPE ST_Pair : STRUCT a : INT; b : BOOL; txt : STRING(4); END_STRUCT END_TYPE\nTYPE ST_Real : STRUCT rv : REAL; END_STRUCT END_TYPE\n" +
+      "FUNCTION_BLOCK FB_K\nVAR n : INT; END_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK\n" +
+      "PROGRAM P\nVAR x : ST_Pair; y : ST_Pair; rr : ST_Real; qq : ST_Real; k : FB_K; j : FB_K; END_VAR\ny := x;\nqq := rr;\nj := k;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub struct ST_Pair {")
+  expect(code).toContain("#[derive(Debug, Clone, Copy, PartialEq)]\npub struct ST_Real {")
+  expect(code).toContain("#[derive(Debug, Clone, PartialEq, Eq)]\npub struct FB_K {")
+  expect(code).toContain("self.y = self.x;")
+  expect(code).toContain("self.qq = self.rr;")
+  expect(code).toContain("self.j = self.k.clone();")
+})

@@ -60,7 +60,7 @@ describe("emit/rust — a VAR_TEMP reset", () => {
     // the reset at the top of `call`, not the declaration in `new()`
     const call = code.slice(code.indexOf("pub fn call("))
     expect(call).toContain("self.arr = [5i16, 6i16, 7i16];")
-    expect(call).toContain("self.sx = { let mut v = ST_P::new(); v.a = 9; v };")
+    expect(call).toContain("self.sx = ST_P { a: 9, ..ST_P::new() };") // struct-update syntax (7.8.3)
   })
 })
 
@@ -110,4 +110,26 @@ test("a string compared with a literal reads the literal's units", () => {
   expect(code).toContain(`self.b4 = self.w.units() == [104u16, 105u16];`)
   expect(code).toContain(`self.b5 = self.t.units() >= &b"ab"[..];`)
   expect(code).not.toMatch(/[=<>] IecW?String::/)
+})
+
+// 7.8.2 / 7.8.3: an array of a Copy element is a repeat expression, nested arrays and Copy structs included, and
+// `from_fn` is left to an element that is not Copy (an FB instance); an aggregate initializer is struct-update syntax;
+// a partial array initializer of a Copy element is the repeat plus a store per stated element, where that is shorter
+test("Copy arrays repeat, a struct initializer is struct-update syntax, a short partial initializer stores into a repeat", () => {
+  const { pou, diagnostics } = lowerSource(
+    "TYPE ST_P : STRUCT a : INT; b : INT; END_STRUCT END_TYPE\nTYPE ST_Q : STRUCT p : ST_P; c : INT; END_STRUCT END_TYPE\n" +
+      "FUNCTION_BLOCK FB_K\nVAR n : INT; END_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK\n" +
+      "PROGRAM P\nVAR grid : ARRAY[1..2, 0..2] OF INT; pts : ARRAY[0..2] OF ST_P; fbs : ARRAY[0..1] OF FB_K; q : ST_Q := (p := (a := 1), c := 2);\n" +
+      "few : ARRAY[1..30] OF INT := [4, 5]; most : ARRAY[1..3] OF INT := [7, 8]; END_VAR\nq.c := grid[1, 0] + pts[0].a + fbs[0].n + few[1] + most[1];\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("grid: [[0; 3]; 2],")
+  expect(code).toContain("pts: [ST_P::new(); 3],")
+  expect(code).toContain("fbs: std::array::from_fn(|_| FB_K::new()),")
+  // every field of ST_Q named: no `..ST_Q::new()` to update from (clippy's `needless_update`)
+  expect(code).toContain("q: ST_Q { p: ST_P { a: 1, ..ST_P::new() }, c: 2 },")
+  expect(code).toContain("few: { let mut a = [0; 30]; a[0] = 4; a[1] = 5; a },")
+  expect(code).toContain("most: [7, 8, 0],")
 })

@@ -131,7 +131,7 @@ function exprLoad(p: Printer, e: Extract<IrExpr, { kind: "load" }>, slots: IrPou
   // instance needs `.clone()` to do it. Everything else the emitter prints IS `Copy`: the elementary types,
   // `IecStr` (which derives it), a pointer's `usize`, an interface's tag, and an array of any of those.
   // `.clone()` on a `Copy` value is `clippy::clone_on_copy` and reads as if something were being deep-copied.
-  return guarded(p, e.place, isCopy(e.type) ? field : printed(`${at(field, Prec.Postfix)}.clone()`, Prec.Postfix), slots)
+  return guarded(p, e.place, isCopy(e.type, p.layouts) ? field : printed(`${at(field, Prec.Postfix)}.clone()`, Prec.Postfix), slots)
 }
 
 /** A prefix operator's operand: one that starts with the same sign keeps its parentheses (`-(-5.0f32)`, `!(!x)`) — `--x`

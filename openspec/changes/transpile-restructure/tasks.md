@@ -6152,31 +6152,73 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.8 Derives and aggregate syntax (lean 8, on model 4)
 
-- [ ] 7.8.1 `isCopy` drives the derives: derive `Eq`, and `Copy` for all-Copy structs; drop `.clone()` on Copy stores
+- [x] 7.8.1 `isCopy` drives the derives: derive `Eq`, and `Copy` for all-Copy structs; drop `.clone()` on Copy stores
   (derive_partial_eq_without_eq 1473).
   - Notes: ac452bc801.
   - Where: `emit/rust/types.ts`, `structs.ts`.
   - Accept: S-out, M.
   - Depends: 5.10.
-- [ ] 7.8.2 A repeat expression for Copy arrays, nested included; `from_fn` only for non-Copy.
+  - Done 2026-10-10 (step 7.8a). `emit/rust/types.ts`: `isCopy(t, layouts)` — a DUT STRUCT whose every field is Copy is
+    Copy (an FB instance never: it is copied only where the ST copies it, by `.clone()`); `isEq` — no REAL/LREAL in it to
+    any depth. `structs.ts` `printStruct` derives from them: `#[derive(Debug, Clone, Copy, PartialEq, Eq)]` on such a
+    struct, `Eq` on every struct, FB, `Globals` and `Programs` with no float in it; the string runtime gains
+    `impl<T: Copy + Eq, const N: usize> Eq for IecStr<T, N> {}` (`runtime/string.ts`), so a STRING field keeps it. A store
+    of a Copy struct is a plain copy (`expr.ts` `exprLoad`, `calls.ts` `exprSelect` ask `isCopy`): `.clone()` in the
+    emission 28 -> 22 (both emissions), `Copy, PartialEq` derives 0 -> 212. Test `emit/rust/module.test.ts` ("a struct of
+    Copy fields derives Copy and is stored without .clone(); Eq only where no float is in it"). Notes resolved:
+    ac452bc801.
+- [x] 7.8.2 A repeat expression for Copy arrays, nested included; `from_fn` only for non-Copy.
   - Notes: 00c356c11c, a65506e4d8, c9c77500c6, f9bdd4950a, 1f2f8205f9, 683d4b1944, 4026548939.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 7.8.1.
-- [ ] 7.8.3 Struct-update syntax for aggregate initializers; `[d; N]` plus stores for a partial initializer.
+  - Done 2026-10-10 (step 7.8a). `emit/rust/values.ts` `initOf`: an array with no stated element is a repeat expression
+    wherever its element is Copy (`isCopy`, 7.8.1) — nested arrays (`[[0; 3]; 2]`), Copy structs (`[ST_P::new(); 3]`),
+    interface tags and pointers — and `std::array::from_fn` only for an FB instance or a struct holding one;
+    `structs.ts` `constInit` counts a repeat of a const element as const, so more `new()`s are `const fn`.
+    `std::array::from_fn` in the emission 70 -> 12. Test `emit/rust/values.test.ts` ("Copy arrays repeat, a struct
+    initializer is struct-update syntax, a short partial initializer stores into a repeat"). Notes resolved: every 7.8.2
+    item (11 notes, the `pub ops: [u64; L]` declarations whose `from_fn` initializer they named among them).
+- [x] 7.8.3 Struct-update syntax for aggregate initializers; `[d; N]` plus stores for a partial initializer.
   - Notes: 055df7e5f8, d5d625ee73, 8b9a7c5eea.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 7.8.2.
-- [ ] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
+  - Done 2026-10-10 (step 7.8a). `emit/rust/values.ts` `initOf`: an aggregate initializer is struct-update syntax,
+    `ST_P { a: 9, ..ST_P::new() }`, nested as written (`ST_Q { p: ST_P { a: 1, ..ST_P::new() }, c: 2 }`), with no `..base`
+    where it names every field the struct holds (clippy's `needless_update`, which the first cut raised on 14 fixtures);
+    a partial array initializer of a Copy element is `{ let mut a = [d; N]; a[0] = x; … a }` where that is the shorter
+    text than listing all N (a long array with few stated elements), else the listing as before. `let mut v = ` 398 ->
+    146 (what is left is not an initializer). Tests `emit/rust/values.test.ts` (above); the VAR_TEMP reset pin reads
+    `self.sx = ST_P { a: 9, ..ST_P::new() };` (its premise, the reset to the initializer, kept). Notes resolved: every
+    7.8.3 item (7 notes).
+- [x] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
   chose no arena.
   - Where: `lower/storage/unions.ts`, `ir/expr.ts`, `semantics/`, `emit/rust/`.
   - Accept: S-out, M.
   - Depends: 4.16.
-- [ ] 7.8.5 A constant bit store prints as `|=` / `&= !`.
+  - NOT BUILT (step 7.8a, 2026-10-10): niche: accepted loss, by the owner's triage. Counted in the six corpora's PROJECT
+    code (library materializations excluded): two UNION types, both pro2193 — `GenericInt` (CAA.SIGNED / CAA.UNSIGNED,
+    signed members, which `lower/storage/unions.ts` `overlayBytes` refuses: it never reaches the byte copy) and
+    `PointerSizesUnion` (all pointers, already a plain copy per member). So 0 union stores in the corpora lower to the
+    byte arithmetic this task would replace, and 1 (Increment.AnyInt's) to the pointer-member copies. The replacement is
+    not trivial: 4.2 chose the byte image, but a union in a struct field is not an image place, so `to_le_bytes` needs the
+    reinterpret node and its interpreter twin, and an array member a runtime helper. Its 4 notes (a281b5efbd, 3f8601dd97:
+    the byte chain; c5d30c56ec, ca823a2c56: one field for a union of pointers) re-tagged `keep:niche: accepted loss (…)`
+    with those counts; c6322760e4 (the CASE on a folded diSize) went with 7.7.9.
+- [x] 7.8.5 A constant bit store prints as `|=` / `&= !`.
   - Where: `emit/rust/stmt.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 7.8a). `emit/rust/stmt.ts`: a bit store of a CONSTANT sets or clears it in place, `self.w |= 1u16
+    << 3;` / `self.w &= !(1u16 << 0);` (the place named once all the same); a computed value keeps the `if` on it.
+    `let __bit_v = true|false` 16 -> 0 (both emissions). Test `emit/rust/stmt.test.ts` ("a constant bit store prints as
+    `|=` / `&= !`"). Notes resolved: every 7.8.5 item (6 notes). Step 7.8a numbers: S-out identical but the 7.7b line
+    (`oopb_fb_init_input_wrong_type` builds); M (against 7.7c's map): 118 rows changed, 110 shapes; pedantic 1876 ->
+    1875; surviving lints unchanged (no `needless_update`, above); constructs 1968 unchanged, noted 99 -> 77; size median
+    3.3, sum of sizes unchanged (an initializer is one line either way). The emitted Rust 15,886,780 -> 15,980,026 bytes:
+    the derives (`, Eq` on ~14,000 struct blocks, `Copy, ` on 212) outweigh the shorter initializers — characters, not
+    lines. Re-keyed for another task: 78bb74e841 -> 4122d874b7 (7.8.10, the copy-back now without `.clone()`).
 - [ ] 7.8.6 Remove the `(*x)` and `&mut (*x)` deref noise.
   - Notes: 98ba0d2e70, 0d14fd327c, 3d7b4a7836, 0b51d542e8, 7e45a342fc, 8064ae1570, ca81b2092d, 28af8caf65, 29dc1a9c14, 01e84968c3, 52d85b7cdc, f0065dbd0b.
   - Where: `emit/rust/place.ts`, `printer.ts`.

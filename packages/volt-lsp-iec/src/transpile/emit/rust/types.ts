@@ -4,6 +4,7 @@
  */
 import { floatBits, holdsIntegerBits, isBoolValued, peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
 import { rustName } from "./names.js"
+import type { IrLayout } from "../../ir/index.js"
 
 /** The family an elementary type is EMITTED as — its own, except a BIT, which is a "bitstring" of one bit that the
  *  Rust holds (and CODESYS reads) as a BOOL. The one place that decision is made: `rustType` and `convert` both
@@ -101,9 +102,27 @@ export function stringPath(t: Type): string {
 /** A REAL (not an LREAL) — the width whose literals print as their shortest f32. */
 export const isReal32 = (t: Type): boolean => floatBits(t) === 32
 
-/** Whether the emitted Rust for this type is `Copy` — everything the printer emits except a DUT struct and an FB
- *  instance, both of which derive only `Clone`. An array is `Copy` exactly when its element is. */
-export function isCopy(t: Type): boolean {
-  if (t.kind === "array") return isCopy(t.element)
+/** The layouts a struct's derives are read from — `values.ts` `Layouts`, by upper-cased name. */
+type LayoutsOf = ReadonlyMap<string, { layout: IrLayout }>
+
+/** The fields a layout's struct is built from — an FB's or a STRUCT's own. */
+const fieldsOf = (layouts: LayoutsOf, t: Type): readonly { type: Type }[] | undefined =>
+  t.kind === "struct" || t.kind === "function_block" ? layouts.get(t.name.toUpperCase())?.layout.fields : undefined
+
+/** Whether the emitted Rust for this type is `Copy` — every scalar the printer emits, an array exactly when its element
+ *  is, and a DUT STRUCT whose every field is (it derives `Copy`, lean 7.8.1: `structs.ts`). An FB instance never is: it
+ *  is an instance with a body, copied only where the ST copies it, by `.clone()`. */
+export function isCopy(t: Type, layouts: LayoutsOf): boolean {
+  if (t.kind === "array") return isCopy(t.element, layouts)
+  if (t.kind === "struct") return fieldsOf(layouts, t)?.every((f) => isCopy(f.type, layouts)) === true
   return t.kind === "elementary" || t.kind === "pointer" || t.kind === "reference" || t.kind === "interface"
+}
+
+/** Whether the emitted Rust for this type is `Eq` — no REAL/LREAL in it, to any depth (lean 7.8.1): a string's
+ *  `IecStr` is (`runtime/string.ts`), a struct or FB whose every field is. */
+export function isEq(t: Type, layouts: LayoutsOf): boolean {
+  if (t.kind === "array") return isEq(t.element, layouts)
+  const fields = fieldsOf(layouts, t)
+  if (fields !== undefined) return fields.every((f) => isEq(f.type, layouts))
+  return t.kind !== "elementary" || floatBits(t) === undefined
 }
