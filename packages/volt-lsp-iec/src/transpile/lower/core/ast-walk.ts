@@ -3,7 +3,7 @@
  * 1.7.1). The walks over the IR are `ir/walk.ts`'s.
  */
 
-import type { Expr } from "../../../frontend/syntax/index.js"
+import { type Expr, selfRefKind } from "../../../frontend/syntax/index.js"
 import type { FbType, Lowering, RoutineSymbol } from "./lowering.js"
 import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
 
@@ -38,8 +38,10 @@ export function exprHoldsCall(e: Expr): boolean {
   }
 }
 
-/** Whether a body calls — `M()`, `THIS^.M()`, `SUPER^.M()` — a METHOD or ACTION that `frame` overrides below `chain`: a
- *  routine of that chain run on the frame then reaches the frame's own in-outs through the override. */
+/** Whether a body calls — `M()`, `THIS^.M()` — a METHOD or ACTION that `frame` overrides below `chain`: a routine of that
+ *  chain run on the frame then reaches the frame's own in-outs through the override. Not `SUPER^.M()`: that is the BASE's M,
+ *  a member of the chain whatever the frame overrides — resolved against the frame, it bound the leaf's in-outs into a
+ *  routine that never reaches them, and the call faulted on an unbound one (6.A.11, `tr_a11_super_method_on_overriding_leaf`). */
 export function overridesCalled(frame: FbType, chain: ReadonlySet<string>, statements: readonly unknown[]): boolean {
   const scope = frame.scope
   if (scope === undefined) return false
@@ -47,9 +49,11 @@ export function overridesCalled(frame: FbType, chain: ReadonlySet<string>, state
   const walk = (node: unknown): void => {
     if (found || node === null || typeof node !== "object") return
     if (Array.isArray(node)) return node.forEach(walk)
-    const n = node as { kind?: string; callee?: { kind: string; name?: string; base?: { kind: string }; member?: { name: string } } }
+    const n = node as { kind?: string; callee?: { kind: string; name?: string; base?: { kind: string; base?: { kind: string; name?: string } }; member?: { name: string } } }
     const callee = n.kind === "call" ? n.callee : undefined
-    const name = callee?.kind === "ident_expr" ? callee.name : callee?.kind === "member" && callee.base?.kind === "deref" ? callee.member?.name : undefined
+    const base = callee?.kind === "member" ? callee.base : undefined
+    const viaSuper = base?.kind === "deref" && base.base?.kind === "ident_expr" && selfRefKind(base.base.name!) === "SUPER"
+    const name = callee?.kind === "ident_expr" ? callee.name : base?.kind === "deref" && !viaSuper ? callee!.member?.name : undefined
     const member = name === undefined ? undefined : lookupMember(scope, name)
     if ((member?.kind === "method" || member?.kind === "action") && !chain.has((member as RoutineSymbol).owner.name.toUpperCase())) found = true
     astChildren(node).forEach(walk)

@@ -31,17 +31,28 @@ fn iec_parse_real(s: &[u8]) -> f64 {
     }
     std::str::from_utf8(&s[start..i]).unwrap().parse().unwrap_or(0.0)
 }
-// STRING → integer: leading spaces and tabs, an optional sign, then the digits, stopping at anything else (' 12abc' is 12).
+// STRING → integer: leading spaces and tabs; with no sign a 2#, 8# or 16# base ('16#FF' is 255), else an optional sign and
+// decimal digits; an underscore among the digits skipped, anything else ending them (' 12abc' is 12, '-16#F' is -16);
+// wrapping at 64 bits (the interpreter's parseInteger, 6.A.10).
 fn iec_parse_int(s: &[u8]) -> i64 {
     let mut i = 0;
     while i < s.len() && (s[i] == b' ' || s[i] == b'\\t') { i += 1; }
     let neg = i < s.len() && s[i] == b'-';
-    if i < s.len() && (s[i] == b'-' || s[i] == b'+') { i += 1; }
-    let mut v: i64 = 0;
-    for &b in &s[i..] {
-        if !b.is_ascii_digit() { break; }
-        v = v.wrapping_mul(10).wrapping_add((b - b'0') as i64);
+    let signed = i < s.len() && (s[i] == b'-' || s[i] == b'+');
+    if signed { i += 1; }
+    let mut radix: u32 = 10;
+    if !signed {
+        for (prefix, base) in [(&b"16#"[..], 16), (&b"8#"[..], 8), (&b"2#"[..], 2)] {
+            if s[i..].starts_with(prefix) { radix = base; i += prefix.len(); break; }
+        }
     }
+    let mut v: u64 = 0;
+    for &b in &s[i..] {
+        if b == b'_' { continue; }
+        let Some(d) = char::from(b).to_digit(radix) else { break };
+        v = v.wrapping_mul(u64::from(radix)).wrapping_add(u64::from(d));
+    }
+    let v = v as i64;
     if neg { v.wrapping_neg() } else { v }
 }
 `

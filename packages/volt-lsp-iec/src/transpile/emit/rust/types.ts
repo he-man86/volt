@@ -43,7 +43,7 @@ export function rustType(t: Type): string {
 
 /**
  * A VAR_IN_OUT's Rust parameter type. An `ARRAY[*]` is a slice, and each open dimension inside it a const generic Rust
- * infers from the array every call lends — `grid : ARRAY[*, *] OF INT` is `&mut [[i16; N_GRID_2]]` (design §26).
+ * infers from the array every call lends — `grid : ARRAY[*, *] OF INT` is `&mut [[i16; D_GRID_2]]` (design §26).
  */
 export function inoutType(slot: { type: Type; readOnly?: boolean }, name: string): { param: string; generics: string[] } {
   const t = slot.type
@@ -58,7 +58,10 @@ export function inoutType(slot: { type: Type; readOnly?: boolean }, name: string
     return { param: `${name}: ${borrow}${stringType(t).name}<${n}>`, generics: [`const ${n}: usize`] }
   }
   if (t.kind !== "array" || t.bounds !== undefined) return { param: `${name}: ${borrow}${rustType(t)}`, generics: [] }
-  const generics = t.dims.slice(1).map((_, d) => `N_${name.toUpperCase()}_${d + 2}`)
+  // `D_` apart from a string's `N_`: as `N_<NAME>_<d>`, `grid : ARRAY[*, *]`'s second dimension was `N_GRID_2`, which a
+  // STRING in-out named `grid_2` also declares (6.A.6). Within the arrays `<NAME>_<d>` cannot repeat — the field names
+  // are distinct and the dimension is the digits after the last `_`.
+  const generics = t.dims.slice(1).map((_, d) => `D_${name.toUpperCase()}_${d + 2}`)
   const inner = generics.reduceRight((element, n) => `[${element}; ${n}]`, rustType(t.element))
   return { param: `${name}: ${borrow}[${inner}]`, generics: generics.map((n) => `const ${n}: usize`) }
 }

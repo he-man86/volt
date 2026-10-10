@@ -32,6 +32,7 @@ import {
   LTIME_TEXT_CASES,
   type LongCalendarInput,
 } from "../../src/transpile/semantics/text.cases.js"
+import { PARSE_INT_CASES, type ParseIntInput } from "../../src/transpile/semantics/parse.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
 import { visible } from "../../src/transpile/semantics/string.js"
 import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type MemoryType } from "../../src/transpile/semantics/memory.cases.js"
@@ -117,6 +118,14 @@ function realToInt(input: RealToIntInput): string {
   const value = input.from === "REAL" ? f32(input.value) : f64(input.value)
   const wide = elem.bits >= 64
   return `iec_r2i${wide ? 64 : 32}(${value}) as ${rustType(to)}`
+}
+
+/** A STRING → integer case as the Rust that parses its text and stores it at its target (`emit/rust/convert.ts`'s `as`). */
+function parseIntRust(input: ParseIntInput): string {
+  const elem = elementaryType(input.to)
+  if (elem === undefined) throw new Error(`no elementary type ${input.to}`)
+  const bytes = [...input.text].map((ch) => ch.charCodeAt(0)).join(", ")
+  return `iec_parse_int(&[${bytes}]) as ${rustType(elementaryTypeRef(elem))}`
 }
 
 /** The recorded NaN (CODESYS's SQRT(-1), sign bit set) and -0 a compare-select case runs on, as the Rust it is. */
@@ -268,6 +277,19 @@ describe("runtime twins — the case tables hold their recordings", () => {
       return `${c.name}: ${BigInt(out.text).toString(16)} from ${input.text}`
     })
     expect(got).toEqual(named.map((c) => `${c.name}: ${c.expected} from ${String(c.input.stores[0]!.value)}`))
+  })
+
+  test("every STRING -> integer case is the recorded cell of the fixture it names, from the text it parsed", () => {
+    const bad: string[] = []
+    for (const c of PARSE_INT_CASES) {
+      const rec = c.recording!
+      const out = typed(recorded(c), `${rec.fixture} ${rec.variable}`)
+      if (out.type !== c.input.to || BigInt(out.text) !== c.expected) bad.push(`${c.name}: recorded ${recorded(c)}, case ${c.input.to}#${c.expected}`)
+      // the monitor shows a STRING as '…' and a WSTRING as "…", a tab as $T
+      const text = recordedInput(c).replace(/^['"]|['"]$/g, "").replace(/\$T/g, "\t")
+      if (text !== c.input.text) bad.push(`${c.name}: recorded ${rec.input} ${recordedInput(c)}, case ${JSON.stringify(c.input.text)}`)
+    }
+    expect(bad).toEqual([])
   })
 
   test("every REAL -> integer case is the recorded cell of the fixture it names", () => {
@@ -430,6 +452,12 @@ ${FAULT_OF}`
       return view.getUint32(0).toString(16)
     }
     expect(INT_TO_REAL_CASES.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(INT_TO_REAL_CASES.map((c) => `${c.name}: ${bits(c.expected)}`))
+  }, 60_000)
+
+  test("runtime/parse.ts: iec_parse_int over every recorded STRING -> integer cell, stored at its target", async () => {
+    const got = await runTwin("parse_int", runtimeText("parse"), PARSE_INT_CASES.map((c) => parseIntRust(c.input)))
+    const { got: g, expected } = compare(PARSE_INT_CASES, got)
+    expect(g).toEqual(expected)
   }, 60_000)
 
   test("runtime/numeric.ts: iec_r2i32 / iec_r2i64 over every recorded REAL -> integer cell", async () => {

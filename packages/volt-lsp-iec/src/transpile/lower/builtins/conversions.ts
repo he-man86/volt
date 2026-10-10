@@ -57,7 +57,9 @@ const hasText = (t: Type | undefined): boolean => {
   const name = elemOf(t)?.name
   return isInt(t, true) || name === "BOOL" || name === "LREAL" || hasTextFormat(t)
 }
-const parses = (t: Type): boolean => isInt(t) || isReal(t)
+// a bit string parses as an integer does (`tr_a10_string_to_bits_literal_forms`, `tr_a10_string_to_64bit_based`: STRING_TO_BYTE /
+// WORD / DWORD / LWORD of '16#FF', '2#1010', '16#FFFFFFFFFFFFFFFF', 6.A.10)
+const parses = (t: Type): boolean => isInt(t, true) || isReal(t)
 
 /**
  * `BOOL_TO_BIT` and `BIT_TO_BOOL` change nothing: a BIT holds a BOOLEAN and is one bit only in the LAYOUT (`isBit`,
@@ -75,7 +77,7 @@ function boolConversion(lw: Lowering, e: Call): IrExpr | undefined {
 /**
  * STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
  * REAL or LREAL; STRING <-> WSTRING, and TO_STRING / TO_WSTRING of a string of the same width. REAL_TO_STRING has no
- * single digit rule and stays refused; parsing into a bit string is unmeasured. The capacities are `stringConversion`'s:
+ * single digit rule and stays refused; a bit string is parsed as an integer is (6.A.10). The capacities are `stringConversion`'s:
  * no cut at 80 (transpile-review 11, `tr_11_string_conversion_beyond_80`: 90 spaces then '5' is 5, a WSTRING of 100
  * narrows to 100 characters) — a cut at 255 (transpile-restructure 3.8), and 80 only for a number's text and a same-width
  * TO_STRING / TO_WSTRING.

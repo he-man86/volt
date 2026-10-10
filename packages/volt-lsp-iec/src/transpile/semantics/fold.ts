@@ -11,7 +11,6 @@ import { constValue, convertValue } from "./convert.js"
 import { shortCircuit } from "./arith.js"
 import { builtinValue } from "./builtins.js"
 import { binaryValue, unaryValue } from "./operators.js"
-import { LoweringBug } from "./faults.js"
 
 /**
  * AN IR EXPRESSION WHOSE EVERY LEAF IS A CONSTANT — the value it has before anything runs, or undefined.
@@ -20,16 +19,17 @@ import { LoweringBug } from "./faults.js"
  * reaches a `load`, `invoke`, `dispatch` or `fresh` node, which cannot be answered without a frame: those are not
  * constant, and they are REJECTED rather than guessed at.
  *
- * A fold that FAULTS is not a value either — `1 / 0` in an initializer is the vendor's business, not a silent zero.
- * A `LoweringBug` is neither and is re-thrown: swallowing it would restore the silence it exists to break.
+ * A fold that FAULTS is not a value either — `1 / 0` in an initializer is the vendor's business, not a silent zero. A
+ * fault is a `RangeError`, as every fault the interpreter throws is (`IecFault`, and the faults whose text names an index
+ * or a character position — `ir/faults.ts`). Anything else — a `LoweringBug`, a `TypeError` out of a value function —
+ * is a defect and is re-thrown: it was swallowed as "not constant" too, which hid it (6.A.9).
  */
 export function constantValue(e: IrExpr): Val | undefined {
   try {
     return evaluate(e)
   } catch (error) {
-    // a FAULT is not a value — `1 / 0` in an initializer is the vendor's business. A LoweringBug is not a fault.
-    if (error instanceof LoweringBug) throw error
-    return undefined
+    if (error instanceof RangeError) return undefined
+    throw error
   }
 }
 
