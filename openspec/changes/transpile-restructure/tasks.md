@@ -5908,30 +5908,112 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.7 Routine signatures (lean 7, on model 4)
 
-- [ ] 7.7.1 `mut` only on parameters the body stores to.
+- [x] 7.7.1 `mut` only on parameters the body stores to.
   - Notes: 8a9bb48ddb, 1ca8b1b1fc, 0ab2575555, 7ab9128afd, a01f00db76, abc8bc67de, 49346d6299, 00fc50d055.
   - Where: `lower/calls/facts.ts` (a written set), `emit/rust/routine.ts`.
   - Accept: S-out, M.
   - Depends: 5.10.
-- [ ] 7.7.2 Drop the blanket `#[allow(unused_mut, unused_variables, unused_assignments)]`; `init()` gets an allow only with parameters.
+  - Done 2026-10-10 (step 7.7a). The written set is read from the IR at emission, not kept as a lowering fact
+    (`calls/facts.ts` holds facts a CALL SITE needs; this one only the routine's own printer does): `ir/walk.ts`
+    `writtenPlaces` — an assignment's target, a freeze's temp, a copy's `back`, the instance a METHOD or FB body runs on, a
+    lent instance, a call's binding, and each in-out bound to a place unless the callee takes it read-only —
+    `emit/rust/locals.ts` `writeSites`. `routine.ts` prints `mut` on an input only where the body writes it. `mut` value
+    parameters in the emission 787 -> 196. Tests `emit/rust/routine.test.ts` ("an input is `mut` only where the body writes
+    it"; the METHOD/FUNCTION pin reads `amount: i16` — its premise, inputs by value, kept). Notes resolved: every 7.7.1
+    item (24 notes).
+- [x] 7.7.2 Drop the blanket `#[allow(unused_mut, unused_variables, unused_assignments)]`; `init()` gets an allow only with parameters.
   - Notes: fa7d5f176f, dbcd1088a5, 3cf4e6fa21, f5ca982c14, c8ca44a755, 0ca9dad97d.
   - Where: `emit/rust/routine.ts`, `module.ts`.
   - Accept: M (no new surviving lint).
   - Depends: 7.7.1.
-- [ ] 7.7.3 Return the result expression directly when assigned once at the end; skip the VAR_OUTPUT reset at entry when the body assigns it first.
+  - Done 2026-10-10 (step 7.7a). No generated fn carries `#[allow(unused_mut, unused_variables, unused_assignments)]` any
+    more (1113 lines in 732 fixtures -> 0): what each would have excused is decided before printing, in
+    `emit/rust/locals.ts` — `mut` only on what the body stores again (`storedTwice`: some run may store it twice; 7.7.1 for
+    inputs); `_name` for a local or in-out the body never uses (`unreadOf`, rustc's count of a use: a whole plain store is
+    none); and no initial value no read can see (`lateInit`: definite assignment over the IR's structured flow, at least
+    as cautious as rustc's own — a loop's stores do not reach past it, IF branches meet, EXIT/CONTINUE/RETURN end a path,
+    RETURN and the end read the result), declared where it is first stored at the top level (`let x: T = v;`,
+    `Frame.declareAt` / `printer.ts` `letTemp`) or bare at the top (`let x: T;`). `let mut … = init` lines 1395 -> 463.
+    `init()` gets its allow only when it takes `g`/`prg`/`__mem`; an FB's `call()` only for its in-outs and lent
+    instances (`g`/`prg`/`__mem` are handed only where reached, 7.7.5). Measured on the way: rustc's `unused_variables`
+    (87 fixtures with the allow simply dropped), `unused_assignments` (121), `unused_mut` (19, then 0 with `storedTwice`),
+    clippy's `needless_late_init` (72, then 18 — a late local stored in every branch of a final IF, now the result tail,
+    7.7.3 — then 0). What is left: `unused_assignments` in 7 fixtures, each a dead store the ST makes
+    (`shadowing_method_local_shadows_fb_var`, `var_temp_dynamic_init_method`, `pointer_null_copied_into_multi_target`…):
+    ALLOWED with that reason in `lint-policy.ts`. Tests `emit/rust/routine.test.ts` ("no blanket allow: a local stored first
+    is declared where it is stored, one nobody reads is `_name`"). Notes resolved: every 7.7.2 item (14 notes; 0ca9dad97d's
+    7.7.7 item re-keyed to its new signature line).
+- [x] 7.7.3 Return the result expression directly when assigned once at the end; skip the VAR_OUTPUT reset at entry when the body assigns it first.
   - Notes: 11f6ad8ec5, 96a5b25b66, 0969e59592, 5370b79269, 8088e0ab18, a573b540d2, 6dd22a92d0, a5c4faeebd, fda03fa84f, 14b2f39d44.
   - Where: `lower/calls/routines.ts`, `emit/rust/routine.ts`.
   - Accept: S-out, M.
   - Depends: 7.7.1.
-- [ ] 7.7.4 `new()` as `const fn` where possible, marked `#[must_use]` (must_use_candidate, missing_const_for_fn).
+  - Done 2026-10-10 (step 7.7a). The result: `emit/rust/tail.ts` `resultTail` — a body (up to a RETURN that ends it) whose
+    last statement stores the whole result, or is an IF with an ELSE every branch of which ends so (to any depth: an
+    ELSIF chain), with the result named nowhere else and no RETURN before, prints that value as the fn's tail and no
+    `let` for the result: `a.wrapping_add(1i16)`, `if (97u8..=122u8).contains(&c) { c.wrapping_sub(32u8) } else { c }`
+    (StringUtils' CharToUpper; clippy's `needless_late_init` named the `let r; if … { r = … } else { r = … } r` form). A
+    tail opening with a brace and going on after it is parenthesized (`({ iec_deref(p); … } == 0u8)`); one that is the
+    block alone is not (rustc's `unused_parens`). The VAR_OUTPUT reset: `lower/calls/routines.ts` `assignedFirst` drops an
+    output's reset at entry when the body's first word on it is a store of the whole of it and nothing before — no read,
+    no call (one could read the caller's variable the output is bound to), no RETURN — and not its value either. Tests
+    `emit/rust/routine.test.ts` ("the result assigned once at the end is the tail; an output stored first has no reset at
+    entry", "a final IF whose every branch stores the result is the tail expression"); the 7.5.11 and 7.6.5 pins that
+    printed `g = 3i16; g` / `twice = v.wrapping_mul(2i16);` read the tail now. Notes resolved: every 7.7.3 item (17 notes;
+    a573b540d2's 7.4.6 item re-keyed to 07f99bf907, LEN's new tail line).
+  - Review fix (gate 7.5c+7.7a, 2026-10-10): `assignedFirst` also requires the first store to be a WHOLE one
+    (`wholeStore`: not a STRING, or one of the same capacity — `locals.ts` `plainStore`'s rule). A STRING of another
+    capacity is stored INTO the output (min(n, m) units and a 0, the rest kept), so an output lent the caller's own string
+    (`o => p^`) kept that string's tail behind the stored text once the reset was gone (c3 = 'z' for `x := 'wxyz'`,
+    `o := sh` with sh 'ab'; HEAD and now: 0). 0 `=> x^` bindings in the corpora, no fixture changed. Test
+    `lower/calls/routines.test.ts` ("a VAR_OUTPUT first stored from a STRING of another capacity keeps its reset at
+    entry", interpreter, red before the fix).
+- [x] 7.7.4 `new()` as `const fn` where possible, marked `#[must_use]` (must_use_candidate, missing_const_for_fn).
   - Where: `emit/rust/structs.ts`.
   - Accept: M.
   - Depends: 5.10.
-- [ ] 7.7.5 `g` and `prg` passed only to routines that reach them, with one params builder (the differing renderings 1.5.3 listed).
+  - Done 2026-10-10 (step 7.7a). `emit/rust/structs.ts`: every struct's `new` is `#[must_use]`, and a `const fn` where
+    every initial value its struct holds can be built at compile time (`constInit`: a number, a BOOL, an address, an array
+    of them, a STRUCT or FB whose own `new` is one with its fields set after it — not a STRING, whose `lit` / `new` loop
+    over the buffer, nor an array of composites, `std::array::from_fn`). `pub const fn new` in 3019 of 3414 fixtures.
+    Test `emit/rust/module.test.ts` ("`new` is #[must_use], and const where every initial value can be"). M:
+    `must_use_candidate` 7215 -> 283 (pedantic 9452 -> 2524); size median 3.1 -> 3.3 — the one `#[must_use]` line per
+    struct is the whole of it.
+  - Gate fix (2026-10-10): `structs.ts` `constInit` is module-private (`scripts/dead-exports.test.ts`, 7.10.4, named it:
+    exported, read by nobody else).
+- [x] 7.7.5 `g` and `prg` passed only to routines that reach them, with one params builder (the differing renderings 1.5.3 listed).
   - Notes: b9787e0d18, 1524fb865f, f62e4d99a5, ab696e2449, 37745ed7a0, 85168be6a7, 30d5674ec4.
   - Where: `lower/calls/reentrancy.ts` (the reach set), `emit/rust/names.ts`.
   - Accept: S-out, M.
   - Depends: 7.7.2.
+  - Done 2026-10-10 (step 7.7a), the reach set computed from the IR at emission (`emit/rust/names.ts` `reachOf`, beside
+    `globalsParams`): each routine and each FB / called PROGRAM body (`layout:<NAME>`) reaches `g`, `prg` or `__mem` when
+    a place of its own is a GVL variable, a PROGRAM instance or a byte in the image, or a body it calls (an invoke, a
+    dispatch arm, an FB call) reaches one — to a fixed point, within the program's own. `routine.ts` declares only those
+    parameters, `calls.ts` `callArguments` hands only the callee's (`Printer.reach`, `reachOfBody`, which refuses a body
+    with no entry by name). `scan()` and `init()` keep the program's whole list (the harness calls them so). The params
+    builder is already one (`globalsParams` / `globalsArgs` over a `GlobalsUse`; 1.5.3 found all four renderings
+    identical). `g: &mut Globals` parameters 218 -> 195, `prg: &mut Programs` 250 -> 89, `__mem: &mut Mem` 172 -> 169.
+    Pins changed for it, each a premise this task replaces (`module.test.ts`'s "handed to every body", `calls.test.ts`'s
+    and `stmt.test.ts`'s `__mem` to a body that reaches no image byte). Notes resolved: every 7.7.5 item (15 notes).
+    Step 7.7a numbers: S-out identical over 5535 fixtures (outputs and edge byte-identical against the 7.5c-start
+    baseline); the rust layer differs in all 3414 lowered fixtures (`#[must_use]`). M (against 7.6b's map): pedantic
+    9452 -> 2524 (`must_use_candidate` 7215 -> 283); surviving lints unchanged; allowed + `unused_assignments` 7 (above);
+    size median 3.1 -> 3.3, the ten largest down (`string_positions_low` 29 -> 26.8); constructs 2022 -> 2002, noted
+    213 -> 144. The 43 notes of OTHER tasks whose construct this step reprinted (a signature without `mut`, a tail without
+    `x = `, a program call without `prg`) re-keyed to the construct that replaced it, by the closest line in the same
+    fixture (7.4.6 14, 7.7.6 2, 7.7.7 2, 7.7.8 11, 7.7.9 4, 7.7.11 2, 7.8.6 8, 7.8.10 6; merged where two met).
+    `source-map.test.ts` `RENAMED_TARGETS` 159 -> 161, read: +4 a new class (a FUNCTION's result as its tail names no
+    variable), -1 `tr_20_output_index_moved_by_callee`'s dropped reset (its noted mapping defect gone with it), -1 an own
+    PROPERTY set directly (7.6.2).
+    GATE 7.5c+7.7a (2026-10-10, steps 7.5c, 7.4a, 7.4b, 7.6a, 7.6b, 7.7a): three review findings fixed (7.4.3's
+    `set_char` with a call in the target's index, 7.6.1's constant chain through a narrowing link, 7.7.3's reset before a
+    STRING store of another capacity; each with a red-first test, noted under its task) and one gate finding (`constInit`
+    exported, 7.7.4). Typecheck clean. S-out (`snapshot:transpile check --layers outputs,edge`, the baseline written at
+    7.5c's start, HEAD 9fb7c9a4d0): identical over 5535 fixtures. `rate:fixtures`: the map byte-identical to the steps'
+    (no fixture exercises the three fixes). Full suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset): 9148 pass /
+    35 skip / 389 todo / 0 fail across 315 files (7.5b's gate 9126 -> 9148; the first run had 1 fail, `constInit`,
+    fixed above).
 - [ ] 7.7.6 No `std::mem::take` when the callee does not reach Programs.
   - Notes: abf2bb6e4e, 58a7e6289b.
   - Where: `emit/rust/calls.ts` `moveOutProgram`.

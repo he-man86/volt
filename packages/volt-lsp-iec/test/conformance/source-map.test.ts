@@ -65,7 +65,14 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // (`isNull`, `notNullBefore`, `isNullAfter`, `notNull`) and `reference_bit_access` (`bit3`, `bit2`, `after`) — and ONE new
 // class, 2: a pointer copied into a pointer of several targets keeps NULL NULL (4.13 (b)), so `p := src` is
 // `if src != 0 { p = tag } else { p = 0 }` and its mapped line is the `if` (`pointer_null_copied_into_multi_target`, twice).
-const RENAMED_TARGETS = 159
+// 159 -> 161 (2026-10-10, transpile-restructure 7.6a + 7.7a), each read. ONE new class, 4: a FUNCTION's result stored by
+// its last statement — or by the last of each branch of its final IF — is the fn's TAIL expression (lean 7.7.3), and the
+// line its `F := …` maps to names no variable (`pointer_null_copied_into_multi_target`'s `match p { … }`,
+// `refbit_function_var_reference`'s `rbit != 0`, `itf_function_input`'s and `itf_method_input_passed_on`'s `(match shape
+// { … })…`). Two gone: `tr_20_output_index_moved_by_callee`'s METHOD prints no `*o = 0i16` reset any more (its store comes
+// first, 7.7.3) — the mapping DEFECT noted at 30 -> 34 went with it; and an own PROPERTY set with a call-free value is the
+// setter's input itself (7.6.2), `self.p_set(3i16)`, no assignment through a `__property_N` temp.
+const RENAMED_TARGETS = 161
 
 interface Program {
   name: string

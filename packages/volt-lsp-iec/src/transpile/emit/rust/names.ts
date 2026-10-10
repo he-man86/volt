@@ -3,11 +3,12 @@
  * generated body takes, and the reserved `__` temporaries. Each is decided here once, so a definition and every use of it
  * read the same answer.
  */
-import type { IrPou, IrRoutine } from "../../ir/index.js"
+import type { IrPou, IrRoutine, IrStmt } from "../../ir/index.js"
+import { isPlace, someNode } from "../../ir/walk.js"
 import { RUNTIME_ITEMS } from "./runtime/index.js"
 
 /** Which of the two global structs a program reaches: `Globals` (as `g`) and `Programs` (as `prg`). */
-interface GlobalsUse {
+export interface GlobalsUse {
   readonly usesGlobals: boolean
   readonly usesPrograms: boolean
   readonly usesImage?: boolean
@@ -112,6 +113,49 @@ export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = 
 /** `g` and `prg` before a generated call's arguments, as far as the program has them. */
 export function globalsArgs(uses: GlobalsUse): string[] {
   return [...(uses.usesGlobals ? ["g"] : []), ...(uses.usesPrograms ? ["prg"] : []), ...(uses.usesImage === true ? ["__mem"] : [])]
+}
+
+/**
+ * WHAT EACH GENERATED BODY REACHES (lean 7.7.5): `g`, `prg` and `__mem` are handed only to the bodies that use them —
+ * their own places (a GVL variable, a PROGRAM instance, a byte in the image) or a call of a body that does, to any
+ * depth — not to every body because the program has them. Keyed by routine key, and `layout:<NAME>` for an FB's or a
+ * called PROGRAM's body; each within the program's own (`program`).
+ */
+export function reachOf(pou: IrPou, program: GlobalsUse): ReadonlyMap<string, GlobalsUse> {
+  const bodies = new Map<string, readonly IrStmt[]>([
+    ...pou.routines.map((r) => [r.key, r.body] as const),
+    ...pou.layouts.flatMap((l) => (l.body === undefined ? [] : [[`layout:${l.name.toUpperCase()}`, l.body] as const])),
+  ])
+  const direct = new Map<string, { usesGlobals: boolean; usesPrograms: boolean; usesImage: boolean; calls: Set<string> }>()
+  for (const [key, body] of bodies) {
+    const use = { usesGlobals: false, usesPrograms: false, usesImage: false, calls: new Set<string>() }
+    someNode(body, (n) => {
+      if (isPlace(n)) {
+        if (n.root === "global") pou.globals[n.slot]?.section === "program" ? (use.usesPrograms = true) : (use.usesGlobals = true)
+        if (n.root === "image") use.usesImage = true
+      } else if (n.kind === "invoke") use.calls.add(n.routine)
+      else if (n.kind === "call") use.calls.add(`layout:${n.fb.toUpperCase()}`)
+      return false
+    })
+    direct.set(key, use)
+  }
+  // to a fixed point: a body reaches what every body it calls reaches
+  for (let changed = true; changed; ) {
+    changed = false
+    for (const use of direct.values())
+      for (const callee of use.calls) {
+        const of = direct.get(callee)
+        if (of === undefined) continue
+        for (const k of ["usesGlobals", "usesPrograms", "usesImage"] as const)
+          if (of[k] && !use[k]) {
+            use[k] = true
+            changed = true
+          }
+      }
+  }
+  return new Map(
+    [...direct].map(([key, u]) => [key, { usesGlobals: u.usesGlobals && program.usesGlobals, usesPrograms: u.usesPrograms && program.usesPrograms, usesImage: u.usesImage && program.usesImage === true }]),
+  )
 }
 
 /** The parameters every generated body declares for them — the same list as `globalsArgs`, typed. */

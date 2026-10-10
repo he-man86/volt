@@ -289,6 +289,34 @@ export function touchesOnlyItsOwn(root: IrNode | readonly IrNode[]): boolean {
   )
 }
 
+/**
+ * The places a body WRITES (or lends to be written), in no particular order: an assignment's target, a freeze's temp, a
+ * copy's `back`, the instance a METHOD or FB body runs on, an instance lent to a callee, a call's hidden binding — and
+ * each in-out bound to a place, unless `readOnly(call, i)` says the callee takes that one read-only (a VAR_IN_OUT
+ * CONSTANT). A written place's own index expressions and guard are reads, and are not in the list.
+ */
+export function writtenPlaces(root: IrNode | readonly IrNode[], readOnly: (call: IrInvoke | IrCall, inout: number) => boolean): Place[] {
+  const out: Place[] = []
+  const bound = (call: IrInvoke | IrCall): void =>
+    call.inouts.forEach((b, i) => {
+      if (!("kind" in b) && !readOnly(call, i)) out.push(b)
+    })
+  someNode(root, (n) => {
+    if (isPlace(n)) return false
+    if (n.kind === "assign") out.push(n.target)
+    else if (n.kind === "freeze") out.push(n.temp)
+    else if (n.kind === "copy" && n.back !== undefined) out.push(n.back)
+    else if (n.kind === "invoke" || n.kind === "call") {
+      if (n.instance !== undefined) out.push(n.instance)
+      out.push(...(n.lent ?? []))
+      if (n.kind === "call" && n.bind !== undefined) out.push(n.bind.place)
+      bound(n)
+    }
+    return false
+  })
+  return out
+}
+
 /** A body that writes nothing but its own locals and calls nothing. */
 export function writesOnlyLocals(root: IrNode | readonly IrNode[]): boolean {
   return !someNode(root, (n) => !isPlace(n) && (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call" || (n.kind === "assign" && n.target.root !== "local")))

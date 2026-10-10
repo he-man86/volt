@@ -151,6 +151,6 @@ test("statements after a RETURN or EXIT are not printed, nor a RETURN that ends 
   expect(code).not.toContain("4i16")
   expect(code).toContain("            {\n                self.n = self.n.wrapping_add(1i16);\n                break;\n            }\n            self.i = self.i.wrapping_add(1i16);\n        }\n    }")
   expect(code).toContain("        return f;\n    }\n}") // no tail `f` after the all-return IF
-  expect(code).toContain("    g = 3i16;\n    g\n}") // the RETURN that ends G is not printed, its result is the tail
+  expect(code).toContain("pub fn g() -> i16 {\n    3i16\n}") // the RETURN that ends G is not printed; its one store is the tail (7.7.3)
   expect(code).not.toContain("unreachable_code")
 })

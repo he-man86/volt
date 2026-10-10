@@ -9,7 +9,7 @@ import { expr } from "./expr.js"
 import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
 import { movedOut, place } from "./place.js"
-import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, letTemp, type Printer, push, typeOf } from "./printer.js"
+import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, letTemp, type Printer, push, reachOfBody, typeOf } from "./printer.js"
 import { isCopy } from "./types.js"
 
 export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): Printed {
@@ -30,7 +30,7 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
     .join(" ")
   const inputs = e.inputs.map((a, k) => (hoisted.has(k) ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)
-  const args = callArguments(p, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
+  const args = callArguments(p, routine.key, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
   const fn = p.fnNames.get(routine.key)!
   // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
   const moved = onProgram ? movedOut(p, e.instance!, slots) : undefined
@@ -77,14 +77,14 @@ function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onPro
   const hoisted = new Set(written.slice(0, last + 1).filter((k) => !constant(k)))
   const call = written[last]!
   const inlineAfter = written.slice(last + 1).filter((k) => !constant(k))
-  if (e.instance === undefined && globalsArgs(p).length === 0 && inlineAfter.every((k) => k > call)) hoisted.delete(call)
+  if (e.instance === undefined && globalsArgs(reachOfBody(p, e.routine)).length === 0 && inlineAfter.every((k) => k > call)) hoisted.delete(call)
   return hoisted
 }
 
 /** A generated call's arguments: `g`/`prg`, the inputs, each VAR_IN_OUT lent (`lend`), then each instance lent to the
  *  callee (design §24) — for a routine's invoke and an FB call alike. */
-function callArguments(p: Printer, inputs: readonly string[], inouts: readonly IrBinding[], params: IrPou["slots"], lent: readonly Place[], slots: IrPou["slots"]): string {
-  return [...globalsArgs(p), ...inputs, ...inouts.map((b, i) => lend(p, b, i, params[i]!, slots)), ...lent.map((l) => lendMut(p, l, slots))].join(", ")
+function callArguments(p: Printer, callee: string, inputs: readonly string[], inouts: readonly IrBinding[], params: IrPou["slots"], lent: readonly Place[], slots: IrPou["slots"]): string {
+  return [...globalsArgs(reachOfBody(p, callee)), ...inputs, ...inouts.map((b, i) => lend(p, b, i, params[i]!, slots)), ...lent.map((l) => lendMut(p, l, slots))].join(", ")
 }
 
 export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }>, slots: IrPou["slots"]): Printed {
@@ -125,7 +125,7 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
   for (const b of s.inouts) if (!("kind" in b)) guardLine(p, b, slots, indent)
   const params = p.layouts.get(s.fb.toUpperCase())?.layout.inouts ?? []
-  const bound = callArguments(p, [], s.inouts, params, s.lent ?? [], slots)
+  const bound = callArguments(p, `layout:${s.fb.toUpperCase()}`, [], s.inouts, params, s.lent ?? [], slots)
   const instance = place(p, s.instance, slots)
   const lets = lentCopies(p, s.inouts, slots)
   const back = copiesBack(p, s.inouts, slots)

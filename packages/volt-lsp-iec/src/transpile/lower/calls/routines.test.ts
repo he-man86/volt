@@ -150,3 +150,17 @@ describe("a type that contains itself", () => {
     expect(valueOf(source, "d.n")).toBe(3n)
   })
 })
+
+// review of 7.7.3 (gate 7.5c+7.7a): a VAR_OUTPUT's reset at entry is dead only where the first store writes over ALL of
+// it — a STRING of another capacity is stored INTO the output (min(n, m) units and a 0, the rest kept), so an output
+// bound through a dereference, lent the caller's own string, would keep that string's tail behind the stored text
+test("a VAR_OUTPUT first stored from a STRING of another capacity keeps its reset at entry", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION F : INT\nVAR_INPUT sh : STRING(2); END_VAR\nVAR_OUTPUT o : STRING(5); END_VAR\no := sh;\nF := 0;\nEND_FUNCTION\nPROGRAM P\nVAR x : STRING(5) := 'wxyz'; p : POINTER TO STRING(5); res : INT; c3 : BYTE; END_VAR\np := ADR(x);\nres := F(sh := 'ab', o => p^);\nc3 := x[3];\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("x"), runner.get("c3")]).toEqual(["ab", 0n])
+})

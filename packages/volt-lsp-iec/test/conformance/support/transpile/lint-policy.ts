@@ -19,6 +19,8 @@ export const ALLOWED: Readonly<Record<string, string>> = {
     "fixture variables: a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes. Not the runtime: the module prints only the helpers the code calls (lean 1, 7.1.2), so no registry item is ever unused",
   unreachable_code:
     "a FOR whose body always leaves (`stmt_exit_inner`: an inner FOR whose body is EXIT) runs at most one pass, so its step cannot run — and printed without the step, nothing in the loop changes its counter, which is clippy's `while_immutable_condition`; the step is kept, in a plain block. Nothing after a RETURN, EXIT or CONTINUE is printed any more (lean 7.5.11), so this is the one line left",
+  unused_assignments:
+    "the ST stores into a routine local a value nothing reads after it — `shadowing_method_local_shadows_fb_var` increments the METHOD's own iCount and returns, `var_temp_dynamic_init_method` zeroes its VAR_TEMPs on the way out, `pointer_null_copied_into_multi_target` sets a pointer it then overwrites: a dead store the source makes, printed as it is. The printer makes none of its own: since lean 7.7.2 no initial value nothing reads is printed (`emit/rust/locals.ts` `lateInit`), which is what the blanket allow it replaced was hiding",
   unused_comparisons:
     "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers)",
   "clippy::absurd_extreme_comparisons":

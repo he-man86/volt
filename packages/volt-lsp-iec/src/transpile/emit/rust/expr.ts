@@ -236,7 +236,7 @@ export function head(r: Printed): string {
 }
 
 /** Where the brace `text` opens with closes (string literals skipped), or -1. */
-function closingBrace(text: string): number {
+export function closingBrace(text: string): number {
   let depth = 0
   for (let i = 0; i < text.length; i++) {
     const c = text[i]

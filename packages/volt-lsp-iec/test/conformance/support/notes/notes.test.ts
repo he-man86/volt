@@ -89,7 +89,8 @@ describe("every note is tagged with the task that owns it", () => {
     expect(NOTES["fbde4d6e1e"]!.tasks).toEqual(["7.8.8", "7.8.11"])
     // a `keep` note's other items ask for changes: each names the task that makes it, and stays when 7.2.13 removed
     // the `keep` items beside it (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
-    expect(NOTES["496b8acb56"]!.tasks).toEqual(["7.6.6"])
+    // (496b8acb56's was 7.6.6's, and went with it: SEL prints a lazy `if` since 6.15 — transpile-restructure 7.6.6)
+    expect(NOTES["496b8acb56"]).toBeUndefined()
     // 7.2.13: the notes of the group-2 constructs that held only `keep` items are gone
     for (const id of ["6a98109119", "a497507b30", "4a6baf16b3", "687428cc81"]) expect(NOTES[id]).toBeUndefined()
     // …and 1d7709a031 (7.3.1) and 1307e33bbf (7.3.5) went with the last item their tasks landed

@@ -22,7 +22,7 @@
  */
 import type { IrLayout, IrPou } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { fieldNames, globalsParams, routineFnNames, rustName } from "./names.js"
+import { fieldNames, globalsParams, reachOf, routineFnNames, rustName } from "./names.js"
 import { code, Printer, push, use } from "./printer.js"
 import { printCall, printRoutine } from "./routine.js"
 import { BACK, closure, FRONT, helperText, runtimeText } from "./runtime/index.js"
@@ -120,7 +120,13 @@ function printerFor(pou: IrPou, options: EmitOptions) {
     p.loopGuard = options.loopGuard
     return p
   }
-  const p = printer(sharedVariants(pou, routineFnNames(pou.routines), printer))
+  const reach = reachOf(pou, { usesGlobals: variables.length > 0, usesPrograms: programs.length > 0, usesImage: pou.image !== undefined })
+  const withReach = (fnNames: ReadonlyMap<string, string>): Printer => {
+    const p = printer(fnNames)
+    p.reach = reach
+    return p
+  }
+  const p = withReach(sharedVariants(pou, routineFnNames(pou.routines), withReach))
   return { p, layouts, fields, storage }
 }
 
@@ -170,7 +176,8 @@ function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
     push(p, "", 0)
     // once, before the first scan: each instance's `call_after_global_init_slot` method (IrPou.init) — only a POU that has one
     if (pou.init !== undefined) {
-      push(p, "#[allow(unused_variables)]", 1)
+      // the program's `g` / `prg` / `__mem`, which the init may not read: an allow only where it takes one (7.7.2)
+      if (globals !== "") push(p, "#[allow(unused_variables)]", 1)
       push(p, `pub fn init(&mut self${globals}) {`, 1)
       block(p, pou.init, pou.slots, 2)
       push(p, "}", 1)

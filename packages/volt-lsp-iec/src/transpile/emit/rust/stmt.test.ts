@@ -39,7 +39,7 @@ test("one guard per statement: a read through the pointer the statement's line c
   const body = code.slice(code.indexOf("pub fn scan"), code.indexOf("impl Default for P"))
   expect(body.match(/iec_deref\(self\.p\)/g)).toHaveLength(3)
   expect(body).toContain("iec_deref(self.p);\n        { let __v = i16::from_le_bytes(__mem.ld(self.p)).wrapping_add(1i16)")
-  expect(body).toContain("f(__mem, { iec_deref(self.p); i16::from_le_bytes(__mem.ld(self.p)) })")
+  expect(body).toContain("f({ iec_deref(self.p); i16::from_le_bytes(__mem.ld(self.p)) })") // F reaches no image byte: no `__mem` (7.7.5)
 })
 
 // 7.5.5: ELSIF prints `else if`, not an `else` holding one more `if` (clippy's `collapsible_else_if`)

@@ -7,7 +7,7 @@ import type { Span } from "../../../frontend/syntax/index.js"
 import { peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
 import { expr } from "./expr.js"
 import { at, Prec, printed, type Printed } from "./precedence.js"
-import { tmp } from "./names.js"
+import { type GlobalsUse, tmp } from "./names.js"
 import { place } from "./place.js"
 import type { Layouts } from "./values.js"
 import { storeImage } from "./image.js"
@@ -39,6 +39,9 @@ export class Printer {
 
   /** Each frame's scoped temps already bound by a `let` (`letTemp`), by the frame's field names — one write site each. */
   readonly letTemps = new WeakMap<readonly string[], Set<number>>()
+
+  /** What each generated body reaches of `g` / `prg` / `__mem` (`reachOf`, 7.7.5) — by routine key, `layout:<NAME>`. */
+  reach: ReadonlyMap<string, GlobalsUse> = new Map()
 
   /** The runtime helpers the printed code calls (`use`) — the module prints their closure and nothing else (lean 1). */
   readonly uses = new Set<RuntimeId>()
@@ -169,6 +172,9 @@ export interface Frame {
   result?: string
   /** The FB a body runs on — what a `this` place (`THIS^`) walks from. */
   selfType?: Type
+  /** Locals declared where they are first stored, `let x: T = v;` (lean 7.7.2), each with whether it is `mut` — taken
+   *  out of the map as its `let` is printed. */
+  declareAt?: Map<number, boolean>
 }
 
 /**
@@ -178,10 +184,23 @@ export interface Frame {
  * the first for the reads after it only.
  */
 export function letTemp(p: Printer, target: Place, slots: IrPou["slots"]): string | undefined {
+  // a routine's local first stored here is declared here too (`Frame.declareAt`)
+  const declared = target.root === "local" && target.path.length === 0 ? p.frame.declareAt?.get(target.slot) : undefined
+  if (declared !== undefined) {
+    p.frame.declareAt!.delete(target.slot)
+    return `let ${declared ? "mut " : ""}${p.frame.localNames[target.slot]}: ${typeOf(p, target.type)}`
+  }
   if (target.root !== undefined || target.path.length > 0 || slots[target.slot]?.scoped !== true) return undefined
   const bound = p.letTemps.get(p.fields) ?? new Set<number>()
   p.letTemps.set(p.fields, bound)
   if (bound.has(target.slot)) throw new Error(`emit: the scoped temp ${p.fields[target.slot]} is written at a second site`)
   bound.add(target.slot)
   return `let ${p.fields[target.slot]}: ${typeOf(p, target.type)}`
+}
+
+/** What the body `key` reaches (`Printer.reach`): a key with no entry is a printer bug, named — never the program's all. */
+export function reachOfBody(p: Printer, key: string): GlobalsUse {
+  const use = p.reach.get(key)
+  if (use === undefined) throw new Error(`emit: no reach for the body ${key}`)
+  return use
 }

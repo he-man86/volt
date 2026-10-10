@@ -25,7 +25,7 @@ END_PROGRAM
 `
 
 describe("emit/rust", () => {
-  test("globals are a `Globals` struct handed to every body as `g`; called PROGRAMs live apart in `Programs`", () => {
+  test("globals are a `Globals` struct handed as `g` to the bodies that reach it; called PROGRAMs live apart in `Programs`", () => {
     const { pou, diagnostics } = lowerSource(
       "PROGRAM Main\nVAR reader : FB_Reader; seen : INT; END_VAR\nPRG_Writer();\nseen := gShared;\nreader();\nEND_PROGRAM\nVAR_GLOBAL\n  gShared : INT := 3;\nEND_VAR\nFUNCTION_BLOCK FB_Reader\nVAR_OUTPUT q : INT; END_VAR\nq := gShared;\nEND_FUNCTION_BLOCK\nPROGRAM PRG_Writer\nVAR runs : INT; END_VAR\nruns := runs + 1;\ngShared := runs;\nEND_PROGRAM\n",
       "Main",
@@ -37,12 +37,14 @@ describe("emit/rust", () => {
     expect(emitted.code).toContain("g_shared: 3,")
     expect(emitted.code).toContain("pub struct Programs {")
     expect(emitted.code).toContain("pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {")
-    // Every body is handed `g` and `prg`, as any body may call a PROGRAM (conformance `state_program_called_from_fb`); a
-    // program runs moved out of `Programs` and back, so the call never borrows `prg` twice. This read
-    // `prg.prg_writer.call(g)` while only the POU's own scan could call a program.
-    expect(emitted.code).toContain("{ let mut program = std::mem::take(&mut prg.prg_writer); program.call(g, prg); prg.prg_writer = program; }")
+    // A body is handed `g` and `prg` where it reaches them — its own places, or a body it calls, to any depth: any body may
+    // call a PROGRAM (conformance `state_program_called_from_fb`), and one that does is handed `prg` (7.7.5; every body
+    // was handed both). A program runs moved out of `Programs` and back, so the call never borrows `prg` twice;
+    // PRG_Writer reaches the GVL only, so its call takes `g` alone.
+    expect(emitted.code).toContain("{ let mut program = std::mem::take(&mut prg.prg_writer); program.call(g); prg.prg_writer = program; }")
+    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {\n        self.runs")
     expect(emitted.code).toContain("self.seen = g.g_shared;")
-    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {")
+    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {\n        self.q = g.g_shared;") // FB_Reader: `g` alone
   })
 
   test("a POU emits as one flat struct with a scan method — no references anywhere", () => {
@@ -119,4 +121,14 @@ test("FUNCTION variants that print alike are one fn", () => {
   expect(code).toContain(`self.x = ${fns[0]}(`)
   expect(code).toContain(`self.y = ${fns[0]}(`)
   expect(code).toContain(`self.z = ${fns[1]}(`)
+})
+
+// 7.7.4: `new` is `#[must_use]`, and a `const fn` where every initial value can be built at compile time — numbers, BOOLs,
+// arrays of them, a nested FB whose own `new` is one — not where a STRING's `lit` / `new` builds a buffer
+test("`new` is #[must_use], and const where every initial value can be", () => {
+  const { pou } = lowerSource("FUNCTION_BLOCK FB_N\nVAR n : INT := 3; a : ARRAY[0..2] OF INT := [1, 2, 3]; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_S\nVAR t : STRING(4) := 'ab'; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR inner : FB_N; flag : BOOL := TRUE; sf : FB_S; END_VAR\ninner();\nsf();\nEND_PROGRAM\n", "P")
+  const code = emitRust(pou!).code
+  expect(code).toContain("impl FB_N {\n    #[must_use]\n    pub const fn new() -> Self {")
+  expect(code).toContain("impl FB_S {\n    #[must_use]\n    pub fn new() -> Self {")
+  expect(code).toContain("impl P {\n    #[must_use]\n    pub fn new() -> Self {") // it holds an FB_S
 })

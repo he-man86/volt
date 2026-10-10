@@ -38,7 +38,7 @@ describe("emit/rust", () => {
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
     expect(code).toContain("let mut __copy_0 = { iec_deref(self.rv); i16::from_le_bytes(__mem.ld(self.rv)) };")
-    expect(code).toContain("self.adder.call(__mem, &mut __copy_0);")
+    expect(code).toContain("self.adder.call(&mut __copy_0);") // FB_Add reaches no image byte of its own: no `__mem` (7.7.5)
     expect(code).toContain("let __a = self.rv; __mem.st(__a, __v.to_le_bytes());")
   })
 })
@@ -82,7 +82,7 @@ test("a scalar VAR_IN_OUT CONSTANT is taken by value; a literal lent to a CONSTA
   expect(diagnostics).toEqual([])
   const code = emitRust(pou!).code
   expect(code).toContain("pub fn twice(v: i16) -> i16 {")
-  expect(code).toContain("twice = v.wrapping_mul(2i16);")
+  expect(code).toContain("    v.wrapping_mul(2i16)\n}") // read bare; the result its tail (7.7.3)
   expect(code).toContain("self.a = twice(self.n);")
   expect(code).toMatch(/self\.ok = same\(&IecString::<\d+>::lit\(b"abc"\)\);/)
   expect(code).not.toContain("__copy_")

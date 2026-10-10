@@ -15,12 +15,13 @@
 import { type FbType, Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
-import type { IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import type { IrExpr, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import { holdsCall, someNode, somePlace } from "../../ir/walk.js"
 import { programReentrant, touchedOf, touchesOf } from "./reentrancy.js"
 import { childScopesByName, findChildScope, type Scope } from "../../../frontend/symbols/index.js"
 import { declareGlobals, declareInOuts, declareVars } from "../storage/declare.js"
 import { inOutSections, prefixed } from "./parameters.js"
-import { type Type } from "../../../frontend/types/index.js"
+import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { anyArgumentTypes, declareAnyAddresses } from "../pointers/any.js"
 import { type CursorArgument, cursorArgumentTypes } from "../pointers/cursor.js"
 import { typeKey } from "./variants.js"
@@ -113,6 +114,31 @@ function keptVariables(lw: Lowering, sym: RoutineSymbol, sections: readonly VarS
     for (const n of names) (section.sectionKind === "VAR_INST" ? out.inst : out.stat).set(n.toUpperCase(), `${prefix}${n}`.toUpperCase())
   }
   return out
+}
+
+/** A store of `value` writes every unit of a `target`: not a STRING, or one of the same capacity. */
+const wholeStore = (target: Type, value: Type): boolean =>
+  stringKind(target) === undefined || (target.kind === "elementary" && value.kind === "elementary" && target.length === value.length)
+
+/**
+ * WHETHER A VAR_OUTPUT'S RESET AT ENTRY IS DEAD (lean 7.7.3): the body's first word on that output is a store of the
+ * whole of it, before anything could read it or leave. The statements before that store must name the output nowhere,
+ * hold no call (one could read the caller's variable the output is bound to) and no RETURN (the output would be left
+ * un-reset); the store's value the same; and the store a whole one — a STRING of another capacity is stored INTO the
+ * output (min(n, m) units and a 0, the rest kept: `locals.ts` `plainStore`), so an output lent the caller's own string
+ * (`o => p^`) would keep that string's tail (review of 7.7.3). Then nothing can see the reset's value, and the store
+ * writes over it.
+ */
+function assignedFirst(reset: IrStmt, rest: readonly IrStmt[]): boolean {
+  if (reset.kind !== "assign") return false
+  const output = reset.target
+  const names = (n: IrStmt | IrExpr): boolean => somePlace(n, (at) => at.root === output.root && at.slot === output.slot)
+  for (const s of rest) {
+    if (s.kind === "assign" && s.target.root === output.root && s.target.slot === output.slot && s.target.path.length === 0)
+      return !names(s.value) && !holdsCall(s.value) && s.target.guard === undefined && wholeStore(output.type, s.value.type)
+    if (names(s) || holdsCall(s) || someNode(s, (n) => !("slot" in n) && n.kind === "return")) return false
+  }
+  return false
 }
 
 /**
@@ -236,7 +262,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (frame !== undefined) instanceInOuts(lw, r, sym, frame, parsed.statements)
     const inits = routineLocalInits(r)
     if (inits === undefined) return void drain(lw, r)
-    const body = [...resets, ...inits, ...lowerBlock(r, parsed.statements)]
+    const rest = [...inits, ...lowerBlock(r, parsed.statements)]
+    const body = [...resets.filter((reset) => !assignedFirst(reset, rest)), ...rest]
     if (drain(lw, r)) return undefined
     return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: interfaceFrame(r).lends }
   })
