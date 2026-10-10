@@ -973,6 +973,49 @@ tasks.md from `rate:fixtures`. Then the gate.
   into the neighbour): niche: accepted loss (0 occurrences — the one corpus caller passes 80 for a STRING(80)), noted in
   `STRREPLACEA.pou`.
 
+### §3.2 Decision (step 7.4c): read-only Standard string inputs, the LEN_INTERNAL primitive (task 7.4.6, 2026-10-10)
+
+**Target.** A Standard string FUNCTION (LEN, CONCAT, LEFT, RIGHT, MID, FIND, INSERT, DELETE, REPLACE) reads a caller's
+STRING of capacity N <= 255 where it lies — `len(&self.hello)`, `fn len<const N_STR: usize>(str: &IecString<N_STR>)` —
+and LEN_INTERNAL is one IR builtin, `units().len()`, not a loop of `char_at`. Measured on the rust snapshot: 229
+`.to::<255>()` copies into these nine in 136 fixtures (LEN 100; 6 more are parse cuts, untouched); the corpora call them
+124 times (CONCAT 101).
+
+**Why it is exact, and the proof it rests on.** The 255-copy and a borrow of the caller's N units differ only (a) in a
+read `STR[k]` with N < k <= 255 — the copy reads 0, `char_at` on N faults — and (b) in a whole read of STR into a
+destination whose units past N are not 0 (the copy zeroes them). Every Standard body reads STR only at k <= LEN_INTERNAL
+(STR) <= N (every index is bounded by `n`/`n1`/`n2`, or stops at STR's first 0; FIND's and INSERT's non-short-circuit
+`AND` reads the terminator, still <= the length), and reads it whole only into its own fresh result (CONCAT, INSERT,
+DELETE). The proof is a test, not prose: `test/libraries/standard.test.ts` runs every Standard FUNCTION with a STRING(255)
+input in the interpreter over every buffer of capacity 0-4 over {0, 'a', 'b'} (bytes behind the terminator included)
+and every INT argument in -2..6, plus a full 255 case per function, passed as a STRING(N) and as the same buffer in a fresh
+STRING(255) (the copy's semantics, and a borrow at 255 is the copy), and requires the two to agree with no fault; a body change that breaks it fails there, and anywhere else faults loudly in both backends (never a quiet 0).
+Callers wider than 255 keep the copy — its cut is measured (`string_input_truncation`).
+
+**The choice.** In lowering (`calls/routines.ts` `calledRoutine`, `calls/binding.ts`): for a FUNCTION of the Standard
+library (`libraryOf`), a STRING(255) VAR_INPUT bound to an argument of capacity <= 255 is lowered as a VAR_IN_OUT
+CONSTANT of the ARGUMENT's type — the read-only in-out both backends already have (`readOnly`, `&IecStr<N>`, variant key
+per capacity, merged by `sharedVariants`). A plain place is lent; a literal or other expression is a `copy` binding at its
+own capacity (as a VAR_IN_OUT CONSTANT lends a literal); a global, an aliased place, a cursor `p^` or an image place keeps
+the input copy — the declared semantics, not a refusal. LEN_INTERNAL: a call to `Standard.LEN_INTERNAL` lowers to the
+new builtin `length` (`(s)` → UINT, the units before the first 0); interpreter twin `semantics/string.ts` `lengthOf`
+(the buffer's visible length), Rust `units().len()`; `runtime-twins.test.ts` runs it over `string.cases.ts`, and the
+repo's ST body (kept, held to its declaration by `repo.test.ts`) is its oracle in `standard.test.ts`. `libraries/index.ts`'s
+"only primitives are `s[i]` and `TIME()`" gains LEN_INTERNAL.
+- Rejected: a 255-view type over N (exact without a proof, but a second string type with its own read, store and twin
+  for nine bodies); intrinsics for every Standard function (re-creates the TS/Rust twin the library repo deleted);
+  declaring the inputs or LEN_INTERNAL VAR_IN_OUT CONSTANT in the repo (the declaration is the vendor's, `repo.test.ts`);
+  a static index-range analysis over the IR (an analysis to prove nine fixed bodies the exhaustion test covers).
+
+**Stays refused, by name.** A borrowed input the body writes, lends writable or takes the address of: `input-borrow-written`
+(a library-repo defect, never a silent copy). LEN_INTERNAL given no variable stays refused as any in-out is; one whose
+argument's capacity exceeds 65535 (its UINT count would wrap, the loop would not end): `string-length-width`. Nothing a
+copy lowers today is refused after.
+
+**Migration.** (1) The `length` builtin, its twin and the LEN_INTERNAL lowering, alone: S-out identical, `len_internal`
+gone from the emission. (2) The proof test (it holds before the borrow and must after). (3) The borrow in `calledRoutine`/`bindPlace`. Accept: S-out (outputs and edge byte-identical over every
+fixture), `test/libraries` green, M; the 7.4.6 notes resolved; 7.7.12's parameters unchanged (integers and cursors).
+
 ### 3.3 Pointers and references (model 3): RC 14, 15, 16, 17, 44; 18 and 20
 
 **Prior art this model starts from.** `openspec/changes/transpile-st-to-rust/pointer-model.md` (2026-09-20: a parse-based corpus
