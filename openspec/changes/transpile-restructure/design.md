@@ -1791,6 +1791,51 @@ where a VAR_TEMP is not visible its name is a global of that name (`var_temp_nam
 `_in_derived_body_beside_global`: 41 over a global 40): the transpiler asks the symbols' `lookup`, which skips it, and
 refuses only a VAR_TEMP it still finds (an ACTION's).
 
+### §3.3/§3.4 Decision (step 7.8d): unions via one `reinterpret` expression (7.8.4), address bindings as initial values (7.8.8), 2026-10-11
+
+**7.8.4 target.** A store into a UNION member is followed by ONE assignment per other member — `self.u.halves =
+self.u.whole.to_le_bytes();`, `self.u.whole = u16::from_le_bytes(self.u.halves);` — not one mod/div chain per byte.
+Lowered today: `type_dut_union`, `xo_union_across_objects` (byte chains), `state_any_int_pointer_increment` (a pointer
+union); refused `layout-union` for signed/REAL members: `unit_type_extends_on_union` (INT|DINT),
+`prag_unknown_attribute_on_union`, `dt_union_member_sizes` (LREAL|INT), and the corpora's one byte union, pro2193 `GenericInt`.
+
+**The choice: an IR expression `reinterpret { value, over?, type }`** — `value`'s little-endian bytes laid over `over`'s
+(the target member's own value, given only when the target is longer), read at `type`. `unionCopies` emits `to :=
+reinterpret(from, to?)` per other member, an ordinary assign. Interpreter twin: `semantics/memory.ts` `storeValue` /
+`loadValue` over a scratch DataView, cases in `memory.cases.ts`. Rust: `from_le_bytes`/`to_le_bytes`; a byte-array member
+is the bytes; a partial overlay or an array of wider elements uses one on-demand runtime helper. `overlayBytes` widens
+to signed integers and REAL/LREAL (bit-exact in Rust; the interpreter inherits `memory.cases.ts`'s NaN-payload marks). A
+UNION of POINTERs only is ONE field (§9 form 1: one integer), each member that field at its own type — its copies go.
+- Deciding measure: what each option touches beyond the copy. `xo_union_across_objects`' frame holds 3 non-union
+  variables and its 3 union reads are plain field reads; only `reinterpret` leaves all of them as they are.
+- Rejected: the union in the byte image (4.3's "a reinterpretation is an image load") — escapes the whole frame, threads
+  `__mem` into every routine touching it, makes each read a checked `from_le_bytes(__mem.ld(…))`; a `[u8; N]` layout
+  with accessors — every read a call, a new layout kind in both backends; a printer idiom over the byte chain — the
+  interpreter would run another program.
+- Stays refused: `layout-union` — a BOOL, STRING/WSTRING, TIME/date, struct/FB or multi-dim array member, or a member
+  initial value; `union-write` — a member written other than by `:=`, or reached through a runtime index; ADR of a member.
+
+**7.8.8 target.** `p : POINTER TO INT := ADR(x)` / `r : REFERENCE TO T REF= x` is the slot's initial value: `ref_:
+0x1_0000_0000` in a program's `new()`, `FB { __base: B, p: B + 8, ..FB::new() }` at each static instance, a handle's tag
+in `FB::new()`; an `init()`/`__init()` left empty goes, with its call chain.
+
+**The choice: fold in lowering, where `instancesIn` (`lower/pointers/image.ts`) already folds `__base`** — the address
+is `IMAGE_BASE + region + offset`, a constant `IrInit` both backends instantiate unchanged, and `init/sequence.ts` drops
+the store. A binding whose base is per call (an escaped instance in a routine's locals) keeps its store: no constant
+exists. **Proof nothing reads it first:** the move changes only what an init step BEFORE the store sees. An earlier
+initializer or FB_Init argument reaching the slot — by name, THIS, a dereference, an address handed to a call — is
+refused `init-reads-later` (`sequence.ts`, `fb-init-args.ts`); an instance's own FB_Init runs after its bindings
+(`tr_22_fb_init_reads_adr_field`). Lowering checks it on the built sequence: a load of the slot, a call or a dereference
+before a folded store refuses `init-binding-read-first` (new; expected 0 — a hit is a missed refusal, fixed there).
+- Rejected: hoisting `__init`'s constant stores into `new()` in the printer — the interpreter and the Rust part, and
+  `FB::new()` has no base; a per-backend `address(offset)` IrValue — lowering already knows every static base.
+
+**Migration.** (1) 7.8.8: fold + check; tests in `init/initial-values.test.ts` (folded value; one per reader shape).
+(2) 7.8.4: `reinterpret` (`ir/expr.ts`, `walk.ts`, interpreter, `memory.cases.ts` twins), `unionCopies`, the pointer
+union, the widened `overlayBytes`, after ONE CODESYS batch of new fixtures (INT|DINT|ARRAY OF BYTE, REAL|DWORD,
+LREAL|ARRAY[0..7] OF BYTE, each stored both ways). Accept: S-out identical, the new fixtures confirmed, the three
+`layout-union` fixtures lowered or refused by CODESYS's answer; bindings-only `init()`/`__init()` 0; byte chains 0; M may only fall.
+
 ---
 
 ## 4. Old → new map
