@@ -9,7 +9,7 @@
  */
 import type { IrExpr, IrPou } from "../../ir/index.js"
 import { holdsCall, sameNode } from "../../ir/walk.js"
-import { isReal } from "../../../frontend/types/index.js"
+import { isBoolValued, isReal } from "../../../frontend/types/index.js"
 import { exprBuiltin } from "./builtins.js"
 import { exprDispatch, exprInvoke, exprSelect } from "./calls.js"
 import { exprConvert } from "./convert.js"
@@ -59,8 +59,16 @@ export function negated(p: Printer, e: IrExpr, slots: IrPou["slots"]): Printed {
     return print(p, { ...e, op: INVERSE[e.op] } as IrExpr, slots)
   if (e.kind === "unary" && e.op === "not") return print(p, e.operand, slots)
   if (e.kind === "const" && typeof e.value === "boolean") return printed(e.value ? "false" : "true", Prec.Postfix)
+  // DE MORGAN (7.5.7): NOT (a AND b) is NOT a OR NOT b — each side negated by these same rules, the dual operator of the
+  // same kind: eager stays eager (both sides still run, in order), a short-circuit stays one (the right side runs exactly
+  // when it ran before) — so `!((i < n) & (i < last))` is `(i >= n) | (i >= last)`
+  const dual = e.kind === "binary" && isBoolValued(e.type) ? DUAL[e.op] : undefined
+  if (e.kind === "binary" && dual !== undefined) return infix(negated(p, e.left, slots), dual, negated(p, e.right, slots))
   return printed(`!${prefixed("!", print(p, e, slots))}`, Prec.Unary)
 }
+
+/** The operator a negated BOOL AND / OR turns into, by De Morgan. */
+const DUAL: Readonly<Record<string, string>> = { and: "|", or: "&", and_then: "||", or_else: "&&" }
 
 /** `e` as Rust text where at least `min` binds — a receiver by default (`Prec.Postfix`), parenthesized when it binds
  *  looser; `Prec.Block` where it stands alone (a statement's value, an argument, a `let`'s initializer). */
@@ -125,6 +133,8 @@ function exprLoad(p: Printer, e: Extract<IrExpr, { kind: "load" }>, slots: IrPou
 const prefixed = (sign: string, r: Printed): string => (r.text.startsWith(sign) ? `(${r.text})` : at(r, Prec.Unary))
 
 function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrPou["slots"]): Printed {
+  // NOT of a BOOL negates by `negated`'s rules (a comparison flipped, De Morgan, 7.5.7); of an integer it is the bitwise `!`
+  if (e.op === "not" && isBoolValued(e.type)) return negated(p, e.operand, slots)
   const operand = print(p, e.operand, slots)
   if (e.op === "not") return printed(`!${prefixed("!", operand)}`, Prec.Unary)
   // An integer's minimum has no positive counterpart in its own width, and Rust's `-` PANICS on it in a debug

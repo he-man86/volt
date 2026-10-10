@@ -49,14 +49,16 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("self.n = ") // THIS^.n, through `self`
   })
 
-  test("BOOL AND/OR print Rust's eager `&`/`|`; only AND_THEN/OR_ELSE short-circuit", () => {
+  test("BOOL AND/OR whose right operand calls print Rust's eager `&`/`|`; a quiet one and AND_THEN/OR_ELSE short-circuit", () => {
     // Why missed (transpiler review 2026-09-15): the golden and crate sources used AND_THEN, or AND on operands without
-    // a call, where `&&` and `&` give one answer — the interpreter's both-sides evaluation was never compared.
-    const { pou, diagnostics } = lowerSource("PROGRAM Eager\nVAR a : BOOL; b : BOOL; c : BOOL; d : BOOL; END_VAR\nc := a AND b;\nd := a OR_ELSE b;\nEND_PROGRAM\n", "Eager")
+    // a call, where `&&` and `&` give one answer — the interpreter's both-sides evaluation was never compared. A right
+    // operand that calls keeps the eager node; one nothing can observe skipping short-circuits (lowering decides, 7.5.6)
+    const { pou, diagnostics } = lowerSource("FUNCTION F : BOOL\nF := TRUE;\nEND_FUNCTION\nPROGRAM Eager\nVAR a : BOOL; b : BOOL; c : BOOL; d : BOOL; e : BOOL; END_VAR\nc := a AND F();\nd := a OR_ELSE b;\ne := a AND b;\nEND_PROGRAM\n", "Eager")
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
-    expect(code).toContain("self.c = self.a & self.b;")
+    expect(code).toContain("self.c = self.a & f();")
     expect(code).toContain("self.d = self.a || self.b;")
+    expect(code).toContain("self.e = self.a && self.b;")
   })
 
   test("MOD guards a zero divisor — 0, as measured, where Rust's % panics — and keeps `%`'s MIN MOD -1 panic (6.A.3); NOT of an INT is a u16", () => {

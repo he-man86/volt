@@ -198,3 +198,18 @@ test("a duration by a negative signed integer computes unsigned; a literal past 
   expect(lowerSource(wrap("res := t * 5000000000;", vars), "P").diagnostics.map((d) => d.code)).toEqual(["duration-scale"])
   expect(value("res := t * 3000000000;")).toBe(BigInt.asUintN(32, 3000n * 3000000000n))
 })
+
+// 7.5.6: a BOOL AND / OR whose right operand nothing can observe being skipped is the short-circuit node — loads,
+// constants, comparisons and pure arithmetic over them; one that calls, divides by a variable (which may stop the task)
+// or indexes at run time (which may stop it out of bounds) stays eager, as CODESYS evaluates both sides
+test("a quiet right operand makes AND / OR short-circuit; a call, a variable divisor or a runtime index keeps them eager", () => {
+  const src = [
+    "FUNCTION F : BOOL\nF := TRUE;\nEND_FUNCTION",
+    "PROGRAM P\nVAR a : BOOL; b : BOOL; i : INT := 2; z : INT; arr : ARRAY[0..3] OF INT; g1 : BOOL; g2 : BOOL; g3 : BOOL; g4 : BOOL; g5 : BOOL; g6 : BOOL; END_VAR",
+    "g1 := a AND b;\ng2 := a OR (i > 3 AND i + 1 < 9);\ng3 := a AND F();\ng4 := a AND 10 / z > 1;\ng5 := a OR arr[i] > 0;\ng6 := a AND arr[2] > 0;\nEND_PROGRAM",
+  ].join("\n")
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  const ops = pou!.body.map((s) => (s.kind === "assign" && s.value.kind === "binary" ? s.value.op : "?"))
+  expect(ops).toEqual(["and_then", "or_else", "and", "and", "or", "and_then"])
+})

@@ -63,52 +63,48 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
       text += `.${entry.fields[i]}`
       type = entry.layout.fields[i]!.type
     } else if (step.kind === "index") {
-      // WIDENED TO i64 ONLY WHEN IT IS NOT ONE. An index is usually already `i64` after lowering, and the
-      // unconditional `as i64` printed `(0i64 as i64) as usize` — a cast to its own type inside parentheses
-      // neither rustc nor clippy has any use for.
-      // a constant index is already its element's position (`lower/values/fold.ts` `foldedPlace`, 7.2.3): `[3]`
-      // (inside the array only: an index outside it keeps its run-time check, as a constant one rustc would refuse to build)
-      const at = step.index.kind === "const" && typeof step.index.value === "bigint" ? step.index.value : undefined
-      if (at !== undefined && step.lower === 0n && step.length !== undefined && at >= 0n && at < BigInt(step.length)) {
-        text += `[${at}]`
-        type = elementOf(type)!
-        continue
-      }
-      // AN INDEX MINUS ITS LOWER BOUND PRINTS ONE WAY (7.2.3, 7.2.14): an `ARRAY[*]` dimension's offset is the IR's LINT
-      // `sub` of two values widened from 32 bits or fewer — each converted once to `usize` and subtracted there wrapping,
-      // as a declared bound comes off (below): a position under 0 wraps to a huge one and panics
-      const offset = step.index
-      if (step.lower === 0n && offset.kind === "binary" && offset.op === "sub" && widenedNarrow(offset.left) && widenedNarrow(offset.right)) {
-        const own = (x: Extract<IrExpr, { kind: "convert" }>): string => `${expr(p, x.value, slots, Prec.As)} as usize`
-        text += `[(${own(offset.left)}).wrapping_sub(${own(offset.right)})]`
-        type = elementOf(type)!
-        continue
-      }
-      if (step.index.kind === "const") {
-        // a constant outside the array: the run-time check a bare position would not compile without — the constant
-        // printed as an `i64` literal, which rustc's constant evaluation sees through (an `i64::from(…)` it does not)
-        const index = castTo(print(p, step.index, slots), step.index.type, "i64", step.index)
-        text += step.lower === 0n ? `[${atLeast(index, Prec.As)} as usize]` : `[(${atLeast(index, Prec.Add)} - ${step.lower}i64) as usize]`
-        type = elementOf(type)!
-        continue
-      }
-      // A RUNTIME INDEX CASTS ONCE (7.2.14): from its own type straight to `usize` — on a 64-bit target `i as usize` is
-      // `(i as i64) as usize` for every integer of 64 bits or fewer (sign- or zero-extended alike), so a widening the
-      // IR put in front of it is skipped too — and the lower bound comes off in `usize`'s wrapping arithmetic: an index
-      // below the bound, a negative one included, wraps to a huge position and panics like one above the upper.
-      // `as` binds TIGHTER than the arithmetic operators, so `(self.li / 2i64)` keeps its parentheses before one, or Rust
-      // reads `self.li / (2i64 as usize)` — E0277.
-      const own = widenedIndex(step.index) ? step.index.value : step.index
-      const index = print(p, own, slots)
-      const cast = rustType(own.type) !== "usize"
-      const lower = step.lower > 0n ? `.wrapping_sub(${step.lower})` : `.wrapping_add(${-step.lower})`
-      text += step.lower === 0n
-        ? `[${cast ? `${atLeast(index, Prec.As)} as usize` : atLeast(index, Prec.Block)}]`
-        : `[${cast ? `(${atLeast(index, Prec.As)} as usize)` : atLeast(index, Prec.Postfix)}${lower}]`
+      text += indexStep(p, step, slots)
       type = elementOf(type)!
     }
   }
   return text
+}
+
+/** One index step as Rust brackets: a position, an `ARRAY[*]` offset, a constant outside its array, or a run-time index. */
+function indexStep(p: Printer, step: Extract<Place["path"][number], { kind: "index" }>, slots: IrPou["slots"]): string {
+  // a constant index is already its element's position (`lower/values/fold.ts` `foldedPlace`, 7.2.3): `[3]`
+  // (inside the array only: an index outside it keeps its run-time check, as a constant one rustc would refuse to build)
+  const at = step.index.kind === "const" && typeof step.index.value === "bigint" ? step.index.value : undefined
+  if (at !== undefined && step.lower === 0n && step.length !== undefined && at >= 0n && at < BigInt(step.length)) {
+    return `[${at}]`
+  }
+  // AN INDEX MINUS ITS LOWER BOUND PRINTS ONE WAY (7.2.3, 7.2.14): an `ARRAY[*]` dimension's offset is the IR's LINT
+  // `sub` of two values widened from 32 bits or fewer — each converted once to `usize` and subtracted there wrapping,
+  // as a declared bound comes off (below): a position under 0 wraps to a huge one and panics
+  const offset = step.index
+  if (step.lower === 0n && offset.kind === "binary" && offset.op === "sub" && widenedNarrow(offset.left) && widenedNarrow(offset.right)) {
+    const own = (x: Extract<IrExpr, { kind: "convert" }>): string => `${expr(p, x.value, slots, Prec.As)} as usize`
+    return `[(${own(offset.left)}).wrapping_sub(${own(offset.right)})]`
+  }
+  if (step.index.kind === "const") {
+    // a constant outside the array: the run-time check a bare position would not compile without — the constant
+    // printed as an `i64` literal, which rustc's constant evaluation sees through (an `i64::from(…)` it does not)
+    const index = castTo(print(p, step.index, slots), step.index.type, "i64", step.index)
+    return step.lower === 0n ? `[${atLeast(index, Prec.As)} as usize]` : `[(${atLeast(index, Prec.Add)} - ${step.lower}i64) as usize]`
+  }
+  // A RUNTIME INDEX CASTS ONCE (7.2.14): from its own type straight to `usize` — on a 64-bit target `i as usize` is
+  // `(i as i64) as usize` for every integer of 64 bits or fewer (sign- or zero-extended alike), so a widening the
+  // IR put in front of it is skipped too — and the lower bound comes off in `usize`'s wrapping arithmetic: an index
+  // below the bound, a negative one included, wraps to a huge position and panics like one above the upper.
+  // `as` binds TIGHTER than the arithmetic operators, so `(self.li / 2i64)` keeps its parentheses before one, or Rust
+  // reads `self.li / (2i64 as usize)` — E0277.
+  const own = widenedIndex(step.index) ? step.index.value : step.index
+  const index = print(p, own, slots)
+  const cast = rustType(own.type) !== "usize"
+  const lower = step.lower > 0n ? `.wrapping_sub(${step.lower})` : `.wrapping_add(${-step.lower})`
+  return step.lower === 0n
+    ? `[${cast ? `${atLeast(index, Prec.As)} as usize` : atLeast(index, Prec.Block)}]`
+    : `[${cast ? `(${atLeast(index, Prec.As)} as usize)` : atLeast(index, Prec.Postfix)}${lower}]`
 }
 
 /** An index the IR widened from a narrower integer, every value kept (a signed one sign-extended, an unsigned one

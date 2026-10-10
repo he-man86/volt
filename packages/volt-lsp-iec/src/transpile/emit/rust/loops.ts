@@ -51,7 +51,8 @@ export function stmtLoop(p: Printer, s: Extract<IrStmt, { kind: "loop" }>, slots
   } else block(p, s.body, slots, indent + 1)
   p.loops.pop()
   for (const step of s.step) stmt(p, step, slots, indent + 1)
-  if (tail) push(p, `if ${head(negated(p, s.test!.cond, slots))} { break; }`, indent + 1)
+  // REPEAT … UNTIL FALSE keeps going for ever: its test is the constant TRUE, and `if false { break; }` says nothing (7.5.8)
+  if (tail && !(s.test!.cond.kind === "const" && s.test!.cond.value === true)) push(p, `if ${head(negated(p, s.test!.cond, slots))} { break; }`, indent + 1)
   push(p, "}", indent)
   return
 }

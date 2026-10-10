@@ -3,7 +3,8 @@
  * scaled by an integer, and an all-constant expression folded.
  */
 
-import type { IrBinOp, IrExpr } from "../../ir/index.js"
+import type { IrBinOp, IrExpr, IrPou, IrStmt, Place } from "../../ir/index.js"
+import { mapExprs } from "../../ir/walk.js"
 import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
 import {
@@ -21,6 +22,7 @@ import {
   notResultType,
   negativeLiteralComparisonTarget,
   promoteForRuntime,
+  stringKind,
   type Type,
   unparenthesised,
   untypedNumberValue,
@@ -286,4 +288,67 @@ function negativeBesideUnsigned(written: Expr, lowered: IrExpr, other: IrExpr): 
   // the literal as its own type (SINT for -1), not the neighbour's it was lowered beside
   const literal: IrExpr = { ...lowered, type: elementaryTypeRef(own) }
   return { kind: "convert", value: literal, type: elementaryTypeRef(into), span: lowered.span }
+}
+
+// ─── AND / OR that may short-circuit (lean 5, 7.5.6) ─────────────────────────
+
+/** The builtins whose evaluation can neither fault nor do anything else (not EXPT, LN or LOG — they stop the task on a
+ *  domain error — nor a string or image helper). */
+const QUIET_BUILTINS: ReadonlySet<string> = new Set(["max", "min", "limit", "sel", "mux", "abs", "trunc", "shl", "shr", "rol", "ror"])
+
+/** A place read without a check that could fail: no dereference, no image address, every index a position inside its
+ *  array (a run-time index may stop the task out of bounds). */
+const quietPlace = (p: Place): boolean =>
+  p.guard === undefined && p.root !== "image" && p.at === undefined &&
+  p.path.every((s) => s.kind !== "index" || (s.index.kind === "const" && s.lower === 0n && s.length !== undefined && typeof s.index.value === "bigint" && s.index.value >= 0n && s.index.value < BigInt(s.length)))
+
+/**
+ * An operand whose evaluation nothing can observe — no call, no store, and nothing that can stop the task: constants,
+ * plain reads, and the operators and pure builtins over them, a division only by a constant lowering proved harmless.
+ * Skipping one is then the same program.
+ */
+export function quiet(e: IrExpr): boolean {
+  switch (e.kind) {
+    case "const":
+      return true
+    case "load":
+      return quietPlace(e.place)
+    case "unary":
+      return quiet(e.operand)
+    case "convert":
+      return stringKind(e.type) === undefined && stringKind(e.value.type) === undefined && quiet(e.value)
+    case "binary": {
+      const divides = e.op === "div" || e.op === "mod"
+      const harmless = e.nonzeroDivisor === true && !(e.op === "div" && e.right.kind === "const" && e.right.value === -1n)
+      return (!divides || harmless) && quiet(e.left) && quiet(e.right)
+    }
+    case "builtin":
+      return QUIET_BUILTINS.has(e.name) && e.args.every(quiet)
+    default:
+      return false
+  }
+}
+
+/**
+ * BOOL AND / OR whose RIGHT operand is quiet compute as AND_THEN / OR_ELSE (7.5.6): skipping the right operand when the
+ * left decides is then unobservable, so the Rust prints `&&` / `||` (clippy's `needless_bitwise_bool`) and the
+ * interpreter runs the same short-circuit node. A right operand that calls, stores or may stop the task keeps the eager
+ * node, as CODESYS evaluates both (transpiler review 2026-09-15: a call on the right ran in one backend and not the other).
+ */
+function shortCircuited(e: IrExpr): IrExpr {
+  if (e.kind !== "binary" || (e.op !== "and" && e.op !== "or") || !isBoolValued(e.type) || !quiet(e.right)) return e
+  return { ...e, op: e.op === "and" ? "and_then" : "or_else" }
+}
+
+/** Every body of a lowered POU with its quiet AND / OR made short-circuit (`shortCircuited`) — after the fold, so a
+ *  constant index is the position it folded to. */
+export function shortCircuitPou(pou: IrPou): IrPou {
+  const block = (body: readonly IrStmt[]): IrStmt[] => body.map((s) => mapExprs(s, shortCircuited))
+  return {
+    ...pou,
+    body: block(pou.body),
+    ...(pou.init === undefined ? {} : { init: block(pou.init) }),
+    layouts: pou.layouts.map((l) => (l.body === undefined ? l : { ...l, body: block(l.body) })),
+    routines: pou.routines.map((r) => ({ ...r, body: block(r.body) })),
+  }
 }

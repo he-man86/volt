@@ -110,3 +110,13 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
     expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("while self.i <= self.hi {")
   })
 })
+
+// 7.5.8: WHILE TRUE and REPEAT … UNTIL FALSE are a plain `loop`, no `if false { break; }`; 7.5.7: a negated AND is De Morgan's OR
+test("WHILE TRUE / UNTIL FALSE print no `if false { break; }`; NOT over AND prints De Morgan's OR", () => {
+  const forever = rust("PROGRAM P\nVAR n : INT; END_VAR\nWHILE TRUE DO\n  n := n + 1;\n  IF n > 5 THEN EXIT; END_IF\nEND_WHILE\nREPEAT\n  n := n - 1;\n  IF n < 2 THEN EXIT; END_IF\nUNTIL FALSE\nEND_REPEAT\nEND_PROGRAM\n")
+  expect(forever).not.toContain("if false")
+  expect(forever).not.toContain("while true")
+  const morgan = rust("PROGRAM P\nVAR i : INT; n : INT := 5; g : BOOL; END_VAR\nREPEAT\n  i := i + 1;\nUNTIL i >= n AND i > 3\nEND_REPEAT\ng := NOT (i < n AND i > 2);\nEND_PROGRAM\n")
+  expect(morgan).toContain("if self.i >= self.n && self.i > 3i16 { break; }")
+  expect(morgan).toContain("self.g = self.i >= self.n || self.i <= 2i16;")
+})

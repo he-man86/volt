@@ -5245,7 +5245,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     (`unused_parens` 3 -> 0); `ir/walk.ts` `sameNode` (structural, spans aside, a type by kind and name — a Type may be
     cyclic) is what both ask. A finding fixed on the way: `cc5_in_out_type_mismatch` (CODESYS refuses: a REAL bound to an
     INT VAR_IN_OUT) was LOWERED, the callee reading the REAL storage as an INT; the narrow add changed the interpreter’s
-    garbage. `lower/calls/binding.ts` refuses a real/integer crossing by name, new code `call-inout-type` (invalid); the
+    garbage. `lower/calls/binding.ts` refuses a real/integer crossing by name, new code `call-inout-type` (invalid; a VAR_OUTPUT binding keeps its `call-output-convert`, `calls/outputs.test.ts`); the
     fixture leaves the lowered set (its `rust`/`tier` columns go; call tier 298 -> 297). Tests: `values/promote.test.ts`
     (the narrow shapes and their edge values, test-first), `calls/binding.test.ts`, `emit/rust/expr.test.ts`,
     `ir/walk.test.ts`; text pins in `emit/rust/{builtins,convert,expr,loops,stmt,values}.test.ts` and
@@ -5391,6 +5391,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     block-like value, a block RECEIVER `{ … }.char_at(i)` stands bare) and `lvalue` (`*v = x`). Tests: new
     `precedence.test.ts`; text pins in `expr.test.ts` and `convert.test.ts` read the bare forms (`{ … } as i16`, `self.dt3 /
     86400u32 * 86400u32`). Notes resolved (3): b7bf67b59d, c8ac3c10c1, f474d0ca12.
+    Also (lint): `place.ts` `place` split, its index step in `indexStep` (the `Printed` index forms took it past the 80-line
+    function limit, output-neutral); `scripts/check-citations.ts` drops `emit/rust/precedence.ts` from `PLANNED` (it exists).
 - [x] 7.3.9 Cast-chain simplification (u16→i32→u16).
   - Notes: e9a5cabd36.
   - Where: `lower/values/convert.ts`.
@@ -5528,21 +5530,56 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     596535f8e7 (7.5.7); 0bdcb764e7 -> d9dabdcca6, 218bbe29e3 -> 370a3c0624, 40f3b940b6 -> bf9422bc63, 4d2905bfee ->
     bb97b1e500, 8373a319d5 -> bddbcf0923, b4f42289f3 -> d2bcbac57f (7.4.4); 3654e21d7c -> e5f32531ef (7.8.6); 5714c76a1c ->
     040b00dbe8 (7.5.9); fd16368fa8 -> 9928be1401 (7.7.8).
-- [ ] 7.5.6 `&&`/`||` when neither operand holds a call (lowering marks it in the IR).
+- [x] 7.5.6 `&&`/`||` when neither operand holds a call (lowering marks it in the IR).
   - Notes: 5e5aa25221, b2d33739c5, a54ead1fbe, ec21aafede.
   - Where: `lower/expressions/operators.ts`, `emit/rust/expr.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
-- [ ] 7.5.7 De Morgan negation of loop and IF tests.
+  - Done 2026-10-10 (step 7.5b). Lowering marks it: `lower/expressions/operators.ts` `shortCircuitPou` (run by
+    `entry/lower-unit.ts` after the fold and the narrow rule, so a constant index is a position) turns a BOOL AND / OR whose
+    RIGHT operand is `quiet` into AND_THEN / OR_ELSE — the IR's short-circuit node, which the interpreter already runs
+    lazily and the Rust prints `&&` / `||`. Quiet = nothing can observe skipping it: constants, plain reads (no dereference,
+    no image, every index a position inside its array), the operators and pure builtins over them, a division only by a
+    constant proved harmless — no call, no store, nothing that can stop the task (a variable divisor, a run-time index,
+    EXPT/LN/LOG, a string helper keep the eager node, as CODESYS evaluates both sides). Tests:
+    `expressions/operators.test.ts` (which operands short-circuit), `emit/rust/expr.test.ts` (a call on the right stays `&`;
+    its old premise, "AND prints `&`" over two loads, is what this task changes). Notes resolved (11 at the step's start,
+    every 7.5.6 item): 2b02494029, 5c910ed5e5, 5d15332a3f, 85a411f8be, a29d79932d, af2043b3cc, b5563463dd, b8cfa12f5d,
+    ec21aafede, fc6c049d9d, fcab9a09d2. `needless_bitwise_bool` 152 -> 0.
+- [x] 7.5.7 De Morgan negation of loop and IF tests.
   - Notes: 1d1551a034, 50226e2c19, b736e18f55, de2f16610e, e798927653, e8a1222ae6, ed880b92a8.
   - Where: `emit/rust/expr.ts` `negated`.
   - Accept: S-out, M.
   - Depends: 7.5.4.
-- [ ] 7.5.8 Omit `if false { break; }` for WHILE TRUE / UNTIL FALSE.
+  - Done 2026-10-10 (step 7.5b). `emit/rust/expr.ts` `negated`: NOT over a BOOL AND / OR / AND_THEN / OR_ELSE is De Morgan's
+    dual over the two negated sides — eager stays eager, a short-circuit stays one, so the same sides run in the same order
+    — and `exprUnary` prints NOT of a BOOL through `negated` (a comparison flipped where the order is total, De Morgan, a
+    NOT NOT dropped). Since 7.5.4 a head test is no longer negated at all; a tail test and a NOT in an expression are. Test
+    `emit/rust/loops.test.ts` (`UNTIL i >= n AND i > 3` -> `if self.i >= self.n && self.i > 3i16 { break; }`, `NOT (i < n
+    AND i > 2)` -> `self.i >= self.n || self.i <= 2i16`). Notes resolved: the head-test items (b6487c7e6e, ce61fdb3c0,
+    a2add88910, cedd086a8e, 03999a666a, 0f2d39e083, and 596535f8e7's first item — 7.5.4's `while` resolved what they asked).
+    Re-tagged, not resolved: the six ARRAY[*]-bound notes 0.6 had filed here (shapes14_15: 09b1152bef, 22f3bd9b6d,
+    81ed699293, f06209ef9e, f7faf582da, fedbbc431c, and 596535f8e7's second item) -> 7.7.8, the task that owns the ARRAY[*]
+    bounds carried as fields (as 7.2.3 re-tagged 15_13). `nonminimal_bool` 1 -> 0.
+- [x] 7.5.8 Omit `if false { break; }` for WHILE TRUE / UNTIL FALSE.
   - Notes: 235daf8f29.
   - Where: `emit/rust/loops.ts`.
   - Accept: S-out, M (`never_loop` re-checked in 7.11.3).
   - Depends: 7.5.2.
+  - Done 2026-10-10 (step 7.5b). WHILE TRUE prints `loop {` since 7.5.4; REPEAT … UNTIL FALSE (its folded test the constant
+    TRUE) prints no `if false { break; }` (`emit/rust/loops.ts`). Test `loops.test.ts`. Notes resolved: 235daf8f29.
+    `never_loop` stays allowed (1 fixture), for 7.11.3 to re-check.
+    Step 7.5b numbers: S-out identical over 5535 fixtures against the step-start baseline but `cc5_in_out_type_mismatch`
+    (refused since 7.3a). M (against 7.5a's map): pedantic 9650 -> 9498 (`needless_bitwise_bool` 152 -> 0); surviving
+    `nonminimal_bool` 1 -> 0 (arith clean 1573 -> 1574); allowed lints unchanged; constructs 2044 -> 2036, noted 344 -> 326.
+    Re-keyed to their new lines (items kept): 040b00dbe8 -> 098f7b0911 (7.5.9), 1097a31590 -> e6f7f50fb3, 8f827d085b ->
+    9fe6c701cb, 0dd93a50d0 -> fb63e01b0f (7.4.4).
+    Gate 7.2c+7.5b (2026-10-10, after its three review fixes under 7.3.1, 7.3.4 and 7.3.6): typecheck clean;
+    `rate:fixtures` regenerated, the map byte-identical to 7.5b's (confirmed 2984, refused 2016, lsp-gap 85, diverges 9;
+    edge agree 3191, disagree 3, not-run 220); S-out (`snapshot:transpile check --layers outputs,edge`) identical over 5535
+    fixtures against the step-start baseline (HEAD 06e14b222c) but `cc5_in_out_type_mismatch` (refused since 7.3a); full
+    suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 9126 pass / 35 skip / 389 todo / 0 fail across 315 files (7.2b's
+    gate 9103 -> 9126).
 - [ ] 7.5.9 A runtime FOR step evaluated once per pass (or hoisted), only as 2.1's `for_runtime_step_changed_in_body` allows.
   - Notes: 129bb34a7e, 547ea4e920.
   - Where: `lower/statements/loops.ts`.
