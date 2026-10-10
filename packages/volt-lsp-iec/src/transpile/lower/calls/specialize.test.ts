@@ -93,3 +93,20 @@ test("an ANY input instantiates once per array type — element, bounds and nest
   p.scan()
   expect([0, 1, 2, 3, 4, 5].map((i) => p.get(`sx[${i}]`))).toEqual([8n, 10n, 8n, 8n, 12n, 8n])
 })
+
+// 7.7.11: a routine every call specialized is lowered once for the specializations to copy, and runs nowhere — it is not
+// in the POU (`ptrparam_method` printed its generic `read` beside `read_ptr_p_0` / `read_ptr_p_1`, a fn nothing calls)
+test("a generic routine every call replaced by a specialization is not in the POU", () => {
+  const pou = ir(
+    "FUNCTION_BLOCK FB_M\nVAR a : INT := 3; b : INT := 4; fa : INT; fb : INT; END_VAR\nfa := Read(p := ADR(a));\nfb := Read(p := ADR(b));\nEND_FUNCTION_BLOCK\n" +
+      "METHOD Read : INT\nVAR_INPUT p : POINTER TO INT; END_VAR\nRead := p^ * 10;\nEND_METHOD\n" +
+      "PROGRAM P\nVAR inst : FB_M; END_VAR\ninst();\nEND_PROGRAM\n",
+    "P",
+  )
+  const names = pou.routines.map((r) => r.name.toUpperCase())
+  expect(names.filter((n) => n.startsWith("FB_M.READ")).length).toBeGreaterThanOrEqual(2)
+  expect(names).not.toContain("FB_M.READ")
+  const runner = run(pou)
+  runner.scan()
+  expect(["inst.fa", "inst.fb"].map((v) => runner.get(v))).toEqual([30n, 40n])
+})

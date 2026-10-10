@@ -6,7 +6,7 @@
 import type { IrBinding, IrCall, IrInvoke, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { isPlace, type IrNode, someNode, somePlace, writtenPlaces } from "../../ir/walk.js"
 import { stringKind } from "../../../frontend/types/index.js"
-import type { Printer } from "./printer.js"
+import { type Printer, reachOfBody } from "./printer.js"
 
 /** How many places in the body write each routine-local slot (`writtenPlaces`): an in-out of a callee is written unless
  *  the callee takes it read-only (a VAR_IN_OUT CONSTANT, `IrSlot.readOnly`). */
@@ -77,6 +77,20 @@ export function deadParamsOf(pou: IrPou): ReadonlyMap<string, DeadParams> {
     if (inputs.size > 0 || inouts.size > 0) out.set(r.key, { inputs, inouts })
   }
   return out
+}
+
+/**
+ * WHETHER A ROUTINE'S FN IS `#[must_use]` (lean 7.7.13): it returns a value and can write nothing its caller sees — a
+ * FUNCTION (no `&mut self`) handed no `g`/`prg`/`__mem`, no instance lent, and every in-out it still takes lent
+ * read-only (a VAR_IN_OUT CONSTANT). Calling one for nothing is a call that does nothing: clippy's
+ * `must_use_candidate` named exactly these, and a statement that discards one prints `let _ =` (`stmt.ts`).
+ */
+export function mustUse(p: Printer, routine: IrRoutine): boolean {
+  if (routine.kind !== "function" || routine.result === undefined || (routine.lent ?? []).length > 0) return false
+  const reach = reachOfBody(p, routine.key)
+  if (reach.usesGlobals || reach.usesPrograms || reach.usesImage === true) return false
+  const dead = p.dead.get(routine.key)?.inouts
+  return routine.inouts.every((slot, i) => dead?.has(i) === true || slot.readOnly === true)
 }
 
 /** The assigned locals at a point of the body, or `dead` where control cannot reach. */

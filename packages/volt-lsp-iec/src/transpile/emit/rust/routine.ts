@@ -3,7 +3,7 @@
  * `call()`; their parameters built once (`bodyParams`).
  */
 import type { IrLayout, IrPou, IrRoutine } from "../../ir/index.js"
-import { lateInit, storedFirstAtTop, storedTwice, unreadOf, writeSites } from "./locals.js"
+import { lateInit, mustUse, storedFirstAtTop, storedTwice, unreadOf, writeSites } from "./locals.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { printTail, resultTail } from "./tail.js"
 import { fieldNames, globalsArgs, globalsParams, tmp } from "./names.js"
@@ -53,6 +53,7 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   // the gate's blind spot: what each would have excused is now decided before printing — `mut` only on what the body
   // stores again (7.7.1), `_name` for what it never uses, no initial value no read can see (`locals.ts`). And no
   // `unreachable_code`: nothing after a statement control never comes out of is printed (7.5.11, `block`).
+  if (mustUse(p, routine)) push(p, "#[must_use]", indent)
   push(p, `pub fn ${p.fnNames.get(routine.key)!}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   // the result stored by the body's last statement — or by the last of each branch of its final IF — is the tail (7.7.3)
   const tailed = resultTail(routine)

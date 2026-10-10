@@ -40,6 +40,10 @@ export const ALLOWED: Readonly<Record<string, string>> = {
     "the fixture's own literal. `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, and `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints",
   "clippy::never_loop":
     "`stmt_exit_inner` is a FOR whose body is a bare EXIT — the fixture exists to ask what EXIT does to an inner loop, so a loop that runs once is the question rather than a defect",
+  "clippy::too_many_arguments":
+    "StringUtils' STRREPLACEA (`lib_stu_replace`, `lib_stu_replace_past_len`) declares SEVEN inputs, clippy's limit, two of them `POINTER TO STRING` cursors — and a cursor is two Rust parameters, its byte offset and the string it walks (a hidden in-out, model 2), so the fn takes nine. Collapsing the pair is a cursor type carrying its capacity, which the cursor model does not have; the extra parameters are the representation, not a defect (lean 7.7.12, measured after 7.7.8; 7.4.6, still open, changes none of its parameters: they are integers and cursors, no STRING input)",
+  "clippy::missing_panics_doc":
+    "a generated fn that can stop the task — a call through a null interface, a METHOD reaching an in-out no call bound, a read through a pointer whose tag names no target — does it with `panic!(\"<the fault>\")` on the line that can fault, which IS the documentation: a `/// # Panics` block would say the same sentence again above the fn, two lines per fn over the emission (measured 2026-10-10 at lean 7.7.13: 386 fns), for a doc no generated crate renders. The runtime's own helpers do carry `/// # Panics`, written once",
   "clippy::manual_range_patterns":
     "a CASE arm's labels print as the ST wrote them. `xo2_case_ranges_over_enum` has both `1..3` and `4, 5, 6`, and they emit as `1..=3` and `4 | 5 | 6`; collapsing the second would make the Rust say something the source did not",
 }
@@ -159,6 +163,11 @@ export function splitFindings(
     const line = lineOf(parsed)
     if (line <= 0 || line > emittedLines) continue
     const group = groups.get(code)
+    // a PEDANTIC lint ALLOWED with its reason is Volt's answer too: excused, and not counted (lean 7.7.13)
+    if (group === "pedantic" && code in ALLOWED) {
+      excused.push(code)
+      continue
+    }
     if (group !== undefined) pedantic.push(code)
     // a `pedantic` lint is not in `clippy::all`, so it is not `lints`' business; a `perf` one is, and stays
     if (group === "pedantic") continue

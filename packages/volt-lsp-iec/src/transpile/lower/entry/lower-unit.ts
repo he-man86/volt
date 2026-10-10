@@ -34,6 +34,7 @@ import { representable, reversedArray } from "./checks.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType } from "../../../frontend/types/index.js"
 import { type BodyRefusal, bodyOf, calledLayout } from "../calls/routines.js"
+import { withoutReplacedGenerics } from "../calls/specialize.js"
 
 /** How many lowerings the escape pass may take to reach its fixed point (`pointers/escape.ts`): the first finds what is
  *  stored, the second lowers on that answer — and finds the same, unless a body only the answer let lower stores more. */
@@ -106,7 +107,7 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   if (refused !== undefined) return refused
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
-  const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
+  const pou: IrPou = withoutReplacedGenerics({ name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span })
   // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2), then the narrow-arithmetic
   // rule over the folded IR (`values/promote.ts` `narrowPou`, lean 3), and a quiet AND / OR short-circuits
   // (`expressions/operators.ts` `shortCircuitPou`, lean 5)

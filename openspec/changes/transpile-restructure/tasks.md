@@ -6098,25 +6098,57 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     emissions, all fixtures) 15,921,742 -> 15,883,058 bytes. Re-keyed for other tasks: b6565109d7 -> 78bb74e841 (7.8.10),
     e1e42433cd -> dfc9d07c2c (7.7.11), cc5f10430b -> 539fa9c4b6 (7.8.6); c7ca2861fc (7.7.11's, the specializations' unused
     `p`) deleted — 7.7.7 removed what it named.
-- [ ] 7.7.11 No unused generic routine beside its per-target specializations (`ptrparam_method`).
+- [x] 7.7.11 No unused generic routine beside its per-target specializations (`ptrparam_method`).
   - What: a generic routine every call site replaced by a specialization is not emitted.
   - Notes: the `ptrparam_method` note(s) tagged here by 0.6.
   - Where: `lower/calls/specialize.ts`, `emit/rust/module.ts`.
   - Accept: S-out; M (dead_code falls).
   - Depends: 7.1.2.
-- [ ] 7.7.12 `clippy::too_many_arguments` (2; StringUtils' pointer+string parameter pairs).
+  - Done 2026-10-10 (step 7.7c). `lower/calls/specialize.ts` `withoutReplacedGenerics`, applied where the POU is
+    assembled (`lower/entry/lower-unit.ts`): a routine some call specialized (a `<key>#…` beside it) that no invoke names
+    as itself is not in the POU — `ptrparam_method` prints `read_ptr_p_0` and `read_ptr_p_1` only. In lowering, so neither
+    backend holds a routine nothing runs; a routine with no specialization is untouched. Test
+    `lower/calls/specialize.test.ts` ("a generic routine every call replaced by a specialization is not in the POU", both
+    backends). Notes resolved: its 7.7.11 item (dfc9d07c2c, re-keyed there by 7.7b); dab457c859 (7.8.6, `(*x)` in that
+    generic's body) deleted with the fn it was in.
+- [x] 7.7.12 `clippy::too_many_arguments` (2; StringUtils' pointer+string parameter pairs).
   - What: after 7.4.6 and 7.7.8 re-count; if still present, either the pair collapses into one parameter (a cursor carrying its capacity)
     or the lint joins ALLOWED with that reason.
   - Where: `lower/pointers/cursor.ts`, `emit/rust/routine.ts`, or `support/transpile/lint-policy.ts`.
   - Accept: M (surviving `too_many_arguments` 0, or ALLOWED with a reason).
   - Depends: 7.4.6, 7.7.8.
-- [ ] 7.7.13 `must_use_candidate` beyond `new()` and `missing_panics_doc`.
+  - Done 2026-10-10 (step 7.7c): ALLOWED with its reason (`support/transpile/lint-policy.ts`). Re-counted after 7.7.8: 3
+    -> 2 surviving, both StringUtils' STRREPLACEA (`lib_stu_replace`, `lib_stu_replace_past_len`), `pub fn
+    strreplacea_…(pstinput: usize, uiinputbuffersize: u16, pstreplacewith: usize, ilengthinput: i16, …, __str_pstinput:
+    &mut IecString<…>, __str_pstreplacewith: &mut IecString<…>)` — nine parameters for SEVEN declared inputs (clippy's
+    limit), because each `POINTER TO STRING` cursor is two: its offset and the hidden in-out it walks (model 2). The
+    cursor does read its offset (`char_at((pstinput as i64) - 1 + …)`), so 7.7.7 does not apply; collapsing the pair is a
+    cursor type carrying its capacity that the cursor model does not have. 7.4.6 (still open) changes none of these
+    parameters — they are integers and cursors, no STRING input. Surviving `too_many_arguments` 2 -> 0 (excused 2);
+    `call` tier clean 295 -> 297.
+- [x] 7.7.13 `must_use_candidate` beyond `new()` and `missing_panics_doc`.
   - What: `#[must_use]` on every emitted fn that returns a value and writes nothing observable (from `calls/facts.ts`); for
     `missing_panics_doc`, a `/// # Panics` line on each fn that can reach a fault (from `ir/faults` kinds the body holds), or ALLOWED with
     a reason if the doc lines cost more than they tell — measured on the map and decided here.
   - Where: `emit/rust/routine.ts`, `lower/calls/facts.ts`, `support/transpile/lint-policy.ts`.
   - Accept: M (both counts fall to 0 or are ALLOWED with the recorded reason).
   - Depends: 7.7.4.
+  - Done 2026-10-10 (step 7.7c), both measured on the map. `must_use_candidate`: `emit/rust/locals.ts` `mustUse` — a
+    FUNCTION with a result, handed no `g`/`prg`/`__mem`, lent no instance, and taking every in-out it still has read-only
+    (VAR_IN_OUT CONSTANT): it can write nothing its caller sees, so its fn is `#[must_use]` (`routine.ts`; clippy's own
+    criterion, read off the facts the signature is printed from rather than `calls/facts.ts`, which holds call-site
+    facts), and a statement calling one for nothing prints `let _ = f(…);` (`stmt.ts`; 4 such statements, e.g.
+    `stmt_function_call_discarded`). `must_use_candidate` 309 -> 0; `#[must_use]` lines 20568 -> 21186 (both emissions).
+    `missing_panics_doc` (386): ALLOWED with its reason — every generated fn that can stop the task does it with
+    `panic!("<the fault>")` on the faulting line, which a `/// # Panics` block would repeat, two lines per fn, in a doc no
+    generated crate renders; the runtime's helpers carry theirs. A PEDANTIC lint the policy allows is now excused and not
+    counted (`splitFindings`; test `support/transpile/lint-policy.test.ts`), so the dead-entry refusal covers it too.
+    Test `emit/rust/routine.test.ts` ("a FUNCTION that writes nothing its caller sees is #[must_use]; one called for
+    nothing is `let _ =`"). Step 7.7c numbers: S-out identical but the 7.7b line (`oopb_fb_init_input_wrong_type` now
+    builds); M (against 7.7b's map): 379 rows changed (the `pedantic` count), 13 shapes; pedantic 2571 -> 1876;
+    surviving lints: `too_many_arguments` 2 -> 0 (allowed), allowed entries 10 -> 12; constructs 1974 -> 1968, noted 101
+    -> 99; size median 3.3 unchanged, the string fixtures up by their `#[must_use]` lines (`string_positions_low` 26.8 ->
+    27.8, sum of sizes 11504.1 -> 11525.7). Emitted Rust 15,883,058 -> 15,886,780 bytes.
 
 ### 7.8 Derives and aggregate syntax (lean 8, on model 4)
 

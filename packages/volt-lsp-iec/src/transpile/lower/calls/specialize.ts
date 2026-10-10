@@ -17,11 +17,11 @@
  * substitution is one rewrite, not a runtime choice. Anything else stays `call-inout-alias`.
  */
 
-import type { Access, IrBinding, IrRoutine, Place } from "../../ir/index.js"
+import type { Access, IrBinding, IrPou, IrRoutine, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { fieldIndex, sameStep, suffixOf } from "../places/path.js"
-import { mapPlaces } from "../../ir/walk.js"
+import { isPlace, mapPlaces, someNode } from "../../ir/walk.js"
 import { once } from "./routines.js"
 import { ZERO_SPAN } from "../core/build.js"
 
@@ -107,4 +107,20 @@ export function specializeRoutine(
   }), { quiet: true })
   if (special === undefined) throw new Error(`specialize: ${key} is cached as failed, which a specialization never is`)
   return { routine: special, inouts }
+}
+
+/**
+ * THE POU WITHOUT THE GENERICS EVERY CALL REPLACED (lean 7.7.11): a routine some call specialized (a `<key>#…` beside
+ * it) and no call invokes as itself is lowered once for the specializations to copy, and runs nowhere — `ptrparam_method`
+ * printed its generic `read` beside `read_ptr_p_0` and `read_ptr_p_1`, a fn nothing calls. A routine no call reaches
+ * that has NO specialization stays: it is the POU's own (a METHOD a caller outside it may name).
+ */
+export function withoutReplacedGenerics(pou: IrPou): IrPou {
+  const invoked = new Set<string>()
+  someNode([...pou.body, ...(pou.init ?? []), ...pou.layouts.flatMap((l) => l.body ?? []), ...pou.routines.flatMap((r) => r.body)], (n) => {
+    if (!isPlace(n) && n.kind === "invoke") invoked.add(n.routine)
+    return false
+  })
+  const replaced = (r: IrRoutine): boolean => !invoked.has(r.key) && pou.routines.some((s) => s.key.startsWith(`${r.key}#`))
+  return pou.routines.some(replaced) ? { ...pou, routines: pou.routines.filter((r) => !replaced(r)) } : pou
 }

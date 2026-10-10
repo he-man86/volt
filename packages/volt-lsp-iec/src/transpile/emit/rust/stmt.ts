@@ -12,6 +12,7 @@ import { lvalue, place } from "./place.js"
 import { guardLine, letTemp, type Printer, push } from "./printer.js"
 import { rustType } from "./types.js"
 import { storeImage } from "./image.js"
+import { mustUse } from "./locals.js"
 
 export function block(p: Printer, list: readonly IrStmt[], slots: IrPou["slots"], indent: number): void {
   if (list.length === 0) {
@@ -57,9 +58,12 @@ export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: numbe
     case "return":
       push(p, p.frame.result === undefined ? "return;" : `return ${p.frame.result};`, indent, s.span)
       return
-    case "eval":
-      push(p, `${expr(p, s.value, slots)};`, indent, s.span)
+    // a `#[must_use]` fn called for nothing (`locals.mustUse`, 7.7.13): its value is discarded by name
+    case "eval": {
+      const discarded = s.value.kind === "invoke" && mustUse(p, p.routines.get(s.value.routine)!)
+      push(p, `${discarded ? "let _ = " : ""}${expr(p, s.value, slots)};`, indent, s.span)
       return
+    }
     case "call":
       return stmtCall(p, s, slots, indent)
   }

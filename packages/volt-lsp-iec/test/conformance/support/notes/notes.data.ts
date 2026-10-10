@@ -182,8 +182,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1c82d4c275": note("7.4.6", LEAN.shapes12_11),
   // pub fn x<const T: usize>(p: usize, x: &mut IecString<T>) -> u8 {
   "902af64a6e": note("7.8.6", LEAN.shapes16_14),
-  // (*x).wrapping_mul(Li16)
-  "dab457c859": note("7.8.6", LEAN.shapes15_9),
   // pub fn x<const T: usize>(x: usize, x: &mut IecString<T>) -> i32 {
   "6fa8630036": note("7.8.6", LEAN.shapes16_14),
   // let mut x: i32 = m(x, &mut (*x)).wrapping_sub(Li32);
@@ -200,8 +198,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3eb9cb867d": note("7.4.6", LEAN.shapes16_11),
   // pub fn replace(x: IecString<L>, …, x: i16, p: i16) -> IecString<L> {
   "30fdd454d9": note("7.4.6", LEAN.shapes16_11),
-  // pub fn m(&mut self, x: &mut i16) -> i16 {
-  "dfc9d07c2c": note("7.7.11", LEAN.shapes19_9),
   // let x: i32 = i32::m(m(&mut x));
   "b0547ad22e": note("7.4.6", LEAN.shapes13_15),
   // (*x).m().wrapping_add(x.f)

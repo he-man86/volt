@@ -84,3 +84,19 @@ test("a borrowed pointer input and an unread input always handed a constant are 
   expect(code).toContain("pub fn f_live(a: i16, _unused: i16) -> i16 {")
   expect(code).toContain("f_live(self.v, self.v)")
 })
+
+// 7.7.13: `#[must_use]` on the fns that return a value and can write nothing the caller sees (clippy's
+// `must_use_candidate`), and a statement calling one for nothing discards its value by name
+test("a FUNCTION that writes nothing its caller sees is #[must_use]; one called for nothing is `let _ =`", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION Pure : INT\nVAR_INPUT a : INT; END_VAR\nPure := a + 1;\nEND_FUNCTION\nFUNCTION Writes : INT\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nWrites := v;\nEND_FUNCTION\n" +
+      "PROGRAM P\nVAR x : INT; y : INT; END_VAR\nx := Pure(1);\nPure(2);\ny := Writes(x);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("#[must_use]\npub fn pure(a: i16) -> i16 {")
+  expect(code).toContain("\npub fn writes(v: &mut i16) -> i16 {")
+  expect(code).not.toContain("#[must_use]\npub fn writes")
+  expect(code).toContain("let _ = pure(2i16);")
+})
