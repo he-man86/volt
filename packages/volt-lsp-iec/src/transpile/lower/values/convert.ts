@@ -55,9 +55,23 @@ export function convert(e: IrExpr, to: Type): IrExpr {
  */
 export function assignTo(target: Place, value: IrExpr, span: Span): IrStmt {
   if (!sameWidthStrings(value.type, target.type)) return { kind: "assign", target, value: convert(value, target.type), span }
-  if (stringCapacity(value.type) === undefined || stringCapacity(target.type) === undefined)
+  const n = stringCapacity(value.type)
+  const m = stringCapacity(target.type)
+  if (n === undefined || m === undefined)
     throw new LoweringBug(`a string store with no capacity on one side (${typeText(value.type)} into ${typeText(target.type)})`)
+  // A FRESH STRING NO WIDER THAN ITS TARGET'S BUFFER IS BUILT AT THE TARGET'S CAPACITY (lean 7.4.2): storing `m <= n`
+  // units writes every unit of the destination, so nothing of it is kept, and a value whose whole buffer is known — a
+  // literal, a number's text (zeros behind it in the model, `string_conversion_result_tail`) — is the same value built
+  // at `m`: `self.s = IecString::<m>::lit(…)`, no buffer of `n` and no store. Into a wider target the store stays: the
+  // destination keeps its units behind the `n` written (`string_assign_tail_wide`, `string_literal_nul_tail`).
+  if (m < n && fresh(value)) return { kind: "assign", target, value: value.kind === "const" ? convert(value, target.type) : { ...value, type: target.type }, span }
   return { kind: "assign", target, value, span }
+}
+
+/** A string value whose whole buffer lowering knows: a literal, or a number's (BOOL's, date's…) text — not a string
+ *  converted from another string, whose units behind the terminator are the source's. */
+function fresh(value: IrExpr): boolean {
+  return value.kind === "const" || (value.kind === "convert" && stringKind(value.value.type) === undefined)
 }
 
 /** Two STRINGs or two WSTRINGs, whatever their capacities. */

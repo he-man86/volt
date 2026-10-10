@@ -228,7 +228,7 @@ function stringCaseRust(input: StringInput): string {
   const units = (text: string): string =>
     input.wide ? `&[${[...text].map((ch) => `${ch.charCodeAt(0)}u16`).join(", ")}]` : `b"${[...text].map((ch) => `\\x${ch.charCodeAt(0).toString(16).padStart(2, "0")}`).join("")}"`
   const ops = input.ops.map((op) =>
-    "store" in op ? `s.store(&${type}::<${op.n}>::lit(${units(op.store)}));` : `s = s.with_char(${op.at}, ${op.unit}${unit});`,
+    "store" in op ? `s.store(&${type}::<${op.n}>::lit(${units(op.store)}));` : `s.set_char(${op.at}, ${op.unit}${unit});`,
   )
   return `{ let mut s = ${type}::<${input.m}>::new(); ${ops.join(" ")} format!("{:?}", s.units.iter().map(|&u| u as u32).collect::<Vec<u32>>()) }`
 }
@@ -438,7 +438,7 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     expect(g).toEqual(expected)
   }, 60_000)
 
-  test("runtime/string.ts: IecStr::store / with_char over every string case", async () => {
+  test("runtime/string.ts: IecStr::store / set_char (lean 7.4.3: `s[i] := c` in place) over every string case", async () => {
     const got = await runTwin("string_store", runtimeText("string"), STRING_CASE_LIST.map((c) => stringCaseRust(c.input)))
     expect(got).toHaveLength(STRING_CASE_LIST.length)
     expect(STRING_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(STRING_CASE_LIST.map((c) => `${c.name}: ${stringCaseUnits(c)}`))

@@ -28,7 +28,7 @@ const KEEP = new Set(
     "len is_ascii_digit push_str wrapping_add wrapping_sub wrapping_mul wrapping_div wrapping_rem wrapping_neg wrapping_abs " +
     "wrapping_shl wrapping_shr units unwrap is_empty div_euclid rem_euclid to unwrap_or parse collect is_nan is_infinite " +
     "contains map trim_end_matches to_string split_once push partial_cmp iter into filter copy_from_slice chars round " +
-    "char_at with_char as_bytes trunc rotate_left rotate_right narrow widen powf ln sin cos tan asin acos atan sqrt exp log10 " +
+    "char_at with_char set_char as_bytes trunc rotate_left rotate_right narrow widen powf ln sin cos tan asin acos atan sqrt exp log10 " +
     "clone lit iec_max iec_min iec_lreal_text iec_time_text iec_ltime_text iec_date_text iec_dt_text iec_tod_text " +
     "iec_parse_real iec_parse_int iec_civil panic INFINITY NEG_INFINITY NAN MIN MAX signum copied fold sum count " +
     "checked_add checked_sub checked_mul checked_div saturating_add saturating_sub pow trailing_zeros leading_zeros " +

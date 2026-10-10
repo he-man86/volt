@@ -69,7 +69,14 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   for (const { layout, fields: names } of layouts.values()) printLayout(p, pou, layout, names)
   printPou(p, pou, fields)
   // a FUNCTION has no instance: a free fn beside the structs
-  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
+  // one fn per name: a variant that prints as another one does is that one (`sharedVariants`)
+  const printed = new Set<string>()
+  for (const routine of pou.routines.filter((r) => r.kind === "function")) {
+    const name = p.fnNames.get(routine.key)!
+    if (printed.has(name)) continue
+    printed.add(name)
+    printRoutine(p, routine, [], [], 0)
+  }
   // the program's own image, which the runtime's `Mem` starts from (`image.ts`)
   if (pou.image !== undefined) {
     use(p, "mem")
@@ -107,9 +114,42 @@ function printerFor(pou: IrPou, options: EmitOptions) {
   const access = pou.globals.map((s) =>
     s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
   )
-  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), routineFnNames(pou.routines), { access, slots: pou.globals }, variables.length > 0, programs.length > 0, pou.image !== undefined)
-  p.loopGuard = options.loopGuard
+  const printer = (fnNames: ReadonlyMap<string, string>): Printer => {
+    const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), fnNames, { access, slots: pou.globals }, variables.length > 0, programs.length > 0, pou.image !== undefined)
+    p.loopGuard = options.loopGuard
+    return p
+  }
+  const p = printer(sharedVariants(pou, routineFnNames(pou.routines), printer))
   return { p, layouts, fields, storage }
+}
+
+/**
+ * ONE FN FOR THE VARIANTS THAT PRINT ALIKE (lean 7.4.5). A FUNCTION is lowered once per caller's string type — the
+ * interpreter cuts a cursor's store at the caller's capacity, so its IR is per capacity — but its Rust is generic over
+ * that capacity (`const N___STR_*`), so `strcmpa_pby1_string80_pby2_string30` and `…_string80` printed the same body
+ * twice. Each FUNCTION is printed alone, its own name blanked; the ones whose text is the same take the first one's name
+ * and only it is printed. Repeated until nothing merges: a body calling two variants that just merged prints alike only
+ * now. Methods are not merged: each sits in its FB's `impl`.
+ */
+function sharedVariants(pou: IrPou, names: ReadonlyMap<string, string>, printer: (fnNames: ReadonlyMap<string, string>) => Printer): ReadonlyMap<string, string> {
+  const functions = pou.routines.filter((r) => r.kind === "function")
+  let merged = names
+  for (;;) {
+    const first = new Map<string, string>()
+    const next = new Map(merged)
+    for (const routine of functions) {
+      const p = printer(merged)
+      printRoutine(p, routine, [], [], 0)
+      const own = merged.get(routine.key)!
+      // the routine's own name blanked where it stands as a whole identifier — its `pub fn` line, a recursive call
+      const text = p.lines.map((line) => line.replace(new RegExp(`\\b${own}\\b`, "g"), "_")).join("\n")
+      const same = first.get(text)
+      if (same === undefined) first.set(text, own)
+      else next.set(routine.key, same)
+    }
+    if ([...next].every(([key, name]) => merged.get(key) === name)) return merged
+    merged = next
+  }
 }
 
 /** A DUT's or FB's struct: an FB's body as its `call`, and its METHODs and ACTIONs. */

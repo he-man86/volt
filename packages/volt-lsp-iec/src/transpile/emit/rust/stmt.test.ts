@@ -77,3 +77,31 @@ test("an IF whose whole body is one more IF, neither with an ELSE, prints as one
   expect(code).toContain("if self.a {\n            if self.b {\n                self.n = 2i16;\n            } else {")
   expect(code).toContain("if self.c {\n            self.n = 4i16;\n            if self.b {")
 })
+
+// 7.4.2: a literal or a number's text stored into a NARROWER buffer is built at the target's capacity — storing m <= n units
+// writes every unit of the destination, so the value is the same and the n-buffer and the store go; into a wider buffer the
+// store stays, the destination keeping its units behind the ones written (`string_assign_tail_wide`, `string_literal_nul_tail`)
+test("a literal or a number's text into a narrower STRING is built at the target's capacity; into a wider one it is stored", () => {
+  const code = rust("PROGRAM P\nVAR s3 : STRING(3); s20 : STRING(20); s5 : STRING(5); i : INT := -1234; END_VAR\ns3 := 'abcdef';\ns20 := 'ab';\ns5 := INT_TO_STRING(i);\nEND_PROGRAM\n")
+  expect(code).toContain(`self.s3 = IecString::<3>::lit(b"abcdef");`)
+  expect(code).toContain(`self.s20.store(&IecString::<2>::lit(b"ab"));`)
+  expect(code).toContain(`self.s5 = IecString::<5>::lit(format!("{}", self.i).as_bytes());`)
+})
+
+// 7.4.3: `s[i] := c` writes one unit in place — `s.set_char(i, c)` — where `s = s.with_char(i, c)` took the string by value
+// and moved it back; a position or unit holding a call keeps `with_char` (a call there could write the string in between)
+test("`s[i] := c` is an in-place `set_char`, unless its position or unit holds a call", () => {
+  const code = rust("FUNCTION F : INT\nF := 1;\nEND_FUNCTION\nPROGRAM P\nVAR txt : STRING(10); i : INT := 2; b : BYTE := 65; END_VAR\ntxt[i] := b;\ntxt[3] := txt[i];\ntxt[F()] := b;\nEND_PROGRAM\n")
+  expect(code).toContain("self.txt.set_char(i64::from(self.i), self.b);")
+  expect(code).toContain("self.txt.set_char(3, self.txt.char_at(i64::from(self.i)));")
+  expect(code).toContain("self.txt = self.txt.with_char(i64::from(f()), self.b);")
+})
+
+// review of 7.4.3: the IR reads the target's place AND stores into it, so an index holding a call runs twice there (the
+// interpreter: `setchar(load arr[F()], …)` into `arr[F()]`); `with_char` keeps that order — the value, then the place —
+// where an in-place `set_char` would run it once, and the backends would disagree
+test("`arr[F()][i] := c` — a call in the target's own index — keeps `with_char`", () => {
+  const code = rust("FUNCTION F : INT\nF := 1;\nEND_FUNCTION\nPROGRAM P\nVAR arr : ARRAY[0..3] OF STRING(5); END_VAR\narr[F()][1] := 65;\nEND_PROGRAM\n")
+  expect(code).not.toContain(".set_char(1, 65u8)")
+  expect(code).toContain(".with_char(1, 65u8)")
+})

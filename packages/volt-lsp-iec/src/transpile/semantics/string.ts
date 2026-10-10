@@ -4,7 +4,7 @@ import { characterOutOfRange } from "../ir/faults.js"
 /**
  * ONE CHARACTER OF A STRING, as `s[i]` reads and writes it — counted from 0, a BYTE (a WSTRING's WORD). It is the
  * primitive the Standard library's string functions are written in (`libraries/Standard`). Mirrored by the emitter's
- * prelude (`IecStr::char_at` / `with_char`).
+ * prelude (`IecStr::char_at` / `set_char`).
  *
  * A STRING(n) is n + 1 bytes in CODESYS, and `s[i]` reaches every one of them — 0 to n — whatever the length
  * (recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs). The value holds the

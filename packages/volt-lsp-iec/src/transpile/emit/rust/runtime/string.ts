@@ -5,7 +5,7 @@
  * and ordering compare the used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — conformance
  * `string_compare`, `wstring_basic`).
  *
- * `char_at` / `with_char` are `s[i]`, line for line the interpreter's `charAt` / `setChar` (`semantics/string.ts`) — the one
+ * `char_at` / `set_char` are `s[i]` (`with_char` the by-value `set_char` a store whose position or unit holds a call takes), line for line the interpreter's `charAt` / `setChar` (`semantics/string.ts`) — the one
  * primitive the Standard library's ST string functions are written in.
  *
  * A TypeScript string rather than a `.rs` file: the LSP ships through `tsc`, which would not carry a text import, and it
@@ -50,8 +50,7 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
     }
     /// # Panics
     /// Outside the variable's N + 1 units, or a unit other than 0 into the terminator, as CODESYS stops the task.
-    #[must_use]
-    pub fn with_char(mut self, i: i64, c: T) -> Self {
+    pub fn set_char(&mut self, i: i64, c: T) {
         let Some(at) = usize::try_from(i).ok().filter(|&at| at < N || (at == N && c == T::default())) else {
             panic!("character {i} of a string of capacity {N}")
         };
@@ -59,6 +58,12 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
             self.units[at] = c;
         }
         self.scan();
+    }
+    /// # Panics
+    /// As \`set_char\`.
+    #[must_use]
+    pub fn with_char(mut self, i: i64, c: T) -> Self {
+        self.set_char(i, c);
         self
     }
 }

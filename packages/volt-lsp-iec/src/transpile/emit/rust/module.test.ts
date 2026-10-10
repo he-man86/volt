@@ -106,3 +106,17 @@ describe("emit/rust — two lists' globals", () => {
     expect(() => emitRust(pou!)).toThrow(/both become the Rust field `my_val`/)
   })
 })
+
+// 7.4.5: a FUNCTION lowered once per caller's argument type prints one fn where its variants print alike — here an ANY input
+// over ARRAY[0..3] and ARRAY[1..4] OF INT (`tr_42_any_array_variant_key`: same size, so the same body); the variant of
+// another size keeps its own
+test("FUNCTION variants that print alike are one fn", () => {
+  const code = rust(
+    "FUNCTION F : DINT\nVAR_INPUT v : ANY; END_VAR\nF := v.diSize;\nEND_FUNCTION\nPROGRAM P\nVAR a : ARRAY[0..3] OF INT; b : ARRAY[1..4] OF INT; c : ARRAY[0..5] OF INT; x : DINT; y : DINT; z : DINT; END_VAR\nx := F(a);\ny := F(b);\nz := F(c);\nEND_PROGRAM\n",
+  )
+  const fns = [...code.matchAll(/pub fn (f_\w+)/g)].map((m) => m[1])
+  expect(fns).toHaveLength(2)
+  expect(code).toContain(`self.x = ${fns[0]}(`)
+  expect(code).toContain(`self.y = ${fns[0]}(`)
+  expect(code).toContain(`self.z = ${fns[1]}(`)
+})

@@ -2,6 +2,7 @@
 import type { IrPou, IrStmt, Place } from "../../ir/index.js"
 import { diverges, holdsCall, sameNode } from "../../ir/walk.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
+import { setCharIn } from "./builtins.js"
 import { stmtCall } from "./calls.js"
 import { expr, head, print } from "./expr.js"
 import { at, Prec, printed } from "./precedence.js"
@@ -81,6 +82,12 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
   // a store into the image moves the value's bytes (`image.ts`)
   if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots, Prec.Block), slots), indent, s.span)
   const field = place(p, s.target, slots)
+  // `s[i] := c` changes one unit of the place it reads (7.4.3): in place, where neither the position nor the unit holds a
+  // call — a call there could write the string between the read `with_char` takes and its store back — nor the place's
+  // own index: the IR reads the place and stores into it, so such a call runs twice, as `with_char` keeps it (review)
+  const v = s.value
+  if (v.kind === "builtin" && v.name === "setchar" && v.args[0]!.kind === "load" && sameNode(v.args[0]!.place, s.target) && !holdsCall(s.target) && !holdsCall(v.args[1]!) && !holdsCall(v.args[2]!))
+    return push(p, setCharIn(p, v, field, slots), indent, s.span)
   const bit = s.target.path.at(-1)
   if (bit?.kind !== "bit") {
     const value = print(p, s.value, slots)

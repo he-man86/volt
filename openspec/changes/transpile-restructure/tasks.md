@@ -5656,30 +5656,96 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     remaining half re-owned — shapes2_6 (a literal built at its own capacity) → 7.4.2, shapes7_7 (a compare builds the
     literal) → 7.4.9; 7.4.2's shapes15_1 (the assign's second copy) removed with them. The Notes list above is the
     2026-09-29 census (its ids were re-keyed at 3.6).
-- [ ] 7.4.2 Literals and conversion results built at the target capacity, no `.to::<N>().to()`.
+- [x] 7.4.2 Literals and conversion results built at the target capacity, no `.to::<N>().to()`.
   - Notes: 803ee89d4f, 4eeb332195, 7030300a1b, 90e7185468, 7587dbd531, 54e36b572f, c689147e80.
   - Where: `lower/values/literals.ts`, `builtins/conversions.ts`.
   - Accept: S-out, M.
   - Depends: 7.4.1.
-- [ ] 7.4.3 An in-place `set_char` for `s[i] := c`.
+  - Done 2026-10-10 (step 7.4a). What was left after 3.6 (no assign prints `.to()` any more, 7.4.1): a fresh string stored
+    into a NARROWER buffer. `lower/values/convert.ts` `assignTo`: a literal, or a number's / BOOL's / date's text (a
+    `convert` from a non-string, zeros behind its text in the model), stored into a target of capacity m < n is built AT m —
+    storing m <= n units writes every unit of the destination, so it is the same value with no n-buffer and no store:
+    `self.s3 = IecString::<3>::lit(b"abcdef");`, `self.s5 = IecString::<5>::lit(format!("{}", self.i).as_bytes());`.
+    Into a WIDER buffer the store stays, measured: the destination keeps its units behind the n written
+    (`string_assign_tail_wide`, `string_literal_nul_tail`), so a literal built at the target's capacity — what the notes
+    proposed — would zero them; that half of shapes2_6 rested on the pre-model-2 copy and is closed by the recordings.
+    The `lit(..).to::<12>().to()` double copy (shapes9_2) no longer exists. Test `emit/rust/stmt.test.ts` ("a literal or a
+    number's text into a narrower STRING is built at the target's capacity; into a wider one it is stored"). Lines printed
+    `= IecString::<m>::lit(…)` 201 -> 228. Notes resolved: 3d5ad9c649, 5d9850550d, 85e51471f9, 8b6ecf477b, 8c1b866176,
+    94c11e8f56, b5a9bef60f, c867edb1d3, dc277bd73f, e763b5dd7a; 8232a1cf7c (7.7.3's, on a literal store this turned into an
+    assignment) deleted as the duplicate of 1b6d6589aa, the same item on the construct that replaced it.
+- [x] 7.4.3 An in-place `set_char` for `s[i] := c`.
   - Notes: 234c4da721, 7566f32b5e, f0973f1bcc, c05be29130, 318cfd770d, 0205cf3af0.
   - Where: `runtime/string.ts`, `emit/rust/stmt.ts`.
   - Accept: twin test, S-out, M.
   - Depends: 7.4.1.
-- [ ] 7.4.4 A cursor read borrows, with one guard per statement.
+  - Done 2026-10-10 (step 7.4a). `runtime/string.ts`: `IecStr::set_char(&mut self, i, c)` — the bounds rule and the re-scan
+    `with_char` had, in place; `with_char` is now `set_char` on its by-value copy. `emit/rust/stmt.ts`: an assign whose value
+    is `setchar` of a load of the target itself prints `place.set_char(i, c);` (`builtins.ts` `setCharIn`, the position and
+    unit as `setchar` prints them) — where neither the position nor the unit holds a call; one that does keeps `place =
+    place.with_char(i, c)` (a call there could write the string between the read and the store; 0 fixtures). Twin test:
+    `runtime-twins.test.ts` runs every `string.cases.ts` character store through `set_char` ("IecStr::store / set_char");
+    `shape.ts` KEEPs `set_char` beside `with_char`. Test `emit/rust/stmt.test.ts` ("`s[i] := c` is an in-place `set_char`…").
+    `set_char` stores in 77 fixtures (320 lines), `with_char` outside the runtime 0. Notes resolved: every 7.4.3 item
+    (0083e23f5d, 0902b5aab2, 1269587afd, 1f9fa1b093, 24bc96f6ef, 36008e7af0, 677d89783c, 7ddac4a7c9, 835426dcf7,
+    91d16a25e9, 9fd3779ba6, 9fdc650db1, a73d328be6, bac3e14ed9, ccbeb13506, f805b67b30, f8a426ca96, and 7dc2652e1b's
+    shapes17_2 item); the two shapes17_4 items 0.6 filed here (7dc2652e1b, a31de5f5e1 — every argument hoisted into a
+    `let __arg_N`) re-tagged to 7.6.6, the task that owns argument hoisting.
+  - Review fix (gate 7.5c+7.7a, 2026-10-10): the `set_char` fast path also requires no call in the TARGET's own index
+    (`!holdsCall(s.target)`). The IR reads the place and stores into it (`setchar(load arr[F()], …)` into `arr[F()]`), so
+    the interpreter — and `with_char`, value first, then the place — runs such a call twice, where `set_char` ran it once:
+    `arr[F()][1] := 65` gave k=1 in the Rust and k=2 in the interpreter. Both backends agree again (with_char kept there);
+    whether CODESYS evaluates that index once — the IR's double read would then be the defect — is unrecorded, 0
+    occurrences in the corpora. Test `emit/rust/stmt.test.ts` ("`arr[F()][i] := c` — a call in the target's own index —
+    keeps `with_char`"), red before the fix.
+- [x] 7.4.4 A cursor read borrows, with one guard per statement.
   - Notes: 211808ca56, 5c499dbdc8, e6075a580f, 4fb82cd93a.
   - Where: `emit/rust/place.ts`, `lower/pointers/cursor.ts`.
   - Accept: S-out, M.
   - Depends: 7.4.1, 7.9.3.
-- [ ] 7.4.5 Cursor and ANY variants keyed by width, not capacity (lean 4.5).
+  - Done 2026-10-10 (step 7.4a). `emit/rust/builtins.ts` `cursorRead`: a character read through a cursor puts the
+    pointer's check around the whole read — `{ iec_deref(p); (*__str_p).char_at(i) }` — where `{ iec_deref(p); *__str_p
+    }.char_at(i)` moved a copy of the whole string out of the block to read one unit (an O(n·N) walk in StrLenA, StrCmpA,
+    TRIM…). The check still runs first and the position after it; a position holding a call keeps the old form (it could
+    move the pointer), and a read the statement's own line checked prints bare, as before (`Printer.checked`, lean 9.3 —
+    the "one guard per statement" half was already true for every store). 54 reads in 14 fixtures. Tests: S-out (every
+    `lib_stu_*` / `lib_prim_*` cursor fixture identical in both backends). Notes resolved: every 7.4.4 item (3d337519be,
+    34556679d4, 370a3c0624, 3fd655d7c6, 5c499dbdc8, 6e06410746, 8539587ea0, 9055680d64, 9fe6c701cb, a39c1efab6,
+    bb97b1e500, bddbcf0923, bf9422bc63, caa3742527, d2bcbac57f, d9dabdcca6, dbdc75774e, e6f7f50fb3, f9137fddeb,
+    fb63e01b0f, and 0902b5aab2, 7ddac4a7c9, 9fd3779ba6, bac3e14ed9 with 7.4.3) — the shapes16_5 ones (a comparison in DINT)
+    were already printed in the operands' type since 7.3a; ca823a2c56 and ef4db7eb51 keep only their 7.8.4 / 7.7.7 item.
+- [x] 7.4.5 Cursor and ANY variants keyed by width, not capacity (lean 4.5).
   - Where: `lower/calls/variants.ts`.
   - Accept: S-out; M (fewer duplicate fns).
   - Depends: 6.16.
+  - Done 2026-10-10 (step 7.4a), at the emitter, not the key. The variant key stays per capacity: the INTERPRETER needs it —
+    a cursor's store is cut at the caller's capacity, which its IR carries per variant (`pointers/state.ts` `cursors`), and
+    `cursor-overrun` is judged with it. Only the Rust is the same for every capacity (generic over `const N___STR_*`).
+    `emit/rust/module.ts` `sharedVariants`: each FUNCTION is printed alone with its own name blanked; variants whose text
+    is the same take the first one's name and only it is printed (repeated until nothing merges, so a body calling two
+    variants that just merged merges too). Methods are not merged (each sits in its FB's `impl`). Duplicate routine bodies
+    in the emission 5 -> 0 (`lib_stu_compare`, `lib_stu_wide`, `lib_stu_mid`, `lib_prim_string_cursor_offset`,
+    `tr_42_any_array_variant_key`; measured over the rust snapshot). Test `emit/rust/module.test.ts` ("FUNCTION variants
+    that print alike are one fn"). Notes resolved: 256218c83c, 311bf0f5b7, 3eed014822, 7db062ce2f, 9c1d0c1a6e,
+    ca94bceedc, and b7cc1b2b1d's shapes13_16 item (its 7.7.1 item stays).
+    Step 7.4a numbers (7.4.2-7.4.5; 7.4.6 left open): S-out (`snapshot:transpile check --layers rust,outputs,edge` against
+    the baseline written at 7.5c's start, HEAD 9fb7c9a4d0) — outputs and edge byte-identical over 5535 fixtures; the rust
+    layer differs in 395 (`set_char` in the string runtime every string fixture prints). M (against 7.5c's map): pedantic
+    9498 -> 9479 (`cast_possible_wrap` 301 -> 285, `missing_panics_doc` 389 -> 386); surviving and allowed lints unchanged;
+    size median 3.1, the ten largest unchanged; constructs 2033 -> 2032, noted 324 -> 270.
 - [ ] 7.4.6 Read-only Standard string inputs by `&IecStr<N>`, and a LEN_INTERNAL primitive (`units().len()`).
   - Notes: 185a887a57, 7a85af3c04, cbcde0e5de, dea089f2fd, 21ef64a1e0, 811c8ccd59, 3cacc7bfac, 9c8d21e237, 83ed1aab47, b592939dbf, c001fbb3b1.
   - Where: `lower/calls/binding.ts`, `libraries/Standard/*`.
   - Accept: S-out; `test/libraries` green; M.
   - Depends: 7.4.1.
+  - NOT DONE in step 7.4a (2026-10-10) — left open, nothing of it built. Measured why it is not a lean of the size of the
+    others: (1) LEN_INTERNAL cannot become `VAR_IN_OUT CONSTANT` — its declaration is held to the five corpora's
+    materialization (`test/libraries/repo.test.ts`), where it is a plain VAR_IN_OUT; so the `units().len()` primitive is a
+    new IR builtin with an interpreter twin, and lowering must recognize the call (`libraries/index.ts` says the only
+    primitives are `s[i]` and `TIME()`, which this changes). (2) A read-only input by `&IecStr<N>` is a different program
+    wherever a body reads `STR[k]` past the caller's capacity N: the 255-copy reads 0 there, `char_at` on N panics — every
+    Standard body has to be proven to read only below LEN_INTERNAL first, and a caller wider than 255 still needs the copy
+    (`string_input_truncation`). Both need their own design note before code.
 - [ ] 7.4.7 An empty-string initializer prints `new()`.
   - Notes: e6646a0bd0.
   - Where: `emit/rust/values.ts`.

@@ -7,6 +7,8 @@ import { at, Prec, printed, type Printed } from "./precedence.js"
 import { mem } from "./image.js"
 import { tmp } from "./names.js"
 import { type Printer, use } from "./printer.js"
+import { place } from "./place.js"
+import { holdsCall } from "../../ir/walk.js"
 import { isString, rustType } from "./types.js"
 
 /** The one-argument math functions → their `f64` method. LOG is base 10 in IEC. */
@@ -24,6 +26,8 @@ const RUST_MATH: Readonly<Record<IrMathName, string>> = {
 }
 
 export function exprBuiltin(p: Printer, e: Extract<IrExpr, { kind: "builtin" }>, slots: IrPou["slots"]): Printed {
+  const borrowed = cursorRead(p, e, slots)
+  if (borrowed !== undefined) return borrowed
   const raw = e.args.map((a) => print(p, a, slots))
   // an argument as a RECEIVER (`args`), where `(-1i32).abs()` is not `-1i32.abs()`, or standing alone (`argv`)
   const args = raw.map((a) => at(a, Prec.Postfix))
@@ -36,6 +40,25 @@ export function exprBuiltin(p: Printer, e: Extract<IrExpr, { kind: "builtin" }>,
   return printer(e, args, argv, p, raw)
 }
 
+/**
+ * A CHARACTER READ THROUGH A CURSOR BORROWS (lean 7.4.4): the pointer's check wraps the whole read —
+ * `{ iec_deref(p); (*x).char_at(i) }` — where `{ iec_deref(p); *x }.char_at(i)` moved a copy of the whole string out of
+ * the block to read one unit of it (a string walk was O(n·N)). The string is read after the check exactly as before, and
+ * the position after it; a position holding a call keeps the old form (the call could move the pointer). Undefined
+ * for any other builtin, or a read the statement's own line already checked (`Printer.checked`), which prints bare.
+ */
+function cursorRead(p: Printer, e: Extract<IrExpr, { kind: "builtin" }>, slots: IrPou["slots"]): Printed | undefined {
+  const text = e.args[0]
+  if (e.name !== "char" || text?.kind !== "load" || text.place.guard === undefined || holdsCall(e.args[1]!)) return undefined
+  const pointer = place(p, text.place.guard, slots)
+  if (pointer === p.checked) return undefined
+  const outer = p.checked
+  p.checked = pointer
+  const read = exprBuiltin(p, e, slots)
+  p.checked = outer
+  return printed(`{ ${use(p, "iec_deref")}(${pointer}); ${at(read, Prec.Block)} }`, Prec.Postfix)
+}
+
 /** A builtin's printer: the node, its arguments as receivers (`args`), standing alone (`argv`) and as printed (`raw`). */
 type BuiltinPrinter = (e: Extract<IrExpr, { kind: "builtin" }>, args: readonly string[], argv: readonly string[], p: Printer, raw: readonly Printed[]) => Printed
 
@@ -43,6 +66,20 @@ type BuiltinPrinter = (e: Extract<IrExpr, { kind: "builtin" }>, args: readonly s
 const call = (text: string): Printed => printed(text, Prec.Postfix)
 /** `castTo`'s answer standing alone — an argument. */
 const arg = (r: Printed): string => at(r, Prec.Block)
+
+/** `s[i]`'s position, the second argument of `char` / `setchar`: an `i64`, a constant printed bare (7.2.3). */
+const position = (e: Extract<IrExpr, { kind: "builtin" }>, raw: readonly Printed[]): string =>
+  `${constPosition(e.args[1]!) ?? arg(castTo(raw[1]!, e.args[1]!.type, "i64", e.args[1]))}`
+
+/**
+ * `s[i] := c` IN PLACE (lean 7.4.3): `s.set_char(i, c)` on the place itself — one bounds check and one unit written —
+ * where `with_char` took the string by value, changed it and moved it back. The position and the unit as `setchar`
+ * prints them.
+ */
+export function setCharIn(p: Printer, e: Extract<IrExpr, { kind: "builtin" }>, receiver: string, slots: IrPou["slots"]): string {
+  const raw = e.args.map((a, i) => (i === 0 ? printed(receiver, Prec.Postfix) : print(p, a, slots)))
+  return `${receiver}.set_char(${position(e, raw)}, ${at(raw[2]!, Prec.Block)});`
+}
 
 // A STRING has no `Ord`, only the cross-length `PartialOrd` the prelude defines, so `.max()` does not
 // resolve on one (E0599 — the error that had MAX over a STRING refused in the first place). `iec_max`
@@ -138,8 +175,8 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // operand itself, decided in lowering (7.3.4)
   abs: (e, args) => call(isReal(e.type) ? `${args[0]}.abs()` : `${args[0]}.wrapping_abs()`),
   // a constant position prints bare: the parameter is an i64 (7.2.3)
-  char: (e, args, _argv, _p, raw) => call(`${args[0]}.char_at(${constPosition(e.args[1]!) ?? arg(castTo(raw[1]!, e.args[1]!.type, "i64", e.args[1]))})`),
-  setchar: (e, args, argv, _p, raw) => call(`${args[0]}.with_char(${constPosition(e.args[1]!) ?? arg(castTo(raw[1]!, e.args[1]!.type, "i64", e.args[1]))}, ${argv[2]})`),
+  char: (e, args, _argv, _p, raw) => call(`${args[0]}.char_at(${position(e, raw)})`),
+  setchar: (e, args, argv, _p, raw) => call(`${args[0]}.with_char(${position(e, raw)}, ${argv[2]})`),
   // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
   address_order: (_e, _args, argv, p) => call(`${mem(p, "order")}(${argv[0]}, ${argv[1]})`),
   ln: logarithm,

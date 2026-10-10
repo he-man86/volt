@@ -4,7 +4,7 @@
  * a source buffer (`storeString`, the source's capacity `n`) and the `s[i] := c` character stores (`setChar`). Its answer
  * is the whole buffer, the units behind the terminator included. `string.test.ts` runs the table against
  * `semantics/string.ts`; the twin harness (`test/conformance/runtime-twins.test.ts`) runs it through rustc against
- * `IecStr::store` / `with_char`, and holds every case's `seen` to its recording — each unit a fixture dumped through `s[i]`,
+ * `IecStr::store` / `set_char`, and holds every case's `seen` to its recording — each unit a fixture dumped through `s[i]`,
  * each string and length it recorded — so the table cannot drift from the oracle.
  */
 
