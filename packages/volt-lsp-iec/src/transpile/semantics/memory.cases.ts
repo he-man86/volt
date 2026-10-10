@@ -13,14 +13,14 @@ import type { Case } from "./cases.js"
 export type MemoryType = "BOOL" | "BYTE" | "SINT" | "WORD" | "INT" | "DWORD" | "DINT" | "REAL" | "LINT" | "LREAL"
 
 /** A store of `value` as `type` at `at` bytes from `IMAGE_BASE`. */
-export interface MemoryStore {
+interface MemoryStore {
   readonly type: Exclude<MemoryType, "REAL" | "LREAL">
   readonly at: number
   readonly value: bigint | boolean
 }
 
 /** What a case asks of the image once its stores ran. */
-export type MemoryRead = { readonly load: MemoryType; readonly at: number } | { readonly order: readonly [number, number] }
+type MemoryRead = { readonly load: MemoryType; readonly at: number } | { readonly order: readonly [number, number] }
 
 export interface MemoryInput {
   readonly stores: readonly MemoryStore[]

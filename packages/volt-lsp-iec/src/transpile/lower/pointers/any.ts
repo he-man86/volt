@@ -45,7 +45,7 @@ export const anyInputsOf = routineFacts<ReadonlySet<number>>()
 export const ANY_TARGET = "__any_"
 
 /** The prefix of the hidden POINTER input an ANY input is given where its `pValue` is an image address. */
-export const ANY_ADDRESS = "__anyadr_"
+const ANY_ADDRESS = "__anyadr_"
 
 /** `pValue`'s type: the compiler's `__SYSTEM.AnyType.pValue` (`frontend/types/system.ts`). */
 const PVALUE: Type = { kind: "pointer", target: elementaryRef("BYTE") }
@@ -64,13 +64,13 @@ export const anyHolder = (routineKey: string, input: string): Holder => ({
 
 /** Whether the variant `routineKey`'s ANY input `input` is handed an address: a body stored its `pValue` into a pointer
  *  that holds addresses (an earlier lowering found it, `escape.noteAnyAddress`) and no call site's argument made it a tag. */
-export function anyByAddress(lw: Lowering, routineKey: string, input: string, span: Span): boolean {
+function anyByAddress(lw: Lowering, routineKey: string, input: string, span: Span): boolean {
   const holder = anyHolder(routineKey, input)
   return escapesOf(lw).anyAddresses.has(holder.key!) && holderHoldsAddresses(lw, holder, span)
 }
 
 /** Each variant's ANY inputs handed an address, to the index in its `inputs` of the hidden POINTER input. */
-export const anyAddressInputsOf = routineFacts<ReadonlyMap<string, number>>()
+const anyAddressInputsOf = routineFacts<ReadonlyMap<string, number>>()
 
 /**
  * The hidden POINTER inputs of the ANY inputs this variant is handed an address for (`anyByAddress`), appended to `inputs`.

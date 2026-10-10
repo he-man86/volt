@@ -293,7 +293,7 @@ export const EXPT_CASES: readonly Case<ExptInput, number | "stop">[] = [
 ]
 
 /** A 64-bit integer converted to REAL. */
-export interface IntToRealInput {
+interface IntToRealInput {
   readonly from: "LINT" | "ULINT" | "LWORD"
   readonly value: bigint
 }

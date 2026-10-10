@@ -14,7 +14,7 @@ import { IEC_DEREF, MEM } from "./pointer.js"
 import { IEC_STR } from "./string.js"
 import { TEXT } from "./text.js"
 
-export type RuntimeId =
+type RuntimeId =
   | "string"
   | "iec_max_min"
   | "text"

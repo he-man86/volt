@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { emitRust } from "./index.js"
-import { globalsArgs, globalsParams, snake, tmp } from "./names.js"
+import { globalsArgs, globalsParams, snake, TEMP_PURPOSES, tmp } from "./names.js"
 import { lowerSource } from "../../lower/index.js"
 
 function rust(src: string): string {
@@ -170,6 +172,16 @@ test("a generated temporary is `__<purpose>`, numbered as `__<purpose>_<n>`", ()
     "__guard_3",
     "__lent_1",
   ])
+})
+
+test("every printer temporary's purpose is a row of TEMP_PURPOSES, and every row is used (7.10.3)", () => {
+  const dir = import.meta.dir
+  const used = new Set(
+    readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && !f.includes(".test."))
+      .flatMap((f) => [...readFileSync(join(dir, f), "utf8").matchAll(/\btmp\("(\w+)"/g)].map((m) => m[1]!)),
+  )
+  expect([...used].sort()).toEqual(Object.keys(TEMP_PURPOSES).sort())
 })
 
 test("`g` and `prg` as arguments and as parameters — one list, in that order, as far as the program has them", () => {

@@ -4812,26 +4812,56 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.10 Transpiler source cleanup (leftovers after 1.7)
 
-- [ ] 7.10.1 Verify lean 10.1 (EXTENDS, holdsFbInit/reaches), 10.3 (convertValue) and 10.4 (every orphan doc named in the maps,
+- [x] 7.10.1 Verify lean 10.1 (EXTENDS, holdsFbInit/reaches), 10.3 (convertValue) and 10.4 (every orphan doc named in the maps,
   incl. the old `infer` module's :258, deleted by 1.1.13) are dissolved.
   - Where: `src/transpile/**`, `src/types/**`.
   - Accept: a grep list is empty.
   - Depends: 1.9.4.
-- [ ] 7.10.2 One typed const fold (lean 10.2).
+  - Done 2026-10-10 (step 7.10). The grep list is empty: no hand-written EXTENDS walk in `src/transpile/**` or
+    `src/frontend/types/**` (`for (let … extends|baseScope` / `while (… extends|baseScope`: none; 1.7.3's `core/chain.ts`
+    holds them), no `holdsFbInit` or second `reaches` walk (1.7.13's `reachesFbInit`; `statements/case.ts`'s `reaches` is
+    a CASE label's own), one `convertValue` (`semantics/convert.ts`, read by `interp/machine.ts` and `semantics/fold.ts`;
+    no `fit(coerce(…))` outside it and its tests), and no `infer.ts` (dissolved by 1.1.13). Orphan docs, by a scan for a
+    `/** … */` followed by a blank line, another comment or a `}`: two found and dissolved — `emit/rust/module.ts`'s stale
+    "1-based emitted line" doc stacked on `sourceMap`'s own, and `lower/calls/binding.ts`'s line comment between
+    `holding`'s doc and its declaration (folded into the doc). No section banner is left.
+- [x] 7.10.2 One typed const fold (lean 10.2).
   - What: `foldBigInt` and `foldNumber` merge into one width-carrying fold, sharing the identifier resolver between `constancyOf` and `fold`.
   - Where: `types/const/fold.ts`, `types/const/constancy.ts`.
   - Accept: G+LSP; S-out; `fold-agreement.test.ts` unchanged or better.
   - Depends: 6.1, 6.A.20, 6.A.29.
-- [ ] 7.10.3 The `transpile/index.ts` doc carries the rule only (no numbers or taxonomy copy); `emit/rust/index.ts`'s temp list is
+  - Done 2026-10-10 (step 7.10). `foldBigInt` and `foldNumber` are one `ARITHMETIC` table in `types/const/fold.ts`:
+    each operator once, its integer rule and its real rule side by side (no real rule: MOD, AND, OR, XOR do not fold on
+    a real); two integers fold exactly as bigint, a real on either side folds both as a number, the width the wider
+    operand's (`fold`'s `binary`, unchanged). The identifier resolver was already shared: `constancy.ts` reads
+    `constancyIn`, the same walk (`fold`/`constRef`/`symbolValue`), since frontend-conformance 4.6.2. `fold.test.ts` +
+    `constancy.test.ts` + `fold-agreement.test.ts` 41 / 0, unchanged. S identical (below). Left to the gate: the LSP
+    corpus gate and the build-conformance oracle (G+LSP).
+- [x] 7.10.3 The `transpile/index.ts` doc carries the rule only (no numbers or taxonomy copy); `emit/rust/index.ts`'s temp list is
   generated from `names.ts` purposes.
   - Where: `transpile/index.ts`, `emit/rust/index.ts`, `names.ts`.
   - Accept: G.
   - Depends: 1.9.4.
-- [ ] 7.10.4 `dead-exports.ts --scope src/transpile` (filtered, design.md §8) finds nothing.
+  - Done 2026-10-10 (step 7.10). `transpile/index.ts`'s doc states the input contract and the reach contract and points
+    at `lower/diagnostics/codes.ts` (the refusal codes and kinds) and `test/corpus/corpus.test.ts` (`REACH`, `ROUTINES`)
+    for the figures — no number and no refusal list is copied; `corpus.test.ts`'s comments and the REACH test's title
+    say the figures live there alone ("REACH — the documented figures are what the corpus measures"). `names.ts`
+    `TEMP_PURPOSES` is the table of every printer temporary's purpose (18 rows), `tmp` takes only a `TempPurpose`, and
+    `emit/rust/index.ts`'s INTERNAL list names that table and `lower/core/temps.ts` instead of a hand list (which still
+    named `__c`, `_chain_value_N` and `_property_N`, none printed any more). New `names.test.ts` test: every `tmp("…")` in
+    the printers is a row and every row is used.
+- [x] 7.10.4 `dead-exports.ts --scope src/transpile` (filtered, design.md §8) finds nothing.
   - Where: `src/transpile/**`.
   - Accept: G; empty list.
   - Depends: 7.10.1.
 
+  - Done 2026-10-10 (step 7.10). The list was 11 names (+ 7.10.3's `TempPurpose`), each read only inside its own file:
+    `RuntimeId`, `ANY_ADDRESS`, `anyByAddress`, `anyAddressInputsOf`, `addressKey`, `refusedStores`, `MemoryStore`,
+    `MemoryRead`, `imageSize`, `IntToRealInput`, `StringOp` — their `export` dropped (the declaration build,
+    `tsc -p tsconfig.build.json --emitDeclarationOnly`, is clean). Now "no finding", pinned by a new
+    `scripts/dead-exports.test.ts` test over the real tree; the scanner reads each file's words once (`packageTexts`),
+    8 s -> 0.6 s. Step 7.10: S identical over 5535 fixtures (`snapshot:transpile check`, all layers, against the
+    step-start baseline written at 00996a7db0).
 ### 7.1 Prelude on demand (lean 1; dead_code 5658, uninlined_format_args 4192, format_push_string 1048, many_single_char_names 527)
 
 - [ ] 7.1.1 The registry has real dependencies.

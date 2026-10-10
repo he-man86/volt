@@ -553,9 +553,9 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // ─── question 3: lowering is total ───────────────────────────────────────────────────────────────────────────
 
 /**
- * THE DOCUMENTED REACH, from `src/transpile/index.ts`. When a change moves these, update BOTH — the number in
- * `index.ts` is the contract a reader sees, and this is what keeps it true. They are exact rather than a floor on
- * purpose: a floor lets the documented figure rot quietly upward while still "passing".
+ * THE DOCUMENTED REACH — `src/transpile/index.ts` states the rule and points here, the one place the figures live
+ * (transpile-restructure 7.10.3). They are exact rather than a floor on purpose: a floor lets the documented figure rot
+ * quietly upward while still "passing".
  */
 // 55 -> 56 and 543/14 -> 549/20 on 2026-09-20: a declaration-level `REF=` (`r : REFERENCE TO T REF= x`) now binds
 // its target. The parser accepted the operator and did not record WHICH one it was, so every such declaration
@@ -699,11 +699,11 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
     expect(pass().throws).toEqual([])
   }, LOWERING_TIMEOUT)
 
-  test(`REACH — the figures src/transpile/index.ts quotes are what the corpus measures`, () => {
+  test(`REACH — the documented figures are what the corpus measures`, () => {
     const p = pass()
     console.log(`  [lowering] ${p.lowered}/${p.bodies} POUs with a body lower; ${p.routines} routines, ${p.routinesFromRunning} of them from a POU that runs`)
-    // If this fails after a deliberate coverage change, update BOTH these constants and the paragraph in
-    // `src/transpile/index.ts`. The documented reach is a contract a reader relies on; a plan for this very
+    // If this fails after a deliberate coverage change, update these constants (the figures live here alone;
+    // `src/transpile/index.ts` states the rule). The documented reach is a contract a reader relies on; a plan for this very
     // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
     expect({ bodies: p.bodies, lowered: p.lowered }).toEqual(REACH)
     expect({ routines: p.routines, routinesFromRunning: p.routinesFromRunning }).toEqual(ROUTINES)

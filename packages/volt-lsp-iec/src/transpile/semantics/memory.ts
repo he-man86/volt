@@ -30,7 +30,7 @@ export function elementarySize(t: Type): number | undefined {
 }
 
 /** A type's bytes in the image: an elementary one's, an array's elements, a struct's measured size (`IrLayout.size`). */
-export function imageSize(t: Type, layouts: ReadonlyMap<string, IrLayout>): number | undefined {
+function imageSize(t: Type, layouts: ReadonlyMap<string, IrLayout>): number | undefined {
   const own = elementarySize(t)
   if (own !== undefined) return own
   const array = peelArray(t)

@@ -148,7 +148,7 @@ export function noteCopy(lw: Lowering, to: Holder, from: Holder): void {
 
 /** A pointer variable's key: its own frame's (`pointerKey`), or — for a field reached from outside its instance — the
  *  key its own FB's bodies give it (`FB:<type>.<field>`). Undefined for a pointer kept nowhere a store can name. */
-export function addressKey(lw: Lowering, pointer: Place): string | undefined {
+function addressKey(lw: Lowering, pointer: Place): string | undefined {
   const own = pointerKey(lw, pointer)
   if (own !== undefined) return own
   const last = pointer.path.at(-1)

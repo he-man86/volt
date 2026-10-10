@@ -142,7 +142,7 @@ export function seedTargets(shared: Shared, seed: ReadonlyMap<string, readonly P
  * address was stored into it", which was false — one was stored, and refused — and the pointer census counted every
  * such knock-on as a cross-frame blocker (transpile-restructure 4b, gate review of 4.1).
  */
-export const refusedStores = sharedState(() => new Map<string, string>())
+const refusedStores = sharedState(() => new Map<string, string>())
 
 /** Remember that the store into `key` was refused, by the first diagnostic `lw` added at index `from` or later. */
 export function noteRefusedStore(lw: Lowering, key: string, from: number): undefined {

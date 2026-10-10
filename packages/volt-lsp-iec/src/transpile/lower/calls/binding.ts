@@ -23,8 +23,8 @@ import { refuseCursorOverrun } from "../pointers/cursor.js"
 export const shadowedInOutsOf = frameState(() => new Set<string>())
 
 /** What a call already holds: its instance, each in-out bound to a place, and the place each copy is written back to. The
- *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back). */
-// an in-frame binding lends nothing — it is a path into the instance, which is held already
+ *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back).
+ *  An in-frame binding lends nothing — it is a path into the instance, which is held already. */
 export const holding = (instance: Place | undefined, bindings: readonly (IrBinding | InFrame | undefined)[]): Place[] => [
   ...(instance === undefined ? [] : [instance]),
   ...bindings.flatMap((b) => (b === undefined || isInFrame(b) ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),

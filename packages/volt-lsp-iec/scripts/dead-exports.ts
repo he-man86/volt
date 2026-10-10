@@ -59,14 +59,16 @@ export interface Row {
 /** Every export declared in `src/` (not in a test), with how many other files of each kind mention it. */
 export function exportRows(texts: ReadonlyMap<string, string>): Row[] {
   const rows: Row[] = []
+  // each file's words once (`\bname\b` for a word `name` is exactly membership here) — a regex per export per file
+  // took 8 s over the package
+  const words = new Map([...texts].map(([f, text]) => [f, new Set(text.match(/\w+/g))]))
   for (const [file, body] of texts) {
     if (!file.startsWith("src/") || isTest(file)) continue
     for (const m of body.matchAll(EXPORT)) {
       const name = m[1]!
-      const used = new RegExp(`\\b${name}\\b`)
       const row: Row = { name, file, src: 0, test: 0, script: 0 }
-      for (const [other, text] of texts) {
-        if (other === file || !used.test(text)) continue
+      for (const [other] of texts) {
+        if (other === file || !words.get(other)!.has(name)) continue
         if (isScript(other)) row.script += 1
         else if (isTest(other)) row.test += 1
         else row.src += 1
@@ -137,9 +139,11 @@ const show = (title: string, list: Row[]): void => {
     console.log(`  ${r.name.padEnd(34)} ${r.file}${r.src + r.test + r.script > 0 ? `  (test ${r.test}, script ${r.script})` : ""}`)
 }
 
+/** Every `.ts` text of the package (`src`, `test`, `scripts`), keyed by its package-relative path; run from the package. */
+export const packageTexts = (): Map<string, string> => new Map(ROOTS.flatMap((r) => walk(r)).map((f) => [f, readFileSync(f, "utf8")]))
+
 if (import.meta.main) {
-  const all = ROOTS.flatMap((r) => walk(r))
-  const texts = new Map(all.map((f) => [f, readFileSync(f, "utf8")]))
+  const texts = packageTexts()
   const at = process.argv.indexOf("--scope")
   if (at >= 0) {
     const scope = process.argv[at + 1]?.split("\\").join("/")

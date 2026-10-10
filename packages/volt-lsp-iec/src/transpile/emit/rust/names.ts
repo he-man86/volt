@@ -13,11 +13,40 @@ interface GlobalsUse {
 }
 
 /**
+ * EVERY PURPOSE A PRINTER TEMPORARY IS NAMED FOR — the INTERNAL temp list of `index.ts`'s surface doc is this table, so
+ * a new temporary is a new row here (`tmp` takes nothing else). The lowering's own temps are `__<purpose>_<slot>`
+ * fields and locals (`lower/core/temps.ts`).
+ */
+export const TEMP_PURPOSES = {
+  arg: "a call's input, hoisted when the inputs are taken in a stated order (`__arg_<k>`)",
+  back: "a call's result, held while its in-out copies are written back",
+  copy: "a copied in-out argument, written back after the call (`__copy_<i>`)",
+  lent: "a lent place a routine takes as a parameter (`__lent_<i>`)",
+  program: "a PROGRAM instance moved out of `prg` for the call into it",
+  result: "the value of a call into a moved-out PROGRAM",
+  mod_l: "MOD's left operand, read once",
+  mod_r: "MOD's right operand, read once and tested for 0",
+  rot: "ROL/ROR's operand, read once",
+  bit_v: "the value stored into a bit, read once",
+  bit_w: "the integer a bit is stored into",
+  guard: "a harness's loop guard counter (`__guard_<n>`)",
+  mem: "the byte image (`image.ts`)",
+  a: "an image address, read once",
+  v: "a value stored into the image, read once",
+  w: "the image word a bit is stored into",
+  k: "an array index while an image array is loaded or stored (`__k_<depth>`)",
+  e: "an array element while an image array is stored (`__e_<depth>`)",
+} as const
+
+/** One purpose of `TEMP_PURPOSES`. */
+type TempPurpose = keyof typeof TEMP_PURPOSES
+
+/**
  * A generated temporary: `__<purpose>`, or `__<purpose>_<n>` for a numbered one (`__arg_0`, `__copy_1`, `__lent_0`,
  * `__guard_3`). The reserved prefix is what keeps it apart from every name a user declares — no ST identifier starts
  * with two underscores — which a routine's parameters and VAR_TEMPs need, as Rust locals in the same scope.
  */
-export function tmp(purpose: string, n?: number | bigint): string {
+export function tmp(purpose: TempPurpose, n?: number | bigint): string {
   return n === undefined ? `__${purpose}` : `__${purpose}_${n}`
 }
 

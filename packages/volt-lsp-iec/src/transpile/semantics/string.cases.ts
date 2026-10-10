@@ -9,7 +9,7 @@
  */
 
 /** One operation on the buffer: a store of a source of capacity `n` holding `src`, or a character store `s[at] := unit`. */
-export type StringOp = { readonly store: string; readonly n: number } | { readonly at: number; readonly unit: number }
+type StringOp = { readonly store: string; readonly n: number } | { readonly at: number; readonly unit: number }
 
 /** A variable of capacity `m` (a WSTRING when `wide`), started at zeros and taken through `ops`. */
 export interface StringInput {

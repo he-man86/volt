@@ -3,7 +3,7 @@
  * it, and `src/transpile` leaves out the IR union members and the barrel's deliberate surface.
  */
 import { expect, test } from "bun:test"
-import { irUnionMembers, nobodyIn } from "./dead-exports.js"
+import { irUnionMembers, nobodyIn, packageTexts } from "./dead-exports.js"
 
 const texts = new Map<string, string>([
   [
@@ -24,4 +24,8 @@ test("the IR union members are read from their declarations", () => {
 test("--scope src/transpile: only its own exports, less the union members, ir's types and the barrel surface", () => {
   expect(nobodyIn(texts, "src/transpile").map((r) => r.name)).toEqual(["unusedIrHelper", "ORPHAN"])
   expect(nobodyIn(texts, "src/analysis").map((r) => r.name)).toEqual(["ELSEWHERE"])
+})
+
+test("src/transpile exports nothing nobody reads (transpile-restructure 7.10.4)", () => {
+  expect(nobodyIn(packageTexts(), "src/transpile").map((r) => `${r.name} ${r.file}`)).toEqual([])
 })

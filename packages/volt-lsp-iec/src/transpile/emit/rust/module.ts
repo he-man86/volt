@@ -33,7 +33,6 @@ import { memNew } from "./image.js"
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */
 export interface Emitted {
   code: string
-  /** 1-based emitted line → the ST span it came from. */
   /** Each emitted line that maps back to ST: the Rust line (1-based), the span, and the FILE the span indexes.
    *  `uri` is undefined for the POU's own body, which is the main source — a routine lowered from a GVL or a library
    *  declaration names its own file, because a span alone cannot say which source it belongs to. */

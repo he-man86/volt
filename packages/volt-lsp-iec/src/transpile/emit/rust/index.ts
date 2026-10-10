@@ -22,8 +22,8 @@
  * **INTERNAL — generated, and free to change:**
  *   - every `fn` a METHOD, ACTION, PROPERTY accessor or FUNCTION becomes, and its deduped name (`routineFnNames`);
  *   - a routine's parameters and locals, which may be renumbered and may collide with the `g` / `prg` parameters;
- *   - every temporary the printer introduces — `__mod_l`, `__bit_v`, `__guard_N` (a harness's loop guard), `__c`, `_chain_value_N`,
- *     `_property_N`;
+ *   - every temporary: the printer's are `tmp(purpose)`, one per row of `names.ts` `TEMP_PURPOSES`; the lowering's are
+ *     the `__<purpose>_<slot>` fields and locals of `lower/core/temps.ts`;
  *   - the prelude types (`IecStr`, `IecString`, `IecWString`) and their methods;
  *   - statement order, parenthesisation, and every cast the printer adds to satisfy rustc.
  *
