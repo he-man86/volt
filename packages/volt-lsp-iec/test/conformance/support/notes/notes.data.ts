@@ -155,12 +155,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "43aad8296c": note("7.8.6", LEAN.shapes16_14),
   // self.p = L;
   "45292dbd9c": note("7.8.8", LEAN.shapes1_8),
-  // self.f = { let __arg_N = m(self.f.to::<L>(), IecString::<L>::lit(B)); len(__arg_N) };
-  "47a7c12d8a": note("7.6.6", LEAN.shapes20_8),
   // pub fn fb_init(&mut self, mut x: bool, …) -> bool {
   "49346d6299": note("7.7.1", LEAN.shapes2_11),
-  // g: false,
-  "496b8acb56": note("7.6.6", LEAN.shapes8_11),
   // if len(self.f.f[self.f as usize].to::<L>()) > self.f {
   "8b4fc46c1e": note("7.4.6", LEAN.shapes16_11),
   // x = (*x).wrapping_mul(Li16);
@@ -193,14 +189,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "5e9caa6605": note("7.7.3", LEAN.shapes18_10),
   // (match self.f.f { L => self.f.m(&mut self.f), L => self.f.m(&mut self.f), _ => panic!(S) });
   "5ed54bb657": note("7.8.7", LEAN.shapes20_14),
-  // { let __arg_N = true; let __arg_N = false; let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x 
-  "60d6b79cca": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
+  // { let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x = x.f.fb_init(prg, true, false, __arg_N); pr
+  "bd16c67c26": note("7.8.10", LEAN.shapes20_9),
   // x = __numbers_upper_N;
   "62caf55aa5": note("7.7.8", LEAN.shapes13_17),
   // pub fn m(mut x: f32) -> f32 {
   "63e6752512": note("7.7.1", LEAN.shapes13_12),
-  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = i32::m(p).wrapping_sub(Li32).max(Li32) as i16;
-  "7dc2652e1b": note("7.6.6", LEAN.shapes17_4),
   // pub fn m(&mut self, prg: &mut Programs, mut x: i16) -> i16 {
   "69b0552c65": note("7.7.5", LEAN.shapes19_8),
   // self.f = len(self.f.f[self.f as usize].to::<L>());
@@ -241,7 +235,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
   "82e802ebc9": note("7.8.7", LEAN.shapes20_14),
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
-  "83ed1aab47": merged(["7.4.6", LEAN.shapes16_11], ["7.6.6", LEAN.shapes16_16]),
+  "83ed1aab47": note("7.4.6", LEAN.shapes16_11),
   // pub fn m(mut x: f64) -> f64 {
   "84ac703739": note("7.7.1", LEAN.shapes13_12),
   // prg.f.f.f = Li16;
@@ -282,8 +276,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "a01f00db76": note("7.7.1", LEAN.shapes18_9),
   // self.narrow.m(&self.f.narrow::<L>());
   "a1c2206655": note("7.4.6", LEAN.shapes16_11),
-  // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
-  "a31de5f5e1": note("7.6.6", LEAN.shapes17_4),
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.map(prg); prg.f = x; x };
   "a3a49d3776": note("7.8.10", LEAN.shapes20_9),
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.m_get(prg); prg.f = x; x };
@@ -316,8 +308,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b3e78a179a": note("7.6.4", LEAN.shapes11_12),
   // self.f = f64::m(self.f).cos() as f32;
   "1671a3249d": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
-  // x = { let __arg_N = m(x); m(__arg_N) };
-  "b58894b5df": note("7.6.6", LEAN.shapes14_12),
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
   "b592939dbf": note("7.4.6", LEAN.shapes16_11),
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
@@ -344,8 +334,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c5d30c56ec": note("7.8.4", LEAN.shapes17_10),
   // match x {
   "c6322760e4": note("7.8.4", LEAN.shapes17_10),
-  // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x }
-  "c68f0b1ef6": merged(["7.6.6", LEAN.shapes20_8], ["7.8.10", LEAN.shapes20_9]),
+  // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, Li16); prg.f = x; x };
+  "c638523216": note("7.8.10", LEAN.shapes20_9),
   // self.f = [Li16; L];
   "c8927952f2": note("7.6.4", LEAN.shapes11_12),
   // pub fn m(&mut self, mut x: i16, …) -> i16 {

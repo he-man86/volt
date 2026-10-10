@@ -5880,13 +5880,31 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     byte-identical against the 7.5c-start baseline); the rust layer differs in 27 fixtures (against 7.4b's). M (against
     7.4b's map): pedantic 9479 -> 9452 (`pub_underscore_fields` 115 -> 90, `struct_excessive_bools` 46 -> 44); lints
     unchanged; size median 3.1, the ten largest unchanged; constructs 2038 -> 2021, noted 259 -> 218.
-- [ ] 7.6.6 Argument hoisting only when needed.
+- [x] 7.6.6 Argument hoisting only when needed.
   - What: no `let __arg_N` for a single input or for a pure argument; only the arguments that must be evaluated before a call-holding
     sibling are hoisted; SEL binds only what 6.15's contract needs.
   - Notes: the `__arg_N` / SEL-lets notes tagged here by 0.6.
   - Where: `lower/calls/invoke.ts`, `emit/rust/calls.ts`.
   - Accept: S-out (edge identical over every call-order fixture), M.
   - Depends: 7.6.1, 6.15.
+  - Done 2026-10-10 (step 7.6b). `emit/rust/calls.ts` `hoistedInputs`: the `let`s run in WRITTEN order before the call
+    and the inline arguments in DECLARED order at it, so an input is hoisted only up to the last one holding a call (in
+    written order; one after it runs after every call either way), never a constant (it reads nothing), and that last
+    call-holding input stays inline too on a FUNCTION with no `g`/`prg`/`__mem` argument before it, when every input
+    left inline after it in written order also follows it in the argument list — `dbl(dbl(self.n))`,
+    `insert(delete(str1, l, p), str2, …)`; written `b := Dbl(n), a := n` keeps `let __arg_1` (inline, `a` would run
+    first). On a PROGRAM's METHOD every input but a constant stays hoisted (an inline one would read the moved-out
+    program's stand-in). A frozen in-out index is taken where it is written, as before. SEL binds nothing since 6.15 (a
+    lazy `if`), which is what its item asked. `let __arg_N` lines 24 -> 5 (in 4 fixtures: the reversed / property-read
+    argument orders, the in-out pointer frozen before a call, a program FB_Init's `prg` read); S-out — edge included —
+    identical over every call-order fixture. Test `emit/rust/calls.test.ts` ("arguments are hoisted only up to the last
+    one holding a call"). Notes resolved: 47a7c12d8a, 496b8acb56, 7dc2652e1b, a31de5f5e1, b58894b5df, and the 7.6.6 items
+    of 60d6b79cca, 83ed1aab47, c68f0b1ef6 (their 7.8.10 items re-keyed to bd16c67c26 / c638523216, the program-method
+    lines without the constant `let`s; 83ed1aab47 keeps its 7.4.6 item). `notes.test.ts`'s pin on 496b8acb56's owner now
+    reads its absence (the note went with its 7.6.6 item).
+    Step 7.6b numbers: S-out identical over 5535 fixtures (outputs and edge byte-identical against the 7.5c-start
+    baseline); the rust layer differs in 20 fixtures (against 7.6a's). M (against 7.6a's map): pedantic 9452 unchanged;
+    lints unchanged; size median 3.1, the ten largest unchanged; constructs 2021 -> 2022, noted 218 -> 213.
 
 ### 7.7 Routine signatures (lean 7, on model 4)
 

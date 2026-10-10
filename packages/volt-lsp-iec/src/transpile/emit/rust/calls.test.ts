@@ -87,3 +87,20 @@ test("a scalar VAR_IN_OUT CONSTANT is taken by value; a literal lent to a CONSTA
   expect(code).toMatch(/self\.ok = same\(&IecString::<\d+>::lit\(b"abc"\)\);/)
   expect(code).not.toContain("__copy_")
 })
+
+// 7.6.6: an input is taken into a `let __arg_k` only where a call could show its order — up to the last input holding a
+// call, in written order; that last one stays inline on a FUNCTION when nothing inline after it comes before it in the
+// argument list, and a constant never needs one
+test("arguments are hoisted only up to the last one holding a call", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION Dbl : INT\nVAR_INPUT v : INT; END_VAR\nDbl := v * 2;\nEND_FUNCTION\nFUNCTION Pair : INT\nVAR_INPUT a : INT; b : INT; END_VAR\nPair := a * 10 + b;\nEND_FUNCTION\n" +
+      "PROGRAM P\nVAR n : INT := 3; x : INT; y : INT; z : INT; END_VAR\nx := Dbl(Dbl(n));\ny := Pair(Dbl(n), n);\nz := Pair(b := Dbl(n), a := n);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("self.x = dbl(dbl(self.n));")
+  expect(code).toContain("self.y = pair(dbl(self.n), self.n);")
+  // written b then a: `a` (inline, after the call in written order) would come BEFORE it in the argument list, so the call is hoisted
+  expect(code).toContain("self.z = { let __arg_1 = dbl(self.n); pair(self.n, __arg_1) };")
+})

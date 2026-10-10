@@ -96,13 +96,13 @@
  *     tr_a27_for_unsigned_counters_negative_step      12
  *     string_input_truncation                       11.8
  *
- *   shape — 1872 distinct emission shapes over 3414 lowered fixtures, 2021 distinct constructs.
- *   218 constructs carry a review note (`NOTES`): 3198 fixtures are improvable, 3078 touch a construct with alternatives.
+ *   shape — 1872 distinct emission shapes over 3414 lowered fixtures, 2022 distinct constructs.
+ *   213 constructs carry a review note (`NOTES`): 3198 fixtures are improvable, 3078 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
- *     7.7.8 26, 7.7.1 24, 7.8.6 21, 7.7.3 17, keep 17, 7.4.6 15, 7.7.5 15, 7.7.2 14, 7.8.7 11, 7.8.2 9, 7.6.6 8
- *     7.8.10 7, 7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5, 7.8.8 5, 7.7.9 4, 7.7.6 3, 7.6.4 2, 7.7.11 2, 7.8.1 1, 7.8.11 1
+ *     7.7.8 26, 7.7.1 24, 7.8.6 21, 7.7.3 17, keep 17, 7.4.6 15, 7.7.5 15, 7.7.2 14, 7.8.7 11, 7.8.2 9, 7.8.10 7
+ *     7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5, 7.8.8 5, 7.7.9 4, 7.7.6 3, 7.6.4 2, 7.7.11 2, 7.8.1 1, 7.8.11 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -595,7 +595,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   calls_unknown_output_fb: { evidence: "refused" },
   calls_unknown_output_function: { evidence: "refused" },
   calls_unknown_output_method: { evidence: "refused" },
-  callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "40be43684c", notes: ["11f6ad8ec5", "6dd22a92d0", "a5c4faeebd", "fbde4d6e1e"] },
+  callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "ddf0c69caa", notes: ["11f6ad8ec5", "6dd22a92d0", "a5c4faeebd", "fbde4d6e1e"] },
   callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "d4b7bad0a7", notes: ["11f6ad8ec5", "38ec88da3b", "56c1a77525", "fbde4d6e1e", "fedbbc431c"] },
   callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "39c43133a3", notes: ["11f6ad8ec5", "26a81a085d", "58edc15c64", "62caf55aa5", "fbde4d6e1e", "fedbbc431c"] },
   callshape_array_star_fb_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 2.7, shape: "e235acb5cb", notes: ["0ac4ab4a64", "22f3bd9b6d", "33fc10bac3", "38908b42b7", "43449862b7", "8064ae1570", "81ed699293", "b894525f6e", "debabdec0d", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e"] },
@@ -610,12 +610,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_function_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 2.5, shape: "b27f4fe728", notes: ["11f6ad8ec5", "a5c4faeebd", "fbde4d6e1e"] },
   callshape_inout_base_method_from_derived_method: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "20c1fd53a3", notes: ["0b51d542e8", "667cafe298"] },
   callshape_inout_base_method_from_outside_derived: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 6, edge: "agree", size: 3.3, shape: "fae488dc0a", notes: ["0b51d542e8", "667cafe298", "9fbd098efb", "fbde4d6e1e"] },
-  callshape_inout_binding_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 1.9, shape: "bc80dc4511", notes: ["11f6ad8ec5", "7ab9128afd", "fbde4d6e1e"] },
+  callshape_inout_binding_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 1.9, shape: "667ce85525", notes: ["11f6ad8ec5", "7ab9128afd", "fbde4d6e1e"] },
   callshape_inout_in_method_after_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.2, shape: "d7e214cfaf", notes: ["5ed54bb657", "fbde4d6e1e"] },
   callshape_inout_in_method_from_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "cf8d75b773", notes: ["0b51d542e8", "fbde4d6e1e"] },
   callshape_inout_method_before_binding: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 5, edge: "agree", size: 3.3, shape: "2aa1a7f05a", notes: ["0cbdff077d", "fbde4d6e1e"] },
   callshape_inout_method_in_later_cycle: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "9125dce2f5", notes: ["0cbdff077d", "fbde4d6e1e"] },
-  callshape_inout_nested_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "b9096202e0", notes: ["11f6ad8ec5", "7ab9128afd", "fbde4d6e1e"] },
+  callshape_inout_nested_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "efbaa1e787", notes: ["11f6ad8ec5", "7ab9128afd", "fbde4d6e1e"] },
   callshape_inout_override_from_base_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "a681fef2e3", notes: ["0b51d542e8", "667cafe298", "fbde4d6e1e"] },
   callshape_inout_override_from_outside_base_method: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "29f9060e66", notes: ["0b51d542e8", "667cafe298", "9fbd098efb", "fbde4d6e1e"] },
   callshape_inout_pointer_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "8bec44c339", notes: ["11f6ad8ec5", "5370b79269", "75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
@@ -623,14 +623,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_inout_super_method_from_override: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "20c1fd53a3", notes: ["0b51d542e8", "667cafe298"] },
   callshape_input_left_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "8ef4a256d6", notes: ["11f6ad8ec5", "a5c4faeebd", "c8ca44a755", "fbde4d6e1e"] },
   callshape_method_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "4342f43b51", notes: ["11f6ad8ec5", "c8ca44a755", "fbde4d6e1e"] },
-  callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "3d5c9c23cc", notes: ["11f6ad8ec5", "58a7e6289b", "69b0552c65", "abf2bb6e4e", "c68f0b1ef6", "fbde4d6e1e"] },
-  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "cbe13fdf53", notes: ["11f6ad8ec5", "7ab9128afd", "96a5b25b66", "fbde4d6e1e"] },
+  callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "86c59b4d9a", notes: ["11f6ad8ec5", "58a7e6289b", "69b0552c65", "abf2bb6e4e", "c638523216", "fbde4d6e1e"] },
+  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "9b97446ed6", notes: ["11f6ad8ec5", "7ab9128afd", "96a5b25b66", "fbde4d6e1e"] },
   callshape_own_field_inout_read_by_name: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "f6a4778bf3", notes: ["11f6ad8ec5", "6dd22a92d0", "fbde4d6e1e"] },
   callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "c7214e8fd7", notes: ["96a5b25b66", "fb7e9e6ff4", "fbde4d6e1e"] },
   callshape_positional_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 1.8, shape: "2ab1b07897", notes: ["11f6ad8ec5", "6dd22a92d0", "a5c4faeebd", "b20c53fed8", "c8ca44a755", "fbde4d6e1e"] },
   callshape_program_instance_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.2, shape: "09ae2d81c9", notes: ["37745ed7a0", "58a7e6289b", "85168be6a7", "a3a49d3776", "abf2bb6e4e", "b959cb02cf", "e436b886c1", "faf5605030", "fbde4d6e1e"] },
   callshape_program_instance_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.2, shape: "555cf700b4", notes: ["11f6ad8ec5", "58a7e6289b", "a41f58717b", "abf2bb6e4e", "ceb0cb99a7", "ed425c8710", "fbde4d6e1e"] },
-  callshape_property_read_in_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "32c1681480", notes: ["11f6ad8ec5", "a5c4faeebd", "fbde4d6e1e"] },
+  callshape_property_read_in_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "ed240f93af", notes: ["11f6ad8ec5", "a5c4faeebd", "fbde4d6e1e"] },
   callshape_super_own_field_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.6, shape: "f0f79685df", notes: ["96a5b25b66", "fb7e9e6ff4", "fbde4d6e1e"] },
   callshape_super_own_fields: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.5, shape: "5e3fa4a897", notes: ["96a5b25b66", "fb7e9e6ff4", "fbde4d6e1e"] },
   case_range_edges: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 7.3, shape: "1a733a89b3", notes: ["fbde4d6e1e"] },
@@ -1101,8 +1101,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   co_any_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 2.2, shape: "7710560de6", notes: ["fbde4d6e1e"] },
   co_move_operator: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "cf3b1791da", notes: ["fbde4d6e1e"] },
   co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "agree", size: 2.1, shape: "7478a8fa9a", notes: ["9479f0e3c4", "e0361c9257", "fbde4d6e1e"] },
-  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 7.8, shape: "b83f418736", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 24, edge: "agree", size: 3.3, shape: "c7671c5b95", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cacc7bfac", "3cf4e6fa21", "50ff398988", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a573b540d2", "b592939dbf", "c001fbb3b1", "dbcd1088a5", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 7.8, shape: "5772d3278a", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 24, edge: "agree", size: 3.3, shape: "e53fc1be20", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cacc7bfac", "3cf4e6fa21", "50ff398988", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a573b540d2", "b592939dbf", "c001fbb3b1", "dbcd1088a5", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   conditional_define_then_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "853026dfa7", notes: ["fbde4d6e1e"] },
   conditional_else_branch_taken: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "853026dfa7", notes: ["fbde4d6e1e"] },
   conditional_elsif_chain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "853026dfa7", notes: ["fbde4d6e1e"] },
@@ -1144,10 +1144,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cs_array_four_dimensions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "e242ebbd14", notes: ["8643f1db30", "fbde4d6e1e"] },
   cs_clock_reads: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 4.5, shape: "2ed4b4c474", notes: ["b9787e0d18", "fbde4d6e1e"] },
   cs_spelled_narrowing_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "6105345ce1", notes: ["fbde4d6e1e"] },
-  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 18, edge: "agree", size: 8.4, shape: "813baa74dc", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 18, edge: "agree", size: 8.4, shape: "f47efa28c2", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "46252c2035", notes: ["0a552281ae", "fbde4d6e1e"] },
   ct_bit_fields: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "fbf3a38b9d", notes: ["fbde4d6e1e"] },
-  ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 11, edge: "agree", size: 7, shape: "0a87bd7896", notes: ["496b8acb56", "fbde4d6e1e"] },
+  ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 11, edge: "agree", size: 7, shape: "0a87bd7896", notes: ["fbde4d6e1e"] },
   ct_integer_bitstring_crossings: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "8af3fd4604", notes: ["fbde4d6e1e"] },
   ct_lword_arithmetic: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "e9eb3ecc8a", notes: ["fbde4d6e1e"] },
   ct_pointer_width_types: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "2af53bf889", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
@@ -1764,7 +1764,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fb_init_and_structured_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "e6ed013a99", notes: ["0ab2575555", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
   fb_init_argument_from_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "97b3dacfee", notes: ["1524fb865f", "8a9bb48ddb", "b9787e0d18", "fbde4d6e1e"] },
   fb_init_argument_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "9d456be3ef", notes: ["0ab2575555", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
-  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "949580fdb2", notes: ["58a7e6289b", "60d6b79cca", "8a9bb48ddb", "ab696e2449", "abf2bb6e4e", "bea3694884", "fbde4d6e1e"] },
+  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "43bca48544", notes: ["58a7e6289b", "8a9bb48ddb", "ab696e2449", "abf2bb6e4e", "bd16c67c26", "bea3694884", "fbde4d6e1e"] },
   fb_init_argument_left_out: { evidence: "refused" },
   fb_init_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "cb74e3b6f8", notes: ["0ab2575555", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
   fb_init_before_slot_method_nested: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "b601afa6bf", notes: ["0ab2575555", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
@@ -4259,8 +4259,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sel_mux_2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "1c8c8e92e1", notes: ["fbde4d6e1e"] },
   sel_mux_3: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "1c8c8e92e1", notes: ["fbde4d6e1e"] },
   sel_mux_7: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "1c8c8e92e1", notes: ["fbde4d6e1e"] },
-  sel_sel_false: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "ab997357f3", notes: ["496b8acb56", "fbde4d6e1e"] },
-  sel_sel_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "542847b550", notes: ["496b8acb56", "fbde4d6e1e"] },
+  sel_sel_false: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "ab997357f3", notes: ["fbde4d6e1e"] },
+  sel_sel_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "542847b550", notes: ["fbde4d6e1e"] },
   set_reset_across_cycles: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 6, shape: "6273677174", notes: ["fbde4d6e1e"] },
   set_reset_basic: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6, shape: "6abe58a39d" },
   set_reset_chained: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 5.2, shape: "5019cfc47b" },
@@ -4555,10 +4555,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   str_mid_lenneg_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "d784cb01d7", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "9c8d21e237", "e5f32531ef"] },
   str_mid_lenneg_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "d784cb01d7", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "9c8d21e237", "e5f32531ef"] },
   str_mid_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "f6638a1b8c", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "9c8d21e237", "e5f32531ef"] },
-  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "e77ac6eb62", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
-  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "e77ac6eb62", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
-  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "e77ac6eb62", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
-  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "e77ac6eb62", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
+  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "32d5d91b77", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
+  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "32d5d91b77", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
+  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "32d5d91b77", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
+  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 7.6, shape: "32d5d91b77", notes: ["0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "fcd4689307"] },
   str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "7c9160a329", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "83ed1aab47", "e5f32531ef"] },
   str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "7d3076c8c6", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "83ed1aab47", "e5f32531ef"] },
   str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "7c9160a329", notes: ["0d14fd327c", "11f6ad8ec5", "50ff398988", "83ed1aab47", "e5f32531ef"] },
@@ -4583,8 +4583,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 7, shape: "55d31d0077", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 12.5, shape: "ad29caf6da", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "5e8817a2c8", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
-  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 11.8, shape: "6f1336d3f6", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "47a7c12d8a", "8088e0ab18", "83ed1aab47", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e", "fcd4689307"] },
-  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 22.2, shape: "3fe12ba150", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 11.8, shape: "ad6ac7b339", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "8088e0ab18", "83ed1aab47", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e", "fcd4689307"] },
+  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 22.2, shape: "e52891475c", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 10, edge: "agree", size: 16, shape: "4386713f0b", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "50ff398988", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_limit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "f60011c6f3" },
   string_literal_nul_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 2.4, shape: "3aff56000e", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
@@ -4593,8 +4593,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   string_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "1da70ac03b" },
   string_non_ascii_bytes: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4, shape: "9de5482031", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_parse_beyond_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 17, edge: "agree", size: 1.7, shape: "b7f2a0271d", notes: ["fbde4d6e1e"] },
-  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 27.7, shape: "8821e111ac", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 15, edge: "agree", size: 29, shape: "c62b0ac6d9", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 27.7, shape: "d67bd1c27a", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 15, edge: "agree", size: 29, shape: "329f8b4139", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3cacc7bfac", "50ff398988", "8088e0ab18", "83ed1aab47", "9c8d21e237", "b592939dbf", "c001fbb3b1", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   string_store_destination_kinds_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 2.2, shape: "69a35add22", notes: ["11f6ad8ec5", "fbde4d6e1e"] },
   string_store_function_input_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 1.8, shape: "215a020b92", notes: ["11f6ad8ec5", "5370b79269"] },
   string_store_function_result_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 2.6, shape: "534bf98d41", notes: ["0d14fd327c", "11f6ad8ec5", "1b6d6589aa", "3cf4e6fa21", "8088e0ab18", "83ed1aab47", "e5f32531ef", "fbde4d6e1e", "fcd4689307"] },
@@ -5268,7 +5268,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_reference_index_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "36c233076a", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo_reference_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "a769a53d81", notes: ["11f6ad8ec5", "ad25627749", "fbde4d6e1e", "fda03fa84f"] },
   xo_reference_to_fb_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "ca432d4bd7", notes: ["11f6ad8ec5", "ad25627749", "fbde4d6e1e"] },
-  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 4, shape: "1fa2411a17", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "8088e0ab18", "83ed1aab47", "a31de5f5e1", "a573b540d2", "a7ca9e8349", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e", "fcd4689307"] },
+  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 4, shape: "761f0518bb", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "8088e0ab18", "83ed1aab47", "a573b540d2", "a7ca9e8349", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e", "fcd4689307"] },
   xo_tally_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "b156a69819", notes: ["fbde4d6e1e"] },
   xo_three_level_super_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "0cc53d1ba7", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "d5d5f0ece7", notes: ["b9787e0d18", "fbde4d6e1e"] },
@@ -5292,7 +5292,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_alias_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "7f0caf9bb7", notes: ["01ef1b756d", "11f6ad8ec5", "fbde4d6e1e"] },
   xo3_alias_type: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "42cd6b5e9d", notes: ["fbde4d6e1e"] },
   xo3_bit_through_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "621ebbff0b", notes: ["0a1967fcea", "fbde4d6e1e"] },
-  xo3_function_calls_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "8f124f9ed8", notes: ["11f6ad8ec5", "1ca8b1b1fc", "b58894b5df", "fbde4d6e1e"] },
+  xo3_function_calls_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "149bbed06b", notes: ["11f6ad8ec5", "1ca8b1b1fc", "fbde4d6e1e"] },
   xo3_inout_chain_four_deep: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "193c56ad3c", notes: ["01e84968c3", "0b51d542e8", "11f6ad8ec5", "8064ae1570", "cc3063b338", "fbde4d6e1e"] },
   xo3_interface_input_passed_on: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "fc7d15e34c", notes: ["4b5007906a", "51ea066d8e", "ca81b2092d", "fbde4d6e1e"] },
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.5, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
@@ -6069,27 +6069,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
     tasks: ["7.8.8"],
   },
-  // self.f = { let __arg_N = m(self.f.to::<L>(), IecString::<L>::lit(B)); len(__arg_N) };
-  "47a7c12d8a": {
-    improvement: "Hoisting exists to make order visible between SEVERAL inputs, or to read a program before it is moved out. It fires for a single input (`len(concat(..))`), which has no order to show. On a PROGRAM method it also hoists constants (`let __arg_0 = 10i16;`, `true`, `false`), which cannot read the program. Hoist only inputs that hold a call when there are two or more of them, and on a program method only inputs that read `prg`.",
-    tasks: ["7.6.6"],
-  },
   // pub fn fb_init(&mut self, mut x: bool, …) -> bool {
   "49346d6299": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
     tasks: ["7.7.1"],
-  },
-  // g: false,
-  "496b8acb56": {
-    improvement: "SEL binds both arms eagerly so that side effects match the interpreter, and that is right in general. When every argument is a side-effect-free place or literal, though, the eager block is the same as a plain `if`. Separately, widening INT to i32 and narrowing back is a no-op for a selection; the promotion comes from lowering treating SEL like arithmetic.",
-    alternatives: [
-      "Eager block with i32 widening. This is emitted today; it is always correct but costs 3 temporaries and 3 casts.",
-      "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/calls/specialize.ts) and the arms are not promoted. I would choose this: it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
-      "Keep the eager block but drop the widening: `let __sel_f = self.a;` and no trailing `as i16`. This is a smaller change with the same correctness.",
-    ],
-    chosen: "`if self.g { self.b } else { self.a }` when all arms are pure (no invoke, dispatch or call in the IR, which is the same test as callsNothing in lower/calls/specialize.ts) and the arms are not promoted",
-    why: "it is what a Rust engineer writes and gives an identical result, because selecting between two i16 values cannot overflow.",
-    tasks: ["7.6.6"],
   },
   // self.f = match self.f { L => (*__lent_N).take(Li16), _ => panic!(S) };
   "4b5007906a": {
@@ -6185,18 +6168,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "5ed54bb657": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
     tasks: ["7.8.7"],
-  },
-  // { let __arg_N = true; let __arg_N = false; let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x = x.f.fb_init(prg, __arg_N, …); prg.f = x; x } };
-  "60d6b79cca": {
-    improvement: "Hoisting exists to make order visible between SEVERAL inputs, or to read a program before it is moved out. It fires for a single input (`len(concat(..))`), which has no order to show. On a PROGRAM method it also hoists constants (`let __arg_0 = 10i16;`, `true`, `false`), which cannot read the program. Hoist only inputs that hold a call when there are two or more of them, and on a program method only inputs that read `prg`. Also: The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.6.6", "7.8.10"],
   },
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;
   "62891f3570": {
@@ -6311,17 +6282,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
     tasks: ["7.7.5"],
   },
-  // replace = { let __arg_N = m(x, …, p); let __arg_N = x; let __arg_N = i32::m(p).wrapping_sub(Li32).max(Li32) as i16; m(__arg_N, …) };
-  "7dc2652e1b": {
-    improvement: "When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
-    alternatives: [
-      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
-      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
-      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    ],
-    chosen: "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    tasks: ["7.6.6"],
-  },
   // x = m(x, &mut (*x));
   "7e45a342fc": {
     improvement: "Passing an in-out on to another call prints `&mut (*numbers)`. When the place is the bare inout root, print the binding itself (`numbers`); Rust reborrows it implicitly.",
@@ -6370,13 +6330,13 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right. Also: A nested call argument is hoisted into a `let __arg_0` even when it is the only argument, so evaluation order cannot differ. `len(concat(..))` is the same program.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
-    tasks: ["7.4.6", "7.6.6"],
+    tasks: ["7.4.6"],
   },
   // self.f = f64::m(self.f).exp() as f32;
   "84845bb684": {
@@ -6546,17 +6506,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
     tasks: ["7.8.4"],
   },
-  // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
-  "a31de5f5e1": {
-    improvement: "When one argument holds a call, EVERY argument is hoisted into its own `let __arg_N`, pure ones included (REPLACE: `let __arg_1 = str2; let __arg_2 = (p-1).max(0) as i16;`). Order only matters between arguments that have effects or read what an earlier one writes. Hoist only the call-holding arguments, plus anything evaluated before them that they could change, and leave pure locals and constants inline.",
-    alternatives: [
-      "TODAY: hoist all inputs when any holds a call. Simple and obviously order-preserving",
-      "hoist only a prefix up to the last call-holding input. Still order-preserving, since trailing pure args cannot observe anything",
-      "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    ],
-    chosen: "hoist only effectful inputs. The shortest, but it needs a purity analysis, which holdsCall almost is. I would choose the prefix rule: trivially correct and it removes the trailing lets",
-    tasks: ["7.6.6"],
-  },
   // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.map(prg); prg.f = x; x };
   "a3a49d3776": {
     improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
@@ -6688,11 +6637,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "VAR_TEMP arrays and structs are fields reset at the top of every call (`self.a = [0i16; 3];`, `self.scratch = T::new();`). As a Rust local (`let mut a = [0i16; 3];`) they would carry no reset and no persistent state.",
     tasks: ["7.6.4"],
   },
-  // x = { let __arg_N = m(x); m(__arg_N) };
-  "b58894b5df": {
-    improvement: "Hoisting inputs into `let __arg_k` exists to fix evaluation order between inputs. A FUNCTION call with a single input and no in-outs has no order to fix. Print `f_x3_double(f_x3_double(value))`.",
-    tasks: ["7.6.6"],
-  },
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
   "b592939dbf": {
     improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
@@ -6749,6 +6693,18 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
     tasks: ["7.7.2"],
   },
+  // { let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x = x.f.fb_init(prg, true, false, __arg_N); prg.f = x; x } };
+  "bd16c67c26": {
+    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
+    alternatives: [
+      "(a) today, for own fields: clone, call, write back.",
+      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
+      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
+      "Choose (b). It matches the program-instance form already emitted.",
+    ],
+    chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
+  },
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": {
     improvement: "Every METHOD of a PROGRAM gets `prg: &mut Programs`, and a blanket `#[allow(unused_mut, unused_variables, unused_assignments)]` covers the unused ones (init_slot_program_own `boot`, fbcall_program_own_members `deeper`/`tidy`/`twice`). Pass `prg` only to routines that reach Programs, directly or through a callee, the way `usesPrograms` is already computed for scan.",
@@ -6786,9 +6742,9 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
     tasks: ["7.8.4"],
   },
-  // self.f = { let __arg_N = Li16; { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, __arg_N); prg.f = x; x } };
-  "c68f0b1ef6": {
-    improvement: "Hoisting exists to make order visible between SEVERAL inputs, or to read a program before it is moved out. It fires for a single input (`len(concat(..))`), which has no order to show. On a PROGRAM method it also hoists constants (`let __arg_0 = 10i16;`, `true`, `false`), which cannot read the program. Hoist only inputs that hold a call when there are two or more of them, and on a program method only inputs that read `prg`. Also: The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
+  // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.m(prg, Li16); prg.f = x; x };
+  "c638523216": {
+    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
     alternatives: [
       "(a) today, for own fields: clone, call, write back.",
       "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
@@ -6796,7 +6752,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.6.6", "7.8.10"],
+    tasks: ["7.8.10"],
   },
   // self.f = [Li16; L];
   "c8927952f2": {

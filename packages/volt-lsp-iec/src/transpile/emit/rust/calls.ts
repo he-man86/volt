@@ -20,11 +20,15 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   // borrow. Inputs without one stay inline, where no order can show — except on a PROGRAM's METHOD, whose inline
   // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
   const onProgram = e.instance !== undefined && e.instance.root === "global" && p.globals.slots[e.instance.slot]?.section === "program"
-  const hoisted = onProgram || e.inputs.some(holdsCall)
-  const inputLets = hoisted
-    ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let ${tmp("arg", k)} = ${expr(p, e.inputs[k]!, slots, Prec.Block)};` : `${letTemp(p, k.temp, slots) ?? place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`)).join(" ")
-    : ""
-  const inputs = e.inputs.map((a, k) => (hoisted ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
+  const hoisted = hoistedInputs(p, e, onProgram)
+  const inputLets = [...(e.order ?? e.inputs.keys())]
+    .flatMap((k) =>
+      typeof k === "number"
+        ? hoisted.has(k) ? [`let ${tmp("arg", k)} = ${expr(p, e.inputs[k]!, slots, Prec.Block)};`] : []
+        : [`${letTemp(p, k.temp, slots) ?? place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`],
+    )
+    .join(" ")
+  const inputs = e.inputs.map((a, k) => (hoisted.has(k) ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)
   const args = callArguments(p, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
   const fn = p.fnNames.get(routine.key)!
@@ -48,6 +52,33 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   const back = copiesBack(p, e.inouts, slots)
   if (back !== "") return printed(yields ? `{ ${lets} let ${tmp("back")} = ${checked.text}; ${back} ${tmp("back")} }` : `{ ${lets} ${checked.text}; ${back} }`, Prec.Postfix)
   return lets === "" ? checked : printed(`{ ${lets} ${checked.text} }`, Prec.Postfix)
+}
+
+/**
+ * WHICH INPUTS ARE TAKEN INTO A `let __arg_k` BEFORE THE CALL (lean 7.6.6) — only those whose evaluation order a call
+ * could make visible. Rust evaluates the hoisted `let`s in the order WRITTEN (`IrInvoke.order`), then the arguments
+ * inline, in the order DECLARED. So:
+ *   - in written order, every input up to the LAST one that holds a call is hoisted (a call there may change what an
+ *     input before it reads; one after it runs after every call either way, so it stays inline);
+ *   - a constant never is — it reads nothing, so where it runs cannot show;
+ *   - that last call-holding input stays inline too, on a FUNCTION with no `g`/`prg`/`__mem` argument before it (which it
+ *     could not borrow beside), when every input left inline after it in written order is also after it in the argument
+ *     list — `len(concat(…))`, `insert(delete(str1, l, p), str2, …)`;
+ *   - on a PROGRAM's METHOD every input but a constant is hoisted: an inline one would run after the program is moved
+ *     out, and read its `::new()` stand-in (review of batch 3a).
+ * A frozen in-out index (`IrFreeze`) is always taken where it is written.
+ */
+function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onProgram: boolean): Set<number> {
+  const written = [...(e.order ?? e.inputs.keys())].filter((k): k is number => typeof k === "number")
+  const constant = (k: number): boolean => e.inputs[k]!.kind === "const"
+  if (onProgram) return new Set(written.filter((k) => !constant(k)))
+  const last = written.reduce((at, k, i) => (holdsCall(e.inputs[k]!) ? i : at), -1)
+  if (last < 0) return new Set()
+  const hoisted = new Set(written.slice(0, last + 1).filter((k) => !constant(k)))
+  const call = written[last]!
+  const inlineAfter = written.slice(last + 1).filter((k) => !constant(k))
+  if (e.instance === undefined && globalsArgs(p).length === 0 && inlineAfter.every((k) => k > call)) hoisted.delete(call)
+  return hoisted
 }
 
 /** A generated call's arguments: `g`/`prg`, the inputs, each VAR_IN_OUT lent (`lend`), then each instance lent to the
