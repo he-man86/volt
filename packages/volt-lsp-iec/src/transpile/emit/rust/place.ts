@@ -3,7 +3,7 @@
 import type { IrExpr, IrPou, Place } from "../../ir/index.js"
 import { elementOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
-import { rustType } from "./types.js"
+import { byValue, rustType } from "./types.js"
 import { expr, print } from "./expr.js"
 import { at as atLeast, Prec, printed, type Printed } from "./precedence.js"
 import { tmp } from "./names.js"
@@ -22,7 +22,8 @@ const DEREF = /^\(\*[\w.]+\)$/
 /** A place as an assignment's left-hand side: `*v = x`, not `(*v) = x`. */
 export const lvalue = (text: string): string => (DEREF.test(text) ? text.slice(1, -1) : text)
 
-/** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
+/** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count`, a scoped temp's
+ *  local `__chain_value_3` (`IrSlot.scoped`) — without a final bit step. */
 export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
   // an image place is no lvalue: it is read and written through `Mem` (`image.ts`), and a site that reached here missed that
   if (at.root === "image") throw new Error("emit: an image place printed as a Rust lvalue")
@@ -33,7 +34,9 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
   const deref = (name: string): string => (through ? name : `(*${name})`)
   let text =
     at.root === "inout"
-      ? deref(p.frame.inoutNames[at.slot]!)
+      ? byValue(p.frame.inoutSlots[at.slot]!)
+        ? p.frame.inoutNames[at.slot]!
+        : deref(p.frame.inoutNames[at.slot]!)
       : at.root === "lent"
         ? deref(tmp("lent", at.slot))
       : at.root === "local"
@@ -42,7 +45,9 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
           ? p.globals.access[at.slot]!
           : at.root === "this"
             ? "self"
-            : `self.${p.fields[at.slot]}`
+            : slots[at.slot]?.scoped === true
+              ? p.fields[at.slot]!
+              : `self.${p.fields[at.slot]}`
   let type: Type =
     at.root === "inout"
       ? p.frame.inoutSlots[at.slot]!.type

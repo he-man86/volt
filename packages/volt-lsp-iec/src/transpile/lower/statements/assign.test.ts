@@ -2,6 +2,7 @@
  * Lowering tests of `assign.ts`'s concern — split by topic out of the one lowering test file (transpile-restructure 1.8.1).
  */
 import { describe, expect, test } from "bun:test"
+import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
 
 describe("lower — a STRING CURSOR (a character pointer a caller fills with a string's address)", () => {
@@ -59,4 +60,22 @@ test("a store through a REFERENCE refuses an implicit STRING conversion as a pla
   expect(codes("rs := i;")).toEqual(["assign-string"])
   expect(codes("rw := str;")).toEqual(["assign-string"])
   expect(codes("ri := STRING_TO_INT(str);")).toEqual([])
+})
+
+// review of 7.6.1 (gate 7.5c+7.7a): a chain over a CONSTANT passes it through each link's conversion — a constant's
+// conversion only retypes it, so the direct path (no temp) is taken only where that retyping IS the link's conversion:
+// one type, or integers (wrapped as a load would be). A narrower STRING, a REAL and a REAL into an INT keep the temp,
+// and each target receives the value as converted THROUGH the inner link (`sint := dint := int`, above).
+test("a chain over a constant narrows through each link as a chain over a variable does", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR s10 : STRING(10); s3 : STRING(3); lr : LREAL; rr : REAL; lr2 : LREAL; ii : INT; a : SINT; b : INT; END_VAR\ns10 := s3 := 'abcdef';\nlr := rr := 0.1;\nlr2 := ii := 2.6;\nb := a := 300;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("s10"), runner.get("s3")]).toEqual(["abc", "abc"])
+  expect([runner.get("lr"), runner.get("rr")]).toEqual([Math.fround(0.1), Math.fround(0.1)])
+  expect([runner.get("lr2"), runner.get("ii")]).toEqual([3, 3n])
+  expect([runner.get("b"), runner.get("a")]).toEqual([44n, 44n])
 })

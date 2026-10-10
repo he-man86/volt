@@ -9,8 +9,8 @@ import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
 import { guardWrite, PLAIN_WRITE, STORE_WRITE } from "../places/access-guards.js"
-import { assignTo, convert } from "../values/convert.js"
-import { classifyConversion, elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
+import { assignTo, convert, sameType } from "../values/convert.js"
+import { classifyConversion, elementaryRef, elemOf, isIntegerType, type Type } from "../../../frontend/types/index.js"
 import { bindReference, storePointer } from "../pointers/store.js"
 import { pointeePlace, storeThrough } from "../pointers/deref.js"
 import { unionCopies } from "../storage/unions.js"
@@ -41,13 +41,25 @@ function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): Ir
   if (ops.includes("REF=")) return lw.bail("assign-op", "REF= in an assignment chain", s.span)
   const value = lowerExpr(lw, s.value)
   if (value === undefined) return undefined
-  const held = tempPlace(lw, "chain_value", value.type, s.value.span)
-  const out: IrStmt[] = [{ kind: "assign", target: held, value, span: s.value.span }]
-  let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
+  // a CONSTANT runs nothing and reads nothing, so a chain of `:=` links stores it into each target as it is (7.6.1): no
+  // temp holds it — a latch tests the value, and keeps the temp; anything else is evaluated once, into the temp. Only
+  // where a constant's conversion (a retyping) IS the link's: one type, or an integer into integers (wrapped as a load
+  // is) — a narrower STRING, a REAL and a REAL into an INT convert a load, so they keep the temp (review of 7.6.1)
+  const retyped = (t: Type): boolean =>
+    sameType(t, value.type) || (value.kind === "const" && typeof value.value === "bigint" && t.kind === "elementary" && isIntegerType(t.name))
+  const places: Place[] = []
   for (let i = targets.length - 1; i >= 0; i--) {
     const written = lowerPlace(lw, targets[i]!)
     const target = written === undefined ? undefined : guardWrite(lw, written, targets[i]!.span, STORE_WRITE)
     if (target === undefined) return undefined
+    places[i] = target
+  }
+  const direct = value.kind === "const" && ops.every((op) => op === undefined) && places.every((t) => retyped(t.type))
+  const held = direct ? undefined : tempPlace(lw, "chain_value", value.type, s.value.span, "statement")
+  const out: IrStmt[] = held === undefined ? [] : [{ kind: "assign", target: held, value, span: s.value.span }]
+  let flowing: IrExpr = held === undefined ? value : { kind: "load", place: held, type: value.type, span: s.value.span }
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const target = places[i]!
     const op = ops[i]
     if (op === undefined) {
       if (refuseImplicitString(lw, flowing, target.type, s.span) || refuseCursorOverrun(lw, target, flowing.type, s.span)) return undefined
@@ -193,7 +205,7 @@ function instanceCopy(lw: Lowering, target: Place, value: IrExpr, span: Span): I
   if (runs === undefined) return lw.bail("layout-unmeasured", `${t.name}'s data has its address stored, and where it sits in an instance is not measured`, span)
   const base = (p: Place): Place => ({ ...p, path: [...p.path, { kind: "field", name: BASE_FIELD }], type: ADDRESS, span })
   const load = (p: Place): IrExpr => ({ kind: "load", place: p, type: p.type, span })
-  const kept = tempPlace(lw, "base", ADDRESS, span)
+  const kept = tempPlace(lw, "base", ADDRESS, span, "statement")
   const bytes = runs.runs.map(([start, end]): IrStmt => {
     const at = (p: Place): Place => ({ slot: 0, root: "image", at: offsetBy(load(base(p)), start), path: [], type: byteRun(end - start), span })
     return { kind: "assign", target: at(target), value: load(at(value.place)), span }

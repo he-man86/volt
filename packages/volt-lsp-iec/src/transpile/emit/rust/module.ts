@@ -87,9 +87,10 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
 }
 
 /** The slots a Rust struct holds, with their names: every one but those the byte image holds (`IrSlot.image`), which are
- *  reached through `Mem` alone — a copy in the struct as well would be a second value of one variable. */
-function held<S extends { image?: number }>(slots: readonly S[], names: readonly string[]): [S[], string[]] {
-  const kept = slots.flatMap((s, i) => (s.image === undefined ? [i] : []))
+ *  reached through `Mem` alone — a copy in the struct as well would be a second value of one variable — and the scoped
+ *  temps, each a `let` of the fn that writes it (`IrSlot.scoped`, lean 7.6.1). */
+function held<S extends { image?: number; scoped?: true }>(slots: readonly S[], names: readonly string[]): [S[], string[]] {
+  const kept = slots.flatMap((s, i) => (s.image === undefined && s.scoped !== true ? [i] : []))
   return [kept.map((i) => slots[i]!), kept.map((i) => names[i]!)]
 }
 

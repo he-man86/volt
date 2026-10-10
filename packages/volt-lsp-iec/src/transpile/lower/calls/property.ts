@@ -4,7 +4,7 @@
 
 import { type FbType, type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { Expr, Property, Span, Statement } from "../../../frontend/syntax/index.js"
-import type { IrDispatch, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import type { IrDispatch, IrExpr, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { bodyOf, once, routineLowering } from "./routines.js"
 import { childScopesByName, lookupMember } from "../../../frontend/symbols/index.js"
 import { storageOf } from "../storage/layout.js"
@@ -19,7 +19,7 @@ import { interfacePropertyGet, interfacePropertySet } from "../interfaces/dispat
 import { staticPath } from "../places/path.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString } from "../statements/assign.js"
-import { assignTo } from "../values/convert.js"
+import { assignTo, passedDirectly } from "../values/convert.js"
 import { interfaceFrame } from "../interfaces/state.js"
 import { tempPlace } from "../core/temps.js"
 import { drain } from "../core/nested.js"
@@ -132,7 +132,10 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   const type = routine.locals[0]!.type
   const value = lowerExpr(lw, s.value, type)
   if (value === undefined || refuseImplicitString(lw, value, type, s.span)) return undefined
-  const temp = tempPlace(lw, "property", type, s.span)
-  const set: IrInvoke = { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [{ kind: "load", place: temp, type, span: s.span }], inouts: [], type: UNKNOWN, span: s.span }
-  return [assignTo(temp, value, s.span), { kind: "eval", value: set, span: s.span }]
+  // the value is the setter's input itself where it holds no call (7.6.2, `passedDirectly`); else it is taken first
+  const direct = passedDirectly(value, type)
+  const temp = direct === undefined ? tempPlace(lw, "property", type, s.span, "statement") : undefined
+  const input: IrExpr = direct ?? { kind: "load", place: temp!, type, span: s.span }
+  const set: IrInvoke = { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [input], inouts: [], type: UNKNOWN, span: s.span }
+  return [...(temp === undefined ? [] : [assignTo(temp, value, s.span)]), { kind: "eval", value: set, span: s.span }]
 }

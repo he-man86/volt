@@ -45,8 +45,17 @@ export function rustType(t: Type): string {
  * A VAR_IN_OUT's Rust parameter type. An `ARRAY[*]` is a slice, and each open dimension inside it a const generic Rust
  * infers from the array every call lends — `grid : ARRAY[*, *] OF INT` is `&mut [[i16; D_GRID_2]]` (design §26).
  */
+/**
+ * A VAR_IN_OUT CONSTANT of a scalar — an elementary type that is no string — is taken BY VALUE (lean 7.6.5): `value: i16`,
+ * not `value: &i16`. The callee never writes it (lowering refuses a store), and a borrow of the caller's place could not
+ * be held across any write to it — rustc refuses that — so the value at the call is every value the callee can read.
+ */
+export const byValue = (slot: { type: Type; readOnly?: boolean }): boolean =>
+  slot.readOnly === true && slot.type.kind === "elementary" && stringKind(slot.type) === undefined
+
 export function inoutType(slot: { type: Type; readOnly?: boolean }, name: string): { param: string; generics: string[] } {
   const t = slot.type
+  if (byValue(slot)) return { param: `${name}: ${rustType(t)}`, generics: [] }
   const borrow = slot.readOnly === true ? "&" : "&mut "
   // A STRING VAR_IN_OUT binds a string of ANY capacity — `VAR_IN_OUT text : STRING` takes a STRING(12) (conformance
   // `xo4_inout_constant_chain`), and lowering has already given the sizeless one its 80, so the declared number cannot

@@ -18,6 +18,7 @@ import {
   type Type,
 } from "../../../frontend/types/index.js"
 import { integerFoldType } from "./fold.js"
+import { holdsCall } from "../../ir/walk.js"
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
  *  capacity differ too: the conversion is where a longer string is truncated into a shorter one. */
@@ -66,6 +67,19 @@ export function assignTo(target: Place, value: IrExpr, span: Span): IrStmt {
   // destination keeps its units behind the `n` written (`string_assign_tail_wide`, `string_literal_nul_tail`).
   if (m < n && fresh(value)) return { kind: "assign", target, value: value.kind === "const" ? convert(value, target.type) : { ...value, type: target.type }, span }
   return { kind: "assign", target, value, span }
+}
+
+/**
+ * A VALUE HANDED STRAIGHT TO A ROUTINE'S INPUT, where it went through a temp (lean 7.6.2): a setter's value was stored into
+ * a `__property_N` temp first, so a value calling a METHOD of the instance whose setter runs could be evaluated before
+ * that `&mut` is taken. A value with no call in it cannot observe when it runs, nor borrow anything, so it is the input
+ * itself — converted to it, as every input is. A STRING of another capacity keeps the temp: it was STORED into the temp's
+ * buffer (`assignTo`), which keeps that buffer's units behind the ones written, where a conversion fills a fresh one.
+ * Undefined where the temp stays.
+ */
+export function passedDirectly(value: IrExpr, type: Type): IrExpr | undefined {
+  if (holdsCall(value) || (sameWidthStrings(value.type, type) && stringCapacity(value.type) !== stringCapacity(type))) return undefined
+  return convert(value, type)
 }
 
 /** A string value whose whole buffer lowering knows: a literal, or a number's (BOOL's, date's…) text — not a string

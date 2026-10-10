@@ -9,7 +9,7 @@ import { expr } from "./expr.js"
 import { Prec, printed, type Printed } from "./precedence.js"
 import { globalsArgs, tmp } from "./names.js"
 import { movedOut, place } from "./place.js"
-import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, type Printer, push, typeOf } from "./printer.js"
+import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, letTemp, type Printer, push, typeOf } from "./printer.js"
 import { isCopy } from "./types.js"
 
 export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): Printed {
@@ -22,7 +22,7 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   const onProgram = e.instance !== undefined && e.instance.root === "global" && p.globals.slots[e.instance.slot]?.section === "program"
   const hoisted = onProgram || e.inputs.some(holdsCall)
   const inputLets = hoisted
-    ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let ${tmp("arg", k)} = ${expr(p, e.inputs[k]!, slots, Prec.Block)};` : `${place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`)).join(" ")
+    ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let ${tmp("arg", k)} = ${expr(p, e.inputs[k]!, slots, Prec.Block)};` : `${letTemp(p, k.temp, slots) ?? place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`)).join(" ")
     : ""
   const inputs = e.inputs.map((a, k) => (hoisted ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)

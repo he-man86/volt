@@ -12,7 +12,7 @@ import { heldAt, instanceRelative, lendPlace } from "./lend.js"
 import { onEachTag } from "../entry/finish.js"
 import { storageOf } from "../storage/layout.js"
 import { lowerExpr } from "../expressions/expressions.js"
-import { assignTo, convert } from "../values/convert.js"
+import { assignTo, convert, passedDirectly } from "../values/convert.js"
 import { methodOf } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { propertyRoutine } from "../calls/property.js"
@@ -120,15 +120,18 @@ export function interfacePropertyGet(lw: Lowering, e: Expr): IrDispatch | undefi
   return dispatch(lw, access.ref, access.type, (instance, fb) => accessorCall(lw, fb, instance, access.name, "get", [], access.type, e.span), e.span)
 }
 
-/** `ref.P := value` — the value into a temp first, as for an instance (`lowerPropertySet`), then each instance's setter. */
+/** `ref.P := value` — each instance's setter, its value taken into a temp first where it holds a call, as for an
+ *  instance (`lowerPropertySet`). */
 export function interfacePropertySet(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined | null {
   const access = interfaceProperty(lw, s.target)
   if (access === null || access === undefined) return access
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.name} set by ${s.op ?? "a chain"}`, s.span)
   const value = lowerExpr(lw, s.value, access.type)
   if (value === undefined) return undefined
-  const temp = tempPlace(lw, "property", access.type, s.span)
-  const load: IrExpr = { kind: "load", place: temp, type: access.type, span: s.span }
-  const set = dispatch(lw, access.ref, UNKNOWN, (instance, fb) => accessorCall(lw, fb, instance, access.name, "set", [load], UNKNOWN, s.span), s.span)
-  return set && [assignTo(temp, value, s.span), { kind: "eval", value: set, span: s.span }]
+  // the value is each setter's input itself where it holds no call (7.6.2): only the arm the tag names runs it
+  const direct = passedDirectly(value, access.type)
+  const temp = direct === undefined ? tempPlace(lw, "property", access.type, s.span, "statement") : undefined
+  const input: IrExpr = direct ?? { kind: "load", place: temp!, type: access.type, span: s.span }
+  const set = dispatch(lw, access.ref, UNKNOWN, (instance, fb) => accessorCall(lw, fb, instance, access.name, "set", [input], UNKNOWN, s.span), s.span)
+  return set && [...(temp === undefined ? [] : [assignTo(temp, value, s.span)]), { kind: "eval", value: set, span: s.span }]
 }

@@ -57,3 +57,33 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
   expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
   expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::take"))
 })
+
+// 7.6.2: a setter's value is its input itself where it holds no call — `self.sq.size_set(5i16)` — and goes through a temp
+// only where it does (a METHOD of the same instance in it must run before the setter's `&mut` is taken)
+test("a PROPERTY setter takes a call-free value directly, a value holding a call through its temp", () => {
+  const src =
+    "FUNCTION_BLOCK FB_Sq\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n" +
+    "PROGRAM P\nVAR sq : FB_Sq; n : INT := 2; END_VAR\nsq.Size := n + 3;\nsq.Size := sq.Area();\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("self.sq.size_set(self.n.wrapping_add(3i16));")
+  expect(code).toContain("let __property_")
+  expect(code).toMatch(/let (__property_\d+): i16 = self\.sq\.area\(\);\n\s+self\.sq\.size_set\(\1\);/)
+})
+
+// 7.6.5: a scalar VAR_IN_OUT CONSTANT is a parameter by value — `value: i16` — handed the variable itself; a
+// string CONSTANT stays a borrow, and a literal lent to it is `&` that literal, with no `let __copy_N` before the call
+test("a scalar VAR_IN_OUT CONSTANT is taken by value; a literal lent to a CONSTANT needs no copy", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION Twice : INT\nVAR_IN_OUT CONSTANT\n\tv : INT;\nEND_VAR\nTwice := v * 2;\nEND_FUNCTION\nFUNCTION Same : BOOL\nVAR_IN_OUT CONSTANT\n\tt : STRING;\nEND_VAR\nSame := t = 'abc';\nEND_FUNCTION\nPROGRAM P\nVAR n : INT := 4; a : INT; b : INT; ok : BOOL; END_VAR\na := Twice(n);\nok := Same(t := 'abc');\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("pub fn twice(v: i16) -> i16 {")
+  expect(code).toContain("twice = v.wrapping_mul(2i16);")
+  expect(code).toContain("self.a = twice(self.n);")
+  expect(code).toMatch(/self\.ok = same\(&IecString::<\d+>::lit\(b"abc"\)\);/)
+  expect(code).not.toContain("__copy_")
+})

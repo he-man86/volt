@@ -9,7 +9,7 @@ import { at, Prec, printed } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
 import { lvalue, place } from "./place.js"
-import { guardLine, type Printer, push } from "./printer.js"
+import { guardLine, letTemp, type Printer, push } from "./printer.js"
 import { rustType } from "./types.js"
 import { storeImage } from "./image.js"
 
@@ -81,6 +81,9 @@ function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: I
 function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
   // a store into the image moves the value's bytes (`image.ts`)
   if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots, Prec.Block), slots), indent, s.span)
+  // a scoped temp is bound where it is written (7.6.1)
+  const bound = letTemp(p, s.target, slots)
+  if (bound !== undefined) return push(p, `${bound} = ${expr(p, s.value, slots, Prec.Block)};`, indent, s.span)
   const field = place(p, s.target, slots)
   // `s[i] := c` changes one unit of the place it reads (7.4.3): in place, where neither the position nor the unit holds a
   // call — a call there could write the string between the read `with_char` takes and its store back — nor the place's

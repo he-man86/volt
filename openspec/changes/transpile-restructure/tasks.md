@@ -5791,30 +5791,95 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.6 Temporaries as locals (lean 6, on model 3; pub_underscore_fields 58)
 
-- [ ] 7.6.1 `core/temps.ts` produces a statement-scoped local in body mode (chain, property, output, inout_guard and inout_index temps).
+- [x] 7.6.1 `core/temps.ts` produces a statement-scoped local in body mode (chain, property, output, inout_guard and inout_index temps).
   - Notes: de132e5019, 73505351ad, 4edbb4135a, 707233d6d6, e7e871371f, 40fd7317bb, 42897347c4, 7a88c529f6, c7af448b33, 915417cef0.
   - Where: `lower/core/temps.ts`, `emit/rust/printer.ts`.
   - Accept: S-out, M.
   - Depends: 4.16.
-- [ ] 7.6.2 A property-setter value passed directly when it holds no invoke on the same instance.
+  - Done 2026-10-10 (step 7.6a). `lower/core/temps.ts`: `tempPlace` / `temp` take how the temp is written
+    (`TempWrite`): `statement` — at ONE site, before every read, all in the block that write stands in (a chain's value,
+    a property's, an in-out's frozen guard / address / index, a kept `__base`) — marks the body-mode slot `scoped`
+    (`IrSlot.scoped`, new); `branches` (`__QUERYINTERFACE`'s found flag, one store per tag) stays a field. The interpreter
+    keeps every temp a slot; the Rust holds a scoped one as a `let` of the fn that runs it, bound where it is written —
+    `let __chain_value_3: i16 = self.c;` (`emit/rust/printer.ts` `letTemp`, from `stmt.ts`'s assign and `calls.ts`'s
+    freeze; a second write site is refused by name), printed bare by `place.ts`, not a field (`module.ts` `held`). And a
+    chain of `:=` links over a CONSTANT takes no temp at all (`statements/assign.ts` `lowerChain`: `self.b = 5i32;
+    self.a = 5i16;`); one over a plain load keeps its `let` — re-reading the load per link needs a proof that no link
+    writes it, for one line. Statement temps held as struct fields 25 -> 0 (16 `let`s in 13 fixtures; the 6 left are
+    7.7.8's ARRAY[*] bounds); `pub_underscore_fields` 115 -> 90. Tests `emit/rust/stmt.test.ts` ("a chain's value is a
+    local of the body, not a field", "a chain over a constant stores it into each target, no temp"). Notes resolved:
+    every 7.6.1 item (39fe7afa3e, 40fd7317bb, 42897347c4, 4edbb4135a, 707233d6d6, 73505351ad, 7a88c529f6, 7fc67373d7,
+    8a29ce0c61, 9704fa862a, 9e66c9a561, c7af448b33, de132e5019, e7e871371f, e8a91161a6, ee5f8f4ae1, and 3c8fcdf5d6's
+    first item — its 7.8.7 item re-keyed to decdb7e4d6, the dispatch line that replaced it).
+  - Review fix (gate 7.5c+7.7a, 2026-10-10): the chain over a constant takes the direct path only where a constant's
+    conversion (a retyping) IS each link's — the target's type the value's (`sameType`), or an integer constant into
+    integer targets (wrapped as a load is); otherwise it keeps the temp. A constant's `convert` never cut a STRING to a
+    narrower capacity, never rounded to REAL, never ran REAL->INT, so `s10 := s3 := 'abcdef'`, `lr := rr := 0.1` and
+    `lr2 := ii := 2.6` lost the inner link's narrowing (s10='abcdef', lr=0.1, Rust `self.ii = 2.6i16` not compiling); now
+    s10='abc', lr=REAL(0.1), ii=lr2=3 as at HEAD. The targets are lowered once, before the temp is decided. 0 chained
+    `:=` in the corpora, no fixture changed (map byte-identical). Tests `lower/statements/assign.test.ts` ("a chain over a
+    constant narrows through each link…", interpreter, red before the fix), `emit/rust/stmt.test.ts` ("a chain over a
+    constant whose link narrows it keeps the temp").
+- [x] 7.6.2 A property-setter value passed directly when it holds no invoke on the same instance.
   - Notes: 48737e1389, 377c1dfc31, 4d8c0c87ee, 782a04d94c.
   - Where: `lower/calls/property.ts`, `interfaces/dispatch.ts`.
   - Accept: S-out, M.
   - Depends: 7.6.1.
-- [ ] 7.6.3 An unbound VAR_OUTPUT goes to a local.
+  - Done 2026-10-10 (step 7.6a). `lower/values/convert.ts` `passedDirectly`, asked by `calls/property.ts`
+    `lowerPropertySet` and `interfaces/dispatch.ts` `interfacePropertySet`: a setter's value with no call in it is the
+    setter's input itself (converted to it, as every input is) — `self.sq.size_set(self.n.wrapping_add(3i16))`; one
+    holding a call keeps its temp (now a `let`, 7.6.1), so a METHOD of the same instance runs before the setter's `&mut`
+    is taken — wider than the task's "no invoke on the same instance", because order is what the temp keeps, and a value
+    without a call has none to keep. A STRING of another capacity keeps the temp too: it was STORED into the temp's
+    buffer (`assignTo`), which keeps that buffer's tail, where a conversion fills a fresh one. Test
+    `emit/rust/calls.test.ts` ("a PROPERTY setter takes a call-free value directly…"). Notes resolved: 377c1dfc31,
+    48737e1389, 4d8c0c87ee, 637fe937dc, 6ff1de2a48, 79ff186095, 81d1867d27, 8c658bedd7, and 2b6ceac96d's item.
+- [x] 7.6.3 An unbound VAR_OUTPUT goes to a local.
   - Notes: 53bd7d992e, 0878222ac3, 0b358286cb.
   - Where: `lower/calls/outputs.ts`.
   - Accept: S-out, M.
   - Depends: 7.6.1, 4.11.
+  - Done 2026-10-10 (step 7.6a): verified, no code — resolved by 4.11. An unbound VAR_OUTPUT is a discarded copy
+    (`IrCopy.discarded`, `calls/outputs.ts` `bindUnconnectedOutputs`), printed as the call's own `let mut __copy_N =
+    0i16;` (`state_routine_outputs`, `accepts_method_var_output`); no `__output_N` field is emitted anywhere (0 lines in
+    the rust snapshot). Its `__inout_*` / `__property_N` field items went with 7.6.1 / 7.6.2. Notes resolved: 0878222ac3,
+    149af70520, 16410bb3a0, 2421f6476e, 2b6ceac96d, 50ba9519ad, 53bd7d992e, 821a3bb974, d016ad6fda.
 - [ ] 7.6.4 VAR_TEMP as Rust locals; measure first which fixtures' recorded paths name a VAR_TEMP (those keep observable storage).
   - Where: `lower/storage/layout.ts` (`INSTANCE_STORAGE`), `init/temp-resets.ts`.
   - Accept: S-out, M.
   - Depends: 5.5, 7.6.1.
-- [ ] 7.6.5 A scalar VAR_IN_OUT CONSTANT argument (or a literal bound to one) is passed by value, not copied into `let __copy_N`.
+  - NOT DONE in step 7.6a (2026-10-10) — measured, then left open. The measure the task asks first: 29 fixtures declare a
+    VAR_TEMP and NO recorded path names one (`codesys.run.json`; the one regex hit, `refuse_var_temp_struct`, was its FB
+    name), so nothing recorded needs VAR_TEMP storage kept. What stops it as a lean of this step's size: unlike 7.6.1's
+    temps, a VAR_TEMP is written at several sites and read before any write (its reset), so it is a `let mut` at the run's
+    top — and then `mut` must be decided per variable (a never-rewritten one is rustc's `unused_mut` in `call()`/`scan()`,
+    which carry no blanket allow), a never-read one becomes `unused_variables` / `unused_assignments`
+    (`refuse_var_temp_struct` only writes `scratch.x`), and a base's VAR_TEMP reset by `SUPER^()` inside the derived body
+    (`calls/routines.ts`) is not at its fn's top. It needs the written/read sets 7.7.1 builds (`calls/facts.ts`) first.
+- [x] 7.6.5 A scalar VAR_IN_OUT CONSTANT argument (or a literal bound to one) is passed by value, not copied into `let __copy_N`.
   - Notes: the `__copy_N` notes tagged here by 0.6.
   - Where: `lower/calls/binding.ts`, `emit/rust/calls.ts`.
   - Accept: S-out, M.
   - Depends: 7.6.1.
+  - Done 2026-10-10 (step 7.6a). `emit/rust/types.ts` `byValue`: a VAR_IN_OUT CONSTANT of an elementary non-string type is a
+    parameter by value (`inoutType`: `v: i16`, not `v: &i16`); `place.ts` prints it bare (no `*`), and `printer.ts` `lend`
+    hands it the variable itself (`twice(self.n)`); a COPY of a place keeps its `let __copy_N`, taken before the call, and is
+    handed by value (`self.twice(__copy_0)`) — a `&mut` of the same place may sit beside it (E0503: the full conformance
+    run's `emit-build.test.ts` crate, `f_lboth(&mut self.x, self.x)`, said so). The callee
+    never writes it (lowering refuses the store), and a borrow of the caller's place could not be held across a write to
+    it (rustc refuses that), so the value at the call is every value the callee can read; the interpreter is unchanged.
+    And a LITERAL lent to any CONSTANT (a STRING one: `inout_const_string_literal_3`) is `&` that literal inline — a
+    temporary lives to the end of its statement, and a literal is no place a `&mut` beside it borrows (the E0503 the copy
+    exists for). (A literal bound to a scalar CONSTANT does not lower today — "literal is not a lowerable storage location
+    yet" — so that half has nothing to print.) `let __copy_N =` (unwritten copies) 6 -> 1 (`inout_const_method_9`'s place copy). Test `emit/rust/calls.test.ts`
+    ("a scalar VAR_IN_OUT CONSTANT is taken by value; a literal lent to a CONSTANT needs no copy"). Notes resolved:
+    2b67f9045b, 4d6e5e12b9, 7de11239a2, 9bb47dec44, 9c8bf093b2, a558076adc, b03c447093; 867ee71c07 (7.8.6's `(*x)` on
+    `self.doubled = (*threshold)…`, which prints `threshold.wrapping_mul(2i16)` now) deleted with its construct;
+    3fed555c25 (7.7.7's) re-keyed to d33f37473e, the same dereference read with `value` by value.
+    Step 7.6a numbers (7.6.1-7.6.3, 7.6.5; 7.6.4 left open): S-out identical over 5535 fixtures (outputs and edge
+    byte-identical against the 7.5c-start baseline); the rust layer differs in 27 fixtures (against 7.4b's). M (against
+    7.4b's map): pedantic 9479 -> 9452 (`pub_underscore_fields` 115 -> 90, `struct_excessive_bools` 46 -> 44); lints
+    unchanged; size median 3.1, the ten largest unchanged; constructs 2038 -> 2021, noted 259 -> 218.
 - [ ] 7.6.6 Argument hoisting only when needed.
   - What: no `let __arg_N` for a single input or for a pure argument; only the arguments that must be evaluated before a call-holding
     sibling are hoisted; SEL binds only what 6.15's contract needs.

@@ -76,7 +76,7 @@ export function queryCondition(lw: Lowering, cond: Expr): { before: IrStmt[]; co
   const call = leadingOperand(cond)
   if (!isQuery(call)) return null
   const bool = elementaryRef("BOOL")
-  const found = tempPlace(lw, "query_found", bool, cond.span)
+  const found = tempPlace(lw, "query_found", bool, cond.span, "branches")
   const before = queryInto(lw, found, call, cond.span)
   if (before === undefined) return undefined
   interfaceFrame(lw).hoistedQueries.set(call, { kind: "load", place: found, type: bool, span: call.span })

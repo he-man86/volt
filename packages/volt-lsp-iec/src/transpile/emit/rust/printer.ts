@@ -12,7 +12,7 @@ import { place } from "./place.js"
 import type { Layouts } from "./values.js"
 import { storeImage } from "./image.js"
 import type { RuntimeId } from "./runtime/index.js"
-import { rustType } from "./types.js"
+import { byValue, rustType } from "./types.js"
 
 /** One POU's printer: the state every print function reads and writes. */
 export class Printer {
@@ -36,6 +36,9 @@ export class Printer {
   /** The pointer the statement being printed checked on its own line (`guardLine`), as printed — a read through it in the
    *  statement's value prints unchecked (`guarded`, lean 9.3); undefined when there is none or the value holds a call. */
   checked: string | undefined = undefined
+
+  /** Each frame's scoped temps already bound by a `let` (`letTemp`), by the frame's field names — one write site each. */
+  readonly letTemps = new WeakMap<readonly string[], Set<number>>()
 
   /** The runtime helpers the printed code calls (`use`) — the module prints their closure and nothing else (lean 1). */
   readonly uses = new Set<RuntimeId>()
@@ -87,11 +90,24 @@ export function lendMut(p: Printer, target: Place, slots: IrPou["slots"]): strin
   return target.root === "this" && target.path.length === 0 ? "&mut *self" : `&mut ${place(p, target, slots)}`
 }
 
-/** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__copy_i`, the copy `lentCopies` took. */
+/**
+ * A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__copy_i`, the copy `lentCopies` took. A
+ * scalar CONSTANT's is the value itself (`byValue`, 7.6.5), and a literal lent to a CONSTANT is `&` that literal: a
+ * temporary lives to the end of its statement, and a literal is no place a `&mut` beside it could borrow (7.6.5).
+ */
 export function lend(p: Printer, b: IrBinding, i: number, param: IrPou["slots"][number], slots: IrPou["slots"]): string {
-  if ("kind" in b) return written(b) ? `&mut ${tmp("copy", i)}` : `&${tmp("copy", i)}`
+  if ("kind" in b) {
+    if (inline(b)) return `${byValue(param) ? "" : "&"}${expr(p, b.value, slots, byValue(param) ? Prec.Block : Prec.Unary)}`
+    // a copy of a place stays a `let` taken before the call — a `&mut` of the same place may sit beside it (E0503) — and
+    // a scalar CONSTANT takes that copy by value
+    return written(b) ? `&mut ${tmp("copy", i)}` : `${byValue(param) ? "" : "&"}${tmp("copy", i)}`
+  }
+  if (byValue(param)) return place(p, b, slots)
   return `${param.readOnly === true ? "&" : "&mut "}${place(p, b, slots)}`
 }
+
+/** A copy lent with no `let` of its own (`lend`): a literal — no place a `&mut` beside it could borrow — never one written. */
+const inline = (b: IrCopy): boolean => !written(b) && b.value.kind === "const"
 
 /** After the call, each copy marked `back` stored to its place: `self.points = __copy_0;` (an own field lent to an own METHOD). */
 export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
@@ -106,7 +122,7 @@ export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: Ir
  * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
  */
 export function lentCopies(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-  return bindings.flatMap((b, i) => ("kind" in b ? [`let ${written(b) ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots, Prec.Block)};`] : [])).join(" ")
+  return bindings.flatMap((b, i) => ("kind" in b && !inline(b) ? [`let ${written(b) ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots, Prec.Block)};`] : [])).join(" ")
 }
 
 /** A copy the callee may write — one written back, or an unconnected output's, discarded — is lent `&mut`; else `&`. */
@@ -153,4 +169,19 @@ export interface Frame {
   result?: string
   /** The FB a body runs on — what a `this` place (`THIS^`) walks from. */
   selfType?: Type
+}
+
+/**
+ * The write of a SCOPED TEMP (`IrSlot.scoped`, lean 7.6.1) as the `let` that binds it — `let __chain_value_3: bool` — or
+ * undefined for any other place. Lowering writes such a temp at one site, before every read and in the block they stand
+ * in, so the binding is where it is written; a second write site is a lowering bug, named — a `let` there would shadow
+ * the first for the reads after it only.
+ */
+export function letTemp(p: Printer, target: Place, slots: IrPou["slots"]): string | undefined {
+  if (target.root !== undefined || target.path.length > 0 || slots[target.slot]?.scoped !== true) return undefined
+  const bound = p.letTemps.get(p.fields) ?? new Set<number>()
+  p.letTemps.set(p.fields, bound)
+  if (bound.has(target.slot)) throw new Error(`emit: the scoped temp ${p.fields[target.slot]} is written at a second site`)
+  bound.add(target.slot)
+  return `let ${p.fields[target.slot]}: ${typeOf(p, target.type)}`
 }

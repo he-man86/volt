@@ -20,6 +20,10 @@ export interface IrSlot {
    *  constant after the frame's first step statement: the position rule, design.md §3.4) — the type's start
    *  (`lower/core` `zeroInit`). */
   init: IrInit
+  /** A `temp` written at one site before every read, all in the block that write stands in (`lower/core/temps.ts`
+   *  `TempWrite`): the interpreter keeps it a slot; the Rust holds it as a `let` of the fn that runs that block, not a
+   *  field of the struct (lean 7.6.1). */
+  scoped?: true
   /** A VAR_IN_OUT CONSTANT: no store into it lowers, however it is written (conformance `inout_const_write_5`). */
   constant?: boolean
   /** Lent as a shared `&`: a VAR_IN_OUT CONSTANT that holds no FB instance. One that does is lent `&mut`, as any in-out:

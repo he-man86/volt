@@ -105,3 +105,34 @@ test("`arr[F()][i] := c` — a call in the target's own index — keeps `with_ch
   expect(code).not.toContain(".set_char(1, 65u8)")
   expect(code).toContain(".with_char(1, 65u8)")
 })
+
+// 7.6.1: a statement's temp — a chain's value here — is a `let` of the fn that runs the statement, bound where it is
+// written, not a field of the FB's struct (`IrSlot.scoped`)
+test("a chain's value is a local of the body, not a field", () => {
+  const code = rust("FUNCTION_BLOCK FB\nVAR a : INT; b : INT; c : INT; END_VAR\na := b := c;\nEND_FUNCTION_BLOCK\n")
+  expect(code).toContain("let __chain_value_3: i16 = self.c;\n        self.b = __chain_value_3;\n        self.a = __chain_value_3;")
+  expect(code).not.toContain("pub __chain_value")
+  expect(code).not.toContain("self.__chain_value")
+})
+
+// 7.6.1: a chain of `:=` links over a constant needs no temp at all — each target takes the constant at its own type
+test("a chain over a constant stores it into each target, no temp", () => {
+  const code = rust("PROGRAM P\nVAR a : INT; b : DINT; END_VAR\na := b := 5;\nEND_PROGRAM\n")
+  expect(code).toContain("self.b = 5i32;\n        self.a = 5i16;")
+  expect(code).not.toContain("__chain_value")
+})
+
+// review of 7.6.1: a constant's conversion only retypes it, so a link that narrows a STRING, rounds to REAL or turns a
+// REAL into an INT keeps the temp the chain over a variable has — the outer target receives the inner link's value
+test("a chain over a constant whose link narrows it keeps the temp", () => {
+  for (const [vars, body] of [
+    ["s10 : STRING(10); s3 : STRING(3);", "s10 := s3 := 'abcdef';"],
+    ["lr : LREAL; rr : REAL;", "lr := rr := 0.1;"],
+    ["lr2 : LREAL; ii : INT;", "lr2 := ii := 2.6;"],
+  ])
+    expect(rust(`PROGRAM P
+VAR ${vars} END_VAR
+${body}
+END_PROGRAM
+`)).toContain("__chain_value")
+})
