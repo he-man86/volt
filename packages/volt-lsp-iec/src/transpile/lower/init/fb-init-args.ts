@@ -14,6 +14,7 @@ import { ownProgram } from "../calls/reentrancy.js"
 import { foldConstant } from "../values/fold.js"
 import { convert, stored, valueAs } from "../values/convert.js"
 import { fieldIndex } from "../places/path.js"
+import { isBoolValued } from "../../../frontend/types/index.js"
 
 /**
  * The variable an FB_Init argument reads, when the recordings cover it (`fb_init_argument_from_variable`, `_from_global`):
@@ -58,6 +59,10 @@ export function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, giv
   // as design.md §3.4 step 5d keeps any expression. niche: accepted loss (0 occurrences: every corpus argument is a literal)
   if (structScope && expr !== undefined && expr.kind !== "ident_expr" && namesSomething(expr))
     return lw.bail("fb-init-argument", `${last.name}'s FB_Init argument for ${slot.name} is an expression naming something, judged in no struct scope`, span) ?? false
+  // bInitRetains / bInCopyCode are BOOL inputs the runtime hands TRUE / FALSE; declared as another type the vendor
+  // refuses the FB (`oopb_fb_init_input_wrong_type`, both vendors) — refused by name, not handed a BOOL unconverted
+  if ((name === "BINITRETAINS" || name === "BINCOPYCODE") && !isBoolValued(slot.type))
+    return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is declared as no BOOL — the vendor refuses it too`, span) ?? false
   const field = inStruct ? structField(st, expr, holder!, last.name, declaring) : undefined
   if (field === false) return false
   const folded =

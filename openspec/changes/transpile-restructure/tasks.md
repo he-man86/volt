@@ -6050,6 +6050,22 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     half of shapes12_9 (e496034f7b `x = L;`, ef4db7eb51, 410eafc2ba, cc1c266f50: skip `iec_deref` on a pointer only ever
     stored one non-zero tag) are no dead parameter — that needs a store-before-read proof across scans (the pointer is a
     persistent field, 0 at start) — and are re-tagged `keep:` with that reason.
+  - Gate 7.7b+7.11 review (2026-10-10), two findings fixed, failing test first:
+    (1) an input the body STORES to but never reads counted as dead (`unreadOf` treats a plain store as no use), so
+    `FUNCTION F … a := 5;` called `F(3)` printed `pub fn f() -> i16 { _a = 5i16; …` — E0425, a valid program rustc
+    refused. `deadParamsOf` now drops only an input the body names nowhere, not even as a store's target (`pub fn
+    f(mut _a: i16)` as at HEAD). Test `emit/rust/routine.test.ts` ("an input the body only stores to stays a
+    parameter, though every call hands a constant"). No fixture moved (none covers it).
+    (2) the `oopb_fb_init_input_wrong_type` line above was no improvement: lowering handed the INT `bInitRetains` a BOOL
+    `true` unconverted, and dropping the unread parameter only hid it. `lower/init/fb-init-args.ts` `fbInitInput` now
+    refuses `fb-init-argument` by name where `bInitRetains` / `bInCopyCode` is declared as no BOOL (both vendors refuse
+    the FB). Test `lower/init/fb-init.test.ts` ("an FB_Init whose bInitRetains or bInCopyCode is no BOOL is refused, not
+    handed a BOOL"). The map row is `{ evidence: "refused" }` (not lowered). Gate numbers (whole group 7.7b-7.11):
+    S-out (`snapshot:transpile check --layers outputs,edge` against the baseline written at aec8784460) 5534 of 5535
+    identical, the one being this row, now refused in lowering ("in the baseline, not in this snapshot"); M against
+    7.11's map: that row, decl tier 774 -> 773 lowered, edge agree 3192 -> 3191, improvable 3164 -> 3163, and the
+    reopened 7.8.4/7.8.8 items (`keep` 25 -> 16). Typecheck clean; full suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES
+    unset) 9167 pass / 35 skip / 389 todo / 0 fail across 316 files (7.7a's gate 9148 -> 9167).
 - [x] 7.7.8 ARRAY[*] upper bounds derived from `len()`, not passed.
   - Where: `lower/storage/declare.ts`, `calls/fb-call.ts`.
   - Accept: S-out, M.
@@ -6192,12 +6208,15 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     146 (what is left is not an initializer). Tests `emit/rust/values.test.ts` (above); the VAR_TEMP reset pin reads
     `self.sx = ST_P { a: 9, ..ST_P::new() };` (its premise, the reset to the initializer, kept). Notes resolved: every
     7.8.3 item (7 notes).
-- [x] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
+- [ ] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
   chose no arena.
   - Where: `lower/storage/unions.ts`, `ir/expr.ts`, `semantics/`, `emit/rust/`.
   - Accept: S-out, M.
   - Depends: 4.16.
-  - NOT BUILT (step 7.8a, 2026-10-10): niche: accepted loss, by the owner's triage. Counted in the six corpora's PROJECT
+  - OPEN (gate 7.7b+7.11, 2026-10-10): step 7.8a closed it unbuilt as "niche: accepted loss"; the gate's review found
+    that rule is the owner's for FINDINGS (divergences from CODESYS), not for an unbuilt restructure task, so it is
+    reopened and its notes are 7.8.4's again — the OWNER decides between building it and closing it as niche (the
+    proposal, with 7.8a's measurement:). 7.8a wrote: niche: accepted loss, by the owner's triage. Counted in the six corpora's PROJECT
     code (library materializations excluded): two UNION types, both pro2193 — `GenericInt` (CAA.SIGNED / CAA.UNSIGNED,
     signed members, which `lower/storage/unions.ts` `overlayBytes` refuses: it never reaches the byte copy) and
     `PointerSizesUnion` (all pointers, already a plain copy per member). So 0 union stores in the corpora lower to the
@@ -6205,7 +6224,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     not trivial: 4.2 chose the byte image, but a union in a struct field is not an image place, so `to_le_bytes` needs the
     reinterpret node and its interpreter twin, and an array member a runtime helper. Its 4 notes (a281b5efbd, 3f8601dd97:
     the byte chain; c5d30c56ec, ca823a2c56: one field for a union of pointers) re-tagged `keep:niche: accepted loss (…)`
-    with those counts; c6322760e4 (the CASE on a folded diSize) went with 7.7.9.
+    with those counts (back to `7.8.4` at the gate, above); c6322760e4 (the CASE on a folded diSize) went with 7.7.9.
 - [x] 7.8.5 A constant bit store prints as `|=` / `&= !`.
   - Where: `emit/rust/stmt.ts`.
   - Accept: S-out, M.
@@ -6244,14 +6263,16 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     `unnecessary_semicolon` 12 -> out of the top ten. Covered by the conformance fixtures it changed
     (`itf_call_dispatches_on_instance`, `callshape_inout_*`, `tr_16_*`: S-out identical, all build). Notes resolved:
     every 7.8.7 item (11 notes, their `(*__lent_N)` halves 7.8.6's).
-- [x] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
+- [ ] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
   - Also: a REFERENCE bound at its declaration (`REF=`) to a variable of the same instance gets its constant tag in `new()`, so
     its `init()`/`__init()` chain goes (review item shapes6_2, owned here by 0b).
   - Notes: ad25627749, fbde4d6e1e.
   - Where: `lower/init/initial-values.ts`.
   - Accept: S-out, M.
   - Depends: 5.10, 4.16.
-  - NOT BUILT (step 7.8b, 2026-10-10): niche: accepted loss. Counted in the six corpora's PROJECT code (library
+  - OPEN (gate 7.7b+7.11, 2026-10-10): reopened as 7.8.4 was (the niche rule is for findings, not unbuilt tasks); its
+    notes are 7.8.8's again and `notes.test.ts`'s fbde4d6e1e pin reads `["7.8.8"]` (its 7.8.11 item went with 7.8.11).
+    The OWNER decides between building it and closing it as niche, on 7.8b's measurement: niche: accepted loss. Counted in the six corpora's PROJECT code (library
     materializations excluded): 2 declarations bind a pointer or reference at declaration — pro2193 ONTIME's
     `refSeconds : REFERENCE TO UDINT REF= udiSeconds;` and `refCycles … REF= udiCycles;` — and no `POINTER TO … := ADR(…)`
     (248 in the materialized libraries, which are not lowered). Not trivial since model 3: the target is an image address
@@ -6259,8 +6280,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     parent's initial value sets that base (`instancesIn`, `lower/pointers/image.ts`); folding it into that initial value
     moves the binding ahead of the init sequence (model 4) for both backends, which needs its own proof that no
     FB_Init or initializer reads it first. Its items (667cafe298, 45292dbd9c, 75cc82a569, ad25627749 and fbde4d6e1e's
-    first) re-tagged `keep:niche: accepted loss (2 occurrences in the corpora: …)`; `notes.test.ts`'s fbde4d6e1e pin
-    reads the new tag.
+    first) re-tagged `keep:niche: accepted loss (2 occurrences in the corpora: …)` (back to `7.8.8` at the gate).
 - [x] 7.8.9 `x := x` stays ALLOWED `self_assignment`: note ea53989ac8's text becomes that ALLOWED entry's reason; the note stays tagged
   `keep` and is deleted by 7.11.1.
   - Where: `support/transpile/lint-policy.ts`, `support/notes/notes.data.ts`.
@@ -6309,27 +6329,65 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.11 Notes and lint-policy hygiene
 
-- [ ] 7.11.1 Remove the remaining `keep` items (a note goes with its last item), after 7.8.9 moved ea53989ac8's text.
+- [x] 7.11.1 Remove the remaining `keep` items (a note goes with its last item), after 7.8.9 moved ea53989ac8's text.
   - Where: `support/notes/notes.data.ts`.
   - Accept: M; no `keep` item left.
   - Depends: 0.6, 7.2.13, 7.7.10, 7.8.9.
+  - Done 2026-10-10 (step 7.11). The `keep` items 0.6 placed (12; 7.2.13 took 7, 7.7.10 one) are gone: ea53989ac8 (`x :=
+    x`, whose text 7.8.9 moved into the `self_assignment` reason) and the three shapes6_11 notes e0361c9257, 9479f0e3c4,
+    0a552281ae ("iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells" — asks for no
+    change). `notes.test.ts` pins the four gone. What stays tagged `keep:` (25 notes in the map header) is not 0.6's:
+    each is a later task's MEASURED verdict, written as that task's record and the shape 7.11.4 accepts — the f32 libm
+    round trips and the promoted MOD/division (7.3.12, 7.3.13), the step held in a field (7.5.9), shapes12_9's guard half
+    (7.7.7), the union overlay and the declaration-bound pointer (7.8.4, 7.8.8, `niche: accepted loss` with their corpus
+    counts). Deleting them would drop a judgement the map shows beside its construct, which the tasks' texts carry only
+    in prose. `keep` 29 -> 25 in the map header; noted constructs 45 -> 41. At the gate, 7.8.4 and 7.8.8 were reopened
+    (the niche rule is for findings, not unbuilt tasks): their 9 items are theirs again, `keep` 25 -> 16 (`7.8.8 5,
+    7.8.4 4` in the per-task count).
 - [ ] 7.11.2 Every note item owned by a finished task is removed (a note goes with its last item).
   - What: gated since 0b — `assertNotes` (run by `rate:fixtures` and `map.test.ts`) refuses an item whose owner is ticked, so
     each task removes its own items in the commit that ticks it; this task verifies none is left.
   - Where: `support/notes/notes.data.ts`, `scripts/rate-fixtures.ts`.
   - Accept: the generator reports 0 note items owned by a ticked task.
   - Depends: all of 7.
-- [ ] 7.11.3 Re-check every ALLOWED lint after the models.
+  - Verified 2026-10-10 (step 7.11), NOT ticked: its Depends ("all of 7") still has 7.4.6 and 7.6.4 open. Today the
+    generator reports 0 note items owned by a ticked task (`assertNotes` / `noteTagProblems`, run by `rate:fixtures`,
+    passes; every task 7.7.6-7.8.11 removed its own items in its step); the per-task count left is `7.4.6 14, 7.6.4 2`
+    beside `keep 25`. Tick it with the step that closes the last of those two (after the gate also 7.8.4 and 7.8.8,
+    reopened: `keep 16, 7.4.6 14, 7.8.8 5, 7.8.4 4, 7.6.4 2`).
+- [x] 7.11.3 Re-check every ALLOWED lint after the models.
   - What: eq_op (17), unnecessary_min_or_max (10), approx_constant (6), manual_clamp (2; RC 28/41), absurd_extreme_comparisons,
     manual_range_patterns, never_loop (model 1), unused_comparisons, dead_code, self_assignment, unreachable_code: each entry's excused
     count is re-measured; an entry at 0 is removed; the others get their reason re-written against today's cause.
   - Where: `test/conformance/support/transpile/lint-policy.ts`.
   - Accept: M; every ALLOWED entry has a current count and a reason written after 5.10.
   - Depends: 7.1.3, 7.2.7, 7.5.11.
+  - Done 2026-10-10 (step 7.11). Every ALLOWED entry re-measured over every lowered fixture, built as `rate:fixtures`
+    builds them (a scratch script reading `splitFindings`' `excused` per fixture, not kept): dead_code 42 findings / 42
+    fixtures, self_assignment 42/42, eq_op 15/15, unused_assignments 7/5, absurd_extreme_comparisons 6/6,
+    approx_constant 6/6, unused_comparisons 6/6, too_many_arguments 2/2, missing_panics_doc 386/266, never_loop 1/1,
+    unreachable_code 1/1, manual_range_patterns 1/1. None at 0 (`unnecessary_min_or_max` and `manual_clamp`, in this
+    task's list, had already left: the generator refuses an entry that excuses nothing). Each reason re-written against
+    today's cause with its count (`support/transpile/lint-policy.ts`): `dead_code`'s 7.1.3 reason ("fixture variables")
+    was stale — every one of its 42 findings is rustc's "useless assignment of field … to itself", the same `x := x` as
+    `self_assignment`; `eq_op` names the `cmp_nan_self_*`, `seed - seed` and `tr_46_exptdom_*` families;
+    `approx_constant` the six literals; `unused_assignments` the fifth fixture (`pointer_deref_before_first_store`,
+    `shadowing_method_param_shadows_member`); `unused_comparisons` / `absurd_extreme_comparisons` the four FOR-at-max
+    fixtures. The map is unchanged by it (reasons are not in the map).
+  - Gate 7.7b+7.11 review (2026-10-10): the `dead_code` reason named only the self-assignments, yet the entry excused
+    ALL of rustc's `dead_code` — an unused generated fn, field or variant would have been excused under it silently.
+    `lint-policy.ts` `ALLOWED_MESSAGE` now names the one message an entry excuses (`dead_code`: "useless assignment of
+    field of type `…` to itself", measured on rustc); any other `dead_code` is FOUND. Test
+    `support/transpile/lint-policy.test.ts` ("dead_code is excused only for a field assigned to itself"). The map is
+    unchanged by it: all 42 excused findings are that message.
 - [ ] 7.11.4 Notes placed by 0.6 in tasks created for them are resolved or tagged `keep:<reason>`.
   - Where: `support/notes/notes.data.ts`.
   - Accept: the per-task note count lists no note under an open task at the end of phase 7.
   - Depends: all of 7.
+  - NOT DONE (step 7.11, 2026-10-10): its Depends ("all of 7") has 7.4.6 and 7.6.4 open, and so do the notes it is
+    about — 14 under 7.4.6 (read-only STRING inputs, LEN_INTERNAL) and 2 under 7.6.4 (VAR_TEMP as locals), both tasks
+    0.6 tagged and neither started. Every other phase-7 task's notes are resolved or `keep:<measured reason>` (7.11.1).
+    It closes with whichever step lands the last of those two tasks.
 
 ## 8. Close
 

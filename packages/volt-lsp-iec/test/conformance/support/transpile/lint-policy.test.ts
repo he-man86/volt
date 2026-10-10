@@ -20,3 +20,13 @@ test("the self_assignment reason carries the review note's text", () => {
   expect(ALLOWED["clippy::self_assignment"]).toContain("ea53989ac8")
   expect(ALLOWED["clippy::self_assignment"]).toContain("could be dropped when target and source are the same side-effect-free place with no conversion")
 })
+
+// review of 7.11.3: `dead_code` is ALLOWED for its self-assignment findings only — its reason names nothing else, so an
+// unused generated fn, field or variant is FOUND, not excused under a reason that does not describe it
+test("dead_code is excused only for a field assigned to itself", () => {
+  const dead = (message: string, line: number): string =>
+    JSON.stringify({ level: "warning", message, code: { code: "dead_code" }, spans: [{ is_primary: true, line_start: line }] })
+  const split = splitFindings([dead("useless assignment of field of type `i16` to itself", 2), dead("function `read` is never used", 3)].join("\n"), 10)
+  expect(split.excused).toEqual(["dead_code"])
+  expect(split.found).toEqual([{ code: "dead_code", line: 3 }])
+})

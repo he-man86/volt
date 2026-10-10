@@ -291,3 +291,16 @@ test("a STRUCT field instance's FB_Init argument: refused where the struct's sco
   expect(codes("rec : DUT;", struct("DUT2", "a : INT := 1;"), "first : DUT2;\nheld : FB_T(v := first);")).toEqual(["fb-init-argument"])
   expect(codes("rec : DUT;", "", "first : FB_T(v := 3);\nheld : FB_T(v := first);")).toEqual(["fb-init-argument"])
 })
+
+// review of 7.7.7 (`oopb_fb_init_input_wrong_type`, refused by both vendors): bInitRetains / bInCopyCode declared as
+// anything but BOOL is refused by name — lowering handed the INT input a BOOL constant unconverted, and once 7.7.7 dropped
+// the unread parameter nothing caught it
+test("an FB_Init whose bInitRetains or bInCopyCode is no BOOL is refused, not handed a BOOL", () => {
+  const fb = (decl: string) =>
+    `FUNCTION_BLOCK FB_W\nVAR out : INT; END_VAR\nout := 1;\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT\n${decl}\nEND_VAR\nEND_METHOD\n` +
+    "PROGRAM P\nVAR w : FB_W; END_VAR\nw();\nEND_PROGRAM\n"
+  const codes = (decl: string) => lowerSource(fb(decl), "P").diagnostics.map((d) => d.code)
+  expect(codes("bInitRetains : INT; bInCopyCode : BOOL;")).toContain("fb-init-argument")
+  expect(codes("bInitRetains : BOOL; bInCopyCode : DINT;")).toContain("fb-init-argument")
+  expect(codes("bInitRetains : BOOL; bInCopyCode : BOOL;")).toEqual([])
+})

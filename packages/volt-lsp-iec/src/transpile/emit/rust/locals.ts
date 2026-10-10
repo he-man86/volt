@@ -49,7 +49,8 @@ export interface DeadParams {
 }
 
 /**
- * THE PARAMETERS NO RUN CAN SEE (lean 7.7.7, 7.7.9) — by routine key: each input the body never uses (`unreadOf`) that
+ * THE PARAMETERS NO RUN CAN SEE (lean 7.7.7, 7.7.9) — by routine key: each input the body never names (not even as a
+ * store's target) that
  * every call hands a constant, which reads nothing, so leaving it out changes no order either; and each in-out the body
  * never names that every call binds to a place no binding can fault on (no dereference, no image byte, no index but a
  * constant). A borrowed `POINTER TO` input (form 2) is the first: every `p^` became the hidden in-out, and each call
@@ -72,7 +73,10 @@ export function deadParamsOf(pou: IrPou): ReadonlyMap<string, DeadParams> {
   const out = new Map<string, DeadParams>()
   for (const r of pou.routines) {
     const unread = unreadOf(r)
-    const inputs = new Set(r.inputs.flatMap((i, k) => (unread.has(i) && live.get(r.key)?.inputs.has(k) !== true ? [k] : [])))
+    // an input the body stores to is named by it (`unreadOf` counts a plain store as no use): it stays a parameter
+    const named = new Set<number>()
+    someNode(r.body, (n) => (isPlace(n) && n.root === "local" && named.add(n.slot), false))
+    const inputs = new Set(r.inputs.flatMap((i, k) => (unread.has(i) && !named.has(i) && live.get(r.key)?.inputs.has(k) !== true ? [k] : [])))
     const inouts = new Set(r.inouts.flatMap((_, i) => (unread.has(r.locals.length + i) && live.get(r.key)?.inouts.has(i) !== true ? [i] : [])))
     if (inputs.size > 0 || inouts.size > 0) out.set(r.key, { inputs, inouts })
   }

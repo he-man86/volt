@@ -22,7 +22,7 @@
  *     unaskable       95
  *
  *   tier                     lowered    clean
- *     decl                    774      774
+ *     decl                    773      773
  *     arith                  1574     1574
  *     control                 161      151
  *     aggregate               147      147
@@ -53,7 +53,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3192
+ *     agree         3191
  *     disagree         3
  *     not-run        219
  *       not-run: reaches the platform's libm (pow, ln, sin…)     74
@@ -98,12 +98,12 @@
  *     tr_a27_for_unsigned_counters_negative_step    11.5
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *
- *   shape — 1863 distinct emission shapes over 3414 lowered fixtures, 1964 distinct constructs.
- *   45 constructs carry a review note (`NOTES`): 3164 fixtures are improvable, 164 touch a construct with alternatives.
+ *   shape — 1863 distinct emission shapes over 3413 lowered fixtures, 1964 distinct constructs.
+ *   41 constructs carry a review note (`NOTES`): 3163 fixtures are improvable, 153 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
- *     keep 29, 7.4.6 14, 7.6.4 2
+ *     keep 16, 7.4.6 14, 7.8.8 5, 7.8.4 4, 7.6.4 2
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -1101,7 +1101,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cmpop_time_vs_int: { evidence: "refused" },
   co_any_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2, shape: "9014092f93", notes: ["fbde4d6e1e"] },
   co_move_operator: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "a5b9bc492b", notes: ["fbde4d6e1e"] },
-  co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 2, shape: "7478a8fa9a", notes: ["9479f0e3c4", "e0361c9257", "fbde4d6e1e"] },
+  co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 2, shape: "7478a8fa9a", notes: ["fbde4d6e1e"] },
   co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 7.2, shape: "9d28bd5f6b", notes: ["1c82d4c275", "30fdd454d9", "3eb9cb867d", "4567b70381", "50ff398988", "aba7498096", "b0547ad22e", "fbde4d6e1e"] },
   concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 3.1, shape: "dde2f8b84f", notes: ["07f99bf907", "1c82d4c275", "21ef64a1e0", "30fdd454d9", "3eb9cb867d", "4567b70381", "50ff398988", "aba7498096", "b0547ad22e", "fbde4d6e1e"] },
   conditional_define_then_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "f77529764a", notes: ["fbde4d6e1e"] },
@@ -1128,9 +1128,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   conversion_int_to_real_valid: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "10bf1c288a", notes: ["fbde4d6e1e"] },
   conversion_int_to_real_wrong_source: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "eec59da13b", notes: ["fbde4d6e1e"] },
   conversion_overloaded_to_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.5, shape: "37f42d10bc", notes: ["fbde4d6e1e"] },
-  conversion_real_to_int_valid: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "4ea265d663", notes: ["0a552281ae", "fbde4d6e1e"] },
+  conversion_real_to_int_valid: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "4ea265d663", notes: ["fbde4d6e1e"] },
   conversion_time_to_dword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "9efd0b126f", notes: ["fbde4d6e1e"] },
-  conversion_trunc_int_real_to_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.5, shape: "d377239f8e", notes: ["0a552281ae", "fbde4d6e1e"] },
+  conversion_trunc_int_real_to_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.5, shape: "d377239f8e", notes: ["fbde4d6e1e"] },
   conversion_trunc_real_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "eb7c3d406f", notes: ["fbde4d6e1e"] },
   counter_across_cycles: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "8b6cbe3ef6" },
   cp_boolean_precedence: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "d3453b880f", notes: ["fbde4d6e1e"] },
@@ -1146,13 +1146,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cs_clock_reads: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.8, shape: "a463be1efd", notes: ["fbde4d6e1e"] },
   cs_spelled_narrowing_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "e5b7da6f4d", notes: ["fbde4d6e1e"] },
   cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 7.8, shape: "da2d8100ef", notes: ["1c82d4c275", "30fdd454d9", "3eb9cb867d", "4567b70381", "50ff398988", "aba7498096", "b0547ad22e", "fbde4d6e1e"] },
-  ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "46252c2035", notes: ["0a552281ae", "fbde4d6e1e"] },
+  ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "46252c2035", notes: ["fbde4d6e1e"] },
   ct_bit_fields: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "8a5d36184f", notes: ["fbde4d6e1e"] },
   ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 6.2, shape: "2f5060d1c5", notes: ["fbde4d6e1e"] },
   ct_integer_bitstring_crossings: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "93802dfe1d", notes: ["fbde4d6e1e"] },
   ct_lword_arithmetic: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "a854f9f44f", notes: ["fbde4d6e1e"] },
   ct_pointer_width_types: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.8, shape: "5161aaf877", notes: ["fbde4d6e1e"] },
-  ct_real_time_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "1c6be52511", notes: ["e0361c9257", "fbde4d6e1e"] },
+  ct_real_time_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "1c6be52511", notes: ["fbde4d6e1e"] },
   ct_subrange_across_objects: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "bbaadaa683", notes: ["fbde4d6e1e"] },
   ct_three_dimensional_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 6, edge: "agree", size: 2.3, shape: "4f1e39bda7", notes: ["fbde4d6e1e"] },
   ctrl_case_of_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "8f0834a463", notes: ["fbde4d6e1e"] },
@@ -1955,7 +1955,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   for_step_wider_than_counter_dint_expr: { evidence: "lsp-gap" },
   for_step_wider_than_counter_dint_paren: { evidence: "lsp-gap" },
   for_step_wider_than_counter_upper_bound: { evidence: "lsp-gap" },
-  generic_to_conversion: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "f213c5e95f", notes: ["0a552281ae", "fbde4d6e1e"] },
+  generic_to_conversion: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "f213c5e95f", notes: ["fbde4d6e1e"] },
   global_init_slot: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "4b70673805", notes: ["fbde4d6e1e"] },
   hdr_fb_extends_three: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "82b6c17417", notes: ["fbde4d6e1e"] },
   hdr_fb_property_no_accessor: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
@@ -2294,7 +2294,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   initseq_after_fb_init: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "8bd9d68824", notes: ["fbde4d6e1e"] },
   initseq_fb_init_declared_last: { evidence: "not-lowered" },
   initseq_global_list: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
-  initseq_member_of_struct: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "f44e23eceb", notes: ["ea53989ac8", "fbde4d6e1e"] },
+  initseq_member_of_struct: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "f44e23eceb", notes: ["fbde4d6e1e"] },
   initseq_reads_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "ac1b8d372e", notes: ["fbde4d6e1e"] },
   initseq_runs_once_or_every_scan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "1505edeb76", notes: ["fbde4d6e1e"] },
   initseq_struct_type: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.8, shape: "1cff40fa06" },
@@ -3458,7 +3458,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopb_concrete_method_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "6b960c9141", notes: ["fbde4d6e1e"] },
   oopb_fb_exit_extra_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   oopb_fb_init_extra_input_first: { evidence: "refused" },
-  oopb_fb_init_input_wrong_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "272b92d6f5", notes: ["fbde4d6e1e"] },
+  oopb_fb_init_input_wrong_type: { evidence: "refused" },
   oopb_fb_init_swapped_inputs: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "272b92d6f5", notes: ["fbde4d6e1e"] },
   oopb_fb_reinit_no_return: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   oopb_generic_as_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "92d74f938b", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
@@ -4023,8 +4023,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   real_to_dint_runtime_below: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "b588fd0d1f", notes: ["fbde4d6e1e"] },
   real_to_dint_runtime_in_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "ae666488bc", notes: ["fbde4d6e1e"] },
   real_to_int_at_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "edecd91e05", notes: ["fbde4d6e1e"] },
-  real_to_int_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.8, shape: "90eff583b5", notes: ["0a552281ae", "fbde4d6e1e"] },
-  real_to_int_rounding: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 6.1, shape: "611e320d0b", notes: ["0a552281ae", "fbde4d6e1e"] },
+  real_to_int_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.8, shape: "90eff583b5", notes: ["fbde4d6e1e"] },
+  real_to_int_rounding: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 6.1, shape: "611e320d0b", notes: ["fbde4d6e1e"] },
   real_to_lint_above_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "0403c970d1", notes: ["fbde4d6e1e"] },
   real_to_lint_runtime_above: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "9c9ce00638", notes: ["fbde4d6e1e"] },
   real_to_string_digits: { evidence: "not-lowered" },
@@ -4699,7 +4699,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tc_swap_dword: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "d138b5ed2c", notes: ["fbde4d6e1e"] },
   tc_swap_word: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "80a09de10c", notes: ["fbde4d6e1e"] },
   tc2_gvl_var_names: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
-  temporal_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.6, shape: "b7f9cd21f1", notes: ["e0361c9257", "fbde4d6e1e"] },
+  temporal_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.6, shape: "b7f9cd21f1", notes: ["fbde4d6e1e"] },
   text_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
   time_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "d2f09aa1ff", notes: ["fbde4d6e1e"] },
   time_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "c0ee2da51b", notes: ["fbde4d6e1e"] },
@@ -4881,8 +4881,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_b5_time_times_word: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "3f74067d54", notes: ["fbde4d6e1e"] },
   trig_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "not-run", size: 6, shape: "5c542180d6", notes: ["fbde4d6e1e"] },
   trunc_beyond_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.7, shape: "899f8679ac", notes: ["fbde4d6e1e"] },
-  trunc_functions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "c1f7e01c05", notes: ["0a552281ae", "fbde4d6e1e"] },
-  trunc_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "3e7c687c6f", notes: ["0a552281ae", "fbde4d6e1e"] },
+  trunc_functions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "c1f7e01c05", notes: ["fbde4d6e1e"] },
+  trunc_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "3e7c687c6f", notes: ["fbde4d6e1e"] },
   try_catch_only_on_fault: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_divide_by_zero: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_finally_no_fault: { evidence: "not-lowered", diverges: { twincat: "known" } },
@@ -5673,16 +5673,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
     tasks: ["keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)"],
   },
-  // self.f = m(f64::m(self.f)) as i16;
-  "0a552281ae": {
-    improvement: "`iec_r2i32(self.big_real as f64) as u16` is correct against all 192 measured cells (re-probed: -2147483648.6, 9.3E18, 4294967295.5 and -0.4 agree between backends).",
-    alternatives: [
-      "today: one f64 helper per register width, then an `as` wrap into the destination",
-      "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
-      "Keep today's form",
-    ],
-    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
-  },
   // self.f = f64::m(self.f).cos() as f32;
   "1671a3249d": {
     improvement: "REAL math goes through f64 and back: `(self.arg as f64).exp() as f32`.",
@@ -5754,7 +5744,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
     ],
     chosen: "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
-    tasks: ["keep:niche: accepted loss (0 occurrences in the corpora: the project code of the six declares two UNIONs, pro2193 GenericInt with signed members the overlay refuses and PointerSizesUnion of pointers, a plain copy; to_le_bytes needs a reinterpret node and its interpreter twin - 7.8.4)"],
+    tasks: ["7.8.4"],
   },
   // *x
   "410eafc2ba": {
@@ -5764,7 +5754,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.p = L;
   "45292dbd9c": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
-    tasks: ["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)"],
+    tasks: ["7.8.8"],
   },
   // pub fn m(mut str: IecString<L>, len: i16, x: i16) -> IecString<L> {
   "4567b70381": {
@@ -5795,7 +5785,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // v: L,
   "667cafe298": {
     improvement: "A reference bound at its declaration to a variable of the same instance always gets the constant tag 1 (`ref_: 0` in new(), then `self.ref_ = 1;` in init()). The tag does not depend on init order: refdecl_target_after reads an address, not a value. Folding it into new() as `ref_: 1,` removes the init()/__init() method and its call chain (`self.inst.__init()` in the parent) for every refdecl_* fixture.",
-    tasks: ["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)"],
+    tasks: ["7.8.8"],
   },
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i16;
   "756ba59393": {
@@ -5811,7 +5801,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // p: L,
   "75cc82a569": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
-    tasks: ["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)"],
+    tasks: ["7.8.8"],
   },
   // self.f = m(f64::m(self.f)).ln() as f32;
   "7eff84bf36": {
@@ -5857,16 +5847,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
     tasks: ["keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)"],
   },
-  // self.f = m(f64::m(self.f)) as u16;
-  "9479f0e3c4": {
-    improvement: "`iec_r2i32(self.big_real as f64) as u16` is correct against all 192 measured cells (re-probed: -2147483648.6, 9.3E18, 4294967295.5 and -0.4 agree between backends).",
-    alternatives: [
-      "today: one f64 helper per register width, then an `as` wrap into the destination",
-      "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
-      "Keep today's form",
-    ],
-    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
-  },
   // self.narrow.m(&self.f.narrow::<L>());
   "a1c2206655": {
     improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
@@ -5887,7 +5867,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
     ],
     chosen: "I would choose (b): an IR 'reinterpret bytes' node is small, keeps the interpreter in parity, and emits what a Rust engineer would write.",
-    tasks: ["keep:niche: accepted loss (0 occurrences in the corpora: the project code of the six declares two UNIONs, pro2193 GenericInt with signed members the overlay refuses and PointerSizesUnion of pointers, a plain copy; to_le_bytes needs a reinterpret node and its interpreter twin - 7.8.4)"],
+    tasks: ["7.8.4"],
   },
   // pub fn m(mut str: IecString<L>, x: i16) -> IecString<L> {
   "aba7498096": {
@@ -5902,7 +5882,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = L;
   "ad25627749": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
-    tasks: ["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)"],
+    tasks: ["7.8.8"],
   },
   // let x: i32 = i32::m(m(&mut x));
   "b0547ad22e": {
@@ -5927,7 +5907,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x.f = x.f;
   "c5d30c56ec": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
-    tasks: ["keep:niche: accepted loss (1 occurrence in the corpora, pro2193 Increment.AnyInt's PointerSizesUnion; one field for a union of pointers is a layout change the image and the tag model both read - 7.8.4)"],
+    tasks: ["7.8.4"],
   },
   // self.f = [Li16; L];
   "c8927952f2": {
@@ -5937,7 +5917,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // m(x.f);
   "ca823a2c56": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
-    tasks: ["keep:niche: accepted loss (1 occurrence in the corpora, pro2193 Increment.AnyInt's PointerSizesUnion; one field for a union of pointers is a layout change the image and the tag model both read - 7.8.4)"],
+    tasks: ["7.8.4"],
   },
   // { m(x); x }
   "cc1c266f50": {
@@ -5972,16 +5952,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
-  // self.f = m(f64::m(self.f)) as u32;
-  "e0361c9257": {
-    improvement: "`iec_r2i32(self.big_real as f64) as u16` is correct against all 192 measured cells (re-probed: -2147483648.6, 9.3E18, 4294967295.5 and -0.4 agree between backends).",
-    alternatives: [
-      "today: one f64 helper per register width, then an `as` wrap into the destination",
-      "a generic `fn iec_r2i32<T: From<f32>>`: saves the `as f64` on a REAL source but adds a trait bound; not worth it",
-      "Keep today's form",
-    ],
-    tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
-  },
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i8;
   "e19d1f70e4": {
     improvement: "MOD on SINT/INT/USINT/UINT/BYTE/WORD widens both operands to i32 and narrows the result. Remainder never overflows except MIN % -1, and wrapping_rem at native width already gives 0 there, so computing at native width gives identical results.",
@@ -6007,11 +5977,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
-  // self.copied = self.copied;
-  "ea53989ac8": {
-    improvement: "ST `x := x;` prints `self.copied = self.copied;`, which is clippy::self_assignment (a correctness-group lint) in initseq_member_of_struct and cc3_empty_and_noop. It could be dropped when target and source are the same side-effect-free place with no conversion.",
-    tasks: ["keep:`x := x` stays ALLOWED self_assignment (7.8.9 moves this text into that reason); removed by 7.11.1"],
-  },
   // m(L, &mut self.f);
   "ef4db7eb51": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
@@ -6020,6 +5985,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: L,
   "fbde4d6e1e": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
-    tasks: ["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)"],
+    tasks: ["7.8.8"],
   },
 }

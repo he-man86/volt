@@ -85,6 +85,19 @@ test("a borrowed pointer input and an unread input always handed a constant are 
   expect(code).toContain("f_live(self.v, self.v)")
 })
 
+// review of 7.7.7: an input the body STORES to (and never reads) is named by the body, so it is no dead parameter even
+// when every call hands a constant — dropping it left the store naming a binding that no longer exists (E0425)
+test("an input the body only stores to stays a parameter, though every call hands a constant", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION F : INT\nVAR_INPUT a : INT; END_VAR\na := 5;\nF := 1;\nEND_FUNCTION\nPROGRAM P\nVAR x : INT; END_VAR\nx := F(3);\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("pub fn f(mut _a: i16) -> i16 {")
+  expect(code).toContain("self.x = f(3i16);")
+})
+
 // 7.7.13: `#[must_use]` on the fns that return a value and can write nothing the caller sees (clippy's
 // `must_use_candidate`), and a statement calling one for nothing discards its value by name
 test("a FUNCTION that writes nothing its caller sees is #[must_use]; one called for nothing is `let _ =`", () => {

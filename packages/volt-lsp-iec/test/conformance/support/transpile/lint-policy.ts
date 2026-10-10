@@ -15,37 +15,55 @@ import { CLIPPY } from "../rustc.js"
  * way to add one is to say what it is for.
  */
 export const ALLOWED: Readonly<Record<string, string>> = {
+  // EVERY REASON BELOW was re-measured after the four models (transpile-restructure 7.11.3, 2026-10-10): its count is
+  // the findings it excused over every lowered fixture, built as `rate:fixtures` builds them, and the fixtures it names
+  // are the ones that produce it today. `unnecessary_min_or_max` and `manual_clamp` excused nothing any more and went
+  // before this pass (the generator refuses an entry at 0).
   dead_code:
-    "fixture variables: a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes. Not the runtime: the module prints only the helpers the code calls (lean 1, 7.1.2), so no registry item is ever unused",
+    "rustc's `dead_code` names a FIELD ASSIGNED TO ITSELF — 'useless assignment of field of type … to itself' — and that is the whole of it (42 findings in 42 fixtures): the same `x := x` statements `clippy::self_assignment` names below, in the `cfold_*`, `initseq_*`, `ir_initializer_warning_*` and `init_struct_field_*` fixtures and `cc3_empty_and_noop`. It used to be the fixture variables nobody reads; the harness reads them now, and the module prints only the runtime helpers the code calls (lean 1, 7.1.2). ONLY that message is excused (`ALLOWED_MESSAGE`): an unused generated fn, field or variant is found",
   unreachable_code:
-    "a FOR whose body always leaves (`stmt_exit_inner`: an inner FOR whose body is EXIT) runs at most one pass, so its step cannot run — and printed without the step, nothing in the loop changes its counter, which is clippy's `while_immutable_condition`; the step is kept, in a plain block. Nothing after a RETURN, EXIT or CONTINUE is printed any more (lean 7.5.11), so this is the one line left",
+    "a FOR whose body always leaves (`stmt_exit_inner`: an inner FOR whose body is EXIT) runs at most one pass, so its step cannot run — and printed without the step, nothing in the loop changes its counter, which is clippy's `while_immutable_condition`; the step is kept, in a plain block. Nothing after a RETURN, EXIT or CONTINUE is printed any more (lean 7.5.11), so this is the one line left (1 finding, 1 fixture)",
   unused_assignments:
-    "the ST stores into a routine local a value nothing reads after it — `shadowing_method_local_shadows_fb_var` increments the METHOD's own iCount and returns, `var_temp_dynamic_init_method` zeroes its VAR_TEMPs on the way out, `pointer_null_copied_into_multi_target` sets a pointer it then overwrites: a dead store the source makes, printed as it is. The printer makes none of its own: since lean 7.7.2 no initial value nothing reads is printed (`emit/rust/locals.ts` `lateInit`), which is what the blanket allow it replaced was hiding",
+    "the ST stores into a routine local a value nothing reads after it (7 findings in 5 fixtures) — `shadowing_method_local_shadows_fb_var` / `shadowing_method_param_shadows_member` increment the METHOD's own local or input and return, `var_temp_dynamic_init_method` zeroes its VAR_TEMPs on the way out, `pointer_null_copied_into_multi_target` and `pointer_deref_before_first_store` set a pointer they then overwrite: a dead store the source makes, printed as it is. The printer makes none of its own: since lean 7.7.2 no initial value nothing reads is printed (`emit/rust/locals.ts` `lateInit`)",
   unused_comparisons:
-    "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers)",
+    "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`, `for_counter_at_type_max`, `flw_for_byte_to_255`, `flw_for_usint_by_two_to_255`: `i <= 255u8`) — the loop needs it, it is what ends the loop; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers) — 6 findings in 6 fixtures",
   "clippy::absurd_extreme_comparisons":
-    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the `while` condition itself (`i <= 127i8`) since lean 7.5.4, which clippy reads as always true; and the same folded negative literal beside an unsigned operand",
+    "the same six comparisons under clippy's name for them: the loop test prints as the `while` condition itself (`i <= 255u8`) since lean 7.5.4, which clippy reads as always true, and the same folded negative literal beside an unsigned operand (6 findings in 6 fixtures)",
   // NO `non_camel_case_types` / `non_snake_case` HERE. Both were written from reasoning — a POU struct keeps the
   // ST spelling, a field may not be snake by Rust's rule — and neither fires: the emitter already carries
   // `#[allow(non_camel_case_types)]` on every struct, and `snake()` makes every field name valid. Measured over
   // all 2,295 lowered fixtures, both excused nothing. An entry that excuses nothing is the decoration this block
   // warns about, and the generator now refuses to write a map while one exists.
   "clippy::self_assignment":
-    "the ST says `n := n`. `cc3_empty_and_noop` asks what a no-op assignment does, and every `cfold_*` fixture uses one to give the recorder a statement to read — the emission is faithful and the lint is about the fixture, not the printer. The review (note ea53989ac8, transpile-restructure 7.8.9) put it so: ST `x := x;` prints `self.copied = self.copied;`, clippy::self_assignment (a correctness-group lint) in initseq_member_of_struct and cc3_empty_and_noop; it could be dropped when target and source are the same side-effect-free place with no conversion — and is kept, because the statement is the fixture's question",
+    "the ST says `n := n` (42 findings in 42 fixtures). `cc3_empty_and_noop` asks what a no-op assignment does, and every `cfold_*`, `initseq_*`, `ir_initializer_warning_*` and `init_struct_field_*` fixture uses one to give the recorder a statement to read — the emission is faithful and the lint is about the fixture, not the printer. The review (note ea53989ac8, transpile-restructure 7.8.9) put it so: ST `x := x;` prints `self.copied = self.copied;`, clippy::self_assignment (a correctness-group lint) in initseq_member_of_struct and cc3_empty_and_noop; it could be dropped when target and source are the same side-effect-free place with no conversion — and is kept, because the statement is the fixture's question",
 
   // ── the fixture asks exactly this. Each names the fixture whose ST produced it; without one, it is a defect. ──
   "clippy::eq_op":
-    "the ST computes a value FROM a variable and itself, on purpose: `realovf_divide_by_computed_zero` needs a zero the constant folder cannot see (`zero := num - num`), and `mathdom_ln_zero` needs one for `LN(0)`",
+    "the ST computes a value FROM a variable and itself, on purpose (15 findings in 15 fixtures): `cmp_nan_self_*` compare a NaN with itself to ask what each comparison answers, and a zero the constant folder cannot see is `seed - seed` — `realovf_divide_by_computed_zero`, `cmp_negzero_eq_zero`, `mathdom_ln_zero` / `log` / `sqrt`, the `tr_46_exptdom_*` powers of zero and NaN",
   "clippy::approx_constant":
-    "the fixture's own literal. `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, and `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints",
+    "the fixture's own literal (6 findings in 6 fixtures): `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints, `op_math_ln` takes LN of `2.71828`, `op_math_trig` and `mathdom_tan_at_pole` evaluate at `1.5708` / π/2, and `op_arithmetic_int_plus_real` adds `3.14`",
   "clippy::never_loop":
-    "`stmt_exit_inner` is a FOR whose body is a bare EXIT — the fixture exists to ask what EXIT does to an inner loop, so a loop that runs once is the question rather than a defect",
+    "`stmt_exit_inner` is a FOR whose body is a bare EXIT — the fixture exists to ask what EXIT does to an inner loop, so a loop that runs once is the question rather than a defect (1 finding, 1 fixture)",
   "clippy::too_many_arguments":
-    "StringUtils' STRREPLACEA (`lib_stu_replace`, `lib_stu_replace_past_len`) declares SEVEN inputs, clippy's limit, two of them `POINTER TO STRING` cursors — and a cursor is two Rust parameters, its byte offset and the string it walks (a hidden in-out, model 2), so the fn takes nine. Collapsing the pair is a cursor type carrying its capacity, which the cursor model does not have; the extra parameters are the representation, not a defect (lean 7.7.12, measured after 7.7.8; 7.4.6, still open, changes none of its parameters: they are integers and cursors, no STRING input)",
+    "StringUtils' STRREPLACEA (`lib_stu_replace`, `lib_stu_replace_past_len`; 2 findings) declares SEVEN inputs, clippy's limit, two of them `POINTER TO STRING` cursors — and a cursor is two Rust parameters, its byte offset and the string it walks (a hidden in-out, model 2), so the fn takes nine. Collapsing the pair is a cursor type carrying its capacity, which the cursor model does not have; the extra parameters are the representation, not a defect (lean 7.7.12, measured after 7.7.8; 7.4.6, still open, changes none of its parameters: they are integers and cursors, no STRING input)",
   "clippy::missing_panics_doc":
-    "a generated fn that can stop the task — a call through a null interface, a METHOD reaching an in-out no call bound, a read through a pointer whose tag names no target — does it with `panic!(\"<the fault>\")` on the line that can fault, which IS the documentation: a `/// # Panics` block would say the same sentence again above the fn, two lines per fn over the emission (measured 2026-10-10 at lean 7.7.13: 386 fns), for a doc no generated crate renders. The runtime's own helpers do carry `/// # Panics`, written once",
+    "a generated fn that can stop the task — a call through a null interface, a METHOD reaching an in-out no call bound, a read through a pointer whose tag names no target — does it with `panic!(\"<the fault>\")` on the line that can fault, which IS the documentation: a `/// # Panics` block would say the same sentence again above the fn, two lines per fn over the emission (386 findings in 266 fixtures, measured 2026-10-10 at lean 7.7.13), for a doc no generated crate renders. The runtime's own helpers do carry `/// # Panics`, written once",
   "clippy::manual_range_patterns":
-    "a CASE arm's labels print as the ST wrote them. `xo2_case_ranges_over_enum` has both `1..3` and `4, 5, 6`, and they emit as `1..=3` and `4 | 5 | 6`; collapsing the second would make the Rust say something the source did not",
+    "a CASE arm's labels print as the ST wrote them. `xo2_case_ranges_over_enum` has both `1..3` and `4, 5, 6`, and they emit as `1..=3` and `4 | 5 | 6`; collapsing the second would make the Rust say something the source did not (1 finding, 1 fixture)",
+}
+
+/**
+ * The ONE message an ALLOWED lint excuses, where the lint names more than its reason does: rustc's `dead_code` is also
+ * an unused fn, field or variant, which the reason above does not describe — that is FOUND (review of 7.11.3).
+ */
+export const ALLOWED_MESSAGE: Readonly<Record<string, RegExp>> = {
+  dead_code: /^useless assignment of field of type `[^`]+` to itself$/,
+}
+
+/** Whether the policy excuses this diagnostic: its lint is ALLOWED, and its message the one `ALLOWED_MESSAGE` names. */
+function allowed(code: string, message: string | undefined): boolean {
+  const only = ALLOWED_MESSAGE[code]
+  return code in ALLOWED && (only === undefined || only.test(message ?? ""))
 }
 
 /** Fails on an allow-list entry with no reason — the only thing that keeps the policy from decaying into a list. */
@@ -109,6 +127,7 @@ export interface Finding {
 /** One diagnostic, as `--error-format=json` writes it. */
 interface Diagnostic {
   level?: string
+  message?: string
   code?: { code?: string }
   spans?: { line_start?: number; is_primary?: boolean }[]
 }
@@ -164,14 +183,14 @@ export function splitFindings(
     if (line <= 0 || line > emittedLines) continue
     const group = groups.get(code)
     // a PEDANTIC lint ALLOWED with its reason is Volt's answer too: excused, and not counted (lean 7.7.13)
-    if (group === "pedantic" && code in ALLOWED) {
+    if (group === "pedantic" && allowed(code, parsed.message)) {
       excused.push(code)
       continue
     }
     if (group !== undefined) pedantic.push(code)
     // a `pedantic` lint is not in `clippy::all`, so it is not `lints`' business; a `perf` one is, and stays
     if (group === "pedantic") continue
-    if (code in ALLOWED) excused.push(code)
+    if (allowed(code, parsed.message)) excused.push(code)
     else found.push({ code, line })
   }
   return { found, excused, pedantic }
