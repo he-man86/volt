@@ -120,3 +120,37 @@ test("WHILE TRUE / UNTIL FALSE print no `if false { break; }`; NOT over AND prin
   expect(morgan).toContain("if self.i >= self.n && self.i > 3i16 { break; }")
   expect(morgan).toContain("self.g = self.i >= self.n || self.i <= 2i16;")
 })
+
+// 7.5.10: a negative constant step on a signed counter subtracts its magnitude — `wrapping_sub(1i16)`, not
+// `wrapping_add(-1i16)` — the same counter for every value, MIN included; BY MIN keeps the add (its magnitude does not
+// fit), and an unsigned counter's BY -1 stays the add of 255 it is held as (`tr_35_for_byte_step_minus_one`)
+test("a negative constant step prints as `wrapping_sub` of its magnitude", () => {
+  const down = rust("PROGRAM P\nVAR i : INT; n : INT; END_VAR\nFOR i := 5 TO 1 BY -2 DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n")
+  expect(down).toContain("self.i = self.i.wrapping_sub(2i16);")
+  expect(down).not.toContain("wrapping_add(-")
+  const min = rust("PROGRAM P\nVAR sc : SINT; n : INT; END_VAR\nFOR sc := 0 TO -128 BY -128 DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n")
+  expect(min).toContain("self.sc = self.sc.wrapping_add(-128i8);")
+  const byte = rust("PROGRAM P\nVAR b : BYTE; n : INT; END_VAR\nFOR b := 5 TO 1 BY -1 DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n")
+  expect(byte).toContain("self.b = self.b.wrapping_add(255u8);")
+})
+
+// 7.5.11: nothing after a statement control never comes out of — a RETURN, an EXIT, an IF both of whose branches end so —
+// is printed: not the dead ST line (`stmt_return_midway`), not a FUNCTION's tail `result` after an all-return IF; a RETURN
+// that ends a fn's body is where the fn ends anyway (clippy's `needless_return`, `xo4_return_in_every_routine`). A FOR's
+// step after a body that EXITs stays, in a plain block: without it nothing in the loop changes the counter, clippy's
+// `while_immutable_condition` (`stmt_exit_inner`)
+test("statements after a RETURN or EXIT are not printed, nor a RETURN that ends a fn", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION F : INT\nVAR_INPUT a : INT; END_VAR\nIF a > 0 THEN\n  F := 1;\n  RETURN;\nELSE\n  F := 2;\n  RETURN;\nEND_IF\nEND_FUNCTION\nFUNCTION G : INT\nG := 3;\nRETURN;\nG := 4;\nEND_FUNCTION\nPROGRAM P\nVAR i : INT; n : INT; END_VAR\nn := F(i) + G();\nFOR i := 1 TO 3 DO\n  n := n + 1;\n  EXIT;\n  n := 99;\nEND_FOR\nRETURN;\nn := 7;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).not.toContain("99i16")
+  expect(code).not.toContain("7i16")
+  expect(code).not.toContain("4i16")
+  expect(code).toContain("            {\n                self.n = self.n.wrapping_add(1i16);\n                break;\n            }\n            self.i = self.i.wrapping_add(1i16);\n        }\n    }")
+  expect(code).toContain("        return f;\n    }\n}") // no tail `f` after the all-return IF
+  expect(code).toContain("    g = 3i16;\n    g\n}") // the RETURN that ends G is not printed, its result is the tail
+  expect(code).not.toContain("unreachable_code")
+})

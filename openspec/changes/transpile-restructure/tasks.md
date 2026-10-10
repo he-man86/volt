@@ -5580,26 +5580,66 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     fixtures against the step-start baseline (HEAD 06e14b222c) but `cc5_in_out_type_mismatch` (refused since 7.3a); full
     suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset) 9126 pass / 35 skip / 389 todo / 0 fail across 315 files (7.2b's
     gate 9103 -> 9126).
-- [ ] 7.5.9 A runtime FOR step evaluated once per pass (or hoisted), only as 2.1's `for_runtime_step_changed_in_body` allows.
+- [x] 7.5.9 A runtime FOR step evaluated once per pass (or hoisted), only as 2.1's `for_runtime_step_changed_in_body` allows.
   - Notes: 129bb34a7e, 547ea4e920.
   - Where: `lower/statements/loops.ts`.
   - Accept: S-out, M.
   - Depends: 2.1, 2.4.
-- [ ] 7.5.10 A negative constant step prints as `wrapping_sub`.
+  - Done 2026-10-10 (step 7.5c): NOT BUILT — niche: accepted loss (2 occurrences in the corpora: `BY SEL(I_bReverseOrder,
+    1, -1)` and `BY distribution`, counted over `test-corpus/`). The step is read on every pass (§3.1: never hoisted), and
+    the IR has no binding a pass could hold it in: binding it once per pass means a temp, which is a struct field until
+    7.6.1's locals — one more field and an assignment per pass, more Rust than the two extra reads it saves (it is
+    side-effect free: a call in the step is `for-bound-call`). Its two notes (098f7b0911, 90ad40cc20) re-tagged
+    `keep:niche: accepted loss (2 occurrences in the corpora; …)`.
+- [x] 7.5.10 A negative constant step prints as `wrapping_sub`.
   - Notes: 5351b3711d.
   - Where: `lower/statements/loops.ts`.
   - Accept: S-out, M.
   - Depends: 2.4.
-- [ ] 7.5.11 Statements after an unconditional RETURN/EXIT are not printed; `ir/walk.exitsAfter` also sees EXIT/CONTINUE and all-return
+  - Done 2026-10-10 (step 7.5c). `lower/statements/loops.ts` `stepValue`: a negative constant step on a SIGNED counter whose
+    magnitude the counter holds lowers to `counter - |step|` (`self.i.wrapping_sub(1i16)`); a wrapping subtraction of |s|
+    is the wrapping addition of -s for every counter value, MIN included. BY MIN keeps the add (its magnitude does not
+    fit: `wrapping_add(-128i8)`), and an unsigned counter's negative step stays the add it is held as (BY -1 on a BYTE adds
+    255, `lowerForStep`; `lower/statements/loops.test.ts`'s pin unchanged). The magnitude takes the step statement's span,
+    not the `BY` expression's: `fold-agreement.test.ts` matches an IR node to the AST expression at its span, and the AST
+    fold answers `-1` there (the full conformance run said so). Test `emit/rust/loops.test.ts` ("a negative
+    constant step prints as `wrapping_sub` of its magnitude"). Rust changed in 6 fixtures (`for_negative_step`,
+    `stmt_for_negative_step`, `flw_for_int_down_to_min`, `for_limit_wider_than_counter_negative_step`, `lib_stu_replace`,
+    `lib_stu_replace_past_len`). Notes resolved: 5351b3711d.
+- [x] 7.5.11 Statements after an unconditional RETURN/EXIT are not printed; `ir/walk.exitsAfter` also sees EXIT/CONTINUE and all-return
   IFs (appendix); ALLOWED `unreachable_code`'s reason re-checked.
   - Notes: 0e0d715a81.
   - Where: `ir/walk.ts`, `emit/rust/routine.ts`.
   - Accept: S-out, M.
   - Depends: 1.7.4.
-- [ ] 7.5.12 `clippy::collapsible_if` (4): nested IFs the printer produces are collapsed where the IR has no else and no statement between.
+  - Done 2026-10-10 (step 7.5c). `ir/walk.ts`: `exitsAfter` (a statement after a `return`) replaced by `diverges` /
+    `divergesAll` — control never comes out of the bottom of a RETURN, EXIT or CONTINUE, an IF both of whose branches do,
+    a CASE whose every arm and ELSE do, or a loop nothing leaves (no test or the constant TRUE, and no EXIT of its own).
+    `emit/rust/stmt.ts` `block` prints nothing after a diverging statement; `fnBody` (a generated fn's whole body: scan,
+    `call`, a routine) also leaves out a RETURN that ends it (clippy's `needless_return`, which the cut tails of
+    `stmt_return_midway` and `xo4_return_in_every_routine` exposed on the first run), and a routine prints no tail
+    `result` after a body that diverges (an all-return IF). `routine.ts` no longer adds `unreachable_code` per routine.
+    Measured exception, kept: a FOR whose body always leaves (`stmt_exit_inner`) keeps its step in a plain block — left out,
+    nothing in the loop changes its counter and clippy calls the condition immutable (`while_immutable_condition`, the
+    first run). ALLOWED `unreachable_code` re-checked: 3 -> 1 (`stmt_exit_inner` alone), its reason rewritten in
+    `lint-policy.ts`. Tests: `ir/walk.test.ts` ("blocksOf, diverges and loopUses"), `emit/rust/loops.test.ts` ("statements
+    after a RETURN or EXIT are not printed, nor a RETURN that ends a fn"). Notes resolved: 0e0d715a81.
+- [x] 7.5.12 `clippy::collapsible_if` (4): nested IFs the printer produces are collapsed where the IR has no else and no statement between.
   - Where: `emit/rust/stmt.ts`.
   - Accept: S-out; M (surviving `collapsible_if` 0).
   - Depends: 7.5.5.
+  - Done 2026-10-10 (step 7.5c). `emit/rust/stmt.ts` `stmtIf`: an IF with no ELSE whose whole body is one more IF with none
+    prints as one `if a && b` (nested to any depth; an operand looser than `&&` parenthesized) — `&&` tests the inner
+    condition only where the outer held, as the nesting did, and a printed condition runs nothing before its line. The 4
+    were Standard's TP (`lib_std_tp`, `_held`) and Util's BLINK (`lib_util_blink`, `_slow`): `} else if self.in_ &&
+    self.et == 0u32 {`. Test `emit/rust/stmt.test.ts` ("an IF whose whole body is one more IF, neither with an ELSE…").
+    Surviving `collapsible_if` 4 -> 0.
+    Step 7.5c numbers: S-out (`snapshot:transpile check --layers rust,outputs,edge` against a baseline written at the
+    step's start, HEAD 9fb7c9a4d0) — outputs and edge byte-identical over 5535 fixtures; the rust layer differs in 13
+    (the 6 of 7.5.10, the 4 of 7.5.12, `stmt_return_midway`, `xo4_return_in_every_routine`, `cc4_loop_exit_constant`). M
+    (against 7.5b's map): surviving `collapsible_if` 4 -> 0 (indirect clean 456 -> 460); allowed `unreachable_code` 3 -> 1;
+    pedantic 9498 unchanged; size median 3.1, the ten largest unchanged; constructs 2036 -> 2033, noted 326 -> 324 (`keep`
+    15 -> 17 with 7.5.9's two).
 
 ### 7.4 String copies (lean 4, on model 2)
 

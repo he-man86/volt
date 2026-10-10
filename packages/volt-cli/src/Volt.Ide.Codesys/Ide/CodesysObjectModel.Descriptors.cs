@@ -92,11 +92,7 @@ namespace Volt.Ide.Codesys
         public string ProjectSettingsDescriptor(object node)
         {
             var provider = GetStaticMember("_3S.CoDeSys.Engine.APEnvironment", "LMServiceProvider")
-                // Absent on SP18 (3.5.18.30, measured 2026-10-10): that version does not expose the settings to Volt.
-                ?? throw new InvalidOperationException(
-                    "CODESYS: this CODESYS version cannot give Volt its Project Settings (compiler warnings, compile " +
-                    "options) — APEnvironment.LMServiceProvider is not there. Volt reads them on CODESYS V3.5 SP21 or " +
-                    "later; until then the LSP uses the default warning set.");
+                ?? throw new InvalidOperationException("CODESYS: APEnvironment.LMServiceProvider unavailable");
             var config = GetMember(provider, "ConfigurationService")
                 ?? throw new InvalidOperationException("CODESYS: ILMServiceProvider.ConfigurationService unavailable");
             return ProjectSettingsFormat.Write(ReadProjectSettings(

@@ -56,8 +56,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "0cbdff077d": note("7.8.7", LEAN.shapes19_6),
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
   "0d14fd327c": note("7.8.6", LEAN.shapes15_9),
-  // self.f = Li16;
-  "0e0d715a81": note("7.5.11", LEAN.shapes1_11),
   // self.f.f[L] = (u64::m(self.f.f) % Lu64) as u8;
   "a281b5efbd": note("7.8.4", LEAN.shapes3_1),
   // (*x).m(&(*x).with_char((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x.wrapping_sub(x).wrapping_add(Li32).max(L
@@ -75,7 +73,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // (*x).m(&(*x).with_char((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x)), x));
   "0902b5aab2": merged(["7.4.4", LEAN.shapes16_2], ["7.4.3", LEAN.shapes16_3]),
   // while ((if self.f { -Li16 } else { Li16 }) >= Li16 && self.f <= self.f) || ((if self.f { -Li16 } else { Li16 }) < L
-  "098f7b0911": note("7.5.9", LEAN.shapes11_8),
+  "098f7b0911": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // v: L,
   "667cafe298": note("7.8.8", LEAN.shapes6_2),
   // x: { let mut v = T::new(); v.f = L; v.f = L; v },
@@ -170,7 +168,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: std::array::from_fn(|_| std::array::from_fn(|_| [L; L])),
   "8feb3d596e": note("7.8.2", LEAN.shapes12_1),
   // self.f = self.f.wrapping_add(if self.f { -Li16 } else { Li16 });
-  "90ad40cc20": note("7.5.9", LEAN.shapes11_8),
+  "90ad40cc20": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // __chain_value_N: L,
   "9704fa862a": note("7.6.1", LEAN.shapes4_6),
   // x: [{ let mut v = T::new(); v.f = L; v }, { let mut v = T::new(); v.f = L; v.f = false; v }, T::new()],
@@ -268,8 +266,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "51ea066d8e": note("7.7.3", LEAN.shapes18_10),
   // self.f = (*x).m();
   "52d85b7cdc": note("7.8.6", LEAN.shapes12_5),
-  // x = x.wrapping_add(-Li32);
-  "5351b3711d": note("7.5.10", LEAN.shapes13_6),
   // x = Li16;
   "5370b79269": note("7.7.3", LEAN.shapes12_10),
   // take

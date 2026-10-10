@@ -3,7 +3,7 @@
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { Expr, Statement, StatementList } from "../../../frontend/syntax/index.js"
+import type { Expr, Span, Statement, StatementList } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { lowerBlock } from "./statements.js"
 import { lowerPlace } from "../places/places.js"
@@ -102,7 +102,7 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     body: loopBody(lw, s.body),
     // The step adds in the COUNTER's type: `current` is the counter widened for the test, and adding a step of the
     // counter's type to it printed `(self.u as i32).wrapping_add(1u16)` — E0308 (transpile-review 13).
-    step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
+    step: [{ kind: "assign", target: control, value: stepValue(control, stepExpr, s.controlVar.span, s.span), span: s.span }],
     span: s.span,
   }
 }
@@ -143,6 +143,23 @@ function lowerForStep(
   // the signed literal's: CODESYS counts a BYTE down from 5 to 0 and a UINT from 10 to 0 BY -2 (`tr_35_for_*_step_*`).
   const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: stored(step, control.type), type: control.type, span: s.by?.span ?? s.span }
   return { by, step, stepExpr }
+}
+
+/**
+ * The counter after one step, in the counter's type: `counter + step` — or `counter - |step|` for a negative constant
+ * step on a SIGNED counter whose magnitude the counter holds (lean 7.5.10: `i.wrapping_sub(1i32)`, not
+ * `i.wrapping_add(-1i32)`; a wrapping subtraction of |s| is the wrapping addition of -s for every counter value, MIN
+ * included). BY MIN keeps the add (its magnitude does not fit), and an unsigned counter's negative step is already held
+ * at the counter's width (BY -1 on a BYTE adds 255, `lowerForStep`).
+ */
+function stepValue(control: Place, stepExpr: IrExpr, counterSpan: Span, span: Span): IrExpr {
+  const counter: IrExpr = { kind: "load", place: control, type: control.type, span: counterSpan }
+  const elem = elemOf(control.type)
+  if (stepExpr.kind === "const" && typeof stepExpr.value === "bigint" && stepExpr.value < 0n && elem?.signed === true && stored(-stepExpr.value, control.type) === -stepExpr.value)
+    // the magnitude is no expression of the source: it takes the step statement's span, not the `BY` expression's (whose
+    // value the AST fold answers as the signed literal — `fold-agreement.test.ts`)
+    return { kind: "binary", op: "sub", left: counter, right: { ...stepExpr, value: -stepExpr.value, span }, type: control.type, span }
+  return { kind: "binary", op: "add", left: counter, right: stepExpr, type: control.type, span }
 }
 
 /** A FOR bound whose front-end type does not convert implicitly into the counter's — a build error in CODESYS. */

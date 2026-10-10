@@ -229,15 +229,33 @@ export function blocksOf(s: IrStmt): readonly (readonly IrStmt[])[] {
   }
 }
 
-/** Does any block in this body put a statement AFTER a `return`? Only then is the dead tail the ST's own doing (the
- *  emitter allows `unreachable_code` for that routine alone). */
-export function exitsAfter(body: readonly IrStmt[]): boolean {
-  for (let i = 0; i < body.length; i++) {
-    const s = body[i]!
-    if (s.kind === "return" && i < body.length - 1) return true
-    for (const nested of blocksOf(s)) if (exitsAfter(nested)) return true
+/**
+ * Does control never come out of the bottom of this statement — a RETURN, an EXIT or a CONTINUE, an IF whose both
+ * branches end so, a CASE whose every arm and ELSE do, or a loop nothing leaves (no test, or the constant TRUE, and no
+ * EXIT of its own: `cc4_loop_exit_constant`'s WHILE TRUE)? Whatever follows it in its block cannot run, and the printer
+ * prints none of it (lean 7.5.11): Rust's `unreachable_code` was right about every such line, and the ST line is dead
+ * either way (`stmt_return_midway`, `stmt_exit_inner` ask what it does — nothing).
+ */
+export function diverges(s: IrStmt): boolean {
+  switch (s.kind) {
+    case "return":
+    case "break":
+    case "continue":
+      return true
+    case "if":
+      return s.else.length > 0 && divergesAll(s.then) && divergesAll(s.else)
+    case "switch":
+      return s.else.length > 0 && s.arms.every((a) => divergesAll(a.body)) && divergesAll(s.else)
+    case "loop":
+      return (s.test === undefined || (s.test.cond.kind === "const" && s.test.cond.value === true)) && !loopUses(s).exits
+    default:
+      return false
   }
-  return false
+}
+
+/** Does a statement list never come out of its bottom — does one of its statements diverge (`diverges`)? */
+export function divergesAll(list: readonly IrStmt[]): boolean {
+  return list.some(diverges)
 }
 
 /** Which of a loop's two labels its body uses: an EXIT (`exits`) or a CONTINUE (`continues`) of THIS loop — one inside

@@ -26,7 +26,7 @@ import { fieldNames, globalsParams, routineFnNames, rustName } from "./names.js"
 import { code, Printer, push, use } from "./printer.js"
 import { printCall, printRoutine } from "./routine.js"
 import { BACK, closure, FRONT, helperText, runtimeText } from "./runtime/index.js"
-import { block } from "./stmt.js"
+import { block, fnBody } from "./stmt.js"
 import { printStruct } from "./structs.js"
 import { memNew } from "./image.js"
 
@@ -138,7 +138,7 @@ function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
     // a global only `init` reads — an FB_Init argument — leaves `g` unused in the scan (found in a review, 2026-09-15)
     if (p.usesGlobals || p.usesPrograms || p.usesImage) push(p, "#[allow(unused_variables)]", 1)
     push(p, `pub fn scan(&mut self${globals}) {`, 1)
-    block(p, pou.body, pou.slots, 2)
+    fnBody(p, pou.body, pou.slots, 2)
     push(p, "}", 1)
   })
 }

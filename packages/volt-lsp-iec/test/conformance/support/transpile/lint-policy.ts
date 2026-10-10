@@ -18,7 +18,7 @@ export const ALLOWED: Readonly<Record<string, string>> = {
   dead_code:
     "fixture variables: a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes. Not the runtime: the module prints only the helpers the code calls (lean 1, 7.1.2), so no registry item is ever unused",
   unreachable_code:
-    "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run; so is one after a WHILE TRUE no EXIT leaves (`cc4_loop_exit_constant`), an endless Rust `loop` since lean 7.5.4 dropped its `if false { break; }`",
+    "a FOR whose body always leaves (`stmt_exit_inner`: an inner FOR whose body is EXIT) runs at most one pass, so its step cannot run — and printed without the step, nothing in the loop changes its counter, which is clippy's `while_immutable_condition`; the step is kept, in a plain block. Nothing after a RETURN, EXIT or CONTINUE is printed any more (lean 7.5.11), so this is the one line left",
   unused_comparisons:
     "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers)",
   "clippy::absurd_extreme_comparisons":

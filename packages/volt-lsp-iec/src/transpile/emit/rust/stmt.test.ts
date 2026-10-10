@@ -65,3 +65,15 @@ test("a store back into its own left operand prints `op=` only when the right op
   expect(or).toContain("self.x = self.x | self.bump(")
   expect(or).toMatch(/self\.y \|= 1u32;/)
 })
+
+// 7.5.12 (clippy's `collapsible_if`): an IF with no ELSE whose whole body is one more IF with none is one `if a && b` —
+// `&&` tests the inner condition only where the outer held, as the nesting did; an OR operand keeps its parentheses, and
+// an ELSE on either, or a statement beside the inner IF, keeps the nesting
+test("an IF whose whole body is one more IF, neither with an ELSE, prints as one `if a && b`", () => {
+  const code = rust(
+    "PROGRAM P\nVAR a : BOOL; b : BOOL; c : BOOL; n : INT; END_VAR\nIF a THEN\n  IF b OR c THEN\n    IF n > 2 THEN\n      n := 1;\n    END_IF\n  END_IF\nEND_IF\nIF a THEN\n  IF b THEN\n    n := 2;\n  ELSE\n    n := 3;\n  END_IF\nEND_IF\nIF c THEN\n  n := 4;\n  IF b THEN\n    n := 5;\n  END_IF\nEND_IF\nEND_PROGRAM\n",
+  )
+  expect(code).toContain("if self.a && (self.b || self.c) && self.n > 2i16 {\n            self.n = 1i16;\n        }")
+  expect(code).toContain("if self.a {\n            if self.b {\n                self.n = 2i16;\n            } else {")
+  expect(code).toContain("if self.c {\n            self.n = 4i16;\n            if self.b {")
+})

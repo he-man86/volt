@@ -3,11 +3,10 @@
  * `call()`; their parameters built once (`bodyParams`).
  */
 import type { IrLayout, IrPou, IrRoutine } from "../../ir/index.js"
-import { exitsAfter } from "../../ir/walk.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { fieldNames, globalsArgs, globalsParams, tmp } from "./names.js"
 import { type Frame, holdsString, inFrame, type Printer, push, typeOf, use, withUri } from "./printer.js"
-import { block } from "./stmt.js"
+import { fnBody } from "./stmt.js"
 import { genericList, inoutType } from "./types.js"
 import { initOf } from "./values.js"
 
@@ -51,13 +50,9 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   // The three that stay are structural, not stylistic. Generated code binds what a body might not read
   // (`unused_variables`), takes `mut` it might not need (`unused_mut`), and initialises a slot a body then
   // overwrites (`unused_assignments`) — each verified load-bearing by the same experiment.
-  // …and `unreachable_code` PER ROUTINE, only where the ST itself put a statement after a RETURN. That is legal
-  // ST and CODESYS compiles it (`xo4_return_in_every_routine`), so emitting the dead tail is FAITHFUL and the
-  // warning is rustc noticing something true about the SOURCE rather than about the emitter. Kept narrow so the
-  // lint still bites everywhere else, which is the whole reason the blanket allow came off.
-  const allows = ["unused_mut", "unused_variables", "unused_assignments"]
-  if (exitsAfter(routine.body)) allows.push("unreachable_code")
-  push(p, `#[allow(${allows.join(", ")})]`, indent)
+  // `unreachable_code` is not among them: a statement after a RETURN (`xo4_return_in_every_routine`) is legal ST, but
+  // nothing after a statement control never comes out of is printed (lean 7.5.11, `block`), so no routine needs it.
+  push(p, "#[allow(unused_mut, unused_variables, unused_assignments)]", indent)
   push(p, `pub fn ${p.fnNames.get(routine.key)!}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
     if (!routine.inputs.includes(i)) push(p, `let mut ${localNames[i]}: ${typeOf(p, slot.type)} = ${initOf(p.layouts, slot.type, slot.init)};`, indent + 1)
@@ -69,8 +64,10 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
     ...(result === undefined ? {} : { result }),
     ...(routine.fb === undefined ? {} : { selfType: { kind: "function_block", name: routine.fb } }),
   }
-  inFrame(p, fields, frame, () => block(p, routine.body, fieldSlots, indent + 1))
-  if (result !== undefined) push(p, result, indent + 1)
+  // a body that never comes out of its bottom (an IF both of whose branches RETURN) hands its result back there; the
+  // tail expression after it could not run (7.5.11)
+  const diverged = inFrame(p, fields, frame, () => fnBody(p, routine.body, fieldSlots, indent + 1))
+  if (result !== undefined && !diverged) push(p, result, indent + 1)
   push(p, "}", indent)
 }
 
@@ -101,7 +98,7 @@ export function printCall(p: Printer, layout: IrLayout, names: readonly string[]
   const selfType: Type = { kind: "function_block", name: layout.name }
   // this body's spans index the file it was WRITTEN in, which need not be the main source (an FB declared in a GVL)
   withUri(p, layout.bodyUri, () =>
-    inFrame(p, names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => block(p, layout.body!, layout.fields, 2)),
+    inFrame(p, names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => fnBody(p, layout.body!, layout.fields, 2)),
   )
   push(p, "}", 1)
 }

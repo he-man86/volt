@@ -1,7 +1,7 @@
 /** LOOPS AS RUST — the one IR loop as a Rust `while` (a head test) or `loop` (a tail test, or none), and EXIT and CONTINUE as
  *  Rust's own `break` and `continue` — or breaks out of the loop's two labels where a body block needs them. */
 import type { IrPou, IrStmt } from "../../ir/index.js"
-import { loopUses } from "../../ir/walk.js"
+import { divergesAll, loopUses } from "../../ir/walk.js"
 import { head, negated, print } from "./expr.js"
 import { tmp } from "./names.js"
 import { type Printer, push } from "./printer.js"
@@ -41,9 +41,10 @@ export function stmtLoop(p: Printer, s: Extract<IrStmt, { kind: "loop" }>, slots
     push(p, `assert!(${tmp("guard", frame.n)} <= ${guard}, "harness loop guard");`, indent + 1)
   }
   p.loops.push(frame)
-  // a body that ENDS in an EXIT, CONTINUE or RETURN before a step or a tail test keeps a plain block: printed bare, the
-  // step after it is a statement rustc calls unreachable (`stmt_exit_inner`; 7.5.11 decides what is printed after one)
-  const diverges = ["break", "continue", "return"].includes(s.body.at(-1)?.kind ?? "") && (s.step.length > 0 || tail)
+  // a body control never comes out of the bottom of (it ends in an EXIT or a RETURN) before a step or a tail test keeps
+  // a plain block: printed bare, the step after it is a line rustc calls unreachable — and left out, nothing in the loop
+  // changes its counter, which is clippy's `while_immutable_condition` (`stmt_exit_inner`, measured 7.5.11)
+  const diverges = !labeled && divergesAll(s.body) && (s.step.length > 0 || tail)
   if (labeled || diverges) {
     push(p, `${labeled ? `'body_${frame.n}: ` : ""}{`, indent + 1)
     block(p, s.body, slots, indent + 2)

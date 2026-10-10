@@ -1,10 +1,10 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
 import type { IrPou, IrStmt, Place } from "../../ir/index.js"
-import { holdsCall, sameNode } from "../../ir/walk.js"
+import { diverges, holdsCall, sameNode } from "../../ir/walk.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { stmtCall } from "./calls.js"
 import { expr, head, print } from "./expr.js"
-import { at, Prec } from "./precedence.js"
+import { at, Prec, printed } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
 import { lvalue, place } from "./place.js"
@@ -17,7 +17,26 @@ export function block(p: Printer, list: readonly IrStmt[], slots: IrPou["slots"]
     push(p, "// (empty)", indent)
     return
   }
-  for (const s of list) stmt(p, s, slots, indent)
+  // nothing after a statement control never comes out of (7.5.11, `diverges`): the line cannot run
+  for (const s of list) {
+    stmt(p, s, slots, indent)
+    if (diverges(s)) return
+  }
+}
+
+/**
+ * A generated fn's whole body: `block`, but a RETURN control reaches at its top level is where the fn ends anyway, so it
+ * is not printed (clippy's `needless_return`; what came after it was never printed, 7.5.11). Whether the printed body
+ * still never comes out of its bottom — an IF both of whose branches RETURN — so the caller prints no tail after it.
+ */
+export function fnBody(p: Printer, list: readonly IrStmt[], slots: IrPou["slots"], indent: number): boolean {
+  const end = list.findIndex(diverges)
+  if (end < 0 || list[end]!.kind !== "return") {
+    block(p, list, slots, indent)
+    return end >= 0
+  }
+  block(p, list.slice(0, end), slots, indent)
+  return false
 }
 
 export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: number): void {
@@ -93,10 +112,22 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
 }
 
 /** IF … ELSIF … ELSE: an `else` whose whole body is one more IF is that IF's `else if` (7.5.5, clippy's
- *  `collapsible_else_if`) — lowering nests an ELSIF as exactly that. */
+ *  `collapsible_else_if`) — lowering nests an ELSIF as exactly that. An IF with no ELSE whose whole body is one more IF
+ *  with none either is ONE `if a && b` (7.5.12, clippy's `collapsible_if`): `&&` tests `b` only where `a` held, as the
+ *  nesting did, and printing a condition runs nothing (each is one expression, no line before it). */
 function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["slots"], indent: number, opener = "if"): void {
-  push(p, `${opener} ${head(print(p, s.cond, slots))} {`, indent, s.span)
-  block(p, s.then, slots, indent + 1)
+  let cond = print(p, s.cond, slots)
+  let inner = s
+  for (let only = inner.then[0]; inner.else.length === 0 && inner.then.length === 1 && only?.kind === "if" && only.else.length === 0; only = inner.then[0]) {
+    inner = only
+    cond = printed(`${at(cond, Prec.LogAnd)} && ${at(print(p, inner.cond, slots), Prec.LogAnd)}`, Prec.LogAnd)
+  }
+  push(p, `${opener} ${head(cond)} {`, indent, s.span)
+  block(p, inner.then, slots, indent + 1)
+  if (inner !== s) {
+    push(p, "}", indent)
+    return
+  }
   const only = s.else.length === 1 ? s.else[0]! : undefined
   if (only?.kind === "if") return stmtIf(p, only, slots, indent, "} else if")
   if (s.else.length > 0) {

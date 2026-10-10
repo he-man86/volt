@@ -11,7 +11,8 @@ import {
   blocksOf,
   callsIn,
   childrenOf,
-  exitsAfter,
+  diverges,
+  divergesAll,
   findPlace,
   forEachExpr,
   forEachStmt,
@@ -137,10 +138,27 @@ describe("the walks", () => {
     expect(seen).toEqual([1, 0])
     expect(out).toEqual({ kind: "address", place: { ...image, slot: 10, at: load(place(11)) }, type: INT, span })
   })
-  test("blocksOf, exitsAfter and loopUses", () => {
+  test("blocksOf, diverges and loopUses", () => {
     expect(blocksOf(KINDS.if![0] as IrStmt)).toHaveLength(2)
-    expect(exitsAfter(body)).toBe(false)
-    expect(exitsAfter([{ kind: "if", cond: c(1n), then: [{ kind: "return", span }, assign(place(0), c(1n))], else: [], span }])).toBe(true)
+    // 7.5.11: RETURN, EXIT and CONTINUE; an IF only when both branches do; a CASE only when every arm and ELSE do
+    for (const kind of ["return", "break", "continue"] as const) expect(diverges({ kind, span })).toBe(true)
+    const ret: IrStmt = { kind: "return", span }
+    const set = assign(place(0), c(1n))
+    expect(divergesAll([set, ret, set])).toBe(true)
+    expect(diverges({ kind: "if", cond: c(1n), then: [ret, set], else: [], span })).toBe(false)
+    expect(diverges({ kind: "if", cond: c(1n), then: [ret], else: [set], span })).toBe(false)
+    expect(diverges({ kind: "if", cond: c(1n), then: [set, { kind: "break", span }], else: [ret], span })).toBe(true)
+    const arm = (body: IrStmt[]) => ({ labels: [{ lo: 1n, hi: 1n }], body, span })
+    expect(diverges({ kind: "switch", selector: c(1n), arms: [arm([ret])], else: [ret], span })).toBe(true)
+    expect(diverges({ kind: "switch", selector: c(1n), arms: [arm([set])], else: [ret], span })).toBe(false)
+    expect(diverges({ kind: "switch", selector: c(1n), arms: [arm([ret])], else: [], span })).toBe(false)
+    // a loop nothing leaves — no test, or the constant TRUE, and no EXIT of its own (one in a nested loop is that loop's)
+    const forever = (b: IrStmt[]): IrLoop => ({ ...loop(b), test: { cond: { kind: "const", value: true, type: elementaryRef("BOOL"), span }, atEnd: false } })
+    expect(diverges(forever([set]))).toBe(true)
+    expect(diverges(forever([loop([{ kind: "break", span }])]))).toBe(true)
+    expect(diverges(forever([{ kind: "if", cond: c(1n), then: [{ kind: "break", span }], else: [], span }]))).toBe(false)
+    expect(diverges({ ...loop([set]), test: undefined })).toBe(true)
+    expect(diverges(loop([set]))).toBe(false)
     const inner = loop([{ kind: "break", span }])
     expect(loopUses(loop([inner]))).toEqual({ exits: false, continues: false })
     expect(loopUses(loop([{ kind: "if", cond: c(1n), then: [{ kind: "continue", span }], else: [{ kind: "break", span }], span }]))).toEqual({

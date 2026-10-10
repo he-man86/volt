@@ -73,11 +73,12 @@ export function typeOf(p: Printer, t: Type): string {
 }
 
 /** Print `run` inside an FB's `call` or a routine: `fields` are `self`'s, the frame holds its parameters and locals. */
-export function inFrame(p: Printer, fields: readonly string[], frame: Frame, run: () => void): void {
+export function inFrame<T>(p: Printer, fields: readonly string[], frame: Frame, run: () => T): T {
   const saved = [p.fields, p.frame] as const
   ;[p.fields, p.frame] = [fields, frame]
-  run()
+  const out = run()
   ;[p.fields, p.frame] = saved
+  return out
 }
 
 /** An instance lent to a call (design §24): `&mut place` — and `THIS^`, already `&mut self`, reborrowed as `&mut *self`
