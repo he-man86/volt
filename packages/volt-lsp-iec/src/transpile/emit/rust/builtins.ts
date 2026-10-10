@@ -3,8 +3,9 @@ import type { IrBuiltinName, IrExpr, IrMathName, IrPou } from "../../ir/index.js
 import { isReal } from "../../../frontend/types/index.js"
 import { castTo, fromF64 } from "./convert.js"
 import { expr, unparen } from "./expr.js"
+import { mem } from "./image.js"
 import { tmp } from "./names.js"
-import type { Printer } from "./printer.js"
+import { type Printer, use } from "./printer.js"
 import { isString, rustType } from "./types.js"
 
 /** The one-argument math functions → their `f64` method. LOG is base 10 in IEC. */
@@ -31,22 +32,22 @@ export function exprBuiltin(p: Printer, e: Extract<IrExpr, { kind: "builtin" }>,
   // OUT of it and straight into `case "unary"` below — which reads `e.operand`, a field a builtin node does
   // not have. The result was `undefined` spliced into the emitted Rust, for a name nobody had noticed adding.
   if (print === undefined) throw new Error(`emit: no Rust for the builtin ${e.name}`)
-  return print(e, args, argv)
+  return print(e, args, argv, p)
 }
 
 /** A builtin's printer: the node, its arguments as printed (`args`, receiver-safe) and unparenthesized (`argv`). */
-type BuiltinPrinter = (e: Extract<IrExpr, { kind: "builtin" }>, args: readonly string[], argv: readonly string[]) => string
+type BuiltinPrinter = (e: Extract<IrExpr, { kind: "builtin" }>, args: readonly string[], argv: readonly string[], p: Printer) => string
 
 // A STRING has no `Ord`, only the cross-length `PartialOrd` the prelude defines, so `.max()` does not
 // resolve on one (E0599 — the error that had MAX over a STRING refused in the first place). `iec_max`
 // and `iec_min` need only that `PartialOrd`, and pick the same operand the interpreter's `ord` does.
 // A REAL is `iec_fmax` / `iec_fmin`, CODESYS's compare-select — the SECOND argument on a tie or a NaN — where
 // f32::max drops the NaN and answers either zero (`tr_28_minmax_limit_nan_signed_zero_*`, recorded as bits).
-const maxMin: BuiltinPrinter = (e, args, argv) =>
+const maxMin: BuiltinPrinter = (e, args, argv, p) =>
   isString(e.type)
-    ? args.reduce((acc, a) => `iec_${e.name}(${acc}, ${a})`)
+    ? args.reduce((acc, a) => `${use(p, e.name === "max" ? "iec_max" : "iec_min")}(${acc}, ${a})`)
     : isReal(e.type)
-      ? argv.reduce((acc, a) => `iec_f${e.name}(${acc}, ${a})`)
+      ? argv.reduce((acc, a) => `${use(p, e.name === "max" ? "iec_fmax" : "iec_fmin")}(${acc}, ${a})`)
       : args.reduce((acc, a) => `${acc}.${e.name}(${unparen(a)})`)
 
 // Rust's own features, each proven to match at the edges (design §13, §14): `wrapping_shl`/`wrapping_shr`
@@ -64,8 +65,8 @@ const rotate: BuiltinPrinter = (e, args, argv) => {
 // The emitted twin of `MATH`'s `logarithm` guard: `LN(0)` and `LOG(0)` stop the task on CODESYS, and Rust
 // answers `-inf` and carries on. Nothing else in this group stops anything — `EXP(1000)` is an infinity
 // and runs. Measured in `operators/math-domain.ts`.
-const logarithm: BuiltinPrinter = (e, args) =>
-  fromF64(`iec_log(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}).${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
+const logarithm: BuiltinPrinter = (e, args, _argv, p) =>
+  fromF64(`${use(p, "iec_log")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}).${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
 
 // through f64 and back, the same path the interpreter takes — `f32::ln` is a different float32 routine
 const math: BuiltinPrinter = (e, args) => fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64")}.${RUST_MATH[e.name as IrMathName]}()`, rustType(e.type))
@@ -77,11 +78,11 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
   // `limit_inverted_bounds`). MIN(MAX(MN, IN), MX) is exactly the measured behaviour — MN as the receiver, so
   // it is evaluated before IN, as the IR states (`tr_41_limit_evaluation_order`).
-  limit: (e, args, argv) =>
+  limit: (e, args, argv, p) =>
     isString(e.type)
-      ? `iec_min(iec_max(${args[0]}, ${args[1]}), ${args[2]})`
+      ? `${use(p, "iec_min")}(${use(p, "iec_max")}(${args[0]}, ${args[1]}), ${args[2]})`
       : isReal(e.type)
-        ? `iec_fmin(iec_fmax(${argv[0]}, ${argv[1]}), ${argv[2]})`
+        ? `${use(p, "iec_fmin")}(${use(p, "iec_fmax")}(${argv[0]}, ${argv[1]}), ${argv[2]})`
         : `${args[0]}.max(${argv[1]}).min(${argv[2]})`,
   // LAZY, as the IR states: only the selected input is evaluated (`tr_41_sel_side_effects`).
   sel: (_e, _args, argv) => `(if ${argv[0]} { ${argv[2]} } else { ${argv[1]} })`,
@@ -101,8 +102,8 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
     return `(match ${k} { ${arms.join(", ")} })`
   },
   // `iec_pow`: EXPT(0, finite negative) stops the task on CODESYS, where `powf` answers inf (`semantics/math.ts` `expt`)
-  expt: (e, args) =>
-    fromF64(`iec_pow(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type)),
+  expt: (e, args, _argv, p) =>
+    fromF64(`${use(p, "iec_pow")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type)),
   abs: (e, args) => {
     // `abs` would panic on a signed minimum in a debug build; an unsigned type has no `abs` at all
     const t = e.type.kind === "elementary" ? e.type.elem : undefined
@@ -111,7 +112,7 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   char: (e, args) => `${args[0]}.char_at(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`,
   setchar: (e, args, argv) => `${args[0]}.with_char(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`,
   // two addresses ordered inside one region of the image, or the fault (`runtime/pointer.ts` `Mem::order`)
-  address_order: (_e, _args, argv) => `__mem.order(${argv[0]}, ${argv[1]})`,
+  address_order: (_e, _args, argv, p) => `${mem(p, "order")}(${argv[0]}, ${argv[1]})`,
   ln: logarithm,
   log: logarithm,
   sqrt: math,

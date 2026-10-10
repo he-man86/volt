@@ -4864,31 +4864,68 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     step-start baseline written at 00996a7db0).
 ### 7.1 Prelude on demand (lean 1; dead_code 5658, uninlined_format_args 4192, format_push_string 1048, many_single_char_names 527)
 
-- [ ] 7.1.1 The registry has real dependencies.
+- [x] 7.1.1 The registry has real dependencies.
   - What: the IecStr core, each `iec_*_text`, `iec_parse_*` and `iec_max/min` become separate entries with `deps`.
   - Where: `emit/rust/runtime/index.ts`, `runtime/*.ts`.
   - Accept: G, S (still today's gating).
   - Depends: 1.5.11.
-- [ ] 7.1.2 The printer records `use(id)`; `module.ts` appends the dependency closure; the `code.includes` sniffing (six sites) is deleted.
+  - Done 2026-10-10 (step 7.1, with 7.1.2: the intermediate gating state was not committed on its own). `runtime/index.ts`
+    `HELPERS` is one entry per Rust item group: the IecStr core (`string`), `iec_max`, `iec_min`, each `iec_*_text` and its
+    helpers (`iec_civil`, `iec_lclock` — a comment above a group rides with its first entry), `iec_parse_real`,
+    `iec_parse_int`, the numeric and pointer helpers, and the byte image split by method (`mem`, `mem_region`, `mem_at`,
+    `mem_ld`, `mem_ld_bool`, `mem_st`, `mem_order`, `iec_ix`). `deps` are what a text CALLS (`iec_ldt_text` ->
+    `iec_civil`, `iec_lclock`; `mem_ld` -> `mem_at` -> `mem_region`; `mem` -> `mem_ld`, `mem_st`, the harness's access to
+    an image-held variable, `support/rust-access.ts`, so they are `pub` and ride with every `Mem`). The string blob's three
+    riders are gone. `runtime/index.test.ts`: every helper whole items, FRONT + BACK the whole registry, the closure, a
+    test that every fn (and `self.<method>`) a text calls is in its closure, `frontLines`, `withoutRuntime`.
+- [x] 7.1.2 The printer records `use(id)`; `module.ts` appends the dependency closure; the `code.includes` sniffing (six sites) is deleted.
   - Where: `emit/rust/printer.ts`, `module.ts`, `runtime/index.ts`.
   - Accept: S-out; M (dead_code excused count falls; the target is 0 excused by runtime code).
   - Depends: 7.1.1.
-- [ ] 7.1.3 ALLOWED `dead_code`: its reason narrowed to "fixture variables", its excused count recorded.
+  - Done 2026-10-10 (step 7.1). `printer.ts` `use(p, id)` records a helper and answers its name
+    (`${use(p, "iec_div")}(a, b)`), `typeOf(p, t)` records the string core wherever a type holding a string is spelled
+    (struct fields, routine parameters, locals, results, lent instances, a dispatch's type; a VAR_IN_OUT string in
+    `bodyParams`), and a string constant, a fresh string composite and a conversion to or from a string record it too;
+    `image.ts` `mem(p, method)` records the image's methods, `module.ts` records `mem` when the POU has an image. `module.ts`
+    prints `closure(p.uses)`: the FRONT ones (the string family) in front in registry order, the source map shifted past
+    them; the BACK ones after the code, each once (`helperText`). `usedIn`, `INLINE` and every `code.includes` are deleted.
+    S-out identical over 5535 fixtures (all layers but `rust`; the `rust` layer differs on 466). M (`rate:fixtures`):
+    `dead_code` excused 5883 -> 42; the share on runtime lines, measured by compiling every lowered fixture's Rust and
+    attributing each finding to the registry text it falls in, 5768 -> 0 (target met). Pedantic 33788 -> 27701
+    (`uninlined_format_args` 3519 -> 1217, `unreadable_literal` 2995 -> 1443, `cast_sign_loss` 3771 -> 3425,
+    `cast_possible_wrap` 749 -> 400, `format_push_string` 782 -> out of the ten; on runtime lines
+    `many_single_char_names` 394 -> 3, `bool_to_int_with_if` 391 -> 6). Rows changed: `pedantic` 394, `shape` 73 (the
+    byte-image fixtures: `Mem`'s methods are separate `impl Mem` blocks now), `notes`/`lints`/`edge`/`evidence` 0.
+- [x] 7.1.3 ALLOWED `dead_code`: its reason narrowed to "fixture variables", its excused count recorded.
   - Where: `test/conformance/support/transpile/lint-policy.ts`.
   - Accept: M.
   - Depends: 7.1.2.
-- [ ] 7.1.4 Redefine the map's `size`.
+  - Done 2026-10-10 (step 7.1). Reason now "fixture variables: …. Not the runtime: the module prints only the helpers the
+    code calls (lean 1, 7.1.2), so no registry item is ever unused". Excused count 42 (was 5883), all on fixture lines.
+- [x] 7.1.4 Redefine the map's `size`.
   - What: "emitted Rust lines per ST line, runtime-registry lines not counted" (design.md §8); re-baseline in this commit with the old and
     new median both written here; every later size delta uses the new definition.
   - Where: `test/conformance/support/transpile/row.ts` (size), `scripts/rate-fixtures.ts`, the map header text.
   - Accept: M (only `size` values and the header definition change; both medians recorded).
   - Depends: 7.1.2.
-- [ ] 7.1.5 Runtime helpers colliding with a user FUNCTION (`iec_div`, …; Appendix A, was 6.A.7).
+  - Done 2026-10-10 (step 7.1). `shape.ts` `sizeRatio` counts the non-blank lines of `withoutRuntime(code)` (every registry
+    text the code holds removed, wherever printed); the generator's header and doc say "runtime-registry lines not
+    counted". Medians: old definition (string prelude in front not counted) 3.1 at step start and 3.1 after 7.1.2; new
+    definition 3.1. 368 rows' `size` moved between the step-start map and this one (the byte-image and numeric-helper
+    fixtures, whose appended helpers no longer count); the ten largest now include `string_escapes_named` 13 and
+    `tr_a10_string_to_dint_based_edges` 12.2 in place of `tr_a18_for_counter_through_reference` and
+    `tr_38_ref_store_explicit_conversion`. Every later size delta uses this definition.
+- [x] 7.1.5 Runtime helpers colliding with a user FUNCTION (`iec_div`, …; Appendix A, was 6.A.7).
   - What: reserve the registry's ids in `names.ts` (a user FUNCTION named like a helper gets a suffixed fn) or namespace the helpers.
   - Where: `emit/rust/names.ts`, `runtime/index.ts`.
   - Accept: a src test with a user FUNCTION `iec_div` plus a fix; S-out.
   - Depends: 7.1.2.
 
+  - Done 2026-10-10 (step 7.1). `runtime/index.ts` `RUNTIME_ITEMS` is every top-level item name the registry can print
+    (read off the texts); `names.ts` `baseFnName` suffixes a FUNCTION's fn with `_` when it names one (a METHOD's fn is
+    inside its impl and cannot collide). Test-first: `names.test.ts` "a user FUNCTION named like a runtime helper gets a
+    suffixed fn" — red (two `fn iec_div`, E0428), green after. S-out identical. Not covered (no fixture, a different
+    surface): a DUT or FB named `Mem` or `IecStr` keeps its contract struct name and would collide with the runtime type.
 ### 7.9 Prelude helpers (lean 9)
 
 - [ ] 7.9.1 `iec_r2i64/32`: `let c = v.round();`, the NaN and ≥2^63 returns merged, the redundant `is_nan()` in `contains` dropped.

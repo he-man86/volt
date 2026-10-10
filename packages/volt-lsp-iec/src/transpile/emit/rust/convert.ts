@@ -2,7 +2,8 @@
 import type { IrExpr, IrPou } from "../../ir/index.js"
 import { isTemporal, type Type } from "../../../frontend/types/index.js"
 import { expr, unparen } from "./expr.js"
-import type { Printer } from "./printer.js"
+import { type Printer, use } from "./printer.js"
+import type { RuntimeId } from "./runtime/index.js"
 import { emittedFamily, rustType, stringPath, stringType } from "./types.js"
 
 /**
@@ -18,6 +19,25 @@ export function castTo(text: string, from: Type, target: string): string {
 /** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
 export function fromF64(text: string, target: string): string {
   return target === "f64" ? text : `(${text} as ${target})`
+}
+
+/** Each temporal type's formatter (`runtime/text.ts`), by its canonical name. */
+const TEMPORAL_TEXT: Readonly<Record<string, RuntimeId>> = {
+  TIME: "iec_time_text",
+  LTIME: "iec_ltime_text",
+  DATE: "iec_date_text",
+  DT: "iec_dt_text",
+  TOD: "iec_tod_text",
+  LDT: "iec_ldt_text",
+  LDATE: "iec_ldate_text",
+  LTOD: "iec_ltod_text",
+}
+
+/** The formatter of a temporal type — a name with none is a lowering bug, named. */
+function temporalText(source: string): RuntimeId {
+  const id = TEMPORAL_TEXT[source]
+  if (id === undefined) throw new Error(`emit: no formatter for ${source}_TO_STRING`)
+  return id
 }
 
 export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>, slots: IrPou["slots"]): string {
@@ -36,6 +56,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     return value
   // STRING → STRING: the copy that truncates at the target's capacity, and across the two WIDTHS one code unit
   // per code unit (conformance `xo3_string_wide_conversions`).
+  if (to === "string" || from === "string") use(p, "string")
   if (to === "string" && from === "string") {
     const target = stringType(e.type)
     const source = stringType(e.value.type)
@@ -50,15 +71,15 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
         : isTemporal(source)
           ? // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past
             // printed a negative duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
-            `iec_${source.toLowerCase()}_text(${unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64"))})`
+            `${use(p, temporalText(source))}(${unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64"))})`
           : source === "LREAL"
-            ? `iec_lreal_text(${unparen(value)})`
+            ? `${use(p, "iec_lreal_text")}(${unparen(value)})`
             : `format!("{}", ${unparen(value)})`
     return `${stringPath(e.type)}::lit(${text}.as_bytes())`
   }
   // the parse helpers already RETURN `f64` / `i64`; casting to the same type is `unnecessary_cast`
   if (from === "string") {
-    const parsed = `iec_parse_${to === "real" ? "real" : "int"}(${value}.units())`
+    const parsed = `${use(p, to === "real" ? "iec_parse_real" : "iec_parse_int")}(${value}.units())`
     return target === (to === "real" ? "f64" : "i64") ? parsed : `(${parsed} as ${target})`
   }
   if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
@@ -71,7 +92,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
   if (from === "real" && to !== "real") {
     const wide = e.type.kind === "elementary" && e.type.elem.bits >= 64
     // the helper already RETURNS the register width; casting i32 to i32 is what `unnecessary_cast` names
-    const helper = wide ? "iec_r2i64" : "iec_r2i32"
+    const helper = use(p, wide ? "iec_r2i64" : "iec_r2i32")
     const call = `${helper}(${unparen(castTo(value, e.value.type, "f64"))})`
     return target === (wide ? "i64" : "i32") ? call : `(${call} as ${target})`
   }

@@ -2,7 +2,7 @@
  * STRING → number — `iec_parse_real`, `iec_parse_int`, line for line the interpreter's (`semantics/parse.ts`). Mind the
  * escapes: a backslash or a backtick here is the template literal's.
  */
-export const PARSE = `// STRING → REAL: the same decimal prefix the interpreter's regex takes ('.5', '5.', '1.5E' is 1.5), else 0.
+export const IEC_PARSE_REAL = `// STRING → REAL: the same decimal prefix the interpreter's regex takes ('.5', '5.', '1.5E' is 1.5), else 0.
 // WRITTEN OUT, not on one line like its neighbours. Each step is a separate optional piece of the grammar, so an
 // else would be wrong — but on ONE line that reads to clippy as five possible_missing_else, which was 507 of the
 // fixture map's findings from this single function.
@@ -31,7 +31,8 @@ fn iec_parse_real(s: &[u8]) -> f64 {
     }
     std::str::from_utf8(&s[start..i]).unwrap().parse().unwrap_or(0.0)
 }
-// STRING → integer: leading spaces and tabs; with no sign a 2#, 8# or 16# base ('16#FF' is 255), else an optional sign and
+`
+export const IEC_PARSE_INT = `// STRING → integer: leading spaces and tabs; with no sign a 2#, 8# or 16# base ('16#FF' is 255), else an optional sign and
 // decimal digits; an underscore among the digits skipped, anything else ending them (' 12abc' is 12, '-16#F' is -16);
 // wrapping at 64 bits (the interpreter's parseInteger, 6.A.10).
 fn iec_parse_int(s: &[u8]) -> i64 {
@@ -56,3 +57,4 @@ fn iec_parse_int(s: &[u8]) -> i64 {
     if neg { v.wrapping_neg() } else { v }
 }
 `
+

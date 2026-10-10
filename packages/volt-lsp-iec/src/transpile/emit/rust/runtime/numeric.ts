@@ -5,15 +5,17 @@
  */
 import { rustFaultLiteral } from "../../../ir/faults.js"
 
-/** MAX / MIN over a STRING — rides with the string type (`string.ts`); see `index.ts`. */
-export const IEC_MAX_MIN = `// MAX / MIN OVER A STRING. Rust's .max() comes from Ord, and an IecStr has only the cross-length PartialOrd
+/** MAX / MIN over a STRING (`builtins.ts` prints them for a string operand). */
+export const IEC_MAX = `// MAX / MIN OVER A STRING. Rust's .max() comes from Ord, and an IecStr has only the cross-length PartialOrd
 // above, so these take its place. Two equal strings are the same value, so which one a tie answers with is not
 // observable (a REAL tie is: iec_fmax / iec_fmin answer the second argument, as measured). CODESYS compares byte by byte, UNSIGNED,
 // a prefix losing to what it is a prefix of (conformance strord_prefix, strord_high_byte and their four
 // neighbours), which is exactly what that PartialOrd does over a byte slice.
 fn iec_max<T: PartialOrd>(a: T, b: T) -> T { if b > a { b } else { a } }
-fn iec_min<T: PartialOrd>(a: T, b: T) -> T { if b < a { b } else { a } }
 `
+export const IEC_MIN = `fn iec_min<T: PartialOrd>(a: T, b: T) -> T { if b < a { b } else { a } }
+`
+
 
 /** The two halves of the measured REAL -> INTEGER table. See `coerce` in `semantics/convert.ts`. */
 export const IEC_R2I64 = `fn iec_r2i64(v: f64) -> i64 {

@@ -23,9 +23,9 @@
 import type { IrLayout, IrPou } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { fieldNames, globalsParams, routineFnNames, rustName } from "./names.js"
-import { code, Printer, push } from "./printer.js"
+import { code, Printer, push, use } from "./printer.js"
 import { printCall, printRoutine } from "./routine.js"
-import { INLINE, runtimeText, usedIn } from "./runtime/index.js"
+import { BACK, closure, FRONT, helperText, runtimeText } from "./runtime/index.js"
 import { block } from "./stmt.js"
 import { printStruct } from "./structs.js"
 import { memNew } from "./image.js"
@@ -71,7 +71,10 @@ export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   // a FUNCTION has no instance: a free fn beside the structs
   for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
   // the program's own image, which the runtime's `Mem` starts from (`image.ts`)
-  if (pou.image !== undefined) for (const line of ["", ...memNew(pou.image)]) push(p, line, 0)
+  if (pou.image !== undefined) {
+    use(p, "mem")
+    for (const line of ["", ...memNew(pou.image)]) push(p, line, 0)
+  }
   appendRuntime(p)
   return withPrelude(p)
 }
@@ -140,27 +143,24 @@ function printPou(p: Printer, pou: IrPou, fields: readonly string[]): void {
   })
 }
 
-/** The runtime helpers the printed code calls, each appended only when the code calls it (`runtime/index.ts`). */
+/** The back runtime helpers the printed code calls (`use`, with what they call), each after the code (`runtime/index.ts`). */
 function appendRuntime(p: Printer): void {
-  for (const id of INLINE) {
-    if (!usedIn(id, code(p))) continue
+  for (const id of closure(p.uses).filter((id) => BACK.includes(id))) {
     push(p, "", 0)
-    for (const line of runtimeText(id).slice(0, -1).split("\n")) push(p, line, 0)
+    for (const line of helperText(id).slice(0, -1).split("\n")) push(p, line, 0)
   }
 }
 
-/** The finished emission — the string prelude in front of a program that holds a string, the source map shifted past it. */
+/** The finished emission — the front runtime (the string family the code calls) in front, the source map shifted past it. */
 function withPrelude(p: Printer): Emitted {
   const { usesGlobals, usesPrograms, usesImage } = p
-  // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a
   // shared module when the emitter emits whole projects rather than one POU at a time.
-  if (!usedIn("string", code(p))) return { code: code(p), sourceMap: p.sourceMap, usesGlobals, usesPrograms, usesImage }
-  const prelude = runtimeText("string")
+  const prelude = runtimeText(...closure(p.uses).filter((id) => FRONT.includes(id)))
   const offset = prelude.split("\n").length - 1
   return {
     code: prelude + code(p),
-    sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })),
+    sourceMap: offset === 0 ? p.sourceMap : p.sourceMap.map((m) => ({ ...m, line: m.line + offset })),
     usesGlobals,
     usesPrograms,
     usesImage,

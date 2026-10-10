@@ -11,8 +11,6 @@ import { interpRender, rustRender, seedable } from "../display.js"
 import { runPaths } from "../run-paths.js"
 import { type RustAccess, rustAccess } from "../rust-access.js"
 import { preludeLines } from "./shape.js"
-// the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
-import { runtimeText } from "../../../../src/transpile/emit/rust/runtime/index.js"
 
 /*
  * THE INTERPRETER AGAINST THE COMPILED RUST, ON INPUTS NOBODY RECORDED — the review's step 3, as a column.
@@ -112,7 +110,7 @@ const LIBM = /\.(powf|powi|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|ln|lo
 
 /** Does this emitted code reach the platform's libm? Read off the code itself, so it is the same answer everywhere. */
 export function reachesLibm(code: string): boolean {
-  return LIBM.test(code.slice(preludeLines(code) === 0 ? 0 : runtimeText("string").length))
+  return LIBM.test(code.split("\n").slice(preludeLines(code)).join("\n"))
 }
 
 /** The variables a fixture's edge run seeds and compares: every recorder path the Rust can name as an elementary. */

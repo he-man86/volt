@@ -1,37 +1,56 @@
 import { describe, expect, test } from "bun:test"
-import { INLINE, runtimeText, usedIn } from "./index.js"
-import { IEC_MAX_MIN } from "./numeric.js"
-import { PARSE } from "./parse.js"
+import { BACK, closure, FRONT, frontLines, RUNTIME_IDS, runtimeText, withoutRuntime } from "./index.js"
+import { IEC_MAX, IEC_MIN } from "./numeric.js"
+import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
 import { IEC_STR } from "./string.js"
-import { TEXT } from "./text.js"
+import { IEC_CIVIL, IEC_LCLOCK, IEC_LDT_TEXT, IEC_LREAL_TEXT, IEC_LTOD_TEXT } from "./text.js"
 
 describe("emit/rust/runtime — the registry", () => {
-  test("the string blob is the string type, MAX/MIN over a string, the formatters, then the parsers", () => {
-    expect(runtimeText("string")).toBe(IEC_STR + IEC_MAX_MIN + TEXT + PARSE)
-    for (const part of [IEC_STR, IEC_MAX_MIN, TEXT, PARSE]) expect(part.endsWith("}\n")).toBe(true)
-  })
-
-  test("the string blob is asked for by the string types' names", () => {
-    expect(usedIn("string", "let s: IecString<80> = IecStr::lit(b\"a\");")).toBe(true)
-    expect(usedIn("string", "let w: IecWString<4>;")).toBe(true)
-    expect(usedIn("string", "let x: i32 = 1;")).toBe(false)
-  })
-
-  test("each helper appended after the code defines the fn its call names, and nothing else asks for it", () => {
-    for (const id of INLINE.filter((x) => x !== "mem")) {
+  test("every helper is whole Rust items ending in a newline, and a fn helper defines the fn its id names", () => {
+    for (const id of RUNTIME_IDS) {
       const text = runtimeText(id)
-      expect(text.startsWith(`fn ${id}`)).toBe(true)
       expect(text.endsWith("\n")).toBe(true)
-      expect(usedIn(id, `${id}(1)`)).toBe(true)
-      expect(usedIn(id, id)).toBe(false)
+      if (id.startsWith("iec_")) expect(text).toContain(`fn ${id}`)
     }
-    expect(INLINE).toEqual(["iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div", "mem"])
+    expect(runtimeText("string")).toBe(IEC_STR)
   })
 
-  test("the byte image is a TYPE, asked for by its name: Mem, its methods and the index step it walks with", () => {
-    const text = runtimeText("mem")
-    for (const item of ["pub struct Mem", "fn ld<", "fn st<", "fn order(", "fn iec_ix("]) expect(text).toContain(item)
-    expect(usedIn("mem", "let mut __mem = Mem::new();")).toBe(true)
-    expect(usedIn("mem", "let memory = 1;")).toBe(false)
+  test("the string family goes in front, everything else after, and the two lists are the whole registry", () => {
+    expect(FRONT[0]).toBe("string")
+    expect(BACK).toEqual([
+      "iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div",
+      "mem", "mem_region", "mem_at", "mem_ld", "mem_ld_bool", "mem_st", "mem_order", "iec_ix",
+    ])
+    expect(closure(["mem_ld_bool"])).toEqual(["mem_region", "mem_at", "mem_ld", "mem_ld_bool"])
+    expect([...FRONT, ...BACK]).toEqual([...RUNTIME_IDS])
+  })
+
+  test("a helper brings what it calls, in registry order, each once — and nothing it does not call", () => {
+    expect(closure(["iec_ldt_text"])).toEqual(["iec_civil", "iec_lclock", "iec_ldt_text"])
+    expect(closure(["iec_ltod_text", "iec_ldt_text", "iec_ltod_text"])).toEqual(["iec_civil", "iec_lclock", "iec_ldt_text", "iec_ltod_text"])
+    expect(runtimeText("iec_ldt_text", "iec_ltod_text")).toBe(IEC_CIVIL + IEC_LCLOCK + IEC_LDT_TEXT + IEC_LTOD_TEXT)
+    expect(closure(["iec_lreal_text"])).toEqual(["iec_lreal_text"])
+    expect(closure(["string"])).toEqual(["string"])
+    expect(runtimeText()).toBe("")
+  })
+
+  test("every helper a text calls is among its deps (a fn named in a helper's body is in its closure)", () => {
+    for (const id of RUNTIME_IDS) {
+      const body = runtimeText(id)
+      for (const other of RUNTIME_IDS.filter((o) => o !== id && o.startsWith("iec_")))
+        if (new RegExp(`\\b${other}\\(`).test(body.replace(new RegExp(`fn ${id}\\b`), ""))) expect(closure([id])).toContain(other)
+      // a Mem method another one calls (`self.at(…)`) is its own entry, `mem_<method>`
+      if (id.startsWith("mem_")) for (const call of body.matchAll(/self\.(\w+)(?:::<[^>]*>)?\(/g)) expect(closure([id]) as string[]).toContain(`mem_${call[1]}`)
+    }
+  })
+
+  test("the front runtime a code starts with is measured off the code, in any subset the module prints", () => {
+    const body = "pub struct P {\n    pub s: IecString<5>,\n}\n"
+    const front = IEC_STR + IEC_MAX + IEC_MIN + IEC_LREAL_TEXT + IEC_PARSE_REAL + IEC_PARSE_INT
+    expect(frontLines(front + body)).toBe(front.split("\n").length - 1)
+    expect(frontLines(IEC_STR + IEC_PARSE_INT + body)).toBe((IEC_STR + IEC_PARSE_INT).split("\n").length - 1)
+    expect(frontLines(body)).toBe(0)
+    // what `size` counts: the code without every registry text it holds, wherever it is printed
+    expect(withoutRuntime(IEC_STR + body + "\n" + runtimeText("iec_div"))).toBe(body + "\n")
   })
 })

@@ -8,11 +8,17 @@ import { isBoolValued, peelArray, type Type } from "../../../frontend/types/inde
 import { castTo } from "./convert.js"
 import { expr, unparen } from "./expr.js"
 import { rustName, tmp } from "./names.js"
-import type { Printer } from "./printer.js"
+import { type Printer, use } from "./printer.js"
 import { rustType } from "./types.js"
 
 /** The `Mem` every generated body is handed when the program has an image. */
 export const MEM = tmp("mem")
+
+/** `__mem.<method>`, recording the method's runtime entry (`runtime/pointer.ts`). */
+export function mem(p: Printer, method: "ld" | "ld_bool" | "st" | "order"): string {
+  use(p, `mem_${method}` as const)
+  return `${MEM}.${method}`
+}
 
 /** The byte address an `image` place reaches: its `at`, then each index step checked and scaled (`iec_ix`). */
 export function imageAddress(p: Printer, at: Place, slots: IrPou["slots"]): string {
@@ -20,7 +26,7 @@ export function imageAddress(p: Printer, at: Place, slots: IrPou["slots"]): stri
   for (const step of at.path) {
     if (step.kind !== "index") continue
     const index = unparen(castTo(expr(p, step.index, slots), step.index.type, "i64"))
-    text = `iec_ix(${text}, ${index}, ${step.lower}i64, ${step.length}, ${step.size})`
+    text = `${use(p, "iec_ix")}(${text}, ${index}, ${step.lower}i64, ${step.length}, ${step.size})`
   }
   return text
 }
@@ -40,8 +46,8 @@ const scaled = (k: string, size: number): string => (size === 1 ? k : `${k} * ${
 /** A value of `t` read from the address `a` (a Rust expression read once per use — callers bind it first). */
 function loadAt(p: Printer, t: Type, a: string, depth: number): string {
   // a BOOL is any byte but 0 — read by `ld_bool`, so `NOT` over it prints `!` and no comparison (`clippy::nonminimal_bool`)
-  if (isBoolValued(t)) return `${MEM}.ld_bool(${a})`
-  if (t.kind === "elementary") return `${rustType(t)}::from_le_bytes(${MEM}.ld(${a}))`
+  if (isBoolValued(t)) return `${mem(p, "ld_bool")}(${a})`
+  if (t.kind === "elementary") return `${rustType(t)}::from_le_bytes(${mem(p, "ld")}(${a}))`
   const array = peelArray(t)
   if (array !== undefined) {
     const k = tmp("k", depth)
@@ -54,8 +60,8 @@ function loadAt(p: Printer, t: Type, a: string, depth: number): string {
 
 /** Statements storing the value `v` of `t` at the address `a`. */
 function storeAt(p: Printer, t: Type, a: string, v: string, depth: number): string {
-  if (isBoolValued(t)) return `${MEM}.st(${a}, [u8::from(${v})]);`
-  if (t.kind === "elementary") return `${MEM}.st(${a}, ${v}.to_le_bytes());`
+  if (isBoolValued(t)) return `${mem(p, "st")}(${a}, [u8::from(${v})]);`
+  if (t.kind === "elementary") return `${mem(p, "st")}(${a}, ${v}.to_le_bytes());`
   const array = peelArray(t)
   if (array !== undefined) {
     const [k, e] = [tmp("k", depth), tmp("e", depth)]
@@ -70,7 +76,7 @@ export function loadImage(p: Printer, at: Place, slots: IrPou["slots"]): string 
   const bit = at.path.at(-1)
   const address = imageAddress(p, at, slots)
   if (bit?.kind === "bit") {
-    const word = `${rustType(bit.of)}::from_le_bytes(${MEM}.ld(${address}))`
+    const word = `${rustType(bit.of)}::from_le_bytes(${mem(p, "ld")}(${address}))`
     return `((${bit.index === 0 ? word : `(${word} >> ${bit.index})`} & 1) != 0)`
   }
   if (at.type.kind === "elementary") return loadAt(p, at.type, address, 0)
@@ -86,7 +92,7 @@ export function storeImage(p: Printer, at: Place, value: string, slots: IrPou["s
   if (bit?.kind === "bit") {
     const one = `(1${rustType(bit.of)} << ${bit.index})`
     const w = tmp("w")
-    return `{ ${head} let ${w} = ${rustType(bit.of)}::from_le_bytes(${MEM}.ld(${a})); ${storeAt(p, bit.of, a, `(if ${v} { ${w} | ${one} } else { ${w} & !${one} })`, 0)} }`
+    return `{ ${head} let ${w} = ${rustType(bit.of)}::from_le_bytes(${mem(p, "ld")}(${a})); ${storeAt(p, bit.of, a, `(if ${v} { ${w} | ${one} } else { ${w} & !${one} })`, 0)} }`
   }
   return `{ ${head} ${storeAt(p, at.type, a, v, 0)} }`
 }

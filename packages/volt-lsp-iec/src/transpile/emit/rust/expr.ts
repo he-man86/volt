@@ -9,7 +9,7 @@ import { exprDispatch, exprInvoke, exprSelect } from "./calls.js"
 import { exprConvert } from "./convert.js"
 import { tmp } from "./names.js"
 import { place } from "./place.js"
-import { guarded, type Printer } from "./printer.js"
+import { guarded, holdsString, type Printer, use } from "./printer.js"
 import { isCopy } from "./types.js"
 import { initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
@@ -101,10 +101,12 @@ export function negated(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
 export function expr(p: Printer, e: IrExpr, slots: IrPou["slots"]): string {
   switch (e.kind) {
     case "const":
+      if (holdsString(e.type)) use(p, "string")
       return literal(e.value, e.type)
     // A fresh composite — the emitted twin of the interpreter's `instantiate`, and the same `initOf` a slot's
     // declaration already uses. Only a VAR_TEMP reset reaches it.
     case "fresh":
+      if (holdsString(e.type)) use(p, "string")
       return initOf(p.layouts, e.type, e.init)
     case "invoke":
       return exprInvoke(p, e, slots)
@@ -184,5 +186,5 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // measured `1.0E38 / 1.0E-38` overflowing to `REAL#Infinity` with the scan completing, so the result was
   // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
   // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `semantics/arith.ts`.
-  return real && e.op === "div" ? `iec_div(${unparen(l)}, ${unparen(r)})` : `(${l} ${plain} ${r})`
+  return real && e.op === "div" ? `${use(p, "iec_div")}(${unparen(l)}, ${unparen(r)})` : `(${l} ${plain} ${r})`
 }

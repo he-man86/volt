@@ -194,3 +194,16 @@ test("`g` and `prg` as arguments and as parameters — one list, in that order, 
   expect(cases.map(globalsArgs)).toEqual([[], ["g"], ["prg"], ["g", "prg"]])
   expect(cases.map(globalsParams)).toEqual([[], ["g: &mut Globals"], ["prg: &mut Programs"], ["g: &mut Globals", "prg: &mut Programs"]])
 })
+
+test("a user FUNCTION named like a runtime helper gets a suffixed fn, and the helper keeps its name (7.1.5, was 6.A.7)", () => {
+  const code = rust(
+    "FUNCTION iec_div : REAL\nVAR_INPUT a : REAL; b : REAL; END_VAR\niec_div := a + b;\nEND_FUNCTION\n" +
+      "PROGRAM P\nVAR x : REAL := 6.0; y : REAL := 2.0; q : REAL; r2 : REAL; END_VAR\nq := x / y;\nr2 := iec_div(x, y);\nEND_PROGRAM\n",
+  )
+  // the runtime's zero-divisor check, once, and the user's FUNCTION beside it under its own name
+  expect(code.match(/\bfn iec_div\b/g)).toEqual(["fn iec_div"])
+  expect(code).toContain("fn iec_div<T")
+  expect(code).toContain("pub fn iec_div_(")
+  expect(code).toContain("iec_div_(self.x, self.y)")
+  expect(code).toContain("iec_div(self.x, self.y)")
+})

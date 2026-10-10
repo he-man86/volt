@@ -12,8 +12,6 @@ import { emitRust, lowerSource } from "../../src/transpile/index.js"
 import { runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
 import { RUSTC, skipRustSuite } from "./support/rustc.js"
 
-const STRING_PRELUDE = runtimeText("string")
-
 function rust(src: string): string {
   const { pou, diagnostics } = lowerSource(src)
   expect(diagnostics).toEqual([])
@@ -304,7 +302,7 @@ describe.skipIf(skipRustSuite())("emit/rust — LREAL_TO_STRING rounds a tie hal
       ["1234567890123446.0", "1.23456789012345e15"],
       ["1000000000000006.0", "1.00000000000001e15"],
     ]
-    const fn = /fn iec_lreal_text\(v: f64\) -> String \{[\s\S]*?\n\}\n/.exec(STRING_PRELUDE)![0]
+    const fn = runtimeText("iec_lreal_text")
     const main = `fn main() {\n${recorded.map(([v]) => `    println!("{}", iec_lreal_text(${v}f64));`).join("\n")}\n}\n`
     const dir = await mkdtemp(join(tmpdir(), "volt-lreal-"))
     const file = join(dir, "lreal_tie.rs")
@@ -344,7 +342,7 @@ describe.skipIf(skipRustSuite())("emit/rust — LDT/LDATE/LTOD_TO_STRING", () =>
     const dir = await mkdtemp(join(tmpdir(), "volt-ldt-"))
     const file = join(dir, "long_dates.rs")
     const exe = join(dir, process.platform === "win32" ? "long_dates.exe" : "long_dates")
-    const build = await buildRust([RUSTC!, "--edition", "2021", "-o", exe, file], file, exe, `#![allow(dead_code)]\n${STRING_PRELUDE}\n${main}`)
+    const build = await buildRust([RUSTC!, "--edition", "2021", "-o", exe, file], file, exe, `${runtimeText("iec_ldt_text", "iec_ldate_text", "iec_ltod_text")}\n${main}`)
     expect(build.stderr).toBe("")
     const run = Bun.spawnSync([exe])
     await rm(dir, { recursive: true, force: true })

@@ -17,7 +17,7 @@
  *   `pedantic`  how many clippy::pedantic + clippy::perf findings it carries — the distance to idiomatic.
  *   `edge`      the interpreter against the compiled Rust on edge inputs nobody recorded: `agree`, `disagree`, or
  *               `not-run`, and the header says why for each of those.
- *   `size`      emitted Rust lines per ST line.
+ *   `size`      emitted Rust lines per ST line, the runtime registry's lines not counted (`shape.ts` `sizeRatio`).
  *   `shape`     the emission's shape id — its normalized constructs in order.
  *   `notes`     the ids of the constructs it emits that the review judged. Their full text — improvement,
  *               alternatives, chosen, why — is written at the END of the same file, a generated `NOTES` section
@@ -313,7 +313,7 @@ ${ranked(pedanticTally)
   .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(6)}`)
   .join("\n")}
  *
- *   size — emitted Rust lines per ST line, the string prelude not counted: median ${median}; the ten largest
+ *   size — emitted Rust lines per ST line, runtime-registry lines not counted: median ${median}; the ten largest
 ${sizes
   .slice(0, 10)
   .map(([name, s]) => ` *     ${name.padEnd(44)} ${String(s).padStart(5)}`)

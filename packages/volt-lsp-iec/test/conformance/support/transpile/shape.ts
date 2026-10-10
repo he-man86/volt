@@ -3,8 +3,8 @@
  * (split out of the confidence module, transpile-restructure 1.8.3).
  */
 import { createHash } from "node:crypto"
-// the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
-import { runtimeText } from "../../../../src/transpile/emit/rust/runtime/index.js"
+// the runtime a program is printed with — a deep path, test support only (the runtime registry is not surface)
+import { frontLines, withoutRuntime } from "../../../../src/transpile/emit/rust/runtime/index.js"
 
 // ── the emission shape ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -70,10 +70,9 @@ export function shapeId(normalized: string): string {
   return createHash("sha1").update(normalized).digest("hex").slice(0, 10)
 }
 
-/** The lines of `code` that are the prelude every string-using POU carries whole — the emitter's, not the fixture's. */
-export function preludeLines(code: string): number {
-  return code.startsWith(runtimeText("string")) ? runtimeText("string").split("\n").length - 1 : 0
-}
+/** The lines of `code` that are the string prelude it starts with — the front runtime its code calls (`frontLines`), the
+ *  emitter's, not the fixture's. */
+export const preludeLines = frontLines
 
 /**
  * A fixture's emission as its constructs, IN ORDER, and one id for the whole sequence.
@@ -97,14 +96,15 @@ export function emissionShape(code: string): { shape: string; constructs: readon
 }
 
 /**
- * Emitted Rust lines per ST line, to one decimal — non-blank lines on both sides, the prelude not counted (it is the
- * same 140 lines on every string POU and would make the column say "uses a STRING"), ST comment lines not counted.
- * The ST is the ASSEMBLED fixture — its POUs, the PLC_PRG that calls them and its GVLs — and NOT a library body it
- * pulls in, so a library call inflates the ratio; the review measured that too, and said so.
+ * Emitted Rust lines per ST line, to one decimal — non-blank lines on both sides, the RUNTIME REGISTRY's lines not
+ * counted wherever they are printed (`withoutRuntime`: a helper is the emitter's, the same text in every program that
+ * calls it, and would make the column say "uses a STRING" or "divides a REAL"), ST comment lines not counted. Until
+ * transpile-restructure 7.1.4 only the string prelude in front was left out. The ST is the ASSEMBLED fixture — its POUs,
+ * the PLC_PRG that calls them and its GVLs — and NOT a library body it pulls in, so a library call inflates the ratio;
+ * the review measured that too, and said so.
  */
 export function sizeRatio(code: string, source: string, gvls: readonly { source: string }[]): number {
-  const skip = preludeLines(code)
-  const rust = code.split("\n").filter((l, i) => i >= skip && l.trim() !== "").length
+  const rust = withoutRuntime(code).split("\n").filter((l) => l.trim() !== "").length
   const stLines = (s: string): number => s.split(/\r?\n/).filter((l) => l.trim() !== "" && !/^\s*\/\//.test(l)).length
   const st = stLines(source) + gvls.reduce((n, g) => n + stLines(g.source), 0)
   return Math.round((rust / st) * 10) / 10

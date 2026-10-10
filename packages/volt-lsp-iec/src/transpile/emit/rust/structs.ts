@@ -2,8 +2,7 @@
 import type { IrInit } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { Type } from "../../../frontend/types/index.js"
-import { type Printer, push } from "./printer.js"
-import { rustType } from "./types.js"
+import { type Printer, push, typeOf } from "./printer.js"
 import { initOf } from "./values.js"
 
 /**
@@ -33,7 +32,7 @@ export function printStruct(p: Printer, name: string, slots: readonly { type: Ty
   push(p, "#[allow(non_camel_case_types)]", 0)
   push(p, "#[derive(Debug, Clone, PartialEq)]", 0)
   push(p, `pub struct ${name} {`, 0, span)
-  for (const [i, slot] of slots.entries()) push(p, `pub ${names[i]}: ${rustType(slot.type)},`, 1)
+  for (const [i, slot] of slots.entries()) push(p, `pub ${names[i]}: ${typeOf(p, slot.type)},`, 1)
   push(p, "}", 0)
   push(p, "", 0)
   push(p, `impl ${name} {`, 0)

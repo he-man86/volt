@@ -4,12 +4,14 @@
  */
 import type { IrBinding, IrCopy, IrPou, IrRoutine, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import type { Type } from "../../../frontend/types/index.js"
+import { peelArray, stringKind, type Type } from "../../../frontend/types/index.js"
 import { expr, unparen } from "./expr.js"
 import { tmp } from "./names.js"
 import { place } from "./place.js"
 import type { Layouts } from "./values.js"
 import { storeImage } from "./image.js"
+import type { RuntimeId } from "./runtime/index.js"
+import { rustType } from "./types.js"
 
 /** One POU's printer: the state every print function reads and writes. */
 export class Printer {
@@ -29,6 +31,9 @@ export class Printer {
    *  the result local a `return` hands back. */
   frame: Frame = { inoutNames: [], inoutSlots: [], localNames: [], localSlots: [] }
 
+  /** The runtime helpers the printed code calls (`use`) — the module prints their closure and nothing else (lean 1). */
+  readonly uses = new Set<RuntimeId>()
+
   constructor(
     public fields: readonly string[],
     readonly layouts: Layouts,
@@ -44,6 +49,21 @@ export class Printer {
     /** The program has a byte image — every generated call is handed `__mem` too (`image.ts`). */
     readonly usesImage = false,
   ) {}
+}
+
+/** Record that the printed code calls the runtime helper `id`, and answer its name — `${use(p, "iec_div")}(a, b)`. */
+export function use(p: Printer, id: RuntimeId): string {
+  p.uses.add(id)
+  return id
+}
+
+/** Whether `t` holds a STRING or WSTRING, itself or as an array's element — a type printed through the string runtime. */
+export const holdsString = (t: Type): boolean => stringKind(peelArray(t)?.element ?? t) !== undefined
+
+/** `rustType(t)`, recording the string runtime when `t` holds a string — for every place a type is spelled out. */
+export function typeOf(p: Printer, t: Type): string {
+  if (holdsString(t)) use(p, "string")
+  return rustType(t)
 }
 
 /** Print `run` inside an FB's `call` or a routine: `fields` are `self`'s, the frame holds its parameters and locals. */
@@ -88,12 +108,12 @@ const written = (b: IrCopy): boolean => b.back !== undefined || b.discarded === 
 /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
 export function guarded(p: Printer, target: Place, text: string, slots: IrPou["slots"]): string {
   // the guarded value is the BLOCK's tail — it stands alone there, so a `(*v)` needs no parentheses of its own
-  return target.guard === undefined ? text : `{ iec_deref(${place(p, target.guard, slots)}); ${unparen(text)} }`
+  return target.guard === undefined ? text : `{ ${use(p, "iec_deref")}(${place(p, target.guard, slots)}); ${unparen(text)} }`
 }
 
 /** A write through a dereference is checked on the line before it. */
 export function guardLine(p: Printer, target: Place, slots: IrPou["slots"], indent: number): void {
-  if (target.guard !== undefined) push(p, `iec_deref(${place(p, target.guard, slots)});`, indent)
+  if (target.guard !== undefined) push(p, `${use(p, "iec_deref")}(${place(p, target.guard, slots)});`, indent)
 }
 
 /** Print `run` with every span it pushes indexing `uri` (undefined: the main source), and restore the file after. */

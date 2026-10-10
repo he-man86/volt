@@ -16,7 +16,7 @@ import { CLIPPY } from "../rustc.js"
  */
 export const ALLOWED: Readonly<Record<string, string>> = {
   dead_code:
-    "a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes",
+    "fixture variables: a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes. Not the runtime: the module prints only the helpers the code calls (lean 1, 7.1.2), so no registry item is ever unused",
   unreachable_code:
     "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run",
   unused_comparisons:

@@ -6,9 +6,9 @@ import type { IrLayout, IrPou, IrRoutine } from "../../ir/index.js"
 import { exitsAfter } from "../../ir/walk.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { fieldNames, globalsArgs, globalsParams, tmp } from "./names.js"
-import { type Frame, inFrame, type Printer, push, withUri } from "./printer.js"
+import { type Frame, holdsString, inFrame, type Printer, push, typeOf, use, withUri } from "./printer.js"
 import { block } from "./stmt.js"
-import { genericList, inoutType, rustType } from "./types.js"
+import { genericList, inoutType } from "./types.js"
 import { initOf } from "./values.js"
 
 /**
@@ -31,15 +31,15 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   const names = fieldNames([...routine.locals, ...routine.inouts], globalsArgs(p), true)
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
-  const { params: tail, typed } = bodyParams(routine.inouts, inoutNames, routine.lent ?? [])
+  const { params: tail, typed } = bodyParams(p, routine.inouts, inoutNames, routine.lent ?? [])
   const params = [
     ...(routine.kind === "function" ? [] : ["&mut self"]),
     ...globalsParams(p),
-    ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
+    ...routine.inputs.map((i) => `mut ${localNames[i]}: ${typeOf(p, routine.locals[i]!.type)}`),
     ...tail,
   ]
   const result = routine.result === undefined ? undefined : localNames[routine.result]!
-  const returns = routine.result === undefined ? "" : ` -> ${rustType(routine.locals[routine.result]!.type)}`
+  const returns = routine.result === undefined ? "" : ` -> ${typeOf(p, routine.locals[routine.result]!.type)}`
   push(p, "", 0)
   // THE ALLOW LIST IS THE GATE'S BLIND SPOT, so it is only as wide as it has to be. Every generated function
   // used to carry `unreachable_code` and `non_snake_case` as well, which made `-D warnings` deny almost
@@ -60,7 +60,7 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   push(p, `#[allow(${allows.join(", ")})]`, indent)
   push(p, `pub fn ${p.fnNames.get(routine.key)!}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
-    if (!routine.inputs.includes(i)) push(p, `let mut ${localNames[i]}: ${rustType(slot.type)} = ${initOf(p.layouts, slot.type, slot.init)};`, indent + 1)
+    if (!routine.inputs.includes(i)) push(p, `let mut ${localNames[i]}: ${typeOf(p, slot.type)} = ${initOf(p.layouts, slot.type, slot.init)};`, indent + 1)
   const frame: Frame = {
     inoutNames,
     inoutSlots: routine.inouts,
@@ -78,10 +78,11 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
  * The parameters a generated body takes after `g`/`prg` and its inputs: each VAR_IN_OUT (`inoutType`), then each FB
  * instance of another frame lent to it for the call (design §24) — for a routine and an FB's `call()` alike.
  */
-function bodyParams(inouts: IrPou["slots"], inoutNames: readonly string[], lent: readonly { type: Type }[]): { params: string[]; typed: { param: string; generics: string[] }[] } {
+function bodyParams(p: Printer, inouts: IrPou["slots"], inoutNames: readonly string[], lent: readonly { type: Type }[]): { params: string[]; typed: { param: string; generics: string[] }[] } {
   // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does
   const typed = inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
-  return { params: [...typed.map((t) => t.param), ...lent.map((l, i) => `${tmp("lent", i)}: &mut ${rustType(l.type)}`)], typed }
+  if (inouts.some((slot) => holdsString(slot.type))) use(p, "string")
+  return { params: [...typed.map((t) => t.param), ...lent.map((l, i) => `${tmp("lent", i)}: &mut ${typeOf(p, l.type)}`)], typed }
 }
 
 /** An FB's body as `pub fn call(&mut self, …)`: `g`/`prg`, its VAR_IN_OUT and the instances lent to it as parameters. */
@@ -91,7 +92,7 @@ export function printCall(p: Printer, layout: IrLayout, names: readonly string[]
   const reserved = globalsArgs(p)
   const inouts = layout.inouts ?? []
   const inoutNames = fieldNames(inouts, reserved, true) // parameters of a generated fn, not a surface a user reads
-  const { params: tail, typed } = bodyParams(inouts, inoutNames, layout.lent ?? [])
+  const { params: tail, typed } = bodyParams(p, inouts, inoutNames, layout.lent ?? [])
   const params = [...globalsParam, ...tail].map((param) => `, ${param}`).join("")
   push(p, "", 0)
   // an in-out the body leaves to SUPER^ (or never reads) is unused too (review of the copy-back)

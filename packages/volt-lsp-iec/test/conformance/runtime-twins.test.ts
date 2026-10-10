@@ -396,7 +396,7 @@ describe("runtime twins — the case tables hold their recordings", () => {
 describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the case tables", () => {
   test("runtime/text.ts: iec_lreal_text over every LREAL case, the 16th-digit ties among them", async () => {
     const cases = [...Object.values(LREAL_TEXT_CASES).flat(), ...LREAL_TIE_CASES]
-    const got = await runTwin("text_lreal", runtimeText("text"), cases.map((c) => `iec_lreal_text(${f64(c.input)})`))
+    const got = await runTwin("text_lreal", runtimeText("iec_lreal_text"), cases.map((c) => `iec_lreal_text(${f64(c.input)})`))
     const { got: g, expected } = compare(cases, got)
     expect(g).toEqual(expected)
   }, 60_000)
@@ -405,13 +405,13 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const cases = LONG_CALENDAR_TEXT_CASES
     const fn = { LDT: "iec_ldt_text", LDATE: "iec_ldate_text", LTOD: "iec_ltod_text" } as const
     // the emitter hands the u64 over `as i64`: CODESYS reads it signed (`tr_12_fmt_long_dates`)
-    const got = await runTwin("text_long", runtimeText("text"), cases.map((c) => `${fn[c.input.name]}(${c.input.ns}u64 as i64)`))
+    const got = await runTwin("text_long", runtimeText("iec_ldt_text", "iec_ldate_text", "iec_ltod_text"), cases.map((c) => `${fn[c.input.name]}(${c.input.ns}u64 as i64)`))
     const { got: g, expected } = compare(cases, got)
     expect(g).toEqual(expected)
   }, 60_000)
 
   test("runtime/text.ts: iec_ltime_text over every LTIME case, the u64 handed over uncast", async () => {
-    const got = await runTwin("text_ltime", runtimeText("text"), LTIME_TEXT_CASES.map((c) => `iec_ltime_text(${c.input}u64)`))
+    const got = await runTwin("text_ltime", runtimeText("iec_ltime_text"), LTIME_TEXT_CASES.map((c) => `iec_ltime_text(${c.input}u64)`))
     const { got: g, expected } = compare(LTIME_TEXT_CASES, got)
     expect(g).toEqual(expected)
   }, 60_000)
@@ -423,7 +423,7 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
   }, 60_000)
 
   test("runtime/pointer.ts: Mem over every byte-image case — the signalling NaN a REAL keeps included", async () => {
-    const program = `${runtimeText("mem")}
+    const program = `${runtimeText("mem", "mem_ld", "mem_ld_bool", "mem_st", "mem_order", "iec_ix")}
 ${FAULT_OF}`
     const got = await runTwin("memory", program, ["{ std::panic::set_hook(Box::new(|_| {})); 0 }", ...MEMORY_CASE_LIST.map((c) => memoryCaseRust(c.input))])
     expect(MEMORY_CASE_LIST.map((c, i) => `${c.name}: ${got[i + 1]}`)).toEqual(MEMORY_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
@@ -455,7 +455,7 @@ ${FAULT_OF}`
   }, 60_000)
 
   test("runtime/parse.ts: iec_parse_int over every recorded STRING -> integer cell, stored at its target", async () => {
-    const got = await runTwin("parse_int", runtimeText("parse"), PARSE_INT_CASES.map((c) => parseIntRust(c.input)))
+    const got = await runTwin("parse_int", runtimeText("iec_parse_int"), PARSE_INT_CASES.map((c) => parseIntRust(c.input)))
     const { got: g, expected } = compare(PARSE_INT_CASES, got)
     expect(g).toEqual(expected)
   }, 60_000)

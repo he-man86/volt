@@ -8,8 +8,8 @@ import { rustFaultLiteral } from "../../ir/faults.js"
 import { expr, unparen } from "./expr.js"
 import { globalsArgs, tmp } from "./names.js"
 import { movedOut, place } from "./place.js"
-import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, type Printer, push } from "./printer.js"
-import { isCopy, rustType } from "./types.js"
+import { copiesBack, guarded, guardLine, lend, lendMut, lentCopies, type Printer, push, typeOf } from "./printer.js"
+import { isCopy } from "./types.js"
 
 export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, slots: IrPou["slots"]): string {
   // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
@@ -63,7 +63,7 @@ export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }
   // takes (E0605) and rustc calls unreachable (found in a review, 2026-09-15). A closure of the call's own
   // type fixes that, and it was applied to EVERY dispatch, which is 19 `clippy::redundant_closure_call`.
   const arms = e.arms.map((a) => `${a.tag} => ${expr(p, a.call, slots)},`).join(" ")
-  const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
+  const typed = e.type.kind === "unknown" ? "()" : typeOf(p, e.type)
   const nothing = `panic!(${rustFaultLiteral(e.fault)})`
   const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
   return `(match ${expr(p, e.tag, slots)} { ${arms} _ => ${none} })`
