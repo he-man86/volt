@@ -1,6 +1,6 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
 import type { IrPou, IrStmt, Place } from "../../ir/index.js"
-import { holdsCall } from "../../ir/walk.js"
+import { holdsCall, sameNode } from "../../ir/walk.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { stmtCall } from "./calls.js"
 import { expr, unparen, unparenHead } from "./expr.js"
@@ -76,7 +76,7 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
       push(p, `${receiver}.store(&${unparen(value)});`, indent, s.span)
       return
     }
-    push(p, `${unparen(field)} = ${unparen(value)};`, indent, s.span)
+    push(p, `${unparen(field)} ${compound(s, unparen(field), unparen(value))};`, indent, s.span)
     return
   }
   // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
@@ -126,3 +126,22 @@ const sameCapacity = (a: Type, b: Type): boolean => a.kind === "elementary" && b
 
 /** A place whose Rust string type has a GENERIC capacity: a STRING VAR_IN_OUT (`inoutType`). */
 const generic = (place: Place): boolean => place.root === "inout"
+
+/** The infix operators a store back into its own left operand prints as `op=`. */
+const COMPOUND: ReadonlySet<string> = new Set(["&", "|", "^", "+", "-", "*", "/", "%"])
+
+/**
+ * `= value`, or `op= right` when the value is an infix operator whose left operand is the target itself — `self.w &= 1u16`,
+ * not `self.w = self.w & 1u16` (clippy's `assign_op_pattern`; the narrow rule, 7.3.1, made the operator print infix in the
+ * target's own type). Only when the value holds no call: on a primitive, Rust's `a op= b` evaluates `b` FIRST and reads
+ * `a` after it, while IEC (and `a = a op b`) reads the target first — a call that writes the target (a METHOD of the same
+ * FB) would be seen by `op=` and not by CODESYS (gate review 7.2c+7.5b).
+ */
+function compound(s: Extract<IrStmt, { kind: "assign" }>, field: string, value: string): string {
+  const v = s.value
+  if (v.kind !== "binary" || v.left.kind !== "load" || !sameNode(v.left.place, s.target) || holdsCall(v)) return `= ${value}`
+  const at = `${field} `
+  const op = value.startsWith(at) ? value.slice(at.length).split(" ", 1)[0]! : ""
+  return COMPOUND.has(op) ? `${op}= ${value.slice(at.length + op.length + 1)}` : `= ${value}`
+}
+

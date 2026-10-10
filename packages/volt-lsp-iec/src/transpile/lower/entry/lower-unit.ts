@@ -20,6 +20,7 @@ import { grownTargets, type PointerTarget, seedTargets } from "../pointers/state
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
 import { foldPou } from "../values/fold.js"
+import { narrowPou } from "../values/promote.js"
 import { finishInterfaces } from "./finish.js"
 import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { openDims } from "../places/bounds.js"
@@ -105,9 +106,10 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
   const pou: IrPou = { name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
-  // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2)
+  // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2), then the narrow-arithmetic
+  // rule over the folded IR (`values/promote.ts` `narrowPou`, lean 3)
   const lowered = withImage(lowering, pou)
-  return lowered.pou === undefined || !fold ? lowered : { ...lowered, pou: foldPou(lowered.pou) }
+  return lowered.pou === undefined || !fold ? lowered : { ...lowered, pou: narrowPou(foldPou(lowered.pou)) }
 }
 
 /**

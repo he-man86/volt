@@ -36,7 +36,7 @@ describe("emit/rust", () => {
 describe("emit/rust — a negative constant keeps its sign inside a method call", () => {
   test("the sign cannot escape the receiver position", () => {
     const code = rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")
-    expect(code).toContain("(-1i32).max(")
+    expect(code).toContain("(-1i16).max(")
     // and nowhere does a bare negative constant sit directly before a `.`
     expect(code).not.toMatch(/[^(\w]-\d+[iuf]\d+\./)
   })

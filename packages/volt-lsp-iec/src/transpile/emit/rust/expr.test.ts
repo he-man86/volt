@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { emitRust } from "./index.js"
+import { unparenHead } from "./expr.js"
 import { lowerSource } from "../../lower/index.js"
 
 function rust(src: string): string {
@@ -29,7 +30,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
 
   // an integer comparison is a total order, so it still flips — that is what removed 39 `nonminimal_bool`
   const int = rust("PROGRAM P\nVAR i : INT; END_VAR\nWHILE i <= 10 DO\n i := i + 1;\nEND_WHILE\nEND_PROGRAM\n")
-  expect(int).toContain("if (self.i as i32) > 10i32 { break; }")
+  expect(int).toContain("if self.i > 10i16 { break; }")
 })
 
   test("an enum variable is its base type and an enum value its number; THIS^ is `self`", () => {
@@ -64,9 +65,9 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     // the bindings carry the reserved prefix — they used to be `a` and `d`, which shadowed a parameter of
     // those names and made `7 MOD 3` compile to `7 % 7`; see the hygiene describe below
     expect(code).toContain(
-      "self.m = ({ let __mod_l = self.a as i32; let __mod_r = self.z as i32; if __mod_r == 0 { 0 } else { __mod_l % __mod_r } }) as i16;",
+      "self.m = ({ let __mod_l = i32::from(self.a); let __mod_r = i32::from(self.z); if __mod_r == 0 { 0 } else { __mod_l % __mod_r } }) as i16;",
     )
-    expect(code).toContain("self.w = (!(self.a as u16)) as i32;")
+    expect(code).toContain("self.w = i32::from(!(self.a as u16));")
   })
 
   test("integer negation wraps — Rust's `-` panics on a minimum — while REAL negation stays plain", () => {
@@ -85,4 +86,17 @@ test("MOD and a REAL `/` by a constant lowering proved harmless print plain `%` 
   expect(code).toContain("self.c = { let __mod_l = self.i; let __mod_r = -1i32;")
   expect(code).toContain("self.y = self.x / 2.0f32;")
   expect(code).toContain("self.w = iec_div(self.x, self.x);")
+})
+
+// the narrow rule's fallout (7.3.1, 7.3.3): a range test over one operand prints `contains`, a store back into its own
+// left operand `op=`, and an `if` whose condition starts with a block RECEIVER needs no parentheses
+describe("emit/rust — the forms the narrow rule exposed", () => {
+  test("x >= lo AND x <= hi is a range's contains; w := w AND m is `&=`; a block receiver heads an if bare", () => {
+    const code = rust("PROGRAM P\nVAR c : BYTE; w : WORD; g : BOOL; END_VAR\ng := c >= 97 AND c <= 122;\ng := c >= 97 AND_THEN c < 123;\nw := w AND 16#FF;\nEND_PROGRAM\n")
+    expect(code).toContain("self.g = (97u8..=122u8).contains(&self.c);")
+    expect(code).toContain("self.g = (97u8..123u8).contains(&self.c);")
+    expect(code).toContain("self.w &= 255u16;")
+    expect(unparenHead("({ s }.char_at(1) < 3u8)")).toBe("{ s }.char_at(1) < 3u8")
+    expect(unparenHead("({ s })")).toBe("({ s })")
+  })
 })

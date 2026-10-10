@@ -89,11 +89,11 @@ describe("every note is tagged with the task that owns it", () => {
     expect(NOTES["fbde4d6e1e"]!.tasks).toEqual(["7.8.8", "7.8.11"])
     // a `keep` note's other items ask for changes: each names the task that makes it, and stays when 7.2.13 removed
     // the `keep` items beside it (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
-    expect(NOTES["1d7709a031"]!.tasks).toEqual(["7.3.1"])
-    expect(NOTES["1307e33bbf"]!.tasks).toEqual(["7.3.5"])
     expect(NOTES["496b8acb56"]!.tasks).toEqual(["7.6.6"])
     // 7.2.13: the notes of the group-2 constructs that held only `keep` items are gone
     for (const id of ["6a98109119", "a497507b30", "4a6baf16b3", "687428cc81"]) expect(NOTES[id]).toBeUndefined()
+    // …and 1d7709a031 (7.3.1) and 1307e33bbf (7.3.5) went with the last item their tasks landed
+    for (const id of ["1d7709a031", "1307e33bbf"]) expect(NOTES[id]).toBeUndefined()
   })
 
   test("the authored NOTES all carry a valid tag (transpile-restructure's tasks.md)", () => {

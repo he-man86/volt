@@ -38,7 +38,7 @@ describe("emit/rust", () => {
         "PROGRAM P\nVAR x : INT := 1; y : INT; k : INT; END_VAR\ny := LIMIT(Add1(x), x, 1000); y := MUX(k, Add1(x), x);\nEND_PROGRAM\n",
     )
     // `tr_41_limit_evaluation_order`, recorded: MN is bound before IN is read
-    expect(code).toContain("(add1(&mut self.x) as i32).max(self.x as i32)")
+    expect(code).toContain("add1(&mut self.x).max(self.x)")
     expect(code).toContain("match ")
   })
 
@@ -49,17 +49,17 @@ describe("emit/rust", () => {
     // LN GOES THROUGH `iec_log` — `LN(0)` and `LOG(0)` stop the task on CODESYS and Rust answers `-inf` and carries
     // on (`operators/math-domain.ts`, which asked every math function's domain edges). The `as f64` / `as f32` trip
     // this test is really about is unchanged.
-    expect(code).toContain("iec_log(self.x as f64).ln() as f32")
+    expect(code).toContain("iec_log(f64::from(self.x)).ln() as f32")
     expect(code).toContain('assert!(x != 0.0, "the logarithm of zero stops the task on CODESYS")')
-    expect(code).toContain("(self.i as i32).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
+    expect(code).toContain("i32::from(self.i).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
     expect(code).toContain("self.x.abs()")
     expect(code).toContain("self.v = self.u;") // u64 has no `abs`
   })
 
   test("EXPT is `powf` through f64, narrowed to REAL only when both arguments are REAL", () => {
     const code = rust("PROGRAM P\nVAR x : REAL; y : REAL; n : INT; z : LREAL; END_VAR\ny := EXPT(x, y); z := EXPT(x, n);\nEND_PROGRAM\n")
-    expect(code).toContain("iec_pow(self.x as f64, self.y as f64) as f32")
-    expect(code).toContain("self.z = iec_pow(self.x as f64, self.n as f64);") // one INT: LREAL
+    expect(code).toContain("iec_pow(f64::from(self.x), f64::from(self.y)) as f32")
+    expect(code).toContain("self.z = iec_pow(f64::from(self.x), f64::from(self.n));") // one INT: LREAL
     // through `iec_pow`: EXPT(0, -1) stops the task on CODESYS where `powf` answers inf (`tr_46_exptdom_zero_pow_*`)
     expect(code).toContain('assert!(!stops, "zero to a negative power stops the task on CODESYS"); x.powf(y)')
   })
@@ -68,7 +68,7 @@ describe("emit/rust", () => {
     const code = rust(
       "PROGRAM P\nVAR b : BYTE; n : INT; w : WORD; x : BOOL; i : INT; k : INT; END_VAR\nw := SHL(b, n); b := ROL(b, n); x := w.3; i.15 := x; i := MUX(k, 1, 2, 3);\nEND_PROGRAM\n",
     )
-    expect(code).toContain("(self.b as i32).wrapping_shl(self.n as u32)") // promoted, then Rust's own mask
+    expect(code).toContain("i32::from(self.b).wrapping_shl(self.n as u32)") // promoted, then Rust's own mask
     expect(code).toContain("self.b.rotate_left(self.n as u32)") // the BYTE's own width
     expect(code).toContain("self.x = ((self.w >> 3) & 1) != 0;")
     // the place named once (review 2026-09-15: printed on both sides, a call in its index ran twice)
@@ -83,8 +83,8 @@ test("a constant shift or rotate count prints bare, and a shift by 0 is its oper
   const code = rust(
     "PROGRAM P\nVAR w : WORD := 16#1234; a : WORD; b : WORD; c : WORD; n : INT := 2; d : WORD; END_VAR\na := SHL(w, 3);\nb := ROL(w, 4);\nc := SHR(w, 0);\nd := SHL(w, n);\nEND_PROGRAM\n",
   )
-  expect(code).toContain("self.a = (self.w as i32).wrapping_shl(3) as u16;")
+  expect(code).toContain("self.a = i32::from(self.w).wrapping_shl(3) as u16;")
   expect(code).toContain("self.b = self.w.rotate_left(4);")
-  expect(code).toContain("self.c = (self.w as i32) as u16;") // the promotion is lean 3's (7.3)
-  expect(code).toContain("self.d = (self.w as i32).wrapping_shl(self.n as u32) as u16;")
+  expect(code).toContain("self.c = i32::from(self.w) as u16;") // the promotion is lean 3's (7.3)
+  expect(code).toContain("self.d = i32::from(self.w).wrapping_shl(self.n as u32) as u16;")
 })

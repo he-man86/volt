@@ -119,11 +119,9 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // `iec_pow`: EXPT(0, finite negative) stops the task on CODESYS, where `powf` answers inf (`semantics/math.ts` `expt`)
   expt: (e, args, _argv, p) =>
     fromF64(`${use(p, "iec_pow")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64", e.args[0]))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64", e.args[1]))})`, rustType(e.type)),
-  abs: (e, args) => {
-    // `abs` would panic on a signed minimum in a debug build; an unsigned type has no `abs` at all
-    const t = e.type.kind === "elementary" ? e.type.elem : undefined
-    return isReal(e.type) ? `${args[0]}.abs()` : t?.signed ? `${args[0]}.wrapping_abs()` : args[0]!
-  },
+  // `abs` would panic on a signed minimum in a debug build; an unsigned operand never reaches here — ABS of one is the
+  // operand itself, decided in lowering (7.3.4)
+  abs: (e, args) => (isReal(e.type) ? `${args[0]}.abs()` : `${args[0]}.wrapping_abs()`),
   // a constant position prints bare: the parameter is an i64 (7.2.3)
   char: (e, args) => `${args[0]}.char_at(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64", e.args[1]))})`,
   setchar: (e, args, argv) => `${args[0]}.with_char(${constPosition(e.args[1]!) ?? unparen(castTo(args[1]!, e.args[1]!.type, "i64", e.args[1]))}, ${argv[2]})`,

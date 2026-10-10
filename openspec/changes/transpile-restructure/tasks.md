@@ -5221,7 +5221,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.3 One emission per construct: narrow arithmetic and precedence (lean 3; cast_possible_truncation 5666, cast_sign_loss 4361, cast_lossless 4359)
 
-- [ ] 7.3.1 The narrow-arithmetic rule in lowering.
+- [x] 7.3.1 The narrow-arithmetic rule in lowering.
   - What: add, sub, mul, neg, and, or, xor, min and max on T-typed operands stored straight back into T are lowered as a narrow T node
     (value-identical: truncation is a ring homomorphism); the interpreter runs the same node. DIV/MOD, mixed-sign meets, shifts and wider
     stores stay promoted (lean 3.5).
@@ -5230,26 +5230,125 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `lower/values/promote.ts`.
   - Accept: S-out; the edge differential identical over every arith fixture; M.
   - Depends: 7.2.2, 1.9.4.
-- [ ] 7.3.2 The FOR step and the body statement print the same construct one way.
+  - Done 2026-10-10 (step 7.3a). `lower/values/promote.ts` `narrowPou` (run by `entry/lower-unit.ts` right after `foldPou`,
+    so a constant operand is its folded value): bottom-up over every body, a conversion of a promoted add, sub, mul, neg,
+    AND, OR, XOR, MAX, MIN, LIMIT or ABS straight back into an integer type `T` no wider than the computation is computed in
+    `T` when every leaf is a value widened from `T` (or from a type `T` holds) or a constant `T` holds — truncation is a
+    ring homomorphism, MAX/MIN/LIMIT answer one of their operands (exact operands only), ABS of an exact signed value wraps
+    `|MIN|` back to MIN in both widths. The interpreter runs the same narrow node (`fit` at the node type). DIV, MOD,
+    shifts, rotates and a store into a WIDER type stay promoted (7.3.11 pins them); a constant `T` does not hold keeps the
+    promotion (`si + 200`). `sameType`/`holdsEvery` moved from `fold.ts` into `values/convert.ts`, shared. Fallout fixed in
+    the emitter (each a surviving lint the narrow forms exposed): a store back into its own left infix operand prints `op=`
+    (`stmt.ts` `compound`, clippy `assign_op_pattern` 1 -> 0, the REAL one in `stmt_for_real_control` too); `x >= lo AND x
+    <= hi` (or `< hi`) over one call-free operand prints `(lo..=hi).contains(&x)` (`expr.ts` `rangeTest`,
+    `manual_range_contains` 8 -> 0); `unparenHead` strips the parentheses of an `if` head whose block is a method RECEIVER
+    (`unused_parens` 3 -> 0); `ir/walk.ts` `sameNode` (structural, spans aside, a type by kind and name — a Type may be
+    cyclic) is what both ask. A finding fixed on the way: `cc5_in_out_type_mismatch` (CODESYS refuses: a REAL bound to an
+    INT VAR_IN_OUT) was LOWERED, the callee reading the REAL storage as an INT; the narrow add changed the interpreter’s
+    garbage. `lower/calls/binding.ts` refuses a real/integer crossing by name, new code `call-inout-type` (invalid); the
+    fixture leaves the lowered set (its `rust`/`tier` columns go; call tier 298 -> 297). Tests: `values/promote.test.ts`
+    (the narrow shapes and their edge values, test-first), `calls/binding.test.ts`, `emit/rust/expr.test.ts`,
+    `ir/walk.test.ts`; text pins in `emit/rust/{builtins,convert,expr,loops,stmt,values}.test.ts` and
+    `core/lowering.test.ts` read the narrow and `T::from` forms (these tasks’ change). Notes resolved (97): 0153115496,
+    07ee06657f, 0817bbbc15, 0e5c6a2896, 18e6b05962, 1d7709a031, 1ebe9a3a67, 228035615e, 260b606dc8, 28a9242939, 293906cee0,
+    2a09a0d33c, 2ea589a8a1, 2ed6ef380f, 2fd81c587c, 335f79d286, 34c55ebfd9, 373f640901, 37f5ec3b06, 37faa78985, 383107953f,
+    3968425889, 3c5653e905 (item), 3eced711ed, 3ee591f45f, 41d2269c05, 41f40f95f9, 43aa1830f1, 4b22d23722 (item),
+    4c9f4e33f4, 4ebfb530bd, 4fb4aff790, 56c33c9bab, 605307fc4c, 623e0abb20, 63d29bd1a0, 64b82e4bf9, 64c0a06174, 6713eb5cc0,
+    6b14b17ba7, 707715f6ab, 7589f5a1ee, 7a6f282031 (item), 7aa0eab362, 7c881bc819, 7cf7edd325, 7d2d13ed81, 7ee47c4eab,
+    7ef1346b85, 7f28567c88, 8049b483ae, 80e291be91, 81f1075b92, 833efb5917, 83d24ce33a, 8a1bafcc9c, 8ccaa880cd, 8d8ff2c804,
+    8f1829f5b3, 8ffd5ed266, 90ba7cf588, 9610f67747, 964296462a, 97c6103a21, 9999dc327a, 9d3d81580d, a7ca0579a1, a851cc298d,
+    a9c2598276, ae0e0c28ea, b991267156, ba37642ce3, ba90e3c4fe, bcb0fc562e, c069593bcd, c1a4f50099, c2a92e6f4e, c2ecf76c31,
+    c9cd63632c, cbab9cd013, ceb22698cf, d379abfe6a, d67dd34190, d9d76a4055, dbc172da6a, deaa2bbf15, e007ef42d8 (item),
+    e1456a0eae, e22b79e430, e6ef5a4585, e708298af7, e7b84e4a19, e7c2f94b63 (item), ed846b075d, eff90824ac, f35183a6a9,
+    fbfd8ba027.
+  - Gate review 7.2c+7.5b (2026-10-10): `compound` printed `x = x OP rhs` as `x OP= rhs` whatever the right operand held
+    — but on a Rust primitive `a op= b` evaluates `b` FIRST and reads `a` after it, so a right operand holding a call
+    that writes the target (a METHOD of the same FB: `x := x / Bump()`, Bump adding 100 to x) answered 110 where the
+    interpreter, CODESYS's left-to-right order and HEAD's `self.x = self.x / self.bump()` answer 10 (DWORD `OR`: 111 vs
+    11). Fixed: `op=` only when the value holds no call (`holdsCall`). Test-first `emit/rust/stmt.test.ts` ("a store
+    back into its own left operand prints `op=` only when the right operand holds no call"); probe compiled and run
+    outside the repo: Rust 11 = interpreter 11. Fixture map byte-identical (no fixture stores a call back this way).
+- [x] 7.3.2 The FOR step and the body statement print the same construct one way.
   - Notes: 4979768984, 46c17ef7d3.
   - Where: `lower/statements/loops.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1, 2.4.
-- [ ] 7.3.3 Same-typed comparisons (or a literal that fits) compare in the operands' own type.
+  - Done 2026-10-10 (step 7.3a). By 7.3.1: the body’s `n := n + 1` is the FOR step’s node (an INT add stored back), printed
+    `self.n.wrapping_add(1i16)` both — `statements/loops.test.ts` pins the two nodes equal (red before 7.3.1). No code in
+    `loops.ts`. Notes resolved: 46c17ef7d3, 4979768984.
+- [x] 7.3.3 Same-typed comparisons (or a literal that fits) compare in the operands' own type.
   - Notes: beb0779c8f.
   - Where: `lower/values/promote.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1.
-- [ ] 7.3.4 ABS of an unsigned operand is the identity.
+  - Done 2026-10-10 (step 7.3a). `narrowPou` (7.3.1’s pass): a comparison whose operands are both exact values of one type
+    `T` (widened from `T`, or a constant `T` holds — tried in the type of either widened side) compares in `T`; REAL too (an
+    f32 widened to f64, a constant an f32 holds exactly — NaN and order kept). Two types of different sign, or a constant
+    `T` cannot hold, keep the promoted compare (`promote.test.ts`). Notes resolved (30): 06135af232, 1541330f1e, 21575de23f,
+    271163608b, 2cfa532f63, 3cded85aba, 3d3b42b24d, 3ecf4f248b, 54889e0f45, 58f3434567, 73351964cd, 770670a973, 8e4b1ce4cc,
+    8f2ea71862, 98716b4ff8, 9f93398f3e, 9fb281f7a2, a363bc4ca3, a3ca286f93, b0965eecf6 (item), b733155a29, beb0779c8f,
+    bf88572dda, c7ac9a5e64, cd54e9d497, d263b8545d, d99adbcc4b, e2e0d67858, e7e1a63970, f39a4e5fb5.
+- [x] 7.3.4 ABS of an unsigned operand is the identity.
   - Notes: 6a41bda0a0.
   - Where: `lower/builtins/value-functions.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1.
-- [ ] 7.3.5 A lossless widening prints `T::from(x)`; `as` only for truncating or reinterpreting casts.
+  - Done 2026-10-10 (step 7.3a). `lower/builtins/value-functions.ts`: ABS of an unsigned integer operand IS the operand (no
+    node); the emitter’s unsigned branch, now unreachable, deleted (`builtins.ts`). An ABS of a signed `T` stored back into
+    `T` narrows by 7.3.1. Test `value-functions.test.ts`. Notes resolved: 6a41bda0a0.
+  - Gate review 7.2c+7.5b (2026-10-10): returning the unsigned operand itself changed the expression's TYPE from the
+    promoted one (DINT) to the operand's (USINT/UINT/UDINT…), and the type decides a comparison's meet and the width NOT
+    inverts in: `-1 >= ABS(NOT 127)` became TRUE (HEAD FALSE), `ud >= ABS(u)` TRUE (FALSE), `NOT ABS(w)` (w UINT
+    65535) 0 (-65536). No recording says CODESYS types ABS(USINT) as USINT (`abs_unsigned` stores into a USINT, where
+    both agree). Fixed: the unsigned operand is `convert(arg, promoteForRuntime(arg.type))` — only the `abs` node goes,
+    the type stays; a constant operand keeps its `abs` node for the fold (retyped in place, `ABS(65535) XOR ud` met in
+    UDINT, not DINT — the one difference a second fuzz pass found). Test-first `value-functions.test.ts` ("ABS of an
+    unsigned operand is typed as the promoted operand…"); the 7.3.4 test still holds (`a := ABS(u)` narrows back to a
+    plain load). Differential fuzz of the interpreter against HEAD's, ABS kept: 0 differences over 2 × 1500 programs
+    (before: 6). Fixture map byte-identical.
+- [x] 7.3.5 A lossless widening prints `T::from(x)`; `as` only for truncating or reinterpreting casts.
   - Notes: 181d22eae0, 3aa4ff5b30, 638ea949bb, 8b69355dc1, 76275cc107.
   - Where: `emit/rust/convert.ts`.
   - Accept: S-out, M.
   - Depends: 7.3.1.
+  - Done 2026-10-10 (step 7.3a). `emit/rust/convert.ts` `cast`: a widening Rust has a `From` for (an integer into one
+    holding all its values, u8/u16/i8/i16 into f32, 32-bit ints into f64, f32 into f64, a BOOL into an integer) prints
+    `T::from(x)`, `as` only for truncating or reinterpreting casts — in `exprConvert` (BOOL to REAL
+    `f32::from(u8::from(b))`) and `castTo` (every builtin’s added cast). A constant outside its array keeps an `i64` LITERAL
+    in its index (`castTo` with the constant), which rustc’s constant evaluation still refuses as before (an
+    `i64::from(30000i16)` it built and ran: 52 fixtures moved from `does not build` to `faults` until that was kept).
+    Test-first `convert.test.ts`. Notes resolved (10): 1307e33bbf, 1671e97e30, 18157407c3, 181d22eae0, 3aa4ff5b30,
+    638ea949bb, 798c276f84, 873f201d21, 8b69355dc1, c9cd63632c. Re-keyed to their new lines (76, items kept), e.g. the
+    7.3.6/7.3.12 math notes to their `f64::from` forms: 2929468557 -> 2b6fabd208 (7.3.6), 08964781e8 -> 84845bb684 (7.3.12),
+    08aba0244a -> a73d328be6 (7.4.3), 19d71db009 -> a281b5efbd (7.8.4), 2519870d55 -> 9fdc650db1 (7.4.3), 4998dd2ee0 ->
+    91d16a25e9 (7.4.3), 54a84537d5 -> 0902b5aab2 (7.4.4, 7.4.3), 78459b631d -> 9fd3779ba6 (7.4.4, 7.4.3), 128ab89e82 ->
+    b5563463dd (7.5.6), 163ffc50fa -> 36008e7af0 (7.4.3), 19dfd3f883 -> 218bbe29e3 (7.4.4), 432e930bcd -> 3f69566d70
+    (7.3.13), 23d755d76c -> d47543941e (7.3.12), 26afed6c0b -> 7ccd0079f0 (7.3.6), 28c9b9742d -> 7eff84bf36 (7.3.12),
+    28ee7b5d58 -> 9a4f16d3bf (7.4.4), 2e591ac56e -> ccbeb13506 (7.4.3), 86085d5f5f -> aa7094c2a1 (7.8.4), b4c569e1b3 ->
+    7ddac4a7c9 (7.4.4, 7.4.3), c2f2b767ba -> bac3e14ed9 (7.4.4, 7.4.3), d639046ad0 -> 24bc96f6ef (7.4.3), 347b79cfd5 ->
+    d7064e78d6 (7.5.6), 3a7612a7b4 -> 10a98fce7b (7.3.11), 3c5653e905 -> 867ee71c07 (7.8.6), 405fc80910 -> 677d89783c
+    (7.4.3), 428230e030 -> a33add7872 (7.3.6), 44d286d05b -> 8373a319d5 (7.4.4), 9f3b26d1c3 -> 8b4fc46c1e (7.4.6),
+    4b22d23722 -> b20c53fed8 (7.8.6), 4d5ea12dda -> b4f42289f3 (7.4.4), e44a10f29c -> f8a426ca96 (7.4.3), 5513d0e592 ->
+    4b3bf9305d (7.3.9), f1e64d31ba -> 3fd655d7c6 (7.4.4), 572efde5ab -> 1f9fa1b093 (7.4.3), 5a131ce074 -> 0083e23f5d
+    (7.4.3), 5e5aa25221 -> a29d79932d (7.5.6), 62c7abffa7 -> 0bdcb764e7 (7.4.4), 650e10d85c -> 7dc2652e1b (7.4.3),
+    6b4f1bb990 -> b4433b4d4d (7.3.10), 6e691851a6 -> b18c6f96bc (7.3.9), 7a6f282031 -> a4fbe9aee7 (7.8.6), 7a85af3c04 ->
+    50ff398988 (7.4.6), 7f4dd168c2 -> de8e299e9d (7.5.6), 82fcd0be19 -> fdbaad0fac (7.4.4), 8653414194 -> e0361c9257 (keep),
+    7f4574c83b -> 921e5bc37e (7.3.13), 8efdf97fb5 -> 20494df40a (7.3.6), 915417cef0 -> 39fe7afa3e (7.6.1), 923862ec54 ->
+    9479f0e3c4 (keep), 98ba0d2e70 -> 3654e21d7c (7.8.6), e62a2aada9 -> f805b67b30 (7.4.3), a021273b0d -> 33b685f20f (7.4.4),
+    a078903418 -> 72d7e39495 (7.3.9), a1adee154e -> c2ca296181 (7.3.6), a328a51dbd -> caa3742527 (7.4.4), a54ead1fbe ->
+    5a7c10695f (7.5.6), adb6559f1f -> 0dd93a50d0 (7.4.4), b0965eecf6 -> fc6c049d9d (7.5.6), b2d33739c5 -> 5d15332a3f
+    (7.5.6), b48af08c44 -> 1671a3249d (7.3.12), c2729b1a2a -> b6277ac29b (7.3.10), c45bfa2727 -> 1269587afd (7.4.3),
+    c83ad009ae -> a0a25e1bb6 (7.3.6), cbcde0e5de -> fcd4689307 (7.4.6), c98db0eb83 -> 0bb715a9a0 (7.3.13), d0865e3847 ->
+    3b228d08cb (7.5.6), d8b7f34852 -> 4d2905bfee (7.4.4), e37b53617c -> 38ec88da3b (7.7.8), e3e3555f9c -> 0a552281ae (keep),
+    e6075a580f -> 40f3b940b6 (7.4.4), e7c2f94b63 -> 20ee5837a5 (7.8.6), e9a5cabd36 -> e423691859 (7.3.9), ea6f85988f ->
+    cf7c4043f7 (7.5.6), ed3ad19a47 -> d96bb286f4 (7.3.11), 3dc2dda225 -> e86c517757 (7.3.13), eeb7e2463d -> 5b2b842197
+    (7.3.9).
+    Step 7.3a numbers: S-out (`snapshot:transpile check --layers outputs,edge`) identical over 5535 fixtures against the
+    step-start baseline but `cc5_in_out_type_mismatch` (now refused, above). M (against 7.2c’s map): pedantic 14547 -> 9705
+    (`cast_lossless` 3637 -> 10, `cast_possible_truncation` 1707 -> 806, `cast_sign_loss` 824 -> 561,
+    `needless_bitwise_bool` 183 -> 152, `invalid_upcast_comparisons` 20 -> 0); surviving lints `assign_op_pattern` 1 -> 0,
+    `identity_op` 1 -> 0; allowed `eq_op` 16 -> 15; tier decl 773 -> 774, arith 1575 -> 1574 (clean 1573 both), call 298 ->
+    297 (clean 295 -> 294); edge not-run 221 -> 220 (`does not build` 75 -> 74); constructs 2026 -> 2035, noted 503 -> 370.
 - [ ] 7.3.6 REAL SQRT in f32 (proven identical).
   - Notes: c2d750a62a, 428230e030.
   - Where: `emit/rust/builtins.ts`.

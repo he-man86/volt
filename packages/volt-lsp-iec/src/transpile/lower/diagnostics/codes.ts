@@ -51,6 +51,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-inout-alias": "unclassified",
   "call-inout-bit": "not-modelled",
   "call-inout-derived": "unclassified",
+  "call-inout-type": "invalid",
   "call-inout-global": "not-modelled",
   "call-inout-missing": "invalid",
   "call-inout-order": "unclassified",

@@ -100,13 +100,11 @@ END_PROGRAM
     const assign = pou.body[0] as IrAssign
     expect(assign.target.slot).toBe(0)
     expect(assign.target.path).toEqual([]) // fields/indices/derefs append here later
-    // `iCount + 1` computes in DINT (integer promotion, measured against CODESYS in conformance) and converts back
-    // to INT on store — so the load sits under two conversions, but it is still slot 0, not a name.
-    const value = assign.value
-    expect(value.kind).toBe("convert")
-    const sum = value.kind === "convert" ? value.value : value
+    // `iCount + 1` stored straight back into INT computes in INT (the narrow-arithmetic rule, 7.3.1: the promoted DINT
+    // sum, converted back, is the same value) — so the load is the sum's operand, and it is slot 0, not a name.
+    const sum = assign.value
     expect(sum.kind).toBe("binary")
-    const operand = sum.kind === "binary" && sum.left.kind === "convert" ? sum.left.value : undefined
+    const operand = sum.kind === "binary" ? sum.left : undefined
     expect(operand?.kind === "load" && operand.place.slot).toBe(0)
   })
 })

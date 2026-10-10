@@ -38,6 +38,20 @@ test("one guard per statement: a read through the pointer the statement's line c
   )
   const body = code.slice(code.indexOf("pub fn scan"), code.indexOf("impl Default for P"))
   expect(body.match(/iec_deref\(self\.p\)/g)).toHaveLength(3)
-  expect(body).toContain("iec_deref(self.p);\n        { let __v = (i16::from_le_bytes(__mem.ld(self.p)) as i32)")
+  expect(body).toContain("iec_deref(self.p);\n        { let __v = i16::from_le_bytes(__mem.ld(self.p)).wrapping_add(1i16)")
   expect(body).toContain("f(__mem, { iec_deref(self.p); i16::from_le_bytes(__mem.ld(self.p)) })")
+})
+
+// Gate review 7.2c+7.5b: Rust's `a op= b` on a primitive evaluates `b` FIRST and reads `a` after it, so a right operand
+// holding a call that writes the target (a METHOD of the same FB) must keep `x = x op rhs` — IEC reads `x` first
+test("a store back into its own left operand prints `op=` only when the right operand holds no call", () => {
+  const src = (op: string, type: string) =>
+    `FUNCTION_BLOCK FB\nVAR x : ${type} := 10; y : ${type} := 3; END_VAR\nx := x ${op} Bump();\ny := y ${op} 1;\nEND_FUNCTION_BLOCK\n\nMETHOD Bump : ${type}\nx := x + 100;\nBump := 1;\nEND_METHOD\n`
+  const div = rust(src("/", "DINT"))
+  expect(div).toContain("self.x = self.x / self.bump(")
+  expect(div).not.toMatch(/self\.x \/= /)
+  expect(div).toMatch(/self\.y \/= 1i32;/)
+  const or = rust(src("OR", "DWORD"))
+  expect(or).toContain("self.x = self.x | self.bump(")
+  expect(or).toMatch(/self\.y \|= 1u32;/)
 })

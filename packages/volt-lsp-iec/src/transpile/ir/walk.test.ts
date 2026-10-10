@@ -20,6 +20,7 @@ import {
   type IrNode,
   loopUses,
   mapPlaces,
+  sameNode,
   somePlace,
   touchesOnlyItsOwn,
   writesOnlyLocals,
@@ -189,4 +190,14 @@ describe("findPlace and the init sequence's read walk (1.7.4)", () => {
     const select: IrExpr = { kind: "select", tag: load(place(2)), arms: [{ tag: 1n, place: place(5) }], type: INT, span }
     expect(all(select, initReadChildren)).toEqual(["2", "5"])
   })
+})
+
+test("sameNode: two nodes alike but their spans; a type by kind and name, never walked (it may be cyclic)", () => {
+  const t = { kind: "elementary", name: "INT", elem: { name: "INT" } } as never
+  const cyclic: Record<string, unknown> = { kind: "elementary", name: "INT", elem: { name: "INT" } }
+  cyclic.self = cyclic
+  const load = (slot: number, span: unknown, type: unknown) => ({ kind: "load", place: { slot, path: [], type, span }, type, span })
+  expect(sameNode(load(1, { a: 1 }, t), load(1, { b: 2 }, cyclic))).toBe(true)
+  expect(sameNode(load(1, undefined, t), load(2, undefined, t))).toBe(false)
+  expect(sameNode(load(1, undefined, t), load(1, undefined, { kind: "elementary", name: "DINT" }))).toBe(false)
 })

@@ -16,7 +16,27 @@ export function castTo(text: string, from: Type, target: string, value?: IrExpr)
   // A CONSTANT IS CAST WHERE IT IS PRINTED (7.2.10): `4i64`, not `(4i8 as i64)` — when the target holds it exactly
   const typed = value?.kind === "const" ? castLiteral(typeof value.value === "number" && isReal32(from) ? Math.fround(value.value) : value.value, target) : undefined
   if (typed !== undefined) return typed
-  return rustType(from) === target ? text : `(${text} as ${target})`
+  return rustType(from) === target ? text : cast(text, rustType(from), target)
+}
+
+/** The widenings Rust has a `From` for — each keeps every value of its source (7.3.5). */
+const LOSSLESS: Readonly<Record<string, readonly string[]>> = {
+  u8: ["u16", "u32", "u64", "i16", "i32", "i64", "f32", "f64", "usize"],
+  u16: ["u32", "u64", "i32", "i64", "f32", "f64", "usize"],
+  u32: ["u64", "i64", "f64"],
+  i8: ["i16", "i32", "i64", "f32", "f64"],
+  i16: ["i32", "i64", "f32", "f64"],
+  i32: ["i64", "f64"],
+  f32: ["f64"],
+  bool: ["u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "usize"],
+}
+
+/**
+ * `text` (of the Rust type `from`) as a `target`: `target::from(text)` when that widening keeps every value, `(text as
+ * target)` when it truncates or reinterprets (7.3.5: clippy's `cast_lossless` names every `as` of the first kind).
+ */
+export function cast(text: string, from: string, target: string): string {
+  return LOSSLESS[from]?.includes(target) === true ? `${target}::from(${unparen(text)})` : `(${text} as ${target})`
 }
 
 /** A constant (a REAL's already its f32) as a literal of the Rust numeric type `target`, when that type holds it exactly (parenthesized when
@@ -105,7 +125,7 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     return target === (to === "real" ? "f64" : "i64") ? parsed : `(${parsed} as ${target})`
   }
   if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
-  if (from === "bool") return to === "real" ? `((${value} as u8) as ${target})` : `(${value} as ${target})`
+  if (from === "bool") return to === "real" ? cast(cast(value, "bool", "u8"), "u8", target) : cast(value, "bool", target)
   // REAL -> INTEGER IS DONE AT THE DESTINATION'S REGISTER WIDTH, then wrapped into the target — the emitted
   // twin of `coerce` in the interpreter, where the 192 measured cells are set out. This went through a 64-bit
   // register for every destination, which is the one thing four measurements could not distinguish: a 32-bit
@@ -118,5 +138,5 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     const call = `${helper}(${unparen(castTo(value, e.value.type, "f64", e.value))})`
     return target === (wide ? "i64" : "i32") ? call : `(${call} as ${target})`
   }
-  return `(${value} as ${target})`
+  return cast(value, rustType(e.value.type), target)
 }

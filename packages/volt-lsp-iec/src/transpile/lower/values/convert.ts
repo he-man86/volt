@@ -12,7 +12,9 @@ import {
   integerLiteralType,
   isBoolValued,
   isReal,
+  isIntegral,
   storeInteger,
+  stringKind,
   type Type,
 } from "../../../frontend/types/index.js"
 import { integerFoldType } from "./fold.js"
@@ -137,4 +139,14 @@ export function valueAs(v: IrValue, to: Type): IrValue {
  */
 export function stored(v: IrValue, to: Type): IrValue {
   return typeof v === "bigint" ? storeInteger(v, to) : v
+}
+
+/** Two elementary types of one name (a STRING's capacity aside: a string is never one of them). */
+export const sameType = (a: Type, b: Type): boolean => a.kind === "elementary" && b.kind === "elementary" && a.name === b.name && stringKind(a) === undefined
+
+/** Whether the integer type `wide` holds every value of the integer type `narrow` — a widening a narrowing undoes. */
+export function holdsEvery(wide: Type, narrow: Type): boolean {
+  if (!isIntegral(wide) || !isIntegral(narrow) || wide.kind !== "elementary" || narrow.kind !== "elementary") return false
+  if (narrow.elem.signed && !wide.elem.signed) return false
+  return narrow.elem.signed === wide.elem.signed ? wide.elem.bits >= narrow.elem.bits : wide.elem.bits > narrow.elem.bits
 }

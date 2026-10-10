@@ -21,7 +21,7 @@ import {
   type Type,
 } from "../../../frontend/types/index.js"
 import { isConstantCallee, oneArgument } from "../builtins/arity.js"
-import { stored } from "./convert.js"
+import { holdsEvery, sameType, stored } from "./convert.js"
 import { targetOf } from "../../../frontend/symbols/index.js"
 
 /** `asConstant`: `e` is a CONSTANT's own initializer; `declared`: the type of the declaration `e` initializes — see `constEval`. */
@@ -171,16 +171,6 @@ function selected(e: IrExpr): IrExpr {
   const narrowable = (a: IrExpr): boolean => a.kind === "const" || (a.kind === "convert" && sameType(a.value.type, e.type) && holdsEvery(a.type, e.type))
   if (!arms.every((a) => sameType(a.type, inner.type) && narrowable(a))) return e
   return { ...inner, type: e.type, args: [inner.args[0]!, ...arms.map((a) => foldedExpr({ kind: "convert", value: a, type: e.type, span: a.span }))] }
-}
-
-/** Two elementary types of one name (a STRING's capacity aside: no string is selected through here). */
-const sameType = (a: Type, b: Type): boolean => a.kind === "elementary" && b.kind === "elementary" && a.name === b.name && stringKind(a) === undefined
-
-/** Whether the integer type `wide` holds every value of the integer type `narrow` — a widening a narrowing undoes. */
-function holdsEvery(wide: Type, narrow: Type): boolean {
-  if (!isIntegral(wide) || !isIntegral(narrow) || wide.kind !== "elementary" || narrow.kind !== "elementary") return false
-  if (narrow.elem.signed && !wide.elem.signed) return false
-  return narrow.elem.signed === wide.elem.signed ? wide.elem.bits >= narrow.elem.bits : wide.elem.bits > narrow.elem.bits
 }
 
 /** A divisor no zero check need guard (7.2.6): a constant other than 0 — and, for MOD, other than -1 — by the value its

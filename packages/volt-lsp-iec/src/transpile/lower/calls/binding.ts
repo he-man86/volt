@@ -104,6 +104,12 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
   if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
     return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  // A REAL BOUND TO AN INTEGER IN-OUT (or the reverse) does not compile (`cc5_in_out_type_mismatch`, refused); lent, the
+  // callee read the REAL's storage as an INT — a value no backend defines (transpile-restructure 7.3.1 found it: the
+  // interpreter's answer changed once the INT arithmetic on it computed narrow). Only the real/integer crossing is
+  // recorded; two integer types of another width or sign are not, and stay lent as before.
+  if (numeric(param.type) !== undefined && numeric(target.type) !== undefined && numeric(param.type) !== numeric(target.type))
+    return lw.bail("call-inout-type", `${param.name} is a ${numeric(param.type)} bound to a ${numeric(target.type)}`, arg.span)
   return target
 }
 
@@ -200,4 +206,12 @@ export function aliases(a: Place, b: Place): boolean {
   const own = (p: Place) => p.root === "this" || p.root === undefined
   if (a.root === "this" || b.root === "this") return own(a) && own(b)
   return a.slot === b.slot && a.root === b.root
+}
+
+/** Whether an elementary type is a REAL or an integer (a bit string among them) — undefined for anything else (a string,
+ *  a BOOL or BIT, a time, a composite). */
+function numeric(t: Type): "real" | "integer" | undefined {
+  if (t.kind !== "elementary") return undefined
+  if (t.elem.family === "real") return "real"
+  return (t.elem.family === "int" || t.elem.family === "bitstring") && t.elem.bits !== 1 ? "integer" : undefined
 }

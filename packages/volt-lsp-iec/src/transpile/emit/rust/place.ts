@@ -71,8 +71,9 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
         continue
       }
       if (step.index.kind === "const") {
-        // a constant outside the array: the run-time check a bare position would not compile without
-        const index = castTo(expr(p, step.index, slots), step.index.type, "i64")
+        // a constant outside the array: the run-time check a bare position would not compile without — the constant
+        // printed as an `i64` literal, which rustc's constant evaluation sees through (an `i64::from(…)` it does not)
+        const index = castTo(expr(p, step.index, slots), step.index.type, "i64", step.index)
         text += step.lower === 0n ? `[${index} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
         type = elementOf(type)!
         continue

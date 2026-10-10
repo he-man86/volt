@@ -93,3 +93,13 @@ describe("what a call may bind", () => {
     expect(valueOf(source, "n")).toBe(11n)
   })
 })
+
+// `cc5_in_out_type_mismatch` (refused by CODESYS): a REAL bound to an INT VAR_IN_OUT was lent, and the callee read the
+// REAL's storage as an INT — refused now, by name; an INT bound to an INT in-out still lends (7.3.1 found it)
+test("a REAL bound to an integer VAR_IN_OUT is refused call-inout-type", () => {
+  const fb = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT target : INT; END_VAR\ntarget := target + 1;\nEND_FUNCTION_BLOCK\n"
+  const wrong = lowerSource(`${fb}PROGRAM P\nVAR worker : FB_W; rv : REAL; END_VAR\nworker(target := rv);\nEND_PROGRAM\n`, "P")
+  expect(wrong.diagnostics.map((d) => d.code)).toEqual(["call-inout-type"])
+  const right = lowerSource(`${fb}PROGRAM P\nVAR worker : FB_W; i : INT; END_VAR\nworker(target := i);\nEND_PROGRAM\n`, "P")
+  expect(right.diagnostics).toEqual([])
+})

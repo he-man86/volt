@@ -17,14 +17,14 @@ describe("emit/rust", () => {
     // this pinned — `let __c = x.round()` and a single i64 arm — and it could not produce `LREAL_TO_DINT(-1.0E30)`
     // = -2147483648, which is the 32-BIT indefinite. `conversions/real-to-integer{,-ladder}.ts` measured 192 cells
     // and `iec_r2i32` / `iec_r2i64` are the table; an INT destination takes the 32-bit half.
-    expect(code).toContain("self.i = iec_r2i32(self.x as f64) as i16;")
+    expect(code).toContain("self.i = iec_r2i32(f64::from(self.x)) as i16;")
     expect(code).toContain("if c < -2_147_483_648.0 { return i32::MIN; }")
     expect(code).toContain("if c.is_nan() || c >= 9_223_372_036_854_775_808.0 { return 0; }")
     expect(code).toContain("self.b = self.n != 0;")
-    expect(code).toContain("self.y = (self.b as u8) as f32;")
+    expect(code).toContain("self.y = f32::from(u8::from(self.b));")
     // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64 — in
     // one runtime helper since lean 9.2, not inline at every TRUNC
-    expect(code).toContain("self.d = iec_trunc_i32(self.x as f64);")
+    expect(code).toContain("self.d = iec_trunc_i32(f64::from(self.x));")
     expect(code).toContain("if (-2_147_483_648.0..=2_147_483_647.0).contains(&t) { t as i32 } else { i32::MIN }")
     expect(code).not.toContain("300i8") // an explicit conversion is a node, never an out-of-range literal
   })
@@ -42,8 +42,8 @@ describe("emit/rust — a BIT converts as a BOOL", () => {
       "TYPE ST_B :\nSTRUCT\n\tb : BIT;\n\tc : BIT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tbits : ST_B;\n\ti : INT := 2;\n\tsx : STRING;\n\trx : REAL;\n\tl : LREAL;\nEND_VAR\nsx := TO_STRING(bits.b);\nrx := BIT_TO_REAL(bits.b);\nl := TO_LREAL(bits.b);\nbits.c := INT_TO_BIT(i);\nEND_PROGRAM\n",
     )
     expect(code).toContain(`(if self.bits.b { "TRUE" } else { "FALSE" })`)
-    expect(code).toContain("self.rx = (self.bits.b as u8) as f32;")
-    expect(code).toContain("self.l = (self.bits.b as u8) as f64;")
+    expect(code).toContain("self.rx = f32::from(u8::from(self.bits.b));")
+    expect(code).toContain("self.l = f64::from(u8::from(self.bits.b));")
     expect(code).toContain("self.bits.c = self.i != 0;")
     expect(code).not.toMatch(/as bool/)
   })
@@ -70,4 +70,23 @@ test("a constant cast prints as a literal of the target type — a REAL's f32 va
   const code = emitRust(pou!).code
   expect(code).toContain("0.10000000149011612f64.sqrt()") // the f32 0.1, widened — not the f64 0.1
   expect(code).not.toContain(" as f64).sqrt()")
+})
+
+/**
+ * A LOSSLESS WIDENING PRINTS `T::from(x)` (7.3.5) — every widening Rust has a `From` for (an integer into a wider one that
+ * holds all its values, a narrow integer or an f32 into a float that holds it exactly, a BOOL into an integer) — and `as`
+ * is left for the casts that truncate or reinterpret.
+ */
+test("a lossless widening prints T::from, a truncating or reinterpreting cast `as`", () => {
+  const code = rust(
+    "PROGRAM P\nVAR si : SINT := -5; ui : UINT := 7; rl : REAL := 1.5; b : BOOL := TRUE; di : DINT; li : LINT; lr : LREAL; rb : REAL; i2 : INT; ud : UDINT; END_VAR\ndi := si;\nli := ui;\nlr := rl;\nrb := BOOL_TO_REAL(b);\ndi := BOOL_TO_DINT(b);\ni2 := DINT_TO_INT(di);\nud := DINT_TO_UDINT(di);\nlr := ui;\nEND_PROGRAM\n",
+  )
+  expect(code).toContain("self.di = i32::from(self.si);")
+  expect(code).toContain("self.li = i64::from(self.ui);")
+  expect(code).toContain("self.lr = f64::from(self.rl);")
+  expect(code).toContain("self.rb = f32::from(u8::from(self.b));")
+  expect(code).toContain("self.di = i32::from(self.b);")
+  expect(code).toContain("self.i2 = self.di as i16;")
+  expect(code).toContain("self.ud = self.di as u32;")
+  expect(code).toContain("self.lr = f64::from(self.ui);")
 })

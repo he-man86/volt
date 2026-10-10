@@ -1,7 +1,7 @@
 /**
  * THE OPERAND MEET (transpile-restructure 1.7.15) — the one type operands are computed in: a binary operator's two, an
  * N-ary builtin's (MAX, MIN, LIMIT, SEL, MUX), a FOR loop's counter and limit. THE RULES DIFFER and each context keeps its
- * own (phase 1 is output-neutral; the narrow-arithmetic rule, lean 3, is the next one this file takes):
+ * own (phase 1 is output-neutral). And after the constant fold, the NARROW-ARITHMETIC rule (lean 3, `narrowPou`, below):
  *
  * - `binary`: a literal beside a variable takes the variable's (promoted) type (`beside`), an all-constant integer pair
  *   folds at full width (`integerFoldType`); the two then meet (`commonType`), refused when they do not, and the meet is
@@ -11,13 +11,16 @@
  *   integer constant the variables' type cannot hold meets them; the result is promoted. The operands are not retyped.
  * - `for-compare`: the counter's and the limit's type when they are the same; otherwise their `commonType` PROMOTED, as a
  *   comparison computes, unrefused — the loop converts both to it.
+ * - narrow: arithmetic of `T` values converted straight back into `T` computes in `T`; a comparison of two values of one
+ *   type compares in it.
  */
 
 import type { Span } from "../../../frontend/syntax/index.js"
-import { commonType, elemOf, isSameType, promoteForRuntime, type Type, UNKNOWN } from "../../../frontend/types/index.js"
-import type { IrExpr } from "../../ir/index.js"
+import { commonType, elemOf, isIntegral, isReal, isSameType, promoteForRuntime, type Type, UNKNOWN } from "../../../frontend/types/index.js"
+import type { IrExpr, IrPou, IrStmt } from "../../ir/index.js"
+import { mapExprs } from "../../ir/walk.js"
 import type { Lowering } from "../core/lowering.js"
-import { beside, ownIntegerType, retype } from "./convert.js"
+import { beside, holdsEvery, ownIntegerType, retype, sameType, stored } from "./convert.js"
 import { integerFoldType } from "./fold.js"
 
 type MeetContext =
@@ -89,3 +92,107 @@ function builtinMeet(lw: Lowering, operands: readonly IrExpr[], span: Span): Typ
   if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
   return promoteForRuntime(type)
 }
+
+// ─── the narrow-arithmetic rule (lean 3) ─────────────────────────────────────
+
+/** The operators whose result, truncated to a narrower width, is the result in that width — truncation is a ring
+ *  homomorphism over two's complement, so `(a + b) mod 2^n` is `a mod 2^n + b mod 2^n` wrapped. */
+const RING: ReadonlySet<string> = new Set(["add", "sub", "mul", "and", "or", "xor"])
+const COMPARISONS: ReadonlySet<string> = new Set(["eq", "ne", "lt", "le", "gt", "ge"])
+
+/** An integer elementary type, with its width. */
+function integerBits(t: Type): number | undefined {
+  return isIntegral(t) && t.kind === "elementary" ? t.elem.bits : undefined
+}
+
+/**
+ * `e`'s value EXACTLY, as a `t` — a value widened from `t` (or from a type `t` holds), a constant `t` holds, or MAX/MIN/
+ * LIMIT of such values (it answers one of them, and a widening that keeps every value keeps their order) — or undefined.
+ */
+function exactAs(e: IrExpr, t: Type): IrExpr | undefined {
+  if (e.kind === "const") {
+    if (typeof e.value === "bigint" && integerBits(t) !== undefined) return stored(e.value, t) === e.value ? { ...e, type: t } : undefined
+    // a REAL constant an f32 holds exactly (comparisons only reach here with a REAL `t`)
+    return typeof e.value === "number" && real32(t) && Math.fround(e.value) === e.value ? { ...e, type: t } : undefined
+  }
+  if (e.kind === "convert") {
+    const from = e.value.type
+    if (real32(t) && real32(from) && isReal(e.type)) return e.value
+    if (!holdsEvery(e.type, from) || !holdsEvery(t, from)) return undefined
+    return sameType(from, t) ? e.value : { kind: "convert", value: e.value, type: t, span: e.span }
+  }
+  if (e.kind === "builtin" && (e.name === "max" || e.name === "min" || e.name === "limit") && integerBits(t) !== undefined) {
+    const args = e.args.map((a) => exactAs(a, t))
+    return args.every((a) => a !== undefined) ? { ...e, args: args as IrExpr[], type: t } : undefined
+  }
+  return undefined
+}
+
+/** `e` computed in `t` — congruent to `e`'s value modulo 2^bits(t) — or undefined: the ring operators and negation over
+ *  such operands, ABS of an exact signed value (`|MIN|` wraps back to MIN in both widths), and the exact values. */
+function ringAs(e: IrExpr, t: Type): IrExpr | undefined {
+  const exact = exactAs(e, t)
+  if (exact !== undefined) return exact
+  const bits = integerBits(t)
+  const own = integerBits(e.type)
+  if (bits === undefined || own === undefined || own < bits) return undefined
+  if (e.kind === "binary" && RING.has(e.op)) {
+    const left = ringAs(e.left, t)
+    const right = left === undefined ? undefined : ringAs(e.right, t)
+    return left === undefined || right === undefined ? undefined : { ...e, left, right, type: t }
+  }
+  if (e.kind === "unary" && e.op === "neg") {
+    const operand = ringAs(e.operand, t)
+    return operand === undefined ? undefined : { ...e, operand, type: t }
+  }
+  if (e.kind === "builtin" && e.name === "abs" && elemOf(t)?.signed === true) {
+    const arg = exactAs(e.args[0]!, t)
+    return arg === undefined ? undefined : { ...e, args: [arg], type: t }
+  }
+  return undefined
+}
+
+/**
+ * THE NARROW-ARITHMETIC RULE (lean 3, transpile-restructure 7.3.1): an add, sub, mul, neg, AND, OR, XOR, MAX, MIN, LIMIT or
+ * ABS of `T` values computed promoted and converted straight back into `T` is computed in `T` — the same value, because
+ * truncation is a ring homomorphism (and MAX/MIN/LIMIT answer one of their operands) — so both backends run the narrow
+ * node (`self.x.wrapping_add(self.y)`, not `(self.x as i32).wrapping_add(self.y as i32) as i16`). DIV and MOD stay
+ * promoted: `MIN / -1` and `MIN MOD -1` are measured in the promoted width (`arithedge_*_min_by_minus_one`), and narrow
+ * they overflow; so do a shift (its count masks by the width) and a store into a WIDER type (no truncation undoes the
+ * promotion). A comparison of two values of one type (or a constant it holds) compares in that type (7.3.3).
+ */
+function narrowed(e: IrExpr): IrExpr {
+  if (e.kind === "convert") {
+    const [to, from] = [integerBits(e.type), integerBits(e.value.type)]
+    const inner = e.value
+    if (to === undefined || from === undefined || to > from || inner.kind === "convert" || inner.kind === "const") return e
+    return ringAs(inner, e.type) ?? e
+  }
+  if (e.kind === "binary" && COMPARISONS.has(e.op)) {
+    // in the type one side was widened from — the other side's, when the first does not hold it
+    for (const typed of [e.left, e.right]) {
+      if (typed.kind !== "convert") continue
+      const left = exactAs(e.left, typed.value.type)
+      const right = left === undefined ? undefined : exactAs(e.right, typed.value.type)
+      if (left !== undefined && right !== undefined) return { ...e, left, right }
+    }
+    return e
+  }
+  return e
+}
+
+/** Every body of a lowered POU with the narrow-arithmetic rule applied, bottom-up (`narrowed`) — after the constant fold
+ *  (`values/fold.ts` `foldPou`), so a constant operand is the one value it folded to. */
+export function narrowPou(pou: IrPou): IrPou {
+  const block = (body: readonly IrStmt[]): IrStmt[] => body.map((s) => mapExprs(s, narrowed))
+  return {
+    ...pou,
+    body: block(pou.body),
+    ...(pou.init === undefined ? {} : { init: block(pou.init) }),
+    layouts: pou.layouts.map((l) => (l.body === undefined ? l : { ...l, body: block(l.body) })),
+    routines: pou.routines.map((r) => ({ ...r, body: block(r.body) })),
+  }
+}
+
+/** A REAL (float32) type. */
+const real32 = (t: Type): boolean => elemOf(t)?.family === "real" && elemOf(t)?.bits === 32

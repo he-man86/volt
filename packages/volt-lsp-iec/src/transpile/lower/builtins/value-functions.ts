@@ -10,6 +10,7 @@ import {
   elemOf,
   exptResultType,
   inferExprType,
+  isIntegral,
   isIntLiteral,
   isReal,
   literalCheckType,
@@ -58,8 +59,14 @@ export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call"
     const arg = lowerExpr(lw, values[0]!)
     if (arg === undefined) return undefined
     // Promotes like unary minus: ABS(SINT -128) is 128, ABS(INT -32768) into a DINT is 32768 and into an INT wraps
-    // back to -32768; ABS of a USINT is the value itself (conformance `abs_values`, `abs_unsigned`).
+    // back to -32768; ABS of a USINT is the value itself (conformance `abs_values`, `abs_unsigned`) — so an unsigned
+    // operand is the result with no `abs` node (7.3.4: it printed `(u as i32).wrapping_abs() as u8`), still typed as the
+    // PROMOTED operand: the type decides a comparison's meet and the width NOT inverts in, and no recording says
+    // CODESYS types ABS(USINT) as USINT (gate review 7.2c+7.5b: `-1 >= ABS(NOT 127)` is FALSE). A constant keeps its
+    // `abs` node, which the fold answers as it always did: retyped here, a literal adopted the type beside it
+    // (`ABS(65535) XOR ud` met in UDINT, not DINT)
     const type = promoteForRuntime(arg.type)
+    if (arg.kind !== "const" && isIntegral(arg.type) && elemOf(arg.type)?.signed === false) return convert(arg, type)
     return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
   }
   if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") return lowerShift(lw, e, name, values, expected, stored)

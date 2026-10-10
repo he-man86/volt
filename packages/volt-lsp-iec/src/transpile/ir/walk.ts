@@ -312,3 +312,23 @@ export function findPlace<T>(root: IrNode, onPlace: (p: Place) => T | undefined,
   }
   return isPlace(root) ? onPlace(root) : undefined
 }
+
+/**
+ * Two IR nodes alike — every field compared but the spans, a type by its kind and name only (a Type may reach its scope,
+ * which is cyclic). What a printer asks before it prints one node in place of two (`emit/rust` `op=`, a range's `contains`).
+ */
+export function sameNode(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false
+  const keys = (o: object): string[] => Object.keys(o).filter((k) => k !== "span")
+  const [ka, kb] = [keys(a), keys(b)]
+  if (ka.length !== kb.length) return false
+  const x = a as Record<string, unknown>
+  const y = b as Record<string, unknown>
+  return ka.every((k) => (k === "type" || k === "of" ? typeName(x[k]) === typeName(y[k]) : sameNode(x[k], y[k])))
+}
+
+const typeName = (t: unknown): string => {
+  const o = t as { kind?: string; name?: string; elem?: { name?: string } } | undefined
+  return `${o?.kind}:${o?.name ?? o?.elem?.name ?? ""}`
+}

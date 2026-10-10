@@ -200,3 +200,22 @@ test("a shift or rotation of a constant held past its type folds on the held val
   p.scan()
   expect(["r1", "r2", "h1", "n1", "r3", "r4"].map((n) => p.get(n))).toEqual([2n, 128n, 128n, 255n, 2n, 2n])
 })
+
+// 7.3.4: ABS of an unsigned operand is the operand — no widen, no abs, no narrow (`abs_unsigned`: ABS(USINT 200) is 200)
+test("ABS of an unsigned operand is the operand itself; of a signed one it computes", () => {
+  const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR u : USINT := 200; ud : UDINT := 7; i : INT := -3; a : USINT; b : UDINT; c : INT; END_VAR\na := ABS(u);\nb := ABS(ud);\nc := ABS(i);\nEND_PROGRAM\n", "P")
+  expect(diagnostics).toEqual([])
+  const values = pou!.body.map((s) => (s.kind === "assign" ? s.value.kind : ""))
+  expect(values).toEqual(["load", "load", "builtin"])
+  const runner = run(pou!)
+  runner.scan()
+  expect(["a", "b", "c"].map((n) => runner.get(n))).toEqual([200n, 7n, 3n])
+})
+
+// Gate review 7.2c+7.5b: ABS of an unsigned operand keeps the PROMOTED type (no recording says CODESYS types ABS(USINT)
+// as USINT) — only the `abs` node goes. The type decides the meet of a comparison and the width NOT inverts in.
+test("ABS of an unsigned operand is typed as the promoted operand: the comparison meet and NOT's width unchanged", () => {
+  const p = run(ir("PROGRAM P\nVAR u : USINT := 128; ud : UDINT := 4294967295; w : UINT := 65535; c1 : BOOL; c2 : BOOL; x : DINT; l : LREAL; END_VAR\nc1 := -1 >= ABS(NOT 127);\nc2 := ud >= ABS(u);\nx := NOT ABS(w);\nl := ABS(65535) XOR ud;\nEND_PROGRAM\n", "P"))
+  p.scan()
+  expect(["c1", "c2", "x", "l"].map((n) => p.get(n))).toEqual([false, false, -65536n, -65536])
+})

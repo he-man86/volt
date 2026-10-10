@@ -147,3 +147,14 @@ test("a FOR counter that is a REFERENCE counts the variable it references", () =
   runner.scan()
   expect([runner.get("v"), runner.get("n"), runner.get("after")]).toEqual([4n, 3n, 4n])
 })
+
+// 7.3.2: `i := i + 1` is one construct — the FOR step and a body statement are the same IR node (an INT add of the
+// counter and an INT 1, stored back), so both backends print it one way (`self.i.wrapping_add(1i16)`)
+test("the FOR step and the same statement in the body are one node", () => {
+  const pou = ir("PROGRAM P\nVAR i : INT; n : INT; END_VAR\nFOR i := 1 TO 3 DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n", "P")
+  const loop = pou.body[0] as IrLoop
+  const step = (loop.step[0] as IrAssign).value
+  const body = (loop.body[0] as IrAssign).value
+  const strip = (e: unknown): string => JSON.stringify(e, (k, v) => (k === "span" || k === "slot" ? undefined : typeof v === "bigint" ? `${v}n` : v))
+  expect(strip(body)).toBe(strip(step))
+})

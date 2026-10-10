@@ -74,7 +74,7 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
     // CODESYS takes an INT limit on a UINT counter (`for_limit_sign_change_int_on_uint`: 3 passes, u left at 4) and
     // compares the pair promoted: from 40000 to an INT 100 it runs no pass (`for_limit_sign_change_uint_counter_out_of_
     // int_range`), where the signed type at equal width (i16) read 40000 as -25536 and ran 25637
-    expect(rust("PROGRAM P\nVAR\n\tu : UINT;\n\thi : INT := 3;\n\tn : INT;\nEND_VAR\nFOR u := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if (self.u as i32) > (self.hi as i32) { break; }")
+    expect(rust("PROGRAM P\nVAR\n\tu : UINT;\n\thi : INT := 3;\n\tn : INT;\nEND_VAR\nFOR u := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if i32::from(self.u) > i32::from(self.hi) { break; }")
   })
 
   // transpile-review-2026-09-29 task 13 (conformance `for_limit_wider_than_counter_uint_expr`, recorded: 3 passes, u
@@ -82,7 +82,7 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
   // printing `self.u = (self.u as i32).wrapping_add(1u16)`: E0308. The step adds in the counter's own type.
   test("the step adds in the counter's own type — only the test is widened", () => {
     const code = rust("PROGRAM P\nVAR\n\tn : UINT := 3;\n\tu : UINT;\n\truns : INT;\nEND_VAR\nFOR u := 0 TO n - 1 DO\n\truns := runs + 1;\nEND_FOR\nEND_PROGRAM\n")
-    expect(code).toContain("if (self.u as i32) > (self.n as i32).wrapping_sub(1i32) { break; }")
+    expect(code).toContain("if i32::from(self.u) > i32::from(self.n).wrapping_sub(1i32) { break; }")
     expect(code).toContain("self.u = self.u.wrapping_add(1u16);")
   })
 

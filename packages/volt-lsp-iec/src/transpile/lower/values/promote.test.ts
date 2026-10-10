@@ -96,3 +96,56 @@ test("LT12 for every negative literal class, parenthesised too; a constant expre
   runner.scan()
   expect(["b1", "b2", "b3", "b4", "b5", "b6"].map((n) => runner.get(n))).toEqual([false, false, false, false, false, true])
 })
+
+/** The narrow-arithmetic rule's shape: the binary/unary/builtin node a store holds, as `[op, type]` all the way down. */
+function shape(e: IrExpr): unknown {
+  if (e.kind === "binary") return [e.op, name(e.type), shape(e.left), shape(e.right)]
+  if (e.kind === "unary") return [e.op, name(e.type), shape(e.operand)]
+  if (e.kind === "builtin") return [e.name, name(e.type), ...e.args.map(shape)]
+  if (e.kind === "convert") return ["convert", name(e.type), shape(e.value)]
+  if (e.kind === "const") return [`${e.value}`, name(e.type)]
+  return name(e.type)
+}
+const storedShapes = (src: string): unknown[] =>
+  ir(src, "P").body.flatMap((s) => (s.kind === "assign" ? [shape(s.value)] : s.kind === "if" ? [shape(s.cond)] : []))
+
+// THE NARROW-ARITHMETIC RULE (lean 3, transpile-restructure 7.3.1): add, sub, mul, neg, AND/OR/XOR, MAX/MIN/LIMIT and ABS of
+// T values stored straight back into T compute in T — truncation is a ring homomorphism, and MAX/MIN/LIMIT answer one of
+// their operands — so the IR both backends run carries the narrow node, and every value at the edges is the promoted one.
+test("arithmetic of T values stored back into T computes in T, and answers what the promoted computation answers", () => {
+  const vars = "a : INT := 32767; b : INT := 2; c : INT := -32768; si : SINT := -128; u : UINT := 1; w : WORD := 16#F0F0; x : INT; y : INT; z : INT; n : INT; q : SINT; v : UINT; m : INT; l : INT; k : INT; bw : WORD;"
+  const body = ["x := a + b;", "y := a * b - c;", "z := -c;", "n := ABS(c);", "q := si * si + 1;", "v := u - 2;", "m := MAX(a, c, 5);", "l := LIMIT(c, b, 10);", "k := (a + b) * 3;", "bw := w AND 16#FF00 OR w;"].join("\n")
+  const src = `PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`
+  expect(storedShapes(src)).toEqual([
+    ["add", "INT", "INT", "INT"],
+    ["sub", "INT", ["mul", "INT", "INT", "INT"], "INT"],
+    ["neg", "INT", "INT"],
+    ["abs", "INT", "INT"],
+    ["add", "SINT", ["mul", "SINT", "SINT", "SINT"], ["1", "SINT"]],
+    ["sub", "UINT", "UINT", ["2", "UINT"]],
+    ["max", "INT", "INT", "INT", ["5", "INT"]],
+    ["limit", "INT", "INT", "INT", ["10", "INT"]],
+    ["mul", "INT", ["add", "INT", "INT", "INT"], ["3", "INT"]],
+    ["or", "WORD", ["and", "WORD", "WORD", ["65280", "WORD"]], "WORD"],
+  ])
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  // the promoted answers, wrapped on the store: 32769 -> -32767, 65534 + 32768 -> 32766, |MIN| -> MIN, 16385 -> 16385 - 65536…
+  expect(["x", "y", "z", "n", "q", "v", "m", "l", "k", "bw"].map((n) => runner.get(n))).toEqual([
+    -32767n, 32766n, -32768n, -32768n, 1n, 65535n, 32767n, 2n, -32765n, 0xf0f0n,
+  ])
+})
+
+// 7.3.3: a comparison of two values of one type (or a constant that type holds) compares in that type — a widening that
+// keeps every value keeps their order; a constant it does not hold, or two types, keep the promoted compare
+test("a comparison of one type's values, or a constant that type holds, compares in that type", () => {
+  const src = "PROGRAM P\nVAR a : INT; b : INT; si : SINT; u : UINT; rl : REAL; g1 : BOOL; g2 : BOOL; g3 : BOOL; g4 : BOOL; g5 : BOOL; g6 : BOOL; END_VAR\ng1 := a <= b;\ng2 := a > 10;\ng3 := a < 40000;\ng4 := si = a;\ng5 := u > a;\ng6 := rl < 2.5;\nEND_PROGRAM\n"
+  expect(storedShapes(src)).toEqual([
+    ["le", "BOOL", "INT", "INT"],
+    ["gt", "BOOL", "INT", ["10", "INT"]],
+    ["lt", "BOOL", ["convert", "DINT", "INT"], ["40000", "DINT"]],
+    ["eq", "BOOL", ["convert", "INT", "SINT"], "INT"],
+    ["gt", "BOOL", ["convert", "DINT", "UINT"], ["convert", "DINT", "INT"]],
+    ["lt", "BOOL", "REAL", ["2.5", "REAL"]],
+  ])
+})

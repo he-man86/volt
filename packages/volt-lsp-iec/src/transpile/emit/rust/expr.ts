@@ -3,6 +3,7 @@
  * composite, a load, a unary and a binary; `NOT` flipped where it can be; the outer parentheses a position does not need.
  */
 import type { IrExpr, IrPou } from "../../ir/index.js"
+import { holdsCall, sameNode } from "../../ir/walk.js"
 import { isReal } from "../../../frontend/types/index.js"
 import { exprBuiltin } from "./builtins.js"
 import { exprDispatch, exprInvoke, exprSelect } from "./calls.js"
@@ -54,7 +55,23 @@ export function unparen(text: string): string {
 export function unparenHead(text: string): string {
   const inner = text.startsWith("(") ? text.slice(1, -1).trimStart() : ""
   const blockLike = ["{", "match ", "if ", "unsafe ", "loop ", "while "].some((s) => inner.startsWith(s))
-  return blockLike ? text : unparen(text)
+  // a block that is a method's RECEIVER (`{ …; s }.char_at(i) < c`) is no head: rustc reads it as the operand it is
+  return blockLike && !(inner.startsWith("{") && inner[closingBrace(inner) + 1] === ".") ? text : unparen(text)
+}
+
+/** Where the brace `text` opens with closes (string literals skipped), or -1. */
+function closingBrace(text: string): number {
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '"') {
+      while (++i < text.length && text[i] !== '"') if (text[i] === "\\") i++
+      continue
+    }
+    if (c === "{") depth++
+    else if (c === "}" && --depth === 0) return i
+  }
+  return -1
 }
 
 /** `wrapping_add` and friends — IEC integers wrap at their width; Rust's `+` would panic in debug. */
@@ -156,6 +173,8 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // an infix OPERAND is no receiver: a negative constant needs no parentheses there (`self.f * -0.5f64`, 7.2.9) — a
   // method receiver keeps them (`literal`), and every receiver below reads `l` as printed
   const operand = (x: IrExpr, text: string): string => (x.kind === "const" && text.startsWith("(-") ? unparen(text) : text)
+  const range = rangeTest(p, e, slots)
+  if (range !== undefined) return range
   const l = expr(p, e.left, slots)
   const r = operand(e.right, expr(p, e.right, slots))
   const infix = INFIX[e.op]
@@ -194,3 +213,19 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // (a constant divisor lowering proved nonzero needs no check: `IrBinary.nonzeroDivisor`, 7.2.6)
   return real && e.op === "div" && e.nonzeroDivisor !== true ? `${use(p, "iec_div")}(${unparen(l)}, ${unparen(r)})` : `(${operand(e.left, l)} ${plain} ${r})`
 }
+
+/**
+ * `x >= lo AND x <= hi` (or `< hi`, AND or AND_THEN) over one pure `x` as `(lo..=hi).contains(&x)` — clippy's
+ * `manual_range_contains`, which the narrow comparisons (7.3.3) made visible: compared in the operand's own type, the two
+ * tests are its bounds. The same answer, a NaN included (every test false, no range holds it); `x` holds no call, so
+ * reading it once is reading it twice.
+ */
+function rangeTest(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): string | undefined {
+  if (e.op !== "and" && e.op !== "and_then") return undefined
+  const [lo, hi] = [e.left, e.right]
+  if (lo.kind !== "binary" || hi.kind !== "binary" || lo.op !== "ge" || (hi.op !== "le" && hi.op !== "lt")) return undefined
+  if (lo.right.kind !== "const" || hi.right.kind !== "const" || holdsCall(lo.left) || !sameNode(lo.left, hi.left)) return undefined
+  const bound = (c: IrExpr): string => unparen(expr(p, c, slots))
+  return `(${bound(lo.right)}..${hi.op === "le" ? "=" : ""}${bound(hi.right)}).contains(&${unparen(expr(p, lo.left, slots))})`
+}
+
