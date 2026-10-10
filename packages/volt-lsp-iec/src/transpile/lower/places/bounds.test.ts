@@ -2,6 +2,7 @@
  * Lowering tests of `bounds.ts`'s concern — split by topic out of the one lowering test file (transpile-restructure 1.8.1).
  */
 import { expect, test } from "bun:test"
+import { emitRust } from "../../emit/rust/index.js"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
 
@@ -64,4 +65,25 @@ test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, MET
   expect(codes("PROGRAM P\nVAR m : FB_M; g : ARRAY[1..3] OF INT; END_VAR\nm(data := g);\nEND_PROGRAM\nFUNCTION_BLOCK FB_M\nVAR_IN_OUT data : ARRAY[*] OF INT; END_VAR\nVAR top : DINT; END_VAR\nPeek();\nEND_FUNCTION_BLOCK\nMETHOD Peek\ntop := UPPER_BOUND(data, 1);\nEND_METHOD\n")).toContain("array-bound")
   // a VAR_IN_OUT CONSTANT lent as a copy carries no bounds
   expect(codes("PROGRAM P\nVAR sv : FB_S; n : DINT; END_VAR\nn := sv.Sum(v := sv.arr);\nEND_PROGRAM\nFUNCTION_BLOCK FB_S\nVAR arr : ARRAY[1..3] OF INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : DINT\nVAR_IN_OUT CONSTANT v : ARRAY[*] OF INT; END_VAR\nSum := v[1];\nEND_METHOD\n")).toContain("call-open-array")
+})
+
+// 7.7.8: only an `ARRAY[*]` in-out's LOWER bound travels with the call; its UPPER_BOUND is that plus the dimension's
+// element count, minus one — read off the array the call bound (`IrCount`), so the two cannot disagree. Both backends
+// read it: the interpreter off the bound value, the Rust off the slice's `len()` and an inner dimension's generic.
+test("an ARRAY[*] in-out is handed its lower bounds only; UPPER_BOUND is derived from the bound array's length", () => {
+  const source =
+    "PROGRAM P\nVAR row : ARRAY[3..7] OF INT; grid : ARRAY[1..2, 0..2] OF INT; up : DINT; inner : DINT; END_VAR\nup := F(numbers := row);\ninner := G(cells := grid);\nEND_PROGRAM\n" +
+    "FUNCTION F : DINT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; END_VAR\nnumbers[UPPER_BOUND(numbers, 1)] := 9;\nF := UPPER_BOUND(numbers, 1);\nEND_FUNCTION\n" +
+    "FUNCTION G : DINT\nVAR_IN_OUT cells : ARRAY[*, *] OF INT; END_VAR\nG := UPPER_BOUND(cells, 1) * 10 + UPPER_BOUND(cells, 2);\nEND_FUNCTION\n"
+  const pou = ir(source, "P")
+  const f = pou.routines.find((r) => r.name.toUpperCase() === "F")!
+  expect(f.inputs.map((i) => f.locals[i]!.name)).toEqual(["__numbers_lower_1"])
+  const runner = run(pou)
+  runner.scan()
+  expect(["up", "inner", "row[7]"].map((v) => runner.get(v))).toEqual([7n, 22n, 9n])
+  const code = emitRust(pou).code
+  expect(code).toContain("pub fn f(__numbers_lower_1: i32, numbers: &mut [i16]) -> i32 {")
+  expect(code).toContain("__numbers_lower_1.wrapping_add(numbers.len() as i32).wrapping_sub(1i32)")
+  expect(code).toContain("D_CELLS_2 as i32")
+  expect(code).not.toContain("_upper_")
 })

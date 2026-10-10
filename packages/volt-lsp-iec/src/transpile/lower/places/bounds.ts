@@ -7,11 +7,14 @@ import type { Lowering } from "../core/lowering.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
+import { binaryOf } from "../core/build.js"
 
 /**
  * One bound of one dimension of an array place — LOWER_BOUND/UPPER_BOUND. A sized array's folds; an `ARRAY[*]` in-out's
- * is the hidden bound its call was handed (design §26). DINT, as measured (`callshape_array_star_bound_width`,
- * `callshape_bounds_of_sized_array`). Undefined where neither is known.
+ * lower is the hidden bound its call was handed (design §26), its upper that plus the dimension's element count, minus
+ * one — read off the array the call bound (`IrCount`, lean 7.7.8), so the two cannot disagree and only the lower bound
+ * travels. DINT, as measured (`callshape_array_star_bound_width`, `callshape_bounds_of_sized_array`). Undefined where
+ * neither is known.
  */
 export function boundOf(lw: Lowering, place: Place, which: "lower" | "upper", dim: number): IrExpr | undefined {
   const type = elementaryRef("DINT")
@@ -24,12 +27,16 @@ export function boundOf(lw: Lowering, place: Place, which: "lower" | "upper", di
   // an FB's in-out reached from its METHOD would read the instance's fields — the bounds of the body's current binding, a
   // model no recording shows (review of batch 3b)
   if (lw.inoutSlots[place.slot]!.ofInstance === true) return undefined
-  const key = boundName(lw.inoutSlots[place.slot]!.name, which, dim).toUpperCase()
+  const key = boundName(lw.inoutSlots[place.slot]!.name, dim).toUpperCase()
   const local = lw.localByName.get(key)
   const field = lw.byName.get(key)
   const at: Place | undefined =
     local !== undefined ? { slot: local, path: [], type, span: place.span, root: "local" } : field !== undefined ? { slot: field, path: [], type, span: place.span } : undefined
-  return at && { kind: "load", place: at, type, span: place.span }
+  if (at === undefined) return undefined
+  const lower: IrExpr = { kind: "load", place: at, type, span: place.span }
+  if (which === "lower") return lower
+  const count: IrExpr = { kind: "count", array: place, dim, type, span: place.span }
+  return binaryOf("sub", binaryOf("add", lower, count, type, place.span), { kind: "const", value: 1n, type, span: place.span }, type, place.span)
 }
 
 /**
@@ -46,5 +53,6 @@ export function refuseOpenArray(lw: Lowering, place: Place, span: Span): boolean
 /** How many open dimensions an `ARRAY[*]` has — 0 for any other type, a sized array whose bounds did not fold included. */
 export const openDims = (t: Type): number => (t.kind === "array" && t.bounds === undefined && t.dims.every((d) => d.lower === undefined && d.upper === undefined) ? t.dims.length : 0)
 
-/** The hidden slot holding one bound of an `ARRAY[*]` in-out's dimension (design §26) — `__`, which CODESYS reserves. */
-export const boundName = (inout: string, which: "lower" | "upper", dim: number): string => `__${inout}_${which}_${dim}`
+/** The hidden slot holding the lower bound of an `ARRAY[*]` in-out's dimension (design §26) — `__`, which CODESYS
+ *  reserves. The upper is derived (`boundOf`), never handed. */
+export const boundName = (inout: string, dim: number): string => `__${inout}_lower_${dim}`

@@ -29,6 +29,7 @@ import { BACK, closure, FRONT, helperText, runtimeText } from "./runtime/index.j
 import { block, fnBody } from "./stmt.js"
 import { printStruct } from "./structs.js"
 import { memNew } from "./image.js"
+import { deadParamsOf } from "./locals.js"
 
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */
 export interface Emitted {
@@ -121,9 +122,11 @@ function printerFor(pou: IrPou, options: EmitOptions) {
     return p
   }
   const reach = reachOf(pou, { usesGlobals: variables.length > 0, usesPrograms: programs.length > 0, usesImage: pou.image !== undefined })
+  const dead = deadParamsOf(pou)
   const withReach = (fnNames: ReadonlyMap<string, string>): Printer => {
     const p = printer(fnNames)
     p.reach = reach
+    p.dead = dead
     return p
   }
   const p = withReach(sharedVariants(pou, routineFnNames(pou.routines), withReach))

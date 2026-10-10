@@ -6014,27 +6014,90 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     (no fixture exercises the three fixes). Full suite (`VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset): 9148 pass /
     35 skip / 389 todo / 0 fail across 315 files (7.5b's gate 9126 -> 9148; the first run had 1 fail, `constInit`,
     fixed above).
-- [ ] 7.7.6 No `std::mem::take` when the callee does not reach Programs.
+- [x] 7.7.6 No `std::mem::take` when the callee does not reach Programs.
   - Notes: abf2bb6e4e, 58a7e6289b.
   - Where: `emit/rust/calls.ts` `moveOutProgram`.
   - Accept: S-out, M.
   - Depends: 7.7.5.
-- [ ] 7.7.7 Drop the dead form-2 value parameter (was calls.ts:1145-1146).
+  - Done 2026-10-10 (step 7.7b). `emit/rust/calls.ts` `movesOut`: a call on a PROGRAM's instance (its body, a METHOD, an
+    instance inside it) runs moved out of `Programs` only where it borrows `prg` beside it — the callee reaches `Programs`
+    (`reachOfBody(…).usesPrograms`, 7.7.5), or an in-out or a lent instance is a place of that same program. Otherwise it
+    is a plain field call, `prg.prg_c.call();` / `self.seen = prg.prg_c.bump(prg.prg_c.runs);` — no `P::new()` stand-in
+    built and moved twice; and its inputs are hoisted only as any call's are (the take was why every non-constant one
+    was). `std::mem::take` in the emission 270 -> 2 (the two left hand `prg` to the callee). Tests
+    `emit/rust/calls.test.ts` ("a PROGRAM whose callee does not reach Programs is called in place"; the batch-3a pin
+    "a PROGRAM's METHOD takes its arguments before the program is moved out" keeps its premise: its METHOD now calls
+    another PROGRAM, so it still runs moved out); `module.test.ts`'s `prg.prg_writer` pin reads the call in place (its
+    premise, "a program runs moved out", is the one this task replaces). Notes resolved: every 7.7.6 item (3 notes); the
+    six 7.8.10 notes on a move-out this removed (8cbe6244a7, b16c700f3d, 2746f887a4, c5623a289f, c673d64c42,
+    23968d21ed) deleted with it — their construct is gone and the direct call that replaced it spells no binding at all.
+- [x] 7.7.7 Drop the dead form-2 value parameter (was calls.ts:1145-1146).
   - Where: `lower/pointers/borrowed.ts`.
   - Accept: S-out, M.
   - Depends: 4.16.
-- [ ] 7.7.8 ARRAY[*] upper bounds derived from `len()`, not passed.
+  - Done 2026-10-10 (step 7.7b), in the emitter, where the IR keeps one fact for both backends: `emit/rust/locals.ts`
+    `deadParamsOf` — an input the body never uses (`unreadOf`) that EVERY call hands a constant (which reads nothing, so
+    leaving it out changes no order) is neither a parameter nor an argument (`routine.ts`, `calls.ts`). The form-2
+    pointer is one: `f_lang_ptrread(&mut self.value)` / `pub fn f_lang_ptrread(__ptr_p: &mut i16)` (was `(0, …)` /
+    `(_p: usize, …)`), `read_ptr_p_0()`. The rule is general and exact, so it also drops FB_Init's unread
+    `bInitRetains`/`bInCopyCode` where every call hands literals. `lower/pointers/borrowed.ts` is unchanged: the IR's
+    input stays (the interpreter binds it, harmlessly). Parameters of the user emission's `pub fn`s 15343 -> 15178
+    (with 7.7.8/7.7.9). One S-out line moved, and it is a build, not a value: `oopb_fb_init_input_wrong_type` (CODESYS
+    refuses it; evidence `refused`) handed `true` to an INT `bInitRetains` nobody reads — E0308 — and now builds and
+    agrees with the interpreter (`rust` rejected -> compiles, edge not-run -> agree). Test `emit/rust/routine.test.ts`
+    ("a borrowed pointer input and an unread input always handed a constant are no parameter"). Notes: the 7.7.7 items
+    of shapes12_9 that ask for the dead parameter are resolved (acad4033d7, …); the four whose construct is the GUARD
+    half of shapes12_9 (e496034f7b `x = L;`, ef4db7eb51, 410eafc2ba, cc1c266f50: skip `iec_deref` on a pointer only ever
+    stored one non-zero tag) are no dead parameter — that needs a store-before-read proof across scans (the pointer is a
+    persistent field, 0 at start) — and are re-tagged `keep:` with that reason.
+- [x] 7.7.8 ARRAY[*] upper bounds derived from `len()`, not passed.
   - Where: `lower/storage/declare.ts`, `calls/fb-call.ts`.
   - Accept: S-out, M.
   - Depends: 7.7.1.
-- [ ] 7.7.9 A constant ANY diSize folds into its variant; dead arms pruned.
+  - Done 2026-10-10 (step 7.7b). A new IR node, `IrCount` (`ir/expr.ts`; `walk.ts` children and map; `interp/machine.ts`
+    reads the bound array's length, an inner dimension's off its first element; `emit/rust/expr.ts` prints the slice's
+    `len()` for dimension 1 and the generic `inoutType` declares, `D_<NAME>_<d>`, for an inner one). `lower/places/bounds.ts`
+    `boundOf`: an open in-out's UPPER_BOUND is `lower + count - 1` in DINT, so only the LOWER bound is a hidden slot
+    (`boundName(inout, dim)`, `storage/declare.ts`), handed by a call (`calls/invoke.ts`) or stored into an FB instance
+    (`calls/fb-call.ts`). `_upper_N` in the emission 72 -> 0: `pub fn f_cs_grid8<const D_GRID_2: usize>(__grid_lower_1:
+    i32, __grid_lower_2: i32, grid: &mut [[i16; D_GRID_2]])`, `self.filler.__numbers_lower_1 = 1i32;` alone before the
+    call. Cost, measured: each derived bound casts the length (`numbers.len() as i32`), +14 `cast_possible_truncation`
+    and +14 `cast_possible_wrap` over the 7 `callshape_array_star_*` fixtures — the "chosen" alternative of the notes
+    (one source of truth, so the bound and the slice cannot disagree). 39 ARRAY[*] declarations in the corpora (pro2193,
+    bakon-nano). Tests `lower/places/bounds.test.ts` ("an ARRAY[*] in-out is handed its lower bounds only; UPPER_BOUND is
+    derived from the bound array's length", both backends), `ir/walk.test.ts` (the node table), `test/corpus/corpus.test.ts`
+    (`EXPR_KINDS`). Notes resolved: every 7.7.8 item (26 notes); cc5f10430b (7.8.6, `&mut (*x)`) re-keyed to 539fa9c4b6,
+    the call line that replaced it.
+- [x] 7.7.9 A constant ANY diSize folds into its variant; dead arms pruned.
   - Where: `lower/pointers/any.ts`.
   - Accept: S-out, M.
   - Depends: 4.9.
-- [ ] 7.7.10 Delete the "call itself is correct" note fb7e9e6ff4 (tagged `keep`).
+  - Done 2026-10-10 (step 7.7b). `lower/pointers/any.ts` `anyDiSize`: in a variant lowered for a VARIABLE argument the
+    size is that variable's (`anySize`), so `v.diSize` is a constant there; `lower/statements/case.ts`: `CASE v.diSize OF`
+    in such a variant is the body of the one arm it picks (or its ELSE), no switch — the arms of other sizes were already
+    not lowered. The size input nobody reads then goes with 7.7.7's rule, and so does the ANY's hidden in-out where the
+    body never reads `pValue`: `deadParamsOf` drops an in-out the body never names when every call binds it to a place no
+    binding can fault on (no dereference, no image byte, no index but a constant) — `f_state_any_size_anyarg_int()` is
+    `2i32`, and the variants that now print alike are one fn (`sharedVariants`, 7.4.5). `match` lines 16 -> 8. Tests
+    `lower/pointers/any.test.ts` ("a variant's diSize is a constant, its CASE the one arm, and neither the size nor an
+    unread argument is passed", both backends); `emit/rust/routine.test.ts`'s 7.7.2 pin binds its unread in-out through a
+    runtime index now, so its premise (`_spare`, an in-out nobody reads) still shows. Notes resolved: every 7.7.9 item (4
+    notes); c6322760e4 (7.8.4, the `match` on the folded size in `state_any_int_pointer_increment`) deleted with its
+    construct, the CASE it named being this task's.
+- [x] 7.7.10 Delete the "call itself is correct" note fb7e9e6ff4 (tagged `keep`).
   - Where: `support/notes/notes.data.ts`.
   - Accept: M (7.11.1's count falls by one).
   - Depends: 0.6.
+  - Done 2026-10-10 (step 7.7b). fb7e9e6ff4 deleted; `notes.test.ts` pins it gone. Step 7.7b numbers: S-out
+    (`snapshot:transpile check --layers outputs,edge` against a baseline written at HEAD aec8784460, whose outputs and edge
+    are byte-identical to 7.5c's): 5534 of 5535 fixtures identical; the one line that moved is
+    `oopb_fb_init_input_wrong_type`'s Rust now building (7.7.7). M (against 7.7a's map): 163 rows changed, 123 shapes;
+    constructs 2003 -> 1974, noted 144 -> 101; surviving `too_many_arguments` 3 -> 2; edge agree 3191 -> 3192; pedantic
+    2524 -> 2571 (`must_use_candidate` 283 -> 309 — fns that now take no `&mut` and return a value, 7.7.13's; the 28 casts
+    of 7.7.8); size median 3.3 unchanged (lines per ST line: a parameter dropped is no line). The emitted Rust (both
+    emissions, all fixtures) 15,921,742 -> 15,883,058 bytes. Re-keyed for other tasks: b6565109d7 -> 78bb74e841 (7.8.10),
+    e1e42433cd -> dfc9d07c2c (7.7.11), cc5f10430b -> 539fa9c4b6 (7.8.6); c7ca2861fc (7.7.11's, the specializations' unused
+    `p`) deleted — 7.7.7 removed what it named.
 - [ ] 7.7.11 No unused generic routine beside its per-target specializations (`ptrparam_method`).
   - What: a generic routine every call site replaced by a specialization is not emitted.
   - Notes: the `ptrparam_method` note(s) tagged here by 0.6.

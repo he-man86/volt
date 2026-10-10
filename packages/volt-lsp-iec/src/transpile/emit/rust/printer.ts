@@ -11,6 +11,7 @@ import { type GlobalsUse, tmp } from "./names.js"
 import { place } from "./place.js"
 import type { Layouts } from "./values.js"
 import { storeImage } from "./image.js"
+import type { DeadParams } from "./locals.js"
 import type { RuntimeId } from "./runtime/index.js"
 import { byValue, rustType } from "./types.js"
 
@@ -42,6 +43,10 @@ export class Printer {
 
   /** What each generated body reaches of `g` / `prg` / `__mem` (`reachOf`, 7.7.5) — by routine key, `layout:<NAME>`. */
   reach: ReadonlyMap<string, GlobalsUse> = new Map()
+
+  /** Each routine's parameters no run can see — by key (`deadParamsOf`, 7.7.7, 7.7.9): no parameter, and no argument at
+   *  any call. */
+  dead: ReadonlyMap<string, DeadParams> = new Map()
 
   /** The runtime helpers the printed code calls (`use`) — the module prints their closure and nothing else (lean 1). */
   readonly uses = new Set<RuntimeId>()

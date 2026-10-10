@@ -36,13 +36,14 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   const names = named.map((n, i) => (unread.has(i) && !n.startsWith("_") && !named.includes(`_${n}`) ? `_${n}` : n))
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
-  const { params: tail, typed } = bodyParams(p, routine.inouts, inoutNames, routine.lent ?? [])
+  const { params: tail, typed } = bodyParams(p, routine.inouts, inoutNames, routine.lent ?? [], p.dead.get(routine.key)?.inouts)
   const stores = writeSites(p, routine.body)
   const params = [
     ...(routine.kind === "function" ? [] : ["&mut self"]),
     ...globalsParams(reachOfBody(p, routine.key)),
     // `mut` only on an input the body writes (7.7.1): a VAR_INPUT is a local of the call, and most only read it
-    ...routine.inputs.map((i) => `${stores.has(i) ? "mut " : ""}${localNames[i]}: ${typeOf(p, routine.locals[i]!.type)}`),
+    // and none for an input no run can see (7.7.7, `deadParamsOf`)
+    ...routine.inputs.flatMap((i, k) => (p.dead.get(routine.key)?.inputs.has(k) === true ? [] : [`${stores.has(i) ? "mut " : ""}${localNames[i]}: ${typeOf(p, routine.locals[i]!.type)}`])),
     ...tail,
   ]
   const result = routine.result === undefined ? undefined : localNames[routine.result]!
@@ -94,10 +95,11 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
  * The parameters a generated body takes after `g`/`prg` and its inputs: each VAR_IN_OUT (`inoutType`), then each FB
  * instance of another frame lent to it for the call (design §24) — for a routine and an FB's `call()` alike.
  */
-function bodyParams(p: Printer, inouts: IrPou["slots"], inoutNames: readonly string[], lent: readonly { type: Type }[]): { params: string[]; typed: { param: string; generics: string[] }[] } {
-  // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does
-  const typed = inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
-  if (inouts.some((slot) => holdsString(slot.type))) use(p, "string")
+function bodyParams(p: Printer, inouts: IrPou["slots"], inoutNames: readonly string[], lent: readonly { type: Type }[], dead?: ReadonlySet<number>): { params: string[]; typed: { param: string; generics: string[] }[] } {
+  // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does; one no run can see is
+  // no parameter (7.7.9, `deadParamsOf`)
+  const typed = inouts.flatMap((slot, i) => (dead?.has(i) === true ? [] : [inoutType(slot, inoutNames[i]!)]))
+  if (inouts.some((slot, i) => dead?.has(i) !== true && holdsString(slot.type))) use(p, "string")
   return { params: [...typed.map((t) => t.param), ...lent.map((l, i) => `${tmp("lent", i)}: &mut ${typeOf(p, l.type)}`)], typed }
 }
 

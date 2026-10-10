@@ -12,7 +12,7 @@ import { foldConstant } from "../values/fold.js"
 import { lowerBlock } from "./statements.js"
 
 /** CASE: a switch over constant label ranges, each a value of the selector's type. */
-export function lowerCase(lw: Lowering, s: Extract<Statement, { kind: "case" }>): IrStmt | undefined {
+export function lowerCase(lw: Lowering, s: Extract<Statement, { kind: "case" }>): IrStmt | IrStmt[] | undefined {
   const selector = lowerExpr(lw, s.selector)
   if (selector === undefined) return undefined
   // `CASE anyArg.diSize OF` in a variant whose argument is a variable: the size is that variable's, so the arms for
@@ -51,11 +51,8 @@ export function lowerCase(lw: Lowering, s: Extract<Statement, { kind: "case" }>)
     matched ||= size !== undefined
     arms.push({ labels, body: lowerBlock(lw, arm.body), span: arm.span })
   }
-  return {
-    kind: "switch",
-    selector,
-    arms,
-    else: s.elseBody && !matched ? lowerBlock(lw, s.elseBody) : [],
-    span: s.span,
-  }
+  const otherwise = s.elseBody && !matched ? lowerBlock(lw, s.elseBody) : []
+  // the variant's own size picks ONE arm, or none: that body is the statement (lean 7.7.9) — no match on a constant
+  if (size !== undefined) return arms.length === 0 ? otherwise : [...arms[0]!.body]
+  return { kind: "switch", selector, arms, else: otherwise, span: s.span }
 }

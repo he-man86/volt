@@ -206,14 +206,13 @@ function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot):
 export function storeOpenBounds(lw: Lowering, instance: Place, fields: readonly IrSlot[], inouts: readonly IrSlot[], binding: (i: number) => IrBinding | undefined, span: Span): IrStmt[] | undefined {
   const stores: IrStmt[] = []
   for (const [i, slot] of inouts.entries())
-    for (let dim = 1; dim <= openDims(slot.type); dim++)
-      for (const which of ["lower", "upper"] as const) {
-        const field = fieldIn(fields, boundName(slot.name, which, dim))
-        const bound = binding(i)
-        const at = bound === undefined ? undefined : "kind" in bound ? bound.back : bound
-        const value = field === undefined || at === undefined ? undefined : boundOf(lw, at, which, dim)
-        if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
-        stores.push({ kind: "assign", target: { ...instance, path: [...instance.path, { kind: "field", name: field!.name }], type: field!.type, span }, value, span })
-      }
+    for (let dim = 1; dim <= openDims(slot.type); dim++) {
+      const field = fieldIn(fields, boundName(slot.name, dim))
+      const bound = binding(i)
+      const at = bound === undefined ? undefined : "kind" in bound ? bound.back : bound
+      const value = field === undefined || at === undefined ? undefined : boundOf(lw, at, "lower", dim)
+      if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
+      stores.push({ kind: "assign", target: { ...instance, path: [...instance.path, { kind: "field", name: field!.name }], type: field!.type, span }, value, span })
+    }
   return stores
 }

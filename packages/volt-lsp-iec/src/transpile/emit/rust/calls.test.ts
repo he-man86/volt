@@ -50,7 +50,9 @@ describe("emit/rust", () => {
 test("a PROGRAM's METHOD takes its arguments before the program is moved out of Programs", () => {
   const src =
     "PROGRAM P\nVAR seen : INT; END_VAR\nPRG_C();\nseen := PRG_C.Bump(amount := PRG_C.runs);\nEND_PROGRAM\n" +
-    "PROGRAM PRG_C\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nbumps := bumps + amount;\nBump := bumps;\nEND_METHOD\n"
+    // Bump calls another PROGRAM, so it reaches `Programs` and its own program runs moved out (7.7.6)
+    "PROGRAM PRG_C\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nPRG_D();\nbumps := bumps + amount;\nBump := bumps;\nEND_METHOD\n" +
+    "PROGRAM PRG_D\nVAR n : INT; END_VAR\nn := n + 1;\nEND_PROGRAM\n"
   const { pou, diagnostics } = lowerSource(src, "P")
   expect(diagnostics).toEqual([])
   const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
@@ -103,4 +105,21 @@ test("arguments are hoisted only up to the last one holding a call", () => {
   expect(code).toContain("self.y = pair(dbl(self.n), self.n);")
   // written b then a: `a` (inline, after the call in written order) would come BEFORE it in the argument list, so the call is hoisted
   expect(code).toContain("self.z = { let __arg_1 = dbl(self.n); pair(self.n, __arg_1) };")
+})
+
+// 7.7.6: a PROGRAM is moved out of `Programs` only for a callee that reaches `Programs` itself (it is handed `prg`, and
+// `prg.p.call(prg)` would borrow it twice); a callee that does not is a plain field call — no `P::new()` stand-in built
+test("a PROGRAM whose callee does not reach Programs is called in place, with no `std::mem::take`", () => {
+  const src =
+    "PROGRAM P\nVAR seen : INT; END_VAR\nPRG_C();\nseen := PRG_C.Bump(amount := PRG_C.runs);\nPRG_C.Reset();\nPRG_E();\nEND_PROGRAM\n" +
+    "PROGRAM PRG_C\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nbumps := bumps + amount;\nBump := bumps;\nEND_METHOD\nMETHOD Reset\nbumps := 0;\nEND_METHOD\n" +
+    "PROGRAM PRG_E\nVAR k : INT; END_VAR\nPRG_C();\nk := k + 1;\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).toContain("prg.prg_c.call();")
+  expect(code).toContain("self.seen = prg.prg_c.bump(prg.prg_c.runs);")
+  expect(code).toContain("prg.prg_c.reset();")
+  // PRG_E calls PRG_C, so it reaches Programs and still runs moved out
+  expect(code).toContain("{ let mut program = std::mem::take(&mut prg.prg_e); program.call(prg); prg.prg_e = program; }")
 })

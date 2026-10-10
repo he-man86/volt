@@ -97,6 +97,10 @@ describe("every note is tagged with the task that owns it", () => {
     for (const id of ["1d7709a031", "1307e33bbf"]) expect(NOTES[id]).toBeUndefined()
   })
 
+  test("7.7.10: the `keep` note on a correct call (fb7e9e6ff4) is gone", () => {
+    expect(NOTES["fb7e9e6ff4"]).toBeUndefined()
+  })
+
   test("the authored NOTES all carry a valid tag (transpile-restructure's tasks.md)", () => {
     expect(noteTagProblems(NOTES, taskIdsOf(readFileSync(RESTRUCTURE_TASKS, "utf8")))).toEqual([])
     expect(() => assertNotes()).not.toThrow()

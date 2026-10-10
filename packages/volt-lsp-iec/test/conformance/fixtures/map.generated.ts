@@ -26,14 +26,14 @@
  *     arith                  1574     1574
  *     control                 161      151
  *     aggregate               147      147
- *     call                    297      294
+ *     call                    297      295
  *     indirect                461      460
  *
  *   surviving lints (a lint listed here is work, not policy — 10 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
  *     clippy::match_overlapping_arm              5
- *     clippy::too_many_arguments                 3
  *     clippy::match_single_binding               2
+ *     clippy::too_many_arguments                 2
  *     clippy::bool_comparison                    1
  *     overlapping_range_endpoints                1
  *
@@ -52,11 +52,11 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3191
+ *     agree         3192
  *     disagree         3
- *     not-run        220
+ *     not-run        219
  *       not-run: reaches the platform's libm (pow, ln, sin…)     74
- *       not-run: the emitted Rust does not build                 74
+ *       not-run: the emitted Rust does not build                 73
  *       not-run: no elementary variable to seed or compare       66
  *       not-run: the interpreter's loop guard gives up on every variant     6
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
@@ -73,13 +73,13 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 2524 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::cast_possible_truncation          773
+ *   pedantic — 2571 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::cast_possible_truncation          787
  *     clippy::cast_sign_loss                    561
  *     clippy::missing_panics_doc                386
- *     clippy::cast_possible_wrap                285
- *     clippy::must_use_candidate                283
- *     clippy::pub_underscore_fields              90
+ *     clippy::must_use_candidate                309
+ *     clippy::cast_possible_wrap                299
+ *     clippy::pub_underscore_fields              87
  *     clippy::struct_excessive_bools             44
  *     clippy::cast_precision_loss                31
  *     clippy::unnecessary_semicolon              12
@@ -97,13 +97,13 @@
  *     string_escapes_named                            12
  *     tr_a10_string_to_dint_underscore_sign_edges   11.5
  *
- *   shape — 1868 distinct emission shapes over 3414 lowered fixtures, 2003 distinct constructs.
- *   144 constructs carry a review note (`NOTES`): 3171 fixtures are improvable, 3075 touch a construct with alternatives.
+ *   shape — 1863 distinct emission shapes over 3414 lowered fixtures, 1974 distinct constructs.
+ *   101 constructs carry a review note (`NOTES`): 3170 fixtures are improvable, 3074 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
- *     7.7.8 26, 7.8.6 21, keep 17, 7.4.6 14, 7.8.7 11, 7.8.2 9, 7.8.10 7, 7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5
- *     7.8.8 5, 7.7.9 4, 7.7.6 3, 7.6.4 2, 7.7.11 2, 7.8.1 1, 7.8.11 1
+ *     7.8.6 21, keep 20, 7.4.6 14, 7.8.7 11, 7.8.2 9, 7.8.3 6, 7.8.5 6, 7.8.8 5, 7.8.4 4, 7.6.4 2, 7.7.11 1, 7.8.1 1
+ *     7.8.10 1, 7.8.11 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -111,7 +111,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   abs_unsigned: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4, shape: "839a27d959", notes: ["fbde4d6e1e"] },
   abs_values: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 6, shape: "f1177cbc01", notes: ["fbde4d6e1e"] },
   accepts_interface_in_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "8f459d6919", notes: ["00c356c11c", "f4a4eb1ade", "fbde4d6e1e"] },
-  accepts_method_var_output: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "d97020f3d0", notes: ["fbde4d6e1e"] },
+  accepts_method_var_output: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "d97020f3d0", notes: ["dfc9d07c2c", "fbde4d6e1e"] },
   accepts_output_bound_twice: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "333bda7f78", notes: ["fbde4d6e1e"] },
   accepts_output_into_other_type: { evidence: "refused" },
   accepts_partial_access: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "7e78abfde7", notes: ["fbde4d6e1e"] },
@@ -140,8 +140,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ambg_read_bare: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "8b3d4cc77a", notes: ["fbde4d6e1e"] },
   ambg_write_bare: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "70fcf6c483", notes: ["fbde4d6e1e"] },
   ampersand_operator_rejected: { evidence: "refused" },
-  any_input_given_reference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "0d9a843867", notes: ["ad25627749", "fbde4d6e1e"] },
-  any_input_given_reference_size: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "cbbb69430f", notes: ["ad25627749", "fbde4d6e1e"] },
+  any_input_given_reference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "193fb4acf0", notes: ["ad25627749", "fbde4d6e1e"] },
+  any_input_given_reference_size: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "d42f1e0454", notes: ["ad25627749", "fbde4d6e1e"] },
   ar_abs_type: { evidence: "refused" },
   ar_adr_type: { evidence: "refused" },
   ar_bitadr_type: { evidence: "refused" },
@@ -350,7 +350,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   atomic_xadd_lword: { evidence: "refused" },
   atomic_xadd_pointer: { evidence: "not-lowered" },
   attrp_pack_mode_on_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "04cc008510", notes: ["fbde4d6e1e"] },
-  attrp_pack_mode_on_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 5, shape: "b93a4bb4fe", notes: ["553db0cb40", "fbde4d6e1e"] },
+  attrp_pack_mode_on_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 5, shape: "ce080ef8e0", notes: ["fbde4d6e1e"] },
   bit_access_read: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 7.1, shape: "6feb816c1e", notes: ["fbde4d6e1e"] },
   bit_access_write: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 6, shape: "71d4f6d60d", notes: ["1985d03764", "3279d75111", "87cd3925f5", "e76a0c7276", "f85632e185", "fbde4d6e1e"] },
   bit_and_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "c2fc2a59cb" },
@@ -481,7 +481,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   bitu_fb_var_temp: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "d82f6f1bb9" },
   bitu_function_var: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "2c2b5d8742", notes: ["fbde4d6e1e"] },
   bitu_method_var: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "427a778f96", notes: ["fbde4d6e1e"] },
-  bitu_program_var: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.8, shape: "f2a68bf801", notes: ["553db0cb40"] },
+  bitu_program_var: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.8, shape: "f1958408e6" },
   bitwise_on_narrow_types: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.7, shape: "360181b581", notes: ["fbde4d6e1e"] },
   bool_byte_two_through_pointer: { evidence: "diverges", tier: "indirect", rust: "compiles", lints: ["clippy::bool_comparison"], pedantic: 1, edge: "agree", size: 2.5, shape: "503631b06c", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   bool_to_numeric: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 5.8, shape: "54c653c056", notes: ["fbde4d6e1e"] },
@@ -597,13 +597,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   calls_unknown_output_function: { evidence: "refused" },
   calls_unknown_output_method: { evidence: "refused" },
   callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "06e6a56e6b", notes: ["fbde4d6e1e"] },
-  callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "d013f1f694", notes: ["48213894dc", "bdfafd1c92", "fbde4d6e1e", "fedbbc431c"] },
-  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 1.9, shape: "5025917672", notes: ["1d182f5f8a", "8711c58598", "ce4727dd2f", "fbde4d6e1e", "fedbbc431c"] },
-  callshape_array_star_fb_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "bfffd0d99b", notes: ["0ac4ab4a64", "22f3bd9b6d", "33fc10bac3", "38908b42b7", "43449862b7", "8064ae1570", "81ed699293", "b894525f6e", "debabdec0d", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e"] },
-  callshape_array_star_fb_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "3fe7d84f79", notes: ["09b1152bef", "0ac4ab4a64", "22f3bd9b6d", "38908b42b7", "38cce5cb54", "81ed699293", "9928be1401", "b894525f6e", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e"] },
-  callshape_array_star_of_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.2, shape: "3674bcfd55", notes: ["b6565109d7", "c9c77500c6", "fbde4d6e1e"] },
-  callshape_array_star_passed_on: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "fafd899760", notes: ["19a4bfd8e3", "5f27c2b84f", "e42708f993", "f7faf582da", "fbde4d6e1e"] },
-  callshape_array_star_two_dims: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.1, shape: "260336c669", notes: ["2c3b8ad3cc", "596535f8e7", "b3a0495ed2", "e26f8cd569", "fbde4d6e1e", "fedbbc431c"] },
+  callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "fccb7c923f", notes: ["fbde4d6e1e"] },
+  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 1.9, shape: "98d814e6a7", notes: ["fbde4d6e1e"] },
+  callshape_array_star_fb_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.7, shape: "17f419e4a7", notes: ["8064ae1570", "fbde4d6e1e"] },
+  callshape_array_star_fb_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.6, shape: "9fcfc6059b", notes: ["fbde4d6e1e"] },
+  callshape_array_star_of_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 10, edge: "agree", size: 2.2, shape: "99d4c25444", notes: ["78bb74e841", "c9c77500c6", "fbde4d6e1e"] },
+  callshape_array_star_passed_on: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2, shape: "2f8322d09e", notes: ["fbde4d6e1e"] },
+  callshape_array_star_two_dims: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.1, shape: "d205ddcb5e", notes: ["2c3b8ad3cc", "fbde4d6e1e"] },
   callshape_bounds_of_sized_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "d8aa506f68", notes: ["2c3b8ad3cc", "fbde4d6e1e"] },
   callshape_for_bounds_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "be12e34083", notes: ["fbde4d6e1e"] },
   callshape_for_limit_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "5421a6737a", notes: ["fbde4d6e1e"] },
@@ -624,16 +624,16 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_inout_super_method_from_override: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "32dc28a962", notes: ["0b51d542e8", "667cafe298"] },
   callshape_input_left_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "41c49cc499", notes: ["fbde4d6e1e"] },
   callshape_method_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "92f44a08c5", notes: ["fbde4d6e1e"] },
-  callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "24c649e377", notes: ["553db0cb40", "58a7e6289b", "c673d64c42", "fbde4d6e1e"] },
+  callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "28b9bda2ef", notes: ["fbde4d6e1e"] },
   callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.8, shape: "c5641a1112", notes: ["fbde4d6e1e"] },
   callshape_own_field_inout_read_by_name: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "9da614bfa7", notes: ["fbde4d6e1e"] },
-  callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "249e9063f6", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "249e9063f6", notes: ["fbde4d6e1e"] },
   callshape_positional_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.5, shape: "e7e073c561", notes: ["dab457c859", "fbde4d6e1e"] },
-  callshape_program_instance_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "ba20a79326", notes: ["23968d21ed", "553db0cb40", "58a7e6289b", "b16c700f3d", "fbde4d6e1e"] },
-  callshape_program_instance_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "07faed9dad", notes: ["2746f887a4", "553db0cb40", "58a7e6289b", "fbde4d6e1e"] },
+  callshape_program_instance_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "e5511393df", notes: ["fbde4d6e1e"] },
+  callshape_program_instance_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "e870f1d29f", notes: ["fbde4d6e1e"] },
   callshape_property_read_in_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "f91717cd5b", notes: ["fbde4d6e1e"] },
-  callshape_super_own_field_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "7fbcf18929", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  callshape_super_own_fields: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "9eef1f0d58", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  callshape_super_own_field_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "7fbcf18929", notes: ["fbde4d6e1e"] },
+  callshape_super_own_fields: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "9eef1f0d58", notes: ["fbde4d6e1e"] },
   case_range_edges: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 7.4, shape: "1c849f4b66", notes: ["fbde4d6e1e"] },
   cb_and_then_bool_and_int: { evidence: "refused" },
   cb_and_then_on_int: { evidence: "refused", tier: "arith", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.1, shape: "4bcf0d6f12", notes: ["fbde4d6e1e"] },
@@ -672,12 +672,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_decl_init_trailing_int: { evidence: "refused" },
   cc_decl_init_unknown_name: { evidence: "refused" },
   cc_div_udint_dint: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 3.9, shape: "442a99c220", notes: ["fbde4d6e1e"] },
-  cc_enum_arg_into_dword: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "13b3448496" },
-  cc_enum_arg_into_sint: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.9, shape: "b3e1c350da" },
-  cc_enum_arg_into_udint: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "13b3448496" },
-  cc_enum_arg_into_uint: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "2111394b68" },
-  cc_enum_arg_into_usint: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.9, shape: "cf26a69873" },
-  cc_enum_arg_into_word: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "2111394b68" },
+  cc_enum_arg_into_dword: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
+  cc_enum_arg_into_sint: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
+  cc_enum_arg_into_udint: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
+  cc_enum_arg_into_uint: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
+  cc_enum_arg_into_usint: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
+  cc_enum_arg_into_word: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "ff5df163a0" },
   cc_enum_compare_two_enum_values: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "7c273f68c7", notes: ["fbde4d6e1e"] },
   cc_enum_compare_two_enums: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "9be60a4be0", notes: ["fbde4d6e1e"] },
   cc_enum_into_byte: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "3f1408e0d3", notes: ["fbde4d6e1e"] },
@@ -1138,7 +1138,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cp_empty_statements: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "6fbb8be3f3", notes: ["fbde4d6e1e"] },
   cp_inline_assignment: { evidence: "not-lowered" },
   cp_obsolete_pou: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "f2aa8f5968", notes: ["fbde4d6e1e"] },
-  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "4da1eaeeb6", notes: ["07f99bf907", "0d14fd327c", "21ef64a1e0", "e5f32531ef", "fb7e9e6ff4", "fbde4d6e1e"] },
+  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "4da1eaeeb6", notes: ["07f99bf907", "0d14fd327c", "21ef64a1e0", "e5f32531ef", "fbde4d6e1e"] },
   cp_symbol_and_monitoring: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "39e344986f", notes: ["fbde4d6e1e"] },
   cp_xsizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "1eab4d6b3f", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   cs_anynum_to_conversions: { evidence: "refused" },
@@ -1410,7 +1410,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   dflt_fb_input_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.9, shape: "bca8164eaf", notes: ["fbde4d6e1e"] },
   dflt_function_input_from_variable: { evidence: "not-lowered" },
   dflt_method_input_from_variable: { evidence: "not-lowered" },
-  dflt_program_input_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "not-run", size: 5.1, shape: "f738bb376a", notes: ["553db0cb40", "fbde4d6e1e"] },
+  dflt_program_input_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "not-run", size: 5.1, shape: "241c86ab3d", notes: ["fbde4d6e1e"] },
   displaymode_bin: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "70c404f701", notes: ["fbde4d6e1e"] },
   displaymode_dec: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "1219638616", notes: ["fbde4d6e1e"] },
   displaymode_hex: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "115896fec3", notes: ["fbde4d6e1e"] },
@@ -1472,7 +1472,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   dt_static_base_fb_type: { evidence: "refused" },
   dt_static_base_function: { evidence: "refused" },
   dt_static_base_gvl: { evidence: "refused" },
-  dt_static_base_program: { evidence: "refused", tier: "indirect", rust: "rejected", pedantic: 0, edge: "not-run", size: 4.7, shape: "d160a55554", notes: ["58a7e6289b", "fbde4d6e1e"] },
+  dt_static_base_program: { evidence: "refused", tier: "indirect", rust: "rejected", pedantic: 0, edge: "not-run", size: 4.7, shape: "d160a55554", notes: ["fbde4d6e1e"] },
   dt_static_base_struct_type: { evidence: "refused" },
   dt_static_base_unknown_member: { evidence: "refused" },
   dt_struct_type_name_called: { evidence: "refused" },
@@ -1528,7 +1528,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   enum_library_member_vs_library_global: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
   enum_library_member_vs_project_enum: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "614fcf9282", notes: ["fbde4d6e1e"] },
   enum_library_member_vs_project_function: { evidence: "lsp-gap", tier: "call", rust: "compiles", pedantic: 1, edge: "agree", size: 3.1, shape: "6c13b73e64", notes: ["fbde4d6e1e"], diverges: { codesys: "known" } },
-  enum_library_member_vs_project_program: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.7, shape: "97964af816", notes: ["553db0cb40", "58a7e6289b", "667cafe298", "fbde4d6e1e"], diverges: { codesys: "known" } },
+  enum_library_member_vs_project_program: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.7, shape: "b1c1e8d20d", notes: ["667cafe298", "fbde4d6e1e"], diverges: { codesys: "known" } },
   enum_library_namespace_qualified: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "df10d02458", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   enum_library_qualified: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "df10d02458", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   enum_library_same_member_one_library: { evidence: "refused", diverges: { twincat: "known" } },
@@ -1762,25 +1762,25 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fb_exit_missing_bInCopyCode: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "4b70673805", notes: ["fbde4d6e1e"] },
   fb_header_offsets_implements: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "b3db5f36c6", notes: ["fbde4d6e1e"] },
   fb_header_offsets_plain: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "b3db5f36c6", notes: ["fbde4d6e1e"] },
-  fb_init_and_structured_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "2f8c8a4ad7", notes: ["fbde4d6e1e"] },
-  fb_init_argument_from_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "bfed44b023", notes: ["fbde4d6e1e"] },
-  fb_init_argument_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "ebf8afb645", notes: ["fbde4d6e1e"] },
-  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "680646e263", notes: ["553db0cb40", "8cbe6244a7", "fb7e9e6ff4", "fbde4d6e1e"] },
+  fb_init_and_structured_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "d3b563f97e", notes: ["fbde4d6e1e"] },
+  fb_init_argument_from_global: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "a5d7295a24", notes: ["fbde4d6e1e"] },
+  fb_init_argument_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "6f4fd0b1b6", notes: ["fbde4d6e1e"] },
+  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "cf21bcccc0", notes: ["fbde4d6e1e"] },
   fb_init_argument_left_out: { evidence: "refused" },
-  fb_init_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "58d0fe2806", notes: ["fbde4d6e1e"] },
-  fb_init_before_slot_method_nested: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "77dbf2b803", notes: ["fbde4d6e1e"] },
-  fb_init_before_slot_method_sibling: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "69f317af8b", notes: ["fbde4d6e1e"] },
-  fb_init_canonical: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "f28bf3ec6b", notes: ["fbde4d6e1e"] },
-  fb_init_missing_bInCopyCode: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3, shape: "21cbf4a75c", notes: ["fbde4d6e1e"] },
-  fb_init_nested_in_fb_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "b12a0292a7", notes: ["fbde4d6e1e"] },
-  fb_init_program_own: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "d53760fb4b", notes: ["553db0cb40", "fbde4d6e1e"] },
+  fb_init_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "8f74b48c3b", notes: ["fbde4d6e1e"] },
+  fb_init_before_slot_method_nested: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "c744826eba", notes: ["fbde4d6e1e"] },
+  fb_init_before_slot_method_sibling: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "30a1a48c34", notes: ["fbde4d6e1e"] },
+  fb_init_canonical: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "f9c11096ff", notes: ["fbde4d6e1e"] },
+  fb_init_missing_bInCopyCode: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3, shape: "f9c11096ff", notes: ["fbde4d6e1e"] },
+  fb_init_nested_in_fb_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "d74557ea23", notes: ["fbde4d6e1e"] },
+  fb_init_program_own: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "a976a12bca", notes: ["fbde4d6e1e"] },
   fb_init_runs_with_declared_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "b280e76891", notes: ["fbde4d6e1e"] },
-  fb_init_wrong_return_type: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "385d37bc91", notes: ["fbde4d6e1e"] },
+  fb_init_wrong_return_type: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "fcd91504d0", notes: ["fbde4d6e1e"] },
   fb_offsets_var_before_input: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "692e81c194", notes: ["fbde4d6e1e"] },
   fb_reinit_canonical: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "3cd6b73a4c", notes: ["fbde4d6e1e"] },
   fb_reinit_with_params: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "c2adb34d49", notes: ["fbde4d6e1e"] },
   fbcall_action: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "b9c0f86a0c" },
-  fbcall_bare_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "6843017a2a", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  fbcall_bare_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "6843017a2a", notes: ["fbde4d6e1e"] },
   fbcall_function_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "4b0f28464f", notes: ["fbde4d6e1e"] },
   fbcall_gvl_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.2, shape: "819ed681ca", notes: ["fbde4d6e1e"] },
   fbcall_inout_written_back: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "e4992b3ab9", notes: ["fbde4d6e1e"] },
@@ -1790,8 +1790,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fbcall_nested_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "61f8d86933", notes: ["fbde4d6e1e"] },
   fbcall_output_before_and_after: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "cf615ea0ab", notes: ["fbde4d6e1e"] },
   fbcall_output_widens: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "2e67fc5b89", notes: ["fbde4d6e1e"] },
-  fbcall_program_own_members: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "44d9c0538a", notes: ["553db0cb40", "fb7e9e6ff4", "fbde4d6e1e"] },
-  fbcall_program_writes_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 5.1, shape: "c029fefe6a", notes: ["c5623a289f", "fbde4d6e1e"] },
+  fbcall_program_own_members: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "9072499927", notes: ["fbde4d6e1e"] },
+  fbcall_program_writes_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 5.1, shape: "864309fd51", notes: ["fbde4d6e1e"] },
   fbcall_state_across_calls: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "8261bf4be9", notes: ["fbde4d6e1e"] },
   fbcall_this_in_program: { evidence: "refused" },
   fbcall_two_instances: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "0df5ef3684", notes: ["fbde4d6e1e"] },
@@ -1829,7 +1829,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   flw_super_in_function: { evidence: "refused" },
   flw_super_in_method_no_base: { evidence: "refused" },
   flw_super_in_program: { evidence: "refused" },
-  flw_this_in_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "2f6ec1f539", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  flw_this_in_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "2f6ec1f539", notes: ["fbde4d6e1e"] },
   flw_this_in_function: { evidence: "refused" },
   fmt_lreal_down_1e_1: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "4ac5045814", notes: ["667cafe298", "fbde4d6e1e"] },
   fmt_lreal_down_1e_10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "4ac5045814", notes: ["667cafe298", "fbde4d6e1e"] },
@@ -1961,9 +1961,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   hdr_fb_property_no_accessor: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   hdr_fb_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   hdr_function_extends: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 1.2, shape: "7b697e6c79", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
-  hdr_function_extends_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.2, shape: "17d4d0b84a" },
+  hdr_function_extends_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.2, shape: "ffa8492d16" },
   hdr_function_implements: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 1.3, shape: "7b697e6c79", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
-  hdr_function_implements_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.2, shape: "17d4d0b84a" },
+  hdr_function_implements_no_return: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.2, shape: "ffa8492d16" },
   hdr_function_private: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   hdr_interface_extends_two: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "7153bd744b", notes: ["fbde4d6e1e"] },
   hdr_interface_var_input: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
@@ -2195,7 +2195,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   indf_method_input_array_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "0312b98750", notes: ["fbde4d6e1e"] },
   info_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
   inh_abstract_method_not_implemented: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "82b6c17417", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
-  inh_base_body_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "be3626e306", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  inh_base_body_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "be3626e306", notes: ["fbde4d6e1e"] },
   inh_call_runs_derived_body: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "5f90a232a8", notes: ["fbde4d6e1e"] },
   inh_empty_derived_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "7ea980160c", notes: ["fbde4d6e1e"] },
   inh_extends_ambiguous_library_base: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "5e6d366ccc", notes: ["667cafe298", "fbde4d6e1e"] },
@@ -2203,7 +2203,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inh_extends_self: { evidence: "refused" },
   inh_implements_derived_missing_base_method: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "c19bf2911c", notes: ["fbde4d6e1e"] },
   inh_implements_derived_missing_base_method_uninstanced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1, shape: "1cff40fa06" },
-  inh_inherited_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "4c2950281f", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  inh_inherited_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "4c2950281f", notes: ["fbde4d6e1e"] },
   inh_interface_extends_cycle: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "c19bf2911c", notes: ["fbde4d6e1e"] },
   inh_interface_extends_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "f905f7c3a1", notes: ["59c341cb0f", "ad25627749", "fbde4d6e1e"] },
   inh_interface_extends_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.8, shape: "59cf618ba6", notes: ["ad25627749", "dc1e3df820", "fbde4d6e1e"] },
@@ -2217,7 +2217,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inh_interface_method_unknown_param: { evidence: "refused" },
   inh_override_final_method: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "762cbbe558", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   inh_override_inout_as_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "083e3d6966", notes: ["667cafe298", "fbde4d6e1e"] },
-  inh_override_input_as_output: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "f4bf097973", notes: ["fbde4d6e1e"] },
+  inh_override_input_as_output: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "f4bf097973", notes: ["dfc9d07c2c", "fbde4d6e1e"] },
   inh_override_instanced_in_uninstanced_fb: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 0.6, shape: "1cff40fa06" },
   inh_override_param_count_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "1d830947a7", notes: ["fbde4d6e1e"] },
   inh_override_param_name_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "eb03db9f9e", notes: ["fbde4d6e1e"] },
@@ -2225,21 +2225,21 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inh_override_property_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "bb48648654", notes: ["fbde4d6e1e"] },
   inh_override_reference_only: { evidence: "refused" },
   inh_override_return_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "45c07caf34", notes: ["fbde4d6e1e"] },
-  inh_override_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "9b144b55ee", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
+  inh_override_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "9b144b55ee", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
   inh_override_signature_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.3, shape: "da6d16e625", notes: ["fbde4d6e1e"] },
   inh_override_uninstanced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 0.7, shape: "1cff40fa06" },
   inh_struct_extends_cycle: { evidence: "refused" },
-  inh_super_call_runs_base_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "78b462d4b5", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  inh_super_call_runs_base_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "78b462d4b5", notes: ["fbde4d6e1e"] },
   inh_super_call_with_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "0e8e19de6f", notes: ["0b51d542e8", "fbde4d6e1e"] },
-  inh_super_method_from_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "db95cfa471", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  inh_super_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "b4edc113e7", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  inh_super_method_from_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "db95cfa471", notes: ["fbde4d6e1e"] },
+  inh_super_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "b4edc113e7", notes: ["fbde4d6e1e"] },
   inh_super_reaches_grandparent_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "21e684e29b", notes: ["75cc82a569", "fbde4d6e1e"] },
   inh_unresolved_base: { evidence: "refused" },
   inh_unresolved_base_method_call: { evidence: "refused" },
   init_array_of_structs: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "5370e98ef8", notes: ["9bacb0b14c", "fbde4d6e1e"] },
-  init_extends_field_instance: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "43063e8bf4", notes: ["fbde4d6e1e"] },
-  init_extends_field_instance_in_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f7777868f", notes: ["fbde4d6e1e"] },
-  init_extends_interleaving: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "2feee81cc3", notes: ["fbde4d6e1e"] },
+  init_extends_field_instance: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "a064ebaf4e", notes: ["fbde4d6e1e"] },
+  init_extends_field_instance_in_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "2a4f3f968e", notes: ["fbde4d6e1e"] },
+  init_extends_interleaving: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "263cbf2221", notes: ["fbde4d6e1e"] },
   init_fb_instance_inputs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "7a8bd9f485", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   init_frame_order_several: { evidence: "not-lowered" },
   init_frame_order_several_renamed: { evidence: "not-lowered" },
@@ -2247,7 +2247,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   init_gvl_program_slot_order_renamed: { evidence: "not-lowered" },
   init_on_onlchange: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "1219638616", notes: ["fbde4d6e1e"] },
   init_slot_default_50000: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "4b70673805", notes: ["fbde4d6e1e"] },
-  init_slot_program_own: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.1, shape: "862365b3fa", notes: ["553db0cb40", "98d68d7530", "fbde4d6e1e"] },
+  init_slot_program_own: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.1, shape: "7d47daab91", notes: ["fbde4d6e1e"] },
   init_slot_reserved_alarm_manager: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "4b70673805", notes: ["fbde4d6e1e"] },
   init_slot_reserved_device_object: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "4b70673805", notes: ["fbde4d6e1e"] },
   init_slot_user_early: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "4b70673805", notes: ["fbde4d6e1e"] },
@@ -2255,34 +2255,34 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   init_struct_field_fb_init_scope: { evidence: "not-lowered" },
   init_struct_field_fb_init_scope_dynamic: { evidence: "not-lowered" },
   init_struct_field_fb_init_scope_local: { evidence: "lsp-gap" },
-  init_struct_field_fb_init_scope_shadow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "01ab8f3233", notes: ["fbde4d6e1e"] },
-  init_struct_field_fb_init_scope_sibling: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "01ab8f3233", notes: ["fbde4d6e1e"] },
+  init_struct_field_fb_init_scope_shadow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "7e2f5a363b", notes: ["fbde4d6e1e"] },
+  init_struct_field_fb_init_scope_sibling: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "7e2f5a363b", notes: ["fbde4d6e1e"] },
   init_this_in_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.1, shape: "72eca258f8", notes: ["fbde4d6e1e"] },
   init_this_in_initializer_argument: { evidence: "not-lowered" },
-  initord_array_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "8008a33a0c", notes: ["553db0cb40", "fbde4d6e1e"] },
-  initord_array_later_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "3f9d1865b5", notes: ["553db0cb40", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_chain3_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "1cf0b4fbc0", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_chain3_desc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "ff92920e00", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_chain4_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "7ffe760bbc", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_chain4_desc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "4ae29184c5", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_chain4_symbol_noe: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 3.9, shape: "4ae29184c5", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_chain4_symbol_none: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 3.9, shape: "4ae29184c5", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_chain5_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.2, shape: "791d6316b8", notes: ["553db0cb40", "705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_interface_var_later_name: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.5, shape: "33a6780967", notes: ["553db0cb40", "ad25627749", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_read_type_default: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "3b0fd02c65", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_read_type_default_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "bf29b857f9", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_read_uninitialized: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "3b0fd02c65", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_read_uninitialized_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "bf29b857f9", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_reads_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "ae7d16985e", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_reads_earlier_name_declared_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "ae7d16985e", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_reads_later_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "dd03c96184", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_reads_later_name_called_second: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "ae7d16985e", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_reads_later_name_declared_second: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "dd03c96184", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_same_block_later_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.4, shape: "4192b152d6", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_slot_lower_on_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "dd03c96184", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_slot_on_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "ae7d16985e", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  initord_slot_on_reader: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "dd03c96184", notes: ["553db0cb40", "ccb56fb7d9", "fbde4d6e1e"] },
-  initord_value_later_name: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.5, shape: "de8879c380", notes: ["553db0cb40", "667cafe298", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_array_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "9b4f298fc3", notes: ["fbde4d6e1e"] },
+  initord_array_later_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "98f5857c2e", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_chain3_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "77b45a1f3c", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_chain3_desc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "b9696c70a9", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
+  initord_chain4_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "b169c5029e", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_chain4_desc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "dc5badee5b", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
+  initord_chain4_symbol_noe: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 3.9, shape: "dc5badee5b", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
+  initord_chain4_symbol_none: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 3.9, shape: "dc5badee5b", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"] },
+  initord_chain5_asc: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.2, shape: "3ef2ab7f49", notes: ["705d69973b", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_interface_var_later_name: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.5, shape: "a9e2488ca6", notes: ["ad25627749", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_read_type_default: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "fe07932a7b", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_read_type_default_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "1295ba5484", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_read_uninitialized: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "fe07932a7b", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_read_uninitialized_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "1295ba5484", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_reads_earlier_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "a65eca1a27", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_reads_earlier_name_declared_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "a65eca1a27", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_reads_later_name: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "f141937426", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_reads_later_name_called_second: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "a65eca1a27", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_reads_later_name_declared_second: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.3, shape: "f141937426", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_same_block_later_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.4, shape: "4f4a47b7eb", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_slot_lower_on_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "f141937426", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_slot_on_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "a65eca1a27", notes: ["ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  initord_slot_on_reader: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "not-run", size: 4.1, shape: "f141937426", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
+  initord_value_later_name: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.5, shape: "5ac9da2f08", notes: ["667cafe298", "ccb56fb7d9", "fbde4d6e1e"], diverges: { twincat: "known" } },
   initprg_adr_of_earlier: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 5, shape: "ceb2b209b0", notes: ["ad25627749", "fbde4d6e1e"] },
   initprg_adr_of_later: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 5.1, shape: "7ed1f12046", notes: ["ad25627749", "fbde4d6e1e"] },
   initprg_reads_earlier: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.9, shape: "8075656b30", notes: ["fbde4d6e1e"] },
@@ -2291,7 +2291,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   initprg_user_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "fb9ffd5ecf", notes: ["fbde4d6e1e"] },
   initseq_adr_of_earlier: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 4.6, shape: "8da196c5de", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
   initseq_adr_of_later: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "988ddb5b86", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
-  initseq_after_fb_init: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "18f8fe986a", notes: ["fbde4d6e1e"] },
+  initseq_after_fb_init: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "8bd9d68824", notes: ["fbde4d6e1e"] },
   initseq_fb_init_declared_last: { evidence: "not-lowered" },
   initseq_global_list: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.6, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
   initseq_member_of_struct: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.8, shape: "a1655bb379", notes: ["ccb56fb7d9", "ea53989ac8", "fbde4d6e1e"] },
@@ -2331,7 +2331,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ioinit_array_initializer: { evidence: "unaskable" },
   ioinit_fb_instance_literal: { evidence: "refused" },
   ioinit_struct_initializer: { evidence: "unaskable" },
-  ir_initializer_warning_in_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.8, shape: "1004ab83d1", notes: ["553db0cb40", "fbde4d6e1e"] },
+  ir_initializer_warning_in_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.8, shape: "77ad62dd9f", notes: ["fbde4d6e1e"] },
   ir_initializer_warning_nested_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "7b06d45883" },
   ir_initializer_warning_no_instance: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "83234c202b", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   ir_initializer_warning_one_instance: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "e9c30a5f60" },
@@ -2809,7 +2809,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_vector_twincat: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "ff8316f756", notes: ["fbde4d6e1e"] },
   lex_vector_twincat_array_of: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "1a8a395ad2", notes: ["2c3b8ad3cc", "fbde4d6e1e"] },
   lex_vector_twincat_pointer_to: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "763ae2a521", notes: ["75cc82a569", "fbde4d6e1e"] },
-  lex_vector_twincat_return_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "not-run", size: 2.3, shape: "5145bfc7bb", diverges: { twincat: "known" } },
+  lex_vector_twincat_return_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "not-run", size: 2.3, shape: "a244c328f7", diverges: { twincat: "known" } },
   lex_vector_twincat_struct_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "40837c866e", notes: ["fbde4d6e1e"] },
   lib_ns_direct_dependency_only: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "fbb50c80f5", notes: ["667cafe298", "fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   lib_ns_library_gvl_member: { evidence: "not-lowered", diverges: { twincat: "known" } },
@@ -2821,7 +2821,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_ns_library_member_own_type_other_enum: { evidence: "not-lowered", diverges: { twincat: "known" } },
   lib_ns_own_library_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "6c13b73e64", notes: ["fbde4d6e1e"] },
   lib_ns_project_type_shadows_namespace: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "000f9daf5e", notes: ["fbde4d6e1e"] },
-  lib_ns_project_unit_shadows_namespace: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "97964af816", notes: ["553db0cb40", "58a7e6289b", "667cafe298", "fbde4d6e1e"] },
+  lib_ns_project_unit_shadows_namespace: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "b1c1e8d20d", notes: ["667cafe298", "fbde4d6e1e"] },
   lib_ns_qualified_access_library_bare: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "fbb50c80f5", notes: ["667cafe298", "fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   lib_ns_qualified_access_library_qualified: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "fbb50c80f5", notes: ["667cafe298", "fbde4d6e1e"], diverges: { twincat: "known" } },
   lib_ns_same_name_two_libraries: { evidence: "not-lowered", diverges: { twincat: "known" } },
@@ -2851,7 +2851,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.7, shape: "654cbe2d04", notes: ["fbde4d6e1e"] },
   lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 4.9, shape: "44acbf6147", notes: ["fbde4d6e1e"] },
   lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3.4, shape: "28cfbd552c", notes: ["6fa8630036", "fbde4d6e1e"] },
-  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 10, edge: "agree", size: 3.7, shape: "b68a559780", notes: ["6fa8630036"] },
+  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 3.7, shape: "b6178006bb", notes: ["6fa8630036"] },
   lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 5.9, shape: "f5fee09801", notes: ["3a4f1a7d74", "6fa8630036"] },
   lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 13, edge: "agree", size: 3.4, shape: "0453fc50bb" },
   lib_stu_replace_past_len: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 20, edge: "agree", size: 3.2, shape: "7c7e1ccdf6", notes: ["fbde4d6e1e"] },
@@ -2862,7 +2862,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 8.7, shape: "77ed8559c1", notes: ["fbde4d6e1e"] },
   life_fb_var_stat_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.9, shape: "a2ed47f980", notes: ["fbde4d6e1e"] },
   life_fb_var_temp_calls: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "9258afdf74", notes: ["fbde4d6e1e"] },
-  life_program_var_temp_runs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "c750276ee3", notes: ["553db0cb40", "fbde4d6e1e"] },
+  life_program_var_temp_runs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "e027e8f30f", notes: ["fbde4d6e1e"] },
   limit_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 6.2, shape: "e70f8bfe82", notes: ["fbde4d6e1e"] },
   limit_inverted_bounds: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.7, shape: "e7f217479b", notes: ["fbde4d6e1e"] },
   linkalways: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "4b70673805", notes: ["fbde4d6e1e"] },
@@ -3424,7 +3424,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oop_base: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "fbfd76f4d7", notes: ["fbde4d6e1e"] },
   oop_extends_simple: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "9bc20f3013", notes: ["fbde4d6e1e"] },
   oop_extends_with_override: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "9bc20f3013", notes: ["fbde4d6e1e"] },
-  oop_extends_with_super: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "1e3b785982", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  oop_extends_with_super: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "1e3b785982", notes: ["fbde4d6e1e"] },
   oop_final_fb: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.9, shape: "4b70673805", notes: ["fbde4d6e1e"] },
   oopa_extends_interface: { evidence: "refused" },
   oopa_extends_struct: { evidence: "refused" },
@@ -3448,22 +3448,22 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopb_abstract_as_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "92d74f938b", notes: ["fbde4d6e1e"] },
   oopb_abstract_assign_inout: { evidence: "refused" },
   oopb_abstract_assign_reference: { evidence: "refused" },
-  oopb_abstract_method_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "e9b7b83961", notes: ["fbde4d6e1e"], diverges: { codesys: "known" } },
+  oopb_abstract_method_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "e9b7b83961", notes: ["dfc9d07c2c", "fbde4d6e1e"], diverges: { codesys: "known" } },
   oopb_abstract_pointer: { evidence: "not-lowered" },
   oopb_abstract_pointer_deref_assign: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
   oopb_abstract_ref_rebind: { evidence: "not-lowered" },
   oopb_base_grandparent_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "cd3c395093", notes: ["fbde4d6e1e"] },
   oopb_base_output_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "05be273ca3", notes: ["fbde4d6e1e"] },
   oopb_base_property_get_set_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "c04b65c757", notes: ["fbde4d6e1e"] },
-  oopb_concrete_method_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "6b960c9141", notes: ["fbde4d6e1e"] },
+  oopb_concrete_method_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "6b960c9141", notes: ["dfc9d07c2c", "fbde4d6e1e"] },
   oopb_fb_exit_extra_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   oopb_fb_init_extra_input_first: { evidence: "refused" },
-  oopb_fb_init_input_wrong_type: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.8, shape: "ec58f61230", notes: ["fbde4d6e1e"] },
-  oopb_fb_init_swapped_inputs: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "62c4bb9d38", notes: ["fbde4d6e1e"] },
+  oopb_fb_init_input_wrong_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "272b92d6f5", notes: ["fbde4d6e1e"] },
+  oopb_fb_init_swapped_inputs: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "272b92d6f5", notes: ["fbde4d6e1e"] },
   oopb_fb_reinit_no_return: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   oopb_generic_as_input: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.6, shape: "92d74f938b", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   oopb_generic_two_constants_one_value: { evidence: "refused", diverges: { twincat: "known" } },
-  oopb_implicit_abstract_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "813e4c5624", notes: ["fbde4d6e1e"], diverges: { codesys: "known" } },
+  oopb_implicit_abstract_output_default: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "813e4c5624", notes: ["dfc9d07c2c", "fbde4d6e1e"], diverges: { codesys: "known" } },
   oopb_itf_inherited_method_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 1.7, shape: "e70ccccc1a", notes: ["fbde4d6e1e"] },
   oopb_itf_method_from_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "e503def59f", notes: ["fbde4d6e1e"] },
   oopb_itf_method_in_base_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.2, shape: "da6d16e625", notes: ["fbde4d6e1e"] },
@@ -3471,9 +3471,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oopb_itf_property_getter_only: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "862716a79f", notes: ["fbde4d6e1e"] },
   oopb_itf_property_missing: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   oopb_itf_property_type_mismatch: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "1fcb6fc6c1", notes: ["fbde4d6e1e"] },
-  oopb_itf_return_missing: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "bc4ac49a07", notes: ["fbde4d6e1e"] },
+  oopb_itf_return_missing: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "b9e5d147aa", notes: ["fbde4d6e1e"] },
   oopb_itf_return_type_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "5231b87194", notes: ["fbde4d6e1e"] },
-  oopb_itf_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "b847bb1384", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
+  oopb_itf_section_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "b847bb1384", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
   op_arithmetic_bool_plus_int: { evidence: "refused" },
   op_arithmetic_int_plus_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "8b85a1728a", notes: ["fbde4d6e1e"] },
   op_arithmetic_int_plus_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7d3f2c9214", notes: ["fbde4d6e1e"] },
@@ -3565,14 +3565,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   pointer_zero_on_left_compare: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "c61f5fb104", notes: ["45292dbd9c", "75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
   pointer_zero_on_left_compare_local: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "979129b5ce" },
   power_operator_rejected: { evidence: "refused" },
-  prag_attribute_block_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "2f6ec1f539", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  prag_attribute_block_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "2f6ec1f539", notes: ["fbde4d6e1e"] },
   prag_attribute_brace_in_value: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
-  prag_attribute_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "2f6ec1f539", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  prag_attribute_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "2f6ec1f539", notes: ["fbde4d6e1e"] },
   prag_attribute_obsolete_fb_called_twice: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "f8bc138248", notes: ["fbde4d6e1e"] },
   prag_attribute_obsolete_fb_declared: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "92d74f938b", notes: ["fbde4d6e1e"] },
   prag_attribute_obsolete_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "0d60fee69d", notes: ["fbde4d6e1e"] },
-  prag_attribute_obsolete_method_called_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "0e064fefe8", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  prag_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "2f6ec1f539", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  prag_attribute_obsolete_method_called_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "0e064fefe8", notes: ["fbde4d6e1e"] },
+  prag_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "2f6ec1f539", notes: ["fbde4d6e1e"] },
   prag_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "c420f1768d", notes: ["fbde4d6e1e"] },
   prag_attribute_on_struct_field: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "64fab8a728", notes: ["667cafe298", "fbde4d6e1e"] },
   prag_const_non_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "adf3d96a88", notes: ["fbde4d6e1e"] },
@@ -3589,7 +3589,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_const_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "e68b275390", notes: ["667cafe298", "fbde4d6e1e"] },
   prag_const_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "dd164fb363", notes: ["fbde4d6e1e"] },
   prag_define_case_insensitive: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
-  prag_define_in_body_seen_by_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "2f6ec1f539", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  prag_define_in_body_seen_by_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "2f6ec1f539", notes: ["fbde4d6e1e"] },
   prag_define_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   prag_define_inside_expression: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "f24d724c6c", notes: ["fbde4d6e1e"] },
   prag_define_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
@@ -3660,7 +3660,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_region_unclosed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
   prag_rule_abstract_attribute_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.9, shape: "7b697e6c79", notes: ["fbde4d6e1e"] },
   prag_rule_abstract_attribute_on_interface_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "c19bf2911c", notes: ["fbde4d6e1e"] },
-  prag_rule_abstract_attribute_on_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 5, shape: "b93a4bb4fe", notes: ["553db0cb40", "fbde4d6e1e"] },
+  prag_rule_abstract_attribute_on_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 5, shape: "ce080ef8e0", notes: ["fbde4d6e1e"] },
   prag_rule_abstract_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "c420f1768d", notes: ["fbde4d6e1e"] },
   prag_rule_error_in_var_section: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "f89750d7f6", notes: ["667cafe298", "fbde4d6e1e"] },
   prag_rule_hide_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "edf1e6b40d", notes: ["fbde4d6e1e"] },
@@ -3757,12 +3757,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ptrparam_function_block: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "87e3fad380", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
   ptrparam_input_persists: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "56024c6ecb", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
   ptrparam_kept: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.7, shape: "5cd2f31792", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
-  ptrparam_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "d7a69a93d1", notes: ["c7ca2861fc", "dab457c859", "e1e42433cd", "fbde4d6e1e"] },
+  ptrparam_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "cef8dab864", notes: ["dab457c859", "dfc9d07c2c", "fbde4d6e1e"] },
   ptrparam_passed_on: { evidence: "not-lowered" },
-  ptrparam_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "7912004eb9", notes: ["410eafc2ba", "acad4033d7", "fbde4d6e1e"] },
-  ptrparam_two_targets: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "2724c10378", notes: ["410eafc2ba", "acad4033d7", "fbde4d6e1e"] },
+  ptrparam_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "b90c427eb9", notes: ["410eafc2ba", "fbde4d6e1e"] },
+  ptrparam_two_targets: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "6e6526d13d", notes: ["410eafc2ba", "fbde4d6e1e"] },
   ptrparam_unsupplied: { evidence: "confirmed", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "209866ec7a", notes: ["75cc82a569", "fbde4d6e1e"] },
-  ptrparam_write: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "6b8f9b5dec", notes: ["acad4033d7", "fbde4d6e1e"] },
+  ptrparam_write: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8f6b326c26", notes: ["fbde4d6e1e"] },
   ptrsc_initializer_into_dword: { evidence: "refused" },
   ptrsc_into_bool: { evidence: "refused" },
   ptrsc_into_date: { evidence: "refused" },
@@ -3783,7 +3783,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   pwh_empty_gvl: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 4.4, shape: "7bdf2a724c", notes: ["667cafe298"] },
   pwh_empty_struct: { evidence: "refused", diverges: { twincat: "known" } },
   pwh_enum_text_is_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 4, shape: "99137a59d7", notes: ["fbde4d6e1e"] },
-  pwh_fb_text_says_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "63496bf900", notes: ["553db0cb40", "fbde4d6e1e"] },
+  pwh_fb_text_says_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "06de09fb50", notes: ["fbde4d6e1e"] },
   pwh_gvl_missing_semicolon: { evidence: "refused" },
   pwh_gvl_retired_volt_comment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.1, shape: "14ae9eb3ef", notes: ["667cafe298", "fbde4d6e1e"] },
   pwh_gvl_then_prose: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -4116,8 +4116,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   refbit_gvl_reference: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.6, shape: "f3c4685d81", notes: ["fbde4d6e1e"] },
   refbit_inout_constant_bit: { evidence: "refused" },
   refbit_method_inout_bit: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
-  refbit_program_inout_bit: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.1, shape: "cce232745d" },
-  refbit_program_var_reference: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "not-run", size: 5.2, shape: "0d1a34a506", notes: ["553db0cb40", "fbde4d6e1e"] },
+  refbit_program_inout_bit: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.1, shape: "b1ac8ff747" },
+  refbit_program_var_reference: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "not-run", size: 5.2, shape: "51cb276be2", notes: ["fbde4d6e1e"] },
   refbit_struct_array_component: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "71166cd5e9", notes: ["00c356c11c"] },
   refbit_struct_field: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "cf9fa38e79", notes: ["fbde4d6e1e"] },
   refbit_var_array_reference: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 3.5, shape: "3bd0bbdda7", notes: ["00c356c11c"] },
@@ -4376,15 +4376,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sn_function_mismatch: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "21f9bc3286", notes: ["fbde4d6e1e"] },
   sn_interface_mismatch: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 2.5, shape: "1cff40fa06" },
   sn_interface_mismatch_used: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
-  sn_program_mismatch: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 4.8, shape: "db4bf5ffd0", notes: ["553db0cb40", "fbde4d6e1e"] },
+  sn_program_mismatch: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 4.8, shape: "27897b8805", notes: ["fbde4d6e1e"] },
   sn_union_mismatch_used: { evidence: "refused" },
   sqrt_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 6.2, shape: "a93148b5b7", notes: ["fbde4d6e1e"] },
   standard_len_wstring_rejected: { evidence: "refused" },
-  state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.8, shape: "2dd31b8e47", notes: ["0bafd3f951", "0ccb97149d", "ca70e389eb", "fbde4d6e1e"] },
-  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.9, shape: "ea28ad4249", notes: ["25f71706ae", "c5d30c56ec", "c6322760e4", "ca823a2c56", "fbde4d6e1e"] },
+  state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "149e8d65e3", notes: ["fbde4d6e1e"] },
+  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "f0965d918d", notes: ["c5d30c56ec", "ca823a2c56", "fbde4d6e1e"] },
   state_call_after_global_init_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "f4f502d288", notes: ["fbde4d6e1e"] },
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.8, shape: "e1a11f2c26", notes: ["fbde4d6e1e"] },
-  state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.6, shape: "63f2888d2a", notes: ["553db0cb40", "58a7e6289b", "fbde4d6e1e"] },
+  state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.6, shape: "d27797a8a5", notes: ["fbde4d6e1e"] },
   state_property_get_set: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "f2e76ac3ed", notes: ["fbde4d6e1e"] },
   state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "38c5e4a033", notes: ["fbde4d6e1e"] },
   state_var_inst_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "4d98d5d2fa", notes: ["fbde4d6e1e"] },
@@ -4632,8 +4632,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sym_global_namespace_dot_skips_local: { evidence: "not-lowered" },
   sym_gvl_unknown_member: { evidence: "refused" },
   sym_inherited_member_before_global: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.2, shape: "f8ba113284", notes: ["fbde4d6e1e"] },
-  sym_inout_and_stat_same_method: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 3.2, shape: "962f2c7fd3", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
-  sym_inout_vs_field_vs_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "b761baa5c8", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
+  sym_inout_and_stat_same_method: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 3.2, shape: "962f2c7fd3", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
+  sym_inout_vs_field_vs_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "b761baa5c8", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
   sym_library_gvl_needs_qualification: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
   sym_library_gvl_qualified_by_list: { evidence: "not-lowered", diverges: { twincat: "known" } },
   sym_library_gvl_qualified_by_namespace: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
@@ -4652,8 +4652,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sym_namespace_method_parents_to_fb: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.1, shape: "1cff40fa06" },
   sym_order_independent_use_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "1cdf6e4f57", notes: ["667cafe298", "fbde4d6e1e"] },
   sym_order_independent_use_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "1cdf6e4f57", notes: ["667cafe298", "fbde4d6e1e"] },
-  sym_program_input_write_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.3, shape: "aa29c478df", notes: ["58a7e6289b", "667cafe298", "fbde4d6e1e"] },
-  sym_program_var_write_from_outside: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.3, shape: "aa29c478df", notes: ["58a7e6289b", "667cafe298", "fbde4d6e1e"] },
+  sym_program_input_write_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.3, shape: "aa29c478df", notes: ["667cafe298", "fbde4d6e1e"] },
+  sym_program_var_write_from_outside: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 4.3, shape: "aa29c478df", notes: ["667cafe298", "fbde4d6e1e"] },
   sym_qualified_only_one_of_two_gvls_in_file: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "951e1e8ed5", notes: ["fbde4d6e1e"] },
   sym_qualified_only_other_list_bare: { evidence: "refused" },
   sym_qualified_only_second_section: { evidence: "refused" },
@@ -4715,21 +4715,21 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_16_fb_copy_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.4, shape: "1a3b8288e3", notes: ["39e68c53af", "5ed54bb657", "fbde4d6e1e"] },
   tr_16_fb_copy_into_uncalled_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.5, shape: "ccf5b78e70", notes: ["0cbdff077d", "39e68c53af", "fbde4d6e1e"] },
   tr_16_fb_copy_reverse_carries_inout_binding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.4, shape: "1a3b8288e3", notes: ["39e68c53af", "5ed54bb657", "fbde4d6e1e"] },
-  tr_17_any_pvalue_byte_via_sint: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "2b29190750", notes: ["fbde4d6e1e"] },
-  tr_17_any_pvalue_dint_via_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "b8e6e3c05d", notes: ["fbde4d6e1e"] },
-  tr_17_any_pvalue_dint_write_via_byte: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "1cc33318fd" },
-  tr_17_any_pvalue_uint_via_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "8ce8cd5a29", notes: ["fbde4d6e1e"] },
+  tr_17_any_pvalue_byte_via_sint: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "16c6cf7a49", notes: ["fbde4d6e1e"] },
+  tr_17_any_pvalue_dint_via_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "acb1e38b19", notes: ["fbde4d6e1e"] },
+  tr_17_any_pvalue_dint_write_via_byte: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "a321f3bc77" },
+  tr_17_any_pvalue_uint_via_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "c341edcb3a", notes: ["fbde4d6e1e"] },
   tr_18_queryinterface_into_global: { evidence: "not-lowered" },
-  tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "f0854156c7", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
-  tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "1042b2ade1", notes: ["410eafc2ba", "667cafe298", "fbde4d6e1e"] },
+  tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "f0854156c7", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
+  tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.1, shape: "1042b2ade1", notes: ["410eafc2ba", "667cafe298", "dfc9d07c2c", "fbde4d6e1e"] },
   tr_20_output_index_moved_by_callee: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "22ff01f0be", notes: ["fbde4d6e1e"], diverges: { codesys: "known" } },
   tr_21_namespace_bare_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "8539dde058", notes: ["fbde4d6e1e"] },
   tr_21_namespace_qualified_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "bb890969ee", notes: ["fbde4d6e1e"] },
-  tr_22_fb_init_reads_adr_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.5, shape: "3934870507", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
-  tr_22_fb_init_reads_call_field: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "10fbbc31c4", notes: ["fbde4d6e1e"] },
-  tr_22_fb_init_reads_this_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "dd25d937ef", notes: ["ad25627749", "fbde4d6e1e"] },
-  tr_23_fb_init_argument_from_pending_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "90ab4614dd", notes: ["fbde4d6e1e"] },
-  tr_23_fb_init_argument_from_pending_init_reversed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "75c15fa1d9", notes: ["fbde4d6e1e"] },
+  tr_22_fb_init_reads_adr_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.5, shape: "b18e3dbcb0", notes: ["75cc82a569", "ccb56fb7d9", "fbde4d6e1e"] },
+  tr_22_fb_init_reads_call_field: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.3, shape: "da5bea2faa", notes: ["fbde4d6e1e"] },
+  tr_22_fb_init_reads_this_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "d082170ed6", notes: ["ad25627749", "fbde4d6e1e"] },
+  tr_23_fb_init_argument_from_pending_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "4d9e78f754", notes: ["fbde4d6e1e"] },
+  tr_23_fb_init_argument_from_pending_init_reversed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.4, shape: "0f21aa2f8b", notes: ["fbde4d6e1e"] },
   tr_27_loop_cap_for_1000000: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "e4d446fbab", notes: ["fbde4d6e1e"] },
   tr_27_loop_cap_for_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "not-run", edgeUnanswered: 11, size: 4.7, shape: "e4d446fbab", notes: ["fbde4d6e1e"] },
   tr_27_loop_cap_repeat_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", edgeUnanswered: 5, size: 4.2, shape: "70eb64344c", notes: ["fbde4d6e1e"] },
@@ -4769,7 +4769,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_41_limit_evaluation_order: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "d87c0df5ba", notes: ["410eafc2ba", "fbde4d6e1e"] },
   tr_41_mux_side_effects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "077a75d7fc", notes: ["410eafc2ba", "fbde4d6e1e"] },
   tr_41_sel_side_effects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "077a75d7fc", notes: ["410eafc2ba", "fbde4d6e1e"] },
-  tr_42_any_array_variant_key: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "a764b7212f", notes: ["fbde4d6e1e"] },
+  tr_42_any_array_variant_key: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.5, shape: "b79913e1c9", notes: ["fbde4d6e1e"] },
   tr_43_output_dint_to_int: { evidence: "refused" },
   tr_43_output_int_to_real: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.8, shape: "d6ff7d0b55", notes: ["fbde4d6e1e"] },
   tr_43_output_word_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 3.8, shape: "470646db60", notes: ["fbde4d6e1e"] },
@@ -4804,7 +4804,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_a10_string_to_dint_underscore_sign_edges: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 11.5, shape: "ce0c769f60", notes: ["fbde4d6e1e"] },
   tr_a10_string_to_int_based_wider_than_target: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 6.7, shape: "2859b8445f", notes: ["fbde4d6e1e"] },
   tr_a10_string_to_int_literal_forms: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 11.5, shape: "6996c1f487", notes: ["fbde4d6e1e"] },
-  tr_a11_super_method_on_overriding_leaf: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "cee2310e83", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  tr_a11_super_method_on_overriding_leaf: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "cee2310e83", notes: ["fbde4d6e1e"] },
   tr_a12_bare_method_call_unconnected_output: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "503b66f7d5", notes: ["fbde4d6e1e"] },
   tr_a14_shift_untyped_literal_variable_count: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 6.3, shape: "64333cfee4", notes: ["fbde4d6e1e"] },
   tr_a14_shift_untyped_literal_wide: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 6.7, shape: "6439c9cd96", notes: ["fbde4d6e1e"] },
@@ -4859,7 +4859,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_a31_sizeof_bound_struct_var: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 1, edge: "not-run", size: 3.3, shape: "9c5d96d223", notes: ["fbde4d6e1e"] },
   tr_a31_sizeof_fb_var_input_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "8fdba377be", notes: ["fbde4d6e1e"] },
   tr_a5_function_output_and_result_same_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "6fa8b80974", notes: ["fbde4d6e1e"] },
-  tr_a5_method_output_and_result_same_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "d813a651ff", notes: ["fbde4d6e1e"] },
+  tr_a5_method_output_and_result_same_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "d813a651ff", notes: ["dfc9d07c2c", "fbde4d6e1e"] },
   tr_b1_real_to_bit_field: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "4044d6c5ad", notes: ["fbde4d6e1e"] },
   tr_b1_real_to_bit_into_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 5.7, shape: "76294fba33", notes: ["fbde4d6e1e"] },
   tr_b4_positional_into_output: { evidence: "refused" },
@@ -4891,23 +4891,23 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   try_nested: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_no_fault: { evidence: "not-lowered", diverges: { twincat: "known" } },
   try_one_line: { evidence: "not-lowered", diverges: { twincat: "known" } },
-  ty_any_bit_parameter_accepts_bool: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "1082b6784e", notes: ["ca70e389eb", "fbde4d6e1e"] },
-  ty_any_bit_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
-  ty_any_date_parameter_accepts_tod: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "dbf9495948", notes: ["fbde4d6e1e"] },
-  ty_any_date_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
-  ty_any_elementary_parameter_rejects_struct: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "bb12dd1c9c", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
-  ty_any_int_parameter_accepts_word: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "3dfc1a5264", notes: ["fbde4d6e1e"] },
-  ty_any_int_parameter_rejects_real: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "375541973d", notes: ["fbde4d6e1e"] },
-  ty_any_magnitude_parameter_accepts_time: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "dbf9495948", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
+  ty_any_bit_parameter_accepts_bool: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "db08b9f012", notes: ["fbde4d6e1e"] },
+  ty_any_bit_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
+  ty_any_date_parameter_accepts_tod: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "110c55ba63", notes: ["fbde4d6e1e"] },
+  ty_any_date_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
+  ty_any_elementary_parameter_rejects_struct: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.5, shape: "e309c19b27", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
+  ty_any_int_parameter_accepts_word: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "09402390dc", notes: ["fbde4d6e1e"] },
+  ty_any_int_parameter_rejects_real: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "1dd315ff0c", notes: ["fbde4d6e1e"] },
+  ty_any_magnitude_parameter_accepts_time: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "110c55ba63", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   ty_any_num_as_local_variable: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
-  ty_any_num_parameter_accepts_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
-  ty_any_num_parameter_accepts_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "375541973d", notes: ["fbde4d6e1e"] },
-  ty_any_num_parameter_rejects_bool: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "1b1bcc237d", notes: ["ca70e389eb", "fbde4d6e1e"] },
-  ty_any_num_parameter_rejects_string: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "9189edfdac", notes: ["fbde4d6e1e"] },
-  ty_any_num_parameter_rejects_time: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "dbf9495948", notes: ["fbde4d6e1e"] },
-  ty_any_parameter_accepts_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "bb12dd1c9c", notes: ["fbde4d6e1e"] },
-  ty_any_real_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
-  ty_any_string_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
+  ty_any_num_parameter_accepts_int: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
+  ty_any_num_parameter_accepts_real: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "1dd315ff0c", notes: ["fbde4d6e1e"] },
+  ty_any_num_parameter_rejects_bool: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "51c957e23b", notes: ["fbde4d6e1e"] },
+  ty_any_num_parameter_rejects_string: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "fd71cdabe3", notes: ["fbde4d6e1e"] },
+  ty_any_num_parameter_rejects_time: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "110c55ba63", notes: ["fbde4d6e1e"] },
+  ty_any_parameter_accepts_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.5, shape: "e309c19b27", notes: ["fbde4d6e1e"] },
+  ty_any_real_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
+  ty_any_string_parameter_rejects_int: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
   ty_array_of_bit: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 3.3, shape: "f5282c6862" },
   ty_array_of_pointer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.9, shape: "e91aa336f9", notes: ["00c356c11c", "ccb56fb7d9", "fbde4d6e1e"] },
   ty_array_of_reference: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 3.9, shape: "e91aa336f9", notes: ["00c356c11c", "ccb56fb7d9", "fbde4d6e1e"] },
@@ -4928,8 +4928,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ty_xint_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "33ec700cd5", notes: ["fbde4d6e1e"] },
   ty_xint_to_dint_result_type: { evidence: "refused" },
   ty_xint_twincat_width: { evidence: "refused" },
-  type_any_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
-  type_any_int_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "1e22691d93", notes: ["0ccb97149d", "fbde4d6e1e"] },
+  type_any_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
+  type_any_int_function_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "6521e33387", notes: ["fbde4d6e1e"] },
   type_array_2d: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "146dd82660", notes: ["2c3b8ad3cc"] },
   type_array_of_int: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "0d131fa8e7" },
   type_codesys_uxint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "ff99a3cec1", notes: ["fbde4d6e1e"] },
@@ -5051,8 +5051,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unit_namespace_method_after_fb: { evidence: "unaskable" },
   unit_namespace_nested: { evidence: "unaskable" },
   unit_namespace_opening_only: { evidence: "unaskable", diverges: { twincat: "known" } },
-  unit_program_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 4.8, shape: "63496bf900", notes: ["553db0cb40", "fbde4d6e1e"] },
-  unit_program_trailing_semicolon: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "63496bf900", notes: ["553db0cb40", "fbde4d6e1e"] },
+  unit_program_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 4.8, shape: "06de09fb50", notes: ["fbde4d6e1e"] },
+  unit_program_trailing_semicolon: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 4.5, shape: "06de09fb50", notes: ["fbde4d6e1e"] },
   unit_property_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "734b16f3f3", notes: ["fbde4d6e1e"] },
   unit_property_abstract_final: { evidence: "refused" },
   unit_property_accessor_modifier: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
@@ -5132,7 +5132,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   use_gvl_field_access: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 4.2, shape: "5be8509272", notes: ["fbde4d6e1e"] },
   use_method_array_param: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "a84e65401b", notes: ["fbde4d6e1e"] },
   use_pointer_deref_struct_field: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "019b452cac", notes: ["fbde4d6e1e"] },
-  use_self_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "c5b365b930", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  use_self_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "c5b365b930", notes: ["fbde4d6e1e"] },
   use_struct_inner: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.8, shape: "92015d9ebc", notes: ["fbde4d6e1e"] },
   use_struct_member_access: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.5, shape: "35f8daf1c3", notes: ["fbde4d6e1e"] },
   use_struct_nested_member: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.4, shape: "c981f6f2e5", notes: ["fbde4d6e1e"] },
@@ -5152,7 +5152,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_retain: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "76a96a0e4a", notes: ["fbde4d6e1e"] },
   var_stat_in_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.5, shape: "11e2dad6f5", notes: ["fbde4d6e1e"] },
   var_temp_dynamic_aggregate_init: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.7, shape: "c939669fd9", notes: ["705d69973b", "fbde4d6e1e"] },
-  var_temp_dynamic_init: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "ace3b67857", notes: ["c5623a289f", "fbde4d6e1e"] },
+  var_temp_dynamic_init: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "31ff87710f", notes: ["fbde4d6e1e"] },
   var_temp_dynamic_init_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "c75f5c6e1e", notes: ["fbde4d6e1e"] },
   var_temp_dynamic_init_method: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "c55155ff69", notes: ["fbde4d6e1e"] },
   vsp_retain_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "f8a93ac063", notes: ["fbde4d6e1e"] },
@@ -5160,7 +5160,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   vsp_retain_output_in_fb: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
   vsp_var_config_in_function: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 2.1, shape: "04cc008510", notes: ["fbde4d6e1e"] },
   vsp_var_global_in_fb: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", notes: ["fbde4d6e1e"] },
-  vsp_var_global_in_program: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.3, shape: "b93a4bb4fe", notes: ["553db0cb40", "fbde4d6e1e"] },
+  vsp_var_global_in_program: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 4.3, shape: "ce080ef8e0", notes: ["fbde4d6e1e"] },
   warning_disable_restore: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
   warning_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "fc896ff999", notes: ["fbde4d6e1e"] },
   wstring_assign_tail_narrow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "d9c25997dc", notes: ["fbde4d6e1e"] },
@@ -5259,12 +5259,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_tod_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "03472aef76", notes: ["667cafe298", "fbde4d6e1e"] },
   xf_tod_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "26fac50ceb", notes: ["667cafe298"] },
   xo_enum_case_across_objects: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "9a65938288", notes: ["fbde4d6e1e"] },
-  xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "ca45da7409", notes: ["c9c77500c6", "fb7e9e6ff4", "fbde4d6e1e"] },
+  xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "ca45da7409", notes: ["c9c77500c6", "fbde4d6e1e"] },
   xo_gvl_shared_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
-  xo_inherited_action_from_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "f5aa94953c", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  xo_inherited_action_from_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "f5aa94953c", notes: ["fbde4d6e1e"] },
   xo_interface_array_dispatch: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "9dc69c14f4", notes: ["572db4e711", "a65506e4d8", "fbde4d6e1e"] },
   xo_mode_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.7, shape: "3cc2212c2a", notes: ["fbde4d6e1e"] },
-  xo_open_array_through_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "89ac7c4b1a", notes: ["cc5f10430b", "fbde4d6e1e"] },
+  xo_open_array_through_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.1, shape: "7b5e968998", notes: ["539fa9c4b6", "fbde4d6e1e"] },
   xo_reference_field_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.3, shape: "3f45f3e13b", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo_reference_index_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.3, shape: "d46ac6bd28", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo_reference_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "a2810d6cfe", notes: ["ad25627749", "fbde4d6e1e"] },
@@ -5275,7 +5275,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "3d5f3fb2a3", notes: ["fbde4d6e1e"] },
   xo_union_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "13c20ae098", notes: ["3f8601dd97", "a281b5efbd", "fbde4d6e1e"] },
   xo_var_stat_two_holders: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.6, shape: "ba0e15cc64", notes: ["fbde4d6e1e"] },
-  xo2_actions_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "19de80d88a", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  xo2_actions_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "19de80d88a", notes: ["fbde4d6e1e"] },
   xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.6, shape: "da72dca460", notes: ["c9c77500c6", "fbde4d6e1e"] },
   xo2_case_ranges_over_enum: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "2954c861df", notes: ["fbde4d6e1e"] },
   xo2_fb_instance_as_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "09e6b2aa28", notes: ["52d85b7cdc", "f0065dbd0b", "fbde4d6e1e"] },
@@ -5289,7 +5289,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo2_pointer_walk_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "ed49e3a22c", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo2_property_override_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "14dafed33c", notes: ["fbde4d6e1e"] },
   xo2_time_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "45cc510356", notes: ["fbde4d6e1e"] },
-  xo3_action_method_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "4b58f2a836", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  xo3_action_method_action: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "4b58f2a836", notes: ["fbde4d6e1e"] },
   xo3_alias_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "1d7d029250", notes: ["410eafc2ba", "fbde4d6e1e"] },
   xo3_alias_type: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.1, shape: "81d285d3f5", notes: ["fbde4d6e1e"] },
   xo3_bit_through_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "a70b491942", notes: ["0a1967fcea", "fbde4d6e1e"] },
@@ -5298,21 +5298,21 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_interface_input_passed_on: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "6473511a45", notes: ["4b5007906a", "ca81b2092d", "fbde4d6e1e"] },
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3.7, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
   xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "0d44b7cbe0", notes: ["fbde4d6e1e"] },
-  xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "aad1d7a96e", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "aad1d7a96e", notes: ["fbde4d6e1e"] },
   xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "ecc6513445", notes: ["07f99bf907", "0d14fd327c", "8986d5305c", "a1c2206655", "e5f32531ef", "fbde4d6e1e"] },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "ff78f1d4ff", notes: ["ac452bc801", "ccb56fb7d9", "fbde4d6e1e"] },
   xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "af0f6c0f05", notes: ["fbde4d6e1e"] },
   xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "81c72ce69d", notes: ["07f99bf907", "0d14fd327c", "e5f32531ef", "e8162bb9aa"] },
   xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 3.3, shape: "d5b403a791", notes: ["07f99bf907", "0d14fd327c", "8b4fc46c1e", "b0547ad22e", "e5f32531ef", "fbde4d6e1e"] },
   xo4_case_over_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "7b3d5d1749", notes: ["fbde4d6e1e"] },
-  xo4_fb_init_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "f48784f195", notes: ["fbde4d6e1e"] },
+  xo4_fb_init_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "fa7cd0a3e8", notes: ["fbde4d6e1e"] },
   xo4_gvl_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "2d79b22a30", notes: ["fbde4d6e1e"] },
   xo4_inout_constant_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "fa192126a4", notes: ["07f99bf907", "0d14fd327c", "6baa8553b3", "e5f32531ef", "fbde4d6e1e"] },
   xo4_member_chain_four_deep: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 3, shape: "3e8efb2eba", notes: ["c9c77500c6", "fbde4d6e1e"] },
   xo4_method_inst_and_stat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "7c0ec7e71e", notes: ["fbde4d6e1e"] },
   xo4_query_between_interfaces: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "94c646e544", notes: ["96bf43c1e7", "ad25627749", "fbde4d6e1e"] },
   xo4_real_precision_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 1.9, shape: "09a782a281", notes: ["fbde4d6e1e"] },
-  xo4_return_in_every_routine: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "60051e376a", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
+  xo4_return_in_every_routine: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "60051e376a", notes: ["fbde4d6e1e"] },
   xo4_slot_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.8, shape: "f0af15eb4c", notes: ["fbde4d6e1e"] },
   xo4_string_constant_too_long: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "d30e3cac6c" },
   xo4_two_writers_one_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "394cb731d1", notes: ["c9c77500c6", "fbde4d6e1e"] },
@@ -5688,17 +5688,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
     tasks: ["keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)"],
   },
-  // self.f = self.__numbers_lower_N;
-  "09b1152bef": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
-  },
   // { let x = true; let x = &mut self.f.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "0a1967fcea": {
     improvement: "A bit store always emits the general block. Correctness holds: I probed INT.15, SINT.7 and LINT.63 set to TRUE, which gave -32768, -128 and i64::MIN in both backends. For a constant value the store is `self.w |= 1u16 << 3;` or `self.w &= !(1u16 << 3);`. The `&mut` alias is needed only when the place's index holds a call. For a variable value, a branch-free `self.w = (self.w & !m) | (u16::from(v) << 3)` also works.",
@@ -5721,30 +5710,15 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells"],
   },
-  // pub __numbers_lower_N: i32,
-  "0ac4ab4a64": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
-  },
   // self.m(&mut (*x));
   "0b51d542e8": {
     improvement: "Re-lending a VAR_IN_OUT that is already `&mut T` prints an explicit reborrow `&mut (*x)`. Passing `x` reborrows implicitly. When the bound place is a bare inout or lent root with an empty path, print the name.",
     tasks: ["7.8.6"],
   },
-  // pub fn m(x: i32, x: &mut f64) -> i32 {
-  "0bafd3f951": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
-  },
   // (match self.f.f { L => self.f.m(&mut self.f), _ => panic!(S) });
   "0cbdff077d": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
     tasks: ["7.8.7"],
-  },
-  // pub fn m(x: i32, x: &mut i16) -> i32 {
-  "0ccb97149d": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
   },
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
   "0d14fd327c": {
@@ -5778,17 +5752,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
   },
-  // m(__numbers_lower_N, __numbers_upper_N, &mut (*x)).wrapping_add(Li32)
-  "19a4bfd8e3": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
-  },
   // m(m(x, …, p), x, i32::m(p).wrapping_sub(Li32).max(Li32) as i16)
   "1c82d4c275": {
     improvement: "LEN copies the argument into a STRING(255) by value, then counts it one char_at at a time. IecStr already stores `len`. Emitted by hand, LEN is `s.units().len() as i16` (the truncation to 255 is `.min(255)`). Library bodies are ST by design (only s[i] and TIME() are primitives), so this is a trade-off rather than a defect.",
@@ -5799,11 +5762,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "a prelude intrinsic for LEN_INTERNAL only (`units().len()`), which every other string function calls, so one primitive speeds them all",
     tasks: ["7.4.6"],
-  },
-  // let x: i32 = __numbers_lower_N;
-  "1d182f5f8a": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
   },
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> u8 {
   "1dec9ffb7e": {
@@ -5819,50 +5777,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
-  // self.f.__numbers_upper_N = Li32;
-  "22f3bd9b6d": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
-  },
-  // { let mut x = std::mem::take(&mut prg.f); x.f.call(); prg.f = x; }
-  "23968d21ed": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
-  },
-  // pub fn m(x: &mut T, x: i32, x: i16, x: usize) -> bool {
-  "25f71706ae": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
-  },
   // self.f = match self.f { L => (*__lent_N).m(), _ => panic!(S) };
   "26bfea40dc": {
     improvement: "The dispatch is always wrapped in parentheses, even as a statement (`(match … { … });`). A lent instance used as a method receiver is printed `(*__lent_0).area()`, where method auto-deref makes `__lent_0.area()` correct: the `through` test covers a field or index step but not a method call.",
     tasks: ["7.8.7"],
-  },
-  // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.m_get(); prg.f = x; x };
-  "2746f887a4": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
   },
   // x: std::array::from_fn(|_| [L; L]),
   "2c3b8ad3cc": {
@@ -5907,33 +5825,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
   },
-  // self.f = self.__numbers_lower_N.wrapping_mul(Li32).wrapping_add(self.__numbers_upper_N);
-  "33fc10bac3": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
-  },
-  // __numbers_lower_N: L,
-  "38908b42b7": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
-  },
-  // self.f = self.__numbers_upper_N.wrapping_sub(self.__numbers_lower_N).wrapping_add(Li32);
-  "38cce5cb54": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
-  },
   // self.f = self.f.clone();
   "39e68c53af": {
     improvement: "DUT structs derive only Clone, so a struct store needs `.clone()` and a struct array needs from_fn. A struct whose fields are all Copy (elementary, IecStr, usize pointers, arrays of those) could `#[derive(Clone, Copy)]`. The store then becomes a plain assignment and the array becomes `[T::new(); N]` (with a const fn new) or keeps from_fn.",
@@ -5974,12 +5865,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // *x
   "410eafc2ba": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
-    tasks: ["7.7.7"],
-  },
-  // self.f.__numbers_lower_N = self.__numbers_lower_N;
-  "43449862b7": {
-    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
-    tasks: ["7.7.8"],
+    tasks: ["keep:shapes12_9's guard half - a pointer only ever stored one non-zero tag still needs a proof that a store runs before every read across scans (a persistent field starts at 0); not 7.7.7's dead parameter, which went"],
   },
   // self.p = L;
   "45292dbd9c": {
@@ -5995,17 +5881,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
     tasks: ["7.4.6"],
-  },
-  // pub fn m(__values_lower_N: i32, __values_upper_N: i32, x: &mut [u8]) -> i64 {
-  "48213894dc": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
   },
   // (*x).m().wrapping_add(x.f)
   "4b2bb56a21": {
@@ -6027,38 +5902,15 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "An inout FB or struct passed on, or called, is printed as `(*target).call()`, `(*target).dim()` and `m(4i32, &mut (*book))`. Method calls auto-deref, and a `&mut T` binding reborrows implicitly when passed. Print `target.call()` and `f_x3_mark(4, book)`, the same exemption the emitter already makes for `.x` and `[i]`.",
     tasks: ["7.8.6"],
   },
-  // { let mut x = std::mem::take(&mut prg.f); x.call(); prg.f = x; }
-  "553db0cb40": {
-    improvement: "Every call of a PROGRAM becomes `{ let mut program = std::mem::take(&mut prg.p); program.call(prg); prg.p = program; }`, even when the program's body never touches `prg`. That costs a full `P::new()` (all arrays and strings initialised) per call, plus a `#[allow(unused_variables)]` for the unused `prg`. Seen in c3/prgin.st, init_slot_program_own and sn_program_mismatch. Pass `prg` only to programs that reach Programs, and call them as `prg.p.call()` with no take. The two sites also disagree on the temporary's name (`__program` vs `program`). The method form at 599 leaves a trailing `};` in statement position (init_slot_program_own.rs:67), which is clippy unnecessary_semicolon.",
-    alternatives: [
-      "TODAY: mem::take on every program call (requires Default)",
-      "A direct `prg.p.call()` when the callee's closure does not reach Programs, with take kept for the rest",
-      "Split borrows: pass only the other programs' fields. This is a larger change.",
-      "I would choose the second option. It is a static fact lowering already computes (it refuses self-reentry).",
-    ],
-    chosen: "I would choose the second option. It is a static fact lowering already computes (it refuses self-reentry).",
-    tasks: ["7.7.6"],
+  // m(__values_lower_N, &mut (*x)).wrapping_add(__values_lower_N.wrapping_add(x.len() as i32).wrapping_sub(Li32))
+  "539fa9c4b6": {
+    improvement: "Passing a whole VAR_IN_OUT on to another routine prints `&mut (*values)`. Passing `values` reborrows implicitly. At minimum `&mut *values` drops the parentheses. This appears in 19 fixtures.",
+    tasks: ["7.8.6"],
   },
   // pub ops: [u64; L],
   "572db4e711": {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
     tasks: ["7.8.2"],
-  },
-  // self.f.call(prg);
-  "58a7e6289b": {
-    improvement: "Every call on a PROGRAM-owned instance moves the whole program out with std::mem::take, which builds a fresh PROGRAM::new() (every initialiser, every string lit) as a stand-in. It then moves it back, even when the callee never touches `prg` (FB_CS_relay20.map has `#[allow(unused_variables)]` on `prg`). Pass `prg` only to routines that transitively reach a program. Then `prg.prg_cs_station20.relay.map()` is a plain field call with no take. Re-entrancy is already refused by lowering (call-program-reentrant, verified with a probe), so the take only exists to satisfy the borrow checker.",
-    tasks: ["7.7.6"],
-  },
-  // while x <= __grid_upper_N {
-  "596535f8e7": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
   },
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
   "59c341cb0f": {
@@ -6069,17 +5921,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "5ed54bb657": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
     tasks: ["7.8.7"],
-  },
-  // pub fn m(__numbers_lower_N: i32, __numbers_upper_N: i32, x: &mut [i16]) -> i32 {
-  "5f27c2b84f": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
   },
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;
   "62891f3570": {
@@ -6134,6 +5975,18 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
     tasks: ["7.8.8"],
   },
+  // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, &mut __copy_N); self.f = __copy_N; };
+  "78bb74e841": {
+    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
+    alternatives: [
+      "(a) today, for own fields: clone, call, write back.",
+      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
+      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
+      "Choose (b). It matches the program-instance form already emitted.",
+    ],
+    chosen: "(b). It matches the program-instance form already emitted.",
+    tasks: ["7.8.10"],
+  },
   // self.f = m(f64::m(self.f)).ln() as f32;
   "7eff84bf36": {
     improvement: "REAL math goes through f64 and back: `(self.arg as f64).exp() as f32`.",
@@ -6148,17 +6001,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8064ae1570": {
     improvement: "Passing an in-out on to another call prints `&mut (*numbers)`. When the place is the bare inout root, print the binding itself (`numbers`); Rust reborrows it implicitly.",
     tasks: ["7.8.6"],
-  },
-  // pub fn call(&mut self, x: &mut [i16]) {
-  "81ed699293": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
   },
   // self.f = match self.f { L => (*__lent_N).m(), L => (*__lent_N).m(), _ => panic!(S) };
   "82e802ebc9": {
@@ -6179,17 +6021,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8643f1db30": {
     improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit/rust/types.ts), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
     tasks: ["7.8.2"],
-  },
-  // pub fn m(__numbers_lower_N: i32, __numbers_upper_N: i32, x: &mut [i16]) -> i16 {
-  "8711c58598": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu8 << L) } else { *x & !(Lu8 << L) }; }
   "87cd3925f5": {
@@ -6221,18 +6052,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
     tasks: ["7.4.6"],
-  },
-  // { let __arg_N = prg.f.f; { let mut x = std::mem::take(&mut prg.f); let x = x.f.fb_init(true, false, __arg_N); prg.f = x; x } };
-  "8cbe6244a7": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
   },
   // x: std::array::from_fn(|_| std::array::from_fn(|_| [L; L])),
   "8feb3d596e": {
@@ -6273,16 +6092,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "984b4e6862": {
     improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
     tasks: ["7.8.6"],
-  },
-  // { let mut x = std::mem::take(&mut prg.f); x.m(); prg.f = x; };
-  "98d68d7530": {
-    improvement: "`{ let mut __program = std::mem::take(&mut prg.x); __program.boot(prg); prg.x = __program; };` builds a whole default program (arrays, strings included) and moves it twice on every call, even when the callee never reads `prg` (its fn carries #[allow(unused_variables)] for exactly that). When the callee's body does not reach Programs, call `prg.x.call()` directly and drop the prg parameter. The statement form also carries a stray `;` after the block.",
-    tasks: ["7.7.6"],
-  },
-  // while self.f <= self.__numbers_upper_N {
-  "9928be1401": {
-    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
-    tasks: ["7.7.8"],
   },
   // if m(x, …, true, &mut (*x), &mut (*x)) {
   "9a63db2a45": {
@@ -6346,11 +6155,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A DUT struct always derives only Clone, so assigning it prints `.clone()` even when every field is Copy (i16, bool, IecString<4>). Derive Copy for structs whose fields are all Copy and let isCopy say so; the `.clone()` then goes away.",
     tasks: ["7.8.1"],
   },
-  // pub fn m(x: usize, x: &mut i16) -> i16 {
-  "acad4033d7": {
-    improvement: "A lent `POINTER TO` input keeps its now-dead value parameter: `f_lang_ptrtwo(0, &mut self.first)` with `mut p: usize` never read, because lowering refuses any other use of p. The value parameter can be dropped when the pointer is lent.",
-    tasks: ["7.7.7"],
-  },
   // self.f = L;
   "ad25627749": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it.",
@@ -6371,93 +6175,20 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
-  // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.f.map(); prg.f = x; x };
-  "b16c700f3d": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
-  },
-  // x = __grid_lower_N;
-  "b3a0495ed2": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
-  },
   // self.f = T::new();
   "b3e78a179a": {
     improvement: "VAR_TEMP arrays and structs are fields reset at the top of every call (`self.a = [0i16; 3];`, `self.scratch = T::new();`). As a Rust local (`let mut a = [0i16; 3];`) they would carry no reset and no persistent state.",
     tasks: ["7.6.4"],
-  },
-  // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
-  "b6565109d7": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
   },
   // self.f = m(x, &mut (*__lent_N));
   "b75c863ba4": {
     improvement: "Passing a lent instance or an in-out on to another call prints `&mut (*__lent_0)`, and a method call on an in-out string prints `len((*text).to::<255>())`. `__lent_0` is already a `&mut T`, so passing `__lent_0` reborrows implicitly (or `&mut *__lent_0` without the parentheses). Method calls auto-deref, so `text.to::<255>()` works. Fix: in the `&mut` argument path at :435, if the place is a bare borrowed root (inout/lent, empty path), emit the name alone. Also treat a following method call like a field step in deref().",
     tasks: ["7.8.6"],
   },
-  // pub __numbers_upper_N: i32,
-  "b894525f6e": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
-  },
-  // i64::m(__values_upper_N.wrapping_mul(Li32))
-  "bdfafd1c92": {
-    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
-    tasks: ["7.7.8"],
-  },
-  // { let mut x = std::mem::take(&mut prg.f); x.call(g); prg.f = x; }
-  "c5623a289f": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
-  },
   // x.f = x.f;
   "c5d30c56ec": {
     improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
     tasks: ["7.8.4"],
-  },
-  // match x {
-  "c6322760e4": {
-    improvement: "A UNION whose members are all pointers is a struct of usize fields, and `u.p1_Byte := x` is followed by `u.p1_sint = u.p1_byte; u.p2_int = ..; ..` for every member. All the members share the same address, so one field would do. Relatedly, in an ANY_INT monomorph the CASE on the compile-time diSize (passed as a constant `1i32`) still emits all four arms, three of them dead reinterpretations of the caller's type.",
-    tasks: ["7.8.4"],
-  },
-  // self.f = { let mut x = std::mem::take(&mut prg.f); let x = x.m(Li16); prg.f = x; x };
-  "c673d64c42": {
-    improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
-    alternatives: [
-      "(a) today, for own fields: clone, call, write back.",
-      "(b) `let mut t = std::mem::take(&mut self.points); self.shift(.., &mut t); self.points = t;`, which moves and does not copy.",
-      "(c) split the borrow by making the method a free fn over the fields it touches. This is a bigger change.",
-      "Choose (b). It matches the program-instance form already emitted.",
-    ],
-    chosen: "(b). It matches the program-instance form already emitted.",
-    tasks: ["7.8.10"],
-  },
-  // pub fn m(&mut self, x: usize) -> i16 {
-  "c7ca2861fc": {
-    improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
-    tasks: ["7.7.11"],
   },
   // self.f = [Li16; L];
   "c8927952f2": {
@@ -6468,11 +6199,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c9c77500c6": {
     improvement: "`array.element.kind === \"elementary\"` decides between a repeat expression and from_fn, so a 2-D array of i16 goes through a closure. [i16; N] is Copy, so `[[0i16; 3]; 2]` is legal. Use the emitter's existing isCopy(type) in that condition. Also: DUT structs derive only Clone, so a struct store needs `.clone()` and a struct array needs from_fn. A struct whose fields are all Copy (elementary, IecStr, usize pointers, arrays of those) could `#[derive(Clone, Copy)]`. The store then becomes a plain assignment and the array becomes `[T::new(); N]` (with a const fn new) or keeps from_fn.",
     tasks: ["7.8.2", "7.8.2"],
-  },
-  // pub fn m(x: i32, x: &mut bool) -> i32 {
-  "ca70e389eb": {
-    improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
-    tasks: ["7.7.9"],
   },
   // self.f.call(&mut (*__lent_N));
   "ca81b2092d": {
@@ -6487,12 +6213,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // { m(x); x }
   "cc1c266f50": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
-    tasks: ["7.7.7"],
-  },
-  // m(__values_lower_N, __values_upper_N, &mut (*x)).wrapping_add(__values_upper_N)
-  "cc5f10430b": {
-    improvement: "Passing a whole VAR_IN_OUT on to another routine prints `&mut (*values)`. Passing `values` reborrows implicitly. At minimum `&mut *values` drops the parentheses. This appears in 19 fixtures.",
-    tasks: ["7.8.6"],
+    tasks: ["keep:shapes12_9's guard half - a pointer only ever stored one non-zero tag still needs a proof that a store runs before every read across scans (a persistent field starts at 0); not 7.7.7's dead parameter, which went"],
   },
   // x: { let mut v = T::new(); v.f = L; v },
   "ccb56fb7d9": {
@@ -6507,11 +6228,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) `T { f: x, ..T::new() }`. Idiomatic; needs the field list to be the struct's own direct fields, which is exactly what `sets` holds",
     tasks: ["7.8.3", "7.8.3"],
-  },
-  // let x: i32 = __numbers_upper_N;
-  "ce4727dd2f": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
   },
   // self.f = f64::m(self.f).sin() as f32;
   "d47543941e": {
@@ -6551,15 +6267,15 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.4.6"],
   },
-  // self.f.__numbers_upper_N = self.__numbers_upper_N;
-  "debabdec0d": {
-    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
-    tasks: ["7.7.8"],
-  },
   // (match self.f { L => self.f.m_set(Li16), _ => panic!(S) });
   "decdb7e4d6": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
     tasks: ["7.8.7"],
+  },
+  // pub fn m(&mut self, x: &mut i16) -> i16 {
+  "dfc9d07c2c": {
+    improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
+    tasks: ["7.7.11"],
   },
   // self.f = m(f64::m(self.f)) as u32;
   "e0361c9257": {
@@ -6582,42 +6298,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     why: "identical values for every input",
     tasks: ["keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)"],
   },
-  // pub fn m(&mut self, x: usize, x: &mut i16) -> i16 {
-  "e1e42433cd": {
-    improvement: "ptrparam_method emits the generic `read(&mut self, mut p: usize, __ptr_p: &mut i16)` beside its per-target specialisations `read_ptr_p_0` and `read_ptr_p_1`, and nothing calls the generic one. The specialisations still take the unused `mut p: usize` and are called with a literal `0`. Drop the dead generic and the unused parameter.",
-    tasks: ["7.7.11"],
-  },
-  // __numbers_upper_N: L,
-  "e1ed54aa44": {
-    improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-    tasks: ["7.7.8"],
-  },
-  // __grid_lower_N.wrapping_mul(Li32).wrapping_add(__grid_upper_N) as i16
-  "e26f8cd569": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
-  },
-  // __numbers_lower_N.wrapping_mul(Li32).wrapping_add(__numbers_upper_N)
-  "e42708f993": {
-    improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
-    alternatives: [
-      "Today: pass both bounds as i32, with `mut` on each.",
-      "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-      "Keep both, but drop `mut` when the IR never assigns the slot.",
-    ],
-    chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-    tasks: ["7.7.8"],
-  },
   // x = L;
   "e496034f7b": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
-    tasks: ["7.7.7"],
+    tasks: ["keep:shapes12_9's guard half - a pointer only ever stored one non-zero tag still needs a proof that a store runs before every read across scans (a persistent field starts at 0); not 7.7.7's dead parameter, which went"],
   },
   // while (*str).char_at(i64::m(x)) != Lu8 {
   "e5f32531ef": {
@@ -6653,39 +6337,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // m(L, &mut self.f);
   "ef4db7eb51": {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
-    tasks: ["7.7.7"],
+    tasks: ["keep:shapes12_9's guard half - a pointer only ever stored one non-zero tag still needs a proof that a store runs before every read across scans (a persistent field starts at 0); not 7.7.7's dead parameter, which went"],
   },
   // (*x).call();
   "f0065dbd0b": {
     improvement: "An inout FB or struct passed on, or called, is printed as `(*target).call()`, `(*target).dim()` and `m(4i32, &mut (*book))`. Method calls auto-deref, and a `&mut T` binding reborrows implicitly when passed. Print `target.call()` and `f_x3_mark(4, book)`, the same exemption the emitter already makes for `.x` and `[i]`.",
     tasks: ["7.8.6"],
   },
-  // self.f.__numbers_lower_N = Li32;
-  "f06209ef9e": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
-  },
   // pub x: [u64; L],
   "f4a4eb1ade": {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
     tasks: ["7.8.2"],
-  },
-  // self.f = m(-Li32, …, &mut self.f);
-  "f7faf582da": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
   },
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Li16 << L) } else { *x & !(Li16 << L) }; }
   "f85632e185": {
@@ -6699,11 +6361,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
   },
-  // self.m();
-  "fb7e9e6ff4": {
-    improvement: "The call itself is correct and lean. I probed INT wrap at 32767 -> -32768 and -1 -> 0 through outer->inner, and both match CODESYS's wrap. The in-frame specialization in lower/calls/specialize.ts is also correct for the aliasing cases (a:=n, b:=n gives 6 in CODESYS). The waste is in the lines around the call: every generated routine gets `#[allow(unused_mut, unused_variables, unused_assignments)]`, including `outer`, `inner` and `two_a_0_b_0`, which have no parameters and no locals, so none of the three lints can fire. Emit the attribute only when the routine declares at least one local or in-out/lent parameter, and only name the lints that can apply (for example `unused_mut`/`unused_assignments` only when there are locals). The comment says the lints are 'verified load-bearing', but that holds only for routines that have bindings.",
-    tasks: ["keep:the call itself is correct and lean (its allow-attribute waste is 7.7.2's); removed by 7.7.10"],
-  },
   // x: L,
   "fbde4d6e1e": {
     improvement: "`p : POINTER TO INT := ADR(x)` becomes `p: 0` in new() plus `self.p = 1;` in a separate init()/__init(). The handle is a compile-time constant, and init-reads-later already refuses any initializer that could see it at 0, so the tag can be the starting value (`p: 1`). That drops init()/__init for most POUs, along with the requirement that callers remember to call it. Also: Every struct gets `pub fn new()` plus a hand-written `impl Default { fn default() -> Self { Self::new() } }` (5 lines each). Clippy's `new_without_default` is the only reason for the impl. Where every initializer is its type's zero and no array exceeds 32 elements, `#[derive(Default)]` alone would do. Otherwise, keeping `new` and dropping Default (with an allow) is shorter.",
@@ -6714,16 +6371,5 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "only new() plus #[allow(clippy::new_without_default)]: one line instead of five. I would choose this; the uniform shape is kept",
     tasks: ["7.8.8", "7.8.11"],
-  },
-  // self.f = m(Li32, …, &mut self.f);
-  "fedbbc431c": {
-    improvement: "An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims)",
-    why: "one source of truth, so the bound and the slice cannot disagree",
-    tasks: ["7.7.8"],
   },
 }

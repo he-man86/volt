@@ -3,7 +3,7 @@
  * where each is declared — so a generated fn needs no blanket `#[allow(unused_mut, unused_variables,
  * unused_assignments)]`: what rustc would say of a binding is decided here, from the IR, before it is printed.
  */
-import type { IrCall, IrInvoke, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import type { IrBinding, IrCall, IrInvoke, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { isPlace, type IrNode, someNode, somePlace, writtenPlaces } from "../../ir/walk.js"
 import { stringKind } from "../../../frontend/types/index.js"
 import type { Printer } from "./printer.js"
@@ -39,6 +39,43 @@ export function unreadOf(routine: IrRoutine): Set<number> {
   const out = new Set<number>()
   routine.locals.forEach((_, i) => i !== routine.result && !read.has(`local:${i}`) && out.add(i))
   routine.inouts.forEach((_, i) => !read.has(`inout:${i}`) && out.add(routine.locals.length + i))
+  return out
+}
+
+/** The parameters of a routine no run can see (`deadParamsOf`): positions in `IrRoutine.inputs` and `IrRoutine.inouts`. */
+export interface DeadParams {
+  readonly inputs: ReadonlySet<number>
+  readonly inouts: ReadonlySet<number>
+}
+
+/**
+ * THE PARAMETERS NO RUN CAN SEE (lean 7.7.7, 7.7.9) — by routine key: each input the body never uses (`unreadOf`) that
+ * every call hands a constant, which reads nothing, so leaving it out changes no order either; and each in-out the body
+ * never names that every call binds to a place no binding can fault on (no dereference, no image byte, no index but a
+ * constant). A borrowed `POINTER TO` input (form 2) is the first: every `p^` became the hidden in-out, and each call
+ * handed the pointer `0`; an ANY input whose size folded into its variant, and whose `pValue` the body never reads, is
+ * both. Neither the routine's parameter nor any call's argument is printed (`printRoutine`, `exprInvoke`).
+ */
+export function deadParamsOf(pou: IrPou): ReadonlyMap<string, DeadParams> {
+  const live = new Map<string, { inputs: Set<number>; inouts: Set<number> }>()
+  const inert = (b: IrBinding): boolean =>
+    !("kind" in b) && b.guard === undefined && b.root !== "image" && b.path.every((s) => s.kind !== "index" || s.index.kind === "const")
+  someNode([...pou.body, ...(pou.init ?? []), ...pou.routines.flatMap((r) => r.body), ...pou.layouts.flatMap((l) => l.body ?? [])], (n) => {
+    if (!isPlace(n) && n.kind === "invoke") {
+      const at = live.get(n.routine) ?? { inputs: new Set<number>(), inouts: new Set<number>() }
+      n.inputs.forEach((a, k) => a.kind !== "const" && at.inputs.add(k))
+      n.inouts.forEach((b, i) => !inert(b) && at.inouts.add(i))
+      live.set(n.routine, at)
+    }
+    return false
+  })
+  const out = new Map<string, DeadParams>()
+  for (const r of pou.routines) {
+    const unread = unreadOf(r)
+    const inputs = new Set(r.inputs.flatMap((i, k) => (unread.has(i) && live.get(r.key)?.inputs.has(k) !== true ? [k] : [])))
+    const inouts = new Set(r.inouts.flatMap((_, i) => (unread.has(r.locals.length + i) && live.get(r.key)?.inouts.has(i) !== true ? [i] : [])))
+    if (inputs.size > 0 || inouts.size > 0) out.set(r.key, { inputs, inouts })
+  }
   return out
 }
 

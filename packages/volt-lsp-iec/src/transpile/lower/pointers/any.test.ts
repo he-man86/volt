@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "../index.js"
 import { run } from "../../interp/index.js"
+import { emitRust } from "../../emit/rust/index.js"
 
 /**
  * AN ANY ARGUMENT IS LENT LIKE ANY OTHER VAR_IN_OUT, so it passes the same guards.
@@ -207,4 +208,24 @@ describe("an ANY input given a REFERENCE TO", () => {
     const hidden = pou!.routines.flatMap((r) => r.inouts).filter((s) => s.name.startsWith("__any_"))
     expect(hidden.map((s) => s.type.kind === "elementary" && s.type.name)).toEqual(["INT"])
   })
+})
+
+// 7.7.9: a variant lowered for a VARIABLE argument knows its ANY input's size — the same on every call — so `diSize` is
+// a constant there, `CASE x.diSize OF` is the one arm it picks (no match on a constant), and the size parameter nobody
+// reads is gone from the variant and from each call; so is the hidden in-out of an argument whose `pValue` it never reads
+test("a variant's diSize is a constant, its CASE the one arm, and neither the size nor an unread argument is passed", () => {
+  const src =
+    "FUNCTION F_size : DINT\nVAR_INPUT v : ANY; END_VAR\nF_size := v.diSize;\nEND_FUNCTION\n" +
+    "FUNCTION F_pick : INT\nVAR_INPUT v : ANY_INT; END_VAR\nCASE v.diSize OF\n1: F_pick := 10;\n2: F_pick := 20;\nELSE\nF_pick := 99;\nEND_CASE\nEND_FUNCTION\n" +
+    "PROGRAM P\nVAR i : INT; lr : LREAL; d : DINT; a : DINT; b : DINT; c : INT; e : INT; END_VAR\na := F_size(i);\nb := F_size(lr);\nc := F_pick(i);\ne := F_pick(d);\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect(["a", "b", "c", "e"].map((v) => runner.get(v))).toEqual([2n, 8n, 20n, 99n])
+  for (const r of pou!.routines) expect([r.key, r.body.some((s) => s.kind === "switch")]).toEqual([r.key, false])
+  const code = emitRust(pou!).code
+  expect(code).toContain("pub fn f_size_v_int() -> i32 {\n    2i32\n}")
+  expect(code).toContain("self.a = f_size_v_int();")
+  expect(code).not.toContain("match")
 })

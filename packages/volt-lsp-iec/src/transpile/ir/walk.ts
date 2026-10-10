@@ -30,6 +30,8 @@ export function childrenOf(node: IrNode): IrNode[] {
     case "load":
     case "address":
       return [node.place]
+    case "count":
+      return [node.array]
     case "binary":
       return [node.left, node.right]
     case "unary":
@@ -77,7 +79,7 @@ export function childrenOf(node: IrNode): IrNode[] {
   }
 }
 
-const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address"])
+const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address", "count"])
 const STMT_KINDS: ReadonlySet<string> = new Set(["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"])
 const isExpr = (n: IrNode): n is IrExpr => !isPlace(n) && EXPR_KINDS.has(n.kind)
 const isStmt = (n: IrNode): n is IrStmt => !isPlace(n) && STMT_KINDS.has(n.kind)
@@ -158,6 +160,8 @@ function mapShallow(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => 
     case "load":
     case "address":
       return { ...n, place: m(n.place) }
+    case "count":
+      return { ...n, array: m(n.array) }
     case "binary":
       return { ...n, left: m(n.left), right: m(n.right) }
     case "unary":

@@ -210,15 +210,16 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
 }
 
 /**
- * An `ARRAY[*]` VAR_IN_OUT's bounds, two per dimension — hidden slots its caller fills with the bounds of the array it
- * binds: a routine's as inputs, an FB's as fields of the instance (design §26). DINT, as measured
- * (`callshape_array_star_bound_width`: `UPPER_BOUND(values, 1) * 40000` wraps at 70002).
+ * An `ARRAY[*]` VAR_IN_OUT's lower bounds, one per dimension — hidden slots its caller fills with the bounds of the array
+ * it binds: a routine's as inputs, an FB's as fields of the instance (design §26). The upper bound is derived from the
+ * array's length (`boundOf`, lean 7.7.8). DINT, as measured (`callshape_array_star_bound_width`: `UPPER_BOUND(values,
+ * 1) * 40000` wraps at 70002).
  */
 export function declareOpenBounds(lw: Lowering, sections: readonly VarSection[], section: "VAR_INPUT" | "VAR"): void {
   for (const decl of sections.flatMap((s) => s.decls))
     for (const name of decl.names)
       for (let dim = 1; dim <= openDims(lw.resolve(decl.type)); dim++)
-        for (const which of ["lower", "upper"] as const) lw.slot({ kind: "identifier", text: boundName(name.text, which, dim), span: name.span }, elementaryRef("DINT"), section)
+        lw.slot({ kind: "identifier", text: boundName(name.text, dim), span: name.span }, elementaryRef("DINT"), section)
 }
 
 /**

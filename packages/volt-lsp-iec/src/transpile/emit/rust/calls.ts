@@ -19,7 +19,7 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
   // written (`callshape_argument_order`) — which also keeps a call on the same instance out of the argument list's
   // borrow. Inputs without one stay inline, where no order can show — except on a PROGRAM's METHOD, whose inline
   // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
-  const onProgram = e.instance !== undefined && e.instance.root === "global" && p.globals.slots[e.instance.slot]?.section === "program"
+  const onProgram = e.instance !== undefined && movesOut(p, e.instance, e.routine, e.inouts, e.lent ?? [])
   const hoisted = hoistedInputs(p, e, onProgram)
   const inputLets = [...(e.order ?? e.inputs.keys())]
     .flatMap((k) =>
@@ -28,7 +28,9 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
         : [`${letTemp(p, k.temp, slots) ?? place(p, k.temp, slots)} = ${expr(p, k.value, slots, Prec.Block)};`],
     )
     .join(" ")
-  const inputs = e.inputs.map((a, k) => (hoisted.has(k) ? tmp("arg", k) : expr(p, a, slots, Prec.Block)))
+  // an input no run can see is handed nothing (7.7.7, `deadInputsOf`): it is a constant, so its evaluation shows nowhere
+  const dead = p.dead.get(e.routine)
+  const inputs = e.inputs.flatMap((a, k) => (dead?.inputs.has(k) === true ? [] : [hoisted.has(k) ? tmp("arg", k) : expr(p, a, slots, Prec.Block)]))
   // the inputs, the in-outs, then each instance lent to the routine (design §24)
   const args = callArguments(p, routine.key, inputs, e.inouts, routine.inouts, e.lent ?? [], slots)
   const fn = p.fnNames.get(routine.key)!
@@ -84,7 +86,21 @@ function hoistedInputs(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, onPro
 /** A generated call's arguments: `g`/`prg`, the inputs, each VAR_IN_OUT lent (`lend`), then each instance lent to the
  *  callee (design §24) — for a routine's invoke and an FB call alike. */
 function callArguments(p: Printer, callee: string, inputs: readonly string[], inouts: readonly IrBinding[], params: IrPou["slots"], lent: readonly Place[], slots: IrPou["slots"]): string {
-  return [...globalsArgs(reachOfBody(p, callee)), ...inputs, ...inouts.map((b, i) => lend(p, b, i, params[i]!, slots)), ...lent.map((l) => lendMut(p, l, slots))].join(", ")
+  const dead = p.dead.get(callee)?.inouts
+  const bound = inouts.flatMap((b, i) => (dead?.has(i) === true ? [] : [lend(p, b, i, params[i]!, slots)]))
+  return [...globalsArgs(reachOfBody(p, callee)), ...inputs, ...bound, ...lent.map((l) => lendMut(p, l, slots))].join(", ")
+}
+
+/**
+ * WHETHER A CALL ON A PROGRAM'S INSTANCE RUNS MOVED OUT OF `Programs` (lean 7.7.6): only where the call borrows `prg`
+ * beside it — the callee reaches `Programs` (it is handed `prg`), or an in-out or a lent instance is a place of that same
+ * program. Otherwise `prg.p.call(…)` borrows one field of `Programs` and the arguments disjoint ones, and the
+ * `std::mem::take` (a whole `P::new()` built as the stand-in, moved twice) buys nothing.
+ */
+function movesOut(p: Printer, instance: Place, callee: string, inouts: readonly IrBinding[], lent: readonly Place[]): boolean {
+  if (instance.root !== "global" || p.globals.slots[instance.slot]?.section !== "program") return false
+  const sameProgram = (at: Place): boolean => at.root === "global" && at.slot === instance.slot
+  return reachOfBody(p, callee).usesPrograms || inouts.some((b) => !("kind" in b) && sameProgram(b)) || lent.some(sameProgram)
 }
 
 export function exprDispatch(p: Printer, e: Extract<IrExpr, { kind: "dispatch" }>, slots: IrPou["slots"]): Printed {
@@ -132,9 +148,9 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
   // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/calls/last-binding.ts`)
   if (s.bind !== undefined)
     push(p, `${place(p, s.bind.place, slots)} = ${expr(p, { kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots, Prec.Block)};`, indent, s.span)
-  // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
-  // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
-  if (s.instance.root === "global" && p.globals.slots[s.instance.slot]?.section === "program") {
+  // A PROGRAM's instance lives in `Programs`; where the call is handed `prg` too — `prg.p.call(g, prg)` would borrow it
+  // twice (E0499) — it runs moved out and back (`movesOut`). Lowering refuses a program whose run reaches its own instance.
+  if (movesOut(p, s.instance, `layout:${s.fb.toUpperCase()}`, s.inouts, s.lent ?? [])) {
     // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
     const moved = movedOut(p, s.instance, slots)
     push(p, `{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::take(&mut ${moved.program}); program${moved.member}.call(${bound}); ${moved.program} = program;${back === "" ? "" : ` ${back}`} }`, indent, s.span)

@@ -43,6 +43,7 @@ const KINDS: Record<string, [IrNode, IrNode[]]> = {
   place: [place(0, c(1n)), [c(1n)]],
   "image place": [{ ...place(0, c(1n)), root: "image", at: c(7n), guard: place(2) }, [c(7n), c(1n), place(2)]],
   address: [{ kind: "address", place: place(3), type: INT, span }, [place(3)]],
+  count: [{ kind: "count", array: place(3), dim: 1, type: INT, span }, [place(3)]],
   const: [c(1n), []],
   fresh: [{ kind: "fresh", init: 0n, type: INT, span }, []],
   load: [load(place(0)), [place(0)]],
@@ -77,7 +78,7 @@ describe("childrenOf", () => {
     // the kinds of the two unions, the place, and the two binding forms — `never` in the switch makes a new kind a
     // compile error there; this makes forgetting it here a test failure
     expect(Object.keys(KINDS).sort()).toEqual(
-      ["address", "assign", "binary", "break", "builtin", "call", "const", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "return", "select", "switch", "unary"].sort(),
+      ["address", "assign", "binary", "break", "builtin", "call", "const", "count", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "return", "select", "switch", "unary"].sort(),
     )
     for (const [kind, [node, children]] of Object.entries(KINDS)) expect([kind, childrenOf(node)]).toEqual([kind, children])
   })

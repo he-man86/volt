@@ -17,7 +17,7 @@ import { tmp } from "./names.js"
 import { placeExpr } from "./place.js"
 import { at, infix, Prec, printed, type Printed } from "./precedence.js"
 import { guarded, holdsString, type Printer, use } from "./printer.js"
-import { isCopy } from "./types.js"
+import { isCopy, rustType } from "./types.js"
 import { comparedUnits, initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
 
@@ -101,6 +101,12 @@ export function print(p: Printer, e: IrExpr, slots: IrPou["slots"]): Printed {
     // `ADR(x)` of a variable in the image: the address its place reaches (`image.ts`)
     case "address":
       return imageAddress(p, e.place, slots)
+    // an `ARRAY[*]` in-out's element count (lean 7.7.8): the slice's length for its first dimension, the generic its
+    // type declares (`inoutType`'s `D_<NAME>_<d>`) for each inner one
+    case "count": {
+      const name = p.frame.inoutNames[e.array.slot]!
+      return printed(`${e.dim === 1 ? `${name}.len()` : `D_${name.toUpperCase()}_${e.dim}`} as ${rustType(e.type)}`, Prec.As)
+    }
     case "convert":
       return exprConvert(p, e, slots)
     case "builtin":

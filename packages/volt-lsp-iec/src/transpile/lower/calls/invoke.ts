@@ -235,16 +235,15 @@ function bindOpenBounds(lw: Lowering, b: InvokeBindings, span: Span): true | und
   const routine = b.routine
   for (const [i, slot] of routine.inouts.entries()) {
     const binding = b.inouts[i]
-    for (let dim = 1; binding !== undefined && dim <= openDims(slot.type); dim++)
-      for (const which of ["lower", "upper"] as const) {
-        const k = fieldIndex(routine.inputs.map((index) => routine.locals[index]!), boundName(slot.name, which, dim))
-        // a copy written back takes the bounds of the place it copies (an FB's own array lent to its own METHOD)
-        const at = isInFrame(binding) ? undefined : "kind" in binding ? binding.back : binding
-        const value = k < 0 || at === undefined ? undefined : boundOf(lw, at, which, dim)
-        if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
-        b.inputs[k] = value
-        b.order.push(k)
-      }
+    for (let dim = 1; binding !== undefined && dim <= openDims(slot.type); dim++) {
+      const k = fieldIndex(routine.inputs.map((index) => routine.locals[index]!), boundName(slot.name, dim))
+      // a copy written back takes the bounds of the place it copies (an FB's own array lent to its own METHOD)
+      const at = isInFrame(binding) ? undefined : "kind" in binding ? binding.back : binding
+      const value = k < 0 || at === undefined ? undefined : boundOf(lw, at, "lower", dim)
+      if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
+      b.inputs[k] = value
+      b.order.push(k)
+    }
   }
   return true
 }

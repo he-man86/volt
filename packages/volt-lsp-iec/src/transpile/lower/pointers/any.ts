@@ -19,13 +19,17 @@ import { imagePlaceAddress } from "./address.js"
 import { throughReference } from "./deref.js"
 
 /** `anyArg.diSize` — an ANY input's size, which the call handed in as a hidden DINT (conformance `state_any_input_sizes`);
- *  `null` when the base is no ANY input. */
+ *  `null` when the base is no ANY input. In a variant lowered for a VARIABLE argument the size is that variable's, the
+ *  same on every call of the variant: a constant (lean 7.7.9), and the input nobody reads then is no parameter
+ *  (`emit/rust/locals.deadInputsOf`). */
 export function anyDiSize(lw: Lowering, e: Extract<Expr, { kind: "member" }>): IrExpr | undefined | null {
   if (e.base.kind !== "ident_expr" || !pointerFrame(lw).anyInputs.has(e.base.name.toUpperCase())) return null
   const slot = lw.localByName.get(e.base.name.toUpperCase())
   if (e.member.name.toUpperCase() !== "DISIZE" || slot === undefined)
     return lw.bail("any-input", `${e.base.name}.${e.member.name} of an ANY input is not measured`, e.span)
   const type = lw.localSlots[slot]!.type
+  const known = anySize(lw, e)
+  if (known !== undefined) return { kind: "const", value: known, type, span: e.span }
   return { kind: "load", place: { slot, path: [], type, span: e.span, root: "local" }, type, span: e.span }
 }
 

@@ -39,9 +39,9 @@ describe("emit/rust", () => {
     expect(emitted.code).toContain("pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {")
     // A body is handed `g` and `prg` where it reaches them — its own places, or a body it calls, to any depth: any body may
     // call a PROGRAM (conformance `state_program_called_from_fb`), and one that does is handed `prg` (7.7.5; every body
-    // was handed both). A program runs moved out of `Programs` and back, so the call never borrows `prg` twice;
-    // PRG_Writer reaches the GVL only, so its call takes `g` alone.
-    expect(emitted.code).toContain("{ let mut program = std::mem::take(&mut prg.prg_writer); program.call(g); prg.prg_writer = program; }")
+    // was handed both). PRG_Writer reaches the GVL only, so its call takes `g` alone — and, handed no `prg`, it is called
+    // in place: a program runs moved out of `Programs` only where its call borrows `prg` beside it (7.7.6).
+    expect(emitted.code).toContain("prg.prg_writer.call(g);")
     expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {\n        self.runs")
     expect(emitted.code).toContain("self.seen = g.g_shared;")
     expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {\n        self.q = g.g_shared;") // FB_Reader: `g` alone

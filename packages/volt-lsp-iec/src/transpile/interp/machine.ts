@@ -88,6 +88,13 @@ function compileExpr(e: IrExpr): Run<Val> {
     // `ADR(x)` of a variable in the image: the address its place reaches, read without the access
     case "address":
       return (m) => m.address(e.place)
+    // an `ARRAY[*]` in-out's dimension's element count, off the array the call bound (lean 7.7.8)
+    case "count":
+      return (m) => {
+        let array = m.read(e.array)
+        for (let d = 1; d < e.dim; d++) array = (array as Val[])[0]!
+        return fit(BigInt((array as Val[]).length), e.type)
+      }
     case "invoke":
       return (m) => invoke(m, e)
     case "dispatch": {

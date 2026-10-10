@@ -79,7 +79,20 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect | IrAddress
+export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect | IrAddress | IrCount
+
+/**
+ * THE ELEMENT COUNT OF ONE DIMENSION OF AN `ARRAY[*]` IN-OUT (lean 7.7.8) — read off the array the call bound, so an open
+ * dimension's UPPER_BOUND is `lower + count - 1` and only its LOWER bound travels with the call (design §26): the bound
+ * and the array cannot disagree. `array` is the in-out itself (no path), `dim` counts from 1, `type` is DINT.
+ */
+export interface IrCount {
+  kind: "count"
+  array: Place
+  dim: number
+  type: Type
+  span: Span
+}
 
 /**
  * `ADR(x)` OF A VARIABLE IN THE IMAGE — the byte address an `image` place starts at: its `at`, plus each index step's
