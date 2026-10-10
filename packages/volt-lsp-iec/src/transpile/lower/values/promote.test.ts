@@ -164,3 +164,29 @@ test("a REAL selection with an exact real literal, stored back into a REAL, comp
   runner.scan()
   expect(["a", "b", "c"].map((v) => runner.get(v))).toEqual([3.5, 3.5, Math.fround(0.1)])
 })
+
+// 7.3.11: WHERE THE PROMOTION STAYS — each a case the narrow rule must not take, pinned with the value the promoted
+// computation answers. DIV: SINT -128 / -1 is 128 in DINT and wraps to -128 on the store, where a narrow i8 division traps
+// (`arithedge_sint_div_min_by_minus_one`, recorded SINT#-128); MOD by a variable: -128 MOD -1 is 0
+// (`arithedge_sint_mod_min_by_minus_one`); a mixed-sign meet (INT and UINT meet in DINT); a shift (SHL masks its count by the
+// promoted width: SHL(BYTE 1, 9) into a WORD is 512, `shift_basic`); a store into a WIDER type (32767 + 1 into a DINT is 32768,
+// no truncation undoes the promotion). And 7.3.13: MOD — and DIV — by a constant other than 0 and -1 computes narrow.
+test("DIV and MOD by a variable, mixed signs, shifts and wider stores stay promoted; by a harmless constant they narrow", () => {
+  const vars = "si : SINT := -128; m1 : SINT := -1; q : SINT; rm : SINT; i : INT := 7; u : UINT := 65535; sm : DINT; b : BYTE := 1; n : INT := 9; w : WORD; a : INT := 32767; d : DINT; k : INT; kd : INT;"
+  const body = ["q := si / m1;", "rm := si MOD m1;", "sm := i + u;", "w := SHL(b, n);", "d := a + 1;", "k := i MOD 4;", "kd := i / 4;"].join("\n")
+  const src = `PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`
+  const shapes = storedShapes(src) as unknown[][]
+  // the first five keep their DINT computation under a conversion (or are DINT already); the last is an INT `%`
+  expect(shapes.slice(0, 5).map((s) => (s[0] === "convert" ? `${s[1]} <- ${(s[2] as unknown[])[1]}` : `${s[0]} ${s[1]}`))).toEqual([
+    "SINT <- DINT",
+    "SINT <- DINT",
+    "add DINT",
+    "WORD <- DINT",
+    "add DINT",
+  ])
+  expect(shapes[5]).toEqual(["mod", "INT", "INT", ["4", "INT"]])
+  expect(shapes[6]).toEqual(["div", "INT", "INT", ["4", "INT"]])
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  expect(["q", "rm", "sm", "w", "d", "k", "kd"].map((v) => runner.get(v))).toEqual([-128n, 0n, 65542n, 512n, 32768n, 3n, 1n])
+})

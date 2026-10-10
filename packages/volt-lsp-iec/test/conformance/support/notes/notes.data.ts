@@ -33,7 +33,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub __inout_index_N: i16,
   "0878222ac3": note("7.6.3", LEAN.shapes18_1),
   // self.f = f64::m(self.f).exp() as f32;
-  "84845bb684": note("7.3.12", LEAN.shapes6_10),
+  "84845bb684": note("keep:f32::exp differs from the f64 round trip on 23,280 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // (*x).m(&(*x).with_char((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x)), { m(x); *x }.char_at((x as i64).wrapp
   "a73d328be6": note("7.4.3", LEAN.shapes17_2),
   // return x;
@@ -129,7 +129,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = len(self.f.to::<L>());
   "21ef64a1e0": note("7.4.6", LEAN.shapes14_18),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u16;
-  "30c4deeec9": note("7.3.13", LEAN.shapes10_3),
+  "30c4deeec9": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // self.f.__numbers_upper_N = Li32;
   "22f3bd9b6d": note("7.5.7", LEAN.shapes14_15),
   // if false { break; }
@@ -137,7 +137,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = self.f.f == IecWString::<L>::lit(&[Lu16, …]);
   "23d12708e2": note("7.4.8", LEAN.shapes15_12),
   // self.f = f64::m(self.f).sin() as f32;
-  "d47543941e": note("7.3.12", LEAN.shapes6_10),
+  "d47543941e": note("keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // pub fn m(mut x: u32) -> bool {
   "241f597128": note("7.7.3", LEAN.shapes14_14),
   // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
@@ -152,7 +152,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x = len((*x).to::<L>());
   "28af8caf65": note("7.8.6", LEAN.shapes18_3),
   // self.f = m(f64::m(self.f)).ln() as f32;
-  "7eff84bf36": note("7.3.12", LEAN.shapes6_10),
+  "7eff84bf36": note("keep:f32::ln differs from the f64 round trip on 210,637 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // self.f = (self.f == Li16) | (self.f == Li16) | (self.f == Li16);
   "1097a31590": note("7.4.4", LEAN.shapes16_5),
   // x = m(__values_lower_N, __values_upper_N, &mut (*x)).wrapping_add(__values_upper_N);
@@ -212,8 +212,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "38cce5cb54": note("7.7.8", LEAN.shapes16_15),
   // self.f = self.f.clone();
   "39e68c53af": note("7.8.2", LEAN.shapes2_9),
-  // *x = (i32::m(x) / Li32) as i16;
-  "10a98fce7b": note("7.3.11", LEAN.shapes18_7),
   // self.f = (*x).wrapping_mul(Li16);
   "867ee71c07": note("7.8.6", LEAN.shapes15_9),
   // (match self.f { L => self.f.m_set(self.__property_N), _ => panic!(S) });
@@ -431,7 +429,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f.narrow();
   "8cca954ad7": note("7.7.2", LEAN.shapes3_9),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i16;
-  "756ba59393": note("7.3.13", LEAN.shapes10_3),
+  "756ba59393": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // self.f.f = IecWString::<L>::lit(&[Lu16, …]);
   "8f5f221644": note("7.4.8", LEAN.shapes15_12),
   // pub fn sum(&mut self, mut x: [i16; L]) {
@@ -527,7 +525,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn x<const T: usize>(&mut self, x: &IecString<T>) -> bool {
   "b03c447093": note("7.6.5", LEAN.shapes19_7),
   // self.f = m(self.f).log10() as f32;
-  "b07338e4d9": note("7.3.12", LEAN.shapes6_10),
+  "b07338e4d9": note("keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // if (self.f == Li16) & (self.f == Li16) {
   "fc6c049d9d": note("7.5.6", LEAN.shapes11_17),
   // if (x < Li16) | (i32::m(x) > x) {
@@ -537,7 +535,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = T::new();
   "b3e78a179a": note("7.6.4", LEAN.shapes11_12),
   // self.f = f64::m(self.f).cos() as f32;
-  "1671a3249d": note("7.3.12", LEAN.shapes6_10),
+  "1671a3249d": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // x = { let __arg_N = m(x); m(__arg_N) };
   "b58894b5df": note("7.6.6", LEAN.shapes14_12),
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
@@ -599,7 +597,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn m_get(&mut self, prg: &mut Programs) -> i16 {
   "ceb0cb99a7": note("7.7.5", LEAN.shapes19_8),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;
-  "62891f3570": note("7.3.13", LEAN.shapes10_3),
+  "62891f3570": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // pub fn m(&mut self, mut x: i16) -> bool {
   "d00d314ec2": note("7.7.1", LEAN.shapes18_9),
   // if self.f & !self.f & (self.f < Lu16) {
@@ -673,7 +671,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if (x == L) | (x == L) {
   "ec21aafede": note("7.5.6", LEAN.shapes13_13),
   // *x = (i32::m(x) / i32::m(x)) as i16;
-  "d96bb286f4": note("7.3.11", LEAN.shapes14_5),
+  "d96bb286f4": note("keep:the promoted division is the measured rule (MIN / -1 wraps in SINT/INT, computed in DINT); a narrow wrapping_div gives the same values but needs a narrow node that does not trap where the promoted one does not, and the interpreter has none (7.3.11)", LEAN.shapes14_5),
   // pub fn m_set(&mut self, prg: &mut Programs, mut x: i16) {
   "ed425c8710": note("7.7.5", LEAN.shapes19_8),
   // if x > __grid_upper_N { break; }
@@ -681,7 +679,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = self.__chain_value_N as f32;
   "ee5f8f4ae1": note("7.6.1", LEAN.shapes6_8),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i8;
-  "e19d1f70e4": note("7.3.13", LEAN.shapes10_3),
+  "e19d1f70e4": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // m(L, &mut self.f);
   "ef4db7eb51": merged(["7.4.4", LEAN.shapes12_6], ["7.7.7", LEAN.shapes12_9]),
   // (*x).call();

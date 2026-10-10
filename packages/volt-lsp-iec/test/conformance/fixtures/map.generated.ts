@@ -75,9 +75,9 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 9674 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 9673 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::must_use_candidate               7215
- *     clippy::cast_possible_truncation          774
+ *     clippy::cast_possible_truncation          773
  *     clippy::cast_sign_loss                    561
  *     clippy::missing_panics_doc                389
  *     clippy::cast_possible_wrap                301
@@ -100,14 +100,14 @@
  *     tr_a10_string_to_dint_based_edges             12.2
  *
  *   shape — 1869 distinct emission shapes over 3414 lowered fixtures, 2032 distinct constructs.
- *   351 constructs carry a review note (`NOTES`): 3323 fixtures are improvable, 3101 touch a construct with alternatives.
+ *   350 constructs carry a review note (`NOTES`): 3323 fixtures are improvable, 3101 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
- *     7.4.4 26, 7.7.1 24, 7.8.6 22, 7.4.3 19, 7.7.8 19, 7.7.3 18, 7.6.1 17, 7.4.6 15, 7.7.5 15, 7.7.2 14, 7.5.7 13
- *     7.5.6 11, 7.8.7 11, 7.4.2 10, 7.6.2 9, 7.6.3 9, 7.8.2 9, 7.4.5 7, 7.6.5 7, 7.8.10 7, 7.4.8 6, 7.6.6 6, 7.8.3 6
- *     7.8.5 6, 7.3.12 5, 7.7.7 5, 7.8.4 5, 7.8.8 5, keep 5, 7.3.13 4, 7.5.2 4, 7.7.9 4, 7.4.9 3, 7.7.6 3, 7.3.11 2
- *     7.4.7 2, 7.5.9 2, 7.6.4 2, 7.7.11 2, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.8.1 1, 7.8.11 1
+ *     7.4.4 26, 7.7.1 24, 7.8.6 22, 7.4.3 19, 7.7.8 19, 7.7.3 18, 7.6.1 17, 7.4.6 15, 7.7.5 15, keep 15, 7.7.2 14
+ *     7.5.7 13, 7.5.6 11, 7.8.7 11, 7.4.2 10, 7.6.2 9, 7.6.3 9, 7.8.2 9, 7.4.5 7, 7.6.5 7, 7.8.10 7, 7.4.8 6
+ *     7.6.6 6, 7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5, 7.8.8 5, 7.5.2 4, 7.7.9 4, 7.4.9 3, 7.7.6 3, 7.4.7 2, 7.5.9 2
+ *     7.6.4 2, 7.7.11 2, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.8.1 1, 7.8.11 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -4390,7 +4390,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.6, shape: "7225a6158c", notes: ["fbde4d6e1e"] },
   state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 4.5, shape: "8ff5369e8d", notes: ["58a7e6289b", "abf2bb6e4e", "fbde4d6e1e"] },
   state_property_get_set: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "30e90f0b00", notes: ["11f6ad8ec5", "377c1dfc31", "48737e1389", "4d8c0c87ee", "637fe937dc", "79ff186095", "fbde4d6e1e", "fda03fa84f"] },
-  state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "edf48196a6", notes: ["10a98fce7b", "11f6ad8ec5", "2421f6476e", "50ba9519ad", "51ea066d8e", "53bd7d992e", "821a3bb974", "96a5b25b66", "fbde4d6e1e"] },
+  state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "e8b64c67a2", notes: ["11f6ad8ec5", "2421f6476e", "50ba9519ad", "51ea066d8e", "53bd7d992e", "821a3bb974", "96a5b25b66", "fbde4d6e1e"] },
   state_var_inst_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "6cae66648e", notes: ["11f6ad8ec5", "fbde4d6e1e"] },
   state_var_stat_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.9, shape: "37b44d4b20", notes: ["11f6ad8ec5", "f62e4d99a5", "fbde4d6e1e"] },
   stmt_assign_literal_target: { evidence: "refused" },
@@ -5277,7 +5277,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_tally_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "b156a69819", notes: ["fbde4d6e1e"] },
   xo_three_level_super_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "0cc53d1ba7", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "d5d5f0ece7", notes: ["b9787e0d18", "fbde4d6e1e"] },
-  xo_union_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "ce6a272088", notes: ["3f8601dd97", "a281b5efbd", "fbde4d6e1e"] },
+  xo_union_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "e6b3404ee9", notes: ["3f8601dd97", "a281b5efbd", "fbde4d6e1e"] },
   xo_var_stat_two_holders: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 3.5, shape: "15c555a332", notes: ["b9787e0d18", "fbde4d6e1e"] },
   xo2_actions_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "a957ab36b3", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
   xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.6, shape: "837d10911d", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "c9c77500c6", "fbde4d6e1e"] },
@@ -5841,16 +5841,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
     tasks: ["7.4.4"],
   },
-  // *x = (i32::m(x) / Li32) as i16;
-  "10a98fce7b": {
-    improvement: "INT division by a nonzero constant other than -1 prints as `((value as i32) / 10i32) as i16`. With a constant divisor d where d != 0 and d != -1, the quotient always fits the dividend's own width, so `value / 10i16` in i16 gives the same answer and cannot panic. The widening only matters for a variable divisor (MIN / -1 must wrap in SINT/INT and not trap, which is measured).",
-    alternatives: [
-      "widen, divide, narrow (today): uniform, and correct for the variable-divisor MIN/-1 case",
-      "narrow division when the divisor is a constant other than 0 and -1 (my choice for constants, keep the widening for variables)",
-    ],
-    chosen: "narrow division when the divisor is a constant other than 0 and -1 (my choice for constants, keep the widening for variables)",
-    tasks: ["7.3.11"],
-  },
   // x
   "11f6ad8ec5": {
     improvement: "The function return is always `let mut f: T = default; ...; f = expr; f`, and a VAR_OUTPUT is reset at entry even when the body assigns it unconditionally (`*i_carry_out = 0i16;` twice). All parameters are declared `mut` even when never reassigned (`mut i_a: i16`). When the result or output is assigned exactly once on every path, return the expression directly, drop the entry reset, and declare `mut` only on reassigned parameters.",
@@ -5898,7 +5888,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
-    tasks: ["7.3.12"],
+    tasks: ["keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
   // pub fn m(&mut self, mut p: usize) -> i16 {
   "178b1e9748": {
@@ -6142,7 +6132,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
-    tasks: ["7.3.13"],
+    tasks: ["keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)"],
   },
   // pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {
   "30d5674ec4": {
@@ -6611,7 +6601,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
-    tasks: ["7.3.13"],
+    tasks: ["keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)"],
   },
   // x = __numbers_upper_N;
   "62caf55aa5": {
@@ -6734,7 +6724,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
-    tasks: ["7.3.13"],
+    tasks: ["keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)"],
   },
   // p: L,
   "75cc82a569": {
@@ -6830,7 +6820,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
-    tasks: ["7.3.12"],
+    tasks: ["keep:f32::ln differs from the f64 round trip on 210,637 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
   // pub __chain_value_N: f64,
   "7fc67373d7": {
@@ -6939,7 +6929,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
-    tasks: ["7.3.12"],
+    tasks: ["keep:f32::exp differs from the f64 round trip on 23,280 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
   // pub fn m(mut x: f64) -> f64 {
   "84ac703739": {
@@ -7457,7 +7447,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
-    tasks: ["7.3.12"],
+    tasks: ["keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
   // x = (*x).wrapping_mul(Li16);
   "b20c53fed8": {
@@ -7754,7 +7744,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
-    tasks: ["7.3.12"],
+    tasks: ["keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)"],
   },
   // self.f = *x == IecString::<L>::lit(B);
   "d8e8c0322e": {
@@ -7768,7 +7758,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "emitted today: widen to i32, plain `/`, narrow. Correct: MIN/-1 fits in i32, and 0 panics like CODESYS",
       "i16::wrapping_div. Same values, and divide-by-zero still panics. I would use it only for widths below 32, because DINT/LINT must keep plain `/` to trap MIN/-1 as CODESYS does",
     ],
-    tasks: ["7.3.11"],
+    tasks: ["keep:the promoted division is the measured rule (MIN / -1 wraps in SINT/INT, computed in DINT); a narrow wrapping_div gives the same values but needs a narrow node that does not trap where the promoted one does not, and the interpreter has none (7.3.11)"],
   },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
   "db57faba5d": {
@@ -7879,7 +7869,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "native width `if r == 0 { 0 } else { l.wrapping_rem(r) }` with no casts",
     why: "identical values for every input",
-    tasks: ["7.3.13"],
+    tasks: ["keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)"],
   },
   // self.f.f.m(&IecWString::<L>::lit(&[Lu16, …]));
   "e19e17485d": {

@@ -121,6 +121,17 @@ function exactAs(e: IrExpr, t: Type): IrExpr | undefined {
     if (!holdsEvery(e.type, from) || !holdsEvery(t, from)) return undefined
     return sameType(from, t) ? e.value : { kind: "convert", value: e.value, type: t, span: e.span }
   }
+  // MOD of two exact values by a constant lowering proved harmless (not 0, not -1: `IrBinary.nonzeroDivisor`) is exact too —
+  // a remainder is smaller than its divisor, and with no -1 no width traps (7.3.13). A VARIABLE divisor stays promoted:
+  // SINT/INT `MIN MOD -1` is 0 in CODESYS, computed in DINT (6.A.3, `arithedge_{sint,int}_mod_min_by_minus_one`), where a
+  // narrow remainder stops the task in both backends — niche: accepted loss (11 MODs by a name, of any type, in the corpora)
+  // …and DIV by such a constant other than -1 (7.3.11): the quotient is no larger than the dividend, so it fits its width
+  const harmless = e.kind === "binary" && e.nonzeroDivisor === true && (e.op === "mod" || (e.op === "div" && e.right.kind === "const" && e.right.value !== -1n))
+  if (e.kind === "binary" && harmless && integerBits(t) !== undefined) {
+    const left = exactAs(e.left, t)
+    const right = left === undefined ? undefined : exactAs(e.right, t)
+    return left === undefined || right === undefined ? undefined : { ...e, left, right, type: t }
+  }
   // MAX/MIN/LIMIT pick one of their operands: of REALs widened to LREAL (and constants an f32 holds) too — the compare-select
   // keeps its order, its NaN and its signed zeros through an exact widening (7.3.7)
   if (e.kind === "builtin" && (e.name === "max" || e.name === "min" || e.name === "limit") && (integerBits(t) !== undefined || real32(t))) {

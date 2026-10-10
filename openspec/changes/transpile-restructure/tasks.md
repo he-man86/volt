@@ -5423,11 +5423,20 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     af2043b3cc, f22b4df758 -> 2b02494029 (7.5.6). `src/transpile/pipeline/control.test.ts` "FOR / REPEAT / WHILE run every
     pass" timed out (5.2-7.0 s against its 5 s) in this session also with `narrowPou` switched off and on DINT loops no step
     of this group changes — machine load, left for the gate's full run to judge.
-- [ ] 7.3.11 Keep promotion where it is needed: guard tests pin DIV (MIN/-1 measured), mixed sign, shifts and wider stores as promoted.
+- [x] 7.3.11 Keep promotion where it is needed: guard tests pin DIV (MIN/-1 measured), mixed sign, shifts and wider stores as promoted.
   - Where: `lower/values/promote.test.ts`.
   - Accept: G.
   - Depends: 7.3.1.
-- [ ] 7.3.12 REAL math other than SQRT in f32, where proven.
+  - Done 2026-10-10 (step 7.3c). Guard test `lower/values/promote.test.ts` "DIV and MOD by a variable, mixed signs, shifts
+    and wider stores stay promoted": each pinned by its IR shape (a DINT computation under the store's conversion) and the
+    value the promoted computation answers — SINT -128 / -1 is -128 (`arithedge_sint_div_min_by_minus_one`), -128 MOD -1 is
+    0 (`arithedge_sint_mod_min_by_minus_one`), INT + UINT meet in DINT (65542), SHL(BYTE 1, 9) into a WORD is 512
+    (`shift_basic`), 32767 + 1 into a DINT is 32768. What a guard showed could narrow did: DIV by a constant other than 0
+    and -1 (its quotient is no larger than the dividend) computes narrow beside MOD (7.3.13; `promote.ts` `exactAs`), pinned
+    in the same test (`i / 4` an INT `/`). Notes: 10a98fce7b (DIV by a constant) resolved; d96bb286f4 (`wrapping_div` for a
+    VARIABLE divisor) re-tagged `keep:` — the promoted division is the measured rule, and a narrow `wrapping_div` needs a
+    narrow node that does not trap where the promoted one does not, which the interpreter has none of.
+- [x] 7.3.12 REAL math other than SQRT in f32, where proven.
   - What: for each of EXP, LN, LOG, SIN, COS, TAN, ASIN, ACOS, ATAN on REAL, measure over the recorded cells and the edge inputs whether
     the f32 function gives the value the f64 round-trip gives; switch only those proven identical, and tag the rest `keep:<measured
     difference>`.
@@ -5435,13 +5444,28 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `emit/rust/builtins.ts`, `numeric.cases.ts`.
   - Accept: twin cells per switched function; S-out; M.
   - Depends: 7.3.6.
-- [ ] 7.3.13 MOD on narrow types.
+  - Done 2026-10-10 (step 7.3c). Measured, not sampled: a scratch Rust program (-O, 16 lanes) compared each f32 function
+    with the f64 round trip the emitter prints over ALL 2^32 REAL bit patterns on this platform's libm — `exp` differs on
+    23,280, `ln` 210,637, `log10` 2,418,508, `sin` 2,866,998, `cos` 2,876,136, `tan` 480,626, `asin` 2,352,772, `acos`
+    693,829, `atan` 3,532 (SQRT 0: 7.3.6). None is proven identical, so none switches; the recorded cells cannot overrule a
+    measured difference. The five notes (84845bb684 exp, 1671a3249d cos, 7eff84bf36 ln, b07338e4d9 log10, d47543941e sin)
+    re-tagged `keep:` with their count; `emit/rust/builtins.ts` `math` carries the table.
+- [x] 7.3.13 MOD on narrow types.
   - What: from 6.A.3's recording: if CODESYS's MIN MOD -1 is 0 and nothing else overflows, MOD joins the narrow rule; otherwise the notes
     are tagged `keep:<6.A.3's answer>`.
   - Notes: the narrow-MOD notes tagged here by 0.6.
   - Where: `lower/values/promote.ts`.
   - Accept: S-out; M.
   - Depends: 7.3.1, 6.A.3.
+  - Done 2026-10-10 (step 7.3c). 6.A.3's answer: SINT/INT `MIN MOD -1` is 0 (computed in DINT), DINT/LINT stop. So MOD joins
+    the narrow rule where no width can trap: by a constant lowering proved harmless (not 0, not -1,
+    `IrBinary.nonzeroDivisor`) over exact operands (`promote.ts` `exactAs`; `i MOD 4` is an INT `%`, test above). A VARIABLE
+    divisor stays promoted: a narrow remainder traps on MIN MOD -1 in both backends where CODESYS answers 0 — the four notes
+    (30c4deeec9, 62891f3570, 756ba59393, e19d1f70e4) re-tagged `keep:` with that reason, niche: accepted loss (11 MODs by a
+    name, of any type, in the six corpora).
+    Step 7.3c numbers: S-out identical over 5535 fixtures against the step-start baseline but `cc5_in_out_type_mismatch`
+    (refused since 7.3a). M (against 7.3b's map): pedantic 9674 -> 9673 (`cast_possible_truncation` 774 -> 773); noted
+    constructs 351 -> 350; `keep` 5 -> 15 (the nine re-tagged notes, one note per owner line); everything else unchanged.
 
 ### 7.5 Loop shape (lean 5, on model 1)
 
