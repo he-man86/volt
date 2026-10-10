@@ -87,7 +87,7 @@ describe("every note is tagged with the task that owns it", () => {
     // in fbde4d6e1e since 7.2.8 printed field literals bare (`x: L,`), where every field note's items met (its 7.2.11 and 7.2.12
     // items went when those landed)
     // (its 7.8.8 item is `keep:niche: accepted loss …` since 7.8.8 measured 2 occurrences in the corpora)
-    expect(NOTES["fbde4d6e1e"]!.tasks.map((t) => t.split(" ")[0])).toEqual(["keep:niche:", "7.8.11"])
+    expect(NOTES["fbde4d6e1e"]!.tasks.map((t) => t.split(" ")[0])).toEqual(["keep:niche:"])
     // a `keep` note's other items ask for changes: each names the task that makes it, and stays when 7.2.13 removed
     // the `keep` items beside it (its 7.2.5 item went when 7.2.5 landed — the task that lands removes its items)
     // (496b8acb56's was 7.6.6's, and went with it: SEL prints a lazy `if` since 6.15 — transpile-restructure 7.6.6)

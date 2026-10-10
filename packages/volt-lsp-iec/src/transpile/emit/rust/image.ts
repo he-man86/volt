@@ -105,14 +105,9 @@ export function memNew(image: IrImage): string[] {
   return [
     "impl Mem {",
     "    #[must_use]",
+    "    #[allow(clippy::new_without_default)]",
     "    pub fn new() -> Self {",
     `        Self::image(${image.size}, &[${bytes}], &[${regions}])`,
-    "    }",
-    "}",
-    "",
-    "impl Default for Mem {",
-    "    fn default() -> Self {",
-    "        Self::new()",
     "    }",
     "}",
   ]

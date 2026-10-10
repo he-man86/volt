@@ -45,8 +45,8 @@ export function exprInvoke(p: Printer, e: Extract<IrExpr, { kind: "invoke" }>, s
       ? printed(`${fn}(${args})`, Prec.Postfix)
       : moved !== undefined
         ? yields
-          ? printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); let ${tmp("result")} = ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; ${tmp("result")} }`, Prec.Postfix)
-          : printed(`{ let mut ${tmp("program")} = std::mem::take(&mut ${moved.program}); ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; }`, Prec.Postfix)
+          ? printed(`{ let mut ${tmp("program")} = ${moved.take}; let ${tmp("result")} = ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; ${tmp("result")} }`, Prec.Postfix)
+          : printed(`{ let mut ${tmp("program")} = ${moved.take}; ${tmp("program")}${moved.member}.${fn}(${args}); ${moved.program} = ${tmp("program")}; }`, Prec.Postfix)
         : guarded(p, e.instance, printed(`${receiverOf(place(p, e.instance, slots))}.${fn}(${args})`, Prec.Postfix), slots)
   // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
   const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : guarded(p, b, text, slots)), call)
@@ -98,7 +98,7 @@ function callArguments(p: Printer, callee: string, inputs: readonly string[], in
  * WHETHER A CALL ON A PROGRAM'S INSTANCE RUNS MOVED OUT OF `Programs` (lean 7.7.6): only where the call borrows `prg`
  * beside it — the callee reaches `Programs` (it is handed `prg`), or an in-out or a lent instance is a place of that same
  * program. Otherwise `prg.p.call(…)` borrows one field of `Programs` and the arguments disjoint ones, and the
- * `std::mem::take` (a whole `P::new()` built as the stand-in, moved twice) buys nothing.
+ * move-out (a whole `P::new()` built as the stand-in, moved twice) buys nothing.
  */
 function movesOut(p: Printer, instance: Place, callee: string, inouts: readonly IrBinding[], lent: readonly Place[]): boolean {
   if (instance.root !== "global" || p.globals.slots[instance.slot]?.section !== "program") return false
@@ -157,7 +157,7 @@ export function stmtCall(p: Printer, s: Extract<IrStmt, { kind: "call" }>, slots
     // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
     const moved = movedOut(p, s.instance, slots)
     const program = tmp("program")
-    push(p, `{ ${lets}${lets === "" ? "" : " "}let mut ${program} = std::mem::take(&mut ${moved.program}); ${program}${moved.member}.call(${bound}); ${moved.program} = ${program};${back === "" ? "" : ` ${back}`} }`, indent, s.span)
+    push(p, `{ ${lets}${lets === "" ? "" : " "}let mut ${program} = ${moved.take}; ${program}${moved.member}.call(${bound}); ${moved.program} = ${program};${back === "" ? "" : ` ${back}`} }`, indent, s.span)
     return
   }
   push(p, lets === "" && back === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); ${back} }`, indent, s.span)

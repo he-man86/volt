@@ -57,7 +57,7 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
   expect(diagnostics).toEqual([])
   const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
   expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
-  expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::take"))
+  expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::replace"))
 })
 
 // 7.6.2: a setter's value is its input itself where it holds no call — `self.sq.size_set(5i16)` — and goes through a temp
@@ -121,7 +121,7 @@ test("a PROGRAM whose callee does not reach Programs is called in place, with no
   expect(code).toContain("self.seen = prg.prg_c.bump(prg.prg_c.runs);")
   expect(code).toContain("prg.prg_c.reset();")
   // PRG_E calls PRG_C, so it reaches Programs and still runs moved out
-  expect(code).toContain("{ let mut __program = std::mem::take(&mut prg.prg_e); __program.call(prg); prg.prg_e = __program; }")
+  expect(code).toContain("{ let mut __program = std::mem::replace(&mut prg.prg_e, PRG_E::new()); __program.call(prg); prg.prg_e = __program; }")
 })
 
 // 7.8.6: a borrow (an in-out, a lent instance) is passed on and called on as itself — Rust reborrows it where a `&mut`

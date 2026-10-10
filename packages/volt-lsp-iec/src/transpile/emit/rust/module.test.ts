@@ -128,9 +128,23 @@ test("FUNCTION variants that print alike are one fn", () => {
 test("`new` is #[must_use], and const where every initial value can be", () => {
   const { pou } = lowerSource("FUNCTION_BLOCK FB_N\nVAR n : INT := 3; a : ARRAY[0..2] OF INT := [1, 2, 3]; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_S\nVAR t : STRING(4) := 'ab'; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR inner : FB_N; flag : BOOL := TRUE; sf : FB_S; END_VAR\ninner();\nsf();\nEND_PROGRAM\n", "P")
   const code = emitRust(pou!).code
-  expect(code).toContain("impl FB_N {\n    #[must_use]\n    pub const fn new() -> Self {")
-  expect(code).toContain("impl FB_S {\n    #[must_use]\n    pub fn new() -> Self {")
-  expect(code).toContain("impl P {\n    #[must_use]\n    pub fn new() -> Self {") // it holds an FB_S
+  // (the `allow` between: no struct has an `impl Default` beside `new` any more, 7.8.11)
+  expect(code).toContain("impl FB_N {\n    #[must_use]\n    #[allow(clippy::new_without_default)]\n    pub const fn new() -> Self {")
+  expect(code).toContain("impl FB_S {\n    #[must_use]\n    #[allow(clippy::new_without_default)]\n    pub fn new() -> Self {")
+  expect(code).toContain("impl P {\n    #[must_use]\n    #[allow(clippy::new_without_default)]\n    pub fn new() -> Self {") // it holds an FB_S
+})
+
+// 7.8.11: no hand-written `impl Default` beside `new` — one uniform shape, `new` under an allow of the lint that asked
+// for the impl; the one move-out that needs a stand-in builds it with `new` (`std::mem::replace`)
+test("no struct carries an impl Default; a program moved out is replaced by its new()", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM PRG_D\nVAR n : INT; END_VAR\nn := n + 1;\nEND_PROGRAM\nPROGRAM PRG_C\nVAR k : INT; END_VAR\nPRG_D();\nk := k + 1;\nEND_PROGRAM\nPROGRAM P\nVAR x : INT; END_VAR\nPRG_C();\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  expect(code).not.toContain("impl Default")
+  expect(code).toContain("let mut __program = std::mem::replace(&mut prg.prg_c, PRG_C::new());")
 })
 
 // 7.8.1: the derives follow the fields — `Copy` for a DUT STRUCT whose fields all are (a store of one then copies, no

@@ -6285,7 +6285,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     numbers: S-out identical but the 7.7b line; M (against 7.8a's map): 228 rows changed, 218 shapes; pedantic 1875 ->
     1863; surviving lints unchanged; constructs 1968 -> 1964, noted 77 -> 45; size median 3.3 and the sum unchanged. The
     emitted Rust 15,980,026 -> 15,977,442 bytes.
-- [ ] 7.8.11 No hand-written `impl Default` beside `new()` (clippy `new_without_default`).
+- [x] 7.8.11 No hand-written `impl Default` beside `new()` (clippy `new_without_default`).
   - What: every struct today gets `pub fn new()` plus a five-line `impl Default { fn default() -> Self { Self::new() } }`; it gets
     `new()` and `#[allow(clippy::new_without_default)]` instead (the reviewer's choice: one uniform shape), unless 7.8.1's derives
     make `#[derive(Default)]` exact (every initializer its type's zero, no array beyond 32 elements) — measured, not assumed.
@@ -6293,6 +6293,19 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `emit/rust/structs.ts`.
   - Accept: S-out, M (`new_without_default` stays 0; the emitted size falls).
   - Depends: 7.8.1.
+  - Done 2026-10-10 (step 7.8c), the reviewer's shape, measured first: `#[derive(Default)]` would be exact for 2198 of
+    the 6986 structs the user emission prints (every initial value its type's zero, no array past 32) and not for the
+    other 4788 — a second way to build a struct for a third of them. So every struct, `Mem` included, keeps `new` alone
+    under `#[allow(clippy::new_without_default)]` (`emit/rust/structs.ts`, `image.ts` `memNew`): the five-line `impl
+    Default` and its blank line are gone. The one thing that needed `Default`, the move-out's `std::mem::take`, is
+    `std::mem::replace(&mut prg.p, P::new())` (`place.ts` `movedOut` builds it; `calls.ts`). `impl Default for` 14118 ->
+    0 (both emissions); `new_without_default` stays 0. Tests `emit/rust/module.test.ts` ("no struct carries an impl
+    Default; a program moved out is replaced by its new()"; the 7.7.4 `new` pins read the allow between); the 7.7.6 and
+    batch-3a pins in `calls.test.ts` read `std::mem::replace`. Notes resolved: fbde4d6e1e's 7.8.11 item (its 7.8.8 item
+    stays, `keep:niche: …`). Step 7.8c numbers: S-out identical but the 7.7b line; M (against 7.8b's map): 3413 rows
+    changed (their `size`), 1 shape (the boilerplate the shape skips went; `initord_value_later_name`'s move-out reads
+    `replace`); size median 3.3 -> 2.7, the sum of sizes 11525.7 -> 9629.3, the largest down (`string_positions_low` 27.8
+    -> 27.2); pedantic 1863 unchanged; surviving lints unchanged. The emitted Rust 15,977,442 -> 15,184,584 bytes.
 
 ### 7.11 Notes and lint-policy hygiene
 

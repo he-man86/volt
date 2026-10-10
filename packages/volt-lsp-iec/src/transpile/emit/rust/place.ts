@@ -128,10 +128,10 @@ function widenedIndex(e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> {
 /** An integer of 32 bits or fewer widened to a LINT — two of them subtract without overflow. */
 const widenedNarrow = (e: IrExpr): e is Extract<IrExpr, { kind: "convert" }> => e.kind === "convert" && isIntegral(e.value.type) && e.value.type.kind === "elementary" && e.value.type.elem.bits <= 32
 
-/** The PROGRAM's own place and the member path under it — a call runs it moved out of `Programs` and puts it back.
- *  It used to return the program's TYPE as well, for `std::mem::replace(&mut p, T::new())`; `mem::take` needs no
- *  stand-in to swap in, so the type went with it. `take` is why the `Default` impl is not optional. */
-export function movedOut(p: Printer, at: Place, slots: IrPou["slots"]): { program: string; member: string } {
+/** The PROGRAM's own place, the member path under it, and the move that takes it out of `Programs` for a call, a
+ *  `P::new()` swapped in — `std::mem::replace`, which needs no `Default` (lean 7.8.11: no struct has one any more). */
+export function movedOut(p: Printer, at: Place, slots: IrPou["slots"]): { program: string; member: string; take: string } {
   const program = place(p, { ...at, path: [] }, slots)
-  return { program, member: place(p, at, slots).slice(program.length) }
+  const take = `std::mem::replace(&mut ${program}, ${rustType(p.globals.slots[at.slot]!.type)}::new())`
+  return { program, member: place(p, at, slots).slice(program.length), take }
 }

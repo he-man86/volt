@@ -78,7 +78,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i8;
   "e19d1f70e4": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // x: L,
-  "fbde4d6e1e": merged(["keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)", LEAN.shapes1_8], ["7.8.11", LEAN.shapes6_4]),
+  "fbde4d6e1e": note("keep:niche: accepted loss (2 occurrences in the corpora: pro2193 ONTIME, two REF= of its own variables; model 3 made the target an address relative to the instance's __base, so the initial value is known only where the parent sets that base, and moving it into new() moves it ahead of the init sequence - 7.8.8)", LEAN.shapes1_8),
   // m(&mut str) as i16
   "07f99bf907": merged(["7.4.6", LEAN.shapes13_15], ["7.4.6", LEAN.shapes12_11]),
   // m(m(x, …, p), x, i32::m(p).wrapping_sub(Li32).max(Li32) as i16)
