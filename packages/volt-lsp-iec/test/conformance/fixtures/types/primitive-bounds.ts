@@ -20,7 +20,7 @@
  * BOOL and BIT are included on purpose. `x : BOOL := 0` and `:= 2` are ordinary questions with non-obvious answers —
  * does the vendor take an integer literal for a boolean at all, and where is its edge.
  */
-import { ELEMENTARY_TYPES, REAL_MAX_MAGNITUDE } from "../../../../src/frontend/types/index.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 type Edge = "at_min" | "at_max" | "below_min" | "above_max"
@@ -65,7 +65,14 @@ const integerBounds: LanguageTest[] = RANGED.flatMap((t) => {
  * either — the next representable value is not a literal anyone writes — so these use a value clearly outside the
  * documented largest, in both directions, and the recording says whether that is an error or a conversion warning.
  */
-const realBounds: LanguageTest[] = [...REAL_MAX_MAGNITUDE].flatMap(([type, largest]) => [
+// doc 06's documented largest, as these were recorded — written out, not the type layer's bound (which is f32's exact largest,
+// transpile-restructure 6.A.21): a fixture's text is the question it was recorded with
+const DOCUMENTED_LARGEST: ReadonlyMap<string, number> = new Map([
+  ["REAL", 3.402823e38],
+  ["LREAL", 1.7976931348623157e308],
+])
+
+const realBounds: LanguageTest[] = [...DOCUMENTED_LARGEST].flatMap(([type, largest]) => [
   bound(type, "at_max", String(largest)),
   bound(type, "at_min", `-${largest}`),
   bound(type, "above_max", type === "REAL" ? "3.5E38" : "1.8E308"),

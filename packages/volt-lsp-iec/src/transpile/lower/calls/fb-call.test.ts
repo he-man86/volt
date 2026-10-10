@@ -3,6 +3,7 @@
  */
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "../index.js"
+import { run } from "../../interp/index.js"
 
 /**
  * RUNNING AN FB'S BODY IS A CALL — `holdsCall` counts the `call` node.
@@ -27,4 +28,20 @@ describe("an FB body call counts as a call", () => {
     expect(r.diagnostics).toEqual([])
     expect(r.pou).toBeDefined()
   })
+})
+
+// transpile-restructure 6.A.19 (Appendix A grouped): an FB body call binds each in-out WHERE IT IS WRITTEN, as the routine
+// path does — `fb(io := arr[i], inp := Bump(i))` arr[0], `fb(inp := Bump(j), io := arr[j])` arr[1]
+// (`tr_a19_fb_call_inout_beside_moving_input`, record:exec 2026-10-10: 101, 201). It was refused `call-inout-order`.
+test("an FB call binds an in-out where it is written, before or after an input that moves its index", () => {
+  const source =
+    "FUNCTION F_Bump : INT\nVAR_IN_OUT k : INT; END_VAR\nk := k + 1;\nF_Bump := k;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_O\nVAR_INPUT inp : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR_OUTPUT seen : INT; END_VAR\nseen := io * 100 + inp;\nEND_FUNCTION_BLOCK\n" +
+    "PROGRAM P\nVAR a : FB_O; b : FB_O; arr : ARRAY[0..3] OF INT := [1, 2, 3, 4]; i : INT; j : INT; s1 : INT; s2 : INT; END_VAR\n" +
+    "a(io := arr[i], inp := F_Bump(i), seen => s1);\nb(inp := F_Bump(j), io := arr[j], seen => s2);\nEND_PROGRAM\n"
+  const { pou, diagnostics } = lowerSource(source, "P")
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("s1"), runner.get("s2")]).toEqual([101n, 201n])
 })

@@ -6,7 +6,7 @@
  */
 import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../../frontend/syntax/index.js"
 import { targetOf, type Scope } from "../../frontend/symbols/index.js"
-import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN, untypedNumberValue } from "../../frontend/types/index.js"
+import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, REAL_LITERAL_TYPE, renderType, type Type, UNKNOWN, unparenthesised, untypedNumberValue } from "../../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
 import { compilerStringLiteralText, type Messages } from "../messages.js"
 
@@ -265,8 +265,13 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   const [lt, rt] = [inferExprType(e.left, scope, project), inferExprType(e.right, scope, project)]
   if (e.op === "-" && lt.kind === "pointer" && rt.kind === "elementary" && rt.elem.family === "real")
     return binaryDiag(e, messages.pointerMinusReal(renderType(rt, { form: "compiler" }), renderType(lt, { form: "compiler" })))
-  const a = elemName(e.left, scope, project)
-  const b = elemName(e.right, scope, project)
+  // MOD names an untyped REAL literal's own type, LREAL — `5.5 MOD 2.0` is "MOD is not defined for REAL"
+  // (`tr_a20_real_mod_in_initializer`, 6.A.20); `inferExprType` answers UNKNOWN for one beside another, and the operand
+  // was skipped. Only MOD: what the other operators make of one beside a string or a BOOL is not recorded.
+  const named = (x: Expr): string | undefined =>
+    elemName(x, scope, project) ?? (e.op === "MOD" && typeof untypedNumberValue(unparenthesised(x)) === "number" ? REAL_LITERAL_TYPE : undefined)
+  const a = named(e.left)
+  const b = named(e.right)
   if (a === undefined || b === undefined) return undefined
   // The rule is the type layer's (`operandFamilyRule`): a BOOL operand converts, MOD is integer-only and names
   // `REAL` for every floating operand (parity with the compiler's wording, not the more precise operand name), a

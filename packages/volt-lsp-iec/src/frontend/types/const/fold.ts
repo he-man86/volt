@@ -657,8 +657,7 @@ function foldNumber(op: string, l: number, r: number): ConstValue {
       return l * r
     case "/":
       return r === 0 ? undefined : l / r
-    case "MOD":
-      return r === 0 ? undefined : l % r
+    // no MOD: on a REAL it is refused, "MOD is not defined for REAL" (`tr_a20_real_mod_in_initializer`, 6.A.20)
     default:
       return foldCompare(op, l, r)
   }

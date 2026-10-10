@@ -7,7 +7,7 @@ import type { Expr, Statement, StatementList } from "../../../frontend/syntax/in
 import type { IrExpr, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { lowerBlock } from "./statements.js"
 import { lowerPlace } from "../places/places.js"
-import { guardWrite } from "../places/access-guards.js"
+import { guardWrite, STORE_WRITE } from "../places/access-guards.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { assignTo, beside, convert, stored } from "../values/convert.js"
 import { foldConstant } from "../values/fold.js"
@@ -39,8 +39,11 @@ function loopBody(lw: Lowering, list: StatementList): IrStmt[] {
  * limit that a runtime step tests on both arms.
  */
 export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): IrStmt | undefined {
-  const control = lowerPlace(lw, s.controlVar)
-  if (control === undefined || guardWrite(lw, control, s.controlVar.span, ["union", "constant"]) === undefined) return undefined
+  // a REFERENCE counts the variable it references (`tr_a18_for_counter_through_reference`: v is 4 after `FOR rv := 1 TO 3`,
+  // 6.A.18) — it counted the reference's own slot
+  const written = lowerPlace(lw, s.controlVar)
+  const control = written === undefined ? undefined : guardWrite(lw, written, s.controlVar.span, STORE_WRITE)
+  if (control === undefined) return undefined
   const from = lowerExpr(lw, s.from, control.type)
   // The LIMIT is not lowered in the counter's type: a literal the counter cannot hold is compared as it is — `FOR small :=
   // 1 TO 200` on a SINT runs until something EXITs, as `TO (100 + 100)` does (`tr_36_for_literal_limit_beyond_counter`).

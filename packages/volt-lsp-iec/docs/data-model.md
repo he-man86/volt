@@ -348,7 +348,8 @@ interface IrPou {
   init?: IrStmt[]              // run once before the first scan
   span: Span
 }
-interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; constant?: boolean; readOnly?: boolean; ofInstance?: boolean }
+interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; constant?: boolean; readOnly?: boolean; ofInstance?: boolean; image?: number; list?: string }
+// list: a GVL variable whose name another list also declares — two globals (6.A.17), each Rust field named `<list>_<name>`
 interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[] }
 interface IrRoutine { name: string; key: string; kind: "method" | "action" | "function"; fb?: string; uri?: string; locals: IrSlot[]; inputs: number[]; inouts: IrSlot[]; result?: number; body: IrStmt[]; lent?: { tag: number; type: Type }[] }
 
@@ -365,7 +366,7 @@ type IrExpr =
   | { kind: "dispatch"; tag: IrExpr; arms: { tag: bigint; call: IrInvoke }[] }   // a call through an interface
   | { kind: "select"; tag: IrExpr; arms: { tag: bigint; place: Place }[] }       // a read through a multi-target pointer
   // …each with `type: Type; span: Span`
-type IrBinding = Place | { kind: "copy"; value: IrExpr; type: Type; back?: Place; span: Span }
+type IrBinding = Place | { kind: "copy"; value: IrExpr; type: Type; back?: Place; discarded?: true; span: Span }  // discarded: an unconnected VAR_OUTPUT's copy, lent `&mut`, read by nothing after the call (6.A.12)
 
 type IrStmt =
   | { kind: "assign"; target: Place; value: IrExpr }

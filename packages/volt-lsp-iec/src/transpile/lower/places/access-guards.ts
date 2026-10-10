@@ -26,16 +26,9 @@ type WriteCheck = "open-array" | "interface" | "through-reference" | "union" | "
 
 /**
  * THE ONE WRITE GUARD (transpile-restructure 1.7.5): the place a store writes once `checks` pass, in order — undefined
- * when one refused (reported). Each store site passes the checks it made before this existed, explicitly; the lists
- * differ by site, and making them one rule is task 6.A.18's (by recording, not by moving):
- *
- * - `:=` into a place: `open-array`, `constant` (`statements/assign.ts`); into a reference's target: `constant`;
- *   a character `s[i] :=`: `constant`; a chain link: `open-array`, then the full write (below);
- * - the FULL WRITE — `interface`, `through-reference`, `union`, `constant` — for a latch `S=`/`R=`, an FB output
- *   `q => y` (`calls/outputs.ts`), a VAR_IN_OUT binding that is not CONSTANT (`calls/binding.ts`), an ANY argument
- *   (`pointers/any.ts`);
- * - a FOR variable: `union`, `constant` (`statements/loops.ts`); an FB input stored into the instance: `constant`
- *   (`calls/fb-call.ts`).
+ * when one refused (reported). Every store site passes one of the three named lists below (6.A.18) — it was a list per
+ * site (1.7.5), and the FOR variable's, without `through-reference`, counted a REFERENCE's own slot where CODESYS counts
+ * the variable it references (`tr_a18_for_counter_through_reference`).
  */
 export function guardWrite(lw: Lowering, place: Place, span: Span, checks: readonly WriteCheck[]): Place | undefined {
   let written = place
@@ -63,8 +56,21 @@ export function guardWrite(lw: Lowering, place: Place, span: Span, checks: reado
   return written
 }
 
-/** The FULL WRITE — what an output, a latch, a non-CONSTANT in-out binding and an ANY argument check (`guardWrite`). */
+/**
+ * A PLAIN `:=` — into a place (`statements/assign.ts`), into a reference's target, and an FB input stored into its instance
+ * (`calls/fb-call.ts`, the `inst.in := v` the call makes). It is the one store that models an interface (`storeInterface`)
+ * and a UNION member, and it reaches through a REFERENCE by its own path, so only an `ARRAY[*]` stored whole and a
+ * VAR_IN_OUT CONSTANT are refused.
+ */
+export const PLAIN_WRITE: readonly WriteCheck[] = ["open-array", "constant"]
+
+/** A LENT place — a VAR_IN_OUT binding that is not CONSTANT (`calls/binding.ts`), an ANY argument (`pointers/any.ts`): every
+ *  check but `open-array`, as an `ARRAY[*]` is bound whole to an in-out, which is no store. */
 export const FULL_WRITE: readonly WriteCheck[] = ["interface", "through-reference", "union", "constant"]
+
+/** EVERY OTHER STORE — a chain link, a latch `S=`/`R=`, an FB output `q => y` (`calls/outputs.ts`), a FOR variable
+ *  (`statements/loops.ts`), a character `s[i] :=`: the full write, and an `ARRAY[*]` not stored whole. */
+export const STORE_WRITE: readonly WriteCheck[] = ["open-array", ...FULL_WRITE]
 
 /**
  * A store into a VAR_IN_OUT CONSTANT — "'value' is no valid assignment target" (conformance `inout_const_write_5`, a `:=`):

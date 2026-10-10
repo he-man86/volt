@@ -73,3 +73,36 @@ describe("emit/rust", () => {
     expect(assignment?.span.startLine).toBe(11)
   })
 })
+
+// 6Aa+6Ae gate review of 6.A.17: two lists' same-named globals were made two Rust fields by turning the global field names'
+// collision refusal off for every global, so two DIFFERENT ST names snaking to one field were silently suffixed `_2`, and
+// which list kept the plain name followed which body reached it first. The two slots of one name are told apart by their
+// LIST (`IrSlot.list`), whatever order they are reached in; any other collision still refuses.
+describe("emit/rust — two lists' globals", () => {
+  const lists = [
+    { uri: "file:///GVL_One.gvl", source: "VAR_GLOBAL\n\tg : INT := 3;\nEND_VAR\n" },
+    { uri: "file:///GVL_Two.gvl", source: "VAR_GLOBAL\n\tg : INT := 5;\nEND_VAR\n" },
+  ]
+  const fields = (body: string): string[] => {
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR a : INT; b : INT; END_VAR\n${body}\nEND_PROGRAM\n`, "P", lists)
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    const globals = code.slice(code.indexOf("pub struct Globals {"), code.indexOf("}", code.indexOf("pub struct Globals {")))
+    return [...globals.matchAll(/pub (\w+):/g)].map((m) => m[1]!).sort()
+  }
+
+  test("one name in two lists is two fields, named by their lists whatever order they are reached in", () => {
+    const one = fields("a := GVL_One.g;\nb := GVL_Two.g;")
+    expect(one).toEqual(["gvl_one_g", "gvl_two_g"])
+    expect(fields("b := GVL_Two.g;\na := GVL_One.g;")).toEqual(one)
+  })
+
+  test("two different ST names snaking to one field still refuse", () => {
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR a : INT; b : INT; END_VAR\na := GVL_A.myVal;\nb := GVL_B.my_val;\nEND_PROGRAM\n", "P", [
+      { uri: "file:///GVL_A.gvl", source: "VAR_GLOBAL\n\tmyVal : INT;\nEND_VAR\n" },
+      { uri: "file:///GVL_B.gvl", source: "VAR_GLOBAL\n\tmy_val : INT;\nEND_VAR\n" },
+    ])
+    expect(diagnostics).toEqual([])
+    expect(() => emitRust(pou!)).toThrow(/both become the Rust field `my_val`/)
+  })
+})

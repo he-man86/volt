@@ -5,7 +5,7 @@
 import type { Lowering } from "../core/lowering.js"
 import type { Span, TopLevel, VarDecl, VarSection } from "../../../frontend/syntax/index.js"
 import type { Place } from "../../ir/index.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { gvlName, lookup, type Symbol } from "../../../frontend/symbols/index.js"
 import { libraryOf } from "../../../frontend/library/index.js"
 import { storageOf } from "../storage/layout.js"
 import { resolveNamedType, typeZero } from "../../../frontend/types/index.js"
@@ -33,8 +33,11 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   // a GVL variable named like its own list (`listVariableShadows`): the bare name is the variable
   if (sym?.kind === "gvl_block") sym = lw.project.symbols.get(upper.toLowerCase())?.find((s) => s.kind === "gvl_var") ?? sym
   if (sym === undefined || libraryOf(sym) !== undefined) return undefined
-  if (sym.kind === "gvl_var") declareGlobal(lw, sym.ast as VarDecl, "")
-  else if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
+  if (sym.kind === "gvl_var") {
+    const slot = listVariable(lw, sym, sym.ast as VarDecl, sym.name)
+    return slot === undefined ? undefined : place(slot)
+  }
+  if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
     const type = storageOf(lw, resolveNamedType(sym.name, lw.project, sym.uri), sym.span)
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
     lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: typeZero(type) })
@@ -42,6 +45,24 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   } else return undefined
   const slot = lw.shared.globals.byName.get(upper)
   return slot === undefined ? undefined : place(slot)
+}
+
+/**
+ * A list's variable's global slot, declared on first reach. It is keyed by its bare name — one global however it is reached
+ * — unless the list is `qualified_only` or another list declares the same name, when it is keyed `<list>.<name>`. The same
+ * name in two plain lists is TWO variables (`tr_a17_two_lists_one_name_both_qualified`: GVL_a.g 3, GVL_b.g 5, and writing
+ * one leaves the other) — keyed by the bare name, they shared one slot (6.A.17). Bare, such a name is ambiguous and CODESYS
+ * refuses it (`ambg_*`). Such a slot carries its list (`IrSlot.list`), so the emitter names the two Rust fields apart by
+ * their lists, not by which one a body reached first (6Aa+6Ae gate review).
+ */
+function listVariable(lw: Lowering, sym: Symbol, decl: VarDecl, name: string): number | undefined {
+  const shared = (lw.project.symbols.get(sym.name.toLowerCase()) ?? []).some((s) => s.kind === "gvl_var" && s.uri !== sym.uri && libraryOf(s) === undefined)
+  const prefix = sym.qualifiedOnly === true || shared ? `${gvlName(sym.uri)}.` : ""
+  const key = `${prefix}${name}`.toUpperCase()
+  if (!lw.shared.globals.byName.has(key)) declareGlobal(lw, decl, prefix)
+  const slot = lw.shared.globals.byName.get(key)
+  if (slot !== undefined && shared) lw.shared.globals.slots[slot]!.list = gvlName(sym.uri)
+  return slot
 }
 
 /** A GVL declaration's variables made the application's storage, each keyed by `prefix` and its name. */
@@ -59,9 +80,7 @@ export function qualifiedGlobal(lw: Lowering, list: string, name: string, span: 
   const decl = gvl.varSections.flatMap((s) => s.decls).find((d) => d.names.some((n) => n.text.toUpperCase() === name.toUpperCase()))
   const sym = decl === undefined ? undefined : lw.project.symbols.get(name.toLowerCase())?.find((s) => s.kind === "gvl_var" && s.ast === decl)
   if (sym === undefined) return lw.bail("place-not-local", `${list}.${name} names no variable of that list`, span)
-  const key = `${sym.qualifiedOnly ? `${block.name}.` : ""}${name}`.toUpperCase()
-  if (!lw.shared.globals.byName.has(key)) declareGlobal(lw, decl!, sym.qualifiedOnly ? `${block.name}.` : "")
-  const slot = lw.shared.globals.byName.get(key)
+  const slot = listVariable(lw, sym, decl!, name)
   return slot === undefined ? undefined : { slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" }
 }
 

@@ -77,7 +77,10 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
     if (writesOnlyLocals(callee)) return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, span: arg.span }
     return lw.bail("call-inout-alias", `${param.name} is bound to a variable the callee could change while it reads it`, arg.span)
   }
-  if (held.some((p) => aliases(target, p))) {
+  // A VAR_OUTPUT the caller COPIES OUT after the call (`bindOutputArgument`) is not lent, so a place the call holds is no
+  // second `&mut`: `Count(o => seen)` in an FB's own body, `seen` its field (6.A.12, `tr_a12_bare_method_call_unconnected_output`).
+  const copiedOut = param.section === "VAR_OUTPUT" && target.guard === undefined
+  if (!copiedOut && held.some((p) => aliases(target, p))) {
     // An FB lending its own field to its own METHOD — pro2193's `Shift(line := points)` (conformance
     // `callshape_array_star_of_struct`), `Mixed(counter, 3)` (`callshape_positional_arguments`) — is two `&mut` of one
     // instance. Copied in and written back after the call it reads the same — exactly in this shape, and only this: the
@@ -150,49 +153,42 @@ export function bindWhereWritten(lw: Lowering, b: InvokeBindings, span: Span): (
     const movable = "kind" in binding || binding.guard !== undefined || binding.path.some((s) => s.kind === "index" && s.index.kind !== "const")
     if (movable && ("kind" in binding || entry.output === true))
       return lw.bail("call-inout-order", `${routine.name}'s ${name} is bound before a call in a later argument that could move it`, span)
-    // A pointer's target moves with the POINTER, and `p^`'s index is read from it — so the pointer's own value is frozen
-    // where the in-out is written, as an index is (conformance `callshape_inout_pointer_before_call`: 101, `boundValue`
-    // still numbers[0] after a later argument repoints p). The frozen value carries the null check with it.
-    let guard = binding.guard
-    if (guard !== undefined) {
-      const temp = tempPlace(lw, "inout_guard", guard.type, binding.span)
-      written.push({ kind: "freeze", temp, value: { kind: "load", place: guard, type: guard.type, span: binding.span } })
-      guard = temp
-    }
-    // a place in the byte image is where its ADDRESS says (model 3): the address is frozen where the in-out is written
-    let address = binding.at
-    if (address !== undefined) {
-      const temp = tempPlace(lw, "inout_address", address.type, binding.span)
-      written.push({ kind: "freeze", temp, value: address })
-      address = { kind: "load", place: temp, type: address.type, span: binding.span }
-    }
-    const path = binding.path.map((step): Access => {
-      if (step.kind !== "index" || step.index.kind === "const") return step
-      const temp = tempPlace(lw, "inout_index", step.index.type, binding.span)
-      written.push({ kind: "freeze", temp, value: step.index })
-      return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
-    })
-    inouts[entry.inout] = { ...binding, path, ...(guard === undefined ? {} : { guard }), ...(address === undefined ? {} : { at: address }) }
+    const frozen = frozenWhereWritten(lw, binding)
+    written.push(...frozen.freezes)
+    inouts[entry.inout] = frozen.binding
   }
   return written
 }
 
 /**
- * The in-out a call in a LATER-written argument could move — its binding reads an index, a pointer or a copied value.
- * CODESYS binds each in-out where it is written (conformance `callshape_inout_binding_order`: 201 written after the call,
- * 101 before it); both backends bind every in-out after the inputs, which differs exactly there — so it is refused.
+ * An in-out's place bound WHERE IT IS WRITTEN: each runtime part of it taken into a temp there (`freezes`, in order), and the
+ * place reading the temps (`binding`) — for the routine path (`bindWhereWritten`) and the FB body call alike.
  */
-export function movedInOut(call: { args: readonly CallArg[] }, binding: (name: string) => IrBinding | undefined, input: (arg: CallArg, position: number) => readonly IrStmt[]): string | undefined {
-  let callLater = false
-  for (let position = call.args.length - 1; position >= 0; position--) {
-    const arg = call.args[position]!
-    const bound = arg.param === undefined ? undefined : binding(arg.param.name.toUpperCase())
-    if (bound === undefined) {
-      if (holdsCall(input(arg, position))) callLater = true
-    } else if (callLater && ("kind" in bound || bound.guard !== undefined || bound.path.some((s) => s.kind === "index" && s.index.kind !== "const")))
-      return arg.param!.name
+export function frozenWhereWritten(lw: Lowering, binding: Place): { freezes: IrFreeze[]; binding: Place } {
+  const freezes: IrFreeze[] = []
+  // A pointer's target moves with the POINTER, and `p^`'s index is read from it — so the pointer's own value is frozen
+  // where the in-out is written, as an index is (conformance `callshape_inout_pointer_before_call`: 101, `boundValue`
+  // still numbers[0] after a later argument repoints p). The frozen value carries the null check with it.
+  let guard = binding.guard
+  if (guard !== undefined) {
+    const temp = tempPlace(lw, "inout_guard", guard.type, binding.span)
+    freezes.push({ kind: "freeze", temp, value: { kind: "load", place: guard, type: guard.type, span: binding.span } })
+    guard = temp
   }
-  return undefined
+  // a place in the byte image is where its ADDRESS says (model 3): the address is frozen where the in-out is written
+  let address = binding.at
+  if (address !== undefined) {
+    const temp = tempPlace(lw, "inout_address", address.type, binding.span)
+    freezes.push({ kind: "freeze", temp, value: address })
+    address = { kind: "load", place: temp, type: address.type, span: binding.span }
+  }
+  const path = binding.path.map((step): Access => {
+    if (step.kind !== "index" || step.index.kind === "const") return step
+    const temp = tempPlace(lw, "inout_index", step.index.type, binding.span)
+    freezes.push({ kind: "freeze", temp, value: step.index })
+    return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
+  })
+  return { freezes, binding: { ...binding, path, ...(guard === undefined ? {} : { guard }), ...(address === undefined ? {} : { at: address }) } }
 }
 
 /**

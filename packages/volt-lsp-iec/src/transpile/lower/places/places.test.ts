@@ -62,3 +62,22 @@ describe("a bit through a REFERENCE", () => {
     expect([tagged.get("b3"), tagged.get("after")]).toEqual([true, 9n])
   })
 })
+
+// transpile-restructure 6.A.17 (Appendix A grouped): one name in two plain lists is TWO variables, each reached qualified by
+// its own list. Every plain list's variable was keyed by its bare name, so `GVL1.g` and `GVL2.g` shared one slot — the
+// second list read the first's value and saw its writes (`tr_a17_two_lists_one_name_both_qualified`, CODESYS 3, 5, 5).
+test("the same name in two plain lists is two globals, each reached through its own list", () => {
+  const lists = [
+    { uri: "file:///GVL_One.gvl", source: "VAR_GLOBAL\n\tg : INT := 3;\nEND_VAR\n" },
+    { uri: "file:///GVL_Two.gvl", source: "VAR_GLOBAL\n\tg : INT := 5;\nEND_VAR\n" },
+  ]
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR outA : INT; outB : INT; afterB : INT; END_VAR\noutA := GVL_One.g;\noutB := GVL_Two.g;\nGVL_One.g := 7;\nafterB := GVL_Two.g;\nEND_PROGRAM\n",
+    "P",
+    lists,
+  )
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("outA"), runner.get("outB"), runner.get("afterB")]).toEqual([3n, 5n, 5n])
+})

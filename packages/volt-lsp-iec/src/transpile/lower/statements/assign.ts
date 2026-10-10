@@ -8,7 +8,7 @@ import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/i
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
-import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
+import { guardWrite, PLAIN_WRITE, STORE_WRITE } from "../places/access-guards.js"
 import { assignTo, convert } from "../values/convert.js"
 import { classifyConversion, elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import { bindReference, storePointer } from "../pointers/store.js"
@@ -46,7 +46,7 @@ function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): Ir
   let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
   for (let i = targets.length - 1; i >= 0; i--) {
     const written = lowerPlace(lw, targets[i]!)
-    const target = written === undefined ? undefined : guardWrite(lw, written, targets[i]!.span, ["open-array", ...FULL_WRITE])
+    const target = written === undefined ? undefined : guardWrite(lw, written, targets[i]!.span, STORE_WRITE)
     if (target === undefined) return undefined
     const op = ops[i]
     if (op === undefined) {
@@ -83,16 +83,18 @@ export function lowerAssign(lw: Lowering, s: Extract<Statement, { kind: "assign"
   if ("char" in indexed) return storeChar(lw, s, indexed.char)
   const target = indexed.place
   // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which is no store, so not there)
-  if (target === undefined || guardWrite(lw, target, s.span, ["open-array", "constant"]) === undefined) return undefined
+  if (target === undefined || guardWrite(lw, target, s.span, PLAIN_WRITE) === undefined) return undefined
   if (s.op === "S=" || s.op === "R=") return lowerLatch(lw, s, target)
   return storeValue(lw, s, target)
 }
 
 /** `s[i] := c` or a cursor's `p^ := c` — the string stored back with one character changed (`setchar`). */
 function storeChar(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, char: { place: Place; index: IrExpr; unit: Type }): IrStmt | undefined {
-  const { place: text, index, unit } = char
+  const { index, unit } = char
   const c = lowerExpr(lw, s.value, unit)
-  if (c === undefined || refuseImplicitString(lw, c, unit, s.span) || guardWrite(lw, text, s.span, ["constant"]) === undefined) return undefined
+  if (c === undefined || refuseImplicitString(lw, c, unit, s.span)) return undefined
+  const text = guardWrite(lw, char.place, s.span, STORE_WRITE)
+  if (text === undefined) return undefined
   const load: IrExpr = { kind: "load", place: text, type: text.type, span: s.span }
   const value: IrExpr = { kind: "builtin", name: "setchar", args: [load, index, convert(c, unit)], type: text.type, span: s.span }
   return { kind: "assign", target: text, value, span: s.span }
@@ -106,7 +108,7 @@ function lowerLatch(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   const cond = lowerExpr(lw, s.value, elementaryRef("BOOL"))
   if (cond === undefined) return undefined
   const latch: IrExpr = { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }
-  const latched = guardWrite(lw, target, s.span, FULL_WRITE)
+  const latched = guardWrite(lw, target, s.span, STORE_WRITE)
   if (latched === undefined) return undefined
   const set: IrStmt = assignTo(latched, latch, s.span)
   return { kind: "if", cond, then: [set], else: [], span: s.span }
@@ -125,13 +127,13 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   if (target.type.kind === "reference") {
     // a write through a reference is a write to its target
     const pointee = pointeePlace(lw, target, undefined, s.span)
-    if (pointee === undefined || guardWrite(lw, pointee, s.span, ["constant"]) === undefined) return undefined
+    if (pointee === undefined || guardWrite(lw, pointee, s.span, PLAIN_WRITE) === undefined) return undefined
     const written = lowerExpr(lw, s.value, pointee.type)
     // the same implicit store as into the target itself: `ri := str` is refused as `v := str` is (`tr_38_ref_store_*`)
     if (written === undefined || refuseImplicitString(lw, written, pointee.type, s.span)) return undefined
     return assignTo(pointee, written, s.span)
   }
-  const value = lowerExpr(lw, s.value, target.type)
+  const value = lowerExpr(lw, s.value, target.type, true)
   if (value === undefined) return undefined
   // A STRING DOES NOT IMPLICITLY BECOME A NUMBER. CODESYS rejects `i := 'a$Tb'` outright — "Cannot convert type
   // 'STRING(INT#4)' to type 'INT'" (`literal_string_to_int_assignment`, `cc_init_string_into_int`,

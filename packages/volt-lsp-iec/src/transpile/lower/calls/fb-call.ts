@@ -6,7 +6,8 @@ import type { FbType, Lowering } from "../core/lowering.js"
 import type { CallArg, Span, Statement } from "../../../frontend/syntax/index.js"
 import type { IrBinding, IrCall, IrLayout, IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { isSuper, lowerSuperCall } from "./super.js"
-import { bindInOut, holding, movedInOut } from "./binding.js"
+import { bindInOut, frozenWhereWritten, holding } from "./binding.js"
+import { holdsCall } from "../../ir/walk.js"
 import { registerBodyCall } from "./last-binding.js"
 import { lowerInvoke } from "./invoke.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -19,7 +20,7 @@ import { fieldIn, staticPath } from "../places/path.js"
 import { calledLayout } from "./routines.js"
 import { isInFrame } from "./specialize.js"
 import { fbOutputCopy } from "./outputs.js"
-import { guardWrite } from "../places/access-guards.js"
+import { guardWrite, PLAIN_WRITE } from "../places/access-guards.js"
 import { storeInterface } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { refuseImplicitString, storeArgument } from "../statements/assign.js"
@@ -48,8 +49,6 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   const { before, after, bound } = args
   const missing = inouts.find((p) => !bound.has(p.name.toUpperCase()))
   if (missing !== undefined) return lw.bail("call-inout-missing", `${missing.name} is not bound`, call.span)
-  const moved = movedInOut(call, (name) => bound.get(name), (arg) => before.filter((s) => s.kind === "assign" && s.target.path.at(-1)?.kind === "field" && (s.target.path.at(-1) as { name: string }).name.toUpperCase() === arg.param?.name.toUpperCase()))
-  if (moved !== undefined) return lw.bail("call-inout-order", `${layout.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
   const bounds = storeOpenBounds(lw, instance, layout.fields, inouts, (i) => bound.get(inouts[i]!.name.toUpperCase()), call.span)
   if (bounds === undefined) return undefined
   const inoutPlaces = inouts.map((p) => bound.get(p.name.toUpperCase())!)
@@ -133,8 +132,13 @@ function calledInstance(lw: Lowering, call: Extract<Statement, { kind: "call_stm
   return { instance: instance as Place & { type: FbType }, layout }
 }
 
-/** An FB call's arguments: each in-out bound (by upper-cased name), each input stored into the instance before the call,
- *  each output copied out after it. */
+/**
+ * An FB call's arguments: each in-out bound (by upper-cased name), each input stored into the instance before the call,
+ * each output copied out after it. AN IN-OUT IS BOUND WHERE IT IS WRITTEN (6.A.19): `fb(io := arr[i], inp := Bump(i))`
+ * binds arr[0] and `fb(inp := Bump(j), io := arr[j])` arr[1] (`tr_a19_fb_call_inout_beside_moving_input`: 101, 201), as the
+ * routine path does (`bindWhereWritten`) — so an in-out written before an input holding a call has its runtime parts taken
+ * into temps there (`frozenWhereWritten`). It was refused `call-inout-order`; a copied value still is.
+ */
 function fbArguments(
   lw: Lowering,
   call: Extract<Statement, { kind: "call_stmt" }>["call"],
@@ -145,6 +149,8 @@ function fbArguments(
   const after: IrStmt[] = []
   const bound = new Map<string, IrBinding>()
   const inouts = layout.inouts ?? []
+  // where each in-out was written: the number of input stores before it
+  const writtenAt = new Map<string, number>()
   for (const arg of call.args) {
     if (arg.param === undefined) return lw.bail("call-positional", `${layout.name} called with a positional argument`, arg.span)
     if (arg.value === undefined) continue
@@ -154,6 +160,7 @@ function fbArguments(
       const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name, undefined)
       if (target === undefined || isInFrame(target)) return undefined
       bound.set(name, target)
+      writtenAt.set(name, before.length)
       continue
     }
     const field = fieldIn(layout.fields, name)
@@ -163,6 +170,16 @@ function fbArguments(
     if (stmt === undefined) return undefined
     ;(arg.output ? after : before).push(...(Array.isArray(stmt) ? stmt : [stmt]))
   }
+  // the last written first, so each splice leaves the positions before it as they were
+  for (const [name, at] of [...writtenAt].sort((a, b) => b[1] - a[1])) {
+    const binding = bound.get(name)!
+    if (!holdsCall(before.slice(at))) continue
+    if ("kind" in binding) return lw.bail("call-inout-order", `${layout.name}'s ${name} is bound before a call in a later argument that could move it`, call.span)
+    const frozen = frozenWhereWritten(lw, binding)
+    if (frozen.freezes.length === 0) continue
+    before.splice(at, 0, ...frozen.freezes.map((f): IrStmt => ({ kind: "assign", target: f.temp, value: f.value, span: binding.span })))
+    bound.set(name, frozen.binding)
+  }
   return { before, after, bound }
 }
 
@@ -170,7 +187,7 @@ function fbArguments(
 function fbInputStore(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt | IrStmt[] | undefined {
   // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
   // storing into it is not recorded — refused as the store it is
-  if (guardWrite(lw, member, arg.span, ["constant"]) === undefined) return undefined
+  if (guardWrite(lw, member, arg.span, PLAIN_WRITE) === undefined) return undefined
   // an FB keeps an interface input as it keeps any (`itf_fb_input_left_out`): the tag stored into its field
   if (field.type.kind === "interface") return storeInterface(lw, member, arg.value!, arg.span)
   // a pointer input that holds addresses (model 3) is handed one, as a store into the field (`pointers/store.ts`)

@@ -68,3 +68,11 @@ test("AND_THEN / OR_ELSE on integers: a BOOL operand refused into the unsigned i
   // only 16 bits were recorded (two INTs, two WORDs, a BOOL beside an INT): another width names no meet, so nothing is said
   expect(mismatches("a : BYTE; b : BYTE; c : DINT; d : DINT; e : LINT; f : LINT; ba : BOOL; o : BOOL;", "o := a AND_THEN b;\no := c AND_THEN d;\no := e OR_ELSE f;\no := ba AND_THEN c;")).toEqual([])
 })
+
+// transpile-restructure 6.A.20: MOD of two untyped REAL literals — "MOD is not defined for REAL" in a declaration's
+// initializer (`tr_a20_real_mod_in_initializer`, CODESYS record:exec 2026-10-10). An untyped real literal is an LREAL, and
+// the check skipped any operand it could not name, so it was silent there — and the constant fold folded it.
+test("MOD of untyped REAL literals is refused — in an initializer and in a body", () => {
+  expect(mismatches("rl : REAL := 5.5 MOD 2.0;", "rl := rl;")).toEqual(["MOD is not defined for REAL"])
+  expect(mismatches("rl : REAL;", "rl := 5.5 MOD 2.0;")).toEqual(["MOD is not defined for REAL"])
+})

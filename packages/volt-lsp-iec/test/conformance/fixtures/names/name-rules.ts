@@ -65,6 +65,12 @@ const AMBIGUOUS_GLOBAL: LanguageTest[] = [
     "\tg_ambt : INT := 3;", "\tg_ambt : BOOL;"),
   twoLists(fb("ambg_qualified_read", "a global two lists declare, read qualified by its list (legal)", "\tout : INT;", "out := GVL_LANG_ambg_qualified_read_b.g_ambq;"),
     "\tg_ambq : INT := 3;", "\tg_ambq : INT := 5;"),
+  // transpile-restructure 6.A.17 (Appendix A grouped): the SAME name in two plain lists, each reached qualified — two
+  // variables, or one? Both read, then one written and the other read back.
+  twoLists(fb("tr_a17_two_lists_one_name_both_qualified", "a global two lists declare, each read and written qualified by its own list",
+    "\toutA : INT;\n\toutB : INT;\n\tafterB : INT;",
+    "outA := GVL_LANG_tr_a17_two_lists_one_name_both_qualified_a.g_a17;\noutB := GVL_LANG_tr_a17_two_lists_one_name_both_qualified_b.g_a17;\nGVL_LANG_tr_a17_two_lists_one_name_both_qualified_a.g_a17 := 7;\nafterB := GVL_LANG_tr_a17_two_lists_one_name_both_qualified_b.g_a17;"),
+    "\tg_a17 : INT := 3;", "\tg_a17 : INT := 5;"),
   twoLists(fb("ambg_local_shadow", "a global two lists declare, shadowed by the FB's own variable of that name (legal)", "\tg_ambs : INT := 7;\n\tout : INT;", "out := g_ambs;"),
     "\tg_ambs : INT := 3;", "\tg_ambs : INT := 5;"),
 ]

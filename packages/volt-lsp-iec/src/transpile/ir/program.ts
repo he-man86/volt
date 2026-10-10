@@ -33,6 +33,9 @@ export interface IrSlot {
    *  layout's field at this offset from its instance's `__base`, a struct's field at this offset from the struct. Such a
    *  slot is reached only through an `image` place; the Rust struct does not hold it. */
   image?: number
+  /** A GVL variable whose name another list also declares: its list's name. The two are two globals (6.A.17), and the
+   *  emitter names each Rust field `<list>_<name>` — by its list, never by which one a body reached first. */
+  list?: string
 }
 
 /**

@@ -138,3 +138,12 @@ test("a same-width sign-change FOR pair is compared promoted, as an IF compares 
     scan("hi : UINT := 40000; i : INT; runs : DINT;", "FOR i := 0 TO hi DO runs := runs + 1; IF runs >= 50000 THEN EXIT; END_IF END_FOR", ["runs", "i"]),
   ).toEqual([50000n, -15537n])
 })
+
+// transpile-restructure 6.A.18 (uniform write guards): a FOR loop counting a REFERENCE TO INT counts the variable it
+// references — CODESYS leaves v at 4 after `FOR rv := 1 TO 3` (`tr_a18_for_counter_through_reference`, record:exec
+// 2026-10-10). The FOR variable's guard list had no `through-reference`, so the loop counted the reference's own slot.
+test("a FOR counter that is a REFERENCE counts the variable it references", () => {
+  const runner = run(ir("PROGRAM P\nVAR v : INT; rv : REFERENCE TO INT; n : INT; after : INT; END_VAR\nrv REF= v;\nFOR rv := 1 TO 3 DO\n\tn := n + 1;\nEND_FOR;\nafter := v;\nEND_PROGRAM\n", "P"))
+  runner.scan()
+  expect([runner.get("v"), runner.get("n"), runner.get("after")]).toEqual([4n, 3n, 4n])
+})

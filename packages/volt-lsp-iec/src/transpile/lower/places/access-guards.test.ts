@@ -54,3 +54,19 @@ test("VAR_IN_OUT CONSTANT: every write form refused, `(x)` checked as x, a lent 
     "METHOD Twice : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nown := 0;\nTwice := value * 2;\nEND_METHOD\n"
   expect(lowerSource(paren, "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-alias"])
 })
+
+// transpile-restructure 6.A.18: every store site names one of three lists (PLAIN_WRITE, STORE_WRITE, FULL_WRITE) instead of
+// a list of its own, and each holds `constant` — so every kind of store into a VAR_IN_OUT CONSTANT is refused, whatever
+// the store is: a latch, a character, an output, an input stored into a lent instance, a reference's target, an
+// in-out binding, an ANY argument (the `:=`, a chain link and a FOR variable are the test above).
+test("every kind of store into a VAR_IN_OUT CONSTANT is refused, the list each store site names holding `constant`", () => {
+  const source = (write: string) =>
+    "PROGRAM P\nVAR x : INT := 3; flag : BOOL; text : STRING; y : INT; inst : FB_In; END_VAR\ny := F_W(n := x, flag := flag, text := text, lent := inst);\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_In\nVAR_INPUT inp : INT; END_VAR\nVAR_OUTPUT q : INT; END_VAR\nq := inp;\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION F_Inc : INT\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nF_Inc := v;\nEND_FUNCTION\n" +
+    "FUNCTION F_Any : INT\nVAR_INPUT a : ANY; END_VAR\nF_Any := 1;\nEND_FUNCTION\n" +
+    `FUNCTION F_W : INT\nVAR_IN_OUT CONSTANT n : INT; flag : BOOL; text : STRING; lent : FB_In; END_VAR\nVAR rn : REFERENCE TO INT; other : FB_In; t : INT; END_VAR\n${write}\nF_W := n;\nEND_FUNCTION\n`
+  const codes = (write: string) => lowerSource(source(write), "P").diagnostics.map((d) => d.code)
+  const writes = ["flag S= TRUE;", "text[0] := 65;", "other(q => n);", "lent(inp := 1);", "rn REF= n;\nrn := 1;", "t := F_Inc(v := n);", "t := F_Any(a := n);"]
+  expect(writes.filter((w) => !codes(w).includes("inout-constant-write"))).toEqual([])
+})

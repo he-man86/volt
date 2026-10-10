@@ -377,6 +377,8 @@ test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
   // refuses it (`cc_power_operator`; `parse/expression.test.ts`)
   expect(evalConst("", "10 MOD 3")).toBe(1n)
   expect(evalConst("", "10 MOD 0")).toBeUndefined()
+  // REAL MOD is no constant: CODESYS refuses it, "MOD is not defined for REAL" (`tr_a20_real_mod_in_initializer`, 6.A.20)
+  expect(evalConst("", "5.5 MOD 2.0")).toBeUndefined()
   // comparisons across the operator set
   expect(evalConst("", "5 = 5")).toBe(true)
   expect(evalConst("", "4 <> 4")).toBe(false)
