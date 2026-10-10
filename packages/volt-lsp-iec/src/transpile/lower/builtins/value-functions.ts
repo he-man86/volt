@@ -10,14 +10,18 @@ import {
   elemOf,
   exptResultType,
   inferExprType,
+  isIntLiteral,
   isReal,
   literalCheckType,
   promoteForRuntime,
+  type Type,
+  unparenthesised,
 } from "../../../frontend/types/index.js"
 import type { IrBuiltinName, IrExpr } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { meet } from "../values/promote.js"
+import { foldsToConstant } from "../values/fold.js"
 
 /** The width an integer or bit-string expression is CHECKED in — before run-time promotion. `inferExprType` answers
  *  UNKNOWN beside an untyped literal, which takes the other operand's type when that holds it (`literalCheckType`). */
@@ -41,7 +45,7 @@ const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SI
 
 /** A value function with its arity checked: TRUNC, ABS, the shifts and rotates, MUX, EXPT, the unary math, and
  *  MAX/MIN/LIMIT/SEL. */
-export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: string, values: readonly Expr[]): IrExpr | undefined {
+export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: string, values: readonly Expr[], expected?: Type, stored = false): IrExpr | undefined {
   if (name === "TRUNC" || name === "TRUNC_INT") {
     const arg = lowerExpr(lw, values[0]!)
     if (arg === undefined) return undefined
@@ -57,7 +61,7 @@ export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call"
     const type = promoteForRuntime(arg.type)
     return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
   }
-  if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") return lowerShift(lw, e, name, values)
+  if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") return lowerShift(lw, e, name, values, expected, stored)
   if (name === "MUX") return lowerMux(lw, e, values)
   if (name === "EXPT") return lowerExpt(lw, e, values)
   if (UNARY_MATH.has(name)) {
@@ -73,11 +77,50 @@ export function lowerValueFunction(lw: Lowering, e: Extract<Expr, { kind: "call"
   return lowerSelection(lw, e, name, values)
 }
 
+/**
+ * The type an UNTYPED integer literal shifted by SHL / SHR is lowered at, where its own (SINT…) promoted to DINT is not the
+ * width CODESYS shifts it in (6.A.14, `tr_a14_shift_untyped_literal_*`, record:exec 2026-10-10):
+ *   - with a LITERAL count the whole call is folded at compile time in 64 bits — SHL(1, 40) into a DWORD is 0 (2^40 cut to
+ *     32 bits, where a DINT shift masks 40 to 8 and gives 256), SHL(1, 65) into an LWORD 2 (the count masked to 63); a shift
+ *     nested as the value operand of another (`SHR(SHL(1, 40), 8)` into an LWORD, 2^32) is the same;
+ *   - with a count that is a VARIABLE, as the whole value of a `:=` store (`stored`), it shifts at run time in the stored
+ *     type when that is 64 bits — SHL(1, n40) into an LWORD or LINT is 2^40 — and in DINT otherwise (SHL(1, n33) into a
+ *     DWORD is 2, the count masked to 31).
+ * Only those shapes are recorded, and every other one is refused `shift-untyped-width` (6Aa+6Ae gate review; 0 body shifts
+ * of an untyped literal in the six corpora — the 268 there are declaration initializers with literal counts): a NEGATIVE
+ * literal (a LINT or an LWORD — SHR(-8, 1) into a LINT is -4 or 2^63 - 4, no recording tells), a count that is a named
+ * CONSTANT or a constant expression (folded in 64 bits like a literal, or masked like a variable?), and a variable count
+ * anywhere but a store's whole value — beside an LWORD in a sum the context is the other operand's, and the two operand
+ * orders lowered 2^40 and 256. `{}` for anything else (a typed operand, ROL / ROR, whose untyped-literal width is task
+ * 6.A.30's), which lowers as the operand types itself.
+ */
+function untypedShiftOperand(lw: Lowering, name: string, values: readonly Expr[], expected: Type | undefined, stored: boolean): { type?: Type } | { refuse: string } {
+  if (name !== "SHL" && name !== "SHR") return {}
+  const value = unparenthesised(values[0]!)
+  const wide = expected !== undefined && elemOf(expected)?.bits === 64 && ["int", "bitstring"].includes(elemOf(expected)!.family)
+  if (value.kind === "call" && value.callee.kind === "ident_expr" && ["SHL", "SHR"].includes(value.callee.name.toUpperCase())) return wide ? { type: expected } : {}
+  if (!isIntLiteral(value)) return {}
+  if (value.kind === "unary") return { refuse: `${name} of a negative untyped literal (shifted as a LINT or as an LWORD: unrecorded)` }
+  const count = unparenthesised(values[1]!)
+  if (isIntLiteral(count)) return { type: elementaryRef("LWORD") }
+  if (foldsToConstant(lw, count)) return { refuse: `${name} of an untyped literal by a named constant count (folded in 64 bits or masked: unrecorded)` }
+  if (!stored) return { refuse: `${name} of an untyped literal by a variable count, not the whole value of a store (its width there is unrecorded)` }
+  return wide ? { type: expected } : {}
+}
+
 /** SHL/SHR shift the PROMOTED value; ROL/ROR rotate in the value's own width — an expression's CHECKED width. */
-function lowerShift(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: "SHL" | "SHR" | "ROL" | "ROR", values: readonly Expr[]): IrExpr | undefined {
-  const value = lowerExpr(lw, values[0]!)
+function lowerShift(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: "SHL" | "SHR" | "ROL" | "ROR", values: readonly Expr[], expected: Type | undefined, stored: boolean): IrExpr | undefined {
+  const operand = untypedShiftOperand(lw, name, values, expected, stored)
+  if ("refuse" in operand) return lw.bail("shift-untyped-width", operand.refuse, e.span)
+  const value = lowerExpr(lw, values[0]!, operand.type)
   const count = value === undefined ? undefined : lowerExpr(lw, values[1]!)
   if (value === undefined || count === undefined) return undefined
+  // A COUNT THAT IS NO INTEGER — SHL(dw, 2.0) — reached the interpreter, which masks the count as the exact integer it is
+  // (6.A.4) and threw a LoweringBug, out of lowering itself through an initializer's fold. What CODESYS does with one is
+  // unrecorded (before 6.A.4, `Number()` quietly took 2.0 as 2): refused by name (6Aa+6Ae gate review).
+  const countFamily = elemOf(count.type)?.family
+  if (countFamily !== "int" && countFamily !== "bitstring")
+    return lw.bail("shift-count", `${name} by a count of type ${count.type.kind === "elementary" ? count.type.elem.name : count.type.kind} (only an integer count is recorded)`, e.span)
   // SHL/SHR shift the PROMOTED value — SHL(BYTE 1, 9) into a WORD is 512 — while ROL/ROR rotate in the value's
   // own width: ROL(BYTE 129, 1) is 3 (conformance `shift_basic`, `rotate_basic`).
   const shift = name === "SHL" || name === "SHR"

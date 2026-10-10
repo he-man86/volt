@@ -2,7 +2,7 @@
  * THE PRINTER — the lines and source map being written, the file their spans index, the body being printed (its frame),
  * the loops it is inside; and the helpers a call's arguments and a dereference's checks are printed through.
  */
-import type { IrBinding, IrPou, IrRoutine, Place } from "../../ir/index.js"
+import type { IrBinding, IrCopy, IrPou, IrRoutine, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { expr, unparen } from "./expr.js"
@@ -62,7 +62,7 @@ export function lendMut(p: Printer, target: Place, slots: IrPou["slots"]): strin
 
 /** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__copy_i`, the copy `lentCopies` took. */
 export function lend(p: Printer, b: IrBinding, i: number, param: IrPou["slots"][number], slots: IrPou["slots"]): string {
-  if ("kind" in b) return b.back !== undefined ? `&mut ${tmp("copy", i)}` : `&${tmp("copy", i)}`
+  if ("kind" in b) return written(b) ? `&mut ${tmp("copy", i)}` : `&${tmp("copy", i)}`
   return `${param.readOnly === true ? "&" : "&mut "}${place(p, b, slots)}`
 }
 
@@ -79,8 +79,11 @@ export function copiesBack(p: Printer, bindings: readonly IrBinding[], slots: Ir
  * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
  */
 export function lentCopies(p: Printer, bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-  return bindings.flatMap((b, i) => ("kind" in b ? [`let ${b.back !== undefined ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots)};`] : [])).join(" ")
+  return bindings.flatMap((b, i) => ("kind" in b ? [`let ${written(b) ? "mut " : ""}${tmp("copy", i)} = ${expr(p, b.value, slots)};`] : [])).join(" ")
 }
+
+/** A copy the callee may write — one written back, or an unconnected output's, discarded — is lent `&mut`; else `&`. */
+const written = (b: IrCopy): boolean => b.back !== undefined || b.discarded === true
 
 /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
 export function guarded(p: Printer, target: Place, text: string, slots: IrPou["slots"]): string {

@@ -9,7 +9,7 @@ import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { lowerSystemCall } from "./system.js"
 import { lowerClock } from "./clock.js"
-import { elementaryRef, parseConversionName, PLATFORM_ALIASES, UNKNOWN } from "../../../frontend/types/index.js"
+import { elementaryRef, parseConversionName, PLATFORM_ALIASES, type Type, UNKNOWN } from "../../../frontend/types/index.js"
 import { lowerConversion } from "./conversions.js"
 import { BUILTIN_ARITY } from "./arity.js"
 import { lowerValueFunction } from "./value-functions.js"
@@ -25,7 +25,7 @@ import { lowerInvoke } from "../calls/invoke.js"
  *   - `SEL(G, IN0, IN1)` is IN0 on FALSE, IN1 on TRUE.
  * Any other call — a project function, a library, a conversion — is still `expr-call`, and counted.
  */
-export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
+export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>, expected?: Type, stored = false): IrExpr | undefined {
   const name = e.callee.kind === "ident_expr" ? e.callee.name.toUpperCase() : undefined
   // `X_TO_Y` / `TO_Y` — `types/parseConversionName`, the one parser: both names elementary and spelled as CODESYS
   // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
@@ -52,5 +52,5 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
     return lw.bail("call-named-args", `${name} with named or output arguments`, e.span)
   if (e.args.length < arity.min || (arity.max !== undefined && e.args.length > arity.max))
     return lw.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
-  return lowerValueFunction(lw, e, name, e.args.map((a) => a.value!))
+  return lowerValueFunction(lw, e, name, e.args.map((a) => a.value!), expected, stored)
 }

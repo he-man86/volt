@@ -179,6 +179,8 @@ export interface IrCopy {
   /** A copy lent `&mut` and written back to this place after the call: an FB's own field lent to its own METHOD, which
    *  would otherwise be two `&mut` of one instance — exact because the callee reaches the field only through it. */
   back?: Place
+  /** A copy lent `&mut` whose value nothing reads after the call: an unconnected VAR_OUTPUT (`bindUnconnectedOutputs`). */
+  discarded?: true
   span: Span
 }
 

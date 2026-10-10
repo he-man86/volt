@@ -164,7 +164,13 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "property-store": "unclassified",
   "root-inout": "unclassified",
   "root-type": "invalid",
-  "routine-var_output": "unclassified",
+  // a routine VAR_OUTPUT of a non-elementary type, "not measured" in its own message: the `routine-` family's kind (6.A.8)
+  "routine-var_output": "not-measured",
+  // SHL / SHR / ROL / ROR by a count that is no integer (a REAL): what CODESYS does with one is unrecorded (6Aa+6Ae gate review)
+  "shift-count": "not-measured",
+  // SHL / SHR of an untyped literal in a shape 6.A.14 did not record — a negative literal, a named constant count, a variable
+  // count anywhere but a store's whole value (`builtins/value-functions.ts` `untypedShiftOperand`)
+  "shift-untyped-width": "not-measured",
   "sizeof-unmeasured": "unclassified",
   "stmt-call_stmt": "unclassified",
   "string-escape": "not-measured",
@@ -197,6 +203,24 @@ export const LOWER_CODE_PREFIXES: ReadonlyArray<{ prefix: string; kind: LowerCod
   { prefix: "layout-", kind: "not-modelled", note: "a type kind with no declaration lowering can lay out (storage/layout.ts)" },
 ]
 
+
+/**
+ * THE EXACT CODES WHOSE KIND IS NOT THEIR FAMILY'S (transpile-restructure 6.A.8): a code that begins with a family's prefix
+ * and means something else, with the reason. `codes.test.ts` holds every other prefixed code to its family's kind, and
+ * every entry here to a code that still differs — a reason left behind by a reclassified code fails.
+ */
+export const FAMILY_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "expr-call":
+    "a CALL is modelled; the code refuses one call SHAPE (no project FUNCTION of that name, a namespace member that is none, a call of an expression, __POUNAME in a nameless POU) — not an expression kind lowering lacks, and not yet sorted",
+  "stmt-call_stmt":
+    "a call statement is modelled; the code refuses a call of something that is no callable instance — not a statement kind lowering lacks, and not yet sorted",
+  "layout-base":
+    "the base type has no layout because its own declaration was refused, under its own code; this one says only that the derived type inherits that, so it has no kind of its own",
+  "layout-union":
+    "two refusals under one code — a member whose overlaid bytes are unmeasured, and a member with an initial value — which the call site does not tell apart",
+  "layout-unmeasured": "a type the layout model DOES lay out, whose bytes the program observes and no recording measured: unmeasured, not unmodelled",
+  "layout-recursive": "a type that holds itself, which CODESYS refuses: invalid ST, not a type kind the layout model lacks",
+}
 
 /** The kind for one code, or undefined when it is registered nowhere — which is a gate failure, not a default. */
 export function lowerCodeKind(code: string): LowerCodeKind | undefined {

@@ -168,6 +168,12 @@ const same = (a: unknown, b: unknown): boolean => kindOf(a) === kindOf(b) && (ty
  */
 const SIZEOF_LAYOUT = "task 6.A.31: the AST fold sizes no STRUCT, FB instance, ARRAY or packed DUT"
 const NOT_A_CONSTANT = "niche: accepted loss (0 occurrences in the corpora) — constancyOf calls a read-only parameter or a direct address a CONSTANT"
+/** transpile-restructure 6.A.14: a body's SHL / SHR of an untyped literal by a constant count — lowering folds it at 64 bits as
+ *  recorded (`tr_a14_*`: SHL(1, 40) 2^40); the AST fold gives an untyped literal under a shift no width without a typed
+ *  context and answers nothing (frontend-conformance 4.6.1, `UNTYPED_OPERAND` in `fixtures/types/constant-evaluation.ts`).
+ *  An initializer's context types it there (`GC_REC_* : LWORD := SHL(1, 40)`, the corpora's 44 such lines, agree). */
+const UNTYPED_SHIFT =
+  "niche: accepted loss (0 occurrences in the corpora of a constant untyped-literal shift in a body: the 268 `SHL/SHR(<literal>, …)` there are all declaration initializers, whose type is the context) — the AST fold gives an untyped literal under a shift no width without a typed context (`UNTYPED_OPERAND`)"
 const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
   ...[
     "ct_bit_fields: SIZEOF(flags)",
@@ -224,6 +230,16 @@ const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
     "inout_const_fb_variable_10: threshold",
     "inout_const_fb_variable_10: label = 'abc'",
   ].map((id) => [id, NOT_A_CONSTANT]),
+  ...[
+    "tr_a14_shift_untyped_literal_variable_count: SHL(1, 65)",
+    "tr_a14_shift_untyped_literal_variable_count: SHR(SHL(1, 40), 8)",
+    "tr_a14_shift_untyped_literal_variable_count: SHL(1, 40)",
+    "tr_a14_shift_untyped_literal_wide: SHL(1, 40)",
+    "tr_a14_shift_untyped_literal_wide: SHL(1, 33)",
+    "tr_a14_shift_untyped_literal_wide: SHL(3, 62)",
+    "tr_a14_shift_untyped_literal_wide: SHR(16#80000000, 4)",
+    "tr_a14_shift_untyped_literal_wide: SHL(16#FF, 28)",
+  ].map((id) => [id, UNTYPED_SHIFT]),
 ])
 
 whole("the AST fold and the IR fold give every constant expression the lowered fixtures hold the same value", () => {

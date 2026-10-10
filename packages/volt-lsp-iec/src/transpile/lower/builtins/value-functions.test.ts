@@ -92,3 +92,45 @@ test("ROL/ROR on an expression rotate in the expression's checked width, not the
   const names = ["rolWordAnd", "rorWordAnd", "rolByteAdd0", "rolByteMax", "rorByteOr", "rolByteAndLit", "rolByteOverflow", "rolByteOverflowWide", "rolMixed"]
   expect(names.map((n) => runner.get(n))).toEqual([3n, 49152n, 3n, 3n, 192n, 3n, 2n, 258n, 258n])
 })
+
+// transpile-restructure 6Aa+6Ae gate review: a shift count that is no integer reached the interpreter, whose `countOf` throws
+// a LoweringBug — out of a body's scan, and out of lowering itself through an initializer's fold. What CODESYS does with a
+// REAL count is unrecorded, so it is refused by name (`shift-count`), never thrown.
+test("a SHL count that is no integer is refused by name, in a body and in an initializer", () => {
+  const body = lowerSource("PROGRAM P\nVAR\n  dw0 : DWORD := 1;\n  dw : DWORD;\nEND_VAR\ndw := SHL(dw0, 2.0);\nEND_PROGRAM\n", "P")
+  expect(body.diagnostics.map((d) => d.code)).toEqual(["shift-count"])
+  const init = lowerSource("PROGRAM P\nVAR\n  dw : DWORD := SHL(DWORD#1, 2.0);\nEND_VAR\ndw := dw;\nEND_PROGRAM\n", "P")
+  // the initializer then reports it does not fold, as every refused initializer does
+  expect(init.diagnostics.map((d) => d.code)).toEqual(["shift-count", "init-not-constant"])
+})
+
+// 6.A.14 recorded an UNTYPED literal shifted (`tr_a14_shift_untyped_literal_*`) only as the whole value of a `:=` store,
+// with a literal count or a plain variable count, and a non-negative literal. Every other shape — beside an LWORD in a sum
+// (where the two operand orders lowered 2^40 and 256), a negative literal (LINT or LWORD), a named CONSTANT count (folded
+// in 64 bits, or masked to 31?) — is unrecorded and refused `shift-untyped-width` (6Aa+6Ae gate review; 0 body shifts of
+// an untyped literal in the six corpora).
+describe("SHL / SHR of an untyped literal", () => {
+  const lower = (vars: string, body: string) => lowerSource(`PROGRAM P\nVAR\n${vars}\nEND_VAR\nVAR CONSTANT\n  C40 : INT := 40;\nEND_VAR\n${body}\nEND_PROGRAM\n`, "P")
+  const codes = (vars: string, body: string) => lower(vars, body).diagnostics.map((d) => d.code)
+
+  test("the recorded stores still lower to their recorded values", () => {
+    const r = lower("n40 : INT := 40; n33 : INT := 33; lw5 : LWORD; dw2 : DWORD; lw6 : LWORD; lw7 : LWORD; li2 : LINT; dw : DWORD;",
+      "lw5 := SHL(1, n40); dw2 := SHL(1, n33); lw6 := SHL(1, 65); lw7 := SHR(SHL(1, 40), 8); li2 := SHL(1, n40); dw := SHL(1, 40);")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(["lw5", "dw2", "lw6", "lw7", "li2", "dw"].map((n) => p.get(n))).toEqual([1n << 40n, 2n, 2n, 1n << 32n, 1n << 40n, 0n])
+  })
+
+  test("a variable count anywhere but the stored value is refused, in either operand order", () => {
+    const vars = "lw0 : LWORD; n40 : INT := 40; a : LWORD;"
+    expect(codes(vars, "a := lw0 + SHL(1, n40);")).toEqual(["shift-untyped-width"])
+    expect(codes(vars, "a := SHL(1, n40) + lw0;")).toEqual(["shift-untyped-width"])
+    expect(codes(vars, "a := MAX(lw0, SHL(1, n40));")).toEqual(["shift-untyped-width"])
+  })
+
+  test("a negative literal and a named CONSTANT count are refused", () => {
+    expect(codes("li : LINT;", "li := SHR(-8, 1);")).toEqual(["shift-untyped-width"])
+    expect(codes("dw : DWORD;", "dw := SHL(1, C40);")).toEqual(["shift-untyped-width"])
+  })
+})

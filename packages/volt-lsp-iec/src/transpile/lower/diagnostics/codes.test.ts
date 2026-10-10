@@ -14,7 +14,7 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./codes.js"
+import { FAMILY_EXCEPTIONS, LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./codes.js"
 import { lowerDiagnostic } from "./diagnostic.js"
 import { Lowering } from "../core/lowering.js"
 import { LoweringBug } from "../../semantics/faults.js"
@@ -84,7 +84,7 @@ describe("the refusal registry covers what lowering emits", () => {
    */
   test("the unclassified count only goes down", () => {
     const unclassified = Object.values(LOWER_CODES).filter((k) => k === "unclassified").length
-    expect(unclassified).toBeLessThanOrEqual(84)
+    expect(unclassified).toBeLessThanOrEqual(83)
   })
 })
 
@@ -99,5 +99,27 @@ describe("an unregistered code is a lowering bug, never a kind (1.7.16, design P
     lw.bail("parse", "m", span)
     lw.bail("stmt-not_a_kind", "m", span)
     expect(lw.diagnostics.map((d) => d.kind)).toEqual([lowerCodeKind("parse")!, "not-modelled"])
+  })
+})
+
+describe("an exact code agrees with its prefix family, or says why not (transpile-restructure 6.A.8)", () => {
+  // `routine-var_output` was `unclassified` beside the `routine-` family's `not-measured`, and `layout-recursive` `invalid`
+  // beside `layout-`'s `not-modelled`: a user reading the family's note was told the opposite of what the code meant.
+  const familyOf = (code: string) => LOWER_CODE_PREFIXES.find((p) => code.startsWith(p.prefix))
+
+  test("every exact code inside a family has the family's kind, or a written reason in FAMILY_EXCEPTIONS", () => {
+    const disagreeing = Object.entries(LOWER_CODES)
+      .filter(([code, kind]) => familyOf(code) !== undefined && familyOf(code)!.kind !== kind)
+      .map(([code]) => code)
+    expect(disagreeing.filter((code) => FAMILY_EXCEPTIONS[code] === undefined)).toEqual([])
+  })
+
+  test("every exception names a registered code that still differs from its family", () => {
+    const stale = Object.keys(FAMILY_EXCEPTIONS).filter((code) => {
+      const kind = LOWER_CODES[code]
+      const family = familyOf(code)
+      return kind === undefined || family === undefined || family.kind === kind
+    })
+    expect(stale).toEqual([])
   })
 })

@@ -106,4 +106,12 @@ const constants: LanguageTest[] = [
   ),
 ]
 
-export const ADDRESS_TESTS: readonly LanguageTest[] = [...single, ...aliases, ...constants]
+/** transpile-restructure 6.A.16 (Appendix A): an X address's bit index above 7 — a byte has eight bits, so is %MX0.8
+ *  refused, or bit 0 of byte 1 (the bit counted on past its byte)? A marker, an output and an input, each alone. */
+const bitIndex: LanguageTest[] = [
+  probe("tr_a16_mx_bit_index_8", "\tb AT %MX0.8 : BOOL;\n\tnext AT %MB1 : BYTE;", "b := TRUE;\nout := next;", "BYTE", "a BOOL at %MX0.8 — bit 0 of %MB1, or refused?"),
+  probe("tr_a16_qx_bit_index_15", "\tb AT %QX0.15 : BOOL;", "b := TRUE;\nout := b;", "BOOL", "a BOOL at %QX0.15 — a bit index past the byte on an output"),
+  probe("tr_a16_ix_bit_index_9", "\tb AT %IX0.9 : BOOL;", "out := b;", "BOOL", "a BOOL at %IX0.9 — a bit index past the byte on an input"),
+]
+
+export const ADDRESS_TESTS: readonly LanguageTest[] = [...single, ...aliases, ...constants, ...bitIndex]

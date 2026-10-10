@@ -277,7 +277,8 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
 /**
  * An FB's layout with its body lowered — once, at the first call that reaches it. A derived FB runs ONLY its own body
  * (conformance `inh_call_runs_derived_body`, `inh_empty_derived_body`), and takes the VAR_IN_OUT of its whole chain, the
- * bases' first, as its fields are. Refused, until recorded: an FB with VAR_TEMP (whether it starts over per call).
+ * bases' first, as its fields are. Its VAR_TEMP starts over at its initial value on every call (`resetTemps`, measured:
+ * conformance `life_fb_var_temp_calls`) — an FB with VAR_TEMP was refused here until that recording (6.A.13).
  */
 export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout | undefined {
   const key = name.toUpperCase()

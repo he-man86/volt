@@ -63,3 +63,18 @@ test("a routine output binding decides by the assignment relation, and a convert
   expect(codes("REAL", "INT")).toEqual(["call-output-convert"])
   expect(codes("INT", "INT")).toEqual([])
 })
+
+// transpile-restructure 6.A.12 (Appendix A): an FB body calling its own METHOD with the METHOD's VAR_OUTPUT left
+// unconnected, and connected to the FB's own field. Both were refused `call-inout-alias` — the unconnected output's temp
+// was a field of the instance the call holds, and the connected one aliased it — where CODESYS runs both and copies the
+// output out after the call (`tr_a12_bare_method_call_unconnected_output`, record:exec 2026-10-10: calls 4, seen 40).
+test("a METHOD called on THIS with its output unconnected, or connected to the FB's own field, runs", () => {
+  const source =
+    "FUNCTION_BLOCK FB_B\nVAR_OUTPUT calls : INT; seen : INT; END_VAR\nCount();\nCount(o => seen);\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Count\nVAR_OUTPUT o : INT; END_VAR\ncalls := calls + 1;\no := calls * 10;\nEND_METHOD\n" +
+    "PROGRAM P\nVAR inst : FB_B; END_VAR\ninst();\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  runner.scan()
+  expect([runner.get("inst.calls"), runner.get("inst.seen")]).toEqual([4n, 40n])
+})

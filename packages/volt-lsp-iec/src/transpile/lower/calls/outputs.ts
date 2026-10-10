@@ -7,12 +7,11 @@ import type { Lowering } from "../core/lowering.js"
 import { callHolds, type InvokeBindings } from "./invoke.js"
 import type { CallArg, Span } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrSlot, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { aliases, bindInOut } from "./binding.js"
+import { bindInOut } from "./binding.js"
 import { isInFrame } from "./specialize.js"
 import { lowerPlace } from "../places/places.js"
-import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
+import { guardWrite, STORE_WRITE } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
-import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
 import { storeArgument } from "../statements/assign.js"
 
@@ -44,15 +43,18 @@ export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg
   return true
 }
 
-/** Every in-out left is an unconnected output — it still needs somewhere to go: a temp of its own, which nothing reads. */
+/**
+ * Every in-out left is an unconnected output — it still needs somewhere to go: a copy of its initial value, written back
+ * nowhere, as a connected one is a copy written back after the call. It was a temp of the frame, which in an FB body is a
+ * field of the instance — so an FB calling its own METHOD bare (`Count();`) bound a field of the instance the call holds,
+ * and was refused `call-inout-alias` where CODESYS runs it (6.A.12, `tr_a12_bare_method_call_unconnected_output`).
+ */
 export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside: boolean, span: Span): true | undefined {
   const routine = b.routine
   for (const [i, slot] of routine.inouts.entries()) {
     if (b.inouts[i] !== undefined || (outside && slot.ofInstance === true)) continue
     if (slot.section !== "VAR_OUTPUT") return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, span)
-    const temp = tempPlace(lw, "output", slot.type, span)
-    if (callHolds(b).some((p) => aliases(temp, p))) return lw.bail("call-inout-alias", `${slot.name} is unconnected on a call of this instance's own method`, span)
-    b.inouts[i] = temp
+    b.inouts[i] = { kind: "copy", value: { kind: "const", value: slot.init as IrValue, type: slot.type, span }, type: slot.type, discarded: true, span }
   }
   return true
 }
@@ -60,7 +62,7 @@ export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside:
 /** `q => y`: the output read out of the instance after the call, into a variable it converts to as an assignment does. */
 export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt[] | undefined {
   const written = lowerPlace(lw, arg.value!)
-  const target = written === undefined ? undefined : guardWrite(lw, written, arg.span, FULL_WRITE)
+  const target = written === undefined ? undefined : guardWrite(lw, written, arg.span, STORE_WRITE)
   if (target === undefined) return undefined
   // AN OUTPUT IS READ INTO A VARIABLE OF ITS OWN TYPE. `accepts_output_into_other_type` asked CODESYS on
   // 2026-09-18: `w(o => text)` with an INT output and a STRING variable does not compile, "Cannot convert type

@@ -116,6 +116,10 @@ export function aggregateInit(
   if (init.form === "array") {
     if (type.kind !== "array" || type.bounds === undefined) return refuse("in array form for something that is not a sized array")
     const elementWritten = arrayWritten(lw, written)?.element
+    // every dimension of this one array type, row by row; an ARRAY OF ARRAY's element takes a nested `[…]` of its own
+    const bounds = type.bounds
+    const lengths = bounds.map((b) => Number(b.upper - b.lower + 1n))
+    const capacity = lengths.reduce((n, length) => n * length, 1)
     const leaves: { e: AggregateElement; repeated: boolean }[] = []
     for (const e of init.elements) {
       if (e.kind !== "repeat") {
@@ -124,12 +128,11 @@ export function aggregateInit(
       }
       const count = foldConstant(lw, e.count)
       if (typeof count !== "bigint" || count < 0n) return refuse("with a repeat count that does not fold")
+      // checked BEFORE the leaves are built: `[100000000000(1)]` built every one of them first (6.A.15)
+      if (BigInt(leaves.length) + count > BigInt(capacity)) return refuse("with more elements than the array holds")
       for (let i = 0n; i < count; i++) leaves.push({ e: e.value, repeated: true })
     }
-    // every dimension of this one array type, row by row; an ARRAY OF ARRAY's element takes a nested `[…]` of its own
-    const bounds = type.bounds
-    const lengths = bounds.map((b) => Number(b.upper - b.lower + 1n))
-    if (leaves.length > lengths.reduce((n, length) => n * length, 1)) return refuse("with more elements than the array holds")
+    if (leaves.length > capacity) return refuse("with more elements than the array holds")
     const values: IrInit[] = []
     for (const [offset, leaf] of leaves.entries()) {
       const value = element(leaf.e, type.element, (variable) => elementAt(bounds, offset, at(variable), init.span), leaf.repeated, elementWritten)
@@ -139,7 +142,7 @@ export function aggregateInit(
     // THE TAIL: every element the initializer leaves out starts at its element type's start WITHOUT an alias's `:=` — an
     // alias of INT 0 (`array_element_type_default` r_alias_part2), an enum its default (`array_element_enum_partial_tail`:
     // 3, not 0), a struct its fields
-    const full = values.length === lengths.reduce((n, length) => n * length, 1)
+    const full = values.length === capacity
     const tail = full ? zeroInit(type.element) : tailStart(lw, type.element, init.span, elementWritten)
     return tail === undefined ? undefined : compact(values, lengths, tail)
   }

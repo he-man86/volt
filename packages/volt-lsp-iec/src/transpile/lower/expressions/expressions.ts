@@ -35,8 +35,11 @@ import { lowerPropertyGet } from "../calls/property.js"
  * `UNKNOWN`, so the operator types are computed here from the operand types, over the SAME widening lattice
  * `types/elementary` owns (family + rank). Inference still answers the leaves. An expression that lands on
  * `UNKNOWN` anyway is a reported gap, never untyped IR.
+ *
+ * `stored`: `e` is the WHOLE value of a plain `:=` store into a place of type `expected` (`statements/assign.ts`) — the one
+ * context a variable-count shift of an untyped literal was recorded in (`builtins/value-functions.ts` `untypedShiftOperand`).
  */
-export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | undefined {
+export function lowerExpr(lw: Lowering, e: Expr, expected?: Type, stored = false): IrExpr | undefined {
   switch (e.kind) {
     case "literal":
       return lowerLiteral(lw, e, expected)
@@ -45,13 +48,13 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
     case "deref":
       return lowerDeref(lw, e)
     case "paren":
-      return lowerExpr(lw, e.inner, expected)
+      return lowerExpr(lw, e.inner, expected, stored)
     case "unary":
       return lowerUnary(lw, e, expected)
     case "binary":
       return lowerBinary(lw, e)
     case "call":
-      return lowerBuiltin(lw, e)
+      return lowerBuiltin(lw, e, expected, stored)
     case "member":
     case "index":
       return lowerMember(lw, e)
