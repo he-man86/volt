@@ -200,8 +200,10 @@ public class ChildSplitterTableTests
             "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY // p\n", "!line 13|holds its END keyword alone"),
         Row("a comment beside GET", "pou",
             "PROPERTY P : INT\nGET // the getter\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY\n", "!line 9|holds its END keyword alone"),
+        // Was a refusal (2026-10-03) — but SET is a legal name (SOFT_NAME_KEYWORDS) and CODESYS compiles it: a SET used as
+        // an operand is a statement, not an accessor (openspec lsp-accessor-keyword-at-line-start; AccessorKeywordOperandTests).
         Row("a SET-led line inside a getter's body", "pou",
-            "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nSet := TRUE;\nEND_GET\nEND_PROPERTY\n", "!line 11|holds its END keyword alone"),
+            "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nSet := TRUE;\nEND_GET\nEND_PROPERTY\n", "property:P=INT"),
         Row("interface: a comment after END_METHOD", "interface",
             "\nMETHOD A : INT\nEND_METHOD // a\nEND_INTERFACE\n", "!line 4|holds its END keyword alone"),
         Row("spaces and tabs beside END_METHOD are layout", "pou", "METHOD A\nIMPLEMENTATION ST\n;\n \tEND_METHOD \t \n",

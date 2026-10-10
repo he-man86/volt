@@ -828,12 +828,34 @@ public static class StReader
 		var accessorBoundaries = new List<(int start, int end, string kind)>(); // GET/SET ranges within property
 		int? currentAccessorStart = null;
 		string? currentAccessorKind = null;
+		// WHERE AN ACCESSOR KEYWORD CAN STAND (openspec lsp-accessor-keyword-at-line-start). GET and SET are legal NAMES
+		// (the Standard RS FB declares `SET : BOOL`), so they are structural only OUTSIDE an accessor's VAR blocks and its
+		// body — the body being everything from its IMPLEMENTATION line to its own END_GET/END_SET, as for every element.
+		// `SET^.x := P;` in a setter is a statement, not a second SET refused INVALID_ST (a field FB was unreadable).
+		var inVar = false;
+		var inBody = false;
 		for (int j = sigLine + 1; j < lines.Count; j++)
 		{
 			if (IsTrivia(code[j])) continue;
-			if (LineStartsWithKeyword(code[j], "END_PROPERTY")) { RefuseTextAfter(lines[j], code[j], "END_PROPERTY", at, j); endLine = j; break; }
+			if (LineStartsWithKeyword(code[j], "END_PROPERTY"))
+			{
+				RefuseTextAfter(lines[j], code[j], "END_PROPERTY", at, j);
+				if (inBody) throw UnclosedAccessor(currentAccessorKind!, currentAccessorStart!.Value, "END_PROPERTY", at, j);
+				endLine = j;
+				break;
+			}
 			RefuseOpenedInside(code[j], ItemKind.Kinds.Property, "END_PROPERTY", at, j, sigLine);
 			foreach (var end in PropertyEnds) RefuseEndAfterCode(code[j], end, at, j, nameAt: -1);
+			var endsAccessor = LineStartsWithKeyword(code[j], "END_GET") ? "get" : LineStartsWithKeyword(code[j], "END_SET") ? "set" : null;
+			if (inBody && endsAccessor is null) continue;          // body text, GET/SET lines included
+			if (inBody && endsAccessor != currentAccessorKind)    // END_SET under a GET body: the getter was never closed
+				throw UnclosedAccessor(currentAccessorKind!, currentAccessorStart!.Value, endsAccessor!.ToUpperInvariant() == "GET" ? "END_GET" : "END_SET", at, j);
+			if (inVar) { if (LineStartsWithKeyword(code[j], "END_VAR")) inVar = false; continue; }
+			if (currentAccessorStart is not null && endsAccessor is null)
+			{
+				if (VarOpener.IsMatch(code[j])) { inVar = true; continue; }
+				if (ImplementationMarker.Is(lines[j])) { inBody = true; continue; }
+			}
 			var opens = LineStartsWithKeyword(code[j], "GET") ? "get"
 					  : LineStartsWithKeyword(code[j], "SET") ? "set" : null;
 			if (opens is not null)
@@ -856,6 +878,7 @@ public static class StReader
 					accessorBoundaries.Add((currentAccessorStart.Value, j, currentAccessorKind));
 					currentAccessorStart = null;
 					currentAccessorKind = null;
+					inBody = false;
 				}
 			}
 		}
@@ -1273,6 +1296,21 @@ public static class StReader
 		char after = trimmed[keyword.Length];
 		// Keyword boundary — must be whitespace, comment, or end.
 		return !char.IsLetterOrDigit(after) && after != '_';
+	}
+
+	/// <summary>A line of CODE opening a VAR block (<c>VAR</c>, <c>VAR_INPUT</c>, <c>VAR_INST</c>, <c>VAR CONSTANT</c>, …).</summary>
+	private static readonly System.Text.RegularExpressions.Regex VarOpener =
+		new(@"^\s*VAR(_[A-Z]+)?\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+	/// <summary>An accessor whose body reached <paramref name="reached"/> before its own END line. Inside a body only that
+	/// END closes it (a GET/SET there is text), so the block above the next accessor was never closed — refused naming
+	/// both lines, as an unclosed METHOD is (<see cref="RefuseOpenedInside"/>).</summary>
+	private static BridgeException UnclosedAccessor(string kind, int start, string reached, ChildSite at, int line)
+	{
+		var kw = kind.ToUpperInvariant();
+		return new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"{at.Line(line)}: {reached} reached while the {kw} starting at line {at.Number(start)} is still open — its body " +
+			$"runs to its own END_{kw}. Close it with END_{kw} on a line of its own.");
 	}
 
 	private static List<string> NormalizeLines(string source)
