@@ -5734,6 +5734,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     9498 -> 9479 (`cast_possible_wrap` 301 -> 285, `missing_panics_doc` 389 -> 386); surviving and allowed lints unchanged;
     size median 3.1, the ten largest unchanged; constructs 2033 -> 2032, noted 324 -> 270.
 - [ ] 7.4.6 Read-only Standard string inputs by `&IecStr<N>`, and a LEN_INTERNAL primitive (`units().len()`).
+      **Owner 2026-10-10: build it here, properly** ("take our time to do it proper"): the design note first (design.md),
+      then the code; no deferral, no niche close.
   - Notes: 185a887a57, 7a85af3c04, cbcde0e5de, dea089f2fd, 21ef64a1e0, 811c8ccd59, 3cacc7bfac, 9c8d21e237, 83ed1aab47, b592939dbf, c001fbb3b1.
   - Where: `lower/calls/binding.ts`, `libraries/Standard/*`.
   - Accept: S-out; `test/libraries` green; M.
@@ -5845,6 +5847,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     the rust snapshot). Its `__inout_*` / `__property_N` field items went with 7.6.1 / 7.6.2. Notes resolved: 0878222ac3,
     149af70520, 16410bb3a0, 2421f6476e, 2b6ceac96d, 50ba9519ad, 53bd7d992e, 821a3bb974, d016ad6fda.
 - [ ] 7.6.4 VAR_TEMP as Rust locals; measure first which fixtures' recorded paths name a VAR_TEMP (those keep observable storage).
+      **Owner 2026-10-10: build it here, properly** ("take our time to do it proper"): the design note first (design.md),
+      then the code; no deferral, no niche close.
   - Where: `lower/storage/layout.ts` (`INSTANCE_STORAGE`), `init/temp-resets.ts`.
   - Accept: S-out, M.
   - Depends: 5.5, 7.6.1.
@@ -6209,6 +6213,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     `self.sx = ST_P { a: 9, ..ST_P::new() };` (its premise, the reset to the initializer, kept). Notes resolved: every
     7.8.3 item (7 notes).
 - [ ] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
+      **Owner 2026-10-10: build it, not niche** ("take our time to do it proper"): low corpus counts are no reason to
+      leave a planned lean task unbuilt here.
   chose no arena.
   - Where: `lower/storage/unions.ts`, `ir/expr.ts`, `semantics/`, `emit/rust/`.
   - Accept: S-out, M.
@@ -6264,6 +6270,8 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     (`itf_call_dispatches_on_instance`, `callshape_inout_*`, `tr_16_*`: S-out identical, all build). Notes resolved:
     every 7.8.7 item (11 notes, their `(*__lent_N)` halves 7.8.6's).
 - [ ] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
+      **Owner 2026-10-10: build it, not niche** ("take our time to do it proper"): low corpus counts are no reason to
+      leave a planned lean task unbuilt here.
   - Also: a REFERENCE bound at its declaration (`REF=`) to a variable of the same instance gets its constant tag in `new()`, so
     its `init()`/`__init()` chain goes (review item shapes6_2, owned here by 0b).
   - Notes: ad25627749, fbde4d6e1e.
@@ -6423,6 +6431,10 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     raises it for an FB body lowered as any POU but the root — now said so. (c) 8.3's record cited the deleted pre-split
     files bare, which failed `check-citations --strict` (2 missing); re-worded as history, now 0 missing (3 planned).
 - [ ] 8.2 Final map delta against 0.2.
+      **Owner 2026-10-10: reopen the 6 marks outside design.md §7.2** (`reinterpret_dint_as_real_edges`,
+      `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`, `string_store_function_input_tail`, `wstring_parse_trailing_spaces`,
+      `bool_byte_two_through_pointer`): fix each against its recording. Only where a fix is MEASURED impossible (state the
+      measurement) does it join §7.2 as a named loss — the owner reviews that list.
   - What: edge, size median and top ten (under the 7.1.4 definition, with the 0.2 value re-computed under it), pedantic, lint totals,
     ALLOWED excused counts, notes remaining, open divergence marks. The target: only the refusals the model decisions name and the trig
     family of design.md §7.2.
