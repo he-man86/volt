@@ -65,16 +65,17 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
   }
   if (to === "string") {
     const source = e.value.type.kind === "elementary" ? e.value.type.name : ""
-    const text =
-      from === "bool"
-        ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })`
-        : isTemporal(source)
-          ? // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past
-            // printed a negative duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
-            `${use(p, temporalText(source))}(${unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64"))})`
-          : source === "LREAL"
-            ? `${use(p, "iec_lreal_text")}(${unparen(value)})`
-            : `format!("{}", ${unparen(value)})`
+    // a formatter writes into the STRING it answers, at the target's capacity (`runtime/text.ts`, lean 9.4)
+    const written = (id: RuntimeId, arg: string): string => {
+      const target = stringType(e.type)
+      if (target.name !== "IecString") throw new Error(`emit: ${source}_TO_${e.type.kind === "elementary" ? e.type.name : "?"} has no formatter`)
+      return `${use(p, id)}::<${target.capacity}>(${arg})`
+    }
+    // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past printed a negative
+    // duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
+    if (isTemporal(source)) return written(temporalText(source), unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64")))
+    if (source === "LREAL") return written("iec_lreal_text", unparen(value))
+    const text = from === "bool" ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })` : `format!("{}", ${unparen(value)})`
     return `${stringPath(e.type)}::lit(${text}.as_bytes())`
   }
   // the parse helpers already RETURN `f64` / `i64`; casting to the same type is `unnecessary_cast`

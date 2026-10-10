@@ -7,7 +7,7 @@
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import { builtinValue } from "./builtins.js"
-import { SELECT_CASES } from "./numeric.cases.js"
+import { SELECT_CASES, TRUNC_CASES } from "./numeric.cases.js"
 
 /** The number a REAL's or LREAL's bits hold. */
 function fromBits(bits: bigint, type: "REAL" | "LREAL"): number {
@@ -47,4 +47,10 @@ test("SHL / SHR / ROL / ROR read a count above 2^53 exactly — its low bits, no
   const max = 2n ** 64n - 1n
   expect(at("shl", 1n, max)).toBe(2n ** 63n)
   expect(at("rol", 1n, max)).toBe(2n ** 63n)
+})
+
+test("TRUNC answers every recorded DINT cell — toward zero, DINT's minimum out of range", () => {
+  expect(TRUNC_CASES.map((c) => `${c.name}: ${builtinValue("trunc", [c.input.value], elementaryRef("DINT"), [elementaryRef(c.input.from)])}`)).toEqual(
+    TRUNC_CASES.map((c) => `${c.name}: ${c.expected}`),
+  )
 })

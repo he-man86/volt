@@ -31,6 +31,10 @@ export class Printer {
    *  the result local a `return` hands back. */
   frame: Frame = { inoutNames: [], inoutSlots: [], localNames: [], localSlots: [] }
 
+  /** The pointer the statement being printed checked on its own line (`guardLine`), as printed — a read through it in the
+   *  statement's value prints unchecked (`guarded`, lean 9.3); undefined when there is none or the value holds a call. */
+  checked: string | undefined = undefined
+
   /** The runtime helpers the printed code calls (`use`) — the module prints their closure and nothing else (lean 1). */
   readonly uses = new Set<RuntimeId>()
 
@@ -107,8 +111,12 @@ const written = (b: IrCopy): boolean => b.back !== undefined || b.discarded === 
 
 /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
 export function guarded(p: Printer, target: Place, text: string, slots: IrPou["slots"]): string {
+  if (target.guard === undefined) return text
+  const pointer = place(p, target.guard, slots)
+  // ONE GUARD PER STATEMENT: the statement's own line checked this pointer already (`Printer.checked`)
+  if (pointer === p.checked) return text
   // the guarded value is the BLOCK's tail — it stands alone there, so a `(*v)` needs no parentheses of its own
-  return target.guard === undefined ? text : `{ ${use(p, "iec_deref")}(${place(p, target.guard, slots)}); ${unparen(text)} }`
+  return `{ ${use(p, "iec_deref")}(${pointer}); ${unparen(text)} }`
 }
 
 /** A write through a dereference is checked on the line before it. */

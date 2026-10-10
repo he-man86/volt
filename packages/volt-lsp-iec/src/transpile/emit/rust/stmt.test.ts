@@ -31,3 +31,13 @@ describe("emit/rust", () => {
     expect(code).toContain("(*dest).store(&*source);")
   })
 })
+
+test("one guard per statement: a read through the pointer the statement's line checked prints unchecked — unless a call may move it (lean 9.3)", () => {
+  const code = rust(
+    "FUNCTION F : INT\nVAR_INPUT x : INT; END_VAR\nF := x;\nEND_FUNCTION\nPROGRAM P\nVAR v : INT := 1; p : POINTER TO INT; END_VAR\np := ADR(v);\np^ := p^ + 1;\np^ := F(p^);\nEND_PROGRAM\n",
+  )
+  const body = code.slice(code.indexOf("pub fn scan"), code.indexOf("impl Default for P"))
+  expect(body.match(/iec_deref\(self\.p\)/g)).toHaveLength(3)
+  expect(body).toContain("iec_deref(self.p);\n        { let __v = (i16::from_le_bytes(__mem.ld(self.p)) as i32)")
+  expect(body).toContain("f(__mem, { iec_deref(self.p); i16::from_le_bytes(__mem.ld(self.p)) })")
+})

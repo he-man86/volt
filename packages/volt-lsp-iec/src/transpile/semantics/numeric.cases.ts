@@ -316,3 +316,30 @@ export const INT_TO_REAL_CASES: readonly Case<IntToRealInput, number>[] = [
   i2r("outU", "vu", "ULINT", 1152921573326323713n, 1152921642045800448),
   i2r("outW", "vw", "LWORD", 1152921573326323713n, 1152921642045800448),
 ]
+
+/** TRUNC's argument, as the REAL or LREAL its fixture holds it. */
+interface TruncInput {
+  readonly from: "REAL" | "LREAL"
+  readonly value: number
+}
+
+const trunc = (fixture: string, variable: string, input: string, from: TruncInput["from"], value: number, expected: bigint): Case<TruncInput, bigint> => ({
+  name: `${fixture} ${variable}`,
+  input: { from, value: from === "REAL" ? Math.fround(value) : value },
+  expected,
+  recording: { fixture, variable, input },
+})
+
+/**
+ * THE TRUNC TABLE (transpile-restructure 7.9.2): toward zero into a DINT whose out-of-range answer is DINT's minimum —
+ * TRUNC(3.0E9) is -2147483648, not a wrap and not a saturation (`trunc_out_of_range`, `trunc_beyond_dint`) — every TRUNC
+ * into a DINT the fixtures recorded. `semantics/builtins.test.ts` runs them through `builtinValue("trunc")`; the twin
+ * harness through the runtime's `iec_trunc_i32`.
+ */
+export const TRUNC_CASES: readonly Case<TruncInput, bigint>[] = [
+  trunc("trunc_functions", "t27", "p27", "REAL", 2.7, 2n),
+  trunc("trunc_functions", "tn27", "n27", "REAL", -2.7, -2n),
+  trunc("trunc_out_of_range", "toDint", "giant", "LREAL", 3e9, -2147483648n),
+  trunc("trunc_beyond_dint", "toDint", "negGiant", "LREAL", -3e9, -2147483648n),
+  trunc("conversion_trunc_real_to_dint", "fb_tr.diTruncated", "fb_tr.rValue", "REAL", 7.9, 7n),
+]

@@ -4854,7 +4854,6 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `src/transpile/**`.
   - Accept: G; empty list.
   - Depends: 7.10.1.
-
   - Done 2026-10-10 (step 7.10). The list was 11 names (+ 7.10.3's `TempPurpose`), each read only inside its own file:
     `RuntimeId`, `ANY_ADDRESS`, `anyByAddress`, `anyAddressInputsOf`, `addressKey`, `refusedStores`, `MemoryStore`,
     `MemoryRead`, `imageSize`, `IntToRealInput`, `StringOp` — their `export` dropped (the declaration build,
@@ -4862,6 +4861,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     `scripts/dead-exports.test.ts` test over the real tree; the scanner reads each file's words once (`packageTexts`),
     8 s -> 0.6 s. Step 7.10: S identical over 5535 fixtures (`snapshot:transpile check`, all layers, against the
     step-start baseline written at 00996a7db0).
+
 ### 7.1 Prelude on demand (lean 1; dead_code 5658, uninlined_format_args 4192, format_push_string 1048, many_single_char_names 527)
 
 - [x] 7.1.1 The registry has real dependencies.
@@ -4920,36 +4920,84 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `emit/rust/names.ts`, `runtime/index.ts`.
   - Accept: a src test with a user FUNCTION `iec_div` plus a fix; S-out.
   - Depends: 7.1.2.
-
   - Done 2026-10-10 (step 7.1). `runtime/index.ts` `RUNTIME_ITEMS` is every top-level item name the registry can print
     (read off the texts); `names.ts` `baseFnName` suffixes a FUNCTION's fn with `_` when it names one (a METHOD's fn is
     inside its impl and cannot collide). Test-first: `names.test.ts` "a user FUNCTION named like a runtime helper gets a
     suffixed fn" — red (two `fn iec_div`, E0428), green after. S-out identical. Not covered (no fixture, a different
     surface): a DUT or FB named `Mem` or `IecStr` keeps its contract struct name and would collide with the runtime type.
+
 ### 7.9 Prelude helpers (lean 9)
 
-- [ ] 7.9.1 `iec_r2i64/32`: `let c = v.round();`, the NaN and ≥2^63 returns merged, the redundant `is_nan()` in `contains` dropped.
+- [x] 7.9.1 `iec_r2i64/32`: `let c = v.round();`, the NaN and ≥2^63 returns merged, the redundant `is_nan()` in `contains` dropped.
   - Notes: 02a72c2e83, 693c14b0bd, b7286c7932, de283d0ef6, 0ab1e9c511, 5383e1c9ac, 6f8ef8f0bd, f44fb59407, fe6af35845, c5844eabe9.
   - Where: `emit/rust/runtime/numeric.ts`.
   - Accept: twin test on `numeric.cases.ts` (the 192 cells of 1.3.8); S-out; M.
   - Depends: 7.1.2, 1.5.15.
-- [ ] 7.9.2 An `iec_trunc_i32` helper replaces the TRUNC inlined 38 times.
+  - Done 2026-10-10 (step 7.9). `let c = v.round();` in both (f64::round is half away from zero on both signs, -0.0 and
+    NaN kept); `iec_r2i64`'s `c.is_nan() ||` dropped (`contains` is false for a NaN); `iec_r2i32`'s NaN and >= 2^63 returns
+    one test, after the below-minimum one. Twin: the 192 cells of `REAL_TO_INT_CASES` pass. Notes resolved and deleted
+    (11): 02a72c2e83, 0ab1e9c511, 5383e1c9ac, 693c14b0bd, 6f8ef8f0bd, b7286c7932, c5844eabe9, de283d0ef6, eeb4929f34,
+    f44fb59407, fe6af35845. S-out identical; M under 7.9.5.
+- [x] 7.9.2 An `iec_trunc_i32` helper replaces the TRUNC inlined 38 times.
   - Where: `runtime/numeric.ts`, `emit/rust/builtins.ts`.
   - Accept: twin test, S-out, M.
   - Depends: 7.1.2.
-- [ ] 7.9.3 `iec_deref` as `assert!`/`assert_ne!` (note dd94ff18a2); one guard per statement for a single-target pointer (notes
+  - Done 2026-10-10 (step 7.9). `runtime/numeric.ts` `IEC_TRUNC_I32` (a BACK registry entry), `builtins.ts`' `trunc`
+    prints `iec_trunc_i32(x)` (`as T` for TRUNC_INT). Test-first: `semantics/numeric.cases.ts` `TRUNC_CASES` (5 recorded DINT
+    cells: `trunc_functions` t27/tn27, `trunc_out_of_range`, `trunc_beyond_dint`, `conversion_trunc_real_to_dint`), run by
+    `semantics/builtins.test.ts`, held to the recordings and run against the helper in `runtime-twins.test.ts` (red before:
+    no `iec_trunc_i32`). Note b532048eaa deleted. 7.2.7's TRUNC-of-a-constant note 3e1e32f963 re-keyed to the new line
+    (97e71b49fa, `self.f = m(-Lf64);`).
+- [x] 7.9.3 `iec_deref` as `assert!`/`assert_ne!` (note dd94ff18a2); one guard per statement for a single-target pointer (notes
   01ef1b756d, e496034f7b, 1fa78ccf62).
   - Where: `runtime/pointer.ts`, `emit/rust/printer.ts` guards.
   - Accept: S-out, M.
   - Depends: 7.1.2, 4.16.
-- [ ] 7.9.4 `iec_*_text` write into IecStr with no String allocation (clears `uninlined_format_args`, `format_push_string` in the runtime).
+  - Done 2026-10-10 (step 7.9). `fn iec_deref(at: usize) { assert!(at != 0, "<fault>"); }` (same panic text). One guard
+    per statement: `Printer.checked` holds the pointer an assignment's line checked (`guardLine`), and `guarded` prints a
+    read through that same pointer in the value unchecked — only when the value holds no call (`ir/walk.holdsCall`: a call
+    may move the pointer); new `stmt.test.ts` test (a RMW through a pointer: one check; with a call in the value: the read
+    keeps its own). Notes resolved and deleted: dd94ff18a2 (assert), c6dbfd854f, ce1d8df0a5, dfe7ec241e, f7cd52625c (the
+    doubled check; 20_15's ANY-diSize half is 7.7.9's dd28a02e7e); the 7.9.3 items of a29db6178b (6_3) and f7ea0fc7a1
+    (11_3, 11_4) removed. DECIDED, not done: eliding the guard of a pointer only ever stored non-zero constants (11_3,
+    12_9, 6_3) — the guard is lowering's (`Place.guard`), and dropping it needs a store-dominance proof lowering does not
+    make (a field starts 0 and may be read in a later scan; a wrong elision turns a CODESYS fault into a silent wrong
+    index). Re-tagged to the task that owns the rest of their text: 12_9 (01ef1b756d, 3fed555c25, e496034f7b, ef4db7eb51)
+    -> 7.7.7 (the dead pointer parameter), 17_1 (3b433bdec0, 62c7abffa7, ca823a2c56) -> 7.4.4 (a cursor read borrows, one
+    guard per statement). The cursor stores whose inner guard went (0bb816a185, 0cea56d7e0, 36d2a5dd78, 3b433bdec0,
+    3bbed3930d, 50421700bd, 974fbd1aae, c1db7399d8, e6fd2dc9fd, f6f7b781df) re-keyed to their new lines (7.4.3/7.4.4/7.2.4
+    items kept).
+- [x] 7.9.4 `iec_*_text` write into IecStr with no String allocation (clears `uninlined_format_args`, `format_push_string` in the runtime).
   - Where: `runtime/text.ts`, `emit/rust/convert.ts`.
   - Accept: twin test on `text.cases.ts`, S-out, M.
   - Depends: 6.3, 6.10, 6.11, 3.5.
-- [ ] 7.9.5 Runtime lint hygiene: `many_single_char_names`, `return_self_not_must_use`, `bool_to_int_with_if`, `must_use` on the IecStr methods.
+  - Done 2026-10-10 (step 7.9). `runtime/text.ts`: `IEC_STR_WRITE` (registry `string_write`: `std::fmt::Write` for
+    `IecStr<u8, N>`, appending and cutting at the capacity as `lit` cut) and every formatter `fn iec_*_text<const N:
+    usize>(…) -> IecString<N>` writing into the STRING it answers (`write!`, inlined format args; `iec_lclock` writes into
+    any `fmt::Write`; `iec_lreal_text` takes its exact 800-digit expansion into an `IecString<820>` — no `String`
+    anywhere). `convert.ts` prints `iec_x_text::<N>(arg)` at the target's capacity (a WSTRING target is refused by name:
+    no formatter answers one). Twins (`text_lreal` incl. the ties, `text_long`, `text_ltime`) and `emit-build.test.ts`'s
+    LREAL tie and LDT tests read the written units. The formatter conversions' 7.4.2 notes (2a5436bd78, 5564cd017c,
+    57f6f7d814, 5cefb347f0, 6f19035a22, a0672773fa, aeb527c9e6: "built at the target capacity, no second copy") are
+    resolved for these lines and deleted.
+- [x] 7.9.5 Runtime lint hygiene: `many_single_char_names`, `return_self_not_must_use`, `bool_to_int_with_if`, `must_use` on the IecStr methods.
   - Where: `emit/rust/runtime/*.ts`.
   - Accept: M (pedantic count attributed to runtime reaches 0).
   - Depends: 7.9.4.
+  - Done 2026-10-10 (step 7.9). Test-first: `runtime-twins.test.ts` "the registry is clippy-pedantic clean" compiles
+    every registry helper under the map's lint flags and lists each pedantic/perf finding with its line — 58 at the start
+    of 7.9, 0 now: `#[must_use]` on IecStr's `new`/`lit`/`units`/`to`/`char_at`/`with_char`/`narrow`/`widen`, `# Panics`
+    docs and `let … else { panic!("character {i} of a string of capacity {N}") }` over `usize::try_from` in
+    `char_at`/`with_char` (no sign-losing cast), `u16::from` in `widen`, an `allow` with its reason where the cast IS the
+    measured conversion (`narrow`, `iec_r2i64`, `iec_r2i32`, `iec_parse_int`, `iec_trunc_i32`), digit separators, `assert!`
+    in `iec_log`/`iec_pow`/`iec_div`, `i64::from(month <= 2)` and named bindings in `iec_civil`. Step 7.9 numbers. S-out
+    identical over 5535 fixtures. M (`rate:fixtures`, against 7.1's map): pedantic 27701 -> 16332; on runtime lines
+    (every lowered fixture compiled and each finding attributed to the registry text it falls in) 11255 -> 0
+    (`cast_possible_truncation` 3227, `cast_sign_loss` 2448, `uninlined_format_args` 1217, `must_use_candidate` 1173,
+    `manual_assert` 927, `missing_panics_doc` 782, `unreadable_literal` 571, `return_self_not_must_use` 391,
+    `cast_lossless` 391, `cast_possible_wrap` 99, `format_push_string` 20, `bool_to_int_with_if` 6,
+    `many_single_char_names` 3 -> 0 each). Rows changed: `shape` 485, `pedantic` 784, `notes` 414, `size` 0, `lints`/
+    `edge`/`evidence` 0; median size 3.1; constructs 2153 -> 2146, noted constructs 678 -> 654.
 
 ### 7.2 Constants folded in lowering, in one place (lean 2)
 

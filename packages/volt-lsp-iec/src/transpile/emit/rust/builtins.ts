@@ -87,9 +87,12 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   // LAZY, as the IR states: only the selected input is evaluated (`tr_41_sel_side_effects`).
   sel: (_e, _args, argv) => `(if ${argv[0]} { ${argv[2]} } else { ${argv[1]} })`,
   // Toward zero into an i32 whose out-of-range (and NaN) answer is i32::MIN — CODESYS's TRUNC(3.0E9) is
-  // -2147483648, not a wrap and not Rust's saturating `as` — then `as` wraps that into INT for TRUNC_INT.
-  trunc: (e, args) =>
-    `({ let t = ${castTo(args[0]!, e.args[0]!.type, "f64")}.trunc(); if (-2147483648.0..=2147483647.0).contains(&t) { t as i32 } else { i32::MIN } }${rustType(e.type) === "i32" ? "" : ` as ${rustType(e.type)}`})`,
+  // -2147483648, not a wrap and not Rust's saturating `as` (`runtime/numeric.ts` `iec_trunc_i32`) — then `as` wraps
+  // that into INT for TRUNC_INT.
+  trunc: (e, args, _argv, p) => {
+    const call = `${use(p, "iec_trunc_i32")}(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))})`
+    return rustType(e.type) === "i32" ? call : `(${call} as ${rustType(e.type)})`
+  },
   shl: shift,
   shr: shift,
   rol: rotate,

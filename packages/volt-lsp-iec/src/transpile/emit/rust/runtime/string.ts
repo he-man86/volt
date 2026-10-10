@@ -19,10 +19,14 @@ impl<T: Copy + Default + PartialEq, const N: usize> Default for IecStr<T, N> {
     fn default() -> Self { Self::new() }
 }
 impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
+    #[must_use]
     pub fn new() -> Self { Self { len: 0, units: [T::default(); N] } }
+    #[must_use]
     pub fn lit(text: &[T]) -> Self { let mut s = Self::new(); let n = text.len().min(N); s.units[..n].copy_from_slice(&text[..n]); s.scan(); s }
+    #[must_use]
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
     // the units BOTH buffers hold, the bytes behind the terminator among them — the interpreter's fit slicing its buffer
+    #[must_use]
     pub fn to<const M: usize>(&self) -> IecStr<T, M> { let mut s = IecStr::<T, M>::new(); let n = N.min(M); s.units[..n].copy_from_slice(&self.units[..n]); s.scan(); s }
     // a store into THIS buffer (model 2): min(M, N) units of the source's buffer, a 0 behind them, and the units behind
     // that left as they were — the interpreter's storeString (semantics/string.ts; string_assign_tail_wide)
@@ -34,21 +38,25 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
 // a store stores it and the length is re-scanned — a 0 cuts the string and keeps its tail, which a store over that 0
 // brings back (tr_34_lib_prim_char_behind). Byte N is the terminator: it reads 0, and only a 0 fits. Outside 0..N is
 // outside the variable: a panic, as the interpreter's RangeError (semantics/string.ts charAt / setChar).
-// Written out, not on one line: "if .. { panic!() } if .." on one line reads to clippy as possible_missing_else.
 impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
+    /// # Panics
+    /// Outside the variable's N + 1 units, as CODESYS stops the task.
+    #[must_use]
     pub fn char_at(&self, i: i64) -> T {
-        if i < 0 || i as usize > N {
-            panic!("character {} of a string of capacity {}", i, N)
-        }
-        if i as usize == N { T::default() } else { self.units[i as usize] }
+        let Some(at) = usize::try_from(i).ok().filter(|&at| at <= N) else {
+            panic!("character {i} of a string of capacity {N}")
+        };
+        if at == N { T::default() } else { self.units[at] }
     }
+    /// # Panics
+    /// Outside the variable's N + 1 units, or a unit other than 0 into the terminator, as CODESYS stops the task.
+    #[must_use]
     pub fn with_char(mut self, i: i64, c: T) -> Self {
-        if i < 0 || i as usize > N || (i as usize == N && c != T::default()) {
-            panic!("character {} of a string of capacity {}", i, N)
-        }
-        let i = i as usize;
-        if i < N {
-            self.units[i] = c;
+        let Some(at) = usize::try_from(i).ok().filter(|&at| at < N || (at == N && c == T::default())) else {
+            panic!("character {i} of a string of capacity {N}")
+        };
+        if at < N {
+            self.units[at] = c;
         }
         self.scan();
         self
@@ -59,12 +67,15 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
 // is "he"). Measured on ASCII only: a STRING holds a non-ASCII character as its UTF-8 bytes, and what the vendor makes
 // of a byte past 0x7F crossing to a WSTRING is not recorded — this casts it as its value, as the interpreter does.
 impl<const N: usize> IecStr<u16, N> {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)] // a unit past 0xFF keeps its low byte: the cast IS the conversion (above)
     pub fn narrow<const M: usize>(&self) -> IecStr<u8, M> { let mut out = IecStr::<u8, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u8; out.len += 1; } out }
 }
 impl<const N: usize> IecStr<u8, N> {
-    pub fn widen<const M: usize>(&self) -> IecStr<u16, M> { let mut out = IecStr::<u16, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u16; out.len += 1; } out }
+    #[must_use]
+    pub fn widen<const M: usize>(&self) -> IecStr<u16, M> { let mut out = IecStr::<u16, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u16::from(u); out.len += 1; } out }
 }
 impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>> for IecStr<T, N> { fn eq(&self, other: &IecStr<T, M>) -> bool { self.units[..self.len] == other.units[..other.len] } }
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
-impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{:?}", text) } }
+impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{text:?}") } }
 `

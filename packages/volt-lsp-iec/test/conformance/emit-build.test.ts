@@ -303,7 +303,7 @@ describe.skipIf(skipRustSuite())("emit/rust — LREAL_TO_STRING rounds a tie hal
       ["1000000000000006.0", "1.00000000000001e15"],
     ]
     const fn = runtimeText("iec_lreal_text")
-    const main = `fn main() {\n${recorded.map(([v]) => `    println!("{}", iec_lreal_text(${v}f64));`).join("\n")}\n}\n`
+    const main = `fn main() {\n${recorded.map(([v]) => `    println!("{}", String::from_utf8_lossy(iec_lreal_text::<255>(${v}f64).units()));`).join("\n")}\n}\n`
     const dir = await mkdtemp(join(tmpdir(), "volt-lreal-"))
     const file = join(dir, "lreal_tie.rs")
     const exe = join(dir, process.platform === "win32" ? "lreal_tie.exe" : "lreal_tie")
@@ -338,7 +338,7 @@ describe.skipIf(skipRustSuite())("emit/rust — LDT/LDATE/LTOD_TO_STRING", () =>
       ["ltod", 3723n * 1_000_000_000n + 500_000_000n, "LTOD#01:02:03.500000000"],
       ["ltod", 3723n * 1_000_000_000n + 1000n, "LTOD#01:02:03.000001000"],
     ]
-    const main = `fn main() {\n${recorded.map(([f, v]) => `    println!("{}", iec_${f}_text(${v}i64));`).join("\n")}\n}\n`
+    const main = `fn main() {\n${recorded.map(([f, v]) => `    println!("{}", String::from_utf8_lossy(iec_${f}_text::<255>(${v}i64).units()));`).join("\n")}\n}\n`
     const dir = await mkdtemp(join(tmpdir(), "volt-ldt-"))
     const file = join(dir, "long_dates.rs")
     const exe = join(dir, process.platform === "win32" ? "long_dates.exe" : "long_dates")

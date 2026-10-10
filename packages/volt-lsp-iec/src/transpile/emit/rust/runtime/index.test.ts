@@ -3,7 +3,7 @@ import { BACK, closure, FRONT, frontLines, RUNTIME_IDS, runtimeText, withoutRunt
 import { IEC_MAX, IEC_MIN } from "./numeric.js"
 import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
 import { IEC_STR } from "./string.js"
-import { IEC_CIVIL, IEC_LCLOCK, IEC_LDT_TEXT, IEC_LREAL_TEXT, IEC_LTOD_TEXT } from "./text.js"
+import { IEC_CIVIL, IEC_LCLOCK, IEC_LDT_TEXT, IEC_LREAL_TEXT, IEC_LTOD_TEXT, IEC_STR_WRITE } from "./text.js"
 
 describe("emit/rust/runtime — the registry", () => {
   test("every helper is whole Rust items ending in a newline, and a fn helper defines the fn its id names", () => {
@@ -18,7 +18,7 @@ describe("emit/rust/runtime — the registry", () => {
   test("the string family goes in front, everything else after, and the two lists are the whole registry", () => {
     expect(FRONT[0]).toBe("string")
     expect(BACK).toEqual([
-      "iec_deref", "iec_r2i64", "iec_r2i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div",
+      "iec_deref", "iec_r2i64", "iec_r2i32", "iec_trunc_i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div",
       "mem", "mem_region", "mem_at", "mem_ld", "mem_ld_bool", "mem_st", "mem_order", "iec_ix",
     ])
     expect(closure(["mem_ld_bool"])).toEqual(["mem_region", "mem_at", "mem_ld", "mem_ld_bool"])
@@ -26,10 +26,10 @@ describe("emit/rust/runtime — the registry", () => {
   })
 
   test("a helper brings what it calls, in registry order, each once — and nothing it does not call", () => {
-    expect(closure(["iec_ldt_text"])).toEqual(["iec_civil", "iec_lclock", "iec_ldt_text"])
-    expect(closure(["iec_ltod_text", "iec_ldt_text", "iec_ltod_text"])).toEqual(["iec_civil", "iec_lclock", "iec_ldt_text", "iec_ltod_text"])
-    expect(runtimeText("iec_ldt_text", "iec_ltod_text")).toBe(IEC_CIVIL + IEC_LCLOCK + IEC_LDT_TEXT + IEC_LTOD_TEXT)
-    expect(closure(["iec_lreal_text"])).toEqual(["iec_lreal_text"])
+    expect(closure(["iec_ldt_text"])).toEqual(["string", "string_write", "iec_civil", "iec_lclock", "iec_ldt_text"])
+    expect(closure(["iec_ltod_text", "iec_ldt_text", "iec_ltod_text"])).toEqual(["string", "string_write", "iec_civil", "iec_lclock", "iec_ldt_text", "iec_ltod_text"])
+    expect(runtimeText("iec_ldt_text", "iec_ltod_text")).toBe(IEC_STR + IEC_STR_WRITE + IEC_CIVIL + IEC_LCLOCK + IEC_LDT_TEXT + IEC_LTOD_TEXT)
+    expect(closure(["iec_lreal_text"])).toEqual(["string", "string_write", "iec_lreal_text"])
     expect(closure(["string"])).toEqual(["string"])
     expect(runtimeText()).toBe("")
   })

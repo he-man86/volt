@@ -19,7 +19,7 @@ describe("emit/rust", () => {
     expect(code).toContain("self.i_copy = { iec_deref(self.p_int); i16::from_le_bytes(__mem.ld(self.p_int)) };")
     expect(code).toContain("iec_ix(") // the element index is checked against its bounds, then scaled to bytes
     expect(code).toContain("iec_deref(self.pa);") // a write through a pointer is checked on the line before
-    expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
+    expect(code).toContain('fn iec_deref(at: usize) { assert!(at != 0, "dereference of a null pointer"); }')
   })
 
   test("a string cursor steps in its own usize — by a literal, or by an INT — and every character is null-checked", () => {

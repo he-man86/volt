@@ -1,5 +1,6 @@
 /** STATEMENTS AS RUST — a statement list, the dispatch over the IR's statement kinds, and assign, IF, CASE. */
 import type { IrPou, IrStmt, Place } from "../../ir/index.js"
+import { holdsCall } from "../../ir/walk.js"
 import { stringKind, type Type } from "../../../frontend/types/index.js"
 import { stmtCall } from "./calls.js"
 import { expr, unparen, unparenHead } from "./expr.js"
@@ -43,8 +44,20 @@ export function stmt(p: Printer, s: IrStmt, slots: IrPou["slots"], indent: numbe
   }
 }
 
+/**
+ * An assignment: the target's pointer checked on the line before (`guardLine`) — and ONE GUARD PER STATEMENT (lean 9.3):
+ * a value with no call in it cannot change that pointer before it is read, so a read through the same pointer in the
+ * value prints unchecked (`Printer.checked`). A call in the value may write the pointer, and its reads keep their check.
+ */
 function stmtAssign(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
   guardLine(p, s.target, slots, indent)
+  const outer = p.checked
+  p.checked = s.target.guard !== undefined && !holdsCall(s.value) ? place(p, s.target.guard, slots) : undefined
+  assignValue(p, s, slots, indent)
+  p.checked = outer
+}
+
+function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: IrPou["slots"], indent: number): void {
   // a store into the image moves the value's bytes (`image.ts`)
   if (s.target.root === "image") return push(p, storeImage(p, s.target, expr(p, s.value, slots), slots), indent, s.span)
   const field = place(p, s.target, slots)

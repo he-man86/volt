@@ -49,7 +49,7 @@ describe("emit/rust", () => {
     // on (`operators/math-domain.ts`, which asked every math function's domain edges). The `as f64` / `as f32` trip
     // this test is really about is unchanged.
     expect(code).toContain("iec_log(self.x as f64).ln() as f32")
-    expect(code).toContain('panic!("the logarithm of zero stops the task on CODESYS")')
+    expect(code).toContain('assert!(x != 0.0, "the logarithm of zero stops the task on CODESYS")')
     expect(code).toContain("(self.i as i32).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
     expect(code).toContain("self.x.abs()")
     expect(code).toContain("self.v = self.u;") // u64 has no `abs`
@@ -60,7 +60,7 @@ describe("emit/rust", () => {
     expect(code).toContain("iec_pow(self.x as f64, self.y as f64) as f32")
     expect(code).toContain("self.z = iec_pow(self.x as f64, self.n as f64);") // one INT: LREAL
     // through `iec_pow`: EXPT(0, -1) stops the task on CODESYS where `powf` answers inf (`tr_46_exptdom_zero_pow_*`)
-    expect(code).toContain('panic!("zero to a negative power stops the task on CODESYS"); } x.powf(y)')
+    expect(code).toContain('assert!(!stops, "zero to a negative power stops the task on CODESYS"); x.powf(y)')
   })
 
   test("bit operations print Rust's own wrapping_shl/rotate_left, MUX a match, and bit access one slot's mask", () => {

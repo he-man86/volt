@@ -14,7 +14,7 @@ import { join } from "node:path"
 import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
 import { rustType } from "../../src/transpile/index.js"
 // the runtime registry — a deep path, test support only (it is not surface)
-import { runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
+import { RUNTIME_IDS, runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
 import type { Case } from "../../src/transpile/semantics/cases.js"
 import {
   EXPT_CASES,
@@ -24,6 +24,7 @@ import {
   type RealToIntInput,
   SELECT_CASES,
   type SelectInput,
+  TRUNC_CASES,
 } from "../../src/transpile/semantics/numeric.cases.js"
 import {
   LONG_CALENDAR_TEXT_CASES,
@@ -39,7 +40,8 @@ import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type MemoryType } from "../
 import { FAULT_TEXT } from "../../src/transpile/ir/faults.js"
 import { RUNS } from "./support/recordings.js"
 import { buildRust } from "./support/rustc-cache.js"
-import { RUSTC, skipRustSuite } from "./support/rustc.js"
+import { CLIPPY, RUSTC, skipLintCheck, skipRustSuite } from "./support/rustc.js"
+import { LINT_FLAGS, pedanticGroups } from "./support/transpile/lint-policy.js"
 
 
 /** The recorded value a case names, refused by name when the recording does not hold it. */
@@ -180,6 +182,9 @@ async function runTwin(name: string, runtime: string, exprs: readonly string[]):
     await rm(dir, { recursive: true, force: true })
   }
 }
+
+/** A formatter's STRING as the text it holds — `iec_*_text` writes into an `IecString<N>` (lean 9.4). */
+const written = (call: string): string => `String::from_utf8_lossy(${call}.units())`
 
 /** Every case's printed line beside its expected text, as `name: got` lines — equal when the twin agrees. */
 function compare<I, O>(cases: readonly Case<I, O>[], got: readonly string[]): { got: string[]; expected: string[] } {
@@ -332,6 +337,16 @@ describe("runtime twins — the case tables hold their recordings", () => {
     )
   })
 
+  test("every TRUNC case is the recorded DINT cell of the fixture it names, from the value it ran", () => {
+    const got = TRUNC_CASES.map((c) => {
+      const out = typed(recorded(c), c.name)
+      const v = typed(recordedInput(c), c.name)
+      const value = c.input.from === "REAL" ? Math.fround(Number(v.text)) : Number(v.text)
+      return `${c.name}: ${out.type}#${out.text} from ${v.type}#${value}`
+    })
+    expect(got).toEqual(TRUNC_CASES.map((c) => `${c.name}: DINT#${c.expected} from ${c.input.from}#${c.input.value}`))
+  })
+
   test("every 64-bit integer -> REAL case is the recorded cell, from the integer it ran", () => {
     const got = INT_TO_REAL_CASES.map((c) => {
       const out = typed(recorded(c), c.name)
@@ -396,7 +411,7 @@ describe("runtime twins — the case tables hold their recordings", () => {
 describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the case tables", () => {
   test("runtime/text.ts: iec_lreal_text over every LREAL case, the 16th-digit ties among them", async () => {
     const cases = [...Object.values(LREAL_TEXT_CASES).flat(), ...LREAL_TIE_CASES]
-    const got = await runTwin("text_lreal", runtimeText("iec_lreal_text"), cases.map((c) => `iec_lreal_text(${f64(c.input)})`))
+    const got = await runTwin("text_lreal", runtimeText("iec_lreal_text"), cases.map((c) => written(`iec_lreal_text::<255>(${f64(c.input)})`)))
     const { got: g, expected } = compare(cases, got)
     expect(g).toEqual(expected)
   }, 60_000)
@@ -405,13 +420,13 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
     const cases = LONG_CALENDAR_TEXT_CASES
     const fn = { LDT: "iec_ldt_text", LDATE: "iec_ldate_text", LTOD: "iec_ltod_text" } as const
     // the emitter hands the u64 over `as i64`: CODESYS reads it signed (`tr_12_fmt_long_dates`)
-    const got = await runTwin("text_long", runtimeText("iec_ldt_text", "iec_ldate_text", "iec_ltod_text"), cases.map((c) => `${fn[c.input.name]}(${c.input.ns}u64 as i64)`))
+    const got = await runTwin("text_long", runtimeText("iec_ldt_text", "iec_ldate_text", "iec_ltod_text"), cases.map((c) => written(`${fn[c.input.name]}::<255>(${c.input.ns}u64 as i64)`)))
     const { got: g, expected } = compare(cases, got)
     expect(g).toEqual(expected)
   }, 60_000)
 
   test("runtime/text.ts: iec_ltime_text over every LTIME case, the u64 handed over uncast", async () => {
-    const got = await runTwin("text_ltime", runtimeText("iec_ltime_text"), LTIME_TEXT_CASES.map((c) => `iec_ltime_text(${c.input}u64)`))
+    const got = await runTwin("text_ltime", runtimeText("iec_ltime_text"), LTIME_TEXT_CASES.map((c) => written(`iec_ltime_text::<255>(${c.input}u64)`)))
     const { got: g, expected } = compare(LTIME_TEXT_CASES, got)
     expect(g).toEqual(expected)
   }, 60_000)
@@ -460,6 +475,12 @@ ${FAULT_OF}`
     expect(g).toEqual(expected)
   }, 60_000)
 
+  test("runtime/numeric.ts: iec_trunc_i32 over every recorded TRUNC cell", async () => {
+    const got = await runTwin("numeric_trunc", runtimeText("iec_trunc_i32"), TRUNC_CASES.map((c) => `iec_trunc_i32(${c.input.from === "REAL" ? f32(c.input.value) : f64(c.input.value)})`))
+    const { got: g, expected } = compare(TRUNC_CASES, got)
+    expect(g).toEqual(expected)
+  }, 60_000)
+
   test("runtime/numeric.ts: iec_r2i32 / iec_r2i64 over every recorded REAL -> integer cell", async () => {
     const got = await runTwin(
       "numeric_r2i",
@@ -469,4 +490,37 @@ ${FAULT_OF}`
     const { got: g, expected } = compare(REAL_TO_INT_CASES, got)
     expect(g).toEqual(expected)
   }, 60_000)
+})
+
+/**
+ * THE RUNTIME IS IDIOMATIC RUST (transpile-restructure 7.9.5): every registry helper, compiled together under the map's
+ * lint flags, carries no `clippy::pedantic` or `clippy::perf` finding — each one was counted once per fixture that
+ * printed it (11,255 of the map's pedantic total at 7.1). A lint on a helper is listed with its line, so the fix is named.
+ */
+describe.skipIf(skipLintCheck())("runtime twins — the registry is clippy-pedantic clean", () => {
+  test("no pedantic or perf finding on any registry helper", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "volt-runtime-lint-"))
+    try {
+      const file = join(dir, "runtime.rs")
+      const source = `${runtimeText(...RUNTIME_IDS)}\nfn main() {}\n`
+      await Bun.write(file, source)
+      const built = Bun.spawnSync([CLIPPY!, "--edition", "2021", ...LINT_FLAGS, "--emit", "metadata", "-o", join(dir, "runtime.rmeta"), file], { stdout: "pipe", stderr: "pipe" })
+      expect(built.exitCode).toBe(0)
+      const groups = pedanticGroups()
+      const lines = source.split("\n")
+      const found = built.stderr
+        .toString()
+        .split(/\r?\n/)
+        .filter((raw) => raw.startsWith("{"))
+        .map((raw) => JSON.parse(raw) as { level?: string; code?: { code?: string }; spans?: { line_start: number; is_primary: boolean }[] })
+        .filter((d) => d.level === "warning" && d.code?.code !== undefined && groups.has(d.code.code))
+        .map((d) => {
+          const line = (d.spans?.find((sp) => sp.is_primary) ?? d.spans?.[0])?.line_start ?? 0
+          return `${d.code!.code} at ${line}: ${lines[line - 1]?.trim().slice(0, 100)}`
+        })
+      expect(found).toEqual([])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
 })

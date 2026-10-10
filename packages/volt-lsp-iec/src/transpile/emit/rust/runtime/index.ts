@@ -8,7 +8,7 @@
  * (`FRONT`: the string type, MAX/MIN over a string, the formatters, the parsers) is printed IN FRONT of the code, in
  * registry order, as the string prelude always was; every other helper after the code, in `BACK` order.
  */
-import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX, IEC_MIN, IEC_POW, IEC_R2I32, IEC_R2I64 } from "./numeric.js"
+import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX, IEC_MIN, IEC_POW, IEC_R2I32, IEC_R2I64, IEC_TRUNC_I32 } from "./numeric.js"
 import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
 import { IEC_DEREF, IEC_IX, MEM, MEM_AT, MEM_LD, MEM_LD_BOOL, MEM_ORDER, MEM_REGION, MEM_ST } from "./pointer.js"
 import { IEC_STR } from "./string.js"
@@ -22,6 +22,7 @@ import {
   IEC_LREAL_TEXT,
   IEC_LTIME_TEXT,
   IEC_LTOD_TEXT,
+  IEC_STR_WRITE,
   IEC_TIME_TEXT,
   IEC_TOD_TEXT,
 } from "./text.js"
@@ -30,25 +31,27 @@ import {
 const HELPERS = {
   // ── FRONT: the string family ──
   string: { deps: [], rust: IEC_STR },
+  string_write: { deps: ["string"], rust: IEC_STR_WRITE },
   iec_max: { deps: [], rust: IEC_MAX },
   iec_min: { deps: [], rust: IEC_MIN },
-  iec_lreal_text: { deps: [], rust: IEC_LREAL_TEXT },
-  iec_time_text: { deps: [], rust: IEC_TIME_TEXT },
-  iec_ltime_text: { deps: [], rust: IEC_LTIME_TEXT },
+  iec_lreal_text: { deps: ["string_write"], rust: IEC_LREAL_TEXT },
+  iec_time_text: { deps: ["string_write"], rust: IEC_TIME_TEXT },
+  iec_ltime_text: { deps: ["string_write"], rust: IEC_LTIME_TEXT },
   iec_civil: { deps: [], rust: IEC_CIVIL },
-  iec_date_text: { deps: ["iec_civil"], rust: IEC_DATE_TEXT },
-  iec_dt_text: { deps: ["iec_civil"], rust: IEC_DT_TEXT },
-  iec_tod_text: { deps: [], rust: IEC_TOD_TEXT },
+  iec_date_text: { deps: ["string_write", "iec_civil"], rust: IEC_DATE_TEXT },
+  iec_dt_text: { deps: ["string_write", "iec_civil"], rust: IEC_DT_TEXT },
+  iec_tod_text: { deps: ["string_write"], rust: IEC_TOD_TEXT },
   iec_lclock: { deps: [], rust: IEC_LCLOCK },
-  iec_ldt_text: { deps: ["iec_civil", "iec_lclock"], rust: IEC_LDT_TEXT },
-  iec_ldate_text: { deps: ["iec_civil"], rust: IEC_LDATE_TEXT },
-  iec_ltod_text: { deps: ["iec_lclock"], rust: IEC_LTOD_TEXT },
+  iec_ldt_text: { deps: ["string_write", "iec_civil", "iec_lclock"], rust: IEC_LDT_TEXT },
+  iec_ldate_text: { deps: ["string_write", "iec_civil"], rust: IEC_LDATE_TEXT },
+  iec_ltod_text: { deps: ["string_write", "iec_lclock"], rust: IEC_LTOD_TEXT },
   iec_parse_real: { deps: [], rust: IEC_PARSE_REAL },
   iec_parse_int: { deps: [], rust: IEC_PARSE_INT },
   // ── BACK ──
   iec_deref: { deps: [], rust: IEC_DEREF },
   iec_r2i64: { deps: [], rust: IEC_R2I64 },
   iec_r2i32: { deps: [], rust: IEC_R2I32 },
+  iec_trunc_i32: { deps: [], rust: IEC_TRUNC_I32 },
   iec_fmax: { deps: [], rust: IEC_FMAX },
   iec_fmin: { deps: [], rust: IEC_FMIN },
   iec_log: { deps: [], rust: IEC_LOG },

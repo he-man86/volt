@@ -35,6 +35,7 @@ fn iec_parse_real(s: &[u8]) -> f64 {
 export const IEC_PARSE_INT = `// STRING → integer: leading spaces and tabs; with no sign a 2#, 8# or 16# base ('16#FF' is 255), else an optional sign and
 // decimal digits; an underscore among the digits skipped, anything else ending them (' 12abc' is 12, '-16#F' is -16);
 // wrapping at 64 bits (the interpreter's parseInteger, 6.A.10).
+#[allow(clippy::cast_possible_wrap)] // wrapping at 64 bits IS the parse (6.A.10)
 fn iec_parse_int(s: &[u8]) -> i64 {
     let mut i = 0;
     while i < s.len() && (s[i] == b' ' || s[i] == b'\\t') { i += 1; }

@@ -18,13 +18,14 @@ describe("emit/rust", () => {
     // = -2147483648, which is the 32-BIT indefinite. `conversions/real-to-integer{,-ladder}.ts` measured 192 cells
     // and `iec_r2i32` / `iec_r2i64` are the table; an INT destination takes the 32-bit half.
     expect(code).toContain("self.i = iec_r2i32(self.x as f64) as i16;")
-    expect(code).toContain("if c < -2147483648.0 { return i32::MIN; }")
-    expect(code).toContain("if c >= 9223372036854775808.0 { return 0; }")
+    expect(code).toContain("if c < -2_147_483_648.0 { return i32::MIN; }")
+    expect(code).toContain("if c.is_nan() || c >= 9_223_372_036_854_775_808.0 { return 0; }")
     expect(code).toContain("self.b = self.n != 0;")
     expect(code).toContain("self.y = (self.b as u8) as f32;")
-    // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64
-    expect(code).toContain("(self.x as f64).trunc()")
-    expect(code).toContain("i32::MIN")
+    // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64 — in
+    // one runtime helper since lean 9.2, not inline at every TRUNC
+    expect(code).toContain("self.d = iec_trunc_i32(self.x as f64);")
+    expect(code).toContain("if (-2_147_483_648.0..=2_147_483_647.0).contains(&t) { t as i32 } else { i32::MIN }")
     expect(code).not.toContain("300i8") // an explicit conversion is a node, never an out-of-range literal
   })
 })
@@ -58,7 +59,8 @@ describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
     const code = rust(
       "PROGRAM PLC_PRG\nVAR\n\tt : LTIME := LTIME#106752D;\n\tsx : STRING;\nEND_VAR\nsx := LTIME_TO_STRING(t);\nEND_PROGRAM\n",
     )
-    expect(code).toContain("iec_ltime_text(self.t)")
-    expect(code).toContain("fn iec_ltime_text(ns: u64)")
+    // written into the target STRING at its capacity (lean 9.4)
+    expect(code).toContain("self.sx = iec_ltime_text::<80>(self.t);")
+    expect(code).toContain("fn iec_ltime_text<const N: usize>(ns: u64) -> IecString<N>")
   })
 })
