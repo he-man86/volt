@@ -23,9 +23,10 @@ export class Printer {
   /** A harness's loop guard ({@link EmitOptions}) — undefined prints none. */
   loopGuard: number | undefined = undefined
 
-  /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels (whether a
+  /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels, `labeled` when its body
+   *  sits in a labeled block (a CONTINUE before a step or a tail test) and EXIT and CONTINUE name them (whether a
    *  label is printed at all is asked of the IR before the loop prints: `ir/walk.loopUses`). */
-  readonly loops: { n: number }[] = []
+  readonly loops: { n: number; labeled: boolean }[] = []
   loopCount = 0
 
   /** The body being printed: its VAR_IN_OUT parameters and its routine's locals (Rust names and slots), and the name of

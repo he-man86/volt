@@ -92,9 +92,13 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
   return
 }
 
-function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["slots"], indent: number): void {
-  push(p, `if ${head(print(p, s.cond, slots))} {`, indent, s.span)
+/** IF … ELSIF … ELSE: an `else` whose whole body is one more IF is that IF's `else if` (7.5.5, clippy's
+ *  `collapsible_else_if`) — lowering nests an ELSIF as exactly that. */
+function stmtIf(p: Printer, s: Extract<IrStmt, { kind: "if" }>, slots: IrPou["slots"], indent: number, opener = "if"): void {
+  push(p, `${opener} ${head(print(p, s.cond, slots))} {`, indent, s.span)
   block(p, s.then, slots, indent + 1)
+  const only = s.else.length === 1 ? s.else[0]! : undefined
+  if (only?.kind === "if") return stmtIf(p, only, slots, indent, "} else if")
   if (s.else.length > 0) {
     push(p, "} else {", indent)
     block(p, s.else, slots, indent + 1)

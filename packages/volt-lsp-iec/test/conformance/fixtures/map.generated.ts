@@ -24,7 +24,7 @@
  *   tier                     lowered    clean
  *     decl                    774      774
  *     arith                  1574     1573
- *     control                 161      150
+ *     control                 161      151
  *     aggregate               147      147
  *     call                    297      294
  *     indirect                461      456
@@ -36,7 +36,6 @@
  *     clippy::too_many_arguments                 3
  *     clippy::match_single_binding               2
  *     clippy::bool_comparison                    1
- *     clippy::neg_cmp_op_on_partial_ord          1
  *     clippy::nonminimal_bool                    1
  *     overlapping_range_endpoints                1
  *
@@ -48,7 +47,7 @@
  *     clippy::absurd_extreme_comparisons         6
  *     clippy::approx_constant                    6
  *     unused_comparisons                         6
- *     unreachable_code                           2
+ *     unreachable_code                           3
  *     clippy::manual_range_patterns              1
  *     clippy::never_loop                         1
  *
@@ -75,7 +74,7 @@
  *       disagree: tr_28_minmax_limit_nan_signed_zero_lreal — (declared inputs): w2 interpreter 9221120237041090560,
  *       disagree: tr_28_minmax_limit_nan_signed_zero_real — (declared inputs): w2 interpreter 2143289344, Rust 4290
  *
- *   pedantic — 9673 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 9650 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::must_use_candidate               7215
  *     clippy::cast_possible_truncation          773
  *     clippy::cast_sign_loss                    561
@@ -85,29 +84,29 @@
  *     clippy::pub_underscore_fields             115
  *     clippy::struct_excessive_bools             46
  *     clippy::cast_precision_loss                31
- *     clippy::collapsible_else_if                21
+ *     clippy::unnecessary_semicolon              12
  *
  *   size — emitted Rust lines per ST line, runtime-registry lines not counted: median 3.1; the ten largest
- *     string_positions_low                          33.5
- *     string_positions_high                         31.7
- *     string_insert_delete_replace_find             25.7
- *     string_edge_positions                           24
- *     string_conversions_formats                    18.3
- *     string_len_left_right_mid                       18
- *     tr_a27_for_unsigned_counters_negative_step      15
- *     string_input_truncation                       13.3
- *     string_escapes_named                            13
+ *     string_positions_low                            29
+ *     string_positions_high                         27.7
+ *     string_insert_delete_replace_find             22.2
+ *     string_edge_positions                           21
+ *     string_conversions_formats                    16.3
+ *     string_len_left_right_mid                       16
+ *     string_escapes_named                          12.5
  *     tr_a10_string_to_dint_based_edges             12.2
+ *     tr_a27_for_unsigned_counters_negative_step      12
+ *     string_input_truncation                       11.8
  *
- *   shape — 1869 distinct emission shapes over 3414 lowered fixtures, 2032 distinct constructs.
- *   350 constructs carry a review note (`NOTES`): 3323 fixtures are improvable, 3101 touch a construct with alternatives.
+ *   shape — 1869 distinct emission shapes over 3414 lowered fixtures, 2044 distinct constructs.
+ *   344 constructs carry a review note (`NOTES`): 3323 fixtures are improvable, 3101 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
  *   `keep` = an item that says nothing needs to change):
  *     7.4.4 26, 7.7.1 24, 7.8.6 22, 7.4.3 19, 7.7.8 19, 7.7.3 18, 7.6.1 17, 7.4.6 15, 7.7.5 15, keep 15, 7.7.2 14
  *     7.5.7 13, 7.5.6 11, 7.8.7 11, 7.4.2 10, 7.6.2 9, 7.6.3 9, 7.8.2 9, 7.4.5 7, 7.6.5 7, 7.8.10 7, 7.4.8 6
- *     7.6.6 6, 7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5, 7.8.8 5, 7.5.2 4, 7.7.9 4, 7.4.9 3, 7.7.6 3, 7.4.7 2, 7.5.9 2
- *     7.6.4 2, 7.7.11 2, 7.5.1 1, 7.5.3 1, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.8.1 1, 7.8.11 1
+ *     7.6.6 6, 7.8.3 6, 7.8.5 6, 7.7.7 5, 7.8.4 5, 7.8.8 5, 7.7.9 4, 7.4.9 3, 7.7.6 3, 7.4.7 2, 7.5.9 2, 7.6.4 2
+ *     7.7.11 2, 7.5.8 1, 7.5.10 1, 7.5.11 1, 7.8.1 1, 7.8.11 1
  */
 import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
@@ -602,16 +601,16 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   calls_unknown_output_method: { evidence: "refused" },
   callshape_argument_order: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.2, shape: "40be43684c", notes: ["11f6ad8ec5", "6dd22a92d0", "a5c4faeebd", "dbdc75774e", "fbde4d6e1e"] },
   callshape_array_star_bound_width: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "d4b7bad0a7", notes: ["11f6ad8ec5", "38ec88da3b", "56c1a77525", "fbde4d6e1e", "fedbbc431c"] },
-  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.1, shape: "93f02b8e62", notes: ["11f6ad8ec5", "26a81a085d", "521ba042ac", "58edc15c64", "62caf55aa5", "dbdc75774e", "fbde4d6e1e", "fedbbc431c"] },
+  callshape_array_star_bounds: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "39c43133a3", notes: ["11f6ad8ec5", "26a81a085d", "58edc15c64", "62caf55aa5", "dbdc75774e", "fbde4d6e1e", "fedbbc431c"] },
   callshape_array_star_fb_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 2.7, shape: "e235acb5cb", notes: ["0ac4ab4a64", "22f3bd9b6d", "33fc10bac3", "38908b42b7", "43449862b7", "8064ae1570", "81ed699293", "b894525f6e", "debabdec0d", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e"] },
-  callshape_array_star_fb_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.7, shape: "6b43193ac4", notes: ["09b1152bef", "0ac4ab4a64", "22f3bd9b6d", "38908b42b7", "38cce5cb54", "521ba042ac", "81ed699293", "b894525f6e", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e", "fd16368fa8"] },
-  callshape_array_star_of_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 2.2, shape: "9d5ff87704", notes: ["521ba042ac", "b6565109d7", "c9c77500c6", "fbde4d6e1e"] },
+  callshape_array_star_fb_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.6, shape: "d52d8932ac", notes: ["09b1152bef", "0ac4ab4a64", "22f3bd9b6d", "38908b42b7", "38cce5cb54", "81ed699293", "9928be1401", "b894525f6e", "e1ed54aa44", "f06209ef9e", "fbde4d6e1e"] },
+  callshape_array_star_of_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 2.1, shape: "94803ff478", notes: ["b6565109d7", "c9c77500c6", "fbde4d6e1e"] },
   callshape_array_star_passed_on: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "abdbbe2df2", notes: ["11f6ad8ec5", "1b12aad5a0", "775c30eac7", "cc9778f81f", "f7faf582da", "fbde4d6e1e"] },
-  callshape_array_star_two_dims: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.4, shape: "c03fe62ed7", notes: ["00fc50d055", "11f6ad8ec5", "2c3b8ad3cc", "3d792fe7d9", "521ba042ac", "b3a0495ed2", "ed880b92a8", "fbde4d6e1e", "fedbbc431c"] },
+  callshape_array_star_two_dims: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "ec6106a69c", notes: ["00fc50d055", "11f6ad8ec5", "2c3b8ad3cc", "3d792fe7d9", "596535f8e7", "b3a0495ed2", "fbde4d6e1e", "fedbbc431c"] },
   callshape_bounds_of_sized_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "d8aa506f68", notes: ["2c3b8ad3cc", "fbde4d6e1e"] },
-  callshape_for_bounds_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.4, shape: "09a03cf088", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "fbde4d6e1e"] },
-  callshape_for_limit_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.6, shape: "2362a97609", notes: ["0e0d715a81", "11f6ad8ec5", "521ba042ac", "5370b79269", "b736e18f55", "e8a1222ae6", "fbde4d6e1e"] },
-  callshape_for_runtime_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.2, shape: "2fbd79af39", notes: ["0e0d715a81", "521ba042ac", "5714c76a1c", "90ad40cc20", "de132e5019", "fbde4d6e1e"] },
+  callshape_for_bounds_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.3, shape: "fcf8f1507e", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  callshape_for_limit_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9182e15b55", notes: ["0e0d715a81", "0f2d39e083", "11f6ad8ec5", "5370b79269", "a2add88910", "fbde4d6e1e"] },
+  callshape_for_runtime_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.1, shape: "00bee6848d", notes: ["040b00dbe8", "0e0d715a81", "90ad40cc20", "de132e5019", "fbde4d6e1e"] },
   callshape_function_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 3, edge: "agree", size: 2.5, shape: "b27f4fe728", notes: ["11f6ad8ec5", "a5c4faeebd", "fbde4d6e1e"] },
   callshape_inout_base_method_from_derived_method: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "20c1fd53a3", notes: ["0b51d542e8", "667cafe298"] },
   callshape_inout_base_method_from_outside_derived: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 6, edge: "agree", size: 3.3, shape: "fae488dc0a", notes: ["0b51d542e8", "667cafe298", "9fbd098efb", "fbde4d6e1e"] },
@@ -874,7 +873,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc2_type_name_and_method_without_parens: { evidence: "refused" },
   cc2_var_in_interface: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "e144d344e0", notes: ["fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   cc3_bit_access_and_call_result: { evidence: "refused" },
-  cc3_empty_and_noop: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 2.9, shape: "8649b76dcc", notes: ["521ba042ac", "de132e5019", "fbde4d6e1e"] },
+  cc3_empty_and_noop: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 2.8, shape: "8649b76dcc", notes: ["de132e5019", "fbde4d6e1e"] },
   cc3_input_defaults: { evidence: "refused" },
   cc3_interface_misuse: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "08654402cb", notes: ["fbde4d6e1e"] },
   cc3_multiple_inheritance: { evidence: "refused" },
@@ -886,7 +885,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc4_data_recursion_fb: { evidence: "refused" },
   cc4_data_recursion_struct: { evidence: "refused" },
   cc4_inout_in_initializer: { evidence: "refused" },
-  cc4_loop_exit_constant: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 2.8, shape: "e78ffbf43b", notes: ["0e0d715a81", "235daf8f29", "521ba042ac", "fbde4d6e1e"] },
+  cc4_loop_exit_constant: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 2.5, shape: "4463fd7f25", notes: ["0e0d715a81", "235daf8f29", "fbde4d6e1e"] },
   cc4_not_instantiable: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "98fa35a0bb", notes: ["fbde4d6e1e"] },
   cc4_obsolete_and_deprecated: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 3, shape: "4f656caa7f", notes: ["fbde4d6e1e"] },
   cc4_output_reference_type: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 3.3, shape: "533a6d3896", notes: ["fbde4d6e1e"] },
@@ -918,7 +917,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc6_call_a_gvl: { evidence: "refused" },
   cc6_callable_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 4.3, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
   cc6_function_input_array_default: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "b9f3c33dae", notes: ["11f6ad8ec5", "fbde4d6e1e"] },
-  cc6_loop_cannot_exit: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 3.3, shape: "46b96a1641", notes: ["521ba042ac", "fbde4d6e1e"] },
+  cc6_loop_cannot_exit: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 3.1, shape: "ef02e29486", notes: ["fbde4d6e1e"] },
   cc6_property_lacks_getter: { evidence: "refused" },
   cc6_reference_assign_constant: { evidence: "refused" },
   cc6_reference_assign_literal: { evidence: "refused" },
@@ -1106,8 +1105,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   co_any_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 2.2, shape: "7710560de6", notes: ["0e0d715a81", "fbde4d6e1e"] },
   co_move_operator: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "cf3b1791da", notes: ["0e0d715a81", "fbde4d6e1e"] },
   co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "agree", size: 2.1, shape: "c58b1d3b46", notes: ["5d9850550d", "8c1b866176", "9479f0e3c4", "e0361c9257", "fbde4d6e1e"] },
-  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 20, edge: "agree", size: 8.9, shape: "0dd854f301", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "218bbe29e3", "36008e7af0", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b4f42289f3", "b592939dbf", "c001fbb3b1", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 28, edge: "agree", size: 3.9, shape: "e2bf1d75e7", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1ad1ab3163", "1d1551a034", "1f9fa1b093", "218bbe29e3", "21ef64a1e0", "36008e7af0", "3654e21d7c", "3cacc7bfac", "3cf4e6fa21", "4d2905bfee", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "835426dcf7", "83ed1aab47", "92f7142ab2", "93a17fab28", "9c8d21e237", "a29d79932d", "a573b540d2", "b4f42289f3", "b592939dbf", "c001fbb3b1", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 20, edge: "agree", size: 7.8, shape: "6596e60eff", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "cedd086a8e", "d2bcbac57f", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  concat_result_capacity: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 28, edge: "agree", size: 3.3, shape: "fea4d9b0f6", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1f9fa1b093", "21ef64a1e0", "36008e7af0", "370a3c0624", "3cacc7bfac", "3cf4e6fa21", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "835426dcf7", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "a573b540d2", "b592939dbf", "b6487c7e6e", "bb97b1e500", "c001fbb3b1", "ccbeb13506", "ce61fdb3c0", "cedd086a8e", "d2bcbac57f", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   conditional_define_then_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "853026dfa7", notes: ["0e0d715a81", "fbde4d6e1e"] },
   conditional_else_branch_taken: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "853026dfa7", notes: ["0e0d715a81", "fbde4d6e1e"] },
   conditional_elsif_chain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "853026dfa7", notes: ["0e0d715a81", "fbde4d6e1e"] },
@@ -1119,9 +1118,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   const_non_replaced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "b5b57bb601", notes: ["fbde4d6e1e"] },
   const_replaced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "b5b57bb601", notes: ["fbde4d6e1e"] },
   constant_arithmetic_width: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 4.5, shape: "aeda67a84d", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  continue_in_for: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.5, shape: "d3eabab25b", notes: ["0e0d715a81", "1ad1ab3163", "204a887600", "93a17fab28", "95094bd48a", "fbde4d6e1e"] },
-  continue_in_repeat: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.3, shape: "d382779b26", notes: ["1ad1ab3163", "204a887600", "93a17fab28", "95094bd48a", "fbde4d6e1e"] },
-  continue_in_while: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.3, shape: "0b3962eb65", notes: ["1ad1ab3163", "204a887600", "93a17fab28", "95094bd48a", "fbde4d6e1e"] },
+  continue_in_for: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.3, shape: "3747080c3f", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  continue_in_repeat: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.3, shape: "d382779b26", notes: ["fbde4d6e1e"] },
+  continue_in_while: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.8, shape: "6a2f8da019", notes: ["fbde4d6e1e"] },
   conversion_bool_to_int_valid: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f61271bcba", notes: ["de132e5019", "fbde4d6e1e"] },
   conversion_constant_folding: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 4.5, shape: "bc50290f66", notes: ["0e0d715a81", "fbde4d6e1e"] },
   conversion_date_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "3f63087bf3", notes: ["5d9850550d", "fbde4d6e1e"] },
@@ -1142,14 +1141,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cp_empty_statements: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "b801e9cdaa", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cp_inline_assignment: { evidence: "not-lowered" },
   cp_obsolete_pou: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "c92c9b4c8a", notes: ["fbde4d6e1e"] },
-  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "a80a04bf0e", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "8232a1cf7c", "94c11e8f56", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "dc8437c26a", "de132e5019", "e6646a0bd0", "fb7e9e6ff4", "fbde4d6e1e"] },
+  cp_pouname_operator: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "7a58648d4a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "8232a1cf7c", "94c11e8f56", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "dc8437c26a", "de132e5019", "e5f32531ef", "e6646a0bd0", "fb7e9e6ff4", "fbde4d6e1e"] },
   cp_symbol_and_monitoring: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "ec59cc818f", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   cp_xsizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f33d88ec21", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   cs_anynum_to_conversions: { evidence: "refused" },
   cs_array_four_dimensions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "e242ebbd14", notes: ["8643f1db30", "fbde4d6e1e"] },
   cs_clock_reads: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 4.5, shape: "2ed4b4c474", notes: ["b9787e0d18", "fbde4d6e1e"] },
   cs_spelled_narrowing_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "6105345ce1", notes: ["fbde4d6e1e"] },
-  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 22, edge: "agree", size: 9.6, shape: "e50cb25eb0", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "218bbe29e3", "36008e7af0", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b4f42289f3", "b592939dbf", "c001fbb3b1", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 22, edge: "agree", size: 8.4, shape: "2270ce3acc", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "cedd086a8e", "d2bcbac57f", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
   ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.2, shape: "e8a82655da", notes: ["0a552281ae", "5d9850550d", "8c1b866176", "fbde4d6e1e"] },
   ct_bit_fields: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "fbf3a38b9d", notes: ["de132e5019", "fbde4d6e1e"] },
   ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 11, edge: "agree", size: 7, shape: "0a87bd7896", notes: ["496b8acb56", "de132e5019", "fbde4d6e1e"] },
@@ -1158,18 +1157,18 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ct_pointer_width_types: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "2af53bf889", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   ct_real_time_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 2.5, shape: "f4d23d7b7c", notes: ["e0361c9257", "fbde4d6e1e"] },
   ct_subrange_across_objects: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "c005299ddb", notes: ["fbde4d6e1e"] },
-  ct_three_dimensional_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.9, shape: "f210fbdd73", notes: ["0e0d715a81", "521ba042ac", "8feb3d596e", "fbde4d6e1e"] },
+  ct_three_dimensional_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.5, shape: "6ad1713500", notes: ["0e0d715a81", "8feb3d596e", "fbde4d6e1e"] },
   ctrl_case_of_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "8919bff1c1", notes: ["5d9850550d", "94c11e8f56", "fbde4d6e1e"] },
-  ctrl_continue_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "2716f820da", notes: ["0e0d715a81", "204a887600", "521ba042ac", "95094bd48a", "fbde4d6e1e"] },
-  ctrl_exit_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "55193796de", notes: ["0e0d715a81", "1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
-  ctrl_for_to_by_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "0998bd2658", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "fbde4d6e1e"] },
-  ctrl_if_elsif_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "698890d65e", notes: ["5d9850550d", "94c11e8f56", "fbde4d6e1e"] },
-  ctrl_repeat_until: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "54fa72ca4b", notes: ["521ba042ac", "fbde4d6e1e"] },
+  ctrl_continue_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "755ac92bbd", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  ctrl_exit_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "2cc1983fdb", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  ctrl_for_to_by_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "b7861999c6", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  ctrl_if_elsif_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "9ff7243a00", notes: ["5d9850550d", "94c11e8f56", "fbde4d6e1e"] },
+  ctrl_repeat_until: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "54fa72ca4b", notes: ["fbde4d6e1e"] },
   ctrl_return_from_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "5f6b0066c2", notes: ["4edbb4135a", "73505351ad", "a01f00db76", "de132e5019"] },
-  ctrl_while_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "51a1dd260f", notes: ["521ba042ac", "fbde4d6e1e"] },
+  ctrl_while_do: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "b9e2c1f1ed", notes: ["fbde4d6e1e"] },
   cursor_whole_store_capacity: { evidence: "not-lowered" },
   cv_enum_arithmetic_type: { evidence: "refused" },
-  cv_enum_arithmetic_values: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "61d0a9e1b6", notes: ["0e0d715a81", "6bf6856d37", "fbde4d6e1e"] },
+  cv_enum_arithmetic_values: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "61d0a9e1b6", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cv_enum_base_byte_into_scalars: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 1.8, shape: "5c3967348d", notes: ["fbde4d6e1e"] },
   cv_enum_base_dint_into_scalars: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 17, edge: "agree", size: 1.8, shape: "a8b9c30dce", notes: ["fbde4d6e1e"] },
   cv_enum_base_int_into_scalars: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 13, edge: "agree", size: 1.8, shape: "ae78de93f5", notes: ["0e0d715a81", "fbde4d6e1e"] },
@@ -1203,12 +1202,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cv_scalars_into_enum: { evidence: "refused" },
   cv_scalars_into_enum_with_base: { evidence: "refused" },
   cv_scalars_into_strict_enum: { evidence: "refused" },
-  cv_strict_enum_arithmetic: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 2, shape: "7905f5f4c4", notes: ["0e0d715a81", "6bf6856d37", "fbde4d6e1e"] },
+  cv_strict_enum_arithmetic: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 2, shape: "7905f5f4c4", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cv_strict_enum_from_other_enum: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 1.6, shape: "d71dc22abe", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cv_strict_enum_into_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "d71dc22abe", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cv_strict_enum_into_scalars: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 13, edge: "agree", size: 1.8, shape: "ae78de93f5", notes: ["0e0d715a81", "fbde4d6e1e"] },
   cv_xword_into_pointer: { evidence: "not-lowered" },
-  date_arithmetic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 6, shape: "46ec42effe", notes: ["6bf6856d37", "fbde4d6e1e"] },
+  date_arithmetic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 6, shape: "46ec42effe", notes: ["fbde4d6e1e"] },
   date_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "f13a40d047", notes: ["de132e5019", "fbde4d6e1e"] },
   date_negative_difference: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "db22c91e71", notes: ["fbde4d6e1e"] },
   date_plus_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.2, shape: "e5b1cc0b9b", notes: ["fbde4d6e1e"] },
@@ -1361,7 +1360,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_temp_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "ad814a9ba8", notes: ["0e0d715a81", "fbde4d6e1e"] },
   decl_temp_initialized: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "ad814a9ba8", notes: ["0e0d715a81", "fbde4d6e1e"] },
   decl_temp_retain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "d71dc22abe", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.9, shape: "f95410509e", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "8b6ecf477b", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.6, shape: "69b5e45f71", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "5d9850550d", "8b6ecf477b", "a573b540d2", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   decl_temp_struct_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "27519f683e", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   decl_type_enum_empty: { evidence: "refused" },
   decl_type_enum_missing_comma: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -1402,7 +1401,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_var_inst_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_var_output_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_var_stat_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
-  decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.9, shape: "8d9c62be84", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.5, shape: "c9e76d9f39", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "5d9850550d", "a573b540d2", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   decl_var_temp_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_vector_constant_size: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "041134b118", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   decl_vector_of_bool: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "16d01660e8", notes: ["0e0d715a81", "fbde4d6e1e"] },
@@ -1574,60 +1573,60 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   err_c0003_bad_bit_index: { evidence: "refused" },
   err_c0116_duplicate_label: { evidence: "refused" },
   error_message: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "e144d344e0", notes: ["fbde4d6e1e"] },
-  esc_around_carriage_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_dollar: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_41: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_7e: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_7f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_81: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_83: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_8a: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_8d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_92: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_99: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_9b: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_9d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_9f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_a9: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_c3: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_hex_ff: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_line_feed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_newline: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_page: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_quote: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_around_tab: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_fits_exactly: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_high_only_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_carriage_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_dollar: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_41: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_7e: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_7f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_81: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_83: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_8a: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_8d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_92: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_99: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_9b: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_9d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_9f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_a9: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_c3: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_hex_ff: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_line_feed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_newline: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_page: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_quote: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_len_tab: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_mixed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_truncated_ascii: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_truncated_high: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_two_high: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_utf8_pair: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
-  esc_utf8_pair_around: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "508a243e1a", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "dea089f2fd", "fbde4d6e1e"] },
+  esc_around_carriage_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_dollar: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_41: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_7e: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_7f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_81: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_83: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_8a: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_8d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_92: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_99: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_9b: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_9d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_9f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_a9: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_c3: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_hex_ff: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_line_feed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_newline: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_page: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_quote: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_around_tab: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_fits_exactly: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_high_only_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_carriage_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_dollar: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_41: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_7e: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_7f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_81: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_83: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_8a: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_8d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_92: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_99: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_9b: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_9d: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_9f: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_a9: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_c3: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_hex_ff: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_line_feed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_newline: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_page: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_quote: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_len_tab: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_mixed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_truncated_ascii: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_truncated_high: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_two_high: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_utf8_pair: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
+  esc_utf8_pair_around: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "814a826401", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "dea089f2fd", "e5f32531ef", "fbde4d6e1e"] },
   esc_wstring_ascii: { evidence: "refused" },
   esc_wstring_dollar: { evidence: "refused" },
   esc_wstring_dquote: { evidence: "refused" },
@@ -1810,15 +1809,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   flw_case_ranges_touching: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "overlapping_range_endpoints"], pedantic: 2, edge: "agree", size: 3.3, shape: "947db71109", notes: ["0e0d715a81", "fbde4d6e1e"] },
   flw_case_real_label: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.3, shape: "c37aab2bee", notes: ["0e0d715a81", "fbde4d6e1e"] },
   flw_case_variable_range_bound: { evidence: "refused" },
-  flw_continue_in_case_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "2d2979e855", notes: ["0e0d715a81", "204a887600", "521ba042ac", "6bf6856d37", "95094bd48a", "fbde4d6e1e"] },
+  flw_continue_in_case_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "866db6805f", notes: ["0e0d715a81", "fbde4d6e1e"] },
   flw_empty_comment_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "83937226de", notes: ["0e0d715a81", "fbde4d6e1e"] },
   flw_empty_else: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "83937226de", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  flw_empty_elsif: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.8, shape: "7536d7cd7a", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  flw_empty_semicolon_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 3.1, shape: "c499b6a062", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  flw_empty_elsif: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.7, shape: "31b150bcb2", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  flw_empty_semicolon_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 2.9, shape: "c499b6a062", notes: ["0e0d715a81", "fbde4d6e1e"] },
   flw_exit_in_if_outside_loop: { evidence: "refused" },
-  flw_for_byte_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 9, size: 3.3, shape: "51e6e82eac", notes: ["521ba042ac", "fbde4d6e1e"] },
-  flw_for_int_down_to_min: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 3.3, shape: "0fce945c6a", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  flw_for_usint_by_two_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 9, size: 3.3, shape: "51e6e82eac", notes: ["521ba042ac", "fbde4d6e1e"] },
+  flw_for_byte_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 9, size: 3.1, shape: "077ab7b035", notes: ["fbde4d6e1e"] },
+  flw_for_int_down_to_min: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 11, size: 3.1, shape: "425247d74c", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  flw_for_usint_by_two_to_255: { evidence: "unaskable", tier: "control", rust: "compiles", pedantic: 3, edge: "not-run", edgeUnanswered: 9, size: 3.1, shape: "077ab7b035", notes: ["fbde4d6e1e"] },
   flw_jmp_into_loop: { evidence: "not-lowered" },
   flw_jmp_label_duplicate: { evidence: "refused" },
   flw_jmp_label_other_case: { evidence: "not-lowered" },
@@ -1939,22 +1938,22 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fmt_time_one_millisecond: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "77d1555371", notes: ["5d9850550d", "667cafe298"] },
   fmt_time_one_second: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "77d1555371", notes: ["5d9850550d", "667cafe298"] },
   fmt_time_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "77d1555371", notes: ["5d9850550d", "667cafe298"] },
-  for_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "bc71707c9e", notes: ["1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
-  for_counter_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 6, shape: "63f28d101e", notes: ["0e0d715a81", "1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
-  for_limit_sign_change_int_on_uint: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.3, shape: "bf7f8d8549", notes: ["521ba042ac", "fbde4d6e1e"] },
-  for_limit_sign_change_uint_counter_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.3, shape: "0e0dbe3e68", notes: ["521ba042ac", "fbde4d6e1e"] },
-  for_limit_sign_change_uint_limit_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 5.8, shape: "364c3c419e", notes: ["0e0d715a81", "1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
-  for_limit_sign_change_uint_on_int: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 1, size: 5.3, shape: "eb8b72d950", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  for_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "2b676a7769", notes: ["fbde4d6e1e"] },
+  for_counter_at_type_max: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 5.5, shape: "3c4fad8e84", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  for_limit_sign_change_int_on_uint: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.8, shape: "beb56c423d", notes: ["fbde4d6e1e"] },
+  for_limit_sign_change_uint_counter_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.8, shape: "696dd3739b", notes: ["fbde4d6e1e"] },
+  for_limit_sign_change_uint_limit_out_of_int_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 2, size: 5.3, shape: "dae989b84d", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  for_limit_sign_change_uint_on_int: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 1, size: 4.8, shape: "43d976cdf2", notes: ["0e0d715a81", "fbde4d6e1e"] },
   for_limit_wider_than_counter_dint_constant: { evidence: "lsp-gap" },
   for_limit_wider_than_counter_dint_expr: { evidence: "lsp-gap" },
   for_limit_wider_than_counter_dint_var: { evidence: "lsp-gap" },
-  for_limit_wider_than_counter_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "51f067affe", notes: ["521ba042ac", "fbde4d6e1e"] },
+  for_limit_wider_than_counter_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "3881286f3d", notes: ["fbde4d6e1e"] },
   for_limit_wider_than_counter_typed_literal: { evidence: "lsp-gap" },
-  for_limit_wider_than_counter_uint_expr: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.3, shape: "cf18f86e5c", notes: ["521ba042ac", "fbde4d6e1e"] },
+  for_limit_wider_than_counter_uint_expr: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.8, shape: "4567e21217", notes: ["fbde4d6e1e"] },
   for_limit_wider_than_counter_upper_bound: { evidence: "lsp-gap" },
-  for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.5, shape: "d1d3f66978", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  for_runtime_step_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 6, shape: "7df1d2163d", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "fbde4d6e1e"] },
-  for_runtime_step_same_type: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 8, edge: "agree", edgeUnanswered: 1, size: 7.4, shape: "e2cb65f9e6", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "fbde4d6e1e"] },
+  for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "437693c635", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  for_runtime_step_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 5.5, shape: "22a5b325b7", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  for_runtime_step_same_type: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 8, edge: "agree", edgeUnanswered: 1, size: 6.6, shape: "a85dafb1a3", notes: ["0e0d715a81", "fbde4d6e1e"] },
   for_step_typed_literal_on_narrower_counter: { evidence: "lsp-gap" },
   for_step_wider_than_counter_dint_expr: { evidence: "lsp-gap" },
   for_step_wider_than_counter_dint_paren: { evidence: "lsp-gap" },
@@ -2353,7 +2352,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   itf_var_section_inherited: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   keyword_null_pointer_init: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "f721d61a2f", notes: ["ad25627749", "de132e5019", "fbde4d6e1e"] },
   keyword_this_dereference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3d3cf20ac0", notes: ["fbde4d6e1e"] },
-  ldate_ltod_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.4, shape: "3320d18ac8", notes: ["6bf6856d37", "fbde4d6e1e"], diverges: { twincat: "known" } },
+  ldate_ltod_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.4, shape: "3320d18ac8", notes: ["fbde4d6e1e"], diverges: { twincat: "known" } },
   lex_block_comment: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "c4704f54c0", notes: ["0e0d715a81", "fbde4d6e1e"] },
   lex_cal_declared_operand: { evidence: "refused" },
   lex_cal_keyword: { evidence: "refused" },
@@ -2837,33 +2836,33 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_ns_type_name_two_libraries_other_member: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "f89041f4cc", notes: ["0e0d715a81", "fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
   lib_ns_type_qualified: { evidence: "not-lowered", diverges: { twincat: "known" } },
   lib_ns_type_qualified_other_library: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f89041f4cc", notes: ["0e0d715a81", "fbde4d6e1e"], diverges: { twincat: "known" } },
-  lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.3, shape: "bd1be29ac9", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "835426dcf7", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "aa64db04dc", notes: ["0969e59592", "11f6ad8ec5", "521ba042ac", "5d9850550d", "8373a319d5", "8539587ea0", "ad25627749", "fbde4d6e1e"] },
+  lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "66854db2c5", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "835426dcf7", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "dcf3594cf7", notes: ["0969e59592", "11f6ad8ec5", "5d9850550d", "8539587ea0", "ad25627749", "bddbcf0923", "fbde4d6e1e"] },
   lib_prim_string_cursor_offset: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.3, shape: "12f9dbe792", notes: ["11f6ad8ec5", "1dec9ffb7e", "3d337519be", "43aad8296c", "5d9850550d", "7e45a342fc", "9c1d0c1a6e", "fbde4d6e1e"] },
   lib_std_bistables: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 5.6, shape: "40fc582ece", notes: ["0dd93a50d0", "de132e5019", "fbde4d6e1e"] },
-  lib_std_counter_ends: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 14, edge: "agree", size: 9.5, shape: "10e99c85e4", notes: ["85a411f8be", "de132e5019", "fbde4d6e1e", "fcab9a09d2"] },
-  lib_std_counters: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 21, edge: "agree", size: 10, shape: "35c3c9987a", notes: ["1097a31590", "85a411f8be", "de132e5019", "fbde4d6e1e", "fcab9a09d2"] },
+  lib_std_counter_ends: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 9.3, shape: "3304d50673", notes: ["85a411f8be", "de132e5019", "fbde4d6e1e", "fcab9a09d2"] },
+  lib_std_counters: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 18, edge: "agree", size: 9.7, shape: "72ee2e248d", notes: ["1097a31590", "85a411f8be", "de132e5019", "fbde4d6e1e", "fcab9a09d2"] },
   lib_std_edges: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 4.9, shape: "3efdef9bb2", notes: ["1097a31590", "de132e5019", "fbde4d6e1e"] },
   lib_std_rtc: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 10, edge: "agree", size: 6.4, shape: "471a3753f2", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
   lib_std_tof: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 6.1, shape: "05f98e70dc", notes: ["0dd93a50d0", "4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
   lib_std_ton: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 11, edge: "agree", size: 6.1, shape: "24f2596dbd", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
-  lib_std_tp: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 15, edge: "agree", size: 6, shape: "66acf55662", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
-  lib_std_tp_held: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 14, edge: "agree", size: 6, shape: "81a1766e0f", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
+  lib_std_tp: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 14, edge: "agree", size: 5.9, shape: "1b1d784816", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
+  lib_std_tp_held: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 13, edge: "agree", size: 5.9, shape: "463f5cb3c0", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
   lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.9, shape: "0bc80e5745", notes: ["11f6ad8ec5", "14b2f39d44", "8f827d085b", "9c1d0c1a6e", "abc8bc67de", "b7cc1b2b1d", "b8cfa12f5d", "dbdc75774e", "de132e5019", "fbde4d6e1e"] },
-  lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 33, edge: "agree", size: 5, shape: "5f74994cda", notes: ["0969e59592", "11f6ad8ec5", "256218c83c", "521ba042ac", "5370b79269", "5d9850550d", "9c1d0c1a6e", "b7cc1b2b1d", "b8cfa12f5d", "dbdc75774e", "ec21aafede", "fbde4d6e1e"] },
-  lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 4.9, shape: "ca32bc37c0", notes: ["0969e59592", "11f6ad8ec5", "1d1551a034", "40f3b940b6", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "7e45a342fc", "8088e0ab18", "9fd3779ba6", "ca94bceedc", "de132e5019", "ec21aafede", "f805b67b30"] },
-  lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 3.8, shape: "4b6407d4fc", notes: ["0969e59592", "11f6ad8ec5", "3eed014822", "521ba042ac", "5c499dbdc8", "5d9850550d", "7ddac4a7c9", "f8a426ca96", "fbde4d6e1e"] },
-  lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 5.8, shape: "95c709a96f", notes: ["0969e59592", "0bdcb764e7", "11f6ad8ec5", "521ba042ac", "5d9850550d", "7db062ce2f", "8088e0ab18", "9c1d0c1a6e", "b7cc1b2b1d", "b8cfa12f5d", "dbdc75774e", "e798927653", "ec21aafede", "fbde4d6e1e"] },
-  lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.6, shape: "179ca44a46", notes: ["0969e59592", "11f6ad8ec5", "311bf0f5b7", "40f3b940b6", "4c796f6678", "521ba042ac", "5d9850550d", "caa3742527", "de132e5019", "fbde4d6e1e"] },
-  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 18, edge: "agree", size: 4.5, shape: "f673ef10cf", notes: ["0969e59592", "11f6ad8ec5", "1d1551a034", "34556679d4", "40f3b940b6", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d15332a3f", "5d9850550d", "7e45a342fc", "8088e0ab18", "9055680d64", "94c11e8f56", "a73d328be6", "af2043b3cc", "bac3e14ed9", "d231c1a7e5", "fdb004dd33"] },
-  lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 6.8, shape: "39634b5445", notes: ["0902b5aab2", "0969e59592", "11f6ad8ec5", "1d1551a034", "40f3b940b6", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "7ddac4a7c9", "7e45a342fc", "8088e0ab18", "9fd3779ba6", "a39c1efab6", "dbdc75774e", "de132e5019", "ec21aafede", "f805b67b30", "f8a426ca96"] },
-  lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 17, edge: "agree", size: 3.9, shape: "a35db9fb92", notes: ["1d1551a034", "3fd655d7c6", "521ba042ac", "5351b3711d", "5c499dbdc8", "5c910ed5e5", "5d9850550d", "6e06410746", "8088e0ab18", "91d16a25e9", "94c11e8f56", "db57faba5d"] },
-  lib_stu_replace_past_len: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 24, edge: "agree", size: 3.8, shape: "9f0ce80a9e", notes: ["0e0d715a81", "1d1551a034", "3fd655d7c6", "521ba042ac", "5351b3711d", "5c499dbdc8", "5c910ed5e5", "5d9850550d", "6e06410746", "8088e0ab18", "91d16a25e9", "94c11e8f56", "db57faba5d", "fbde4d6e1e"] },
-  lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 22, edge: "agree", size: 6.7, shape: "1e1e49ec5f", notes: ["03846c1eae", "0969e59592", "11f6ad8ec5", "1d1551a034", "256218c83c", "3d7b4a7836", "40f3b940b6", "4c796f6678", "521ba042ac", "5370b79269", "5d9850550d", "7e45a342fc", "8088e0ab18", "9a63db2a45", "9c1d0c1a6e", "b7cc1b2b1d", "b8cfa12f5d", "dbdc75774e", "ec21aafede", "f9137fddeb", "fbde4d6e1e"] },
-  lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 4.4, shape: "560aed71a5", notes: ["0969e59592", "11f6ad8ec5", "14b2f39d44", "24bc96f6ef", "40f3b940b6", "4c796f6678", "521ba042ac", "5c499dbdc8", "5d9850550d", "77378f7efe", "8088e0ab18", "8f827d085b", "94c11e8f56", "9fdc650db1", "e798927653", "ef4db7eb51"] },
-  lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 47, edge: "agree", size: 9.2, shape: "64298aa95d", notes: ["0969e59592", "11f6ad8ec5", "256218c83c", "521ba042ac", "5370b79269", "7db062ce2f", "8088e0ab18", "abc8bc67de", "dbdc75774e", "e798927653", "ec21aafede", "fbde4d6e1e"] },
-  lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 13, edge: "agree", size: 8.8, shape: "a6eb7af3f7", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
-  lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 13, edge: "agree", size: 8.8, shape: "a6eb7af3f7", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
+  lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 30, edge: "agree", size: 4.5, shape: "42dc2ae994", notes: ["0969e59592", "11f6ad8ec5", "256218c83c", "5370b79269", "5d9850550d", "9c1d0c1a6e", "b7cc1b2b1d", "b8cfa12f5d", "dbdc75774e", "ec21aafede", "fbde4d6e1e"] },
+  lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 4.6, shape: "c5a905cf02", notes: ["0969e59592", "11f6ad8ec5", "4c796f6678", "5c499dbdc8", "5d9850550d", "7e45a342fc", "8088e0ab18", "9fd3779ba6", "b6487c7e6e", "bf9422bc63", "ca94bceedc", "de132e5019", "ec21aafede", "f805b67b30"] },
+  lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 3.6, shape: "5a758b3467", notes: ["0969e59592", "11f6ad8ec5", "3eed014822", "5c499dbdc8", "5d9850550d", "7ddac4a7c9", "f8a426ca96", "fbde4d6e1e"] },
+  lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 5, shape: "2bece1f5f4", notes: ["03999a666a", "0969e59592", "11f6ad8ec5", "5d9850550d", "7db062ce2f", "8088e0ab18", "9c1d0c1a6e", "b7cc1b2b1d", "b8cfa12f5d", "d9dabdcca6", "dbdc75774e", "ec21aafede", "fbde4d6e1e"] },
+  lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.5, shape: "2758cada28", notes: ["0969e59592", "11f6ad8ec5", "311bf0f5b7", "4c796f6678", "5d9850550d", "bf9422bc63", "caa3742527", "de132e5019", "fbde4d6e1e"] },
+  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 18, edge: "agree", size: 4.1, shape: "6917183524", notes: ["0969e59592", "11f6ad8ec5", "34556679d4", "4c796f6678", "5c499dbdc8", "5d15332a3f", "5d9850550d", "7e45a342fc", "8088e0ab18", "9055680d64", "94c11e8f56", "a73d328be6", "af2043b3cc", "b6487c7e6e", "bac3e14ed9", "bf9422bc63", "d231c1a7e5", "fdb004dd33"] },
+  lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 6.1, shape: "6549efdb71", notes: ["0902b5aab2", "0969e59592", "11f6ad8ec5", "4c796f6678", "5c499dbdc8", "5d9850550d", "7ddac4a7c9", "7e45a342fc", "8088e0ab18", "9fd3779ba6", "a39c1efab6", "b6487c7e6e", "bf9422bc63", "dbdc75774e", "de132e5019", "ec21aafede", "f805b67b30", "f8a426ca96"] },
+  lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 17, edge: "agree", size: 3.5, shape: "3824ab6798", notes: ["3fd655d7c6", "5351b3711d", "5c499dbdc8", "5c910ed5e5", "5d9850550d", "6e06410746", "8088e0ab18", "91d16a25e9", "94c11e8f56", "b6487c7e6e", "db57faba5d"] },
+  lib_stu_replace_past_len: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"], pedantic: 24, edge: "agree", size: 3.3, shape: "6621bd117a", notes: ["0e0d715a81", "3fd655d7c6", "5351b3711d", "5c499dbdc8", "5c910ed5e5", "5d9850550d", "6e06410746", "8088e0ab18", "91d16a25e9", "94c11e8f56", "b6487c7e6e", "db57faba5d", "fbde4d6e1e"] },
+  lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 20, edge: "agree", size: 6.3, shape: "854a45f12b", notes: ["03846c1eae", "0969e59592", "11f6ad8ec5", "256218c83c", "3d7b4a7836", "4c796f6678", "5370b79269", "5d9850550d", "7e45a342fc", "8088e0ab18", "9a63db2a45", "9c1d0c1a6e", "b6487c7e6e", "b7cc1b2b1d", "b8cfa12f5d", "bf9422bc63", "dbdc75774e", "ec21aafede", "f9137fddeb", "fbde4d6e1e"] },
+  lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 4, shape: "2b45030d98", notes: ["03999a666a", "0969e59592", "11f6ad8ec5", "14b2f39d44", "24bc96f6ef", "4c796f6678", "5c499dbdc8", "5d9850550d", "77378f7efe", "8088e0ab18", "8f827d085b", "94c11e8f56", "9fdc650db1", "bf9422bc63", "ef4db7eb51"] },
+  lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 44, edge: "agree", size: 7.6, shape: "9c88b06e1b", notes: ["03999a666a", "0969e59592", "11f6ad8ec5", "256218c83c", "5370b79269", "7db062ce2f", "8088e0ab18", "abc8bc67de", "dbdc75774e", "ec21aafede", "fbde4d6e1e"] },
+  lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 12, edge: "agree", size: 8.7, shape: "9e16773826", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
+  lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 12, edge: "agree", size: 8.7, shape: "9e16773826", notes: ["4edbb4135a", "73505351ad", "b9787e0d18", "de132e5019", "fbde4d6e1e"] },
   life_fb_var_stat_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.8, shape: "d5b8d0e649", notes: ["b9787e0d18", "fbde4d6e1e"] },
   life_fb_var_temp_calls: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5eebec28b8", notes: ["0e0d715a81", "fbde4d6e1e"] },
   life_program_var_temp_runs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "4c54342b33", notes: ["0e0d715a81", "abf2bb6e4e", "fbde4d6e1e"] },
@@ -2967,7 +2966,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_real_no_fraction_digit: { evidence: "refused" },
   lit_real_no_leading_digit: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   lit_real_underscore: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "1fcb51b9ab", notes: ["667cafe298"] },
-  lit_string_double_quote_inside: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "087299dbcf", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  lit_string_double_quote_inside: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.1, shape: "082ef2f7bc", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   lit_string_lowercase_escapes: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "05f13430c7", notes: ["5d9850550d", "a095c1d0aa", "de132e5019"] },
   lit_string_typed: { evidence: "refused" },
   lit_string_typed_double_quote: { evidence: "refused" },
@@ -3012,7 +3011,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_utf8_lowercase_prefix: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "cbf9c8e60b" },
   lit_utf8_non_ascii: { evidence: "not-lowered" },
   lit_utf8_non_ascii_into_wstring: { evidence: "refused" },
-  lit_utf8_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "087299dbcf", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  lit_utf8_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.1, shape: "082ef2f7bc", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   lit_wchar_typed: { evidence: "refused" },
   lit_wchar_typed_into_bool: { evidence: "refused" },
   lit_wchar_typed_number: { evidence: "refused" },
@@ -3057,8 +3056,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lt_literal_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "8d3edf7d14", notes: ["fbde4d6e1e"] },
   lt_literal_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "526e6004e5", notes: ["0e0d715a81", "fbde4d6e1e"] },
   lt_literal_case_label_out_of_range: { evidence: "not-lowered" },
-  lt_literal_for_bounds: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "33d6186481", notes: ["521ba042ac", "fbde4d6e1e"] },
-  lt_literal_for_bounds_out_of_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "051385cb16", notes: ["1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
+  lt_literal_for_bounds: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "7f94656397", notes: ["fbde4d6e1e"] },
+  lt_literal_for_bounds_out_of_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "42bcf9f54a", notes: ["fbde4d6e1e"] },
   lt_literal_in_comparison: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "c8d3b36452", notes: ["de132e5019", "fbde4d6e1e"] },
   lt_literal_negative_in_comparison_unsigned: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "537cb3109e", notes: ["de132e5019", "fbde4d6e1e"] },
   lt_negative_below_min_int: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "8b034c73e8", notes: ["0e0d715a81", "fbde4d6e1e"] },
@@ -3066,7 +3065,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lt_negative_min_dint_lint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "0e129f98d6", notes: ["fbde4d6e1e"] },
   lt_negative_min_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "aabc636ed4", notes: ["fbde4d6e1e"] },
   lt_negative_min_sint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d93764a33a", notes: ["fbde4d6e1e"] },
-  ltime_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.7, shape: "1fab79abed", notes: ["6bf6856d37", "fbde4d6e1e"] },
+  ltime_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.7, shape: "1fab79abed", notes: ["fbde4d6e1e"] },
   mathdom_acos_above_one: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 3.1, shape: "1feb38460d", notes: ["fbde4d6e1e"] },
   mathdom_acos_at_one: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 3.1, shape: "1feb38460d", notes: ["fbde4d6e1e"] },
   mathdom_acos_below_minus_one: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 3.1, shape: "6e4c5863b3", notes: ["fbde4d6e1e"] },
@@ -3317,7 +3316,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   mem_method_unknown_param_no_input: { evidence: "refused" },
   mem_method_unknown_param_one_input: { evidence: "refused" },
   mem_pointer_deref_method: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "1801a632cf", notes: ["11f6ad8ec5", "45292dbd9c", "75cc82a569", "fbde4d6e1e"] },
-  mem_pointer_index_struct_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.9, shape: "3e2cfb673c", notes: ["0e0d715a81", "521ba042ac", "75cc82a569", "fbde4d6e1e"] },
+  mem_pointer_index_struct_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.8, shape: "755dadcd09", notes: ["0e0d715a81", "75cc82a569", "fbde4d6e1e"] },
   mem_pointer_member_without_deref: { evidence: "refused" },
   mem_pointer_to_instance_method: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "b586da8e53", notes: ["ad25627749", "fbde4d6e1e"] },
   mem_pointer_to_pointer_member: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "eb16b2344c", notes: ["45292dbd9c", "75cc82a569", "ad25627749", "fbde4d6e1e"] },
@@ -3481,7 +3480,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   op_arithmetic_bool_plus_int: { evidence: "refused" },
   op_arithmetic_int_plus_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "5bec91e422", notes: ["fbde4d6e1e"] },
   op_arithmetic_int_plus_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "db5f613842", notes: ["fbde4d6e1e"] },
-  op_arithmetic_same_type: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "b54e9c0db7", notes: ["6bf6856d37", "fbde4d6e1e"] },
+  op_arithmetic_same_type: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "b54e9c0db7", notes: ["fbde4d6e1e"] },
   op_bitwise_on_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "560b629b0d", notes: ["fbde4d6e1e"] },
   op_comparison_int_vs_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "0462e6159b", notes: ["de132e5019", "fbde4d6e1e"] },
   op_limit_clamp: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "e41befbe2d", notes: ["e007ef42d8", "fbde4d6e1e"] },
@@ -3556,13 +3555,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   plat_xword_into_string: { evidence: "refused" },
   plat_xword_meet_dint: { evidence: "refused" },
   plat_xword_sizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "4e1d5eeb4d", notes: ["fbde4d6e1e"] },
-  pointer_byte_walk_struct_padding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "5f49f0ca82", notes: ["521ba042ac", "ccb56fb7d9", "fbde4d6e1e"] },
+  pointer_byte_walk_struct_padding: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "ce275f75f0", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   pointer_deref_before_first_store: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "8e281765a6", notes: ["11f6ad8ec5", "fbde4d6e1e"] },
   pointer_null_copied_into_multi_target: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "8c2c70864a", notes: ["11f6ad8ec5", "de132e5019", "e496034f7b", "fbde4d6e1e"] },
   pointer_order_compare: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "eb7eca74ff", notes: ["ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
-  pointer_order_one_past_end: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "549a2b5e94", notes: ["0e0d715a81", "521ba042ac", "75cc82a569", "ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
+  pointer_order_one_past_end: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "63fecf75dd", notes: ["0e0d715a81", "75cc82a569", "ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
   pointer_step_past_end: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "79b207fc96", notes: ["75cc82a569", "ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
-  pointer_target_set_grows_after_read: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "57eeef1aa6", notes: ["11f6ad8ec5", "521ba042ac", "5370b79269", "fbde4d6e1e"] },
+  pointer_target_set_grows_after_read: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 1.9, shape: "0c9975fa15", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   pointer_target_set_grows_copied: { evidence: "not-lowered" },
   pointer_to_dword_roundtrip: { evidence: "refused" },
   pointer_to_lword_roundtrip: { evidence: "not-lowered" },
@@ -3582,14 +3581,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_const_non_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "b7f0223dee", notes: ["fbde4d6e1e"] },
   prag_const_non_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "b43e5a2835", notes: ["0e0d715a81", "fbde4d6e1e"] },
   prag_const_non_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "d382337877", notes: ["fbde4d6e1e"] },
-  prag_const_non_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.2, shape: "b9e709688c", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  prag_const_non_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "1056d6129c", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   prag_const_non_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "a0d21ab782", notes: ["667cafe298", "fbde4d6e1e"] },
   prag_const_non_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "d71dc22abe", notes: ["0e0d715a81", "fbde4d6e1e"] },
   prag_const_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "b7f0223dee", notes: ["fbde4d6e1e"] },
   prag_const_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "b43e5a2835", notes: ["0e0d715a81", "fbde4d6e1e"] },
   prag_const_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "d382337877", notes: ["fbde4d6e1e"] },
   prag_const_replaced_on_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "094d552b47", notes: ["fbde4d6e1e"] },
-  prag_const_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.2, shape: "b9e709688c", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  prag_const_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "1056d6129c", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   prag_const_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "a0d21ab782", notes: ["667cafe298", "fbde4d6e1e"] },
   prag_const_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "d71dc22abe", notes: ["0e0d715a81", "fbde4d6e1e"] },
   prag_define_case_insensitive: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "8b034c73e8", notes: ["0e0d715a81", "fbde4d6e1e"] },
@@ -4461,29 +4460,29 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   stmt_chain_three_targets: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.5, shape: "159b3a0263", notes: ["40fd7317bb", "9704fa862a", "9e66c9a561", "e7e871371f", "fbde4d6e1e"] },
   stmt_continue_no_semicolon: { evidence: "refused" },
   stmt_continue_outside_loop: { evidence: "refused" },
-  stmt_continue_skips: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "68946d83ff", notes: ["0e0d715a81", "204a887600", "521ba042ac", "95094bd48a", "fbde4d6e1e"] },
-  stmt_elsif_second: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "5ea88c44e2", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  stmt_exit_inner: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "44ef8719dd", notes: ["0e0d715a81", "1ad1ab3163", "521ba042ac", "93a17fab28", "fbde4d6e1e"] },
+  stmt_continue_skips: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "cbe42e7592", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_elsif_second: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "46bda81fee", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_exit_inner: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "4f902c2bb2", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_exit_no_semicolon: { evidence: "refused" },
   stmt_exit_no_semicolon_before_end_for: { evidence: "refused" },
   stmt_exit_outside_loop: { evidence: "refused" },
-  stmt_for_bool_control: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.3, shape: "ac335b5835", notes: ["4edbb4135a", "521ba042ac", "de132e5019", "fbde4d6e1e"] },
-  stmt_for_bound_changed: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "970166d3f8", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_dword_control: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "a612d86414", notes: ["521ba042ac", "fbde4d6e1e"] },
-  stmt_for_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.4, shape: "817920995f", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  stmt_for_bool_control: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.1, shape: "2a3138a7c9", notes: ["4edbb4135a", "de132e5019", "fbde4d6e1e"] },
+  stmt_for_bound_changed: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "b03bb7365b", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_dword_control: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "2877f2c9a1", notes: ["fbde4d6e1e"] },
+  stmt_for_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.2, shape: "2bffdb7113", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_for_literal_control: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
-  stmt_for_member_control: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "dbd15277c3", notes: ["521ba042ac", "667cafe298", "fbde4d6e1e"] },
+  stmt_for_member_control: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "b9d3b0ae2e", notes: ["667cafe298", "fbde4d6e1e"] },
   stmt_for_negated_control: { evidence: "refused" },
-  stmt_for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "6d5fa27be1", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_real_control: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::neg_cmp_op_on_partial_ord"], pedantic: 3, edge: "agree", size: 3.3, shape: "0148d8c728", notes: ["521ba042ac", "fbde4d6e1e"] },
-  stmt_for_runs: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "dfc20be9ec", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_step_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "dfc20be9ec", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_variable_after: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "dd934330d5", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_variable_after_zero: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "dfc20be9ec", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_for_zero_times: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "dfc20be9ec", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  stmt_for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "c54cc044b5", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_real_control: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "546da16433", notes: ["fbde4d6e1e"] },
+  stmt_for_runs: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "18a2bea989", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_step_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "18a2bea989", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_variable_after: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "9c48844019", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_variable_after_zero: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "18a2bea989", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_for_zero_times: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "18a2bea989", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_function_call_discarded: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "25da56cfaf", notes: ["11f6ad8ec5", "a5c4faeebd", "fbde4d6e1e"] },
   stmt_function_own_name_bare: { evidence: "not-lowered" },
-  stmt_if_else_if_nested: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "91da636b7b", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e"] },
+  stmt_if_else_if_nested: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "ad932adc43", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e"] },
   stmt_if_else_if_two_words: { evidence: "refused" },
   stmt_if_elsif_after_else: { evidence: "refused" },
   stmt_if_empty_statement_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "c164968e18", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e"] },
@@ -4502,10 +4501,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   stmt_ref_eq_no_space: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.6, shape: "93a03153b2", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   stmt_ref_eq_on_non_reference: { evidence: "refused" },
   stmt_ref_eq_spaced: { evidence: "refused" },
-  stmt_repeat_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 3.1, shape: "aaff83b7be", notes: ["0e0d715a81", "521ba042ac", "de132e5019", "fbde4d6e1e"] },
-  stmt_repeat_once: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "7c38768a54", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  stmt_repeat_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 2.9, shape: "aaff83b7be", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e"] },
+  stmt_repeat_once: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "7c38768a54", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_repeat_until_semicolon: { evidence: "refused" },
-  stmt_return_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "b0dd37dc47", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  stmt_return_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "a5d7b789aa", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_return_midway: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "826cecefff", notes: ["0e0d715a81", "fbde4d6e1e"] },
   stmt_return_no_semicolon: { evidence: "refused" },
   stmt_return_no_semicolon_before_end_if: { evidence: "refused" },
@@ -4519,94 +4518,94 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   stmt_try_finally_only: { evidence: "unaskable", diverges: { twincat: "known" } },
   stmt_try_nested: { evidence: "not-lowered" },
   stmt_try_without_catch: { evidence: "unaskable", diverges: { twincat: "known" } },
-  stmt_while_counts: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "8b74b6daf7", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
-  stmt_while_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 3.3, shape: "4da5b3636a", notes: ["0e0d715a81", "521ba042ac", "de132e5019", "fbde4d6e1e"] },
-  stmt_while_never: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "61e2516820", notes: ["0e0d715a81", "521ba042ac", "fbde4d6e1e"] },
+  stmt_while_counts: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "ea9bbac8f7", notes: ["0e0d715a81", "fbde4d6e1e"] },
+  stmt_while_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", edgeUnanswered: 1, size: 3.1, shape: "4da5b3636a", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e"] },
+  stmt_while_never: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "dd6a999ad6", notes: ["0e0d715a81", "fbde4d6e1e"] },
   str_assign_into_exact: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
   str_assign_into_longer: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
   str_assign_into_shorter: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "e0e2fcf82f", notes: ["5d9850550d", "94c11e8f56"] },
-  str_concat_both: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "98ce2f7dee", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "94c11e8f56", "ccbeb13506", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_concat_empty_left: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.5, shape: "455faacc48", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "94c11e8f56", "ccbeb13506", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_concat_into_short: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "98ce2f7dee", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "94c11e8f56", "ccbeb13506", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_delete_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "d102ca8037", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "dbdc75774e", "e6646a0bd0"] },
-  str_delete_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "d102ca8037", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "dbdc75774e", "e6646a0bd0"] },
-  str_delete_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "d102ca8037", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "dbdc75774e", "e6646a0bd0"] },
-  str_delete_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "d102ca8037", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "dbdc75774e", "e6646a0bd0"] },
-  str_find_absent: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "8cc6e2fcf3", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "b4f42289f3", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  str_find_empty_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "48adc661eb", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "b4f42289f3", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  str_find_longer_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.6, shape: "8cc6e2fcf3", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "b4f42289f3", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  str_find_present: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "48adc661eb", notes: ["0969e59592", "0d14fd327c", "11f6ad8ec5", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "94c11e8f56", "b4f42289f3", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  str_insert_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 6.2, shape: "1712e84a30", notes: ["0d14fd327c", "11f6ad8ec5", "218bbe29e3", "3654e21d7c", "50226e2c19", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_insert_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 6.2, shape: "1712e84a30", notes: ["0d14fd327c", "11f6ad8ec5", "218bbe29e3", "3654e21d7c", "50226e2c19", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_insert_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 6.2, shape: "1712e84a30", notes: ["0d14fd327c", "11f6ad8ec5", "218bbe29e3", "3654e21d7c", "50226e2c19", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_insert_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 6.2, shape: "1712e84a30", notes: ["0d14fd327c", "11f6ad8ec5", "218bbe29e3", "3654e21d7c", "50226e2c19", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "21996061b6", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "e6646a0bd0"] },
-  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "4d5d10056c", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "e6646a0bd0"] },
-  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "21996061b6", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "e6646a0bd0"] },
-  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "21996061b6", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "e6646a0bd0"] },
-  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.7, shape: "21996061b6", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "3654e21d7c", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "e6646a0bd0"] },
-  str_len_after_truncation: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.9, shape: "81060cac5b", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  str_len_empty: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.9, shape: "81060cac5b", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  str_len_five: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4, shape: "c4e1b6cde5", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  str_mid_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_len0_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "9fdfc31bc8", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "9fdfc31bc8", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "9fdfc31bc8", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_lenneg_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "9fdfc31bc8", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_mid_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "7efeaced9d", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "dbdc75774e", "de2f16610e", "e6646a0bd0"] },
-  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 8.5, shape: "4f00d75450", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "218bbe29e3", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "c001fbb3b1", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 8.5, shape: "4f00d75450", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "218bbe29e3", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "c001fbb3b1", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 8.5, shape: "4f00d75450", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "218bbe29e3", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "c001fbb3b1", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 8.5, shape: "4f00d75450", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "218bbe29e3", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "c001fbb3b1", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.8, shape: "768db51698", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "83ed1aab47", "94c11e8f56", "dbdc75774e", "e6646a0bd0"] },
-  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.8, shape: "228cd600fd", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "83ed1aab47", "94c11e8f56", "dbdc75774e", "e6646a0bd0"] },
-  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.8, shape: "768db51698", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "83ed1aab47", "94c11e8f56", "dbdc75774e", "e6646a0bd0"] },
-  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.8, shape: "768db51698", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "83ed1aab47", "94c11e8f56", "dbdc75774e", "e6646a0bd0"] },
-  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.8, shape: "768db51698", notes: ["0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "83ed1aab47", "94c11e8f56", "dbdc75774e", "e6646a0bd0"] },
+  str_concat_both: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "12a6b4f426", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3cf4e6fa21", "5d9850550d", "94c11e8f56", "bb97b1e500", "ccbeb13506", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_concat_empty_left: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.2, shape: "a0e3d42b2e", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3cf4e6fa21", "5d9850550d", "94c11e8f56", "bb97b1e500", "ccbeb13506", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_concat_into_short: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "12a6b4f426", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3cf4e6fa21", "5d9850550d", "94c11e8f56", "bb97b1e500", "ccbeb13506", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_delete_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.2, shape: "3670cfea41", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_delete_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.2, shape: "3670cfea41", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_delete_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.2, shape: "3670cfea41", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_delete_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.2, shape: "3670cfea41", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_find_absent: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5, shape: "49b5be87cf", notes: ["03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "94c11e8f56", "d2bcbac57f", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  str_find_empty_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 4.8, shape: "62a3cab208", notes: ["03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "94c11e8f56", "d2bcbac57f", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  str_find_longer_needle: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5, shape: "49b5be87cf", notes: ["03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "94c11e8f56", "d2bcbac57f", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  str_find_present: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 4.8, shape: "62a3cab208", notes: ["03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "94c11e8f56", "d2bcbac57f", "e5f32531ef", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  str_insert_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "6f1bdc51eb", notes: ["0d14fd327c", "11f6ad8ec5", "370a3c0624", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_insert_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "6f1bdc51eb", notes: ["0d14fd327c", "11f6ad8ec5", "370a3c0624", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_insert_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "6f1bdc51eb", notes: ["0d14fd327c", "11f6ad8ec5", "370a3c0624", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_insert_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 5.4, shape: "6f1bdc51eb", notes: ["0d14fd327c", "11f6ad8ec5", "370a3c0624", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "94c11e8f56", "b592939dbf", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "cf34a11951", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "e5f32531ef", "e6646a0bd0"] },
+  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "164451009e", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "e5f32531ef", "e6646a0bd0"] },
+  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "cf34a11951", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "e5f32531ef", "e6646a0bd0"] },
+  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "cf34a11951", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "e5f32531ef", "e6646a0bd0"] },
+  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.3, shape: "cf34a11951", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "5d9850550d", "8088e0ab18", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "e5f32531ef", "e6646a0bd0"] },
+  str_len_after_truncation: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.7, shape: "6abc4d37f8", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  str_len_empty: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.7, shape: "6abc4d37f8", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  str_len_five: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.8, shape: "7487ff5e3c", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  str_mid_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_len0_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_len0_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_len0_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_len0_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_lenneg_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "9c6d8f9d05", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_lenneg_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "9c6d8f9d05", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_lenneg_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "9c6d8f9d05", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_lenneg_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "9c6d8f9d05", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_mid_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 4.7, shape: "8438439f5e", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "94c11e8f56", "9c8d21e237", "a29d79932d", "cedd086a8e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_replace_at_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 7.6, shape: "16db57287d", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 7.6, shape: "16db57287d", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 7.6, shape: "16db57287d", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 7.6, shape: "16db57287d", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "94c11e8f56", "9c8d21e237", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "585d7e78a4", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "93dc4ef8ff", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "585d7e78a4", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "585d7e78a4", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
+  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "585d7e78a4", notes: ["0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "50ff398988", "5d9850550d", "83ed1aab47", "94c11e8f56", "b6487c7e6e", "dbdc75774e", "e5f32531ef", "e6646a0bd0"] },
   string_arithmetic_rejected: { evidence: "refused" },
-  string_assign_tail_narrow: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.8, shape: "c2ec596fc0", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "835426dcf7", "8b6ecf477b", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  string_assign_tail_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "c604794272", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "835426dcf7", "8b6ecf477b", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  string_assign_tail_narrow: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.7, shape: "1a10040a1e", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "835426dcf7", "8b6ecf477b", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  string_assign_tail_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.8, shape: "994f865ced", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "835426dcf7", "8b6ecf477b", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_assign_truncation: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "a2bd36f33b", notes: ["5d9850550d"] },
   string_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 6.7, shape: "3a1cddf2a2", notes: ["5d9850550d", "a095c1d0aa", "de132e5019"] },
   string_compare_operators: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "51833c6142", notes: ["5d9850550d", "de132e5019"] },
   string_compare_tail: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 1.9, shape: "f59fd26bea", notes: ["5d9850550d", "835426dcf7", "94c11e8f56", "a095c1d0aa", "dc950bfb03", "de132e5019"] },
-  string_concat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 9.3, shape: "29974e9f4d", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "ccbeb13506", "dbdc75774e", "e6646a0bd0", "fcd4689307"] },
-  string_conversion_result_capacity: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "95fd015e2e", notes: ["0e0d715a81", "1ad1ab3163", "521ba042ac", "5d9850550d", "835426dcf7", "93a17fab28", "fbde4d6e1e"] },
-  string_conversion_result_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 16, edge: "agree", size: 2.3, shape: "322a128f03", notes: ["0e0d715a81", "521ba042ac", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
-  string_conversion_same_width_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "1786ed06f8", notes: ["0e0d715a81", "1ad1ab3163", "521ba042ac", "5d9850550d", "835426dcf7", "93a17fab28", "fbde4d6e1e"] },
+  string_concat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 8.3, shape: "96125e3b30", notes: ["0d14fd327c", "11f6ad8ec5", "1269587afd", "3cf4e6fa21", "5d9850550d", "bb97b1e500", "ccbeb13506", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fcd4689307"] },
+  string_conversion_result_capacity: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 1.8, shape: "ab70df79e4", notes: ["0e0d715a81", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
+  string_conversion_result_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 16, edge: "agree", size: 1.8, shape: "737e5bc67b", notes: ["0e0d715a81", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
+  string_conversion_same_width_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 1.7, shape: "419ea66808", notes: ["0e0d715a81", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
   string_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.5, shape: "923091e904", notes: ["5d9850550d", "c867edb1d3", "fbde4d6e1e"] },
-  string_conversions_formats: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 18.3, shape: "bbc620526f", notes: ["0d14fd327c", "11f6ad8ec5", "218bbe29e3", "3654e21d7c", "50226e2c19", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "b592939dbf", "b5a9bef60f", "dbdc75774e", "de132e5019", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  string_conversions_formats: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 16.3, shape: "ac2ee44c98", notes: ["0d14fd327c", "11f6ad8ec5", "370a3c0624", "5d15332a3f", "5d9850550d", "677d89783c", "8088e0ab18", "b592939dbf", "b5a9bef60f", "ce61fdb3c0", "dbdc75774e", "de132e5019", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   string_conversions_more: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 10.5, shape: "526d122f23", notes: ["5d9850550d", "b5a9bef60f", "c867edb1d3", "de132e5019", "fbde4d6e1e"] },
-  string_default_length: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 7.2, shape: "e467f52057", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 15, edge: "agree", size: 24, shape: "34be432b0d", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "185a887a57", "1d1551a034", "1f9fa1b093", "21ef64a1e0", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a29d79932d", "a573b540d2", "b4f42289f3", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 7.5, shape: "b9312ea377", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 13, shape: "0584c02491", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "de132e5019", "fbde4d6e1e"] },
-  string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.6, shape: "ec825a61b8", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 13.3, shape: "a535cba7e7", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "1d1551a034", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "47a7c12d8a", "4d2905bfee", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
-  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 25.7, shape: "459487b2bc", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "218bbe29e3", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "9c8d21e237", "b4f42289f3", "b592939dbf", "c001fbb3b1", "dbdc75774e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 18, shape: "a7d87c6c60", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "185a887a57", "1d1551a034", "1f9fa1b093", "21ef64a1e0", "36008e7af0", "3654e21d7c", "50ff398988", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a29d79932d", "a573b540d2", "dbcd1088a5", "dbdc75774e", "de2f16610e", "e6646a0bd0", "fbde4d6e1e"] },
+  string_default_length: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 6.7, shape: "4379404ecb", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 15, edge: "agree", size: 21, shape: "326317f3ed", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "185a887a57", "1f9fa1b093", "21ef64a1e0", "36008e7af0", "50ff398988", "5d9850550d", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a29d79932d", "a573b540d2", "b6487c7e6e", "cedd086a8e", "d2bcbac57f", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 7, shape: "55d31d0077", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 12.5, shape: "3a53569b47", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a095c1d0aa", "a573b540d2", "dbcd1088a5", "de132e5019", "e5f32531ef", "fbde4d6e1e"] },
+  string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.4, shape: "5e8817a2c8", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 11.8, shape: "8842de49f7", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "47a7c12d8a", "5d9850550d", "8088e0ab18", "83ed1aab47", "a573b540d2", "b6487c7e6e", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 22.2, shape: "fd69706b30", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "9c8d21e237", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "d2bcbac57f", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 16, shape: "bf529f5a0b", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "185a887a57", "1f9fa1b093", "21ef64a1e0", "36008e7af0", "50ff398988", "5d9850550d", "8088e0ab18", "83ed1aab47", "9c8d21e237", "a29d79932d", "a573b540d2", "b6487c7e6e", "cedd086a8e", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e"] },
   string_limit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "add054f0eb", notes: ["5d9850550d"] },
-  string_literal_nul_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 2.6, shape: "24069fd158", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "8b6ecf477b", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  string_literal_nul_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 2.4, shape: "3aec62cb6a", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "8b6ecf477b", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   string_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "850701fc53", notes: ["5d9850550d"] },
   string_max_differing_case: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "850701fc53", notes: ["5d9850550d"] },
   string_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "2757e06dc5", notes: ["5d9850550d"] },
-  string_non_ascii_bytes: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.2, shape: "770628abeb", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  string_parse_beyond_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 17, edge: "agree", size: 1.8, shape: "219820c162", notes: ["0e0d715a81", "521ba042ac", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
-  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 31.7, shape: "60debb1f01", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "218bbe29e3", "36008e7af0", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "9c8d21e237", "a29d79932d", "b4f42289f3", "b592939dbf", "c001fbb3b1", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 19, edge: "agree", size: 33.5, shape: "35318accc8", notes: ["0083e23f5d", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "1f9fa1b093", "218bbe29e3", "36008e7af0", "3654e21d7c", "3cacc7bfac", "50226e2c19", "50ff398988", "521ba042ac", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b4f42289f3", "b592939dbf", "c001fbb3b1", "dbdc75774e", "de2f16610e", "e6646a0bd0", "e798927653", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
-  string_store_destination_kinds_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 2.2, shape: "fe53d43012", notes: ["0e0d715a81", "11f6ad8ec5", "1d9f55ded0", "521ba042ac", "5d9850550d", "835426dcf7", "8b6ecf477b", "dc277bd73f", "de132e5019", "fbde4d6e1e"] },
-  string_store_function_input_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 2, shape: "d751d03936", notes: ["11f6ad8ec5", "521ba042ac", "5370b79269", "5d9850550d", "835426dcf7", "8b6ecf477b", "de132e5019"] },
-  string_store_function_result_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 2.9, shape: "73fde5bf11", notes: ["0083e23f5d", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "1b6d6589aa", "1d1551a034", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "8b6ecf477b", "94c11e8f56", "ccbeb13506", "dbdc75774e", "dc950bfb03", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  string_non_ascii_bytes: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4, shape: "9de5482031", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  string_parse_beyond_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 17, edge: "agree", size: 1.7, shape: "d8b61b34df", notes: ["0e0d715a81", "5d9850550d", "835426dcf7", "fbde4d6e1e"] },
+  string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 27.7, shape: "c07c0f47ce", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "92f7142ab2", "9c8d21e237", "a29d79932d", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "cedd086a8e", "d2bcbac57f", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 19, edge: "agree", size: 29, shape: "7f460c8e2e", notes: ["0083e23f5d", "03999a666a", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1f9fa1b093", "36008e7af0", "370a3c0624", "3cacc7bfac", "50ff398988", "5d15332a3f", "5d9850550d", "677d89783c", "7dc2652e1b", "8088e0ab18", "83ed1aab47", "92f7142ab2", "9c8d21e237", "a29d79932d", "b592939dbf", "b6487c7e6e", "c001fbb3b1", "ce61fdb3c0", "cedd086a8e", "d2bcbac57f", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "f5ca982c14", "fbde4d6e1e", "fcd4689307"] },
+  string_store_destination_kinds_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 2.2, shape: "542e7283db", notes: ["0e0d715a81", "11f6ad8ec5", "1d9f55ded0", "5d9850550d", "835426dcf7", "8b6ecf477b", "dc277bd73f", "de132e5019", "fbde4d6e1e"] },
+  string_store_function_input_tail: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 1.8, shape: "4615e4c3fd", notes: ["11f6ad8ec5", "5370b79269", "5d9850550d", "835426dcf7", "8b6ecf477b", "de132e5019"] },
+  string_store_function_result_tail: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 17, edge: "agree", size: 2.6, shape: "d24685064b", notes: ["0083e23f5d", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "1b6d6589aa", "3cf4e6fa21", "5d9850550d", "8088e0ab18", "83ed1aab47", "8b6ecf477b", "94c11e8f56", "b6487c7e6e", "bb97b1e500", "ccbeb13506", "dbdc75774e", "dc950bfb03", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   string_to_real_parse: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 11, shape: "4fb141df9e", notes: ["5d9850550d", "fbde4d6e1e"] },
   string_wstring_mixing: { evidence: "refused" },
-  strord_capacity_longer_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.1, shape: "f14cd9818d", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
-  strord_capacity_shorter_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 4.1, shape: "fb185d271b", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "521ba042ac", "5d9850550d", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  strord_capacity_longer_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.9, shape: "ffb35b0941", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
+  strord_capacity_shorter_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.9, shape: "038bee39cd", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "5d9850550d", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   strord_empty: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "de132e5019"] },
   strord_equal: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "de132e5019"] },
   strord_high_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f5c6eda574", notes: ["5d9850550d", "de132e5019"] },
@@ -4620,7 +4619,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   subsequent: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "21a793de32", notes: ["fbde4d6e1e"] },
   suppress_warning: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "d1c6c96889", notes: ["fbde4d6e1e"] },
   suppress_warning_multi: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "d1c6c96889", notes: ["fbde4d6e1e"] },
-  sym_case_local_ref: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "f1347a1cd7", notes: ["6bf6856d37", "fbde4d6e1e"] },
+  sym_case_local_ref: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "f1347a1cd7", notes: ["fbde4d6e1e"] },
   sym_case_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "1019d4c26c", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   sym_case_type_name: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "4d42fda0f4", notes: ["667cafe298", "fbde4d6e1e"] },
   sym_device_instance_bare: { evidence: "not-lowered", diverges: { twincat: "known" } },
@@ -4709,9 +4708,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   time_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.2, shape: "402b80c330", notes: ["de132e5019", "fbde4d6e1e"] },
   time_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.2, shape: "34c5d32843", notes: ["fbde4d6e1e"] },
   time_multiply_divide: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "7775b617fc", notes: ["fbde4d6e1e"] },
-  time_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.2, shape: "80e022ef78", notes: ["6bf6856d37", "fbde4d6e1e"] },
-  tod_wrap_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.4, shape: "a368f6bc51", notes: ["6bf6856d37", "fbde4d6e1e"] },
-  tr_11_string_conversion_beyond_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 15, edge: "agree", size: 2.6, shape: "882549edf2", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1ad1ab3163", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "8986d5305c", "93a17fab28", "94c11e8f56", "a1c2206655", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  time_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.2, shape: "80e022ef78", notes: ["fbde4d6e1e"] },
+  tod_wrap_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 5.4, shape: "a368f6bc51", notes: ["fbde4d6e1e"] },
+  tr_11_string_conversion_beyond_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 14, edge: "agree", size: 2.2, shape: "0309d8c34b", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "5d9850550d", "8986d5305c", "94c11e8f56", "a1c2206655", "a573b540d2", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 13, edge: "agree", size: 1.9, shape: "63580e9afc", notes: ["5d9850550d", "fbde4d6e1e"] },
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 7.4, shape: "e651beccda", notes: ["45292dbd9c", "75cc82a569", "ad25627749", "de132e5019", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.5, shape: "f4335c4d04", notes: ["39e68c53af", "75cc82a569", "ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
@@ -4734,10 +4733,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_22_fb_init_reads_this_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "f2a577e0ac", notes: ["49346d6299", "8a9bb48ddb", "ad25627749", "fa7d5f176f", "fbde4d6e1e"] },
   tr_23_fb_init_argument_from_pending_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.5, shape: "3c910209aa", notes: ["11f6ad8ec5", "1ca8b1b1fc", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
   tr_23_fb_init_argument_from_pending_init_reversed: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.5, shape: "e7876f46b9", notes: ["11f6ad8ec5", "1ca8b1b1fc", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
-  tr_27_loop_cap_for_1000000: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "4e1a820647", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_27_loop_cap_for_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "not-run", edgeUnanswered: 11, size: 5, shape: "4e1a820647", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_27_loop_cap_repeat_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 5, size: 4.3, shape: "19f2022938", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_27_loop_cap_while_5000000: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 5, size: 4.3, shape: "c97be553a3", notes: ["521ba042ac", "fbde4d6e1e"] },
+  tr_27_loop_cap_for_1000000: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "7276e7c322", notes: ["fbde4d6e1e"] },
+  tr_27_loop_cap_for_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "not-run", edgeUnanswered: 11, size: 4.5, shape: "7276e7c322", notes: ["fbde4d6e1e"] },
+  tr_27_loop_cap_repeat_1000001: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 5, size: 4, shape: "19f2022938", notes: ["fbde4d6e1e"] },
+  tr_27_loop_cap_while_5000000: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", edgeUnanswered: 5, size: 3.8, shape: "701a949a42", notes: ["fbde4d6e1e"] },
   tr_28_minmax_limit_nan_signed_zero_lreal: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 1, edge: "disagree", size: 5.7, shape: "4661af9e8e", notes: ["ad25627749", "fbde4d6e1e"] },
   tr_28_minmax_limit_nan_signed_zero_real: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 1, edge: "disagree", size: 5.7, shape: "3cf197bf66", notes: ["ad25627749", "fbde4d6e1e"] },
   tr_29_method_named_clone_no_result: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "2243643cc8", notes: ["667cafe298", "fbde4d6e1e"] },
@@ -4751,13 +4750,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "28dd294901", notes: ["5d9850550d", "de132e5019", "fbde4d6e1e"] },
   tr_32_fmt_ltime_past_i64: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "defd78968b", notes: ["5d9850550d", "fbde4d6e1e"] },
   tr_33_fmt_lreal_tie: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "f969b8fabe", notes: ["5d9850550d", "fbde4d6e1e"] },
-  tr_34_lib_prim_char_behind: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.5, shape: "872dd99142", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "3654e21d7c", "45292dbd9c", "521ba042ac", "5d9850550d", "75cc82a569", "835426dcf7", "94c11e8f56", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  tr_34_lib_prim_char_behind: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.4, shape: "7045151497", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "21ef64a1e0", "45292dbd9c", "5d9850550d", "75cc82a569", "835426dcf7", "94c11e8f56", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   tr_35_for_byte_runtime_int_step: { evidence: "lsp-gap" },
-  tr_35_for_byte_step_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "f7cbb3d856", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_35_for_byte_step_minus_one: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "721f351733", notes: ["521ba042ac", "fbde4d6e1e"] },
+  tr_35_for_byte_step_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "a0d9d71ff4", notes: ["fbde4d6e1e"] },
+  tr_35_for_byte_step_minus_one: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "4dabaa721e", notes: ["fbde4d6e1e"] },
   tr_35_for_sint_step_300: { evidence: "lsp-gap" },
-  tr_35_for_uint_step_minus_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "ca125733f4", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_36_for_literal_limit_beyond_counter: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.9, shape: "5f65bc7143", notes: ["1ad1ab3163", "93a17fab28", "fbde4d6e1e"] },
+  tr_35_for_uint_step_minus_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "003f19d753", notes: ["fbde4d6e1e"] },
+  tr_36_for_literal_limit_beyond_counter: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6, shape: "c9232d2d41", notes: ["fbde4d6e1e"] },
   tr_37_case_label_wraps_300: { evidence: "refused" },
   tr_37_case_label_wraps_minus_212: { evidence: "refused" },
   tr_37_case_range_beyond_type: { evidence: "refused" },
@@ -4781,7 +4780,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_43_routine_output_dint_to_int: { evidence: "lsp-gap" },
   tr_43_routine_output_word_to_int: { evidence: "not-lowered" },
   tr_44_pointer_step_below_first_element: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "a891c4f54d", notes: ["75cc82a569", "ccb56fb7d9", "de132e5019", "fbde4d6e1e"] },
-  tr_45_string_embedded_nul: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.8, shape: "a76988660d", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1ad1ab3163", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "93a17fab28", "a095c1d0aa", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "de132e5019", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  tr_45_string_embedded_nul: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 8, edge: "agree", size: 2.6, shape: "ecbfcd6971", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "5d9850550d", "a095c1d0aa", "a573b540d2", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "de132e5019", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   tr_46_exptdom_1e19_pow_8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "acc41e82a4", notes: ["fbde4d6e1e"] },
   tr_46_exptdom_minus_one_pow_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "6e60617de4", notes: ["fbde4d6e1e"] },
   tr_46_exptdom_minus_one_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "508be58678", notes: ["fbde4d6e1e"] },
@@ -4817,7 +4816,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_a16_qx_bit_index_15: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "1efd6b27b1", notes: ["73505351ad", "de132e5019"] },
   tr_a17_two_lists_one_name_both_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "bbf9911fbb", notes: ["b9787e0d18", "fbde4d6e1e"] },
   tr_a18_char_store_through_reference: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "3aabc267dc", notes: ["5d9850550d", "835426dcf7", "ad25627749", "fbde4d6e1e"] },
-  tr_a18_for_counter_through_reference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 8, shape: "e07b4f478f", notes: ["521ba042ac", "ad25627749", "fbde4d6e1e"] },
+  tr_a18_for_counter_through_reference: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 7.5, shape: "08a9ea57f8", notes: ["ad25627749", "fbde4d6e1e"] },
   tr_a19_fb_call_inout_beside_moving_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.7, shape: "31caf4e727", notes: ["01ef1b756d", "0878222ac3", "11f6ad8ec5", "d016ad6fda", "fbde4d6e1e"] },
   tr_a2_real_intermediate_per_step: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 7.2, shape: "1125535887", notes: ["fbde4d6e1e"] },
   tr_a20_real_mod_in_initializer: { evidence: "refused" },
@@ -4830,9 +4829,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_a23_parenthesised_real_literal_sqrt_into_int: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3.5, shape: "aae38e99ce", notes: ["fbde4d6e1e"] },
   tr_a23_signed_real_literal_in_math: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 5, shape: "5ab5e2b03c", notes: ["fbde4d6e1e"] },
   tr_a25_subrange_defaults: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "980bdd88eb", notes: ["0e0d715a81", "fbde4d6e1e"] },
-  tr_a27_for_byte_named_constant_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5.3, shape: "56a77d9e78", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_a27_for_uint_negated_parenthesised_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 5, shape: "ca125733f4", notes: ["521ba042ac", "fbde4d6e1e"] },
-  tr_a27_for_unsigned_counters_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 15, shape: "140b21fce4", notes: ["521ba042ac", "fbde4d6e1e"] },
+  tr_a27_for_byte_named_constant_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.8, shape: "5a747eecb0", notes: ["fbde4d6e1e"] },
+  tr_a27_for_uint_negated_parenthesised_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "003f19d753", notes: ["fbde4d6e1e"] },
+  tr_a27_for_unsigned_counters_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 12, shape: "a3e391bcbe", notes: ["fbde4d6e1e"] },
   tr_a29_byte_constant_expression_overflow: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 4.5, shape: "d8c99c93e7", notes: ["fbde4d6e1e"] },
   tr_a29_dint_constant_expression_overflow: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 5.7, shape: "b1b191af93", notes: ["fbde4d6e1e"] },
   tr_a29_dint_constant_overflow_into_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "8b83049367", notes: ["fbde4d6e1e"] },
@@ -5125,7 +5124,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   uop_not_word: { evidence: "refused" },
   uop_not_wstring: { evidence: "refused" },
   use_array_indexed_method_call: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "95387181c5", notes: ["c9c77500c6", "fbde4d6e1e"] },
-  use_fb_callable: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f9c8c4e831", notes: ["6bf6856d37", "fbde4d6e1e"] },
+  use_fb_callable: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "f9c8c4e831", notes: ["fbde4d6e1e"] },
   use_fb_method_call_named_args: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "e00c00b75a", notes: ["f327cfe40a", "fbde4d6e1e"] },
   use_fb_method_call_no_args: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3d3cf20ac0", notes: ["fbde4d6e1e"] },
   use_fb_method_call_one_input: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "b8fc1416d4", notes: ["a01f00db76", "fbde4d6e1e"] },
@@ -5134,7 +5133,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   use_fb_property_write: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "27f7ccd7a0", notes: ["377c1dfc31", "48737e1389", "4d8c0c87ee", "707233d6d6", "fbde4d6e1e", "fda03fa84f"] },
   use_function_call_with_arg: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "2fe00aeece", notes: ["11f6ad8ec5", "1ca8b1b1fc", "fbde4d6e1e"] },
   use_gvl_field_access: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 4, shape: "5e7664e2a6", notes: ["fbde4d6e1e"] },
-  use_method_array_param: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.2, shape: "8411783253", notes: ["0e0d715a81", "521ba042ac", "5370b79269", "9034f2a4d6", "fbde4d6e1e"] },
+  use_method_array_param: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "084681e7c8", notes: ["0e0d715a81", "5370b79269", "9034f2a4d6", "fbde4d6e1e"] },
   use_pointer_deref_struct_field: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "010ef7ad65", notes: ["fbde4d6e1e"] },
   use_self_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "f5383e1104", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
   use_struct_inner: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "c2c8b1ad35", notes: ["fbde4d6e1e"] },
@@ -5146,7 +5145,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_external_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 4.3, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
   var_inline_enum_decl: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "e31a4d0c71", notes: ["0e0d715a81", "fbde4d6e1e"] },
   var_input_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "5bfb891055", notes: ["fbde4d6e1e"] },
-  var_input_constant_default_as_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.1, shape: "d7205284da", notes: ["11f6ad8ec5", "1ca8b1b1fc", "521ba042ac", "5370b79269", "dbdc75774e", "fbde4d6e1e"] },
+  var_input_constant_default_as_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 1.9, shape: "c66eed148d", notes: ["11f6ad8ec5", "1ca8b1b1fc", "5370b79269", "dbdc75774e", "fbde4d6e1e"] },
   var_input_constant_default_in_init: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "c451b9a384", notes: ["11f6ad8ec5", "1ca8b1b1fc", "dbdc75774e", "fbde4d6e1e"] },
   var_input_output_inout_on_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "961ce546c0", notes: ["fbde4d6e1e"] },
   var_inst_in_method: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "e5b3639fc8", notes: ["fbde4d6e1e"] },
@@ -5167,14 +5166,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   vsp_var_global_in_program: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "not-run", size: 4.1, shape: "941185cee4", notes: ["0e0d715a81", "abf2bb6e4e", "fbde4d6e1e"] },
   warning_disable_restore: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "e144d344e0", notes: ["fbde4d6e1e"] },
   warning_message: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "e144d344e0", notes: ["fbde4d6e1e"] },
-  wstring_assign_tail_narrow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "2ccc4b8ca4", notes: ["0e0d715a81", "521ba042ac", "9d62c9b3e2", "fbde4d6e1e"] },
-  wstring_assign_tail_wide: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "12dcce67ef", notes: ["0e0d715a81", "521ba042ac", "9d62c9b3e2", "fbde4d6e1e"] },
+  wstring_assign_tail_narrow: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.3, shape: "4b2bd3eeef", notes: ["0e0d715a81", "9d62c9b3e2", "fbde4d6e1e"] },
+  wstring_assign_tail_wide: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "134ffd18c8", notes: ["0e0d715a81", "9d62c9b3e2", "fbde4d6e1e"] },
   wstring_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 6, shape: "d9fc50bbc9", notes: ["de132e5019"] },
   wstring_code_units: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.8, shape: "b9ca8bb6bc", notes: ["de132e5019"] },
   wstring_layout_in_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 4.1, shape: "84114a8442", notes: ["fbde4d6e1e"] },
-  wstring_literal_nul_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "b5e75d5029", notes: ["0e0d715a81", "1ad1ab3163", "521ba042ac", "93a17fab28", "9d62c9b3e2", "dc950bfb03", "fbde4d6e1e"] },
+  wstring_literal_nul_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 1.9, shape: "843b09a85a", notes: ["0e0d715a81", "9d62c9b3e2", "dc950bfb03", "fbde4d6e1e"] },
   wstring_non_ascii: { evidence: "refused" },
-  wstring_parse_trailing_spaces: { evidence: "diverges", tier: "control", rust: "compiles", pedantic: 10, edge: "agree", size: 2.1, shape: "023b6ab783", notes: ["0e0d715a81", "521ba042ac", "5d9850550d", "94c11e8f56", "dc950bfb03", "fbde4d6e1e"] },
+  wstring_parse_trailing_spaces: { evidence: "diverges", tier: "control", rust: "compiles", pedantic: 10, edge: "agree", size: 2, shape: "32f584f1ee", notes: ["0e0d715a81", "5d9850550d", "94c11e8f56", "dc950bfb03", "fbde4d6e1e"] },
   wstring_surrogate_pair: { evidence: "refused" },
   xf_bool_to_int_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "c456ade1cd", notes: ["fbde4d6e1e"] },
   xf_bool_to_real_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "7715503c67", notes: ["fbde4d6e1e"] },
@@ -5263,30 +5262,30 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xf_tod_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "8e569e2ca7", notes: ["667cafe298", "fbde4d6e1e"] },
   xf_tod_to_string: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "961f48a277", notes: ["5d9850550d", "667cafe298"] },
   xo_enum_case_across_objects: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "0f56e7902c", notes: ["fbde4d6e1e"] },
-  xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "bc00fe58ff", notes: ["11f6ad8ec5", "521ba042ac", "5370b79269", "c9c77500c6", "fb7e9e6ff4", "fbde4d6e1e"] },
+  xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "e6b08e827b", notes: ["11f6ad8ec5", "5370b79269", "c9c77500c6", "fb7e9e6ff4", "fbde4d6e1e"] },
   xo_gvl_shared_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
   xo_inherited_action_from_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "1b09830455", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  xo_interface_array_dispatch: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.1, shape: "6b466f8279", notes: ["0e0d715a81", "11f6ad8ec5", "521ba042ac", "572db4e711", "6dd22a92d0", "a65506e4d8", "fbde4d6e1e"] },
+  xo_interface_array_dispatch: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2, shape: "9b6acf75dd", notes: ["0e0d715a81", "11f6ad8ec5", "572db4e711", "6dd22a92d0", "a65506e4d8", "fbde4d6e1e"] },
   xo_mode_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "93232ed477", notes: ["fbde4d6e1e"] },
-  xo_open_array_through_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.3, shape: "2ffd5820da", notes: ["11f6ad8ec5", "29dc1a9c14", "521ba042ac", "8088e0ab18", "fbde4d6e1e"] },
+  xo_open_array_through_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.2, shape: "935a461769", notes: ["11f6ad8ec5", "29dc1a9c14", "8088e0ab18", "fbde4d6e1e"] },
   xo_reference_field_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "e32e9e55cf", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo_reference_index_step: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "36c233076a", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
   xo_reference_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.6, shape: "fb92fcd4c7", notes: ["11f6ad8ec5", "377c1dfc31", "4d8c0c87ee", "707233d6d6", "8c658bedd7", "ad25627749", "fbde4d6e1e", "fda03fa84f"] },
-  xo_reference_to_fb_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "ca432d4bd7", notes: ["11f6ad8ec5", "6bf6856d37", "ad25627749", "de132e5019", "fbde4d6e1e"] },
-  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 4.3, shape: "b34f5314e4", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "1d1551a034", "21ef64a1e0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "8088e0ab18", "83ed1aab47", "a31de5f5e1", "a573b540d2", "a7ca9e8349", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  xo_reference_to_fb_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "ca432d4bd7", notes: ["11f6ad8ec5", "ad25627749", "de132e5019", "fbde4d6e1e"] },
+  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 10, edge: "agree", size: 4, shape: "fb591d5db2", notes: ["0083e23f5d", "0d14fd327c", "11f6ad8ec5", "1269587afd", "185a887a57", "21ef64a1e0", "3cf4e6fa21", "5d9850550d", "8088e0ab18", "83ed1aab47", "a31de5f5e1", "a573b540d2", "a7ca9e8349", "b6487c7e6e", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   xo_tally_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.6, shape: "b156a69819", notes: ["fbde4d6e1e"] },
   xo_three_level_super_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3.2, shape: "0cc53d1ba7", notes: ["11f6ad8ec5", "5370b79269", "fbde4d6e1e"] },
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "d5d5f0ece7", notes: ["b9787e0d18", "fbde4d6e1e"] },
   xo_union_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "e6b3404ee9", notes: ["3f8601dd97", "a281b5efbd", "fbde4d6e1e"] },
   xo_var_stat_two_holders: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 3.5, shape: "15c555a332", notes: ["b9787e0d18", "fbde4d6e1e"] },
   xo2_actions_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "a957ab36b3", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.6, shape: "837d10911d", notes: ["0e0d715a81", "521ba042ac", "6bf6856d37", "c9c77500c6", "fbde4d6e1e"] },
+  xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.5, shape: "ab8038c820", notes: ["0e0d715a81", "c9c77500c6", "fbde4d6e1e"] },
   xo2_case_ranges_over_enum: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "ca41b0990e", notes: ["0e0d715a81", "fbde4d6e1e"] },
   xo2_fb_instance_as_inout: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "1db8a568d6", notes: ["11f6ad8ec5", "52d85b7cdc", "f0065dbd0b", "fbde4d6e1e"] },
   xo2_function_returns_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.5, shape: "1280f65e9f", notes: ["11f6ad8ec5", "5d9850550d", "96f5f06912", "de132e5019", "fbde4d6e1e"] },
   xo2_grade_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "7929407ecd", notes: ["fbde4d6e1e"] },
-  xo2_grid_of_structs: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.6, shape: "e1dec17093", notes: ["0e0d715a81", "1ad1ab3163", "204a887600", "521ba042ac", "93a17fab28", "95094bd48a", "de132e5019", "fbde4d6e1e", "fc6c049d9d"] },
-  xo2_instance_in_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "d4c55134e9", notes: ["0e0d715a81", "11f6ad8ec5", "3d5ad9c649", "5d9850550d", "6bf6856d37", "fbde4d6e1e"] },
+  xo2_grid_of_structs: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.5, shape: "09b7902869", notes: ["0e0d715a81", "de132e5019", "fbde4d6e1e", "fc6c049d9d"] },
+  xo2_instance_in_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "d4c55134e9", notes: ["0e0d715a81", "11f6ad8ec5", "3d5ad9c649", "5d9850550d", "fbde4d6e1e"] },
   xo2_interface_extends: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "d99ae77137", notes: ["11f6ad8ec5", "59c341cb0f", "ad25627749", "fbde4d6e1e"] },
   xo2_method_outputs_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "9b34fda9bd", notes: ["11f6ad8ec5", "96a5b25b66", "a4fbe9aee7", "bb4c155c09", "d96bb286f4", "fbde4d6e1e"] },
   xo2_pointer_step_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 1.9, shape: "ab16d1793a", notes: ["ccb56fb7d9", "fbde4d6e1e"] },
@@ -5303,15 +5302,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.5, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
   xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "738eb81be9", notes: ["11f6ad8ec5", "dbdc75774e", "fbde4d6e1e"] },
   xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "5c28082d94", notes: ["fb7e9e6ff4", "fbde4d6e1e"] },
-  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.2, shape: "7573d6db73", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "3654e21d7c", "521ba042ac", "5d9850550d", "8986d5305c", "a095c1d0aa", "a1c2206655", "a573b540d2", "dbcd1088a5", "de132e5019", "fbde4d6e1e"] },
+  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "66fb764171", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "5d9850550d", "8986d5305c", "a095c1d0aa", "a1c2206655", "a573b540d2", "dbcd1088a5", "de132e5019", "e5f32531ef", "fbde4d6e1e"] },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "ff78f1d4ff", notes: ["5d9850550d", "ac452bc801", "ccb56fb7d9", "fbde4d6e1e"] },
   xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "47fd906a70", notes: ["b9787e0d18", "de132e5019", "fbde4d6e1e"] },
-  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 3.5, shape: "34c94b4d0f", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "3654e21d7c", "521ba042ac", "8f5f221644", "a573b540d2", "dbcd1088a5", "de132e5019", "e19e17485d", "e8162bb9aa"] },
-  xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 3.7, shape: "8221bda7c8", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1d9f55ded0", "3654e21d7c", "3cf4e6fa21", "4d2905bfee", "521ba042ac", "5d9850550d", "6f799d0ac4", "8b4fc46c1e", "94c11e8f56", "a573b540d2", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
+  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 3.4, shape: "9b01f2c9a3", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "8f5f221644", "a573b540d2", "dbcd1088a5", "de132e5019", "e19e17485d", "e5f32531ef", "e8162bb9aa"] },
+  xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 3.4, shape: "8a398f3e29", notes: ["0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1269587afd", "185a887a57", "1d9f55ded0", "3cf4e6fa21", "5d9850550d", "6f799d0ac4", "8b4fc46c1e", "94c11e8f56", "a573b540d2", "bb97b1e500", "ccbeb13506", "dbcd1088a5", "dbdc75774e", "e5f32531ef", "e6646a0bd0", "fbde4d6e1e", "fcd4689307"] },
   xo4_case_over_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "64854aab44", notes: ["0e0d715a81", "11f6ad8ec5", "fbde4d6e1e"] },
   xo4_fb_init_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 4, edge: "agree", size: 2.7, shape: "85c36cd1dc", notes: ["0ab2575555", "707233d6d6", "8a9bb48ddb", "fa7d5f176f", "fbde4d6e1e"] },
   xo4_gvl_array: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "1ece7f8554", notes: ["fbde4d6e1e"] },
-  xo4_inout_constant_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "a1b0bcaefd", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "28af8caf65", "2b67f9045b", "3654e21d7c", "521ba042ac", "5d9850550d", "7de11239a2", "a573b540d2", "dbcd1088a5", "fbde4d6e1e"] },
+  xo4_inout_constant_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3, shape: "9f1c425ff4", notes: ["0d14fd327c", "11f6ad8ec5", "185a887a57", "28af8caf65", "2b67f9045b", "5d9850550d", "7de11239a2", "a573b540d2", "dbcd1088a5", "e5f32531ef", "fbde4d6e1e"] },
   xo4_member_chain_four_deep: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.9, shape: "ab4a14851b", notes: ["c9c77500c6", "de132e5019", "fbde4d6e1e"] },
   xo4_method_inst_and_stat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 3, shape: "59acb44717", notes: ["11f6ad8ec5", "b9787e0d18", "f62e4d99a5", "fbde4d6e1e"] },
   xo4_query_between_interfaces: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.4, shape: "9242a6014a", notes: ["11f6ad8ec5", "4edbb4135a", "6dd22a92d0", "707233d6d6", "73505351ad", "96bf43c1e7", "ad25627749", "de132e5019", "fbde4d6e1e"] },
@@ -5701,10 +5700,25 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
     tasks: ["7.7.3"],
   },
+  // while x <= x.wrapping_sub(x) {
+  "03999a666a": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
+  },
   // pub fn m(mut x: i32, x: &mut i16) -> i32 {
   "040107266f": {
     improvement: "Each ANY variant is already monomorphised per argument type, so diSize is a compile-time constant. It is still passed as a runtime `mut x: i32` parameter and `match`ed, which leaves 3 dead arms per variant. Folding diSize to a const prunes them. An ANY whose pValue is never read (state_any_input_sizes, type_any_function_input) still takes `&mut arg`. It needs no reference at all, and the string variant needs no `<const N>` generic, because its name already fixes STRING(10).",
     tasks: ["7.7.9"],
+  },
+  // while (((if self.f { -Li16 } else { Li16 }) >= Li16) & (self.f <= self.f)) | (((if self.f { -Li16 } else { Li16 }) < Li16) & (self.f >= self.f)) {
+  "040b00dbe8": {
+    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+    tasks: ["7.5.9"],
   },
   // x: { let mut v = T::new(); v.f = { let mut v = T::new(); v.f = L; v }; v.f = L; v },
   "04beb1d55a": {
@@ -5789,11 +5803,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Re-lending a VAR_IN_OUT that is already `&mut T` prints an explicit reborrow `&mut (*x)`. Passing `x` reborrows implicitly. When the bound place is a bare inout or lent root with an empty path, print the name.",
     tasks: ["7.8.6"],
   },
-  // if { m(x); *__str_pst_N }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x))) == Lu8 { break; }
-  "0bdcb764e7": {
-    improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it.",
-    tasks: ["7.4.4"],
-  },
   // pub fn m(mut p: usize, x: &mut i16) -> i16 {
   "0ca9dad97d": {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression. Also: A lent `POINTER TO` input keeps its now-dead value parameter: `f_lang_ptrtwo(0, &mut self.first)` with `mut p: usize` never read, because lowering refuses any other use of p. The value parameter can be dropped when the pointer is lent.",
@@ -5824,6 +5833,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "0e0d715a81": {
     improvement: "Statements after an unconditional RETURN/EXIT are still printed (`return; self.n = 99i16; ...`, the body after `break 'loop_2;`). rustc reports unreachable_code, and the policy allows it. The printer could stop emitting a block after a diverging statement; the ST line is dead either way.",
     tasks: ["7.5.11"],
+  },
+  // while self.f <= self.f.m() {
+  "0f2d39e083": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // x = *x == IecString::<L>::lit(B);
   "0f67e47dd7": {
@@ -5912,11 +5931,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
   },
-  // break 'loop_N;
-  "1ad1ab3163": {
-    improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
-    tasks: ["7.5.2"],
-  },
   // x = m(__numbers_lower_N, __numbers_upper_N, &mut (*x)).wrapping_add(Li32);
   "1b12aad5a0": {
     improvement: "An ARRAY[*] parameter is passed as `(mut __x_lower_N: i32, mut __x_upper_N: i32, x: &mut [T])`. The slice already carries its length, so the upper bound is always `lower + len - 1`. Passing only the lower bound, or deriving upper from `x.len()`, removes one parameter per dimension and one argument per call. `mut` is printed on bound parameters that are never assigned; it is silenced by allow(unused_mut) rather than left out.",
@@ -5947,16 +5961,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
     tasks: ["7.7.1"],
   },
-  // if x > x.wrapping_sub(Li32) { break; }
-  "1d1551a034": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
-  },
   // x: [IecString::<L>::lit(B); L],
   "1d9f55ded0": {
     improvement: "`IecWString::<80>::lit(&[97u16, 98u16, 99u16])` needs no per-element suffix, since the slice type is inferred from lit's T: `&[97, 98, 99]`. An empty literal `IecString::<8>::lit(b\"\")` is `IecString::<8>::new()`.",
@@ -5977,26 +5981,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     tasks: ["7.4.3"],
   },
-  // break 'body_N;
-  "204a887600": {
-    improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
-    tasks: ["7.5.2"],
-  },
   // x = (*x).m().wrapping_add(x.f);
   "20ee5837a5": {
     improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
     tasks: ["7.8.6"],
-  },
-  // if !((x < Li32) & (x.char_at(i64::m(x)) != Lu8)) { break; }
-  "218bbe29e3": {
-    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
-    alternatives: [
-      "Today: always promote to DINT/LINT and cast each operand.",
-      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
-    ],
-    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-    tasks: ["7.4.4"],
   },
   // self.f = len(self.f.to::<L>());
   "21ef64a1e0": {
@@ -6191,10 +6179,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     tasks: ["7.7.5"],
   },
-  // if (*str).char_at(i64::m(x)) == Lu8 { break; }
-  "3654e21d7c": {
-    improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
-    tasks: ["7.8.6"],
+  // while (x < Li32) & (x.char_at(i64::m(x)) != Lu8) {
+  "370a3c0624": {
+    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
+    alternatives: [
+      "Today: always promote to DINT/LINT and cast each operand.",
+      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
+    ],
+    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // map
   "37745ed7a0": {
@@ -6317,17 +6311,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
     tasks: ["7.7.7"],
   },
-  // if { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x))) == Lu8 { break; }
-  "40f3b940b6": {
-    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
-    alternatives: [
-      "Today: always promote to DINT/LINT and cast each operand.",
-      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
-    ],
-    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-    tasks: ["7.4.4", "7.4.4"],
-  },
   // self.f = self.__chain_value_N;
   "40fd7317bb": {
     improvement: "Outside routine mode, the chain temporary becomes a public field of the POU struct. It persists across scans, appears in Debug/PartialEq, and triggers clippy::pub_underscore_fields. Make it a local `let`, or skip the temp entirely when the value is a plain load of a place no target in the chain writes.",
@@ -6402,17 +6385,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A borrowed in-out passed on is printed `&mut (*__str_pstfrom)` (a needless reborrow spelling; `__str_pstfrom` or `&mut *__str_pstfrom` will do). len_internal reads `(*str).char_at(..)`, where auto-deref makes the `(*..)` redundant (clippy explicit_auto_deref territory).",
     tasks: ["7.8.6"],
   },
-  // if !((x.wrapping_add(x) < Li32) & (x.char_at(i64::m(x)) != Lu8)) { break; }
-  "4d2905bfee": {
-    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
-    alternatives: [
-      "Today: always promote to DINT/LINT and cast each operand.",
-      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
-    ],
-    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-    tasks: ["7.4.4"],
-  },
   // { let __copy_N = IecString::<L>::lit(B); self.f.call(&self.f, &__copy_N); }
   "4d6e5e12b9": {
     improvement: "A VAR_IN_OUT CONSTANT given a LITERAL is still bound to a `let __copy_1 = IecString::<80>::lit(b\"abc\");` before the call. The reason for the copy (E0503, a copy of x beside &mut x) cannot arise for a literal, so `&IecString::<80>::lit(b\"abc\")` inline is enough, because the temporary lives for the whole call. The scalar CONSTANT in-out is also passed as `&i16`, where a value would be leaner.",
@@ -6433,16 +6405,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "In set_reset_chained, the S=/R= chain temporary is a pub struct FIELD (`self.__chain_value_3 = self.c;`) rather than a local `let`, which adds a pub_underscore_fields lint and bloats state. A local `let c = self.c;` is enough because the value never lives across scans.",
     tasks: ["7.6.1"],
   },
-  // if !((x < Li32) & (x < x)) { break; }
-  "50226e2c19": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
-  },
   // *x = self.f;
   "50ba9519ad": {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
@@ -6461,11 +6423,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
     tasks: ["7.7.3"],
-  },
-  // loop {
-  "521ba042ac": {
-    improvement: "The body is always wrapped in an extra `{ ... }` block even when it has no CONTINUE, and a loop whose only EXIT sits directly in its own body gets `'loop_N:` + `break 'loop_N;` although a plain `break;` works when the body block is unlabeled. Emit the body inline when `!frame.continues`, and use an unlabeled `break` when no labeled body block sits between the EXIT and the loop.",
-    tasks: ["7.5.2"],
   },
   // self.f = (*x).m();
   "52d85b7cdc": {
@@ -6504,11 +6461,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
     tasks: ["7.7.8"],
   },
-  // if !((((if self.f { -Li16 } else { Li16 }) >= Li16) & (self.f <= self.f)) | (((if self.f { -Li16 } else { Li16 }) < Li16) & (self.f >= self.f))) { break; }
-  "5714c76a1c": {
-    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
-    tasks: ["7.5.9"],
-  },
   // pub ops: [u64; L],
   "572db4e711": {
     improvement: "An ARRAY OF an interface is a `[u64; N]` of instance tags, but because the element kind is not 'elementary' it is initialised with `std::array::from_fn(|_| 0)`. Any Copy element whose init is a literal can be `[0; N]`.",
@@ -6523,6 +6475,18 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "58edc15c64": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
     tasks: ["7.7.8"],
+  },
+  // while x <= __grid_upper_N {
+  "596535f8e7": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`. Also: An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
+      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7", "7.5.7"],
   },
   // self.f = match self.f { L => self.f.m(), _ => panic!(S) };
   "59c341cb0f": {
@@ -6643,11 +6607,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "69b0552c65": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
     tasks: ["7.7.5"],
-  },
-  // self.f = self.f.wrapping_add(self.f);
-  "6bf6856d37": {
-    improvement: "Every loop in production Rust carries a u64 counter and a branch per iteration. Behind a cfg(test) or harness flag the emitted loop would be the plain `loop { if !cond { break } … }` a Rust engineer writes.",
-    tasks: ["7.5.1"],
   },
   // pub fn __init(&mut self, g: &mut Globals) {
   "6cec059f2e": {
@@ -6900,17 +6859,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     tasks: ["7.4.3"],
   },
-  // if { m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) == Lu8 { break; }
-  "8373a319d5": {
-    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
-    alternatives: [
-      "Today: always promote to DINT/LINT and cast each operand.",
-      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
-    ],
-    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-    tasks: ["7.4.4", "7.4.4"],
-  },
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": {
     improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right. Also: A nested call argument is hoisted into a `let __arg_0` even when it is the only argument, so evaluation order cannot differ. `len(concat(..))` is the same program.",
@@ -7084,11 +7032,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "An empty-string initializer prints `IecString::<255>::lit(b\"\")`. `IecString::<255>::new()` (or Default) says the same thing without the slice copy.",
     tasks: ["7.4.7"],
   },
-  // 'loop_N: loop {
-  "93a17fab28": {
-    improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
-    tasks: ["7.5.2"],
-  },
   // self.f = m(f64::m(self.f)) as u16;
   "9479f0e3c4": {
     improvement: "`iec_r2i32(self.big_real as f64) as u16` is correct against all 192 measured cells (re-probed: -2147483648.6, 9.3E18, 4294967295.5 and -0.4 agree between backends).",
@@ -7103,17 +7046,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "94c11e8f56": {
     improvement: "A string literal is built at its own (default 80) capacity and then copied with `.to()` into the target. `lit` already truncates, so `IecString::<N>::lit(b\"abc\")` at the target's capacity is the same value with one copy fewer. The `lit(format!(..)).to::<12>().to()` double copies collapse in the same way when the intermediate capacity is at least the final one. This affects about 472 emitted lines.",
     tasks: ["7.4.2"],
-  },
-  // 'body_N: {
-  "95094bd48a": {
-    improvement: "For a head-tested loop with no step (WHILE), a `continue 'loop_N;` is exact, because Rust's continue returns to the head test. The labeled body block is only needed for FOR (step after the body) and REPEAT (UNTIL at the tail).",
-    alternatives: [
-      "today: a labeled body block plus `break 'body_N` for every loop kind",
-      "WHILE uses `continue 'loop_N`, FOR and REPEAT keep the block. Chosen: shorter, and the construct a Rust engineer expects; the block stays where it is semantically needed",
-    ],
-    chosen: "WHILE uses `continue 'loop_N`, FOR and REPEAT keep the block",
-    why: "shorter, and the construct a Rust engineer expects; the block stays where it is semantically needed",
-    tasks: ["7.5.3"],
   },
   // *x = Li16;
   "96a5b25b66": {
@@ -7146,6 +7078,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9831f2d691": {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
     tasks: ["7.8.7"],
+  },
+  // while self.f <= self.__numbers_upper_N {
+  "9928be1401": {
+    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
+    tasks: ["7.7.8"],
   },
   // if m(x, …, true, &mut (*x), &mut (*x)) {
   "9a63db2a45": {
@@ -7279,6 +7216,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
     tasks: ["7.5.6"],
+  },
+  // while self.f <= self.f.m_get() {
+  "a2add88910": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
   "a31de5f5e1": {
@@ -7464,17 +7411,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "VAR_TEMP arrays and structs are fields reset at the top of every call (`self.a = [0i16; 3];`, `self.scratch = T::new();`). As a Rust local (`let mut a = [0i16; 3];`) they would carry no reset and no persistent state.",
     tasks: ["7.6.4"],
   },
-  // if !((x < x) & (x.char_at(i64::m(x.wrapping_add(x))) == x.char_at(i64::m(x)))) { break; }
-  "b4f42289f3": {
-    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
-    alternatives: [
-      "Today: always promote to DINT/LINT and cast each operand.",
-      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
-    ],
-    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
-    tasks: ["7.4.4"],
-  },
   // self.f = (self.f > Li16) & ((self.f < Li16) | self.f);
   "b5563463dd": {
     improvement: "`a & (b | (c & !d))` on plain BOOL loads: clippy::needless_bitwise_bool.",
@@ -7506,6 +7442,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A conversion already builds an IecString<80>, and the assignment then always adds `.to()`, which copies it into an IecString<80> again. That is a second 80-byte copy with no effect. Skip `.to()` when the value's static capacity equals the target's, or build the literal straight at the target capacity when it is ≥ the conversion's 80.",
     tasks: ["7.4.2"],
   },
+  // while x <= x.wrapping_sub(Li32) {
+  "b6487c7e6e": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
+  },
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
   "b6565109d7": {
     improvement: "The same construct, moving a value out of its owner for a call and putting it back, is emitted three ways: `let mut program = std::mem::take(..)`, `let mut __program = std::mem::take(..)`, and `.clone()` then write-back for an own field lent to an own METHOD. Lowering already refuses real aliasing (`call-inout-alias`, which I probed: a method that reads the field it is lent is refused), so the clone is a copy the program never needs. Use `std::mem::take` / `std::mem::replace` everywhere. For fixed arrays longer than 32, where `[T;N]: Default` does not hold, use `std::mem::replace(&mut self.points, <init>)`. Use one binding name.",
@@ -7517,16 +7463,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
     tasks: ["7.8.10"],
-  },
-  // if self.f > self.f.m_get() { break; }
-  "b736e18f55": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
   },
   // self.f = m(x, &mut (*__lent_N));
   "b75c863ba4": {
@@ -7582,6 +7518,28 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every routine takes every input as `mut`, starts with `let mut f: i16 = 0i16; f = X; f`, and silences the result with a blanket allow. A param is `mut` only when the body assigns it or lends it `&mut`. A return slot assigned once on every path could be `let f = X; f`, or just the tail expression.",
     tasks: ["7.7.2"],
   },
+  // while (x.wrapping_add(x) < Li32) & (x.char_at(i64::m(x)) != Lu8) {
+  "bb97b1e500": {
+    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
+    alternatives: [
+      "Today: always promote to DINT/LINT and cast each operand.",
+      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
+    ],
+    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
+  },
+  // while { m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) != Lu8 {
+  "bddbcf0923": {
+    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
+    alternatives: [
+      "Today: always promote to DINT/LINT and cast each operand.",
+      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
+    ],
+    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4", "7.4.4"],
+  },
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": {
     improvement: "Every METHOD of a PROGRAM gets `prg: &mut Programs`, and a blanket `#[allow(unused_mut, unused_variables, unused_assignments)]` covers the unused ones (init_slot_program_own `boot`, fbcall_program_own_members `deeper`/`tidy`/`twice`). Pass `prg` only to routines that reach Programs, directly or through a callee, the way `usesPrograms` is already computed for scan.",
@@ -7593,6 +7551,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "(b) per-routine reachability of Programs (a transitive call-graph flag)",
     why: "signatures then say what a routine touches.",
     tasks: ["7.7.5"],
+  },
+  // while { m(x); *x }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x))) != Lu8 {
+  "bf9422bc63": {
+    improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
+    alternatives: [
+      "Today: always promote to DINT/LINT and cast each operand.",
+      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
+    ],
+    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4", "7.4.4"],
   },
   // pub fn replace(mut x: IecString<L>, …, mut x: i16, mut p: i16) -> IecString<L> {
   "c001fbb3b1": {
@@ -7716,10 +7685,30 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`x.set_char(i, c)` taking &mut self (the one I would choose: no copy, same panic contract)",
     tasks: ["7.4.3"],
   },
+  // while (x < Li32) & (x < x) {
+  "ce61fdb3c0": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
+  },
   // pub fn m_get(&mut self, prg: &mut Programs) -> i16 {
   "ceb0cb99a7": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
     tasks: ["7.7.5"],
+  },
+  // while (x < x) & (x < x) {
+  "cedd086a8e": {
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    alternatives: [
+      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    ],
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    tasks: ["7.5.7"],
   },
   // pub fn m(&mut self, mut x: i16) -> bool {
   "d00d314ec2": {
@@ -7735,6 +7724,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "d231c1a7e5": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
     tasks: ["7.7.1"],
+  },
+  // while (x < x) & (x.char_at(i64::m(x.wrapping_add(x))) == x.char_at(i64::m(x))) {
+  "d2bcbac57f": {
+    improvement: "Comparisons between same-typed narrow operands, or against a literal that fits, are printed in DINT: `((self.n as i32) == 1i32) | ((self.n as i32) == 3i32)` and `(c as i32) != 0i32` for a u8 char. Comparing in the operands' own type gives the same answer whenever both sides share a type (or the literal fits it). Promotion only matters for mixed signedness or mixed widths.",
+    alternatives: [
+      "Today: always promote to DINT/LINT and cast each operand.",
+      "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+      "A further step for OR chains of equality against constants: `matches!(self.n, 1 | 3)`, or `matches!(c, 9..=13 | 32 | 160)` for lib_stu_trim's IsSpace. It is shorter but a bigger emitter change.",
+    ],
+    chosen: "Compare in the common type when the operands' types are equal (or a const fits): `self.n == 1`, `c != 0`. This is what I would choose, because it gives identical results and drops two casts per comparison.",
+    tasks: ["7.4.4"],
   },
   // self.f = f64::m(self.f).sin() as f32;
   "d47543941e": {
@@ -7759,6 +7759,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "i16::wrapping_div. Same values, and divide-by-zero still panics. I would use it only for widths below 32, because DINT/LINT must keep plain `/` to trap MIN/-1 as CODESYS does",
     ],
     tasks: ["keep:the promoted division is the measured rule (MIN / -1 wraps in SINT/INT, computed in DINT); a narrow wrapping_div gives the same values but needs a narrow node that does not trap where the promoted one does not, and the interpreter has none (7.3.11)"],
+  },
+  // while { m(x); *__str_pst_N }.char_at((x as i64).wrapping_sub(Li64).wrapping_add(i64::m(x))) != Lu8 {
+  "d9dabdcca6": {
+    improvement: "A read-modify-write through a pointer or string cursor checks the same pointer twice: iec_deref(p); on the line before, then again in `{ iec_deref(p); *__str_p }` inside the value. In the StringUtils bodies the pointer has already been tested at entry (IF p = 0 THEN RETURN), so every check inside the loops is dead. Emit the guard once per statement, and none at all after a dominating null test. Also stop copying the whole IecStr (`*__str_p`, 88+ bytes, Copy) just to read one character: `__str_p.char_at(i)` borrows it.",
+    tasks: ["7.4.4"],
   },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
   "db57faba5d": {
@@ -7815,16 +7820,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "de132e5019": {
     improvement: "In a PROGRAM/FB body, a lowering temporary (`__chain_value_N`, and likewise the output/property/inout_guard temps from calls.ts:787/1229/1261) becomes a persistent `pub` struct field. It appears in Debug/PartialEq/new() and is carried across scans, though it is only ever a statement-local value. Emit it as a `let` in scan()/call(), as routineMode already does. SIZEOF correctly ignores it (probed r1/sz.st: 16 = 16).",
     tasks: ["7.6.1"],
-  },
-  // if !((x < x) & (x < x)) { break; }
-  "de2f16610e": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
   },
   // self.f = len(self.v.to::<L>());
   "dea089f2fd": {
@@ -7898,6 +7893,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
     tasks: ["7.7.7"],
   },
+  // while (*str).char_at(i64::m(x)) != Lu8 {
+  "e5f32531ef": {
+    improvement: "`(*x)` and `&mut (*x)` are printed where auto-deref and implicit reborrow do the job: `(*str).char_at(..)` could be `str.char_at(..)`, `self.inner.call(&mut (*numbers))` could be `self.inner.call(numbers)`, and `((*x) as i32)` could be `(*x as i32)`.",
+    tasks: ["7.8.6"],
+  },
   // let mut x: IecString<L> = IecString::<L>::lit(B);
   "e6646a0bd0": {
     improvement: "An empty-string initializer prints `IecString::<255>::lit(b\"\")`. `IecString::<255>::new()` (or Default) says the same thing without the slice copy.",
@@ -7919,16 +7919,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b), with (c) for a variable value.",
     tasks: ["7.8.5"],
-  },
-  // if x > x.wrapping_sub(x) { break; }
-  "e798927653": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
   },
   // self.__chain_value_N = self.f;
   "e7e871371f": {
@@ -7955,16 +7945,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
     tasks: ["7.7.1"],
   },
-  // if self.f > self.f.m() { break; }
-  "e8a1222ae6": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7"],
-  },
   // self.f = { self.__inout_index_N = self.f[self.f as usize]; let __arg_N = self.m(); m(__arg_N, &mut self.f[self.__inout_index_N as usize]) };
   "e8a91161a6": {
     improvement: "Lowering temps in an FB or program body (a property-set value, an in-out index captured before the call, a pointer guard) become persistent `pub` struct fields. They show in the struct, in PartialEq/Debug and in `new()`, and they cause clippy::pub_underscore_fields. They live for one statement, so a Rust `let` in the emitted body is enough: `self.tank.level_set(5i16)`, or `let idx = self.cursor; ...`.",
@@ -7990,18 +7970,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ed425c8710": {
     improvement: "Once any PROGRAM is called, every routine takes `prg: &mut Programs`. So a call into a program's member does `std::mem::take(&mut prg.p); p.m.level_get(prg); prg.p = p`, a move-out and move-back of the whole program struct, even when the callee (level_get) never touches prg. Passing prg only to routines that reach a program would reduce these calls to `prg.p.gauge.level_get()`.",
     tasks: ["7.7.5"],
-  },
-  // if x > __grid_upper_N { break; }
-  "ed880b92a8": {
-    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`. Also: An ARRAY[*] passes both bounds per dimension as extra i32 arguments, and an FB stores them as fields set before each call (`self.filler.__numbers_lower_1 = 1i32; self.filler.__numbers_upper_1 = 2i32;`). The upper bound is always lower + slice.len() - 1, so only the lower bound needs passing.",
-    alternatives: [
-      "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-      "emitted today: lower and upper both passed. Simple, and UPPER_BOUND is a plain read",
-      "upper derived as `lower + grid.len() as i32 - 1` (and N for inner dims). I would choose this: one source of truth, so the bound and the slice cannot disagree",
-    ],
-    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
-    tasks: ["7.5.7", "7.5.7"],
   },
   // self.f = self.__chain_value_N as f32;
   "ee5f8f4ae1": {
@@ -8186,11 +8154,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "fcd4689307": {
     improvement: "LEN_INTERNAL only reads its argument but declares it VAR_IN_OUT, so it takes `&mut IecString<N>` and forces every caller's STRING input to be `mut`. Declare it VAR_IN_OUT CONSTANT (emitted as `&IecString<N>`). Its counter `(len_internal as i32).wrapping_add(1i32) as u16` can also count in DINT and convert once.",
     tasks: ["7.4.6"],
-  },
-  // if self.f > self.__numbers_upper_N { break; }
-  "fd16368fa8": {
-    improvement: "The same construct, an index minus its lower bound, is printed two ways: `[(i - 1i64) as usize]` for a fixed array and `[(u as i64).wrapping_sub(l as i64) as usize]` for ARRAY[*]. The ARRAY[*] bounds also travel as persistent FB fields that each hop re-copies (`self.inner.__numbers_lower_1 = self.__numbers_lower_1;`), where `numbers.len()` plus one lower-bound parameter would carry them. At minimum, pick one subtraction spelling.",
-    tasks: ["7.7.8"],
   },
   // pub fn m_set(&mut self, mut x: i16) {
   "fda03fa84f": {

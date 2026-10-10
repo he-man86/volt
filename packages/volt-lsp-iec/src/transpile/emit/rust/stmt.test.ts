@@ -42,6 +42,16 @@ test("one guard per statement: a read through the pointer the statement's line c
   expect(body).toContain("f(__mem, { iec_deref(self.p); i16::from_le_bytes(__mem.ld(self.p)) })")
 })
 
+// 7.5.5: ELSIF prints `else if`, not an `else` holding one more `if` (clippy's `collapsible_else_if`)
+test("ELSIF is `else if`, its own ELSE last", () => {
+  const { pou } = lowerSource("PROGRAM P\nVAR n : INT; k : INT; END_VAR\nIF n = 1 THEN\n  k := 1;\nELSIF n = 2 THEN\n  k := 2;\nELSIF n = 3 THEN\n  k := 3;\nELSE\n  k := 4;\nEND_IF\nEND_PROGRAM\n")
+  const code = emitRust(pou!).code
+  expect(code).toContain("} else if self.n == 2i16 {")
+  expect(code).toContain("} else if self.n == 3i16 {")
+  expect(code).toContain("} else {\n            self.k = 4i16;")
+  expect(code).not.toMatch(/else \{\s*if/)
+})
+
 // Gate review 7.2c+7.5b: Rust's `a op= b` on a primitive evaluates `b` FIRST and reads `a` after it, so a right operand
 // holding a call that writes the target (a METHOD of the same FB) must keep `x = x op rhs` — IEC reads `x` first
 test("a store back into its own left operand prints `op=` only when the right operand holds no call", () => {

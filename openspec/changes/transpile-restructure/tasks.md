@@ -5469,30 +5469,65 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ### 7.5 Loop shape (lean 5, on model 1)
 
-- [ ] 7.5.1 The counter lines are gone with the cap.
+- [x] 7.5.1 The counter lines are gone with the cap.
   - Notes: 02b031c773, 5ba97e5557, d9d57311e3, 6bf6856d37.
   - Where: `emit/rust/loops.ts`.
   - Accept: M (notes deleted, verified).
   - Depends: 2.3.
-- [ ] 7.5.2 Labels and body blocks from `ir/walk.loopUses`: drop the body block without CONTINUE and the label without a labelled EXIT.
+  - Done 2026-10-10 (step 7.5a). Verified: no loop prints a pass counter (the cap left with 2.3; a counter exists only under
+    the harness's `loopGuard`, never in the user's emission). Note 6bf6856d37 (its item the counter) deleted; 02b031c773,
+    5ba97e5557, d9d57311e3 were gone already.
+- [x] 7.5.2 Labels and body blocks from `ir/walk.loopUses`: drop the body block without CONTINUE and the label without a labelled EXIT.
   - Notes: 521ba042ac, 1ad1ab3163, 93a17fab28, 204a887600.
   - Where: `emit/rust/loops.ts`.
   - Accept: S-out, M.
   - Depends: 2.8.
-- [ ] 7.5.3 WHILE uses `continue 'loop`.
+  - Done 2026-10-10 (step 7.5a). `emit/rust/loops.ts`: a body block only where a CONTINUE must still reach a step or a tail
+    test (`'body_N: { … }`, CONTINUE `break 'body_N`), and then `'loop_N` for an EXIT (`break 'loop_N`) — anywhere else the
+    body prints inline, EXIT is `break;` and CONTINUE `continue;` (`Printer.loops` frames carry `labeled`). One exception,
+    measured: a body that ENDS in an EXIT, CONTINUE or RETURN before a step keeps a plain unlabeled block — inline, the step
+    after it is a statement rustc calls unreachable (`stmt_exit_inner`; what is printed after one is 7.5.11's). Tests
+    `emit/rust/loops.test.ts` ("labels and a body block only where a CONTINUE precedes a step or a tail test"). Notes
+    resolved: 1ad1ab3163, 204a887600, 521ba042ac, 93a17fab28 (the constructs left are the labeled forms that are needed).
+- [x] 7.5.3 WHILE uses `continue 'loop`.
   - Notes: 95094bd48a.
   - Where: `emit/rust/loops.ts`.
   - Accept: S-out, M.
   - Depends: 7.5.2.
-- [ ] 7.5.4 `while cond {}` and `for`-style forms where 2.1's type-max measurement allows them.
+  - Done 2026-10-10 (step 7.5a). With 7.5.2: a WHILE (a head test, no step) has no body block, so its CONTINUE is Rust's
+    `continue;`, which returns to the head test — not `continue 'loop`, which the unlabeled `while` does not need. Same
+    test. Notes resolved: 95094bd48a.
+- [x] 7.5.4 `while cond {}` and `for`-style forms where 2.1's type-max measurement allows them.
   - Notes: 1d1551a034, de2f16610e, 50226e2c19, e798927653.
   - Where: `emit/rust/loops.ts`.
   - Accept: S-out, M.
   - Depends: 7.5.2, 2.1.
-- [ ] 7.5.5 ELSIF prints as `else if` (collapsible_else_if 19).
+  - Done 2026-10-10 (step 7.5a). A head-tested loop prints `while cond {` (FOR and WHILE; the condition itself, nothing
+    negated), a constant TRUE one `loop {`, a tail test (REPEAT) `loop { …; if !cond { break; } }`. Never a `for` range:
+    2.1's measurement — a FOR to its counter's maximum wraps and runs until an EXIT (`for_counter_at_type_max`) — rules it
+    out. An EMPTY WHILE keeps the test-and-break `loop` (`while c {}` with nothing to change `c` is clippy's
+    `while_immutable_condition`: 3 fixtures — `cc3_empty_and_noop`, `flw_empty_semicolon_body`, `stmt_while_empty_body` —
+    said so on the first run). Allowed `unreachable_code` 2 -> 3: `cc4_loop_exit_constant`'s statements after a WHILE TRUE
+    no EXIT leaves, now an endless Rust `loop` (the `if false { break; }` hid it); its reason in `lint-policy.ts` names it,
+    and `absurd_extreme_comparisons`'s reason reads the unflipped `while` condition. Test pins rewritten to the `while` form
+    (`loops.test.ts` "a head-tested loop prints as `while`…", the FOR-limit pins; `expr.test.ts`'s REAL loop test now reads
+    `while self.rx <= 10.0f32 {` — a head test is no longer negated at all). Notes: none owned remained; the 7.5.7 head-test
+    notes re-keyed to their `while` lines (below).
+- [x] 7.5.5 ELSIF prints as `else if` (collapsible_else_if 19).
   - Where: `emit/rust/stmt.ts`.
   - Accept: S-out, M.
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 7.5a). `emit/rust/stmt.ts` `stmtIf`: an `else` whose whole body is one IF prints `} else if cond
+    {` — lowering nests an ELSIF exactly so. Test `stmt.test.ts`. `collapsible_else_if` 21 -> 0.
+    Step 7.5a numbers: S-out identical over 5535 fixtures against the step-start baseline but `cc5_in_out_type_mismatch`
+    (refused since 7.3a). M (against 7.3c's map): pedantic 9673 -> 9650 (`collapsible_else_if` 21 -> 0, `too_many_lines` 5
+    -> 3); surviving `neg_cmp_op_on_partial_ord` 1 -> 0 (control clean 150 -> 151); allowed `unreachable_code` 2 -> 3
+    (above); size: the ten largest fall (`string_positions_low` 33.5 -> 29), median 3.1; constructs 2032 -> 2044, noted 350
+    -> 344. Notes re-keyed to their new lines (16, items kept): 1d1551a034 -> b6487c7e6e, 50226e2c19 -> ce61fdb3c0,
+    b736e18f55 -> a2add88910, de2f16610e -> cedd086a8e, e798927653 -> 03999a666a, e8a1222ae6 -> 0f2d39e083, ed880b92a8 ->
+    596535f8e7 (7.5.7); 0bdcb764e7 -> d9dabdcca6, 218bbe29e3 -> 370a3c0624, 40f3b940b6 -> bf9422bc63, 4d2905bfee ->
+    bb97b1e500, 8373a319d5 -> bddbcf0923, b4f42289f3 -> d2bcbac57f (7.4.4); 3654e21d7c -> e5f32531ef (7.8.6); 5714c76a1c ->
+    040b00dbe8 (7.5.9); fd16368fa8 -> 9928be1401 (7.7.8).
 - [ ] 7.5.6 `&&`/`||` when neither operand holds a call (lowering marks it in the IR).
   - Notes: 5e5aa25221, b2d33739c5, a54ead1fbe, ec21aafede.
   - Where: `lower/expressions/operators.ts`, `emit/rust/expr.ts`.

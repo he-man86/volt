@@ -27,11 +27,12 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
   // Flipping `<=` to `>` is negation only over a total order. With a NaN operand both are false, so
   // `WHILE r <= 10.0` exits at once in the interpreter (`!false`) and never exits in the emitted Rust.
   const real = rust("PROGRAM P\nVAR rx : REAL; n : INT; END_VAR\nWHILE rx <= 10.0 DO\n n := n + 1;\n rx := rx + 1.0;\nEND_WHILE\nEND_PROGRAM\n")
-  expect(real).toContain("if !(self.rx <= 10.0f32) { break; }")
+  // (since 7.5.4 a head test is the `while` condition itself — nothing negated at all)
+  expect(real).toContain("while self.rx <= 10.0f32 {")
 
   // an integer comparison is a total order, so it still flips — that is what removed 39 `nonminimal_bool`
   const int = rust("PROGRAM P\nVAR i : INT; END_VAR\nWHILE i <= 10 DO\n i := i + 1;\nEND_WHILE\nEND_PROGRAM\n")
-  expect(int).toContain("if self.i > 10i16 { break; }")
+  expect(int).toContain("while self.i <= 10i16 {")
 })
 
   test("an enum variable is its base type and an enum value its number; THIS^ is `self`", () => {

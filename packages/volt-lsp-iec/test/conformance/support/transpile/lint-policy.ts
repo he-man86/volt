@@ -18,11 +18,11 @@ export const ALLOWED: Readonly<Record<string, string>> = {
   dead_code:
     "fixture variables: a fixture reads one variable and the rest of the POU it declares is unreferenced by construction — the same exception the crate check makes. Not the runtime: the module prints only the helpers the code calls (lean 1, 7.1.2), so no registry item is ever unused",
   unreachable_code:
-    "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run",
+    "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run; so is one after a WHILE TRUE no EXIT leaves (`cc4_loop_exit_constant`), an endless Rust `loop` since lean 7.5.4 dropped its `if false { break; }`",
   unused_comparisons:
     "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it; and a negative literal beside an unsigned operand IS that type's maximum, folded (`lt_literal_negative_in_comparison_unsigned`, `tr_6_negative_paren_beside_unsigned`: the fixture asks what that comparison answers)",
   "clippy::absurd_extreme_comparisons":
-    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the FLIPPED comparison (`i > 127i8`) since that pass, and clippy reads the flipped form where rustc read the original; and the same folded negative literal beside an unsigned operand",
+    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the `while` condition itself (`i <= 127i8`) since lean 7.5.4, which clippy reads as always true; and the same folded negative literal beside an unsigned operand",
   // NO `non_camel_case_types` / `non_snake_case` HERE. Both were written from reasoning — a POU struct keeps the
   // ST spelling, a field may not be snake by Rust's rule — and neither fires: the emitter already carries
   // `#[allow(non_camel_case_types)]` on every struct, and `snake()` makes every field name valid. Measured over

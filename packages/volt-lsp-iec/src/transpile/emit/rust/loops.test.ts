@@ -20,14 +20,34 @@ describe("emit/rust", () => {
     expect(step).toBeGreaterThan(body) // the step follows the body block, where the CONTINUE lands
   })
 
-  test("all three loop forms print as the same Rust shape", () => {
+  // 7.5.4: a head test is a Rust `while` (FOR and WHILE alike — never a `for` range: a FOR to its counter's maximum wraps,
+  // `for_counter_at_type_max`), a tail test a `loop` ending in the UNTIL test
+  test("a head-tested loop prints as `while`, a tail-tested one as `loop` with its test last", () => {
     const forLoop = rust("PROGRAM P\nVAR i : INT; n : INT; END_VAR\nFOR i := 1 TO 3 DO n := n + 1; END_FOR\nEND_PROGRAM\n")
     const whileLoop = rust("PROGRAM P\nVAR n : INT; END_VAR\nWHILE n < 3 DO n := n + 1; END_WHILE\nEND_PROGRAM\n")
     const repeat = rust("PROGRAM P\nVAR n : INT; END_VAR\nREPEAT n := n + 1; UNTIL n >= 3 END_REPEAT\nEND_PROGRAM\n")
-    for (const code of [forLoop, whileLoop, repeat]) {
-      expect(code).toContain("loop {")
-      expect(code).toContain("break; }")
-    }
+    expect(forLoop).toContain("while self.i <= 3i16 {")
+    expect(whileLoop).toContain("while self.n < 3i16 {")
+    expect(repeat).toContain("loop {")
+    expect(repeat).toContain("if self.n >= 3i16 { break; }")
+    for (const code of [forLoop, whileLoop, repeat]) expect(code).not.toMatch(/'(loop|body)_\d|\n\s*\{\n/)
+  })
+
+  // 7.5.2 / 7.5.3: a body block and labels only where a CONTINUE must still step or test — EXIT is then `break 'loop_N`;
+  // elsewhere EXIT is `break` and a WHILE's CONTINUE is `continue` (back to its head test)
+  test("labels and a body block only where a CONTINUE precedes a step or a tail test", () => {
+    const whileLoop = rust("PROGRAM P\nVAR n : INT; k : INT; END_VAR\nWHILE n < 9 DO\n  n := n + 1;\n  IF n = 2 THEN CONTINUE; END_IF\n  IF n = 7 THEN EXIT; END_IF\n  k := k + 1;\nEND_WHILE\nEND_PROGRAM\n")
+    expect(whileLoop).toContain("continue;")
+    expect(whileLoop).toContain("break;")
+    expect(whileLoop).not.toMatch(/'(loop|body)_\d/)
+    const forLoop = rust("PROGRAM P\nVAR i : INT; k : INT; END_VAR\nFOR i := 1 TO 9 DO\n  IF i = 2 THEN CONTINUE; END_IF\n  IF i = 7 THEN EXIT; END_IF\n  k := k + 1;\nEND_FOR\nEND_PROGRAM\n")
+    expect(forLoop).toContain("'loop_1: while self.i <= 9i16 {")
+    expect(forLoop).toContain("'body_1: {")
+    expect(forLoop).toContain("break 'body_1;")
+    expect(forLoop).toContain("break 'loop_1;")
+    const exitOnly = rust("PROGRAM P\nVAR i : INT; END_VAR\nFOR i := 1 TO 9 DO\n  IF i = 7 THEN EXIT; END_IF\nEND_FOR\nEND_PROGRAM\n")
+    expect(exitOnly).toContain("break;")
+    expect(exitOnly).not.toMatch(/'(loop|body)_\d/)
   })
 })
 
@@ -74,7 +94,7 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
     // CODESYS takes an INT limit on a UINT counter (`for_limit_sign_change_int_on_uint`: 3 passes, u left at 4) and
     // compares the pair promoted: from 40000 to an INT 100 it runs no pass (`for_limit_sign_change_uint_counter_out_of_
     // int_range`), where the signed type at equal width (i16) read 40000 as -25536 and ran 25637
-    expect(rust("PROGRAM P\nVAR\n\tu : UINT;\n\thi : INT := 3;\n\tn : INT;\nEND_VAR\nFOR u := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if i32::from(self.u) > i32::from(self.hi) { break; }")
+    expect(rust("PROGRAM P\nVAR\n\tu : UINT;\n\thi : INT := 3;\n\tn : INT;\nEND_VAR\nFOR u := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("while i32::from(self.u) <= i32::from(self.hi) {")
   })
 
   // transpile-review-2026-09-29 task 13 (conformance `for_limit_wider_than_counter_uint_expr`, recorded: 3 passes, u
@@ -82,11 +102,11 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
   // printing `self.u = (self.u as i32).wrapping_add(1u16)`: E0308. The step adds in the counter's own type.
   test("the step adds in the counter's own type — only the test is widened", () => {
     const code = rust("PROGRAM P\nVAR\n\tn : UINT := 3;\n\tu : UINT;\n\truns : INT;\nEND_VAR\nFOR u := 0 TO n - 1 DO\n\truns := runs + 1;\nEND_FOR\nEND_PROGRAM\n")
-    expect(code).toContain("if i32::from(self.u) > i32::from(self.n).wrapping_sub(1i32) { break; }")
+    expect(code).toContain("while i32::from(self.u) <= i32::from(self.n).wrapping_sub(1i32) {")
     expect(code).toContain("self.u = self.u.wrapping_add(1u16);")
   })
 
   test("a same-typed limit is left alone — no needless cast", () => {
-    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if self.i > self.hi { break; }")
+    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("while self.i <= self.hi {")
   })
 })
