@@ -77,8 +77,12 @@ export interface IrLayout {
   name: string
   kind: "struct" | "function_block"
   fields: readonly IrSlot[]
-  /** An FB's body, once a call reached it — its places index `fields`, or `inouts` when marked. */
+  /** An FB's body, once a call reached it — its places index `fields`, or `inouts` / `locals` when marked. */
   body?: readonly IrStmt[]
+  /** The body's per-run storage — its VAR_TEMP (transpile-restructure 7.6.4) — each starting at its `init` on every run, as
+   *  an `IrRoutine`'s locals do; absent when it has none. Its `local` places index these. Not fields: the instance does not
+   *  carry them between runs. */
+  locals?: readonly IrSlot[]
   /** The FILE that body was written in, for the source map — an FB declared in a GVL is not the main source. */
   bodyUri?: string
   /** An FB's VAR_IN_OUT parameters, in declaration order. */
@@ -123,7 +127,7 @@ export interface IrRoutine {
    *  GVL or a library declaration rather than the main source, and a span alone cannot say which. */
   uri?: string
   /** Per-call storage, each starting at its `init` on every call: the result slot (first, when there is one), the
-   *  VAR_INPUT, the VAR and VAR_TEMP, and lowering's temps. */
+   *  VAR_INPUT, the VAR (a base body's run by `SUPER^()`: the base's VAR_TEMP), and lowering's temps. */
   locals: readonly IrSlot[]
   /** The VAR_INPUT locals, in declaration order — indices into `locals`. */
   inputs: readonly number[]
@@ -140,6 +144,9 @@ export interface IrRoutine {
 export interface IrPou {
   name: string
   slots: readonly IrSlot[]
+  /** The scan's per-run storage — the POU's VAR_TEMP (7.6.4) — each starting at its `init` on every scan; absent when it
+   *  has none. The body's `local` places index these. */
+  locals?: readonly IrSlot[]
   body: readonly IrStmt[]
   layouts: readonly IrLayout[]
   routines: readonly IrRoutine[]

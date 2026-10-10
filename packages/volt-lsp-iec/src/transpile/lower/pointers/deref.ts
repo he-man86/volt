@@ -63,7 +63,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", `${describePointer(lw, pointer)} dereferenced before any address was stored into it`, span)
   }
   if (target.scopedTo !== undefined && (target.scopedTo !== lw || !pointerFrame(lw).boundPointers.has(key!)))
-    return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
+    return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT or a VAR_TEMP dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {
     if (extra !== undefined) return lw.bail("pointer-index", "an index on a pointer to a single variable", span)
     // THE DEREFERENCE TAKES THE POINTER'S DECLARED TYPE. `ADR(x)` checks it where the address is taken, but an ANY input's

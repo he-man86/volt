@@ -147,7 +147,8 @@ descriptors, `ingestDevices`), `incremental` (a whole table, and the live server
 (EXTENDS linking and the base chain), `precedence` (which of several same-named candidates a reference means),
 `library-namespaces`, `scope-nav` (the one scope-tree navigator — its `lookup` holds the project's level of the bare-name search
 order: globals before POU and type names, the application's before a library's, a VAR_EXTERNAL bound to its global
-or passed over), `condition-world` (what a conditional pragma may ask of the project — `defined`, `hasattribute`,
+or passed over, a VAR_TEMP reached by its own body and its FB's ACTIONs only — not by a METHOD or a derived body),
+`condition-world` (what a conditional pragma may ask of the project — `defined`, `hasattribute`,
 `hastype`, `hasconstantvalue` — answered from the scope tree) and `scoped-bodies` (the one scope-aware "walk every
 ST body" iterator — POU bodies **and** property accessor bodies — shared by every analysis check and the language
 services). Its index names the read API; building is the `build` namespace. Contract: name → declaring symbol/scope.
@@ -384,9 +385,17 @@ METHODs. Per declaration a dynamic initializer, a constant after the frame's fir
 `init/position.ts`: a later declaration still holds its type's start), or an instance's whole init — per class of its
 EXTENDS chain, base first, its own fields then its FB_Init (arguments in the containing frame; a STRUCT field
 instance's in the struct's scope: its earlier fields, then globals), then its structured initializer. A METHOD's or
-FUNCTION's VAR and a VAR_TEMP restart every call: `IrFresh` with the static part, then the dynamic elements as
-statements (`init/temp-resets.ts`). What an initializer reads is `ir/walk.ts` `initReadChildren` — `childrenOf`, an
-`ADR` reading only its indices. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path),
+FUNCTION's VAR and an FB's or PROGRAM's VAR_TEMP are PER-RUN LOCALS (`Lowering.perRun`; transpile-restructure 7.6.4): an
+`IrRoutine`'s `locals`, an FB body's `IrLayout.locals`, the scan's `IrPou.locals` — never a field the instance carries
+between runs. Each starts at its `IrInit` on every run (the interpreter instantiates it, the Rust binds it with a `let` at
+the top of the fn that runs the body, `emit/rust/routine.ts` `printLocals`), and only an initializer that is not a constant
+is a statement of the run, the dynamic elements after the static part (`init/temp-resets.ts` `localInits`). A VAR_TEMP
+named where it is visible but not run — its FB's ACTION, `THIS^.x`, an instance path — is `var-temp-outside-body`; where
+it is not visible — a METHOD, a derived body — the name is whatever else declares it, a global of that name (the
+symbols' `lookup`), and a derived FB may declare its own variable of a base VAR_TEMP's name. A field holding a VAR_TEMP's
+address reads it in the run that stored it, as one into the body's VAR_IN_OUT does (`pointers/state.ts` `scopedTo`). What an initializer reads is `ir/walk.ts` `initReadChildren` — `childrenOf`, an
+`ADR` reading only its indices. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path; a VAR_TEMP read by the run-once
+init step, which runs before any run holds one),
 `init-reads-instance` (an instance declared with a structured initializer, its field, a METHOD on it, the instance
 itself or a struct holding it — also handed to a call by name, as an interface lends it after the guards ran),
 `fb-init-order` (a nested structured initializer reaching an FB_Init, or setting the sibling a STRUCT field instance's

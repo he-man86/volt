@@ -113,3 +113,24 @@ test("a FUNCTION that writes nothing its caller sees is #[must_use]; one called 
   expect(code).not.toContain("#[must_use]\npub fn writes")
   expect(code).toContain("let _ = pure(2i16);")
 })
+
+// 7.6.4: an FB's or PROGRAM's VAR_TEMP is a local of the fn that runs its body — `call()`, `scan()` — not a `pub` field the
+// struct carries between runs; `mut` only where stored again, no initial value where no read can see it, `_name` where
+// nothing reads it (the same `printLocals` a routine's locals take)
+test("an FB's VAR_TEMP is a local of `call()`, `mut` only where stored", () => {
+  const { pou, diagnostics } = lowerSource(
+    "FUNCTION_BLOCK FB_T\nVAR_TEMP n : INT := 10; once : INT; spare : INT; END_VAR\nVAR seen : INT; END_VAR\nonce := seen + 1;\nn := n + once;\nseen := n;\nEND_FUNCTION_BLOCK\n" +
+      "PROGRAM P\nVAR inst : FB_T; out : INT; END_VAR\nVAR_TEMP t : INT; END_VAR\ninst();\nt := inst.seen;\nout := t * 2;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics).toEqual([])
+  const code = emitRust(pou!).code
+  // no field of the struct holds them
+  expect(code).not.toContain("pub n:")
+  expect(code).not.toContain("pub once:")
+  expect(code).not.toContain("pub t:")
+  expect(code).toContain(
+    "pub fn call(&mut self) {\n        let mut n: i16 = 10i16;\n        let _spare: i16;\n        let once: i16 = self.seen.wrapping_add(1i16);\n        n = n.wrapping_add(once);\n        self.seen = n;\n    }",
+  )
+  expect(code).toContain("pub fn scan(&mut self) {\n        self.inst.call();\n        let t: i16 = self.inst.seen;\n        self.out = t.wrapping_mul(2i16);\n    }")
+})

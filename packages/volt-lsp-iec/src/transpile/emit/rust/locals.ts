@@ -1,12 +1,24 @@
 /**
- * A ROUTINE'S LOCALS AS RUST BINDINGS (lean 7.7.1-7.7.3) — which are `mut`, which no read can see the initial value of, and
- * where each is declared — so a generated fn needs no blanket `#[allow(unused_mut, unused_variables,
+ * A BODY'S LOCALS AS RUST BINDINGS (lean 7.7.1-7.7.3; an FB's and the POU's VAR_TEMP too, 7.6.4) — which are `mut`, which
+ * no read can see the initial value of, and where each is declared — so a generated fn needs no blanket `#[allow(unused_mut, unused_variables,
  * unused_assignments)]`: what rustc would say of a binding is decided here, from the IR, before it is printed.
  */
 import type { IrBinding, IrCall, IrInvoke, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { isPlace, type IrNode, someNode, somePlace, writtenPlaces } from "../../ir/walk.js"
 import { type Printer, reachOfBody } from "./printer.js"
 import { plainCopy } from "./types.js"
+
+/**
+ * THE BODY THE LOCAL ANALYSES READ — a routine is one; so is an FB's `call()` and the POU's `scan()` (transpile-restructure
+ * 7.6.4): a body with per-run locals (their VAR_TEMP), no inputs and no result.
+ */
+export interface LocalsBody {
+  readonly locals: IrRoutine["locals"]
+  readonly inputs: IrRoutine["inputs"]
+  readonly inouts: IrRoutine["inouts"]
+  readonly body: IrRoutine["body"]
+  readonly result?: number
+}
 
 /** How many places in the body write each routine-local slot (`writtenPlaces`): an in-out of a callee is written unless
  *  the callee takes it read-only (a VAR_IN_OUT CONSTANT, `IrSlot.readOnly`). */
@@ -25,14 +37,23 @@ function plainStore(s: IrStmt): s is Extract<IrStmt, { kind: "assign" }> {
   return plainCopy(s.target, s.value)
 }
 
+/** A store INTO a local printed as a plain `x = v` / `x.f = v` / `x[i] = v` — which rustc counts as an assignment to `x`,
+ *  not a use of it (`refuse_var_temp_struct`: `scratch.x := 1` is all its body says of `scratch`, 7.6.4). Not a bit
+ *  (printed as a read-modify-write), nor a STRING stored into with `IecStr::store` (a method call borrows `x`). */
+function storeInto(s: IrStmt): s is Extract<IrStmt, { kind: "assign" }> {
+  if (s.kind !== "assign" || s.target.root !== "local" || s.target.guard !== undefined) return false
+  return s.target.path.every((step) => step.kind === "field" || step.kind === "index") && plainCopy(s.target, s.value)
+}
+
 /**
  * The locals (by index into `[...locals, ...inouts]`, `fieldNames`' order) and in-outs the body never USES, as rustc
- * counts a use: a local named nowhere but as the target of a plain store, an in-out named nowhere at all (a store
- * through it is one). The result is always used (it is handed back); a lent instance is `__lent_N` already.
+ * counts a use: a local named nowhere but as the target of a plain store into it (the whole of it, a field or an
+ * element), an in-out named nowhere at all (a store through it is one). The result is always used (it is handed back); a
+ * lent instance is `__lent_N` already.
  */
-export function unreadOf(routine: IrRoutine): Set<number> {
+export function unreadOf(routine: LocalsBody): Set<number> {
   const stored = new Set<Place>()
-  someNode(routine.body, (n) => (!isPlace(n) && plainStore(n as IrStmt) && stored.add((n as Extract<IrStmt, { kind: "assign" }>).target), false))
+  someNode(routine.body, (n) => (!isPlace(n) && storeInto(n as IrStmt) && stored.add((n as Extract<IrStmt, { kind: "assign" }>).target), false))
   const read = new Set<string>()
   someNode(routine.body, (n) => (isPlace(n) && !stored.has(n) && (n.root === "local" || n.root === "inout") && read.add(`${n.root}:${n.slot}`), false))
   const out = new Set<number>()
@@ -107,7 +128,7 @@ type Assigned = ReadonlySet<number> | "dead"
  * the end of the body. Such a local is declared with no initial value — rustc then proves it set before each read —
  * where printing one is a value rustc reports is never read (`unused_assignments`).
  */
-export function lateInit(routine: IrRoutine): Set<number> {
+export function lateInit(routine: LocalsBody): Set<number> {
   const seen = new Set<number>()
   // what evaluating `n` reads, against the locals assigned before it, and the locals it stores in passing: a call's
   // frozen in-out index (written where it is bound, read by the call after it) and a whole local a copy is written back to
@@ -173,7 +194,7 @@ export function lateInit(routine: IrRoutine): Set<number> {
  * `lateInit` follows the body, with "maybe stored" for "surely stored": the branches of an IF join, and a store in a
  * loop's body, its step or its test may run on a second pass.
  */
-export function storedTwice(p: Printer, routine: IrRoutine): Set<number> {
+export function storedTwice(p: Printer, routine: LocalsBody): Set<number> {
   const twice = new Set<number>()
   const sites = (n: IrNode | readonly IrNode[]): number[] => [...writeSites(p, (Array.isArray(n) ? n : [n]) as IrStmt[]).entries()].flatMap(([slot, k]) => (k > 0 ? [slot] : []))
   const store = (slots: readonly number[], st: ReadonlySet<number>): Set<number> => {
@@ -207,7 +228,7 @@ export function storedTwice(p: Printer, routine: IrRoutine): Set<number> {
  * Whether the body's first word on the local `slot` is a plain store of the whole of it at the body's top level — where
  * a late-initialized local is declared, `let x: T = v;` (clippy's `needless_late_init` names a bare `let x;` there).
  */
-export function storedFirstAtTop(routine: IrRoutine, slot: number): boolean {
+export function storedFirstAtTop(routine: LocalsBody, slot: number): boolean {
   for (const s of routine.body) {
     if (plainStore(s) && s.target.slot === slot) return !somePlace(s.value, (at) => at.root === "local" && at.slot === slot)
     if (somePlace(s, (at) => at.root === "local" && at.slot === slot)) return false

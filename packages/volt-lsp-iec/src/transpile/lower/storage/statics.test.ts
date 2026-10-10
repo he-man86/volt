@@ -34,9 +34,11 @@ test("an FB's VAR_STAT is shared by every instance; a VAR_TEMP starts over on ev
   // A COMPOSITE VAR_TEMP RESETS TOO, and is no longer refused. `decl_temp_array_counts` counts 1 after three scans
   // where `decl_var_array_counts` counts 3 — the same split the scalars show — so the behaviour was never in doubt,
   // only the IR to express it, which `IrFresh` now does.
-  const tempArray = lowerSource("PROGRAM P\nVAR_TEMP pair : ARRAY[0..1] OF INT; END_VAR\npair[0] := pair[0] + 1;\nEND_PROGRAM\n", "P")
+  // A fresh local of every run now (7.6.4), which no path after the scan names (no recording reads a VAR_TEMP): the run
+  // copies it out.
+  const tempArray = lowerSource("PROGRAM P\nVAR out : INT; END_VAR\nVAR_TEMP pair : ARRAY[0..1] OF INT; END_VAR\npair[0] := pair[0] + 1;\nout := pair[0];\nEND_PROGRAM\n", "P")
   expect(tempArray.diagnostics.map((d) => d.code)).toEqual([])
   const fresh = run(tempArray.pou!)
   for (let i = 0; i < 3; i++) fresh.scan()
-  expect(fresh.get("pair[0]")).toBe(1n)
+  expect(fresh.get("out")).toBe(1n)
 })

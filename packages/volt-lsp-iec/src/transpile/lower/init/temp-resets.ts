@@ -1,77 +1,40 @@
 /**
- * VAR_TEMP starts over on every run of its body: the reset at the top of each run.
+ * PER-RUN LOCALS start over on every run of their body — a METHOD's, ACTION's or FUNCTION's variables, and an FB's or
+ * PROGRAM's VAR_TEMP (transpile-restructure 7.6.4): each starts at its initial value (the backends instantiate it per run),
+ * and only an initializer that is not a constant is a statement of the run.
  */
 
 import type { Lowering } from "../core/lowering.js"
-import type { Span, VarSection } from "../../../frontend/syntax/index.js"
-import type { IrExpr, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { laterThan, lowerPendingInit, reads } from "./sequence.js"
+import type { IrStmt, Place } from "../../ir/index.js"
+import { lowerPendingInit, reads } from "./sequence.js"
 import { initFrame, type PendingInit } from "./state.js"
 
 /**
- * THE ONE VAR_TEMP RESET (transpile-restructure 1.7.17), called by every body that runs: the POU's own
- * (`entry/lower-unit.ts`), an FB's at its first call and a base's run by `SUPER^()` (`calls/routines.ts`).
+ * THE ONE PER-RUN INITIALIZATION (transpile-restructure 1.7.17, 7.6.4), the first statements of every run of a body that has
+ * locals: a METHOD's, ACTION's or FUNCTION's (`calls/routines.ts`), an FB's at its first call, a base's run by `SUPER^()`
+ * (`calls/routines.ts`) and the POU's own (`entry/lower-unit.ts`).
  *
- * A body's VAR_TEMP started over at its initial value — the first statements of every run (conformance
- * `life_fb_var_temp_calls`, `life_program_var_temp_runs`: 1 and 6 after two runs, not 2 and 7). A PROGRAM's kept its value
- * across scans, and an FB's was refused as unmeasured (review 2026-09-15). The variables stay slots of the frame; a
- * composite starts over as an `IrFresh` of its static initial value, its dynamic elements the statements after it.
+ * A local starts over at its initial value on every run — a VAR_TEMP too (conformance `life_fb_var_temp_calls`,
+ * `life_program_var_temp_runs`: 1 and 6 after two runs, not 2 and 7; an ARRAY or STRING in VAR_TEMP as a scalar does,
+ * `decl_temp_array_counts`, `decl_temp_string_counts`). It was a slot of the frame reset by a statement at the top of the
+ * run (`resetTemps`); as a local, its fresh start IS that reset, so no statement is left for it.
+ *
+ * AN INITIALIZER THAT IS NOT A CONSTANT RUNS AGAIN, as the statement it is: `t : INT := g` reads g's value at this run
+ * (`var_temp_dynamic_init`: 9 then 10; `var_temp_dynamic_init_method`, `_function`; M5.1.6, transpile-restructure 5.5), an
+ * aggregate's dynamic elements and fields likewise, after its static part (`var_temp_dynamic_aggregate_init`, M5.1.7). In
+ * local-slot order, which is declaration order; one reading its own or a later local is refused. Undefined when one is
+ * refused (reported).
  */
-export function resetTemps(lw: Lowering, unit: { readonly varSections: readonly VarSection[]; readonly span: Span }): IrStmt[] {
-  // a reset that is refused has reported why (`bail`); the body still lowers after it, so its own refusals are reported
-  // too, and the caller sees the diagnostics — the statements of a refused reset are never run
-  return tempResetsOf(lw, unit.varSections, unit.span) ?? []
-}
-
-/** The resets of `resetTemps`, or undefined when one is refused (reported). */
-function tempResetsOf(lw: Lowering, sections: readonly VarSection[], span: Span): IrStmt[] | undefined {
-  const resets: IrStmt[] = []
-  for (const decl of sections.filter((s) => s.sectionKind === "VAR_TEMP").flatMap((s) => s.decls))
-    for (const name of decl.names) {
-      const index = lw.byName.get(name.text.toUpperCase())
-      if (index === undefined) continue // refused where it was declared
-      const slot = lw.slots[index]!
-      // AN INITIALIZER THAT IS NOT A CONSTANT RUNS AGAIN, as the statement it is — `t : INT := g` reads g's value at
-      // this call (`var_temp_dynamic_init`: 9 then 10, expr 21). It was queued for the run-once init step and the
-      // reset below then wrote the type's zero on every run (transpile-review 24).
-      const dynamic = initFrame(lw).tempInits.get(index) ?? []
-      const assigned = lowerAll(lw, dynamic)
-      if (assigned === undefined) return undefined
-      const later = readsLater(assigned, (place) => (lw.slots[place.slot]?.section === "VAR_TEMP" ? laterThan(lw, index)(place) : undefined))
-      if (later !== undefined)
-        return lw.bail("init-reads-later", `${name.text}'s initial value reads the VAR_TEMP ${later}, whose value at that point of the run is not recorded`, decl.span)
-      if (dynamic.some((p) => p.target === undefined)) {
-        resets.push(...assigned)
-        continue
-      }
-      // A COMPOSITE RESETS TOO, to a fresh value of its type. Measured: an ARRAY in VAR_TEMP counts 1 after three
-      // scans where the same ARRAY in VAR counts 3, and a STRING the same (`decl_temp_array_counts`,
-      // `decl_temp_string_counts`) — so a composite behaves exactly as a scalar does and was refused only because
-      // an `IrConst` cannot carry an aggregate initializer. `IrFresh` can. Its DYNAMIC elements and fields are the
-      // statements after it, in element order (`var_temp_dynamic_aggregate_init`, M5.1.7).
-      const value: IrExpr =
-        slot.type.kind === "elementary"
-          ? { kind: "const", value: slot.init as IrValue, type: slot.type, span }
-          : { kind: "fresh", init: slot.init, type: slot.type, span }
-      resets.push({ kind: "assign", target: { slot: index, path: [], type: slot.type, span }, value, span }, ...assigned)
-    }
-  return resets
-}
-
-/**
- * A METHOD's or FUNCTION's locals whose initial value RUNS — on every call, after the locals start fresh (the backends
- * instantiate them per call): `t : INT := gLangVtdm` is 9 then 10 (`var_temp_dynamic_init_method`, `_function`; M5.1.6,
- * transpile-restructure 5.5), an aggregate's dynamic elements likewise. In local-slot order, which is declaration order;
- * one reading its own or a later local is refused, as a VAR_TEMP's is. Undefined when one is refused (reported).
- */
-export function routineLocalInits(lw: Lowering): IrStmt[] | undefined {
+export function localInits(lw: Lowering): IrStmt[] | undefined {
   const out: IrStmt[] = []
+  // a routine's locals start every CALL; a VAR_TEMP every run of its FB's or PROGRAM's body
+  const [what, when] = lw.routineMode ? ["local", "call"] : ["VAR_TEMP", "run"]
   for (const [index, dynamic] of [...initFrame(lw).tempInits].sort(([a], [b]) => a - b)) {
     const assigned = lowerAll(lw, dynamic)
     if (assigned === undefined) return undefined
-    const later = readsLater(assigned, (place) => (place.root === "local" && place.slot >= index ? (lw.localSlots[place.slot]?.name ?? "a later local") : undefined))
+    const later = readsLater(assigned, (place) => (place.root === "local" && place.slot >= index ? (lw.localSlots[place.slot]?.name ?? `a later ${what}`) : undefined))
     if (later !== undefined)
-      return lw.bail("init-reads-later", `${dynamic[0]!.name.text}'s initial value reads the local ${later}, whose value at that point of the call is not recorded`, dynamic[0]!.span)
+      return lw.bail("init-reads-later", `${dynamic[0]!.name.text}'s initial value reads the ${what} ${later}, whose value at that point of the ${when} is not recorded`, dynamic[0]!.span)
     out.push(...assigned)
   }
   return out

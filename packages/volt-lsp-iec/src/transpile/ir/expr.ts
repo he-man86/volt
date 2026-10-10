@@ -268,17 +268,15 @@ export interface IrConst {
   span: Span
 }
 /**
- * A FRESH VALUE OF A COMPOSITE TYPE — what a `VAR_TEMP` struct or array is reset to at the top of every call.
+ * A FRESH VALUE OF A COMPOSITE TYPE — what a struct or array is set to where the init step's position rule makes its
+ * initial value a statement (`lower/init/position.ts`: a constant after the frame's first statement).
  *
- * An elementary VAR_TEMP resets with an ordinary `const`, and that is all `resetTemps` could emit, so a composite
- * one was refused ("starting it over is not built"). `declarations/section-semantics.ts` measured what it should be — an ARRAY in VAR_TEMP counts 1 after three scans where the same ARRAY in VAR counts 3, exactly
- * as the scalars do — so the behaviour was never in doubt, only the IR to express it.
+ * It was born for the VAR_TEMP reset at the top of every run (an ARRAY in VAR_TEMP counts 1 after three scans where the
+ * same ARRAY in VAR counts 3, `declarations/section-semantics.ts`); a VAR_TEMP is a per-run local now (transpile-restructure
+ * 7.6.4), whose fresh start the backends make themselves, and the position rule is what still needs the node.
  *
- * Both backends already had the function: `instantiate` in the interpreter and `initOf` in the emitter. This node is
- * the thing that lets `resetTemps` reach them.
- *
- * `init` is the COMPLETE static `IrInit` (design.md §3.4); an aggregate's DYNAMIC elements and fields are the statements
- * after it, re-evaluated every call (`var_temp_dynamic_aggregate_init`, `lower/init/temp-resets.ts`).
+ * Both backends already had the function: `instantiate` in the interpreter and `initOf` in the emitter. `init` is the
+ * COMPLETE static `IrInit` (design.md §3.4).
  */
 export interface IrFresh {
   kind: "fresh"

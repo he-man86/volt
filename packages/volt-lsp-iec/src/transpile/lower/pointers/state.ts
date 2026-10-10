@@ -184,9 +184,12 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
   // caller bound for THIS call — exact wherever the body stored it on this run. Read anywhere else (a method, the caller,
   // this body before the store) it would follow the next binding where CODESYS follows the stale address, which is
   // unmeasured: `pointeePlace` refuses those.
-  const scoped = target.base.root === "inout" && lw.frameContext.startsWith("FB:") && !lw.routineMode && key.startsWith(`${lw.frameContext}.`)
+  // The same holds for a field pointing at the body's own VAR_TEMP, a local of its run since 7.6.4 (conformance
+  // `var_temp_address_kept_in_pointer_field`, `var_temp_reference_kept_in_field`: seen = 3): exact where this run stored it.
+  const ownField = !lw.routineMode && key.startsWith(`${lw.frameContext}.`)
+  const scoped = ownField && ((target.base.root === "inout" && lw.frameContext.startsWith("FB:")) || target.base.root === "local")
   if (scoped) target = { ...target, scopedTo: lw }
-  const outlives = !key.startsWith("ROUTINE:") && (target.base.root === "local" || (target.base.root === "inout" && !scoped))
+  const outlives = !key.startsWith("ROUTINE:") && !scoped && (target.base.root === "local" || target.base.root === "inout")
   if (outlives || (key.startsWith("GLOBAL.") && target.base.root !== "global")) {
     lw.bail("pointer-outlives", "a pointer that outlives the variable it points at", span)
     return undefined

@@ -34,7 +34,9 @@ export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[])
     for (const base of extendsChain(scope).reverse().slice(1)) {
       const baseSym = lookup(ctx.project, base.name)?.symbol
       if (baseSym !== undefined && isLibrarySymbol(baseSym)) break // library base → vars may be hidden; stop
-      for (const [name, syms] of base.symbols) if (isVar(syms) && !inherited.has(name)) inherited.set(name, base.name)
+      // a base VAR_TEMP is storage of the base body's run, not inherited: both vendors build a derived FB redeclaring it
+      // (`var_temp_base_redeclared_as_var`, `_as_temp`, recorded 2026-10-10)
+      for (const [name, syms] of base.symbols) if (isInherited(syms) && !inherited.has(name)) inherited.set(name, base.name)
     }
 
     // Flag each own variable whose name is already declared in a base.
@@ -54,3 +56,4 @@ export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[])
 }
 
 const isVar = (syms: readonly Symbol[]): boolean => syms.some((s) => s.kind === "var")
+const isInherited = (syms: readonly Symbol[]): boolean => syms.some((s) => s.kind === "var" && s.varSection !== "VAR_TEMP")

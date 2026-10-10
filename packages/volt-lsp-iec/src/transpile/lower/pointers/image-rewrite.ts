@@ -151,12 +151,14 @@ function refuseStackInstances(lw: Lowering, slots: readonly IrSlot[], span: Span
     if (t.kind === "function_block") return escaped.has(t.name.toUpperCase()) || (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => f.section !== "VAR_STAT" && holds(f.type))
     return t.kind === "struct" && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holds(f.type))
   }
-  const stacked = (s: IrSlot): boolean => (s.section === "VAR_TEMP" || s.section === "temp") && holds(s.type)
+  const stacked = (s: IrSlot): boolean => s.section === "temp" && holds(s.type)
   const routines = [...lw.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
+  // every per-run local: a routine's, an FB body's VAR_TEMP, the scan's (7.6.4)
+  const locals = [...lw.localSlots, ...[...lw.layouts.values()].flatMap((l) => l.locals ?? []), ...routines.flatMap((r) => r.locals)]
   const found =
     slots.find(stacked) ??
     [...lw.layouts.values()].flatMap((l) => l.fields).find(stacked) ??
-    routines.flatMap((r) => r.locals).find((s) => holds(s.type))
+    locals.find((s) => holds(s.type))
   if (found === undefined) return false
   lw.bail("image-stack", `${found.name} holds an instance whose data lives in the byte image, where a region per call would be needed`, span)
   return true

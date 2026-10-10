@@ -35,7 +35,7 @@ export abstract class Frame {
     readonly memory: Memory,
     /** The harness's loop guard (`RunOptions`) — undefined runs every pass. */
     readonly guard: number | undefined,
-    /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
+    /** The running body's per-run locals: a METHOD's, ACTION's or FUNCTION's, an FB's or the scan's VAR_TEMP (7.6.4). */
     readonly locals: Val[] = [],
     /** The FB instances this body's caller lends it (`lent` places), by slot. */
     protected readonly lent: readonly Cell[] = [],

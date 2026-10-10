@@ -29,7 +29,8 @@ import { initFrame, type PendingInit } from "../init/state.js"
 
 /**
  * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal — or, for a
- * VAR_TEMP and a ROUTINE's VAR/VAR_TEMP, a statement of the per-run reset (`resetTemps`).
+ * VAR_TEMP and a ROUTINE's VAR/VAR_TEMP (per-run locals, `Lowering.perRun`), a statement at the top of every run
+ * (`localInits`).
  *
  * Only a caller that RUNS them asks for it: the POU's own frame and an FB's layout (the init step, `__INIT`), a METHOD's
  * or FUNCTION's locals (`routines.ts`, every call). Defaulting to `false` is what keeps every other declaration — a
@@ -48,7 +49,7 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // the slot only makes every later use report `place-not-local` about the wrong thing. Under a quiet attempt
   // it is skipped for the reason above — a hardware-mapped variable left as ordinary storage, un-diagnosed,
   // is worse than the cascade.
-  if (written.at !== undefined) bindAddress(lw, written)
+  if (written.at !== undefined) bindAddress(lw, written, lw.perRun(sec.sectionKind))
   // resolved ONCE: a refusal `resolve` makes (`string-capacity`) is made once per declaration, and `startValue` asks the
   // same resolved type for its enum default
   const resolved = lw.resolve(written.type)
@@ -134,7 +135,7 @@ function declareNames(
   { init, deferred, failed, binds, leaves, widened }: { init: IrInit | undefined; deferred: boolean; failed: boolean; binds: boolean; leaves: DynamicLeaves["leaves"]; widened: Pick<IrSlot, "readAs" | "declared"> | undefined },
 ): void {
   // run on every run of the body: a VAR_TEMP's, and every local of a METHOD or FUNCTION (its VAR is its temporary section)
-  const perRun = sec.sectionKind === "VAR_TEMP" || lw.routineMode
+  const perRun = lw.perRun(sec.sectionKind)
   const queue = (pending: PendingInit): void => {
     if (!perRun) return void initFrame(lw).pendingInits.push(pending)
     const temps = initFrame(lw).tempInits
@@ -150,10 +151,10 @@ function declareNames(
     // rather than the section.
     if (lw.declared(name.text)) lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
     else {
-      // a routine's local is numbered in ITS locals, as `lw.slot` files it
-      const slot = lw.routineMode ? lw.localSlots.length : lw.slots.length
+      // a per-run variable is numbered in the body's LOCALS, as `lw.slot` files it
+      const slot = perRun ? lw.localSlots.length : lw.slots.length
       lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init, widened)
-      if (sec.constant === true && !lw.routineMode && !lw.globalMode) initFrame(lw).constants.add(slot)
+      if (sec.constant === true && !perRun && !lw.globalMode) initFrame(lw).constants.add(slot)
       // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
       // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
       // store through an unbound reference.

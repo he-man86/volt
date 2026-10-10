@@ -121,9 +121,9 @@ function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: st
  * test writes and reads. What plain storage cannot hold is the ALIASING an address brings (review 2026-09-15), so that is
  * refused: two variables whose addresses overlap — under byte addressing and under word addressing alike, as which one
  * the project uses is not read — several names on one address, an incomplete `%I*` (mapped elsewhere), an address in a
- * METHOD or FUNCTION. An FB field's address shared by the FB's several instances is refused once the POU has lowered.
+ * METHOD or FUNCTION or on a VAR_TEMP. An FB field's address shared by the FB's several instances is refused once the POU has lowered.
  */
-export function bindAddress(lw: Lowering, decl: VarDecl): boolean {
+export function bindAddress(lw: Lowering, decl: VarDecl, perRun: boolean): boolean {
   const text = decl.at!.tokens.map((t) => t.text).join("")
   const refuse = (why: string): boolean => {
     lw.bail("var-at", `${decl.names.map((n) => n.text).join(", ")} AT ${text}: ${why}`, decl.span)
@@ -131,7 +131,9 @@ export function bindAddress(lw: Lowering, decl: VarDecl): boolean {
   }
   const m = parseAddress(text)
   if (m === undefined) return refuse("an address that is incomplete, or of a shape not modelled")
-  if (lw.routineMode) return refuse("an address inside a METHOD or FUNCTION")
+  // a per-run local (`Lowering.perRun`) is no storage an address could name between runs — a METHOD's or FUNCTION's, a
+  // VAR_TEMP (7.6.4)
+  if (perRun) return refuse(lw.routineMode ? "an address inside a METHOD or FUNCTION" : "an address on a VAR_TEMP, a local of its body's run")
   if (decl.names.length > 1) return refuse("several variables on one address")
   const clash = addressClash(lw, m)
   if (clash !== undefined) return refuse(`it overlaps ${clash} — the vendor aliases them and this has no byte-addressable area to do it in`)

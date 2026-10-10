@@ -1766,6 +1766,31 @@ S-out identical; S-ir moves the field indices after a VAR_TEMP. (2) The emitter'
 pedantic may only fall); tests `emit/rust/routine.test.ts` ("an FB's VAR_TEMP is a local of `call()`, `mut` only where
 stored"), `init/temp-resets.test.ts` (the interpreter starts a VAR_TEMP over without a reset statement).
 
+**Measured in the step (2026-10-10).** The batch (CODESYS and TwinCAT build, CODESYS run) answered the refusal's shapes:
+a METHOD and a derived body naming the VAR_TEMP are "Identifier 'scratch' not defined" on both vendors
+(`var_temp_named_in_method`, `_in_derived_body`); an ACTION and `THIS^.scratch` in the body COMPILE on both, and read 0
+where the body stored 5 (`var_temp_named_in_action`, `_through_this`: seen = 1) — so neither is the run's VAR_TEMP, and
+both stay `var-temp-outside-body` with that recording as evidence (niche: 0 occurrences in the corpora, whose 4 ST VAR_TEMP
+sections no ACTION, METHOD or `THIS^.` names). The two refused shapes were an LSP gap the step closed in the front-end,
+not the transpiler: `symbols/scope-nav.ts` `lookup` reaches no VAR_TEMP from a METHOD and no base's from a derived body
+(an ACTION reaches its FB's own; a PROPERTY accessor's reach is unrecorded and kept, as an unrecorded refusal would be a
+false positive). And `refuse_var_temp_struct`, whose body only writes `scratch.x`, needed one more rustc fact than the
+design named: a store INTO a local (`x.f = v`, `x[i] = v`) is no use of it (`locals.ts` `unreadOf`), so it prints `_scratch`
+— no allow. A dead store the ST itself makes (three fixtures zero their VAR_TEMPs on the way out) is the allowed
+`unused_assignments` it already was for a routine's local.
+
+**Gate 7.6b's review (2026-10-10), recorded in one more batch** (8 fixtures, `declarations/section-semantics.ts`
+`tempReview`; CODESYS and TwinCAT build all eight, CODESYS run): a derived FB may declare a VAR or a VAR_TEMP named like
+its base's VAR_TEMP — two variables (`var_temp_base_redeclared_as_var`: sv 20, bs 4; `_as_temp`: ds 110, bs 4), which the
+locals model already ran and the LSP's `inherited-variable` check had called a duplicate (fixed: a base VAR_TEMP is not
+inherited). A base's VAR_TEMP run by `SUPER^()` starts over at its initializer, a dynamic one evaluated each run
+(`var_temp_base_run_by_super_constant_init`: 8; `_dynamic_init`: 40 — 0 before 7.6.4). A field holding a VAR_TEMP's
+address, read in the same run, reads it (`var_temp_address_kept_in_pointer_field`, `var_temp_reference_kept_in_field`:
+3) — lowered again by the VAR_IN_OUT rule (`recordTarget` `scopedTo`), refused `pointer-outlives` anywhere else. And
+where a VAR_TEMP is not visible its name is a global of that name (`var_temp_named_in_method_beside_global`,
+`_in_derived_body_beside_global`: 41 over a global 40): the transpiler asks the symbols' `lookup`, which skips it, and
+refuses only a VAR_TEMP it still finds (an ACTION's).
+
 ---
 
 ## 4. Old → new map

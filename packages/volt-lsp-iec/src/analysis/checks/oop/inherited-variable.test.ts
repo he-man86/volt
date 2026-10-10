@@ -35,3 +35,17 @@ test("the collision is found up the grand-base chain", () => {
     "Duplicate definition of variable 'k' in function block 'FB' and in base 'FB2'",
   ])
 })
+
+// A base FB's VAR_TEMP is storage of the base body's run, not a variable the derived FB inherits: both vendors build a
+// derived FB that declares a VAR or a VAR_TEMP of the same name, and run them as two variables (recorded
+// `var_temp_base_redeclared_as_var`: sv 20, bs 4; `var_temp_base_redeclared_as_temp`: ds 110, bs 4 — transpile-restructure
+// gate 7.6b).
+test("a name the base declares only as VAR_TEMP is no inherited variable", () => {
+  const base = `FUNCTION_BLOCK FB2\nVAR_TEMP sv : INT := 3; END_VAR\nVAR bs : INT; END_VAR\nEND_FUNCTION_BLOCK`
+  expect(dup(`FUNCTION_BLOCK FB EXTENDS FB2\nVAR sv : INT; END_VAR\nEND_FUNCTION_BLOCK\n${base}`)).toEqual([])
+  expect(dup(`FUNCTION_BLOCK FB EXTENDS FB2\nVAR_TEMP sv : INT := 100; END_VAR\nEND_FUNCTION_BLOCK\n${base}`)).toEqual([])
+  // the base's VAR still is
+  expect(dup(`FUNCTION_BLOCK FB EXTENDS FB2\nVAR bs : INT; END_VAR\nEND_FUNCTION_BLOCK\n${base}`)).toEqual([
+    "Duplicate definition of variable 'bs' in function block 'FB' and in base 'FB2'",
+  ])
+})

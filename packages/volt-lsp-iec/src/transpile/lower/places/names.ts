@@ -10,6 +10,8 @@ import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
 import { selfFb } from "./self.js"
 import { calledRoutine } from "../calls/routines.js"
 import { pointerFrame } from "../pointers/state.js"
+import { bodyChain } from "../core/chain.js"
+import type { PendingBody } from "../core/shared.js"
 
 /**
  * A bare name's place, by the precedence a body sees it (transpile-review 19): the routine's own local (its result,
@@ -34,6 +36,11 @@ export function namePlace(lw: Lowering, e: Extract<Expr, { kind: "ident_expr" }>
   if (slot === undefined && inout !== undefined)
     return { slot: inout, path: [], type: lw.inoutSlots[inout]!.type, span: e.span, root: "inout" }
   if (slot === undefined) {
+    // A VAR_TEMP this code SEES but does not run — its FB's ACTION (a PROPERTY accessor's reach is unrecorded) — holds no
+    // value of this run: refused. Where it is not visible — a METHOD, a derived body — the name is whatever else declares
+    // it, a global of that name (`var_temp_named_in_method_beside_global`: 41 over a global 40): the symbols' answer, which
+    // skips a VAR_TEMP the scope does not reach (`symbols/scope-nav.ts` `lookup`).
+    if (lookup(lw.scope, e.name)?.symbol.varSection === "VAR_TEMP") return outerTemp(lw, e.name, e.span)
     const global = globalPlace(lw, e.name, e.span)
     if (global !== undefined) return global
     // `symbols/` decides what the name IS — a GVL, an enum member, a library global — so the report names
@@ -60,3 +67,24 @@ export function methodOf(lw: Lowering, frame: FbType, name: string, span: Span, 
   if (sym?.kind !== "method" && sym?.kind !== "action") return lw.bail("call-method", `${name} is not a METHOD or ACTION lowering can call`, span)
   return calledRoutine(lw, sym, frame, span, sym.name, call)
 }
+
+/**
+ * WHETHER `name` IS A VAR_TEMP OF THE FB `unit` OR OF ONE OF ITS BASES — asked of a MEMBER path, `inst.x` / `THIS^.x`: a
+ * VAR_TEMP is storage of its body's run only (a local, 7.6.4), no member of the instance. Through an instance the vendors
+ * refuse it (`oopa_write_var_temp`: "'scratch' is no input"); `THIS^.scratch` in the body itself they compile and read 0
+ * where the body stored 5 (`var_temp_named_through_this`) — not modelled, niche: accepted loss (0 occurrences in the
+ * corpora). A bare name is the symbols' to resolve (`namePlace`).
+ */
+export function namesOuterTemp(lw: Lowering, unit: PendingBody["unit"] | undefined, name: string): boolean {
+  const key = name.toUpperCase()
+  return (
+    unit !== undefined &&
+    bodyChain(lw, unit).units.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP" && s.decls.some((d) => d.names.some((n) => n.text.toUpperCase() === key))))
+  )
+}
+
+/** The refusal `namesOuterTemp` answers for. */
+export function outerTemp(lw: Lowering, name: string, span: Span): undefined {
+  return lw.bail("var-temp-outside-body", `${name} is a VAR_TEMP — storage of its own body's run, named here outside that body`, span)
+}
+

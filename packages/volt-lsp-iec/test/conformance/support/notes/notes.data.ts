@@ -39,14 +39,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "ad25627749": note("7.8.8", LEAN.shapes1_8),
   // self.f = m(self.f).log10() as f32;
   "b07338e4d9": note("keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
-  // self.f = T::new();
-  "b3e78a179a": note("7.6.4", LEAN.shapes11_12),
   // self.f = f64::m(self.f).cos() as f32;
   "1671a3249d": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // x.f = x.f;
   "c5d30c56ec": note("7.8.4", LEAN.shapes17_10),
-  // self.f = [Li16; L];
-  "c8927952f2": note("7.6.4", LEAN.shapes11_12),
   // m(x.f);
   "ca823a2c56": note("7.8.4", LEAN.shapes17_10),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;

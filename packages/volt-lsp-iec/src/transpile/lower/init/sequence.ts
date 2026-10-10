@@ -45,6 +45,12 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     if (assigned === undefined) return undefined
     const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
 
+    // A VAR_TEMP IS A LOCAL OF THE BODY'S RUN (7.6.4) and the init step runs before any run, so there is none to read:
+    // what CODESYS answers for `x : INT := tempVar` is not recorded. Refused by name (0 in the fixtures and the corpora).
+    const local = values.reduce<string | undefined>((f, v) => f ?? reads(v, (p) => (p.root === "local" ? (lw.localSlots[p.slot]?.name ?? "a VAR_TEMP") : undefined)), undefined)
+    if (local !== undefined)
+      return lw.bail("init-reads-later", `${pending.name.text}'s initial value reads the VAR_TEMP ${local}, which only a run of the body holds — the init step runs before any`, pending.span)
+
     // A LATER DECLARATION HAS NOT BEEN INITIALIZED YET, and neither has a CONSTANT one: the whole sequence runs in
     // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). The init step's
     // position rule makes that so for a scalar or an aggregate (`position.ts`: the later constant is a statement after
@@ -84,7 +90,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
   return out
 }
 
-/** One queued initializer, lowered as the assignment it is — also a VAR_TEMP's, on every run (`resetTemps`). */
+/** One queued initializer, lowered as the assignment it is — also a per-run local's, on every run (`localInits`). */
 export function lowerPendingInit(lw: Lowering, pending: PendingInit): IrStmt[] | undefined {
   const lowered = lowerStmt(lw, {
     kind: "assign",
@@ -111,16 +117,6 @@ export function lowerPendingInit(lw: Lowering, pending: PendingInit): IrStmt[] |
 export function reads(e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
   return findPlace(e, onPlace, initReadChildren)
 }
-
-/**
- * A place that is THIS FRAME's slot at index `slot` or later. A place with a `root` is somebody else's storage — a
- * global, an in-out, a routine's local — and is not this frame's slot at all, which is what made a `VAR_EXTERNAL`
- * read look like a later declaration.
- */
-export const laterThan =
-  (lw: Lowering, slot: number) =>
-  (place: Place): string | undefined =>
-    place.root === undefined && place.slot >= slot ? (lw.slots[place.slot]?.name ?? "a later declaration") : undefined
 
 /** The frame slot a place of this frame is in — its own, or the field `THIS^.f` names — or undefined for other storage. */
 function frameSlotOf(lw: Lowering, place: Place): number | undefined {

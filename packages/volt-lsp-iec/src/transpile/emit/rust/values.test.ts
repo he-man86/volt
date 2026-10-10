@@ -47,20 +47,22 @@ describe("emit/rust — a negative constant keeps its sign inside a method call"
 })
 
 /**
- * A VAR_TEMP RESET HONOURS ITS DECLARED INITIALIZER (transpile-review task 30). A composite VAR_TEMP is reset on
+ * A VAR_TEMP RESET HONOURS ITS DECLARED INITIALIZER (transpile-review task 30). A composite VAR_TEMP was reset on
  * every call through a `fresh` expression; that printed the free, init-blind `initOf`, so `arr := [5, 6, 7]` and
  * `s := (a := 9)` came back as the type's zeros where CODESYS resets them to the declared values
- * (`decl_temp_array_init_resets`, `decl_temp_struct_init_resets`).
+ * (`decl_temp_array_init_resets`, `decl_temp_struct_init_resets`). A VAR_TEMP is a local of `call()` now (7.6.4): its
+ * fresh start each call is its `let`, at that same initial value.
  */
 describe("emit/rust — a VAR_TEMP reset", () => {
   test("an initialized array or struct in VAR_TEMP is reset to its initializer, not to zero", () => {
     const code = rust(
       "TYPE ST_P :\nSTRUCT\n\ta : INT;\n\tb : INT := 4;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB\nVAR_TEMP\n\tarr : ARRAY[0..2] OF INT := [5, 6, 7];\n\tsx : ST_P := (a := 9);\nEND_VAR\nVAR\n\tout : INT;\nEND_VAR\nout := arr[1] + sx.a;\nEND_FUNCTION_BLOCK\n",
     )
-    // the reset at the top of `call`, not the declaration in `new()`
+    // bound at the top of every `call`, not a field built once in `new()`
     const call = code.slice(code.indexOf("pub fn call("))
-    expect(call).toContain("self.arr = [5i16, 6i16, 7i16];")
-    expect(call).toContain("self.sx = ST_P { a: 9, ..ST_P::new() };") // struct-update syntax (7.8.3)
+    expect(call).toContain("let arr: [i16; 3] = [5i16, 6i16, 7i16];")
+    expect(call).toContain("let sx: ST_P = ST_P { a: 9, ..ST_P::new() };") // struct-update syntax (7.8.3)
+    expect(code).not.toContain("pub arr:")
   })
 })
 

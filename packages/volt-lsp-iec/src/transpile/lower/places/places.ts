@@ -11,7 +11,7 @@ import { lookup } from "../../../frontend/symbols/index.js"
 import { listVariableShadows, qualifiedGlobal } from "./globals.js"
 import { pointeePlace, throughReference } from "../pointers/deref.js"
 import { addressPlace } from "../storage/addresses.js"
-import { namePlace } from "./names.js"
+import { namePlace, namesOuterTemp, outerTemp } from "./names.js"
 import { elementaryRef, elementOf, peelArray, type Type } from "../../../frontend/types/index.js"
 import { boundOf } from "./bounds.js"
 import { binaryOf } from "../core/build.js"
@@ -31,6 +31,9 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     if (base === undefined) return undefined
     const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     const field = fieldIn(layout?.fields, e.member.name)
+    // an instance's VAR_TEMP is no field of it — `inst.scratch`, `THIS^.scratch` (7.6.4)
+    if (field === undefined && base.type.kind === "function_block" && namesOuterTemp(lw, lw.bodies.get(base.type.name.toUpperCase())?.unit, e.member.name))
+      return outerTemp(lw, e.member.name, e.span)
     if (field === undefined) return lw.bail(notAMember, "member access is not lowered yet", e.span)
     return step(lw, base, { kind: "field", name: field.name }, field.type, e.span)
   }

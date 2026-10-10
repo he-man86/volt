@@ -33,7 +33,7 @@ export interface LookupResult {
  * which uses `lookupLocal` directly). Without this, a qualified-only global leaks into the bare namespace
  * and can shadow a same-named GVL block (the lenze `Mach1` collision → 197 spurious unknown-member FPs).
  */
-function lookupInChain(scope: Scope, name: string, askerUri: string | undefined): LookupResult | undefined {
+function lookupInChain(scope: Scope, name: string, askerUri: string | undefined, temps: TempReach = "all"): LookupResult | undefined {
   // an INTERFACE inherits from each base of its EXTENDS list (rule H4): the whole ancestry, nearest first
   if (scope.interfaceBases !== undefined) {
     for (const s of ancestry(scope)) {
@@ -51,11 +51,32 @@ function lookupInChain(scope: Scope, name: string, askerUri: string | undefined)
         ? projectLevelHit(s, lookupLocal(s, name), askerUri)
         : s.libraryUri !== undefined
           ? namespaceHit(s, s.libraryUri, lookupLocal(s, name).filter(binds))
-          : lookupLocal(s, name).find(binds)
+          : lookupLocal(s, name).find((h) => binds(h) && reaches(h, temps, s === scope))
     if (hit !== undefined) return { symbol: hit, foundIn: s }
     s = s.baseScope
   }
   return undefined
+}
+
+/**
+ * WHICH VAR_TEMP A BARE NAME REACHES on a scope and its EXTENDS chain: `all` (a member path, `inst.x` / `THIS^.x`, which
+ * the checks judge themselves), `own` (the scope's own, not a base's — a derived FB's body naming its base's VAR_TEMP is
+ * "Identifier 'scratch' not defined" on both vendors, `var_temp_named_in_derived_body`), or `none` (from a METHOD of the
+ * FB: "Identifier 'scratch' not defined", `var_temp_named_in_method`). A VAR_TEMP is storage of its own body's run.
+ * An ACTION reaches its FB's own (both vendors compile it, `var_temp_named_in_action`); a PROPERTY accessor's reach is not
+ * recorded, so it keeps the FB's own — an unrecorded refusal would be a false positive.
+ */
+type TempReach = "all" | "own" | "none"
+
+function reaches(sym: Symbol, temps: TempReach, own: boolean): boolean {
+  return sym.varSection !== "VAR_TEMP" || temps === "all" || (temps === "own" && own)
+}
+
+/** The VAR_TEMP a bare name written in `child` reaches on its parent: none from a METHOD, the FB's own from anything else. */
+function parentTemps(child: Scope): TempReach {
+  const parent = child.parent
+  const method = child.kind === "method" && parent !== undefined && lookupLocal(parent, child.name).some((h) => h.kind === "method")
+  return method ? "none" : "own"
 }
 
 /**
@@ -127,9 +148,11 @@ function searchStep(sym: Symbol): number {
 export function lookup(start: Scope, name: string): LookupResult | undefined {
   const askerUri = scopeUri(start)
   let cur: Scope | undefined = start
+  let temps: TempReach = "own"
   while (cur !== undefined) {
-    const hit = lookupInChain(cur, name, askerUri)
+    const hit = lookupInChain(cur, name, askerUri, temps)
     if (hit !== undefined) return hit
+    temps = parentTemps(cur)
     cur = cur.parent
   }
   return undefined

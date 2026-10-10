@@ -89,8 +89,8 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   }
   const programOrder = calledOrder(st, programs)
   if (programOrder === undefined) return undefined
-  if (lw.globals.some((g) => g.section !== "program" && reachesFbInit(st, g.type, "init-step"))) return unreached(st, "the globals")
-  for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reachesFbInit(st, l.type, "init-step"))) return unreached(st, `${r.routine.name}'s locals`)
+  const outside = unreachedHolder(st)
+  if (outside !== undefined) return unreached(st, outside)
   const steps = [...ordered, ...programOrder.flatMap((p) => p.statements)]
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (st.globalArguments.size > 0 && writesGlobal(lw, steps))
@@ -103,6 +103,20 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   if (st.slotCalls.length > 1 && slotOrderShows(lw, st.slotCalls))
     return lw.bail("init-slot-order", `${st.slotCalls.length} call_after_global_init_slot METHODs whose order among themselves could show — not modelled`, span)
   return [...st.out, ...steps, ...st.slotCalls]
+}
+
+/**
+ * Where an instance the init step has work for sits that its walk does not reach — undefined when nowhere: a global, a
+ * routine's local, a VAR_TEMP (a local of its body's run, 7.6.4: the scan's or an FB body's). Whether and when its init
+ * would run there is not measured.
+ */
+function unreachedHolder(st: InitStep): string | undefined {
+  const { lw } = st
+  const reaches = (slots: readonly IrSlot[]): boolean => slots.some((s) => reachesFbInit(st, s.type, "init-step"))
+  if (reaches(lw.globals.filter((g) => g.section !== "program"))) return "the globals"
+  for (const r of lw.routines.values()) if (r.state === "lowered" && reaches(r.routine.locals)) return `${r.routine.name}'s locals`
+  if (reaches(lw.localSlots)) return "the scan's VAR_TEMP"
+  return [...lw.layouts.values()].find((l) => reaches(l.locals ?? []))?.name.concat("'s VAR_TEMP")
 }
 
 /**

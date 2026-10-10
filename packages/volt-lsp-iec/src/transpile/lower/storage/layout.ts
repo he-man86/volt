@@ -21,17 +21,15 @@ import { drain } from "../core/nested.js"
 const buildingOf = sharedState(() => new Set<string>())
 
 /**
- * The FB variable sections that get a FRAME SLOT. VAR_IN_OUT does not: it aliases the caller's variable. Nor does
- * VAR_STAT, which is shared by every instance (`declareStatics`). VAR_TEMP does, and is started over on each run
- * (`resetTemps`).
- *
- * A FRAME SLOT IS NOT THE SAME AS A BYTE IN THE INSTANCE, and this said "an instance's storage", which reads as if it
- * were. `bytes.ts` skips VAR_TEMP and VAR_STAT when it lays an instance out, and says the opposite in its own words —
- * the two files were read as contradicting each other. They do not: a temp lives in the frame so the body can use it,
- * and is absent from the layout SIZEOF reports. **What CODESYS answers for SIZEOF of an FB holding a VAR_TEMP is not
- * measured** — `mem_sizeof_fb_with_temp` and `mem_sizeof_fb_with_stat` record it against a baseline that has neither.
+ * The FB variable sections that get a FRAME SLOT — a field of the instance. VAR_IN_OUT does not: it aliases the caller's
+ * variable. Nor does VAR_STAT, which is shared by every instance (`declareStatics`). Nor does VAR_TEMP (transpile-restructure
+ * 7.6.4): it is per-run storage, a LOCAL of the body's run (`Lowering.perRun`), declared with the frame (`buildLayout`)
+ * and started over at its initial value on every run — not a field the instance carries between runs. `bytes.ts` skips
+ * VAR_TEMP and VAR_STAT when it lays an instance out, so SIZEOF and the frame now agree. **What CODESYS answers for SIZEOF
+ * of an FB holding a VAR_TEMP is not measured** — `mem_sizeof_fb_with_temp` and `mem_sizeof_fb_with_stat` record it against
+ * a baseline that has neither.
  */
-const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_TEMP"])
+const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT"])
 
 /**
  * The type a variable is STORED as: a sizeless string with its capacity, a struct or FB under its DECLARED name (ST is
@@ -80,6 +78,8 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   nested.selfType = t
   nested.codeOwner = t.scope
   nested.frameContext = `FB:${t.name.toUpperCase()}`
+  // its body's VAR_TEMP are the run's locals, keyed as a routine's are (a pointer's key, an instance handle's context)
+  nested.routineContext = `ROUTINE:${nested.frameContext}`
   const statics: { name: string; global: number }[] = []
   const base = (name: string | undefined): void => {
     if (name === undefined) return
@@ -119,6 +119,8 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // the field takes its default and `initStep` runs the expression PER INSTANCE, which is what the measured
     // declaration-order rule needs (`declarations/init-sequence.ts`).
     declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)), true)
+    // its VAR_TEMP: the body's per-run locals, declared with the frame so its initializers' types fold in the FB's scope
+    declareVars(nested, ast.varSections.filter((s) => s.sectionKind === "VAR_TEMP"), true)
     // an `ARRAY[*]` in-out's bounds are the instance's: each call stores them, and the body reads them there
     declareOpenBounds(nested, ast.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR")
     for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_STAT")) declareStatics(lw, nested, t.name, section, statics)

@@ -94,7 +94,9 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
   const globals = pou.globals.map((s) => instantiate(s.type, s.init, layouts))
-  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, new Memory(pou.image), options.loopGuard)
+  // the scan's locals — the POU's VAR_TEMP (7.6.4) — start over at their initial values on every scan
+  const locals: Val[] = []
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, new Memory(pou.image), options.loopGuard, locals)
   if (pou.init !== undefined) machine.block(pou.init)
 
   return {
@@ -112,6 +114,9 @@ export function run(pou: IrPou, options: RunOptions = {}): Runner {
       const { at, type } = found
       ;(at.container as Record<string | number, Val>)[at.key] = storeAs(value, type)
     },
-    scan: () => void machine.block(pou.body),
+    scan: () => {
+      locals.splice(0, locals.length, ...(pou.locals ?? []).map((s) => instantiate(s.type, s.init, layouts)))
+      machine.block(pou.body)
+    },
   }
 }

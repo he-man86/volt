@@ -100,7 +100,8 @@ const rustc = RUSTC
 
 describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
   test("the emitted crate builds clean under rustc", async () => {
-    const sources = [
+    // a source, or one whose module excuses ONE rustc lint, with the reason written above it
+    const sources: (string | { source: string; allow: string })[] = [
       COUNTER,
       "PROGRAM Loops\nVAR i : INT; n : INT; w : INT; END_VAR\nFOR i := 1 TO 3 DO n := n + i; END_FOR\nWHILE w < 3 DO w := w + 1; END_WHILE\nREPEAT n := n - 1; UNTIL n <= 0 END_REPEAT\nEND_PROGRAM\n",
       "PROGRAM Branch\nVAR m : INT; n : INT; rv : REAL; ok : BOOL; END_VAR\nCASE m OF\n 1: n := 0;\n 2..4: n := 1;\nELSE\n n := 9;\nEND_CASE\nok := (m > 0) AND_THEN (n < 10);\nrv := m / 2;\nEND_PROGRAM\n",
@@ -146,9 +147,20 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
       // Interfaces (phase 5): a call and a property set and get dispatched on the tag, a copy between interfaces, and
       // __QUERYINTERFACE as a `match` — the arms borrow one instance field each.
       "PROGRAM Interfaces\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; found : BOOL; a1 : INT; seen : INT; END_VAR\nIF baseRef <> 0 THEN a1 := baseRef.Area(); END_IF\nshapeRef := sq;\nshapeRef.Size := 5;\nseen := shapeRef.Size;\nbaseRef := shapeRef;\nfound := __QUERYINTERFACE(baseRef, shapeRef);\nbaseRef := rc;\nEND_PROGRAM\nINTERFACE I_Base\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nINTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\nFUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\nFUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n",
-      // Declaration lifetimes (review 2026-09-15): an FB's VAR_STAT one field of `Globals` handed as `g`, VAR_TEMP reset
-      // at the head of the body, the base's in the `SUPER^()` routine, the root's at the head of `scan`.
-      "PROGRAM Lifetimes\nVAR first : FB_LD; second : FB_LD; END_VAR\nVAR_TEMP scratch : INT := 2; END_VAR\nscratch := scratch + 1;\nfirst();\nsecond();\nEND_PROGRAM\nFUNCTION_BLOCK FB_LB\nVAR_STAT counter : INT; END_VAR\nVAR_TEMP baseTemp : INT := 10; END_VAR\nbaseTemp := baseTemp + counter;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LD EXTENDS FB_LB\nVAR_TEMP own : INT; END_VAR\nown := own + 1;\ncounter := counter + own;\nSUPER^();\nEND_FUNCTION_BLOCK\n",
+      // Declaration lifetimes (review 2026-09-15): an FB's VAR_STAT one field of `Globals` handed as `g`; a VAR_TEMP a local
+      // of the fn that runs its body (7.6.4) — the FB's `call()`, the base's in the `SUPER^()` routine, the root's in `scan`.
+      // THE PROGRAM AS WRITTEN: its `scratch := scratch + 1` and `baseTemp := baseTemp + counter` are stores nothing reads
+      // after them. As fields (before 7.6.4) the next run's reset read them and this built under `-D warnings`; as locals
+      // they are the ST's own dead stores, rustc's `unused_assignments` — excused for this module alone, the lint
+      // `lint-policy.ts` allows for the same reason (gate 7.6b: the input had been rewritten to fit the code).
+      {
+        allow: "unused_assignments",
+        source:
+          "PROGRAM Lifetimes\nVAR first : FB_LD; second : FB_LD; END_VAR\nVAR_TEMP scratch : INT := 2; END_VAR\nscratch := scratch + 1;\nfirst();\nsecond();\nEND_PROGRAM\nFUNCTION_BLOCK FB_LB\nVAR_STAT counter : INT; END_VAR\nVAR_TEMP baseTemp : INT := 10; END_VAR\nbaseTemp := baseTemp + counter;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LD EXTENDS FB_LB\nVAR_TEMP own : INT; END_VAR\nown := own + 1;\ncounter := counter + own;\nSUPER^();\nEND_FUNCTION_BLOCK\n",
+      },
+      // …and the same declarations, each read after its store: no dead store in the ST, so nothing is excused — the
+      // printer makes none of its own.
+      "PROGRAM LifetimesRead\nVAR first : FB_LRD; second : FB_LRD; total : INT; END_VAR\nVAR_TEMP scratch : INT := 2; END_VAR\nscratch := scratch + 1;\nfirst();\nsecond();\ntotal := scratch;\nEND_PROGRAM\nFUNCTION_BLOCK FB_LRB\nVAR_STAT counter : INT; END_VAR\nVAR seenBase : INT; END_VAR\nVAR_TEMP baseTemp : INT := 10; END_VAR\nbaseTemp := baseTemp + counter;\nseenBase := baseTemp;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LRD EXTENDS FB_LRB\nVAR_TEMP own : INT; END_VAR\nown := own + 1;\ncounter := counter + own;\nSUPER^();\nEND_FUNCTION_BLOCK\n",
       // VAR_IN_OUT CONSTANT: a `&` parameter bound to a variable, `&{ literal }`, and a method on `&mut self` reading its
       // own field through a copy — the borrow checker is the check.
       "PROGRAM InOutConstant\nVAR x : INT := 3; fromFn : INT; matches : BOOL; inst : FB_IC; END_VAR\nmatches := F_IC_Match(text := 'abc');\nfromFn := F_IC_Twice(value := x);\ninst();\nEND_PROGRAM\nFUNCTION F_IC_Match : BOOL\nVAR_IN_OUT CONSTANT text : STRING; END_VAR\nF_IC_Match := text = 'abc';\nEND_FUNCTION\nFUNCTION F_IC_Twice : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nF_IC_Twice := value * 2;\nEND_FUNCTION\nFUNCTION_BLOCK FB_IC\nVAR own : INT := 4; got : INT; END_VAR\ngot := Twice(value := own);\nEND_FUNCTION_BLOCK\nMETHOD Twice : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nTwice := value * 2;\nEND_METHOD\n",
@@ -243,10 +255,11 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
     // each goes into a module of its own. One flat crate kept the first prelude only, and broke the moment a second POU
     // owned globals: two `struct Globals` (E0428), a collision of the test's namespace, not of any one POU's Rust.
     const crate = sources
-      .map((src, i) => {
-        const { pou, diagnostics } = lowerSource(src, undefined, [len])
+      .map((entry, i) => {
+        const { source, allow } = typeof entry === "string" ? { source: entry, allow: undefined } : entry
+        const { pou, diagnostics } = lowerSource(source, undefined, [len])
         expect(diagnostics).toEqual([])
-        return `pub mod pou_${i} {\n${emitRust(pou!).code}\n}`
+        return `${allow === undefined ? "" : `#[allow(${allow})]\n`}pub mod pou_${i} {\n${emitRust(pou!).code}\n}`
       })
       .join("\n")
 

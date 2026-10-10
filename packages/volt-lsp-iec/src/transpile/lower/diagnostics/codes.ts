@@ -208,6 +208,11 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "unit-kind": "unclassified",
   "var-at": "unclassified",
   "var-at-instances": "unclassified",
+  // A VAR_TEMP named outside the body that declares it (7.6.4: a VAR_TEMP is a local of that body's run). From a METHOD
+  // or a derived body, or through an instance, the vendors refuse it (`var_temp_named_in_method`, `_in_derived_body`,
+  // `oopa_write_var_temp`); from an ACTION or as `THIS^.x` they compile it and read a value that is not the body's
+  // (`var_temp_named_in_action`, `_through_this`: 0, where the body stored 5) — which storage that is, nothing models.
+  "var-temp-outside-body": "not-modelled",
 }
 
 /** Templated families — `expr-${kind}` and friends expand over AST kinds, so they cannot be enumerated. */

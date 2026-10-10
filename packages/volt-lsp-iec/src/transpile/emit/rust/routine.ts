@@ -3,7 +3,7 @@
  * `call()`; their parameters built once (`bodyParams`).
  */
 import type { IrLayout, IrPou, IrRoutine } from "../../ir/index.js"
-import { lateInit, mustUse, storedFirstAtTop, storedTwice, unreadOf, writeSites } from "./locals.js"
+import { lateInit, type LocalsBody, mustUse, storedFirstAtTop, storedTwice, unreadOf, writeSites } from "./locals.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { printTail, resultTail } from "./tail.js"
 import { fieldNames, globalsArgs, globalsParams, tmp } from "./names.js"
@@ -29,13 +29,7 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   // `g` and `prg`, as far as the program has them, are every body's first parameters — no local may take those names
   // INTERNAL: a routine's locals and in-outs are `let` bindings inside a generated fn. Nothing outside reads them, and
   // they legitimately collide with the `g` / `prg` parameters, so these may be renumbered.
-  const named = fieldNames([...routine.locals, ...routine.inouts], globalsArgs(p), true)
-  // a local, input or in-out the body never reads is `_name` (7.7.2): what rustc's `unused_variables` /
-  // `unused_assignments` would say of it is true of the ST — it declared a variable nobody reads
-  const unread = unreadOf(routine)
-  const names = named.map((n, i) => (unread.has(i) && !n.startsWith("_") && !named.includes(`_${n}`) ? `_${n}` : n))
-  const localNames = names.slice(0, routine.locals.length)
-  const inoutNames = names.slice(routine.locals.length)
+  const { localNames, inoutNames } = bodyNames(p, routine)
   const { params: tail, typed } = bodyParams(p, routine.inouts, inoutNames, routine.lent ?? [], p.dead.get(routine.key)?.inouts)
   const stores = writeSites(p, routine.body)
   const params = [
@@ -57,20 +51,7 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
   push(p, `pub fn ${p.fnNames.get(routine.key)!}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   // the result stored by the body's last statement — or by the last of each branch of its final IF — is the tail (7.7.3)
   const tailed = resultTail(routine)
-  // A LOCAL NO READ CAN SEE THE INITIAL VALUE OF has none printed (7.7.2, `lateInit`): it was a value rustc reports is
-  // never read (`unused_assignments`), and Rust proves the local set before every read instead. It is declared where it
-  // is first stored when that is at the body's top level (`let x: T = v;`), else bare at the top (`let x: T;`); `mut`
-  // only where it is stored again, or in a loop
-  const late = lateInit(routine)
-  const twice = storedTwice(p, routine)
-  const declareAt = new Map<number, boolean>()
-  for (const [i, slot] of routine.locals.entries()) {
-    if (routine.inputs.includes(i) || (tailed !== undefined && i === routine.result)) continue
-    const again = twice.has(i)
-    if (!late.has(i)) push(p, `let ${stores.has(i) ? "mut " : ""}${localNames[i]}: ${typeOf(p, slot.type)} = ${initOf(p.layouts, slot.type, slot.init)};`, indent + 1)
-    else if (storedFirstAtTop(routine, i)) declareAt.set(i, again)
-    else push(p, `let ${again ? "mut " : ""}${localNames[i]}: ${typeOf(p, slot.type)};`, indent + 1)
-  }
+  const declareAt = printLocals(p, routine, localNames, (i) => routine.inputs.includes(i) || (tailed !== undefined && i === routine.result), indent + 1)
   const frame: Frame = {
     inoutNames,
     inoutSlots: routine.inouts,
@@ -93,6 +74,49 @@ function printRoutineIn(p: Printer, routine: IrRoutine, fields: readonly string[
 }
 
 /**
+ * The Rust names of a body's locals and in-outs — `let` bindings and parameters inside a generated fn, which nothing
+ * outside reads, so they may be renumbered; never `g` / `prg` / `__mem`, every body's first parameters. A local or in-out
+ * the body never reads is `_name` (7.7.2): what rustc's `unused_variables` / `unused_assignments` would say of it is true
+ * of the ST — it declared a variable nobody reads. `unread` says which (an FB's `call()` leaves its in-outs to its allow).
+ */
+export function bodyNames(p: Printer, body: LocalsBody, unread: ReadonlySet<number> = unreadOf(body)): { localNames: string[]; inoutNames: string[] } {
+  const named = fieldNames([...body.locals, ...body.inouts], globalsArgs(p), true)
+  const names = named.map((n, i) => (unread.has(i) && !n.startsWith("_") && !named.includes(`_${n}`) ? `_${n}` : n))
+  return { localNames: names.slice(0, body.locals.length), inoutNames: names.slice(body.locals.length) }
+}
+
+/**
+ * A BODY'S PER-RUN LOCALS AS `let` BINDINGS at the top of its fn — a routine's, an FB's `call()`'s and the POU's `scan()`'s
+ * VAR_TEMP alike (transpile-restructure 7.6.4), each starting at its initial value on every run; `skip` names the ones
+ * that are not (a routine's inputs, its tail result). A LOCAL NO READ CAN SEE THE INITIAL VALUE OF has none printed (7.7.2,
+ * `lateInit`): it was a value rustc reports is never read (`unused_assignments`), and Rust proves the local set before
+ * every read instead. It is declared where it is first stored when that is at the body's top level (`let x: T = v;`, the
+ * returned map), else bare at the top (`let x: T;`); `mut` only where it is stored again (`writeSites`), or in a loop.
+ */
+function printLocals(p: Printer, body: LocalsBody, localNames: readonly string[], skip: (i: number) => boolean, indent: number): Map<number, boolean> {
+  const stores = writeSites(p, body.body)
+  const late = lateInit(body)
+  const twice = storedTwice(p, body)
+  const declareAt = new Map<number, boolean>()
+  for (const [i, slot] of body.locals.entries()) {
+    if (skip(i)) continue
+    const again = twice.has(i)
+    if (!late.has(i)) push(p, `let ${stores.has(i) ? "mut " : ""}${localNames[i]}: ${typeOf(p, slot.type)} = ${initOf(p.layouts, slot.type, slot.init)};`, indent)
+    else if (storedFirstAtTop(body, i)) declareAt.set(i, again)
+    else push(p, `let ${again ? "mut " : ""}${localNames[i]}: ${typeOf(p, slot.type)};`, indent)
+  }
+  return declareAt
+}
+
+/** A body that is no routine — an FB's `call()`, the POU's `scan()` — printed with its VAR_TEMP as the fn's locals
+ *  (`printLocals`) on `fields` / `fieldSlots`. */
+export function printBody(p: Printer, body: LocalsBody, names: { fields: readonly string[]; localNames: readonly string[]; inoutNames: readonly string[] }, fieldSlots: IrPou["slots"], selfType: Type | undefined, indent: number): void {
+  const declareAt = printLocals(p, body, names.localNames, () => false, indent)
+  const frame: Frame = { inoutNames: names.inoutNames, inoutSlots: body.inouts, localNames: names.localNames, localSlots: body.locals, ...(selfType === undefined ? {} : { selfType }), declareAt }
+  inFrame(p, names.fields, frame, () => fnBody(p, body.body, fieldSlots, indent))
+}
+
+/**
  * The parameters a generated body takes after `g`/`prg` and its inputs: each VAR_IN_OUT (`inoutType`), then each FB
  * instance of another frame lent to it for the call (design §24) — for a routine and an FB's `call()` alike.
  */
@@ -108,9 +132,10 @@ function bodyParams(p: Printer, inouts: IrPou["slots"], inoutNames: readonly str
 export function printCall(p: Printer, layout: IrLayout, names: readonly string[]): void {
   // every generated body is handed the globals as `g`, so no parameter or local of its own may take that name
   const globalsParam = globalsParams(reachOfBody(p, `layout:${layout.name.toUpperCase()}`))
-  const reserved = globalsArgs(p)
   const inouts = layout.inouts ?? []
-  const inoutNames = fieldNames(inouts, reserved, true) // parameters of a generated fn, not a surface a user reads
+  // its VAR_TEMP are the fn's locals (7.6.4); its in-outs are left to the allow below, so only a local may be `_name`
+  const body: LocalsBody = { locals: layout.locals ?? [], inputs: [], inouts, body: layout.body! }
+  const { localNames, inoutNames } = bodyNames(p, body, unreadOf({ ...body, inouts: [] }))
   const { params: tail, typed } = bodyParams(p, inouts, inoutNames, layout.lent ?? [])
   const params = [...globalsParam, ...tail].map((param) => `, ${param}`).join("")
   push(p, "", 0)
@@ -120,9 +145,7 @@ export function printCall(p: Printer, layout: IrLayout, names: readonly string[]
   push(p, `pub fn call${genericList(typed)}(&mut self${params}) {`, 1)
   const selfType: Type = { kind: "function_block", name: layout.name }
   // this body's spans index the file it was WRITTEN in, which need not be the main source (an FB declared in a GVL)
-  withUri(p, layout.bodyUri, () =>
-    inFrame(p, names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => fnBody(p, layout.body!, layout.fields, 2)),
-  )
+  withUri(p, layout.bodyUri, () => printBody(p, body, { fields: names, localNames, inoutNames }, layout.fields, selfType, 2))
   push(p, "}", 1)
 }
 

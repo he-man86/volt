@@ -27,7 +27,7 @@ import type { IrLayout, IrPou, IrRoutine, IrStmt, Place } from "../../ir/index.j
 import { openDims } from "../places/bounds.js"
 import { declareVars } from "../storage/declare.js"
 import { buildInitSequence } from "../init/sequence.js"
-import { resetTemps } from "../init/temp-resets.js"
+import { localInits } from "../init/temp-resets.js"
 import { lowerBlock } from "../statements/statements.js"
 import { addressSharedByInstances } from "../storage/addresses.js"
 import { representable, reversedArray } from "./checks.js"
@@ -89,6 +89,8 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   lowering.isRoot = true
   lowering.displayName = unit.name.text
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
+  // its VAR_TEMP are the scan's locals, keyed as a routine's are (a pointer's key, an instance handle's context)
+  lowering.routineContext = `ROUTINE:${lowering.frameContext}`
   const asInstance = runsAsInstance(unit, scope)
   const body = asInstance ? rootInstance(lowering, unit) : programBody(lowering, unit)
   if (!Array.isArray(body)) return body
@@ -107,7 +109,8 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   if (refused !== undefined) return refused
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = asInstance ? `${unit.name.text}__root` : unit.name.text
-  const pou: IrPou = withoutReplacedGenerics({ name, slots: lowering.slots, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span })
+  const locals = lowering.localSlots.length === 0 ? {} : { locals: lowering.localSlots }
+  const pou: IrPou = withoutReplacedGenerics({ name, slots: lowering.slots, ...locals, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span })
   // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2), then the narrow-arithmetic
   // rule over the folded IR (`values/promote.ts` `narrowPou`, lean 3), and a quiet AND / OR short-circuits
   // (`expressions/operators.ts` `shortCircuitPou`, lean 5)
@@ -161,8 +164,8 @@ function open(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_bloc
     .find((d) => openDims(lowering.resolve(d.type)) > 0)
 }
 
-/** A PROGRAM lowered as its own frame: its variables declared, its init sequence built, its body lowered behind the reset
- *  of its VAR_TEMP — or the refusal that stopped it. */
+/** A PROGRAM lowered as its own frame: its variables declared (its VAR_TEMP the scan's locals), its init sequence built,
+ *  its body lowered behind its locals' initializers that run — or the refusal that stopped it. */
 function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] | LoweredPou {
   const array = open(lowering, unit)
   if (array !== undefined)
@@ -183,14 +186,15 @@ function programBody(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
   const parsed = bodyOf(lowering, unit, unit.body, undefined, { library: false })
   if ("code" in parsed) return refusedBody(unit, parsed)
-  // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
-  return [...resetTemps(lowering, unit), ...lowerBlock(lowering, parsed.statements)]
+  // its VAR_TEMP: the scan's locals, started over on every scan (conformance `life_program_var_temp_runs`; 7.6.4)
+  return [...(localInits(lowering) ?? []), ...lowerBlock(lowering, parsed.statements)]
 }
 
 /** The refusal of a lowered POU whose storage a backend cannot hold: an address shared by instances, a reversed array, or a
  *  slot with no runtime representation. */
 function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>, layouts: readonly IrLayout[], routines: readonly IrRoutine[]): LoweredPou | undefined {
-  const sharedAddress = addressSharedByInstances(lowering, [...lowering.slots, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
+  const locals = [...lowering.localSlots, ...layouts.flatMap((l) => l.locals ?? [])]
+  const sharedAddress = addressSharedByInstances(lowering, [...lowering.slots, ...locals, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
   if (sharedAddress !== undefined)
     return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
   // WHICH SLOTS A CALL LENDS: a VAR_IN_OUT, and a routine's VAR_INPUT (a function's or a method's — CODESYS takes an
@@ -198,7 +202,7 @@ function slotRefusal(lowering: Lowering, unit: Extract<TopLevel, { kind: "functi
   // storage, where an `ARRAY[*]` has no size: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse
   // them) lowered as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot.
   const slots = [
-    ...lowering.slots.map((s) => ({ s, lent: false })),
+    ...[...lowering.slots, ...locals].map((s) => ({ s, lent: false })),
     ...layouts.flatMap((l) => [...l.fields.map((s) => ({ s, lent: false })), ...(l.inouts ?? []).map((s) => ({ s, lent: true }))]),
     ...routines.flatMap((r) => [...r.locals.map((s) => ({ s, lent: s.section === "VAR_INPUT" })), ...r.inouts.map((s) => ({ s, lent: true }))]),
     ...lowering.globals.map((s) => ({ s, lent: false })),

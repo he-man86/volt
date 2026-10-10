@@ -122,11 +122,22 @@ export class Lowering {
     }
   }
 
-  /** Whether this frame already has a variable of that name — the same three places `slot` writes to. */
+  /** Whether this frame already has a variable of that name — the same three places `slot` writes to (a frame's VAR_TEMP
+   *  is a local beside its fields, and one name cannot be both). */
   declared(name: string): boolean {
     const key = name.toUpperCase()
     if (this.globalMode) return this.shared.globals.byName.has(`${this.globalPrefix}${name}`.toUpperCase())
-    return this.routineMode ? this.localByName.has(key) : this.byName.has(key)
+    return this.routineMode ? this.localByName.has(key) : this.byName.has(key) || this.localByName.has(key)
+  }
+
+  /**
+   * Whether a variable of `section` is PER-RUN storage — a local of the run of this body, starting at its initial value
+   * on every run, not a slot of the frame: every variable of a METHOD, ACTION or FUNCTION, and an FB's or PROGRAM's
+   * VAR_TEMP (transpile-restructure 7.6.4, design.md §3.4 step 7.6b — measured: `life_fb_var_temp_calls`,
+   * `life_program_var_temp_runs`).
+   */
+  perRun(section: VarSection["sectionKind"]): boolean {
+    return !this.globalMode && (this.routineMode || section === "VAR_TEMP")
   }
 
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit, extra?: Pick<IrSlot, "readAs" | "declared">): void {
@@ -136,7 +147,7 @@ export class Lowering {
       this.shared.globals.slots.push(slot)
       return
     }
-    if (this.routineMode) {
+    if (this.perRun(section)) {
       this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
       this.localSlots.push(slot)
       return

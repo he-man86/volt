@@ -184,11 +184,12 @@ test("the position rule in an instance keeps the instance's structured initializ
   const struct = run(ir(inStruct, "P"))
   struct.scan()
   expect(struct.get("out")).toEqual(9n)
-  const temp = run(ir(`${pre}PROGRAM P\nVAR i : FB; out : INT; END_VAR\nVAR_TEMP tmp : FB; END_VAR\nout := tmp.k;\ntmp.k := 77;\nEND_PROGRAM\n`, "P"))
-  temp.scan()
-  expect(temp.get("out")).toEqual(5n)
-  temp.scan()
-  expect(temp.get("out")).toEqual(5n)
+  // A VAR_TEMP instance of a type whose init RUNS (`x := F_Next()`) is a local of the scan (7.6.4), which the run-once init
+  // step does not reach — refused, as a routine's local is. It ran that init once and then started the instance over at its
+  // static part every scan (`x` 0), where a VAR_TEMP's running initializer runs on every run (`var_temp_dynamic_init`);
+  // whether a VAR_TEMP instance's init runs per call is not recorded.
+  const temp = lowerSource(`${pre}PROGRAM P\nVAR i : FB; out : INT; END_VAR\nVAR_TEMP tmp : FB; END_VAR\nout := tmp.k;\ntmp.k := 77;\nEND_PROGRAM\n`, "P")
+  expect(temp.diagnostics.map((d) => d.code)).toEqual(["attr-init-unreached"])
 })
 
 // Gate 5c (second review): a type's running initializer reading a field the instance's structured initializer names gave

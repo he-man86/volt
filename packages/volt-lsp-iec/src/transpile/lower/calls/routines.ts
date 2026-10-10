@@ -32,7 +32,7 @@ import { storageOf } from "../storage/layout.js"
 import { overridesCalled } from "../core/ast-walk.js"
 import { chainOf } from "../core/chain.js"
 import { lowerBlock } from "../statements/statements.js"
-import { resetTemps, routineLocalInits } from "../init/temp-resets.js"
+import { localInits } from "../init/temp-resets.js"
 import { interfaceFrame } from "../interfaces/state.js"
 import { drain, nested } from "../core/nested.js"
 import { hiddenInOuts, instanceInOuts, routineInputs } from "./routine-frame.js"
@@ -264,7 +264,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     if (frame !== undefined) instanceInOuts(lw, r, sym, frame, parsed.statements)
-    const inits = routineLocalInits(r)
+    const inits = localInits(r)
     if (inits === undefined) return void drain(lw, r)
     const rest = [...inits, ...lowerBlock(r, parsed.statements)]
     const body = [...resets.filter((reset) => !assignedFirst(reset, rest)), ...rest]
@@ -298,8 +298,9 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
     if (frameChain !== undefined && overridesCalled(frame, new Set(chain.map((u) => u.name.text.toUpperCase())), parsed.statements))
       declareInOuts(r, inOutSections(frameChain).map((s) => ({ ...s, decls: s.decls.map((d) => ({ ...d, names: d.names.filter((n) => !taken.has(n.text.toUpperCase())) })).filter((d) => d.names.length > 0) })))
     for (let i = first; i < r.inoutSlots.length; i++) r.inoutSlots[i] = { ...r.inoutSlots[i]!, ofInstance: true }
-    // the base's own VAR_TEMP starts over each time `SUPER^()` runs it
-    const body = [...resetTemps(r, unit), ...lowerBlock(r, parsed.statements)]
+    // the base's own VAR_TEMP: locals of this routine, started over each time `SUPER^()` runs it (7.6.4)
+    declareVars(r, unit.varSections.filter((s) => s.sectionKind === "VAR_TEMP"), true)
+    const body = [...(localInits(r) ?? []), ...lowerBlock(r, parsed.statements)]
     if (drain(lw, r)) return undefined
     return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body, lent: interfaceFrame(r).lends }
   })
@@ -308,8 +309,9 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
 /**
  * An FB's layout with its body lowered — once, at the first call that reaches it. A derived FB runs ONLY its own body
  * (conformance `inh_call_runs_derived_body`, `inh_empty_derived_body`), and takes the VAR_IN_OUT of its whole chain, the
- * bases' first, as its fields are. Its VAR_TEMP starts over at its initial value on every call (`resetTemps`, measured:
- * conformance `life_fb_var_temp_calls`) — an FB with VAR_TEMP was refused here until that recording (6.A.13).
+ * bases' first, as its fields are. Its VAR_TEMP are the body's locals, each starting over at its initial value on every call
+ * (`localInits`, measured: conformance `life_fb_var_temp_calls`; transpile-restructure 7.6.4) — an FB with VAR_TEMP was
+ * refused here until that recording (6.A.13).
  */
 export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout | undefined {
   const key = name.toUpperCase()
@@ -332,8 +334,9 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const before = frame.diagnostics.length
   declareInOuts(frame, inOutSections(chain))
   pending.state = "lowering"
-  // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body)
-  const body = [...resetTemps(frame, unit), ...lowerBlock(frame, parsed.statements)]
+  // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body): the body's locals, declared with
+  // its layout (`storage/layout.ts`); only an initializer that runs is a statement
+  const body = [...(localInits(frame) ?? []), ...lowerBlock(frame, parsed.statements)]
   // A PROGRAM runs moved out of `Programs` in Rust (the call moves its instance out and back), so a program whose run
   // reaches its own instance — reading `P.x` from an FB it calls — would read a stand-in there. Refused.
   const own = unit.kind === "program" ? lw.shared.globals.byName.get(unit.name.text.toUpperCase()) : undefined
@@ -347,7 +350,8 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   pending.state = "lowered"
   for (const slot of touchedOf(frame)) touchedOf(lw).add(slot)
   // the file this body was written in travels with it, so the emitter can name it on every mapping
-  const called: IrLayout = { ...layout, body, inouts: frame.inoutSlots, lent: interfaceFrame(frame).lends, ...(pending.uri === undefined ? {} : { bodyUri: pending.uri }) }
+  const locals = frame.localSlots.length === 0 ? {} : { locals: frame.localSlots }
+  const called: IrLayout = { ...layout, body, ...locals, inouts: frame.inoutSlots, lent: interfaceFrame(frame).lends, ...(pending.uri === undefined ? {} : { bodyUri: pending.uri }) }
   lw.layouts.set(key, called)
   return called
 }

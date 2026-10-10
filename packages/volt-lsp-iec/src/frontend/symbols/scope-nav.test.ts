@@ -277,3 +277,25 @@ test("a namespace two libraries declare is both libraries' — `CB` is CAA Callb
     expect((project.symbols.get("cb") ?? []).map((s) => s.uri)).toEqual([first])
   }
 })
+
+// transpile-restructure 7.6.4: a VAR_TEMP is storage of its own body's run, so a bare name written elsewhere does not reach
+// it — from a METHOD of the FB ("Identifier 'scratch' not defined", `var_temp_named_in_method`, both vendors) nor from a
+// derived FB's body (`var_temp_named_in_derived_body`); a global of that name is what such a name means (recorded at gate
+// 7.6b, both vendors build it: `var_temp_named_in_method_beside_global`, `_in_derived_body_beside_global`, seen = 41 over
+// a global 40 — and the transpiler reads it so, `lower/places/names.ts`). An ACTION reaches
+// its FB's own (`var_temp_named_in_action`: both vendors compile it), and so does the body that declares it.
+test("a VAR_TEMP is reached by its own body and an ACTION, not by a METHOD or a derived body", () => {
+  const project = buildSymbolTable([
+    file("g.gvl", "VAR_GLOBAL\n scratch : BOOL;\nEND_VAR"),
+    file("base.pou", "FUNCTION_BLOCK FB_T\nVAR_TEMP scratch : INT; END_VAR\nscratch := 1;\nEND_FUNCTION_BLOCK\nMETHOD M\nEND_METHOD\nACTION Act\nEND_ACTION"),
+    file("derived.pou", "FUNCTION_BLOCK FB_D EXTENDS FB_T\nEND_FUNCTION_BLOCK"),
+  ])
+  const fb = findChildScope(project, "FB_T")!
+  const kinds = (start: Scope) => lookup(start, "scratch")?.symbol.varSection
+  expect(kinds(fb)).toBe("VAR_TEMP")
+  expect(kinds(findChildScope(fb, "Act")!)).toBe("VAR_TEMP")
+  expect(kinds(findChildScope(fb, "M")!)).toBe("VAR_GLOBAL")
+  expect(kinds(findChildScope(project, "FB_D")!)).toBe("VAR_GLOBAL")
+  // a member path still names it — what it may mean there is the checks' to say (`THIS^.scratch` compiles)
+  expect(lookupMember(fb, "scratch")?.varSection).toBe("VAR_TEMP")
+})

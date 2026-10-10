@@ -28,7 +28,11 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
   const place = (p: unknown): void => {
     if (p === null || typeof p !== "object") return
     const n = p as Record<string, unknown>
-    if (n.root !== undefined) seen.add("place-root")
+    // A LOCAL IS A SLOT, not an indirection: a VAR_TEMP (a local of its body's run since 7.6.4) or a routine's VAR is read
+    // and written exactly as an unrooted slot is. Every other root — an in-out, a global, `THIS^`, a lent value, the
+    // image — reaches storage the body does not own, and that is what `indirect` bands (gate 7.6b: filing `local` there
+    // moved `decl_temp_counts`, a scalar counter, from arith to indirect).
+    if (n.root !== undefined && n.root !== "local") seen.add("place-root")
     for (const step of (n.path ?? []) as Record<string, unknown>[]) {
       seen.add(`place-${String(step.kind)}`)
       expr(step.index)

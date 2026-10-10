@@ -106,12 +106,13 @@ function frame(pou: IrPou, own: readonly IrSlot[], locals: readonly IrSlot[] = [
 function ownBodies(pou: IrPou, own: ReadonlySet<string>): Body[] {
   const ownName = (name: string): boolean => own.has(name.split(".")[0]!.toUpperCase())
   const fieldsOf = (fb: string | undefined): readonly IrSlot[] => pou.layouts.find((l) => l.name.toUpperCase() === fb?.toUpperCase())?.fields ?? []
-  const program = frame(pou, pou.slots)
+  // a body's VAR_TEMP are its run's locals (7.6.4): the scan's and an FB body's `local` places index them
+  const program = frame(pou, pou.slots, pou.locals)
   return [
     { nodes: pou.body, slotOf: program },
     { nodes: pou.init ?? [], slotOf: program },
     ...pou.routines.filter((r) => ownName(r.name)).map((r) => ({ nodes: r.body, slotOf: frame(pou, fieldsOf(r.fb), r.locals) })),
-    ...pou.layouts.filter((l) => ownName(l.name)).map((l) => ({ nodes: l.body ?? [], slotOf: frame(pou, l.fields) })),
+    ...pou.layouts.filter((l) => ownName(l.name)).map((l) => ({ nodes: l.body ?? [], slotOf: frame(pou, l.fields, l.locals) })),
   ]
 }
 

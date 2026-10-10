@@ -5954,7 +5954,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     0i16;` (`state_routine_outputs`, `accepts_method_var_output`); no `__output_N` field is emitted anywhere (0 lines in
     the rust snapshot). Its `__inout_*` / `__property_N` field items went with 7.6.1 / 7.6.2. Notes resolved: 0878222ac3,
     149af70520, 16410bb3a0, 2421f6476e, 2b6ceac96d, 50ba9519ad, 53bd7d992e, 821a3bb974, d016ad6fda.
-- [ ] 7.6.4 VAR_TEMP as Rust locals; measure first which fixtures' recorded paths name a VAR_TEMP (those keep observable storage).
+- [x] 7.6.4 VAR_TEMP as Rust locals; measure first which fixtures' recorded paths name a VAR_TEMP (those keep observable storage).
       **Owner 2026-10-10: build it here, properly** ("take our time to do it proper"): the design note first (design.md),
       then the code; no deferral, no niche close.
   - Where: `lower/storage/layout.ts` (`INSTANCE_STORAGE`), `init/temp-resets.ts`.
@@ -5968,6 +5968,93 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     which carry no blanket allow), a never-read one becomes `unused_variables` / `unused_assignments`
     (`refuse_var_temp_struct` only writes `scratch.x`), and a base's VAR_TEMP reset by `SUPER^()` inside the derived body
     (`calls/routines.ts`) is not at its fn's top. It needs the written/read sets 7.7.1 builds (`calls/facts.ts`) first.
+  - Done 2026-10-10 (step 7.6b), as design.md §3.4 "Decision (step 7.6b)" has it. The IR says what a VAR_TEMP is:
+    per-run storage, a METHOD's VAR exactly — `Lowering.perRun` files an FB's or PROGRAM's VAR_TEMP as a LOCAL of the body
+    (`IrLayout.locals`, `IrPou.locals`, new; a base's run by `SUPER^()` the `SUPER_` routine's locals, `calls/routines.ts`
+    `baseBody`), `layout.ts` drops VAR_TEMP from `INSTANCE_STORAGE`, and `resetTemps` collapsed into `localInits`
+    (`init/temp-resets.ts`): the local's fresh start IS the reset, only an initializer that is not a constant is a statement.
+    The interpreter enters an FB body (`interp/calls.ts` `call`, `fresh`) and each scan (`runner.ts`) with fresh locals. The
+    Rust prints them through ONE `printLocals` (`emit/rust/routine.ts`) shared by `printRoutine`, `printCall` and `scan()`
+    (`printBody`, `bodyNames`) over a body-shaped view (`locals.ts` `LocalsBody`): `mut` per variable from `writeSites`, no
+    initial value where no read can see it, `_name` for one never read — and a store INTO a local (`x.f = v`, `x[i] = v`)
+    now counts as no use (`unreadOf` `storeInto`, rustc's own count: `refuse_var_temp_struct` prints `let mut _scratch`,
+    which only `scratch.x := 1` names). No allow added; `facts.ts` untouched (the sets are read from the IR, 7.7.1's way).
+    Refused by name, `var-temp-outside-body` (registered `not-modelled`), never resolved to a field or a global of the
+    name: a VAR_TEMP named outside the body that declares it (`places/names.ts` `namesOuterTemp`, `places.ts` for
+    `inst.x` / `THIS^.x`). Recorded in the step's one batch per vendor (CODESYS and TwinCAT Project13 build, CODESYS run),
+    4 new fixtures in `declarations/section-semantics.ts`: `var_temp_named_in_method`, `var_temp_named_in_derived_body`
+    (both vendors: "Identifier 'scratch' not defined" — refused, and the LSP now says so: `symbols/scope-nav.ts` `lookup`
+    reaches no VAR_TEMP from a METHOD and no base's from a derived body; a PROPERTY accessor's reach is unrecorded and
+    kept), `var_temp_named_in_action`, `var_temp_named_through_this` (both vendors COMPILE them, and CODESYS reads 0 where
+    the body stored 5: seen = 1 — not the run's VAR_TEMP; not-lowered, `deferred.transpile` "niche: accepted loss (0
+    occurrences in the corpora)": 4 ST VAR_TEMP sections in the six corpora, none named by an ACTION, a METHOD or `THIS^.`).
+    `oopa_write_var_temp` (`t.scratch := 2`, refused by both vendors) lowered before; it is refused now, as they refuse
+    it. Also refused, 0 fixtures: an AT address on a VAR_TEMP (`var-at`, as in a METHOD, `storage/addresses.ts`), a frame
+    initializer reading a VAR_TEMP (`init-reads-later`, `init/sequence.ts`) and a
+    VAR_TEMP instance with init-step work (`attr-init-unreached`, `init/step.ts` `unreachedHolder`, as a routine's local
+    is: it ran that init once and then restarted the instance at its static part every run). Pointer keys of a body's
+    locals are `ROUTINE:FB:<fb>` / `ROUTINE:POU:<pou>` (a routine local's rules), `image-stack` reads every local.
+    Tests: `init/temp-resets.test.ts` ("the interpreter starts a VAR_TEMP over without a reset statement…", "a VAR_TEMP
+    named outside the body that declares it is refused by name"), `emit/rust/routine.test.ts` ("an FB's VAR_TEMP is a local
+    of `call()`, `mut` only where stored"), `symbols/scope-nav.test.ts` ("a VAR_TEMP is reached by its own body and an
+    ACTION, not by a METHOD or a derived body"), all red first. Premises the representation changed, re-stated:
+    `emit/rust/values.test.ts` (the reset is the `let`), `storage/statics.test.ts` (no path names a VAR_TEMP after the
+    scan; the run copies it out), `init/fb-init.test.ts` (a VAR_TEMP instance of a type whose init runs is refused),
+    `emit-build.test.ts`'s Lifetimes crate (its temps read after their store), `fold-agreement.test.ts` (the frames read
+    `locals`). Notes resolved: b3e78a179a, c8927952f2 (the two 7.6.4 items, deleted).
+    Step 7.6b (7.6.4) numbers: S-out identical over 5544 fixtures (outputs and edge byte-identical against a baseline taken
+    at the step's start, HEAD 799b6e8d5c) but `oopa_write_var_temp`, refused now as both vendors refuse it; the rust layer
+    differs in 16 fixtures; VAR_TEMP held as struct fields 22 -> 0 (16 fixtures; 20 locals now — `mem_sizeof_fb_with_temp`
+    calls no body, `oopa_write_var_temp` does not lower). M (against HEAD's map): pedantic 1865 unchanged
+    (`pub_underscore_fields` 87 unchanged: no VAR_TEMP was `__`-named); surviving lints unchanged; allowed
+    `unused_assignments` 7 -> 14 findings — the ST's own dead stores, now on locals: `decl_temp_array_init_resets`,
+    `decl_temp_struct_init_resets`, `var_temp_dynamic_aggregate_init` zero their VAR_TEMPs on the way out (the reason in
+    `lint-policy.ts` names them); size median 2.7, the ten largest unchanged; shapes 1868 -> 1867 over 3418 -> 3417 lowered
+    fixtures, constructs 1988 -> 1993, noted 27 -> 25; edge agree 3194 -> 3193 (`oopa_write_var_temp`); evidence refused
+    2016 -> 2018, not-lowered 346 -> 348 (the four new fixtures). Tiers move by `tier.ts`'s rule that any rooted place is
+    `indirect` (a routine's local already was): decl 773 -> 770, arith 1574 -> 1570, aggregate 147 -> 142, indirect
+    469 -> 480. LSP exact agreement +4 per vendor (codesys 5066, twincat 4947 of 5544); front-end and analysis baselines:
+    counts only (the new fixtures), no finding, no corpus resolution moved.
+  - GATE 7.6b (2026-10-11): six review findings, all fixed; the four unrecorded behaviours put to the vendors in ONE batch
+    per vendor — 8 fixtures in `declarations/section-semantics.ts` `tempReview` (CODESYS and TwinCAT Project13 build: all
+    eight build clean on both; CODESYS run, 8 cases, 0 failed; `ide.ps1 -Instance transpile-restructure`, both IDEs closed).
+    (1) A derived FB redeclaring a base's VAR_TEMP (was `var-duplicate` at HEAD, lowered silently in 7.6b): both vendors
+    build it as two variables — `var_temp_base_redeclared_as_var` sv 20 / bs 4, `_as_temp` ds 110 / bs 4 after two scans —
+    and the locals model already runs exactly that (confirmed). The LSP called it a duplicate (`Duplicate definition of
+    variable 'sv'…`, both vendors' false positive): `checks/oop/inherited-variable.ts` no longer counts a base VAR_TEMP as
+    inherited (test "a name the base declares only as VAR_TEMP is no inherited variable", red first).
+    (2) `emit-build.test.ts`'s Lifetimes crate: the ORIGINAL program is back, its module `#[allow(unused_assignments)]` with
+    the reason written above it (the ST's own dead stores, `scratch := scratch + 1` and `baseTemp := baseTemp + counter`,
+    are rustc's `unused_assignments` now that the temps are locals; checked: without the allow the crate fails), and the
+    read-after variant is kept beside it as `LifetimesRead`, excusing nothing.
+    (3) A base's VAR_TEMP run by `SUPER^()`: `var_temp_base_run_by_super_constant_init` bo 8, `_dynamic_init` bo 40 —
+    the working tree's answer (HEAD read 0 every run for the dynamic one: the fix 7.6b made, now recorded); src test
+    "a base's VAR_TEMP run by SUPER^() starts over at its initializer, a dynamic one evaluated each run".
+    (4) A field holding a VAR_TEMP's address, read in the same run (`var_temp_address_kept_in_pointer_field`,
+    `var_temp_reference_kept_in_field`: seen = 3): cheap, so fixed rather than recorded as a loss — `pointers/state.ts`
+    `recordTarget` scopes a body field's pointer to the body's own local as it already did one into its VAR_IN_OUT
+    (`scopedTo`: exact where this run stored it, `pointer-outlives` anywhere else, the message now naming both); test
+    "a field holding a VAR_TEMP's address reads it in the run that stored it, and is refused anywhere else".
+    (5) A VAR_TEMP's name read where the temp is not visible, beside a VAR_GLOBAL of that name: both vendors build it and
+    read the GLOBAL (`var_temp_named_in_method_beside_global`, `_in_derived_body_beside_global`: seen 41 over a global
+    40) — the LSP's answer, so `scope-nav.test.ts` now cites a recording. The transpiler follows it: `places/names.ts`
+    asks the symbols' `lookup` and refuses `var-temp-outside-body` only for a VAR_TEMP it still finds (an ACTION's); the
+    member-path refusal (`inst.x`, `THIS^.x`) stays. `temp-resets.test.ts`'s refusal test re-stated where the recording
+    contradicted it (a METHOD beside the global lowers; a derived body with no global is `place-not-local`, "Identifier
+    not defined" on the vendors) — on the recording's grounds, not the code's.
+    (6) `support/transpile/tier.ts`: a `root: "local"` place bands as a slot (new `tier.test.ts`, red first). Against HEAD's
+    map: the 13 VAR_TEMP fixtures are back in their bands (`decl_temp_counts` arith, `decl_temp_constant` decl), and every
+    routine-local fixture leaves `indirect` too — indirect -> call 47, -> arith 20, -> decl 18, -> aggregate 1, -> control 1.
+    Also: `init/sequence.ts` `laterThan` deleted (7.6b left it exported and unread, the 7.10.4 dead-exports gate's one
+    finding). Numbers: typecheck clean, `bun run lint` clean. S-out (`snapshot:transpile check --layers outputs,edge`
+    against the baseline taken at 7.6b's start, HEAD 799b6e8d5c): identical over the baseline's 5540 fixtures but
+    `oopa_write_var_temp` (refused, as both vendors refuse it); 8 new. `rate:fixtures` against HEAD's map: confirmed
+    2987 -> 2995, refused 2016 -> 2018, not-lowered 346 -> 348; lowered 3418 -> 3425; tiers decl 773 -> 793, arith 1574 ->
+    1594, control 161 -> 162, aggregate 147, call 294 -> 341, indirect 469 -> 388; edge agree 3194 -> 3201; pedantic 1865 ->
+    1866 (a new fixture); allowed `unused_assignments` 7 -> 14 (as 7.6b); shapes 1868 -> 1875, constructs 1988 -> 2001,
+    noted 27 -> 25. Front-end and analysis baselines: counts only (the 8 new fixtures). Full suite (`VOLT_REQUIRE_FULL=1`,
+    VOLT_FIXTURES unset): 9229 pass / 35 skip / 391 todo / 0 fail across 320 files (the first run: 9 fail — the dead export
+    and the eight count baselines, fixed above).
 - [x] 7.6.5 A scalar VAR_IN_OUT CONSTANT argument (or a literal bound to one) is passed by value, not copied into `let __copy_N`.
   - Notes: the `__copy_N` notes tagged here by 0.6.
   - Where: `lower/calls/binding.ts`, `emit/rust/calls.ts`.

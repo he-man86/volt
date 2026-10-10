@@ -42,7 +42,8 @@ export interface InitFrame {
   /** Every non-constant initializer of the frame, in declaration order (`PendingInit`). */
   readonly pendingInits: PendingInit[]
   /** A VAR_TEMP's initializer that is not a constant — and a METHOD's or FUNCTION's VAR's, its temporary section — by
-   *  slot (a routine's: its LOCAL slot): it runs at the start of EVERY run of the body (`resetTemps`), never in the
+   *  its LOCAL slot (both are per-run locals, `Lowering.perRun`): it runs at the start of EVERY run of the body
+   *  (`localInits`), never in the
    *  run-once init step — `var_temp_dynamic_init` reads 9 then 10 (transpile-review 24), `var_temp_dynamic_init_method`,
    *  `_function` likewise. Several per slot for an aggregate's dynamic elements (`PendingInit.target`). */
   readonly tempInits: Map<number, PendingInit[]>

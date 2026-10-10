@@ -488,10 +488,347 @@ END_FUNCTION_BLOCK
   },
 ]
 
+/**
+ * openspec transpile-restructure task 7.6.4 (design.md §3.4, step 7.6b): WHO MAY NAME A VAR_TEMP besides the body that
+ * declares it. The transpiler makes a VAR_TEMP a local of the run of its body, so a name reaching it from anywhere else —
+ * the FB's METHOD or ACTION, a derived FB's body, `THIS^.` in its own body — has no storage to reach. Each asks the vendor
+ * whether that name compiles at all; the body stores 5 into the temp before the other code reads it.
+ */
+const tempScope: LanguageTest[] = [
+  {
+    name: "var_temp_named_in_method",
+    pouName: "FB_LANG_vtsm",
+    kind: "function_block",
+    feature: "an FB's VAR_TEMP named in its METHOD — visible there, or not declared?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtsm
+VAR_TEMP
+	scratch : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+scratch := 5;
+Probe();
+END_FUNCTION_BLOCK
+
+METHOD Probe
+seen := scratch + 1;
+END_METHOD
+`,
+    plcPrgVar: "inst : FB_LANG_vtsm; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+  },
+  {
+    name: "var_temp_named_in_action",
+    pouName: "FB_LANG_vtsa",
+    kind: "function_block",
+    feature: "an FB's VAR_TEMP named in its ACTION — visible there, or not declared?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtsa
+VAR_TEMP
+	scratch : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+scratch := 5;
+Probe();
+END_FUNCTION_BLOCK
+
+ACTION Probe
+seen := scratch + 1;
+END_ACTION
+`,
+    plcPrgVar: "inst : FB_LANG_vtsa; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+    deferred: {
+      transpile:
+        "2026-10-10 (transpile-restructure 7.6.4): both vendors compile it, and CODESYS runs it to seen = 1 — the ACTION reads 0 where the body stored 5, so it does not reach the body's run's VAR_TEMP; which storage it reads is not modelled, refused `var-temp-outside-body`; niche: accepted loss (0 occurrences in the corpora: no ACTION names its FB's VAR_TEMP)",
+    },
+  },
+  {
+    name: "var_temp_named_in_derived_body",
+    pouName: "FB_LANG_vtsd",
+    kind: "function_block",
+    feature: "a base FB's VAR_TEMP named in the derived FB's body — inherited, or not declared?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtsd_base
+VAR_TEMP
+	scratch : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+scratch := 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtsd EXTENDS FB_LANG_vtsd_base
+scratch := 5;
+seen := scratch + 1;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtsd; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+  },
+  {
+    name: "var_temp_named_through_this",
+    pouName: "FB_LANG_vtst",
+    kind: "function_block",
+    feature: "an FB's VAR_TEMP named as THIS^.scratch in its own body — a member of the instance, or not?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtst
+VAR_TEMP
+	scratch : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+scratch := 5;
+seen := THIS^.scratch + 1;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtst; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+    deferred: {
+      transpile:
+        "2026-10-10 (transpile-restructure 7.6.4): both vendors compile it, and CODESYS runs it to seen = 1 — `THIS^.scratch` reads 0 where the body stored 5 into `scratch`, so the path is no name of the run's VAR_TEMP; which storage it reads is not modelled, refused `var-temp-outside-body`; niche: accepted loss (0 occurrences in the corpora: no `THIS^.` names a VAR_TEMP)",
+    },
+  },
+]
+
+/**
+ * GATE 7.6b's review of 7.6.4 (2026-10-10): what a VAR_TEMP made a local changed and no recording said. A base FB's
+ * VAR_TEMP was an inherited FIELD before, so a derived FB declaring the same name was `var-duplicate`; a base's VAR_TEMP
+ * run by `SUPER^()` had its dynamic initializer queued on the wrong frame; the address of a VAR_TEMP kept in a field was
+ * read in the same run; and a VAR_TEMP's name read where the temp is not visible meets a global of that name. Each asks
+ * the vendor; two scans, so a value kept across runs and one started over are different numbers.
+ */
+const tempReview: LanguageTest[] = [
+  {
+    name: "var_temp_base_redeclared_as_var",
+    pouName: "FB_LANG_vtrv",
+    kind: "function_block",
+    feature: "a derived FB declares a VAR named like its base's VAR_TEMP — a duplicate, or two variables?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtrv_base
+VAR_TEMP
+	sv : INT := 3;
+END_VAR
+VAR
+	bs : INT;
+END_VAR
+sv := sv + 1;
+bs := sv;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtrv EXTENDS FB_LANG_vtrv_base
+VAR
+	sv : INT;
+END_VAR
+sv := sv + 10;
+SUPER^();
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtrv; outSv : INT; outBs : INT;",
+    plcPrgBody: "inst(); outSv := inst.sv; outBs := inst.bs;",
+    cycles: 2,
+  },
+  {
+    name: "var_temp_base_redeclared_as_temp",
+    pouName: "FB_LANG_vtrt",
+    kind: "function_block",
+    feature: "a derived FB declares a VAR_TEMP named like its base's VAR_TEMP — a duplicate, or two temps?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtrt_base
+VAR_TEMP
+	sv : INT := 3;
+END_VAR
+VAR
+	bs : INT;
+END_VAR
+sv := sv + 1;
+bs := sv;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtrt EXTENDS FB_LANG_vtrt_base
+VAR_TEMP
+	sv : INT := 100;
+END_VAR
+VAR
+	ds : INT;
+END_VAR
+sv := sv + 10;
+ds := sv;
+SUPER^();
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtrt; outDs : INT; outBs : INT;",
+    plcPrgBody: "inst(); outDs := inst.ds; outBs := inst.bs;",
+    cycles: 2,
+  },
+  {
+    name: "var_temp_base_run_by_super_constant_init",
+    pouName: "FB_LANG_vtsc",
+    kind: "function_block",
+    feature: "a base FB's VAR_TEMP with a constant initializer, its body run by SUPER^() — started over each run?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtsc_base
+VAR_TEMP
+	a : INT := 7;
+END_VAR
+VAR
+	g : INT;
+	bo : INT;
+END_VAR
+a := a + g;
+bo := a;
+g := g + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtsc EXTENDS FB_LANG_vtsc_base
+SUPER^();
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtsc; out : INT;",
+    plcPrgBody: "inst(); out := inst.bo;",
+    cycles: 2,
+  },
+  {
+    name: "var_temp_base_run_by_super_dynamic_init",
+    pouName: "FB_LANG_vtsy",
+    kind: "function_block",
+    feature: "a base FB's VAR_TEMP initialized from a field, its body run by SUPER^() — evaluated each run?",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtsy_base
+VAR
+	g : INT := 3;
+	bo : INT;
+END_VAR
+VAR_TEMP
+	a : INT := g * 10;
+END_VAR
+bo := a;
+g := g + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtsy EXTENDS FB_LANG_vtsy_base
+SUPER^();
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtsy; out : INT;",
+    plcPrgBody: "inst(); out := inst.bo;",
+    cycles: 2,
+  },
+  {
+    name: "var_temp_address_kept_in_pointer_field",
+    pouName: "FB_LANG_vtap",
+    kind: "function_block",
+    feature: "the address of a VAR_TEMP stored into a POINTER field and dereferenced in the same run",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtap
+VAR
+	p : POINTER TO INT;
+	seen : INT;
+END_VAR
+VAR_TEMP
+	t : INT;
+END_VAR
+t := 3;
+p := ADR(t);
+seen := p^;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtap; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+  },
+  {
+    name: "var_temp_reference_kept_in_field",
+    pouName: "FB_LANG_vtar",
+    kind: "function_block",
+    feature: "a REFERENCE field bound to a VAR_TEMP and read in the same run",
+    fromDoc: "02-variables.md",
+    source: `FUNCTION_BLOCK FB_LANG_vtar
+VAR
+	rf : REFERENCE TO INT;
+	seen : INT;
+END_VAR
+VAR_TEMP
+	t : INT;
+END_VAR
+t := 3;
+rf REF= t;
+seen := rf;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_vtar; out : INT;",
+    plcPrgBody: "inst(); out := inst.seen;",
+  },
+  {
+    name: "var_temp_named_in_method_beside_global",
+    pouName: "FB_LANG_vtgm",
+    kind: "function_block",
+    feature: "an FB's VAR_TEMP named in its METHOD, a VAR_GLOBAL of the same name declared — the global, or not declared?",
+    fromDoc: "02-variables.md",
+    source: `VAR_GLOBAL
+	vtgm : INT := 40;
+END_VAR
+
+FUNCTION_BLOCK FB_LANG_vtgm
+VAR_TEMP
+	vtgm : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+vtgm := 5;
+Probe();
+END_FUNCTION_BLOCK
+
+METHOD Probe
+seen := vtgm + 1;
+END_METHOD
+`,
+    gvlNames: ["GVL_LANG_var_temp_named_in_method_beside_global"],
+    plcPrgVar: "inst : FB_LANG_vtgm; out : INT; g : INT;",
+    plcPrgBody: "inst(); out := inst.seen; g := vtgm;",
+  },
+  {
+    name: "var_temp_named_in_derived_body_beside_global",
+    pouName: "FB_LANG_vtgd",
+    kind: "function_block",
+    feature: "a base FB's VAR_TEMP named in the derived FB's body, a VAR_GLOBAL of the same name declared — the global, or not declared?",
+    fromDoc: "02-variables.md",
+    source: `VAR_GLOBAL
+	vtgd : INT := 40;
+END_VAR
+
+FUNCTION_BLOCK FB_LANG_vtgd_base
+VAR_TEMP
+	vtgd : INT;
+END_VAR
+VAR
+	seen : INT;
+END_VAR
+vtgd := 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_vtgd EXTENDS FB_LANG_vtgd_base
+seen := vtgd + 1;
+END_FUNCTION_BLOCK
+`,
+    gvlNames: ["GVL_LANG_var_temp_named_in_derived_body_beside_global"],
+    plcPrgVar: "inst : FB_LANG_vtgd; out : INT; g : INT;",
+    plcPrgBody: "inst(); out := inst.seen; g := vtgd;",
+  },
+]
+
 export const SECTION_SEMANTICS_TESTS: readonly LanguageTest[] = [
   ...counters,
   ...constants,
   ...composites,
   ...transpileReview,
   ...initModel,
+  ...tempScope,
+  ...tempReview,
 ]
