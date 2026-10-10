@@ -9,7 +9,7 @@
  */
 import type { IrExpr, IrPou } from "../../ir/index.js"
 import { holdsCall, sameNode } from "../../ir/walk.js"
-import { isBoolValued, isReal } from "../../../frontend/types/index.js"
+import { isBoolValued, isReal, stringKind } from "../../../frontend/types/index.js"
 import { exprBuiltin } from "./builtins.js"
 import { exprDispatch, exprInvoke, exprSelect } from "./calls.js"
 import { exprConvert } from "./convert.js"
@@ -18,7 +18,7 @@ import { placeExpr } from "./place.js"
 import { at, infix, Prec, printed, type Printed } from "./precedence.js"
 import { guarded, holdsString, type Printer, use } from "./printer.js"
 import { isCopy } from "./types.js"
-import { initOf, literal } from "./values.js"
+import { comparedUnits, initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
 
 /** `wrapping_add` and friends — IEC integers wrap at their width; Rust's `+` would panic in debug. */
@@ -145,6 +145,8 @@ function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrP
 function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): Printed {
   const range = rangeTest(p, e, slots)
   if (range !== undefined) return range
+  const literal = literalCompare(p, e, slots)
+  if (literal !== undefined) return literal
   const l = print(p, e.left, slots)
   const r = print(p, e.right, slots)
   const operator = INFIX[e.op]
@@ -184,6 +186,28 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // (a constant divisor lowering proved nonzero needs no check: `IrBinary.nonzeroDivisor`, 7.2.6)
   if (real && e.op === "div" && e.nonzeroDivisor !== true) return printed(`${use(p, "iec_div")}(${at(l, Prec.Block)}, ${at(r, Prec.Block)})`, Prec.Postfix)
   return infix(l, plain, r)
+}
+
+/**
+ * A STRING COMPARED WITH A LITERAL COMPARES AGAINST THE LITERAL'S UNITS (7.4.9): `self.s.units() == b"abc"`, where
+ * `self.s == IecString::<3>::lit(b"abc")` built a whole string to compare with. `IecStr`'s `==` and `<` ARE the
+ * comparison of the two `units()` slices (`runtime/string.ts`), and a literal's units are what `lit` holds before its
+ * first 0 (`comparedUnits`) — the same answer, with nothing new in the runtime for the interpreter to mirror. Against the
+ * empty literal it is `is_empty()` (clippy's `comparison_to_empty`).
+ */
+function literalCompare(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): Printed | undefined {
+  const operator = INFIX[e.op]
+  if (operator === undefined || e.op === "and_then" || e.op === "or_else" || stringKind(e.left.type) === undefined) return undefined
+  const isLiteral = (x: IrExpr): x is Extract<IrExpr, { kind: "const" }> => x.kind === "const" && typeof x.value === "string"
+  if (isLiteral(e.left) === isLiteral(e.right)) return undefined
+  const [lit, other] = isLiteral(e.left) ? [e.left, e.right] : [e.right as Extract<IrExpr, { kind: "const" }>, e.left]
+  const units = printed(`${at(print(p, other, slots), Prec.Postfix)}.units()`, Prec.Postfix)
+  const ordering = e.op !== "eq" && e.op !== "ne"
+  const text = comparedUnits(lit.value as string, lit.type, ordering)
+  if (!ordering && text === 'b""') return printed(`${e.op === "ne" ? "!" : ""}${units.text}.is_empty()`, e.op === "ne" ? Prec.Unary : Prec.Postfix)
+  const l = isLiteral(e.left) ? printed(text, Prec.Postfix) : units
+  const r = isLiteral(e.left) ? units : printed(text, Prec.Postfix)
+  return infix(l, operator, r)
 }
 
 /**

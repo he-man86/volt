@@ -95,8 +95,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1ca8b1b1fc": note("7.7.1", LEAN.shapes13_12),
   // pub fn m(mut x: i16) -> u32 {
   "1d10ec0f39": note("7.7.1", LEAN.shapes13_12),
-  // x: [IecString::<L>::lit(B); L],
-  "1d9f55ded0": note("7.4.8", LEAN.shapes14_16),
   // pub fn x<const T: usize>(mut x: usize, x: &mut IecString<T>) -> u8 {
   "1dec9ffb7e": note("7.8.6", LEAN.shapes16_14),
   // self.f = len(self.f.to::<L>());
@@ -105,8 +103,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "30c4deeec9": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // self.f.__numbers_upper_N = Li32;
   "22f3bd9b6d": note("7.7.8", LEAN.shapes14_15),
-  // self.f = self.f.f == IecWString::<L>::lit(&[Lu16, …]);
-  "23d12708e2": note("7.4.8", LEAN.shapes15_12),
   // self.f = f64::m(self.f).sin() as f32;
   "d47543941e": note("keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // pub fn m(mut x: u32) -> bool {
@@ -128,8 +124,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "2b67f9045b": note("7.6.5", LEAN.shapes19_7),
   // self.__property_N = self.f;
   "2b6ceac96d": merged(["7.6.3", LEAN.shapes18_1], ["7.6.2", LEAN.shapes18_2]),
-  // x = *x == IecString::<L>::lit(B);
-  "0f67e47dd7": note("7.4.9", LEAN.shapes14_17),
   // pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {
   "30d5674ec4": note("7.7.5", LEAN.shapes19_8),
   // self.f = Li32.wrapping_neg().max(self.f as i32).min(self.f as i32) as i16;
@@ -329,16 +323,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8cca954ad7": note("7.7.2", LEAN.shapes3_9),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i16;
   "756ba59393": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
-  // self.f.f = IecWString::<L>::lit(&[Lu16, …]);
-  "8f5f221644": note("7.4.8", LEAN.shapes15_12),
   // pub fn sum(&mut self, mut x: [i16; L]) {
   "9034f2a4d6": note("7.7.1", LEAN.shapes18_9),
   // self.f = f64::m(self.__chain_value_N as f32);
   "39fe7afa3e": note("7.6.1", LEAN.shapes7_6),
   // self.f = m(f64::m(self.f)) as u16;
   "9479f0e3c4": note("keep:iec_r2i32 then a narrowing cast is correct against all 192 measured REAL→int cells", LEAN.shapes6_11),
-  // let mut replace: IecString<L> = IecString::<L>::lit(B);
-  "92f7142ab2": note("7.4.7", LEAN.shapes15_11),
   // *x = Li16;
   "96a5b25b66": note("7.7.3", LEAN.shapes1_9),
   // self.f = match self.f { L => self.f.m(Li16), _ => panic!(S) };
@@ -357,16 +347,12 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9c8bf093b2": note("7.6.5", LEAN.shapes16_12),
   // pub fn m(mut str: IecString<L>, mut len: i16, mut x: i16) -> IecString<L> {
   "9c8d21e237": note("7.4.6", LEAN.shapes16_11),
-  // self.f = IecWString::<L>::lit(&[Lu16, …]);
-  "9d62c9b3e2": note("7.4.8", LEAN.shapes2_6),
   // pub __chain_value_N: i16,
   "9e66c9a561": note("7.6.1", LEAN.shapes4_6),
   // (match self.f.f { L => self.f.m(&mut self.v), _ => panic!(S) });
   "9fbd098efb": note("7.8.7", LEAN.shapes3_12),
   // pub fn m(&mut self, mut x: i16) {
   "a01f00db76": note("7.7.1", LEAN.shapes18_9),
-  // self.f = self.f == IecString::<L>::lit(B);
-  "a095c1d0aa": note("7.4.9", LEAN.shapes7_7),
   // self.narrow.m(&self.f.narrow::<L>());
   "a1c2206655": note("7.4.6", LEAN.shapes16_11),
   // x.m(&{ let __arg_N = m(x.f.to::<L>(), IecString::<L>::lit(B)); let __arg_N = x.f.to::<L>(); m(__arg_N, …) });
@@ -385,8 +371,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "a65506e4d8": note("7.8.2", LEAN.shapes18_8),
   // x: { let mut v = T::new(); v.f = IecString::<L>::lit(B); v.f = IecString::<L>::lit(B); v },
   "a7ca9e8349": note("7.8.3", LEAN.shapes16_13),
-  // self.f = *x == IecString::<L>::lit(B);
-  "d8e8c0322e": note("7.4.9", LEAN.shapes14_17),
   // pub fn m(&mut self, prg: &mut Programs) {
   "ab696e2449": note("7.7.5", LEAN.shapes7_8),
   // pub fn m(mut x: u16) -> u16 {
@@ -473,8 +457,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "dc1e3df820": note("7.8.7", LEAN.shapes19_6),
   // pub fn m(&mut self) -> IecString<L> {
   "dc8437c26a": note("7.7.3", LEAN.shapes18_10),
-  // self.f.m(&IecWString::<L>::lit(&[Lu16, …]));
-  "dc950bfb03": note("7.4.8", LEAN.shapes2_6),
   // pub fn m(mut x: i32, x: &mut f64) -> i32 {
   "dd28a02e7e": note("7.7.9", LEAN.shapes19_2),
   // pub x: bool,
@@ -487,8 +469,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "dfc9d07c2c": note("7.7.2", LEAN.shapes15_7),
   // self.f.clamp();
   "e007ef42d8": note("7.7.2", LEAN.shapes3_9),
-  // self.f.f.m(&IecWString::<L>::lit(&[Lu16, …]));
-  "e19e17485d": note("7.4.8", LEAN.shapes15_12),
   // x = i64::m(__values_upper_N.wrapping_mul(Li32));
   "38ec88da3b": note("7.7.8", LEAN.shapes15_13),
   // self.f = m(f64::m(self.f)) as i16;
@@ -497,8 +477,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "e436b886c1": note("7.8.10", LEAN.shapes20_9),
   // x = L;
   "e496034f7b": note("7.7.7", LEAN.shapes12_9),
-  // let mut x: IecString<L> = IecString::<L>::lit(B);
-  "e6646a0bd0": note("7.4.7", LEAN.shapes15_11),
   // { let x = false; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "e76a0c7276": note("7.8.5", LEAN.shapes20_13),
   // x = (*x).m().wrapping_add(x.f);

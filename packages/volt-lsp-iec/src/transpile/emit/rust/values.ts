@@ -26,8 +26,21 @@ function byteString(text: string): string {
 /** A string literal as the units of its type: bytes for a STRING, UTF-16 units for a WSTRING. */
 function unitsLiteral(text: string, t: Type): string {
   // code UNITS, not code points — `split("")` walks UTF-16 units, as the interpreter's string does
-  if (t.kind === "elementary" && t.name === "WSTRING") return `&[${text.split("").map((ch) => `${ch.charCodeAt(0)}u16`).join(", ")}]`
+  // no `u16` per unit: `lit`'s `&[T]` is the WSTRING's own `&[u16]` (7.4.8)
+  if (t.kind === "elementary" && t.name === "WSTRING") return `&[${text.split("").map((ch) => `${ch.charCodeAt(0)}`).join(", ")}]`
   return byteString(text)
+}
+
+/**
+ * A string literal as the UNITS a comparison reads of it (7.4.9): what `lit` would hold before its first 0, at most its
+ * capacity — the bytes `b"abc"` (a STRING), the typed units `[97u16, 98u16]` (a WSTRING: nothing else fixes their type
+ * there) — as an array for `==`/`!=`, a slice for an ordering (`&b"abc"[..]`: a slice has no order against an array).
+ */
+export function comparedUnits(v: string, t: Type, ordering: boolean): string {
+  const capacity = t.kind === "elementary" ? t.length : undefined
+  const units = v.slice(0, capacity).split("\0")[0]!
+  const text = t.kind === "elementary" && t.name === "WSTRING" ? `[${units.split("").map((ch) => `${ch.charCodeAt(0)}u16`).join(", ")}]` : byteString(units)
+  return ordering ? `&${text}[..]` : text
 }
 
 /** The fewest digits that parse back to the same f32 — a folded REAL (`0.10000000149011612`) printed as its f64 is
@@ -57,7 +70,8 @@ export function literal(v: IrValue, t: Type): string {
   // an ADDRESS in the byte image, printed from where the image starts (`runtime/pointer.ts` `IMAGE_BASE`)
   // (hex, grouped by four: one literal, which no position needs parenthesized and clippy reads without a lint)
   if (t.kind === "pointer" && typeof v === "bigint" && v >= IMAGE_BASE) return `0x${v.toString(16).replace(/\B(?=(?:[0-9a-f]{4})+$)/g, "_")}`
-  if (typeof v === "string") return `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
+  // an empty one is the empty string `new` builds (7.4.7): no slice to copy
+  if (typeof v === "string") return v === "" ? `${stringPath(t)}::new()` : `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
   // A REAL CONSTANT TOO BIG FOR ITS WIDTH IS AN INFINITY, not a compile error. `x : REAL := 3.5E38` is accepted by
   // CODESYS and holds `REAL#Infinity` (`bound_real_above_max`), while Rust refuses `3.5e38f32` outright —
   // "the literal does not fit into the type `f32` and will be converted to `f32::INFINITY`", denied by default. So

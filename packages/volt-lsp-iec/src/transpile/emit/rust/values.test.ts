@@ -13,7 +13,7 @@ describe("emit/rust", () => {
     // `new` printed its own defaults, and gave every string `IecStr::new()`: a STRING for a WSTRING field
     const code = rust("PROGRAM P\nVAR\n  flag : BOOL;\n  wide : WSTRING;\n  ratio : REAL;\nEND_VAR\nflag := TRUE;\nEND_PROGRAM\n")
     expect(code).not.toContain("IecStr::new()")
-    expect(code).toMatch(/wide: IecWString\S*::lit\(/)
+    expect(code).toMatch(/wide: IecWString::<\d+>::new\(\)/) // an empty one builds no slice (7.4.7)
   })
 })
 
@@ -86,4 +86,28 @@ describe("emit/rust — a literal's digits", () => {
     expect(code).toContain("a: 0.1,")
     expect(code).toContain("self.b = 3.14159f32;")
   })
+})
+
+// 7.4.7 / 7.4.8: an empty string literal is the empty string `new()` builds; a WSTRING literal's units need no `u16` each —
+// `lit`'s `&[T]` is the WSTRING's `&[u16]`
+test("an empty literal prints `new()`; a WSTRING literal's units print bare", () => {
+  const code = rust("PROGRAM P\nVAR e : STRING(8) := ''; w : WSTRING(10) := \"he\"; a : ARRAY[1..3] OF STRING(4); END_VAR\nw := \"he\";\nEND_PROGRAM\n")
+  expect(code).toContain("e: IecString::<8>::new(),")
+  expect(code).toContain("a: [IecString::<4>::new(); 3],")
+  expect(code).toContain("w: IecWString::<10>::lit(&[104, 101]),")
+  expect(code).not.toContain("104u16")
+})
+
+// 7.4.9: a string compared with a literal compares against the literal's units — `IecStr`'s `==` and `<` ARE the comparison
+// of the two `units()` slices — never a whole string built to compare with; the units stop at the literal's first 0
+test("a string compared with a literal reads the literal's units", () => {
+  const code = rust(
+    "PROGRAM P\nVAR t : STRING(10) := 'abc'; w : WSTRING(5); b1 : BOOL; b2 : BOOL; b3 : BOOL; b4 : BOOL; b5 : BOOL; END_VAR\nb1 := t = 'abc';\nb2 := 'b' < t;\nb3 := t <> '';\nb4 := w = \"hi\";\nb5 := t >= 'ab$00cd';\nEND_PROGRAM\n",
+  )
+  expect(code).toContain(`self.b1 = self.t.units() == b"abc";`)
+  expect(code).toContain(`self.b2 = &b"b"[..] < self.t.units();`)
+  expect(code).toContain(`self.b3 = !self.t.units().is_empty();`)
+  expect(code).toContain(`self.b4 = self.w.units() == [104u16, 105u16];`)
+  expect(code).toContain(`self.b5 = self.t.units() >= &b"ab"[..];`)
+  expect(code).not.toMatch(/[=<>] IecW?String::/)
 })

@@ -5746,22 +5746,48 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     wherever a body reads `STR[k]` past the caller's capacity N: the 255-copy reads 0 there, `char_at` on N panics — every
     Standard body has to be proven to read only below LEN_INTERNAL first, and a caller wider than 255 still needs the copy
     (`string_input_truncation`). Both need their own design note before code.
-- [ ] 7.4.7 An empty-string initializer prints `new()`.
+- [x] 7.4.7 An empty-string initializer prints `new()`.
   - Notes: e6646a0bd0.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 7.4.1.
-- [ ] 7.4.8 A WSTRING literal built at its target capacity from a `&[u16]` const.
+  - Done 2026-10-10 (step 7.4b). `emit/rust/values.ts` `literal`: the empty string prints `IecString::<N>::new()` /
+    `IecWString::<N>::new()` — the empty string `new` builds, no slice copied — wherever a const '' prints (initializers,
+    array elements, a store). 681 lines in 243 fixtures; `lit(b"")` 0. `values.test.ts`'s zero-initialized WSTRING pin
+    reads `IecWString::<N>::new()` (its premise — a WSTRING field is an `IecWString`, never `IecStr::new()` — kept; `lit(`
+    was the spelling it happened to have). Test `values.test.ts` ("an empty literal prints `new()`…"). Notes resolved:
+    92f7142ab2, e6646a0bd0, and 1d9f55ded0 (7.4.8's, `[IecString::<L>::lit(B); L]`, the empty element).
+- [x] 7.4.8 A WSTRING literal built at its target capacity from a `&[u16]` const.
   - Notes: 23d12708e2.
   - Where: `emit/rust/values.ts`.
   - Accept: S-out, M.
   - Depends: 7.4.2.
-- [ ] 7.4.9 A string compared with a literal compares against the literal's bytes, not a built IecStr.
+  - Done 2026-10-10 (step 7.4b). Built at the target's capacity where the store allows it since 7.4.2 (a narrower target;
+    into a wider one the store keeps the destination's tail, measured). `emit/rust/values.ts` `unitsLiteral`: a WSTRING
+    literal's units print bare, `IecWString::<10>::lit(&[104, 101])` — `lit`'s `&[T]` is the WSTRING's `&[u16]`, so the
+    `u16` on every unit said nothing. A `from_str`/`encode_utf16` form was not taken: it needs a new runtime twin, and a
+    WSTRING `$` escape can name units a Rust `&str` cannot hold. Test `values.test.ts` (same test as 7.4.7). Notes resolved:
+    23d12708e2, 8f5f221644, 9d62c9b3e2, dc950bfb03, e19e17485d (1d9f55ded0 under 7.4.7).
+- [x] 7.4.9 A string compared with a literal compares against the literal's bytes, not a built IecStr.
   - What: the runtime gains `eq_bytes(&[u8])`/`cmp_bytes`, mirrored in `semantics/string.ts` and `semantics/string.cases.ts`.
   - Notes: the string-literal-compare notes tagged here by 0.6.
   - Where: `runtime/string.ts`, `emit/rust/expr.ts`, `semantics/string.ts`.
   - Accept: twin test, S-out, M.
   - Depends: 7.4.1.
+  - Done 2026-10-10 (step 7.4b), WITHOUT the planned runtime pair. `IecStr`'s `PartialEq` / `PartialOrd` already ARE the
+    comparison of the two `units()` slices (`runtime/string.ts`), so a literal's side needs no `IecStr` and no new
+    `eq_bytes` / `cmp_bytes`: `emit/rust/expr.ts` `literalCompare` prints `self.t.units() == b"abc"`, `&b"b"[..] <
+    self.t.units()` (an ordering compares slices; an array has no order against a slice), `self.w.units() == [104u16,
+    105u16]` (typed units: nothing else fixes them there), and `!self.t.units().is_empty()` against '' (clippy's
+    `comparison_to_empty`). The literal's units are what `lit` would hold — cut at its capacity and at its first 0
+    (`values.ts` `comparedUnits`: 'ab$00cd' compares as `b"ab"`). Nothing new runs, so nothing new needs a twin: the
+    interpreter's comparison and the runtime's `==`/`<` are unchanged, and S-out holds every string-compare fixture
+    (`string_compare`, `wstring_basic`, `cb_compare_result_values`…) to the recordings. 43 comparisons in 20 fixtures.
+    Test `values.test.ts` ("a string compared with a literal reads the literal's units"). Notes resolved: 0f67e47dd7,
+    a095c1d0aa, d8e8c0322e.
+    Step 7.4b numbers: S-out identical over 5535 fixtures (outputs and edge byte-identical against the same baseline);
+    the rust layer differs in 272 fixtures (against 7.4a's). M (against 7.4a's map): pedantic 9479 unchanged; lints
+    unchanged; size median 3.1, the ten largest unchanged; constructs 2032 -> 2038, noted 270 -> 259.
 
 ### 7.6 Temporaries as locals (lean 6, on model 3; pub_underscore_fields 58)
 
