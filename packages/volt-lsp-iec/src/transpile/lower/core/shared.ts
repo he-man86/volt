@@ -5,8 +5,14 @@
  */
 import type { TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrLayout, IrRoutine, IrSlot } from "../../ir/index.js"
-import type { AttributeLookup } from "../project/prepare.js"
 import type { Lowering } from "./lowering.js"
+
+/** A unit's, member's or declaration's attribute names, by its AST node — what `project/prepare.ts` reads from every file
+ *  (a `Map` there). Declared HERE, where the shared state holds it: `core/` is a leaf below `project/` (rule 4b, design.md
+ *  P2; transpile-restructure 6.B.6), and a type `project/` hands in needs no import back. */
+export interface AttributeLookup {
+  get(node: object): ReadonlySet<string> | undefined
+}
 
 /** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
 export interface PendingBody {

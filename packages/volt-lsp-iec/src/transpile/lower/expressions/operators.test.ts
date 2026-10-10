@@ -137,3 +137,64 @@ describe("a zero on the left of a pointer compare", () => {
     expect([tagged.get("isNull"), tagged.get("notNull")]).toEqual([true, true])
   })
 })
+
+// transpile-restructure 6.B.5 (H4): lowering's NOT and duration scaling read the front-end's rules.
+// `NOT` of a signed integer is the UNSIGNED integer of its width (`types/arith/operators` `notResultType`, recorded
+// `uop_not_*`: `NOT sint` is USINT) — the same value as the bit string lowering stamped (BYTE), another IR type.
+test("NOT of a signed integer types as the unsigned integer of its width", () => {
+  const pou = ir(wrap("u := NOT si; w := NOT i; d := NOT di; l := NOT li;", "si : SINT; i : INT; di : DINT; li : LINT; u : USINT; w : UINT; d : UDINT; l : ULINT;"))
+  const types = pou.body.map((s) => {
+    const v = (s as IrAssign).value
+    return v.kind === "unary" && v.type.kind === "elementary" ? v.type.name : v.kind
+  })
+  expect(types).toEqual(["USINT", "UINT", "UDINT", "ULINT"])
+})
+
+// A duration × or ÷ an integer converts as `types/arith/temporal` `durationScaleConversion` says: an integer WIDER than
+// the duration makes the DURATION convert into it, which CODESYS and TwinCAT refuse — "Cannot convert type 'TIME' to type
+// 'LINT'" (`ar_duration_scaled_stores`, `ar_time_scaled_by_wide_or_unsigned_int_type`); lowering converted the LINT to
+// TIME and ran it. One no wider converts into the signed integer of the duration's width, then computes in the duration.
+test("a duration scaled by a wider integer is refused as the vendors refuse it; a narrower one computes in the duration", () => {
+  const codes = (body: string) => lowerSource(wrap(body, "t : TIME; li : LINT; ul : ULINT; ud : UDINT; ltm : LTIME; x : LINT; ux : ULINT; n : INT := 2;"), "P").diagnostics
+  expect(codes("x := t * li;").map((d) => [d.code, d.message])).toEqual([["duration-scale", "Cannot convert type 'TIME' to type 'LINT'"]])
+  expect(codes("x := li * t;").map((d) => d.code)).toEqual(["duration-scale"])
+  expect(codes("ux := t / ul;").map((d) => [d.code, d.message])).toEqual([["duration-scale", "Cannot convert type 'TIME' to type 'ULINT'"]])
+  expect(codes("t := t * ud; ltm := ltm * ul; t := t / n;")).toEqual([])
+})
+
+// A bit string beside a duration is the UNSIGNED integer of its width (recorded 6Bb gate review, both vendors): TIME × /
+// ÷ BYTE, WORD, DWORD and LTIME × DWORD, LWORD build and compute in the duration — `t / big` with every bit set is 0, an
+// unsigned divisor (`tr_b5_time_times_*`, `tr_b5_time_div_*`, `tr_b5_ltime_times_*`); TIME × LWORD (either order) and
+// TIME ÷ LWORD are refused "Cannot convert type 'TIME' to type 'ULINT'" (`tr_b5_time_times_lword`, `tr_b5_lword_times_time`,
+// `tr_b5_time_div_lword`). Lowering refused all of them `type-unknown`.
+test("a duration scaled by a bit string computes as by the unsigned integer of its width", () => {
+  const vars = "t : TIME := T#3S; ltm : LTIME := LTIME#3S; b : BYTE := 3; w : WORD := 3; dw : DWORD := 3; big : DWORD := 16#FFFFFFFF; lw : LWORD := 3; res : TIME; lres : LTIME;"
+  const diags = (body: string) => lowerSource(wrap(body, vars), "P").diagnostics
+  for (const body of ["res := t * b;", "res := t * w;", "res := t * dw;", "res := dw * t;", "res := t / dw;", "lres := ltm * dw;", "lres := ltm * lw;"])
+    expect(diags(body)).toEqual([])
+  for (const body of ["res := t * lw;", "res := lw * t;", "res := t / lw;"])
+    expect(diags(body).map((d) => [d.code, d.message])).toEqual([["duration-scale", "Cannot convert type 'TIME' to type 'ULINT'"]])
+  const value = (body: string, name: string) => {
+    const runner = run(ir(wrap(body, vars), "P"))
+    runner.scan()
+    return runner.get(name)
+  }
+  expect(value("res := t * dw;", "res")).toBe(9000n)
+  expect(value("res := t / big;", "res")).toBe(0n)
+  expect(value("res := t * big;", "res")).toBe(4294964296n)
+})
+
+// The division by a negative signed integer is the duration's, unsigned (`tr_b5_time_by_negative_signed`, CODESYS run
+// 2026-10-10): T#3S ÷ SINT -1, ÷ INT -2, ÷ DINT -1 are 0; × SINT -1 is 4294964296 ms. An untyped literal past 32 bits
+// beside a TIME is refused (`tr_b5_time_times_wide_literal`, both vendors); 3000000000 computes (`_udint_literal`).
+test("a duration by a negative signed integer computes unsigned; a literal past 32 bits is refused", () => {
+  const vars = "t : TIME := T#3S; si : SINT := -1; i : INT := -2; d : DINT := -1; res : TIME;"
+  const value = (body: string) => {
+    const runner = run(ir(wrap(body, vars), "P"))
+    runner.scan()
+    return runner.get("res")
+  }
+  expect([value("res := t / si;"), value("res := t / i;"), value("res := t / d;"), value("res := t * si;")]).toEqual([0n, 0n, 0n, 4294964296n])
+  expect(lowerSource(wrap("res := t * 5000000000;", vars), "P").diagnostics.map((d) => d.code)).toEqual(["duration-scale"])
+  expect(value("res := t * 3000000000;")).toBe(BigInt.asUintN(32, 3000n * 3000000000n))
+})

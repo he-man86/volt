@@ -155,7 +155,7 @@ function memberTarget(
  * declaration order across VAR_INPUT and VAR_IN_OUT (conformance `callshape_positional_arguments`: 100, 315, 46), so each is
  * named here by the parameter at its position. They were refused whenever the routine had an in-out — pro2193's
  * `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its own FB's METHODs takes the FB's in-outs, so even
- * `ManualControl(a, b)` was. How a position counts a VAR_OUTPUT declared among them is not recorded: refused.
+ * `ManualControl(a, b)` was. A VAR_OUTPUT declared among them is skipped (`tr_b4_positional_past_output`, 6.B.4).
  */
 function positionalArguments(lw: Lowering, routine: IrRoutine, call: Extract<Expr, { kind: "call" }>): CallArg[] | undefined {
   const declared = positionalOf(lw).get(routine.key) ?? []
@@ -166,8 +166,7 @@ function positionalArguments(lw: Lowering, routine: IrRoutine, call: Extract<Exp
       continue
     }
     const parameter = positionalBinding(declared, position)
-    if (typeof parameter === "string")
-      return lw.bail("call-positional", `${routine.name} called with a positional argument ${parameter === "past-parameters" ? "past its parameters" : "counted across a VAR_OUTPUT"}`, arg.span)
+    if (typeof parameter === "string") return lw.bail("call-positional", `${routine.name} called with a positional argument past its parameters`, arg.span)
     args.push({ ...arg, param: { kind: "ident_expr", name: parameter.name, span: arg.span } })
   }
   return args

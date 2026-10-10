@@ -9,7 +9,8 @@ import type { Expr } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
 import { lowerSystemCall } from "./system.js"
 import { lowerClock } from "./clock.js"
-import { elementaryRef, parseConversionName, PLATFORM_ALIASES, type Type, UNKNOWN } from "../../../frontend/types/index.js"
+import { elementaryRef, parseConversionName, type Type, UNKNOWN } from "../../../frontend/types/index.js"
+import { targetOf } from "../../../frontend/symbols/index.js"
 import { lowerConversion } from "./conversions.js"
 import { BUILTIN_ARITY } from "./arity.js"
 import { lowerValueFunction } from "./value-functions.js"
@@ -34,12 +35,11 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>, e
   if (system !== null) return system
   const clock = name === undefined ? null : lowerClock(lw, e, name)
   if (clock !== null) return clock
-  // `__XINT_TO_DINT` and its family: the pointer-width types are the target's own width, so the conversion NAME carries
-  // one too (the corpus writes `__XWORD` 963 times). `parseConversionName` reads elementary names only, so the prefix is
-  // resolved to what the platform makes it before the split (conformance `ct_pointer_width_types`). The names come from
-  // `PLATFORM_ALIASES` — the ONE home — rather than a third spelling of the same three rows, which is what this read.
-  const platform = name === undefined ? undefined : /^(__U?X(?:INT|WORD))_TO_/i.exec(name)?.[1]
-  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_ALIASES.get(platform.toUpperCase())!), undefined)
+  // `__XINT_TO_DINT`, `DINT_TO___UXINT` and their family (rule TY11): the pointer-width types are the target's own width,
+  // so the conversion NAME carries one too (the corpus writes `__XWORD` 963 times) — on EITHER side, read on the project's
+  // target (`parseConversionName`; conformance `ct_pointer_width_types`, `ty_dint_to_uxint`). Only a platform name on the
+  // LEFT was rewritten here, through `PLATFORM_ALIASES`, so `DINT_TO___UXINT` was refused `expr-call` (6.B.5).
+  const conv = name === undefined ? undefined : parseConversionName(name, targetOf(lw.project))
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
   if (name === undefined || arity === undefined) {

@@ -589,6 +589,26 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     task: "none: niche, accepted loss (0 STRUCT fields with FB_Init arguments in the corpora)",
     why: "a STRUCT field's FB_Init argument resolves in the struct's scope; the LSP checks no STRUCT field's FB_Init arguments",
   })),
+  // transpile-restructure 6Ba+6Bb gate review (2026-10-10): an untyped literal past 32 bits beside a TIME, which both vendors
+  // refuse ("Cannot convert type 'TIME' to type 'ULINT'" and its echo) and the LSP passes — the fixture's `deferred.lsp`.
+  // New ground measured, not a regression.
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: `fixtures.${vendor}`,
+    measure: "total: GAP",
+    by: 2,
+    fixture: "tr_b5_time_times_wide_literal",
+    task: "none: niche, accepted loss (0 integer literals past 32 bits beside a duration in the corpora)",
+    why: "the vendors type an untyped literal past 32 bits beside a TIME as ULINT and refuse the TIME into it; the LSP's duration scaling reads only a declared integer's type",
+  })),
+  // …and its four type-dump findings: each vendor's two "Cannot convert" messages, which no store the front-end types explains
+  {
+    baseline: "type-dump",
+    measure: "findings",
+    by: 4,
+    fixture: "tr_b5_time_times_wide_literal",
+    task: "none: niche, accepted loss (0 integer literals past 32 bits beside a duration in the corpora)",
+    why: "the vendors type an untyped literal past 32 bits beside a TIME as ULINT and refuse the TIME into it; the LSP's duration scaling reads only a declared integer's type",
+  },
   // …and the front-end dumps over 5.1's fixtures. A VAR_GLOBAL list binds no scope in the dumps, so a GVL initializer is
   // NOSCOPE (its declaration in fold-dump, its literal in type-dump, a FUNCTION it calls in resolution-dump) — the
   // fixtures need a global that moves and a GVL initializer that stamps its order. The struct-scope gap above shows in
@@ -822,6 +842,16 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
         // 6Af gate review: the destination's width or the other operand's, told apart (`_operand_width`)
         ["call UNKNOWN", 3, "tr_a30_rotate_untyped_literal_operand_width", "ROR(1, 1) beside a WORD / DWORD, into a DWORD / LWORD"],
         ["binary UNKNOWN", 3, "tr_a30_rotate_untyped_literal_operand_width", "the OR over ROR(1, 1) and a WORD / DWORD"],
+        // step 6Bb: a platform conversion's negated argument in an initializer (`tr_b5_*`, DINT_TO___UXINT(-1))
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_b5_platform_conversion_initializers", "DINT_TO___UXINT(-1)'s argument"],
+        // 6Ba+6Bb gate review: negative initial values (`tr_b5_time_by_negative_signed`, `tr_b1_real_to_bit_*`) and a TIME
+        // scaled by an untyped literal past DINT (`tr_b5_time_times_*_literal`: the LSP's duration scaling reads a declared
+        // integer's type, not a literal's — the wide one is the fixture's `deferred.lsp`, niche: accepted loss)
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 3, "tr_b5_time_by_negative_signed", "the initial values -1, -2, -1"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_b1_real_to_bit_into_bool", "m : REAL := -1.5"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_b1_real_to_bit_field", "m : REAL := -1.5"],
+        ["binary UNKNOWN", 1, "tr_b5_time_times_wide_literal", "`t * 5000000000`, refused on both vendors"],
+        ["binary UNKNOWN", 1, "tr_b5_time_times_udint_literal", "`t * 3000000000`"],
       ] as const
     ).map(([kind, by, fixture, why]) => ({
       baseline: "type-dump",

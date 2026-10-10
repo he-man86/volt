@@ -39,8 +39,9 @@ export interface LibraryFile {
  */
 export interface LoweringProject {
   project: Scope
-  /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
-  attributes: AttributeLookup
+  /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse — by AST node, as
+   *  the shared state reads them (`core/shared.ts` `AttributeLookup`). */
+  attributes: { get(node: object): ReadonlySet<string> | undefined }
   /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
   libraryUnits: ReadonlySet<object>
 }
@@ -96,7 +97,3 @@ export function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[];
   return unparsed === undefined ? { files: parsed, manifests } : { unparsed }
 }
 
-/** A unit's, member's or declaration's attribute names, by its AST node. */
-export interface AttributeLookup {
-  get(node: object): ReadonlySet<string> | undefined
-}

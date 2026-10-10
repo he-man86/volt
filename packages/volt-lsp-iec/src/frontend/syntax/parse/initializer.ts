@@ -69,12 +69,17 @@ function isRefusedOperand(cur: Cursor, tokens: readonly Token[], i: number): boo
 }
 
 /** An initializer leading with a `__` IDENTIFIER — no system operator the dialect has (those are keywords) — that is not
- *  read through a `.` as the `__SYSTEM` namespace is (`refuseMalformedInit`). */
+ *  read through a `.` as the `__SYSTEM` namespace is (`refuseMalformedInit`), nor a platform conversion (`__XINT_TO_DINT`,
+ *  rule TY11: it builds there on both vendors, `tr_b5_platform_conversion_initializers`). */
 function isUnknownSystemName(tokens: readonly Token[]): boolean {
   const first = tokens[0]
   const next = tokens[1]
-  return first?.kind === "identifier" && first.text.startsWith("__") && !(next?.kind === "punct" && next.text === ".")
+  return first?.kind === "identifier" && first.text.startsWith("__") && !PLATFORM_CONVERSION.test(first.text) && !(next?.kind === "punct" && next.text === ".")
 }
+
+/** A conversion FROM a platform integer — the only conversion name that starts with `__` (`types/conversion-name.ts` is the
+ *  parser of the whole name; syntax sits below types, so only the prefix is read here). */
+const PLATFORM_CONVERSION = /^__U?X(?:INT|WORD)_TO_/i
 
 /**
  * AN OPERATOR'S TRAILING COMMA in an initializer is refused as in a body (`parse/expression` `parseCall`): `c : INT :=

@@ -1,12 +1,13 @@
 /**
- * LOWERING'S CALL PARAMETER VIEW AGAINST THE FRONT-END'S (transpile-restructure 1.7.18, 6.B.4's input). For every call of
+ * LOWERING'S CALL PARAMETER VIEW AGAINST THE FRONT-END'S (transpile-restructure 1.7.18, 6.B.4). For every call of
  * every lowered fixture whose callee the front-end resolves (`types/infer/callee.resolveCallee`), each POSITIONAL argument
  * is bound twice: by lowering (`lower/calls/parameters.positionalBinding` over `positionalParameters` of the callee's own
  * sections — the rule `invoke.ts` binds by) and by the front-end (`positional[i]`). The two must name the same parameter
- * (and agree it is an in-out), or both bind none (past the parameters). The ONE difference written under 1.7.18 — an
- * argument counted across a VAR_OUTPUT, which lowering refuses and the front-end binds to the next input — is counted and
- * named; this test fails on any other. Every fixture is compared: a fixture that throws or whose GVLs do not parse
- * fails the test by name, never drops out of the comparison.
+ * (and agree it is an in-out), or both bind none (past the parameters) — with no exception: the one difference 1.7.18
+ * wrote down (an argument past a VAR_OUTPUT, which lowering refused and the front-end bound to the next input) was
+ * recorded (`tr_b4_positional_past_output`: the output is skipped) and both bind by the front-end's `isPositionalSection`
+ * now (6.B.4). Every fixture is compared: a fixture that throws or whose GVLs do not parse fails the test by name, never
+ * drops out of the comparison.
  */
 import { expect, test } from "bun:test"
 import { type CallExpr, isStBody, parseSource, type TopLevel, type VarSection } from "../../src/frontend/syntax/index.js"
@@ -32,9 +33,8 @@ function callsOf(node: unknown, out: CallExpr[] = []): CallExpr[] {
   return out
 }
 
-test("lowering binds every positional argument as resolveCallee does, but for the difference written under 1.7.18", () => {
-  const counts = { fixtures: 0, calls: 0, unresolved: 0, instance: 0, direct: 0, positional: 0, acrossOutput: 0 }
-  const acrossOutput = new Set<string>()
+test("lowering binds every positional argument as resolveCallee does", () => {
+  const counts = { fixtures: 0, calls: 0, unresolved: 0, instance: 0, direct: 0, positional: 0 }
   const unread: string[] = []
   const other: string[] = []
   const project = PROJECT_BASE.prepared.project
@@ -76,11 +76,6 @@ test("lowering binds every positional argument as resolveCallee does, but for th
             counts.positional += 1
             const lowering = positionalBinding(declared, position)
             const front = info.positional[position]
-            if (lowering === "across-output") {
-              counts.acrossOutput += 1
-              acrossOutput.add(`${t.name}: ${info.sym.name} argument ${position + 1} — front-end ${front?.name.text ?? "none"}`)
-              continue
-            }
             const l = lowering === "past-parameters" ? "none" : `${lowering.name.toUpperCase()}${lowering.sectionKind === "VAR_IN_OUT" ? "&" : ""}`
             const f = front === undefined ? "none" : `${front.name.text.toUpperCase()}${front.inOut ? "&" : ""}`
             if (l !== f) other.push(`${t.name}: ${info.sym.name} argument ${position + 1} lowering ${l} front-end ${f}`)
@@ -93,7 +88,6 @@ test("lowering binds every positional argument as resolveCallee does, but for th
     }
   }
   console.log(`  [call-parameters] ${JSON.stringify(counts)}`)
-  for (const a of acrossOutput) console.log(`  [call-parameters] across a VAR_OUTPUT: ${a}`)
   expect(unread).toEqual([])
   expect(other).toEqual([])
   expect(counts.fixtures).toBeGreaterThan(3000)

@@ -195,3 +195,16 @@ test("a `to_string` enum's STRING conversion is refused by name; the same enum w
   runner.scan()
   expect(runner.get("txt")).toBe("1")
 })
+
+// transpile-restructure 6.B.5 (H4, rule TY11): a platform conversion's name is read on the project's TARGET, both sides —
+// `DINT_TO___UXINT` was refused `expr-call` (only a platform name on the LEFT was rewritten). Recorded on the 64-bit exec
+// oracle (`ty_dint_to_uxint`): -5 into __UXINT is 18446744073709551611, 16#FFFF_FFFF into __XWORD stays 4294967295.
+test("a platform integer on either side of a conversion name is the target's integer", () => {
+  const source = wrap(
+    "ux := DINT_TO___UXINT(d);\nx := DINT_TO___XINT(d);\nxw := DWORD_TO___XWORD(dw);\nx2 := INT_TO___XINT(i);\nback := __XINT_TO_DINT(x);",
+    "d : DINT := -5; dw : DWORD := 16#FFFF_FFFF; i : INT := -3; ux : __UXINT; x : __XINT; xw : __XWORD; x2 : __XINT; back : DINT;",
+  )
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["ux", "x", "xw", "x2", "back"].map((n) => runner.get(n))).toEqual([18446744073709551611n, -5n, 4294967295n, -3n, -5n])
+})

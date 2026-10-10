@@ -44,7 +44,7 @@ copies have already drifted:
 | Hand-written IR walkers | 9 | `transpile/ir/walk.ts` | 1.2.3, 1.7.4 |
 | The body-lowering pipeline | 5 | `lower/calls/routines.bodyOf` | 1.7.7 |
 | The PROGRAM-reentrancy test | 5 inlined + 2 in the init step | `lower/calls/reentrancy.programReentrant` | 1.7.12 |
-| The integer store wrap | 4 (`stored`, `fit`, `heldAs`, rotate) | `types/width.wrapToWidth` | 1.1.6, 6.B.2 |
+| The integer store wrap | 4 (`stored`, `fit`, `heldAs`, rotate) | `types/width.storeInteger` (on `wrapToWidth`) for `stored` and `fit`; `heldAs` keeps its integer-only guard, the rotate is no store (6.B.2) | 1.1.6, 6.B.2 |
 | BIT-is-BOOL | 7 | `types/predicates.isBoolValued` | 1.1.5, 6.9, 6.B.1 |
 | The operand meet | 3 | `lower/values/promote.meet` | 1.7.15 |
 | Constant folding | 3 mechanisms (two AST folds, one IR fold) | AST: `types/const/fold` (one typed fold after lean 10.2); IR: `transpile/semantics/fold`; the one lowering entry `lower/values/fold.foldExpr`. The two folds stay two **by design** (§1 P3a) and are held together by `test/conformance/fold-agreement.test.ts`. | 1.8.9, 7.10.2 |
@@ -85,6 +85,12 @@ most `lower/` folders import each other. Rule 4b fixes the part that must stay a
 - `lower/values/` imports only `core/` and `diagnostics/`;
 - `lower/project/` imports only `diagnostics/`;
 - every other `lower/` folder may import any `lower/` folder, and `entry/` is the only one that imports `project/`.
+- a LEAF FILE (`LOWER_LEAF_FILES`: `builtins/arity.ts`, `lower/conditions.ts`) imports no `lower/` folder, and any `lower/`
+  file may import it. Amended by 6.B.6 for the three edges the design placed against this rule: `AttributeLookup` is
+  declared in `core/shared.ts` (the state that holds it; `project/prepare.ts` hands in a `Map` of that shape, no import);
+  the exec oracle's world stays `lower/conditions.ts` as a leaf file (as `project/conditions.ts` it would make `calls/`
+  and `expressions/` import `project/`); `foldedCall` lives in `init/initial-values.ts`, its one caller (it lowers through
+  `expressions/`, which `values/` may not import).
 
 Why `semantics/` is a separate folder and not part of `ir/`:
 - Today the value model hides in `ir/values.ts` and `ir/evaluate.ts` only because rule 4 made `ir/` the one shareable folder.
@@ -305,7 +311,7 @@ same task:
 | `index.ts` | barrel | new |
 | `cases.ts` | the case-table contract `Case<I, O>` shared by every `*.cases.ts` | new |
 | `value.ts` | `Val`, `num`, `bool`, `copy`, `storeAs(value, type)` (the interpreter's four ternaries) | values.ts 17-20, 176-185, 459-462; interp.ts 81/108/161/354 |
-| `store.ts` | `fit`: a value as its type holds it (integer width via `types/width.wrapToWidth`, BIT via `types/predicates.isBoolValued`, REAL fround, string via `string.ts`); private `elemName`, `isInt` | values.ts 265-320 |
+| `store.ts` | `fit`: a value as its type holds it (integer width via `types/width.storeInteger`, BIT and BOOL via `types/predicates.isBoolValued`, REAL fround, string via `string.ts`); private `elemName`, `isInt` | values.ts 265-320 |
 | `convert.ts` | `convertValue(v, to, from)` = fit∘coerce; `constValue`; `coerce` split into `toBool`, `toReal` (single rounding, RC 47), `realToInt` (the 192-cell table; `I64_MIN`, `I32_MIN`), `toText`, `fromText` | values.ts 358-439; evaluate.ts 182-187; interp.ts 172-173/196-197 |
 | `text.ts` | `civilDate`, `calendarText` (+ LDT/LDATE/LTOD, RC 12), `timeText`, `ltimeText`, `durationText`, `lrealText`; private `pad`, `ladder`, `trim` | values.ts 106-174, 337-356 |
 | `text.cases.ts` | the formatter case table (recorded `fmt_*` cells, RC 12/32/33 cells) | new; lreal-text.test.ts data |
@@ -337,7 +343,7 @@ Every file imports `syntax`, `symbols`, `types`, `ir/` and `semantics/` as neede
 | `entry/checks.ts` | `representable` | lower.ts 53-61 |
 | `entry/finish.ts` | the post-POU fix-point: dispatch arms (interfaces and in-out bindings), `lendToCallees` driving `interfaces/lend.ts`, `bodiesOf`, `onEachTag`, `finishInterfaces` (it is here, not in `core/`, because it imports `interfaces/` and `calls/`, which rule 4b forbids to `core/`) | interfaces.ts 175-187, 405-465; bindings.ts 81-130 |
 | **project/** | | |
-| `project/prepare.ts` | `prepareProject`, `readFiles`, `ParsedFile`, `LibraryFile`, `LoweringProject`, `AttributeLookup`, the `attributesOf` cache | lower.ts 609-715; lowering.ts 23-27 |
+| `project/prepare.ts` | `prepareProject`, `readFiles`, `ParsedFile`, `LibraryFile`, `LoweringProject`, the `attributesOf` cache (`AttributeLookup` is `core/shared.ts`'s, 6.B.6) | lower.ts 609-715; lowering.ts 23-27 |
 | `project/library-base.ts` | `LibraryBase`, `libraryBase`, `bindOnBase`/`unbindFromBase`/`relink` (also used by the LSP replay) | lower.ts 678-700; fixtures.test.ts 1708-1740 |
 | **diagnostics/** | | |
 | `diagnostics/codes.ts` | `LOWER_CODES`, `LOWER_CODE_PREFIXES`, `LowerCodeKind`, `lowerCodeKind` (throws on unregistered, 1.7.16) | ir/codes.ts 30-194 |
@@ -353,7 +359,7 @@ Every file imports `syntax`, `symbols`, `types`, `ir/` and `semantics/` as neede
 | `core/tags.ts` | the one tag encoding: `NO_TAG = 0`, `tagOfIndex(k) = k + 1`, `indexOfTag`, the tag key type. The three schemes (pointers, interface instances, `__inout_binding`) number through it. | lowering.ts 131-138; interfaces.ts 72-95; bindings.ts 20-21 |
 | **values/** | | |
 | `values/literals.ts` | IR constants from literal tokens: `durationOf`, `calendarOf`, `typedRealOf`, `stringLiteralText`, `inTicks`, `TEMPORAL_LITERAL_KINDS` (valuation in `syntax/literal-value`, typing in `types/literal`) | constants.ts 133-148, 243-293 |
-| `values/fold.ts` | the ONE lowering fold entry `foldExpr(lw, ast)`: `foldConstant`, `foldsToConstant`, `foldedCall`, `integerFoldType` (+`LINT_MAX`), `convertedConstant`, `enumValueOf`, over `types/const` (AST) and `semantics/fold` (IR) | constants.ts 157-241; storage.ts 433-445; convert.ts 41-57 |
+| `values/fold.ts` | the ONE lowering fold entry `foldExpr(lw, ast)`: `foldConstant`, `foldsToConstant`, `integerFoldType` (`foldedCall` is `init/initial-values.ts`'s, 6.B.6) (+`LINT_MAX`), `convertedConstant`, `enumValueOf`, over `types/const` (AST) and `semantics/fold` (IR) | constants.ts 157-241; storage.ts 433-445; convert.ts 41-57 |
 | `values/enums.ts` | `enumStorage`, `enumConstant` — IR only; numbering and the default value come from `types/enums.ts` | constants.ts 28-128 |
 | `values/convert.ts` | `convert`, `retype`, `adopt`, `valueAs` (value rule from `semantics/convert`) | convert.ts 10-40, 59-98 |
 | `values/promote.ts` | the ONE operand meet `meet(lw, operands, context)` for binary operators, N-ary builtins and the FOR compare, over `types/arith/runtime`; later the narrow-arithmetic rule (lean 3) | expressions.ts 61-67/253-279; builtins.ts 452-461; statements.ts 321-323 |
@@ -1656,7 +1662,7 @@ first (named module functions in the same file, explicit parameters instead of c
 - The header table is deleted; `lower/index.ts` documents the folders.
 
 ### 4.2 lower/lowering.ts
-- `AttributeLookup` → `project/prepare.ts`
+- `AttributeLookup` → `project/prepare.ts` (moved to `core/shared.ts` by 6.B.6)
 - `Cursor` → `pointers/state.ts`
 - `PendingBody`, `CalledRoutine`, `Shared`, `newShared` → `core/shared.ts`
 - `baseOf` → `core/chain.ts`
@@ -1730,7 +1736,7 @@ first (named module functions in the same file, explicit parameters instead of c
 - `tempResets` → `init/temp-resets.ts` `resetTemps`
 - `declareVars`, `declareInOuts`, `declareOpenBounds` → `storage/declare.ts`
 - `parseAddress`, `addressClash`, `claimAddress`, `addressPlace`, `addressBits`, `reserveAddress`, `bindAddress` → `storage/addresses.ts`
-- `foldedCall` → `values/fold.ts`
+- `foldedCall` → `values/fold.ts` (moved to `init/initial-values.ts` by 6.B.6)
 - `runnableInit`, `scalarInit`, `aggregateInit`, `aliasInit`, the enum start → `init/initial-values.ts`
 - `holdsCall` (AST) → `core/ast-walk.ts` as `exprHoldsCall`
 - The duplicate doc at 300 is deleted.
@@ -1918,7 +1924,8 @@ placed by §4.5's line ranges and are not repeated here. Three names §4 lists n
 - **lower/bindings.ts:** `registerWholeCopy` (RC 16) → `calls/last-binding.ts`.
 - **lower/conditions.ts** (new file, frontend-conformance 2.7.1/4.1.1): `EXEC_ORACLE_DEVICE`, `EXEC_ORACLE_TARGET`,
   `EXEC_ORACLE_PROJECT`, `execWorlds`, `execBodyStatements` → `project/conditions.ts` (the exec oracle's world; `prepare.ts` and
-  `entry/lower-unit.ts` read it).
+  `entry/lower-unit.ts` read it). Amended by 6.B.6: it stays `lower/conditions.ts`, a leaf file (P2), because `calls/` and
+  `expressions/` read it too.
 - **lower/constants.ts:** `enumeratorValue` → `values/enums.ts`.
 - **lower/convert.ts:** `beside` (RC 6), `ownIntegerType` → `values/promote.ts` (with the meet, 1.7.15).
 - **lower/init-sequence.ts:** `lowerPendingInit` (RC 24) → `init/sequence.ts`; `readsLaterTemp` → `init/temp-resets.ts`.

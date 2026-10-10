@@ -17,7 +17,10 @@ import { type Lowering, zeroInit } from "../core/lowering.js"
 import { elemOf, enumDefault, inlineEnumDefault, peelArray, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { IrInit, IrValue } from "../../ir/index.js"
 import { calendarOf, durationOf, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "../values/literals.js"
-import { foldConstant, foldedCall, foldsToConstant } from "../values/fold.js"
+import { foldConstant, foldsToConstant } from "../values/fold.js"
+import { exprHoldsCall } from "../core/ast-walk.js"
+import { constantValue } from "../../semantics/index.js"
+import { lowerExpr } from "../expressions/expressions.js"
 import { stored, valueAs } from "../values/convert.js"
 import { enumeratorValue } from "../values/enums.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -280,4 +283,35 @@ export function aliasInit(lw: Lowering, t: TypeExpr): Initializer | undefined {
   const sym = lookup(lw.scope, t.name.text)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
   return body?.kind === "alias" ? body.init : undefined
+}
+
+/**
+ * AN INITIAL VALUE THAT IS A CALL — the shape the corpus writes 1084 times and the highest-reach refusal there was.
+ *
+ * `constEval` folds a literal, a name, an enum member, a unary and a binary, and returns undefined for a CALL. Five
+ * real projects write `ANY_TO_DINT(16#80000000)`, `(SHL(UINT_TO_DWORD(x), 16) OR 16#1)`, `SIZEOF(T)` and their
+ * neighbours in a declaration, so `init-not-constant` stopped 200 of the 304 POUs that have a body.
+ *
+ * Measured before implementing (`declarations/constant-folding.ts`, 29 probes): CODESYS folds EVERY one of them —
+ * the conversions, the shifts and rotates, MIN/MAX/LIMIT/SEL/MUX, ABS, TRUNC, EXPT, SQRT, SIZEOF, nested and
+ * parenthesised — and folds them to exactly what the same expression computes at RUN TIME. `ANY_TO_DINT(16#80000000)`
+ * is -2147483648, `INT_TO_BYTE(300)` is 44, `REAL_TO_DINT(3.0E9)` is -1294967296, `REAL_TO_INT(2.5)` is 3.
+ *
+ * So the value is not folded a second way here: the expression is LOWERED, and `semantics/fold.ts` answers it with
+ * the same three switches the interpreter runs. A tree that needs storage — a name, a call to a user FUNCTION, a
+ * dereference — is not constant and is rejected there rather than guessed at.
+ *
+ * WHAT STAYS REFUSED, AND IS NOT A CONSTANT AT ALL. Two more probes show CODESYS's initializers are an
+ * initialisation SEQUENCE rather than a fold: `other : INT := -7; i : INT := ABS(other);` gives i = 7, the same
+ * pair written the other way round gives 0, and a user FUNCTION reading a global returns 42 for a global that
+ * starts at 41 — so they run in DECLARATION ORDER, after the globals, with arbitrary code. Modelling that is a
+ * different change; this one takes the half that really is constant.
+ *
+ * HERE, not in `values/fold.ts` (design.md §2.4 put it there): it lowers the expression (`lowerExpr`), and `values/` is a
+ * leaf that imports no `expressions/` (rule 4b, transpile-restructure 6.B.6). Its one caller is `scalarInit`.
+ */
+function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
+  if (!exprHoldsCall(e)) return undefined
+  const lowered = lowerExpr(lw, e, type)
+  return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
 }

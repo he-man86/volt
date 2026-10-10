@@ -18,9 +18,7 @@ import {
 } from "../../../frontend/types/index.js"
 import { isConstantCallee, oneArgument } from "../builtins/arity.js"
 import { stored } from "./convert.js"
-import { exprHoldsCall } from "../core/ast-walk.js"
-import { constantValue } from "../../semantics/index.js"
-import { lowerExpr } from "../expressions/expressions.js"
+import { targetOf } from "../../../frontend/symbols/index.js"
 
 /** `asConstant`: `e` is a CONSTANT's own initializer; `declared`: the type of the declaration `e` initializes — see `constEval`. */
 export function foldConstant(lw: Lowering, e: Expr, asConstant = false, declared?: ElementaryType): IrValue | undefined {
@@ -61,7 +59,7 @@ export function foldsToConstant(lw: Lowering, e: Expr): boolean {
     case "member":
       return foldConstant(lw, e) !== undefined
     case "call": {
-      if (e.callee.kind !== "ident_expr" || !isConstantCallee(e.callee.name)) return false
+      if (e.callee.kind !== "ident_expr" || !isConstantCallee(e.callee.name, targetOf(lw.project))) return false
       return e.args.every((a) => !a.output && a.param === undefined && a.value !== undefined && foldsToConstant(lw, a.value))
     }
     default:
@@ -78,9 +76,9 @@ function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undef
   // `i` flag, so a lower-case `int_to_byte(5)` was not a conversion at all where ST is case-insensitive; and no
   // check on the SOURCE, so a project function named `FOO_TO_INT(5)` folded as though it converted, silently
   // yielding its argument. `parseConversionName` rejects both (`GO_TO_START` is the case its own doc names).
-  // no target: the platform-alias names are lowered together with the body's (`lower/builtins/conversions.ts`), task 6.B.5 (H4);
-  // folding them here alone lowered an initializer the body refuses (`fold.test.ts`)
-  const conversion = parseConversionName(e.callee.name, undefined)
+  // on the project's target, as the body reads the name (`lower/builtins/builtins.ts`): an initializer and a body answer a
+  // platform conversion alike (`tr_b5_platform_conversion_initializers`, transpile-restructure 6.B.5)
+  const conversion = parseConversionName(e.callee.name, targetOf(lw.project))
   if (written === undefined || conversion === undefined) return undefined
   const elem = conversion.to
   if (!(elem.family === "int" || elem.family === "bitstring")) return undefined
@@ -116,32 +114,4 @@ const LINT_MAX = (1n << 63n) - 1n
 export function integerFoldType(operands: readonly IrExpr[]): Type {
   const needsUlint = operands.some((o) => o.kind === "const" && typeof o.value === "bigint" && o.value > LINT_MAX)
   return elementaryRef(needsUlint ? "ULINT" : "LINT")
-}
-
-/**
- * AN INITIAL VALUE THAT IS A CALL — the shape the corpus writes 1084 times and the highest-reach refusal there was.
- *
- * `constEval` folds a literal, a name, an enum member, a unary and a binary, and returns undefined for a CALL. Five
- * real projects write `ANY_TO_DINT(16#80000000)`, `(SHL(UINT_TO_DWORD(x), 16) OR 16#1)`, `SIZEOF(T)` and their
- * neighbours in a declaration, so `init-not-constant` stopped 200 of the 304 POUs that have a body.
- *
- * Measured before implementing (`declarations/constant-folding.ts`, 29 probes): CODESYS folds EVERY one of them —
- * the conversions, the shifts and rotates, MIN/MAX/LIMIT/SEL/MUX, ABS, TRUNC, EXPT, SQRT, SIZEOF, nested and
- * parenthesised — and folds them to exactly what the same expression computes at RUN TIME. `ANY_TO_DINT(16#80000000)`
- * is -2147483648, `INT_TO_BYTE(300)` is 44, `REAL_TO_DINT(3.0E9)` is -1294967296, `REAL_TO_INT(2.5)` is 3.
- *
- * So the value is not folded a second way here: the expression is LOWERED, and `semantics/fold.ts` answers it with
- * the same three switches the interpreter runs. A tree that needs storage — a name, a call to a user FUNCTION, a
- * dereference — is not constant and is rejected there rather than guessed at.
- *
- * WHAT STAYS REFUSED, AND IS NOT A CONSTANT AT ALL. Two more probes show CODESYS's initializers are an
- * initialisation SEQUENCE rather than a fold: `other : INT := -7; i : INT := ABS(other);` gives i = 7, the same
- * pair written the other way round gives 0, and a user FUNCTION reading a global returns 42 for a global that
- * starts at 41 — so they run in DECLARATION ORDER, after the globals, with arbitrary code. Modelling that is a
- * different change; this one takes the half that really is constant.
- */
-export function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
-  if (!exprHoldsCall(e)) return undefined
-  const lowered = lowerExpr(lw, e, type)
-  return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
 }

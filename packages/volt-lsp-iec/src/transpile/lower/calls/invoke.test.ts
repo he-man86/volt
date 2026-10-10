@@ -102,7 +102,13 @@ test("positional arguments bind in declaration order across VAR_INPUT and VAR_IN
   runner.scan()
   expect(["user.mixedResult", "user.interleavedResult", "user.functionResult", "user.counter", "user.manualResult", "io"].map((v) => runner.get(v))).toEqual([100n, 315n, 46n, 11n, 12n, 1n])
   const codes = (manual: string) => lowerSource(routines(manual), "P").diagnostics.map((d) => d.code)
-  // past the parameters, and counted across a VAR_OUTPUT (how a position counts one is not recorded)
+  // past the parameters
   expect(codes("Manual(1, 2, 3);")).toContain("call-positional")
-  expect(codes("outs := helper.WithOutput(1, 2);")).toContain("call-positional")
+  // a VAR_OUTPUT declared among the parameters is SKIPPED by position: the argument after `first` binds `second`
+  // (`tr_b4_positional_past_output`: F(3, 4) is 304; `tr_b4_positional_into_output`: F(3, x, 5) "requires exactly '2'
+  // inputs" — transpile-restructure 6.B.4)
+  const skipped = run(ir(routines("Manual(1, 2);\nouts := helper.WithOutput(1, 2);"), "P"))
+  skipped.scan()
+  expect(skipped.get("user.outs")).toBe(2n)
+  expect(codes("outs := helper.WithOutput(1, 2, 3);")).toContain("call-positional")
 })

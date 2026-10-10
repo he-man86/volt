@@ -96,7 +96,11 @@ function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: bo
   return { sections, complete }
 }
 
-const POSITIONAL_SECTIONS = new Set(["VAR_INPUT", "VAR_IN_OUT"]) // VAR_OUTPUT is never bound by position
+/** The sections a POSITIONAL argument binds into, in declaration order: VAR_INPUT and VAR_IN_OUT. A VAR_OUTPUT declared
+ *  among them is skipped — `F(3, 4)` with `a` IN, `o` OUT, `b` IN binds `b` (304), and `F(3, x, 5)` "requires exactly '2'
+ *  inputs" (`tr_b4_positional_past_output`, `tr_b4_positional_into_output`, CODESYS 2026-10-10). Lowering binds by the
+ *  same rule (`lower/calls/parameters.ts`, transpile-restructure 6.B.4). */
+export const isPositionalSection = (sectionKind: string): boolean => sectionKind === "VAR_INPUT" || sectionKind === "VAR_IN_OUT"
 const PARAM_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"]) // the name-bindable formal params
 
 /** An FB instance and a PROGRAM bind no argument by position (rule DT9) — a FUNCTION and a METHOD do. */
@@ -124,7 +128,7 @@ function calleeInfo(
         // `: <type>` has no result variable: pro2193's `METHOD PUBLIC Rollover` takes `rollover := 5` and builds
         if (hasResultVariable(sym) && id.text.toLowerCase() === sym.name.toLowerCase()) continue
         paramNames.add(id.text.toLowerCase())
-        if (POSITIONAL_SECTIONS.has(sec.sectionKind))
+        if (isPositionalSection(sec.sectionKind))
           positional.push({ name: id, type: d.type, inOut: sec.sectionKind === "VAR_IN_OUT", constant: sec.constant === true })
         if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type, hasDefault: d.init !== undefined, default: d.init })
       }

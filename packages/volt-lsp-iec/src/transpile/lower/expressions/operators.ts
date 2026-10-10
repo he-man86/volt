@@ -13,11 +13,12 @@ import {
   elemOf,
   inferExprType,
   integerLiteralType,
+  durationScaleConversion,
   inTypeGroup,
   isBoolValued,
-  isIntegerType,
   isIntegral,
   narrowDateWideDuration,
+  notResultType,
   negativeLiteralComparisonTarget,
   promoteForRuntime,
   type Type,
@@ -113,9 +114,11 @@ export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, ex
   if (e.op === "NOT") {
     const held = heldConstantOperation(lw, e, operand)
     if (held !== null) return held
+    // the front-end's rule (`types/arith/operators` `notResultType`, recorded `uop_not_*`): the UNSIGNED integer of a signed
+    // operand's width — `NOT sint` is USINT; this stamped the bit string (BYTE), the same value (6.B.5). Other operands keep
+    // their type here: a bit string, an unsigned integer, a BOOL and a BIT
     const signed = operand.type.kind === "elementary" && operand.type.elem.family === "int" && operand.type.elem.signed
-    const bits = signed && operand.type.kind === "elementary" ? operand.type.elem.bits : 0
-    const type = signed ? elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD", 64: "LWORD" } as Record<number, string>)[bits]!) : operand.type
+    const type = signed ? notResultType(operand.type) : operand.type
     return { kind: "unary", op: "not", operand: convert(operand, type), type, span: e.span }
   }
   // AND IT NEGATES SIGNED. `promoteForRuntime` never changes signedness at 32/64 bits, so `-u` on a UDINT computed in
@@ -217,10 +220,28 @@ function arithmetic(lw: Lowering, e: Extract<Expr, { kind: "binary" }>, op: IrBi
   // 2147483647, and `(T#1S * n) > t` was refused `type-unknown` while the identical expression with the
   // duration in a VARIABLE lowered. The two backends agreed with each other and both differed from the
   // vendor — which is why only a measurement could find it.
-  const isDuration = (t: Type): boolean => elemOf(t)?.family === "time"
-  const isIntegral = (t: Type): boolean => isIntegerType(elemOf(t)?.name ?? "")
-  if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
-  else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
+  //
+  // WHICH SIDE CONVERTS is the front-end's (`types/arith/temporal` `durationScaleConversion`, 6.B.5): an integer WIDER than
+  // the duration makes the duration convert into it, which both vendors refuse ("Cannot convert type 'TIME' to type
+  // 'LINT'", `ar_duration_scaled_stores`) — this converted the LINT to TIME and ran it; one no wider converts into the
+  // SIGNED integer of the duration's width, and the product computes in the duration. A bit string is the unsigned
+  // integer of its width there (TIME × DWORD computes, TIME × LWORD is refused 'TIME' to 'ULINT', `tr_b5_*`). An untyped
+  // literal past 32 bits is refused too (`tr_b5_time_times_wide_literal`) — the vendors name it ULINT where this names
+  // the literal's LINT: niche, accepted loss (0 occurrences in the corpora).
+  if (op === "mul" || op === "div") {
+    const scaled = durationScaleConversion(e.op, elemOf(left.type)?.name ?? "", elemOf(right.type)?.name ?? "")
+    if (scaled !== undefined) {
+      const [converting, other] = scaled.side === "left" ? [left, right] : [right, left]
+      if (elemOf(converting.type)?.family === "time") return lw.bail("duration-scale", `Cannot convert type '${scaled.from}' to type '${scaled.to}'`, e.span)
+      // into the signed integer of the duration's width (`scaled.to`), then computed IN THE DURATION, unsigned — so one
+      // conversion straight into the duration holds the same bits (the integer is no wider) and is the one emitted. The
+      // division too: `T#3S / si` with `si : SINT := -1` is 0 (3000 ÷ 4294967295), as are ÷ INT -2 and ÷ DINT -1, and
+      // × SINT -1 is 4294964296 ms (`tr_b5_time_by_negative_signed`, CODESYS run 2026-10-10)
+      const integer = convert(converting, other.type)
+      if (scaled.side === "left") left = integer
+      else right = integer
+    }
+  }
 
   if (COMPARISONS.has(op))
     [left, right] = [negativeBesideUnsigned(e.left, left, right), negativeBesideUnsigned(e.right, right, left)]

@@ -459,7 +459,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // niche: accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
   // 83 -> 84, FOR MEASUREMENT (transpile-restructure 6.17, no fixture moved): `tr_43_routine_output_dint_to_int` (a
   // FUNCTION's DINT output => an INT, "Cannot convert type 'DINT' to type 'INT'"; lsp-transpile-review-gaps 2.4).
-  "lsp-gap": 84,
+  // 84 -> 85, FOR MEASUREMENT (transpile-restructure 6Ba+6Bb gate, no fixture moved): `tr_b5_time_times_wide_literal` (an
+  // untyped literal past 32 bits beside a TIME, "Cannot convert type 'TIME' to type 'ULINT'" on both vendors) — niche:
+  // accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
+  "lsp-gap": 85,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

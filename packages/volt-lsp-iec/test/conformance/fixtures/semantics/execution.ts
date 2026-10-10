@@ -24,6 +24,8 @@ interface ExecCase {
   deferred?: string
   /** Set when the vendor has no run to record — the reason, with its date (`LanguageTest.execSkip`). */
   execSkip?: string
+  /** Set when the LSP does not make the refusal the vendor records — the reason (`LanguageTest.deferred.lsp`). */
+  lspDeferred?: string
 }
 
 /** Why `record:exec` has nothing for a constant whose fold passes 64 bits (6.A.29). */
@@ -1615,6 +1617,50 @@ const CASES: readonly ExecCase[] = [
     vars: "i1 : INT; di : DINT;",
     body: "i1 := ROL(129, 1); di := ROR(1, 1);",
   },
+  // 6Bb gate review (6.B.5): a duration scaled by a BIT STRING — one shape per case, so a refusal of one does not hide
+  // the others. `big` (all bits set) tells an unsigned divisor from a signed -1.
+  ...(
+    [
+      ["tr_b5_time_times_byte", "TIME", "BYTE", "res := t * n; res2 := t * big;"],
+      ["tr_b5_time_times_word", "TIME", "WORD", "res := t * n; res2 := t * big;"],
+      ["tr_b5_time_times_dword", "TIME", "DWORD", "res := t * n; res2 := t * big;"],
+      ["tr_b5_time_times_lword", "TIME", "LWORD", "res := t * n; res2 := t * big;"],
+      ["tr_b5_dword_times_time", "TIME", "DWORD", "res := n * t; res2 := big * t;"],
+      ["tr_b5_lword_times_time", "TIME", "LWORD", "res := n * t; res2 := big * t;"],
+      ["tr_b5_time_div_word", "TIME", "WORD", "res := t / n; res2 := t / big;"],
+      ["tr_b5_time_div_dword", "TIME", "DWORD", "res := t / n; res2 := t / big;"],
+      ["tr_b5_time_div_lword", "TIME", "LWORD", "res := t / n; res2 := t / big;"],
+      ["tr_b5_ltime_times_dword", "LTIME", "DWORD", "res := t * n; res2 := t / big;"],
+      ["tr_b5_ltime_times_lword", "LTIME", "LWORD", "res := t * n; res2 := t / big;"],
+    ] as const
+  ).map(([name, duration, bits, body]) => ({
+    name,
+    vars: `t : ${duration} := ${duration === "TIME" ? "T" : "LTIME"}#3S; n : ${bits} := 3; big : ${bits} := ${
+      { BYTE: "16#FF", WORD: "16#FFFF", DWORD: "16#FFFFFFFF", LWORD: "16#FFFFFFFFFFFFFFFF" }[bits]
+    }; res : ${duration}; res2 : ${duration};`,
+    body,
+  })),
+  // 6Bb gate review (6.B.5): an untyped integer LITERAL beside a TIME — one past 32 bits, one past DINT but within UDINT
+  {
+    name: "tr_b5_time_times_wide_literal",
+    vars: "t : TIME := T#1MS; res : TIME;",
+    body: "res := t * 5000000000;",
+    lspDeferred:
+      "niche: accepted loss (0 occurrences in the corpora) — both vendors refuse an untyped literal past 32 bits beside a TIME (\"Cannot convert type 'TIME' to type 'ULINT'\", recorded 2026-10-10); the LSP passes it (lowering refuses it, naming the literal's LINT)",
+  },
+  { name: "tr_b5_time_times_udint_literal", vars: "t : TIME := T#1MS; res : TIME;", body: "res := t * 3000000000;" },
+  // 6Bb gate review (6.B.5): a duration divided (and multiplied) by a NEGATIVE signed integer no wider than it
+  {
+    name: "tr_b5_time_by_negative_signed",
+    vars: "t : TIME := T#3S; si : SINT := -1; i : INT := -2; d : DINT := -1; r1 : TIME; r2 : TIME; r3 : TIME; r4 : TIME; r5 : TIME;",
+    body: "r1 := t / si; r2 := t / i; r3 := t / d; r4 := t * si; r5 := t * d;",
+  },
+  // 6Bb gate review (6.B.1): REAL_TO_BIT into a BOOL (0.4, 0.0, -1.5)
+  {
+    name: "tr_b1_real_to_bit_into_bool",
+    vars: "x : REAL := 0.4; z : REAL := 0.0; m : REAL := -1.5; b1 : BOOL; b2 : BOOL; b3 : BOOL;",
+    body: "b1 := REAL_TO_BIT(x); b2 := REAL_TO_BIT(z); b3 := REAL_TO_BIT(m);",
+  },
 ]
 
 /** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a
@@ -1631,7 +1677,9 @@ function program(c: ExecCase): LanguageTest {
     plcPrgBody: c.body,
     ...(c.cycles === undefined ? {} : { cycles: c.cycles }),
     ...(c.rejects === undefined ? {} : { refused: c.rejects }),
-    ...(c.deferred === undefined ? {} : { deferred: { transpile: c.deferred } }),
+    ...(c.deferred === undefined && c.lspDeferred === undefined
+      ? {}
+      : { deferred: { ...(c.deferred === undefined ? {} : { transpile: c.deferred }), ...(c.lspDeferred === undefined ? {} : { lsp: c.lspDeferred }) } }),
     ...(c.execSkip === undefined ? {} : { execSkip: c.execSkip }),
   }
 }
@@ -1758,6 +1806,119 @@ r2 := ROR(FUN_LANG_tr_a30_Next(x2), FUN_LANG_tr_a30_Twice(x2));
 r3 := SHL(FUN_LANG_tr_a30_Next(x3), FUN_LANG_tr_a30_Twice(x3));
 r4 := SHR(FUN_LANG_tr_a30_Next(x4), FUN_LANG_tr_a30_Twice(x4));
 r5 := ROL(FUN_LANG_tr_a30_Next(x5) + BYTE#16#80, FUN_LANG_tr_a30_Twice(x5));
+END_FUNCTION_BLOCK
+`,
+  ),
+  // transpile-restructure 6.B.4 (1.7.18's difference): how does a POSITIONAL argument count a VAR_OUTPUT declared among
+  // the parameters? Lowering refuses the call (`call-positional`), the front-end skips the output and binds the next
+  // input; neither rule was recorded. `F(3, 4)` reads 304 when the output is skipped (4 binds `b`); `F(3, x, 5)` reads
+  // 305 and leaves x = 7 when the output is counted (x receives `o`, 5 binds `b`). Whichever builds is the rule.
+  withUnits(
+    "tr_b4_positional_past_output",
+    "a positional argument past a VAR_OUTPUT declared between two VAR_INPUTs",
+    `FUNCTION F_LANG_tr_b4_past : INT
+VAR_INPUT
+	a : INT;
+END_VAR
+VAR_OUTPUT
+	o : INT;
+END_VAR
+VAR_INPUT
+	b : INT;
+END_VAR
+o := 7;
+F_LANG_tr_b4_past := a * 100 + b;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr_b4_positional_past_output
+VAR
+	res : INT;
+END_VAR
+res := F_LANG_tr_b4_past(3, 4);
+END_FUNCTION_BLOCK
+`,
+  ),
+  withUnits(
+    "tr_b4_positional_into_output",
+    "positional arguments counting a VAR_OUTPUT declared between two VAR_INPUTs",
+    `FUNCTION F_LANG_tr_b4_into : INT
+VAR_INPUT
+	a : INT;
+END_VAR
+VAR_OUTPUT
+	o : INT;
+END_VAR
+VAR_INPUT
+	b : INT;
+END_VAR
+o := 7;
+F_LANG_tr_b4_into := a * 100 + b;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr_b4_positional_into_output
+VAR
+	res : INT;
+	x : INT;
+END_VAR
+res := F_LANG_tr_b4_into(3, x, 5);
+END_FUNCTION_BLOCK
+`,
+  ),
+  // transpile-restructure 6.B.5 (1.1.10's gate: an initializer and a body must answer a platform conversion alike): the
+  // TY11 conversions (`__XINT_TO_DINT`, `DINT_TO___XINT`, `DINT_TO___UXINT`) in VAR initializers, one inside an
+  // expression. On the 64-bit oracle target `__XINT` is LINT and `__UXINT` ULINT, so DINT_TO___UXINT(-1) is 2^64 - 1.
+  withUnits(
+    "tr_b5_platform_conversion_initializers",
+    "platform-integer conversions (TY11) in VAR initializers",
+    `FUNCTION_BLOCK FB_LANG_tr_b5_platform_conversion_initializers
+VAR
+	a : LINT := DINT_TO___XINT(5);
+	b : DINT := __XINT_TO_DINT(7);
+	c : DINT := 5 + __XINT_TO_DINT(5);
+	d : ULINT := DINT_TO___UXINT(-1);
+	e : __UXINT := INT_TO___UXINT(3);
+	ra : LINT;
+	rb : DINT;
+	rc : DINT;
+	rd : ULINT;
+	re : __UXINT;
+END_VAR
+ra := a;
+rb := b;
+rc := c;
+rd := d;
+re := e;
+END_FUNCTION_BLOCK
+`,
+  ),
+  // 6Bb gate review (6.B.1): REAL_TO_BIT into a BIT struct field (where a BIT lives), read back through a BOOL
+  withUnits(
+    "tr_b1_real_to_bit_field",
+    "REAL_TO_BIT into BIT struct fields",
+    `TYPE DUT_LANG_tr_b1_bits :
+STRUCT
+	b1 : BIT;
+	b2 : BIT;
+	b3 : BIT;
+END_STRUCT
+END_TYPE
+
+FUNCTION_BLOCK FB_LANG_tr_b1_real_to_bit_field
+VAR
+	bits : DUT_LANG_tr_b1_bits;
+	x : REAL := 0.4;
+	z : REAL := 0.0;
+	m : REAL := -1.5;
+	r1 : BOOL;
+	r2 : BOOL;
+	r3 : BOOL;
+END_VAR
+bits.b1 := REAL_TO_BIT(x);
+bits.b2 := REAL_TO_BIT(z);
+bits.b3 := REAL_TO_BIT(m);
+r1 := bits.b1;
+r2 := bits.b2;
+r3 := bits.b3;
 END_FUNCTION_BLOCK
 `,
   ),

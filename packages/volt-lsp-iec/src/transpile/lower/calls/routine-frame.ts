@@ -41,7 +41,7 @@ export function routineInputs(lw: Lowering, r: Lowering, sections: readonly VarS
   anyInputsOf(lw).set(key, new Set(inputs.filter((i) => pointerFrame(r).anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
   positionalOf(lw).set(
     key,
-    positionalParameters(sections).map(({ name, output }) => ({ name, output })),
+    positionalParameters(sections).map(({ name }) => ({ name })),
   )
   return inputs
 }

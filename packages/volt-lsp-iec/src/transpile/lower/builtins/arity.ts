@@ -5,7 +5,7 @@
  */
 
 import type { Expr } from "../../../frontend/syntax/index.js"
-import { parseConversionName } from "../../../frontend/types/index.js"
+import { parseConversionName, type Target } from "../../../frontend/types/index.js"
 
 /** The value functions `builtin` lowers, and how many operands each takes. SEL's count includes its selector. */
 export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number }>> = {
@@ -48,8 +48,8 @@ export function oneArgument(e: Extract<Expr, { kind: "call" }>, accepts: OneArgu
 }
 
 /** The callees whose result is decided at compile time: a conversion, `SIZEOF`, and the pure value functions. */
-export function isConstantCallee(name: string): boolean {
+export function isConstantCallee(name: string, target: Target | undefined): boolean {
   const upper = name.toUpperCase()
-  // no target: as `convertedConstant` (6.B.5)
-  return upper === "SIZEOF" || upper === "XSIZEOF" || BUILTIN_ARITY[upper] !== undefined || parseConversionName(upper, undefined) !== undefined
+  // a conversion's name on the project's `target`, as the body reads it (6.B.5)
+  return upper === "SIZEOF" || upper === "XSIZEOF" || BUILTIN_ARITY[upper] !== undefined || parseConversionName(upper, target) !== undefined
 }

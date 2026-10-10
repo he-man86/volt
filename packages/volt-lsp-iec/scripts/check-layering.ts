@@ -102,15 +102,6 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
 export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
-  // design.md §4.2 puts `AttributeLookup` in project/prepare.ts, and the shared state (`core/shared.ts` `Shared.attributes`)
-  // reads it: the design's placement and rule 4b disagree — reported to the gate (step 1.6d; core/shared.ts since 1.6.21)
-  "4b transpile/lower/core/shared.ts → transpile/lower/project/prepare.ts: lower/core is a leaf and must not import lower/project",
-  // the exec oracle's world (lower/conditions.ts) is read by project/prepare.ts and by calls/ (`calledRoutine`,
-  // `propertyRoutine`): as §4.9's project/conditions.ts, calls/ would import project/ — reported to the gate (step 1.6d)
-  "4b transpile/lower/project/prepare.ts → transpile/lower/conditions.ts: lower/project is a leaf and must not import lower/(root)",
-  // design.md §2.4 puts `foldedCall` (an initializer holding a call, folded through its lowering) in values/fold.ts, and
-  // it lowers through `lowerExpr`: the design's placement and rule 4b disagree — reported to the gate (step 1.6c)
-  "4b transpile/lower/values/fold.ts → transpile/lower/expressions/expressions.ts: lower/values is a leaf and must not import lower/expressions",
 ]
 
 /**
@@ -355,9 +346,11 @@ const LOWER_LEAVES: Record<string, readonly string[]> = {
 /**
  * Files of a non-leaf folder that are leaves themselves (design.md §2.4): any lower/ file may import one, and it imports no
  * lower/ folder. `builtins/arity.ts` is the constant fold's view of the builtins — the leaf that breaks the
- * constants ↔ builtins cycle (`values/fold.ts` asks it which callees fold).
+ * constants ↔ builtins cycle (`values/fold.ts` asks it which callees fold). `conditions.ts` is the exec oracle's world
+ * (its target, dialect, device and project), read by `project/prepare.ts`, `calls/` and `expressions/` alike — a leaf
+ * file, so none of them imports a folder the others may not (transpile-restructure 6.B.6).
  */
-const LOWER_LEAF_FILES: readonly string[] = ["builtins/arity.ts"]
+const LOWER_LEAF_FILES: readonly string[] = ["builtins/arity.ts", "conditions.ts"]
 
 /** Rules 4 and 4b for one production import inside `transpile/` (both paths relative to `src/`), or undefined. */
 export function transpileViolation(relFrom: string, relTo: string): string | undefined {

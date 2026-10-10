@@ -78,6 +78,8 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "case-label": "unclassified",
   "case-label-type": "invalid",
   "conversion-type": "not-measured",
+  // a duration scaled by a WIDER integer converts the duration into it — refused by both vendors (6.B.5)
+  "duration-scale": "invalid",
   "enum-value": "unclassified",
   "expr-call": "unclassified",
   "fb-init-argument": "unclassified",

@@ -48,8 +48,8 @@ export function temporalResultType(op: "+" | "-", left: string, right: string): 
  * (`ar_time_scaled_by_wide_or_unsigned_int_type`), and the same-width unsigned TIME × UDINT, TIME ÷ UDINT, LTIME × ULINT,
  * ULINT × LTIME (`ar_duration_scaled_by_same_width_unsigned_type`, both vendors 2026-10-03). A 64-bit integer beside a
  * TIME is the INTEGER — TIME × LINT and LINT × TIME are LINT, TIME ÷ ULINT ULINT, the TIME refused into it
- * (`durationScaleConversion`). An integer ÷ a duration, MOD, a bit string or a REAL beside a duration were not asked:
- * undefined.
+ * (`durationScaleConversion`). A bit string is the unsigned integer of its width (TIME × LWORD is ULINT, recorded
+ * 2026-10-10). An integer ÷ a duration, MOD, a BIT or a REAL beside a duration were not asked: undefined.
  */
 export function durationScaleResultType(op: string, left: string, right: string): string | undefined {
   return durationScale(op, left, right)?.result
@@ -66,6 +66,8 @@ export function durationScaleResultType(op: string, left: string, right: string)
  *                                        a TIME, LINT beside an LTIME): CODESYS warns "unsigned Type 'UDINT' to signed Type
  *                                        'DINT'" for a same-width unsigned one and TwinCAT is silent
  *                                        (`ar_duration_scaled_by_same_width_unsigned_type`); a narrower one widens silently.
+ *                                        The arithmetic is then the duration's, unsigned: `T#3S / SINT#-1` is 0
+ *                                        (`tr_b5_time_by_negative_signed`, CODESYS run 2026-10-10).
  *
  * `side` is the operand that converts.
  */
@@ -84,10 +86,16 @@ export function durationScaleConversion(
 
 function durationScale(op: string, left: string, right: string): { result: string; duration: string; durationSide: "left" | "right" } | undefined {
   const [l, r] = [aliasElem(left), aliasElem(right)]
+  // A bit string scales as the UNSIGNED integer of its width: TIME × BYTE / WORD / DWORD and LTIME × DWORD / LWORD compute
+  // in the duration (`t / 16#FFFFFFFF` is 0, an unsigned divisor), and TIME × LWORD is ULINT — "Cannot convert type 'TIME'
+  // to type 'ULINT'" (`tr_b5_time_times_*`, `tr_b5_*_times_time`, `tr_b5_time_div_*`, `tr_b5_ltime_times_*`, both vendors
+  // 2026-10-10). A BIT beside a duration was not asked.
   const scaled = (duration: string, n: string): string | undefined => {
     const [d, e] = [elementaryType(duration), elementaryType(n)]
-    if (d === undefined || e?.family !== "int") return undefined
-    return e.bits <= d.bits ? duration : n
+    if (d === undefined || e === undefined) return undefined
+    if (e.family !== "int" && (e.family !== "bitstring" || e.name === "BIT")) return undefined
+    if (e.bits <= d.bits) return duration
+    return e.family === "int" ? n : integerOfWidth(e.bits, false).name
   }
   const of = (duration: string, n: string, durationSide: "left" | "right") => {
     const result = scaled(duration, n)

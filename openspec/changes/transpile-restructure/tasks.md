@@ -4691,13 +4691,24 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
     loses its `limit` case. S identical.
   - Gate note (6Ba/6Bb): 6Bb edits `builtins/conversions.ts` and `expressions/operators.ts` again, so 6Ba's diff alone is
     saved as `6Ba.patch` in the step's scratchpad; 6Ba's files are those named under 6.B.1-6.B.3.
-- [ ] 6.B.4 Lowering's parameter view delegates to `types/infer/callee`.
+- [x] 6.B.4 Lowering's parameter view delegates to `types/infer/callee`.
   - What: for every difference 1.7.18 wrote down, either the two agree (lowering delegates) or the difference is a recorded CODESYS fact
     and stays with its reason.
   - Where: `lower/calls/parameters.ts`, `types/infer/callee.ts`.
   - Accept: S-out; G+LSP; the differential test of 1.7.18 reports only reasoned differences.
   - Depends: 1.9.4.
-- [ ] 6.B.5 Lowering's NOT, duration-scaling and platform-conversion rules read the front-end (hand-off H4, split from 1.1.8
+  - Done 2026-10-10 (step 6Bb). Recorded first: `tr_b4_positional_past_output` (F with a IN, o OUT, b IN; `F(3, 4)` builds
+    on both vendors and CODESYS runs it to 304 — the output is SKIPPED, `b` binds) and `tr_b4_positional_into_output`
+    (`F(3, x, 5)`: "Function 'F_LANG_tr_b4_into' requires exactly '2' inputs", both vendors). The front-end's rule was the
+    vendors'. `types/infer/callee.ts` exports `isPositionalSection` (VAR_INPUT, VAR_IN_OUT; on the types index); lowering's
+    `positionalParameters` filters by it and `positionalBinding` answers the parameter at the position or `past-parameters`
+    (the `across-output` refusal and the `output` field are gone; `positionalOf`, `pointers/any.ts`, `pointers/cursor.ts`
+    read the same list). The differential `test/conformance/call-parameters.test.ts` keeps no exception: every positional
+    argument of the direct calls agrees, any difference fails. Tests: `calls/parameters.test.ts` (rewritten to the
+    recording), `calls/invoke.test.ts` (`WithOutput(1, 2)` binds `second`; `(1, 2, 3)` is `call-positional`). The past
+    fixture rates confirmed (indirect), the into fixture refused (the LSP reports it, `functionRequiresInputs`: TP +1 each
+    vendor).
+- [x] 6.B.5 Lowering's NOT, duration-scaling and platform-conversion rules read the front-end (hand-off H4, split from 1.1.8
   and 1.1.10: not output-neutral).
   - What: `NOT` of a signed integer (`lower/values` / today `lower/expressions/operators.ts`) types as `types/arith/operators`
     `notResultType` — the unsigned INTEGER of the width (`NOT sint` USINT, recorded `uop_not_*`) where lowering stamps the bit
@@ -4716,7 +4727,54 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
   - Accept: S-out for NOT; for duration scaling and the platform names F(each fixture whose answer changes) or the recording
     that shows none does; G+LSP.
   - Depends: 1.9.4, 6.14.
-- [ ] 6.B.6 The three rule-4b edges the design placed against its own rule (checkpoint review 1.9.4).
+  - Done 2026-10-10 (step 6Bb). NOT: a signed operand types as `notResultType` (USINT/UINT/UDINT/ULINT, was BYTE to
+    LWORD); S-out holds (the ir layer moves in 9 lowered fixtures — `not_result_width`, `cc_not_*`, `expr_*not*`,
+    `bitwise_on_narrow_types`, `cv_strict_enum_arithmetic` — and the four `uop_not_*` refusals now name the unsigned type;
+    outputs and edge identical). Duration scaling reads `durationScaleConversion`: an integer wider than the duration makes
+    the DURATION convert, which both vendors refuse — new code `duration-scale` (invalid), "Cannot convert type 'TIME' to
+    type 'LINT'". F: the one fixture whose answer changes is `ar_duration_scaled_stores` (recorded refused on both vendors;
+    lowering ran it), now refused by the transpiler too (it loses tier and rust); `ar_time_scaled_by_wide_or_unsigned_int_type`'s
+    first refusal moves `assign-string` -> `duration-scale`. A narrower or same-width integer converts straight into the
+    duration (the same bits as through the signed integer of its width, so one conversion is emitted:
+    `time_multiply_divide`, `xo2_time_across_objects` unchanged). Platform names: `builtins/builtins.ts` reads
+    `parseConversionName(name, targetOf(project))` (the `PLATFORM_ALIASES` left-side rewrite deleted), and in the SAME step
+    `values/fold.ts` `convertedConstant` and `builtins/arity.ts` `isConstantCallee(name, target)`. Recorded first:
+    `tr_b5_platform_conversion_initializers` (CODESYS run: `DINT_TO___XINT(5)` 5, `__XINT_TO_DINT(7)` 7,
+    `5 + __XINT_TO_DINT(5)` 10, `DINT_TO___UXINT(-1)` 18446744073709551615, `INT_TO___UXINT(3)` 3, all in VAR initializers;
+    builds clean on both vendors) — confirmed. `ty_dint_to_uxint` not-lowered -> confirmed; `ty_xint_to_dint_result_type`'s
+    refusal `expr-call` -> `assign-string` (still refused). LSP gap found and fixed on the way: an initializer LEADING with a
+    platform conversion (`b : DINT := __XINT_TO_DINT(7)`) was refused "';' expected instead of '__XINT_TO_DINT'"
+    (`syntax/parse/initializer.ts` `isUnknownSystemName` took it for an unknown `__` name); src `parse/initializer.test.ts`
+    (red first). Tests: `values/fold.test.ts` (the initializer lowers at the recorded values; rewritten from the refusal it
+    pinned), `builtins/conversions.test.ts` (a platform name on either side), `expressions/operators.test.ts` (NOT's type,
+    the duration refusal).
+  - Gate review (6Ba+6Bb, 2026-10-10), three findings, each fixed against a new recording (16 fixtures, build-recorded on
+    both vendors with `ide.ps1 -Instance transpile-restructure` (TwinCAT `-Fixture 13`), run-recorded in one `record:exec`
+    batch; `s` renamed `si` in one, an IL word):
+    (1) A duration scaled by a BIT STRING was refused `type-unknown` (`durationScale` took only `family === "int"`; HEAD's
+    `isIntegerType` covered both). Recorded: a bit string is the UNSIGNED integer of its width — TIME × / ÷ BYTE, WORD,
+    DWORD (either order) and LTIME × DWORD, LWORD compute in the duration (`t / 16#FFFFFFFF` is 0: an unsigned divisor;
+    CODESYS warns DWORD -> DINT as for UDINT), and TIME × LWORD (either order) and TIME ÷ LWORD are refused "Cannot convert
+    type 'TIME' to type 'ULINT'" (`tr_b5_time_times_{byte,word,dword,lword}`, `tr_b5_{dword,lword}_times_time`,
+    `tr_b5_time_div_{word,dword,lword}`, `tr_b5_ltime_times_{dword,lword}`). Fixed in the front-end rule
+    (`types/arith/temporal.ts` `durationScale`: a bit string scales as `integerOfWidth(bits, false)`, a BIT not asked), so
+    the LSP and lowering agree (the LSP now reports the three LWORD refusals: census TP +20 CODESYS / +6 TwinCAT). Test:
+    `expressions/operators.test.ts` "a duration scaled by a bit string …" (red first: `type-unknown`).
+    (2) The `duration-scale` refusal on an untyped literal past 32 bits: recorded refused on both vendors
+    (`tr_b5_time_times_wide_literal`, "Cannot convert type 'TIME' to type 'ULINT'"), and `t * 3000000000` computes
+    (`tr_b5_time_times_udint_literal`, confirmed) — so the refusal is the vendors'. The vendors name ULINT where lowering
+    names the literal's LINT, and the LSP passes it (lsp-gap): niche: accepted loss (0 occurrences in the corpora) — the
+    fixture's `deferred.lsp`, the lsp-gap ceiling 84 -> 85 and the census / type-dump exceptions name it.
+    (3) The comment's "same bits" for `/` by a negative signed integer: recorded — `T#3S / SINT#-1`, `/ INT#-2`, `/ DINT#-1`
+    are 0 and `T#3S * SINT#-1` 4294964296 ms (`tr_b5_time_by_negative_signed`, confirmed): the arithmetic is the
+    duration's, unsigned, as lowering computes it; the comment (and `temporal.ts`'s doc) now say so and cite it.
+    Gate numbers. M (`rate:fixtures`): mapped 5519 -> 5535, confirmed 2972 -> 2984, refused 2013 -> 2016, not-lowered 346,
+    lsp-gap 84 -> 85, diverges 9, unaskable 95; arith 1583/1581 -> 1594/1592, aggregate 146/146 -> 147/147; edge agree
+    3179 -> 3191, disagree 3, not-run 221. Baselines rewritten: `test/analysis` (TP CODESYS 5665 -> 5685, TwinCAT 6861 ->
+    6867; GAP +2 each, excepted), `test/frontend` (counts; type-dump exceptions for the new fixtures' untyped numbers).
+    `bun typecheck` clean; package lint green but the pre-existing `last-binding.ts` size warning. FULL suite
+    (`VOLT_REQUIRE_FULL=1 bun test`, VOLT_FIXTURES unset, test/corpus included): 9084 pass / 0 fail / 35 skip / 389 todo.
+- [x] 6.B.6 The three rule-4b edges the design placed against its own rule (checkpoint review 1.9.4).
   - What: each `KNOWN_TRANSPILE_VIOLATIONS` entry reported to the gate rather than owned by a task gets a home that keeps
     the leaves acyclic, or design.md P2's rule 4b is amended for it with the reason: `core/shared.ts` reads
     `project/prepare.ts` `AttributeLookup` (§4.2's placement); `project/prepare.ts` reads `lower/conditions.ts` (§4.9 moves it into
@@ -4726,6 +4784,25 @@ new home": its test and fixture stay green, nothing else. RC 26 is task 4.0; RC 
     `scripts/check-layering.ts` (`KNOWN_TRANSPILE_VIOLATIONS`), design.md P2.
   - Accept: G, S; the three entries gone from the list (or the rule amended in design.md and the lint together).
   - Depends: 1.9.4.
+  - Done 2026-10-10 (step 6Bb). `KNOWN_TRANSPILE_VIOLATIONS` is empty. `AttributeLookup` is declared in `core/shared.ts`
+    (`project/prepare.ts` types its field by the shape, no import); `lower/conditions.ts` is a LEAF FILE (`LOWER_LEAF_FILES`,
+    beside `builtins/arity.ts`); `foldedCall` moved to `init/initial-values.ts`, its one caller. design.md P2 amended (the
+    leaf-file rule and the three homes), with the §2.4 and §4.9 rows and the old -> new map. Output-neutral (moves only; the
+    step's S differences are all 6.B.4's and 6.B.5's).
+  - 6Bb numbers. Fixtures: 3 new (`tr_b4_positional_past_output`, `tr_b4_positional_into_output`,
+    `tr_b5_platform_conversion_initializers`), build-recorded on CODESYS and TwinCAT (`ide.ps1 -Instance
+    transpile-restructure`, TwinCAT `-Fixture 13`, both IDEs closed) and run-recorded in one `record:exec` batch (the two b4
+    re-run once: a variable named `r` is an IL word CODESYS refuses, renamed `res`). M (`rate:fixtures`): mapped 5516 ->
+    5519, confirmed 2969 -> 2972 (the two new run cases, `ty_dint_to_uxint`), refused 2012 -> 2013, not-lowered 347 -> 346,
+    lsp-gap 84, diverges 9, unaskable 95; lowered/clean decl 753/753 -> 754/754, indirect 460/455 -> 461/456, arith
+    1583/1581 (`ar_duration_scaled_stores` out, `ty_dint_to_uxint` in), control 161/150, aggregate 146/146, call 298/295;
+    edge agree 3177 -> 3179, disagree 3, not-run 221; pedantic 33748 -> 33753. S (all layers, against the step-start
+    baseline): 6Ba identical; after 6Bb 19 fixtures differ, all named above; S-out (`--layers outputs,edge`): only
+    `ar_duration_scaled_stores` (now refused), `ty_dint_to_uxint` (now lowered) and the three new. Baselines rewritten:
+    `test/frontend` (counts; `tr_b5`'s `-1` named in `CEILING_EXCEPTIONS`), `test/analysis` (TP +1 each vendor,
+    `tr_b4_positional_into_output`). Targeted: `bun test src` 2224 pass / 0 fail, `test/frontend` 45 / 0, `test/conformance`
+    6549 / 0, `test/analysis` 13 / 0; `bun typecheck` clean; package lint green but the pre-existing `last-binding.ts` size
+    warning. Left to the gate: the full suite and `test:corpus` (the initializer parse fix can only remove LSP errors).
 
 ## 7. Lean groups (same program output, less Rust: every step S-out + M)
 

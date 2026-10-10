@@ -90,3 +90,15 @@ test("expression elements are kept as Exprs", () => {
 test("a struct field's name(…) is its call, not a repeat", () => {
   expect(shapes(agg("(a := k, c := F(g))"))).toEqual(["a:=ident_expr", "c:=call"])
 })
+
+// A platform conversion leading an initializer is a CALL, not an unknown system name (`refuseMalformedInit`): `b : DINT :=
+// __XINT_TO_DINT(7)` builds on both vendors and reads 7 (`tr_b5_platform_conversion_initializers`, 2026-10-10; found by
+// transpile-restructure 6.B.5) — it was refused "';' expected instead of '__XINT_TO_DINT'". An unknown `__` name still is.
+test("an initializer leading with a platform conversion parses as a call; an unknown __ name is still refused", () => {
+  const errors = (init: string) =>
+    parseSource(`FUNCTION_BLOCK FB\nVAR\n  d : LINT := ${init};\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }).errors.map((e) => e.message)
+  expect(errors("__XINT_TO_DINT(7)")).toEqual([])
+  expect(errors("__UXINT_TO_UDINT(7)")).toEqual([])
+  expect(errors("__XWORD_TO_DWORD(7)")).toEqual([])
+  expect(errors("__FOO(7)").length).toBeGreaterThan(0)
+})
