@@ -168,9 +168,10 @@ function CreateItem($step) {
     } else { Fault "TwinCAT has no create for kind '$kind'" }
     $made = Single ($parent.CreateChild($name, $code, "", $vInfo))
     Keep $step["as"] $made "script" $kind
-    $item = Single (Resolve $step["as"])
-    if ($null -ne $step["decl"]) { $item.DeclarationText = $step["decl"] }
-    if ($null -ne $step["impl"]) { $item.ImplementationText = $step["impl"] }
+    # The text goes to the item CreateChild handed back, never to a re-resolve by path: a POU beside a same-named
+    # folder (D34's folder-first cell) has the folder's PathName, and LookupTreeItem answers the folder.
+    if ($null -ne $step["decl"]) { $made.DeclarationText = $step["decl"] }
+    if ($null -ne $step["impl"]) { $made.ImplementationText = $step["impl"] }
 }
 
 # ---- paths -----------------------------------------------------------------------------------------------------------
@@ -320,17 +321,29 @@ function Invoke-Step($step) {
     CallMember $owner $last ([object[]]$argv.ToArray())
 }
 
+# A reload is the probe's own act, not a question to the vendor: a failure in it is a probe fault (the run aborts naming
+# where), never a `refused:` outcome. One live run (2026-10-11) recorded `reload: refused: RuntimeException: You cannot
+# call a method on a null-valued expression.` and the next four reloaded clean.
 function Reload {
+    try { Reload-Solution } catch [ProbeError] { throw } catch { Fault "reload failed: $(Why $_.Exception)`n$($_.ScriptStackTrace)" }
+}
+
+function Reload-Solution {
     $sln = $script:dte.Solution.FullName
     $script:dte.ExecuteCommand("File.SaveAll")
     $script:dte.Solution.Close($true)
     $script:dte.Solution.Open($sln)
-    $until = (Get-Date).AddSeconds(240)
-    while ((Get-Date) -lt $until) {
-        try { if ($script:dte.Solution.Projects.Count -ge 1 -and $script:dte.Solution.Projects.Item(1).Object) { break } } catch {}
+    # Reopened = the PLC project's root resolves on two polls in a row. One poll was not enough: the system manager
+    # answers once and then goes null again for a moment while the PLC project loads (a live run read null right after
+    # the wait had broken on a non-null answer).
+    $until = (Get-Date).AddSeconds(240); $streak = 0
+    while ((Get-Date) -lt $until -and $streak -lt 2) {
         Start-Sleep -Milliseconds 500
+        $ok = $false
+        try { $ok = $script:dte.Solution.Projects.Count -ge 1 -and $null -ne (Root) } catch {}
+        $streak = if ($ok) { $streak + 1 } else { 0 }
     }
-    if (-not $script:dte.Solution.Projects.Item(1).Object) { Fault "the solution did not reopen within 240 s" }
+    if ($streak -lt 2) { Fault "the solution did not reopen within 240 s" }
     $script:Reloaded = $true
 }
 
@@ -395,6 +408,12 @@ function ProcessRead([string]$what) {
                       FileVersion = $fvi.FileVersion; CompanyName = $fvi.CompanyName; DteName = $script:dte.Name; DteVersion = $script:dte.Version }
         }
         "automation" { return @{ TcRemoteManagerVersion = [string]$script:dte.GetObject("TcRemoteManager").Version } }
+        # The XAE shell's own UI language (DTE.LocaleID), and this core's (the same user's) UI culture: the refusal
+        # texts the COM answers carry are verbatim in the IDE's language.
+        "culture" {
+            return @{ DteLocale = [Globalization.CultureInfo]::GetCultureInfo([int]$script:dte.LocaleID).Name
+                      CurrentUICulture = [Globalization.CultureInfo]::CurrentUICulture.Name }
+        }
         default { Fault "TwinCAT has no '$what' process read" }
     }
 }

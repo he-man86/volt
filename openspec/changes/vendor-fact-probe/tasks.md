@@ -101,9 +101,100 @@
 
 ## 3. Verify (live)
 
-- [ ] 3.1 Run on CODESYS SP21 and TwinCAT (Project14); commit both snapshots; each recorded value agrees with its
+- [x] 3.1 Run on CODESYS SP21 and TwinCAT (Project14); commit both snapshots; each recorded value agrees with its
       DIALECT row (a disagreement is a DIALECT finding, recorded before the snapshot is committed).
-- [ ] 3.2 A deliberately changed fact (an edited snapshot value) makes the run fail naming the fact and both values.
+- [x] 3.2 A deliberately changed fact (an edited snapshot value) makes the run fail naming the fact and both values.
+  - Done (2026-10-11). Design 3 migration (a), with failing tests first (`vendor-facts.test.ts` 30 → 35). `task-kind`
+    no longer asks int 0. `ide-identity` reads `ui-culture` (`process{culture}`: CODESYS `CurrentUICulture` on the UI
+    thread; TwinCAT `DTE.LocaleID` plus the core's own). `refuseIdeVersion` runs `ide-identity` first on every run,
+    `--only` runs included, and refuses anything but CODESYS `3.5.21.*` or TwinCAT `3.1.*` in `TcXaeShell.exe` by name
+    before a row runs.
+    Probe bugs found live, each fixed before the snapshots:
+    (1) CODESYS `parse` searched only the parser's class. `ParseInterface()` is `IParser`'s, and run 1 aborted.
+    (2) TwinCAT `create` wrote the declaration through a re-resolve by `PathName`. D34's POU beside its same-named
+    folder resolved to the FOLDER and was recorded as `refused: … 'DeclarationText' cannot be found`.
+    (3) TwinCAT `reload` failed once in five, as `refused: … null-valued expression`: the solution answered once and
+    then went null while the PLC project loaded. A reload is now a probe fault, never an outcome, and it waits for
+    the PLC root on two polls in a row.
+    The `folder-name-collision` comments had D34 backwards; the values never did.
+    **Two agreeing runs per vendor** (design 3): CODESYS 3.5.21.40 (SP21 Patch 4), 19 rows, run 1 `--write`
+    ≈ 570 s, run 2 "every fact as committed". TwinCAT 3.1.4024.74 / TcXaeShell 15.0, Project14, 12 rows, run 1
+    `--write` ≈ 85 s, run 2 "every fact as committed".
+    Snapshots: `scripts/vendor-facts.codesys.json`, `scripts/vendor-facts.twincat.json`. UI culture: CODESYS en-US;
+    TwinCAT DTE en-US, core nl-NL. That is why .NET's own COM text reads `Uitzondering van HRESULT` (D35's bogus
+    lookup).
+    **fact → DIALECT → verdict:**
+    - `dut-subtype-in-place` → C2e: agrees. A finding filled two parts C2e had listed as unmeasured: CODESYS
+      `IDUTObject` → union/alias by push is accepted with the same guid and folder, and TwinCAT push-created
+      605/607/623 bodies re-derive at reload.
+    - `kind-source` → C2e C2g C2h: agrees. `TypeGuid` null was already noted at the 2.x gate.
+    - `kind-audit` → C2f C2l: agrees.
+    - `pou-kind-signature` → C2j: agrees (`None` ×3; the excluded FB has no signature).
+    - `pou-members-follow-text` → C2k: agrees on both vendors.
+    - `graphical-callee-seed` → C2m: agrees for PRG/FUN. **Finding:** an FB callee's `.ENO` is refused too.
+    - `merged-classes` → C2n: guid and class are kept everywhere. **Finding, DISAGREES:** an abstract method's
+      in-place edit through its owner is now refused. The pull writes `IMPLEMENTATION ST` with an empty body, the
+      push sends `""`, and D26's `RequireSlot` refuses it. This is a bridge bug, recorded in C2n and left to a bridge
+      change: 12 ABSTRACT member texts, all in pro2193.
+    - `folder-name-collision` → D34: agrees.
+    - `empty-folder-survives` → C29: agrees on both vendors.
+    - `task-config-survives-delete` → C22: agrees.
+    - `task-writable` and `task-calllist` → C19: agrees.
+    - `task-callcomment` → C23: agrees.
+    - `task-kind` → C30: agrees. The finding (int 0 = a modal dialog) is recorded, not kept.
+    - `task-create` → C31: agrees.
+    - `tc-task-items` → C19b: agrees.
+    - `accessor-decl` → C32: agrees (a new accessor holds `VAR
+END_VAR
+`).
+    - `project-container` → C17: agrees.
+    - `tc-project-object` → D35: agrees.
+    - `projectsettings-scope` → C24: agrees.
+    - `compile-options` → D38: agrees.
+    - `tc-project-settings` → D37 D39: agrees.
+    - `ide-identity` → V1 V4 V5: agrees.
+    - `diagnostic-child-guid` → C27: agrees.
+    - `duplicate-method` → C33: **settled**. The first create is accepted and the second is refused verbatim.
+    DIALECT amended: C2e, C2m, C2n, C30 (headline), C33 (headline).
+    **3.2:** in the TwinCAT snapshot, `tc-task-items.tto-cycle-us` was edited "10000" → "20000", then
+    `bun scripts/vendor-facts.ts twincat --only tc-task-items` ran. It exited 1:
+    `tc-task-items.tto-cycle-us: committed "20000" / measured "10000"`, `1 fact(s) differ`. The file was then restored
+    byte-identical.
+    Numbers: volt-cli `bun test test/unit` 59 pass / 0 fail; Repo.Gates 151/0; `bun run check` 18 passed / 0 failed;
+    `openspec validate` valid; volt-cli typecheck 0.
+  - Gate (2026-10-11): six review findings, all taken, failing tests first (`vendor-facts.test.ts` 35 → 38; the
+    abstract-member test red with the live refusal, then committed skipped). (1) C2n: the abstract method's
+    "update through its owner" was never a write — refused today, silently dropped on 2026-10-02 — so the snapshot
+    held a Volt refusal under `merged-classes.steps` and GUID/class reads of an unwritten object. The row now writes
+    the abstract method's declaration through SCRIPTING (`decl@found` → `decl@updated`: the line landed; GUID and
+    class kept), drops the bridge push of its owner, and reads which slots the abstract members have
+    (`implementation.*`: none; `Busy`'s GET is an `InterfacePropertyAccessorObject` with no `Implementation` — the
+    same bug). C2n's headline and re-measure rewritten: an update THROUGH THE BRIDGE of an abstract member is
+    unmeasured, because it cannot be made. (2) The bridge bug is tracked: openspec `abstract-member-push` (proposal,
+    tasks, spec), and `test/Volt.Ide.Codesys.Tests/CodesysAbstractMemberPushTests.cs`, red with exactly
+    `'TakePicture' has no Implementation`, committed `Skip` = the known-divergence mark (12 ABSTRACT members, pro2193,
+    11 METHOD + 1 PROPERTY in 7 files — not niche). (3) C2e: `dut-subtype-in-place` reads the CODESYS declaration
+    after each push (`decl.p_*@seeded/@pushed`): the union and the `STRING(80)` alias ARE the IDE's text, not an
+    accepted-and-dropped write; C2e cites it and the clean build of their user. (4) C30: "does not convert to
+    `Cyclic`" removed — not measured; the headline names the unkept smoke run. (5) C2m: headline no longer says the
+    tree code explains the missing ENO (an FB callee has none either); the niche count is recounted with FB callees:
+    4 user-POU callees with `.ENO`, all lenze-mid (`Alarms_ResetAlarmLogging`, `SidecorrectionCalculation`,
+    `IDB_WSM`, `ServoMainDrive`), 0 in TwinCAT — still niche. (6) The version gate is now the committed snapshot's
+    exact build (CODESYS `ProductVersion`; TwinCAT `TcRemoteManagerVersion` + shell + shell version), refused naming
+    both, and was run live: CODESYS with the snapshot's build edited to 3.5.21.30 exits 1
+    `CODESYS 3.5.21.40 is not 3.5.21.30, the build vendor-facts.codesys.json was recorded on — refused, never
+    diffed …` (file restored byte-identical, sha1 ee5d7a39…); TwinCAT `--only tc-task-items` "every fact as
+    committed".
+    Found on the way: CODESYS listed one build's 744 `diagnostics-iq` messages in a different ORDER in the second run
+    (same multiset) — a CODESYS `diagnostics` read is now a sorted set, keyed without guids (TwinCAT's already was).
+    Live, with the runner being committed: CODESYS 3.5.21.40 `--only merged-classes,dut-subtype-in-place --write`
+    then compare (the order finding), `--only dut-subtype-in-place,diagnostic-child-guid --write`, then
+    `--only dut-subtype-in-place,diagnostic-child-guid,merged-classes` "every fact as committed"; TwinCAT
+    3.1.4024.74 `--only tc-task-items` "every fact as committed". Rows not touched keep their two agreeing 3.1 runs.
+    Numbers: volt-cli `bun test test/unit` 62 pass / 0 fail; Repo.Gates 151/0; Engine.Tests 2307 passed / 1 skipped;
+    Ide.Codesys.Tests 309 passed / 1 skipped (the new known one); `bun run check` 18 passed / 0 failed;
+    `openspec validate --all` 5 valid; typecheck control/desktop/cli/vscode 0. No LSP file changed, so the LSP
+    suites are not this step's.
 
 ## 4. Fold-ins
 

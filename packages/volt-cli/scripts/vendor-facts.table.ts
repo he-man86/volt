@@ -127,7 +127,9 @@ export type Read = ReadBase &
      *  that word (a USER of a changed type: `'DI_10' is no component of 'IQSlices'`), case-insensitive. TwinCAT reads
      *  the bridge's build: `{ success, diagnostics }`, and a diagnostic that names no item is always kept. */
     | { op: "diagnostics"; fields?: ("guid" | "position")[]; mentioning?: string }
-    | { op: "process"; what: "exe" | "assembly" | "automation" }
+    /** `culture`: the IDE process's UI culture (`CurrentUICulture.Name`) — refusal texts are verbatim in that language,
+     *  so a run on another locale names it beside the texts that changed. */
+    | { op: "process"; what: "exe" | "assembly" | "automation" | "culture" }
     /** A part of the fact no committed fixture can hold, refused by name. */
     | { op: "absent"; reason: string }
   )
@@ -411,6 +413,15 @@ export const ROWS: Row[] = [
     reads: [
       { key: "guid", at: ["seeded", "pushed"], on: ["p_enum", "p_union", "p_alias"], op: "guid" },
       { key: "parent", at: "pushed", on: ["p_enum", "p_union", "p_alias"], op: "parent" },
+      // The text the IDE holds after each push: an accepted push that dropped its write would read the struct seed.
+      {
+        vendor: "codesys",
+        key: "decl",
+        at: ["seeded", "pushed"],
+        on: ["p_enum", "p_union", "p_alias"],
+        op: "member",
+        path: "script.textual_declaration.text",
+      },
       { vendor: "codesys", key: "class", at: ["seeded", "pushed"], on: ["p_enum", "p_union", "p_alias"], op: "class" },
       { vendor: "codesys", key: "guid", at: "scripted", on: ["s_enum", "s_union", "s_alias"], op: "guid" },
       { vendor: "codesys", key: "class", at: "scripted", on: ["s_enum", "s_union", "s_alias"], op: "class" },
@@ -1065,20 +1076,23 @@ export const ROWS: Row[] = [
       { op: "find", as: "persistent", name: "PersistentVars" },
       { op: "find", as: "textlist", name: "IQSlices" },
       { op: "find", as: "basefb", name: "VisionSystem_BaseFB" },
-      { tag: "found", op: "find", as: "abstract", name: "TakePicture", under: "basefb" },
-      // Update in place, rename, rename back + move, move home + original text — all through the shipped push.
+      { op: "find", as: "abstract", name: "TakePicture", under: "basefb" },
+      // The abstract PROPERTY's accessor: whether IT has an Implementation slot is a fact of its own (C2n).
+      { op: "find", as: "busy", name: "Busy", under: "basefb" },
+      { tag: "found", op: "find", as: "busyget", name: "Get", under: "busy" },
+      // Update in place, rename, rename back + move, move home + original text — all through the shipped push. The
+      // abstract method is the exception: the bridge refuses its owner's push today (a body pushed as "" at a slot the
+      // object lacks — openspec `abstract-member-push`), so a push would record a VOLT refusal, not the vendor's answer.
+      // Its in-place update is the vendor's own: the declaration written through scripting.
       { op: "setText", on: "check", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "persistent", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "textlist", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       {
         tag: "updated",
         op: "setText",
-        on: "basefb",
-        via: "push",
-        after: {
-          line: "METHOD ABSTRACT TakePicture : enumResultTakePicture",
-          add: "// volt vendor-facts: written in place",
-        },
+        on: "abstract",
+        via: "script",
+        decl: "METHOD ABSTRACT TakePicture : enumResultTakePicture\n// volt vendor-facts: written in place\n",
       },
       { op: "rename", on: "check", to: "VltR_CheckBounds", via: "push" },
       { op: "rename", on: "persistent", to: "VltR_PersistentVars", via: "push" },
@@ -1094,8 +1108,7 @@ export const ROWS: Row[] = [
       { op: "move", on: "textlist", to: "home", via: "push" },
       { op: "setText", on: "check", via: "push", restore: true },
       { op: "setText", on: "persistent", via: "push", restore: true },
-      { op: "setText", on: "textlist", via: "push", restore: true },
-      { tag: "restored", op: "setText", on: "basefb", via: "push", restore: true },
+      { tag: "restored", op: "setText", on: "textlist", via: "push", restore: true },
     ],
     reads: [
       {
@@ -1111,6 +1124,17 @@ export const ROWS: Row[] = [
         op: "class",
       },
       { key: "check-kind", at: ["found", "restored"], on: "check", op: "member", path: "object.KindOfCheckFunction" },
+      // The write landed (or not): the declaration the IDE holds, before and after.
+      { key: "decl", at: ["found", "updated"], on: "abstract", op: "member", path: "script.textual_declaration.text" },
+      // Which slots the abstract members have: null = no such aspect.
+      {
+        key: "implementation",
+        at: "found",
+        on: ["abstract", "busy", "busyget"],
+        op: "member",
+        path: "object.Implementation.$type",
+      },
+      { key: "class", at: "found", on: ["busy", "busyget"], op: "class" },
       {
         key: "nvl",
         at: "start",
@@ -1125,7 +1149,7 @@ export const ROWS: Row[] = [
     dialect: ["D34"],
     vendors: { twincat: true },
     steps: [
-      // Folder first, then an object of that name at the same level: refused.
+      // Folder first, then an object of that name at the same level: accepted — the two coexist (D34).
       { op: "create", as: "f1", kind: "folder", name: "VltF_Collide1", parent: "root", via: "script" },
       {
         tag: "folder-first",
@@ -1137,7 +1161,7 @@ export const ROWS: Row[] = [
         via: "script",
         decl: DECL.program("VltF_Collide1"),
       },
-      // Object first, then a folder of that name: the two may coexist (an ORDER constraint).
+      // Object first, then a folder of that name: refused (D34: an ORDER constraint, not a naming one).
       {
         op: "create",
         as: "o2",
@@ -1291,7 +1315,8 @@ export const ROWS: Row[] = [
       { tag: "found", op: "find", as: "task", name: "MainTask" },
       { tag: "string", op: "invoke", on: "task", path: "script.kind_of_task", set: "Freewheeling" },
       { tag: "int-1", op: "invoke", on: "task", path: "script.kind_of_task", set: 1 },
-      { tag: "int-0", op: "invoke", on: "task", path: "script.kind_of_task", set: 0 },
+      // int 0 is not asked: it opens a modal "CODESYS" message box that stops the UI thread (DIALECT C30, recorded
+      // 2026-10-11, not kept — the run would end on the timeout with cleanup unable to run).
       {
         tag: "enum",
         op: "invoke",
@@ -1303,7 +1328,7 @@ export const ROWS: Row[] = [
     reads: [
       {
         key: "kind",
-        at: ["found", "string", "int-1", "int-0", "enum"],
+        at: ["found", "string", "int-1", "enum"],
         on: "task",
         op: "member",
         path: "script.kind_of_task",
@@ -1595,6 +1620,7 @@ export const ROWS: Row[] = [
       { key: "exe", at: "start", op: "process", what: "exe" },
       { vendor: "codesys", key: "platform", at: "start", op: "process", what: "assembly" },
       { vendor: "twincat", key: "automation", at: "start", op: "process", what: "automation" },
+      { key: "ui-culture", at: "start", op: "process", what: "culture" },
     ],
   },
   {

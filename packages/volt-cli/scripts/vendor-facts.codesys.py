@@ -630,7 +630,9 @@ def _parse(text):
     if scanner is None:
         raise ProbeError("no CreateScanner overload took the text")
     parser = parsers[0].Invoke(m, System.Array[System.Object]([scanner]))
-    pi = [mi for mi in parser.GetType().GetMethods(vp.bf()) if mi.Name == "ParseInterface" and len(mi.GetParameters()) == 0]
+    # The parser's type AND its interfaces: `ParseInterface()` is `IParser`'s (the deleted probe searched both).
+    pi = [mi for s in [parser.GetType()] + list(parser.GetType().GetInterfaces()) for mi in s.GetMethods(vp.bf())
+          if mi.Name == "ParseInterface" and len(mi.GetParameters()) == 0]
     if not pi:
         raise ProbeError("the parser has no ParseInterface()")
     try:
@@ -698,6 +700,9 @@ def _process(what):
         if t is None:
             raise ProbeError("_3S.CoDeSys.Core.SystemInstances is not loaded")
         return {"assembly": t.Assembly.GetName().Name, "version": str(t.Assembly.GetName().Version)}
+    if what == "culture":
+        # Read on the UI thread the timer answers on: the thread the IDE's own messages are formatted on.
+        return {"CurrentUICulture": System.Globalization.CultureInfo.CurrentUICulture.Name}
     raise ProbeError("CODESYS has no '%s' process read" % what)
 
 

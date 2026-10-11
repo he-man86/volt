@@ -13,6 +13,7 @@ import {
   mergeSnapshot,
   parseArgs,
   planRow,
+  refuseIdeVersion,
   runRow,
   sortDeep,
   validateTable,
@@ -209,6 +210,50 @@ describe("running a row", () => {
     await expect(runRow(r, deps)).rejects.toThrow(
       "and its cleanup failed too: the CODESYS core did not answer cleanup within 300 s",
     )
+  })
+})
+
+describe("a build's messages on CODESYS (the core's read)", () => {
+  it("are a SET: the order the IDE lists them in is not recorded (two runs of one build listed 744 in two orders)", async () => {
+    const a = { code: "C0004", severity: "Error", text: "'DI_10' is no component of 'IQSlices'" }
+    const b = { code: "C0032", severity: "Error", text: "Cannot convert type 'IQSlices' to type 'ANY_INT'" }
+    const deps = (value: unknown[]): RowDeps => ({
+      vendor: "codesys",
+      core: async (req) =>
+        req.kind === "step" ? { outcome: "accepted" } : { value: req.kind === "read" ? value : null },
+      wire: {
+        step: async () => "accepted",
+        build: async () => ({ success: true, diagnostics: [] }),
+        cleanup: async () => {},
+      },
+    })
+    const r = row({ steps: [{ tag: "built", op: "build" }], reads: [{ key: "d", at: "built", op: "diagnostics" }] })
+    const one = (await runRow(r, deps([b, a, b]))) as any
+    const two = (await runRow(r, deps([a, b, b]))) as any
+    expect(one.d).toEqual([a, b, b])
+    expect(two.d).toEqual(one.d)
+  })
+
+  it("orders them without their guids, so a fresh object's guid cannot reorder the list or its tokens", async () => {
+    const on = (g: string, text: string) => ({ guid: { $guid: g }, text })
+    const deps = (value: unknown[]): RowDeps => ({
+      vendor: "codesys",
+      core: async (req) =>
+        req.kind === "step" ? { outcome: "accepted" } : { value: req.kind === "read" ? value : null },
+      wire: {
+        step: async () => "accepted",
+        build: async () => ({ success: true, diagnostics: [] }),
+        cleanup: async () => {},
+      },
+    })
+    const r = row({ steps: [{ tag: "built", op: "build" }], reads: [{ key: "d", at: "built", op: "diagnostics" }] })
+    const one = (await runRow(r, deps([on("ffff", "b"), on("0000", "a")]))) as any
+    const two = (await runRow(r, deps([on("0000", "b"), on("ffff", "a")]))) as any
+    expect(one.d).toEqual([
+      { guid: "guid-1", text: "a" },
+      { guid: "guid-2", text: "b" },
+    ])
+    expect(two.d).toEqual(one.d)
   })
 })
 
@@ -473,6 +518,22 @@ describe("the rows re-measure what DIALECT records as measured", () => {
     )
   })
 
+  it("V1: the IDE's UI culture is read on both vendors, so a run on another locale names it beside its refusal texts", () => {
+    for (const v of ["codesys", "twincat"] as const) {
+      const r = expandReads(planRow(ROWS.find((r) => r.id === "ide-identity")!, v)).find(
+        (r) => r.snapshotKey === "ui-culture",
+      )
+      expect(r?.op).toBe("process")
+      expect(r && r.op === "process" && r.what).toBe("culture")
+    }
+  })
+
+  it("C30: int 0 is not asked — it opens a modal dialog that stops the UI thread (recorded in C30, not kept)", () => {
+    expect(steps("task-kind", "codesys")).not.toContain("invoke@int-0")
+    expect(keys("task-kind", "codesys")).not.toContain("kind@int-0")
+    expect(keys("task-kind", "codesys")).toEqual(expect.arrayContaining(["kind@int-1", "kind@string", "kind@enum"]))
+  })
+
   it("C2g: the icon's interface set, the language model, and broken-text, interface and GVL subjects", () => {
     expect(keys("kind-source", "codesys")).toEqual(
       expect.arrayContaining([
@@ -510,6 +571,56 @@ describe("the snapshot", () => {
       'task-kind.kind: committed "Cyclic" / measured "Freewheeling"',
     ])
     expect(diffSnapshots(committed, committed)).toEqual([])
+  })
+})
+
+describe("the IDE a run measures (design 3: SP21 and TwinCAT 3.1 only)", () => {
+  const cs = (v: string) => ({ exe: { exe: "CODESYS.exe", ProductVersion: v }, platform: {}, steps: [] })
+  const tc = (exe: string, v: string) => ({ exe: { exe }, automation: { TcRemoteManagerVersion: v }, steps: [] })
+
+  it("accepts CODESYS 3.5 SP21 and TwinCAT 3.1 in TcXaeShell", () => {
+    expect(refuseIdeVersion("codesys", cs("3.5.21.40"))).toBeUndefined()
+    expect(refuseIdeVersion("twincat", tc("TcXaeShell.exe", "3.1.4024.74"))).toBeUndefined()
+  })
+
+  it("refuses another version by name, before anything is recorded", () => {
+    expect(refuseIdeVersion("codesys", cs("3.5.18.40"))).toBe(
+      "CODESYS 3.5.18.40 is not 3.5 SP21 — the snapshot is SP21's; refused, never recorded",
+    )
+    expect(refuseIdeVersion("twincat", tc("TcXaeShell.exe", "3.1.4026.10"))).toBeUndefined()
+    expect(refuseIdeVersion("twincat", tc("TcXaeShell.exe", "4.0.1.0"))).toBe(
+      "TwinCAT 4.0.1.0 in TcXaeShell.exe is not TwinCAT 3.1 in TcXaeShell — refused, never recorded",
+    )
+    expect(refuseIdeVersion("twincat", tc("devenv.exe", "3.1.4024.74"))).toBe(
+      "TwinCAT 3.1.4024.74 in devenv.exe is not TwinCAT 3.1 in TcXaeShell — refused, never recorded",
+    )
+  })
+
+  it("refuses any build but the one the committed snapshot was recorded on, naming both", () => {
+    const committedCs = cs("3.5.21.40")
+    const committedTc = { ...tc("TcXaeShell.exe", "3.1.4024.74"), exe: { exe: "TcXaeShell.exe", DteVersion: "15.0" } }
+    expect(refuseIdeVersion("codesys", cs("3.5.21.40"), committedCs)).toBeUndefined()
+    expect(refuseIdeVersion("codesys", cs("3.5.21.50"), committedCs)).toBe(
+      "CODESYS 3.5.21.50 is not 3.5.21.40, the build vendor-facts.codesys.json was recorded on — refused, never " +
+        "diffed; to record this IDE, move the snapshot aside and run --write deliberately",
+    )
+    const same = { ...committedTc, exe: { exe: "TcXaeShell.exe", DteVersion: "15.0" } }
+    expect(refuseIdeVersion("twincat", same, committedTc)).toBeUndefined()
+    const newer = { ...tc("TcXaeShell.exe", "3.1.4026.10"), exe: { exe: "TcXaeShell.exe", DteVersion: "15.0" } }
+    expect(refuseIdeVersion("twincat", newer, committedTc)).toBe(
+      "TwinCAT 3.1.4026.10 in TcXaeShell.exe 15.0 is not 3.1.4024.74 in TcXaeShell.exe 15.0, the build " +
+        "vendor-facts.twincat.json was recorded on — refused, never diffed; to record this IDE, move the snapshot " +
+        "aside and run --write deliberately",
+    )
+    const otherShell = { ...committedTc, exe: { exe: "TcXaeShell.exe", DteVersion: "16.0" } }
+    expect(refuseIdeVersion("twincat", otherShell, committedTc)).toContain("TcXaeShell.exe 16.0 is not")
+  })
+
+  it("refuses an identity it cannot read rather than passing it", () => {
+    expect(refuseIdeVersion("codesys", "absent: x")).toBe('ide-identity did not answer an exe version: "absent: x"')
+    expect(refuseIdeVersion("twincat", { exe: {}, steps: [] })).toBe(
+      'ide-identity did not answer an exe version: {"exe":{},"steps":[]}',
+    )
   })
 })
 

@@ -1,0 +1,500 @@
+{
+	"compile-options": {
+		"defines": "",
+		"max-warnings": "100",
+		"replace-constants": "false",
+		"steps": []
+	},
+	"dut-subtype-in-place": {
+		"diagnostics-pack": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "'e' is no structured variable",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'eIDLE' is no component of 'E_PACKML_MODE'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'eIDLE' is no component of 'E_PACKML_MODE'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'eMANUAL' is no component of 'E_PACKML_MODE'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'ePRODUCTION' is no component of 'E_PACKML_MODE'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'Purple' is no component of 'VLTF_SUBP_ENUM'",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'E_PackML_Mode.eIDLE'' to type 'E_PackML_Mode'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'E_PackML_Mode.eIDLE'' to type 'E_PackML_Mode'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'E_PackML_Mode.eMANUAL'' to type 'E_PackML_Mode'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'E_PackML_Mode.ePRODUCTION'' to type 'E_PackML_Mode'",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'VltF_SubP_enum.Purple'' to type 'VLTF_SUBP_ENUM'",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Related Position",
+					"name": "E_PackML_Mode.dut",
+					"severity": "info"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Related Position",
+					"name": "VltF_SubUse.pou",
+					"severity": "info"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Type name 'E_PackML_Mode' not expected in this place",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Type name 'E_PackML_Mode' not expected in this place",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Type name 'E_PackML_Mode' not expected in this place",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Type name 'E_PackML_Mode' not expected in this place",
+					"name": "FB_PackML_Unit.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"diagnostics@built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"diagnostics@negative": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "'e' is no structured variable",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "'Purple' is no component of 'VLTF_SUBP_ENUM'",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Cannot convert type 'Unknown type: 'VltF_SubP_enum.Purple'' to type 'VLTF_SUBP_ENUM'",
+					"name": "VltF_SubUse.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": null,
+					"message": "Related Position",
+					"name": "VltF_SubUse.pou",
+					"severity": "info"
+				}
+			],
+			"success": false
+		},
+		"guid-reloaded.p_alias": "guid-3",
+		"guid-reloaded.p_enum": "guid-1",
+		"guid-reloaded.p_union": "guid-2",
+		"guid.p_alias@pushed": "guid-3",
+		"guid.p_alias@seeded": "guid-3",
+		"guid.p_enum@pushed": "guid-1",
+		"guid.p_enum@seeded": "guid-1",
+		"guid.p_union@pushed": "guid-2",
+		"guid.p_union@seeded": "guid-2",
+		"guid.q_alias@q_made": "guid-5",
+		"guid.q_alias@q_pushed": "guid-5",
+		"guid.q_alias@reloaded": "guid-5",
+		"guid.q_union@q_made": "guid-4",
+		"guid.q_union@q_pushed": "guid-4",
+		"guid.q_union@reloaded": "guid-4",
+		"guid@pack_restored": "guid-6",
+		"guid@pack_struct": "guid-6",
+		"guid@pack_union": "guid-6",
+		"item-type.c_alias@created": 606,
+		"item-type.c_alias@reloaded": 623,
+		"item-type.c_enum@created": 606,
+		"item-type.c_enum@reloaded": 605,
+		"item-type.c_union@created": 606,
+		"item-type.c_union@reloaded": 607,
+		"item-type.p_alias@pushed": 606,
+		"item-type.p_alias@reloaded": 623,
+		"item-type.p_alias@seeded": 606,
+		"item-type.p_enum@pushed": 606,
+		"item-type.p_enum@reloaded": 605,
+		"item-type.p_enum@seeded": 606,
+		"item-type.p_union@pushed": 606,
+		"item-type.p_union@reloaded": 607,
+		"item-type.p_union@seeded": 606,
+		"item-type.q_alias@q_made": 623,
+		"item-type.q_alias@q_pushed": 623,
+		"item-type.q_alias@reloaded": 606,
+		"item-type.q_union@q_made": 607,
+		"item-type.q_union@q_pushed": 607,
+		"item-type.q_union@reloaded": 606,
+		"item-type@pack_restored": 605,
+		"item-type@pack_struct": 605,
+		"item-type@pack_union": 605,
+		"parent.p_alias": "VltF_Sub",
+		"parent.p_enum": "VltF_Sub",
+		"parent.p_union": "VltF_Sub",
+		"steps": [
+			"create folder: accepted",
+			"create p_enum: accepted",
+			"create p_union: accepted",
+			"create p_alias: accepted",
+			"setText p_enum (push): accepted",
+			"setText p_union (push): accepted",
+			"setText p_alias (push): accepted",
+			"create q_union: accepted",
+			"create q_alias: accepted",
+			"setText q_union (push): accepted",
+			"setText q_alias (push): accepted",
+			"create user (push): accepted",
+			"find main: accepted",
+			"setText main (push): accepted",
+			"build: accepted",
+			"setText user (push): accepted",
+			"build: accepted",
+			"find pack: accepted",
+			"setText pack (push): accepted",
+			"build: accepted",
+			"setText pack (push): accepted",
+			"setText pack (push): accepted",
+			"create c_enum (push): accepted",
+			"create c_union (push): accepted",
+			"create c_alias (push): accepted",
+			"reload: accepted"
+		]
+	},
+	"empty-folder-survives": {
+		"children": [],
+		"steps": [
+			"create folder: accepted",
+			"create pou: accepted",
+			"delete pou: accepted",
+			"delete folder: accepted"
+		]
+	},
+	"folder-name-collision": {
+		"steps": [
+			"create f1: accepted",
+			"create o1: accepted",
+			"create o2: accepted",
+			"create f2: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: A file or folder with the name 'VltF_Collide2' already exists on disk at this location. Please choose another name."
+		]
+	},
+	"graphical-callee-seed": {
+		"diagnostics": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"steps": [
+			"create folder: accepted",
+			"create fun (push): accepted",
+			"create fun_noeno (push): accepted",
+			"create fun_eno (push): refused: UNSUPPORTED: TwinCAT: the text reads `.ENO` on the 'VltF_Seed_F' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds. — 'VltF_Seed_FE' is not created (the create is rolled back)",
+			"create prg (push): accepted",
+			"create prg_eno (push): refused: UNSUPPORTED: TwinCAT: the text reads `.ENO` on the 'VltF_Seed_P' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds. — 'VltF_Seed_PE' is not created (the create is rolled back)",
+			"create fb (push): accepted",
+			"create fb_eno (push): refused: UNSUPPORTED: TwinCAT: the text reads `.ENO` on the 'VltF_Seed_B' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds. — 'VltF_Seed_BE' is not created (the create is rolled back)",
+			"build: accepted"
+		]
+	},
+	"ide-identity": {
+		"automation": {
+			"TcRemoteManagerVersion": "3.1.4024.74"
+		},
+		"exe": {
+			"CompanyName": "Beckhoff",
+			"DteName": "TcXaeShell",
+			"DteVersion": "15.0",
+			"FileVersion": "15.0.0.0",
+			"ProductName": "TcXaeShell Application",
+			"ProductVersion": "15.0.0.0",
+			"exe": "TcXaeShell.exe"
+		},
+		"steps": [],
+		"ui-culture": {
+			"CurrentUICulture": "nl-NL",
+			"DteLocale": "en-US"
+		}
+	},
+	"kind-audit": {
+		"children@created": [
+			"AA",
+			"AM",
+			"AP"
+		],
+		"children@retyped": [
+			"AA",
+			"AM",
+			"AP"
+		],
+		"item-type.a@created": 608,
+		"item-type.a@retyped": 608,
+		"item-type.fb@created": 604,
+		"item-type.fb@retyped": 604,
+		"item-type.m@created": 609,
+		"item-type.m@retyped": 609,
+		"item-type.p@created": 611,
+		"item-type.p@retyped": 611,
+		"steps": [
+			"create folder: accepted",
+			"create fb: accepted",
+			"create m: accepted",
+			"create p: accepted",
+			"create a: accepted",
+			"setText fb (push): accepted"
+		]
+	},
+	"kind-source": {
+		"caption.d_alias@built": "VltF_K_A",
+		"caption.d_alias@changed": "VltF_K_A",
+		"caption.d_alias@created": "VltF_K_A",
+		"caption.d_alias@reloaded": "VltF_K_A",
+		"caption.d_enum@built": "VltF_K_E (STRUCT)",
+		"caption.d_enum@changed": "VltF_K_E (STRUCT)",
+		"caption.d_enum@created": "VltF_K_E (ENUM)",
+		"caption.d_enum@reloaded": "VltF_K_E (STRUCT)",
+		"caption.d_struct@built": "VltF_K_S (ENUM)",
+		"caption.d_struct@changed": "VltF_K_S (ENUM)",
+		"caption.d_struct@created": "VltF_K_S (STRUCT)",
+		"caption.d_struct@reloaded": "VltF_K_S (ENUM)",
+		"caption.d_union@built": "VltF_K_U (UNION)",
+		"caption.d_union@changed": "VltF_K_U (UNION)",
+		"caption.d_union@created": "VltF_K_U (UNION)",
+		"caption.d_union@reloaded": "VltF_K_U (UNION)",
+		"caption.p_fb@built": "VltF_K_FB (FB)",
+		"caption.p_fb@changed": "VltF_K_FB (FB)",
+		"caption.p_fb@created": "VltF_K_FB (FB)",
+		"caption.p_fb@reloaded": "VltF_K_FB (FB)",
+		"caption.p_fun@built": "VltF_K_F (FUN)",
+		"caption.p_fun@changed": "VltF_K_F (FUN)",
+		"caption.p_fun@created": "VltF_K_F (FUN)",
+		"caption.p_fun@reloaded": "VltF_K_F (FUN)",
+		"caption.p_prg@built": "VltF_K_P (FB)",
+		"caption.p_prg@changed": "VltF_K_P (FB)",
+		"caption.p_prg@created": "VltF_K_P (PRG)",
+		"caption.p_prg@reloaded": "VltF_K_P (FB)",
+		"caption.v_enum@built": "VltF_K_VE (ENUM)",
+		"caption.v_enum@changed": "VltF_K_VE (ENUM)",
+		"caption.v_enum@created": "VltF_K_VE (ENUM)",
+		"caption.v_enum@reloaded": "VltF_K_VE (ENUM)",
+		"item-type.d_alias@built": 623,
+		"item-type.d_alias@changed": 623,
+		"item-type.d_alias@created": 623,
+		"item-type.d_alias@reloaded": 623,
+		"item-type.d_enum@built": 605,
+		"item-type.d_enum@changed": 605,
+		"item-type.d_enum@created": 605,
+		"item-type.d_enum@reloaded": 606,
+		"item-type.d_struct@built": 606,
+		"item-type.d_struct@changed": 606,
+		"item-type.d_struct@created": 606,
+		"item-type.d_struct@reloaded": 605,
+		"item-type.d_union@built": 607,
+		"item-type.d_union@changed": 607,
+		"item-type.d_union@created": 607,
+		"item-type.d_union@reloaded": 607,
+		"item-type.p_fb@built": 604,
+		"item-type.p_fb@changed": 604,
+		"item-type.p_fb@created": 604,
+		"item-type.p_fb@reloaded": 604,
+		"item-type.p_fun@built": 603,
+		"item-type.p_fun@changed": 603,
+		"item-type.p_fun@created": 603,
+		"item-type.p_fun@reloaded": 603,
+		"item-type.p_prg@built": 602,
+		"item-type.p_prg@changed": 602,
+		"item-type.p_prg@created": 602,
+		"item-type.p_prg@reloaded": 604,
+		"item-type.v_enum@built": 606,
+		"item-type.v_enum@changed": 606,
+		"item-type.v_enum@created": 606,
+		"item-type.v_enum@reloaded": 605,
+		"steps": [
+			"create folder: accepted",
+			"create d_struct: accepted",
+			"create d_enum: accepted",
+			"create d_union: accepted",
+			"create d_alias: accepted",
+			"create v_enum: accepted",
+			"create p_prg: accepted",
+			"create p_fun: accepted",
+			"create p_fb: accepted",
+			"setText d_struct: accepted",
+			"setText d_enum: accepted",
+			"setText p_prg: accepted",
+			"build: accepted",
+			"reload: accepted"
+		]
+	},
+	"pou-members-follow-text": {
+		"children@back": [],
+		"children@with-method": [],
+		"children@with-property": [],
+		"folder-after-create": [
+			"VltF_Mem_F"
+		],
+		"kfb-children@km-function": [
+			"KM"
+		],
+		"kfb-children@km-made": [
+			"KM"
+		],
+		"kfb-children@second-member": [
+			"KM"
+		],
+		"steps": [
+			"create folder: accepted",
+			"create pou (push): accepted",
+			"setText pou (push): refused: UNSUPPORTED: 'VltF_Mem_F': the IDE refused to create its method 'MM': Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch) — nothing of 'VltF_Mem_F' was written. Which members a POU accepts follows its declaration (a FUNCTION takes none).",
+			"setText pou (push): refused: UNSUPPORTED: 'VltF_Mem_F': the IDE refused to create its property 'MP': Creating the child type 'TREEITEMTYPE_PLCPROP' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch) — nothing of 'VltF_Mem_F' was written. Which members a POU accepts follows its declaration (a FUNCTION takes none).",
+			"setText pou (push): refused: UNSUPPORTED: 'VltF_Mem_F': the IDE refused to create its action 'MA': Creating the child type 'TREEITEMTYPE_PLCACTION' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch) — nothing of 'VltF_Mem_F' was written. Which members a POU accepts follows its declaration (a FUNCTION takes none).",
+			"create fm (push): refused: UNSUPPORTED: 'VltF_Mem_FM': the IDE refused to create its method 'FM1': Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch). Which members a POU accepts follows its declaration (a FUNCTION takes none). — 'VltF_Mem_FM' is not created (the create is rolled back)",
+			"create kfb (push): accepted",
+			"setText kfb (push): accepted",
+			"setText kfb (push): refused: UNSUPPORTED: 'VltF_Mem_KFB': the IDE refused to create its method 'KM2': Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch) — nothing of 'VltF_Mem_KFB' was written. Which members a POU accepts follows its declaration (a FUNCTION takes none)."
+		]
+	},
+	"tc-project-object": {
+		"full-name-ext": ".tsproj",
+		"kind": "{B1E792BE-AA5F-4E3C-8C82-674BF9C0715B}",
+		"object-lookup-bogus": {
+			"raised": "COMException: Uitzondering van HRESULT: 0x98510001"
+		},
+		"object-system-manager": null,
+		"object-unknown-member": null,
+		"steps": []
+	},
+	"tc-project-settings": {
+		"compiler-settings-children": [
+			"ReplaceConstants=false",
+			"CompilerDefines=",
+			"MaxWarnings=100",
+			"AvailableCompilers=<AvailableCompilers>",
+			"ActiveCompiler=3.1.4024.0",
+			"DownloadApplicationInfo=true",
+			"GenerateTpy=false"
+		],
+		"steps": [],
+		"warning-as-error": null,
+		"warning-list": null
+	},
+	"tc-task-items": {
+		"children": [],
+		"cycle-100ns": "100000",
+		"cycle-context-ns": "10000000",
+		"fixture-cycle-100ns": "100000",
+		"fixture-cycle-context-ns": "10000000",
+		"fixture-priority": "20",
+		"fixture-tto-cycle-us": "10000",
+		"item-type.plc": 621,
+		"item-type.sys": 1,
+		"linked-task": "TIRT^VltF_Task",
+		"priority@cycle": "1",
+		"priority@taken-priority": "1",
+		"steps": [
+			"create lone: refused: COMException: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: No task 'VltF_TaskLone' found in Realtime-Settings!",
+			"create sys: accepted",
+			"create plc: accepted",
+			"invoke item.ConsumeXml: accepted",
+			"invoke dte.ExecuteCommand: accepted",
+			"find fixture-task: accepted",
+			"find fixture-plc-task: accepted",
+			"invoke item.ConsumeXml: accepted"
+		],
+		"tto-cycle-us": "10000"
+	}
+}

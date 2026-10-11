@@ -257,7 +257,11 @@ must print "every fact as committed". A value that differs between the two runs 
 gets fixed before anything is committed. Rejected: *committing one `--write` run*, because a value that changes from
 run to run (an ordering, a fresh name) would then fail the next user's run as if the vendor had changed. Each run is one
 `ide.ps1` session on `-Instance vendor-fact-probe` (TwinCAT `-Fixture 14`), started by the runner. `ide-identity`'s `exe` read
-must name SP21 and TwinCAT 3.1 / XAE before the snapshot is written; another version is refused, never recorded.
+must name SP21 and TwinCAT 3.1 / XAE before the snapshot is written; another version is refused, never recorded. Once a
+snapshot is committed, the gate is its exact build (CODESYS `ProductVersion`; TwinCAT `TcRemoteManagerVersion`, shell
+and shell version): a run on another build is refused naming both, never diffed (gate 3). Recording another build is
+deliberate: move the snapshot aside and `--write`. A build's messages are a set: CODESYS lists one build's messages in
+a different order run to run, so a `diagnostics` read is sorted (keyed without guids), as TwinCAT's already was.
 
 - **`task-kind` int 0 leaves the table.** The 2.4 smoke run showed that it opens a modal "CODESYS" message box, which
   stops the UI thread, and the run ends on the timeout. C30 gets the answer as "recorded, not kept" (like C33): int 0

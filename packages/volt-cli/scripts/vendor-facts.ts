@@ -237,6 +237,8 @@ export async function runRow(row: Row, deps: RowDeps): Promise<Record<string, un
       try {
         if (r.op === "absent") snap[r.snapshotKey] = `absent: ${r.reason}`
         else if (r.op === "diagnostics" && twincatBuild) snap[r.snapshotKey] = bridgeDiagnostics(ctx, r.mentioning)
+        else if (r.op === "diagnostics")
+          snap[r.snapshotKey] = asSet((await deps.core({ kind: "read", row: row.id, read: r })).value)
         else snap[r.snapshotKey] = (await deps.core({ kind: "read", row: row.id, read: r })).value ?? null
       } catch (e) {
         throw new Error(`${where}: ${(e as Error).message}`, { cause: e })
@@ -309,6 +311,24 @@ export async function runRow(row: Row, deps: RowDeps): Promise<Record<string, un
   if (failed) throw failed
   if (cleanupErrors.length) throw new Error(`${row.id}: cleanup failed: ${cleanupErrors.join("; ")}`)
   return canonicalGuids({ steps: outcomes, ...snap }) as Record<string, unknown>
+}
+
+/** A build's messages are a SET: CODESYS lists one build's messages in a different order run to run (measured
+ *  2026-10-11: 744 messages, the same multiset, two orders), so the order is not a fact and is not recorded — sorted
+ *  as TwinCAT's are. A value that is not a list is a probe fault, never a set of nothing. */
+function asSet(value: unknown): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`a diagnostics read answered ${JSON.stringify(value)}, not a list`)
+  return (
+    value
+      // Keyed WITHOUT guid values: a fresh object's guid differs every run, so ordering by it would reorder the list,
+      // and with it the per-row guid tokens handed out by first appearance.
+      .map(
+        (d) =>
+          [JSON.stringify(sortDeep(d), (_k, v) => (v && typeof v === "object" && "$guid" in v ? "" : v)), d] as const,
+      )
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([, d]) => d)
+  )
 }
 
 /** TwinCAT's build, from the bridge: its `success`, and the diagnostics that name one of the row's subjects, name NO
@@ -799,6 +819,43 @@ export function mergeSnapshot(
   return out
 }
 
+/** The IDE a snapshot stands for (design 3): CODESYS 3.5 SP21, TwinCAT 3.1 in TcXaeShell — and, once a snapshot is
+ *  committed, exactly the BUILD it was recorded on (`committed` = its `ide-identity` fact). Another IDE is refused BEFORE
+ *  a row runs: its answers are never recorded, and never diffed against the committed ones as if the vendor had changed.
+ *  Recording another build is a deliberate act (move the snapshot aside, `--write`), never a side effect of a run.
+ *  `identity` is the measured `ide-identity` fact. */
+export function refuseIdeVersion(vendor: Vendor, identity: unknown, committed?: unknown): string | undefined {
+  type Id = {
+    exe?: { exe?: string; ProductVersion?: string; DteVersion?: string }
+    automation?: { TcRemoteManagerVersion?: string }
+  }
+  const id = identity as Id
+  const unread = `ide-identity did not answer an exe version: ${JSON.stringify(identity)}`
+  if (typeof id !== "object" || id === null || !id.exe?.exe) return unread
+  const file = basename(snapshotPath(vendor))
+  const was = committed as Id | undefined
+  if (vendor === "codesys") {
+    const v = id.exe.ProductVersion
+    if (!v) return unread
+    if (!/^3\.5\.21\./.test(v)) return `CODESYS ${v} is not 3.5 SP21 — the snapshot is SP21's; refused, never recorded`
+    const w = was?.exe?.ProductVersion
+    return w === undefined || w === v
+      ? undefined
+      : `CODESYS ${v} is not ${w}, the build ${file} was recorded on — refused, never diffed; to record this IDE, ` +
+          "move the snapshot aside and run --write deliberately"
+  }
+  const v = id.automation?.TcRemoteManagerVersion
+  if (!v) return unread
+  if (!/^3\.1\./.test(v) || id.exe.exe !== "TcXaeShell.exe")
+    return `TwinCAT ${v} in ${id.exe.exe} is not TwinCAT 3.1 in TcXaeShell — refused, never recorded`
+  if (was === undefined) return undefined
+  const shell = (x: Id) => `${x.automation?.TcRemoteManagerVersion} in ${x.exe?.exe} ${x.exe?.DteVersion}`
+  return shell(id) === shell(was)
+    ? undefined
+    : `TwinCAT ${shell(id)} is not ${shell(was)}, the build ${file} was recorded on — refused, never diffed; to ` +
+        "record this IDE, move the snapshot aside and run --write deliberately"
+}
+
 async function main(): Promise<number> {
   let args: ReturnType<typeof parseArgs>
   try {
@@ -834,16 +891,27 @@ async function main(): Promise<number> {
       request = core.request
     }
     const wire = wireSide(pipe)
+    // The IDE first, on every run (an --only run too): another version is refused before any row runs.
+    const identity = await runRow(ROWS.find((r) => r.id === "ide-identity")!, { vendor, core: request, wire })
+    const path = snapshotPath(vendor)
+    const committed = existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>) : {}
+    const refused = refuseIdeVersion(vendor, identity, committed["ide-identity"])
+    if (refused) {
+      console.error(`[vendor-facts] ${refused}`)
+      return 1
+    }
     const measured: Record<string, unknown> = {}
     for (const row of ROWS) {
       if (row.vendors[vendor] === undefined || (only && !only.includes(row.id))) continue
+      if (row.id === "ide-identity") {
+        measured[row.id] = identity
+        continue
+      }
       const t0 = Date.now()
       measured[row.id] = await runRow(row, { vendor, core: request, wire })
       console.log(`[vendor-facts] ${row.id}: ${((Date.now() - t0) / 1000).toFixed(1)} s`)
       if (process.env.VOLT_FACTS_VERBOSE) console.log(JSON.stringify(sortDeep(measured[row.id]), null, 1))
     }
-    const path = snapshotPath(vendor)
-    const committed = existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>) : {}
     const snapshot = sortDeep(mergeSnapshot(committed, measured, only)) as Record<string, unknown>
     const diff = diffSnapshots(committed, snapshot)
     for (const d of diff) console.log(`  ${d}`)

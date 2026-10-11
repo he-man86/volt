@@ -1,0 +1,5267 @@
+{
+	"accessor-decl": {
+		"accessor-declaration.get": "VAR\nEND_VAR\n",
+		"accessor-declaration.set": "VAR\nEND_VAR\n",
+		"accessor-parent.get": "P",
+		"accessor-parent.set": "P",
+		"property-declaration": "PROPERTY P : INT",
+		"steps": [
+			"create fb: accepted",
+			"create prop: accepted",
+			"find get: accepted",
+			"find set: accepted"
+		]
+	},
+	"compile-options": {
+		"defines": null,
+		"max-warnings": 100,
+		"replace-constants": true,
+		"steps": []
+	},
+	"diagnostic-child-guid": {
+		"diagnostics": [
+			{
+				"code": "C0032",
+				"guid": "guid-2",
+				"position": {
+					"length": 2,
+					"offset": 8,
+					"position": 7
+				},
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'undefinedName'' to type 'INT'"
+			},
+			{
+				"code": "C0046",
+				"guid": "guid-2",
+				"position": {
+					"length": 13,
+					"offset": 11,
+					"position": 7
+				},
+				"severity": "Error",
+				"text": "Identifier 'undefinedName' not defined"
+			},
+			{
+				"code": "C0046",
+				"guid": "guid-2",
+				"position": {
+					"length": 13,
+					"offset": 11,
+					"position": 7
+				},
+				"severity": "Error",
+				"text": "Identifier 'undefinedName' not defined"
+			}
+		],
+		"guid.fb": "guid-1",
+		"guid.m": "guid-2",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create fb: accepted",
+			"create m: accepted",
+			"create user: accepted",
+			"find main: accepted",
+			"setText main: accepted",
+			"build: accepted"
+		]
+	},
+	"duplicate-method": {
+		"children": [
+			"Compute"
+		],
+		"steps": [
+			"create fb: accepted",
+			"create m1: accepted",
+			"create m2: refused: BaseException: An object with the name 'Compute' already exists within the corresponding namespace."
+		]
+	},
+	"dut-subtype-in-place": {
+		"class.p_alias@pushed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.p_alias@seeded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.p_enum@pushed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.p_enum@seeded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.p_union@pushed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.p_union@seeded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.s_alias": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.s_enum": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.s_union": "_3S.CoDeSys.DUTObject.DUTObject",
+		"decl.p_alias@pushed": "TYPE VltF_SubP_alias : STRING(80);\nEND_TYPE",
+		"decl.p_alias@seeded": "TYPE VltF_SubP_alias :\nSTRUCT\n\talpha : INT;\n\tbeta : BOOL;\nEND_STRUCT\nEND_TYPE\n",
+		"decl.p_enum@pushed": "TYPE VltF_SubP_enum :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE",
+		"decl.p_enum@seeded": "TYPE VltF_SubP_enum :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE",
+		"decl.p_union@pushed": "TYPE VltF_SubP_union :\nUNION\n\ti : INT;\n\trv : REAL;\nEND_UNION\nEND_TYPE",
+		"decl.p_union@seeded": "TYPE VltF_SubP_union :\nSTRUCT\n\talpha : INT;\n\tbeta : BOOL;\nEND_STRUCT\nEND_TYPE\n",
+		"diagnostics-iq": [
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_11' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_11' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_12' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_12' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_13' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_13' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_14' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_14' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_15' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_15' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_16' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_16' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_17' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_17' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_18' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_18' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_19' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_19' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_20' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_20' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_21' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_21' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_22' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_22' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_30' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_30' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_31' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_31' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_32' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_32' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_33' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_33' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_40' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_40' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_41' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_41' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_42' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_42' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_43' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_43' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_44' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_44' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_45' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_45' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_50' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_50' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_51' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_51' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_52' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_52' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_53' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_53' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DI_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_10' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_11' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_11' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_12' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_12' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_13' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_13' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_14' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_14' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_15' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_15' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_16' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_16' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_17' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_17' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_18' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_18' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_19' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_19' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_20' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_20' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_30' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_30' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_31' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_31' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_32' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_32' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_33' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_33' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_34' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_34' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_35' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_35' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_36' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_36' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_40' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_40' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_41' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_41' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_42' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_42' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_43' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_43' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_44' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_44' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_45' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_45' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_46' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_46' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_50' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_50' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_51' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_51' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_52' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_52' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_53' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_53' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'DQ_54' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'FinalElement' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'FinalElement' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'FinalElement' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'FinalElement' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors3' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors3' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors3' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors3' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'HomingSensors3' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'None' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'None' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety1' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'PilzSafety2' is no component of 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'BIT' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'ANY_INT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'IQSlices' to type 'UINT'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: '(IQSlices.None + 1)'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_10'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_10'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_10'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_11'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_11'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_12'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_12'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_13'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_13'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_14'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_14'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_15'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_15'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_16'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_16'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_17'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_17'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_18'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_18'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_19'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_19'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_20'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_20'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_21'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_21'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_22'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_22'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_30'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_30'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_31'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_31'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_32'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_32'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_33'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_33'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_40'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_40'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_41'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_41'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_42'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_42'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_43'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_43'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_44'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_44'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_45'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_45'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_50'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_50'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_51'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_51'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_52'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_52'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_53'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_53'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_54'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_54'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DI_54'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_10'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_10'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_10'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_11'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_11'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_12'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_12'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_13'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_13'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_14'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_14'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_15'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_15'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_16'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_16'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_17'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_17'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_18'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_18'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_19'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_19'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_20'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_20'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_30'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_30'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_31'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_31'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_32'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_32'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_33'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_33'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_34'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_34'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_35'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_35'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_36'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_36'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_40'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_40'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_41'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_41'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_42'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_42'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_43'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_43'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_44'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_44'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_45'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_45'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_46'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_46'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_50'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_50'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_51'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_51'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_52'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_52'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_53'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_53'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_54'' to type 'AnyInt'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_54'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'IQSlices.DQ_54'' to type 'IQSlices'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'SEL((slice = (IQSlices.FinalElement - 1)), CONCAT5(s1 := '\"', s2 := INT_TO_STRING(ANY_TO_INT(slice)), s3 := '\":\"', s4 := ANY_TO_STRING(slice), s5 := '\",'), CONCAT5(s1 := '\"', s2 := INT_TO_STRING(ANY_TO_INT(slice)), s3 := '\":\"', s4 := ANY_TO_STRING(slice), s5 := '\"'))'' to type 'STRING(40)'"
+			},
+			{
+				"code": "C0066",
+				"severity": "Error",
+				"text": "Cannot compare type 'IQSlices' with type 'IQSlices'"
+			},
+			{
+				"code": "C0066",
+				"severity": "Error",
+				"text": "Cannot compare type 'IQSlices' with type 'IQSlices'"
+			},
+			{
+				"code": "C0066",
+				"severity": "Error",
+				"text": "Cannot compare type 'UINT' with type 'IQSlices'"
+			},
+			{
+				"code": "C0066",
+				"severity": "Error",
+				"text": "Cannot compare type 'UINT' with type 'IQSlices'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(((selectedSlice = IQSlices.HomingSensors1) AND ((i0 / 8) = 0)) OR ((selectedSlice = IQSlices.HomingSensors2) AND ((i0 / 8) = 1)))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(((selectedSlice = IQSlices.HomingSensors1) AND ((i0 / 8) = 0)) OR ((selectedSlice = IQSlices.HomingSensors2) AND ((i0 / 8) = 1)))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors1) AND ((i0 / 8) = 0))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors1) AND ((i0 / 8) = 0))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors2) AND ((i0 / 8) = 1))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors2) AND ((i0 / 8) = 1))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors3) AND ((i0 / 8) = 2))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '((selectedSlice = IQSlices.HomingSensors3) AND ((i0 / 8) = 2))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(IQSlices.FinalElement - 1)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors1)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors1)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors2)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors2)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors3)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(selectedSlice = IQSlices.HomingSensors3)'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: '(slice = (IQSlices.FinalElement - 1))'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.FinalElement'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.FinalElement'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors1'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors1'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors2'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors2'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors3'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.HomingSensors3'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.None'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.PilzSafety1'"
+			},
+			{
+				"code": "C0077",
+				"severity": "Error",
+				"text": "Unknown type: 'IQSlices.PilzSafety2'"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			},
+			{
+				"code": "C0230",
+				"severity": "Error",
+				"text": "Type name 'IQSlices' not expected in this place"
+			}
+		],
+		"diagnostics@built": [],
+		"diagnostics@negative": [
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'Purple' is no component of 'VltF_SubP_enum'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'Purple' is no component of 'VltF_SubP_enum'"
+			},
+			{
+				"code": "C0004",
+				"severity": "Error",
+				"text": "'alpha' is no component of 'e'"
+			},
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'VltF_SubP_enum.Purple'' to type 'VLTF_SUBP_ENUM'"
+			},
+			{
+				"code": "C0046",
+				"severity": "Error",
+				"text": "Identifier 'Purple' not defined"
+			},
+			{
+				"code": "C0046",
+				"severity": "Error",
+				"text": "Identifier 'alpha' not defined"
+			},
+			{
+				"code": "C0062",
+				"severity": "Error",
+				"text": "'e' is no structured variable"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			},
+			{
+				"code": "C0181",
+				"severity": "Information",
+				"text": "Related position"
+			}
+		],
+		"guid.p_alias@pushed": "guid-3",
+		"guid.p_alias@seeded": "guid-3",
+		"guid.p_enum@pushed": "guid-1",
+		"guid.p_enum@seeded": "guid-1",
+		"guid.p_union@pushed": "guid-2",
+		"guid.p_union@seeded": "guid-2",
+		"guid.s_alias": "guid-6",
+		"guid.s_enum": "guid-4",
+		"guid.s_union": "guid-5",
+		"guid@iq_alias": "guid-7",
+		"guid@iq_struct": "guid-7",
+		"guid@iq_union": "guid-7",
+		"guid@pro2193": "guid-7",
+		"interfaces@iq_alias": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IFindReplace",
+			"IFindReplace2",
+			"IFindReplace3",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProvider2",
+			"IObject",
+			"IObjectNameConflictChecker",
+			"ISupportRefactoring",
+			"ITextListEnumerationObject",
+			"ITextListEnumerationObject2",
+			"ITextListObjectContainer"
+		],
+		"interfaces@iq_struct": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IFindReplace",
+			"IFindReplace2",
+			"IFindReplace3",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProvider2",
+			"IObject",
+			"IObjectNameConflictChecker",
+			"ISupportRefactoring",
+			"ITextListEnumerationObject",
+			"ITextListEnumerationObject2",
+			"ITextListObjectContainer"
+		],
+		"interfaces@iq_union": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IFindReplace",
+			"IFindReplace2",
+			"IFindReplace3",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProvider2",
+			"IObject",
+			"IObjectNameConflictChecker",
+			"ISupportRefactoring",
+			"ITextListEnumerationObject",
+			"ITextListEnumerationObject2",
+			"ITextListObjectContainer"
+		],
+		"interfaces@pro2193": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IFindReplace",
+			"IFindReplace2",
+			"IFindReplace3",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProvider2",
+			"IObject",
+			"IObjectNameConflictChecker",
+			"ISupportRefactoring",
+			"ITextListEnumerationObject",
+			"ITextListEnumerationObject2",
+			"ITextListObjectContainer"
+		],
+		"parent.p_alias": "VltF_Sub",
+		"parent.p_enum": "VltF_Sub",
+		"parent.p_union": "VltF_Sub",
+		"parent.s_alias": "VltF_Sub",
+		"parent.s_enum": "VltF_Sub",
+		"parent.s_union": "VltF_Sub",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create folder: accepted",
+			"create p_enum: accepted",
+			"create p_union: accepted",
+			"create p_alias: accepted",
+			"setText p_enum (push): accepted",
+			"setText p_union (push): accepted",
+			"setText p_alias (push): accepted",
+			"create s_enum: accepted",
+			"create s_union: accepted",
+			"create s_alias: accepted",
+			"setText s_enum: accepted",
+			"setText s_union: accepted",
+			"setText s_alias: accepted",
+			"create user (push): accepted",
+			"find main: accepted",
+			"setText main: accepted",
+			"build: accepted",
+			"setText user (push): accepted",
+			"build: accepted",
+			"open Pro2193: accepted",
+			"find iq: accepted",
+			"setText iq (push): accepted",
+			"build: accepted",
+			"setText iq (push): accepted",
+			"setText iq (push): accepted"
+		]
+	},
+	"empty-folder-survives": {
+		"children": [],
+		"steps": [
+			"create folder: accepted",
+			"create pou: accepted",
+			"delete pou: accepted",
+			"delete folder: accepted"
+		]
+	},
+	"ide-identity": {
+		"exe": {
+			"CompanyName": "CODESYS Development GmbH",
+			"FileVersion": "3.5.21.40",
+			"ProductName": "CODESYS",
+			"ProductVersion": "3.5.21.40",
+			"exe": "CODESYS.exe"
+		},
+		"platform": {
+			"assembly": "SystemInstances",
+			"version": "3.5.21.40"
+		},
+		"steps": [],
+		"ui-culture": {
+			"CurrentUICulture": "en-US"
+		}
+	},
+	"kind-audit": {
+		"children@created": [
+			"AM",
+			"AP",
+			"AA"
+		],
+		"children@retyped": [
+			"AM",
+			"AP",
+			"AA"
+		],
+		"class.a@created": "_3S.CoDeSys.ActionObject.ActionObject",
+		"class.a@member-texts": "_3S.CoDeSys.ActionObject.ActionObject",
+		"class.a@retyped": "_3S.CoDeSys.ActionObject.ActionObject",
+		"class.fb@created": "_3S.CoDeSys.POUObject.POUObject",
+		"class.fb@member-texts": "_3S.CoDeSys.POUObject.POUObject",
+		"class.fb@retyped": "_3S.CoDeSys.POUObject.POUObject",
+		"class.m@created": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"class.m@member-texts": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"class.m@retyped": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"class.p@created": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"class.p@member-texts": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"class.p@retyped": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"signature.fb@created": "FunctionBlock/None",
+		"signature.fb@member-texts": "Method/None",
+		"signature.fb@retyped": "Program/None",
+		"signature.m@created": "Method/None",
+		"signature.m@member-texts": "Method/None",
+		"signature.m@retyped": "Method/None",
+		"signature.p@created": null,
+		"signature.p@member-texts": null,
+		"signature.p@retyped": null,
+		"steps": [
+			"create folder: accepted",
+			"create fb: accepted",
+			"create m: accepted",
+			"create p: accepted",
+			"create a: accepted",
+			"setText fb: accepted",
+			"setText m: accepted",
+			"setText p: accepted"
+		]
+	},
+	"kind-source": {
+		"class": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.b_dut@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.b_dut@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.b_dut@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.b_pou@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"class.b_pou@created": "_3S.CoDeSys.POUObject.POUObject",
+		"class.b_pou@reloaded": "_3S.CoDeSys.POUObject.POUObject",
+		"class.d_alias@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_alias@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_alias@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_enum@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_enum@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_enum@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_struct@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_struct@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_struct@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_union@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_union@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.d_union@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.gvl@changed": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.gvl@created": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.gvl@reloaded": "_3S.CoDeSys.GVLObject.GVLObject",
+		"class.itf@changed": "_3S.CoDeSys.InterfaceObject.InterfaceObject",
+		"class.itf@created": "_3S.CoDeSys.InterfaceObject.InterfaceObject",
+		"class.itf@reloaded": "_3S.CoDeSys.InterfaceObject.InterfaceObject",
+		"class.p_fb@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_fb@created": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_fb@reloaded": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_fun@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_fun@created": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_fun@reloaded": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_prg@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_prg@created": "_3S.CoDeSys.POUObject.POUObject",
+		"class.p_prg@reloaded": "_3S.CoDeSys.POUObject.POUObject",
+		"class.v_enum@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.v_enum@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"class.v_enum@reloaded": "_3S.CoDeSys.DUTObject.DUTObject",
+		"interfaces": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IFindReplace",
+			"IFindReplace2",
+			"IFindReplace3",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProvider2",
+			"IObject",
+			"IObjectNameConflictChecker",
+			"ISupportRefactoring",
+			"ITextListEnumerationObject",
+			"ITextListEnumerationObject2",
+			"ITextListObjectContainer"
+		],
+		"interfaces.b_dut@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.b_dut@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.b_pou@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.b_pou@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_alias@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_alias@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_enum@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_enum@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_struct@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_struct@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_union@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.d_union@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.gvl@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGVLObject",
+			"IGVLObject2",
+			"IGVLObject3",
+			"IGVLObject4",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasNetVarProperties",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderWithDependencies",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.gvl@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGVLObject",
+			"IGVLObject2",
+			"IGVLObject3",
+			"IGVLObject4",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasNetVarProperties",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderWithDependencies",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.itf@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IInterfaceObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.itf@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IInterfaceObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_fb@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_fb@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_fun@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_fun@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_prg@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.p_prg@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDeferrableLanguageModelProvider",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"IHasAssociatedOnlineHelpTopic",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"ILanguageModelProviderBuildPropertiesControl2",
+			"IObject",
+			"IPOUObject",
+			"IPOUObject2",
+			"IPOUObject3",
+			"IStructuredLanguageModelProvider",
+			"ISupportRefactoring"
+		],
+		"interfaces.v_enum@changed": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"interfaces.v_enum@created": [
+			"IArchivable",
+			"IArchivable2",
+			"IArchivable3",
+			"IArchivable4",
+			"IArchivable5",
+			"IArchivable6",
+			"ICloneable",
+			"IComparable",
+			"IDUTObject",
+			"IDUTObject2",
+			"IFindReplace",
+			"IFindReplace2",
+			"IGenerateableObject",
+			"IGenericInterfaceExtensionProvider",
+			"IGenericObject",
+			"ILanguageModelProvider",
+			"ILanguageModelProviderBuildPropertiesControl",
+			"IObject",
+			"ISupportRefactoring"
+		],
+		"language-model.b_dut@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.b_dut@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.b_pou@changed": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.b_pou@created": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.d_alias@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_alias@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_enum@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_enum@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_struct@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_struct@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_union@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.d_union@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.gvl@changed": [
+			"language-model",
+			"global-interface",
+			"interface"
+		],
+		"language-model.gvl@created": [
+			"language-model",
+			"global-interface",
+			"interface"
+		],
+		"language-model.itf@changed": [
+			"language-model",
+			"pou",
+			"interface"
+		],
+		"language-model.itf@created": [
+			"language-model",
+			"pou",
+			"interface"
+		],
+		"language-model.p_fb@changed": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.p_fb@created": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.p_fun@changed": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.p_fun@created": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.p_prg@changed": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.p_prg@created": [
+			"language-model",
+			"pou",
+			"interface",
+			"body"
+		],
+		"language-model.v_enum@changed": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"language-model.v_enum@created": [
+			"language-model",
+			"data-type",
+			"interface"
+		],
+		"meta-object-type.b_dut@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.b_dut@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.b_pou@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.b_pou@created": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.d_alias@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_alias@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_enum@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_enum@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_struct@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_struct@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_union@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.d_union@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.gvl@changed": "_3S.CoDeSys.GVLObject.GVLObject",
+		"meta-object-type.gvl@created": "_3S.CoDeSys.GVLObject.GVLObject",
+		"meta-object-type.itf@changed": "_3S.CoDeSys.InterfaceObject.InterfaceObject",
+		"meta-object-type.itf@created": "_3S.CoDeSys.InterfaceObject.InterfaceObject",
+		"meta-object-type.p_fb@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.p_fb@created": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.p_fun@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.p_fun@created": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.p_prg@changed": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.p_prg@created": "_3S.CoDeSys.POUObject.POUObject",
+		"meta-object-type.v_enum@changed": "_3S.CoDeSys.DUTObject.DUTObject",
+		"meta-object-type.v_enum@created": "_3S.CoDeSys.DUTObject.DUTObject",
+		"script-type.b_dut@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.b_dut@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.b_pou@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.b_pou@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_alias@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_alias@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_enum@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_enum@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_struct@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_struct@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_union@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.d_union@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.gvl@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.gvl@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.itf@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.itf@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_fb@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_fb@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_fun@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_fun@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_prg@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.p_prg@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.v_enum@changed": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"script-type.v_enum@created": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"signature": "VarGlobal/Enum",
+		"signature.b_dut@built": "None/None",
+		"signature.b_dut@changed": "None/None",
+		"signature.b_dut@created": "None/None",
+		"signature.b_dut@reloaded": "None/None",
+		"signature.b_pou@built": "None/None",
+		"signature.b_pou@changed": "None/None",
+		"signature.b_pou@created": "None/None",
+		"signature.b_pou@reloaded": "None/None",
+		"signature.d_alias@built": "Type/Alias",
+		"signature.d_alias@changed": "Type/Alias",
+		"signature.d_alias@created": "Type/Alias",
+		"signature.d_alias@reloaded": "Type/Alias",
+		"signature.d_enum@built": "Type/Structure",
+		"signature.d_enum@changed": "Type/Structure",
+		"signature.d_enum@created": "VarGlobal/Enum",
+		"signature.d_enum@reloaded": "Type/Structure",
+		"signature.d_struct@built": "VarGlobal/Enum",
+		"signature.d_struct@changed": "VarGlobal/Enum",
+		"signature.d_struct@created": "Type/Structure",
+		"signature.d_struct@reloaded": "VarGlobal/Enum",
+		"signature.d_union@built": "Type/Structure, Union",
+		"signature.d_union@changed": "Type/Structure, Union",
+		"signature.d_union@created": "Type/Structure, Union",
+		"signature.d_union@reloaded": "Type/Structure, Union",
+		"signature.gvl@built": "VarGlobal/Internal",
+		"signature.gvl@changed": "VarGlobal/Internal",
+		"signature.gvl@created": "VarGlobal/Internal",
+		"signature.gvl@reloaded": "VarGlobal/Internal",
+		"signature.itf@built": "Interface/None",
+		"signature.itf@changed": "Interface/None",
+		"signature.itf@created": "Interface/None",
+		"signature.itf@reloaded": "Interface/None",
+		"signature.p_fb@built": "FunctionBlock/None",
+		"signature.p_fb@changed": "FunctionBlock/None",
+		"signature.p_fb@created": "FunctionBlock/None",
+		"signature.p_fb@reloaded": "FunctionBlock/None",
+		"signature.p_fun@built": "Function/None",
+		"signature.p_fun@changed": "Function/None",
+		"signature.p_fun@created": "Function/None",
+		"signature.p_fun@reloaded": "Function/None",
+		"signature.p_prg@built": "FunctionBlock/None",
+		"signature.p_prg@changed": "FunctionBlock/None",
+		"signature.p_prg@created": "Program/None",
+		"signature.p_prg@reloaded": "FunctionBlock/None",
+		"signature.v_enum@built": "VarGlobal/Enum",
+		"signature.v_enum@changed": "VarGlobal/Enum",
+		"signature.v_enum@created": "VarGlobal/Enum",
+		"signature.v_enum@reloaded": "VarGlobal/Enum",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create folder: accepted",
+			"create d_struct: accepted",
+			"create d_enum: accepted",
+			"create d_union: accepted",
+			"create d_alias: accepted",
+			"create v_enum: accepted",
+			"create p_prg: accepted",
+			"create p_fun: accepted",
+			"create b_dut: accepted",
+			"create b_pou: accepted",
+			"create itf: accepted",
+			"create gvl: accepted",
+			"create p_fb: accepted",
+			"setText d_struct: accepted",
+			"setText d_enum: accepted",
+			"setText p_prg: accepted",
+			"build: accepted",
+			"reload: accepted",
+			"open Pro2193: accepted",
+			"find iq: accepted"
+		],
+		"type-guid.b_dut@changed": null,
+		"type-guid.b_dut@created": null,
+		"type-guid.b_pou@changed": null,
+		"type-guid.b_pou@created": null,
+		"type-guid.d_alias@changed": null,
+		"type-guid.d_alias@created": null,
+		"type-guid.d_enum@changed": null,
+		"type-guid.d_enum@created": null,
+		"type-guid.d_struct@changed": null,
+		"type-guid.d_struct@created": null,
+		"type-guid.d_union@changed": null,
+		"type-guid.d_union@created": null,
+		"type-guid.gvl@changed": null,
+		"type-guid.gvl@created": null,
+		"type-guid.itf@changed": null,
+		"type-guid.itf@created": null,
+		"type-guid.p_fb@changed": null,
+		"type-guid.p_fb@created": null,
+		"type-guid.p_fun@changed": null,
+		"type-guid.p_fun@created": null,
+		"type-guid.p_prg@changed": null,
+		"type-guid.p_prg@created": null,
+		"type-guid.v_enum@changed": null,
+		"type-guid.v_enum@created": null
+	},
+	"merged-classes": {
+		"check-kind@found": "CheckBounds",
+		"check-kind@restored": "CheckBounds",
+		"class.abstract@found": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.abstract@moved": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.abstract@renamed": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.abstract@restored": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.abstract@updated": "_3S.CoDeSys.MethodObject.AbstractPOUMethodObject",
+		"class.busy": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"class.busyget": "_3S.CoDeSys.PropertyObject.InterfacePropertyAccessorObject",
+		"class.check@found": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.check@moved": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.check@renamed": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.check@restored": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.check@updated": "_3S.CoDeSys.POUObject.POUObjectCheckFunction",
+		"class.persistent@found": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.persistent@moved": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.persistent@renamed": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.persistent@restored": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.persistent@updated": "_3S.CoDeSys.GVLObject.VarPersistentObject",
+		"class.textlist@found": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.textlist@moved": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.textlist@renamed": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.textlist@restored": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"class.textlist@updated": "_3S.CoDeSys.TextList.TextListEnumerationObject",
+		"decl@found": "METHOD ABSTRACT TakePicture : enumResultTakePicture\n",
+		"decl@updated": "METHOD ABSTRACT TakePicture : enumResultTakePicture\n// volt vendor-facts: written in place\n",
+		"guid.abstract@found": "guid-4",
+		"guid.abstract@moved": "guid-4",
+		"guid.abstract@renamed": "guid-4",
+		"guid.abstract@restored": "guid-4",
+		"guid.abstract@updated": "guid-4",
+		"guid.check@found": "guid-1",
+		"guid.check@moved": "guid-1",
+		"guid.check@renamed": "guid-1",
+		"guid.check@restored": "guid-1",
+		"guid.check@updated": "guid-1",
+		"guid.persistent@found": "guid-2",
+		"guid.persistent@moved": "guid-2",
+		"guid.persistent@renamed": "guid-2",
+		"guid.persistent@restored": "guid-2",
+		"guid.persistent@updated": "guid-2",
+		"guid.textlist@found": "guid-3",
+		"guid.textlist@moved": "guid-3",
+		"guid.textlist@renamed": "guid-3",
+		"guid.textlist@restored": "guid-3",
+		"guid.textlist@updated": "guid-3",
+		"implementation.abstract": null,
+		"implementation.busy": null,
+		"implementation.busyget": null,
+		"nvl": "absent: no committed fixture holds an NVL (CAN_TO_PLC is in Bakon Nano), and the scripting container has no create_nvl",
+		"steps": [
+			"open Pro2193: accepted",
+			"find check: accepted",
+			"find persistent: accepted",
+			"find textlist: accepted",
+			"find basefb: accepted",
+			"find abstract: accepted",
+			"find busy: accepted",
+			"find busyget: accepted",
+			"setText check (push): accepted",
+			"setText persistent (push): accepted",
+			"setText textlist (push): accepted",
+			"setText abstract: accepted",
+			"rename check (push): accepted",
+			"rename persistent (push): accepted",
+			"rename textlist (push): accepted",
+			"rename check (push): accepted",
+			"rename persistent (push): accepted",
+			"rename textlist (push): accepted",
+			"move check (push): accepted",
+			"move persistent (push): accepted",
+			"move textlist (push): accepted",
+			"move check (push): accepted",
+			"move persistent (push): accepted",
+			"move textlist (push): accepted",
+			"setText check (push): accepted",
+			"setText persistent (push): accepted",
+			"setText textlist (push): accepted"
+		]
+	},
+	"pou-kind-signature": {
+		"parse-empty": "None",
+		"parse-prose": "None",
+		"parse-unclosed-comment": "None",
+		"parse.excluded": "FunctionBlock",
+		"parse.fb": "FunctionBlock",
+		"parse.fun": "Function",
+		"parse.prg": "Program",
+		"signature.excluded@built": null,
+		"signature.excluded@created": null,
+		"signature.fb@built": "FunctionBlock/None",
+		"signature.fb@created": "FunctionBlock/None",
+		"signature.fun@built": "Function/None",
+		"signature.fun@created": "Function/None",
+		"signature.prg@built": "Program/None",
+		"signature.prg@created": "Program/None",
+		"steps": [
+			"create folder: accepted",
+			"create prg: accepted",
+			"create fb: accepted",
+			"create fun: accepted",
+			"create excluded: accepted",
+			"invoke script.build_properties.exclude_from_build: accepted",
+			"build: accepted"
+		]
+	},
+	"pou-members-follow-text": {
+		"children@back": [],
+		"children@members-asked": [],
+		"kfb-children@km-function": [
+			"KM"
+		],
+		"kfb-children@km-made": [
+			"KM"
+		],
+		"kfb-children@second-member": [
+			"KM"
+		],
+		"kfb-signature@km-function": "Function/None",
+		"kfb-signature@km-made": "FunctionBlock/None",
+		"steps": [
+			"create folder: accepted",
+			"create pou: accepted",
+			"setText pou: accepted",
+			"create m: refused: BaseException: Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or device description).",
+			"create p: refused: BaseException: Object 'Property' is not accepted by parent object, or invalid (e. g. missing plugin or device description).",
+			"create a: refused: BaseException: Object 'Action' is not accepted by parent object, or invalid (e. g. missing plugin or device description).",
+			"create t: refused: BaseException: Object 'Transition' is not accepted by parent object, or invalid (e. g. missing plugin or device description).",
+			"setText pou: accepted",
+			"create m2: accepted",
+			"create kfb: accepted",
+			"create km: accepted",
+			"setText kfb: accepted",
+			"create km2: refused: BaseException: Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or device description)."
+		]
+	},
+	"project-container": {
+		"application": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"node-container": [
+			"ScriptObject"
+		],
+		"project": "_3S.CoDeSys.ScriptDriverProjects.ScriptProject",
+		"project-creates": [
+			"create_folder"
+		],
+		"project-interfaces": [
+			"IBaseObject`1",
+			"IEquatable`1",
+			"IScriptProject",
+			"IScriptProject10",
+			"IScriptProject11",
+			"IScriptProject12",
+			"IScriptProject13",
+			"IScriptProject2",
+			"IScriptProject3",
+			"IScriptProject4",
+			"IScriptProject5",
+			"IScriptProject6",
+			"IScriptProject7",
+			"IScriptProject8",
+			"IScriptProject9",
+			"IScriptTreeObject"
+		],
+		"root-container": [
+			"ScriptProject"
+		],
+		"steps": []
+	},
+	"projectsettings-scope": {
+		"disabled-warnings@closed": null,
+		"disabled-warnings@fixture": null,
+		"disabled-warnings@pro2193": [
+			371
+		],
+		"disabled-warnings@pro2193-again": [
+			371
+		],
+		"same-service@closed": true,
+		"same-service@fixture": true,
+		"same-service@pro2193-again": true,
+		"service@closed": "<_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService>",
+		"service@fixture": "<_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService>",
+		"service@pro2193": "<_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService>",
+		"service@pro2193-again": "<_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService>",
+		"steps": [
+			"open Pro2193: accepted",
+			"close: accepted",
+			"open CodesysTestProject: accepted",
+			"open Pro2193: accepted"
+		],
+		"utf8@closed": false,
+		"utf8@fixture": true,
+		"utf8@pro2193": false,
+		"utf8@pro2193-again": false
+	},
+	"task-callcomment": {
+		"entry-type": "_3S.CoDeSys.TaskObject.PouObject",
+		"serializable-value-names": [
+			"Name",
+			"Comment"
+		],
+		"steps": [
+			"find task: accepted"
+		]
+	},
+	"task-calllist": {
+		"pous-type": "_3S.CoDeSys.ScriptDriverProjects.ScriptPouObjectList",
+		"pous@add": [
+			"PLC_PRG",
+			"PLC_PRG"
+		],
+		"pous@found": [
+			"PLC_PRG"
+		],
+		"pous@remove-by-index": [
+			"PLC_PRG"
+		],
+		"pous@remove-by-name": [
+			"PLC_PRG"
+		],
+		"pous@writeable-copy": [],
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find task: accepted",
+			"invoke script.pous.remove: accepted",
+			"invoke script.pous.remove: refused: BaseException: Cannot remove the specified item because it was not found in the specified Collection.",
+			"invoke script.pous.add: accepted",
+			"invoke script.pous.PerformWithWriteableCopy: accepted"
+		]
+	},
+	"task-config-survives-delete": {
+		"children@deleted": [],
+		"children@found": [
+			"MainTask"
+		],
+		"class@deleted": "_3S.CoDeSys.TaskConfigObject.TaskConfigObject",
+		"class@found": "_3S.CoDeSys.TaskConfigObject.TaskConfigObject",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find config: accepted",
+			"find task: accepted",
+			"delete task: accepted"
+		]
+	},
+	"task-create": {
+		"children@created": [
+			"MainTask",
+			"VltF_Task"
+		],
+		"children@removed": [
+			"MainTask"
+		],
+		"config-script-type": "_3S.CoDeSys.ScriptDriverProjects.ScriptObject",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find config: accepted",
+			"invoke script.create_task: accepted",
+			"find task: accepted",
+			"delete task: accepted"
+		]
+	},
+	"task-kind": {
+		"kind-names": [
+			"Cyclic",
+			"Freewheeling",
+			"Event",
+			"ExternalEvent",
+			"Status",
+			"ParentSynchron"
+		],
+		"kind-type": "_3S.CoDeSys.TaskConfig.KindOfTask",
+		"kind@enum": "Freewheeling",
+		"kind@found": "Cyclic",
+		"kind@int-1": "Cyclic",
+		"kind@string": "Cyclic",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find task: accepted",
+			"invoke script.kind_of_task: refused: BaseException: expected KindOfTask, got str",
+			"invoke script.kind_of_task: refused: BaseException: Cannot convert numeric value 1 to KindOfTask.  The value must be zero.",
+			"invoke script.kind_of_task: accepted"
+		]
+	},
+	"task-writable": {
+		"interval-unit@found": "ms",
+		"interval-unit@interval-unit": "ms",
+		"interval@found": "t#20ms",
+		"interval@interval": "t#20ms",
+		"priority@found": "1",
+		"priority@priority-int": "1",
+		"priority@priority-string": "5",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"find task: accepted",
+			"invoke script.interval: accepted",
+			"invoke script.interval_unit: accepted",
+			"invoke script.priority: refused: BaseException: expected str, got int",
+			"invoke script.priority: accepted",
+			"invoke script.watchdog.enabled: accepted",
+			"invoke script.watchdog.time: accepted",
+			"invoke script.watchdog.sensitivity: accepted"
+		],
+		"watchdog-enabled@found": false,
+		"watchdog-enabled@watchdog-enabled": true,
+		"watchdog-sensitivity@found": "1",
+		"watchdog-sensitivity@watchdog-sensitivity": "2",
+		"watchdog-time@found": "",
+		"watchdog-time@watchdog-time": "100"
+	}
+}
