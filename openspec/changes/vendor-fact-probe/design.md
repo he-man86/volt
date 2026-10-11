@@ -172,3 +172,34 @@ steps, and reads from the closed sets.
 - **Not marked yet:** the fold-in rows (C28, C19c, D41, N24, N25 — `bridge-refusal-review`'s kept probes, task 4.1)
   and the deferred N-rows (4.2). C2i (touching a declaration-less POU after load crashes XAE) is not re-measured: a
   probe that crashes its IDE is not a re-runnable fact.
+
+## 1.1 — `VendorFactTableMatchesDialectTests` (offline gate)
+
+**Target.** Repo.Gates proves the table and DIALECT name the same facts, offline, in the `volt-cli` CI job.
+
+**Choice: compare PAIR SETS, read both files as text.** The gate builds `{(dialectId, factId)}` twice and asserts the
+two sets are EQUAL, reporting each side's extras by name:
+- from `DIALECT.md`: every row `| **<id>** [PROBE: a] [PROBE: b] |` (ids `[A-DNV]\d+[a-z]?`, the 0.2 spelling) gives
+  `(id, a)`, `(id, b)`;
+- from `scripts/vendor-facts.table.ts`: every row's `id: "<fact>"` and its `dialect: ["C2e", …]` give `(C2e, fact)`.
+
+Equality is stronger than the two directions 0.1 named (marker → row, row.dialect → existing id): it also refuses a row
+citing a DIALECT row that does not carry its marker. Measured 2026-10-11: today's 30 markers on 29 rows ARE exactly the
+30 citations of the 0.1 table (C19 holds two facts, C2e two, three rows hold `ide-identity`), so nothing has to move.
+Three more asserts, each named: table ids are unique; a cited DIALECT id exists; a marker never sits on a retracted
+(`~~id~~`) row — a withdrawn fact is not re-measurable.
+
+**Reading the table: a strict text parse.** The table keeps one literal shape per row — `id: "<kebab>"` and
+`dialect: [<"Id">, …]` on the row's own lines, no computed ids, no spreads. The gate counts row openers (`id:`) and
+fails, naming the row, when a row lacks a parseable `dialect:` or the counts differ. That is the fail-loud guard
+against a table edit the parse would silently skip. Rejected:
+- *Spawn `bun` to import the table and print JSON* — no Repo.Gate starts a process; it ties `dotnet test` to bun.
+- *A `.json` table* — loses the typed `Step`/`Read` vocabulary 0.1 rests on (a table error becomes a runtime one).
+- *Put the check in `check-wiring.ts`* — the task names Repo.Gates, and check-wiring parses only `A`–`D` ids.
+
+**Refused by name.** A missing `vendor-facts.table.ts` fails as `vendor-facts.table.ts not found (task 2.1)` — the gate
+is red from 1.1 until 2.1, as tasks.md says, and is not skipped. The fold-in rows (C28, C19c, D41, N24, N25) and the
+deferred N-rows carry no marker, so the gate asks nothing of them until 4.1 / 4.2 mark them.
+
+**Migration.** 1.1 commits the test (red, one reason). 2.1 writes the table in the shape above → green. 4.1 adds the
+`refused-names` row and its markers in one commit, so the sets stay equal at every commit after 2.1.
