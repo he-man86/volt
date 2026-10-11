@@ -389,3 +389,42 @@ Already known going in:
 
 Measure (0) → gates red where code is missing (1) → folders (2) → review (3) → splits (4) → close (5). Folders before
 the review so the review reads files in their final homes; splits after the review so a fix lands before its file is cut.
+
+## 5. Step 1 — the gates (design)
+
+**Target.** Every rule of the standard is a gate in `bun run lint` / `test/package` from step 1 on, green at HEAD, with
+today's debt as NAMED, shrink-only entries: an entry that grows fails, one that no longer occurs (stale) fails until
+removed, a new violation fails. Each later step deletes its own entries in its commit; 4.5 leaves only the NT ones.
+
+**Choice.**
+- *Files* — `check-size.ts` `SCOPE` → roots `src` + `test`; ceilings keyed package-relative; limit by kind (product and
+  `test/` non-test 400, `*.test.ts` 600); `map.generated.ts` exempt by NAME. Ceilings = §1.1 (19 + 3 + 4 + 30).
+- *Functions* — a second shrink-only map `FUNCTION_CEILINGS`, keyed `file#name` → lines, failing like the file one.
+  Today: 25 in `src` + 6 in `test/` support (`bound-census.ts`: `boundCensus` 393, `known` 276, `storesOf` 263, `e` 118,
+  `crossCheckBuildTypes` 84, `units` 82 — not in §1.2, go to 4.4). NT 3 marked "LD/FBD change". Measured what decides
+  the key: `file#name` is unique for all 31 (no duplicate), so no line number in the key (lines move on every edit).
+- *Dead exports* — `dead-exports.ts --gate` in lint: NOBODY over `src`, less (a) the members of any exported union
+  declared in the same file (`irUnionMembers` generalised; measured: excludes 41 of the 72 — the 21 + 14 NT + 6 IR), (b)
+  the transpile barrel surface + `ir/` types (`IrUnOp`, `PathSegment`). Allowlist = the remaining 29: 25 non-NT (→ 0
+  by 4.5) + 4 NT (`TokKind` `CONSTRUCT_WORDS` `v1Refusal` `resolveAnywhere`).
+- *Structure* — `structure.test.ts`: a `src/` file whose every importer is a test fails, unless `*.test.ts`,
+  `*.cases.ts`, an `index.ts` or `bin.ts`; known 3 (`server/harness.ts`, `server/diagnostic-codes.ts`,
+  `analysis/test-uri.ts`) → 0 in step 2. The `server/` import rule is rule **S1 in `check-layering.ts`** (reported by
+  `layering.test.ts`): `server/` imports only `analysis/index`, `services/index`, `frontend/*/index`, `workspace/*`,
+  itself. Known 3: the `../services/shared/index.js` imports of `server.ts`, `diagnostics.ts`, `workspace-store.ts`
+  (§2.3) → 0 in step 2. Task 1.2 named `structure.test.ts` for both; the import half goes where imports are scanned.
+- Each gate gets a planted-violation test (a scratch tree, as `layering.test.ts` does) proving it fires and names both
+  the file and the rule.
+
+**Rejected.** Function list as a warning until empty (the transpile run's way: a new long function lands unseen for
+the whole change). Red tests / `test.failing` for the debt (a red full suite hides every other regression). A second
+import parser in `structure.test.ts` (two scanners drift; `check-layering` already has known lists + stale checks). A
+type-aware dead-export graph (TS 7 native has no JS API; textual over-counts, the safe direction). A hand list of union
+members (drifts from the unions).
+
+**Refused by name.** Adding a ceiling or allowlist entry after step 1 (only lowering/removing); exempting a folder
+(only `map.generated.ts`, by name); an inline `size-ignore`/`dead-export-ignore` comment; raising a limit.
+
+**Migration.** Step 1: the gates with today's lists, lint + `test/package` green, `scripts/README.md` and
+`test/README.md` rows updated. Steps 2–4 delete entries as they land (the `lower` hint names the number). 4.5 asserts the
+lists hold only NT entries; 5.2 hands those over.
