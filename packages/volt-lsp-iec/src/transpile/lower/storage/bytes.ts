@@ -6,7 +6,7 @@ import type { Lowering } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { baseOf, implementsOf, interfaceChainOf, scopeChain } from "../core/chain.js"
 import { alignUp, isBit, packFields, peelArray, type Type } from "../../../frontend/types/index.js"
-import { lookup } from "../../../frontend/symbols/index.js"
+import { lookupUnit } from "../../../frontend/symbols/index.js"
 import type { Place } from "../../ir/index.js"
 import { fieldIn, fieldOf, rootType, typeAlong } from "../places/path.js"
 import { unionsOf } from "./unions.js"
@@ -55,8 +55,8 @@ export function fieldBytes(
   unmeasured?: Set<string>,
 ): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
   const layout = lw.layouts.get(t.name.toUpperCase())
-  // a UNION's size (its widest member, aligned?) is not measured
-  if (layout === undefined || unionsOf(lw).has(t.name.toUpperCase())) return undefined
+  if (layout === undefined) return undefined
+  if (unionsOf(lw).has(t.name.toUpperCase())) return unionBytes(lw, t.name, layout.fields)
   const pending = lw.bodies.get(t.name.toUpperCase())
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
   // THE DECLARATION OF EITHER KIND. This read it only for a STRUCT, so `pack_mode` on a FUNCTION_BLOCK was never
@@ -65,7 +65,7 @@ export function fieldBytes(
   // attribute reaches an FB and removes the padding exactly as it does in a struct. The 8-byte instance header stays.
   // For an FB the attribute is keyed by the UNIT the parser produced, which is `PendingBody.unit` — the symbol's
   // `ast` is a different node and finds nothing.
-  const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : pending?.unit
+  const decl = t.kind === "struct" ? lookupUnit(lw.project, t.name)?.symbol.ast : pending?.unit
   if (decl?.kind === "type_decl" && decl.body.kind === "struct" && decl.body.extends !== undefined) return undefined
   // `{attribute 'pack_mode' := '1'}` lays the struct out with NO alignment padding: a BOOL then a DINT is 5, where the
   // aligned form is 8 (conformance `cp_declaration_pragmas`). Only mode 1 is measured; any other value is refused
@@ -95,6 +95,26 @@ export function fieldBytes(
     .filter((f) => !(f.section === "temp" || f.section === "VAR_TEMP" || f.section === "VAR_STAT" || replaced.has(f.name.toUpperCase())))
     .map((f) => ({ name: f.name, bytes: isBit(f.type) ? ("bit" as const) : byteSize(lw, f.type) }))
   return packFields(fields, { size: isFb ? 8n + 8n * interfaces : 0n, align: isFb ? 8n : 1n }, packed, unmeasured)
+}
+
+/**
+ * A UNION's bytes: its largest member, rounded up to its most aligned member's alignment — the front-end's rule
+ * (`types/layout.ts` `unionBytes`, DT4: `dt_union_member_sizes` 4, 5, 8; both vendors) — and, as a STRUCT field, at
+ * that alignment (`type_dut_union_in_struct`: BYTE, the union, BYTE at 0/4/12, SIZEOF 16). No offsets: every member is at
+ * 0. `{attribute 'pack_mode' := '1'}` drops the rounding (`type_dut_union_pack_mode`: 5); another mode is refused, as a
+ * STRUCT's is. Undefined when a member is unmeasured (a pointer).
+ */
+function unionBytes(lw: Lowering, name: string, members: readonly { type: Type }[]): { size: bigint; align: bigint } | undefined {
+  const decl = lookupUnit(lw.project, name)?.symbol.ast
+  const attributes = decl === undefined ? undefined : lw.shared.attributes.get(decl)
+  const packed = attributes?.has("pack_mode") === true
+  if (packed && attributes?.has("pack_mode=1") !== true) return undefined
+  const sizes = members.map((m) => byteSize(lw, m.type))
+  if (sizes.length === 0 || sizes.some((s) => s === undefined)) return undefined
+  const size = sizes.reduce((a, s) => (s!.size > a ? s!.size : a), 0n)
+  if (packed) return { size, align: 1n }
+  const align = sizes.reduce((a, s) => (s!.align > a ? s!.align : a), 1n)
+  return { size: alignUp(size, align), align }
 }
 
 /**

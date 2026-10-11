@@ -12,7 +12,7 @@
  */
 import type { IrExpr, IrStmt } from "../ir/index.js"
 import {
-  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, LoweringBug, num, ord, selectedArg, shortCircuit,
+  binaryValue, bool, builtinValue, constValue, convertValue, eq, fit, IecFault, instantiate, LoweringBug, num, ord, reinterpret, selectedArg, shortCircuit,
   unaryValue, type Val,
 } from "../semantics/index.js"
 import { type Cell, compileRead, compileWrite, Frame } from "./frame.js"
@@ -73,6 +73,22 @@ function compiledBlock(list: readonly IrStmt[]): Run<Signal> {
   return run
 }
 
+/** An `ARRAY[*]` in-out's dimension's element count, off the array the call bound (lean 7.7.8). */
+function compileCount(e: Extract<IrExpr, { kind: "count" }>): Run<Val> {
+  return (m) => {
+    let array = m.read(e.array)
+    for (let d = 1; d < e.dim; d++) array = (array as Val[])[0]!
+    return fit(BigInt((array as Val[]).length), e.type)
+  }
+}
+
+/** A UNION member's bytes read as another member (lean 7.8.4): over the member's own where it is the longer. */
+function compileReinterpret(e: Extract<IrExpr, { kind: "reinterpret" }>): Run<Val> {
+  const value = compiledExpr(e.value)
+  const over = e.over === undefined ? undefined : compiledExpr(e.over)
+  return (m) => reinterpret(value(m), e.value.type, e.type, over?.(m), m.layouts)
+}
+
 function compileExpr(e: IrExpr): Run<Val> {
   switch (e.kind) {
     case "const": {
@@ -90,11 +106,7 @@ function compileExpr(e: IrExpr): Run<Val> {
       return (m) => m.address(e.place)
     // an `ARRAY[*]` in-out's dimension's element count, off the array the call bound (lean 7.7.8)
     case "count":
-      return (m) => {
-        let array = m.read(e.array)
-        for (let d = 1; d < e.dim; d++) array = (array as Val[])[0]!
-        return fit(BigInt((array as Val[]).length), e.type)
-      }
+      return compileCount(e)
     case "invoke":
       return (m) => invoke(m, e)
     case "dispatch": {
@@ -122,6 +134,8 @@ function compileExpr(e: IrExpr): Run<Val> {
       const value = compiledExpr(e.value)
       return (m) => convertValue(value(m), e.type, e.value.type)
     }
+    case "reinterpret":
+      return compileReinterpret(e)
     // The three node kinds whose meaning needs no storage live in `semantics/`, because lowering evaluates
     // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
     // cannot disagree.

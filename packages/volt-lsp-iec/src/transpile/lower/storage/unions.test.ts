@@ -4,6 +4,7 @@
 import { expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import { lowerSource } from "../index.js"
+import { emitRust } from "../../emit/rust/index.js"
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
@@ -22,5 +23,40 @@ test("a UNION member's store shows through every member it overlays; a write the
   expect([runner.get("u.bytes[1]"), runner.get("u.bytes[2]"), runner.get("u.wd"), runner.get("u.wide"), runner.get("out")]).toEqual([0xcdn, 0xeen, 0xeecdn, 0x1122eecdn, 0xabcdn])
   const codes = (body: string, member?: string) => lowerSource(union(body, member), "P").diagnostics.map((d) => d.code)
   expect(codes("inst(q => u.wd);")).toEqual(["union-write"])
-  expect(codes("FOR n := 1 TO 2 DO u.wd := 1; END_FOR", "wide : REAL;")).toContain("layout-union")
+  // a member whose bytes are not measured — a duration — is refused (a REAL's were measured since: lean 7.8.4)
+  expect(codes("FOR n := 1 TO 2 DO u.wd := 1; END_FOR", "wide : TIME;")).toContain("layout-union")
+})
+
+// lean 7.8.4: a store is followed by ONE assignment per other member — its bytes read at that member's type — never a
+// byte-by-byte chain; signed integers and REALs overlay too (`tr_c8_union_*`), a shorter member keeping the longer's bytes.
+test("a UNION store is one reinterpret per other member; INT, DINT, REAL and bytes overlay", () => {
+  const source =
+    "TYPE U :\nUNION\n\ti : INT;\n\td : DINT;\n\tre : REAL;\n\tb : ARRAY[0..3] OF BYTE;\nEND_UNION\nEND_TYPE\n" +
+    "PROGRAM P\nVAR u : U; i : INT; d : DINT; b3 : BYTE; END_VAR\nu.d := 16#11223344;\nu.i := -2;\nd := u.d;\nb3 := u.b[3];\nu.re := 1.0;\ni := u.i;\nEND_PROGRAM\n"
+  const pou = ir(source, "P")
+  const stores = pou.body.filter((s) => s.kind === "assign" && s.target.root === undefined && s.target.path.length === 1)
+  // u.d := …, then i, r, b each once; the same for u.i := … and u.r := …
+  expect(stores.length).toBe(12)
+  expect(stores.filter((s) => s.kind === "assign" && s.value.kind === "reinterpret").length).toBe(9)
+  const runner = run(pou)
+  runner.scan()
+  // INT -2 over DINT 16#11223344: fe ff 22 11; REAL 1.0 is 16#3F800000, whose low INT is 0
+  expect([runner.get("d"), runner.get("b3"), runner.get("u.d"), runner.get("i")]).toEqual([0x1122fffen, 0x11n, 0x3f800000n, 0n])
+})
+
+// Gate 7.8d (review): 7.8.4 laid a UNION of pointers out as ONE field, its first member's — which deleted every other
+// member from the emitted DUT struct, whose fields are the Rust surface's contract (`emit/rust/index.ts`): `u.pw` no
+// longer compiled and `runner.get("u.pw")` threw. Every member stays a field, a plain copy of the one stored.
+test("a UNION of pointers keeps every member as a field, each a copy of the stored one", () => {
+  const pou = ir(
+    "TYPE UP :\nUNION\n\tpb : POINTER TO BYTE;\n\tpw : POINTER TO WORD;\nEND_UNION\nEND_TYPE\n" +
+      "PROGRAM P\nVAR u : UP; w : WORD := 16#ABCD; seen : WORD; END_VAR\nu.pb := ADR(w);\nseen := u.pw^;\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(pou.layouts.find((l) => l.name === "UP")!.fields.map((f) => f.name)).toEqual(["pb", "pw"])
+  expect(emitRust(pou).code).toMatch(/pub struct UP \{\s*pub pb: usize,\s*pub pw: usize,\s*\}/)
+  const runner = run(pou)
+  runner.scan()
+  expect(runner.get("seen")).toBe(0xabcdn)
+  expect(runner.get("u.pw")).toBe(runner.get("u.pb"))
 })

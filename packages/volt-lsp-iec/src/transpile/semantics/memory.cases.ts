@@ -78,3 +78,58 @@ export const MEMORY_CASES: Readonly<Record<string, readonly Case<MemoryInput, st
 export const MEMORY_INTERPRETER_DIVERGENCES: Readonly<Record<string, string>> = {
   "a signalling NaN": "a REAL is a JavaScript number, whose NaN is always 7fc00000 — niche: accepted loss (1 occurrence in the corpora: bakon-nano ReadParametersFromAGM views a REAL's bytes through a POINTER TO ARRAY OF BYTE) (design.md §3.3 step 4e)",
 }
+
+// ─── a value's bytes read at another type (lean 7.8.4) ─────────────────────────────────────────────────────────
+
+/** A scalar a reinterpret case reads or writes, by its IEC name. */
+export type OverlayScalar = "BYTE" | "SINT" | "WORD" | "INT" | "DWORD" | "DINT" | "REAL" | "LWORD" | "LINT" | "LREAL"
+
+/** A UNION member's type: a scalar, or a one-dimensional array of `length` of them from `lower`. */
+export type OverlayType = OverlayScalar | { readonly array: OverlayScalar; readonly lower: number; readonly length: number }
+
+/** A member's value: a scalar (a REAL as a number, anything else a bigint), or an array's elements in order. */
+export type OverlayValue = bigint | number | readonly (bigint | number)[]
+
+/** `value` of `from` read at `to` — laid over `over` (of `to`) where given. */
+export interface ReinterpretInput {
+  readonly from: OverlayType
+  readonly value: OverlayValue
+  readonly to: OverlayType
+  readonly over?: OverlayValue
+}
+
+const BYTES2 = { array: "BYTE", lower: 0, length: 2 } as const
+const BYTES8 = { array: "BYTE", lower: 0, length: 8 } as const
+
+/**
+ * The cases a UNION's overlay is held to (`IrReinterpret`): the answer printed as the byte-image cases print a load — an
+ * integer as itself, a REAL or LREAL by its bits in hex — an array as `[e, …]`. `memory.test.ts` runs them against
+ * `memory.ts` `reinterpret`; the twin harness prints them through `emit/rust/reinterpret.ts` and builds them with rustc.
+ */
+export const REINTERPRET_CASES: Readonly<Record<string, readonly Case<ReinterpretInput, string>[]>> = {
+  "a member's bytes, read as another member of the same length (type_dut_union, xo_union_across_objects)": [
+    { name: "a WORD as two bytes, the low one first", input: { from: "WORD", value: 0xabcdn, to: BYTES2 }, expected: "[205, 171]" },
+    { name: "two bytes as a WORD", input: { from: BYTES2, value: [0x11n, 0xabn], to: "WORD" }, expected: "43793" },
+    { name: "an INT -1 as two bytes", input: { from: "INT", value: -1n, to: BYTES2 }, expected: "[255, 255]" },
+    { name: "a REAL 1.0 as a DWORD", input: { from: "REAL", value: 1, to: "DWORD" }, expected: "1065353216" },
+    { name: "a DWORD as a REAL", input: { from: "DWORD", value: 0x40490fdbn, to: "REAL" }, expected: "40490fdb" },
+    { name: "an LREAL -0.0 as eight bytes", input: { from: "LREAL", value: -0, to: BYTES8 }, expected: "[0, 0, 0, 0, 0, 0, 0, 128]" },
+    { name: "eight bytes as an LREAL", input: { from: BYTES8, value: [0n, 0n, 0n, 0n, 0n, 0n, 0xf0n, 0x3fn], to: "LREAL" }, expected: "3ff0000000000000" },
+    { name: "a DWORD as two WORDs", input: { from: "DWORD", value: 0x11223344n, to: { array: "WORD", lower: 1, length: 2 } }, expected: "[13124, 4386]" },
+    { name: "two WORDs as a DWORD", input: { from: { array: "WORD", lower: 1, length: 2 }, value: [0x3344n, 0x1122n], to: "DWORD" }, expected: "287454020" },
+    { name: "a signalling NaN's DWORD as a REAL", input: { from: "DWORD", value: 0x7fa00000n, to: "REAL" }, expected: "7fa00000" },
+  ],
+  "a shorter member laid over a longer one keeps the longer's bytes past it; a longer one read as a shorter is cut": [
+    { name: "an INT -2 over a DINT 16#11223344", input: { from: "INT", value: -2n, to: "DINT", over: 0x11223344n }, expected: "287506430" },
+    { name: "a DINT 16#11223344 read as an INT", input: { from: "DINT", value: 0x11223344n, to: "INT" }, expected: "13124" },
+    { name: "a DWORD over an LWORD 16#AABBCCDD00000000", input: { from: "DWORD", value: 0x11223344n, to: "LWORD", over: 0xaabbccdd00000000n }, expected: "12302652056939934532" },
+    { name: "a SINT -128 over two SINTs 1, 2", input: { from: "SINT", value: -128n, to: { array: "SINT", lower: 0, length: 2 }, over: [1n, 2n] }, expected: "[-128, 2]" },
+    { name: "two INTs -1, 2 over an LINT 16#7FFF000000000000", input: { from: { array: "INT", lower: 0, length: 2 }, value: [-1n, 2n], to: "LINT", over: 0x7fff000000000000n }, expected: "9223090561878261759" },
+    { name: "an LREAL 1.0 read as two bytes", input: { from: "LREAL", value: 1, to: BYTES2 }, expected: "[0, 0]" },
+  ],
+}
+
+/** The reinterpret cases the INTERPRETER cannot answer — the same reason as `MEMORY_INTERPRETER_DIVERGENCES`'. */
+export const REINTERPRET_INTERPRETER_DIVERGENCES: Readonly<Record<string, string>> = {
+  "a signalling NaN's DWORD as a REAL": MEMORY_INTERPRETER_DIVERGENCES["a signalling NaN"]!,
+}

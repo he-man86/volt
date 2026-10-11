@@ -38,6 +38,8 @@ export function childrenOf(node: IrNode): IrNode[] {
       return [node.operand]
     case "convert":
       return [node.value]
+    case "reinterpret":
+      return node.over === undefined ? [node.value] : [node.value, node.over]
     case "builtin":
       return [...node.args]
     case "invoke":
@@ -79,7 +81,7 @@ export function childrenOf(node: IrNode): IrNode[] {
   }
 }
 
-const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address", "count"])
+const EXPR_KINDS: ReadonlySet<string> = new Set(["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address", "count", "reinterpret"])
 const STMT_KINDS: ReadonlySet<string> = new Set(["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"])
 const isExpr = (n: IrNode): n is IrExpr => !isPlace(n) && EXPR_KINDS.has(n.kind)
 const isStmt = (n: IrNode): n is IrStmt => !isPlace(n) && STMT_KINDS.has(n.kind)
@@ -168,6 +170,8 @@ function mapShallow(n: IrNode, f: (p: Place) => Place, bind: ((b: IrBinding) => 
       return { ...n, operand: m(n.operand) }
     case "convert":
       return { ...n, value: m(n.value) }
+    case "reinterpret":
+      return { ...n, value: m(n.value), ...(n.over === undefined ? {} : { over: m(n.over) }) }
     case "builtin":
       return { ...n, args: ms(n.args) }
     case "invoke":

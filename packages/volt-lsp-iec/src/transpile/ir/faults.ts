@@ -68,6 +68,7 @@ export function cannotFault(root: IrNode | readonly IrNode[]): boolean {
       case "convert":
       case "count":
       case "copy":
+      case "reinterpret":
         return false
       case "binary":
         return (n.op === "div" || n.op === "mod") && n.nonzeroDivisor !== true

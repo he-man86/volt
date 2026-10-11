@@ -274,6 +274,44 @@ END_TYPE
 `,
   },
 
+  // A UNION's members of every measured kind overlaid, each stored both ways (transpile-restructure 7.8.4): signed
+  // integers of two widths over a byte array, a REAL over a DWORD, an LREAL over eight bytes. Each a DUT of its own, so
+  // one fixture's store reads only its own union.
+  ...unionOverlay("int_dint_store_dint", "iv : INT;\n\tdv : DINT;\n\tbv : ARRAY[0..3] OF BYTE;", "u.dv := -2;"),
+  ...unionOverlay("int_dint_store_int", "iv : INT;\n\tdv : DINT;\n\tbv : ARRAY[0..3] OF BYTE;", "u.dv := 16#11223344;\nu.iv := -2;"),
+  ...unionOverlay("int_dint_store_bytes", "iv : INT;\n\tdv : DINT;\n\tbv : ARRAY[0..3] OF BYTE;", "u.dv := 1;\nu.bv[3] := 16#80;"),
+  ...unionOverlay("real_dword_store_real", "rv : REAL;\n\twv : DWORD;", "u.rv := 1.5;"),
+  ...unionOverlay("real_dword_store_dword", "rv : REAL;\n\twv : DWORD;", "u.wv := 16#C0490FDB;"),
+  ...unionOverlay("lreal_bytes_store_lreal", "lv : LREAL;\n\tbv : ARRAY[0..7] OF BYTE;", "u.lv := -0.1;"),
+  ...unionOverlay("lreal_bytes_store_bytes", "lv : LREAL;\n\tbv : ARRAY[0..7] OF BYTE;", "u.lv := 1.0;\nu.bv[7] := 16#40;\nu.bv[6] := 16#09;"),
+  // arrays of elements wider than a byte, and a shorter member (two SINTs) beside two longer ones
+  ...unionOverlay("dword_words_sints", "dv : DWORD;\n\twv : ARRAY[1..2] OF WORD;\n\tiv : ARRAY[0..1] OF SINT;", "u.dv := 16#1234FF80;\nu.wv[2] := 16#7F01;\nu.iv[1] := 5;"),
+  // A UNION's size under `pack_mode` and its place inside a STRUCT (gate review of 7.8.4: both folded by the front-end's
+  // rule, neither recorded). Packed, DWORD|ARRAY[0..4] OF BYTE is 5 if the attribute reaches a union, 8 if not. Unpacked
+  // between two BYTEs, aligned to its DWORD: u at 4, c at 12, SIZEOF 16.
+  {
+    name: "type_dut_union_pack_mode",
+    pouName: "DUT_LANG_union_pack_mode",
+    kind: "dut",
+    feature: "UNION — SIZEOF with {attribute 'pack_mode' := '1'}",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "u : DUT_LANG_union_pack_mode; n : UDINT;",
+    plcPrgBody: "n := SIZEOF(u);\nu.d := 16#01020304;",
+    source: "{attribute 'pack_mode' := '1'}\nTYPE DUT_LANG_union_pack_mode :\nUNION\n\td : DWORD;\n\tb : ARRAY[0..4] OF BYTE;\nEND_UNION\nEND_TYPE\n",
+  },
+  {
+    name: "type_dut_union_in_struct",
+    pouName: "DUT_LANG_union_in_struct",
+    kind: "dut",
+    feature: "UNION — as a STRUCT field between two BYTEs: its offset, the next field's, the struct's SIZEOF",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "sv : DUT_LANG_union_in_struct; n : UDINT; offU : ULINT; offC : ULINT;",
+    plcPrgBody: "n := SIZEOF(sv);\noffU := ADR(sv.u) - ADR(sv);\noffC := ADR(sv.c) - ADR(sv);\nsv.u.d := 16#01020304;",
+    source:
+      "TYPE DUT_LANG_union_in_struct_u :\nUNION\n\td : DWORD;\n\tb : ARRAY[0..4] OF BYTE;\nEND_UNION\nEND_TYPE\n\n" +
+      "TYPE DUT_LANG_union_in_struct :\nSTRUCT\n\ta : BYTE;\n\tu : DUT_LANG_union_in_struct_u;\n\tc : BYTE;\nEND_STRUCT\nEND_TYPE\n",
+  },
+
   // ─── SUBRANGE ──────────────────────────────────────────────────────
 
   {
@@ -504,3 +542,20 @@ END_TYPE
 `,
   },
 ]
+
+/** One UNION overlay fixture: `type_dut_union_<name>`, its own DUT of `members`, stored by `body` in PLC_PRG's `u`. */
+function unionOverlay(name: string, members: string, body: string): LanguageTest[] {
+  const dut = `DUT_LANG_union_${name}`
+  return [
+    {
+      name: `type_dut_union_${name}`,
+      pouName: dut,
+      kind: "dut",
+      feature: "UNION — a member stored, every other member read over its bytes",
+      fromDoc: "06-data-types.md",
+      plcPrgVar: `u : ${dut};`,
+      plcPrgBody: body,
+      source: `TYPE ${dut} :\nUNION\n\t${members}\nEND_UNION\nEND_TYPE\n`,
+    },
+  ]
+}

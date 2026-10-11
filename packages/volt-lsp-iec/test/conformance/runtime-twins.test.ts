@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
+import { elementaryRef, elementaryType, elementaryTypeRef, type Type } from "../../src/frontend/types/index.js"
 import { rustType } from "../../src/transpile/index.js"
 // the runtime registry — a deep path, test support only (it is not surface)
 import { RUNTIME_IDS, runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
@@ -37,7 +37,19 @@ import {
 import { PARSE_INT_CASES, type ParseIntInput } from "../../src/transpile/semantics/parse.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
 import { lengthOf, visible } from "../../src/transpile/semantics/string.js"
-import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type MemoryType } from "../../src/transpile/semantics/memory.cases.js"
+import {
+  CASE_IMAGE,
+  MEMORY_CASES,
+  type MemoryInput,
+  type MemoryType,
+  type OverlayScalar,
+  type OverlayType,
+  type OverlayValue,
+  REINTERPRET_CASES,
+  type ReinterpretInput,
+} from "../../src/transpile/semantics/memory.cases.js"
+import { reinterpretText } from "../../src/transpile/emit/rust/reinterpret.js"
+import { Prec, printed, type Printed } from "../../src/transpile/emit/rust/precedence.js"
 import { FAULT_TEXT } from "../../src/transpile/ir/faults.js"
 import { RUNS } from "./support/recordings.js"
 import { buildRust } from "./support/rustc-cache.js"
@@ -264,6 +276,31 @@ function memoryCaseRust(input: MemoryInput): string {
   return `std::panic::catch_unwind(|| { let ${stores.length === 0 ? "" : "mut "}m = Mem::image(${CASE_IMAGE.size}, &[], &[${regions}]); ${stores.join(" ")} ${read} }).unwrap_or_else(fault_of)`
 }
 
+const REINTERPRET_CASE_LIST = Object.values(REINTERPRET_CASES).flat()
+
+/** A reinterpret case's scalar as its Rust type. */
+const OVERLAY_RUST: Readonly<Record<OverlayScalar, string>> = { BYTE: "u8", SINT: "i8", WORD: "u16", INT: "i16", DWORD: "u32", DINT: "i32", REAL: "f32", LWORD: "u64", LINT: "i64", LREAL: "f64" }
+
+/** A reinterpret case's type, as the IR holds it. */
+function overlayType(t: OverlayType): Type {
+  if (typeof t === "string") return elementaryRef(t)
+  return { kind: "array", element: elementaryRef(t.array), bounds: [{ lower: BigInt(t.lower), upper: BigInt(t.lower + t.length - 1) }], dims: [{} as never] } as Type
+}
+
+/** A reinterpret case as one Rust expression: the overlay as the emitter prints it (`reinterpretText`), its answer
+ *  printed as the case prints it — an integer as itself, a REAL or LREAL by its bits in hex, an array as `[e, …]`. */
+function reinterpretCaseRust(input: ReinterpretInput): string {
+  const scalarOf = (t: OverlayType): OverlayScalar => (typeof t === "string" ? t : t.array)
+  const lit = (v: bigint | number, t: OverlayScalar): string => `(${Object.is(v, -0) ? "-0" : String(v)}${OVERLAY_RUST[t]})`
+  const value = (v: OverlayValue, t: OverlayType): Printed =>
+    printed(Array.isArray(v) ? `[${(v as (bigint | number)[]).map((e) => lit(e, scalarOf(t))).join(", ")}]` : lit(v as bigint | number, scalarOf(t)), Prec.Postfix)
+  const rust = (t: OverlayType): string => (typeof t === "string" ? OVERLAY_RUST[t] : `[${OVERLAY_RUST[t.array]}; ${t.length}]`)
+  const one = (e: string, t: OverlayScalar): string => (t === "REAL" || t === "LREAL" ? `format!("{:x}", ${e}.to_bits())` : `${e}.to_string()`)
+  const shown = typeof input.to === "string" ? one("r", input.to) : `format!("[{}]", r.iter().map(|e| ${one("e", input.to.array)}).collect::<Vec<_>>().join(", "))`
+  const text = reinterpretText(value(input.value, input.from), overlayType(input.from), overlayType(input.to), input.over === undefined ? undefined : value(input.over, input.to), () => {})
+  return `{ let r: ${rust(input.to)} = ${text}; ${shown} }`
+}
+
 const NEWLINE = String.fromCharCode(10)
 
 /** The Rust that maps a caught panic back to `fault: <kind>`, every image fault's text written once in `ir/faults.ts`. */
@@ -456,6 +493,11 @@ describe.skipIf(skipRustSuite())("runtime twins — the Rust runtime against the
 ${FAULT_OF}`
     const got = await runTwin("memory", program, ["{ std::panic::set_hook(Box::new(|_| {})); 0 }", ...MEMORY_CASE_LIST.map((c) => memoryCaseRust(c.input))])
     expect(MEMORY_CASE_LIST.map((c, i) => `${c.name}: ${got[i + 1]}`)).toEqual(MEMORY_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
+  }, 60_000)
+
+  test("emit/rust/reinterpret.ts + runtime/bytes.ts: a UNION member's overlay over every reinterpret case (lean 7.8.4)", async () => {
+    const got = await runTwin("reinterpret", runtimeText("iec_bytes", "iec_elements", "iec_overlay"), REINTERPRET_CASE_LIST.map((c) => reinterpretCaseRust(c.input)))
+    expect(REINTERPRET_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(REINTERPRET_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
   }, 60_000)
 
   test("runtime/numeric.ts: iec_fmax / iec_fmin over every recorded compare-select cell, the NaN's sign bit kept", async () => {

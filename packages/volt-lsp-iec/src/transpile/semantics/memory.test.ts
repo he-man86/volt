@@ -3,8 +3,9 @@ import { describe, expect, test } from "bun:test"
 import { elementaryRef, type Type } from "../../frontend/types/index.js"
 import type { IrLayout, Place } from "../ir/index.js"
 import { IecFault } from "./faults.js"
-import { CASE_IMAGE, MEMORY_CASES, MEMORY_INTERPRETER_DIVERGENCES, type MemoryInput } from "./memory.cases.js"
-import { ADDRESS, BASE_FIELD, IMAGE_BASE, indexAddress, Memory, toImage } from "./memory.js"
+import { CASE_IMAGE, MEMORY_CASES, MEMORY_INTERPRETER_DIVERGENCES, type MemoryInput, type OverlayType, REINTERPRET_CASES, REINTERPRET_INTERPRETER_DIVERGENCES } from "./memory.cases.js"
+import { ADDRESS, BASE_FIELD, IMAGE_BASE, indexAddress, Memory, reinterpret, toImage } from "./memory.js"
+import type { Val } from "./value.js"
 
 const NO_LAYOUTS: ReadonlyMap<string, IrLayout> = new Map()
 
@@ -41,6 +42,30 @@ describe("the byte image's cases", () => {
         // a known divergence runs as an expected failure: it fails the suite the day it starts to agree
         if (why !== undefined) test(`${c.name} — diverges: ${why}`, () => expect(run(c.input)).not.toBe(c.expected))
         else test(c.name, () => expect(run(c.input)).toBe(c.expected))
+      }
+    })
+})
+
+/** A reinterpret case's type, as the IR holds it. */
+function overlayType(t: OverlayType): Type {
+  if (typeof t === "string") return elementaryRef(t)
+  return { kind: "array", element: elementaryRef(t.array), bounds: [{ lower: BigInt(t.lower), upper: BigInt(t.lower + t.length - 1) }], dims: [{} as never] } as Type
+}
+
+/** A reinterpret case's answer, printed as the cases print it. */
+function overlayPrinted(v: unknown, t: OverlayType): string {
+  return typeof t === "string" ? printed(v, t) : `[${(v as unknown[]).map((e) => printed(e, t.array)).join(", ")}]`
+}
+
+describe("a value's bytes read at another type (reinterpret)", () => {
+  for (const [rule, cases] of Object.entries(REINTERPRET_CASES))
+    describe(rule, () => {
+      for (const c of cases) {
+        const { from, value, to, over } = c.input
+        const answer = () => overlayPrinted(reinterpret(value as Val, overlayType(from), overlayType(to), over as Val | undefined, NO_LAYOUTS), to)
+        const why = REINTERPRET_INTERPRETER_DIVERGENCES[c.name]
+        if (why !== undefined) test(`${c.name} — diverges: ${why}`, () => expect(answer()).not.toBe(c.expected))
+        else test(c.name, () => expect(answer()).toBe(c.expected))
       }
     })
 })

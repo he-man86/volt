@@ -10,6 +10,7 @@
  */
 import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX, IEC_MIN, IEC_POW, IEC_R2I32, IEC_R2I64, IEC_TRUNC_I32 } from "./numeric.js"
 import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
+import { IEC_BYTES, IEC_ELEMENTS, IEC_LE, IEC_OVERLAY } from "./bytes.js"
 import { IEC_DEREF, IEC_IX, MEM, MEM_AT, MEM_LD, MEM_LD_BOOL, MEM_ORDER, MEM_REGION, MEM_ST } from "./pointer.js"
 import { IEC_STR, IEC_STR_LENGTH } from "./string.js"
 import {
@@ -66,6 +67,10 @@ const HELPERS = {
   mem_st: { deps: ["mem_at"], rust: MEM_ST },
   mem_order: { deps: ["mem_region"], rust: MEM_ORDER },
   iec_ix: { deps: [], rust: IEC_IX },
+  le: { deps: [], rust: IEC_LE },
+  iec_bytes: { deps: ["le"], rust: IEC_BYTES },
+  iec_elements: { deps: ["le"], rust: IEC_ELEMENTS },
+  iec_overlay: { deps: [], rust: IEC_OVERLAY },
 } as const satisfies Record<string, { deps: readonly string[]; rust: string }>
 
 /** One registry helper. */

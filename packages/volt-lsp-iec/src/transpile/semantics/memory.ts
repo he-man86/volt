@@ -86,6 +86,20 @@ export function loadValue(view: DataView, at: number, t: Type, layouts: Readonly
   return Object.fromEntries(structFields(t, layouts).map((f) => [f.name.toUpperCase(), loadValue(view, at + f.image!, f.type, layouts)]))
 }
 
+/**
+ * `value` of `from` read at `to` over its little-endian bytes (lean 7.8.4, `IrReinterpret`): the bytes laid from offset 0
+ * over `over`'s — `to`'s own value, given where `to` is the longer, so its bytes past `value`'s stay; else past them is 0
+ * and unread — then loaded as `to`. A scratch image of the two, through the image's own `storeValue` / `loadValue`, so a
+ * UNION's members overlay exactly as a pointer reads one variable's bytes at another type (`memory.cases.ts`).
+ */
+export function reinterpret(value: Val, from: Type, to: Type, over: Val | undefined, layouts: ReadonlyMap<string, IrLayout>): Val {
+  const [n, m] = [sizeOrBug(from, layouts), sizeOrBug(to, layouts)]
+  const view = new DataView(new ArrayBuffer(Math.max(n, m)))
+  if (over !== undefined) storeValue(view, 0, to, over, layouts)
+  storeValue(view, 0, from, value, layouts)
+  return loadValue(view, 0, to, layouts)
+}
+
 /** A struct's fields with their offsets — every one of them, or the struct is no image type (a lowering bug). */
 function structFields(t: Type, layouts: ReadonlyMap<string, IrLayout>): IrLayout["fields"] {
   const layout = t.kind === "struct" ? layouts.get(t.name.toUpperCase()) : undefined

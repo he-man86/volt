@@ -110,3 +110,22 @@ test("the position rule in an instance's frame; called PROGRAMs in call order; t
     `FUNCTION_BLOCK ${name}\nVAR stamp : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD Boot\nstamp := F_Next();\nEND_METHOD\n`
   expect(codes(`VAR_GLOBAL gSeq : INT; END_VAR\nFUNCTION F_Next : INT\ngSeq := gSeq + 1;\nF_Next := gSeq;\nEND_FUNCTION\nPROGRAM P\nVAR a : FB_A; b : FB_B; END_VAR\na();\nb();\nEND_PROGRAM\n${slot("FB_A")}${slot("FB_B")}`)).toEqual(["init-slot-order"])
 })
+
+// Gate 7.8d (review of 7.8.8): an FB instance's structured initializer whose value RUNS (a call) was stored before the
+// instance's `__init`, which then overwrote it with the type's own initializer (v 2); CODESYS applies it after the whole
+// init — `init_structured_running_initializer`: the type's v, w first, then the structured call (v 103, w 2, seq 3). In a
+// POU's frame and in an FB's (a field instance's `__init` part split around it). Why missed: every structured
+// initializer of an instance a test or fixture wrote was a constant, which the walk re-applies after the init already.
+test("an FB instance's running structured initializer is stored after the instance's whole init, in a POU and in an FB", () => {
+  const pre =
+    "VAR_GLOBAL\ng : INT;\nEND_VAR\nFUNCTION F_Next : INT\ng := g + 1;\nF_Next := g;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK B\nVAR v : INT := F_Next(); w : INT := F_Next(); END_VAR\nEND_FUNCTION_BLOCK\n"
+  const inPou = run(ir(`${pre}PROGRAM P\nVAR b : B := (v := F_Next() + 100); END_VAR\nb();\nEND_PROGRAM\n`, "P"))
+  inPou.scan()
+  expect([inPou.get("b.v"), inPou.get("b.w"), inPou.get("g")]).toEqual([103n, 2n, 3n])
+  const inFb = run(
+    ir(`${pre}FUNCTION_BLOCK A\nVAR k : INT := F_Next(); b : B := (v := F_Next() + 100); END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM P\nVAR a : A; END_VAR\na();\nEND_PROGRAM\n`, "P"),
+  )
+  inFb.scan()
+  expect([inFb.get("a.k"), inFb.get("a.b.v"), inFb.get("a.b.w"), inFb.get("g")]).toEqual([1n, 104n, 3n, 4n])
+})

@@ -18,6 +18,7 @@ import { instanceInitRoutine } from "./instance-init.js"
 import { fbInitInput, siblingsUnset } from "./fb-init-args.js"
 import { fieldIn } from "../places/path.js"
 import { fieldsOf, namedIn, startStatement, startsAsStatement, structuredUnread, enclosingStructuredFree } from "./position.js"
+import { bindsOnly } from "./bindings.js"
 
 /**
  * Every FB_Init of an FB type's EXTENDS chain, the base's first. FB_Init (conformance `fb_init_runs_with_declared_arguments`,
@@ -192,28 +193,29 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
  * and before the derived one, with and without a derived FB_Init; `_in_base`: the base's field instance before the base's
  * FB_Init); without EXTENDS an instance's own FB_Init after those of the instances inside it (`fb_init_nested_in_fb_init`:
  * the outer's saw 5). These recordings lift both `fb-init-order` refusals of an EXTENDS chain (transpile-restructure 5.6).
+ *
+ * THE INSTANCE'S OWN FIELD INITIALIZERS, run HERE rather than baked into the layout — measured per instance and
+ * in declaration order (`declarations/init-sequence.ts`). Lowered once per FB TYPE into an implicit routine,
+ * because a routine is already the thing that runs a body on an instance; `invoke` binds this one.
+ *
+ * FUNCTION BLOCKS ONLY, and each class of the EXTENDS chain over its OWN fields. A STRUCT has no entry in `lw.bodies`,
+ * so a `?? declaring` fallback once built `STRUCT.__INIT` out of the declaring POU's pending inits, whose slot indices
+ * index the POU's frame; and a DERIVED FB once got only its own, so a base's `p : POINTER TO INT := ADR(m)` left `d.p`
+ * at 0. The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
+ * same indices they have in the base's own frame.
+ *
+ * BEFORE the class's FB_Init (transpile-review 22): CODESYS completes the implicit initialization first — FB_Init
+ * dereferences an `ADR(m)` field and reads a call-initialized one (`tr_22_fb_init_reads_adr_field`,
+ * `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone.
+ *
+ * INTERLEAVED with the instances inside it, by declaration (transpile-review 23): a field running FB_Init does so at
+ * its own position, so the initializers declared before it have run and those after it have not
+ * (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). The sequence is split there, one routine per part.
  */
 function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "struct" }>, declaring: Lowering, mine: ReadonlyMap<string, IrStmt>, after: readonly IrStmt[], structured: Readonly<Record<string, IrInit>> | undefined): boolean {
   const { lw, span, fbInitCalls } = st
   const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
   const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
-  // THE INSTANCE'S OWN FIELD INITIALIZERS, run HERE rather than baked into the layout — measured per instance and
-  // in declaration order (`declarations/init-sequence.ts`). Lowered once per FB TYPE into an implicit routine,
-  // because a routine is already the thing that runs a body on an instance; `invoke` binds this one.
-  //
-  // FUNCTION BLOCKS ONLY, and each class of the EXTENDS chain over its OWN fields. A STRUCT has no entry in `lw.bodies`,
-  // so a `?? declaring` fallback once built `STRUCT.__INIT` out of the declaring POU's pending inits, whose slot indices
-  // index the POU's frame; and a DERIVED FB once got only its own, so a base's `p : POINTER TO INT := ADR(m)` left `d.p`
-  // at 0. The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
-  // same indices they have in the base's own frame.
-  //
-  // BEFORE the class's FB_Init (transpile-review 22): CODESYS completes the implicit initialization first — FB_Init
-  // dereferences an `ADR(m)` field and reads a call-initialized one (`tr_22_fb_init_reads_adr_field`,
-  // `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone.
-  //
-  // INTERLEAVED with the instances inside it, by declaration (transpile-review 23): a field running FB_Init does so at
-  // its own position, so the initializers declared before it have run and those after it have not
-  // (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). The sequence is split there, one routine per part.
   const chain = t.kind === "function_block" ? chainNamesOf(t) : []
   const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
   const classes = classRanges(lw, chain, layoutFields)
@@ -232,6 +234,7 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
     const frame = type === undefined ? undefined : lw.bodies.get(type.toUpperCase())?.lowering
     const pending = frame === undefined ? [] : initFrame(frame).pendingInits
     const initialized = pending.length > 0 ? [type!] : []
+    const bySlot = frame === undefined ? [] : (initFrame(frame).initSequence?.bySlot ?? [])
     const run = { from }
     for (let i = from; i < to; i++) {
       const field = layoutFields[i]!
@@ -239,14 +242,21 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
       const runs = pending.filter((p) => p.slot === i)
       // an aggregate's static part, when its dynamic elements run (`target`), is a constant like any other
       const constant = frame !== undefined && initFrame(frame).constants.has(i)
+      const own = namedIn(structured, field.name)
       if (started && runs.every((p) => p.target !== undefined) && startsAsStatement(st, field.type, declared[i]!, constant)) {
         if (!initializeUpTo(st, place, initialized, run, ordered, i)) return false
         zeroed.push(startStatement(fieldPlace, zeroInit(field.type)))
         ordered.push(startStatement(fieldPlace, declared[i]!))
-        const own = namedIn(structured, field.name)
         if (own !== undefined) reapplied.push(startStatement(fieldPlace, own))
+      } else if (runs.length > 0 && own !== undefined) {
+        // a field whose own initializer RUNS — a call, a binding — named by the instance's structured initializer: the type's
+        // statement would overwrite the structured value, which comes after the whole init
+        // (`init_structured_running_initializer`; it was the type's 2 under `(v := 5)`)
+        reapplied.push(startStatement(fieldPlace, own))
       }
-      if (runs.length > 0) started = true
+      // a binding reads nothing, so it starts no walk (`bindings.ts`): a constant after it stays one
+      const statements = bySlot.filter((b) => b.slot === i).flatMap((b) => b.statements)
+      if (runs.length > 0 && (statements.length === 0 || !bindsOnly(statements))) started = true
       const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: typeZero(field.type) })
       const start = fbInitCalls.length
       const args = declaredArgs(lw, owner, field.name)
@@ -254,8 +264,11 @@ function visitFields(st: InitStep, place: Place, t: Fb | Extract<Type, { kind: "
       if (!visit(st, fieldPlace, args, nested, declared[i]!, clear, place, namedIn(structured, field.name))) return false
       const inside = fbInitCalls.splice(start)
       if (inside.length === 0) continue
-      if (!initializeUpTo(st, place, initialized, run, ordered, i + 1)) return false
+      // a field instance's own structured initializer that runs, after its whole init (as `step.ts` in a POU's frame)
+      const structuredHere = field.type.kind === "function_block" && runs.length > 0
+      if (!initializeUpTo(st, place, initialized, run, ordered, structuredHere ? i : i + 1)) return false
       ordered.push(...inside)
+      if (structuredHere && !initializeUpTo(st, place, initialized, run, ordered, i + 1)) return false
       started = true
     }
     if (!initializeUpTo(st, place, initialized, run, ordered, to)) return false

@@ -79,7 +79,22 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect | IrAddress | IrCount
+export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect | IrAddress | IrCount | IrReinterpret
+
+/**
+ * A VALUE'S BYTES READ AT ANOTHER TYPE (lean 7.8.4) — what a UNION member holds once another member was stored: `value`'s
+ * little-endian bytes laid from offset 0 over `over`'s (the member's own value, given only where it is the LONGER of the
+ * two, so its bytes past `value`'s stay), read at `type`. `value`'s and `type`'s kinds are an integer, a bit string, a REAL
+ * or LREAL, or a one-dimensional array of them (`lower/storage/unions.ts` `overlayBytes`). The interpreter computes it over
+ * a scratch image (`semantics/memory.ts` `reinterpret`), the Rust through `to_le_bytes` / `from_le_bytes`.
+ */
+export interface IrReinterpret {
+  kind: "reinterpret"
+  value: IrExpr
+  over?: IrExpr
+  type: Type
+  span: Span
+}
 
 /**
  * THE ELEMENT COUNT OF ONE DIMENSION OF AN `ARRAY[*]` IN-OUT (lean 7.7.8) — read off the array the call bound, so an open

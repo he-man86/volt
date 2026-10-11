@@ -50,6 +50,7 @@ const KINDS: Record<string, [IrNode, IrNode[]]> = {
   binary: [{ kind: "binary", op: "add", left: c(1n), right: c(2n), type: INT, span }, [c(1n), c(2n)]],
   unary: [{ kind: "unary", op: "neg", operand: c(1n), type: INT, span }, [c(1n)]],
   convert: [{ kind: "convert", value: c(1n), type: INT, span }, [c(1n)]],
+  reinterpret: [{ kind: "reinterpret", value: c(1n), over: c(2n), type: INT, span }, [c(1n), c(2n)]],
   builtin: [{ kind: "builtin", name: "max", args: [c(1n), c(2n)], type: INT, span }, [c(1n), c(2n)]],
   invoke: [
     { ...invoke(c(1n)), instance: place(3), order: [0, freeze], inouts: [copy], lent: [place(4)] },
@@ -78,7 +79,7 @@ describe("childrenOf", () => {
     // the kinds of the two unions, the place, and the two binding forms — `never` in the switch makes a new kind a
     // compile error there; this makes forgetting it here a test failure
     expect(Object.keys(KINDS).sort()).toEqual(
-      ["address", "assign", "binary", "break", "builtin", "call", "const", "count", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "return", "select", "switch", "unary"].sort(),
+      ["address", "assign", "binary", "break", "builtin", "call", "const", "count", "continue", "convert", "copy", "dispatch", "eval", "freeze", "fresh", "if", "image place", "invoke", "load", "loop", "place", "reinterpret", "return", "select", "switch", "unary"].sort(),
     )
     for (const [kind, [node, children]] of Object.entries(KINDS)) expect([kind, childrenOf(node)]).toEqual([kind, children])
   })

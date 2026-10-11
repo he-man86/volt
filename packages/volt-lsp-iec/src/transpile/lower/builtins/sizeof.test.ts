@@ -80,3 +80,37 @@ test("SIZEOF of a CONSTANT held in a wider slot is its declared type's", () => {
   runner.scan()
   expect([runner.get("s1"), runner.get("s2")]).toEqual([4n, 1n])
 })
+
+// lean 7.8.4 (`dt_union_member_sizes`, both vendors: 4, 5, 8): SIZEOF of a UNION is its largest member, rounded up to its
+// most aligned member's alignment — the front-end's rule (`types/layout.ts`); it was `sizeof-unmeasured`.
+test("SIZEOF of a UNION is its largest member, rounded up to its most aligned member", () => {
+  const sized = (members: string) => {
+    const { pou, diagnostics } = lowerSource(`TYPE U :\nUNION\n${members}\nEND_UNION\nEND_TYPE\nPROGRAM P\nVAR u : U; n : ULINT; END_VAR\nn := SIZEOF(u);\nEND_PROGRAM\n`, "P")
+    if (pou === undefined) return diagnostics.map((d) => d.code)
+    const runner = run(pou)
+    runner.scan()
+    return runner.get("n")
+  }
+  expect(sized("b : BYTE; dw : DWORD;")).toBe(4n)
+  expect(sized("b : BYTE; arr : ARRAY[0..4] OF BYTE;")).toBe(5n)
+  expect(sized("lr : LREAL; i : INT;")).toBe(8n)
+  expect(sized("dw : DWORD; arr : ARRAY[0..4] OF BYTE;")).toBe(8n)
+})
+
+// Gate 7.8d (review of 7.8.4): `pack_mode` on a UNION was ignored (8 for DWORD|ARRAY[0..4] OF BYTE) where CODESYS packs it
+// (`type_dut_union_pack_mode`: 5) — and a STRUCT holding a union was never measured (`type_dut_union_in_struct`: the union
+// at 4, the BYTE after it at 12, SIZEOF 16, the rule as it stood). Another pack mode is refused, as a STRUCT's.
+test("SIZEOF of a packed UNION drops the rounding; a UNION field of a STRUCT sits at its alignment", () => {
+  const union = (pragma = "") => `${pragma}TYPE U :\nUNION\nd : DWORD; b : ARRAY[0..4] OF BYTE;\nEND_UNION\nEND_TYPE\n`
+  const value = (src: string, read: string) => {
+    const { pou, diagnostics } = lowerSource(src, "P")
+    if (pou === undefined) return diagnostics.map((d) => d.code)
+    const runner = run(pou)
+    runner.scan()
+    return runner.get(read)
+  }
+  const prg = "PROGRAM P\nVAR u : U; n : ULINT; END_VAR\nn := SIZEOF(u);\nEND_PROGRAM\n"
+  expect(value(union("{attribute 'pack_mode' := '1'}\n") + prg, "n")).toBe(5n)
+  expect(value(union("{attribute 'pack_mode' := '2'}\n") + prg, "n")).toEqual(["sizeof-unmeasured"])
+  expect(value(union() + "TYPE S :\nSTRUCT\na : BYTE; u : U; c : BYTE;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR sv : S; n : ULINT; END_VAR\nn := SIZEOF(sv);\nEND_PROGRAM\n", "n")).toBe(16n)
+})

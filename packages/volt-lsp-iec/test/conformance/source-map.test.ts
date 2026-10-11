@@ -76,7 +76,12 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // above), in the two new fixtures that take a lent string where it is written (`string_input_lent_inout_later_call`'s
 // `F_LentInoutMid := MID(…)`, `string_input_lent_inout_wider`'s `F_LentWiderFrozen := CONCAT(…)`): the tail is the block
 // `{ __input_copy_1 = io.to::<10>(); mid_…(…) }`, which reads as an assignment only through the freeze inside it.
-const RENAMED_TARGETS = 163
+// 163 -> 165 (2026-10-11, gate 7.8d), each read: no new class — a store into a field the byte image holds is
+// `{ let __v = …; let __a = self.__base.wrapping_add(k); __mem.st(__a, …); }`, which names no field (the class of
+// `tr_22_fb_init_reads_adr_field`'s and `initseq_adr_of_*`'s `seen`), in the two new fixtures whose FB takes the
+// address of its own field: `init_structured_binding_override`'s `seen := p^`, `init_structured_null_over_binding`'s
+// `isNull := p = 0`.
+const RENAMED_TARGETS = 165
 
 interface Program {
   name: string

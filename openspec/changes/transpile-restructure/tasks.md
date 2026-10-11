@@ -6407,7 +6407,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     146 (what is left is not an initializer). Tests `emit/rust/values.test.ts` (above); the VAR_TEMP reset pin reads
     `self.sx = ST_P { a: 9, ..ST_P::new() };` (its premise, the reset to the initializer, kept). Notes resolved: every
     7.8.3 item (7 notes).
-- [ ] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
+- [x] 7.8.4 Unions via `to_le_bytes`/`from_le_bytes`, on the IR reinterpret node from 4.3, or adding it with its interpreter twin if 4.2
       **Owner 2026-10-10: build it, not niche** ("take our time to do it proper"): low corpus counts are no reason to
       leave a planned lean task unbuilt here.
   chose no arena.
@@ -6426,6 +6426,33 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     reinterpret node and its interpreter twin, and an array member a runtime helper. Its 4 notes (a281b5efbd, 3f8601dd97:
     the byte chain; c5d30c56ec, ca823a2c56: one field for a union of pointers) re-tagged `keep:niche: accepted loss (…)`
     with those counts (back to `7.8.4` at the gate, above); c6322760e4 (the CASE on a folded diSize) went with 7.7.9.
+  - Done 2026-10-11 (step 7.8d), design.md §3.3/§3.4 "Decision (step 7.8d)" and its "As built". Recorded first, one batch
+    per vendor: 8 fixtures `type_dut_union_*` (`types/data-type.ts` `unionOverlay`: INT|DINT|ARRAY[0..3] OF BYTE stored as
+    each of the three, REAL|DWORD both ways, LREAL|ARRAY[0..7] OF BYTE both ways, DWORD|ARRAY[1..2] OF WORD|ARRAY[0..1] OF
+    SINT), built clean on CODESYS and on TwinCAT Project13 (`ide.ps1 -Instance transpile-restructure`, TwinCAT `-Fixture
+    13`, both IDEs closed) and run-recorded in one `record:exec` batch (8 cases, 0 failed): little-endian overlay, a
+    shorter member keeping the longer's bytes past it (INT -2 over DINT 16#11223344 is 287506430), REAL/LREAL bit-exact.
+    IR: `IrReinterpret { value, over?, type }` (`ir/expr.ts`; `walk.ts` childrenOf / map, `faults.ts` cannot fault, the
+    corpus test's kind list, `walk.test.ts`'s case). Interpreter twin `semantics/memory.ts` `reinterpret` (a scratch image
+    through `storeValue` / `loadValue`), cases `memory.cases.ts` `REINTERPRET_CASES` (16, the signalling NaN an expected
+    failure of the interpreter, as `MEMORY_INTERPRETER_DIVERGENCES`' is), run by `memory.test.ts` and through rustc by
+    `runtime-twins.test.ts` (printed by the emitter's own `reinterpretText`). Rust: `emit/rust/reinterpret.ts` —
+    `to_le_bytes` / `from_le_bytes`, a byte array is its bytes, `iec_overlay` for two lengths and `iec_bytes` /
+    `iec_elements` over the trait `IecLe` (registry `le`) for wider elements (`runtime/bytes.ts`, on demand; the registry
+    stays pedantic-clean). Lowering: `unions.ts` `unionCopies` is ONE `to := reinterpret(from, over: to where longer)` per
+    other member; `overlayBytes` takes signed integers and REAL/LREAL; a UNION of pointers keeps one field per member, each a
+    plain copy (the step built it as ONE field; the gate undid that, below: the fields are the Rust contract); SIZEOF of a
+    UNION is the front-end's rule (`storage/bytes.ts` `unionBytes`: the largest member rounded up to the most aligned —
+    `dt_union_member_sizes` 4, 5, 8, both vendors). The three `layout-union` fixtures: `prag_unknown_attribute_on_union`,
+    `unit_type_extends_on_union` and `dt_union_member_sizes` lower and are confirmed; `sn_union_mismatch_used` (CODESYS
+    refuses the object-name mismatch, as its `sn_*_mismatch_used` siblings) lowers as they do. Byte chains in the emission
+    12 -> 0 (the `256u…` constants of the user emission). Tests
+    `lower/storage/unions.test.ts` ("a UNION store is one reinterpret per other member; INT, DINT, REAL and bytes overlay",
+    "a UNION of pointers keeps every member as a field" since the gate; the refusal pin's unmeasured member is now a TIME — its premise, a REAL's overlay
+    unmeasured, measured since by this batch), `lower/builtins/sizeof.test.ts` ("SIZEOF of a UNION …"), `ir/walk.test.ts`,
+    `semantics/memory.test.ts`, `emit/rust/runtime/index.test.ts` (the registry lists the four helpers). Notes resolved:
+    a281b5efbd, 3f8601dd97 (the byte chain, gone); c5d30c56ec, ca823a2c56 (one field for a union of pointers: NOT built —
+    it deletes contract fields of the DUT struct; closed by that decision at the gate 7.8d).
 - [x] 7.8.5 A constant bit store prints as `|=` / `&= !`.
   - Where: `emit/rust/stmt.ts`.
   - Accept: S-out, M.
@@ -6464,7 +6491,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     `unnecessary_semicolon` 12 -> out of the top ten. Covered by the conformance fixtures it changed
     (`itf_call_dispatches_on_instance`, `callshape_inout_*`, `tr_16_*`: S-out identical, all build). Notes resolved:
     every 7.8.7 item (11 notes, their `(*__lent_N)` halves 7.8.6's).
-- [ ] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
+- [x] 7.8.8 A pointer initializer `ADR(x)` is a constant in `new()`, not a separate init store.
       **Owner 2026-10-10: build it, not niche** ("take our time to do it proper"): low corpus counts are no reason to
       leave a planned lean task unbuilt here.
   - Also: a REFERENCE bound at its declaration (`REF=`) to a variable of the same instance gets its constant tag in `new()`, so
@@ -6484,6 +6511,77 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     moves the binding ahead of the init sequence (model 4) for both backends, which needs its own proof that no
     FB_Init or initializer reads it first. Its items (667cafe298, 45292dbd9c, 75cc82a569, ad25627749 and fbde4d6e1e's
     first) re-tagged `keep:niche: accepted loss (2 occurrences in the corpora: …)` (back to `7.8.8` at the gate).
+  - Done 2026-10-11 (step 7.8d), design.md §3.3/§3.4 "Decision (step 7.8d)" and its "As built". `lower/init/bindings.ts`:
+    a BINDING (`bindingOf`) is a store into a whole pointer or reference slot of the frame of a tag or of the address of the
+    frame's own storage at a static path; it reads nothing, so it no longer starts the position rule's walk (`step.ts`,
+    `fb-init.ts` ask `bindsOnly`). `provenBindings` walks the init step as built, in execution order (each `__init` part
+    entered where invoked): a binding is proven when nothing before it reads a variable of its name, dereferences or calls
+    anything; `foldBindings` (run in `lower-unit.ts` after the image pass) makes each proven one its slot's initial value —
+    a constant (`ref_: 0x1_0000_0000` in a program's `new()`, a tag in `FB::new()`), or `__base + k` on every instance value
+    that holds a `__base` (`FB { ref_: 0x1_0000_0018, __base: 0x1_0000_0000 }`) — and drops the store, and every `__init`
+    part left empty with its invokes. An unproven binding keeps its store (no refusal: the "call before" test is
+    conservative, the store is the exact answer). `emit/rust/values.ts` prints a REFERENCE's image address in hex as a
+    pointer's. Measured: 25 bindings in 23 fixtures, all 25 proven; the user emission's `init()` 106 -> 85 and `__init()` 73 -> 60 (pointer or
+    reference stores left in any init step or `__init` part: 0). Tests `lower/init/bindings.test.ts` (a program's ADR / REF=
+    is the slot's initial value and a constant after it stays one; an FB field's binding is each instance's `__base` plus
+    the offset; a tag binding is the type's initial value; one per reader shape — by name, through another pointer, in a
+    call — keeps its store; red before). `support/notes/notes.test.ts`'s fbde4d6e1e pin now reads the note gone (its
+    premise: "stays while 7.8.8 is open"). Notes resolved: ad25627749, fbde4d6e1e, 667cafe298, 45292dbd9c, 75cc82a569 (every
+    7.8.8 item).
+  - Step 7.8d numbers (implement agent, 2026-10-11; the gate commits). S (all layers, against the step-start baseline,
+    5552 fixtures): the 23 fixtures of 7.8.8's bindings and 7.8.4's `type_dut_union`, `xo_union_across_objects`,
+    `state_any_int_pointer_increment` differ in `ir` / `rust`, and `decl_union_init_unknown_field`,
+    `dt_union_sizeof_type` stay refused by their next code (`aggregate-init`, `assign-string`: their members are
+    measured now); S-out
+    (`--layers outputs,edge`): every fixture that lowered before is identical — only the 12 that lower now are new (the
+    8 `type_dut_union_*`, `dt_union_member_sizes`, `prag_unknown_attribute_on_union`, `unit_type_extends_on_union`,
+    `sn_union_mismatch_used`). M (`rate:fixtures`, against 7.8c's map): mapped 5552 -> 5560, confirmed 2995 -> 3006,
+    refused 2018, not-lowered 348 -> 345, lsp-gap 85, diverges 11, unaskable 95; lowered/clean decl 793/793 -> 803/803,
+    aggregate 147/147 -> 149/149, the rest unchanged; edge agree 3201 -> 3213, disagree 5, not-run 219; 41 rows changed
+    (29 reshaped, every one's size down, none's pedantic up; 12 new); pedantic 1866 -> 1862 (cast_possible_truncation
+    787 -> 783: the byte chains' casts); surviving and allowed lints unchanged; constructs 2001 -> 2043 (the new
+    fixtures' and `reinterpret`'s own), noted 25 -> 16 (every 7.8.4 and 7.8.8 note gone: `keep` 16 left); size median 2.7,
+    the sum over the 3425 fixtures lowered before 9588.2 -> 9577.2. The emitted Rust code (both emissions, source maps
+    not counted) over those 3425: 12,589,666 -> 12,578,784 bytes. Baselines rewritten for the 8 new fixtures' counts:
+    `test/frontend` (counts; type-dump ceiling exceptions for the three negated untyped numbers they store,
+    `frontend/baseline.ts`), `test/analysis` (fixtures measured +8 each vendor). `bun typecheck` clean; package lint
+    green (`interp/machine.ts` `compileExpr` kept within 80 lines: `compileCount` / `compileReinterpret` split out).
+  - GATE 7.8d (2026-10-11): three review findings, all fixed, each test red first. Recorded first, one batch per vendor (two
+    runs: 4 fixtures, then the 2 the first fix raised): 6 fixtures, built clean on CODESYS and on TwinCAT Project13
+    (`ide.ps1 -Instance transpile-restructure`, TwinCAT `-Fixture 13`, every IDE closed after) and run on CODESYS
+    (`record:exec`, 6 cases, 0 failed). design.md §3.3/§3.4 "Gate 7.8d corrections".
+    (1) `bindings.ts`: the proof checked only READS before a binding. Fixed twice over: the proof counts a store's target
+    names as a read's (test `lower/init/bindings.test.ts` "a store of the binding's name before it keeps the binding's
+    store"), and the ordering bug underneath, which CODESYS answers — an FB instance's structured initializer is applied
+    after the instance's WHOLE init, a running value as a constant one: `init_structured_running_initializer` (v 103, w 2,
+    seq 3), `init_structured_binding_override` (9), `init_structured_constant_over_running` (50, seq 2: the type's call
+    still runs), `init_structured_null_over_binding` (`(p := 0)` over `ADR(x)`: null). `step.ts` (`ownFrame`, split out
+    of `initStep`) stores an instance's running structured parts after its init; `fb-init.ts` `visitFields` splits a
+    field instance's `__init` part around it and re-applies a constant structured value after the whole init where the
+    type's own initializer of that field runs (HEAD: v 2 for `(v := G())` and for `(v := 5)`, null-over-binding 7).
+    Tests `lower/init/step.test.ts` ("an FB instance's running structured initializer is stored after the instance's
+    whole init, in a POU and in an FB"), `bindings.test.ts` (the review's case, alone and with a call before: 9).
+    (2) `unions.ts`: a UNION of pointers is one FIELD PER MEMBER again, each a plain copy — the one-field form deleted
+    contract fields of the DUT struct (`emit/rust/index.ts` CONTRACT; pro2193 `PointerSizesUnion` 9 of 10);
+    `onePointerField` / `pointerMember` gone, `layout.ts` / `places.ts` as at HEAD. Test `lower/storage/unions.test.ts`
+    ("a UNION of pointers keeps every member as a field, each a copy of the stored one"; its premise, the one field, was
+    the defect). `state_any_int_pointer_increment` is back to its 7.8c shape.
+    (3) `bytes.ts` / front-end `types/layout.ts`: `pack_mode` reaches a UNION (`type_dut_union_pack_mode`: 5, not 8) —
+    mode 1 drops the rounding in both layers, another mode is refused as a STRUCT's; a union between two BYTEs of a
+    STRUCT (`type_dut_union_in_struct`: 4, 12, SIZEOF 16) confirms the rule as it stood. Found on the way: both layers
+    looked a STRUCT/UNION/FB up by name in an expression's order, so a global of the type's name (`u1 : U1`) hid its
+    attributes — now `lookupUnit` (a type position). Tests `lower/builtins/sizeof.test.ts`, `frontend/types/layout.test.ts`
+    (packed union; a variable named as its type). Also: `isInitPart` unexported (`dead-exports`).
+    Gate numbers: S-out (`snapshot:transpile check --layers outputs,edge` against the step-start baseline) — every
+    fixture that lowered before identical, 18 new (7.8d's 12, these 6); S `ir,rust` 32 differ (the bindings fold, the
+    unions, three refusals by their next code) and 14 new. M (`rate:fixtures`, against the implement agent's map):
+    mapped 5560 -> 5566, confirmed 3006 -> 3012 (the 6, all confirmed), refused 2018, not-lowered 345, lsp-gap 85,
+    diverges 11, unaskable 95; decl 803/803 -> 805/805, indirect +4; edge agree 3213 -> 3219, disagree 5, not-run 219;
+    `state_any_int_pointer_increment` size 2 -> 2.7 (its HEAD row). Source-map ceiling 163 -> 165 (no new class: the
+    image-store line in the two new FB fixtures). Count baselines rewritten for the 6 new fixtures (`test/frontend`,
+    `test/analysis` fixtures measured +6 each vendor; fold "equals the recorded value" 244 -> 245). `bun typecheck` clean;
+    `bun run lint` green (no function over 80); full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9296 pass / 35
+    skip / 388 todo / 0 fail, 9719 tests across 321 files (645 s).
 - [x] 7.8.9 `x := x` stays ALLOWED `self_assignment`: note ea53989ac8's text becomes that ALLOWED entry's reason; the note stays tagged
   `keep` and is deleted by 7.11.1.
   - Where: `support/transpile/lint-policy.ts`, `support/notes/notes.data.ts`.

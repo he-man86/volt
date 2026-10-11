@@ -1,32 +1,37 @@
 /**
  * UNION (conformance `type_dut_union`): every member overlays the same bytes from offset 0, little-endian — after
  * `iWord := 16#ABCD`, `aBytes[0]` reads 16#CD and `aBytes[1]` 16#AB. A union is laid out as a struct holding each member,
- * and a store into one member is followed by copying its bytes into every other, so every read stays a plain field read
- * in both backends. Only the measured kind of member is laid out: an unsigned integer or bit string, or a one-dimensional
- * array of them, with no initial value. Any write that is not a plain `:=` — a VAR_IN_OUT or output binding, a latch, a
- * chain link, a FOR variable, an address taken — is refused: it would change one member without the copy.
+ * and a store into one member is followed by ONE assignment per other member — the stored member's bytes read at that
+ * member's type (`IrReinterpret`, lean 7.8.4): `halves := reinterpret(whole)` — so every read stays a plain field read in
+ * both backends. Only the measured kind of member is laid out: an integer, a bit string, a REAL or an LREAL, or a
+ * one-dimensional array of them, with no initial value (`overlayBytes`). Any write that is not a plain `:=` — a
+ * VAR_IN_OUT or output binding, a latch, a chain link, a FOR variable, an address taken — is refused: it would change one
+ * member without the copy.
+ *
+ * A UNION OF POINTERS ONLY holds one integer in this model (design §9 form 1): every member is a copy of the one stored. It
+ * stays one FIELD PER MEMBER, as every other union: the fields of a DUT struct are the emitted Rust's contract
+ * (`emit/rust/index.ts`), so `u.pw` exists for a harness whichever member the program stored (gate 7.8d: a one-field
+ * form dropped pro2193 `PointerSizesUnion`'s nine other members).
  */
 
-import { elementaryRef, elemOf, peelArray, type Type } from "../../../frontend/types/index.js"
+import { elemOf, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
-import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
+import type { IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { fieldIn, rootType, typeAlong } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { assignTo, convert } from "../values/convert.js"
-import { binaryOf } from "../core/build.js"
+import { assignTo } from "../values/convert.js"
 
 /** The layouts that are a UNION's, by upper-cased name — their members overlay one another. Shared by every lowering
  *  of the POU. */
 export const unionsOf = sharedState(() => new Set<string>())
 
-/** A member's bytes, as `count` elements of `size` bytes — undefined for a kind of member not measured. */
-export function overlayBytes(t: Type): { count: number; size: number; element: Type; array?: { lower: bigint; length: number } } | undefined {
+/** A member's bytes: its whole size — undefined for a kind of member not measured. */
+export function overlayBytes(t: Type): { size: number } | undefined {
   const array = t.kind === "array" && t.bounds?.length === 1 ? peelArray(t) : undefined
-  const element = array?.element ?? t
-  const e = element.kind === "elementary" ? elemOf(element) : undefined
-  if (e === undefined || !(e.family === "bitstring" || e.family === "int") || e.signed || e.bits < 8) return undefined
-  return { count: array?.length ?? 1, size: e.bits / 8, element, ...(array === undefined ? {} : { array: { lower: array.lower, length: array.length } }) }
+  const e = elemOf(array?.element ?? t)
+  if (e === undefined || !(e.family === "bitstring" || e.family === "int" || e.family === "real") || e.bits < 8) return undefined
+  return { size: (e.bits / 8) * (array?.length ?? 1) }
 }
 
 /** The union a place reaches into, and which member — undefined when no step of its path is a union's member. */
@@ -49,8 +54,9 @@ export function refuseUnionWrite(lw: Lowering, place: Place, span: Span, what = 
   return true
 }
 
-/** After a plain store into `target`: every other member's overlapping bytes, copied from the member written. Empty when
- *  the target is in no union; undefined, reported, when the copy cannot be made. */
+/** After a plain store into `target`: every other member, the member written read at its type — over its own value
+ *  where it is the longer (`IrReinterpret`), or, in a union of pointers, a plain copy of it. Empty when the target is in
+ *  no union; undefined, reported, when the copy cannot be made. */
 export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] | undefined {
   const found = unionOf(lw, target)
   if (found === undefined) return []
@@ -58,60 +64,20 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
   if (found.union.path.some((s) => s.kind === "index" && s.index.kind !== "const"))
     return lw.bail("union-write", "a store into a UNION member reached through a runtime index", span)
   const layout = lw.layouts.get((found.union.type as { name: string }).name.toUpperCase())!
-  const ulint = elementaryRef("ULINT")
-  const lint = elementaryRef("LINT")
-  const k = (v: bigint): IrExpr => ({ kind: "const", value: v, type: ulint, span })
-  const load = (p: Place): IrExpr => convert({ kind: "load", place: p, type: p.type, span }, ulint)
-  const member = (name: string) => {
-    const field = fieldIn(layout.fields, name)!
-    const place: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: field.name }], type: field.type }
-    return { place, bytes: overlayBytes(field.type)! }
-  }
-  // the element of a member holding its byte `n`, and where in that element the byte sits
-  const byteAt = (m: ReturnType<typeof member>, n: number): { place: Place; shift: number } => {
-    const i = Math.floor(n / m.bytes.size)
-    const array = m.bytes.array
-    const place: Place =
-      array === undefined
-        ? m.place
-        : { ...m.place, path: [...m.place.path, { kind: "index", index: { kind: "const", value: BigInt(i) + array.lower, type: lint, span }, lower: array.lower, length: array.length }], type: m.bytes.element }
-    return { place, shift: n - i * m.bytes.size }
-  }
+  const member = (field: IrSlot): Place => ({ ...found.union, path: [...found.union.path, { kind: "field", name: field.name }], type: field.type })
+  const written = fieldIn(layout.fields, found.member)!
+  const from = member(written)
+  const load = (p: Place) => ({ kind: "load" as const, place: p, type: p.type, span })
   // Every member of a union of POINTERs holds the same one integer (design §9 form 1), so the overlay is a plain copy —
   // and it must happen, or a member never written would read 0 and its dereference would fault on the null guard.
-  if (layout.fields.every((f) => f.type.kind === "pointer")) {
-    const written: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: found.member }], type: fieldIn(layout.fields, found.member)!.type }
-    return layout.fields
-      .filter((f) => f.name.toUpperCase() !== found.member.toUpperCase())
-      .map((f) => {
-        const to: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: f.name }], type: f.type }
-        return assignTo(to, { kind: "load", place: written, type: written.type, span }, span)
-      })
-  }
-  const from = member(found.member)
-  const out: IrStmt[] = []
-  for (const field of layout.fields) {
-    if (field.name.toUpperCase() === found.member.toUpperCase()) continue
-    const to = member(field.name)
-    const overlap = Math.min(from.bytes.count * from.bytes.size, to.bytes.count * to.bytes.size)
-    for (let n = 0; n < overlap; n++) {
-      const src = byteAt(from, n)
-      const dst = byteAt(to, n)
-      // THE SCALE IS 1 FOR THE LOWEST BYTE, and `x / 1` and `x * 1` are the value. `load` has already widened to
-      // ULINT, so dropping the node changes no type — it only stops emitting the `/ 1u64` and `* 1u64` that
-      // `clippy::identity_op` names. Folded HERE rather than in the printer: the interpreter runs the same nodes.
-      const scaled = src.shift === 0 ? load(src.place) : binaryOf("div", load(src.place), k(256n ** BigInt(src.shift)), ulint, span)
-      const byte = binaryOf("mod", scaled, k(256n), ulint, span)
-      // the element with that one byte replaced: the bytes below it, the new byte, the bytes above it — none overflows
-      const unit = 256n ** BigInt(dst.shift)
-      let value = unit === 1n ? byte : binaryOf("mul", byte, k(unit), ulint, span)
-      if (dst.shift > 0) value = binaryOf("add", binaryOf("mod", load(dst.place), k(unit), ulint, span), value, ulint, span)
-      if (dst.shift + 1 < to.bytes.size) {
-        const above = binaryOf("mul", binaryOf("div", load(dst.place), k(unit * 256n), ulint, span), k(unit * 256n), ulint, span)
-        value = binaryOf("add", value, above, ulint, span)
-      }
-      out.push(assignTo(dst.place, value, span))
-    }
-  }
-  return out
+  if (layout.fields.every((f) => f.type.kind === "pointer")) return layout.fields.filter((f) => f !== written).map((f) => assignTo(member(f), load(from), span))
+  const size = (f: IrSlot): number => overlayBytes(f.type)!.size
+  return layout.fields
+    .filter((f) => f !== written)
+    .map((f) => {
+      const to = member(f)
+      // the member's own bytes past the stored one's stay: it is laid over them
+      const over = size(f) > size(written) ? { over: load(to) } : {}
+      return assignTo(to, { kind: "reinterpret", value: load(from), ...over, type: f.type, span }, span)
+    })
 }

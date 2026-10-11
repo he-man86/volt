@@ -267,7 +267,8 @@ transpile/
     values/         literals.ts fold.ts enums.ts convert.ts promote.ts
     storage/        layout.ts declare.ts statics.ts addresses.ts bytes.ts unions.ts
     init/           state.ts step.ts sequence.ts fb-init.ts fb-init-args.ts instance-init.ts initial-values.ts
-                    temp-resets.ts position.ts attributes.ts
+                    temp-resets.ts position.ts attributes.ts bindings.ts — an address bound at its declaration is its
+                    slot's initial value, proven unread before it runs
     places/         places.ts names.ts self.ts globals.ts bounds.ts path.ts access-guards.ts
     pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts escape.ts image.ts
                     image-rewrite.ts — the escape pass, the image layout and its rewrite are model 3's
@@ -280,9 +281,9 @@ transpile/
     conditions.ts   the exec oracle's condition world (read by project/ and calls/)
   interp/           machine.ts frame.ts calls.ts runner.ts — executes the IR, decides nothing
   emit/rust/        module.ts structs.ts names.ts types.ts values.ts printer.ts precedence.ts place.ts image.ts
-                    expr.ts convert.ts builtins.ts calls.ts stmt.ts loops.ts routine.ts locals.ts tail.ts — prints the
-                    IR, decides nothing
-    runtime/        string.ts text.ts parse.ts numeric.ts pointer.ts — the Rust the emitted code carries, by
+                    expr.ts convert.ts builtins.ts calls.ts stmt.ts loops.ts routine.ts locals.ts tail.ts reinterpret.ts —
+                    prints the IR, decides nothing
+    runtime/        string.ts text.ts parse.ts numeric.ts pointer.ts bytes.ts — the Rust the emitted code carries, by
                     registry (index.ts); the mirror of semantics/
 ```
 

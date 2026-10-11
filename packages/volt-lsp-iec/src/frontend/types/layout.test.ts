@@ -87,3 +87,21 @@ END_FUNCTION_BLOCK
 `
   expect(sizeOf("g", fb, "g : G;")).toBe(24n)
 })
+
+// Gate 7.8d (review of 7.8.4): `pack_mode` on a UNION was ignored — the size rounded up to its most aligned member (8) —
+// where CODESYS packs it as a STRUCT (`type_dut_union_pack_mode`: 5). A union between two BYTEs of a STRUCT sits at its
+// own alignment (`type_dut_union_in_struct`: SIZEOF 16). Why missed: no fixture put the attribute on a union.
+test("SIZEOF of a packed UNION drops the rounding; a UNION in a STRUCT is aligned to its widest member", () => {
+  const union = (name: string, pragma = "") => `${pragma}TYPE ${name} :\nUNION\n  d : DWORD;\n  b : ARRAY[0..4] OF BYTE;\nEND_UNION\nEND_TYPE\n`
+  expect(sizeOf("U", union("U"))).toBe(8n)
+  expect(sizeOf("U", union("U", "{attribute 'pack_mode' := '1'}\n"))).toBe(5n)
+  expect(sizeOf("U", union("U", "{attribute 'pack_mode' := '2'}\n"))).toBeUndefined()
+  expect(sizeOf("S", union("U") + struct("S", "a : BYTE;\nu : U;\nc : BYTE;"))).toBe(16n)
+})
+
+// Gate 7.8d: the layout looked its STRUCT, UNION or FB up by NAME in an expression's order, where a global of the same
+// name (`u1 : U1;`, which both vendors build) comes first — the union's attributes were then read off the variable and
+// the size was lost. A type is looked up in a type position (`lookupUnit`).
+test("a variable named as its type does not hide the type's layout", () => {
+  expect(sizeOf("rec", struct("REC", "b : BYTE;\nd : DINT;") + "VAR_GLOBAL\n  rec : REC;\nEND_VAR\n")).toBe(8n)
+})

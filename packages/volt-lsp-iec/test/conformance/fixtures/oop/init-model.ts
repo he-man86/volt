@@ -571,4 +571,92 @@ END_PROGRAM
       "seqAtScan := gLangIfonSeq;",
     ].join("\n"),
   },
+  // transpile-restructure 7.8d (gate review of 7.8.8): a STRUCTURED initializer whose value RUNS (a call, an address) on
+  // an instance whose type has running field initializers — `fb_init_and_structured_initializer` records only a constant
+  // one beside FB_Init. The type's fields first, then the structured value: v 103, w 2, seq 3. The structured value
+  // first, the type's after it: v 2, w 3, seq 3. The structured value REPLACING the type's initializer of v, in its
+  // place: v 101, w 2, seq 2; at the end: v 102, w 1, seq 2.
+  {
+    name: "init_structured_running_initializer",
+    pouName: "GVL_LANG_sri",
+    kind: "gvl",
+    feature: "a structured initializer that calls, on an instance whose type's field initializers call too",
+    fromDoc: doc,
+    source: `VAR_GLOBAL
+	gLangSriSeq : INT;
+END_VAR
+
+${clock("gLangSriSeq", "F_LANG_sri_next")}
+FUNCTION_BLOCK FB_LANG_sri
+VAR
+	v : INT := F_LANG_sri_next();
+	w : INT := F_LANG_sri_next();
+END_VAR
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_sri := (v := F_LANG_sri_next() + 100); seqAtScan : INT;",
+    plcPrgBody: "inst();\nseqAtScan := gLangSriSeq;",
+  },
+  // ...and an ADDRESS: the type binds `p` to its own `x` (7), the instance's structured initializer to PLC_PRG's `y` (9).
+  // 9 when the structured value is applied after the type's binding, 7 when before.
+  {
+    name: "init_structured_binding_override",
+    pouName: "FB_LANG_sbo",
+    kind: "function_block",
+    feature: "a structured initializer binding a pointer field the type's own initializer binds to another variable",
+    fromDoc: doc,
+    source: `FUNCTION_BLOCK FB_LANG_sbo
+VAR
+	p : POINTER TO INT := ADR(x);
+	x : INT := 7;
+	seen : INT;
+END_VAR
+seen := p^;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "y : INT := 9; inst : FB_LANG_sbo := (p := ADR(y)); out : INT;",
+    plcPrgBody: "inst();\nout := inst.seen;",
+  },
+  // ...a CONSTANT structured value over a field whose type initializer calls: 50 when it is applied after the type's, the
+  // call's 1 when before; w 2 and seq 2 either way (the type's call still runs, unless the structured value replaces it).
+  {
+    name: "init_structured_constant_over_running",
+    pouName: "GVL_LANG_sco",
+    kind: "gvl",
+    feature: "a constant structured initializer of a field whose type initializer calls",
+    fromDoc: doc,
+    source: `VAR_GLOBAL
+	gLangScoSeq : INT;
+END_VAR
+
+${clock("gLangScoSeq", "F_LANG_sco_next")}
+FUNCTION_BLOCK FB_LANG_sco
+VAR
+	v : INT := F_LANG_sco_next();
+	w : INT := F_LANG_sco_next();
+END_VAR
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_sco := (v := 50); seqAtScan : INT;",
+    plcPrgBody: "inst();\nseqAtScan := gLangScoSeq;",
+  },
+  // ...and a constant 0 over the type's binding `p := ADR(x)`: isNull TRUE when the structured value is applied after it.
+  {
+    name: "init_structured_null_over_binding",
+    pouName: "FB_LANG_snb",
+    kind: "function_block",
+    feature: "a structured initializer setting to 0 a pointer field the type binds with ADR",
+    fromDoc: doc,
+    source: `FUNCTION_BLOCK FB_LANG_snb
+VAR
+	p : POINTER TO INT := ADR(x);
+	x : INT := 7;
+	isNull : BOOL;
+END_VAR
+isNull := p = 0;
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "inst : FB_LANG_snb := (p := 0); out : BOOL;",
+    plcPrgBody: "inst();\nout := inst.isNull;",
+  },
 ]

@@ -854,6 +854,10 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
         ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "tr_b1_real_to_bit_field", "m : REAL := -1.5"],
         ["binary UNKNOWN", 1, "tr_b5_time_times_wide_literal", "`t * 5000000000`, refused on both vendors"],
         ["binary UNKNOWN", 1, "tr_b5_time_times_udint_literal", "`t * 3000000000`"],
+        // step 7.8d: a UNION member stored a negative value (`type_dut_union_*`, transpile-restructure 7.8.4)
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "type_dut_union_int_dint_store_dint", "u.dv := -2"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "type_dut_union_int_dint_store_int", "u.iv := -2"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", 1, "type_dut_union_lreal_bytes_store_lreal", "u.lv := -0.1"],
       ] as const
     ).map(([kind, by, fixture, why]) => ({
       baseline: "type-dump",

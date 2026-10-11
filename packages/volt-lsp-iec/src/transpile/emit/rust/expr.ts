@@ -20,6 +20,7 @@ import { guarded, holdsString, type Printer, use } from "./printer.js"
 import { isCopy, rustType } from "./types.js"
 import { comparedUnits, initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
+import { exprReinterpret } from "./reinterpret.js"
 
 /** `wrapping_add` and friends — IEC integers wrap at their width; Rust's `+` would panic in debug. */
 const WRAPPING: Readonly<Record<string, string>> = { add: "add", sub: "sub", mul: "mul", div: "div", mod: "rem" }
@@ -109,6 +110,9 @@ export function print(p: Printer, e: IrExpr, slots: IrPou["slots"]): Printed {
     }
     case "convert":
       return exprConvert(p, e, slots)
+    // a UNION member's bytes read as another member (lean 7.8.4)
+    case "reinterpret":
+      return exprReinterpret(p, e, (x) => print(p, x, slots))
     case "builtin":
       return exprBuiltin(p, e, slots)
     case "unary":

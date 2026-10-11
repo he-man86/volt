@@ -13,6 +13,7 @@ import { declaredArgs, reachesFbInit, unreached, visit, writesGlobal } from "./f
 import { startStatement, startsAsStatement } from "./position.js"
 import { bodyOf } from "../calls/routines.js"
 import { leadingCalls } from "../core/ast-walk.js"
+import { bindsOnly } from "./bindings.js"
 
 /**
  * The init step — ONE declaration-ordered walk (design.md §3.4): the frames in the recorded order, the POU's own, then each
@@ -46,33 +47,8 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     declaredInits: new Map(),
   }
   const { fbInitCalls } = st
-  // THE POU'S OWN FRAME, declaration by declaration (transpile-review 23; the position rule, task 5.7)
-  const frame = lw.slots as IrSlot[]
-  const own = new Map<number, IrStmt[]>()
-  for (const b of initFrame(lw).initSequence?.bySlot ?? []) own.set(b.slot, [...(own.get(b.slot) ?? []), ...b.statements])
-  const pending = initFrame(lw).pendingInits
-  const ordered: IrStmt[] = []
-  let started = false
-  for (const [slot, frameSlot] of [...frame].entries()) {
-    const runs = pending.filter((p) => p.slot === slot)
-    // a constant once the walk has started — an aggregate's static part too, when its dynamic elements run
-    if (started && runs.every((p) => p.target !== undefined) && startsAsStatement(st, frameSlot.type, frameSlot.init, initFrame(lw).constants.has(slot))) {
-      ordered.push(startStatement({ slot, path: [], type: frameSlot.type, span }, frameSlot.init))
-      frame[slot] = { ...frame[slot]!, init: zeroInit(frameSlot.type) }
-    }
-    const statements = own.get(slot) ?? []
-    if (statements.length > 0) {
-      ordered.push(...statements)
-      started = true
-    }
-    const clear = () => void (frame[slot] = { ...frame[slot]!, init: typeZero(frameSlot.type) })
-    if (!visit(st, { slot, path: [], type: frameSlot.type, span }, declaredArgs(lw, root?.ast as TopLevel | undefined, frameSlot.name), lw, frame[slot]!.init, clear)) return undefined
-    const inside = fbInitCalls.splice(0)
-    if (inside.length > 0) {
-      ordered.push(...inside)
-      started = true
-    }
-  }
+  const ordered = ownFrame(st)
+  if (ordered === undefined) return undefined
   // A PROGRAM this POU calls is an instance among the globals, visited as the frame's slots are — its FB_Init arguments, an
   // instance-path, an init-slot METHOD. They were `attr-init-unreached` (`fb_init_argument_in_program_with_method`: 4,
   // `init_slot_program_own`: 101). Any other global reaching one still is.
@@ -103,6 +79,44 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   if (st.slotCalls.length > 1 && slotOrderShows(lw, st.slotCalls))
     return lw.bail("init-slot-order", `${st.slotCalls.length} call_after_global_init_slot METHODs whose order among themselves could show — not modelled`, span)
   return [...st.out, ...steps, ...st.slotCalls]
+}
+
+/** THE POU'S OWN FRAME, declaration by declaration (transpile-review 23; the position rule, task 5.7) — its statements in
+ *  order, or undefined when one cannot lower. */
+function ownFrame(st: InitStep): IrStmt[] | undefined {
+  const { lw, span, fbInitCalls } = st
+  const frame = lw.slots as IrSlot[]
+  const own = new Map<number, IrStmt[]>()
+  for (const b of initFrame(lw).initSequence?.bySlot ?? []) own.set(b.slot, [...(own.get(b.slot) ?? []), ...b.statements])
+  const pending = initFrame(lw).pendingInits
+  const ordered: IrStmt[] = []
+  let started = false
+  for (const [slot, frameSlot] of [...frame].entries()) {
+    const runs = pending.filter((p) => p.slot === slot)
+    // a constant once the walk has started — an aggregate's static part too, when its dynamic elements run
+    if (started && runs.every((p) => p.target !== undefined) && startsAsStatement(st, frameSlot.type, frameSlot.init, initFrame(lw).constants.has(slot))) {
+      ordered.push(startStatement({ slot, path: [], type: frameSlot.type, span }, frameSlot.init))
+      frame[slot] = { ...frame[slot]!, init: zeroInit(frameSlot.type) }
+    }
+    const statements = own.get(slot) ?? []
+    // AN FB INSTANCE'S STRUCTURED INITIALIZER RUNS AFTER ITS WHOLE INIT — its type's field initializers, its FB_Init — a
+    // running value as a constant one (`init_structured_running_initializer`: v 103, w 2, the call third;
+    // `init_structured_binding_override`: the type's ADR(x) replaced by the instance's ADR(y), seen 9). It was stored
+    // before the instance's `__init`, which overwrote it (v 2, seen 7).
+    const structured = frameSlot.type.kind === "function_block" ? statements : []
+    if (structured.length === 0) ordered.push(...statements)
+    // a binding reads nothing, so it starts no walk (`bindings.ts`): a constant after it stays one
+    if (!bindsOnly(statements)) started = true
+    const clear = () => void (frame[slot] = { ...frame[slot]!, init: typeZero(frameSlot.type) })
+    if (!visit(st, { slot, path: [], type: frameSlot.type, span }, declaredArgs(lw, st.root?.ast as TopLevel | undefined, frameSlot.name), lw, frame[slot]!.init, clear)) return undefined
+    const inside = fbInitCalls.splice(0)
+    if (inside.length > 0) {
+      ordered.push(...inside)
+      started = true
+    }
+    ordered.push(...structured)
+  }
+  return ordered
 }
 
 /**

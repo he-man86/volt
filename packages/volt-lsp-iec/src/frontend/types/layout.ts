@@ -17,7 +17,7 @@
  * RETAIN or PERSISTENT section, a pointer, a reference, an interface.
  */
 import type { FunctionBlock, TypeDecl, VarDecl, VarSection } from "../syntax/index.js"
-import { lookup, rootOf, targetOf, type Scope } from "../symbols/index.js"
+import { lookupUnit, rootOf, targetOf, type Scope } from "../symbols/index.js"
 import { scalarStorageBytes } from "./builtins.js"
 import { enumStorage } from "./enums.js"
 import { isBit } from "./predicates.js"
@@ -126,10 +126,14 @@ function naturalAlignment(t: Type): bigint | undefined {
 }
 
 /** A UNION: its largest member, rounded up to its most aligned member's natural alignment — members of a scalar, an enum
- *  or an array of either only (a STRUCT member's is not measured). */
+ *  or an array of either only (a STRUCT member's is not measured). `{attribute 'pack_mode' := '1'}` drops the rounding,
+ *  as in a STRUCT: DWORD|ARRAY[0..4] OF BYTE is 5 packed, 8 not (`type_dut_union_pack_mode`, both vendors build it,
+ *  CODESYS runs it 2026-10-11); another mode is not measured. */
 function unionBytes(t: Extract<Type, { kind: "struct" }>, project: Scope): Bytes | undefined {
+  const decl = lookupUnit(project, t.name)?.symbol.ast as TypeDecl | undefined
+  const mode = decl?.kind === "type_decl" ? packMode(decl.attributes) : undefined
   const members = fieldDecls(t.scope)?.map((s) => resolveTypeExpr(s.typeExpr!, project, 0, project, s.uri))
-  if (members === undefined || members.length === 0) return undefined
+  if (mode === undefined || members === undefined || members.length === 0) return undefined
   let size = 0n
   let align = 1n
   for (const m of members) {
@@ -139,7 +143,7 @@ function unionBytes(t: Extract<Type, { kind: "struct" }>, project: Scope): Bytes
     if (bytes.size > size) size = bytes.size
     if (a > align) align = a
   }
-  return { size: alignUp(size, align), align }
+  return mode === "packed" ? { size, align: 1n } : { size: alignUp(size, align), align }
 }
 
 /** The STRUCT field symbols of a member scope, in declaration order — undefined when its scope is not known. */
@@ -181,7 +185,7 @@ function packMode(attributes: TypeDecl["attributes"]): "aligned" | "packed" | un
 
 /** A STRUCT's fields (no EXTENDS — a derived struct's base part is not measured). */
 function structFields(t: Extract<Type, { kind: "struct" }>, project: Scope): Layout | undefined {
-  const decl = lookup(project, t.name)?.symbol.ast as TypeDecl | undefined
+  const decl = lookupUnit(project, t.name)?.symbol.ast as TypeDecl | undefined
   if (decl?.kind !== "type_decl" || decl.body.kind !== "struct" || decl.body.extends !== undefined) return undefined
   const mode = packMode(decl.attributes)
   const fields = fieldDecls(t.scope)
@@ -196,7 +200,7 @@ function structFields(t: Extract<Type, { kind: "struct" }>, project: Scope): Lay
 /** An FB instance's fields: the 8-byte header and one pointer per interface it IMPLEMENTS, then every VAR_INPUT,
  *  VAR_INPUT CONSTANT, VAR_OUTPUT, VAR and kept VAR CONSTANT in declaration order. */
 function fbFields(t: Extract<Type, { kind: "function_block" }>, project: Scope): Layout | undefined {
-  const unit = lookup(project, t.name)?.symbol.ast as FunctionBlock | undefined
+  const unit = lookupUnit(project, t.name)?.symbol.ast as FunctionBlock | undefined
   if (unit?.kind !== "function_block" || unit.extends !== undefined || t.scope === undefined) return undefined
   const mode = packMode(unit.attributes)
   if (mode === undefined) return undefined
@@ -237,7 +241,7 @@ function replacedConstant(decl: VarDecl, type: Type): "replaced" | "kept" | unde
  *  resolves to no interface (`mem_fb_implements_one` / `_two` measured interfaces that extend nothing). */
 function implementedInterfaces(unit: FunctionBlock, project: Scope): bigint | undefined {
   for (const name of unit.implements ?? []) {
-    const itf = lookup(project, name.text)?.symbol.ast
+    const itf = lookupUnit(project, name.text)?.symbol.ast
     if (itf?.kind !== "interface" || (itf.extends?.length ?? 0) > 0) return undefined
   }
   return BigInt(unit.implements?.length ?? 0)

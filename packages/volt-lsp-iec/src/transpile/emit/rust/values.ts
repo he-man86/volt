@@ -69,7 +69,7 @@ export function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   // an ADDRESS in the byte image, printed from where the image starts (`runtime/pointer.ts` `IMAGE_BASE`)
   // (hex, grouped by four: one literal, which no position needs parenthesized and clippy reads without a lint)
-  if (t.kind === "pointer" && typeof v === "bigint" && v >= IMAGE_BASE) return `0x${v.toString(16).replace(/\B(?=(?:[0-9a-f]{4})+$)/g, "_")}`
+  if ((t.kind === "pointer" || t.kind === "reference") && typeof v === "bigint" && v >= IMAGE_BASE) return `0x${v.toString(16).replace(/\B(?=(?:[0-9a-f]{4})+$)/g, "_")}`
   // an empty one is the empty string `new` builds (7.4.7): no slice to copy
   if (typeof v === "string") return v === "" ? `${stringPath(t)}::new()` : `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
   // A REAL CONSTANT TOO BIG FOR ITS WIDTH IS AN INFINITY, not a compile error. `x : REAL := 3.5E38` is accepted by

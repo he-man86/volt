@@ -608,7 +608,7 @@ const ROUTINES = { routines: 14, routinesFromRunning: 14 }
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Checked by the compiler
  *  both ways, as BUILTINS is below: it held eight expression kinds while the IR defined eleven (`fresh`, `select`, and
  *  `address` added by 4.4 without a line here — review 4d), so a kind nothing built could not be reported. */
-const EXPR_KINDS = ["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address", "count"] as const satisfies readonly IrExpr["kind"][]
+const EXPR_KINDS = ["const", "fresh", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch", "select", "address", "count", "reinterpret"] as const satisfies readonly IrExpr["kind"][]
 const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const satisfies readonly IrStmt["kind"][]
 const EXPR_KINDS_ARE_EXHAUSTIVE: [Exclude<IrExpr["kind"], (typeof EXPR_KINDS)[number]>] extends [never] ? true : never = true
 const STMT_KINDS_ARE_EXHAUSTIVE: [Exclude<IrStmt["kind"], (typeof STMT_KINDS)[number]>] extends [never] ? true : never = true

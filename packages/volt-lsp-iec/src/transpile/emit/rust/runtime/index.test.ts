@@ -20,6 +20,7 @@ describe("emit/rust/runtime — the registry", () => {
     expect(BACK).toEqual([
       "iec_deref", "iec_r2i64", "iec_r2i32", "iec_trunc_i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div",
       "mem", "mem_region", "mem_at", "mem_ld", "mem_ld_bool", "mem_st", "mem_order", "iec_ix",
+      "le", "iec_bytes", "iec_elements", "iec_overlay",
     ])
     expect(closure(["mem_ld_bool"])).toEqual(["mem_region", "mem_at", "mem_ld", "mem_ld_bool"])
     expect([...FRONT, ...BACK]).toEqual([...RUNTIME_IDS])

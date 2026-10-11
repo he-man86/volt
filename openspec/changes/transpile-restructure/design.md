@@ -1836,6 +1836,61 @@ union, the widened `overlayBytes`, after ONE CODESYS batch of new fixtures (INT|
 LREAL|ARRAY[0..7] OF BYTE, each stored both ways). Accept: S-out identical, the new fixtures confirmed, the three
 `layout-union` fixtures lowered or refused by CODESYS's answer; bindings-only `init()`/`__init()` 0; byte chains 0; M may only fall.
 
+**As built (step 7.8d), where it differs from the above.**
+- 7.8.8's fold is its own module, `lower/init/bindings.ts`, run in `lower-unit.ts` after the image pass rather than inside
+  `instancesIn`: the proof (`provenBindings`) reads the init step as `initStep` built it (pre-image places, each `__init`
+  part entered where it is invoked), and the fold (`foldBindings`) reads each binding's REWRITTEN value — a constant, or
+  `this.__base + k` — and sets `p: __base + k` on every instance value that holds a `__base`. One rewrite of the places
+  (`toImage`) answers both backends; no second offset computation exists.
+- An unproven binding KEEPS its store instead of refusing `init-binding-read-first` (no new code). The proof's "a call
+  before it" is conservative — a sibling's FB_Init or a user FUNCTION in an earlier initializer is a hit whether or not it
+  reaches the slot — and the store is the exact declaration-order answer the step had before, so refusing would only stop
+  POUs that lower today. Measured: 25 of 25 fixture bindings proven (23 fixtures), 0 kept.
+- A binding never starts the position rule's walk (`step.ts`, `fb-init.ts` ask `bindsOnly`): it reads nothing, so no
+  later constant has to be zeroed and re-set around it. That is what takes `self.inst.n = 0; self.inst.__init();
+  self.inst.n = 3;` to nothing at all (`initseq_this`) instead of leaving the two stores behind the folded binding.
+- No pointer slot lives in the image (`escape.ts` `imageType`: no pointer is an image type), so the "own slot in the
+  image keeps its store" case has no instance: every proven binding's value is its struct field's.
+- 7.8.4's Rust helpers are `iec_overlay` (two lengths), and `iec_bytes` / `iec_elements` over one trait `IecLe` (registry
+  id `le`) for an array of elements wider than a byte (`runtime/bytes.ts`); the printer is `emit/rust/reinterpret.ts`,
+  and the twin harness prints its cases through the same `reinterpretText`.
+- A UNION of pointers KEEPS ONE FIELD PER MEMBER, each a plain copy of the one stored — the target's "ONE field" is not
+  built. The step first built it (its layout kept the first member, every access that field at the member's own type), and
+  the gate's review found it deleted the other members from the emitted DUT struct, whose every field is the Rust
+  surface's CONTRACT (`emit/rust/index.ts`): `u.pw` stopped compiling for a harness, `runner.get("u.pw")` threw, and
+  pro2193 `PointerSizesUnion` would lose nine of its ten members. Undone at the gate (7.8d), with no contract change.
+- The batch: 8 fixtures `type_dut_union_*` (`types/data-type.ts` `unionOverlay`: INT|DINT|ARRAY[0..3] OF BYTE stored as
+  each, REAL|DWORD both ways, LREAL|ARRAY[0..7] OF BYTE both ways, DWORD|ARRAY[1..2] OF WORD|ARRAY[0..1] OF SINT), built
+  clean on CODESYS and TwinCAT and run-recorded on CODESYS — every value as the interpreter computes it. Of the three
+  `layout-union` fixtures, `prag_unknown_attribute_on_union` and `unit_type_extends_on_union` (INT|DINT) lower and are
+  confirmed; `dt_union_member_sizes` (LREAL|INT laid out now) also needed SIZEOF of a UNION, which lowering refused as
+  `sizeof-unmeasured` while the front-end already folded it by a recorded rule (DT4: the largest member, rounded up to
+  the most aligned one — 4, 5, 8) — `storage/bytes.ts` `unionBytes` now answers the same, and it is confirmed too.
+
+**Gate 7.8d corrections (review findings; recorded first, one batch per vendor: 6 fixtures, built clean on CODESYS and
+TwinCAT Project13, run on CODESYS).**
+- 7.8.8's proof checked only READS before a binding. A STORE before it ended overwritten by the binding; folded, the
+  binding no longer overwrote it. The store that did this was real: an FB instance's structured initializer whose value
+  RUNS (`b : B := (p := ADR(y))`) was stored in the outer frame BEFORE the instance's `__init`, whose binding then
+  replaced it (7), so the fold flipped the answer to 9 — and only when no call came earlier in the frame. Two fixes:
+  (1) the proof counts a store's target names as a read's (`bindings.ts`); (2) the order itself, which CODESYS answers:
+  the structured value is applied AFTER the instance's whole init, a running one as a constant one
+  (`init_structured_running_initializer`: v 103, w 2, seq 3 — the type's two calls, then the structured one;
+  `init_structured_binding_override`: 9; `init_structured_constant_over_running`: 50 over the type's call, which still
+  runs, seq 2; `init_structured_null_over_binding`: `(p := 0)` over `ADR(x)` is null). `step.ts` (a POU's frame) stores
+  the instance's running structured parts after its init; `fb-init.ts` `visitFields` splits a field instance's part
+  around its init, and re-applies a CONSTANT structured value after the whole init where the type's own initializer of
+  that field runs (it was in the instance's initial value, which the type's statement overwrote: 2 for `(v := 5)`).
+  "changes only what an init step statement before the store sees" above is incomplete: it changes what such a statement
+  WRITES there too.
+- `pack_mode` on a UNION: CODESYS packs it as a STRUCT — DWORD|ARRAY[0..4] OF BYTE is 5, not 8
+  (`type_dut_union_pack_mode`). Both the front-end's rule (`types/layout.ts` `unionBytes`) and lowering's
+  (`storage/bytes.ts`) apply mode 1 (no rounding, alignment 1) and refuse another mode, as for a STRUCT. A union as a
+  STRUCT field is aligned to its widest member, as the rule had it (`type_dut_union_in_struct`: offsets 4 and 12, SIZEOF
+  16 — confirmed, no change). Both layouts looked the type up by name in an EXPRESSION's order, where a global of the
+  same name (`u1 : U1`) wins — the union's attributes were read off the variable; a type is now looked up in a type
+  position (`lookupUnit`), for a STRUCT and an FB too.
+
 ---
 
 ## 4. Old → new map

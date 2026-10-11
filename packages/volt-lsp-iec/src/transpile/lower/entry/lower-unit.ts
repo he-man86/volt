@@ -19,6 +19,7 @@ import { layOutImage } from "../pointers/image.js"
 import { grownTargets, type PointerTarget, seedTargets } from "../pointers/state.js"
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
 import { initStep } from "../init/step.js"
+import { foldBindings, provenBindings } from "../init/bindings.js"
 import { foldPou } from "../values/fold.js"
 import { narrowPou } from "../values/promote.js"
 import { shortCircuitPou } from "../expressions/operators.js"
@@ -114,7 +115,11 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // the constants folded last, over the IR every rule above built (`values/fold.ts`, lean 2), then the narrow-arithmetic
   // rule over the folded IR (`values/promote.ts` `narrowPou`, lean 3), and a quiet AND / OR short-circuits
   // (`expressions/operators.ts` `shortCircuitPou`, lean 5)
-  const lowered = withImage(lowering, pou)
+  // a binding nothing reads before it runs is its slot's initial value once the image pass placed every address
+  // (`init/bindings.ts`, lean 7.8.8) — proven on the init step as built, before the image pass rewrites its places
+  const proven = provenBindings(lowering, init)
+  const imaged = withImage(lowering, pou)
+  const lowered = imaged.pou === undefined ? imaged : { ...imaged, pou: foldBindings(imaged.pou, proven) }
   return lowered.pou === undefined || !fold ? lowered : { ...lowered, pou: shortCircuitPou(narrowPou(foldPou(lowered.pou))) }
 }
 

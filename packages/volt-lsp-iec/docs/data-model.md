@@ -382,6 +382,7 @@ type IrExpr =
   | { kind: "select"; tag: IrExpr; arms: { tag: bigint; place: Place }[] }       // a read through a multi-target pointer
   | { kind: "address"; place: Place }                         // ADR of an image place: its byte address (model 3)
   | { kind: "count"; array: Place; dim: number }              // an ARRAY[*] in-out's element count of one dimension (7.7.8)
+  | { kind: "reinterpret"; value: IrExpr; over?: IrExpr }     // value's little-endian bytes over `over`'s, read at `type`: a UNION member's copy (7.8.4)
   // …each with `type: Type; span: Span`
 type IrBinding = Place | { kind: "copy"; value: IrExpr; type: Type; back?: Place; discarded?: true; span: Span }  // discarded: an unconnected VAR_OUTPUT's copy, lent `&mut`, read by nothing after the call (6.A.12)
 
