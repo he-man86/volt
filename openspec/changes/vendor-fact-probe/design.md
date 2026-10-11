@@ -246,3 +246,43 @@ fold-in probes (4.1). No default `via`, no default timeout-retry, no guessed val
 
 **Migration.** 2.1 table → the 1.1 gate goes green. 2.2 both cores. 2.3 runner (no snapshot committed until 3.1).
 2.4 README. Each its own commit; nothing deleted until 4.1.
+
+## 3 — Verify (live): commit the snapshots, prove the diff bites
+
+**Target.** `scripts/vendor-facts.codesys.json` (SP21) and `vendor-facts.twincat.json` (Project14) committed, each value
+checked against its DIALECT row; a hand-edited value makes the run exit 1 naming the fact and both values.
+
+**Choice: a snapshot is committed only after TWO full runs agree.** The first run is `--write`; the second, a plain run,
+must print "every fact as committed". A value that differs between the two runs is a probe finding, and the row's read
+gets fixed before anything is committed. Rejected: *committing one `--write` run*, because a value that changes from
+run to run (an ordering, a fresh name) would then fail the next user's run as if the vendor had changed. Each run is one
+`ide.ps1` session on `-Instance vendor-fact-probe` (TwinCAT `-Fixture 14`), started by the runner. `ide-identity`'s `exe` read
+must name SP21 and TwinCAT 3.1 / XAE before the snapshot is written; another version is refused, never recorded.
+
+- **`task-kind` int 0 leaves the table.** The 2.4 smoke run showed that it opens a modal "CODESYS" message box, which
+  stops the UI thread, and the run ends on the timeout. C30 gets the answer as "recorded, not kept" (like C33): int 0
+  is not converted to `Cyclic`, it opens a modal dialog. Rejected: *closing the dialog from the core*, which would add
+  window automation for one fact; *recording the timeout as an outcome*, because the UI thread stays blocked and
+  `cleanup` cannot run.
+- **Locale is recorded, not normalized.** Refusal texts are verbatim in the IDE's UI language (nl-NL on the recording
+  machine). `ide-identity` gains `{ key: "ui-culture", op: "process", what: "culture" }` on both vendors (one value
+  added to the closed `process` set: `CultureInfo.CurrentUICulture.Name` in the core's process). On another machine the
+  diff then names `ide-identity.ui-culture` beside the refusal texts that changed. Rejected: *stripping or
+  normalizing messages*, because the verbatim text is the fact; *forcing en-US*, because that changes the owner's IDE
+  language setup and was never measured.
+- **DIALECT agreement is a read by a person, not a gate.** For each fact, 3.1's tasks.md note lists `fact → DIALECT
+  row → agrees | finding`. A disagreement is written into the DIALECT row (dated, measured value, row id) in its own
+  commit BEFORE the snapshot commit. Rejected: *checking values against the DIALECT prose by machine*, because the
+  prose is not data.
+- **3.2 runs live on the cheapest fact, once.** Change one value of `tc-task-items` (0.8 s) in the committed TwinCAT
+  snapshot, run `bun scripts/vendor-facts.ts twincat --only tc-task-items`, and expect exit 1 with
+  `tc-task-items.<key>: committed <edited> / measured <real>`. Then `git checkout --` the file. The diff is the
+  runner's code and does not depend on the vendor, so one vendor is enough, and `vendor-facts.test.ts` already covers
+  it offline. Rejected: *a committed "broken" snapshot fixture*, which is a second file to keep in step with the first.
+
+**Refused by name:** an IDE version other than SP21 / Project14; a value that differs between the two runs; the NVL
+(`absent`, as in 2); int 0 (a modal dialog, recorded in C30).
+
+**Migration.** (a) The table drops `int-0`, adds the `ui-culture` read and the `culture` process read in both cores,
+and adds an offline test for the `culture` read: one commit. (b) Any DIALECT findings: their own commit. (c) Both
+snapshots plus the 3.1 note: one commit. (d) 3.2: no file changes; its result goes in the tasks.md note.
