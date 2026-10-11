@@ -2,11 +2,17 @@ Execution: `.claude/workflows/execute-change.js` with `{ change: "lsp-package-st
 Steps of at most 5 tasks; every step output-neutral (suites, map, snapshots unchanged).
 
 ## 0. Inventory
-- [ ] 0.1 Measure the current tree: every folder and loose file of src/, test/, scripts/, docs/ with its purpose, its
+- [x] 0.1 Measure the current tree: every folder and loose file of src/, test/, scripts/, docs/ with its purpose, its
       importers, and whether it is still used (scripts: referenced by package.json, docs, CI, or another script).
+      **Done 2026-10-11** — design.md "Inventory": six loose src files, two language folders, the two measured layer
+      breaks (the network reader imports `types`; the network diagnostics import the services' `Document`), two misplaced
+      test files, one script kept only by an archived change.
 
 ## 1. Design
-- [ ] 1.1 design.md: the target tree with one sentence per folder, the old -> new map, what is deleted and why.
+- [x] 1.1 design.md: the target tree with one sentence per folder, the old -> new map, what is deleted and why.
+      **Done 2026-10-11** — design.md "Target tree": the old → new table and four choices (the reader typed through a
+      `NetworkWireTyping` parameter; the network diagnostics moved, not made a registry check; `src/index.ts` stays;
+      a `network/` folder inside each layer). The one-sentence-per-folder tree is `docs/architecture.md` "The tree".
 
 ## E. Early cleanup (owner, 2026-10-02: allowed before transpile-restructure / analysis-conformance)
 
@@ -55,15 +61,39 @@ src/transpile are restructured by their own changes; network text is parked).
       207 files); root `bun run check` 15 passed / 0 failed; `bun run lint` exit 0 (warnings only).
 
 ## 2. Moves (one task per move or group of moves, output-neutral)
-- [ ] 2.1 src/ top level (no loose files); src/network and src/network-text dissolved into the layers (frontend/syntax/network,
+- [x] 2.1 src/ top level (no loose files); src/network and src/network-text dissolved into the layers (frontend/syntax/network,
       frontend/symbols+types, analysis/checks/network), unless the LD/FBD coverage change already did it.
-- [ ] 2.2 test/ mirrors src/; cross-cutting suites under one root.
-- [ ] 2.3 scripts/ — re-check after E.1 (what transpile/analysis added since); scripts/README.md complete.
-- [ ] 2.4 docs/ — re-check after E.2; architecture.md shows the final tree.
+      **Done 2026-10-11.** `network-text/{lexer,ast,exprs,parser}.ts` → `frontend/syntax/network/` (`readNetworkText`
+      takes the wire typing); `frontend/types/network/network-parse.ts` (`parseNetworkText`, the one entry) and
+      `network-analyze.ts`; `network-analysis.ts` → `analysis/checks/network/` with `network-analysis.test.ts` (the former
+      `network-wire-type.test.ts`, A6) and a `NetworkTextDocument` `{ uri, parseResult }`; services + their tests →
+      `services/network/`; `src/network/index.ts` deleted, each barrel carries its part; `bin.ts` → `server/bin.ts`
+      (`dist/src/server/bin.js`: package.json, bun.lock, volt-vscode build + discovery, volt-desktop dev path, volt-control
+      + its e2e, build-payload, check-wiring, launch.example); `workspace-refs.ts`, `source-extensions.ts` + tests →
+      `workspace/` (check-wiring and two C# gates re-pointed). `KNOWN_OTHER_VIOLATIONS` is empty. Output-neutral:
+      `frontend-snapshot.ts check --base HEAD` identical over 519811 aspects (it now loads the network pass from
+      whichever tree has it); the fixture map unchanged by `rate:fixtures`.
+- [x] 2.2 test/ mirrors src/; cross-cutting suites under one root.
+      **Done 2026-10-11.** `test/` already was the one root (one folder per concern; `frontend/`, `analysis/` measure
+      the layers they name). Moved: `frontend/baseline{,.test}.ts` → `test/baseline/` (shared by both measures);
+      `frontend/layering.test.ts` and `src/build.test.ts` → `test/package/`, beside the new structure gate.
+      `frontend/{sources,dumps,bound}.ts` stay: the front-end snapshot loads them by path from older commits.
+- [x] 2.3 scripts/ — re-check after E.1 (what transpile/analysis added since); scripts/README.md complete.
+      **Done 2026-10-11.** Every file listed; `probe-projectsettings-effect.ts` deleted (its change archived). Flat paths
+      kept (still named by package.json, the recorders' imports, C# gates, open changes). `check-citations.ts`: a git
+      object (`<rev>:path.ts`) is no citation (tested); the stale `PLANNED` entries removed — `bun run lint` green.
+- [x] 2.4 docs/ — re-check after E.2; architecture.md shows the final tree.
+      **Done 2026-10-11.** `architecture.md` "The tree": one line per folder of src/ and test/ (73), F "network text in
+      every layer", the analysis note on the parked registry check; README layout, `data-model.md`, test/README.md,
+      TESTING.md re-pointed.
 
 ## 3. Gate
-- [ ] 3.1 The structure gate test (layer imports, no loose src/ files, every folder described, every script listed) — red
+- [x] 3.1 The structure gate test (layer imports, no loose src/ files, every folder described, every script listed) — red
       first, green after 2.x.
+      **Done 2026-10-11.** `test/package/structure.test.ts` (red first: 6 loose files, an unparseable tree; green after
+      2.x), beside `layering.test.ts` for the imports. Gate: `bun typecheck` clean (and volt-control/desktop/vscode);
+      `VOLT_REQUIRE_FULL=1 bun test` 9520 pass / 35 skip / 421 todo / 0 fail (9976 tests, 327 files); root `bun run check`
+      18 passed / 0 failed; `bun run lint` green; Repo.Gates 160/0, DocDataTests 20/0.
 
 ## 4. Close
 - [ ] 4.1 Cold full suite, README/TESTING updated, archive.
@@ -71,26 +101,25 @@ src/transpile are restructured by their own changes; network text is parked).
 ## Hand-in from analysis-conformance (its task 5.3, 2026-10-07)
 
 No LD/FBD coverage change exists yet, so its hand-in waits here; whichever change dissolves `src/network*` (that change,
-or 2.1 above) takes it over. Paths relative to `packages/volt-lsp-iec/`.
+or 2.1 above) takes it over. Paths relative to `packages/volt-lsp-iec/`, re-pointed to the homes 2.1 gave the files.
 
 **For the LD/FBD coverage change — the parked network seam (analysis-conformance design.md §3, never executed):**
-- ONE network-text interface: `src/network-text/index.ts` as the only import path for services/analysis/server, its export
-  list the measured union of today's deep imports (`src/network/index.ts` re-exports `network-text/ast`, `parser`, `exprs`).
-- Routing: `inNetworkText` and `vgBodyAt` (`src/network/network-services.ts`, `src/server/server.ts`) replaced by one
+- ONE network-text interface: DONE by 2.1 — the layer barrels are it (`src/frontend/syntax/index.ts` exports the AST,
+  walks and reader, `src/frontend/types/index.ts` the typed `parseNetworkText` and `analyzeNetworkText`).
+- Routing: `inNetworkText` and `vgBodyAt` (`src/services/network/network-services.ts`, `src/server/server.ts`) replaced by one
   front-end query `bodyAtOffset` in `src/frontend/syntax/format/bodies.ts`; `readOnlyBodyHover` to `src/services/assist/hover`.
-- One pipeline for network findings: `computeNetworkTextDiagnostics` (`src/network/network-analysis.ts`, merged by
-  `src/server/diagnostics.ts`) becomes the registry check `checkNetworkText` in `src/analysis/checks/network/`, run LAST
+- One pipeline for network findings: `computeNetworkTextDiagnostics` (`src/analysis/checks/network/network-analysis.ts` since 2.1,
+  merged by `src/server/diagnostics.ts`) becomes the registry check `checkNetworkText` there, run LAST
   in `src/analysis/pipeline/registry.ts`, so config (C0118 off/forced), TwinCAT's dedupe and the server's `quiet()` reach
-  network findings; `services/structure/semantic-tokens.ts → network/network-analyze.ts` (`scripts/check-layering.ts`
-  `KNOWN_OTHER_VIOLATIONS`) goes with the move of `network-analyze.ts`.
+  network findings. (The `KNOWN_OTHER_VIOLATIONS` entry `semantic-tokens → network-analyze` went with 2.1.)
 - The parse memo: measure how often `parseNetworkText` runs per edit first; memoize at the seam only above 5% of a
   diagnostics pass (design.md §3 "One parse per body per project").
-- The duplicate jump-label rule: `src/network/network-analysis.ts` re-implements C0116–C0118 beside
+- The duplicate jump-label rule: `src/analysis/checks/network/network-analysis.ts` re-implements C0116–C0118 beside
   `src/analysis/checks/flow/jump-labels.ts` (same slugs, own walk).
-- The `NETWORK_*` code spelling (`NETWORK_UNRESOLVED_BOX`, … in `src/network/network-analysis.ts`) — the only SCREAMING
+- The `NETWORK_*` code spelling (`NETWORK_UNRESOLVED_BOX`, … in `src/analysis/checks/network/network-analysis.ts`) — the only SCREAMING
   codes; every other code is a kebab slug.
 - `Cnnnn` entries for network codes: none of them is in `src/analysis/error-code-map.ts`.
-- The field name `NetworkTextAnalysis.vg` (`src/network/network-analyze.ts`; "vg" is retired everywhere else).
+- The field name `NetworkTextAnalysis.vg` (`src/frontend/types/network/network-analyze.ts`; "vg" is retired everywhere else).
 - The network check's own conformance: its census row is `NETWORK_ROW` in `test/analysis/census.ts`, the one row with no
   registry entry (`test/analysis/diagnostic-census.test.ts`); it gets a registry entry and per-builder rows with the move.
 
@@ -99,5 +128,5 @@ or 2.1 above) takes it over. Paths relative to `packages/volt-lsp-iec/`.
   into `src/frontend/syntax/network/`, `src/frontend/symbols`+`types` and the services (2.1).
 - `src/analysis/checks/network/` is the final home of the network diagnostics (the folder does not exist yet).
 - `test/analysis/` — its root: the analysis census sits beside `test/frontend/` today; 2.2 decides the cross-cutting root.
-- `test/frontend/baseline.ts` takes the baseline DIRECTORY (`test/frontend/baselines/`, `test/analysis/baselines/`) and
+- `test/baseline/baseline.ts` (was `test/frontend/`) takes the baseline DIRECTORY (`test/frontend/baselines/`, `test/analysis/baselines/`) and
   holds `CEILING_EXCEPTIONS` for both; it is shared by two suites, so it belongs at the cross-cutting root, not in `frontend/`.
