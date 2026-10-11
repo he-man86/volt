@@ -106,6 +106,21 @@ describe("every note is tagged with the task that owns it", () => {
     for (const id of ["ea53989ac8", "e0361c9257", "9479f0e3c4", "0a552281ae"]) expect(NOTES[id]).toBeUndefined()
   })
 
+  test("7.11.2 / 7.11.4: at the end of phase 7 no note item is owned by a phase-7 task — a later, open task may own one", () => {
+    // every phase-7 task removed its own items in the step that ticked it; an open task of a later phase (8.2 reopens
+    // marks) may still file a note, which `noteTagProblems` accepts until that task is ticked
+    const phase7 = (notes: Readonly<Record<string, ShapeNote>>) =>
+      notesByTask(notes).filter(([owner]) => owner.startsWith("7."))
+    expect(phase7(NOTES)).toEqual([])
+    expect(phase7({ ...NOTES, aaaaaaaaaa: { improvement: "a later task's", tasks: ["8.2"] } })).toEqual([])
+    expect(phase7({ ...NOTES, aaaaaaaaaa: { improvement: "phase 7's", tasks: ["7.3.1"] } })).toEqual([["7.3.1", 1]])
+    // …and every phase-7 task is ticked, so `assertNotes` refuses an item one of them owns
+    const open = [...taskIdsOf(readFileSync(RESTRUCTURE_TASKS, "utf8"))].filter(
+      ([id, done]) => id.startsWith("7.") && !done,
+    )
+    expect(open).toEqual([])
+  })
+
   test("the authored NOTES all carry a valid tag (transpile-restructure's tasks.md)", () => {
     expect(noteTagProblems(NOTES, taskIdsOf(readFileSync(RESTRUCTURE_TASKS, "utf8")))).toEqual([])
     expect(() => assertNotes()).not.toThrow()

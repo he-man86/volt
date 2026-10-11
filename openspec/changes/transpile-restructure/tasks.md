@@ -6645,7 +6645,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     in prose. `keep` 29 -> 25 in the map header; noted constructs 45 -> 41. At the gate, 7.8.4 and 7.8.8 were reopened
     (the niche rule is for findings, not unbuilt tasks): their 9 items are theirs again, `keep` 25 -> 16 (`7.8.8 5,
     7.8.4 4` in the per-task count).
-- [ ] 7.11.2 Every note item owned by a finished task is removed (a note goes with its last item).
+- [x] 7.11.2 Every note item owned by a finished task is removed (a note goes with its last item).
   - What: gated since 0b — `assertNotes` (run by `rate:fixtures` and `map.test.ts`) refuses an item whose owner is ticked, so
     each task removes its own items in the commit that ticks it; this task verifies none is left.
   - Where: `support/notes/notes.data.ts`, `scripts/rate-fixtures.ts`.
@@ -6656,6 +6656,24 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     passes; every task 7.7.6-7.8.11 removed its own items in its step); the per-task count left is `7.4.6 14, 7.6.4 2`
     beside `keep 25`. Tick it with the step that closes the last of those two (after the gate also 7.8.4 and 7.8.8,
     reopened: `keep 16, 7.4.6 14, 7.8.8 5, 7.8.4 4, 7.6.4 2`).
+  - Done 2026-10-11 (step 7.11b), after 7.4.6 (7.4c), 7.6.4 (7.6b), 7.8.4 and 7.8.8 (7.8d) landed: every phase-7 task but
+    7.11.2 / 7.11.4 is ticked. Measured by a scratch script over `NOTES` and this file (`taskIdsOf`, `noteTagProblems`,
+    `notesByTask`, `assertNotes`; not kept): 16 notes, 16 items, all `keep:<reason>`; items owned by a ticked task 0,
+    by an open task 0, by a task this file does not hold 0; `noteTagProblems` [] and `assertNotes` passes. The map
+    header's per-task count reads `keep 16` only. Each landing step removed its own items (7.4.6's 14, 7.6.4's 2,
+    7.8.4's 4, 7.8.8's 5). Test `support/notes/notes.test.ts` ("7.11.2 / 7.11.4: at the end of phase 7 no note item is
+    owned by a phase-7 task — a later, open task may own one").
+  - Review fix (gate 7.11b+8b, low): the test as first written pinned "every note left is `keep`" — stricter than the
+    rule `assertNotes` enforces (an OPEN task may own an item; 8.2 is open and reopens marks), so a later step filing a
+    note under 8.2 would have turned it red. Failing test first: the old predicate (`owner !== "keep"`) gives
+    `[["8.2", 1]]` for NOTES plus a note tagged 8.2. Now it counts only phase-7 owners (`7.` ids) — `[]` for NOTES and
+    for NOTES + an 8.2 note, `[["7.3.1", 1]]` for NOTES + a 7.3.1 note — and pins that every phase-7 task line of this
+    file is ticked (so `assertNotes` refuses any item one of them owns). `support/notes/` 10 pass / 0 fail.
+  - Gate 7.11b+8b (2026-10-11): `bun typecheck` clean; `bun run lint` green (layering, size, citations 0 missing / 3
+    planned); `rate:fixtures` — map unchanged (mapped 5566, confirmed 3012, refused 2018, not-lowered 345, lsp-gap 85,
+    diverges 11, unaskable 95; edge agree 3219, disagree 5, not-run 219; `keep 16`); full suite `VOLT_REQUIRE_FULL=1
+    bun test` (VOLT_FIXTURES unset, rustc cache sampled) 9297 pass / 0 fail, 35 skip, 388 todo (9720 tests, 321 files,
+    665 s); root `bun run check` green.
 - [x] 7.11.3 Re-check every ALLOWED lint after the models.
   - What: eq_op (17), unnecessary_min_or_max (10), approx_constant (6), manual_clamp (2; RC 28/41), absurd_extreme_comparisons,
     manual_range_patterns, never_loop (model 1), unused_comparisons, dead_code, self_assignment, unreachable_code: each entry's excused
@@ -6681,7 +6699,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     field of type `…` to itself", measured on rustc); any other `dead_code` is FOUND. Test
     `support/transpile/lint-policy.test.ts` ("dead_code is excused only for a field assigned to itself"). The map is
     unchanged by it: all 42 excused findings are that message.
-- [ ] 7.11.4 Notes placed by 0.6 in tasks created for them are resolved or tagged `keep:<reason>`.
+- [x] 7.11.4 Notes placed by 0.6 in tasks created for them are resolved or tagged `keep:<reason>`.
   - Where: `support/notes/notes.data.ts`.
   - Accept: the per-task note count lists no note under an open task at the end of phase 7.
   - Depends: all of 7.
@@ -6689,6 +6707,11 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     about — 14 under 7.4.6 (read-only STRING inputs, LEN_INTERNAL) and 2 under 7.6.4 (VAR_TEMP as locals), both tasks
     0.6 tagged and neither started. Every other phase-7 task's notes are resolved or `keep:<measured reason>` (7.11.1).
     It closes with whichever step lands the last of those two tasks.
+  - Done 2026-10-11 (step 7.11b). The per-task note count lists no note under an open task: `keep 16` and nothing else
+    (open phase-7 tasks before this step: 7.11.2 and 7.11.4 only, neither an owner). 7.4.6's 14 and 7.6.4's 2 went
+    with their steps (7.4c, 7.6b), the reopened 7.8.4's 4 and 7.8.8's 5 with 7.8d. The 16 left are each a later task's
+    measured verdict (7.3.11, 7.3.12, 7.3.13, 7.5.9, 7.7.7 — 7.11.1's record), none 0.6 placed. Same scratch measurement
+    and test as 7.11.2.
 
 ## 8. Close
 
