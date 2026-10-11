@@ -4,8 +4,10 @@
  *
  *   bun scripts/vendor-facts.ts <codesys|twincat> [--write]
  *
- * It starts the IDE itself — `ide.ps1 up -Instance vendor-fact-probe` on a COPY of a committed fixture (CODESYS on the
- * runscript `vendor-facts.codesys.py`, TwinCAT `-Fixture 14`) — and closes it in `finally`. The pipe resolves through
+ * It starts the IDE itself — `ide.ps1 up -Instance vendor-fact-probe` (or `$VOLT_VENDOR_FACTS_INSTANCE`, so a change
+ * runs it on its own instance; never `$VOLT_E2E_INSTANCE`, which names an e2e IDE already up) on a COPY of a
+ * committed fixture (CODESYS on the runscript `vendor-facts.codesys.py`, TwinCAT `-Fixture 14`) — and closes it in
+ * `finally`. The pipe resolves through
  * `test/e2e/lib/fixture-ide.ts` like every other script: a `VOLT_PIPE` no instance owns is refused, naming it.
  *
  * Each row runs ONE STEP AT A TIME. A `via: "push"` step is one declarative op over the instance's pipe through the
@@ -39,7 +41,19 @@ import { callOn } from "../test/e2e/lib/pipe"
 import { landedInFull } from "../test/e2e/lib/workspace"
 import { ROWS, type Read, type Row, type Step } from "./vendor-facts.table"
 
-export const INSTANCE = "vendor-fact-probe"
+/**
+ * The `ide.ps1` instance the runner `up`s and `down`s: `VOLT_VENDOR_FACTS_INSTANCE`, else its reserved
+ * `vendor-fact-probe`. Never `VOLT_E2E_INSTANCE` — that names an e2e IDE that is already UP and only talked to; the
+ * runner restarts and closes its instance, so sharing the variable would tear a live e2e IDE down. Set but empty is
+ * refused by name (an empty instance is `ide.ps1`'s default one, which the runner must not own either).
+ */
+export function instanceOf(env: Record<string, string | undefined>): string {
+  const named = env.VOLT_VENDOR_FACTS_INSTANCE
+  if (named === undefined) return "vendor-fact-probe"
+  if (named === "") throw new Error("VOLT_VENDOR_FACTS_INSTANCE is set but empty: name an instance or unset it")
+  return named
+}
+export const INSTANCE = instanceOf(process.env)
 const HERE = import.meta.dir
 const FIXTURES = join(HERE, "..", "test", "fixtures")
 /** The committed fixtures an `open` step may name. Only a committed fixture can be opened (design 0.1). */

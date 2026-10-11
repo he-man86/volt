@@ -1676,6 +1676,141 @@ export const ROWS: Row[] = [
     ],
   },
   {
+    // C2n's abstract members on TwinCAT (openspec `abstract-member-push` 1.1): does an abstract method / an abstract
+    // property's accessor have a body slot, and does the owner's pulled text push back? CODESYS's half is
+    // `merged-classes` (`implementation.*`): no Implementation aspect on either.
+    id: "abstract-member-slot",
+    dialect: ["C2n"],
+    vendors: { twincat: true },
+    steps: [
+      // Through the vendor API: an ABSTRACT function block and an abstract method, declarations only.
+      {
+        op: "create",
+        as: "sfb",
+        kind: "function_block",
+        name: "VltA_ScriptBase",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK ABSTRACT VltA_ScriptBase\nVAR\nEND_VAR\n",
+      },
+      {
+        tag: "script-made",
+        op: "create",
+        as: "smethod",
+        kind: "method",
+        name: "Pick",
+        parent: "sfb",
+        via: "script",
+        decl: "METHOD ABSTRACT Pick : INT\n",
+      },
+      // Through the shipped push: the text a pull writes for an abstract member — the boundary line, an empty body. A
+      // property's accessors are made only this way here: a CreateChild of a property (611) makes no Get/Set child
+      // (measured, the first run: `find 'Get'` under it answered 0 items); the push creates the GET itself (613).
+      {
+        op: "create",
+        as: "pfb",
+        kind: "function_block",
+        name: "VltA_PushBase",
+        parent: "root",
+        via: "push",
+        source:
+          `FUNCTION_BLOCK ABSTRACT VltA_PushBase\nVAR\n\tx : INT;\nEND_VAR\n${MARK}\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n` +
+          `\nMETHOD ABSTRACT Pick : INT\n${MARK}\n\nEND_METHOD\n` +
+          `\nPROPERTY ABSTRACT Busy : BOOL\nGET\n${MARK}\n\nEND_GET\nEND_PROPERTY\n`,
+      },
+      { op: "find", as: "pmethod", name: "Pick", under: "pfb" },
+      { op: "find", as: "pprop", name: "Busy", under: "pfb" },
+      { tag: "push-made", op: "find", as: "pget", name: "Get", under: "pprop" },
+      // Saved, closed, reopened: what the IDE wrote to the .TcPOU and loads back.
+      { tag: "saved", op: "reload" },
+      // The round trip CODESYS refuses: the owner's PULLED text, one line added under each abstract declaration.
+      {
+        tag: "method-edited",
+        op: "setText",
+        on: "pfb",
+        via: "push",
+        after: { line: "METHOD ABSTRACT Pick : INT", add: "// volt vendor-facts: written in place" },
+      },
+      {
+        tag: "property-edited",
+        op: "setText",
+        on: "pfb",
+        via: "push",
+        after: { line: "PROPERTY ABSTRACT Busy : BOOL", add: "// volt vendor-facts: written in place" },
+      },
+      // A body written at the abstract method's slot through the vendor API.
+      { tag: "body-written", op: "setText", on: "smethod", via: "script", impl: "Pick := 1;\n" },
+    ],
+    reads: [
+      { key: "class", at: "script-made", on: ["sfb", "smethod"], op: "class" },
+      { key: "class", at: "push-made", on: ["pfb", "pmethod", "pprop", "pget"], op: "class" },
+      { key: "accessors", at: "saved", on: "pprop", op: "children" },
+      // The body slot on the object: null = the COM object has no ImplementationText.
+      {
+        key: "implementation",
+        at: ["script-made", "saved"],
+        on: "smethod",
+        op: "member",
+        path: "item.ImplementationText",
+      },
+      {
+        key: "implementation",
+        at: ["push-made", "saved", "property-edited"],
+        on: ["pmethod", "pprop", "pget"],
+        op: "member",
+        path: "item.ImplementationText",
+      },
+      {
+        key: "declaration",
+        at: ["saved", "property-edited"],
+        on: ["smethod", "pmethod", "pprop"],
+        op: "member",
+        path: "item.DeclarationText",
+      },
+      // The body slot in the saved file: an <Implementation> element under the member, and its ST text.
+      {
+        key: "file.method",
+        at: "saved",
+        on: ["sfb", "pfb"],
+        op: "xml",
+        file: true,
+        xpath: "//Method[@Name='Pick']/Implementation",
+      },
+      {
+        key: "file.method-st",
+        at: "saved",
+        on: ["sfb", "pfb"],
+        op: "xml",
+        file: true,
+        xpath: "//Method[@Name='Pick']/Implementation/ST",
+      },
+      {
+        key: "file.get",
+        at: "saved",
+        on: "pfb",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='Busy']/Get/Implementation",
+      },
+      {
+        key: "file.get-st",
+        at: "saved",
+        on: "pfb",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='Busy']/Get/Implementation/ST",
+      },
+      { key: "body", at: "body-written", on: "smethod", op: "member", path: "item.ImplementationText" },
+      {
+        key: "ide-authored",
+        at: "start",
+        op: "absent",
+        reason:
+          "no TwinCAT fixture or corpus holds an abstract member (0 ABSTRACT texts in Project13, Project14 and twincat-project14), so the IDE's own Add Method dialog is not measured; the members are made through the vendor API and the shipped push",
+      },
+    ],
+  },
+  {
     id: "folder-name-collision",
     dialect: ["D34"],
     vendors: { twincat: true },

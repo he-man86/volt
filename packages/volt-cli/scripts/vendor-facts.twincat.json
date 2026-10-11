@@ -1,4 +1,52 @@
 {
+	"abstract-member-slot": {
+		"accessors": [
+			"Get"
+		],
+		"body": "Pick := 1;\n",
+		"class.pfb": "ItemType 604",
+		"class.pget": "ItemType 613",
+		"class.pmethod": "ItemType 609",
+		"class.pprop": "ItemType 611",
+		"class.sfb": "ItemType 604",
+		"class.smethod": "ItemType 609",
+		"declaration.pmethod@property-edited": "METHOD ABSTRACT Pick : INT\n// volt vendor-facts: written in place",
+		"declaration.pmethod@saved": "METHOD ABSTRACT Pick : INT",
+		"declaration.pprop@property-edited": "PROPERTY ABSTRACT Busy : BOOL\n// volt vendor-facts: written in place",
+		"declaration.pprop@saved": "PROPERTY ABSTRACT Busy : BOOL",
+		"declaration.smethod@property-edited": "METHOD ABSTRACT Pick : INT\n",
+		"declaration.smethod@saved": "METHOD ABSTRACT Pick : INT\n",
+		"file.get": "<Implementation>",
+		"file.get-st": "",
+		"file.method-st.pfb": "",
+		"file.method-st.sfb": "",
+		"file.method.pfb": "<Implementation>",
+		"file.method.sfb": "<Implementation>",
+		"ide-authored": "absent: no TwinCAT fixture or corpus holds an abstract member (0 ABSTRACT texts in Project13, Project14 and twincat-project14), so the IDE's own Add Method dialog is not measured; the members are made through the vendor API and the shipped push",
+		"implementation.pget@property-edited": "",
+		"implementation.pget@push-made": "",
+		"implementation.pget@saved": "",
+		"implementation.pmethod@property-edited": "",
+		"implementation.pmethod@push-made": "",
+		"implementation.pmethod@saved": "",
+		"implementation.pprop@property-edited": null,
+		"implementation.pprop@push-made": null,
+		"implementation.pprop@saved": null,
+		"implementation@saved": "",
+		"implementation@script-made": "",
+		"steps": [
+			"create sfb: accepted",
+			"create smethod: accepted",
+			"create pfb (push): accepted",
+			"find pmethod: accepted",
+			"find pprop: accepted",
+			"find pget: accepted",
+			"reload: accepted",
+			"setText pfb (push): accepted",
+			"setText pfb (push): accepted",
+			"setText smethod: accepted"
+		]
+	},
 	"body-language-change": {
 		"diagnostics": {
 			"diagnostics": [

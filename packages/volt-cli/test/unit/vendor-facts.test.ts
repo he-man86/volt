@@ -23,6 +23,7 @@ import {
   asciiJson,
   requestTimeout,
   type CoreRequest,
+  instanceOf,
 } from "../../scripts/vendor-facts"
 
 const row = (r: Partial<Row>): Row => ({
@@ -650,6 +651,15 @@ describe("the command line", () => {
     const committed = { a: { x: 1 }, b: { y: 2 } }
     expect(mergeSnapshot(committed, { b: { y: 3 } }, ["b"])).toEqual({ a: { x: 1 }, b: { y: 3 } })
     expect(mergeSnapshot(committed, { b: { y: 3 } }, undefined)).toEqual({ b: { y: 3 } })
+  })
+
+  // review (abstract-member-push 1): VOLT_E2E_INSTANCE names an e2e IDE that is ALREADY UP; the runner `up`s and
+  // `down`s its instance, so reading that variable would tear a live e2e IDE down. It has its own variable.
+  it("runs on its own instance: VOLT_VENDOR_FACTS_INSTANCE, never VOLT_E2E_INSTANCE", () => {
+    expect(instanceOf({})).toBe("vendor-fact-probe")
+    expect(instanceOf({ VOLT_E2E_INSTANCE: "foo" })).toBe("vendor-fact-probe")
+    expect(instanceOf({ VOLT_E2E_INSTANCE: "foo", VOLT_VENDOR_FACTS_INSTANCE: "bar" })).toBe("bar")
+    expect(() => instanceOf({ VOLT_VENDOR_FACTS_INSTANCE: "" })).toThrow("VOLT_VENDOR_FACTS_INSTANCE")
   })
 })
 
