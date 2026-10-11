@@ -8,7 +8,7 @@
  */
 import { bareEnumMember, isLibrarySymbol, lookup, scopeUri, targetOf, type Scope } from "../../symbols/index.js"
 import { globalClash } from "../names.js"
-import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
+import { decodeStringLiteral, selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { bitwiseLiteralOperandType, checkedMeetType, checkedNegationType, literalOperandType } from "../arith/checked.js"
 import { temporalArithmeticType } from "../arith/temporal.js"
 import {
@@ -28,6 +28,7 @@ import {
 import { aliasElem, elementaryType } from "../elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
+import { DEFAULT_STRING_LENGTH } from "../defaults.js"
 import { isUntypedNumber, literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
 import { typeBytes } from "../layout.js"
@@ -103,6 +104,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       const written = inferExprType(expr.base, scope, project)
       const base = written.kind === "reference" ? written.target : written
       if (base.kind === "array") return base.element
+      // …and a STRING indexed is one of its units: a BYTE, a WSTRING's a WORD (`lib_prim_char_past_length` records `BYTE#…`,
+      // `string_non_ascii_bytes` `text[0]` = BYTE#99; lsp-transpile-review-gaps 2.3)
+      if (base.kind === "elementary" && base.elem.family === "string" && expr.indices.length === 1) return elementaryRef(base.elem.bits === 16 ? "WORD" : "BYTE")
       // …and a POINTER indexed once is its target, `i` elements on (rule M3: `p[2].x` over `p : POINTER TO S` runs 30 in
       // `mem_pointer_index_struct_array`, both vendors build it); a second index is the arity error C0126, untyped
       return base.kind === "pointer" && expr.indices.length === 1 ? base.target : UNKNOWN
@@ -215,6 +219,33 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
 }
 
 /**
+ * A selection over STRINGs (or over WSTRINGs) — undefined for any other operands. Measured on both vendors 2026-10-11 by
+ * storing each into an INT, which names the type (`sel_string_meet_type`, `limit_string_meet_type`, `_in`;
+ * lsp-transpile-review-gaps 2.7): SEL and MUX answer the WIDEST value argument's type — a sizeless one is 80 units, a
+ * literal is as wide as its text and is then named by it, `STRING(INT#20)`; LIMIT answers its IN's type whatever MN and
+ * MX are; MIN and MAX a sizeless STRING (over WSTRINGs unmeasured, UNKNOWN). An operand whose capacity is no fact
+ * leaves it UNKNOWN.
+ */
+function stringSelection(name: string, values: readonly (Expr | undefined)[], typeOf: (e: Expr | undefined) => Type): Type | undefined {
+  const types = values.map(typeOf)
+  const first = types[0]
+  if (first?.kind !== "elementary" || first.elem.family !== "string") return undefined
+  if (types.some((t) => t.kind !== "elementary" || t.name !== first.name)) return undefined
+  if (name === "MIN" || name === "MAX") return first.name === "STRING" ? elementaryRef("STRING") : UNKNOWN
+  if (name === "LIMIT") return values[1]?.kind === "literal" ? UNKNOWN : (types[1] ?? UNKNOWN)
+  const capacities: (number | undefined)[] = values.map((v, i) => {
+    if (v?.kind === "literal") return typeof v.value === "string" ? decodeStringLiteral(v.value, first.name === "WSTRING")?.length : undefined
+    const t = types[i]
+    return t?.kind !== "elementary" || t.unfoldedLength === true ? undefined : (t.length ?? DEFAULT_STRING_LENGTH)
+  })
+  const known = capacities.filter((c): c is number => c !== undefined)
+  if (known.length !== capacities.length) return UNKNOWN
+  const widest = Math.max(...known)
+  const variable = values.findIndex((v, i) => v?.kind !== "literal" && capacities[i] === widest)
+  return types[variable] ?? { ...first, length: widest, lengthText: `INT#${widest}` }
+}
+
+/**
  * A BUILT-IN WHOSE RESULT IS A FUNCTION OF ITS ARGUMENTS (`builtins.ts` holds each rule), or undefined for any other name.
  * The selection functions return the MEET of their value arguments — the one a binary operator's operands reach. They
  * are extensible and type-dependent, so the catalog models no fixed result, and inferring UNKNOWN left `MIN(anInt, aUint)`
@@ -227,6 +258,8 @@ function builtinArgumentResult(name: string, call: CallExpr, scope: Scope, proje
   const typeOf = (e: Expr | undefined): Type => (e === undefined ? UNKNOWN : inferExprType(e, scope, project))
   const selected = selectionValueArguments(upper, values)
   if (selected !== undefined) {
+    const strings = stringSelection(upper, selected, typeOf)
+    if (strings !== undefined) return strings
     const types = selected.map(typeOf)
     if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
     return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)

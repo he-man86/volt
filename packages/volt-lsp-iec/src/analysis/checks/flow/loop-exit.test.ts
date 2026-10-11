@@ -34,8 +34,9 @@ test("a wider counter (INT) reaching 255 terminates — no FP", () => {
   expect(codes(" i : INT;", "FOR i := 0 TO 255 DO\n ;\nEND_FOR;")).toEqual([])
 })
 
+// (a BYTE bound: an INT one on a BYTE counter does not convert, `for-bound-type`, lsp-transpile-review-gaps 1.1)
 test("non-constant end bound is skipped — no FP", () => {
-  expect(codes(" b : BYTE;\n n : INT;", "FOR b := 0 TO n DO\n ;\nEND_FOR;")).toEqual([])
+  expect(codes(" b : BYTE;\n n : BYTE;", "FOR b := 0 TO n DO\n ;\nEND_FOR;")).toEqual([])
 })
 
 test("a bound BEYOND the counter's range is a conversion, not an endless loop: FOR si := 1 TO 200 over a SINT (`lt_literal_for_bounds_out_of_range`, both vendors 2026-10-03)", () => {
@@ -56,6 +57,8 @@ test("a bound beyond the counter that needs a wider type, or a typed constant, k
     const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
   }
-  expect(constants("FOR i := 0 TO cMax DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
-  expect(constants("FOR bt := 0 TO cB DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
+  // …and a typed constant wider than the counter does not convert into it (`for_limit_wider_than_counter_dint_constant`:
+  // "Cannot convert type 'DINT' to type 'INT'", lsp-transpile-review-gaps 2.1); whether C0266 joins it is unrecorded
+  expect(constants("FOR i := 0 TO cMax DO\n ;\nEND_FOR;")).toEqual(["for-bound-type", "loop-exit-constant"])
+  expect(constants("FOR bt := 0 TO cB DO\n ;\nEND_FOR;")).toEqual(["for-bound-type", "loop-exit-constant"])
 })

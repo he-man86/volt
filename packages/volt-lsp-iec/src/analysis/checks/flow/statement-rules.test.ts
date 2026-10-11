@@ -108,6 +108,43 @@ test("a FOR counts in an integer: a REAL or a BOOL control variable does not con
   expect(forType("dw : DWORD", "FOR dw := 1 TO 3 DO\n\tn := n + 1;\nEND_FOR")).toEqual([])
 })
 
+// lsp-transpile-review-gaps 1.1 / 1.2 / 2.1 (CODESYS run recordings 2026-09-29, 2026-10-08): a FOR bound is judged by its
+// TYPE against the counter — a DINT limit or step on an INT counter, an INT one on a BYTE, is "Cannot convert type 'DINT' to
+// type 'INT'" — and an untyped literal step by its VALUE (300 on a SINT is "… 'INT' to type 'SINT'"; -1 and 255 on a BYTE
+// are taken). A same-width sign change converts, and an expression of untyped literals has no named type.
+test("a FOR limit or step that does not convert into the counter is refused (for_limit_wider_than_counter_*, for_step_*, tr_35_*)", () => {
+  const bound = (decl: string, loop: string): string[] => {
+    const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\nVAR CONSTANT kc : DINT := 3;\nEND_VAR\n${loop}\nEND_PROGRAM`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.severity === "error")
+      .map((d) => d.message)
+  }
+  const dintIntoInt = ["Cannot convert type 'DINT' to type 'INT'"]
+  const body = "DO n := n + 1; END_FOR"
+  expect(bound("i : INT; k : DINT", `FOR i := 1 TO k ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT; k : DINT", `FOR i := 1 TO k - 1 ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT; a : ARRAY[0..4] OF INT", `FOR i := 0 TO UPPER_BOUND(a, 1) ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT", `FOR i := 1 TO kc ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT", `FOR i := 1 TO DINT#5 ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT; k : DINT", `FOR i := 0 TO 10 BY (k - 1) ${body}`)).toEqual(dintIntoInt)
+  expect(bound("i : INT; a : ARRAY[0..3] OF INT", `FOR i := 0 TO 10 BY UPPER_BOUND(a, 1) ${body}`)).toEqual(dintIntoInt)
+  expect(bound("b : BYTE", `FOR b := 5 TO 0 BY INT#-1 ${body}`)).toEqual(["Cannot convert type 'INT' to type 'BYTE'"])
+  expect(bound("b : BYTE; stp : INT", `FOR b := 5 TO 1 BY stp ${body}`)).toEqual(["Cannot convert type 'INT' to type 'BYTE'"])
+  expect(bound("sc : SINT", `FOR sc := 1 TO 10 BY 300 ${body}`)).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  // …and what CODESYS takes
+  expect(bound("u : UINT; k : UINT", `FOR u := 0 TO k - 1 ${body}`)).toEqual([])
+  expect(bound("u : UINT; k : INT", `FOR u := 1 TO k ${body}`)).toEqual([])
+  expect(bound("i : INT; k : UINT", `FOR i := 1 TO k ${body}`)).toEqual([])
+  expect(bound("b : BYTE", `FOR b := 5 TO 1 BY -1 ${body}`)).toEqual([])
+  expect(bound("b : BYTE", `FOR b := 1 TO 10 BY 255 ${body}`)).toEqual([])
+  expect(bound("u : UINT", `FOR u := 10 TO 2 BY -2 ${body}`)).toEqual([])
+  expect(bound("sc : SINT", `FOR sc := 5 TO -5 BY -1 ${body}`)).toEqual([])
+  expect(bound("sc : SINT", `FOR sc := 1 TO 200 ${body}`)).toEqual([])
+  expect(bound("i : INT; g : BOOL", `FOR i := 0 TO 10 BY SEL(g, 2, -2) ${body}`)).toEqual([])
+})
+
 test("C0018: a direct address is a target, no literal refused (lit_address_in_body, ca_direct_address_expression)", () => {
   expect(assign(`%MW6 := i;\n%MX7.3 := TRUE;`)).toEqual([])
 })

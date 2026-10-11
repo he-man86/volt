@@ -9,6 +9,7 @@
  *   - `in-out-needs-writable`  — a VAR_IN_OUT parameter passed a literal/constant argument (C0041).
  *   - `in-out-type-mismatch`   — a VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201).
  *   - `in-out-not-assigned`    — a VAR_IN_OUT parameter left unbound in a call (C0039).
+ *   - `in-out-string-too-short` — a STRING bound to a VAR_IN_OUT that declares more units than it holds.
  *
  * Conservative (zero-FP): skips whenever the callee can't be resolved to a callable, and only type-checks
  * a side that is a checkable category (elementary or enum — a struct/FB/array/library type never fires).
@@ -17,9 +18,9 @@
  * optional (retained between calls) and function optional/EN-ENO inputs would false-positive.
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
-import { walkAllExprs, type CallArg, type Expr, type Span, type TopLevel } from "../../../frontend/syntax/index.js"
+import { walkAllExprs, type CallArg, type Expr, type Span, type TopLevel, type TypeExpr, type VarSection } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveMemberChain, resolveTypeExpr, takesNoPositionalArguments, type Type } from "../../../frontend/types/index.js"
+import { type CalleeInfo, constancyOf, DEFAULT_STRING_LENGTH, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveMemberChain, resolveTypeExpr, takesNoPositionalArguments, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../shared/rules.js"
@@ -194,9 +195,18 @@ function checkCall(
       // output's declared type is the source and the bound variable is the destination. CODESYS reports it as a
       // plain conversion, "Cannot convert type 'INT' to type 'STRING'" (conformance
       // `accepts_output_into_other_type`); the transpiler already refuses the same shape (`call-output-type`).
-      const sym = callee.scope === undefined ? undefined : lookupMember(callee.scope, name)
-      if (arg.value !== undefined && sym?.varSection === "VAR_OUTPUT" && sym.typeExpr !== undefined)
-        outputTypeError(sym.typeExpr, arg.value, scope, ctx, out)
+      // A FUNCTION's or METHOD's output is read from its own sections — it has no member scope — and judged alike, with
+      // the conversion warning an assignment earns: a DINT output into an INT is "Cannot convert type 'DINT' to type
+      // 'INT'", a WORD one "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'" (`tr_43_routine_output_*`,
+      // both vendors 2026-10-09; lsp-transpile-review-gaps 2.4). The FB path's warning is unmeasured.
+      if (callee.scope === undefined) {
+        const type = directOutputType(callee, name)
+        if (arg.value !== undefined && type !== undefined) outputTypeError(type, arg.value, scope, ctx, out, true)
+      } else {
+        const sym = lookupMember(callee.scope, name)
+        if (arg.value !== undefined && sym?.varSection === "VAR_OUTPUT" && sym.typeExpr !== undefined)
+          outputTypeError(sym.typeExpr, arg.value, scope, ctx, out)
+      }
       continue
     }
     if (arg.value !== undefined) {
@@ -374,6 +384,15 @@ function inOutChecks(
       code: "in-out-type-mismatch",
       message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
     })
+  } else if (!param.constant && value.kind === "ident_expr" && pt.kind === "elementary" && at.kind === "elementary" && pt.elem.family === "string") {
+    // A STRING bound to a VAR_IN_OUT that declares MORE units than the variable holds is "String variable 'v' too short for
+    // the VAR_IN_OUT parameter 'io' of 'F'" (`string_inout_narrower`, `wstring_inout_narrower`, both vendors 2026-10-11;
+    // lsp-transpile-review-gaps 2.5). Bound wider it builds (`string_inout_wider_*`), and a VAR_IN_OUT CONSTANT bound
+    // narrower builds (`xo4_inout_constant_chain`). A capacity that does not fold is not judged.
+    const capacity = (t: typeof pt): number | undefined => (t.kind !== "elementary" || t.unfoldedLength === true ? undefined : (t.length ?? DEFAULT_STRING_LENGTH))
+    const [declared, held] = [capacity(pt), capacity(at)]
+    if (declared !== undefined && held !== undefined && held < declared)
+      out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-string-too-short", message: ctx.messages.stringTooShortForInOut(value.name, param.name.text, callee) })
   }
 }
 
@@ -400,8 +419,9 @@ function argumentType(value: Expr, scope: Scope, ctx: CheckContext): Type {
 /**
  * An output binding's target must be able to hold the output. Conservative in the same way `argTypeError` is: both
  * sides must be a checkable category, and it reuses the same wording and the same `isAssignable` engine, only with
- * source and destination the other way round. No conversion WARNING here — a narrowing output binding has not been
- * measured, and inventing one would be a message the vendor may not print.
+ * source and destination the other way round. The conversion WARNING (`warn`) only on the routine path, where it is
+ * measured (`tr_43_routine_output_word_to_int`); an FB's narrowing output binding has not been, and inventing one would be
+ * a message the vendor may not print.
  */
 function outputTypeError(
   outputType: Parameters<typeof resolveTypeExpr>[0],
@@ -409,11 +429,17 @@ function outputTypeError(
   scope: Scope,
   ctx: CheckContext,
   out: DiagnosticItem[],
+  warn = false,
 ): void {
   const src = checkable(resolveTypeExpr(outputType, ctx.project, 0, ctx.project, ctx.uri))
   if (src === undefined) return
   const dst = checkableType(target, scope, ctx.project)
-  if (dst === undefined || isAssignable(dst, src)) return
+  if (dst === undefined) return
+  if (isAssignable(dst, src)) {
+    const w = warn ? conversionWarning(dst, src, target, ctx.messages) : undefined
+    if (w !== undefined) out.push(w)
+    return
+  }
   out.push({
     severity: "error",
     span: target.span,
@@ -504,6 +530,15 @@ function inputSection(callee: CalleeInfo, name: string): boolean {
  *  FB's missing in-out is its own sentence (section 5). */
 function countsInOuts(callee: CalleeInfo): boolean {
   return callee.sym.kind === "function" || callee.sym.kind === "method" || callee.sym.kind === "interface_method"
+}
+
+/** A direct callable's (a FUNCTION's, a METHOD's) VAR_OUTPUT `name`'s declared type, from its own sections. */
+function directOutputType(callee: CalleeInfo, name: string): TypeExpr | undefined {
+  const sections = (callee.sym.ast as { varSections?: readonly VarSection[] }).varSections ?? []
+  return sections
+    .filter((s) => s.sectionKind === "VAR_OUTPUT")
+    .flatMap((s) => s.decls)
+    .find((d) => d.names.some((n) => n.text.toLowerCase() === name))?.type
 }
 
 /** Does the callee declare `name` at all — a member of the instance's FB (its chain's), or any variable of a direct

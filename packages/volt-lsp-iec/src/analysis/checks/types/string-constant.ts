@@ -14,7 +14,7 @@
 import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
 import { constEval, inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
+import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
 import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -48,6 +48,11 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
       const ops = [s.op, ...(s.chainOps ?? [])]
       places.forEach((place, i) => {
         if (ops[i] !== undefined) return
+        // …but not a VAR_IN_OUT: the literal into one builds unwarned on both vendors, a FUNCTION's or an FB's
+        // (`string_inout_wider_stores`, `string_literal_into_fb_inout_too_long`, 2026-10-11; lsp-transpile-review-gaps 2.6) —
+        // as through a REFERENCE (whose type is no STRING here); a dereferenced POINTER warns
+        // (`string_literal_through_pointer_too_long`)
+        if (place.kind === "ident_expr" && lookup(scope, place.name)?.symbol.varSection === "VAR_IN_OUT") return
         const dest = inferExprType(place, scope, ctx.project)
         if (dest.kind !== "elementary" || dest.length === undefined) return
         if (dest.name !== "STRING" && dest.name !== "WSTRING") return

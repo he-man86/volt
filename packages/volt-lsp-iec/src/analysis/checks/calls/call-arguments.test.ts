@@ -808,3 +808,63 @@ END_PROGRAM`
   expect(said("codesys", "seven")).toHaveLength(1)
   expect(said("twincat", "seven")).toEqual([])
 })
+
+// lsp-transpile-review-gaps 1.4 (`tr_20_output_index_moved_by_callee`, CODESYS builds and runs it 2026-09-29): a FUNCTION's
+// and a METHOD's VAR_OUTPUT bound `o => target` beside no input is an output, not "no output of" nor a wrong input count
+test("a FUNCTION's / METHOD's VAR_OUTPUT binding `o => arr[k]` is read as an output (tr_20_output_index_moved_by_callee)", () => {
+  const fn = `FUNCTION F_CS_out20 : BOOL\nVAR_OUTPUT\n\to : INT;\nEND_VAR\no := 5;\nF_CS_out20 := TRUE;\nEND_FUNCTION`
+  const fb = `FUNCTION_BLOCK FB_CS_out20\nVAR_OUTPUT\n\tk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nVAR_OUTPUT\n\to : INT;\nEND_VAR\nk := k + 1;\no := 5;\nM := TRUE;\nEND_METHOD`
+  const prog = `PROGRAM P\nVAR\n\tfb1 : FB_CS_out20;\n\tarr : ARRAY[0..3] OF INT;\n\tarr2 : ARRAY[0..3] OF INT;\n\tg : INT;\n\tb : BOOL;\n\tc : BOOL;\nEND_VAR\nb := fb1.M(o => arr[fb1.k]);\nc := F_CS_out20(o => arr2[g]);\nEND_PROGRAM`
+  expect(codes(fn, fb, prog)).toEqual([])
+})
+
+// lsp-transpile-review-gaps 2.4 (`tr_43_routine_output_dint_to_int`, `tr_43_routine_output_word_to_int`, both vendors
+// record:language 2026-10-09): a FUNCTION's output binding is judged as an FB's is — a DINT output into an INT is "Cannot
+// convert type 'DINT' to type 'INT'", a WORD one warns "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'"
+test("a FUNCTION's output bound => a narrower target is judged as the FB's twin (tr_43_routine_output_*)", () => {
+  const messages = (out: string): string[] => {
+    const fn = `FUNCTION F_O : BOOL\nVAR_OUTPUT\n\to : ${out};\nEND_VAR\nF_O := TRUE;\nEND_FUNCTION`
+    const prog = `PROGRAM P\nVAR\n\tt : INT;\n\tok : BOOL;\nEND_VAR\nok := F_O(o => t);\nEND_PROGRAM`
+    const files = [fn, prog].map((source) => {
+      const parseResult = parseSource(source, { networkText: true })
+      const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
+      return { uri: `${first?.name?.text}.pou`, source, parseResult }
+    })
+    const project = build.buildSymbolTable(files, [], "codesys")
+    const config = resolveConfig({ vendor: "codesys" })
+    return files.flatMap((f) =>
+      computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `[${d.severity}] ${d.message}`),
+    )
+  }
+  expect(messages("DINT")).toEqual(["[error] Cannot convert type 'DINT' to type 'INT'"])
+  expect(messages("WORD")).toEqual(["[warning] Implicit conversion from unsigned Type 'WORD' to signed Type 'INT' : Possible change of sign"])
+  expect(messages("INT")).toEqual([])
+})
+
+// lsp-transpile-review-gaps 2.5 (`string_inout_narrower`, `wstring_inout_narrower`, both vendors 2026-10-11): a STRING bound
+// to a VAR_IN_OUT that declares MORE units is "String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F'"
+// (TwinCAT names the two the other way round); wider builds (`string_inout_wider_*`), and a VAR_IN_OUT CONSTANT bound
+// narrower builds (`xo4_inout_constant_chain`)
+test("a STRING bound to a VAR_IN_OUT that declares more units is too short (string_inout_narrower)", () => {
+  const messages = (vendor: "codesys" | "twincat", param: string, arg: string, constant = false): string[] => {
+    const fn = `FUNCTION F_Io : BOOL\nVAR_IN_OUT${constant ? " CONSTANT" : ""}\n\tio : ${param};\nEND_VAR\nF_Io := TRUE;\nEND_FUNCTION`
+    const prog = `PROGRAM P\nVAR\n\tv : ${arg};\n\tok : BOOL;\nEND_VAR\nok := F_Io(io := v);\nEND_PROGRAM`
+    const files = [fn, prog].map((source) => {
+      const parseResult = parseSource(source, { networkText: true }, vendor)
+      const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
+      return { uri: `${first?.name?.text}.pou`, source, parseResult }
+    })
+    const project = build.buildSymbolTable(files, [], vendor)
+    const config = resolveConfig({ vendor })
+    return files.flatMap((f) =>
+      computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).filter((d) => d.severity === "error").map((d) => d.message),
+    )
+  }
+  expect(messages("codesys", "STRING(10)", "STRING(4)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
+  expect(messages("twincat", "STRING(10)", "STRING(4)")).toEqual(["String variable 'io' too short for the VAR_IN_OUT parameter 'v' of 'F_Io'"])
+  expect(messages("codesys", "WSTRING(10)", "WSTRING(4)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
+  expect(messages("codesys", "STRING", "STRING(10)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
+  expect(messages("codesys", "STRING(10)", "STRING(12)")).toEqual([])
+  expect(messages("codesys", "STRING(10)", "STRING(10)")).toEqual([])
+  expect(messages("codesys", "STRING(10)", "STRING(4)", true)).toEqual([])
+})

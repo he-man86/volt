@@ -1199,7 +1199,10 @@ END_METHOD
   // Task 20: a routine's `o => target` whose target's INDEX the callee moves. CODESYS copies outputs out AFTER the call,
   // so the index is read then — measured LIVE: arr[0] = 0, arr[1] = 5, arr2[0] = 0, arr2[1] = 5. The transpiler lent the
   // target `&mut` before the call and wrote arr[0] / arr2[0] (fixed: the output is copied out after the call). Once through a METHOD moving its FB's own output, once
-  // through a FUNCTION moving a global.
+  // through a FUNCTION moving a global. (Its FUNCTION was `F_CS_out20` until 2026-10-11 — the name
+  // `callshape_output_index_before_call`'s FUNCTION has with another signature. The replay binds every fixture into one
+  // project, where the call resolved to THAT one: "'o' is no output of 'F_CS_OUT20'", a harness collision read as an LSP
+  // false positive, lsp-transpile-review-gaps 1.4. Re-recorded under its own name.)
   {
     name: "tr_20_output_index_moved_by_callee",
     pouName: "GVL_CS_outIndex20",
@@ -1210,13 +1213,13 @@ END_METHOD
 	gCsK20 : INT;
 END_VAR
 
-FUNCTION F_CS_out20 : BOOL
+FUNCTION F_CS_outMoved20 : BOOL
 VAR_OUTPUT
 	o : INT;
 END_VAR
 gCsK20 := gCsK20 + 1;
 o := 5;
-F_CS_out20 := TRUE;
+F_CS_outMoved20 := TRUE;
 END_FUNCTION
 
 FUNCTION_BLOCK FB_CS_out20
@@ -1235,7 +1238,7 @@ M := TRUE;
 END_METHOD
 `,
     plcPrgVar: "fb1 : FB_CS_out20; arr : ARRAY[0..3] OF INT; arr2 : ARRAY[0..3] OF INT; b : BOOL; c : BOOL;",
-    plcPrgBody: "b := fb1.M(o => arr[fb1.k]);\nc := F_CS_out20(o => arr2[gCsK20]);",
+    plcPrgBody: "b := fb1.M(o => arr[fb1.k]);\nc := F_CS_outMoved20(o => arr2[gCsK20]);",
   },
   // Task 21: a FUNCTION named like a library element, called qualified through the library's NAMESPACE and bare. The
   // qualified call names the library's (StringUtils, namespace `Stu`, whose body the library repo holds); the bare one,

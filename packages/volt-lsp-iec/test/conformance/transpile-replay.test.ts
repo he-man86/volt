@@ -735,30 +735,8 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     "network_unnamed_target_of_valued_call",
     // (`op_sys_queryinterface` left 2026-10-06, analysis-conformance 3.8: the interface named as an operand must be
     // instantiated, `fb-instantiation` says so now; its two other errors stay GAPs — niche, task 3.8.4.)
-    // a FOR limit WIDER than an INT counter (a DINT variable, a DINT expression, UPPER_BOUND), measured 2026-09-29
-    // for transpile-review task 13: CODESYS refuses each with "Cannot convert type 'DINT' to type 'INT'" and the LSP
-    // says nothing. A UINT counter's `n - 1` limit it compiles (`for_limit_wider_than_counter_uint_expr`, confirmed).
-    "for_limit_wider_than_counter_dint_var",
-    "for_limit_wider_than_counter_dint_expr",
-    "for_limit_wider_than_counter_upper_bound",
-    // …and, recorded 2026-10-08 for transpile-restructure 2.6, a named DINT CONSTANT limit and a DINT#5 limit on an INT
-    // counter, and a DINT step that is not a bare variable (`BY (k - 1)`, `BY UPPER_BOUND(a, 1)`): the same "Cannot
-    // convert type 'DINT' to type 'INT'" (lsp-transpile-review-gaps 2.1). The transpiler refuses all of them.
-    "for_limit_wider_than_counter_dint_constant",
-    "for_limit_wider_than_counter_typed_literal",
-    "for_step_wider_than_counter_dint_paren",
-    "for_step_wider_than_counter_upper_bound",
-    // …and a typed literal step whose value fits: `BY INT#-1` on a BYTE, "Cannot convert type 'INT' to type 'BYTE'"
-    // (recorded gate 2c; the untyped `BY -1` is taken, `tr_35_for_byte_step_minus_one`)
-    "for_step_typed_literal_on_narrower_counter",
-    // `BY k - 1` unparenthesised is a PARSE error in CODESYS ("'DO' expected instead of '-'", recorded 2026-10-08) that
-    // the parser accepts — niche: accepted loss (0 occurrences in the corpora; lsp-transpile-review-gaps 2.2)
-    "for_step_wider_than_counter_dint_expr",
-    // transpile-review-2026-09-29, recorded 2026-09-29 — each refused by CODESYS, silently accepted by the LSP:
-    //   task 35: a FOR step the counter's type cannot hold — a runtime INT step on a BYTE counter, 300 on a SINT one
-    //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").
-    "tr_35_for_byte_runtime_int_step",
-    "tr_35_for_sint_step_300",
+    // (the FOR limits and steps that do not convert into the counter left 2026-10-11, lsp-transpile-review-gaps 1.1, 1.2,
+    // 2.1: `statement-rules` `for-bound-type` refuses them by type, and a folded step by value.)
     // frontend-conformance 2.1.3, recorded 2026-09-30 on both vendors — `__POOL` named where an operand (or an
     // assignment target) belongs reads the next token as its member, a shape the LSP does not model (rules E30/E34,
     // task 2.5.6; niche, accepted — `support/divergences.ts`). Bare `__NEW` and `__POUNAME` left this set in 2.1: the
@@ -795,16 +773,9 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     "enum_library_member_vs_project_program",
     // (`callarg_no_argument_variable_default` left 2026-10-06, analysis-conformance 3.8: a VARIABLE default is no default
     // on CODESYS, `call-arguments` 4b.)
-    // transpile-restructure 6.17, recorded 2026-10-09: a FUNCTION's DINT output bound => an INT, "Cannot convert type 'DINT'
-    // to type 'INT'" — the LSP refuses the FB path's twin (`tr_43_output_dint_to_int`) and not this one
-    // (lsp-transpile-review-gaps 2.4). The transpiler refuses it (`call-output-type`).
-    "tr_43_routine_output_dint_to_int",
-    // transpile-restructure 8.2 (step 8e), recorded 2026-10-11 on both vendors: a STRING bound to a VAR_IN_OUT STRING that
-    // declares more units — a STRING(4) variable, an in-out passed on to a wider one — "String variable 'v' too short for
-    // the VAR_IN_OUT parameter 'io' of 'F_InoutNarrowerCopy'" — and a WSTRING alike (lsp-transpile-review-gaps 2.5). The
-    // transpiler refuses it (`call-inout-short`).
-    "string_inout_narrower",
-    "wstring_inout_narrower",
+    // (`tr_43_routine_output_dint_to_int` left 2026-10-11, lsp-transpile-review-gaps 2.4: a FUNCTION's output binding is judged.)
+    // (`string_inout_narrower`, `wstring_inout_narrower` left 2026-10-11, lsp-transpile-review-gaps 2.5: `call-arguments`
+    // judges a string in-out's capacity, `in-out-string-too-short`.)
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {

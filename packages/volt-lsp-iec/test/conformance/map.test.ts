@@ -467,7 +467,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 85 -> 87, FOR MEASUREMENT (transpile-restructure 8.2 step 8e, no fixture moved): `string_inout_narrower`,
   // `wstring_inout_narrower` (a STRING / WSTRING bound to a VAR_IN_OUT that declares more units, "String variable 'v' too
   // short for the VAR_IN_OUT parameter 'io' of …" on both vendors; lsp-transpile-review-gaps 2.5). MEASURED_SILENT.
-  "lsp-gap": 87,
+  // 87 -> 74, CLOSED (lsp-transpile-review-gaps, 2026-10-11): the ten FOR limits and steps that do not convert into the
+  // counter (1.1, 1.2, 2.1), the routine output `tr_43_routine_output_dint_to_int` (2.4) and the two string in-outs bound
+  // narrower (2.5) rate `refused`. `for_step_wider_than_counter_dint_expr` stays, now by its `deferred.lsp` (2.2, niche).
+  "lsp-gap": 74,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

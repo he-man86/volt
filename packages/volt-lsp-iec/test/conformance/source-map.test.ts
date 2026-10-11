@@ -96,7 +96,9 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 536 -> 538 (2026-10-11, lsp-accessor-keyword-at-line-start 2.1), read: no new class — the image class above: the two
 // fixtures whose FB takes the address of its own field (`SET := ADR(stored)`, `SET := ADR(rec)`) store `out` through `Mem`
 // (`unit_accessor_name_setter_deref`, `_setter_deref_member`, one line each).
-const RENAMED_TARGETS = 538
+// 538 -> 539 (2026-10-11, lsp-transpile-review-gaps 2.6), read: no new class — the REFERENCE erased to its target (the
+// class at 27 -> 30): `string_literal_through_reference_too_long`'s `rf := 'XYZ…'` is `self.buf = …`.
+const RENAMED_TARGETS = 539
 
 interface Program {
   name: string

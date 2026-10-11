@@ -1000,6 +1000,11 @@ const CASES: readonly ExecCase[] = [
     name: "for_step_wider_than_counter_dint_expr",
     vars: "k : DINT := 3; i : INT; runs : INT; last : INT;",
     body: "FOR i := 0 TO 10 BY k - 1 DO runs := runs + 1; last := i; END_FOR",
+    rejects: "'DO' expected instead of '-'",
+    // lsp-transpile-review-gaps 2.2: the parser takes a binary BY operand, so the LSP refuses the step by its type
+    // (`for-bound-type`, "Cannot convert type 'DINT' to type 'INT'") where CODESYS stops at the parse
+    lspDeferred:
+      "niche: accepted loss (0 occurrences in the corpora) — `BY k - 1` unparenthesised is a CODESYS parse error the parser accepts; which binary operators a BY operand admits is unrecorded",
   },
   {
     name: "for_step_wider_than_counter_dint_paren",

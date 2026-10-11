@@ -318,6 +318,14 @@ test("M3: an index of a POINTER is its target — `p[2].x` has the field's type"
   expect(renderType(inferExpr(before, "VAR\n p : POINTER TO S;\nEND_VAR", "p[2].x"))).toBe("INT")
 })
 
+// a STRING indexed is one of its units (lsp-transpile-review-gaps 2.3): `s[i]` is a BYTE, a WSTRING's a WORD —
+// `lib_prim_char_past_length` records `BYTE#…`, `string_non_ascii_bytes` `text[0]` = BYTE#99
+test("a STRING's `s[i]` is a BYTE, a WSTRING's a WORD", () => {
+  expect(renderType(inferExpr("", "VAR\n txt : STRING(10);\n i : INT;\nEND_VAR", "txt[i]"))).toBe("BYTE")
+  expect(renderType(inferExpr("", "VAR\n w : WSTRING;\nEND_VAR", "w[0]"))).toBe("WORD")
+  expect(renderType(inferExpr("", "VAR\n rs : REFERENCE TO STRING;\nEND_VAR", "rs[1]"))).toBe("BYTE")
+})
+
 // a dereferenced FB instance CALLED is the instance, as an array element called is (`SUPER^(…)`, `p^(…)`; rule M3)
 test("M3: a dereferenced FB instance called has the FB's type", () => {
   const before = "FUNCTION_BLOCK B\nVAR_INPUT\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n"
@@ -420,4 +428,22 @@ test("infer: a FUNCTION called inside its own body has no result (cc2_call_recur
 test("infer: SIN / SQRT / COS / EXP of a negated or parenthesised real literal is LREAL, as of a bare one", () => {
   for (const call of ["SIN(1.5)", "SIN(-1.5)", "SQRT((2.0))", "COS(-(0.5))", "EXP((-1.0))"])
     expect(renderType(inferExpr("", "VAR\n probe : LREAL;\nEND_VAR", call))).toBe("LREAL")
+})
+
+// lsp-transpile-review-gaps 2.7 (`sel_string_meet_type`, `limit_string_meet_type`, `limit_string_meet_type_in`, both
+// vendors 2026-10-11): over STRINGs SEL and MUX answer the widest value argument's type (a literal's capacity is its length,
+// named `STRING(INT#20)`), LIMIT its IN's, and MIN / MAX a sizeless STRING
+test("SEL / MUX / LIMIT / MIN / MAX over STRINGs of different capacities", () => {
+  const v = "VAR\n g : BOOL;\n s4 : STRING(4);\n s12 : STRING(12);\n sDef : STRING;\n w4 : WSTRING(4);\n w12 : WSTRING(12);\nEND_VAR"
+  const t = (e: string): string => renderType(inferExpr("", v, e), { form: "compiler" })
+  expect(t("SEL(g, s4, s12)")).toBe("STRING(12)")
+  expect(t("SEL(g, 'x', s12)")).toBe("STRING(12)")
+  expect(t("SEL(g, s12, 'abcdefghijklmnopqrst')")).toBe("STRING(INT#20)")
+  expect(t("MUX(1, s4, s12, sDef)")).toBe("STRING")
+  expect(t("SEL(g, w4, w12)")).toBe("WSTRING(12)")
+  expect(t("SEL(g, s4, s4)")).toBe("STRING(4)")
+  expect(t("LIMIT(s4, s12, sDef)")).toBe("STRING(12)")
+  expect(t("LIMIT(s12, s4, sDef)")).toBe("STRING(4)")
+  expect(t("MIN(s4, s12)")).toBe("STRING")
+  expect(t("MAX(s12, 'abcdefghijklmnopqrst')")).toBe("STRING")
 })

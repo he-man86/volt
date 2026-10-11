@@ -1389,14 +1389,8 @@ const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
  */
 const ANALYSIS_NICHE: readonly string[] = ["oopb_abstract_pointer_deref_assign", "calls_method_recursive"]
 
-/**
- * A STRING LITERAL TOO LONG FOR A VAR_IN_OUT IT IS STORED INTO (transpile-restructure 8.2, step 8e; recorded 2026-10-11 on
- * both vendors): `io := 'XYZXYZXYZXYZXYZ'` into a VAR_IN_OUT STRING(10) — and its WSTRING twin — builds with NO warning,
- * where the LSP's `string-constant-too-long` (C0198) warns as for any STRING(10) target. Which targets the vendors leave
- * unwarned (an in-out only, or every target reached through a reference) is not measured here; filed for the LSP review
- * (`lsp-transpile-review-gaps` 2.6) — the fixtures are the transpiler's (the in-out's whole store).
- */
-const STRING_CONSTANT_INTO_AN_INOUT: readonly string[] = ["string_inout_wider_stores", "wstring_inout_wider"]
+// (STRING_CONSTANT_INTO_AN_INOUT — `string_inout_wider_stores`, `wstring_inout_wider` — left 2026-10-11, lsp-transpile-review-gaps
+// 2.6: a literal into a VAR_IN_OUT is unwarned, `string-constant`.)
 /**
  *   3.7 `oopb_abstract_method_output_default`, `oopb_implicit_abstract_output_default` — CODESYS warns "The default value
  *                            for a VAR_OUTPUT is not used in abstract or interface methods" TWICE where the abstract FB is
@@ -1504,7 +1498,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   twincat: new Set<string>([
     ...RECOVERY_DIVERGENCES,
     ...ANALYSIS_NICHE,
-    ...STRING_CONSTANT_INTO_AN_INOUT,
     ...DELETE_NOT_ALLOWED_IN_A_STATEMENT,
     ...REFERENCE_TO_BIT_ALIAS,
     ...INIT_ORDER_OF_PROGRAMS,
@@ -1648,7 +1641,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   codesys: new Set<string>([
     ...RECOVERY_DIVERGENCES,
     ...ANALYSIS_NICHE,
-    ...STRING_CONSTANT_INTO_AN_INOUT,
     ...DELETE_NOT_ALLOWED_IN_A_STATEMENT,
     ...REFERENCE_TO_BIT_ALIAS,
     ...CODESYS_ANALYSIS_NICHE,
@@ -1781,11 +1773,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //                            answer about the file in front of you before anything instantiates it. The fixture
     //                            stays because the 0 it records is what proves the FB count is not per-declaration.
     "ir_initializer_warning_no_instance",
-    //   `tr_20_output_index_moved_by_callee` (transpile-review-2026-09-29 task 20, recorded 2026-09-29) — CODESYS
-    //                            builds and RUNS it; the LSP reports `'o' is no output of 'F_CS_OUT20'` and a
-    //                            wrong input count for the FUNCTION's `o => arr2[gCsK20]` output binding. An LSP
-    //                            false positive this fixture found, open until the call check reads a FUNCTION's
-    //                            VAR_OUTPUT; it must leave this list the day it stops.
-    "tr_20_output_index_moved_by_callee",
+    //   (`tr_20_output_index_moved_by_callee` left 2026-10-11, lsp-transpile-review-gaps 1.4: the call check reads a
+    //                            FUNCTION's VAR_OUTPUT binding, `call-arguments.test.ts`.)
   ]),
 }

@@ -341,6 +341,9 @@ export interface Messages {
   inOutMustBeAssigned(param: string, callee: string): string
   /** A VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201). verified both vendors. */
   inOutTypeMismatch(argType: string, paramType: string, param: string): string
+  /** A STRING bound to a VAR_IN_OUT that declares more units (`string_inout_narrower`, both vendors 2026-10-11): TwinCAT
+   *  names the parameter and the variable the other way round. */
+  stringTooShortForInOut(variable: string, param: string, callee: string): string
   /** `ADR(<literal>)` — a literal has no address (C0131). verified both vendors. */
   invalidAdrOperand(value: string): string
   /** `__QueryPointer`'s first operand is not an interface reference / FB instance (C0240). verified both vendors. */
@@ -739,6 +742,8 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT '${param}'`
         : `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT respectively REFERENCE '${param}'`,
+    stringTooShortForInOut: (variable, param, callee) =>
+      `String variable '${tc ? param : variable}' too short for the VAR_IN_OUT parameter '${tc ? variable : param}' of '${callee}'`,
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
     // TwinCAT capitalizes "Operand"; CODESYS uses lowercase (both live-verified). C0241's TC form also drops
     // the article ("must be pointer") and keeps CODESYS's __QueryInterface typo.

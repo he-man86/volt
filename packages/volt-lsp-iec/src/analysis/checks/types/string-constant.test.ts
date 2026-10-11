@@ -156,3 +156,29 @@ test("a capacity named by a local constant is the written name in the warning, a
     .map((d) => d.message)
   expect(got).toEqual(["String constant '...' too long for destination type 'STRING(n)'"])
 })
+
+// lsp-transpile-review-gaps 2.6 (both vendors 2026-10-11): a literal too long stored into a VAR_IN_OUT STRING(10) builds
+// with no warning — a FUNCTION's (`string_inout_wider_stores`, `wstring_inout_wider`) and an FB's
+// (`string_literal_into_fb_inout_too_long`); through a REFERENCE TO STRING(10) it is silent too
+// (`string_literal_through_reference_too_long`), and through a dereferenced POINTER TO STRING(10) it warns
+// (`string_literal_through_pointer_too_long`)
+test("a literal too long for a VAR_IN_OUT or a REFERENCE is unwarned; through a POINTER it warns", () => {
+  const body = (head: string, decls: string, stmts: string): string[] => {
+    const src = `${head}\n${decls}\n${stmts}\nEND_${head.split(" ")[0]}`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "string-constant-too-long")
+      .map((d) => d.message)
+  }
+  const long = "'XYZXYZXYZXYZXYZ'"
+  expect(body("FUNCTION F : BOOL", "VAR_IN_OUT\n\tio : STRING(10);\nEND_VAR", `io := ${long};`)).toEqual([])
+  expect(body("FUNCTION_BLOCK FB", "VAR_IN_OUT\n\tio : STRING(10);\nEND_VAR", `io := ${long};`)).toEqual([])
+  expect(body("FUNCTION_BLOCK FB", "VAR\n\tbuf : STRING(10);\n\trf : REFERENCE TO STRING(10);\nEND_VAR", `rf REF= buf;\nrf := ${long};`)).toEqual([])
+  expect(body("FUNCTION_BLOCK FB", "VAR\n\tbuf : STRING(10);\n\tp : POINTER TO STRING(10);\nEND_VAR", `p := ADR(buf);\np^ := ${long};`)).toEqual([
+    "String constant ''XYZXYZ...' too long for destination type 'STRING(10)'",
+  ])
+  expect(body("FUNCTION_BLOCK FB", "VAR\n\tbuf : STRING(10);\nEND_VAR", `buf := ${long};`)).toEqual([
+    "String constant ''XYZXYZ...' too long for destination type 'STRING(10)'",
+  ])
+})

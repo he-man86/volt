@@ -1641,6 +1641,103 @@ ok := F_InoutNarrowerWide(io := w);
 END_FUNCTION_BLOCK
 `),
 
+  // lsp-transpile-review-gaps 2.6: a literal too long for a FUNCTION's VAR_IN_OUT STRING(10) builds with no warning on
+  // either vendor (`string_inout_wider_stores`), where a STRING(10) variable's store warns (C0198). Which targets are left
+  // unwarned — an in-out only, or every target reached through a reference? The same 15-unit literal through a REFERENCE
+  // TO STRING(10), through a dereferenced POINTER TO STRING(10), and into an FB's VAR_IN_OUT STRING(10).
+  whole("string_literal_through_reference_too_long", "a 15-unit literal stored through a REFERENCE TO STRING(10) (lsp-transpile-review-gaps 2.6)",
+    `FUNCTION_BLOCK FB_LANG_string_literal_through_reference
+VAR
+\tbuf : STRING(10);
+\trf : REFERENCE TO STRING(10);
+END_VAR
+rf REF= buf;
+rf := 'XYZXYZXYZXYZXYZ';
+END_FUNCTION_BLOCK
+`),
+  whole("string_literal_through_pointer_too_long", "a 15-unit literal stored through a dereferenced POINTER TO STRING(10) (lsp-transpile-review-gaps 2.6)",
+    `FUNCTION_BLOCK FB_LANG_string_literal_through_pointer
+VAR
+\tbuf : STRING(10);
+\tp : POINTER TO STRING(10);
+END_VAR
+p := ADR(buf);
+p^ := 'XYZXYZXYZXYZXYZ';
+END_FUNCTION_BLOCK
+`),
+  {
+    ...whole("string_literal_into_fb_inout_too_long", "a 15-unit literal stored into an FB's VAR_IN_OUT STRING(10) (lsp-transpile-review-gaps 2.6)",
+      `FUNCTION_BLOCK FB_LANG_string_literal_into_fb_inout
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+io := 'XYZXYZXYZXYZXYZ';
+END_FUNCTION_BLOCK
+`),
+    plcPrgVar: "inst : FB_LANG_string_literal_into_fb_inout; buf : STRING(10);",
+    plcPrgBody: "inst(io := buf);",
+  },
+
+  // lsp-transpile-review-gaps 2.7: the TYPE SEL / MUX / LIMIT / MIN / MAX answer over STRINGs of different capacities
+  // (`string_inout_wider_reads`' `SEL(g, 'x', io)`). Each result is stored into an INT, so the build NAMES the type it
+  // inferred ("Cannot convert type 'STRING(…)' to type 'INT'") — the meet's capacity, measured rather than chosen.
+  whole("sel_string_meet_type", "the type SEL and MUX answer over STRINGs / WSTRINGs of different capacities, named by a store into an INT (lsp-transpile-review-gaps 2.7)",
+    `FUNCTION_BLOCK FB_LANG_sel_string_meet_type
+VAR
+\tg : BOOL := TRUE;
+\ts4 : STRING(4);
+\ts12 : STRING(12);
+\tsDef : STRING;
+\tw4 : WSTRING(4);
+\tw12 : WSTRING(12);
+\ti1 : INT;
+\ti2 : INT;
+\ti3 : INT;
+\ti4 : INT;
+\ti5 : INT;
+\ti6 : INT;
+END_VAR
+i1 := SEL(g, s4, s12);
+i2 := SEL(g, 'x', s12);
+i3 := SEL(g, s12, 'abcdefghijklmnopqrst');
+i4 := MUX(1, s4, s12, sDef);
+i5 := SEL(g, w4, w12);
+i6 := SEL(g, s4, s4);
+END_FUNCTION_BLOCK
+`),
+  whole("limit_string_meet_type", "the type LIMIT, MIN and MAX answer over STRINGs of different capacities, named by a store into an INT (lsp-transpile-review-gaps 2.7)",
+    `FUNCTION_BLOCK FB_LANG_limit_string_meet_type
+VAR
+\ts4 : STRING(4);
+\ts12 : STRING(12);
+\tsDef : STRING;
+\ti1 : INT;
+\ti2 : INT;
+\ti3 : INT;
+END_VAR
+i1 := LIMIT(s4, s12, sDef);
+i2 := MIN(s4, s12);
+i3 := MAX(s12, 'abcdefghijklmnopqrst');
+END_FUNCTION_BLOCK
+`),
+  // …LIMIT(s4, s12, sDef) is STRING(12) (CODESYS 2026-10-11): IN's type, or the wider of MN and IN? IN narrower than MN,
+  // and IN as wide as MN with a wider MX.
+  whole("limit_string_meet_type_in", "the type LIMIT answers over STRINGs when IN is the narrowest, and when MX is the widest (lsp-transpile-review-gaps 2.7)",
+    `FUNCTION_BLOCK FB_LANG_limit_string_meet_type_in
+VAR
+\ts4 : STRING(4);
+\ts12 : STRING(12);
+\tsDef : STRING;
+\ti1 : INT;
+\ti2 : INT;
+\ti3 : INT;
+END_VAR
+i1 := LIMIT(s12, s4, sDef);
+i2 := LIMIT(s4, s4, s12);
+i3 := LIMIT(sDef, s4, s12);
+END_FUNCTION_BLOCK
+`),
+
   // transpile-restructure 8.2 (design.md §7.2 Decision step 8c), recorded before the wide parse is written: the WIDE twin
   // of every STRING → integer cell `semantics/parse.cases.ts` holds (the `tr_a10_*` forms, edges and signs), plain decimals
   // with a sign, a space, a tab or a letter before or after them, an empty text, into a DINT (no width cuts); and the REAL

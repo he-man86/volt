@@ -163,49 +163,9 @@ const SECTION_ECHO_ROWS: readonly string[] = [
   "rec_unterminated_var_before_section",
 ]
 
-const STRING_INDEX_TASK =
-  "lsp-transpile-review-gaps 2.3: the front-end types `s[i]` on a STRING / WSTRING (a BYTE / WORD, `lib_prim_char_past_length`)"
-const STRING_INDEX_CELLS =
-  "transpile-restructure 3.1's string-model fixtures dump a buffer through `s[i]`, which the front-end leaves UNKNOWN (26 such reads in the fixtures before them, 5 in the corpora) — measured, not regressed: the character access is typed by the hand-off, not by a measure step"
-/** transpile-restructure 3.1's (and gates 3a's and 7.4c's, 8.2's, and the owner's 7.4.6) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
-const STRING_INDEX_ROWS: readonly [string, number][] = [
-  ["string_literal_nul_tail", 6],
-  ["string_assign_tail_narrow", 3],
-  ["string_assign_tail_wide", 3],
-  ["wstring_literal_nul_tail", 9],
-  ["wstring_assign_tail_narrow", 3],
-  ["wstring_assign_tail_wide", 3],
-  ["string_compare_tail", 5],
-  ["string_conversion_result_capacity", 11],
-  ["concat_result_capacity", 14],
-  ["string_conversion_result_tail", 23],
-  ["string_store_function_result_tail", 9],
-  ["string_store_destination_kinds_tail", 12],
-  ["string_store_function_input_tail", 3],
-  ["string_input_tail_interleaved", 3],
-  ["string_conversion_same_width_255", 18],
-  ["string_parse_beyond_255", 29],
-  ["wstring_parse_trailing_spaces", 10],
-  ["cursor_whole_store_capacity", 4],
-  ["lib_stu_replace_past_len", 6],
-  ["string_input_lent_later_call_changes", 1],
-  ["string_inout_wider_unit_read", 1],
-  // the owner's 7.4.6 fixtures (2026-10-11): a FUNCTION writing one unit of its own STRING input
-  ["input_written_function_string", 1],
-  ["input_written_function_string_to_standard", 1],
-]
-
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
-  ...STRING_INDEX_ROWS.flatMap(([fixture, by]) =>
-    (["codesys", "twincat"] as const).map((vendor) => ({
-      baseline: "type-dump",
-      measure: `fixtures ${vendor}: index UNKNOWN`,
-      by,
-      fixture,
-      task: STRING_INDEX_TASK,
-      why: STRING_INDEX_CELLS,
-    })),
-  ),
+  // (the `s[i]` rows of transpile-restructure 3.1's string-model fixtures left 2026-10-11, lsp-transpile-review-gaps 2.3: a
+  // STRING's unit is typed, a BYTE / a WSTRING's a WORD, `infer/expr`)
   ...UNTYPED_CALL_ROWS.flatMap(([fixture, kind]) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
       baseline: "type-dump",
@@ -584,29 +544,7 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ).flatMap(([vendor, fixture, counts, why]) =>
     Object.entries(counts).map(([measure, by]) => ({ baseline: `fixtures.${vendor}`, measure, by, fixture, task: "none: niche, accepted loss (analysis-conformance 3.7–3.9)", why })),
   ),
-  // transpile-restructure 8.2 step 8e (2026-10-11): a STRING / WSTRING bound to a VAR_IN_OUT that declares more units, which
-  // both vendors refuse ("String variable 'v' too short for the VAR_IN_OUT parameter 'io' of …") and the LSP does not check —
-  // `MEASURED_SILENT`, lsp-transpile-review-gaps 2.5; and a literal too long for a VAR_IN_OUT STRING(10), which both vendors
-  // build without a warning and the LSP warns C0198 for (FP(div), `STRING_CONSTANT_INTO_AN_INOUT`, 2.6). New ground measured.
-  ...(
-    [
-      ["string_inout_narrower", { "total: GAP": 2, "total: unowned GAP": 2 }, "lsp-transpile-review-gaps 2.5 (a string in-out's capacity at the call)"],
-      ["wstring_inout_narrower", { "total: GAP": 1, "total: unowned GAP": 1 }, "lsp-transpile-review-gaps 2.5 (a string in-out's capacity at the call)"],
-      ["string_inout_wider_stores", { "total: FP": 1 }, "lsp-transpile-review-gaps 2.6 (C0198 on a VAR_IN_OUT target)"],
-      ["wstring_inout_wider", { "total: FP": 1 }, "lsp-transpile-review-gaps 2.6 (C0198 on a VAR_IN_OUT target)"],
-    ] as const
-  ).flatMap(([fixture, counts, task]) =>
-    (["codesys", "twincat"] as const).flatMap((vendor) =>
-      Object.entries(counts).map(([measure, by]) => ({
-        baseline: `fixtures.${vendor}`,
-        measure,
-        by,
-        fixture,
-        task,
-        why: "a STRING VAR_IN_OUT bound at another capacity than it declares, recorded 2026-10-11 (transpile-restructure 8.2, step 8e)",
-      })),
-    ),
-  ),
+  // (transpile-restructure 8.2 step 8e's string in-out rows left 2026-10-11, lsp-transpile-review-gaps 2.5 and 2.6.)
   // transpile-restructure 5.1 (2026-10-09): a STRUCT field's FB_Init argument naming a local of the declaring POU, which
   // both vendors refuse ("Identifier '…' not defined" and its conversion echo) and the LSP does not check — the fixture's
   // `deferred.lsp`. New ground measured, not a regression.
@@ -755,19 +693,8 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   { baseline: "fixtures.twincat", measure: "total: FP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "total: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
   { baseline: "fixtures.codesys", measure: "group names: GAP", by: 1, fixture: "dead_method_hasattribute_unquoted", task: DEAD_CODE_TASK, why: DEAD_CODE_WHY },
-  // transpile-restructure 6a-6d gate (record:language 2026-10-09, both vendors): a FUNCTION's output bound `o => t` into
-  // another type — DINT into INT the vendor refuses, WORD into INT it warns about — and the LSP says neither (it judges the
-  // FB path's twins, not the routine's): lsp-transpile-review-gaps 2.4
-  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
-    (["tr_43_routine_output_dint_to_int", "tr_43_routine_output_word_to_int"] as const).map((fixture) => ({
-      baseline: `fixtures.${vendor}`,
-      measure: "total: GAP",
-      by: 1,
-      fixture,
-      task: "lsp-transpile-review-gaps 2.4 (a routine output binding judged by the assignment relation)",
-      why: "a FUNCTION's VAR_OUTPUT bound into another type — 'Cannot convert type 'DINT' to type 'INT'' / the WORD → INT sign warning, both vendors, recorded 2026-10-09",
-    })),
-  ),
+  // (the routine output bindings `tr_43_routine_output_dint_to_int` / `_word_to_int` left 2026-10-11, lsp-transpile-review-gaps
+  // 2.4: `call-arguments` judges a FUNCTION's output binding as the FB's, with the assignment's warning)
   // …and TwinCAT's warning on `ui > 0 - 1`, the UINT converting into the INT the constant expression is: the front-end
   // types an operation on untyped numbers by its context (LT14), so the pair has no INT to name — niche: accepted loss
   // (0 occurrences in the corpora: no comparison of an unsigned operand with a constant expression of untyped numbers)
@@ -895,25 +822,8 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why,
     })),
   ),
-  ...(["codesys", "twincat"] as const).map((vendor) => ({
-    baseline: "type-dump",
-    measure: `fixtures ${vendor}: index UNKNOWN`,
-    by: 1,
-    fixture: "tr_a18_char_store_through_reference",
-    task: STRING_INDEX_TASK,
-    why: "transpile-restructure 6.A.18: `rs[1] := 88` through a REFERENCE TO STRING — the string index the hand-off types",
-  })),
-  // transpile-restructure 8.2 step 8e (2026-10-11): `SEL(g, 'x', io)` over a STRING literal and a STRING(10) — both vendors
-  // build it, CODESYS runs it to 'abcdefghij' (`string_inout_wider_reads`) — is UNKNOWN in the front-end: the selection's
-  // meet of two STRINGs of different capacities (`types/builtins` `selectionValueArguments`). New ground measured.
-  ...(["codesys", "twincat"] as const).map((vendor) => ({
-    baseline: "type-dump",
-    measure: `fixtures ${vendor}: call UNKNOWN`,
-    by: 1,
-    fixture: "string_inout_wider_reads",
-    task: "lsp-transpile-review-gaps 2.7 (SEL / MUX / LIMIT over STRINGs of different capacities)",
-    why: "SEL(g, 'x', io), a STRING(1) literal beside a STRING(10) in-out — the meet of two string capacities",
-  })),
+  // (`tr_a18_char_store_through_reference`'s `rs[1]` and `string_inout_wider_reads`' `SEL(g, 'x', io)` left 2026-10-11,
+  // lsp-transpile-review-gaps 2.3 and 2.7: a STRING's unit and a selection over STRINGs are typed, `infer/expr`.)
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */
