@@ -2445,6 +2445,50 @@ the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir
 deliberately not emulated. They stay as named expected failures, each with that reason in `support/divergences.ts`, and are the only
 open marks besides the refusals the model decisions name (task 6.21; 8.2's target).
 
+### §7.2 Decision (step 8c): the six reopened marks (task 8.2, owner 2026-10-10), 2026-10-11
+
+**Target.** Each of the 6 marks outside §7.2 confirmed against its recording, or joining §7.2 as a named loss with the
+measurement that makes it impossible; then 8.2's delta re-measured. **Record first, one batch:** a step writes the
+measuring fixtures below and records them in ONE `record:exec` run (`RECORD_ONLY=<list>`); each rule follows its cells.
+
+**NaN bits** (`reinterpret_dint_as_real_edges`, `tr_28_*_{real,lreal}`, `memory.cases.ts`'s sNaN; the Rust already
+agrees). Measured (bun 1.4.2, scratch, not kept): JavaScriptCore canonicalizes every NaN that passes through a JS number
+— 16#7FA00000, 16#FFC00000 and 16#7FC00001 all read back 16#7FC00000 — so no fix keeps NaN in a `number`. **Choice: a
+REAL/LREAL NaN `Val` is a carrier holding its bits** (`semantics/value.ts`); every other float stays a `number`. Image and
+`reinterpret` loads make it, stores write its bits; copies and the selects (MAX/MIN/LIMIT/SEL/MUX) carry it; comparisons
+are FALSE (`nanSelf`); TO_STRING '#NaN'. A NaN an operation makes from non-NaN operands is x86's default (sign set:
+16#FFC00000, 16#FFF8000000000000 — the recorded `wn` of SQRT(-1)). Fixture `nan_payload_ops` records first: an operand
+NaN (sNaN, payload, negative) through + - * /, two NaN operands in both orders, REAL↔LREAL, SQRT/LN/EXP of a NaN, LN(-1),
+ASIN(2), inf-inf; the propagation rule is written from it (x86 SSE's "first NaN operand, quieted" is the hypothesis).
+- Rejected: REAL as raw bits with soft-float arithmetic — rewrites every float op for a NaN-only difference;
+  canonicalizing to x86's default NaN — breaks the recorded quiet 16#7FC00000 (4e).
+
+**BOOL byte** (`bool_byte_two_through_pointer`; both backends read `<> 0`). Recorded for byte 2: `=` compares bytes,
+NOT is bit 0 inverted with the rest cleared (byte 1), IF tests non-zero. **Choice: a RAW BOOL — one whose bytes a store of
+another type can reach (model 3's escape set: its address reaches a pointer or UNION arm not of BOOL) — is lowered as its
+BYTE**, and each measured operator on the byte; every other BOOL keeps `bool`/`boolean`. Fixture `bool_byte_ops` records
+first: bytes 2, 3 and 255 through AND/OR/XOR, `<>`, `= FALSE`, BOOL_TO_INT/BYTE, a copy into a plain BOOL then compared,
+a FUNCTION input. A flow the recording shows keeps the byte makes its destination raw (the escape pass); an unmeasured
+operator on a raw BOOL refuses `bool-byte` by name — expected 0 corpus POUs (a hit is measured and decided, not shipped).
+- Rejected: BOOL as `u8` in every emission — churns every fixture for 0 corpus stores of a byte other than 0/1.
+
+**WSTRING parse** (`wstring_parse_trailing_spaces`; both backends narrow and parse as STRING). **Choice: a wide parse of
+its own** (`semantics/parse.ts` + its Rust twin) written from fixture `wstring_parse_grammar`: the wide twin of every
+`parse.cases.ts` FORMS/EDGES cell plus trailing space/tab/letter, for an integer and a REAL target. A cell the rule cannot
+state is refused `wstring-parse` (0 corpus WSTRING_TO_* calls).
+
+**FUNCTION input residue** (`string_store_function_input_tail`: p[11..19] = the PREVIOUS call's 'Y'). Decided by fixture
+`string_input_tail_interleaved`: F('Y'×20), then G (another FUNCTION, same depth, a 'Q'-filled local), then F(short).
+'Y' → a FUNCTION's STRING input buffer persists per function (both backends: a static buffer the pass overwrites, never
+zeroed); 'Q' or other → the residue is the vendor's shared stack, which a model reproduces only with every routine's
+vendor frame layout (unmeasured, not derivable from declarations) — it joins §7.2 as a named loss with that recording.
+- Rejected: a per-function buffer without the measurement — a guess whenever another call intervenes.
+
+**Stays refused, by name:** `bool-byte`, `wstring-parse` (both new, expected 0 in the corpora). **Migration:** one
+batch of four fixtures → one recording run → NaN carrier (interpreter only; the `deferred.transpile` marks removed,
+and `memory.cases.ts`) → BOOL raw byte (both backends, src tests first) → wide parse → residue per the recording →
+`rate:fixtures`, the corpora's refusal counts before/after, 8.2's delta re-measured with §7.2 as the only open marks.
+
 ### 7.3 `transpile-st-to-rust` (reconciled by task 0.8)
 
 That change has 39 open tasks. Those this change covers are ticked there with "superseded by transpile-restructure <task>":
