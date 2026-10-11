@@ -132,7 +132,10 @@ export function reachOf(pou: IrPou, program: GlobalsUse): ReadonlyMap<string, Gl
     const use = { usesGlobals: false, usesPrograms: false, usesImage: false, calls: new Set<string>() }
     someNode(body, (n) => {
       if (isPlace(n)) {
-        if (n.root === "global") pou.globals[n.slot]?.section === "program" ? (use.usesPrograms = true) : (use.usesGlobals = true)
+        if (n.root === "global") {
+          if (pou.globals[n.slot]?.section === "program") use.usesPrograms = true
+          else use.usesGlobals = true
+        }
         if (n.root === "image") use.usesImage = true
       } else if (n.kind === "invoke") use.calls.add(n.routine)
       else if (n.kind === "call") use.calls.add(`layout:${n.fb.toUpperCase()}`)

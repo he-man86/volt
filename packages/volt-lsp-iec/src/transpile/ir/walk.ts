@@ -101,12 +101,18 @@ export function someNode(root: IrNode | readonly IrNode[], visit: (n: IrNode) =>
 
 /** Every expression under `root`, `root` included, pre-order. */
 export function forEachExpr(root: IrNode | readonly IrNode[], f: (e: IrExpr) => void): void {
-  someNode(root, (n) => (isExpr(n) && f(n), false))
+  someNode(root, (n) => {
+    if (isExpr(n)) f(n)
+    return false
+  })
 }
 
 /** Every statement under `root`, `root` included, pre-order. */
 export function forEachStmt(root: IrNode | readonly IrNode[], f: (s: IrStmt) => void): void {
-  someNode(root, (n) => (isStmt(n) && f(n), false))
+  someNode(root, (n) => {
+    if (isStmt(n)) f(n)
+    return false
+  })
 }
 
 /** Does any place under `root` (a path's index and a guard included) satisfy `test`? */
@@ -285,7 +291,10 @@ export function loopUses(loop: IrLoop): { exits: boolean; continues: boolean } {
  *  like every other walk here (it was the last reflective one, a skip list over every key but `type`/`of`/`span`/`lent`). */
 export function callsIn(root: IrNode | readonly IrNode[]): (IrInvoke | IrCall)[] {
   const out: (IrInvoke | IrCall)[] = []
-  someNode(root, (n) => (!isPlace(n) && (n.kind === "call" || n.kind === "invoke") && out.push(n), false))
+  someNode(root, (n) => {
+    if (!isPlace(n) && (n.kind === "call" || n.kind === "invoke")) out.push(n)
+    return false
+  })
   return out
 }
 

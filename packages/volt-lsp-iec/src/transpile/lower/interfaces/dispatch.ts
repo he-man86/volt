@@ -3,7 +3,7 @@
  * or a PROPERTY's accessor.
  */
 
-import { lookup, lookupMember } from "../../../frontend/symbols/index.js"
+import { lookupMember } from "../../../frontend/symbols/index.js"
 import type { FbType, Lowering } from "../core/lowering.js"
 import type { IrDispatch, IrExpr, IrInvoke, IrStmt, Place } from "../../ir/index.js"
 import { ANY_FAMILIES, inferExprType, type Type, UNKNOWN } from "../../../frontend/types/index.js"
@@ -21,8 +21,6 @@ import { interfaceTables } from "./state.js"
 import { tempPlace } from "../core/temps.js"
 import { interfaceChainOf } from "../core/chain.js"
 import { indexOfTag } from "../core/tags.js"
-
-type SymbolAst = NonNullable<ReturnType<typeof lookup>>["symbol"]["ast"]
 
 /** A call through `ref`: one arm per instance it may hold, each built by `arm` once every store has lowered. */
 function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, fb: FbType) => IrInvoke | undefined, span: Span): IrDispatch | undefined {

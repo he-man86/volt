@@ -15,7 +15,6 @@ import {
   elementaryRef,
   type ElementaryType,
   elementaryTypeRef,
-  isIntegral,
   parseConversionName,
   stringKind,
   type Type,

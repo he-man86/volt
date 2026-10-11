@@ -359,9 +359,12 @@ interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | 
 // scoped: a temp written at one site before every read — a slot to the interpreter, a `let` of its fn in Rust (7.6.1)
 // image: the slot's byte offset when the image holds it
 // list: a GVL variable whose name another list also declares — two globals (6.A.17), each Rust field named `<list>_<name>`
-// readAs: a CONSTANT whose slot is wider than its type to hold its unwrapped fold — every read of it is converted to its
-// type's run-time width by lowering (`places/access-guards` `loadValue`, 6.A.29); no backend reads it. declared: that
-// constant's declared type, which SIZEOF measures (`builtins/sizeof`: SIZEOF(B) of a BYTE held as 256 is 1, 6Af)
+// readAs: a slot wider than the type its reads have — every read converted to it by lowering (`places/access-guards`
+// `loadValue`); no backend reads it. A CONSTANT held past its type to keep its unwrapped fold (6.A.29), or a STRING
+// VAR_IN_OUT bound wider than it declares, a routine lowered for the caller's capacity (`calls/string-inouts`, 8.2 step 8e:
+// the slot the caller's buffer, a read its copy at the declared capacity — a comparison's excepted, read in place).
+// declared: with readAs, the declared type SIZEOF measures (`builtins/sizeof`: SIZEOF(B) of a BYTE held as 256 is 1, 6Af;
+// SIZEOF(io) of a STRING(10) in-out bound to a STRING(12) is 11)
 // rawBool: a BOOL held as its byte — its address reaches a pointer of another type, or a byte-keeping flow fills it from
 // one; its type is BYTE and every operator on it lowered on the byte (`lower/pointers/raw-bool.ts`, 8.2); no backend reads it
 interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; locals?: IrSlot[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[]; size?: number }

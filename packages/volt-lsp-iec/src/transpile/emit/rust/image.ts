@@ -6,7 +6,7 @@
 import type { IrImage, IrPou, Place } from "../../ir/index.js"
 import { isBoolValued, peelArray, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
-import { expr, print } from "./expr.js"
+import { print } from "./expr.js"
 import { at, Prec, printed, type Printed } from "./precedence.js"
 import { rustName, tmp } from "./names.js"
 import { type Printer, use } from "./printer.js"
