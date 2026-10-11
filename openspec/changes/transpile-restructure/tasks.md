@@ -6798,7 +6798,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     diverges 11, unaskable 95; edge agree 3219, disagree 5, not-run 219; `keep 16`); full suite `VOLT_REQUIRE_FULL=1
     bun test` (VOLT_FIXTURES unset, rustc cache sampled) 9297 pass / 0 fail, 35 skip, 388 todo (9720 tests, 321 files,
     665 s); root `bun run check` green.
-- [ ] 8.2 Final map delta against 0.2.
+- [x] 8.2 Final map delta against 0.2.
       **Owner 2026-10-10: reopen the 6 marks outside design.md §7.2** (`reinterpret_dint_as_real_edges`,
       `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`, `string_store_function_input_tail`, `wstring_parse_trailing_spaces`,
       `bool_byte_two_through_pointer`): fix each against its recording. Only where a fix is MEASURED impossible (state the
@@ -6994,7 +6994,15 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
       lowered, constructs 2159 -> 2182.
     - Open marks now: the trig family of §7.2 (3) and the FUNCTION-frame residue of §7.2 (2, measured impossible, the named
       loss the owner reviews). Accept: M met; every open mark is in one of the two lists.
-- [ ] 8.3 Final review.
+  - Verified 2026-10-11 (close prep, after the owner fixtures fd1c14dc7d), TICKED: `rate:fixtures` maps 5591 fixtures —
+    confirmed 3041, refused 2018, not-lowered 345, lsp-gap 87, diverges 5, unaskable 95; tier lowered / clean decl 805 /
+    805, arith 1596 / 1596, control 162 / 152, aggregate 149 / 149, call 350 / 350, indirect 404 / 404; edge agree 3247,
+    disagree 0, not-run 219 (M). The 5 `diverges` rows are the open marks and each is in design.md §7.2: the trig family
+    (`op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large`) and the FUNCTION-frame residue
+    (`string_store_function_input_tail`, `string_input_tail_interleaved`), which joined §7.2 under the owner's 2026-10-10
+    rule for this task (a fix measured impossible joins §7.2 as a named loss, "the owner reviews that list"). Accept met.
+    The owner's review of that named loss is still open — 8.4 waits on it, not this tick.
+- [x] 8.3 Final review.
   - What: spec, layering and a fresh-implementation review over the whole change; fix or file.
   - Where: all touched files.
   - Accept: lint (layering, size, citations) green; the size ceiling list for `src/transpile/**` empty.
@@ -7180,6 +7188,11 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
       not-lowered 345, lsp-gap 85, diverges 7, unaskable 95; edge agree 3237 / disagree 2 / not-run 219); full suite
       (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9370 pass / 35 skip / 388 todo / 0 fail, 9793 tests across 323
       files (676 s); `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run check` 18 passed.
+  - Verified 2026-10-11 (close prep), TICKED: `bun run lint` green — layering (1 known violation, `services → network`,
+    not the transpiler's), size ("every src/transpile file within 400 lines (tests 600) or its ceiling (0 listed)", no
+    function-length warning), citations (0 missing, 3 planned); the size ceiling list for `src/transpile/**` is empty.
+    `bun typecheck` clean; `openspec validate transpile-restructure` valid. R2 (the 83 unclassified refusal codes) stays
+    filed for the owner as `transpile-refusal-classification` (186f903c46). Accept met.
 - [ ] 8.4 Archive.
   - What: check each spec delta describes what was built; every hand-off of design.md §7.1 has a line in `lsp-transpile-review-gaps`;
     every transpile-st-to-rust task 0.8/4.2 marked superseded is ticked there with its reference. Archive this change and
@@ -7188,6 +7201,12 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `openspec/changes/`.
   - Accept: `openspec list` shows neither this change nor transpile-lean-candidates; no `openspec/specs/`.
   - Depends: 8.3.
+  - Close prep 2026-10-11, NOT ticked: design.md §7.2's FUNCTION-frame residue (`string_store_function_input_tail`,
+    `string_input_tail_interleaved`) is a named loss FOR OWNER REVIEW; the owner approves it before the archive.
+    Measured at fd1c14dc7d (the owner fixtures in): full suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1 bun test`,
+    VOLT_FIXTURES unset) 9402 pass / 35 skip / 388 todo / 0 fail, 9825 tests across 325 files, 47503 expect() calls
+    (1047 s; no timeout); `bun typecheck` clean; `bun run lint` green (layering 1 known, size 0 listed, citations 0
+    missing / 3 planned).
 
 ## Hand-off from transpile-st-to-rust (2026-10-03)
 
