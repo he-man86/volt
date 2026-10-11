@@ -265,6 +265,9 @@ END_VAR
     Ide.Codesys.Tests 309 / 1 skipped; Ide.Twincat.Tests 450/0; Cli.Tests 264/0; Connector.Tests 115/0;
     Contracts.Tests 34/0; `bun run check` 18 passed / 0 failed; `openspec validate --all` 5 valid; `bun run typecheck`
     all five 0. No LSP file changed, so the LSP suites are not this step's.
-- [ ] 4.2 The LD/FBD design decides which deferred `probe-nwl-*` facts become rows.
+- [x] 4.2 The LD/FBD design decides which deferred `probe-nwl-*` facts become rows.
+  - Moved 2026-10-11 (owner: close vendor-fact-probe, 4.2 goes to the LD/FBD coverage change): the deferred `probe-nwl-*`
+    facts and N23/N25 become table rows in that change, whose design decides them. Recorded in the owner's memory note
+    for the LD/FBD coverage change so it is carried when that change is proposed.
   - Open, refused by name (2026-10-11): no LD/FBD change exists yet (design 4). N23 and N25 joined the deferred
     N-rows here (4.1 note): both need a graphical body built or opened through the vendor API.
