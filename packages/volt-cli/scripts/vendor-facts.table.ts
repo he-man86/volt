@@ -7,7 +7,7 @@
  *
  *   steps   create · find · setText · rename · move · delete · open · close · build · reload · invoke · tryNames
  *   reads   member · class · guid · parent · children · signature · parse · xml · same · diagnostics · process · absent
- *           · tried
+ *           · tried · fetched
  *
  * Every write names its path, `via: "push"` (one declarative op over the instance's pipe through the SHIPPED bridge —
  * what `volt push` sends; the runner does it) or `via: "script"` (the vendor API: CODESYS scripting, TwinCAT COM; the
@@ -157,6 +157,10 @@ export type Read = ReadBase &
      *  words>"` for any other refusal (a kind refusal, a COM fault, a busy IDE — no verdict on the name), each sorted;
      *  `outcomes`: per name `created`, `created as <got>` or `refused: <the vendor's words>`. */
     | { op: "tried"; what: "verdicts" | "outcomes" }
+    /** The subject's item text as the SHIPPED bridge's `fetch` answers it — what `volt pull` writes — read by the runner
+     *  over the pipe, never by a core. The subject is a wire item (a POU, DUT, GVL or interface), not a member: a member's
+     *  text is its owner's. */
+    | { op: "fetched" }
   )
 
 export type Row = {
@@ -1741,7 +1745,18 @@ export const ROWS: Row[] = [
       {
         key: "class",
         at: "found",
-        on: ["getproducts", "alarms1", "alarms2", "manualcontrol", "reset", "cyclic", "estop", "execute", "execute1", "stop"],
+        on: [
+          "getproducts",
+          "alarms1",
+          "alarms2",
+          "manualcontrol",
+          "reset",
+          "cyclic",
+          "estop",
+          "execute",
+          "execute1",
+          "stop",
+        ],
         op: "class",
       },
       {
@@ -1885,6 +1900,279 @@ export const ROWS: Row[] = [
         op: "absent",
         reason:
           "no TwinCAT fixture or corpus holds an abstract member (0 ABSTRACT texts in Project13, Project14 and twincat-project14), so the IDE's own Add Method dialog is not measured; the members are made through the vendor API and the shipped push",
+      },
+    ],
+  },
+  {
+    // C2n, both vendors (openspec `abstract-member-parity` 1.1–1.3): an abstract member that HOLDS code — does the build
+    // refuse it, and with what message (1.1)? What the shipped bridge's fetch answers for an abstract member's owner —
+    // TwinCAT's (never recorded before) and a script-made CODESYS one (1.2, 1.3)? Whether an empty body written at a
+    // TwinCAT abstract member's slot survives save/reopen (1.2), and what class and slot a CODESYS `create_method`
+    // given ABSTRACT text has (1.3). A non-abstract derived FB overrides both members and a program instantiates it, so
+    // the build compiles the base whatever the vendor does with an unused POU; each build is preceded by a control build
+    // of the same members with EMPTY bodies.
+    id: "abstract-member-code",
+    dialect: ["C2n"],
+    vendors: { codesys: true, twincat: true },
+    steps: [
+      // ── CODESYS: everything through scripting, on a fresh fixture copy (PLC_PRG is rewritten).
+      { vendor: "codesys", op: "open", fixture: "CodesysTestProject" },
+      {
+        vendor: "codesys",
+        op: "create",
+        as: "fb",
+        kind: "function_block",
+        name: "VltA_CodeBase",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\n",
+      },
+      {
+        vendor: "codesys",
+        tag: "script-made",
+        op: "create",
+        as: "method",
+        kind: "method",
+        name: "Pick",
+        parent: "fb",
+        via: "script",
+        decl: "METHOD ABSTRACT Pick : INT\n",
+      },
+      {
+        vendor: "codesys",
+        op: "create",
+        as: "prop",
+        kind: "property",
+        name: "Busy",
+        parent: "fb",
+        via: "script",
+        decl: "PROPERTY ABSTRACT Busy : INT\n",
+      },
+      { vendor: "codesys", op: "find", as: "set", name: "Set", under: "prop" },
+      { vendor: "codesys", tag: "property-made", op: "find", as: "get", name: "Get", under: "prop" },
+      {
+        vendor: "codesys",
+        op: "create",
+        as: "impl",
+        kind: "function_block",
+        name: "VltA_CodeImpl",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK VltA_CodeImpl EXTENDS VltA_CodeBase\nVAR\nEND_VAR\n",
+      },
+      {
+        vendor: "codesys",
+        op: "create",
+        as: "implpick",
+        kind: "method",
+        name: "Pick",
+        parent: "impl",
+        via: "script",
+        decl: "METHOD Pick : INT\n",
+        impl: "Pick := 2;\n",
+      },
+      {
+        vendor: "codesys",
+        op: "create",
+        as: "implprop",
+        kind: "property",
+        name: "Busy",
+        parent: "impl",
+        via: "script",
+        decl: "PROPERTY Busy : INT\n",
+      },
+      { vendor: "codesys", op: "find", as: "implget", name: "Get", under: "implprop" },
+      { vendor: "codesys", op: "setText", on: "implget", via: "script", impl: "Busy := 2;\n" },
+      { vendor: "codesys", op: "find", as: "main", name: "PLC_PRG" },
+      {
+        vendor: "codesys",
+        op: "setText",
+        on: "main",
+        via: "script",
+        decl: "PROGRAM PLC_PRG\nVAR\n\tf : VltA_CodeImpl;\n\tx : INT;\nEND_VAR\n",
+        impl: "x := f.Pick() + f.Busy;\n",
+      },
+      // ── TwinCAT: the base made by the shipped push in the shape Volt writes (a property's GET is made only so, C2n),
+      // one abstract method made through the vendor API beside it, the derived FB and its user by push.
+      {
+        vendor: "twincat",
+        op: "create",
+        as: "sfb",
+        kind: "function_block",
+        name: "VltA_CodeScript",
+        parent: "root",
+        via: "script",
+        decl: "FUNCTION_BLOCK ABSTRACT VltA_CodeScript\nVAR\nEND_VAR\n",
+      },
+      {
+        vendor: "twincat",
+        tag: "script-made",
+        op: "create",
+        as: "smethod",
+        kind: "method",
+        name: "Pick",
+        parent: "sfb",
+        via: "script",
+        decl: "METHOD ABSTRACT Pick : INT\n",
+      },
+      {
+        vendor: "twincat",
+        op: "create",
+        as: "fb",
+        kind: "function_block",
+        name: "VltA_CodeBase",
+        parent: "root",
+        via: "push",
+        source:
+          `FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\n${MARK}\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n` +
+          `\nMETHOD ABSTRACT Pick : INT\n${MARK}\n\nEND_METHOD\n` +
+          `\nPROPERTY ABSTRACT Busy : INT\nGET\n${MARK}\n\nEND_GET\nSET\n${MARK}\n\nEND_SET\nEND_PROPERTY\n`,
+      },
+      { vendor: "twincat", op: "find", as: "method", name: "Pick", under: "fb" },
+      { vendor: "twincat", op: "find", as: "prop", name: "Busy", under: "fb" },
+      { vendor: "twincat", op: "find", as: "set", name: "Set", under: "prop" },
+      { vendor: "twincat", tag: "property-made", op: "find", as: "get", name: "Get", under: "prop" },
+      {
+        vendor: "twincat",
+        op: "create",
+        as: "impl",
+        kind: "function_block",
+        name: "VltA_CodeImpl",
+        parent: "root",
+        via: "push",
+        source:
+          `FUNCTION_BLOCK VltA_CodeImpl EXTENDS VltA_CodeBase\nVAR\n\ty : INT;\nEND_VAR\n${MARK}\ny := y + 1;\n\nEND_FUNCTION_BLOCK\n` +
+          `\nMETHOD Pick : INT\n${MARK}\nPick := 2;\nEND_METHOD\n` +
+          `\nPROPERTY Busy : INT\nGET\n${MARK}\nBusy := 2;\nEND_GET\nSET\n${MARK}\n\nEND_SET\nEND_PROPERTY\n`,
+      },
+      { vendor: "twincat", op: "find", as: "implpick", name: "Pick", under: "impl" },
+      // The derived FB used from the program the PLC task calls: a first run with a program of its own that no task
+      // called reported nothing, not even the control below (the build did not compile what no task reaches). The push
+      // side restores PLC_PRG's text at cleanup.
+      { vendor: "twincat", op: "find", as: "main", name: "PLC_PRG" },
+      {
+        vendor: "twincat",
+        op: "setText",
+        on: "main",
+        via: "push",
+        after: { line: "VAR", add: "    vltA : VltA_CodeImpl;\n    vltX : INT;" },
+      },
+      {
+        vendor: "twincat",
+        op: "setText",
+        on: "main",
+        via: "push",
+        after: { line: "// Drive the PackML unit", add: "vltX := vltA.Pick() + vltA.Busy;" },
+      },
+      // ── both: a control build (empty abstract bodies), then code at the abstract method's slot, then at the GET's.
+      { tag: "empty-built", op: "build" },
+      // The control that the build COMPILES these POUs: an unknown name in the derived method's body must be reported
+      // (a first TwinCAT run whose caller no task reached answered the code under the abstract members, AND this
+      // control, with no message at all).
+      { op: "setText", on: "implpick", via: "script", impl: "Pick := VltA_NoSuchName;\n" },
+      { tag: "control-built", op: "build" },
+      { op: "setText", on: "implpick", via: "script", impl: "Pick := 2;\n" },
+      { tag: "method-code", op: "setText", on: "method", via: "script", impl: "Pick := 1;\n" },
+      { tag: "method-built", op: "build" },
+      { op: "setText", on: "method", via: "script", impl: "" },
+      { tag: "get-code", op: "setText", on: "get", via: "script", impl: "Busy := 1;\n" },
+      { tag: "get-built", op: "build" },
+      { op: "setText", on: "get", via: "script", impl: "" },
+      // The SET accessor of the same abstract property (review: a GET fact is not carried over to the SET unmeasured).
+      { tag: "set-code", op: "setText", on: "set", via: "script", impl: "Busy := 1;\n" },
+      { tag: "set-built", op: "build" },
+      // The code taken away again: an EMPTY body written at each slot, then saved, closed and reopened.
+      { tag: "emptied", op: "setText", on: "set", via: "script", impl: "" },
+      { tag: "saved", op: "reload" },
+    ],
+    reads: [
+      // 1.1 — the build's messages: control, code under the abstract method, code under the abstract GET.
+      {
+        key: "diagnostics",
+        at: ["empty-built", "control-built", "method-built", "get-built", "set-built"],
+        op: "diagnostics",
+        mentioning: "VltA_",
+      },
+      // 1.2 / 1.3 — the owner's text as the shipped bridge fetches it (what `volt pull` writes) at every stage.
+      {
+        key: "fetched",
+        at: ["property-made", "method-code", "get-code", "set-code", "emptied", "saved"],
+        on: "fb",
+        op: "fetched",
+      },
+      { vendor: "twincat", key: "fetched-script", at: ["script-made", "saved"], on: "sfb", op: "fetched" },
+      // The classes, and the body slot on each object.
+      { vendor: "codesys", key: "class", at: ["script-made", "saved"], on: "method", op: "class" },
+      { vendor: "codesys", key: "class", at: ["property-made", "saved"], on: ["prop", "get", "set"], op: "class" },
+      {
+        vendor: "codesys",
+        key: "implementation",
+        at: ["script-made", "saved"],
+        on: "method",
+        op: "member",
+        path: "object.Implementation.$type",
+      },
+      {
+        vendor: "codesys",
+        key: "implementation",
+        at: ["property-made", "saved"],
+        on: ["prop", "get", "set"],
+        op: "member",
+        path: "object.Implementation.$type",
+      },
+      {
+        vendor: "codesys",
+        key: "body",
+        at: ["method-code", "get-code", "set-code", "emptied", "saved"],
+        on: ["method", "get", "set"],
+        op: "member",
+        path: "script.textual_implementation.text",
+      },
+      {
+        vendor: "codesys",
+        key: "declaration",
+        at: "saved",
+        on: ["method", "prop"],
+        op: "member",
+        path: "script.textual_declaration.text",
+      },
+      { vendor: "twincat", key: "class", at: "property-made", on: ["fb", "method", "prop", "get", "set"], op: "class" },
+      { vendor: "twincat", key: "class", at: "script-made", on: "smethod", op: "class" },
+      {
+        vendor: "twincat",
+        key: "body",
+        at: ["method-code", "get-code", "set-code", "emptied", "saved"],
+        on: ["method", "get", "set"],
+        op: "member",
+        path: "item.ImplementationText",
+      },
+      // The body slot in the saved file after the empty writes.
+      {
+        vendor: "twincat",
+        key: "file.method-st",
+        at: "saved",
+        on: "fb",
+        op: "xml",
+        file: true,
+        xpath: "//Method[@Name='Pick']/Implementation/ST",
+      },
+      {
+        vendor: "twincat",
+        key: "file.get-st",
+        at: "saved",
+        on: "fb",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='Busy']/Get/Implementation/ST",
+      },
+      {
+        vendor: "twincat",
+        key: "file.set-st",
+        at: "saved",
+        on: "fb",
+        op: "xml",
+        file: true,
+        xpath: "//Property[@Name='Busy']/Set/Implementation/ST",
       },
     ],
   },

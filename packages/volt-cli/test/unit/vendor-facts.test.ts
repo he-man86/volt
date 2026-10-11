@@ -63,6 +63,11 @@ describe("the table", () => {
     expect(findings).toContain("t (codesys): 2 reads produce the key `k2`")
   })
 
+  it("refuses a fetched read that names no subject (the wire is asked for an ITEM's text)", () => {
+    const r = row({ steps: [{ tag: "a", op: "build" }], reads: [{ key: "text", at: "a", op: "fetched" }] })
+    expect(validateTable([r])).toContain("t (codesys): read `text` (fetched) names no subject")
+  })
+
   it("refuses a read on a handle only the other vendor's steps define", () => {
     const r = row({
       steps: [
@@ -129,6 +134,10 @@ describe("running a row", () => {
           return "accepted"
         },
         build: async () => ({ success: true, diagnostics: [] }),
+        fetched: async (on) => {
+          log.push(`fetch ${on}`)
+          return `TEXT OF ${on}\n`
+        },
         cleanup: async () => {
           log.push("push cleanup")
         },
@@ -166,6 +175,19 @@ describe("running a row", () => {
       "guid@pushed": "guid-1",
       kids: ["A"],
     })
+  })
+
+  it("a fetched read asks the WIRE for the subject's text (what `volt pull` writes), never the core", async () => {
+    const { deps, log } = fake()
+    const r = row({
+      steps: [
+        { tag: "made", op: "create", as: "fb", kind: "function_block", name: "FB", parent: "root", via: "script" },
+      ],
+      reads: [{ key: "text", at: "made", on: "fb", op: "fetched" }],
+    })
+    expect(await runRow(r, deps)).toEqual({ steps: ["create fb: accepted"], text: "TEXT OF fb\n" })
+    expect(log).toContain("fetch fb")
+    expect(log).not.toContain("core read fetched")
   })
 
   it("reads on a subject whose create was refused say so instead of asking", async () => {
@@ -228,6 +250,7 @@ describe("a build's messages on CODESYS (the core's read)", () => {
       wire: {
         step: async () => "accepted",
         build: async () => ({ success: true, diagnostics: [] }),
+        fetched: async () => "",
         cleanup: async () => {},
       },
     })
@@ -247,6 +270,7 @@ describe("a build's messages on CODESYS (the core's read)", () => {
       wire: {
         step: async () => "accepted",
         build: async () => ({ success: true, diagnostics: [] }),
+        fetched: async () => "",
         cleanup: async () => {},
       },
     })
@@ -265,7 +289,7 @@ describe("a build's outcome on TwinCAT (the bridge's build)", () => {
   const twincatDeps = (build: { success: boolean; diagnostics: unknown[] }): RowDeps => ({
     vendor: "twincat",
     core: async (req) => (req.kind === "step" ? { outcome: "accepted" } : { value: null }),
-    wire: { step: async () => "accepted", build: async () => build, cleanup: async () => {} },
+    wire: { step: async () => "accepted", build: async () => build, fetched: async () => "", cleanup: async () => {} },
   })
   const r = row({
     steps: [
@@ -312,6 +336,7 @@ describe("a create the core refused after the object was made", () => {
       wire: {
         step: async () => "accepted",
         build: async () => ({ success: true, diagnostics: [] }),
+        fetched: async () => "",
         cleanup: async () => {},
       },
     }
@@ -463,6 +488,16 @@ describe("the pipe side", () => {
     const b = bridge({ health: () => ({ projects: [{ project: "P", status: "exploded" }] }) })
     const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
     await expect(wire.build(ctxOf())).rejects.toThrow("health: project 'P' has status 'exploded'")
+  })
+
+  it("a fetched read answers the bridge's fetch of the handle's FULL wire name", async () => {
+    const b = bridge({ items: { "VltA_Base.pou": "4", "VltA_Base.visualization": "5" } })
+    const wire = wireSide("pipe", { call: b.call, sleep: async () => {} })
+    const ctx = ctxOf()
+    ctx.handles.set("fb", { name: "VltA_Base", created: "script" })
+    expect(await wire.fetched("fb", ctx)).toBe("TEXT\n")
+    expect(b.calls.find((c) => c.op === "fetch")?.body).toEqual({ knownItems: {}, onlyItems: ["VltA_Base.pou"] })
+    await expect(wire.fetched("nope", ctx)).rejects.toThrow("no handle 'nope'")
   })
 
   it("the build answers its success with its diagnostics", async () => {
@@ -753,7 +788,8 @@ describe("the fold-ins (design 4): bridge-refusal-review's probes are rows", () 
       for (const k of ["METHOD", "ACTION", "PROPERTY", "TOPLEVEL"]) {
         const casing = t.filter((s) => s.tag!.startsWith(`${k}.casing-`))
         const asked = new Map(
-          t.filter((s) => s.tag!.startsWith(`${k}.`) && !s.tag!.includes(".casing-"))
+          t
+            .filter((s) => s.tag!.startsWith(`${k}.`) && !s.tag!.includes(".casing-"))
             .flatMap((s) => s.names)
             .map((n) => [n.toUpperCase(), n] as const),
         )

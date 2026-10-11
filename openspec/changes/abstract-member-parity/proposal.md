@@ -4,8 +4,9 @@
 (archived 2026-10-11) fixed CODESYS's slotless abstract members by stating them `IMPLEMENTATION NONE`, keyed on the
 VENDOR'S STORAGE (a declared-and-null `Implementation`). Measured there (DIALECT C2n): TwinCAT's abstract members always
 have a body slot (`ImplementationText` = `""`), so TwinCAT pulls the same declaration as `IMPLEMENTATION ST` with an empty
-body; and a CODESYS abstract method made by scripting (`create_method`, a `POUMethodObject`) has a slot too, so even on
-CODESYS the text depends on who made the object. A cross-vendor or blank-project migration of pro2193 refuses its 7 owner
+body; and a CODESYS abstract method whose class is a `POUMethodObject` has a slot too — made by scripting
+(`create_method`) or by the IDE (pro2193's `ModuleWithStateFB.Cyclic`) — so even on CODESYS the text depends on the
+object's class, not on its declaration. A cross-vendor or blank-project migration of pro2193 refuses its 7 owner
 files. The owner (2026-10-11): "they need to be identical on the volt layer" — the wire-parity rule (a divergence only
 after two measured alternatives AND owner OK; the OK was never given and is now refused).
 
@@ -28,4 +29,5 @@ after two measured alternatives AND owner OK; the OK was never given and is now 
 `Volt.Engine` (`BodyFormatGuard`, `ImplementationMarker`), `Volt.Ide.Codesys` (`CodesysDriver.ReadBody`),
 `Volt.Ide.Twincat` (its body read/write), the vendor-facts table (new rows), DIALECT C2n, e2e on both vendors plus the
 vendor-parity suite. TwinCAT's pulled text for abstract members changes ST → NONE (re-pull); CODESYS's only for
-script-made abstract methods. The LSP already reads NONE.
+slotted abstract members (`POUMethodObject` / `PropertyAccessorObject`) — in the corpora exactly one, pro2193's
+`Cyclic`. The LSP already reads NONE.

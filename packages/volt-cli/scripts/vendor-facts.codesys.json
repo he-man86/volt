@@ -1,4 +1,113 @@
 {
+	"abstract-member-code": {
+		"body.get@emptied": "",
+		"body.get@get-code": "Busy := 1;\n",
+		"body.get@method-code": "",
+		"body.get@saved": "",
+		"body.get@set-code": "",
+		"body.method@emptied": "",
+		"body.method@get-code": "",
+		"body.method@method-code": "Pick := 1;\n",
+		"body.method@saved": "",
+		"body.method@set-code": "",
+		"body.set@emptied": "",
+		"body.set@get-code": "",
+		"body.set@method-code": "",
+		"body.set@saved": "",
+		"body.set@set-code": "Busy := 1;\n",
+		"class.get@property-made": "_3S.CoDeSys.PropertyObject.PropertyAccessorObject",
+		"class.get@saved": "_3S.CoDeSys.PropertyObject.PropertyAccessorObject",
+		"class.prop@property-made": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"class.prop@saved": "_3S.CoDeSys.PropertyObject.PropertyObject",
+		"class.set@property-made": "_3S.CoDeSys.PropertyObject.PropertyAccessorObject",
+		"class.set@saved": "_3S.CoDeSys.PropertyObject.PropertyAccessorObject",
+		"class@saved": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"class@script-made": "_3S.CoDeSys.MethodObject.POUMethodObject",
+		"declaration.method": "METHOD ABSTRACT Pick : INT\n",
+		"declaration.prop": "PROPERTY ABSTRACT Busy : INT\n",
+		"diagnostics@control-built": [
+			{
+				"code": "C0032",
+				"severity": "Error",
+				"text": "Cannot convert type 'Unknown type: 'VltA_NoSuchName'' to type 'INT'"
+			},
+			{
+				"code": "C0046",
+				"severity": "Error",
+				"text": "Identifier 'VltA_NoSuchName' not defined"
+			},
+			{
+				"code": "C0046",
+				"severity": "Error",
+				"text": "Identifier 'VltA_NoSuchName' not defined"
+			}
+		],
+		"diagnostics@empty-built": [],
+		"diagnostics@get-built": [
+			{
+				"code": "C0433",
+				"severity": "Error",
+				"text": "The ABSTRACT method VltA_CodeBase.__getBusy must not contain any statements"
+			}
+		],
+		"diagnostics@method-built": [
+			{
+				"code": "C0433",
+				"severity": "Error",
+				"text": "The ABSTRACT method VltA_CodeBase.Pick must not contain any statements"
+			}
+		],
+		"diagnostics@set-built": [
+			{
+				"code": "C0433",
+				"severity": "Error",
+				"text": "The ABSTRACT method VltA_CodeBase.__setBusy must not contain any statements"
+			}
+		],
+		"fetched@emptied": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@get-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nBusy := 1;\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@method-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nPick := 1;\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@property-made": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@saved": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@set-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_GET\nSET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nBusy := 1;\nEND_SET\nEND_PROPERTY\n",
+		"implementation.get@property-made": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation.get@saved": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation.prop@property-made": null,
+		"implementation.prop@saved": null,
+		"implementation.set@property-made": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation.set@saved": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation@saved": "_3S.CoDeSys.STObject.STImplementationObject",
+		"implementation@script-made": "_3S.CoDeSys.STObject.STImplementationObject",
+		"steps": [
+			"open CodesysTestProject: accepted",
+			"create fb: accepted",
+			"create method: accepted",
+			"create prop: accepted",
+			"find set: accepted",
+			"find get: accepted",
+			"create impl: accepted",
+			"create implpick: accepted",
+			"create implprop: accepted",
+			"find implget: accepted",
+			"setText implget: accepted",
+			"find main: accepted",
+			"setText main: accepted",
+			"build: accepted",
+			"setText implpick: accepted",
+			"build: accepted",
+			"setText implpick: accepted",
+			"setText method: accepted",
+			"build: accepted",
+			"setText method: accepted",
+			"setText get: accepted",
+			"build: accepted",
+			"setText get: accepted",
+			"setText set: accepted",
+			"build: accepted",
+			"setText set: accepted",
+			"reload: accepted"
+		]
+	},
 	"accessor-decl": {
 		"accessor-declaration.get": "VAR\nEND_VAR\n",
 		"accessor-declaration.set": "VAR\nEND_VAR\n",

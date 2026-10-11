@@ -154,6 +154,8 @@ export function validateTable(rows: readonly Row[]): string[] {
             findings.push(`${where}: read \`${r.key}\` is at \`${at}\`, which no step is tagged`)
             continue
           }
+          if (r.op === "fetched" && list(r.on).length === 0)
+            findings.push(`${where}: read \`${r.key}\` (fetched) names no subject`)
           if (r.op === "tried" && plan.steps[after]?.op !== "tryNames")
             findings.push(`${where}: read \`${r.key}\` (tried) is at \`${at}\`, which is no tryNames step`)
           for (const on of list(r.on))
@@ -208,6 +210,8 @@ export type BuildOutcome = { success: boolean; diagnostics: unknown[] }
 export interface WireSide {
   step(step: Step, ctx: RowContext): Promise<string>
   build(ctx: RowContext): Promise<BuildOutcome>
+  /** The handle's item text as the shipped bridge's `fetch` answers it — what `volt pull` writes. */
+  fetched(on: string, ctx: RowContext): Promise<string>
   cleanup(ctx: RowContext): Promise<void>
   /** After the IDE replaced its project (open, close, reload): make the bridge bind the project it now has. */
   rebind?(): Promise<void>
@@ -270,6 +274,7 @@ export async function runRow(row: Row, deps: RowDeps): Promise<Record<string, un
       try {
         if (r.op === "absent") snap[r.snapshotKey] = `absent: ${r.reason}`
         else if (r.op === "diagnostics" && twincatBuild) snap[r.snapshotKey] = bridgeDiagnostics(ctx, r.mentioning)
+        else if (r.op === "fetched") snap[r.snapshotKey] = await deps.wire.fetched(r.on!, ctx)
         else if (r.op === "diagnostics")
           snap[r.snapshotKey] = asSet((await deps.core({ kind: "read", row: row.id, read: r })).value)
         else snap[r.snapshotKey] = (await deps.core({ kind: "read", row: row.id, read: r })).value ?? null
@@ -686,7 +691,7 @@ export function wireSide(
     return withTimeout(call("push", { expectedProjectVersion: r.projectVersion, ops: [op] }), LONG_TIMEOUT_MS, "push")
   }
   const fetchText = async (wire: string) => {
-    const f = await call("fetch", { knownItems: {}, onlyItems: [wire] })
+    const f = await withTimeout(call("fetch", { knownItems: {}, onlyItems: [wire] }), TIMEOUT_MS, "fetch")
     const it = (f.changed ?? []).find((i: any) => i.name === wire)
     if (typeof it?.sourceText !== "string") throw new Error(`fetch returned no text for ${wire}`)
     return it.sourceText as string
@@ -769,6 +774,12 @@ export function wireSide(
       // `open`, health may still name a project the IDE no longer has (measured 2026-10-11: PLC_DISCONNECTED), so the
       // connect is retried like any other wait to be served, and a timeout names the last refusal.
       await serving(true)
+    },
+    async fetched(on, ctx) {
+      const h = ctx.handles.get(on)
+      if (!h) throw new Error(`no handle '${on}'`)
+      await serving()
+      return fetchText(wireName(await refs(), h.name))
     },
     async build() {
       await serving()

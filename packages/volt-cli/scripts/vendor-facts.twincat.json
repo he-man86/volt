@@ -1,4 +1,133 @@
 {
+	"abstract-member-code": {
+		"body.get@emptied": "",
+		"body.get@get-code": "Busy := 1;\n",
+		"body.get@method-code": "",
+		"body.get@saved": "",
+		"body.get@set-code": "",
+		"body.method@emptied": "",
+		"body.method@get-code": "",
+		"body.method@method-code": "Pick := 1;\n",
+		"body.method@saved": "",
+		"body.method@set-code": "",
+		"body.set@emptied": "",
+		"body.set@get-code": "",
+		"body.set@method-code": "",
+		"body.set@saved": "",
+		"body.set@set-code": "Busy := 1;\n",
+		"class": "ItemType 609",
+		"class.fb": "ItemType 604",
+		"class.get": "ItemType 613",
+		"class.method": "ItemType 609",
+		"class.prop": "ItemType 611",
+		"class.set": "ItemType 614",
+		"diagnostics@control-built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": "Pick",
+					"message": "Cannot convert type 'Unknown type: 'VltA_NoSuchName'' to type 'INT'",
+					"name": "VltA_CodeImpl.pou",
+					"severity": "error"
+				},
+				{
+					"code": null,
+					"member": "Pick",
+					"message": "Identifier 'VltA_NoSuchName' not defined",
+					"name": "VltA_CodeImpl.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"diagnostics@empty-built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": null,
+					"message": "generate boot information...",
+					"name": null,
+					"severity": "info"
+				}
+			],
+			"success": true
+		},
+		"diagnostics@get-built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": "Busy",
+					"message": "The ABSTRACT method VltA_CodeBase.__getBusy must not contain any statements",
+					"name": "VltA_CodeBase.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"diagnostics@method-built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": "Pick",
+					"message": "The ABSTRACT method VltA_CodeBase.Pick must not contain any statements",
+					"name": "VltA_CodeBase.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"diagnostics@set-built": {
+			"diagnostics": [
+				{
+					"code": null,
+					"member": "Busy",
+					"message": "The ABSTRACT method VltA_CodeBase.__setBusy must not contain any statements",
+					"name": "VltA_CodeBase.pou",
+					"severity": "error"
+				}
+			],
+			"success": false
+		},
+		"fetched-script@saved": "FUNCTION_BLOCK ABSTRACT VltA_CodeScript\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n",
+		"fetched-script@script-made": "FUNCTION_BLOCK ABSTRACT VltA_CodeScript\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n",
+		"fetched@emptied": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nEND_GET\nSET\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@get-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nBusy := 1;\nEND_GET\nSET\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@method-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nPick := 1;\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nEND_GET\nSET\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@property-made": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nEND_GET\nSET\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@saved": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nEND_GET\nSET\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n",
+		"fetched@set-code": "FUNCTION_BLOCK ABSTRACT VltA_CodeBase\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION ST\nEND_METHOD\n\nPROPERTY ABSTRACT Busy : INT\nGET\nIMPLEMENTATION ST\nEND_GET\nSET\nIMPLEMENTATION ST\nBusy := 1;\nEND_SET\nEND_PROPERTY\n",
+		"file.get-st": "",
+		"file.method-st": "",
+		"file.set-st": "",
+		"steps": [
+			"create sfb: accepted",
+			"create smethod: accepted",
+			"create fb (push): accepted",
+			"find method: accepted",
+			"find prop: accepted",
+			"find set: accepted",
+			"find get: accepted",
+			"create impl (push): accepted",
+			"find implpick: accepted",
+			"find main: accepted",
+			"setText main (push): accepted",
+			"setText main (push): accepted",
+			"build: accepted",
+			"setText implpick: accepted",
+			"build: accepted",
+			"setText implpick: accepted",
+			"setText method: accepted",
+			"build: accepted",
+			"setText method: accepted",
+			"setText get: accepted",
+			"build: accepted",
+			"setText get: accepted",
+			"setText set: accepted",
+			"build: accepted",
+			"setText set: accepted",
+			"reload: accepted"
+		]
+	},
 	"abstract-member-slot": {
 		"accessors": [
 			"Get"
