@@ -7193,7 +7193,10 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     function-length warning), citations (0 missing, 3 planned); the size ceiling list for `src/transpile/**` is empty.
     `bun typecheck` clean; `openspec validate transpile-restructure` valid. R2 (the 83 unclassified refusal codes) stays
     filed for the owner as `transpile-refusal-classification` (186f903c46). Accept met.
-- [ ] 8.4 Archive.
+- [x] 8.4 Archive.
+  - Done 2026-10-11: owner accepted the §7.2 FUNCTION-frame residue ("accept the loss, archive when ok"); spec delta
+    checked against the build (8.3 confirmed each scenario on a fixture); transpile-lean-candidates and
+    transpile-review-2026-09-29 were already archived; hand-offs live in lsp-transpile-review-gaps. Archived, openspec/specs/ deleted.
   - What: check each spec delta describes what was built; every hand-off of design.md §7.1 has a line in `lsp-transpile-review-gaps`;
     every transpile-st-to-rust task 0.8/4.2 marked superseded is ticked there with its reference. Archive this change and
     `transpile-lean-candidates` (unapplied, superseded), and `transpile-review-2026-09-29` if every RC is closed (else list the open

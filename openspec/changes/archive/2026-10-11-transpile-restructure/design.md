@@ -2446,7 +2446,7 @@ deliberately not emulated. They stay as named expected failures, each with that 
 open marks besides the refusals the model decisions name (task 6.21; 8.2's target).
 
 The FUNCTION-frame residue `string_store_function_input_tail`, `string_input_tail_interleaved` (their reason is
-`support/divergences.ts` `FUNCTION_FRAME_RESIDUE_DIVERGENCES`, step 8c — a named loss FOR OWNER REVIEW): the units behind a
+`support/divergences.ts` `FUNCTION_FRAME_RESIDUE_DIVERGENCES`, step 8c — a named loss, ACCEPTED by the owner 2026-10-11): the units behind a
 FUNCTION's STRING input's terminator are whatever the vendor's shared stack held at that frame's address. Measured
 impossible to model (`string_input_tail_interleaved`, record:exec 2026-10-11): with another FUNCTION called between two
 calls, at the same depth, p[11..15] still hold the first call's 'Y' while p[16..20] hold an address's bytes (176, 250, 63,
