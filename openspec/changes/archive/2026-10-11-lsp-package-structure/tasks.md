@@ -96,7 +96,10 @@ src/transpile are restructured by their own changes; network text is parked).
       18 passed / 0 failed; `bun run lint` green; Repo.Gates 160/0, DocDataTests 20/0.
 
 ## 4. Close
-- [ ] 4.1 Cold full suite, README/TESTING updated, archive.
+- [x] 4.1 Cold full suite, README/TESTING updated, archive.
+      **Done 2026-10-11.** `VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1 bun test` 9520 pass / 35 skip / 421 todo / 0 fail
+      (9976 tests, 327 files, 1067 s). README layout and TESTING.md updated in 2.4. Spec delta re-read: it states what was
+      built (the barrel allowed at src/'s top, the data trees one entry each, the three scenarios the gate tests).
 
 ## Hand-in from analysis-conformance (its task 5.3, 2026-10-07)
 
