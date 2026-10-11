@@ -2081,22 +2081,29 @@ export const ROWS: Row[] = [
       // The SET accessor of the same abstract property (review: a GET fact is not carried over to the SET unmeasured).
       { tag: "set-code", op: "setText", on: "set", via: "script", impl: "Busy := 1;\n" },
       { tag: "set-built", op: "build" },
+      { op: "setText", on: "set", via: "script", impl: "" },
+      // A COMMENT-only body under the abstract method (a line comment) and the GET (a block comment), one build (gate-2
+      // review: "must not contain any statements" — is a comment a statement? and what does the fetch show?).
+      { op: "setText", on: "method", via: "script", impl: "// to be overridden\n" },
+      { tag: "comment-made", op: "setText", on: "get", via: "script", impl: "(* to be overridden *)\n" },
+      { tag: "comment-built", op: "build" },
+      { op: "setText", on: "method", via: "script", impl: "" },
       // The code taken away again: an EMPTY body written at each slot, then saved, closed and reopened.
-      { tag: "emptied", op: "setText", on: "set", via: "script", impl: "" },
+      { tag: "emptied", op: "setText", on: "get", via: "script", impl: "" },
       { tag: "saved", op: "reload" },
     ],
     reads: [
       // 1.1 — the build's messages: control, code under the abstract method, code under the abstract GET.
       {
         key: "diagnostics",
-        at: ["empty-built", "control-built", "method-built", "get-built", "set-built"],
+        at: ["empty-built", "control-built", "method-built", "get-built", "set-built", "comment-built"],
         op: "diagnostics",
         mentioning: "VltA_",
       },
       // 1.2 / 1.3 — the owner's text as the shipped bridge fetches it (what `volt pull` writes) at every stage.
       {
         key: "fetched",
-        at: ["property-made", "method-code", "get-code", "set-code", "emptied", "saved"],
+        at: ["property-made", "method-code", "get-code", "set-code", "comment-made", "emptied", "saved"],
         on: "fb",
         op: "fetched",
       },
@@ -2123,7 +2130,7 @@ export const ROWS: Row[] = [
       {
         vendor: "codesys",
         key: "body",
-        at: ["method-code", "get-code", "set-code", "emptied", "saved"],
+        at: ["method-code", "get-code", "set-code", "comment-made", "emptied", "saved"],
         on: ["method", "get", "set"],
         op: "member",
         path: "script.textual_implementation.text",
@@ -2141,7 +2148,7 @@ export const ROWS: Row[] = [
       {
         vendor: "twincat",
         key: "body",
-        at: ["method-code", "get-code", "set-code", "emptied", "saved"],
+        at: ["method-code", "get-code", "set-code", "comment-made", "emptied", "saved"],
         on: ["method", "get", "set"],
         op: "member",
         path: "item.ImplementationText",
