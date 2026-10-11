@@ -46,15 +46,58 @@
 
 ## 2. Build
 
-- [ ] 2.1 `scripts/vendor-facts.table.ts` with one row per fact in the proposal (recover each probe's logic with
+- [x] 2.1 `scripts/vendor-facts.table.ts` with one row per fact in the proposal (recover each probe's logic with
       `git show b2496efb4b:packages/volt-cli/scripts/<file>`).
-- [ ] 2.2 The CODESYS core (the runscript half served by `ide.ps1 -RunScript`) and the TwinCAT core (COM on the
+- [x] 2.2 The CODESYS core (the runscript half served by `ide.ps1 -RunScript`) and the TwinCAT core (COM on the
       instance's XAE), same interface.
-- [ ] 2.3 `scripts/vendor-facts.ts <codesys|twincat> [--write]`: own instance (`VOLT_E2E_INSTANCE=vendor-fact-probe`), a
+- [x] 2.3 `scripts/vendor-facts.ts <codesys|twincat> [--write]`: own instance (`VOLT_E2E_INSTANCE=vendor-fact-probe`), a
       fixture COPY, every row created / read / cleaned up, the snapshot as sorted JSON, a diff against the committed
       `vendor-facts.<vendor>.json` that fails on any difference.
-- [ ] 2.4 `scripts/README.md`: the one command, and the rule "a new vendor question is a table row — never a new probe
+- [x] 2.4 `scripts/README.md`: the one command, and the rule "a new vendor question is a table row — never a new probe
       script".
+  - Done (2026-10-11): 25 rows / 31 citations (the 1.1 gate green: Repo.Gates 151/0); `vendor-facts.codesys.py`,
+    `vendor-facts.twincat.ps1`, `vendor-facts.ts` (+ `--only <facts>` for working on a row: runs, compares and writes
+    only those); `test/unit/vendor-facts.test.ts` 15 tests (table well-formed per vendor, plan/keys, step-at-a-time run,
+    refused subject, absent vendor, cleanup always and never masking the first failure, guid tokens, sort, diff, args).
+    Read vocabulary gained `absent` (C2n's NVL, refused by name) and the path segments `$base`, `$methods`,
+    `$constructors`, `$enumNames`, `$extension`; `find` gained `under`; step outcomes are recorded for every step
+    (the `outcome` read is the `steps` list). Smoke-run live (no snapshot written): CODESYS 9 rows, TwinCAT 8 rows.
+    Findings for 3.1: (1) `task-kind` int 0 opens a modal "CODESYS" message box and the run stops there, named by
+    the timeout (C30's "int 0 never tried" is now answered: it is a dialog, not a refusal); (2) TwinCAT's C2e
+    negative-control build reports no diagnostic on the row's items (the bridge build does not reach the user, or the
+    name filter misses it); (3) refusal texts are in the OS locale (Dutch here); (4) one CODESYS `dut-subtype-in-place`
+    cleanup hung reopening the run's copy, not reproduced in the next run.
+  - Gate (2026-10-11): ten review findings, all taken, failing tests first (`vendor-facts.test.ts` 15 → 30).
+    (1, high) TwinCAT lost a build's verdict: the `diagnostics` read is now `{ success, diagnostics }`, and a diagnostic
+    that names no item is kept. The live smoke found the ROOT of 2.4's finding (2): on TwinCAT the user was never
+    called (the main-program wiring was CODESYS-only), so `@negative` built `success: true`. `main` is now found on both
+    vendors (TwinCAT `find` skips a task's same-named 650 call entry, as CODESYS does), and TwinCAT wires it through the
+    push (cleanup restores PLC_PRG). Re-run live: `@built` success, nothing; `@negative` success false, `'Purple' is no
+    component of 'VLTF_SUBP_ENUM'`. (2) C2e: the p_* tree code and guid @reloaded (606 → 605/607/623, Ids kept),
+    607/623 → struct (`q_*`: accepted, codes stay 607/623, a reload re-derives 606), and a build after the IDE-authored
+    subject's struct push on each vendor, read with the new `diagnostics{mentioning}` (TwinCAT `'ePRODUCTION' is no
+    component of 'E_PACKML_MODE'`; CODESYS 744 messages on the IQSlices users, `'IQSlices.DI_10'` among them).
+    (3) C19b: `xml{file}` reads the subject's BACKING file — a 621 publishes no FullPath, so its `.plcproj` Compile entry
+    names it; refused by name otherwise. Live: own task and fixture both 100000 (100 ns) / 10000000 (ns) / 10000 (µs).
+    (4) C2k: CODESYS FB holding KM → FUNCTION text: signature `Function`, KM kept, KM2 refused; TwinCAT the same through
+    the push, plus the FUNCTION+METHOD create rolled back whole; the member pushes are read after each push.
+    (5) C2g: broken-text DUT/POU (`None/None` all four steps), interface (`Interface`), GVL (`VarGlobal`), the interface
+    set, and `GetLanguageModel()` read through the new `$xmlElements` segment (`data-type` / `pou` / `global-interface`:
+    family only). The icon has no per-object read: it is the factory's, one per object type (reflected); the type and
+    the interface set stand for it, and a dynamic icon would need an interface. `object.TypeGuid` reads null everywhere,
+    as the deleted probe's own log did (`TypeGuid=None`): the `2DB5746D` in C2g came from reflection, not a read.
+    (6) a refused push create leaves no handle unless the conflict says `remains`. (7) a refusal records
+    `[partiallyApplied]` / `[renamedTo …]` / `[remains]`, and the handle follows a `renamedTo`. (8) a create that raised
+    after the object was made answers `made`; the subject is kept (`… (the object was made)`). (9) `serving()` keeps and
+    names the last cause, refuses a status the contract does not name; `rebind` goes through it (live: right after a
+    CODESYS `open`, `connect` answered PLC_DISCONNECTED once and the old rebind aborted the run). (10) both cores refuse a
+    value that will not render whole (> 500 items, nested deeper than two levels) instead of cutting it.
+    Live smoke (no snapshot written): TwinCAT `dut-subtype-in-place` 25.6 s, `tc-task-items` 0.8 s,
+    `pou-members-follow-text` 9.0 s; CODESYS `dut-subtype-in-place` 96.7 s, `kind-source` 60.6 s,
+    `pou-members-follow-text` 2.9 s; every value agrees with its DIALECT row.
+    Numbers: volt-cli `bun test test/unit` 54 pass / 0 fail; Repo.Gates 151/0; `bun run check` 18 passed / 0 failed;
+    `openspec validate` valid; typecheck control/desktop/cli/vscode 0. lsp-iec fails only in
+    `scripts/_scratch-hits.ts`, an untracked file of a parallel session, not this step's paths (no LSP file changed).
 
 ## 3. Verify (live)
 

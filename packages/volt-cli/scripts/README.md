@@ -12,9 +12,24 @@ test, an openspec note — the script is legacy and goes, with its `.log`. The c
 That rule removed 54 scripts (53 probes and one analysis of their logs) and 44 logs on 2026-10-03 (last commit holding them: `b2496efb4b`). The probes that
 remain are named by `bridge-refusal-review`, which is executing, or feed a Repo.Gates gate — see the table.
 
-**No new per-fact probe scripts.** A vendor fact that a new IDE build could change belongs in ONE data-driven,
-re-runnable probe — a table of item types × facts diffed against a committed snapshot — designed in openspec
-`vendor-fact-probe`. Until it lands, a one-off question may still be a probe here, deleted once its answer is cited.
+**No new per-fact probe scripts — a new vendor question is a table row, never a new probe script.** A vendor fact
+that a new IDE build could change lives in ONE data-driven, re-runnable probe (openspec `vendor-fact-probe`):
+
+```sh
+bun scripts/vendor-facts.ts <codesys|twincat> [--write] [--only <fact>,<fact>…]
+```
+
+| File | What it is |
+|---|---|
+| `vendor-facts.table.ts` | the table: one row per fact `DIALECT.md` marks `[PROBE: <id>]`, in a closed step/read vocabulary (Repo.Gates `VendorFactTableMatchesDialectTests` keeps the rows and the markers equal) |
+| `vendor-facts.ts` | the runner: starts its OWN `ide.ps1` instance (`vendor-fact-probe`, a copy of a committed fixture; CODESYS on the runscript below, TwinCAT `-Fixture 14`), runs each row step by step — `via: "push"` writes over the pipe, everything else in the vendor core — and diffs the sorted snapshot against `vendor-facts.<vendor>.json`, failing on any difference with the fact and both values. `--write` replaces the snapshot (a change to it is a DIALECT finding to record); `--only` runs and writes only the named facts. Self-check `test/unit/vendor-facts.test.ts` |
+| `vendor-facts.codesys.py` | the CODESYS core: the `-RunScript` that runs `run_pipe_production.py` verbatim and answers request files on the UI thread |
+| `vendor-facts.twincat.ps1` | the TwinCAT core: COM on this instance's XAE (ROT by pid), one JSON line each way |
+| `vendor-facts.codesys.json` / `vendor-facts.twincat.json` | the committed snapshots — reviewed like any baseline (recorded by openspec `vendor-fact-probe` 3.1) |
+
+Adding a fact is one row (and its `[PROBE: <id>]` marker on the DIALECT row it backs); adding an item type is one
+row. If a fact does not fit the vocabulary, that is a design finding for the table, not a reason for a script. The
+probes below that remain are `bridge-refusal-review`'s, folded into the table once that change is archived.
 
 ## Which bridge a script may touch
 
