@@ -183,6 +183,9 @@ public class AbstractMemberNoSlotTests
         Assert.Contains("'TakePicture'", reason);
         Assert.Contains("ABSTRACT", reason);
         Assert.Contains("re-type", reason);
+        // The engine names no vendor (spec: "saying the IDE keeps it abstract"); the guard runs above the vendor seam.
+        Assert.Contains("the IDE keeps it abstract", reason);
+        Assert.DoesNotContain("CODESYS", reason);
         AssertNothingMutated(ide);
     }
 
@@ -198,6 +201,9 @@ public class AbstractMemberNoSlotTests
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'Busy' GET", reason);
         Assert.Contains("re-type", reason);
+        // The engine names no vendor (spec: "saying the IDE keeps it abstract"); the guard runs above the vendor seam.
+        Assert.Contains("the IDE keeps it abstract", reason);
+        Assert.DoesNotContain("CODESYS", reason);
         AssertNothingMutated(ide);
     }
 

@@ -178,3 +178,22 @@ x := 1;` (green on the tree). The line OUTSIDE a comment is refused, as every ot
       Connector 115, Engine 2325 (+1 skip), Codesys 313, Cli 264; volt-cli `bun test test/unit` 75 pass / 0 fail;
       volt-vscode `bun test` 40 pass / 0 fail; volt-lsp-iec full `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset)
       9525 pass / 35 skip / 421 todo / 0 fail (9981 tests, 327 files, 769 s); `rate:fixtures` (3m28s) left `map.generated.ts` unchanged (edge agree 3261 / disagree 0 / not-run 219).
+
+## 4. Close (2026-10-11)
+
+- Full suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset): volt-lsp-iec `bun test` 9525 pass /
+  35 skip / 421 todo / 0 fail (9981 tests, 327 files, 1169 s); `dotnet test Volt.sln -c Release` (VOLT_REQUIRE_FULL=1)
+  all green — Repo.Gates 160, Contracts 34, Twincat 451, Relay 62, Connector 115, Engine 2325 (+1 skip), Codesys 313,
+  Cli 264; volt-cli `bun test test/unit` 75 / 0 fail; volt-vscode `bun test` 40 / 0 fail; `bun run typecheck` clean;
+  `bun run lint` exit 0; `openspec validate` valid.
+- Docs the change names, updated in step 3: DIALECT C2n, `docs/network-text.html`, volt-lsp-iec `docs/behavior.md`.
+- Final review, SPEC + LAYERING lenses over the whole change: one finding, FIXED test-first — the re-type refusal in
+  `BodyFormatGuard` (Volt.Engine, above the vendor seam) named a vendor ("CODESYS keeps such a member abstract") where
+  the spec says "saying the IDE keeps it abstract". Red first (`AbstractMemberNoSlotTests` both re-type tests now assert
+  "the IDE keeps it abstract" and no "CODESYS": 2 failed), then green (Engine 2325 + 1 skip). Nothing else found: every
+  spec scenario has its test (`AbstractMemberNoSlotTests`, `ImplementationKeywordTests`, `CodesysAbstractMemberPushTests`,
+  `TcAbstractMemberSlotTests`, e2e `abstract-member.test.ts`); the vendor fact (declared-and-null `Implementation`) stays
+  in `CodesysDriver`, the engine sees only `StatedLanguage.NoSlot`; `ItemContent`'s reference to
+  `ImplementationMarker` follows the pre-existing `Unsupported` pattern.
+- Open for the owner (default shipped): the vendor wire divergence for `METHOD ABSTRACT` (CODESYS `IMPLEMENTATION NONE`,
+  TwinCAT `IMPLEMENTATION ST`) recorded in design.md gate 3.

@@ -60,7 +60,7 @@ public static class BodyFormatGuard
     private static void Authorable(string what, string? body, StatedLanguage? stated)
     {
         // `IMPLEMENTATION NONE` ON A CREATE (openspec abstract-member-push): the create makes a member WITH a slot
-        // (CODESYS: a `POUMethodObject`, DIALECT C2n), so the next pull would contradict the file. A rename or a retype
+        // (DIALECT C2n), so the next pull would contradict the file. A rename or a retype
         // of a pulled abstract member reaches here too — the reconciler turns it into delete + create.
         if (StatedOf(what, "pushed", body, stated) is { NoSlot: true })
             throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -155,7 +155,7 @@ public static class BodyFormatGuard
             if (IsAbstract(liveDeclaration) && !IsAbstract(pushedDeclaration))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"{what}: its declaration drops ABSTRACT, but the IDE holds it as an abstract member with no body " +
-                    $"slot ('{ImplementationMarker.NoneLine}'), and CODESYS keeps such a member abstract whatever its text — " +
+                    $"slot ('{ImplementationMarker.NoneLine}'), and the IDE keeps it abstract whatever its text — " +
                     "a re-type the push cannot make in place. Make the member concrete in the IDE and run `volt pull`, " +
                     "or delete it in one push and add it with 'IMPLEMENTATION ST' in the next.");
             return;
