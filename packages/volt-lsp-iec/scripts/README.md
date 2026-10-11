@@ -4,7 +4,7 @@ These are tools you run **by hand** (or in CI, for the offline ones) to *produce
 tests check against. The tests live in `src/**/*.test.ts` and `test/` — see [`../TESTING.md`](../TESTING.md). The one
 exception is the unit tests of the libraries and gates below (`bridge.test.ts`, `held-as.test.ts`,
 `suite-snapshot.test.ts`, `check-layering.test.ts`, `check-size.test.ts`, `check-citations.test.ts`,
-`dead-exports.test.ts`): a bare `bun test` discovers them here and runs them with the rest. `bun run typecheck` covers every `.ts` file in this directory.
+`dead-exports.test.ts`, `probe-refusal-evidence.test.ts`): a bare `bun test` discovers them here and runs them with the rest. `bun run typecheck` covers every `.ts` file in this directory.
 
 Every file is listed once, grouped by purpose. **Live** = a bridge (or a CODESYS install) must be up; **offline** =
 pure, runs under `bun`. The paths stay flat on purpose: open openspec changes, tests and source comments name
@@ -24,7 +24,7 @@ only that child), opening a copy of the fixture.
 **Probes are single use.** A one-question measurement goes once its answer is cited; the citation stays and points at
 history (`… (deleted; git show <commit>:packages/volt-lsp-iec/scripts/<file>)`). On 2026-10-03 that removed
 `probe-dep-depth.ts`, `probe-is-it-compiled.ts`, `probe-order-dependence.ts`, `probe-position-length.ts` and
-`measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`). The two `probe-*` files left are named by open
+`measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`). The three `probe-*` files left are named by open
 openspec tasks — see the Measure table.
 
 ## Libraries (imported by the tools, not run)
@@ -86,4 +86,5 @@ openspec tasks — see the Measure table.
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
 | `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (run by openspec `transpile-restructure` 4.1; named by `test/corpus/corpus.test.ts`) |
+| `probe-refusal-evidence.ts` | per `unclassified` refusal code (`lower/diagnostics/codes.ts`), read PER CALL SITE: each site's message literal and what it says, the conformance fixtures that hit it split by what the vendor did (ran / refused) and its corpus POU count, each hit attributed to the site whose message produced it (a tie or no match is a pseudo-entry, never a site), and the kind that evidence points at: decided only when every site agrees, else `partly decided`, a split candidate or `undecided` — a markdown table (run by openspec `transpile-refusal-classification` 1.1; its pointer logic tested in `probe-refusal-evidence.test.ts`) |
 | `probe-projectsettings-effect.ts` | proves a project's `.projectsettings` actually SUPPRESSES diagnostics (per-code delta, settings on vs off; rewired by openspec `analysis-conformance` 1.3, re-run after it) |
