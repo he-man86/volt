@@ -10,6 +10,7 @@ import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
 import { holdsAtAnyDepth } from "../places/path.js"
+import { viewStore } from "../calls/string-inouts.js"
 import { guardWrite, PLAIN_WRITE, STORE_WRITE } from "../places/access-guards.js"
 import { assignTo, convert, sameType } from "../values/convert.js"
 import { classifyConversion, elementaryRef, elemOf, isIntegerType, type Type } from "../../../frontend/types/index.js"
@@ -56,7 +57,7 @@ function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): Ir
     const written = lowerPlace(lw, targets[i]!)
     const target = written === undefined ? undefined : guardWrite(lw, written, targets[i]!.span, STORE_WRITE)
     if (target === undefined) return undefined
-    places[i] = target
+    places[i] = viewStore(lw, target)
   }
   const direct = value.kind === "const" && ops.every((op) => op === undefined) && places.every((t) => retyped(t.type))
   const held = direct ? undefined : tempPlace(lw, "chain_value", value.type, s.value.span, "statement")
@@ -101,7 +102,8 @@ export function lowerAssign(lw: Lowering, s: Extract<Statement, { kind: "assign"
   // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which is no store, so not there)
   if (target === undefined || guardWrite(lw, target, s.span, PLAIN_WRITE) === undefined) return undefined
   if (s.op === "S=" || s.op === "R=") return lowerLatch(lw, s, target)
-  return storeValue(lw, s, target)
+  // a whole store through a STRING VAR_IN_OUT bound wider writes at the capacity it declares (`string-inouts.ts`)
+  return storeValue(lw, s, viewStore(lw, target))
 }
 
 /** `s[i] := c` or a cursor's `p^ := c` — the string stored back with one character changed (`setchar`). */

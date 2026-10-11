@@ -8,7 +8,8 @@ import { at, Prec, printed } from "./precedence.js"
 import { stmtBreak, stmtContinue, stmtLoop } from "./loops.js"
 import { tmp } from "./names.js"
 import { borrowOf, lvalue, place } from "./place.js"
-import { guardLine, letTemp, type Printer, push } from "./printer.js"
+import { guardLine, letTemp, type Printer, push, use } from "./printer.js"
+import type { Type } from "../../../frontend/types/index.js"
 import { plainCopy, rustType } from "./types.js"
 import { storeImage } from "./image.js"
 import { mustUse } from "./locals.js"
@@ -109,8 +110,12 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
     // VAR_IN_OUT's generic one (`inoutType`) needs no name — which is why an in-out on either side stores too. At one
     // capacity the store writes every unit, so it IS the plain copy, and prints as one.
     if (!plainCopy(s.target, s.value)) {
-      // a borrow is its own receiver and its own argument, auto-deref'd and reborrowed (7.8.6)
-      push(p, `${borrowOf(field) ?? field}.store(${value.receiver ?? `&${at(value, Prec.Unary)}`});`, indent, s.span)
+      // a borrow is its own receiver and its own argument, auto-deref'd and reborrowed (7.8.6); a STRING VAR_IN_OUT bound
+      // wider than it declares is stored into within the capacity its place is typed at (`storedWithin`)
+      const within = storedWithin(p, s.target)
+      const store = within === undefined ? "store" : `store_within::<${within}, _>`
+      if (within !== undefined) use(p, "string_store_within")
+      push(p, `${borrowOf(field) ?? field}.${store}(${value.receiver ?? `&${at(value, Prec.Unary)}`});`, indent, s.span)
       return
     }
     push(p, `${lvalue(field)} ${compound(s, lvalue(field), at(value, Prec.Block))};`, indent, s.span)
@@ -134,6 +139,20 @@ function assignValue(p: Printer, s: Extract<IrStmt, { kind: "assign" }>, slots: 
     s.span,
   )
   return
+}
+
+/**
+ * A WHOLE STORE THROUGH A STRING VAR_IN_OUT BOUND WIDER THAN IT DECLARES (`lower/calls/string-inouts.ts`): lowering types
+ * the target place at the declared capacity and the slot — the Rust generic `N_*` — at the caller's, so the store writes
+ * within the place's capacity (`IecStr::store_within`, the interpreter's `storeString` at that m). Undefined for any other
+ * store, whose place's capacity is its holder's own.
+ */
+function storedWithin(p: Printer, target: Extract<IrStmt, { kind: "assign" }>["target"]): number | undefined {
+  if (target.root !== "inout" || target.path.length > 0) return undefined
+  const held = p.frame.inoutSlots[target.slot]?.type
+  const capacity = (t: Type | undefined): number | undefined => (t?.kind === "elementary" ? t.length : undefined)
+  const [place, own] = [capacity(target.type), capacity(held)]
+  return place !== undefined && own !== undefined && place !== own ? place : undefined
 }
 
 /** IF … ELSIF … ELSE: an `else` whose whole body is one more IF is that IF's `else if` (7.5.5, clippy's

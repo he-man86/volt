@@ -19,11 +19,13 @@ describe("emit/rust", () => {
 
 // transpile-restructure 6.A.6 (Appendix A): an open ARRAY in-out's dimensions and a STRING in-out's capacity are both const
 // generics of the routine. They were `N_<NAME>_<d>` and `N_<NAME>`, so `grid : ARRAY[*, *]` (its second dimension
-// `N_GRID_2`) beside `grid_2 : STRING` (`N_GRID_2`) declared one generic twice — E0403, on ST CODESYS compiles.
+// `N_GRID_2`) beside `grid_2 : STRING` (`N_GRID_2`) declared one generic twice — E0403, on ST CODESYS compiles. (Its
+// `label` was a STRING(12), which CODESYS refuses for a STRING in-out — "too short for the VAR_IN_OUT parameter",
+// `string_inout_narrower`, 2026-10-11 — so the program the test compiles binds a STRING.)
 test("an open array in-out's dimension generics never meet a STRING in-out's capacity generic", () => {
   const { pou, diagnostics } = lowerSource(
     "FUNCTION F_Gen : INT\nVAR_IN_OUT grid : ARRAY[*, *] OF INT; grid_2 : STRING; END_VAR\ngrid_2 := 'x';\nF_Gen := grid[0, 0];\nEND_FUNCTION\n" +
-      "PROGRAM Gen\nVAR cells : ARRAY[0..1, 0..2] OF INT; label : STRING(12) := 'abc'; n : INT; END_VAR\nn := F_Gen(cells, label);\nEND_PROGRAM\n",
+      "PROGRAM Gen\nVAR cells : ARRAY[0..1, 0..2] OF INT; label : STRING := 'abc'; n : INT; END_VAR\nn := F_Gen(cells, label);\nEND_PROGRAM\n",
     "Gen",
   )
   expect(diagnostics).toEqual([])

@@ -85,6 +85,16 @@ impl<T: Copy + Eq, const N: usize> Eq for IecStr<T, N> {}
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
 impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{text:?}") } }
 `
+/** A WHOLE STORE THROUGH A STRING VAR_IN_OUT BOUND WIDER THAN IT DECLARES (transpile-restructure 8.2, design.md §7.2 Decision
+ *  (step 8e)): the store into the first D units of this, the caller's, buffer — min(M, D) source units and a 0 behind them,
+ *  the caller's units behind that kept (`string_inout_wider_stores`) — the interpreter's `storeString` with the declared
+ *  capacity as its m. Lowering hands it only an in-out whose declared D is below the caller's N (CODESYS refuses a narrower
+ *  binding, `string_inout_narrower`), so the 0 lands inside the buffer. Printed on demand, apart from the string type. */
+export const IEC_STR_STORE_WITHIN = `// a store through a STRING VAR_IN_OUT that declares D units, bound to this wider buffer (string_inout_wider_stores)
+impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
+    pub fn store_within<const D: usize, const M: usize>(&mut self, src: &IecStr<T, M>) { let k = M.min(D).min(N); self.units[..k].copy_from_slice(&src.units[..k]); if k < N { self.units[k] = T::default(); } self.scan(); }
+}
+`
 /** `Standard.LEN_INTERNAL` (`IrBuiltinName` `length`): the units before the first 0, which `len` holds — `units().len()`,
  *  the interpreter's `lengthOf` (`semantics/string.ts`). Lowering refuses a string a UINT cannot count
  *  (`string-length-width`), so the cast never truncates. Printed on demand, apart from the string type. */

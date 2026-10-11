@@ -133,7 +133,8 @@ describe("which argument is lent", () => {
     // LEN's as it is, LEFT's taken where it is written (Cut, written after it, is lent the in-out writable)
     const standardCalls = (fn: string): IrInvoke[] => {
       const out: IrInvoke[] = []
-      forEachExpr(pou!.routines.find((r) => r.name === fn)!.body, (e: IrExpr) => {
+      // bound to a STRING(12), each FUNCTION is its view variant (`string-inouts.ts`, step 8e): `Lent#IO@=STRING12`
+      forEachExpr(pou!.routines.find((r) => r.name === `${fn}#IO@=STRING12`)!.body, (e: IrExpr) => {
         if (e.kind === "invoke" && e.routine.startsWith("STANDARD.")) out.push(e)
       })
       return out

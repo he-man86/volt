@@ -581,6 +581,29 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ).flatMap(([vendor, fixture, counts, why]) =>
     Object.entries(counts).map(([measure, by]) => ({ baseline: `fixtures.${vendor}`, measure, by, fixture, task: "none: niche, accepted loss (analysis-conformance 3.7–3.9)", why })),
   ),
+  // transpile-restructure 8.2 step 8e (2026-10-11): a STRING / WSTRING bound to a VAR_IN_OUT that declares more units, which
+  // both vendors refuse ("String variable 'v' too short for the VAR_IN_OUT parameter 'io' of …") and the LSP does not check —
+  // `MEASURED_SILENT`, lsp-transpile-review-gaps 2.5; and a literal too long for a VAR_IN_OUT STRING(10), which both vendors
+  // build without a warning and the LSP warns C0198 for (FP(div), `STRING_CONSTANT_INTO_AN_INOUT`, 2.6). New ground measured.
+  ...(
+    [
+      ["string_inout_narrower", { "total: GAP": 2, "total: unowned GAP": 2 }, "lsp-transpile-review-gaps 2.5 (a string in-out's capacity at the call)"],
+      ["wstring_inout_narrower", { "total: GAP": 1, "total: unowned GAP": 1 }, "lsp-transpile-review-gaps 2.5 (a string in-out's capacity at the call)"],
+      ["string_inout_wider_stores", { "total: FP": 1 }, "lsp-transpile-review-gaps 2.6 (C0198 on a VAR_IN_OUT target)"],
+      ["wstring_inout_wider", { "total: FP": 1 }, "lsp-transpile-review-gaps 2.6 (C0198 on a VAR_IN_OUT target)"],
+    ] as const
+  ).flatMap(([fixture, counts, task]) =>
+    (["codesys", "twincat"] as const).flatMap((vendor) =>
+      Object.entries(counts).map(([measure, by]) => ({
+        baseline: `fixtures.${vendor}`,
+        measure,
+        by,
+        fixture,
+        task,
+        why: "a STRING VAR_IN_OUT bound at another capacity than it declares, recorded 2026-10-11 (transpile-restructure 8.2, step 8e)",
+      })),
+    ),
+  ),
   // transpile-restructure 5.1 (2026-10-09): a STRUCT field's FB_Init argument naming a local of the declaring POU, which
   // both vendors refuse ("Identifier '…' not defined" and its conversion echo) and the LSP does not check — the fixture's
   // `deferred.lsp`. New ground measured, not a regression.
@@ -876,6 +899,17 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
     fixture: "tr_a18_char_store_through_reference",
     task: STRING_INDEX_TASK,
     why: "transpile-restructure 6.A.18: `rs[1] := 88` through a REFERENCE TO STRING — the string index the hand-off types",
+  })),
+  // transpile-restructure 8.2 step 8e (2026-10-11): `SEL(g, 'x', io)` over a STRING literal and a STRING(10) — both vendors
+  // build it, CODESYS runs it to 'abcdefghij' (`string_inout_wider_reads`) — is UNKNOWN in the front-end: the selection's
+  // meet of two STRINGs of different capacities (`types/builtins` `selectionValueArguments`). New ground measured.
+  ...(["codesys", "twincat"] as const).map((vendor) => ({
+    baseline: "type-dump",
+    measure: `fixtures ${vendor}: call UNKNOWN`,
+    by: 1,
+    fixture: "string_inout_wider_reads",
+    task: "lsp-transpile-review-gaps 2.7 (SEL / MUX / LIMIT over STRINGs of different capacities)",
+    why: "SEL(g, 'x', io), a STRING(1) literal beside a STRING(10) in-out — the meet of two string capacities",
   })),
 ]
 

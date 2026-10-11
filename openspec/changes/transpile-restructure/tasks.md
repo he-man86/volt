@@ -6939,6 +6939,43 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     - Gate checks: `bun typecheck` clean; `bun run lint` green (layering 1 known, size 0 listed, citations 0 missing);
       `rate:fixtures` as above; full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9367 pass / 35 skip / 388 todo / 0 fail, 9790 tests across 323 files (665s); `bun run
       test:corpus` 19 pass / 1 skip / 0 fail; `bun run check` 18 passed.
+  - Step 8e (2026-10-11), the close's work on what 8.2 still waited on. The owner's request for the close: "just take our
+    time to do it proper! whatever you need" — read with his 2026-10-10 rule for 8.2's six (fix each mark against its
+    recording; only a fix MEASURED impossible joins §7.2) and for 7.8.4 / 7.8.8 (low corpus counts are no reason to leave a
+    mark): the two 7.4c marks, the last outside both lists, are fixed, not left to a decision (design.md §7.2 Decision (step
+    8e); 8.3 R10).
+    - Recorded first (CODESYS `record:language` + `record:exec`, TwinCAT Project13 `record:language`; `ide.ps1 -Instance
+      transpile-restructure`, every IDE it started closed after): `string_inout_wider_stores`, `string_inout_wider_reads`,
+      `wstring_inout_wider` (build clean on both vendors), `string_inout_narrower`, `wstring_inout_narrower` (refused on both:
+      "String variable 'v' too short for the VAR_IN_OUT parameter 'io' of …"). A first version of the stores fixture passed
+      the in-out on to a STRING(12) one — refused alike — and was rewritten to pass it to a STRING(10) one; the narrower
+      fixtures were two (`_fits`, `_overrun`) before CODESYS refused both, and became one.
+    - Fixed, one model in both backends (`lower/calls/string-inouts.ts`): a routine bound wider is lowered per bound capacity
+      (`io@=STRING12`), its slot the caller's type and its `readAs` / `declared` the declared one; a comparison reads in place
+      (`inPlace`); a whole store writes within the declared capacity (`viewStore`; Rust `store_within`, its twin cases in
+      `string.cases.ts`); refused by name: an FB's string in-out bound at another capacity (`call-inout-capacity`,
+      not-modelled) and a non-CONSTANT one bound narrower (`call-inout-short`, invalid). Both marks removed;
+      `string_inout_wider_unit_read`, `_copies` and the three new wider fixtures `confirmed`, edge agree. Unit tests:
+      `string-inouts.test.ts` (9).
+    - Test premises the recordings showed wrong (independent of the code): `emit/rust/types.test.ts` and
+      `emit-build.test.ts` (`F_Units`) bound a string narrower to a non-CONSTANT in-out; `test/libraries/standard.test.ts`'s
+      LEN_INTERNAL walk bound a STRING(0..4) to the repo body's STRING(255) in-out — each now binds what CODESYS builds (a
+      STRING, a WSTRING(100), the body's in-out read-only). `string-inputs.test.ts` finds the routine under its variant name.
+    - LSP findings, filed (`lsp-transpile-review-gaps` 2.5-2.7): the narrower binding the LSP accepts (`MEASURED_SILENT`, the
+      `lsp-gap` ceiling 85 -> 87), C0198 on a literal into a VAR_IN_OUT that neither vendor warns (`support/divergences.ts`
+      `STRING_CONSTANT_INTO_AN_INOUT`), SEL over two string capacities UNKNOWN in the front-end (a named ceiling exception);
+      the analysis census' new FP(div) / GAP rows are named exceptions (`test/frontend/baseline.ts`). Baselines: COUNT moves
+      only (+5 fixtures). `source-map.test.ts` RENAMED_TARGETS 535 -> 536 (a FUNCTION's tail, 7.7.3's class).
+    - Corpora: the refusal list of all 304 POUs identical before (HEAD worktree) and after (54 lowered, 250 refused).
+    - Also: `scripts/rate-fixtures.ts` printed a blank line into the map's header where a group of the edge section was
+      empty (no disagreement left) — one list of lines now.
+    - THE DELTA, gate 8c -> step 8e (`rate:fixtures`, 5581 -> 5586 fixtures): confirmed 3031 -> 3036, refused 2018,
+      not-lowered 345, lsp-gap 85 -> 87, diverges 7 -> 5, unaskable 95; tier call 342 -> 345 (lowered and clean); edge agree
+      3237 -> 3242, disagree 2 -> 0, not-run 219; pedantic 2199 (unchanged); surviving lints 14 of 4 (unchanged); ALLOWED
+      unchanged; size median 2.7, the ten largest unchanged; notes 20 (all `keep`); shapes 1905 -> 1908 over 3458 -> 3461
+      lowered, constructs 2159 -> 2182.
+    - Open marks now: the trig family of §7.2 (3) and the FUNCTION-frame residue of §7.2 (2, measured impossible, the named
+      loss the owner reviews). Accept: M met; every open mark is in one of the two lists.
 - [ ] 8.3 Final review.
   - What: spec, layering and a fresh-implementation review over the whole change; fix or file.
   - Where: all touched files.
@@ -7050,7 +7087,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
         not on what the code answers. `quiet` keeps its own extra conditions (no string conversion, no image root, the
         shorter builtin list, no `fresh`/`count`/`copy`/`reinterpret`): restating it as `cannotFault` plus those is not
         output-neutral to prove here and is left as is — the shared part is now shared.
-      - R6 (FIX, P1 — copies phases 4-5 brought back after 1.7's consolidations; output-neutral, S):
+      - R6 (FIX, P1 — copies phases 4-5 brought back after 1.7's consolidations; output-neutral, S — FIXED by step 8e, below):
         (a) `lower/pointers/escape.ts` (4d, 73db8322a0) walks paths by hand twice (`escapeKey`'s loop, `typeOfPrefix`)
         beside `places/path.ts` `typeAlong` ("THE ONE PATH WALK"), keeps a second `rootTypeOf` beside `path.ts`
         `rootType`, and looks fields up by name at :301 and :349 past `fieldOf` (P1 "field lookup by upper-cased name").
@@ -7075,7 +7112,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
         `reachesFbInit` keeps its own walk — its answer is memoized across calls of the init step per type and question,
         which a per-call cycle set is not. (d) `chain.ts` `declaredTypeChain` (an FB's or a STRUCT's EXTENDS by name) is
         `fieldWritten`'s walk; `families` asks `baseOf`.
-      - R7 (FIX or FILE, P1 — the escape/identity key namespace): 42 template spellings over 16 `lower/` files of
+      - R7 (FIX or FILE, P1 — the escape/identity key namespace; FIXED by step 8e, below): 42 template spellings over 16 `lower/` files of
         `GLOBAL.<n>`, `<frameContext|routineContext>.<n>`, `POU:<root>.<n>`, `FB:<type>.<field>`, `ROUTINE:<key>.<n>`,
         `TYPE:<fb>`, `VIEW:<key>` — a key one file writes must equal the key another writes (`pointers/state.ts`
         `pointerKey`, `escape.ts` `variableKey` / `rootVariableKey`, `image.ts` `layOutImage`, `raw-bool.ts`
@@ -7110,7 +7147,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
         table amended — `library` in rule 3's sentence and `lower/`'s front-end column, `syntax` (the `Span` type only)
         in `interp/`'s and `emit/rust/`'s (the table amended rather than an `ir/` re-export: `Span` is the IR's own field
         type, and the lint's transpile column is unchanged).
-      - R10 (OWNER, with 8.2): the two edge disagreements, `string_inout_wider_unit_read` / `_copies`, are the backends
+      - R10 (OWNER, with 8.2 — FIXED by step 8e, design.md §7.2 Decision (step 8e), above in 8.2): the two edge disagreements, `string_inout_wider_unit_read` / `_copies`, are the backends
         holding TWO models of one in-out — the Rust generic over the caller's capacity, the interpreter at the declared
         one — which the spec's "except where the map names a known divergence" admits but P3 ("the same model, defined
         once") does not. The recordings name one model both could hold: the in-out IS the caller's buffer for an index

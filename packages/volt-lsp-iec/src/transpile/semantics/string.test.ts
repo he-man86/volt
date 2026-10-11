@@ -47,7 +47,7 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
 // buffer — the check that fails FIRST when the model drifts; the twin harness runs the same table through rustc.
 describe("the string buffer model — its case table (string.cases.ts)", () => {
   const ran = (input: StringInput): string =>
-    input.ops.reduce((s, op) => ("store" in op ? storeString(s, input.m, op.store, op.n) : setChar(s, BigInt(op.at), BigInt(op.unit), input.m)), "")
+    input.ops.reduce((s, op) => ("store" in op ? storeString(s, op.within ?? input.m, op.store, op.n) : setChar(s, BigInt(op.at), BigInt(op.unit), input.m)), "")
   for (const [rule, cases] of Object.entries(STRING_CASES))
     test(rule, () => {
       expect(cases.map((c) => `${c.name}: ${JSON.stringify(ran(c.input))}`)).toEqual(cases.map((c) => `${c.name}: ${JSON.stringify(c.expected)}`))

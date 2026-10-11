@@ -14,6 +14,7 @@ import { guardWrite, STORE_WRITE } from "../places/access-guards.js"
 import { isAssignable } from "../../../frontend/types/index.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
 import { storeArgument } from "../statements/assign.js"
+import { viewStore } from "./string-inouts.js"
 
 /** `name => target`: a VAR_OUTPUT bound to the caller's place, copied out after the call; left empty, nothing binds here. */
 export function bindOutputArgument(lw: Lowering, b: InvokeBindings, arg: CallArg, bound: number, param: IrSlot | undefined): true | undefined {
@@ -62,8 +63,10 @@ export function bindUnconnectedOutputs(lw: Lowering, b: InvokeBindings, outside:
 /** `q => y`: the output read out of the instance after the call, into a variable it converts to as an assignment does. */
 export function fbOutputCopy(lw: Lowering, arg: CallArg, member: Place, field: IrSlot): IrStmt[] | undefined {
   const written = lowerPlace(lw, arg.value!)
-  const target = written === undefined ? undefined : guardWrite(lw, written, arg.span, STORE_WRITE)
-  if (target === undefined) return undefined
+  const guarded = written === undefined ? undefined : guardWrite(lw, written, arg.span, STORE_WRITE)
+  if (guarded === undefined) return undefined
+  // copied into a STRING VAR_IN_OUT bound wider: a whole store at the capacity it declares (`string-inouts.ts`)
+  const target = viewStore(lw, guarded)
   // AN OUTPUT IS READ INTO A VARIABLE OF ITS OWN TYPE. `accepts_output_into_other_type` asked CODESYS on
   // 2026-09-18: `w(o => text)` with an INT output and a STRING variable does not compile, "Cannot convert type
   // 'INT' to type 'STRING'". The ROUTINE call path has checked this since `call-output-type`; the FB BODY call

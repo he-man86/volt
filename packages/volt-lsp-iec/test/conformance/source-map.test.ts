@@ -90,7 +90,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // result through `Mem` as well (their BOOLs' addresses taken, so the FB's fields are the image's): `bool_pointer_over_bytes`
 // 28, `bool_byte_flow_move` 8, `_any` 8, `_inout` 6 (the in-out's copy back included), `_fb_input` 6, `_fb_field` 6,
 // `bool_pointer_copied_to_byte_pointer` 4, `byte_pointer_copied_to_bool_pointer` 3 (69; the other fixtures' lines fell by 2).
-const RENAMED_TARGETS = 535
+// 535 -> 536 (2026-10-11, step 8e), read: no new class — a FUNCTION's result as the fn's tail (7.7.3's class above), in a new
+// fixture of the STRING in-out bound wider: `string_inout_wider_reads`' `F_InoutWiderDiffers := io <> 'abcdefghij'` is the
+// tail `io.units() != b"abcdefghij"`, an assignment to this test only through its `!=` (as `refbit_function_var_reference`'s).
+const RENAMED_TARGETS = 536
 
 interface Program {
   name: string

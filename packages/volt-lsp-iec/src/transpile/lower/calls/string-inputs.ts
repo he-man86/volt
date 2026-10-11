@@ -16,14 +16,18 @@
  *   argument                                  lent                                  Rust
  *   a place `lendable` takes, STRING(N<=255)  the place, at N                       len(&self.hello)
  *   a literal, a FUNCTION's result, any       a copy at its own N, taken as the     len(&IecString::<3>::lit(b"abc"))
- *     other STRING(N<=255) place — a whole    input copy took it                    len(&concat(&self.a, &self.b))
- *     STRING VAR_IN_OUT among them                                                  len(&io.to::<10>())
+ *     other STRING(N<=255) place — a STRING   input copy took it                    len(&concat(&self.a, &self.b))
+ *     VAR_IN_OUT bound wider among them, read                                       len(&io.to::<10>())
+ *     through its declared capacity
  *   anything else: a STRING wider than 255,   a copy CUT to STRING(255) — exactly   len(&self.wide.to::<255>())
  *     a conversion, a METHOD's result          the input copy (`string_input_truncation`)
  *
  * so no argument keeps a by-value input, and nothing is lowered twice to find its type (a conversion's or a METHOD's
- * result is converted to the declared STRING(255), as the input was). A whole STRING VAR_IN_OUT is bound at its CALLER's
- * capacity, which the copy does not read (`callersCapacity`). Where the order could show — a later argument's call
+ * result is converted to the declared STRING(255), as the input was). A whole STRING VAR_IN_OUT is lent as its value, the
+ * copy at the capacity it declares (`string_input_lent_inout_wider`: LEN(io) 10 of 'abcdefghijkl'): bound wider, it is the
+ * caller's buffer seen through that capacity (`string-inouts.ts`); bound at its own, the copy reads what a borrow would,
+ * but its Rust type is generic over the capacity (`emit/rust/types.ts` `inoutType`), which a temp of the declared type
+ * cannot take as it is (`wholeInOut`). Where the order could show — a later argument's call
  * changes the string, or both it and a later argument could fault — a lent string is taken where it is written, as the
  * copy was (`inputWhereWritten`). A body that writes such an input, lends it writable or takes its address is a
  * library-repo defect, refused by name (`input-borrow-written`) — never a silent copy.
@@ -38,7 +42,7 @@ import { type Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js
 import { tempPlace } from "../core/temps.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerPlace } from "../places/places.js"
-import { lentInputSlotsOf } from "../places/access-guards.js"
+import { lentInputSlotsOf, slotOf } from "../places/access-guards.js"
 import { storageOf } from "../storage/layout.js"
 import { refuseImplicitString } from "../statements/assign.js"
 import { convert } from "../values/convert.js"
@@ -95,14 +99,15 @@ function argumentKind(value: Expr): { kind: "literal" | "call" | "place"; value:
 }
 
 /**
- * The type an argument is lent at: its own STRING(N <= 255) — a place's, a literal's, a FUNCTION result's declared one —
- * or else the declared STRING(255), which the copy is cut to. A probe: nothing it reports stays reported.
+ * The type an argument is lent at: its own STRING(N <= 255) — a place's (a view's, `string-inouts.ts`, the capacity it
+ * declares), a literal's, a FUNCTION result's declared one — or else the declared STRING(255), which the copy is cut to.
+ * A probe: nothing it reports stays reported.
  */
 function lentType(lw: Lowering, value: Expr, declared: Type): Type {
   const arg = argumentKind(value)
   const before = lw.diagnostics.length
   const own = lw.inArgument(() =>
-    arg.kind === "literal" ? lowerExpr(lw, arg.value)?.type : arg.kind === "call" ? resultType(lw, arg.value as Extract<Expr, { kind: "call" }>) : lowerPlace(lw, arg.value)?.type,
+    arg.kind === "literal" ? lowerExpr(lw, arg.value)?.type : arg.kind === "call" ? resultType(lw, arg.value as Extract<Expr, { kind: "call" }>) : readType(lw, lowerPlace(lw, arg.value)),
   )
   lw.diagnostics.length = before
   return isString(own) && own.length <= DECLARED ? own : declared
@@ -120,23 +125,26 @@ function resultType(lw: Lowering, call: Extract<Expr, { kind: "call" }>): Type |
   return storageOf(lw, lw.resolve(ast.returnType, scope), ast.returnType.span)
 }
 
+/** The type a place's VALUE has: a view's declared type (`string-inouts.ts`), any other place's own. */
+const readType = (lw: Lowering, place: Place | undefined): Type | undefined => (place === undefined ? undefined : (slotOf(lw, place)?.readAs ?? place.type))
+
 /** A place a read-only `&` may borrow beside everything else the call holds, and read as the input copy read it: none of
  *  a global (every body holds the globals as one `&mut`), a dereference, a byte-image place, a lent instance's, a bit, or
- *  a whole STRING VAR_IN_OUT bound at its caller's capacity (`callersCapacity`). */
+ *  a whole STRING VAR_IN_OUT (`wholeInOut`). */
 function lendable(lw: Lowering, place: Place | undefined): Place | undefined {
-  if (place === undefined || place.guard !== undefined || place.at !== undefined || callersCapacity(lw, place)) return undefined
+  if (place === undefined || place.guard !== undefined || place.at !== undefined || wholeInOut(lw, place)) return undefined
   if (place.root === "global" || place.root === "image" || place.root === "lent") return undefined
   return place.path.some((s) => s.kind === "bit") ? undefined : place
 }
 
 /**
- * A WHOLE STRING VAR_IN_OUT OF THE ROUTINE, BOUND AT ITS CALLER'S CAPACITY — which may be wider than the one it declares:
- * a STRING(12) binds `io : STRING(10)`. Its input copy reads it at the DECLARED capacity (recorded,
- * `string_input_lent_inout_wider`: LEN(io) 10, LEFT(io, 20) 'abcdefghij' of 'abcdefghijkl'), where a borrow reads the
- * caller's units — so it is lent as that copy, never as itself. A variant's own lent input is the exception: it is always
- * bound at the capacity it declares (`lentType`), so it is lent on as it is.
+ * A WHOLE STRING VAR_IN_OUT OF THE ROUTINE — not one of its own lent inputs, which is bound at the capacity it is lent at
+ * (`lentType`) and lent on as it is. It is lent as its VALUE, a copy at the capacity it declares: bound wider, that is its
+ * view's copy (`string-inouts.ts`, `loadValue`); bound at its own capacity, the copy reads what a borrow would, but its
+ * Rust type is generic over the capacity (`inoutType`), so a temp the call freezes it into (`inputWhereWritten`) takes it
+ * only converted — `io.to::<10>()`.
  */
-function callersCapacity(lw: Lowering, place: Place): boolean {
+function wholeInOut(lw: Lowering, place: Place): boolean {
   return place.root === "inout" && place.path.length === 0 && !lentInputSlotsOf(lw).has(place.slot)
 }
 
@@ -160,7 +168,7 @@ export function declareStringInputs(lw: Lowering, r: Lowering, lent: ReadonlyMap
 /**
  * A READ-ONLY STRING INPUT BOUND at the variant's type (`lentType`): a place `lendable` takes, of that capacity, lent as it
  * is; anything else lent as a copy taken as the input took it — the argument converted to the parameter, which cuts only
- * where the parameter is the declared STRING(255), or where a whole STRING VAR_IN_OUT is bound at its caller's capacity.
+ * where the parameter is the declared STRING(255) (a view's value is already its declared copy, `loadValue`).
  */
 export function bindStringInput(lw: Lowering, arg: CallArg, param: { name: string; type: Type }): IrBinding | undefined {
   const given = argumentKind(arg.value!)
@@ -178,9 +186,9 @@ export function bindStringInput(lw: Lowering, arg: CallArg, param: { name: strin
   const capacity = isString(value.type) ? value.type.length : undefined
   if (isString(param.type) && param.type.length !== DECLARED && capacity !== param.type.length)
     throw new LoweringBug(`${param.name} is lent a STRING(${param.type.length}) and given a ${elemOf(value.type)?.name ?? value.type.kind}(${String(capacity)})`)
-  // a STRING VAR_IN_OUT bound at its caller's capacity is read at its declared one: the copy is that conversion even
-  // where the two types read alike (`io.to::<10>()`)
-  const copied: IrExpr = value.kind === "load" && callersCapacity(lw, value.place) ? { kind: "convert", value, type: param.type, span: value.span } : convert(value, param.type)
+  // a whole STRING VAR_IN_OUT's value is the copy at its declared capacity, a conversion even where the two types read
+  // alike (`wholeInOut`: `io.to::<10>()`); a view's is one already (`loadValue`)
+  const copied: IrExpr = value.kind === "load" && wholeInOut(lw, value.place) ? { kind: "convert", value, type: param.type, span: value.span } : convert(value, param.type)
   return { kind: "copy", value: copied, type: param.type, span: arg.span }
 }
 

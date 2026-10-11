@@ -39,6 +39,7 @@ import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { meet } from "../values/promote.js"
 import { EXEC_ORACLE_DIALECT } from "../conditions.js"
 import { isRawBool, rawBinary, rawNot } from "../pointers/raw-bool.js"
+import { inPlace } from "../calls/string-inouts.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent: neither is an
  *  operator in CODESYS, and the parser refuses both (`parse/expression` `REFUSED_OPERATORS`), so no tree holds one. */
@@ -211,7 +212,8 @@ function stringCompare(lw: Lowering, e: Extract<Expr, { kind: "binary" }>, op: I
   // (`string_wstring_mixing`, transpile-review 38): neither converts into the other implicitly.
   if (elemOf(left.type)!.name !== elemOf(right.type)!.name)
     return lw.bail("string-op", `a ${elemOf(left.type)!.name} compared with a ${elemOf(right.type)!.name}`, e.span)
-  return { kind: "binary", op, left, right, type: elementaryRef("BOOL"), span: e.span }
+  // a STRING VAR_IN_OUT bound wider is compared as the caller's buffer, not its declared copy (`string-inouts.ts`)
+  return { kind: "binary", op, left: inPlace(lw, left), right: inPlace(lw, right), type: elementaryRef("BOOL"), span: e.span }
 }
 
 /** Arithmetic and comparison: a duration scaled by an integer in its own type; a literal beside a variable in the

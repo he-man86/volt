@@ -268,7 +268,10 @@ const FULL = "ab".repeat(128).slice(0, 255)
 
 describe("LEN_INTERNAL, the primitive (task 7.4.6)", () => {
   test("`length` counts what the repo's ST body counts, over every buffer of capacity 0-4 and a full STRING(255)", () => {
-    const st = readFileSync(join(REPO, "LEN_INTERNAL.pou"), "utf8").replaceAll("LEN_INTERNAL", "LEN_INTERNAL_ST")
+    // the ST walk over the caller's very buffer: its in-out read-only (`VAR_IN_OUT CONSTANT`, which its body only reads), as
+    // CODESYS binds a STRING(N < 255) only to a CONSTANT one — a plain VAR_IN_OUT STRING(255) given it is "too short"
+    // (`string_inout_narrower`, transpile-restructure 8.2 step 8e: `call-inout-short`)
+    const st = readFileSync(join(REPO, "LEN_INTERNAL.pou"), "utf8").replaceAll("LEN_INTERNAL", "LEN_INTERNAL_ST").replace(/^VAR_IN_OUT$/m, "VAR_IN_OUT CONSTANT")
     const mismatches: string[] = []
     for (const capacity of [...CAPACITIES, 255]) {
       const program = `${st}\n\nPROGRAM PLC_PRG\nVAR\n\tx1 : STRING(${capacity});\n\tprimitive : UINT;\n\twalked : UINT;\nEND_VAR\nprimitive := LEN_INTERNAL(x1);\nwalked := LEN_INTERNAL_ST(x1);\nEND_PROGRAM\n`

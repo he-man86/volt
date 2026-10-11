@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3031
+ *     confirmed     3036
  *     refused       2018
  *     not-lowered    345
- *     lsp-gap         85
- *     diverges         7
+ *     lsp-gap         87
+ *     diverges         5
  *     unaskable       95
  *
  *   tier                     lowered    clean
@@ -26,7 +26,7 @@
  *     arith                  1596     1596
  *     control                 162      152
  *     aggregate               149      149
- *     call                    342      342
+ *     call                    345      345
  *     indirect                404      404
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -52,8 +52,8 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3237
- *     disagree         2
+ *     agree         3242
+ *     disagree         0
  *     not-run        219
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
  *       not-run: the emitted Rust does not build                 70
@@ -69,8 +69,6 @@
  *       agree,   1/8 unanswered (the interpreter's loop guard): stmt_while_empty_body
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
- *       disagree: string_inout_wider_copies — (declared inputs): inst.stored interpreter [97, 98, 99, 100, 101, 102
- *       disagree: string_inout_wider_unit_read — (declared inputs): interpreter faults, Rust runs
  *
  *   pedantic — 2199 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          950
@@ -96,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1905 distinct emission shapes over 3458 lowered fixtures, 2159 distinct constructs.
+ *   shape — 1908 distinct emission shapes over 3461 lowered fixtures, 2182 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -4598,8 +4596,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 4.8, shape: "6bb30ac0a6" },
   string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 10.3, shape: "973abc5024" },
   string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "bb3cef6343" },
-  string_inout_wider_copies: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 1, edge: "disagree", size: 1.5, shape: "d94d4e5833" },
-  string_inout_wider_unit_read: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 0, edge: "disagree", size: 1.8, shape: "5c070e5433" },
+  string_inout_narrower: { evidence: "lsp-gap" },
+  string_inout_wider_copies: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.5, shape: "7eedf18528" },
+  string_inout_wider_reads: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.3, shape: "cb94ca7f75" },
+  string_inout_wider_stores: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1, shape: "91e7670792", diverges: { codesys: "known", twincat: "known" } },
+  string_inout_wider_unit_read: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "5c070e5433" },
   string_input_lent_inout_later_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "c3ef7dbfe3" },
   string_input_lent_inout_wider: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.1, shape: "9312aa2c52" },
   string_input_lent_later_call_changes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "7eb4548b61" },
@@ -5209,6 +5210,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   wstring_assign_tail_wide: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "3ad4d83aee" },
   wstring_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 5.5, shape: "2c7de0cafa" },
   wstring_code_units: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 4.3, shape: "c689a6b93c" },
+  wstring_inout_narrower: { evidence: "lsp-gap" },
+  wstring_inout_wider: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.4, shape: "addd81cf8f", diverges: { codesys: "known", twincat: "known" } },
   wstring_layout_in_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "15c60d9611" },
   wstring_literal_nul_tail: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 6, edge: "agree", size: 1.8, shape: "b26f96df6c" },
   wstring_non_ascii: { evidence: "refused" },

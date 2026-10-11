@@ -245,8 +245,14 @@ and one pointer form, the STRING CURSOR: a character pointer a caller fills with
 by its own type and keeps its byte offset (`PointerFrame.cursors`, `lower/pointers/state.ts`), which is what a
 library like StringUtils walks. A Standard string FUNCTION's `STRING(255)` input is lent the caller's STRING(N <= 255)
 read-only instead of copied (`lower/calls/string-inputs.ts`): every body reads it only below its length, which
-`test/libraries/standard.test.ts` holds over every short buffer. A whole STRING VAR_IN_OUT keeps a copy at its
-declared capacity — it is bound at its caller's, which CODESYS's input copy does not read (`string_input_lent_inout_wider`).
+`test/libraries/standard.test.ts` holds over every short buffer. A whole STRING VAR_IN_OUT is lent as its value, the copy
+at its declared capacity (`string_input_lent_inout_wider`). Bound WIDER than it declares, a STRING VAR_IN_OUT is the
+caller's buffer seen through its declared capacity (`lower/calls/string-inouts.ts`, transpile-restructure 8.2): a routine
+is lowered per bound capacity, its slot the caller's type — `io[k]` reads and writes the caller's units — with `readAs`
+the declared type, so every copy of it takes the declared units, but a comparison, which reads the caller's string in
+place; a whole store into it writes within the declared capacity (the interpreter's `storeString`, Rust's `store_within`);
+SIZEOF is the declared. Bound narrower, CODESYS refuses it (`call-inout-short`) but for a VAR_IN_OUT CONSTANT; an FB's
+bound at another capacity is refused (`call-inout-capacity`: one body serves every instance).
 
 **The folders** (openspec `transpile-restructure` design.md §2; each test sits next to its module as `<file>.test.ts`):
 
@@ -279,7 +285,7 @@ transpile/
     statements/     statements.ts assign.ts loops.ts case.ts
     calls/          routines.ts routine-frame.ts facts.ts variants.ts parameters.ts invoke.ts fb-call.ts outputs.ts
                     binding.ts super.ts property.ts specialize.ts last-binding.ts reentrancy.ts namespace.ts
-                    string-inputs.ts
+                    string-inputs.ts string-inouts.ts
     interfaces/     state.ts tags.ts lend.ts dispatch.ts query.ts
     conditions.ts   the exec oracle's condition world (read by project/ and calls/)
   interp/           machine.ts frame.ts calls.ts runner.ts — executes the IR, decides nothing

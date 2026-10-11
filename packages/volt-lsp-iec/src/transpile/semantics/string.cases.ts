@@ -1,15 +1,18 @@
 /**
  * THE STRING BUFFER'S CASES (model 2, design.md P3 and §3.2; `cases.ts`). Each case is a STRING(m) / WSTRING(m) variable,
  * started as a declaration starts it — all zeros — and taken through the operations its fixture runs on it: a store of
- * a source buffer (`storeString`, the source's capacity `n`) and the `s[i] := c` character stores (`setChar`). Its answer
+ * a source buffer (`storeString`, the source's capacity `n`; `within`, a STRING VAR_IN_OUT bound wider than it declares:
+ * the declared capacity the store writes into) and the `s[i] := c` character stores (`setChar`). Its answer
  * is the whole buffer, the units behind the terminator included. `string.test.ts` runs the table against
  * `semantics/string.ts`; the twin harness (`test/conformance/runtime-twins.test.ts`) runs it through rustc against
- * `IecStr::store` / `set_char`, and holds every case's `seen` to its recording — each unit a fixture dumped through `s[i]`,
+ * `IecStr::store` / `store_within` / `set_char`, and holds every case's `seen` to its recording — each unit a fixture dumped through `s[i]`,
  * each string and length it recorded — so the table cannot drift from the oracle.
  */
 
-/** One operation on the buffer: a store of a source of capacity `n` holding `src`, or a character store `s[at] := unit`. */
-type StringOp = { readonly store: string; readonly n: number } | { readonly at: number; readonly unit: number }
+/** One operation on the buffer: a store of a source of capacity `n` holding `src` — into its first `within` units, where a
+ *  STRING VAR_IN_OUT bound wider than it declares is stored into (transpile-restructure 8.2, step 8e) — or a character store
+ *  `s[at] := unit`. */
+type StringOp = { readonly store: string; readonly n: number; readonly within?: number } | { readonly at: number; readonly unit: number }
 
 /** A variable of capacity `m` (a WSTRING when `wide`), started at zeros and taken through `ops`. */
 export interface StringInput {
@@ -35,6 +38,8 @@ export interface StringCase {
 
 const Z = (count: number): string => "Z".repeat(count)
 const store = (src: string, n: number): StringOp => ({ store: src, n })
+/** A store through a STRING VAR_IN_OUT that declares `within` units, bound to this wider buffer. */
+const storeWithin = (src: string, n: number, within: number): StringOp => ({ store: src, n, within })
 const set = (at: number, unit: number): StringOp => ({ at, unit })
 /** Units [from..to] dumped into `<array>[i]`. */
 const units = (array: string, from: number, to: number): Seen[] =>
@@ -139,5 +144,23 @@ export const STRING_CASES: Readonly<Record<string, readonly StringCase[]>> = {
       fixture: "lib_prim_char_past_length",
       input: { m: 10, ops: [store("ab", 2), set(10, 0), set(6, 88)] }, expected: "ab\0\0\0\0X",
       seen: [text("buf"), length("lenAfterStore"), { path: "inst.readPast", unit: 4 }, { path: "inst.atCapacity", unit: 10 }] },
+  ],
+  // transpile-restructure 8.2, step 8e (design.md §7.2 Decision (step 8e)): each caller a STRING(12) 'abcdefghijkl' bound to a
+  // VAR_IN_OUT STRING(10), which the FUNCTION stores into whole — or writes unit 11 of through a runtime index
+  "a whole store through a STRING VAR_IN_OUT bound wider writes as into its declared capacity; s[i] reaches the caller's (8e)": [
+    { name: "io := 15 units: 'XYZXYZXYZX', a 0 at [10], the caller's 'l' at [11] kept", fixture: "string_inout_wider_stores",
+      input: { m: 12, ops: [store("abcdefghijkl", 12), storeWithin("XYZXYZXYZXYZXYZ", 15, 10)] }, expected: "XYZXYZXYZX\0l",
+      seen: [text("long"), { path: "inst.long10", unit: 10 }, { path: "inst.long11", unit: 11 }] },
+    { name: "io := 'pq': a 0 at [2], the caller's units from [3] kept", fixture: "string_inout_wider_stores",
+      input: { m: 12, ops: [store("abcdefghijkl", 12), storeWithin("pq", 2, 10)] }, expected: "pq\0defghijkl",
+      seen: [text("short"), { path: "inst.short2", unit: 2 }, { path: "inst.short3", unit: 3 }] },
+    { name: "io := a STRING(20): its first 10 units, a 0 at [10], 'l' at [11] kept", fixture: "string_inout_wider_stores",
+      input: { m: 12, ops: [store("abcdefghijkl", 12), storeWithin("ABCDEFGHIJKLMNOPQRST", 20, 10)] }, expected: "ABCDEFGHIJ\0l",
+      seen: [text("fromVar"), { path: "inst.fromVar10", unit: 10 }, { path: "inst.fromVar11", unit: 11 }] },
+    { name: "io[11] := 81 writes the caller's unit 11", fixture: "string_inout_wider_stores",
+      input: { m: 12, ops: [store("abcdefghijkl", 12), set(11, 81)] }, expected: "abcdefghijkQ", seen: [text("unitSet")] },
+    { name: 'a WSTRING(10) in-out bound to a WSTRING(12): io := 15 units', fixture: "wstring_inout_wider",
+      input: { m: 12, wide: true, ops: [store("abcdefghijkl", 12), storeWithin("XYZXYZXYZXYZXYZ", 15, 10)] }, expected: "XYZXYZXYZX\0l",
+      seen: [text("stored"), { path: "inst.stored10", unit: 10 }, { path: "inst.stored11", unit: 11 }] },
   ],
 }

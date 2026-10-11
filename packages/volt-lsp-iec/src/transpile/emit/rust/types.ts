@@ -58,11 +58,12 @@ export function inoutType(slot: { type: Type; readOnly?: boolean }, name: string
   const t = slot.type
   if (byValue(slot)) return { param: `${name}: ${rustType(t)}`, generics: [] }
   const borrow = slot.readOnly === true ? "&" : "&mut "
-  // A STRING VAR_IN_OUT binds a string of ANY capacity — `VAR_IN_OUT text : STRING` takes a STRING(12) (conformance
-  // `xo4_inout_constant_chain`), and lowering has already given the sizeless one its 80, so the declared number cannot
-  // be told from a bound one here. The parameter is generic over the capacity, which is what the interpreter does by
-  // binding the caller's place. ponytail: a store into a SIZED string in-out then truncates at the CALLER's capacity,
-  // not the callee's — unmeasured, and the interpreter has always done the same, so the two backends agree.
+  // A STRING VAR_IN_OUT binds a string of another capacity than it declares — a VAR_IN_OUT CONSTANT a narrower one
+  // (`xo4_inout_constant_chain`: a STRING(12) into a sizeless one), any a wider one (`string_inout_wider_*`). The parameter
+  // is generic over the capacity: N is the CALLER's, the buffer the interpreter binds. A routine bound wider is lowered for
+  // that capacity (`lower/calls/string-inouts.ts`, transpile-restructure 8.2 step 8e) — its slot is the caller's type, its
+  // reads convert to the declared one (`io.to::<10>()`) and its whole stores write within it (`store_within`), so the
+  // declared capacity is in the IR wherever it matters, never read off this generic.
   if (stringKind(t) !== undefined) {
     const n = `N_${name.toUpperCase()}`
     return { param: `${name}: ${borrow}${stringType(t).name}<${n}>`, generics: [`const ${n}: usize`] }

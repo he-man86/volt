@@ -40,13 +40,18 @@ export interface IrSlot {
   /** A GVL variable whose name another list also declares: its list's name. The two are two globals (6.A.17), and the
    *  emitter names each Rust field `<list>_<name>` — by its list, never by which one a body reached first. */
   list?: string
-  /** A CONSTANT whose slot is wider than its declared type, to hold its unwrapped fold (`constantSlotType`): the monitor
-   *  shows that fold (`tr_a29_dint_constant_expression_overflow`: D DINT#2147483648), but every read of it is the value in
-   *  this type — its declared type's run-time width (-2147483648; a SINT's 128 survives in DINT). Lowering converts each
-   *  load (`places/access-guards.ts` `loadValue`); no backend reads it (transpile-restructure 6.A.29). */
+  /** A slot whose storage is wider than the type its reads have, every read converted to this type by lowering
+   *  (`places/access-guards.ts` `loadValue`); no backend reads it. Two cases:
+   *  - a CONSTANT held past its type, to hold its unwrapped fold (`constantSlotType`): the monitor shows that fold
+   *    (`tr_a29_dint_constant_expression_overflow`: D DINT#2147483648), but every read of it is the value in this type — its
+   *    declared type's run-time width (-2147483648; a SINT's 128 survives in DINT; transpile-restructure 6.A.29);
+   *  - a STRING VAR_IN_OUT bound wider than it declares, a routine lowered for the caller's capacity (`lower/calls/
+   *    string-inouts.ts`, 8.2 step 8e): the slot is the caller's buffer, a read its copy at the declared capacity — but a
+   *    comparison's, which reads the buffer in place (`string_inout_wider_reads`). */
   readAs?: Type
-  /** Set with `readAs`: the constant's DECLARED type, which SIZEOF measures — SIZEOF(B) of `B : BYTE := KB + 1` held as 256
-   *  in a WORD slot is 1, of `D : DINT := K + 1` 4 (`tr_a29_sizeof_bound_widened_*_constant`, both vendors, 6Af gate). */
+  /** Set with `readAs`: the DECLARED type, which SIZEOF measures — SIZEOF(B) of `B : BYTE := KB + 1` held as 256 in a WORD
+   *  slot is 1, of `D : DINT := K + 1` 4 (`tr_a29_sizeof_bound_widened_*_constant`, both vendors, 6Af gate); of a STRING(10)
+   *  in-out bound to a STRING(12), 11 (`string_inout_wider_stores`). */
   declared?: Type
   /** A BOOL HELD AS ITS BYTE (transpile-restructure 8.2, `lower/pointers/raw-bool.ts`): its address reaches a pointer of
    *  another type, or a flow that keeps the byte fills it from such a BOOL, and CODESYS keeps that whole byte — its type is

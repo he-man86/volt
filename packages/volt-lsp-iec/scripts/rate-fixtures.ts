@@ -292,20 +292,17 @@ ${ranked(excused)
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
-${(["agree", "disagree", "not-run"] as const)
-  .map((v) => ` *     ${v.padEnd(12)} ${String(edgeTally.get(v) ?? 0).padStart(5)}`)
-  .join("\n")}
-${ranked(notRun)
-  .map(([why, n]) => ` *       not-run: ${why.padEnd(44)} ${String(n).padStart(5)}`)
-  .join("\n")}
-${[...partial]
-  .sort((a, b) => a[0].localeCompare(b[0]))
-  .map(([name, n]) => ` *       agree, ${n.padStart(5)} unanswered (the interpreter's loop guard): ${name}`)
-  .join("\n")}
-${[...disagreements]
-  .sort((a, b) => a[0].localeCompare(b[0]))
-  .map(([name, first]) => ` *       disagree: ${name} — ${first}`.slice(0, 116))
-  .join("\n")}
+${[
+  // one list of lines, so a group with nothing in it (no disagreement left) prints no blank line of its own
+  ...(["agree", "disagree", "not-run"] as const).map((v) => ` *     ${v.padEnd(12)} ${String(edgeTally.get(v) ?? 0).padStart(5)}`),
+  ...ranked(notRun).map(([why, n]) => ` *       not-run: ${why.padEnd(44)} ${String(n).padStart(5)}`),
+  ...[...partial]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, n]) => ` *       agree, ${n.padStart(5)} unanswered (the interpreter's loop guard): ${name}`),
+  ...[...disagreements]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, first]) => ` *       disagree: ${name} — ${first}`.slice(0, 116)),
+].join("\n")}
  *
  *   pedantic — ${pedanticTotal} clippy::pedantic + clippy::perf findings; the ten most frequent
 ${ranked(pedanticTally)

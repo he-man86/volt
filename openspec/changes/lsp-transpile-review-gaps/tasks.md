@@ -79,3 +79,20 @@ Appended by transpile-restructure steps, one line each, in the commit that finds
   "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'" on both vendors, which the LSP does not say either; both
   are named GAP exceptions in `test/frontend/baseline.ts` until this task lands. The
   output binding of a FUNCTION / METHOD call judged by the assignment relation (`isAssignable`), as the FB call's is.
+- [ ] 2.5 A STRING / WSTRING bound to a VAR_IN_OUT that declares MORE units (transpile-restructure 8.2 step 8e, recorded 2026-10-11 on
+  both vendors) — a STRING(4) variable to a `VAR_IN_OUT io : STRING(10)`, a STRING(10) in-out passed on to a STRING(12) one, a
+  WSTRING(4) to a WSTRING(10): CODESYS "String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_InoutNarrowerCopy'"
+  (TwinCAT names the two the other way round: "String variable 'io' too short for the VAR_IN_OUT parameter 'v' of …", with a
+  line); the LSP accepts it. A VAR_IN_OUT CONSTANT bound narrower builds (`xo4_inout_constant_chain`), and wider builds
+  (`string_inout_wider_*`). Fixtures `string_inout_narrower`, `wstring_inout_narrower` (`lsp-gap`, `MEASURED_SILENT`); the
+  transpiler refuses them (`call-inout-short`). The call-argument check judging a string in-out's capacity, CONSTANT excepted.
+- [ ] 2.6 A string literal too long for a VAR_IN_OUT it is stored into (transpile-restructure 8.2 step 8e, recorded 2026-10-11 on both
+  vendors): `io := 'XYZXYZXYZXYZXYZ'` into a `VAR_IN_OUT io : STRING(10)` — and its WSTRING twin — builds with NO warning, where the
+  LSP's `string-constant-too-long` (C0198) warns as for any STRING(10) target. Fixtures `string_inout_wider_stores`,
+  `wstring_inout_wider` (`support/divergences.ts` `STRING_CONSTANT_INTO_AN_INOUT`, both vendors). Measure first which targets the
+  vendors leave unwarned — an in-out only, or every target reached through a reference (`REFERENCE TO`, `p^`) — then exempt them.
+- [ ] 2.7 `SEL(g, 'x', io)` over a STRING literal and a STRING(10) (transpile-restructure 8.2 step 8e, recorded 2026-10-11 on both
+  vendors: builds; CODESYS runs it to 'abcdefghij') types UNKNOWN in the front-end — the selection's meet of two STRINGs of
+  different capacities (`types/builtins` `selectionValueArguments`). Fixture `string_inout_wider_reads`, a named ceiling exception
+  (`test/frontend/baseline.ts`, `call UNKNOWN`, both vendors) removed when SEL / MUX / LIMIT over strings is typed (the meet's
+  capacity measured first).

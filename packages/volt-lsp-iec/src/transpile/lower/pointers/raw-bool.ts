@@ -76,8 +76,7 @@ export const rawBoolInit = (init: unknown): bigint => (init === true ? 1n : 0n)
 /** Whether `place` names a raw BOOL whole (`IrSlot.rawBool` — a variable, a field, a routine's in-out), or is what a byte
  *  view reads (`isByteView`). */
 export function isRawBoolPlace(lw: Lowering, place: Place): boolean {
-  const slot = place.root === "inout" && place.path.length === 0 ? lw.inoutSlots[place.slot] : slotOf(lw, place)
-  return slot?.rawBool === true || viewedBy(lw, place) !== undefined
+  return slotOf(lw, place)?.rawBool === true || viewedBy(lw, place) !== undefined
 }
 
 /** Whether the pointer (or reference) `pointer` is a BYTE VIEW: a POINTER TO BOOL that reads a byte (`bool-views.ts`) —

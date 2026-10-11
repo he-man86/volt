@@ -13,7 +13,7 @@ import { lowerPlace } from "../places/places.js"
 import { FULL_WRITE, guardWrite } from "../places/access-guards.js"
 import { openDims } from "../places/bounds.js"
 import { sameStorage, staticPath } from "../places/path.js"
-import type { Type } from "../../../frontend/types/index.js"
+import { stringKind, type Type } from "../../../frontend/types/index.js"
 import type { InvokeBindings } from "./invoke.js"
 import { holdsCall, type IrNode, touchesOnlyItsOwn, writesOnlyLocals } from "../../ir/walk.js"
 import { tempPlace } from "../core/temps.js"
@@ -105,6 +105,17 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
   if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
     return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  // A STRING VAR_IN_OUT BOUND AT ANOTHER CAPACITY than it declares (transpile-restructure 8.2, design.md §7.2 Decision
+  // (step 8e)). Wider, a routine is lowered per bound capacity (`string-inouts.ts`), so a parameter that still differs is
+  // an FB's: its one body serves every instance and cannot see one caller's capacity — not modelled. Narrower does not
+  // build ("String variable 'v' too short for the VAR_IN_OUT parameter 'io' of …", `string_inout_narrower`, both
+  // vendors) — but a CONSTANT one does (`xo4_inout_constant_chain`), and is read as it is.
+  const [declared, bound] = [stringCapacity(param.type), stringCapacity(target.type)]
+  if (param.section === "VAR_IN_OUT" && declared !== undefined && bound !== undefined && bound !== declared) {
+    if (bound > declared)
+      return lw.bail("call-inout-capacity", `${param.name}, an FB's string VAR_IN_OUT of ${declared} units, is bound to one of ${bound}: its one body serves every instance and cannot see one caller's capacity`, arg.span)
+    if (param.constant !== true) return lw.bail("call-inout-short", `${param.name} declares ${declared} units and is bound to ${bound}`, arg.span)
+  }
   // A REAL BOUND TO AN INTEGER IN-OUT (or the reverse) does not compile (`cc5_in_out_type_mismatch`, refused); lent, the
   // callee read the REAL's storage as an INT — a value no backend defines (transpile-restructure 7.3.1 found it: the
   // interpreter's answer changed once the INT arithmetic on it computed narrow). Only the real/integer crossing is
@@ -222,6 +233,9 @@ export function aliases(a: Place, b: Place): boolean {
   if (a.root === "this" || b.root === "this") return own(a) && own(b)
   return a.slot === b.slot && a.root === b.root
 }
+
+/** A STRING's or WSTRING's capacity — undefined for anything else. */
+const stringCapacity = (t: Type): number | undefined => (t.kind === "elementary" && stringKind(t) !== undefined ? t.length : undefined)
 
 /** Whether an elementary type is a REAL or an integer (a bit string among them) — undefined for anything else (a string,
  *  a BOOL or BIT, a time, a composite). */

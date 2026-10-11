@@ -141,7 +141,7 @@ export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | unde
 export function heldConstantOperation(lw: Lowering, e: Expr, operand: IrExpr): IrExpr | null | undefined {
   let held = false
   forEachExpr(operand, (x) => {
-    if (x.kind === "load" && slotOf(lw, x.place)?.declared !== undefined) held = true
+    if (x.kind === "load" && heldConstant(slotOf(lw, x.place))) held = true
   })
   if (!held) return null
   const value = constEval(e, lw.scope)
@@ -151,11 +151,26 @@ export function heldConstantOperation(lw: Lowering, e: Expr, operand: IrExpr): I
   return { kind: "const", value, type, span: e.span }
 }
 
-/** The slot a place names WHOLE — a frame's, a routine's or a global's variable, or a field of what the path before it
- *  reaches — or undefined for an element or anything reached through a pointer. */
+/** A CONSTANT held past its type (`IrSlot.declared`, `storage/declare.ts` `constantSlot`) — not a STRING VAR_IN_OUT read
+ *  through its declared capacity, which carries `declared` too (`calls/string-inouts.ts` `viewInOuts`). */
+const heldConstant = (slot: IrSlot | undefined): boolean => slot?.declared !== undefined && slot.section !== "VAR_IN_OUT"
+
+/** The slot a place names WHOLE — a frame's, a routine's or a global's variable, a body's VAR_IN_OUT, or a field of what
+ *  the path before it reaches — or undefined for an element or anything reached through a pointer. */
 export function slotOf(lw: Lowering, place: Place): IrSlot | undefined {
   if (place.path.length === 0)
-    return place.root === "local" ? lw.localSlots[place.slot] : place.root === "global" ? lw.shared.globals.slots[place.slot] : place.root === undefined ? lw.slots[place.slot] : undefined
+    switch (place.root) {
+      case undefined:
+        return lw.slots[place.slot]
+      case "local":
+        return lw.localSlots[place.slot]
+      case "global":
+        return lw.shared.globals.slots[place.slot]
+      case "inout":
+        return lw.inoutSlots[place.slot]
+      default:
+        return undefined
+    }
   const last = place.path[place.path.length - 1]!
   if (last.kind !== "field") return undefined
   const along = typeAlong(lw, rootType(lw, place), place.path.slice(0, -1), { fields: "composite", element: "any" }, () => undefined)

@@ -464,7 +464,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 84 -> 85, FOR MEASUREMENT (transpile-restructure 6Ba+6Bb gate, no fixture moved): `tr_b5_time_times_wide_literal` (an
   // untyped literal past 32 bits beside a TIME, "Cannot convert type 'TIME' to type 'ULINT'" on both vendors) — niche:
   // accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
-  "lsp-gap": 85,
+  // 85 -> 87, FOR MEASUREMENT (transpile-restructure 8.2 step 8e, no fixture moved): `string_inout_narrower`,
+  // `wstring_inout_narrower` (a STRING / WSTRING bound to a VAR_IN_OUT that declares more units, "String variable 'v' too
+  // short for the VAR_IN_OUT parameter 'io' of …" on both vendors; lsp-transpile-review-gaps 2.5). MEASURED_SILENT.
+  "lsp-gap": 87,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

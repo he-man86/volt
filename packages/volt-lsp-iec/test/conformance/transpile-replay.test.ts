@@ -799,6 +799,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // to type 'INT'" — the LSP refuses the FB path's twin (`tr_43_output_dint_to_int`) and not this one
     // (lsp-transpile-review-gaps 2.4). The transpiler refuses it (`call-output-type`).
     "tr_43_routine_output_dint_to_int",
+    // transpile-restructure 8.2 (step 8e), recorded 2026-10-11 on both vendors: a STRING bound to a VAR_IN_OUT STRING that
+    // declares more units — a STRING(4) variable, an in-out passed on to a wider one — "String variable 'v' too short for
+    // the VAR_IN_OUT parameter 'io' of 'F_InoutNarrowerCopy'" — and a WSTRING alike (lsp-transpile-review-gaps 2.5). The
+    // transpiler refuses it (`call-inout-short`).
+    "string_inout_narrower",
+    "wstring_inout_narrower",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {

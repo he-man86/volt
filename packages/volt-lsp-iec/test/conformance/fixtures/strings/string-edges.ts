@@ -1290,6 +1290,8 @@ END_FUNCTION_BLOCK
 
   // Found beside 7.4.6 (gate 7.4c), a question of its own: a STRING VAR_IN_OUT bound at a WIDER capacity than it declares,
   // read without a Standard function — a unit past the declared capacity through a runtime index (`io[k]`, k = 11)…
+  // (both answered by the one model of design.md §7.2 Decision (step 8e), `lower/calls/string-inouts.ts`: the caller's buffer
+  // seen through the declared capacity — marked `niche: accepted loss` by the 7.4c gate, confirmed since step 8e)
   { ...whole("string_inout_wider_unit_read", "a STRING(12) bound to a VAR_IN_OUT STRING(10), its unit 11 read through a runtime index",
     `FUNCTION F_WiderUnit : BYTE
 VAR_INPUT
@@ -1309,8 +1311,7 @@ VAR
 END_VAR
 unit11 := F_WiderUnit(k := k, io := v);
 END_FUNCTION_BLOCK
-`), pouName: "FB_LANG_string_inout_wider_unit_read", plcPrgVar: "inst : FB_LANG_string_inout_wider_unit_read;",
-    deferred: { transpile: "2026-10-10 (transpile-restructure gate 7.4c), recorded: CODESYS reads unit 11 of the CALLER's STRING(12) through the in-out, 108 ('l'); the Rust in-out is generic over the caller's capacity and reads 108, the interpreter reads the in-out at its declared STRING(10) and faults (`character 11 of a string of capacity 10`). niche: accepted loss (0 occurrences in the corpora: of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity — the recipe managers a STRING to a STRING, pro2193's JSON builders a STRING(n) to a STRING(n) — and the STRING(1) any-length idiom is Tc2_System's CONCATX and AppendErrorString, library declarations with no body)" } },
+`), pouName: "FB_LANG_string_inout_wider_unit_read", plcPrgVar: "inst : FB_LANG_string_inout_wider_unit_read;" },
 
   // …and copied whole: into a project FUNCTION's STRING(255) VAR_INPUT, and stored into a local STRING(20).
   { ...whole("string_inout_wider_copies", "a STRING(12) bound to a VAR_IN_OUT STRING(10), copied into a project FUNCTION's STRING(255) VAR_INPUT and stored into a STRING(20)",
@@ -1348,8 +1349,298 @@ END_VAR
 viaInput := F_WiderPassOn(io := v);
 stored := F_WiderStored(io := v);
 END_FUNCTION_BLOCK
-`), pouName: "FB_LANG_string_inout_wider_copies", plcPrgVar: "inst : FB_LANG_string_inout_wider_copies;",
-    deferred: { transpile: "2026-10-10 (transpile-restructure gate 7.4c), recorded: CODESYS copies the in-out at its DECLARED capacity both ways — the project FUNCTION's input counts 10, the STRING(20) holds 'abcdefghij' — as the Standard functions' lent input now reads it (`string_input_lent_inout_wider`); both backends copy the caller's 12 into the input (`viaInput` 12), and the Rust store reads the caller's capacity too (`stored` 'abcdefghijkl'; the interpreter's 'abcdefghij'). niche: accepted loss (0 occurrences in the corpora: of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity — the recipe managers a STRING to a STRING, pro2193's JSON builders a STRING(n) to a STRING(n) — and the STRING(1) any-length idiom is Tc2_System's CONCATX and AppendErrorString, library declarations with no body)" } },
+`), pouName: "FB_LANG_string_inout_wider_copies", plcPrgVar: "inst : FB_LANG_string_inout_wider_copies;" },
+  // transpile-restructure 8.2 (step 8e, review R10: the two 7.4c marks above) — the rest of what a STRING VAR_IN_OUT bound
+  // at a WIDER capacity than it declares does, asked before one model is written for both backends: stored whole (a
+  // 15-unit literal, a 2-unit one, a STRING(20) variable), a unit past its declared capacity written through a runtime
+  // index, compared whole, measured by SIZEOF, and passed on to another FUNCTION's STRING(10) in-out that reads its unit 11.
+  // The caller reads back each buffer — its visible text and the units behind it (`[10]`, `[11]`, `[2]`, `[3]`) by index.
+  // (Passing it on to a STRING(12) in-out does not build: "String variable 'io' too short for the VAR_IN_OUT parameter
+  // 'io' of 'F_…'" — CODESYS judges the in-out by the capacity it DECLARES, as `string_inout_narrower_*` below.)
+  whole("string_inout_wider_stores", "a STRING(12) bound to a VAR_IN_OUT STRING(10): stored whole three ways, a unit past 10 written, compared, SIZEOF, passed on to a STRING(10) in-out that reads unit 11 (transpile-restructure 8.2, R10)",
+    `FUNCTION F_InoutWiderStoreLong : BOOL
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+io := 'XYZXYZXYZXYZXYZ';
+F_InoutWiderStoreLong := TRUE;
+END_FUNCTION
+
+FUNCTION F_InoutWiderStoreShort : BOOL
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+io := 'pq';
+F_InoutWiderStoreShort := TRUE;
+END_FUNCTION
+
+FUNCTION F_InoutWiderStoreVar : BOOL
+VAR_INPUT
+\tsrc : STRING(20);
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+io := src;
+F_InoutWiderStoreVar := TRUE;
+END_FUNCTION
+
+FUNCTION F_InoutWiderSetUnit : BOOL
+VAR_INPUT
+\tk : INT;
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+io[k] := 81;
+F_InoutWiderSetUnit := TRUE;
+END_FUNCTION
+
+FUNCTION F_InoutWiderEquals : BOOL
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderEquals := io = 'abcdefghij';
+END_FUNCTION
+
+FUNCTION F_InoutWiderSize : DINT
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderSize := SIZEOF(io);
+END_FUNCTION
+
+FUNCTION F_InoutWiderInnerUnit : BYTE
+VAR_INPUT
+\tk : INT;
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderInnerUnit := io[k];
+END_FUNCTION
+
+FUNCTION F_InoutWiderPassOn : BYTE
+VAR_INPUT
+\tk : INT;
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderPassOn := F_InoutWiderInnerUnit(k := k, io := io);
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_inout_wider_stores
+VAR
+\tlong : STRING(12) := 'abcdefghijkl';
+\tshort : STRING(12) := 'abcdefghijkl';
+\tfromVar : STRING(12) := 'abcdefghijkl';
+\tsrc : STRING(20) := 'ABCDEFGHIJKLMNOPQRST';
+\tunitSet : STRING(12) := 'abcdefghijkl';
+\tread : STRING(12) := 'abcdefghijkl';
+\tk : INT := 11;
+\tlong10 : BYTE;
+\tlong11 : BYTE;
+\tshort2 : BYTE;
+\tshort3 : BYTE;
+\tfromVar10 : BYTE;
+\tfromVar11 : BYTE;
+\tequal : BOOL;
+\tsize : DINT;
+\tpassedOn : BYTE;
+\tok : BOOL;
+END_VAR
+ok := F_InoutWiderStoreLong(io := long);
+ok := F_InoutWiderStoreShort(io := short);
+ok := F_InoutWiderStoreVar(src := src, io := fromVar);
+ok := F_InoutWiderSetUnit(k := k, io := unitSet);
+equal := F_InoutWiderEquals(io := read);
+size := F_InoutWiderSize(io := read);
+passedOn := F_InoutWiderPassOn(k := k, io := read);
+long10 := long[10];
+long11 := long[11];
+short2 := short[2];
+short3 := short[3];
+fromVar10 := fromVar[10];
+fromVar11 := fromVar[11];
+END_FUNCTION_BLOCK
+`),
+
+  // …and read whole other than by a copy: `string_inout_wider_stores` recorded `io = 'abcdefghij'` FALSE — a comparison
+  // reads the caller's 12 units in place, where every COPY (a store, an input, a result) takes the declared 10. So each
+  // other whole read is asked which it is: two more comparisons, a conversion to an integer (12 digits: in place they
+  // overflow a DINT, cut they do not) and to a WSTRING, MOVE, and SEL.
+  whole("string_inout_wider_reads", "a STRING(12) bound to a VAR_IN_OUT STRING(10), read whole by > and <>, STRING_TO_LINT, STRING_TO_WSTRING, MOVE and SEL (transpile-restructure 8.2, R10)",
+    `FUNCTION F_InoutWiderGreater : BOOL
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderGreater := io > 'abcdefghij';
+END_FUNCTION
+
+FUNCTION F_InoutWiderDiffers : BOOL
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderDiffers := io <> 'abcdefghij';
+END_FUNCTION
+
+FUNCTION F_InoutWiderToLint : LINT
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderToLint := STRING_TO_LINT(io);
+END_FUNCTION
+
+FUNCTION F_InoutWiderToWide : WSTRING(20)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderToWide := STRING_TO_WSTRING(io);
+END_FUNCTION
+
+FUNCTION F_InoutWiderMoved : STRING(20)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderMoved := MOVE(io);
+END_FUNCTION
+
+FUNCTION F_InoutWiderSelected : STRING(20)
+VAR_INPUT
+\tg : BOOL;
+END_VAR
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutWiderSelected := SEL(g, 'x', io);
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_inout_wider_reads
+VAR
+\tv : STRING(12) := 'abcdefghijkl';
+\tdigits : STRING(12) := '123456789012';
+\tg : BOOL := TRUE;
+\tgreater : BOOL;
+\tdiffers : BOOL;
+\tasLint : LINT;
+\tasWide : WSTRING(20);
+\tmoved : STRING(20);
+\tselected : STRING(20);
+END_VAR
+greater := F_InoutWiderGreater(io := v);
+differs := F_InoutWiderDiffers(io := v);
+asLint := F_InoutWiderToLint(io := digits);
+asWide := F_InoutWiderToWide(io := v);
+moved := F_InoutWiderMoved(io := v);
+selected := F_InoutWiderSelected(g := g, io := v);
+END_FUNCTION_BLOCK
+`),
+
+  // …and its WSTRING twin: a WSTRING(12) bound to a VAR_IN_OUT WSTRING(10) — its unit 11 read through a runtime index,
+  // copied whole into a WSTRING(20), and stored whole (a 15-unit literal), the caller reading back units 10 and 11.
+  whole("wstring_inout_wider", "a WSTRING(12) bound to a VAR_IN_OUT WSTRING(10): unit 11 read, copied whole into a WSTRING(20), stored whole from 15 units (transpile-restructure 8.2, R10)",
+    `FUNCTION F_InoutWiderWideUnit : WORD
+VAR_INPUT
+\tk : INT;
+END_VAR
+VAR_IN_OUT
+\tio : WSTRING(10);
+END_VAR
+F_InoutWiderWideUnit := io[k];
+END_FUNCTION
+
+FUNCTION F_InoutWiderWideCopy : WSTRING(20)
+VAR_IN_OUT
+\tio : WSTRING(10);
+END_VAR
+F_InoutWiderWideCopy := io;
+END_FUNCTION
+
+FUNCTION F_InoutWiderWideStore : BOOL
+VAR_IN_OUT
+\tio : WSTRING(10);
+END_VAR
+io := "XYZXYZXYZXYZXYZ";
+F_InoutWiderWideStore := TRUE;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_wstring_inout_wider
+VAR
+\tv : WSTRING(12) := "abcdefghijkl";
+\tstored : WSTRING(12) := "abcdefghijkl";
+\tk : INT := 11;
+\tunit11 : WORD;
+\tcopied : WSTRING(20);
+\tstored10 : WORD;
+\tstored11 : WORD;
+\tok : BOOL;
+END_VAR
+unit11 := F_InoutWiderWideUnit(k := k, io := v);
+copied := F_InoutWiderWideCopy(io := v);
+ok := F_InoutWiderWideStore(io := stored);
+stored10 := stored[10];
+stored11 := stored[11];
+END_FUNCTION_BLOCK
+`),
+
+  // …and bound at a NARROWER capacity — a STRING(4) variable to a VAR_IN_OUT STRING(10), and a STRING(10) in-out passed on
+  // to one that declares STRING(12). RECORDED (CODESYS 3.5.21.40, 2026-10-11): neither builds — "String variable 'v' too
+  // short for the VAR_IN_OUT parameter 'io' of 'F_InoutNarrowerCopy'" — so a STRING in-out is only ever bound at its
+  // declared capacity or wider, and the transpiler is never asked the narrower one (it is outside its input contract).
+  whole("string_inout_narrower", "a STRING(4) bound to a VAR_IN_OUT STRING(10), and a STRING(10) in-out passed on to a STRING(12) one: refused (transpile-restructure 8.2, R10)",
+    `FUNCTION F_InoutNarrowerCopy : STRING(20)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutNarrowerCopy := io;
+END_FUNCTION
+
+FUNCTION F_InoutNarrowerInner : STRING(20)
+VAR_IN_OUT
+\tio : STRING(12);
+END_VAR
+F_InoutNarrowerInner := io;
+END_FUNCTION
+
+FUNCTION F_InoutNarrowerPassOn : STRING(20)
+VAR_IN_OUT
+\tio : STRING(10);
+END_VAR
+F_InoutNarrowerPassOn := F_InoutNarrowerInner(io := io);
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_inout_narrower
+VAR
+\tv : STRING(4) := 'abcd';
+\tw : STRING(10) := 'abcdefghij';
+\tcopied : STRING(20);
+\tpassed : STRING(20);
+END_VAR
+copied := F_InoutNarrowerCopy(io := v);
+passed := F_InoutNarrowerPassOn(io := w);
+END_FUNCTION_BLOCK
+`),
+
+  // …and its WSTRING twin: a WSTRING(4) bound to a VAR_IN_OUT WSTRING(10), stored into whole.
+  whole("wstring_inout_narrower", "a WSTRING(4) bound to a VAR_IN_OUT WSTRING(10), stored into whole (transpile-restructure 8.2, R10)",
+    `FUNCTION F_InoutNarrowerWide : BOOL
+VAR_IN_OUT
+\tio : WSTRING(10);
+END_VAR
+io := "zz";
+F_InoutNarrowerWide := TRUE;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_wstring_inout_narrower
+VAR
+\tw : WSTRING(4) := "ab";
+\tok : BOOL;
+END_VAR
+ok := F_InoutNarrowerWide(io := w);
+END_FUNCTION_BLOCK
+`),
+
   // transpile-restructure 8.2 (design.md §7.2 Decision step 8c), recorded before the wide parse is written: the WIDE twin
   // of every STRING → integer cell `semantics/parse.cases.ts` holds (the `tr_a10_*` forms, edges and signs), plain decimals
   // with a sign, a space, a tab or a letter before or after them, an empty text, into a DINT (no width cuts); and the REAL

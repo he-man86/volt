@@ -36,7 +36,7 @@ import {
 import { IEC_PARSE_INT, IEC_PARSE_INT_WIDE, IEC_PARSE_REAL, IEC_SCAN_INT } from "./parse.js"
 import { IEC_BYTES, IEC_ELEMENTS, IEC_LE, IEC_OVERLAY } from "./bytes.js"
 import { IEC_DEREF, IEC_IX, MEM, MEM_AT, MEM_LD, MEM_LD_BOOL, MEM_ORDER, MEM_REGION, MEM_ST } from "./pointer.js"
-import { IEC_STR, IEC_STR_LENGTH } from "./string.js"
+import { IEC_STR, IEC_STR_LENGTH, IEC_STR_STORE_WITHIN } from "./string.js"
 import {
   IEC_CIVIL,
   IEC_DATE_TEXT,
@@ -57,6 +57,7 @@ const HELPERS = {
   // ── FRONT: the string family ──
   string: { deps: [], rust: IEC_STR },
   string_length: { deps: ["string"], rust: IEC_STR_LENGTH },
+  string_store_within: { deps: ["string"], rust: IEC_STR_STORE_WITHIN },
   string_write: { deps: ["string"], rust: IEC_STR_WRITE },
   iec_max: { deps: [], rust: IEC_MAX },
   iec_min: { deps: [], rust: IEC_MIN },
