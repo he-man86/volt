@@ -350,6 +350,7 @@ interface IrPou {
   layouts: IrLayout[]          // each STRUCT and FB: its fields, an FB's body, in-outs, VAR_STAT, lent instances
   routines: IrRoutine[]        // each METHOD, ACTION and FUNCTION reached, lowered once per frame (and ANY variant)
   globals: IrSlot[]            // the application's storage: GVL variables, each called PROGRAM's instance
+  locals?: IrSlot[]            // the scan's per-run storage, the POU's VAR_TEMP: each at its `init` every scan (7.6.4)
   init?: IrStmt[]              // the ordered init step, run once before the first scan (model 4, `lower/init/step.ts`)
   image?: IrImage              // the byte image, when a program stores an address (model 3)
   span: Span
@@ -361,7 +362,9 @@ interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | 
 // readAs: a CONSTANT whose slot is wider than its type to hold its unwrapped fold — every read of it is converted to its
 // type's run-time width by lowering (`places/access-guards` `loadValue`, 6.A.29); no backend reads it. declared: that
 // constant's declared type, which SIZEOF measures (`builtins/sizeof`: SIZEOF(B) of a BYTE held as 256 is 1, 6Af)
-interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[]; size?: number }  // size: an image struct's measured bytes
+interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; locals?: IrSlot[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[]; size?: number }
+// locals: an FB body's per-run storage, its VAR_TEMP — not fields, the instance does not carry them between runs (7.6.4)
+// size: an image struct's measured bytes
 // the program's byte image, laid out as CODESYS lays it out from IMAGE_BASE (`semantics/memory.ts`); a backend allocates nothing
 interface IrImage { size: number; bytes: [offset: number, bytes: number[]][]; regions: [start: number, end: number][] }
 interface IrRoutine { name: string; key: string; kind: "method" | "action" | "function"; fb?: string; uri?: string; locals: IrSlot[]; inputs: number[]; inouts: IrSlot[]; result?: number; body: IrStmt[]; lent?: { tag: number; type: Type }[] }
@@ -384,6 +387,7 @@ type IrExpr =
   | { kind: "count"; array: Place; dim: number }              // an ARRAY[*] in-out's element count of one dimension (7.7.8)
   | { kind: "reinterpret"; value: IrExpr; over?: IrExpr }     // value's little-endian bytes over `over`'s, read at `type`: a UNION member's copy (7.8.4)
   // …each with `type: Type; span: Span`
+type IrFreeze = { kind: "freeze"; temp: Place; value: IrExpr }  // an in-out's runtime index stored into `temp` where its argument is written
 type IrBinding = Place | { kind: "copy"; value: IrExpr; type: Type; back?: Place; discarded?: true; span: Span }  // discarded: an unconnected VAR_OUTPUT's copy, lent `&mut`, read by nothing after the call (6.A.12)
 
 type IrStmt =

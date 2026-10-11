@@ -3,10 +3,10 @@
  * `iWord := 16#ABCD`, `aBytes[0]` reads 16#CD and `aBytes[1]` 16#AB. A union is laid out as a struct holding each member,
  * and a store into one member is followed by ONE assignment per other member — the stored member's bytes read at that
  * member's type (`IrReinterpret`, lean 7.8.4): `halves := reinterpret(whole)` — so every read stays a plain field read in
- * both backends. Only the measured kind of member is laid out: an integer, a bit string, a REAL or an LREAL, or a
- * one-dimensional array of them, with no initial value (`overlayBytes`). Any write that is not a plain `:=` — a
- * VAR_IN_OUT or output binding, a latch, a chain link, a FOR variable, an address taken — is refused: it would change one
- * member without the copy.
+ * both backends. Only the measured kind of member is laid out: an integer (an enum is its base one), a bit string of 8
+ * bits or more (BYTE to LWORD — not BOOL or BIT), a REAL or an LREAL, or a one-dimensional array of them, with no initial
+ * value (`overlayBytes`). Any write that is not a plain `:=` — a VAR_IN_OUT or output binding, a latch, a chain link, a
+ * FOR variable, an address taken — is refused: it would change one member without the copy.
  *
  * A UNION OF POINTERS ONLY holds one integer in this model (design §9 form 1): every member is a copy of the one stored. It
  * stays one FIELD PER MEMBER, as every other union: the fields of a DUT struct are the emitted Rust's contract

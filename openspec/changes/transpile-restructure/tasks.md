@@ -6715,7 +6715,7 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
 
 ## 8. Close
 
-- [ ] 8.1 Docs.
+- [x] 8.1 Docs.
   - What: architecture.md describes the four models as decided, the `semantics/` layer, the ownership rows and the refused lists;
     data-model.md describes the IR and the Type facts as they are; the package README and `scripts/README.md` updated.
   - Where: `docs/architecture.md`, `docs/data-model.md`, `README.md`, `scripts/README.md`.
@@ -6746,6 +6746,40 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     INPUT followed "in a routine"; `deref.ts` `unsuppliedInput` EXCLUDES routine mode (a METHOD's inputs are supplied) and
     raises it for an FB body lowered as any POU but the root — now said so. (c) 8.3's record cited the deleted pre-split
     files bare, which failed `check-citations --strict` (2 missing); re-worded as history, now 0 missing (3 planned).
+  - Done 2026-10-11 (step 8b), after 7.11.4: each doc re-read against the code the phase-7 builds since 8a changed
+    (7.4c, 7.6b, 7.8d), by a scratch scan (not kept) — the folder tree against every module under `src/transpile`
+    (143, no test, case table or barrel), every "`file` `symbol`" pair against its file (architecture.md 13,
+    data-model.md 2), every refusal code the builds added against architecture.md, and data-model.md's IR sketch against
+    `ir/` (the fields of `IrPou`, `IrLayout`, `IrRoutine`, `IrSlot`, `IrImage`, `Place`, every node `kind`, every
+    `FaultKind`). The builds had already written VAR_TEMP-as-locals (7.6.4), the LEN_INTERNAL primitive and the lent
+    Standard string inputs (7.4.6), `bindings.ts` / `reinterpret.ts` / `runtime/bytes.ts` in the tree and the
+    `reinterpret` node. What was still stale, now true:
+    - architecture.md: the tree missed `lower/builtins/length.ts` and `lower/calls/string-inputs.ts`; the strings refused
+      list lacked `input-borrow-written` and `string-length-width` (design.md §3.2 7.4c "Stays refused"); unions (7.8.4)
+      were described nowhere — now a paragraph beside the pointers one: the `reinterpret` copies (`unionCopies`), one field
+      per member also for a union of pointers, refused `layout-union` and `union-write` (§3.3/§3.4 7.8d); the init
+      paragraph lacked 7.8.8 — an address binding is the slot's initial value (`foldBindings`, after the image pass),
+      folded only where `provenBindings` proves nothing before it reaches the slot, an unproven one keeps its store.
+    - data-model.md: `IrPou.locals` and `IrLayout.locals` (7.6.4) were missing from the sketch, and `IrFreeze` (`kind:
+      "freeze"`, in `invoke.order` since before 8a) was referenced but never defined.
+    - README.md's `src/transpile/` row and `scripts/README.md` unchanged: no script was added or removed since 8a (every
+      file in `scripts/` named there; the names it gives of deleted probes are its history).
+    After: tree 0 unnamed / 0 absent, pairs 0 unresolved, IR sketch 0 fields / 0 kinds / 0 faults missing; the 3 codes the
+    builds added and the 2 7.8d keeps refusing, 5/5 named; `check-citations --strict` 0 missing (3 planned); `check-size` clean.
+  - Review fix (gate 7.11b+8b, low): the unions paragraph's `layout-union` list ("a member that is not an integer, a bit
+    string, a REAL/LREAL or a one-dimensional array of them") admitted a BOOL or BIT member, which the code refuses —
+    `overlayBytes` lays out an elementary of family int / bitstring / real of 8 bits or more only. The review also
+    expected an enum refused; measured, it is NOT: an enum member's type is its base integer, laid out and overlaid
+    (`u.wd := 16#0102` reads `u.e` 16#0102). Pin first, in `lower/storage/unions.test.ts` (BOOL and BIT refused
+    `layout-union`; an enum member overlays) — green on the code, the doc was the defect. architecture.md now lists a bit
+    string of 8 bits or more (BYTE to LWORD, BOOL/BIT refused though BOOL is ANY_BIT), an enum as its base integer, and
+    what that refuses (a STRING, a duration, a struct, a pointer beside numbers); `unions.ts`'s header says the same
+    (comment only: map unchanged).
+  - Gate 7.11b+8b (2026-10-11): `bun typecheck` clean; `bun run lint` green (layering, size, citations 0 missing / 3
+    planned); `rate:fixtures` — map unchanged (mapped 5566, confirmed 3012, refused 2018, not-lowered 345, lsp-gap 85,
+    diverges 11, unaskable 95; edge agree 3219, disagree 5, not-run 219; `keep 16`); full suite `VOLT_REQUIRE_FULL=1
+    bun test` (VOLT_FIXTURES unset, rustc cache sampled) 9297 pass / 0 fail, 35 skip, 388 todo (9720 tests, 321 files,
+    665 s); root `bun run check` green.
 - [ ] 8.2 Final map delta against 0.2.
       **Owner 2026-10-10: reopen the 6 marks outside design.md §7.2** (`reinterpret_dint_as_real_edges`,
       `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`, `string_store_function_input_tail`, `wstring_parse_trailing_spaces`,

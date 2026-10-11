@@ -273,10 +273,11 @@ transpile/
     pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts escape.ts image.ts
                     image-rewrite.ts — the escape pass, the image layout and its rewrite are model 3's
     expressions/    expressions.ts operators.ts calendar.ts partial-access.ts
-    builtins/       arity.ts builtins.ts value-functions.ts system.ts clock.ts conversions.ts sizeof.ts
+    builtins/       arity.ts builtins.ts value-functions.ts system.ts clock.ts conversions.ts sizeof.ts length.ts
     statements/     statements.ts assign.ts loops.ts case.ts
     calls/          routines.ts routine-frame.ts facts.ts variants.ts parameters.ts invoke.ts fb-call.ts outputs.ts
                     binding.ts super.ts property.ts specialize.ts last-binding.ts reentrancy.ts namespace.ts
+                    string-inputs.ts
     interfaces/     state.ts tags.ts lend.ts dispatch.ts query.ts
     conditions.ts   the exec oracle's condition world (read by project/ and calls/)
   interp/           machine.ts frame.ts calls.ts runner.ts — executes the IR, decides nothing
@@ -352,6 +353,18 @@ copy of a pointer of several targets; a target set that still grew after `ESCAPE
 `interface-instance` (an instance at a runtime index), `interface-instance-relative`, `call-global-instance` (a METHOD
 called on a GVL's instance, directly or through an interface); a pointer→DWORD conversion is vendor-refused.
 
+*Unions* (transpile-restructure §3.3/§3.4, step 7.8d) stay out of the image: a UNION is laid out as a struct holding
+each member, and a store into one member is followed by ONE assignment per other member, the stored member's
+little-endian bytes read at that member's type — the IR expression `reinterpret` (`lower/storage/unions.ts`
+`unionCopies`; the interpreter's twin is `semantics/memory.ts`, the Rust `to_le_bytes`/`from_le_bytes`,
+`emit/rust/reinterpret.ts`) — so every read stays a plain field read. A union of pointers keeps one field per member too
+(the DUT struct's fields are the emitted Rust's contract). Refused by name: `layout-union` (a member that is not an
+integer — an enum is its base integer —, a bit string of 8 bits or more (BYTE to LWORD: a BOOL or BIT member is
+refused, though BOOL is ANY_BIT), a REAL/LREAL or a one-dimensional array of them — so also a STRING, a duration, a
+struct, or a pointer beside such members; or a member with an initial value) and
+`union-write` (a member written other than by `:=` — a VAR_IN_OUT or output binding, a latch, a chain link, a FOR
+variable, an address taken — or reached through a runtime index).
+
 *The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
 constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —
 not a second type model. **If a backend ever has to decide something, the lowering is incomplete.**
@@ -376,7 +389,9 @@ a same-width TO_STRING / TO_WSTRING and a number's text are the default 80 (`low
 an implicit string crossing (`assign-string`), unmeasured escapes (`string-escape`, `wstring-surrogate`,
 `string-non-ascii`), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
 a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun`), REAL_TO_STRING
-(`conversion-type`).
+(`conversion-type`), a Standard function's lent input that the library repo's body writes, lends writable or takes the
+address of (`input-borrow-written` — a repo defect, never a silent copy) and LEN_INTERNAL of a STRING longer than its
+UINT count holds (`string-length-width`).
 
 *Initialization* (transpile-restructure §3.4). An initializer is a statement that RUNS, once before the first scan, in
 declaration order — not a constant expression. `IrSlot.init` holds the folded constant (an `IrInit` complete to every
@@ -395,7 +410,13 @@ named where it is visible but not run — its FB's ACTION, `THIS^.x`, an instanc
 it is not visible — a METHOD, a derived body — the name is whatever else declares it, a global of that name (the
 symbols' `lookup`), and a derived FB may declare its own variable of a base VAR_TEMP's name. A field holding a VAR_TEMP's
 address reads it in the run that stored it, as one into the body's VAR_IN_OUT does (`pointers/state.ts` `scopedTo`). What an initializer reads is `ir/walk.ts` `initReadChildren` — `childrenOf`, an
-`ADR` reading only its indices. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path; a VAR_TEMP read by the run-once
+`ADR` reading only its indices. An ADDRESS BINDING — `p : POINTER TO INT := ADR(x)`, `r : REFERENCE TO T REF= x`, a
+store of an address of the frame's own static storage (or a tag) into a whole pointer slot — is no statement of the step
+but the slot's initial value (`lower/init/bindings.ts`, transpile-restructure 7.8.8): run after the image pass, `foldBindings`
+writes each address into the struct's field (`p: __base + k` at a static instance), and an `init()` / `__init()` left
+empty goes with its call chain. It is folded only where `provenBindings` shows, on the built sequence, that nothing
+before it reads or writes a variable of its name, dereferences or calls anything (each conservative); an unproven binding keeps its store, the exact
+declaration-order answer. A binding reads nothing, so it never starts the position rule's walk. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path; a VAR_TEMP read by the run-once
 init step, which runs before any run holds one),
 `init-reads-instance` (an instance declared with a structured initializer, its field, a METHOD on it, the instance
 itself or a struct holding it — also handed to a call by name, as an interface lends it after the guards ran),
