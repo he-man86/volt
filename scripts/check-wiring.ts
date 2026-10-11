@@ -272,7 +272,9 @@ function dialectRows(): Row[] {
 	const md = readFileSync(join(REPO_ROOT, "packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md"), "utf8");
 	const rows: Row[] = [];
 	for (const line of md.split(/\r?\n/)) {
-		const m = /^\|\s*(\*\*)?(~~)?([A-D]\d+[a-z]?)(~~)?(\*\*)?\s*\|(.*)$/.exec(line);
+		// The id cell may carry `[PROBE: <fact-id>]` markers after the id (openspec `vendor-fact-probe`): the row is
+		// a re-measurable vendor fact the probe table must name. The marker leaves the id as it is.
+		const m = /^\|\s*(\*\*)?(~~)?([A-D]\d+[a-z]?)(~~)?(\*\*)?(?:\s*\[PROBE: [a-z0-9-]+\])*\s*\|(.*)$/.exec(line);
 		if (m) rows.push({ id: m[3], retracted: /\[RETRACTED -> /.test(m[6] ?? "") });
 	}
 	return rows;

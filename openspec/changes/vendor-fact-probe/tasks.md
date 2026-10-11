@@ -1,11 +1,26 @@
 ## 0. Design gate
 
-- [ ] 0.1 Design the table row shape (fact id, item types, vendor applicability, reader, DIALECT row) and the vendor
+- [x] 0.1 Design the table row shape (fact id, item types, vendor applicability, reader, DIALECT row) and the vendor
       core interface (`create` / `read` / `cleanup` per row) in a short `design.md`; show that every fact the proposal
       lists fits one row without a fact-specific code path. A fact that does not fit is a design finding, not a new
       script.
-- [ ] 0.2 Decide the `[PROBE: <fact-id>]` marker spelling in `DIALECT.md` and mark every row the proposal lists (not the
+- [x] 0.2 Decide the `[PROBE: <fact-id>]` marker spelling in `DIALECT.md` and mark every row the proposal lists (not the
       deferred N-rows).
+  - Gate (2026-10-11): 25 facts, 29 `[PROBE: …]` markers, C29–C33 filed; `check-wiring.ts` row parser accepts the marker.
+    Five review findings were taken, all doc-only, so there is no failing test to write first (the 1.1 gate is the
+    test, and it is task 1.1). (1, high) C2n and C24 did not fit one fixture: the step set gained `find`,
+    `open{fixture}` and `close`. C2n opens Pro2193 and finds its objects; the NVL is refused by name (no committed
+    fixture holds one). C24 is an open/close switch read with `same`. (2) Every write names `via: "push" | "script"`,
+    with no default, and each vendor session serves the shipped pipe. (3) C2j gained `parse`, C19b `xml` (three
+    units), the create order and the priority uniqueness, and C2e the text-list enum, `parent` and the
+    build/negative control. (4) DIALECT C33 is now "recorded, not kept" (no log; the first-create-refused
+    ambiguity); C30's headline no longer claims int 0, and the `task-kind` row tries it. (5)
+    `empty-folder-lifecycle` became `empty-folder-survives` in the prose.
+    Numbers: `bun run check` 18 passed / 0 failed; Repo.Gates 136/0; Engine.Tests 2307 passed / 1 skipped / 0 failed;
+    `openspec validate` valid; typecheck: control/desktop/cli/vscode 0. lsp-iec fails at
+    `test/frontend/baseline.ts(852)` `STRING_INDEX_TASK`. That file is in a parallel session's uncommitted
+    volt-lsp-iec work, outside this step's paths and not touched by it. The LSP suites are not this step's: it
+    changes no LSP file.
 
 ## 1. Gate first (offline)
 
