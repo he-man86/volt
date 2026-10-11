@@ -290,3 +290,44 @@ a different order run to run, so a `diagnostics` read is sorted (keyed without g
 **Migration.** (a) The table drops `int-0`, adds the `ui-culture` read and the `culture` process read in both cores,
 and adds an offline test for the `culture` read: one commit. (b) Any DIALECT findings: their own commit. (c) Both
 snapshots plus the 3.1 note: one commit. (d) 3.2: no file changes; its result goes in the tasks.md note.
+
+## 4 — Fold-ins: bridge-refusal-review's probes become rows; the NWL probes wait for the LD/FBD design
+
+**Target.** `bridge-refusal-review` is archived (2026-10-04), so its kept probes and logs leave `scripts/`: each fact
+is a table row with a `[PROBE: …]` marker, and `RefusedNamesMatchTheLogsTests` reads the snapshots, not the logs.
+
+**Rows (4.1)** — vendors as each log measured; every write names `via`:
+- `refused-names` (C T) ← `probe-member-name-refusal.ts` + its six logs. The candidates are FROZEN in the table as data:
+  the 1494 distinct words the three runs asked (274 + 1201 + 421 asks), grouped (keywords, IL operators, elementary
+  types, standard library, casing/controls, each family) so no group passes the cores' 500-item render limit (CODESYS
+  refused 1092 of them, TwinCAT 933). One read per kind × group: the sorted refused words.
+- `identifier-shapes` C28 (C T) ← `identifier-names.log`, `tc-refusal-measure-names.log` (42 shapes × 6 kinds).
+- `task-priority-range` C19c (T) ← `tc-refusal-measure-priority.log`.
+- `body-language-change` N24 (C T) ← `body-language-change`, `member-language-change`, `tc-refusal-measure-language`.
+- `wire-type-contradiction` N25 ← `probe-wire-type-build.py`; `interface-accessor-write` D41 (C) ← its probe.
+- **Missed by the proposal**, kept by the same archived change and cited in `scripts/README.md`: `move-target` C2q
+  (C T) ← `probe-move-holders.py` (the fixture half; its corpus parent census is not a row), `probe-tc-move-target.ps1`;
+  `body-view-switch` N23 (C T) ← `probe-view-switch.py`, `probe-tc-view-switch.{ps1,ts}`.
+
+**Choice: `refused-names` writes `via: "script"`, and it runs in the default run.**
+- Via script, because a push now meets the driver's own `RefusedName` pre-flight, which answers from the very list
+  under test: the push would measure Volt. Rejected: *a pre-flight bypass flag* (a test hook in product code).
+- In the default run, because a new vendor build that frees or reserves a word is the change this probe exists to
+  catch. Measured cost (2026-10-03 logs, 1896 asks): CODESYS 557 s, TwinCAT 3472 s → ≈ 7 / ≈ 46 min for 1494 words.
+  Rejected: *`--only refused-names` as opt-in*, because a default skip is a fact nobody re-asks.
+- The gate becomes `RefusedNamesMatchTheSnapshotTests`: refused = the union of the kind × group reads, the split check
+  (refused as one kind, accepted as another) kept. Rejected: *keeping the logs as the gate's input* (a second record
+  of the same fact, written by a script the table replaced).
+
+**Not rows:** `probe-library-signature-cost.py` + its eight logs (timings, not facts: the snapshot holds none) —
+deleted once its finding is cited where it is used; `refusal-census.ts` (reads Volt's source) and `voltprobe.py` (the
+CODESYS core's helpers) stay.
+
+**4.2 stays open, refused by name.** No LD/FBD change exists yet. The rule it will apply: what a vendor model accepts,
+holds or builds on a fixture is a row (`coils`, `boxoutputs`, `execute-create`, `execute-compare`, `slots`, `labels`,
+`labels-edge-names`, `edge-names-order`, `eno-build`); a count over a real project is a corpus census and not a row
+(`nwl-census`, `nwl-census-v2`, `nwl-dump`, `assign-outputs`, `oracle-rungs`, `coil-modifiers`). The design confirms.
+
+**Migration.** (a) Rows + DIALECT markers (C28 C19c D41 N24 N25 C2q N23) + core reads: one commit. (b) Two agreeing
+live runs per vendor; before any log goes, the snapshot's refused lists must equal the logs' (1092 / 933) — a
+difference is a DIALECT finding first. (c) Gate switch + delete the probes and logs (+ README rows): one commit.
