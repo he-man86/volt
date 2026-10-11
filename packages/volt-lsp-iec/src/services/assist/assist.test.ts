@@ -77,6 +77,21 @@ test("hover: a built-in type falls back to the reference catalog", () => {
   expect((h?.contents as { value: string }).value).toMatch(/INT/)
 })
 
+test("hover: a built-in the project's dialect does not have answers nothing (one dialect-aware path, builtinName)", () => {
+  // `__POUNAME` and `__COMPARE_AND_SWAP` are CODESYS-only; `BOOL_TO_LDATE` / `LDATE_TO_DINT` name LDATE, no TwinCAT
+  // type. The analysis reports each "not defined" on TwinCAT, so hover may not describe it as a built-in there.
+  const names = ["__POUNAME", "__COMPARE_AND_SWAP", "BOOL_TO_LDATE", "LDATE_TO_DINT"]
+  const src = `PROGRAM P\nVAR\n\tx : DINT;\nEND_VAR\n${names.map((n) => `x := ${n};`).join("\n")}\nEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true })
+  const doc: Document = { uri: "file:///P.pou", source: src, parseResult }
+  const at = (n: string) => src.indexOf(`:= ${n}`) + 3
+  const on = (dialect: "codesys" | "twincat") => build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect)
+  const codesys = on("codesys")
+  const twincat = on("twincat")
+  expect(names.filter((n) => hover(doc, codesys, at(n)) === undefined)).toEqual([])
+  expect(names.filter((n) => hover(doc, twincat, at(n)) !== undefined)).toEqual([])
+})
+
 test("hover: whitespace / unknown token yields nothing", () => {
   const { doc, project } = setup(SRC)
   expect(hover(doc, project, SRC.indexOf("VAR\n") - 1)).toBeUndefined()

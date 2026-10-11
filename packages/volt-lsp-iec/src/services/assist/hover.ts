@@ -2,13 +2,16 @@
  * hover (Layer E · E.3 · assist). A markdown tooltip for the symbol under the cursor: a reconstructed
  * declaration line in an `iecst` code fence + the human kind label (the same `humanKind` completion
  * uses — the parity test guards they agree). Thin over `resolveAt` + `types/renderTypeExpr`.
- * A compiler built-in (`INT`, `MOD`, `SQRT`) that no symbol answers falls back to the reference catalog; a library
- * element never needs to — it is a symbol, from its materialized declaration.
+ * A compiler built-in (`INT`, `MOD`, `SQRT`) that no symbol answers falls back to the reference catalog — only when
+ * `builtinName` says the project's dialect HAS it (the one dialect-aware path the analysis asks too: `__POUNAME` or
+ * `BOOL_TO_LDATE` on TwinCAT is "not defined", so it gets no built-in tooltip). A library element never needs the
+ * catalog — it is a symbol, from its materialized declaration.
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
 import { renderTypeExpr } from "../../frontend/syntax/index.js"
-import type { Scope, Symbol, SymbolKind } from "../../frontend/symbols/index.js"
+import { dialectOf, type Scope, type Symbol, type SymbolKind } from "../../frontend/symbols/index.js"
+import { builtinName } from "../../frontend/types/index.js"
 import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
@@ -22,6 +25,7 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
 
   // Not a user symbol — a built-in (INT / MOD / SQRT / …). Fall back to the reference catalog.
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
+    if (builtinName(tok.text, dialectOf(project)) === undefined) return undefined
     const entry = lookupReference(tok.text)
     if (entry !== undefined) return { contents: { kind: "markdown", value: renderReferenceHover(entry) }, ...range }
   }
