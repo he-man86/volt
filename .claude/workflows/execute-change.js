@@ -233,7 +233,7 @@ if (!args.stopAfter && !args.maxSteps && !args.only?.length && !args.sections?.l
   phase('Close')
   done.push(await agent(`${RULES}
 
-CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) — green; the docs the change names are updated; a final review with the SPEC and LAYERING
+CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) — green, run in the FOREGROUND or with run_in_background AND waiting for its completion notification (never end your turn while a command you started is running: a close once returned "the cold suite is running" and archived nothing); the docs the change names are updated; a final review with the SPEC and LAYERING
 lenses over the whole change (fix what it finds, test-first); archive it (npx --yes openspec archive ${args.change} -y), delete the
 recreated openspec/specs/, and commit. If tasks are still open: do them first when they are verification (live IDE checks via
 ide.ps1 -Instance ${args.change}, e2e runs, full suites, numbers), writing results under each task; any other open task: name it and stop.`, { label: 'close', phase: 'Close' }))
