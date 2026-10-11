@@ -38,8 +38,6 @@ import { escapesOf, type Holder, noteBoolAddress, noteBoolFlow, noteBoolSeed, no
 import { isPlainBool, viewKey, viewsBool } from "./bool-views.js"
 import { sameStorage } from "../places/path.js"
 
-export { isPlainBool } from "./bool-views.js"
-
 const BOOL = elementaryRef("BOOL")
 const BYTE = elementaryRef("BYTE")
 

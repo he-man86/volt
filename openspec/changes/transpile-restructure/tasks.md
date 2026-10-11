@@ -6979,6 +6979,132 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
       - R3 = 8.2's open Accept (six niche marks outside the target's two lists) — the owner's.
       - R4: 7.4.6, 7.6.4 (never started) and 7.8.4, 7.8.8 (reopened by the 7.7b+7.11 gate) hold 7.11.2 / 7.11.4 and
         through them 8.1-8.4 — the owner decides build or close; nothing else in phases 0-7 is open.
+  - Reviewed 2026-10-11 (step 8d, a measure step: nothing in `src/` changed), over the whole change at 06c9f22934 and in
+    detail over what landed after 8a's review (e8c46699f6..HEAD: 7.4c, 7.6b, 7.8d, 7.11b, 8b, 8c and its gate — 104
+    `src/transpile` files, +3583 / -553). NOT ticked: 8.2 is not (the owner's two 7.4c marks and the FUNCTION-frame
+    residue), and R5-R9 below are fixes. Measuring scripts in the step's scratchpad (`m8d/size`, `m8d/irsketch`,
+    `m8d/fault`; single use, not kept).
+    - Lint green: `bun run lint` — layering (1 known, `services → network`, not the transpiler's; `KNOWN_TRANSPILE_VIOLATIONS`
+      empty), size (`CEILINGS` empty, "0 listed", no function over 80), citations (0 missing, 3 planned, none under
+      `src/transpile`). `dead-exports.ts --scope src/transpile`: no finding. `bun typecheck` clean. `openspec validate
+      transpile-restructure`: valid. The size ceiling list for `src/transpile/**` is EMPTY — the Accept's second half met.
+    - Size (`wc -l`, at 0.2 3f42db0e71 → 8a e8c46699f6 → now): source 30 / 11,255 → 151 / 19,572 → 160 / 21,672 lines (6
+      case tables, 1,126); colocated tests 10 / 5,631 → 92 / 9,840 → 98 / 10,770. Largest source files `ir/walk.ts` 388,
+      `semantics/numeric.cases.ts` 369, `lower/expressions/operators.ts` 361 (limit 400); largest test
+      `lower/entry/totality.test.ts` 563 (limit 600). Longest functions: `lastBinding` 79 (8a's split left it one line
+      under the limit), `aggregateInit` 78, `mapShallow` 77, `compileExpr` 77, `pointerValue` 72, `compileStmt` 71,
+      `buildLayout` 71; 17 at 60 or more. Since 8a +9 modules: `semantics/nan.ts` (+ `nan.cases.ts`),
+      `lower/pointers/raw-bool.ts`, `bool-views.ts`, `lower/calls/string-inputs.ts`, `lower/init/bindings.ts`,
+      `lower/builtins/length.ts`, `emit/rust/reinterpret.ts`, `emit/rust/runtime/bytes.ts`. 58 of 146 modules (no test,
+      case table or barrel) have no colocated test — the largest `lower/pointers/escape.ts` 356, model 3's pass, reached
+      through `image.test.ts`, `raw-bool.test.ts` and the conformance suite; P7 asks a unit test to sit beside its module,
+      not every module to have one: informational.
+    - Spec: each scenario still holds on a `confirmed` fixture of today's map — `tr_27_loop_cap_for_1000001`,
+      `_repeat_1000001`, `_while_5000000`; `tr_34_lib_prim_char_behind`; `tr_15_fb_copy_keeps_pointer_address`; prelude
+      on demand (`dead_code` excuses 42 fixtures, the self-assignment message only). Edge: agree 3237, disagree 2, not-run
+      219; the two disagreements are `diverges` rows (R10).
+    - Layering beyond the lint: every `emit/` and `interp/` import from `frontend/types` is a predicate or `Type`
+      (`peelArray`, `stringKind`, `isBoolValued`, `isReal`, `isTemporal`, `isIntegral`, `holdsIntegerBits`, `floatBits`,
+      `elementOf`, `elementaryRef`) — P4 holds; no backend reads `IrSlot.rawBool` (lowering decides the BOOL byte). Docs
+      drift in R9.
+    - Refusal registry (R2 re-measured): 138 codes — invalid 23, not-measured 19, not-modelled 13, unclassified 83; the
+      five added since 8a (`bool-byte`, `init-nan` not-measured; `input-borrow-written`, `string-length-width`,
+      `var-temp-outside-body` not-modelled) all classified, none removed. R2 stands for the owner.
+    - Findings (fresh-implementation review; each with its site, for the gate or a fix step — this step changes no product
+      code). Default proposed, so nothing stalls: the gate fixes R5, R8 and R9 (cheap); R6 and R7 are output-neutral
+      consolidations proven by S, fixed in one fix step after it — or the owner files them.
+      - R5 (FIX, internal consistency — reworded by the 8d gate's review, see below): `ir/faults.ts` `cannotFault` answers TRUE for a DIV by the constant -1 that lowering marked
+        `nonzeroDivisor` — and `DINT#-2147483648 / -1` stops the task (`division-overflow`, `semantics/arith.ts`,
+        `arithedge_dint_div_min_by_minus_one`, `arithedge_lint_*`). `lower/values/fold.ts` `harmlessDivisor` excludes -1
+        for MOD only, so a DIV by -1 carries the flag; `lower/expressions/operators.ts` `quiet` (:329) and
+        `lower/values/promote.ts` (:129) each re-exclude it by hand, `cannotFault` (7.4c, 3f50312fce) does not. Measured
+        (scratch `m8d/fault`, a DINT load over a const divisor, `nonzeroDivisor`): div by -1 `cannotFault` true / `quiet` false;
+        div by 2 both true. Its users order evaluation by it: `lower/calls/string-inputs.ts` `inputWhereWritten`
+        (`MID(arr[i], x / -1, 1)` with `i` out of bounds and `x` the DINT minimum: the lent `arr[i]` is not frozen, so the
+        division faults before the index — the input copy CODESYS takes faults on the index first) and
+        `emit/rust/calls.ts` (`faultFreeze`). Fix test-first in `ir/faults.test.ts`; the "harmless division" rule written
+        once in `ir/` (the flag, and a DIV's -1) for all four sites. Beside it, P1: `quiet` and `cannotFault` are two
+        allowlists of one question (`quiet` = `cannotFault` plus no string conversion, a constant index inside its array,
+        a shorter builtin list) — `quiet` can be stated as `cannotFault` and its two extra conditions.
+        CORRECTED by the 8d gate's review (two findings, both taken): (1) R5 is NOT a recorded CODESYS divergence. A
+        CODESYS run recording holds no fault kind — a stopped task records only `{"error": "The operation has timed
+        out."}` (`arithedge_dint_div_min_by_minus_one` in `recordings/codesys.run.json`) — and the edge check compares
+        fault against run only. `cannotFault`'s two users (`inputWhereWritten`, whose other condition is `holdsEffect`,
+        and `emit/rust/calls.ts` `hoistedInputs`) only reorder two evaluations that could each fault: in
+        `MID(arr[i], x / -1, 1)` both orders stop the task. The "CODESYS faults on the index first" above is an ordering
+        claim nobody recorded; what is real is that `cannotFault` contradicted its own doc and disagreed with `quiet` and
+        `promote.ts` — no recorded output at stake (S `ir,rust` identical, below). (2) The same false negative for a
+        PLACE: `cannotFault` took every constant index as unable to fault, one outside its array included (the fold keeps
+        it as written, "it stops the task at run time"; `quietPlace` excluded it), and one into an ARRAY[*] in-out's
+        dimension, whose `length` the place does not know. Niche (CODESYS refuses the literal form at build,
+        `array_index_const_out_of_bounds` `refused`; only a folded index CODESYS does not see as constant reaches it),
+        but the one rule covers it at no cost.
+        FIXED by the 8d gate (red first: `ir/faults.test.ts` "a DIV by the constant -1 could fault…" and "a constant
+        index outside its array, or into an ARRAY[*]…", `lower/expressions/operators.test.ts` "quiet and cannotFault
+        agree…" — the two reviewers' repros lowered: `cannotFault` true / `quiet` false, `run` throws). `ir/faults.ts`
+        now holds the two rules once: `harmlessDivision` (the flag, and not a DIV by the constant -1) and
+        `indexInBounds` (a constant with `index - lower` in `[0, length)`, as written or folded alike). `cannotFault`,
+        `quiet` (via `quietPlace`) and `promote.ts` read them; `fold.ts` stays the flag's one source and `IrBinary
+        .nonzeroDivisor`'s doc says it spares the zero check only. The test helper's place in `faults.test.ts` gained
+        `length: 10` — its premise was wrong on the IR's own contract (`Access.length` absent = an ARRAY[*] dimension),
+        not on what the code answers. `quiet` keeps its own extra conditions (no string conversion, no image root, the
+        shorter builtin list, no `fresh`/`count`/`copy`/`reinterpret`): restating it as `cannotFault` plus those is not
+        output-neutral to prove here and is left as is — the shared part is now shared.
+      - R6 (FIX, P1 — copies phases 4-5 brought back after 1.7's consolidations; output-neutral, S):
+        (a) `lower/pointers/escape.ts` (4d, 73db8322a0) walks paths by hand twice (`escapeKey`'s loop, `typeOfPrefix`)
+        beside `places/path.ts` `typeAlong` ("THE ONE PATH WALK"), keeps a second `rootTypeOf` beside `path.ts`
+        `rootType`, and looks fields up by name at :301 and :349 past `fieldOf` (P1 "field lookup by upper-cased name").
+        (b) The same lookup in the backends, which cannot import `lower/`: `semantics/memory.ts` :189, :225, :243 and
+        `emit/rust/place.ts` :70 — one IR-level lookup in `ir/` that `path.ts` `fieldIn` builds on gives all three layers
+        one rule. (c) Two `holdsInstance` — `places/path.ts` :221 (private, cycle-guarded) and `storage/layout.ts` :149
+        (exported), one question; five more "does a value of t hold X at any depth" walks each re-walk arrays and
+        struct/FB fields with a cycle set of their own (`raw-bool.ts` `holdsBool`, `statements/assign.ts`
+        `holdsOwnAddress` / `holdsEscaped`, `calls/last-binding.ts` `registerWholeCopy`, `init/fb-init.ts`
+        `reachesFbInit`). (d) EXTENDS read outside `core/chain.ts`: `init/initial-values.ts` `fieldWritten` (5c,
+        b277626431) walks the FB and STRUCT EXTENDS chain by name itself (`chain.ts` has no STRUCT chain), and
+        `pointers/escape.ts` `families` reads `unit.extends` inline where `chain.ts` `baseOf` answers it.
+      - R7 (FIX or FILE, P1 — the escape/identity key namespace): 42 template spellings over 16 `lower/` files of
+        `GLOBAL.<n>`, `<frameContext|routineContext>.<n>`, `POU:<root>.<n>`, `FB:<type>.<field>`, `ROUTINE:<key>.<n>`,
+        `TYPE:<fb>`, `VIEW:<key>` — a key one file writes must equal the key another writes (`pointers/state.ts`
+        `pointerKey`, `escape.ts` `variableKey` / `rootVariableKey`, `image.ts` `layOutImage`, `raw-bool.ts`
+        `rawBoolSlot`, `calls/invoke.ts` four `ROUTINE:` parameter keys, `pointers/any.ts`). `interfaces/tags.ts`
+        `interfaceKey` and `escape.ts` `variableKey` are near-copies (own key, else `FB:<type>.<field>`). And
+        `init/bindings.ts` `INIT_KEY` re-parses by regex the `__INIT` key `init/instance-init.ts` :33 builds. One module of
+        key constructors (and the `__INIT` predicate beside its builder) makes each format one home.
+      - R8 (FIX, P8, cheap): `lower/pointers/raw-bool.ts` :41 `export { isPlainBool } from "./bool-views.js"` — a
+        re-export left by gate 8c's split, kept for `calls/invoke.ts` :29 and `statements/assign.ts` :25, which import it
+        through `raw-bool.ts`; P8: the consumers change instead.
+        FIXED by the 8d gate: the re-export deleted; `invoke.ts` and `assign.ts` import `isPlainBool` from
+        `bool-views.ts` (typecheck the test).
+      - R9 (FIX, docs, cheap): `docs/data-model.md`'s IR sketch lacks `IrSlot.rawBool` (8c) — 8b's scan re-run
+        (scratch `m8d/irsketch`): 1 field missing, 0 kinds, 0 fault kinds. `docs/architecture.md` :478 cites
+        `semantics/try-catch.ts`, which is `test/conformance/fixtures/semantics/try-catch.ts` — it resolves by its tail
+        only and reads as a `src/transpile/semantics` module that does not exist. design.md P2's table: its front-end
+        column omits `library` (`lower/` imports `frontend/library` in 6 files — `builtins/length.ts`, `calls/routines.ts`,
+        `calls/string-inputs.ts`, `places/globals.ts`, `project/prepare.ts`, `project/library-base.ts`; rule 3 allows it)
+        and gives `interp/` and `emit/` `types` only, where `interp/runner.ts` and `emit/rust/{module,printer,structs,tail}.ts`
+        import the `Span` type from `syntax` (the IR's own field type) — amend the table (or have `ir/` re-export `Span`);
+        the lint checks the transpile column only.
+        FIXED by the 8d gate: `docs/data-model.md`'s `IrSlot` sketch carries `rawBool?: true` with its comment line;
+        `docs/architecture.md` cites `test/conformance/fixtures/semantics/try-catch.ts` by its full path; design.md P2's
+        table amended — `library` in rule 3's sentence and `lower/`'s front-end column, `syntax` (the `Span` type only)
+        in `interp/`'s and `emit/rust/`'s (the table amended rather than an `ir/` re-export: `Span` is the IR's own field
+        type, and the lint's transpile column is unchanged).
+      - R10 (OWNER, with 8.2): the two edge disagreements, `string_inout_wider_unit_read` / `_copies`, are the backends
+        holding TWO models of one in-out — the Rust generic over the caller's capacity, the interpreter at the declared
+        one — which the spec's "except where the map names a known divergence" admits but P3 ("the same model, defined
+        once") does not. The recordings name one model both could hold: the in-out IS the caller's buffer for an index
+        read (unit 11 of a STRING(12) through a STRING(10) in-out is 'l'), and a whole copy of it reads the DECLARED
+        capacity (10 into a STRING(255) input and into a STRING(20)). For the owner's decision on the two 7.4c marks.
+    - GATE 8d (2026-10-11): R5 (as corrected by the gate's two review findings), R8 and R9 fixed, each code fix red
+      first; R6, R7 stay for a fix step or the owner, R10 and R2 for the owner. Nothing ticked (8.2 still waits on the
+      owner's two 7.4c marks and the FUNCTION-frame residue). Numbers: `bun typecheck` clean; `bun run lint` green
+      (layering 1 known, size 0 listed, citations 0 missing / 3 planned); S `ir,rust` (`snapshot:transpile check`, the
+      baseline written from HEAD 06c9f22934's sources) identical over 5581 fixtures — no lowered or emitted output moved,
+      as the review said; `rate:fixtures` regenerates `map.generated.ts` identically (confirmed 3031, refused 2018,
+      not-lowered 345, lsp-gap 85, diverges 7, unaskable 95; edge agree 3237 / disagree 2 / not-run 219); full suite
+      (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9370 pass / 35 skip / 388 todo / 0 fail, 9793 tests across 323
+      files (676 s); `bun run test:corpus` 19 pass, 1 skip, 0 fail; `bun run check` 18 passed.
 - [ ] 8.4 Archive.
   - What: check each spec delta describes what was built; every hand-off of design.md §7.1 has a line in `lsp-transpile-review-gaps`;
     every transpile-st-to-rust task 0.8/4.2 marked superseded is ticked there with its reference. Archive this change and

@@ -355,13 +355,15 @@ interface IrPou {
   image?: IrImage              // the byte image, when a program stores an address (model 3)
   span: Span
 }
-interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; scoped?: true; constant?: boolean; readOnly?: boolean; ofInstance?: boolean; image?: number; list?: string; readAs?: Type; declared?: Type }
+interface IrSlot { name: string; type: Type; section: VarSectionKind | "temp" | "program"; init: IrInit; scoped?: true; constant?: boolean; readOnly?: boolean; ofInstance?: boolean; image?: number; list?: string; readAs?: Type; declared?: Type; rawBool?: true }
 // scoped: a temp written at one site before every read — a slot to the interpreter, a `let` of its fn in Rust (7.6.1)
 // image: the slot's byte offset when the image holds it
 // list: a GVL variable whose name another list also declares — two globals (6.A.17), each Rust field named `<list>_<name>`
 // readAs: a CONSTANT whose slot is wider than its type to hold its unwrapped fold — every read of it is converted to its
 // type's run-time width by lowering (`places/access-guards` `loadValue`, 6.A.29); no backend reads it. declared: that
 // constant's declared type, which SIZEOF measures (`builtins/sizeof`: SIZEOF(B) of a BYTE held as 256 is 1, 6Af)
+// rawBool: a BOOL held as its byte — its address reaches a pointer of another type, or a byte-keeping flow fills it from
+// one; its type is BYTE and every operator on it lowered on the byte (`lower/pointers/raw-bool.ts`, 8.2); no backend reads it
 interface IrLayout { name: string; kind: "struct" | "function_block"; fields: IrSlot[]; body?: IrStmt[]; locals?: IrSlot[]; bodyUri?: string; inouts?: IrSlot[]; statics?: { name: string; global: number }[]; lent?: { tag: number; type: Type }[]; size?: number }
 // locals: an FB body's per-run storage, its VAR_TEMP — not fields, the instance does not carry them between runs (7.6.4)
 // size: an image struct's measured bytes

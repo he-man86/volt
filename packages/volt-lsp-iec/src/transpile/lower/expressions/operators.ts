@@ -4,6 +4,7 @@
  */
 
 import type { IrBinOp, IrExpr, IrPou, IrStmt, Place } from "../../ir/index.js"
+import { harmlessDivision, indexInBounds } from "../../ir/faults.js"
 import { mapExprs } from "../../ir/walk.js"
 import type { Lowering } from "../core/lowering.js"
 import type { Expr } from "../../../frontend/syntax/index.js"
@@ -303,11 +304,10 @@ function negativeBesideUnsigned(written: Expr, lowered: IrExpr, other: IrExpr): 
  *  domain error — nor a string or image helper). */
 const QUIET_BUILTINS: ReadonlySet<string> = new Set(["max", "min", "limit", "sel", "mux", "abs", "trunc", "shl", "shr", "rol", "ror"])
 
-/** A place read without a check that could fail: no dereference, no image address, every index a position inside its
- *  array (a run-time index may stop the task out of bounds). */
+/** A place read without a check that could fail: no dereference, no image address, every index a constant inside its
+ *  array (`ir/faults.ts` `indexInBounds` — a run-time index may stop the task out of bounds). */
 const quietPlace = (p: Place): boolean =>
-  p.guard === undefined && p.root !== "image" && p.at === undefined &&
-  p.path.every((s) => s.kind !== "index" || (s.index.kind === "const" && s.lower === 0n && s.length !== undefined && typeof s.index.value === "bigint" && s.index.value >= 0n && s.index.value < BigInt(s.length)))
+  p.guard === undefined && p.root !== "image" && p.at === undefined && p.path.every((s) => s.kind !== "index" || indexInBounds(s))
 
 /**
  * An operand whose evaluation nothing can observe — no call, no store, and nothing that can stop the task: constants,
@@ -324,11 +324,8 @@ export function quiet(e: IrExpr): boolean {
       return quiet(e.operand)
     case "convert":
       return stringKind(e.type) === undefined && stringKind(e.value.type) === undefined && quiet(e.value)
-    case "binary": {
-      const divides = e.op === "div" || e.op === "mod"
-      const harmless = e.nonzeroDivisor === true && !(e.op === "div" && e.right.kind === "const" && e.right.value === -1n)
-      return (!divides || harmless) && quiet(e.left) && quiet(e.right)
-    }
+    case "binary":
+      return (!(e.op === "div" || e.op === "mod") || harmlessDivision(e)) && quiet(e.left) && quiet(e.right)
     case "builtin":
       return QUIET_BUILTINS.has(e.name) && e.args.every(quiet)
     default:

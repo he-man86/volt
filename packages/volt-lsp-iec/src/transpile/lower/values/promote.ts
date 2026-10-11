@@ -18,6 +18,7 @@
 import type { Span } from "../../../frontend/syntax/index.js"
 import { commonType, elemOf, isIntegral, isReal, isSameType, promoteForRuntime, type Type, UNKNOWN } from "../../../frontend/types/index.js"
 import type { IrExpr, IrPou, IrStmt } from "../../ir/index.js"
+import { harmlessDivision } from "../../ir/faults.js"
 import { mapExprs } from "../../ir/walk.js"
 import type { Lowering } from "../core/lowering.js"
 import { beside, holdsEvery, ownIntegerType, retype, sameType, stored } from "./convert.js"
@@ -126,8 +127,8 @@ function exactAs(e: IrExpr, t: Type): IrExpr | undefined {
   // SINT/INT `MIN MOD -1` is 0 in CODESYS, computed in DINT (6.A.3, `arithedge_{sint,int}_mod_min_by_minus_one`), where a
   // narrow remainder stops the task in both backends — niche: accepted loss (11 MODs by a name, of any type, in the corpora)
   // …and DIV by such a constant other than -1 (7.3.11): the quotient is no larger than the dividend, so it fits its width
-  const harmless = e.kind === "binary" && e.nonzeroDivisor === true && (e.op === "mod" || (e.op === "div" && e.right.kind === "const" && e.right.value !== -1n))
-  if (e.kind === "binary" && harmless && integerBits(t) !== undefined) {
+  // (`ir/faults.ts` `harmlessDivision`, the one rule)
+  if (e.kind === "binary" && harmlessDivision(e) && integerBits(t) !== undefined) {
     const left = exactAs(e.left, t)
     const right = left === undefined ? undefined : exactAs(e.right, t)
     return left === undefined || right === undefined ? undefined : { ...e, left, right, type: t }

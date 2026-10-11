@@ -62,16 +62,16 @@ copies have already drifted:
 
 ### P2. Layer rules
 
-Data flows `syntax → symbols → types → lower → ir → {interp, emit/rust}`. `transpile/` as a whole may import only `syntax`,
-`symbols` and `types` (today's rule 3). Inside `transpile/` (the amended rule 4 of `scripts/check-layering.ts`):
+Data flows `syntax → symbols → types → lower → ir → {interp, emit/rust}`. `transpile/` as a whole may import only the front-end —
+`syntax`, `symbols`, `types` and `library` (today's rule 3; `library` named by the 8d gate, R9). Inside `transpile/` (the amended rule 4 of `scripts/check-layering.ts`):
 
 | Folder | May import (transpile folders) | May import (frontend) | Owns |
 |---|---|---|---|
 | `ir/` | itself | `syntax` (Span, VarSectionKind), `types` (Type) | The node contract, the generic walkers, the IDE path grammar, fault kinds and texts. No semantics. |
 | `semantics/` (NEW) | `ir/`, itself | `types`, `syntax` | What a node means on values: store, convert, arithmetic, builtins, text, the string and memory models, the IR constant fold, instantiation. What lowering's IR fold and the interpreter run, and what the Rust runtime mirrors. |
-| `lower/` | `ir/`, `semantics/`, itself | `syntax`, `symbols`, `types` | Every ST decision: types, order, evaluation strategy, defaults, refusals. |
-| `interp/` | `ir/`, `semantics/`, itself | `types` | Nothing. It executes. |
-| `emit/rust/` | `ir/`, itself | `types` | Nothing. It prints. Its `runtime/` mirrors `semantics/`, and twin tests hold the two together. |
+| `lower/` | `ir/`, `semantics/`, itself | `syntax`, `symbols`, `types`, `library` (the manifests and resolved library sources) | Every ST decision: types, order, evaluation strategy, defaults, refusals. |
+| `interp/` | `ir/`, `semantics/`, itself | `types`, `syntax` (the `Span` type only — the IR's own field type) | Nothing. It executes. |
+| `emit/rust/` | `ir/`, itself | `types`, `syntax` (the `Span` type only — the IR's own field type) | Nothing. It prints. Its `runtime/` mirrors `semantics/`, and twin tests hold the two together. |
 | `pipeline/` | everything in `transpile/` | — | The composition root (lower, then run or emit) for tests and scripts. Nothing in `src/` imports it except the barrel. |
 | `index.ts` | everything | — | The public barrel, with explicit named exports. |
 

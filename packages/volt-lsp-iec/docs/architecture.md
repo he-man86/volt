@@ -475,7 +475,7 @@ arithmetic emits `wrapping_*` rather than Rust's panicking defaults; widths come
 
 **`__TRY` is measured and not yet lowered**, which is a different thing from unmeasured — the model is complete
 and written down here (the lowering of statements points here) so whoever builds it is not asked to guess. Measured on SP21
-(`semantics/try-catch.ts`, 2026-09-19), and it CHANGES THE FAULT MODEL for the code inside the block:
+(the fixtures in `test/conformance/fixtures/semantics/try-catch.ts`, 2026-09-19), and it CHANGES THE FAULT MODEL for the code inside the block:
 
 ```
   no fault              the body runs, the catch is skipped, __FINALLY runs, and so does what follows __ENDTRY

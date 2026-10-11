@@ -5,6 +5,8 @@ import { describe, expect, test } from "bun:test"
 import { run } from "../../interp/index.js"
 import type { IrAssign, IrIf, IrLoop } from "../../ir/index.js"
 import { lowerSource } from "../index.js"
+import { cannotFault } from "../../ir/faults.js"
+import { quiet } from "./operators.js"
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
@@ -212,4 +214,20 @@ test("a quiet right operand makes AND / OR short-circuit; a call, a variable div
   expect(diagnostics).toEqual([])
   const ops = pou!.body.map((s) => (s.kind === "assign" && s.value.kind === "binary" ? s.value.op : "?"))
   expect(ops).toEqual(["and_then", "or_else", "and", "and", "or", "and_then"])
+})
+
+// gate 8d (R5): `quiet` and `ir/faults.ts` `cannotFault` ask one question of a lowered expression and answer it alike —
+// they disagreed on a DIV by -1 and on a constant index outside its array, each of which stops the task
+test("quiet and cannotFault agree that a DIV by -1 and a constant index outside its array could stop the task", () => {
+  const cases = [
+    "PROGRAM PLC_PRG\nVAR x : DINT := -2147483648; y : DINT; END_VAR\ny := x / -1;\nEND_PROGRAM\n",
+    "PROGRAM PLC_PRG\nVAR a : ARRAY[0..9] OF INT; y : INT; END_VAR\ny := a[20];\nEND_PROGRAM\n",
+  ]
+  for (const src of cases) {
+    const { pou, diagnostics } = lowerSource(src, "PLC_PRG")
+    expect(diagnostics).toEqual([])
+    const value = (pou!.body[0] as IrAssign).value
+    expect([cannotFault(value), quiet(value)]).toEqual([false, false])
+    expect(() => run(pou!).scan()).toThrow()
+  }
 })

@@ -5,7 +5,7 @@
  * (`cannotFault`), for lowering and a backend alike.
  */
 
-import type { IrBuiltin } from "./expr.js"
+import type { Access, IrBinary, IrBuiltin } from "./expr.js"
 import { type IrNode, isPlace, someNode } from "./walk.js"
 
 /** A fault with one fixed text. */
@@ -52,14 +52,35 @@ const BUILTIN_NEVER_FAULTS: Readonly<Record<IrBuiltin["name"], boolean>> = {
 }
 
 /**
+ * A DIVISION NO FAULT CAN STOP — the one rule (gate 8d): a divisor lowering proved harmless (`IrBinary.nonzeroDivisor`,
+ * `lower/values/fold.ts`: a constant, not 0, and for MOD not -1), and for a DIV not the constant -1 either — the flag
+ * spares only the zero check, and `DINT#-2147483648 / -1` still overflows its type (`division-overflow`). Read where it
+ * matters which evaluation could stop the task (`cannotFault`), and where a quotient's width does (`lower/values/promote.ts`).
+ */
+export const harmlessDivision = (e: IrBinary): boolean => e.nonzeroDivisor === true && !(e.op === "div" && e.right.kind === "const" && e.right.value === -1n)
+
+/**
+ * AN INDEX STEP NO BOUNDS CHECK CAN STOP — the one rule (gate 8d): a constant inside its dimension, `index - lower` in
+ * `[0, length)`; as written (its declared lower bound) or folded (0-based, `lower` 0) alike. A run-time index, a constant
+ * outside the array (kept as written by the fold: it stops the task at run time) and any index into an ARRAY[*] in-out's
+ * dimension (no `length`: the array it was bound to knows it) could fault.
+ */
+export function indexInBounds(step: Extract<Access, { kind: "index" }>): boolean {
+  const i = step.index
+  if (i.kind !== "const" || typeof i.value !== "bigint" || step.length === undefined) return false
+  const at = i.value - step.lower
+  return at >= 0n && at < BigInt(step.length)
+}
+
+/**
  * WHETHER EVALUATING `root` CANNOT STOP THE TASK — where it runs then shows in no fault either. An ALLOWLIST, so what it
- * does not name counts as one that could: a constant, a load of a place with no runtime index, dereference or image
- * address, and the arithmetic, comparisons, conversions and builtins over them that never fault — a division only where
- * lowering proved its divisor harmless (`nonzeroDivisor`). A call of any kind could fault inside.
+ * does not name counts as one that could: a constant, a load of a place with no dereference or image address whose every
+ * index is a constant inside its array (`indexInBounds`), and the arithmetic, comparisons, conversions and builtins over
+ * them that never fault — a division only a `harmlessDivision`. A call of any kind could fault inside.
  */
 export function cannotFault(root: IrNode | readonly IrNode[]): boolean {
   return !someNode(root, (n) => {
-    if (isPlace(n)) return n.guard !== undefined || n.at !== undefined || n.path.some((s) => s.kind === "index" && s.index.kind !== "const")
+    if (isPlace(n)) return n.guard !== undefined || n.at !== undefined || n.path.some((s) => s.kind === "index" && !indexInBounds(s))
     switch (n.kind) {
       case "const":
       case "fresh":
@@ -71,7 +92,7 @@ export function cannotFault(root: IrNode | readonly IrNode[]): boolean {
       case "reinterpret":
         return false
       case "binary":
-        return (n.op === "div" || n.op === "mod") && n.nonzeroDivisor !== true
+        return (n.op === "div" || n.op === "mod") && !harmlessDivision(n)
       case "builtin":
         return !BUILTIN_NEVER_FAULTS[n.name]
       default:

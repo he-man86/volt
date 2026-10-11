@@ -314,7 +314,8 @@ export interface IrBinary {
   span: Span
   /** A `div` or `mod` whose divisor is a constant proven harmless: not 0 (and, for MOD, not -1) — no zero check is
    *  needed, so the Rust prints plain `/` and `%` (lowering decides it, `lower/values/fold.ts`; the interpreter computes
-   *  the same either way). */
+   *  the same either way). It spares the zero check only: a DIV by -1 still overflows at its type's minimum — whether a
+   *  division can fault is `ir/faults.ts` `harmlessDivision`. */
   nonzeroDivisor?: true
   /** A `mul` lowering proved cannot leave its type — a 32-bit tick count scaled up in ULINT (`lower/builtins/conversions.ts`
    *  `tickConversion`, 7.3.10) — so the Rust prints plain `*`, not `wrapping_mul` (the interpreter computes the same either
