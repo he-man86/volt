@@ -167,6 +167,36 @@ function property(name: string, feature: string, mods: string, accessor = "GET\n
     `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\n\tstored : INT := 6;\nEND_VAR\nout := P;\nEND_FUNCTION_BLOCK\n\nPROPERTY ${mods ? `${mods} ` : ""}P : INT\n${accessor}END_PROPERTY\n`)
 }
 
+/** The struct an accessor-name fixture's `SET` points at or is (`SET^.x`, `SET.x`) — a fixture of its own, so each FB
+ *  fixture is one item. */
+const REC = "DUT_LANG_unit_accessor_name_rec"
+const accessorNameRec: LanguageTest = {
+  name: "unit_accessor_name_rec",
+  pouName: REC,
+  kind: "dut",
+  feature: "the struct the accessor-name fixtures declare SET with",
+  fromDoc: doc,
+  asSent: "a TYPE with no body the parser reads: its text is pushed as a workspace file holds it",
+  source: `TYPE ${REC} :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n`,
+  plcPrgVar: `v_unit_accessor_name_rec : ${REC};`,
+}
+/** A getter / setter whose body is `body`, under its IMPLEMENTATION line, as a workspace file holds it. */
+const getter = (body: string) => `GET\nIMPLEMENTATION ST\n${body}\nEND_GET\n`
+const setter = (body: string) => `SET\nIMPLEMENTATION ST\n${body}\nEND_SET\n`
+/**
+ * An FB `FB_LANG_<name>` declaring `decls` beside `out`, with `body`, and a property `P : <type>` holding `accessors` —
+ * PUSHED AS SENT: every body states its own IMPLEMENTATION line, as the field file does, because the rule under test
+ * starts at that line (a GET/SET after it is text), and the parser's split before the fix would carry its own reading.
+ */
+function accessorName(name: string, feature: string, decls: string, body: string, accessors: string, type = "INT"): LanguageTest {
+  return {
+    ...fbUnit(name, feature,
+      `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\n${decls}END_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n\n` +
+        `PROPERTY P : ${type}\n${accessors}END_PROPERTY\n`),
+    asSent: "GET/SET used as names inside an accessor: the text states its own IMPLEMENTATION lines, as a workspace file does, and the parser's split is the code under test",
+  }
+}
+
 /** An interface whose `Get` is headed `METHOD <mods> Get`, implemented by the FB with a plain `METHOD Get` (5). */
 function itfMethod(name: string, feature: string, mods: string): LanguageTest {
   return fb(name, feature, `<name> IMPLEMENTS ITF_LANG_${name}`, "out := Get();", IMPL_GET,
@@ -356,6 +386,36 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
     "GET\nP := stored;\nSET\nstored := P;\nEND_SET\n"), "the push closes the getter at `SET` as an EMPTY accessor, dropping `P := stored;`"),
   pushRewrites(property("unit_property_no_end_get_alone", "U16 — the only accessor, a getter not closed by END_GET", "",
     "GET\nP := stored;\n"), "the push closes the getter at END_PROPERTY as an EMPTY accessor, dropping `P := stored;`"),
+  // GET AND SET ARE NAMES INSIDE AN ACCESSOR'S BODY AND ITS VAR BLOCKS (openspec lsp-accessor-keyword-at-line-start): a
+  // body runs from its IMPLEMENTATION line to its own END keyword, as every element's does. The field FB (PLCAssist,
+  // 2026-10-10) declared `SET : POINTER TO <struct>` and wrote `SET^.stri_Name := P;` — CODESYS builds it, the LSP closed
+  // the accessor at the operand. One operand shape per fixture, at a line start and mid-line; then the controls.
+  accessorNameRec,
+  accessorName("unit_accessor_name_setter_deref", "U16 — `SET^ := P;` in a setter, SET a declared POINTER TO INT",
+    "\tstored : INT;\n\tSET : POINTER TO INT;\n", "SET := ADR(stored);\nP := 7;\nout := P;",
+    getter("P := stored;") + setter("SET^ := P;")),
+  accessorName("unit_accessor_name_setter_deref_member", "U16 — `SET^.x := P;` in a setter, SET a declared POINTER TO a struct",
+    `\trec : ${REC};\n\tSET : POINTER TO ${REC};\n`, "SET := ADR(rec);\nP := 7;\nout := rec.x;",
+    getter("P := rec.x;") + setter("SET^.x := P;")),
+  accessorName("unit_accessor_name_setter_assign", "U16 — `SET := P;` in a setter, SET a declared INT",
+    "\tSET : INT;\n", "P := 7;\nout := P;", getter("P := SET;") + setter("SET := P;")),
+  accessorName("unit_accessor_name_setter_member", "U16 — `SET.x := P;` in a setter, SET a declared struct",
+    `\tSET : ${REC};\n`, "P := 7;\nout := P;", getter("P := SET.x;") + setter("SET.x := P;")),
+  accessorName("unit_accessor_name_setter_index", "U16 — `SET[1] := P;` in a setter, SET a declared ARRAY",
+    "\tSET : ARRAY[1..2] OF INT;\n", "P := 7;\nout := P;", getter("P := SET[1];") + setter("SET[1] := P;")),
+  accessorName("unit_accessor_name_getter_adr", "U16 — `P := ADR(SET^.x);` mid-line in a getter, SET a POINTER TO a struct",
+    `\trec : ${REC};\n\tSET : POINTER TO ${REC};\n`, "SET := ADR(rec);\nrec.x := 7;\nout := P^;",
+    getter("P := ADR(SET^.x);"), "POINTER TO INT"),
+  accessorName("unit_accessor_name_getter_get", "U16 — `GET := 7;` and `P := GET;` in a getter, GET a declared INT",
+    "\tGET : INT;\n", "out := P;", getter("GET := 7;\nP := GET;")),
+  accessorName("unit_accessor_name_setter_get", "U16 — `GET := P;` in a setter, GET a declared INT",
+    "\tGET : INT;\n", "P := 7;\nout := P;", getter("P := GET;") + setter("GET := P;")),
+  accessorName("unit_accessor_name_var_block", "U16 — `SET : INT;` declared in a getter's own VAR block",
+    "", "out := P;", "GET\nVAR\n\tSET : INT;\nEND_VAR\nIMPLEMENTATION ST\nSET := 7;\nP := SET;\nEND_GET\n"),
+  accessorName("unit_accessor_name_control_closed", "U16 — control: a getter and a setter, each closed by its END",
+    "\tstored : INT;\n", "P := 7;\nout := P;", getter("P := stored;") + setter("stored := P;")),
+  accessorName("unit_accessor_name_control_bare_get", "U16 — control: a bare GET, closed by the SET under it",
+    "\tstored : INT;\n", "P := 7;\nout := stored;", "GET\n" + setter("stored := P;")),
 
   // ─── U17 ACTION ─────────────────────────────────────────────────────────────────────────────────────────────────────
   // …and so does an action's declaration under its line (review 4b): neither write stores one, so the VAR section was

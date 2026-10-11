@@ -12,8 +12,10 @@
  * line under `GET`, as the pull writes it; one on the keyword's own line is refused the same way, and one under a bare
  * keyword is refused as code under it is. The push sees GET, SET, END_GET and END_SET only at the START of a line and
  * drops the rest of an accessor's keyword line, so each stands alone on its line (0 otherwise in the six corpora).
+ * Under an accessor's IMPLEMENTATION line, and in its VAR blocks, GET and SET are NAMES (`SOFT_NAME_KEYWORDS`): a body
+ * runs to its own END keyword (`collectAccessorBody`, openspec lsp-accessor-keyword-at-line-start).
  */
-import type { BodySpan, Property } from "../../ast/nodes.js"
+import type { Property } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import type { Token } from "../../lex/tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
@@ -180,7 +182,8 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   // Two acceptable termination patterns:
   //   1. Proper IEC-61131 form:  GET … END_GET   /  SET … END_SET
   //      We CONSUME the END_GET / END_SET as the accessor's closer.
-  //   2. The BARE form: the next GET/SET/END_PROPERTY closes it.
+  //   2. The BARE form: before any IMPLEMENTATION line, the next GET/SET/END_PROPERTY closes it
+  //      (under that line a GET/SET is an operand, and only END_PROPERTY or the other END stops it — not closed).
   //      We STOP there WITHOUT consuming, so the outer parseProperty
   //      loop can dispatch on it — and refuse what stands under it,
   //      which the push drops (it closes a bare accessor at its own line).

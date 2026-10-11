@@ -93,7 +93,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 535 -> 536 (2026-10-11, step 8e), read: no new class — a FUNCTION's result as the fn's tail (7.7.3's class above), in a new
 // fixture of the STRING in-out bound wider: `string_inout_wider_reads`' `F_InoutWiderDiffers := io <> 'abcdefghij'` is the
 // tail `io.units() != b"abcdefghij"`, an assignment to this test only through its `!=` (as `refbit_function_var_reference`'s).
-const RENAMED_TARGETS = 536
+// 536 -> 538 (2026-10-11, lsp-accessor-keyword-at-line-start 2.1), read: no new class — the image class above: the two
+// fixtures whose FB takes the address of its own field (`SET := ADR(stored)`, `SET := ADR(rec)`) store `out` through `Mem`
+// (`unit_accessor_name_setter_deref`, `_setter_deref_member`, one line each).
+const RENAMED_TARGETS = 538
 
 interface Program {
   name: string

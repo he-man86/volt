@@ -32,8 +32,9 @@ export function assertNotes(): void {
   if (problems.length > 0) throw new Error(`notes with a bad task tag:\n  ${problems.join("\n  ")}`)
 }
 
-/** The task list every note's `task` names an id of: openspec `transpile-restructure` (its task 0.6 tagged the notes). */
-export const RESTRUCTURE_TASKS = join(import.meta.dir, "..", "..", "..", "..", "..", "..", "openspec", "changes", "transpile-restructure", "tasks.md")
+/** The task list every note's `task` names an id of: openspec `transpile-restructure` (its task 0.6 tagged the notes), archived
+ *  2026-10-11 — the record its tags name. */
+export const RESTRUCTURE_TASKS = join(import.meta.dir, "..", "..", "..", "..", "..", "..", "openspec", "changes", "archive", "2026-10-11-transpile-restructure", "tasks.md")
 
 /**
  * The ids of a `tasks.md`'s task lines (`- [ ] 7.3.1 …`, `- [x] 0a …`), each with whether it is ticked — a line of

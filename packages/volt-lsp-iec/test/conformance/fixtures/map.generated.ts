@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3041
+ *     confirmed     3052
  *     refused       2018
- *     not-lowered    345
+ *     not-lowered    346
  *     lsp-gap         87
  *     diverges         5
  *     unaskable       95
  *
  *   tier                     lowered    clean
- *     decl                    805      805
+ *     decl                    806      806
  *     arith                  1596     1596
  *     control                 162      152
  *     aggregate               149      149
  *     call                    350      350
- *     indirect                404      404
+ *     indirect                414      414
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     unreachable_patterns                       6
@@ -52,7 +52,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3247
+ *     agree         3258
  *     disagree         0
  *     not-run        219
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
@@ -70,11 +70,11 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2203 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 2205 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::cast_possible_truncation          951
  *     clippy::cast_sign_loss                    708
  *     clippy::cast_possible_wrap                304
- *     clippy::pub_underscore_fields             101
+ *     clippy::pub_underscore_fields             103
  *     clippy::struct_excessive_bools             44
  *     clippy::cast_precision_loss                31
  *     clippy::float_cmp                          14
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1913 distinct emission shapes over 3466 lowered fixtures, 2201 distinct constructs.
+ *   shape — 1921 distinct emission shapes over 3477 lowered fixtures, 2211 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -5014,6 +5014,18 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unary_minus_on_time: { evidence: "refused" },
   unary_minus_unsigned_widened: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 6.6, shape: "0a9b834367" },
   unary_not_on_string: { evidence: "refused" },
+  unit_accessor_name_control_bare_get: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "1306c62105" },
+  unit_accessor_name_control_closed: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "9a14398a2c" },
+  unit_accessor_name_getter_adr: { evidence: "not-lowered" },
+  unit_accessor_name_getter_get: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "56b14ea412" },
+  unit_accessor_name_rec: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.2, shape: "c3b2134be8" },
+  unit_accessor_name_setter_assign: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "9a14398a2c" },
+  unit_accessor_name_setter_deref: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "6bcf26797d" },
+  unit_accessor_name_setter_deref_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2, shape: "723232fca1" },
+  unit_accessor_name_setter_get: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "9a14398a2c" },
+  unit_accessor_name_setter_index: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "aba5bacc30" },
+  unit_accessor_name_setter_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "6c00f01b64" },
+  unit_accessor_name_var_block: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.7, shape: "a242ea0ca7" },
   unit_action_modifier: { evidence: "unaskable" },
   unit_action_var_section: { evidence: "unaskable" },
   unit_alias_no_semicolon: { evidence: "refused" },

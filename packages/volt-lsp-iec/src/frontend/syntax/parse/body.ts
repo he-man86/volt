@@ -3,7 +3,7 @@
  * something), up to the keyword that ends it; the body built from them by `format/implementation-line.ts` `codeBody`.
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
-import { joinSpans, type Span } from "../span.js"
+import { joinSpans } from "../span.js"
 import type { BodySpan } from "../ast/nodes.js"
 import type { Cursor } from "./cursor.js"
 import { type BodyOwner, codeBody } from "../format/implementation-line.js"
@@ -72,14 +72,26 @@ function consumeBodyUntilAny(
   return { tokens, closer: undefined, stoppedAt: undefined }
 }
 
-/** An accessor's body, and whether its own END_GET/END_SET closed it (`closed: false` — it stopped at the next accessor or
- *  END_PROPERTY, left unconsumed for the property loop, or at the end of the text). */
+/**
+ * An accessor's body, and whether its own END_GET/END_SET closed it (`closed: false` — it stopped at the next accessor or
+ * END_PROPERTY, left unconsumed for the property loop, or at the end of the text).
+ *
+ * A BODY RUNS FROM ITS IMPLEMENTATION LINE TO ITS OWN END KEYWORD, as every element's does (openspec
+ * lsp-accessor-keyword-at-line-start; the push's `StReader.ReadProperty` reads the same). GET and SET are legal names
+ * (`SOFT_NAME_KEYWORDS`), so under the line they are operands — `SET^.x := P;`, `P := ADR(SET^.x);` — and only the
+ * accessor's own END closes it. Reaching END_PROPERTY first leaves it open; reaching the OTHER accessor's END first does
+ * too, and that END is consumed with the body: the accessor it would close was text of this one. Before the line (a
+ * bare accessor, or one whose body states no line — fixture ST) the next GET/SET still closes it, which is what makes
+ * `GET` bare.
+ */
 export function collectAccessorBody(c: Cursor, endAccessor: Keyword): { body: BodySpan; closed: boolean } {
   const startSpan = c.peek().span
-  const { tokens, closer, stoppedAt } = consumeBodyUntilAny(c, {
-    consumeEnders: [endAccessor],
-    peekStoppers: ["GET", "SET", "END_PROPERTY"],
-  })
+  const otherEnd: Keyword = endAccessor === "END_GET" ? "END_SET" : "END_GET"
+  const { tokens, closer, stoppedAt } = c.opensImplementationLine()
+    ? consumeBodyUntilAny(c, { consumeEnders: [endAccessor, otherEnd], peekStoppers: ["END_PROPERTY"] })
+    : consumeBodyUntilAny(c, { consumeEnders: [endAccessor], peekStoppers: ["GET", "SET", "END_PROPERTY"] })
+  if (closer?.keyword === otherEnd)
+    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor", c.dialect), closed: false }
   if (closer !== undefined) {
     return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor", c.dialect), closed: true }
   }
