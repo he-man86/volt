@@ -256,4 +256,103 @@ inits := inits + 1;
 END_METHOD
 `,
     "one : FB_STATE_init; two : FB_STATE_init;", "one(); two();", 3),
+  // Owner fixtures (2026-10-11, transpile-restructure 7.4.6), the non-string half of `input_written_function_string` /
+  // `input_written_fb_string` (strings/string-edges.ts): a VAR_INPUT is not read-only — a POU writes its own INT / DINT
+  // input, and the write never reaches the caller. A leaked write would change `v` / `w`, and with it the next call's answer.
+  fb("input_written_function_int", "FB_STATE_inWrFnInt", "a user FUNCTION writing its own DINT and INT VAR_INPUTs (k := k * 10 + 7), by a caller variable passed twice, positionally, and through another FUNCTION's VAR_IN_OUT: the caller's variables unchanged (owner, transpile-restructure 7.4.6)",
+    `FUNCTION F_STATE_inWrDint : DINT
+VAR_INPUT
+	k : DINT;
+END_VAR
+k := k * 10 + 7;
+F_STATE_inWrDint := k + 1;
+END_FUNCTION
+
+FUNCTION F_STATE_inWrIntBump : BOOL
+VAR_IN_OUT
+	io : INT;
+END_VAR
+io := io + 100;
+F_STATE_inWrIntBump := TRUE;
+END_FUNCTION
+
+FUNCTION F_STATE_inWrInt : INT
+VAR_INPUT
+	j : INT;
+END_VAR
+VAR
+	ok : BOOL;
+END_VAR
+ok := F_STATE_inWrIntBump(io := j);
+ok := F_STATE_inWrIntBump(io := j);
+F_STATE_inWrInt := j;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_STATE_inWrFnInt
+VAR
+	v : DINT;
+	w : INT;
+	first : DINT;
+	second : DINT;
+	positional : DINT;
+	vAfter : DINT;
+	bumped : INT;
+	bumpedAgain : INT;
+	wAfter : INT;
+END_VAR
+v := 5;
+first := F_STATE_inWrDint(k := v);
+second := F_STATE_inWrDint(k := v);
+positional := F_STATE_inWrDint(v);
+vAfter := v;
+w := 3;
+bumped := F_STATE_inWrInt(j := w);
+bumpedAgain := F_STATE_inWrInt(w);
+wAfter := w;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_STATE_inWrFnInt;", "inst();"),
+  fb("input_written_fb_int", "FB_STATE_inWrFbInt", "a user FUNCTION_BLOCK writing its own DINT VAR_INPUT (k := k * 10 + 7): the caller's variable unchanged, and the instance keeps its written input across a call and a scan that do not assign it (owner, transpile-restructure 7.4.6)",
+    `FUNCTION_BLOCK FB_STATE_inWrCallee
+VAR_INPUT
+	k : DINT;
+END_VAR
+VAR_OUTPUT
+	seen : DINT;
+END_VAR
+k := k * 10 + 7;
+seen := k;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_STATE_inWrFbInt
+VAR
+	callee : FB_STATE_inWrCallee;
+	scan : INT;
+	v : DINT;
+	assigned1 : DINT;
+	kept1 : DINT;
+	keptAcrossScan : DINT;
+	assigned2 : DINT;
+	kept2 : DINT;
+	vAfter : DINT;
+END_VAR
+scan := scan + 1;
+IF scan = 1 THEN
+	v := 4;
+	callee(k := v);
+	assigned1 := callee.seen;
+	callee();
+	kept1 := callee.seen;
+ELSE
+	callee();
+	keptAcrossScan := callee.seen;
+	callee(k := v);
+	assigned2 := callee.seen;
+	callee();
+	kept2 := callee.seen;
+END_IF
+vAfter := v;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_STATE_inWrFbInt;", "inst();", 2),
 ]

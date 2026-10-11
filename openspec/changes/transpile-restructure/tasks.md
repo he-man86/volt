@@ -5856,6 +5856,24 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
     not this step's: measured alone four times each, it runs 4.5-4.7 s in this tree and 4.6 s at HEAD 2f781fb11b (the
     file, lowering every fixture). Left as it is (no raised budget); it sits at its budget on HEAD too and is worth its
     own look.
+  - Owner fixtures (2026-10-11): `input_written_function_string`, `input_written_fb_string`,
+    `input_written_function_string_to_standard` (`fixtures/strings/string-edges.ts`), `input_written_function_int`,
+    `input_written_fb_int` (`fixtures/calls/routine-state.ts`) — recorded 2026-10-11, both backends green.
+    The owner's point: a VAR_INPUT is not read-only — a POU writes its own input, and the write never reaches the caller.
+    Recorded first (CODESYS `record:exec`, 5 cases, 0 failed; then `record:language` on CODESYS and on TwinCAT Project13,
+    `ide.ps1 -Instance transpile-restructure`, all five build clean on both vendors, both IDEs closed). CODESYS: a FUNCTION
+    appending 'x' to its STRING(20) input of 'abc' answers LEN 4 on every call (named, again, positional) and the caller
+    stays 'abc'; written as 'Zbcyz' and returned, and grown twice through another FUNCTION's VAR_IN_OUT ('abcQQ'), the
+    caller still 'abc'. An FB's input: 'abx' (3) assigned, 'abxx' (4) on a call without `inp :=`, 'abxxx' (5) on scan 2's
+    first, unassigned call, 'abx' again when assigned, the caller 'ab' throughout. Written then lent to Standard functions
+    from a full STRING(5) 'abcde': LEFT/MID/CONCAT 'abcdeXY|cdeXY|abcdeXYZ!', LEN*100+FIND 807, one unit cut (`inp[1] :=
+    0`) LEN*100+LEN(CONCAT) 102, the caller LEN 5 'abcde' — the borrow lends the written copy at 20, not the caller's 5.
+    DINT/INT: k := k*10+7 gives 58 three times with v = 5 kept; an INT input bumped +100 twice through a VAR_IN_OUT 203
+    twice with w = 3 kept; the FB 47 / 477 / 4777 (scan 2, unassigned) / 47 / 477, v = 4 kept. All five `confirmed`,
+    interpreter and Rust (compiled and run), edge agree — the transpiler was right; no product change. `rate:fixtures`
+    5586 -> 5591 (confirmed 3036 -> 3041, tier call 345 -> 350, edge agree 3242 -> 3247). Front-end / analysis
+    baselines: COUNT moves only; the two `inp[i] :=` writes are `STRING_INDEX_ROWS` entries (`test/frontend/baseline.ts`,
+    lsp-transpile-review-gaps 2.3), not a raised ceiling.
 - [x] 7.4.7 An empty-string initializer prints `new()`.
   - Notes: e6646a0bd0.
   - Where: `emit/rust/values.ts`.

@@ -14,7 +14,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3036
+ *     confirmed     3041
  *     refused       2018
  *     not-lowered    345
  *     lsp-gap         87
@@ -26,7 +26,7 @@
  *     arith                  1596     1596
  *     control                 162      152
  *     aggregate               149      149
- *     call                    345      345
+ *     call                    350      350
  *     indirect                404      404
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -37,7 +37,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     clippy::missing_panics_doc               259
+ *     clippy::missing_panics_doc               265
  *     clippy::self_assignment                   42
  *     dead_code                                 42
  *     unused_assignments                        14
@@ -52,7 +52,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3242
+ *     agree         3247
  *     disagree         0
  *     not-run        219
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
@@ -70,10 +70,10 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2199 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::cast_possible_truncation          950
+ *   pedantic — 2203 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::cast_possible_truncation          951
  *     clippy::cast_sign_loss                    708
- *     clippy::cast_possible_wrap                301
+ *     clippy::cast_possible_wrap                304
  *     clippy::pub_underscore_fields             101
  *     clippy::struct_excessive_bools             44
  *     clippy::cast_precision_loss                31
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1908 distinct emission shapes over 3461 lowered fixtures, 2182 distinct constructs.
+ *   shape — 1913 distinct emission shapes over 3466 lowered fixtures, 2201 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -2321,6 +2321,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inout_const_variable_7: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "f6c1fed5b1" },
   inout_const_write_5: { evidence: "refused" },
   inout_plain_literal_4: { evidence: "refused" },
+  input_written_fb_int: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "556c88ff5d" },
+  input_written_fb_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "b4404cf370" },
+  input_written_function_int: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.4, shape: "048099a688" },
+  input_written_function_string: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 1.6, shape: "bc45c7568d" },
+  input_written_function_string_to_standard: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "48a319c89d" },
   instance_path_in_program_with_method: { evidence: "not-lowered" },
   instance_path_with_reflection: { evidence: "not-lowered" },
   integer_narrowing: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 5.7, shape: "d183d24f59" },

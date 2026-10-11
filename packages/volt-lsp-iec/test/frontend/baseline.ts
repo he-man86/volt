@@ -167,7 +167,7 @@ const STRING_INDEX_TASK =
   "lsp-transpile-review-gaps 2.3: the front-end types `s[i]` on a STRING / WSTRING (a BYTE / WORD, `lib_prim_char_past_length`)"
 const STRING_INDEX_CELLS =
   "transpile-restructure 3.1's string-model fixtures dump a buffer through `s[i]`, which the front-end leaves UNKNOWN (26 such reads in the fixtures before them, 5 in the corpora) — measured, not regressed: the character access is typed by the hand-off, not by a measure step"
-/** transpile-restructure 3.1's (and gates 3a's and 7.4c's, and 8.2's) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
+/** transpile-restructure 3.1's (and gates 3a's and 7.4c's, 8.2's, and the owner's 7.4.6) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
 const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["string_literal_nul_tail", 6],
   ["string_assign_tail_narrow", 3],
@@ -190,6 +190,9 @@ const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["lib_stu_replace_past_len", 6],
   ["string_input_lent_later_call_changes", 1],
   ["string_inout_wider_unit_read", 1],
+  // the owner's 7.4.6 fixtures (2026-10-11): a FUNCTION writing one unit of its own STRING input
+  ["input_written_function_string", 1],
+  ["input_written_function_string_to_standard", 1],
 ]
 
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
