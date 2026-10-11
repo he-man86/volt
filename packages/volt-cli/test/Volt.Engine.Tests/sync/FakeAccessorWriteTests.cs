@@ -15,8 +15,11 @@ namespace Volt.Engine.Tests;
 /// <para>Step 1.1 taught <c>FakeIde.WriteContent</c> to write a pushed accessor at all — it used to drop every one. The
 /// first version of that write had three infidelities, each pinned here against the driver it mirrors:</para>
 /// <list type="bullet">
-/// <item>a null accessor body kept the old body (<c>?? acc.Implementation</c>) — CODESYS writes <c>Accessor.Code</c>,
-/// <c>""</c> for null, and <c>Accessor</c>'s own contract says an accessor that exists has a body, empty or not;</item>
+/// <item>a null accessor body kept the old body (<c>?? acc.Implementation</c>) — CODESYS wrote <c>Accessor.Code</c>,
+/// <c>""</c> for null. Since openspec <c>abstract-member-parity</c> a null accessor body is the push's explicit "leave it
+/// alone" (<c>PushService.OnlyChanged</c> drops an unchanged accessor body, as it drops a member's), and BOTH drivers
+/// skip it — TwinCAT always did, CODESYS now writes <c>Accessor.Body</c>. The fake mirrors that, and a pushed EMPTY body
+/// (<c>""</c>, what <c>StReader</c> gives an empty GET) still empties it;</item>
 /// <item>the body was stored as pushed, skipping <c>Held</c> — both drivers build a graphical accessor from the
 /// validated model (<c>WriteGraph</c>), so it reads back in the canonical layout, as the member path already does;</item>
 /// <item>an INTERFACE accessor took a body — neither vendor has a body slot there (DIALECT D21/D41).</item>
@@ -47,10 +50,10 @@ public class FakeAccessorWriteTests
     private static string Why(PushResponse r) =>
         r.Accepted ? "" : string.Join("; ", r.Conflicts!.Select(c => c.Reason));
 
-    /// <summary>A null body is written as <c>""</c>, as CODESYS writes <c>accessor.Code</c>: the GET is emptied, never
-    /// left holding the code it had.</summary>
+    /// <summary>A null body is "leave it alone", as both drivers write it (openspec <c>abstract-member-parity</c>); an
+    /// EMPTY one empties the GET, never leaving it holding the code it had.</summary>
     [Fact]
-    public void A_null_accessor_body_is_written_empty_not_kept()
+    public void A_null_accessor_body_is_left_alone_and_an_empty_one_written_empty()
     {
         var ide = new FakeIde();
         var created = Create(ide, "FB_P.pou", Fb("IMPLEMENTATION ST\nP := TRUE;"));
@@ -62,7 +65,12 @@ public class FakeAccessorWriteTests
         {
             new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", Getter: new Accessor(null, null)),
         }), Array.Empty<PushedNetworkBody>());
+        Assert.Contains("P := TRUE;", Fetch(ide, "FB_P.pou"));
 
+        ide.WriteContent(item, new ItemContent(ItemKind.Kinds.Pou, FbDecl, null, new List<Member>
+        {
+            new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "", Getter: new Accessor(null, "")),
+        }), Array.Empty<PushedNetworkBody>());
         Assert.DoesNotContain("P := TRUE;", Fetch(ide, "FB_P.pou"));
     }
 

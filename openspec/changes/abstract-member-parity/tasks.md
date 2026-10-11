@@ -144,7 +144,7 @@
 
 ## 3. Fix
 
-- [ ] 3.1 Red tests first: the vendor-parity suite (an abstract method and an abstract property on both bridges pull
+- [x] 3.1 Red tests first: the vendor-parity suite (an abstract method and an abstract property on both bridges pull
       byte-identical text), a CODESYS and a TwinCAT driver test each, the migration case (pro2193-shaped NONE owner
       created into a blank TwinCAT and CODESYS project). Offline, one red test per guard row of design.md (FakeIde,
       `test/Volt.Engine.Tests/sync/`, beside `AbstractMemberNoSlotTests`), each for a METHOD and an accessor:
@@ -161,7 +161,111 @@
         body unchanged;
       - the pushed-side fold: a pre-upgrade `IMPLEMENTATION ST` empty under ABSTRACT is the same content as NONE (no
         write over a live NONE), and `PushedText.SameExceptLayout` calls it the same as the IDE's NONE text.
-- [ ] 3.2 The fix: the read rule in both drivers, NONE's push per slot, `BodyFormatGuard` (creates/renames/retypes
+  - **Added, each confirmed red before 3.2:** `test/Volt.Engine.Tests/sync/AbstractMemberParityTests.cs` (37 cases:
+    the slotted read, slotted = slotless text, every guard row above for a METHOD and a GET; 30 red),
+    `UnchangedBodyIsNotWrittenTests` +1 (member + accessor body dropped; red), `CodesysAbstractMemberPushTests` +4
+    (slotted method/GET pull NONE through the fold; NONE over a slotted method with code writes `""`; NONE over LD
+    swaps the aspect to ST and writes `""`; a null accessor body leaves the GET's code — 3 red against the old source,
+    the fold test is new code), `TcAbstractMemberSlotTests` rewritten as the TwinCAT twin (3 cases; NONE written as
+    `""` red). Live: `vendor-parity.test.ts` +3 (an abstract FB with an abstract METHOD, with an abstract PROPERTY, and
+    NONE vs pre-fold `IMPLEMENTATION ST` byte-identical four ways), `items/abstract-member.test.ts` + the migration
+    describe (a pro2193-shaped NONE owner created into the served fixture and pulled back unchanged; code under its
+    abstract method refused by name) on both vendors.
+  - **Tests whose premise step 2 measured wrong, changed (named for the commit):** `AbstractMemberNoSlotTests` — an
+    empty `IMPLEMENTATION ST` under ABSTRACT over a slotless member is NONE (accepted; the old refusal test now uses
+    code → "must not contain any statements"), the GET case likewise, NONE on an added and on a renamed abstract member
+    accepted, NONE over a concrete member's message no longer says "body slot"; `ImplementationKeywordTests` —
+    `Written(NONE)` is `""` (was null); `FakeAccessorWriteTests` — a null accessor body is "leave it alone" on both
+    drivers (CODESYS wrote `Accessor.Code`), an empty one empties; `CodesysAbstractMemberPushTests`
+    `A_pulled_owner…` — the driver is handed what the push sends (the unchanged body dropped), and NONE reaching a
+    slotless object is the `RequireSlot` backstop; `TcAbstractMemberSlotTests` — asserted the divergence (TwinCAT
+    "never NONE"); `items/abstract-member.test.ts` — an empty `IMPLEMENTATION ST` under pro2193's abstract method is
+    accepted as NONE (was refused). The double: `FakeIde.Delete` removes an item's own children (a property's GET/SET)
+    as an IDE does; a null member/accessor body is left alone; NONE is stored as `""`.
+- [x] 3.2 The fix: the read rule in both drivers, NONE's push per slot, `BodyFormatGuard` (creates/renames/retypes
       accepted; a body under ABSTRACT handled per 1.1), DIALECT C2n rewritten (no divergence left), vendor-facts rows.
-- [ ] 3.3 Live: e2e on CODESYS SP21 and TwinCAT (both up, so the vendor-parity suite runs), re-pull pro2193 and check
+  - **Built as design step 3 says: ONE engine fold, not a driver read.** New `Volt.Engine/Format/St/AbstractMemberFold`
+    (member sites only — METHOD body, PROPERTY GET/SET by the property's declaration; null/whitespace ST → NONE),
+    called at `Materializer.BuildSource`, `PushService.ReadLive`, the pushed source after `StReader.Read`, and both
+    reads of `PushedText.SameExceptLayout`. `StatedLanguage.NoSlot` → `IsNone`; `StReader`'s NONE-with-code wording →
+    "an abstract member holds no code". `ImplementationMarker.Written(NONE)` = `""`; `BodyFormatGuard.PushedLanguage`
+    answers ST for NONE; `PushService.OnlyChanged` drops an unchanged body at every member and accessor site
+    (`WithoutUnchangedBodies`). `BodyFormatGuard`: `Check` branches on the site first (`AbstractMemberFold.IsMemberSite`)
+    and implements the step-2 table; `RequireAuthorable` accepts NONE+ABSTRACT on a create, refuses NONE without it,
+    statements under it and NONE off a member site; `StTrivia.HasStatements` (text left after whitespace, comments,
+    BOM — a pragma counts). CODESYS driver: an accessor's null body is "leave it alone" (`Accessor.Body`, was
+    `Accessor.Code`) — the one driver line, needed by `OnlyChanged`'s accessor drop; TwinCAT driver unchanged.
+    `scripts/corpus-migration.ts` no longer excludes NONE owners. Wire vocabulary census: `BodyFormatGuard.cs`
+    UNSUPPORTED raise sites 9 → 12 (the same situation). DIALECT C2n: the headline and the "differs by vendor"
+    sentence rewritten, a "Unified" paragraph appended (no divergence left; the class stays below the wire).
+  - **vendor-facts:** no new row. `abstract-member-code`'s `fetched*` reads are the shipped bridge's fetch, so they
+    changed with it — exactly every empty abstract slot `IMPLEMENTATION ST` → `NONE`, code and comment bodies and
+    everything else unchanged: CODESYS 7 facts, TwinCAT 9 (`--write`: 30.0 s / 24.8 s; confirming runs "every fact
+    as committed": CODESYS 30.4 s, TwinCAT 24.9 s; `VOLT_VENDOR_FACTS_INSTANCE=abstract-member-parity`).
+- [x] 3.3 Live: e2e on CODESYS SP21 and TwinCAT (both up, so the vendor-parity suite runs), re-pull pro2193 and check
       exactly its abstract members change; full e2e on both vendors green.
+  - Both up (`ide.ps1 up -Instance abstract-member-parity`; CODESYS SP21 `CodesysTestProject` copy, TwinCAT
+    `-Fixture 14`): `vendor-parity.test.ts` 14 pass / 0 fail (33.5 s); `items/abstract-member.test.ts` 2 pass on each
+    vendor (the migration: created, pulled back byte-identical; members come back in the same order on both).
+  - **pro2193 re-pulled live** (CODESYS serving `Pro2193-94-95-96_COdesys.project`, `bun run refresh:corpus pro2193
+    codesys`, 8106 files): exactly ONE line changes — `ModuleWithStateFB.pou` `Cyclic`'s `IMPLEMENTATION ST` →
+    `IMPLEMENTATION NONE` (kept in the corpus); the 11 slotless lines unchanged. The pull also moved 595 library files
+    out of `Library Manager/(unresolved)/` (the pulling IDE's placeholder resolution, as in `abstract-member-push`
+    3.2 — not this change's) — reverted. `items/abstract-member.test.ts` on pro2193: 5 pass / 0 fail (38.5 s).
+    LSP `bun test test/corpus` 19 pass / 1 skip / 0 fail.
+  - **Full e2e:** CODESYS 352 pass / 17 skip / 0 fail (369 tests, 354 s); TwinCAT 351 pass / 18 skip / 0 fail (369
+    tests, 1249 s).
+  - Offline: `Volt.Engine.Tests` 2362 pass / 1 skip / 0 fail; `Volt.Ide.Codesys.Tests` 317 pass; `Volt.Ide.Twincat.Tests`
+    453 pass; `Volt.Cli.Tests` 264 pass; `Volt.Repo.Gates` 160 pass; volt-cli `bun test test/unit` 78 pass;
+    `bun run typecheck` (volt-cli) clean; `bun run lint` exit 0. No LSP source, conformance fixture or transpiler
+    change — the fixture map is not affected (not regenerated); no known-divergence mark exists for this rule.
+  - **Gate 3 (review findings, 4 handled; none skipped as wrong):**
+    1. *vendor-facts `fetched*` vs DIALECT C2n.* Right: `abstract-member-code`'s `fetched*` reads are the shipped
+       bridge's fetch (Volt's answer), so 3.2's re-record flipped them ST → NONE while C2n's "Re-measured" paragraph
+       still cited them for `IMPLEMENTATION ST`. C2n's paragraph is marked SUPERSEDED in part and points at the pre-fold
+       snapshot (`git show c104d83c94:packages/volt-cli/scripts/vendor-facts.twincat.json` / `.codesys.json`); the
+       vendor's storage fact stays in the current `file.*` / `implementation.*` / `body.*` rows. design.md step 3
+       point 4 corrected: "every fact as committed" holds for every row EXCEPT `fetched*`, which never recorded the
+       vendor. Snapshots unchanged (their values came from the recorder).
+    2. *Three guard rows untested.* Added to `AbstractMemberParityTests` (+8 cases), each shown red by deleting its
+       branch in `BodyFormatGuard.Check` (then restored, byte-identical): C2l "NONE, not D over a live NONE, not L →
+       accepted" (`ConcreteSlotlessIde`: a slotless `METHOD Pick` and a slotless GET under `PROPERTY PUBLIC Busy`, no
+       ABSTRACT; a declaration edit lands, no body written — deleting `if (live.IsNone) return;` turns it red, 2
+       cases); "ST (any), not D over a live NONE, not L → refused" (code and empty, METHOD and GET, "no body slot" +
+       `volt pull`, nothing mutated — deleting the refusal turns 4 red); "NONE, D over a live LD → language rules
+       (N24)" at engine level (`BodyFormatGuard.RequireWritable`: the vendor asked exactly once, `(method|property_get,
+       LD, ST)`; accepted where it writes, refused with its reason where not — skipping the NONE → ST conversion turns
+       2 red).
+    3. *LSP wording.* `implementation-line.ts`'s NONE-with-code diagnostic now says what `StReader` says ("That line
+       states an abstract member, and an abstract member holds no code (both compilers refuse it: \"must not contain
+       any statements\")"), and its two doc comments no longer say "no body slot". Its two tests
+       (`implementation-line.test.ts`, `server/implementation-keyword-diagnostics.test.ts`) asserted the old words —
+       premise changed by 3.2's StReader wording (one file, one message, both readers), not adapted to the code;
+       updated to "an abstract member holds no code", red against the old message. The three editor-silent push
+       refusals: NONE under a non-ABSTRACT member is NOT a gap — the push accepts it where the IDE holds it so (C2l),
+       which the editor cannot see, so a diagnostic would be a false positive; NONE at an item/action body and
+       statements under ABSTRACT (C0433) are recorded as "niche: accepted loss (0 occurrences in the corpora)" — the
+       six corpora hold 12 `IMPLEMENTATION NONE` lines in 7 pro2193 files, every one under an ABSTRACT METHOD or
+       PROPERTY, and 0 abstract members with code; the first needs the body-owner split the parser does not carry
+       (`BodyOwner` is `member | pou-or-accessor`), the second a C0433 conformance fixture + recording.
+    4. *Migration not shown live; e2e never red against the old bridge.* Offline: `AbstractMemberParityTests
+       .A_pre_upgrade_version_is_stale_until_a_pull_which_changes_only_the_abstract_lines` (the version is the hash of
+       the folded text; the pre-upgrade text's hash → `STALE_ITEM_VERSION`, nothing written; the pull differs in
+       exactly the 3 abstract lines ST → NONE; the same edit at the new version lands; red against the old source by
+       construction — the old pull IS the pre-upgrade text). Live, against the PRE-CHANGE bridge (a detached worktree
+       of `c104d83c94` built and served with `ide.ps1 up -Instance abstract-member-parity`, the new e2e files copied
+       in; worktree deleted after): `items/abstract-member.test.ts` 0 pass / 2 fail on TwinCAT (`-Fixture 14`) and
+       0 / 2 on CODESYS SP21 (the create refused "a created member has a body slot"); `vendor-parity.test.ts` 11 pass /
+       3 fail — exactly the 3 new abstract cases. STALE live on TwinCAT: the old worker created `VltE2E_AbsStale.pou`
+       (abstract method + abstract property GET/SET) and fetched it — `IMPLEMENTATION ST` ×3, version
+       `e2e954481e1d14e8`; the worker swapped for the NEW build on the same XAE: a declaration edit at the old version
+       → `STALE_ITEM_VERSION` ("item changed since you fetched its version"), current `edb645e04531a0c5`; the re-fetch
+       differs in exactly lines 10/15/18 `IMPLEMENTATION ST` → `IMPLEMENTATION NONE`; the pre-upgrade edit (ST lines
+       kept) pushed at the new version → accepted, and pulls back NONE ×3 with the edit (the pushed-side fold); item
+       removed. The new e2e on the new worker: `abstract-member.test.ts` 2 pass / 0 fail. CODESYS STALE not run live
+       (its bridge is in-proc, a swap reopens the fixture); the gate is engine code shared by both vendors.
+  - Gate 3 numbers: `Volt.Engine.Tests` 2371 pass / 1 skip / 0 fail (2362 + 9); `Volt.Ide.Codesys.Tests` 317;
+    `Volt.Ide.Twincat.Tests` 453; `Volt.Cli.Tests` 264; `Volt.Repo.Gates` 160; `Volt.Contracts.Tests` 34;
+    `Volt.Connector.Tests` 115 (all 0 fail); volt-cli `bun test test/unit` 78 pass / 0 fail; `bun run typecheck` clean
+    (5 packages); `bun run lint` exit 0 (warnings only); LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset)
+    9525 pass / 35 skip / 421 todo / 0 fail (9981 tests, 327 files, 851 s). No conformance fixture or transpiler change — the fixture map is not affected (not regenerated).

@@ -705,7 +705,7 @@ public class ImplementationKeywordTests
         Assert.False(ImplementationMarker.IsUnsupported(line));
         Assert.Null(ImplementationMarker.LanguageOf(line));
         Assert.Equal("IMPLEMENTATION NONE", ImplementationMarker.Canonical(line));
-        Assert.Null(ImplementationMarker.Written(line));
+        Assert.Equal("", ImplementationMarker.Written(line));   // an empty body at the slot (abstract-member-parity)
         Assert.False(ImplementationMarker.IsUnsupportedBody(line));
         Assert.Null(ImplementationMarker.UnsupportedLanguageOf(line));
     }
@@ -731,14 +731,15 @@ public class ImplementationKeywordTests
         Assert.Equal(StatedLanguage.None, item.Members.Single(m => m.Name == "B").Stated);
     }
 
-    /// <summary>A no-slot body is never written (<see cref="ImplementationMarker.Written"/> → null, "leave the IDE
-    /// alone"), and the file's line and the body in memory are the same text, so the driver's read and the file's read
-    /// give the same body.</summary>
+    /// <summary>A NONE body is written as an EMPTY body (<see cref="ImplementationMarker.Written"/> → <c>""</c>, openspec
+    /// <c>abstract-member-parity</c>: measured to persist at a slot and pull back as NONE on both vendors; it was null,
+    /// "leave the IDE alone", while NONE meant "no slot"), and the file's line and the body in memory are the same text,
+    /// so the driver's read and the file's read give the same body.</summary>
     [Fact]
-    public void A_no_slot_body_is_its_line_is_written_as_nothing_and_round_trips()
+    public void A_NONE_body_is_its_line_is_written_empty_and_round_trips()
     {
         const string line = "IMPLEMENTATION NONE";
-        Assert.Null(ImplementationMarker.Written(line));
+        Assert.Equal("", ImplementationMarker.Written(line));
         Assert.Equal((line, ""), ImplementationMarker.Split(line));
         Assert.Equal(line, ImplementationMarker.Join(line, ""));
 

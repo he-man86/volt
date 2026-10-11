@@ -46,6 +46,19 @@ internal static class StTrivia
 
     public const char CodeChar = 'c', CommentChar = 'm', StringChar = 's', PragmaChar = 'p', BomChar = 'b';
 
+    /// <summary>Does <paramref name="text"/> hold STATEMENTS — any character that is neither whitespace, a comment nor
+    /// the BOM? A pragma counts (the push's guard reads this for a body under ABSTRACT, openspec
+    /// <c>abstract-member-parity</c>: a comment is no statement on either compiler, a pragma-only body is unmeasured).</summary>
+    public static bool HasStatements(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var classes = Classes(lines);
+        for (int i = 0; i < lines.Length; i++)
+            for (int j = 0; j < lines[i].Length; j++)
+                if (classes[i][j] is not (CommentChar or BomChar) && !char.IsWhiteSpace(lines[i][j])) return true;
+        return false;
+    }
+
     private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings,
         List<(int Line, int Column)> Unclosed, string[] Classes) Scan(IList<string> lines)
     {

@@ -287,6 +287,6 @@ test("IMPLEMENTATION NONE draws no diagnostic, and code under it is a keyword di
 
   const ds = await diagnostics(fb("IMPLEMENTATION NONE\ni := a;"))
   const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
-  expect(on.some((d) => text(d).includes("IMPLEMENTATION NONE") && text(d).includes("no body slot"))).toBe(true)
+  expect(on.some((d) => text(d).includes("IMPLEMENTATION NONE") && text(d).includes("an abstract member holds no code"))).toBe(true)
   expect(readByNeither(ds)).toBe(true)
 })

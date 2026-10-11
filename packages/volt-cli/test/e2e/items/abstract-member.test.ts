@@ -1,35 +1,89 @@
 /**
- * AN ABSTRACT MEMBER PULLED FROM CODESYS PUSHES BACK (openspec `abstract-member-push` 3.2, DIALECT C2n) — live.
+ * AN ABSTRACT MEMBER READS AND PUSHES THE SAME ON BOTH VENDORS (openspec `abstract-member-push` 3.2,
+ * `abstract-member-parity` 3.3, DIALECT C2n) — live.
  *
- * <p>CODESYS holds an abstract method as an `AbstractPOUMethodObject` and an abstract property's GET as an
- * `InterfacePropertyAccessorObject`, neither with an `Implementation` aspect (`vendor-facts` `merged-classes`). The pull
- * states such a member `IMPLEMENTATION NONE`, and a push writes no body there — so an edit of the OWNER lands where it
- * used to be refused (`'TakePicture' has no Implementation — a body was pushed at a slot this object does not have`).
- * The member's object is kept: a member recreated by the push would be a `POUMethodObject` and pull back as
- * `IMPLEMENTATION ST`, so "still NONE after the push" is the class check the wire can make (GUID and class themselves
- * are read through the vendor API by `vendor-facts` `merged-classes`, `guid|class.abstract@pushed`).</p>
+ * <p>The text is decided by the DECLARATION, never by the IDE object's class or slot: an `ABSTRACT` member with no code
+ * is `IMPLEMENTATION NONE` — CODESYS's slotless `AbstractPOUMethodObject` / `InterfacePropertyAccessorObject` (pro2193),
+ * a CODESYS slotted `POUMethodObject` / `PropertyAccessorObject`, and every TwinCAT abstract member (609 / 613 / 614)
+ * alike. A push of NONE writes no body where the object has no slot and `""` where it has one.</p>
  *
- * <p>CODESYS only (TwinCAT's abstract members have a slot — `TcAbstractMemberSlotTests`), against the committed pro2193
- * copy, which holds the abstract members; on any other project it skips, loudly:</p>
+ * <p>Two parts:</p>
+ * <ul>
+ * <li><b>the migration</b> — any fixture, either vendor: a pro2193-shaped owner holding `IMPLEMENTATION NONE` is CREATED
+ * (refused before `abstract-member-parity`, which cost pro2193's 7 owner files on a cross-vendor or blank-project
+ * migration), and pulls back unchanged;</li>
+ * <li><b>pro2193 itself</b> — CODESYS, against the committed pro2193 copy, which holds the slotless members; on any other
+ * project it skips, loudly.</li>
+ * </ul>
  * <pre>
- *   powershell -File scripts/ide.ps1 up -Vendor codesys -Instance <name> -Fixture test/fixtures/Pro2193-94-95-96_COdesys.project -Wait
+ *   powershell -File scripts/ide.ps1 up -Vendor codesys -Instance <name> [-Fixture test/fixtures/Pro2193-94-95-96_COdesys.project] -Wait
  *   VOLT_E2E_INSTANCE=<name> VOLT_VENDOR=codesys bun test test/e2e/items/abstract-member.test.ts
  * </pre>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { BASE, VENDOR } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
-import { fetchItem, landedInFull, pushOps } from "../lib/workspace"
+import { createItem, fetchItem, landedInFull, pushOps, removeItem, PREFIX } from "../lib/workspace"
 
 setDefaultTimeout(600_000)
+
+const lf = (s: string) => s.replace(/\r\n/g, "\n")
+const items = (await bridge.refs()).items ?? {}
+
+// ── the migration: a NONE owner created into a project that does not hold it ─────────────────────────────
+
+const MIGRATED = `${PREFIX}_AbsMigrated.pou`
+const migratedBare = MIGRATED.replace(/\.pou$/, "")
+/** pro2193's shapes (`VisionSystem_BaseFB`): an abstract method and an abstract property's GET, NONE, beside a concrete
+ *  method — the owner a blank-project migration used to refuse by name. Its members in the order both IDEs hand them
+ *  back (measured: the same order on both vendors). */
+const MIGRATED_SRC =
+	`FUNCTION_BLOCK ABSTRACT ${migratedBare}\nVAR\n\tbusy : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n` +
+	`METHOD Run : BOOL\nIMPLEMENTATION ST\nRun := busy;\nEND_METHOD\n\n` +
+	`METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD\n\n` +
+	`PROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nIMPLEMENTATION NONE\nEND_GET\nEND_PROPERTY\n`
+
+describe(`abstract member migration / ${MIGRATED} (${BASE})`, () => {
+	afterAll(async () => {
+		await removeItem(MIGRATED)
+	})
+
+	it("a pro2193-shaped owner holding IMPLEMENTATION NONE is created, and pulls back unchanged", async () => {
+		await removeItem(MIGRATED)
+		await createItem(MIGRATED, MIGRATED_SRC)
+
+		expect(lf((await fetchItem(MIGRATED)).sourceText)).toBe(MIGRATED_SRC)
+	})
+
+	it("code under its abstract method is refused before any write, naming the member and the IDE's words", async () => {
+		const before = await fetchItem(MIGRATED)
+		const withCode = lf(before.sourceText).replace(
+			"METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE",
+			"METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION ST\nTakePicture := 1;",
+		)
+		expect(withCode).not.toBe(lf(before.sourceText))
+
+		const r = await bridge.push({
+			expectedProjectVersion: (await bridge.refs()).projectVersion,
+			ops: [{ op: "set", name: MIGRATED, sourceText: withCode, ifVersion: before.version }],
+		})
+
+		expect(r.accepted).toBe(false)
+		const reason = String((r.conflicts ?? [])[0]?.reason ?? "")
+		expect(reason).toContain("'TakePicture'")
+		expect(reason).toContain("must not contain any statements")
+		expect((await fetchItem(MIGRATED)).version).toBe(before.version)   // nothing written
+	})
+})
+
+// ── pro2193 (CODESYS): the slotless members ─────────────────────────────────────────────────────────────────
 
 const OWNER = "VisionSystem_BaseFB.pou"
 const SIGNATURE = "METHOD ABSTRACT TakePicture : enumResultTakePicture"
 const ADDED = "// volt e2e: a declaration line beside an abstract member"
-const lf = (s: string) => s.replace(/\r\n/g, "\n")
 
-const served = VENDOR === "codesys" && OWNER in ((await bridge.refs()).items ?? {})
-if (!served) console.warn(`[abstract-member] skipped: ${BASE} serves no ${OWNER} on CODESYS — serve the committed pro2193 copy`)
+const served = VENDOR === "codesys" && OWNER in items
+if (!served) console.warn(`[abstract-member] pro2193 part skipped: ${BASE} serves no ${OWNER} on CODESYS — serve the committed pro2193 copy`)
 
 describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 	let original: { sourceText: string; version: string }
@@ -63,20 +117,17 @@ describe.skipIf(!served)(`abstract member / ${OWNER} (${BASE})`, () => {
 		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(edited)
 	})
 
-	it("IMPLEMENTATION ST under it is refused before any write, naming the member and `volt pull`", async () => {
+	// A file pulled before abstract-member-parity states `IMPLEMENTATION ST` with nothing under it: the same content as
+	// NONE — accepted, no body written at the missing slot, and the member still pulls NONE. (It was refused here while
+	// the text depended on the slot.)
+	it("an empty IMPLEMENTATION ST under it is the same content as NONE: accepted, and it still pulls NONE", async () => {
 		const before = await fetchItem(OWNER)
 		const stale = lf(before.sourceText).replace(`${SIGNATURE}\n${ADDED}\nIMPLEMENTATION NONE`, `${SIGNATURE}\nIMPLEMENTATION ST`)
 		expect(stale).toContain(`${SIGNATURE}\nIMPLEMENTATION ST\n%FOLDER Commands\nEND_METHOD`)
 
-		const r = await bridge.push({
-			expectedProjectVersion: (await bridge.refs()).projectVersion,
-			ops: [{ op: "set", name: OWNER, sourceText: stale, ifVersion: before.version }],
-		})
+		const r = await pushOps([{ op: "set", name: OWNER, sourceText: stale, ifVersion: before.version }])
+		expect({ landed: landedInFull(r), conflicts: r.conflicts ?? [] }).toEqual({ landed: true, conflicts: [] })
 
-		expect(r.accepted).toBe(false)
-		const reason = String((r.conflicts ?? [])[0]?.reason ?? "")
-		expect(reason).toContain("'TakePicture'")
-		expect(reason).toContain("volt pull")
-		expect((await fetchItem(OWNER)).version).toBe(before.version)   // nothing written
+		expect(lf((await fetchItem(OWNER)).sourceText)).toBe(lf(original.sourceText))
 	})
 })

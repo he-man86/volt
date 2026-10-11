@@ -341,9 +341,10 @@ public static class StReader
 
 	/// <summary>Does a MEMBER's declaration say <c>ABSTRACT</c> — among the modifiers between its keyword (METHOD /
 	/// PROPERTY) and its name, on its first line of code (read through <see cref="StTrivia.Code"/>, so a commented
-	/// <c>ABSTRACT</c> is none)? The push's guard reads it for a member with no body slot (openspec
-	/// <c>abstract-member-push</c>, gate 3): a declaration that drops ABSTRACT there is a re-type the IDE cannot make in
-	/// place (DIALECT C2l), refused by name. Any case.</summary>
+	/// <c>ABSTRACT</c> is none)? Read by the engine's fold of an abstract member with no code into <c>IMPLEMENTATION
+	/// NONE</c> (<see cref="AbstractMemberFold"/>) and by the push's guard (openspec <c>abstract-member-push</c>,
+	/// <c>abstract-member-parity</c>). It answers true for <c>FUNCTION_BLOCK ABSTRACT</c> too, so a caller picks the member
+	/// site by kind before it asks. Any case.</summary>
 	public static bool MemberHeaderIsAbstract(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
@@ -666,15 +667,15 @@ public static class StReader
 	private static (string Body, StatedLanguage Stated) Body(string line, string code, string what)
 	{
 		var stated = line.Trim();
-		// A MEMBER WITH NO BODY SLOT (`IMPLEMENTATION NONE`, openspec abstract-member-push): the IDE holds no
-		// implementation there to write code into, so code under the line is refused by name, as under an UNSUPPORTED one.
+		// AN ABSTRACT MEMBER WITH NO CODE (`IMPLEMENTATION NONE`, openspec abstract-member-push / abstract-member-parity):
+		// the line states that the member holds no code, so code under it is refused by name, as under an UNSUPPORTED one.
 		if (ImplementationMarker.IsNone(line))
 		{
 			if (code.Trim().Length > 0)
 				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what} holds code under '{stated}'. That line states a member the IDE holds with no body slot (an " +
-					"abstract member), so the code has nowhere to go. Remove it — or, to give the member a body, make it " +
-					$"concrete in the IDE and run `volt pull`.");
+					$"{what} holds code under '{stated}'. That line states an abstract member, and an abstract member holds " +
+					"no code (both compilers refuse it: \"must not contain any statements\"). Remove it — or, to give the " +
+					$"member a body, make it concrete in the IDE and run `volt pull`.");
 			return (ImplementationMarker.NoneLine, StatedLanguage.None);
 		}
 		if (ImplementationMarker.IsUnsupported(line))

@@ -23,7 +23,7 @@
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { clientFor, livePipesFor, PREFIX, type PipeClient } from "./harness"
-import { fb, prog, func, METHOD, ACTION, PROPERTY, structDut, enumDut, gvl } from "./fixtures"
+import { fb, prog, func, METHOD, ACTION, PROPERTY, structDut, enumDut, gvl, abstractFb, ABSTRACT_METHOD, ABSTRACT_PROPERTY } from "./fixtures"
 
 setDefaultTimeout(60000)
 
@@ -133,6 +133,10 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 		["a struct DUT", "dut", (n) => structDut(n)],
 		["an enum DUT", "dut", (n) => enumDut(n)],
 		["a GVL", "gvl", (n) => gvl(n)],
+		// openspec abstract-member-parity: an abstract member with no code reads `IMPLEMENTATION NONE` on BOTH vendors
+		// (TwinCAT pulled `IMPLEMENTATION ST` for its slotted members until then).
+		["an abstract FB with an abstract METHOD", "pou", (n) => abstractFb(n, ABSTRACT_METHOD("Pick"))],
+		["an abstract FB with an abstract PROPERTY", "pou", (n) => abstractFb(n, ABSTRACT_PROPERTY("Busy"))],
 	]
 
 	for (const [label, ext, build] of cases) {
@@ -167,6 +171,29 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			}
 		})
 	}
+
+	// THE SAME ABSTRACT DECLARATION, ONE TEXT (openspec abstract-member-parity): pushed as `IMPLEMENTATION NONE` and as a
+	// pre-fold file (`IMPLEMENTATION ST`, nothing under it), it comes back `IMPLEMENTATION NONE` under the method, the GET
+	// and the SET on both bridges — byte-identical four ways.
+	it("an abstract method and an abstract property pull IMPLEMENTATION NONE, byte-identical on both vendors", async () => {
+		const bare = `${PREFIX}_par_abstract`
+		const name = `${bare}.pou`
+		const build = (line: string) => abstractFb(bare, ABSTRACT_METHOD("Pick", line) + ABSTRACT_PROPERTY("Busy", line))
+		try {
+			const rows: any[] = []
+			for (const line of ["IMPLEMENTATION NONE", "IMPLEMENTATION ST"])
+				rows.push(...(await Promise.all([roundTrip(a, name, build(line)), roundTrip(b, name, build(line))])))
+			const lf = (s: string) => s.replace(/\r\n/g, "\n")
+			for (const r of rows) expect(lf(r.sourceText)).toBe(lf(rows[0].sourceText))
+			const text = lf(rows[0].sourceText)
+			expect(text).toContain("METHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD")
+			expect(text.split("\n").filter((l) => l === "IMPLEMENTATION NONE")).toHaveLength(3)
+			expect(text).toContain(`FUNCTION_BLOCK ABSTRACT ${bare}`)
+			expect(text).toContain("IMPLEMENTATION ST\nx := x + 1;")   // the abstract FB's own body is no member site
+		} finally {
+			await Promise.all([removeIfPresent(a, name), removeIfPresent(b, name)])
+		}
+	})
 
 	// Versions are NOT compared across vendors — different projects, so a shared hash would be meaningless. What
 	// must hold is that the hash is a function of CONTENT on each side, which is what makes `volt status` quiet

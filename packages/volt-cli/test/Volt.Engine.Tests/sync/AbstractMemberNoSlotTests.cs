@@ -13,11 +13,16 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// A MEMBER WITH NO BODY SLOT (openspec <c>abstract-member-push</c>, DIALECT C2n): CODESYS holds an abstract method as an
 /// <c>AbstractPOUMethodObject</c> and an abstract property's GET as an <c>InterfacePropertyAccessorObject</c>, neither with
-/// an <c>Implementation</c> aspect. The pull states it <c>IMPLEMENTATION NONE</c>; the push writes no body there, and the
-/// guard (<see cref="Volt.Engine.Format.Body.BodyFormatGuard"/>) refuses — before any write, naming the member and its
-/// remedy — every other combination: a body over a live NONE, NONE over a member with a slot, and NONE on a member the
-/// push creates (added, renamed or retyped). The double models the slot as the CODESYS driver reads it
-/// (<see cref="FakeIde.Item.NoSlot"/>) and refuses a body written there as the driver's <c>RequireSlot</c> does.
+/// an <c>Implementation</c> aspect. The pull states it <c>IMPLEMENTATION NONE</c>; the push writes no body there. The
+/// double models the slot as the CODESYS driver reads it (<see cref="FakeIde.Item.NoSlot"/>) and refuses a body written
+/// there as the driver's <c>RequireSlot</c> does.
+///
+/// <para>Since openspec <c>abstract-member-parity</c> the text is decided by the declaration, not the slot, so the same
+/// rules hold for a slotted abstract member (<see cref="AbstractMemberParityTests"/>, one test per guard row). Four
+/// tests here asserted the slot-based answers step 2 measured wrong and now assert the declaration-based ones: an empty
+/// <c>IMPLEMENTATION ST</c> under ABSTRACT is NONE (accepted, nothing written), code under ABSTRACT is refused with the
+/// IDE's words ("must not contain any statements", C0433 on both compilers), and an abstract member stated NONE on a
+/// create or a rename is accepted (a created member has a slot on both vendors; <c>""</c> is written there).</para>
 /// </summary>
 public class AbstractMemberNoSlotTests
 {
@@ -84,41 +89,40 @@ public class AbstractMemberNoSlotTests
         Assert.Equal(edited.Replace("\r\n", "\n"), Pulled(ide).Replace("\r\n", "\n"));   // still NONE, nothing else moved
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("TakePicture := 1;")]
-    public void A_body_stated_ST_over_a_member_with_no_slot_is_refused_naming_it_and_volt_pull(string code)
+    /// <summary>Code under an abstract member with no slot: refused before any write, naming the member and the IDE's
+    /// words (an empty <c>IMPLEMENTATION ST</c> there is NONE: <see cref="AbstractMemberParityTests"/>).</summary>
+    [Fact]
+    public void Code_stated_ST_over_a_member_with_no_slot_is_refused_naming_it()
     {
         var ide = Ide();
         var stale = Pulled(ide).Replace("METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE",
-                                        "METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION ST" + (code.Length > 0 ? "\n" + code : ""));
+                                        "METHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION ST\nTakePicture := 1;");
 
         var resp = Push(ide, stale);
 
         Assert.False(resp.Accepted);
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'TakePicture'", reason);
-        Assert.Contains("no body slot", reason);
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("must not contain any statements", reason);
         AssertNothingMutated(ide);
     }
 
     [Fact]
-    public void A_GET_stated_ST_over_an_accessor_with_no_slot_is_refused_naming_it()
+    public void Code_in_a_GET_over_an_accessor_with_no_slot_is_refused_naming_it()
     {
         var ide = Ide();
-        var stale = Pulled(ide).Replace("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE", "GET\nVAR\nEND_VAR\nIMPLEMENTATION ST");
+        var stale = Pulled(ide).Replace("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE", "GET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nBusy := TRUE;");
 
         var resp = Push(ide, stale);
 
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'Busy' GET", reason);
-        Assert.Contains("volt pull", reason);
+        Assert.Contains("must not contain any statements", reason);
         AssertNothingMutated(ide);
     }
 
-    /// <summary>NONE over a member that HAS a slot would write nothing and report success — refused with its own
-    /// message: the member, the slot, <c>volt pull</c> and the <c>IMPLEMENTATION ST</c> remedy.</summary>
+    /// <summary>NONE over a CONCRETE member: the line says abstract and the declaration says concrete — refused with its
+    /// own message: the member, <c>volt pull</c> and the <c>IMPLEMENTATION ST</c> remedy.</summary>
     [Fact]
     public void IMPLEMENTATION_NONE_over_a_member_with_a_slot_is_refused_naming_it_and_both_remedies()
     {
@@ -130,40 +134,39 @@ public class AbstractMemberNoSlotTests
 
         var reason = Assert.Single(resp.Conflicts!).Reason;
         Assert.Contains("'Run'", reason);
-        Assert.Contains("body slot", reason);
+        Assert.Contains("not ABSTRACT", reason);
         Assert.Contains("volt pull", reason);
         Assert.Contains("IMPLEMENTATION ST", reason);
         AssertNothingMutated(ide);
     }
 
+    /// <summary>An abstract member ADDED with NONE: accepted (the migration refusal is gone) — the create makes a member
+    /// with a slot, <c>""</c> is written there, and the next pull reads NONE by the fold.</summary>
     [Fact]
-    public void A_member_added_with_IMPLEMENTATION_NONE_is_refused_with_the_IMPLEMENTATION_ST_remedy()
+    public void A_member_added_with_IMPLEMENTATION_NONE_is_accepted_and_pulls_back_NONE()
     {
         var ide = Ide();
         var added = Pulled(ide).TrimEnd('\n') + "\n\nMETHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD\n";
 
         var resp = Push(ide, added);
 
-        var reason = Assert.Single(resp.Conflicts!).Reason;
-        Assert.Contains("'Pick'", reason);
-        Assert.Contains("change its line to 'IMPLEMENTATION ST'", reason, System.StringComparison.OrdinalIgnoreCase);
-        AssertNothingMutated(ide);
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.Equal("", ide.StoredImplementation("Pick"));
+        Assert.Contains("METHOD ABSTRACT Pick : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide).Replace("\r\n", "\n"));
     }
 
-    /// <summary>A rename is delete + create to the reconciler, so a renamed abstract member is a create: refused, where
-    /// before this change it was created with an empty ST body (design: "this refuses an edit accepted today").</summary>
+    /// <summary>A rename is delete + create to the reconciler, so a renamed abstract member is a create, accepted the
+    /// same way. (On CODESYS the new object is a slotted <c>POUMethodObject</c>; the wire does not name the class.)</summary>
     [Fact]
-    public void Renaming_a_member_with_no_slot_is_refused_as_a_create_with_its_remedy()
+    public void Renaming_a_member_with_no_slot_is_accepted_and_pulls_back_NONE()
     {
         var ide = Ide();
         var renamed = Pulled(ide).Replace("METHOD ABSTRACT TakePicture : INT", "METHOD ABSTRACT TakeImage : INT");
 
         var resp = Push(ide, renamed);
 
-        var reason = Assert.Single(resp.Conflicts!).Reason;
-        Assert.Contains("'TakeImage'", reason);
-        Assert.Contains("IMPLEMENTATION ST", reason);
-        AssertNothingMutated(ide);
+        Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));
+        Assert.Contains("METHOD ABSTRACT TakeImage : INT\nIMPLEMENTATION NONE\nEND_METHOD", Pulled(ide).Replace("\r\n", "\n"));
     }
 
     /// <summary>Removing ABSTRACT while keeping <c>IMPLEMENTATION NONE</c> makes the member concrete in the file only: the

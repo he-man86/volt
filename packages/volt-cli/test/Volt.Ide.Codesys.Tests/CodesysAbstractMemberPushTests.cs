@@ -48,10 +48,20 @@ namespace Volt.Ide.Codesys.Tests
                                             "METHOD ABSTRACT TakePicture : INT\n// edited in the workspace");
                 Assert.NotEqual(pulled, edited);
 
-                driver.WriteContent(new ItemRef(pou), StReader.Read(edited, ItemKind.Kinds.Pou),
-                                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+                // What the push hands the driver (abstract-member-parity): the member's UNCHANGED body dropped — null,
+                // "leave it alone" (`PushService.OnlyChanged` drops an unchanged body at every member site). A NONE body
+                // is now written as "" (`ImplementationMarker.Written`), so the engine, not the driver, keeps it off a
+                // slotless object; reaching one anyway is the driver's backstop refusal (`RequireSlot`, D26), below.
+                var pushed = StReader.Read(edited, ItemKind.Kinds.Pou);
+                var sent = pushed with { Members = pushed.Members.Select(m => m with { Body = null }).ToList() };
+                driver.WriteContent(new ItemRef(pou), sent, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Contains("// edited in the workspace", method.Object.Interface.TextDocument.Text);
+
+                var ex = Assert.Throws<BridgeException>(() => driver.WriteContent(new ItemRef(pou), pushed,
+                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
+                Assert.Contains("TakePicture", ex.Message);
+                Assert.Contains("Implementation", ex.Message);
             }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
@@ -83,6 +93,142 @@ namespace Volt.Ide.Codesys.Tests
                 Assert.Null(content.Stated);                                                  // the POU's empty ST body too
             }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
+        }
+
+        // ── openspec abstract-member-parity: one text for one declaration, whatever the object's class ──────────────
+
+        private static _3S.CoDeSys.STObject.STImplementationObject StBody(string text)
+        {
+            var body = new _3S.CoDeSys.STObject.STImplementationObject();
+            var throws = Nwl.TextDocument.ThrowsAfterInsert;
+            try { Nwl.TextDocument.ThrowsAfterInsert = false; body.TextDocument.Insert(0, text); }
+            finally { Nwl.TextDocument.ThrowsAfterInsert = throws; }
+            return body;
+        }
+
+        /// <summary>The read rule (step 3): the driver keeps its storage fact and the engine folds the rest. A SLOTTED
+        /// abstract method (<c>POUMethodObject</c> with an empty <c>STImplementationObject</c> — script-made, or IDE-made
+        /// like pro2193's <c>Cyclic</c>) and a slotted abstract property's GET (<c>PropertyAccessorObject</c>) read as an
+        /// empty ST body from the driver, and the engine's fold states them <c>IMPLEMENTATION NONE</c> — the text the
+        /// slotless objects pull, and TwinCAT's. It used to pull <c>IMPLEMENTATION ST</c>.</summary>
+        [Fact]
+        public void A_slotted_abstract_method_and_GET_pull_IMPLEMENTATION_NONE_through_the_engine_fold()
+        {
+            var slotted = new Node("Cyclic", 2, new Method("METHOD PROTECTED ABSTRACT Cyclic", new _3S.CoDeSys.STObject.STImplementationObject()));
+            var getter = new Node("Get", 4, new AccessorObject("VAR\nEND_VAR", new _3S.CoDeSys.STObject.STImplementationObject()));
+            var property = new Node("Busy", 3, new Property("PROPERTY PUBLIC ABSTRACT Busy : BOOL"), getter);
+            var pou = new Node("FB_Base", 1, new Pou("FUNCTION_BLOCK ABSTRACT FB_Base", new _3S.CoDeSys.STObject.STImplementationObject()),
+                               slotted, property);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, slotted, property, getter });
+            try
+            {
+                var read = new CodesysDriver(projects: null).ReadContent(new ItemRef(pou));
+                Assert.Null(read.Members.Single(m => m.Name == "Cyclic").Stated);              // the driver's storage fact
+
+                var text = StWriter.Write(AbstractMemberFold.Apply(read));
+
+                Assert.Contains("METHOD PROTECTED ABSTRACT Cyclic\nIMPLEMENTATION NONE\nEND_METHOD", text);
+                Assert.Contains("GET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET", text);
+                Assert.Contains("FUNCTION_BLOCK ABSTRACT FB_Base\nIMPLEMENTATION ST\n", text);      // the FB's own body is no member site
+            }
+            finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
+        }
+
+        /// <summary>NONE over a slotted abstract method holding code: <c>""</c> is written at its slot (measured to persist
+        /// and pull back as NONE, <c>vendor-facts</c> <c>abstract-member-code</c>).</summary>
+        [Fact]
+        public void NONE_over_a_slotted_method_holding_code_writes_an_empty_body()
+        {
+            var body = StBody("Pick := 1;");
+            var method = new Node("Pick", 2, new Method("METHOD ABSTRACT Pick : INT", body));
+            var pou = new Node("FB_Base", 1, new Pou("FUNCTION_BLOCK ABSTRACT FB_Base", new _3S.CoDeSys.STObject.STImplementationObject()), method);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, method });
+            var throws = Nwl.TextDocument.ThrowsAfterInsert;
+            try
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = false;
+                new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
+                    new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT FB_Base", null, new List<Member>
+                    {
+                        new(ItemKind.Kinds.Method, "Pick", "METHOD ABSTRACT Pick : INT", ImplementationMarker.NoneLine,
+                            Stated: StatedLanguage.None),
+                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+
+                Assert.Equal("", body.TextDocument.Text);
+            }
+            finally
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = throws;
+                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
+            }
+        }
+
+        /// <summary>NONE over a member whose body is LD: NONE is an empty ST body to the guard (N24 answers, and CODESYS
+        /// writes it), so the write swaps the aspect to ST and writes <c>""</c> there (<c>BodyFormatGuard.PushedLanguage</c>
+        /// answers ST for NONE) — it used to swap nothing and write <c>""</c> into the network implementation.</summary>
+        [Fact]
+        public void NONE_over_an_LD_member_swaps_the_aspect_to_ST_and_writes_an_empty_body()
+        {
+            var obj = new CodesysLanguageChangeTests.SwappableMethod("METHOD Step : BOOL", new Nwl.NWLImplementationObject { DefaultViewMode = "Ld" });
+            var method = new CodesysLanguageChangeTests.AnyNode("Step", 2, obj);
+            var pou = new CodesysLanguageChangeTests.AnyNode("P", 1,
+                new CodesysLanguageChangeTests.SwappablePou("FUNCTION_BLOCK ABSTRACT P", new _3S.CoDeSys.STObject.STImplementationObject()), method);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new CodesysLanguageChangeTests.AnyManager(pou, method);
+            var throws = Nwl.TextDocument.ThrowsAfterInsert;
+            try
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = false;
+                Assert.Equal(StatedLanguage.St,
+                    Volt.Engine.Format.Body.BodyFormatGuard.PushedLanguage("'Step'", ImplementationMarker.NoneLine, StatedLanguage.None));
+
+                new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
+                    new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK ABSTRACT P", null, new List<Member>
+                    {
+                        new(ItemKind.Kinds.Method, "Step", "METHOD ABSTRACT Step : BOOL", ImplementationMarker.NoneLine,
+                            Stated: StatedLanguage.None),
+                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+
+                var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
+                Assert.Equal("", st.TextDocument.Text);
+            }
+            finally
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = throws;
+                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
+            }
+        }
+
+        /// <summary>A null accessor body is "leave it alone", as a member's is and as on TwinCAT: the push drops an
+        /// unchanged accessor body (<c>PushService.OnlyChanged</c>) and writes the declaration alone. Writing
+        /// <c>Accessor.Code</c> (<c>""</c> for null) cleared the GET's code.</summary>
+        [Fact]
+        public void A_null_accessor_body_leaves_the_GETs_code_and_writes_its_declaration()
+        {
+            var body = StBody("Busy := TRUE;");
+            var getterObj = new AccessorObject("VAR\nEND_VAR", body);
+            var getter = new Node("Get", 4, getterObj);
+            var property = new Node("Busy", 3, new Property("PROPERTY PUBLIC Busy : BOOL"), getter);
+            var pou = new Node("FB_Base", 1, new Pou("FUNCTION_BLOCK FB_Base", new _3S.CoDeSys.STObject.STImplementationObject()), property);
+            _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new ObjectManager(new[] { pou, property, getter });
+            var throws = Nwl.TextDocument.ThrowsAfterInsert;
+            try
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = false;
+                new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
+                    new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_Base", null, new List<Member>
+                    {
+                        new(ItemKind.Kinds.Property, "Busy", "PROPERTY PUBLIC Busy : BOOL", null,
+                            Getter: new Accessor("VAR\n\tn : INT;\nEND_VAR", null)),
+                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
+
+                Assert.Equal("Busy := TRUE;", body.TextDocument.Text);
+                Assert.Contains("n : INT;", getterObj.Interface.TextDocument.Text);
+            }
+            finally
+            {
+                Nwl.TextDocument.ThrowsAfterInsert = throws;
+                _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null;
+            }
         }
 
         /// <summary>No object read at all is a READ failure, not a vendor fact — refused, never stated as NONE (which the

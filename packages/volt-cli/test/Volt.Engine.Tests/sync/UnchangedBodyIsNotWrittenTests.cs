@@ -110,4 +110,36 @@ public class UnchangedBodyIsNotWrittenTests
         Assert.NotNull(written);
         Assert.Equal(Decl, written!.Declaration);
     }
+    /// <summary>THE SAME RULE AT EVERY MEMBER AND ACCESSOR SITE (openspec <c>abstract-member-parity</c>): a member whose
+    /// DECLARATION changed is written with its unchanged body dropped (null, "leave it alone"), and a property whose
+    /// declaration changed with its unchanged GET body dropped. Before, only the item's own body was dropped, so an
+    /// unchanged member body was sent again beside a changed declaration — and an unchanged <c>IMPLEMENTATION NONE</c>
+    /// reached the driver of a member with no slot.</summary>
+    [Fact]
+    public void An_unchanged_member_and_accessor_body_is_not_written_when_only_the_declaration_changed()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_X", ItemKind.PlcPou, "", true, Decl, Body, null, null, new[] { "Run", "Ready" }),
+            new FakeIde.Item("Run", ItemKind.PlcMethod, "", false, "METHOD Run : BOOL", "Run := TRUE;", null, null),
+            new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : BOOL", null, null, null, new[] { "ReadyGet" }),
+            new FakeIde.Item("ReadyGet", ItemKind.PlcPropGet, "", false, "VAR\nEND_VAR", "Ready := TRUE;", null, null));
+        var pulled = Assert.Single(FetchService.Handle(ide, new FetchRequest { Init = true }).Changed, c => c.Name == "FB_X.pou")
+                           .SourceText.Replace("\r\n", "\n");
+        var edited = pulled.Replace("METHOD Run : BOOL", "METHOD Run : BOOL\n// edited")
+                           .Replace("PROPERTY Ready : BOOL", "PROPERTY Ready : BOOL\n// edited");
+        Assert.NotEqual(pulled, edited);
+
+        var written = Written(ide, edited)!;
+
+        var run = Assert.Single(written.Members, m => m.Name == "Run");
+        Assert.Contains("// edited", run.Declaration);
+        Assert.Null(run.Body);
+        var ready = Assert.Single(written.Members, m => m.Name == "Ready");
+        Assert.Contains("// edited", ready.Declaration);
+        Assert.NotNull(ready.Getter);
+        Assert.Null(ready.Getter!.Body);
+        // Left alone, not cleared: the IDE keeps both bodies.
+        Assert.Equal("Run := TRUE;", ide.StoredImplementation("Run"));
+        Assert.Equal("Ready := TRUE;", ide.StoredImplementation("ReadyGet"));
+    }
 }

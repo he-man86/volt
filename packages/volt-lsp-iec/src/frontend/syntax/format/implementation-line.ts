@@ -46,7 +46,8 @@ export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
 /** The word after a language that states a body Volt does not show. */
 const UNSUPPORTED_WORD = "UNSUPPORTED"
 
-/** The word that states a member with no body slot: `IMPLEMENTATION NONE`, alone. */
+/** The word that states an abstract member with no code: `IMPLEMENTATION NONE`, alone (openspec abstract-member-parity:
+ *  the declaration decides it on both vendors, whatever the IDE object's slot). */
 const NONE_WORD = "NONE"
 
 /** The languages a body's line may state that a parser READS. */
@@ -228,9 +229,9 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
   const hasCode = code.some((t) => t.kind !== "whitespace" && t.kind !== "eof")
   if (s.kind === "none" && hasCode)
     report(
-      `the body holds code under '${statedLine(line)}'. That line states a member the IDE holds with no body slot (an ` +
-        "abstract member), so the code has nowhere to go. Remove it — or, to give the member a body, make it concrete " +
-        "in the IDE and run `volt pull`.",
+      `the body holds code under '${statedLine(line)}'. That line states an abstract member, and an abstract member ` +
+        'holds no code (both compilers refuse it: "must not contain any statements"). Remove it — or, to give the ' +
+        "member a body, make it concrete in the IDE and run `volt pull`.",
       line.span,
     )
   if (s.kind === "unsupported" && hasCode)
@@ -258,7 +259,7 @@ export function readNoNetworkText(body: BodySpan): void {
   NO_NETWORK_TEXT.add(body)
 }
 
-/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a member with no body slot
+/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, an abstract member with no code
  *  (`IMPLEMENTATION NONE`), or an LD/FBD body parsed with
  *  network text off (`ParseOptions.networkText`) — neither. A body with no
  *  line is ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file

@@ -560,7 +560,11 @@ public sealed partial class CodesysDriver
                 // no-op that keeps the enclosing POU pushable at all), and writing it into a CFC aspect
                 // throws — after the POU's declaration and earlier members have already committed. That
                 // POU could then never be pushed again while the CFC accessor existed.
-                var written = ImplementationMarker.Written(accessor.Code);
+                //
+                // A NULL BODY IS "LEAVE IT ALONE" (openspec abstract-member-parity), as for a member's body and as on
+                // TwinCAT: the push drops an unchanged accessor body (`PushService.OnlyChanged`) and writes the
+                // declaration alone. Writing `Accessor.Code` ("" for null) here would have cleared the GET's code.
+                var written = ImplementationMarker.Written(accessor.Body);
                 _om.WriteSourceText(child.Native, accessor.Declaration, written,
                                     NewBodyAspect(child.Native, AccessorSite(code), written, accessor.Stated));
                 return;

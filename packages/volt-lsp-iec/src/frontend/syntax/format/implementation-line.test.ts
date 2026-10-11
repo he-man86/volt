@@ -422,7 +422,7 @@ test("code, a comment or a pragma under IMPLEMENTATION NONE is refused naming th
   for (const under of ["out := a;", "// a note", "{attribute 'x'}"]) {
     const src = fb(`IMPLEMENTATION NONE\n${under}`)
     const errors = parseSource(src, { networkText: true }).errors.map((e) => e.message)
-    expect({ under, named: errors.some((m) => m.includes("under 'IMPLEMENTATION NONE'") && m.includes("no body slot")) }).toEqual({
+    expect({ under, named: errors.some((m) => m.includes("under 'IMPLEMENTATION NONE'") && m.includes("an abstract member holds no code")) }).toEqual({
       under,
       named: true,
     })

@@ -198,7 +198,11 @@ Drivers keep their storage facts unchanged (CODESYS declared-and-null `Implement
    after whitespace and comments); `RequireAuthorable` accepts NONE+D, refuses statements under D.
 4. DIALECT C2n rewritten: one text for both vendors, no divergence left; the class stays below the wire (kept, not
    recreated). Vendor-facts rows: none new — `abstract-member-code` / `-slot` already record every fact the guard
-   cites; their snapshots must stay "every fact as committed".
+   cites; their snapshots must stay "every fact as committed" — EXCEPT the `fetched*` reads, which are the shipped
+   bridge's fetch (Volt's answer, not the vendor's) and so change with the fold: re-recorded at 3.2 (every empty
+   abstract slot `IMPLEMENTATION ST` → `NONE`, nothing else), DIALECT C2n's pre-fold paragraph marked superseded and
+   pointed at the pre-fold snapshot (`c104d83c94`). Corrected at gate 3: "every fact as committed" was written as if
+   the row recorded only the vendor; `fetched*` never did.
 
 Rejected (one line each):
 - A driver-side read rule: two copies of a text rule — how the divergence began (step 2).

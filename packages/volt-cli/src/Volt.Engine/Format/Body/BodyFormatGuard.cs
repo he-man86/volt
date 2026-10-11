@@ -39,7 +39,7 @@ public static class BodyFormatGuard
     /// the opposite ("root CFC/SFC are unsupported and never reach push").</para></summary>
     public static void RequireAuthorable(ItemContent pushed)
     {
-        if (ItemKind.ShapeOf(pushed.Kind).Body) Authorable("the item", pushed.Body, pushed.Stated);
+        if (ItemKind.ShapeOf(pushed.Kind).Body) Authorable("the item", pushed.Kind, pushed.Body, pushed.Stated, null);
         foreach (var member in pushed.Members) AuthorableMember(member);
     }
 
@@ -51,23 +51,32 @@ public static class BodyFormatGuard
         var shape = ItemKind.ShapeOf(member.Kind);
         if (shape.Accessors != AccessorShape.None)
         {
-            Authorable($"'{member.Name}' GET", member.Getter?.Body, member.Getter?.Stated);
-            Authorable($"'{member.Name}' SET", member.Setter?.Body, member.Setter?.Stated);
+            Authorable($"'{member.Name}' GET", ItemKind.Kinds.PropertyGet, member.Getter?.Body, member.Getter?.Stated,
+                       member.Declaration);
+            Authorable($"'{member.Name}' SET", ItemKind.Kinds.PropertySet, member.Setter?.Body, member.Setter?.Stated,
+                       member.Declaration);
         }
-        if (shape.Body) Authorable($"'{member.Name}'", member.Body, member.Stated);
+        if (shape.Body) Authorable($"'{member.Name}'", member.Kind, member.Body, member.Stated, member.Declaration);
     }
 
-    private static void Authorable(string what, string? body, StatedLanguage? stated)
+    /// <param name="declaration">The declaration that says whether <paramref name="site"/> is ABSTRACT: the member's
+    /// own, its property's for an accessor; read only at a member site.</param>
+    private static void Authorable(string what, string site, string? body, StatedLanguage? stated, string? declaration)
     {
-        // `IMPLEMENTATION NONE` ON A CREATE (openspec abstract-member-push): the create makes a member WITH a slot
-        // (DIALECT C2n), so the next pull would contradict the file. A rename or a retype
-        // of a pulled abstract member reaches here too — the reconciler turns it into delete + create.
-        if (StatedOf(what, "pushed", body, stated) is { NoSlot: true })
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} is stated '{ImplementationMarker.NoneLine}' on a member this push CREATES (added, renamed or " +
-                $"retyped), and a created member has a body slot. Change its line to '{ImplementationMarker.For(Languages.St)}' " +
-                "and push again.");
-        if (StatedOf(what, "pushed", body, stated) is not { Hidden: true } hidden) return;
+        // `IMPLEMENTATION NONE` ON A CREATE (openspec abstract-member-parity): accepted under an ABSTRACT member — the
+        // create makes a member with a slot on both vendors, `""` is written there and the next pull reads NONE by the
+        // fold — and refused anywhere else. A rename or a retype reaches here too (the reconciler's delete + create), so
+        // migrating an abstract member into another project lands.
+        var pushed = StatedOf(what, "pushed", body, stated);
+        if (pushed is { IsNone: true })
+        {
+            if (!AbstractMemberFold.IsMemberSite(site)) throw NoneOffMemberSite(what);
+            if (!IsAbstract(declaration)) throw NoneWithoutAbstract(what);
+            return;
+        }
+        if (AbstractMemberFold.IsMemberSite(site) && IsAbstract(declaration) && HoldsStatements(pushed, body))
+            throw StatementsUnderAbstract(what);
+        if (pushed is not { Hidden: true } hidden) return;
         throw new BridgeException(BridgeErrorCodes.Unsupported,
             $"{what} is '{hidden}', a body Volt cannot author — there is no text form for it, so it can only " +
             "be created in the IDE. Remove it from this push.");
@@ -108,8 +117,8 @@ public static class BodyFormatGuard
             var shape = ItemKind.ShapeOf(member.Kind);
             if (shape.Accessors != AccessorShape.None)
             {
-                // An accessor's slot follows its PROPERTY's ABSTRACT (the abstract `Busy`'s GET, C2n), so the property's
-                // declarations are the ones the no-slot rule reads.
+                // An accessor is abstract by its PROPERTY's ABSTRACT (the abstract `Busy`'s GET, C2n), so the property's
+                // declarations are the ones the NONE/ABSTRACT rules read.
                 Check($"'{member.Name}' GET", ItemKind.Kinds.PropertyGet, current.Getter?.Body, current.Getter?.Stated,
                       member.Getter?.Body, member.Getter?.Stated, refusedLanguageChange, current.Declaration,
                       member.Declaration);
@@ -126,7 +135,7 @@ public static class BodyFormatGuard
     /// <param name="site">Which body this is, for the vendor's language-change answer: the item's kind, a member's kind,
     /// or <c>property_get</c> / <c>property_set</c>.</param>
     /// <param name="liveDeclaration">The declaration that says whether the site is ABSTRACT, as the IDE holds it: the
-    /// member's own, or its property's for an accessor. Read only for a member with no body slot.</param>
+    /// member's own, or its property's for an accessor. Read only at a member site (<see cref="AbstractMemberFold.IsMemberSite"/>).</param>
     /// <param name="pushedDeclaration">The same declaration as pushed.</param>
     private static void Check(string what, string site, string? liveBody, StatedLanguage? liveStated, string? pushedBody,
                               StatedLanguage? pushedStated, Func<string, string, string, string?> refusedLanguageChange,
@@ -139,37 +148,69 @@ public static class BodyFormatGuard
         var live = StatedOf(what, "the IDE's", liveBody, liveStated) ?? StatedLanguage.St;
         var pushed = StatedOf(what, "pushed", pushedBody, pushedStated)!;
 
-        // A MEMBER WITH NO BODY SLOT (`IMPLEMENTATION NONE`, openspec abstract-member-push) — read before any language
-        // rule, because NONE names no language. NONE over a live NONE is the ordinary no-op (nothing is written for it,
-        // `ImplementationMarker.Written`; the declaration beside it lands). Anything else over a live NONE would send a
-        // body at a slot the object does not have (D26's `RequireSlot` stays the driver's backstop). NONE over a member
-        // that HAS a slot would silently do nothing — the silent no-op this guard exists to stop.
-        //
-        // NONE over NONE with ABSTRACT REMOVED from the declaration (gate 3 review) is a RE-TYPE, not a no-op: the IDE's
-        // slotless object stays abstract whatever its text (DIALECT C2l), NONE writes no body, so the push would report
-        // success while the file says "concrete" and the IDE keeps an abstract member with no slot. The reconciler does
-        // not see it (same name, same kind), so it is refused here. Only a REMOVAL is refused: a declaration the IDE
-        // already holds without ABSTRACT, pushed back unchanged, changes nothing.
-        if (live.NoSlot && pushed.NoSlot)
+        // `IMPLEMENTATION NONE` AND ABSTRACT (openspec abstract-member-parity, DIALECT C2n) — read before any language
+        // rule, because NONE names no language. Both bodies arrive FOLDED (`AbstractMemberFold`): an ABSTRACT member with
+        // no code is NONE whatever the IDE object's class or slot, so every answer here is one answer for one text, on
+        // both vendors. The table (design.md, step 2) is for MEMBER sites only.
+        if (!AbstractMemberFold.IsMemberSite(site))
         {
-            if (IsAbstract(liveDeclaration) && !IsAbstract(pushedDeclaration))
+            // An item's own body and an action's: NONE stays refused whatever the declaration says — `FUNCTION_BLOCK
+            // ABSTRACT`'s body is a real body on both vendors, and NONE over it would write "" and clear it silently.
+            if (pushed.IsNone) throw NoneOffMemberSite(what);
+            if (live.IsNone)
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"{what}: its declaration drops ABSTRACT, but the IDE holds it as an abstract member with no body " +
-                    $"slot ('{ImplementationMarker.NoneLine}'), and the IDE keeps it abstract whatever its text — " +
-                    "a re-type the push cannot make in place. Make the member concrete in the IDE and run `volt pull`, " +
-                    "or delete it in one push and add it with 'IMPLEMENTATION ST' in the next.");
-            return;
+                    $"{what} is stated '{pushed}', but the IDE holds it as '{ImplementationMarker.NoneLine}', so there is " +
+                    "nothing to write that body into. Run `volt pull` to get its line.");
         }
-        if (live.NoSlot)
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} is stated '{pushed}', but the IDE holds it with no body slot (an abstract member: " +
-                $"'{ImplementationMarker.NoneLine}'), so there is nothing to write that body into. Run `volt pull` to get " +
-                $"its line; a body needs the member made concrete in the IDE.");
-        if (pushed.NoSlot)
-            throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} is stated '{ImplementationMarker.NoneLine}', but the IDE holds a body slot there ('{live}'), so " +
-                $"the line states a member the IDE does not have. If the member was made concrete in the IDE, run `volt " +
-                $"pull`; if the line was edited by hand, state '{ImplementationMarker.For(Languages.St)}'.");
+        else
+        {
+            var d = IsAbstract(pushedDeclaration);
+            var l = IsAbstract(liveDeclaration);
+            if (pushed.IsNone)
+            {
+                if (!d)
+                {
+                    // NONE kept with ABSTRACT dropped over a live abstract NONE: the drop-ABSTRACT refusal and its remedy.
+                    if (live.IsNone && l) throw DropsAbstract(what);
+                    // C2l: a CODESYS slotless object can hold its text without ABSTRACT — the IDE already holds it so.
+                    if (live.IsNone) return;
+                    throw NoneWithoutAbstract(what);
+                }
+                // NONE over a live NONE is the ordinary no-op (`PushService.OnlyChanged` drops the body, the declaration
+                // beside it lands). Over anything else NONE is an EMPTY ST BODY for every rule below — `""` written at the
+                // slot over ST code, the language rules (N24) over LD/FBD, the hidden-body refusal over a hidden one.
+                if (live.IsNone) return;
+                pushed = StatedLanguage.St;
+                pushedBody = "";
+            }
+            else if (live.IsNone)
+            {
+                // A body over a live NONE. Dropping ABSTRACT there is refused on BOTH vendors (the slot is invisible after
+                // the fold, so answering by slot would give one text two outcomes); a body over a non-abstract NONE (only a
+                // slotless object reads so, C2l) has nowhere to go.
+                if (!d && l) throw DropsAbstract(what);
+                if (!d)
+                    throw new BridgeException(BridgeErrorCodes.Unsupported,
+                        $"{what} is stated '{pushed}', but the IDE holds it as '{ImplementationMarker.NoneLine}' with no " +
+                        "body slot, so there is nothing to write that body into. Run `volt pull` to get its line.");
+                if (HoldsStatements(pushed, pushedBody)) throw StatementsUnderAbstract(what);
+                // A comment (or a network / hidden body) under ABSTRACT over a live NONE: a CODESYS slotless member cannot
+                // hold it, and after the fold the slot is invisible — one text, one answer, on both vendors.
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"{what} is stated '{pushed}' with a body that holds no statements, but the IDE holds it as " +
+                    $"'{ImplementationMarker.NoneLine}', and an abstract member the IDE may hold with no body slot cannot " +
+                    "take one in place. Leave the body empty, or delete the member in one push and add it with the body " +
+                    "in the next (a created member has a slot).");
+            }
+            else if (d && HoldsStatements(pushed, pushedBody)
+                     && !(l && live.Language == Languages.St && !live.Hidden && Text(liveBody) == Text(pushedBody)))
+            {
+                // Statements under ABSTRACT: both compilers refuse them at build (1.1, C0433). Accepted only as the code
+                // the IDE already holds under ABSTRACT, unchanged — nothing is written, so a project that does not
+                // compile can still push its other items.
+                throw StatementsUnderAbstract(what);
+            }
+        }
 
         // Two hidden bodies share hiding but not a language, and the stated language is the one signal for what a
         // body is. Passing on hiding alone accepted `IMPLEMENTATION SFC UNSUPPORTED` over a CFC chart as a no-op: the
@@ -218,6 +259,41 @@ public static class BodyFormatGuard
     private static bool IsAbstract(string? declaration) =>
         declaration is not null && StReader.MemberHeaderIsAbstract(declaration);
 
+    /// <summary>Does this pushed ST body hold STATEMENTS — any text left once whitespace and comments are taken away
+    /// (a pragma counts: unmeasured, "niche: accepted loss (0 occurrences in the corpora)")? A comment is not a statement
+    /// on either compiler (gate 2, measured: a comment-only abstract body builds clean on both). Only an ST body is asked:
+    /// a network or hidden body is the language rules'.</summary>
+    private static bool HoldsStatements(StatedLanguage? stated, string? body) =>
+        stated is { Hidden: false } s && s.Language == Languages.St && body is not null && StTrivia.HasStatements(body);
+
+    /// <summary>Compare on the text as it lands: both drivers trim the trailing newlines (as <c>PushService.Text</c>).</summary>
+    private static string Text(string? s) => (s ?? "").TrimEnd('\n');
+
+    private static BridgeException NoneOffMemberSite(string what) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{what} is stated '{ImplementationMarker.NoneLine}', which belongs only under an abstract member (a METHOD " +
+            "ABSTRACT, or a PROPERTY ABSTRACT's GET/SET) — a POU's own body and an action's are real bodies, even in an " +
+            $"abstract function block. State '{ImplementationMarker.For(Languages.St)}'.");
+
+    private static BridgeException NoneWithoutAbstract(string what) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{what} is stated '{ImplementationMarker.NoneLine}', but its declaration is not ABSTRACT: the line says " +
+            $"abstract and the declaration says concrete. State '{ImplementationMarker.For(Languages.St)}', or declare the " +
+            "member ABSTRACT. If the member was made concrete in the IDE, run `volt pull`.");
+
+    private static BridgeException DropsAbstract(string what) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{what}: its declaration drops ABSTRACT, but the IDE holds it as an abstract member with no code " +
+            $"('{ImplementationMarker.NoneLine}') and the IDE keeps it abstract: a push never re-types a member in place. " +
+            "Make the member concrete in the IDE and run `volt pull`, or delete it in one push and add it with " +
+            $"'{ImplementationMarker.For(Languages.St)}' in the next.");
+
+    private static BridgeException StatementsUnderAbstract(string what) =>
+        new(BridgeErrorCodes.Unsupported,
+            $"{what} is declared ABSTRACT and holds statements, and an ABSTRACT member must not contain any statements " +
+            "(both compilers refuse it at build, C0433). Remove the code and state " +
+            $"'{ImplementationMarker.NoneLine}', or drop ABSTRACT to make the member concrete.");
+
     /// <summary>The body's stated language, as its reader handed it up. Null is the reader's word for "no body text":
     /// an empty ST body (TwinCAT stores an empty ST body as no text at all) or a slot with none — never a graphical or
     /// hidden body, which always has text (its keyword line). A body WITH text and no stated language is a reader that
@@ -235,8 +311,13 @@ public static class BodyFormatGuard
     /// own write (CODESYS's aspect swap) and the guard cannot disagree (review of step 4a: an empty accessor body that
     /// states nothing was ST to the guard and "no language" to the write, which then set "" on a network aspect).
     /// Null for no body.</summary>
+    ///
+    /// <para><b>An <c>IMPLEMENTATION NONE</c> body is written in ST</b> (openspec <c>abstract-member-parity</c>): it is
+    /// written as <c>""</c> (<c>ImplementationMarker.Written</c>), the guard treats it as an empty ST body, and the CODESYS
+    /// write picks its aspect from this — so NONE over a live LD/FBD member swaps the aspect to ST and writes <c>""</c>
+    /// there, instead of writing <c>""</c> into the network implementation.</para>
     public static StatedLanguage? PushedLanguage(string what, string? body, StatedLanguage? stated) =>
-        StatedOf(what, "pushed", body, stated);
+        StatedOf(what, "pushed", body, stated) is { IsNone: true } ? StatedLanguage.St : StatedOf(what, "pushed", body, stated);
 
     /// <summary>How a refusal names a body's language: the language, or that the body is empty — a refusal that names
     /// only its verdict cannot be diagnosed from the other side of a pipe.</summary>

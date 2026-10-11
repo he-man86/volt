@@ -50,13 +50,13 @@ namespace Volt.Engine.Format.St
     /// written. One in a pushed file is a comment; only where a region has NO boundary line is it read, as the hint that
     /// the file predates the line (<see cref="FindRetiredComment"/>, openspec <c>bridge-refusal-review</c> 2.1).</para>
     ///
-    /// <para><b>A member with no body slot states <c>IMPLEMENTATION NONE</c></b> (openspec <c>abstract-member-push</c>,
-    /// DIALECT C2n): CODESYS holds an abstract method and an abstract property's GET with no <c>Implementation</c>
-    /// aspect, and the driver states it where it read no slot — no keyword in the declaration decides it (a TwinCAT
-    /// abstract member has a slot and keeps <c>IMPLEMENTATION ST</c>). It names no language, nothing stands under it, it
-    /// is never written (<see cref="Written"/>), and the push's guard refuses a body over it, it over a slot, and it on a
-    /// create. <c>IMPLEMENTATION NONE UNSUPPORTED</c> is another line — a hidden body of a vendor language spelled NONE;
-    /// the word is not reserved, because <see cref="VendorLanguage"/> is on the read path.</para>
+    /// <para><b>An ABSTRACT member with no code states <c>IMPLEMENTATION NONE</c></b> (openspec <c>abstract-member-push</c>,
+    /// <c>abstract-member-parity</c>, DIALECT C2n): the declaration decides it, identically on both vendors whoever made
+    /// the object (<see cref="AbstractMemberFold"/>) — a CODESYS slotless object, a CODESYS slotted one and a TwinCAT one
+    /// alike. It names no language, nothing stands under it, it is written as an empty body (<see cref="Written"/>), and
+    /// the push's guard (<c>BodyFormatGuard</c>) accepts it only at an abstract member's body.
+    /// <c>IMPLEMENTATION NONE UNSUPPORTED</c> is another line — a hidden body of a vendor language spelled NONE; the word
+    /// is not reserved, because <see cref="VendorLanguage"/> is on the read path.</para>
     ///
     /// <para><b>Where the line rides in memory.</b> An ST body is written into the IDE as it stands, so it carries no
     /// line; a network-text body's language is one property of the whole body, so its keyword line stays its FIRST
@@ -74,16 +74,18 @@ namespace Volt.Engine.Format.St
         /// <summary>The word after a language that states a body Volt does not show.</summary>
         public const string UnsupportedWord = "UNSUPPORTED";
 
-        /// <summary>The word that states a member with NO body slot: <c>IMPLEMENTATION NONE</c>, alone on the line,
-        /// nothing under it (openspec <c>abstract-member-push</c>). A driver states it where it READ no slot — CODESYS's
-        /// <c>AbstractPOUMethodObject</c> and an abstract property's GET hold no <c>Implementation</c> aspect (DIALECT
-        /// C2n) — and no keyword in the declaration decides it: a TwinCAT abstract member HAS a slot. Like an UNSUPPORTED
-        /// body, a no-slot body IS its line in memory and is never written (<see cref="Written"/>); unlike one it names
-        /// no language (<see cref="IsNone"/>). <c>IMPLEMENTATION NONE UNSUPPORTED</c> is a different line: a hidden body
-        /// in a vendor language spelled NONE (<see cref="VendorLanguage"/> does not reserve the word).</summary>
+        /// <summary>The word that states an ABSTRACT member with no code: <c>IMPLEMENTATION NONE</c>, alone on the line,
+        /// nothing under it (openspec <c>abstract-member-push</c>, <c>abstract-member-parity</c>). The DECLARATION decides
+        /// it, the same on both vendors whoever made the object (<see cref="AbstractMemberFold"/>); CODESYS's slotless
+        /// objects (<c>AbstractPOUMethodObject</c>, an abstract property's <c>InterfacePropertyAccessorObject</c>: no
+        /// <c>Implementation</c> aspect, DIALECT C2n) are also stated so by their driver. Like an UNSUPPORTED body, a NONE
+        /// body IS its line in memory; unlike one it names no language (<see cref="IsNone"/>), and it is WRITTEN as an
+        /// empty body where the object has a slot (<see cref="Written"/>). <c>IMPLEMENTATION NONE UNSUPPORTED</c> is a
+        /// different line: a hidden body in a vendor language spelled NONE (<see cref="VendorLanguage"/> does not reserve
+        /// the word).</summary>
         public const string NoneWord = "NONE";
 
-        /// <summary>The line of a member with no body slot, in its one spelling.</summary>
+        /// <summary>The line of an abstract member with no code, in its one spelling.</summary>
         public static readonly string NoneLine = $"{Keyword} {NoneWord}";
 
         // Every line a body can state, alone on the line: the keyword, a language, and UNSUPPORTED — which `Parse`
@@ -158,7 +160,7 @@ namespace Volt.Engine.Format.St
             language is Languages.St or Languages.Ld or Languages.Fbd || IsNeverShown(language);
 
         /// <summary>What a boundary line states, in its one spelling, or null for a line that is none. <c>None</c>: the
-        /// line is <c>IMPLEMENTATION NONE</c>, a member with no body slot — no language, nothing a reader reads.</summary>
+        /// line is <c>IMPLEMENTATION NONE</c>, an abstract member with no code — no language, nothing a reader reads.</summary>
         private static (string Language, bool Unsupported, bool None)? Parse(string line)
         {
             var m = Line.Match(line);
@@ -185,11 +187,11 @@ namespace Volt.Engine.Format.St
         /// <summary>True when this line states a body Volt does not show: <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>.</summary>
         public static bool IsUnsupported(string line) => Parse(line) is { Unsupported: true };
 
-        /// <summary>True when this line states a member with no body slot: <c>IMPLEMENTATION NONE</c>, alone (and not
+        /// <summary>True when this line states an abstract member with no code: <c>IMPLEMENTATION NONE</c>, alone (and not
         /// <c>IMPLEMENTATION NONE UNSUPPORTED</c>, a hidden body of a language spelled NONE).</summary>
         public static bool IsNone(string line) => Parse(line) is { None: true };
 
-        /// <summary>Is this body a member's missing body slot — its <c>IMPLEMENTATION NONE</c> line, alone?</summary>
+        /// <summary>Is this body an abstract member's NONE line, alone?</summary>
         private static bool IsNoneBody(string? body)
         {
             if (body is null) return false;
@@ -210,8 +212,15 @@ namespace Volt.Engine.Format.St
         /// the words of the line — or, where the aspect has no text document at all (a CODESYS CFC POU), fail after
         /// the declaration had committed, so that a project holding one diagram could never be pushed again. Null
         /// keeps the IDE's body byte for byte and lets the declaration land, which is what makes the declaration of a
-        /// hidden body editable.</para></summary>
-        public static string? Written(string? body) => IsUnsupportedBody(body) || IsNoneBody(body) ? null : body;
+        /// hidden body editable.</para>
+        ///
+        /// <para><b>An <c>IMPLEMENTATION NONE</c> body is written as <c>""</c></b> (openspec <c>abstract-member-parity</c>):
+        /// an empty body at the slot, measured to persist across save/reopen and to pull back as NONE on both vendors
+        /// (<c>vendor-facts</c> <c>abstract-member-code</c>). The engine decides that it reaches a driver only at a slot —
+        /// the push drops an unchanged body (<c>PushService.OnlyChanged</c>), and a live slotless member reads NONE — and
+        /// the guard refuses NONE at an item's own body and an action before any write, so a driver gains no slot check
+        /// (<c>RequireSlot</c>, D26, stays its backstop).</para></summary>
+        public static string? Written(string? body) => IsUnsupportedBody(body) ? null : IsNoneBody(body) ? "" : body;
 
         /// <summary>A boundary line in its one spelling — single spaces, upper case — however it was typed.</summary>
         public static string Canonical(string line) =>

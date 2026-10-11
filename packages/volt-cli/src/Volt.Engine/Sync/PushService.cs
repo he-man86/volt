@@ -1315,7 +1315,10 @@ public static class PushService
     private static ValidatedSource ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
-        var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
+        // Throws InvalidSt when the text cannot be split into what the push writes. FOLDED as the IDE's content is
+        // (openspec abstract-member-parity): a file pulled before the fold states `IMPLEMENTATION ST` with an empty body
+        // under an ABSTRACT member, which is the same content as `IMPLEMENTATION NONE`.
+        var split = AbstractMemberFold.Apply(StReader.Read(src, wireKind, name));
 
         // A NAME THE IDE REFUSES, from the word alone (openspec `push-keeps-what-landed` 3.1). Both vendors refuse a POU
         // or a METHOD / ACTION / PROPERTY named like a reserved word (`Log`, `INT_TO_REAL`, `__NEW` …) whatever the
@@ -1398,7 +1401,9 @@ public static class PushService
     /// <c>ErrorCodeVocabularyTests</c>).</para></summary>
     private static ItemContent ReadLive(IIdeDriver ide, ItemRef item, string name)
     {
-        try { return ide.ReadContent(item); }
+        // FOLDED (openspec abstract-member-parity): an ABSTRACT member with no code is `IMPLEMENTATION NONE` whatever the
+        // object's slot, so the version gate, the format guard and `OnlyChanged` all see the text the fetch publishes.
+        try { return AbstractMemberFold.Apply(ide.ReadContent(item)); }
         catch (Exception ex) when (ex is ICodedError { ErrorCode: BridgeErrorCodes.Unreadable })
         {
             throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -1883,8 +1888,29 @@ public static class PushService
         var byName = new Dictionary<string, Member>(StringComparer.OrdinalIgnoreCase);
         foreach (var m in live.Members) byName[m.Name] = m;
 
-        var changed = pushed.Members.Where(m => !byName.TryGetValue(m.Name, out var was) || !Same(was, m)).ToList();
-        return changed.Count == pushed.Members.Count ? pushed : pushed with { Members = changed };
+        // …AND EVERY MEMBER AND ACCESSOR BODY TOO (openspec abstract-member-parity): a member whose declaration changed
+        // used to be sent with its unchanged body as well. Dropped the same way (null: "leave it alone", the word both
+        // drivers' member and accessor writes have), so an unchanged `IMPLEMENTATION NONE` never reaches a driver — a
+        // live member with no body slot always reads NONE, so NONE reaches a driver only over live code or on a create,
+        // and both have a slot.
+        var changed = pushed.Members
+            .Where(m => !byName.TryGetValue(m.Name, out var was) || !Same(was, m))
+            .Select(m => byName.TryGetValue(m.Name, out var was) && was.Kind == m.Kind ? WithoutUnchangedBodies(was, m) : m)
+            .ToList();
+        return pushed with { Members = changed };
+    }
+
+    /// <summary><paramref name="pushed"/> with each body that equals <paramref name="live"/>'s dropped (null). Both
+    /// sides non-null, as for the item's own body: a live null is "not read", never "empty".</summary>
+    private static Member WithoutUnchangedBodies(Member live, Member pushed)
+    {
+        if (live.Body is not null && pushed.Body is not null && Text(live.Body) == Text(pushed.Body))
+            pushed = pushed with { Body = null };
+        if (live.Getter?.Body is not null && pushed.Getter?.Body is not null && Text(live.Getter.Body) == Text(pushed.Getter.Body))
+            pushed = pushed with { Getter = pushed.Getter with { Body = null } };
+        if (live.Setter?.Body is not null && pushed.Setter?.Body is not null && Text(live.Setter.Body) == Text(pushed.Setter.Body))
+            pushed = pushed with { Setter = pushed.Setter with { Body = null } };
+        return pushed;
     }
 
     /// <summary>Does this member need writing? Compared on EVERYTHING a write carries - declaration, body, the

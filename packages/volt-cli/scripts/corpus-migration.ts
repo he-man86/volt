@@ -21,10 +21,10 @@
  *
  * WHAT IS NOT MIGRATABLE, AND WHY THAT IS NOT A FINDING. A hidden body has no text form — its file carries the line
  * `IMPLEMENTATION <LANG> UNSUPPORTED` (every CFC/SFC/IL body, and an LD/FBD body network text cannot represent)
- * and nothing under it — so there is nothing to create it FROM. The same holds for a member with NO body slot,
- * `IMPLEMENTATION NONE` (a CODESYS abstract method or abstract property's GET — openspec `abstract-member-push`): a
- * create makes a member WITH a slot, so the push refuses NONE on a create, naming the `IMPLEMENTATION ST` remedy.
- * Those are counted and reported, never staged; pushing one is refused by `BodyFormatGuard`.
+ * and nothing under it — so there is nothing to create it FROM. Those are counted and reported, never staged; pushing
+ * one is refused by `BodyFormatGuard`. (`IMPLEMENTATION NONE` — an abstract member with no code — IS migratable since
+ * openspec `abstract-member-parity`: the create makes a member with a slot on both vendors, writes "" there, and the
+ * next pull reads NONE again. pro2193's 7 owner files of abstract members were refused here until then.)
  *
  * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus — `ide.ps1` instance
  * `corpus-migration`, its pipe resolved from that instance's record and nothing else — and closed again.
@@ -62,10 +62,9 @@ let activePipe: string | undefined
  *  Each vendor names that folder itself: `Library Manager` on CODESYS, `References` on TwinCAT. */
 const LIBRARY_DIRS = new Set(["Library Manager", "References"])
 const FOLDER_MARKER = ".gitkeep"
-/** A body no create can author: its IMPLEMENTATION line states UNSUPPORTED (no text form), or NONE (no body slot,
- *  which a created member always has). The spelling is the bridge's `ImplementationMarker`; a script matches the line,
- *  it does not define it. */
-const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+(?:[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED|NONE)[ \t]*\r?$/im
+/** A body no create can author: its IMPLEMENTATION line states UNSUPPORTED (no text form). The spelling is the
+ *  bridge's `ImplementationMarker`; a script matches the line, it does not define it. */
+const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED[ \t]*\r?$/im
 
 const VENDOR = vendorOf(process.env.VOLT_VENDOR)
 

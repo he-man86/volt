@@ -66,7 +66,7 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
-            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 9),   // +4: IMPLEMENTATION NONE over a body, a body over NONE, NONE on a create, ABSTRACT dropped over NONE (abstract-member-push)
+            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 12),  // abstract-member-parity: the NONE/ABSTRACT refusals as named builders (NONE off a member site, NONE without ABSTRACT, ABSTRACT dropped over NONE, statements under ABSTRACT) + a body over NONE at an item site, over a slotless concrete member, and a comment over NONE
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
             ("Volt.Engine/Format/St/StReader.cs", 3),

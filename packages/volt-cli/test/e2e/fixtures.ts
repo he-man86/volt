@@ -31,6 +31,15 @@ export const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${MARK}\n
 export const PROPERTY = (n: string, get = true, set = true) =>
 	`\nPROPERTY ${n} : INT\n` + (get ? `GET\n${MARK}\n\t${n} := x;\nEND_GET\n` : "") + (set ? `SET\n${MARK}\n\tx := ${n};\nEND_SET\n` : "") + `END_PROPERTY\n`
 
+/** An ABSTRACT function block and its abstract members with no code — `IMPLEMENTATION NONE` on both vendors, whoever
+ *  made the object (openspec `abstract-member-parity`). `line` states the member bodies: `IMPLEMENTATION NONE`, or a
+ *  file pulled before the fold (`IMPLEMENTATION ST`, nothing under it), which is the same content. */
+export const abstractFb = (name: string, children: string) =>
+	`FUNCTION_BLOCK ABSTRACT ${name}\nVAR\n\tx : INT;\nEND_VAR\n${MARK}\nx := x + 1;\nEND_FUNCTION_BLOCK\n${children}`
+export const ABSTRACT_METHOD = (n: string, line = "IMPLEMENTATION NONE") => `\nMETHOD ABSTRACT ${n} : INT\n${line}\nEND_METHOD\n`
+export const ABSTRACT_PROPERTY = (n: string, line = "IMPLEMENTATION NONE") =>
+	`\nPROPERTY PUBLIC ABSTRACT ${n} : BOOL\nGET\n${line}\nEND_GET\nSET\n${line}\nEND_SET\nEND_PROPERTY\n`
+
 /** An INTERFACE property: same shape, BODILESS accessors. In IEC 61131-3 an interface declares the signature and
  *  implementers supply the code, so `GET\n\tReady := x;\nEND_GET` is not interface source at all. The interface
  *  tests used PROPERTY above and got accessor bodies the bridge then discarded in silence; the push now refuses

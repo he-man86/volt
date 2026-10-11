@@ -677,6 +677,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var victim = FindOrNull(Ref(name));
         if (victim is null) return;
         _items.Remove(victim);
+        // …and an ITEM's own children with it (a property's GET/SET), as a real IDE removes them: left behind under
+        // their names, a member renamed by the push (delete + create) met its old accessors again when its new ones
+        // were created as `Get`/`Set`.
+        RemoveChildren(victim);
         var owner = FindOrNull(parent);
         if (owner?.Children is { } kids)
             _items[_items.IndexOf(owner)] = owner with
@@ -684,6 +688,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 Children = kids.Where(k => !string.Equals(k, name, StringComparison.OrdinalIgnoreCase)).ToArray(),
             };
     }
+    private void RemoveChildren(Item item)
+    {
+        foreach (var child in item.Children ?? System.Array.Empty<string>())
+            if (_items.FirstOrDefault(i => !i.IsTopLevel && string.Equals(i.Name, child, StringComparison.OrdinalIgnoreCase)) is { } c)
+            {
+                _items.Remove(c);
+                RemoveChildren(c);
+            }
+    }
+
     // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
     // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the
     // call could assert the bug away.
@@ -1112,14 +1126,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // never re-placed") passed green against a fake that asserted the bug away. Placement changes only
             // through `Move`, which is what the real IDEs require too.
             var folder = existing?.Folder ?? m.Folder ?? "";
-            // An UNSUPPORTED body, or IMPLEMENTATION NONE (a member with no body slot), is never written — both drivers
-            // skip it (`Written` is null for it) and write the declaration alone — so the member keeps the body the IDE
-            // holds (its language, what made it UNSUPPORTED, its missing slot). So does a slotless member sent no body.
+            // An UNSUPPORTED body is never written, and a null body is "leave it alone" (the push drops an unchanged body,
+            // `PushService.OnlyChanged`) — both drivers skip it (`Written` is null for it) and write the declaration
+            // alone — so the member keeps the body the IDE holds (its language, what made it UNSUPPORTED, its missing
+            // slot). `IMPLEMENTATION NONE` is written as "" (`Written`, openspec abstract-member-parity).
             var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.Written(m.Body) is null
-                                              && (m.Body is not null || existing.NoSlot)
                 ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
-                           Held(m.Body, bodies, new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
+                           Held(Volt.Engine.Format.St.ImplementationMarker.Written(m.Body), bodies,
+                                new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
                            null, null) { Class = existing?.Class, Children = existing?.Children };   // written in place: the class (C2l) and the accessors are kept
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
@@ -1183,7 +1198,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 _items[_items.IndexOf(acc)] = acc with { Declaration = pushed.Declaration };
                 return;
             }
-            var written = Volt.Engine.Format.St.ImplementationMarker.Written(pushed.Code);
+            // A null body is "leave it alone" — the push drops an unchanged accessor body (`PushService.OnlyChanged`),
+            // and both drivers skip writing it (openspec abstract-member-parity).
+            var written = Volt.Engine.Format.St.ImplementationMarker.Written(pushed.Body);
             RequireSlot(acc, written);
             _items[_items.IndexOf(acc)] = acc with
             {
