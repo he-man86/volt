@@ -174,7 +174,7 @@ public sealed partial class CodesysDriver
         CodesysObjectModel.TaskKind(settings.Type);
 
     /// <summary>A measured word (for the kinds the words were asked on), or a name SHAPE SP21 refused for every kind
-    /// (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/identifier-names.log</c>): no ASCII identifier and no
+    /// (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>): no ASCII identifier and no
     /// backtick-quoted name. Both answer with the same vendor sentence — measured, the IDE words them alike.</summary>
     internal static string? NameRefusal(string kind, string name) =>
         (Volt.Engine.Ide.MeasuredNames.WordMeasuredFor(kind, name) && CodesysRefusedNames.Words.Contains(name))

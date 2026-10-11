@@ -198,6 +198,73 @@ END_VAR
 
 ## 4. Fold-ins
 
-- [ ] 4.1 After `bridge-refusal-review` is archived: its kept probes (proposal, "Fold in") become table rows and are
+- [x] 4.1 After `bridge-refusal-review` is archived: its kept probes (proposal, "Fold in") become table rows and are
       deleted; `RefusedNamesMatchTheLogsTests` reads the snapshot (or keeps its logs, decided in 0.1).
+  - Done (2026-10-11). Failing tests first (`vendor-facts.test.ts` 38 → 48; Repo.Gates `RefusedNamesMatchTheSnapshotTests`
+    red on "no `refused-names` fact" until the snapshots held it, its 4 synthetic-input tests green from the start).
+    Rows (6, DIALECT markers 31 → 37 on 34 rows): `refused-names` + `identifier-shapes` → C28, `task-priority-range` →
+    C19c, `interface-accessor-write` → D41, `body-language-change` → N24, `move-target` → C2q. **N23 and N25 are NOT
+    rows** (design 4 "Built"): they build or open graphical bodies, which the vocabulary cannot; they wait with the
+    N-rows for 4.2, their probes deleted like the `probe-nwl-*` family, DIALECT citing `git show 5312b799fe:…`.
+    Vocabulary: step `tryNames`, read `tried`, `create.language`, `setText.implFrom`; TwinCAT `move` (the archive
+    round trip) and interface member codes 610/612. Probe faults found live and fixed before any snapshot: IronPython's
+    `json.dumps` on a non-ASCII name, a half-written `.error` file read empty, TwinCAT's system manager null once
+    mid-run, a DeleteChild rejected `RPC_E_CALL_REJECTED` (the core now registers the shipped bridge's COM message
+    filter), a random archive name in a refusal text, and a PowerShell `@(a, "x" + b)` that split each refusal text.
+    **Two agreeing runs per vendor**: CODESYS 3.5.21.40 `--write` then "every fact as committed" (25 rows; the old 19
+    unchanged); TwinCAT 3.1.4024.74 the same (17 rows; the old 12 unchanged). **Refused lists = the logs, before any
+    log went:** CODESYS 1092 / 1092, TwinCAT 933 / 933; 0 (kind, word) pairs disagree with a logged verdict; no split
+    word, no name created under another name. New verdicts where the logs had none (Volt's own INVALID_ST, or a word
+    TwinCAT's cross-check never asked): `IMPLEMENTATION` accepted as every kind on both, and on TwinCAT `CONCAT LEFT LEN
+    MID RIGHT LDT LTOD LDATE_AND_TIME LTIME_OF_DAY` accepted as ACTION / PROPERTY / top-level FB — accepted, so no list
+    changes. Cost: `refused-names` ≈ 35–40 s CODESYS, ≈ 46–52 s TwinCAT (2142 asks each; the design's 7 / 46 min were
+    the push's per-word round trips). **fact → DIALECT → verdict:** `identifier-shapes` → C28: agrees (CODESYS 37
+    shapes × 6 kinds refused "The name 'X' is not valid for this object.", the 13 others created incl. every closed
+    backtick name, a backtick program built clean against a negative control; TwinCAT 45 × 6 refused "Name mismatch",
+    only `Run _lead With9 Trail_ _` created). `task-priority-range` → C19c: agrees value for value, TaskDef and Context.
+    `interface-accessor-write` → D41: agrees (no Implementation slot, declaration written, a body refused, the build
+    answers C0176). `body-language-change` → N24: agrees (CODESYS: every body ST → LD/FBD → ST through the push, guids
+    kept, aspect classes swapped, three clean builds; TwinCAT: ST over FBD refused "Data at the root level is invalid.",
+    the archive over ST taken and built as ST, 104 errors). `move-target` → C2q: agrees (CODESYS: moves into Device and
+    Task Configuration accepted, the object stays in its folder; TwinCAT: into an FB and into References refused "No
+    elements imported", the first loses the item, the second deposits it at the PLC root). Gate switch:
+    `RefusedNamesMatchTheLogsTests` → `RefusedNamesMatchTheSnapshotTests` (refused = the union of the kind × group reads;
+    the split check kept; `other` or a step not accepted fails); `VOLT_WRITE_REFUSED_NAMES=1` rewrote only the three
+    generated headers — the word lists are unchanged. Deleted (last commit holding them `5312b799fe`): 13 probes,
+    `measure-library-signatures.ts` and all 37 logs, `merged-classes.log` included; every citation in src/, test/ and
+    DIALECT now names the snapshot fact or `git show 5312b799fe:…`; `scripts/README.md` maps where each went.
+    Numbers: volt-cli `bun test test/unit` 72 pass / 0 fail; Repo.Gates 155/0; Engine.Tests 2307 passed / 1 skipped;
+    Ide.Codesys.Tests 309 / 1 skipped; Ide.Twincat.Tests 450/0; `bun run check` 18 passed / 0 failed; volt-cli
+    typecheck 0. No LSP file changed, so the LSP suites are not this step's.
+  - Gate (2026-10-11): six review findings, all taken, failing tests first (`vendor-facts.test.ts` 48 → 50,
+    Repo.Gates `RefusedNamesMatchTheSnapshotTests` 7 → 12 — the two real-snapshot theories red until the re-run).
+    (1) Case-insensitivity is measured again: every other spelling the logs asked of a word the groups ask (`log` /
+    `Log` / `lOg`, `sin`, `Min`, `public`, `To_Bool`, `__FOO` …) is a frozen `CASING_CANDIDATES` round, one tryNames
+    step per round (`METHOD.casing-1/2/3` 295 / 99 / 1, `ACTION|PROPERTY|TOPLEVEL.casing-1/2/3` 4 / 1 / 1); the gate
+    refuses a spelling whose verdict differs from its word's ("… the IDE refuses case-sensitively") and a snapshot with
+    no casing group for a kind. Live: every spelling took its word's verdict on both vendors, so no list changed.
+    (2) `verdicts` keeps the reason: `refused` is only the IDE's own NAME sentence for that name (CODESYS "The name 'X'
+    is not valid for this object.", TwinCAT "Creating the child named 'X' is not possible on node (Name mismatch)" —
+    every refusal in `identifier-shapes` is one of them), anything else is `unexplained` as `"<name>: <text>"`, and the
+    gate refuses it naming the word and text. Live: 0 unexplained on both. (3) TwinCAT's `Why` writes the move
+    archive's path as `<archive>`; a unit test holds every committed snapshot free of TEMP / home paths.
+    (4) C28, `BeckhoffDriver.Tree.cs`, `TcNameRefusalTests.cs`: 45 of the fact's 50 shapes × 6 = 270 (the deleted
+    probe asked 46 and counted 42); CODESYS 37 of 50 × 6 = 222. (5) `FakeIde.cs` cites `merged-classes.log` once, at
+    its real path; `CodesysDriver.Content.cs` names both deleted logs the `body-language-change` fact re-measures.
+    (6) N24's TwinCAT reads are the WHOLE `ImplementationText` (`fbd-body@made|st-over-fbd`, `st-body@made|fbd-over-st`);
+    C2q's TwinCAT target is a program (602), as the deleted probe's; CODESYS reads `Device` / `Task Configuration`
+    children around its moves. **Finding (N24 amended):** the FBD body is byte-identical after the refused ST write,
+    but the archive over ST reads back with its CRLF as LF — every other character equal, so "verbatim" now says so.
+    C2q agrees (`Device` holds only `Plc Logic`, `Task Configuration` only `MainTask`; TwinCAT: into the program
+    refused and the item lost, into References deposited at the root). **Two agreeing runs per vendor** on the
+    touched rows: TwinCAT 3.1.4024.74 `--only refused-names,move-target,body-language-change --write` then "every fact
+    as committed" (refused-names ≈ 57 s, 2555 asks); CODESYS 3.5.21.40 `--only refused-names,move-target --write` then
+    "every fact as committed" (refused-names ≈ 53 s). `VOLT_WRITE_REFUSED_NAMES` not needed: the lists equal the new
+    snapshots unchanged.
+    Numbers: volt-cli `bun test test/unit` 74 pass / 0 fail; Repo.Gates 160/0; Engine.Tests 2307 passed / 1 skipped;
+    Ide.Codesys.Tests 309 / 1 skipped; Ide.Twincat.Tests 450/0; Cli.Tests 264/0; Connector.Tests 115/0;
+    Contracts.Tests 34/0; `bun run check` 18 passed / 0 failed; `openspec validate --all` 5 valid; `bun run typecheck`
+    all five 0. No LSP file changed, so the LSP suites are not this step's.
 - [ ] 4.2 The LD/FBD design decides which deferred `probe-nwl-*` facts become rows.
+  - Open, refused by name (2026-10-11): no LD/FBD change exists yet (design 4). N23 and N25 joined the deferred
+    N-rows here (4.1 note): both need a graphical body built or opened through the vendor API.

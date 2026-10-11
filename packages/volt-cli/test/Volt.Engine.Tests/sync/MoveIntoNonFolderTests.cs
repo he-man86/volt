@@ -11,12 +11,12 @@ namespace Volt.Engine.Tests;
 /// A MOVE INTO A NODE THAT CANNOT HOLD AN ITEM IS REFUSED BEFORE ANYTHING IS APPLIED, AND A MOVE THE IDE IGNORED IS
 /// CAUGHT AFTER (openspec <c>bridge-refusal-review</c> 4.31).
 ///
-/// <para>Measured live (<c>scripts/merged-classes.log</c> 225-229): CODESYS accepts <c>Move</c> into <c>Device</c> (Pro2193)
+/// <para>Measured live (<c>scripts/vendor-facts.codesys.json</c>, fact <c>move-target</c>): CODESYS accepts <c>Move</c> into <c>Device</c> (Pro2193)
 /// and into <c>Task Configuration</c> (Bakon) and leaves the object where it was. The push reported "moved", the workspace
 /// said the new folder, and the next pull moved the file back. The folder resolution descends any non-source node by
 /// name, so <c>Device</c> resolved as if it were a folder.</para>
 ///
-/// <para>The holders are MEASURED (<c>scripts/move-holders.log</c>: every top-level source object of Pro2193, Bakon,
+/// <para>The holders are MEASURED (<c>move-holders.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/move-holders.log)</c>: every top-level source object of Pro2193, Bakon,
 /// AWA, Lenze and the CODESYS fixture sits at the tree root, in a folder, or directly in an Application). A move whose
 /// target EXISTS and is anything else is refused <c>UNSUPPORTED</c> in the pre-flight, by name, so no op of the batch
 /// lands; and the move's post-condition asks where the item is afterwards, so an IDE that ignored the move is refused
@@ -115,7 +115,7 @@ public class MoveIntoNonFolderTests
     }
 
     /// <summary>TwinCAT's measured non-holder: <c>References</c> (the library manager, 617). Its vendor refusal is the one
-    /// that DEPOSITED the item at the PLC project root (DIALECT C2q, <c>scripts/tc-move-target.log</c>), so the pre-flight
+    /// that DEPOSITED the item at the PLC project root (DIALECT C2q, <c>scripts/vendor-facts.twincat.json, fact move-target</c>), so the pre-flight
     /// must stop it before the archive round trip runs at all.</summary>
     [Fact]
     public void A_move_into_TwinCATs_References_node_is_refused_before_anything_is_applied()

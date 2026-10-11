@@ -5,8 +5,8 @@ using Xunit;
 namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>THE PRE-FLIGHT'S NAME REFUSALS ARE TCXAESHELL'S MEASURED ONES (openspec <c>push-keeps-what-landed</c> 3.1;
-/// the words: <c>scripts/member-name-refusal*-tc.log</c>, held to the source by Repo.Gates
-/// <c>RefusedNamesMatchTheLogsTests</c>; the SHAPES: <c>scripts/tc-refusal-measure-names.log</c>, openspec
+/// the words: <c>scripts/vendor-facts.twincat.json, fact refused-names</c>, held to the source by Repo.Gates
+/// <c>RefusedNamesMatchTheSnapshotTests</c>; the SHAPES: <c>scripts/vendor-facts.twincat.json, fact identifier-shapes</c>, openspec
 /// <c>bridge-refusal-review</c> 3.1). Each row below is a logged TwinCAT 3.1.4024 verdict.</summary>
 public class TcNameRefusalTests
 {
@@ -39,7 +39,7 @@ public class TcNameRefusalTests
         Assert.Null(BeckhoffDriver.NameRefusal(kind, "Log"));
 
     /// <summary>…except a word that WAS asked on an interface member: <c>a__b</c> was refused for an interface METHOD
-    /// and PROPERTY (<c>tc-refusal-measure-names.log</c>, "double underscore"), so it is refused before the batch's first
+    /// and PROPERTY (<c>vendor-facts.twincat.json, fact identifier-shapes</c>, "double underscore"), so it is refused before the batch's first
     /// write (review 3a+3b).</summary>
     [Theory]
     [InlineData(ItemKind.Kinds.InterfaceMethod, "a__b")]
@@ -49,7 +49,7 @@ public class TcNameRefusalTests
         Assert.Equal(Refused(word), BeckhoffDriver.NameRefusal(kind, word));
 
     /// <summary>bridge-refusal-review 3.1: every name that is no ASCII identifier was refused by TcXaeShell for all six
-    /// kinds, "Name mismatch" (<c>tc-refusal-measure-names.log</c>, 42 shapes x 6 kinds, 252 refusals) — a backtick-quoted
+    /// kinds, "Name mismatch" (<c>vendor-facts.twincat.json, fact identifier-shapes</c>, 45 of its 50 shapes x 6 kinds, 270 refusals) — a backtick-quoted
     /// name too, which CODESYS creates.</summary>
     [Theory]
     [InlineData("Fööbar")]

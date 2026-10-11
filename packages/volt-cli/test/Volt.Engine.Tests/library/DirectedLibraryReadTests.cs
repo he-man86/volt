@@ -15,14 +15,14 @@ namespace Volt.Engine.Tests;
 /// <para>A directed <c>fetch { onlyItems: ["Standard.library"] }</c> answered the manifest alone — LIBRARY, NAMESPACE,
 /// RESOLUTION and the format line — so a client that reads items one at a time could not learn a function block's pins
 /// (TON's IN/PT → Q/ET) without a full fetch of the whole project and every library. Reproduced live on both vendors
-/// (tasks.md 1.1, <c>scripts/library-signature-cost-*.log</c>).</para>
+/// (tasks.md 1.1, <c>library-signature-cost-*.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/library-signature-cost-*.log)</c>).</para>
 ///
 /// <para>The fixture is the CODESYS fixture project's shape as recorded: refs under the Application's Library Manager,
 /// a wildcard ref named <c>CmpIoMgr Interfaces, %2A (System)</c> whose RESOLUTION is <c>CmpIoMgr Interfaces, * (System)</c>,
 /// and the vendor's <c>LibraryPath</c> LOWER-CASED (<c>standard, 3.5.18.0 (system)</c>). The two refs that share one
 /// RESOLUTION (<c>CAA Callback</c> + <c>CAA Callback Extern</c>) are in 4 of the 5 CODESYS corpora (1.3 F1). The ref
 /// <c>System_VisuElemBase</c> (<c>VisuElemBase, * (System)</c>) is Pro2193's, and as recorded it matches NO signature
-/// (<c>library-signature-cost-codesys-pro2193-settled.log</c>: <c>-&gt; NONE</c>) — so the fixture gives it none.</para>
+/// (<c>library-signature-cost-codesys-pro2193-settled.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/library-signature-cost-codesys-pro2193-settled.log)</c>: <c>-&gt; NONE</c>) — so the fixture gives it none.</para>
 /// </summary>
 public class DirectedLibraryReadTests
 {

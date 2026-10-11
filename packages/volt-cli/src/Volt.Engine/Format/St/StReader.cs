@@ -1058,7 +1058,7 @@ public static class StReader
 
 	/// <summary>The line's words, split at blanks OUTSIDE backticks: a backtick-quoted name is one word whatever stands
 	/// between the backticks — CODESYS creates <c>`a b`</c> for all six kinds and builds it clean (DIALECT C28,
-	/// <c>scripts/identifier-names.log</c>). Split at every blank, it read as the words <c>`a</c> and <c>b`</c> and was
+	/// <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>). Split at every blank, it read as the words <c>`a</c> and <c>b`</c> and was
 	/// refused as a modifier: a member CODESYS holds that could be pulled and never pushed back (review 3a+3b). A
 	/// backtick that never closes runs to the end of the line; the driver's name refusal judges that shape.</summary>
 	private static string[] Words(string line)

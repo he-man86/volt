@@ -52,7 +52,7 @@ END_FUNCTION_BLOCK
 	/**
 	 * A VOLT FLIP OF AN LD BODY HOLDING A PARALLEL IS THE VENDOR'S FLIP (DIALECT N23; `bridge-refusal-review` 3.10, review
 	 * 3a). The vendor's own View command writes the view and nothing stored, a Parallel included, and draws it in FBD
-	 * (`scripts/probe-view-switch.py`). This is the same through the shipped push: both Parallels (fed `BoxShortCircuit`,
+	 * (`probe-view-switch.py (deleted; git show 5312b799fe:packages/volt-cli/scripts/probe-view-switch.py)`). This is the same through the shipped push: both Parallels (fed `BoxShortCircuit`,
 	 * unfed `Sequential` under an AND) pull back unchanged under the flipped line, the project builds, and the flip back
 	 * restores the LD text. CODESYS only: TwinCAT's import cannot build a Parallel (D30), refused by name before the
 	 * import (`real-project-shapes.test.ts`).

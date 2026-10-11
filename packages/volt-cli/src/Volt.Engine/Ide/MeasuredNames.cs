@@ -19,15 +19,15 @@ public static class MeasuredNames
         || (kind is ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty && AskedOnInterfaceMembers.Contains(word));
 
     /// <summary>The listed words a probe asked for an interface METHOD and PROPERTY, on both vendors, and both refused
-    /// (openspec <c>bridge-refusal-review</c> 3.1, "double underscore": <c>scripts/identifier-names.log</c>,
-    /// <c>tc-refusal-measure-names.log</c>). It sat measured and unused, so an interface member named so passed the
+    /// (openspec <c>bridge-refusal-review</c> 3.1, "double underscore": <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>,
+    /// <c>vendor-facts.twincat.json, fact identifier-shapes</c>). It sat measured and unused, so an interface member named so passed the
     /// pre-flight and was refused mid-batch (review 3a+3b). Case-insensitive, as the lists are.</summary>
     private static readonly HashSet<string> AskedOnInterfaceMembers =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "a__b" };
 
     /// <summary>An ASCII identifier: a letter or underscore, then letters, digits and underscores. Measured on both
-    /// vendors for a POU and every member kind (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/identifier-names.log</c>
-    /// and <c>tc-refusal-measure-names.log</c>): every name outside it that was asked — non-ASCII letters, a leading
+    /// vendors for a POU and every member kind (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>
+    /// and <c>vendor-facts.twincat.json, fact identifier-shapes</c>): every name outside it that was asked — non-ASCII letters, a leading
     /// digit, every ASCII punctuation mark, a no-break or zero-width space — was refused by the IDE's own NAME refusal,
     /// a lone <c>_</c> was created. CODESYS adds one shape of its own (a backtick-quoted name), which its driver
     /// states.</summary>

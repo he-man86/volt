@@ -14,7 +14,7 @@
  * COM on this instance's XAE, one JSON line each way). The push cannot live in the core: the CODESYS core runs on the
  * thread that serves the pipe, and a pipe call from it deadlocks. TwinCAT's `build` and its diagnostics come from the
  * bridge's own `build` op, because a DTE build out of process leaves every Output pane empty (measured,
- * `probe-tc-refusal-measure.ps1`) — the one place the runner routes by vendor. Its `diagnostics` read is
+ * the deleted `probe-tc-refusal-measure.ps1`) — the one place the runner routes by vendor. Its `diagnostics` read is
  * `{ success, diagnostics }`: the build's own verdict, and every diagnostic that names no item is kept (a failed or
  * unreadable build must never read like a clean one).
  *
@@ -118,14 +118,16 @@ export function validateTable(rows: readonly Row[]): string[] {
           findings.push(`${where}: step ${i} ${s.op} has no \`via\` — every write names push or script`)
         const uses = [
           "on" in s ? s.on : undefined,
-          s.op === "create" ? s.parent : undefined,
+          s.op === "create" || s.op === "tryNames" ? s.parent : undefined,
           s.op === "move" ? s.to : undefined,
           s.op === "find" ? s.under : undefined,
+          s.op === "setText" && s.via === "script" ? s.implFrom : undefined,
         ]
         for (const h of uses)
           if (h !== undefined && !isBuiltin(h) && !(defined.has(h) && defined.get(h)! < i))
             findings.push(`${where}: step ${i} ${s.op} names handle \`${h}\`, which no earlier create/find defines`)
         if (s.op === "create" || s.op === "find") defined.set(s.as, i)
+        if (s.op === "tryNames") findings.push(...tryNamesFindings(s, `${where}: step ${i} tryNames`))
         if (s.op === "open" && !(s.fixture in FIXTURE_FILES))
           findings.push(`${where}: step ${i} opens \`${s.fixture}\`, not a committed fixture this runner knows`)
       })
@@ -138,6 +140,8 @@ export function validateTable(rows: readonly Row[]): string[] {
             findings.push(`${where}: read \`${r.key}\` is at \`${at}\`, which no step is tagged`)
             continue
           }
+          if (r.op === "tried" && plan.steps[after]?.op !== "tryNames")
+            findings.push(`${where}: read \`${r.key}\` (tried) is at \`${at}\`, which is no tryNames step`)
           for (const on of list(r.on))
             if (!isBuiltin(on) && !(defined.has(on) && defined.get(on)! <= after))
               findings.push(`${where}: read \`${r.key}\` names handle \`${on}\`, which no earlier create/find defines`)
@@ -154,6 +158,20 @@ export function validateTable(rows: readonly Row[]): string[] {
     }
   }
   return [...new Set(findings)]
+}
+
+/** A tryNames step's own errors: script-only, at least one name, at most 500 (what renders whole), each once. */
+function tryNamesFindings(s: Extract<Step, { op: "tryNames" }>, where: string): string[] {
+  const out: string[] = []
+  if ((s.via as string) !== "script") out.push(`${where} is script-only — a push meets Volt's own pre-flight`)
+  if (s.names.length === 0) out.push(`${where} asks no name`)
+  if (s.names.length > 500) out.push(`${where} asks ${s.names.length} names — more than 500 do not render whole`)
+  const seen = new Set<string>()
+  for (const n of s.names) {
+    if (seen.has(n.toUpperCase())) out.push(`${where} asks \`${n}\` twice (names compare case-insensitively)`)
+    seen.add(n.toUpperCase())
+  }
+  return out
 }
 
 // ── running one row ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -201,6 +219,7 @@ export type RowContext = {
 }
 
 export function stepLabel(s: Step): string {
+  if (s.op === "tryNames") return `tryNames ${s.tag ?? ""} (${s.names.length} ${s.kind} names under ${s.parent})`
   const what =
     "as" in s
       ? s.as
@@ -438,9 +457,20 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   ]).finally(() => clearTimeout(timer))
 }
 
-/** A cleanup may reopen the run's own copy, so it gets the long timeout too. */
-const requestTimeout = (req: CoreRequest) =>
-  (req.kind === "step" && LONG_OPS.has(req.step.op)) || req.kind === "cleanup" ? LONG_TIMEOUT_MS : TIMEOUT_MS
+/** A cleanup may reopen the run's own copy, so it gets the long timeout too. A tryNames step asks every name it holds:
+ *  60 s plus 5 s a name (TwinCAT took ~1.8 s an ask, through the push, in the 2026-10-03 logs). */
+export const requestTimeout = (req: CoreRequest) =>
+  req.kind === "step" && req.step.op === "tryNames"
+    ? TIMEOUT_MS + 5_000 * req.step.names.length
+    : (req.kind === "step" && LONG_OPS.has(req.step.op)) || req.kind === "cleanup"
+      ? LONG_TIMEOUT_MS
+      : TIMEOUT_MS
+
+/** A request as the cores read it: JSON in ASCII, every other character a `\uXXXX` escape. The CODESYS core is
+ *  IronPython 2.7 reading a file, the TwinCAT core PowerShell reading a console line in the OEM code page — a name like
+ *  `Fööbar` (C28) must arrive as itself, not as whatever the reader decodes its bytes to. */
+export const asciiJson = (value: unknown): string =>
+  JSON.stringify(value).replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"))
 
 /** The visible top-level window titles a process owns — what names a modal dialog that stopped the UI thread. */
 export function windowsOf(pid: number): string {
@@ -458,7 +488,7 @@ export function windowsOf(pid: number): string {
 }
 
 /** The CODESYS core: request files in `%LOCALAPPDATA%\volt-bridge\vendor-facts\<pid>\`, answered on the IDE's UI
- *  thread by `vendor-facts.codesys.py` (the `probe-library-signature-cost.py` protocol). */
+ *  thread by `vendor-facts.codesys.py`. */
 function codesysCore(pid: number): { request: (req: CoreRequest) => Promise<CoreAnswer>; ready: () => Promise<void> } {
   const dir = join(process.env.LOCALAPPDATA ?? "", "volt-bridge", "vendor-facts", String(pid))
   let seq = 0
@@ -474,7 +504,7 @@ function codesysCore(pid: number): { request: (req: CoreRequest) => Promise<Core
     async request(req) {
       const n = String(++seq)
       const tmp = join(dir, "request.tmp")
-      writeFileSync(tmp, JSON.stringify({ seq: n, ...req }))
+      writeFileSync(tmp, asciiJson({ seq: n, ...req }))
       renameSync(tmp, join(dir, "request"))
       const done = join(dir, `${n}.done`)
       const error = join(dir, `${n}.error`)
@@ -538,7 +568,7 @@ function twincatCore(xaePid: number) {
     async request(req: CoreRequest): Promise<CoreAnswer> {
       const n = ++seq
       const answer = next(`the TwinCAT core did not answer ${req.kind}`, requestTimeout(req))
-      ps.stdin.write(JSON.stringify({ seq: n, ...req }) + "\n")
+      ps.stdin.write(asciiJson({ seq: n, ...req }) + "\n")
       const a = JSON.parse(await answer)
       if (a.seq !== n) throw new Error(`the TwinCAT core answered request ${a.seq} to request ${n}`)
       if (a.error) throw new Error(a.error)

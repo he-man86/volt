@@ -211,7 +211,7 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>The body aspect of an ST body — the class CODESYS SP21 holds an ST POU's Implementation in (measured,
-        /// <c>scripts/body-language-change.log</c>).</summary>
+        /// <c>scripts/vendor-facts.codesys.json, fact body-language-change</c>).</summary>
         public const string StBodyAspect = "_3S.CoDeSys.STObject.STImplementationObject";
 
         /// <summary>The body aspect of an LD / FBD body (the view decides which, DIALECT N23).</summary>

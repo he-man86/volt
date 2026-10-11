@@ -4,15 +4,16 @@
 # The runscript for a normal GUI CODESYS that `ide.ps1 up -Vendor codesys -Instance vendor-fact-probe -RunScript
 # <this file>` starts. It runs `run_pipe_production.py` VERBATIM (the fixture copy + the shipped `start_volt_codesys.py`,
 # so the pipe is the shipped bridge the runner pushes through), then arms a UI-thread timer that answers the runner's
-# requests - the `probe-library-signature-cost.py` protocol:
+# requests by file:
 #
-#   request : %LOCALAPPDATA%\volt-bridge\vendor-facts\<pid>\request    one JSON object (written to request.tmp, renamed)
+#   request : %LOCALAPPDATA%\volt-bridge\vendor-facts\<pid>\request    one JSON object (written to request.tmp, renamed),
+#             in ASCII: every other character arrives as a \u escape (IronPython 2.7 reads the file)
 #   answer  : <seq>.out (JSON) then <seq>.done - or <seq>.error with the reason
 #   ready   : the file `ready`, once the timer is armed
 #
 # It implements the table's closed vocabulary ONCE (vendor-facts.table.ts): the steps that are not a push (create, find,
-# setText, rename, move, delete, open, close, build, reload, invoke) and every read (member, class, guid, parent,
-# children, signature, parse, same, diagnostics, process). No fact has a code path of its own here.
+# setText, rename, move, delete, open, close, build, reload, invoke, tryNames) and every read (member, class, guid,
+# parent, children, signature, parse, same, diagnostics, process, tried). No fact has a code path of its own here.
 #
 # A VENDOR exception during a step is the step's outcome - `refused: <its words>` - because that IS the fact. A probe
 # fault (an unknown op, a handle that is not there, a malformed path) is a ProbeError and becomes <seq>.error: the runner
@@ -179,9 +180,24 @@ _DUT = {"struct": "Structure", "enum": "Enumeration", "union": "Union", "alias":
 _POU = {"program": "Program", "function_block": "FunctionBlock", "function": "Function"}
 
 
+_LANG = {"ST": "st", "FBD": "fbd", "LD": "ld"}
+
+
 def _create(step):
-    parent = _resolve(step["parent"])
-    kind, name = step["kind"], step["name"]
+    o = _make(_resolve(step["parent"]), step["kind"], step["name"], step)
+    _keep(step["as"], o, "script")
+    if step.get("decl") is not None:
+        o.textual_declaration.replace(step["decl"])
+    if step.get("impl") is not None:
+        o.textual_implementation.replace(step["impl"])
+
+
+def _make(parent, kind, name, step):
+    """One object of `kind` named `name` under `parent`, through the scripting factory the driver calls."""
+    lang = step.get("language") or "ST"
+    if lang not in _LANG:
+        raise ProbeError("unknown language '%s'" % lang)
+    lang = getattr(_Lang, _LANG[lang])
     if kind == "folder":
         parent.create_folder(name)                  # returns None on SP21; found again by name
         o = _child_named(parent, name)
@@ -195,9 +211,9 @@ def _create(step):
             o = parent.create_dut(name, getattr(_DutType, _DUT[seed]))
     elif kind in _POU:
         if kind == "function":
-            o = parent.create_pou(name=name, type=_PouType.Function, language=_Lang.st, return_type="INT")
+            o = parent.create_pou(name=name, type=_PouType.Function, language=lang, return_type="INT")
         else:
-            o = parent.create_pou(name=name, type=getattr(_PouType, _POU[kind]), language=_Lang.st)
+            o = parent.create_pou(name=name, type=getattr(_PouType, _POU[kind]), language=lang)
     elif kind == "interface":
         o = parent.create_interface(name)
     elif kind == "gvl":
@@ -214,11 +230,51 @@ def _create(step):
         raise ProbeError("CODESYS has no create for kind '%s'" % kind)
     if o is None:
         raise ProbeError("create %s '%s' returned nothing and no child of that name exists" % (kind, name))
-    _keep(step["as"], o, "script")
-    if step.get("decl") is not None:
-        o.textual_declaration.replace(step["decl"])
-    if step.get("impl") is not None:
-        o.textual_implementation.replace(step["impl"])
+    return o
+
+
+_TRIED = []      # the last tryNames step's (name, outcome) pairs, for the `tried` read right after it
+
+
+def _try_names(step):
+    """Each name alone: made under the parent, read back, removed. A vendor exception is the NAME's verdict; a failed
+    remove is a probe fault (it would leave the name taken for the next one)."""
+    del _TRIED[:]
+    for name in step["names"]:
+        parent = _resolve(step["parent"])
+        try:
+            o = _make(parent, step["kind"], name, step)
+        except ProbeError:
+            raise
+        except Exception as e:
+            _TRIED.append((name, "refused: " + _why(e)))
+            continue
+        got = o.get_name()
+        _TRIED.append((name, "created" if got == name else "created as " + got))
+        o.remove()
+
+
+def _name_refusal(name, outcome):
+    """Whether `outcome` is CODESYS's refusal of the NAME - its own sentence for exactly that name, the one every
+    reserved word and every non-identifier shape answered (vendor-facts.codesys.json, identifier-shapes). Anything else
+    (a kind refusal 'is not accepted by parent object', a scripting fault) is no verdict on the name."""
+    if not outcome.startswith("refused: "):
+        return False
+    rest = outcome[len("refused: "):]
+    msg = rest.split(": ", 1)[1] if ": " in rest else rest
+    return msg == "The name '%s' is not valid for this object." % name
+
+
+def _tried(what):
+    if what == "outcomes":
+        return dict(_TRIED)
+    if what == "verdicts":
+        return {"accepted": sorted(n for n, o in _TRIED if o == "created"),
+                "refused": sorted(n for n, o in _TRIED if _name_refusal(n, o)),
+                "other": sorted("%s -> %s" % (n, o[len("created as "):]) for n, o in _TRIED if o.startswith("created as ")),
+                "unexplained": sorted("%s: %s" % (n, o[len("refused: "):]) for n, o in _TRIED
+                                      if o.startswith("refused: ") and not _name_refusal(n, o))}
+    raise ProbeError("unknown tried read '%s'" % what)
 
 
 # ---- paths --------------------------------------------------------------------------------------------------------
@@ -549,6 +605,12 @@ def _step(step, req):
             o.textual_implementation.replace(step["impl"])
         if step.get("appendImpl") is not None:
             o.textual_implementation.append(step["appendImpl"])
+        if step.get("implFrom") is not None:
+            o.textual_implementation.replace(_resolve(step["implFrom"]).textual_implementation.text)
+    elif op == "tryNames":
+        if step.get("via") != "script":
+            raise ProbeError("tryNames is script-only")
+        _try_names(step)
     elif op == "rename":
         _resolve(step["on"]).rename(step["to"])
     elif op == "move":
@@ -738,6 +800,8 @@ def _read(r):
         return _diagnostics(r.get("fields") or [], r.get("mentioning"))
     if op == "process":
         return _process(r["what"])
+    if op == "tried":
+        return _tried(r["what"])
     raise ProbeError("CODESYS has no read '%s'" % op)
 
 
@@ -805,6 +869,54 @@ _REQ = os.path.join(_DIR, "request")
 _BUSY = [False]
 
 
+def _ascii(s, quote=True):
+    """`s` in printable ASCII: every other character as a \\uXXXX escape. With `quote`, a JSON string body (quotes and
+    backslashes escaped too); without, plain text that keeps its line breaks (an error file)."""
+    out = []
+    for ch in s:
+        o = ord(ch)
+        if quote and ch == '"':
+            out.append('\\"')
+        elif quote and ch == "\\":
+            out.append("\\\\")
+        elif not quote and ch in "\r\n\t":
+            out.append(ch)
+        elif o < 0x20 or o > 0x7e:
+            out.append("\\u%04x" % o)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _dumps(v):
+    """JSON in ASCII. Not `json.dumps`: IronPython 2.7's encoder decodes every `str` as UTF-8 bytes, and a name with a
+    character past ASCII (C28's `Fööbar`) is a str of UTF-16 code units there - it raises UnicodeDecodeError."""
+    if v is None:
+        return "null"
+    if v is True:
+        return "true"
+    if v is False:
+        return "false"
+    if isinstance(v, (int, long)):
+        return str(v)
+    if isinstance(v, float):
+        return repr(v)
+    if isinstance(v, basestring):
+        return '"' + _ascii(v) + '"'
+    if isinstance(v, dict):
+        return "{" + ",".join('"%s":%s' % (_ascii(unicode(k)), _dumps(x)) for k, x in v.items()) + "}"
+    if isinstance(v, (list, tuple)):
+        return "[" + ",".join(_dumps(x) for x in v) + "]"
+    raise ProbeError("a %s does not render as JSON" % type(v).__name__)
+
+
+def _write(path, text):
+    """Written whole, then renamed into place: the runner polls for the name and must never read a half-written file."""
+    with open(path + ".tmp", "w") as f:
+        f.write(text)
+    os.rename(path + ".tmp", path)
+
+
 def _tick(sender, args):
     if _BUSY[0] or not os.path.exists(_REQ):
         return
@@ -815,15 +927,14 @@ def _tick(sender, args):
             req = json.loads(f.read())
         os.remove(_REQ)
         seq = str(req["seq"])
-        _log("vendor-facts %s %s %s" % (seq, req.get("kind"), json.dumps(req.get("step") or req.get("read") or "")[:160]))
+        _log("vendor-facts %s %s %s" % (seq, req.get("kind"), _dumps(req.get("step") or req.get("read") or "")[:160]))
         answer = _handle(req)
-        with open(os.path.join(_DIR, seq + ".out"), "w") as f:
-            f.write(json.dumps(answer))
+        _write(os.path.join(_DIR, seq + ".out"), _dumps(answer))
         open(os.path.join(_DIR, seq + ".done"), "w").close()
     except Exception as e:
         if seq is not None:
-            with open(os.path.join(_DIR, seq + ".error"), "w") as f:
-                f.write("%s\n%s" % (e if isinstance(e, ProbeError) else _why(e), traceback.format_exc()))
+            _write(os.path.join(_DIR, seq + ".error"),
+                   _ascii("%s\n%s" % (e if isinstance(e, ProbeError) else _why(e), traceback.format_exc()), False))
     finally:
         _BUSY[0] = False
 

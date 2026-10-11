@@ -5,8 +5,8 @@ using Xunit;
 namespace Volt.Ide.Codesys.Tests
 {
     /// <summary>THE PRE-FLIGHT'S NAME REFUSALS ARE CODESYS'S MEASURED ONES (openspec <c>push-keeps-what-landed</c> 3.1;
-    /// the words: <c>scripts/member-name-refusal*.log</c>, held to the source by Repo.Gates
-    /// <c>RefusedNamesMatchTheLogsTests</c>; the SHAPES: <c>scripts/identifier-names.log</c>, openspec
+    /// the words: <c>scripts/vendor-facts.codesys.json, fact refused-names</c>, held to the source by Repo.Gates
+    /// <c>RefusedNamesMatchTheSnapshotTests</c>; the SHAPES: <c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>, openspec
     /// <c>bridge-refusal-review</c> 3.1). Each row below is a logged SP21 verdict.</summary>
     public class CodesysNameRefusalTests
     {
@@ -41,7 +41,7 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Null(CodesysDriver.NameRefusal(kind, "Log"));
 
         /// <summary>…except a word that WAS asked on an interface member: <c>a__b</c> was refused for an interface
-        /// METHOD and PROPERTY (<c>identifier-names.log</c>, "double underscore"), so it is refused before the batch's
+        /// METHOD and PROPERTY (<c>vendor-facts.codesys.json, fact identifier-shapes</c>, "double underscore"), so it is refused before the batch's
         /// first write, not mid-batch after earlier ops landed (review 3a+3b).</summary>
         [Theory]
         [InlineData(ItemKind.Kinds.InterfaceMethod, "a__b")]
@@ -51,7 +51,7 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(Refused(word), CodesysDriver.NameRefusal(kind, word));
 
         /// <summary>bridge-refusal-review 3.1: every name that is no ASCII identifier and does not open with a backtick
-        /// was refused by SP21 for all six kinds, with the word refusal's own message (<c>identifier-names.log</c>,
+        /// was refused by SP21 for all six kinds, with the word refusal's own message (<c>vendor-facts.codesys.json, fact identifier-shapes</c>,
         /// 37 shapes x 6 kinds, 222 refusals). It was <c>StReader.IsIdentifier</c>'s INVALID_ST, unmeasured.</summary>
         [Theory]
         [InlineData("Fööbar")]

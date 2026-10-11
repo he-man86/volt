@@ -20,6 +20,9 @@ import {
   wireSide,
   type RowContext,
   type RowDeps,
+  asciiJson,
+  requestTimeout,
+  type CoreRequest,
 } from "../../scripts/vendor-facts"
 
 const row = (r: Partial<Row>): Row => ({
@@ -647,5 +650,208 @@ describe("the command line", () => {
     const committed = { a: { x: 1 }, b: { y: 2 } }
     expect(mergeSnapshot(committed, { b: { y: 3 } }, ["b"])).toEqual({ a: { x: 1 }, b: { y: 3 } })
     expect(mergeSnapshot(committed, { b: { y: 3 } }, undefined)).toEqual({ b: { y: 3 } })
+  })
+})
+
+describe("the fold-ins (design 4): bridge-refusal-review's probes are rows", () => {
+  const byId = (id: string) => {
+    const r = ROWS.find((x) => x.id === id)
+    if (!r) throw new Error(`no row ${id}`)
+    return r
+  }
+  const keys = (id: string, vendor: "codesys" | "twincat") =>
+    expandReads(planRow(byId(id), vendor)).map((r) => r.snapshotKey)
+  const tries = (id: string, vendor: "codesys" | "twincat") =>
+    planRow(byId(id), vendor).steps.filter((s): s is Extract<Step, { op: "tryNames" }> => s.op === "tryNames")
+  const words = (n: number) => [...Array(n)].map((_, i) => `W${i}`)
+
+  it("a tryNames step is script-only, ≤ 500 distinct names, and a `tried` read follows one", () => {
+    const bad = row({
+      steps: [
+        { op: "create", as: "fb", kind: "function_block", name: "F", parent: "root", via: "script" },
+        // @ts-expect-error — a tryNames through the push would meet the driver's own RefusedName pre-flight
+        { tag: "p", op: "tryNames", kind: "method", parent: "fb", names: ["A"], via: "push" },
+        { tag: "many", op: "tryNames", kind: "method", parent: "fb", names: words(501), via: "script" },
+        { tag: "dup", op: "tryNames", kind: "method", parent: "fb", names: ["A", "a", "B"], via: "script" },
+        { tag: "none", op: "tryNames", kind: "method", parent: "nope", names: [], via: "script" },
+        { tag: "b", op: "build" },
+      ],
+      reads: [{ key: "v", at: "b", op: "tried", what: "verdicts" }],
+    })
+    const findings = validateTable([bad])
+    expect(findings).toContain("t (codesys): step 1 tryNames is script-only — a push meets Volt's own pre-flight")
+    expect(findings).toContain("t (codesys): step 2 tryNames asks 501 names — more than 500 do not render whole")
+    expect(findings).toContain("t (codesys): step 3 tryNames asks `a` twice (names compare case-insensitively)")
+    expect(findings).toContain("t (codesys): step 4 tryNames asks no name")
+    expect(findings).toContain("t (codesys): step 4 tryNames names handle `nope`, which no earlier create/find defines")
+    expect(findings).toContain("t (codesys): read `v` (tried) is at `b`, which is no tryNames step")
+  })
+
+  it("a setText that copies another handle's body names a handle the row defines", () => {
+    const bad = row({
+      steps: [
+        { op: "create", as: "a", kind: "program", name: "A", parent: "root", via: "script" },
+        { op: "setText", on: "a", via: "script", implFrom: "ghost" },
+      ],
+    })
+    expect(validateTable([bad])).toContain(
+      "t (codesys): step 1 setText names handle `ghost`, which no earlier create/find defines",
+    )
+  })
+
+  it("a tryNames request waits for every name it asks (TwinCAT took ~1.8 s an ask in the logs)", () => {
+    const step = (n: number): CoreRequest => ({
+      kind: "step",
+      row: "t",
+      step: { op: "tryNames", kind: "method", parent: "fb", names: words(n), via: "script" },
+    })
+    expect(requestTimeout(step(500))).toBeGreaterThanOrEqual(500 * 4_000)
+    expect(requestTimeout(step(1))).toBeGreaterThanOrEqual(60_000)
+  })
+
+  it("a request reaches a core in ASCII: every other character is a \\u escape (IronPython 2.7, the console code page)", () => {
+    const names = ["Fööbar", "a​b", "名前", "a\\b", 'a"b']
+    const text = asciiJson({ names })
+    expect(/^[\x20-\x7e]*$/.test(text)).toBe(true)
+    expect(text).toContain("F\\u00f6\\u00f6bar")
+    expect(JSON.parse(text)).toEqual({ names })
+  })
+
+  it("refused-names (C28): the 1494 words the logs asked as a METHOD, and 216 as ACTION / PROPERTY / top-level FB", () => {
+    for (const v of ["codesys", "twincat"] as const) {
+      const t = tries("refused-names", v)
+      const of = (prefix: string) =>
+        t.filter((s) => s.tag!.startsWith(prefix + ".") && !s.tag!.includes(".casing-")).flatMap((s) => s.names)
+      const distinct = (ws: string[]) => new Set(ws.map((w) => w.toUpperCase())).size
+      expect(of("METHOD").length).toBe(1494)
+      expect(distinct(of("METHOD"))).toBe(1494)
+      for (const k of ["ACTION", "PROPERTY", "TOPLEVEL"]) expect(distinct(of(k))).toBe(216)
+      for (const s of t) expect(s.names.length).toBeLessThanOrEqual(500)
+      // Through the vendor API: a push would meet the driver's own RefusedName pre-flight, the list under test.
+      for (const s of planRow(byId("refused-names"), v).steps) if ("via" in s) expect(s.via).toBe("script")
+      expect(keys("refused-names", v).sort()).toEqual(t.map((s) => s.tag!).sort())
+      expect(t.find((s) => s.tag!.startsWith("TOPLEVEL."))?.parent).toBe("root")
+    }
+  })
+
+  it("refused-names (C28) measures that the refusal is case-insensitive: every kind asks casing controls", () => {
+    // Every consumer relies on it (the drivers' lists match OrdinalIgnoreCase, the gate upper-cases every word), so the
+    // table asks the casing variants the logs asked (`log` / `Log` / `lOg`, `To_Bool`, `__Foo` …) in groups of their
+    // own — a tryNames step asks a word once — beside the spelling each vocabulary group asks.
+    for (const v of ["codesys", "twincat"] as const) {
+      const t = tries("refused-names", v)
+      for (const k of ["METHOD", "ACTION", "PROPERTY", "TOPLEVEL"]) {
+        const casing = t.filter((s) => s.tag!.startsWith(`${k}.casing-`))
+        const asked = new Map(
+          t.filter((s) => s.tag!.startsWith(`${k}.`) && !s.tag!.includes(".casing-"))
+            .flatMap((s) => s.names)
+            .map((n) => [n.toUpperCase(), n] as const),
+        )
+        expect(casing.length).toBeGreaterThan(0)
+        const spellings = new Map<string, Set<string>>()
+        for (const s of casing)
+          for (const n of s.names) {
+            // each control is another spelling of a word the kind's vocabulary asks
+            expect(asked.get(n.toUpperCase())).toBeDefined()
+            expect(asked.get(n.toUpperCase())).not.toBe(n)
+            const all = spellings.get(n.toUpperCase()) ?? new Set([asked.get(n.toUpperCase())!])
+            expect(all.has(n)).toBe(false)
+            spellings.set(n.toUpperCase(), all.add(n))
+          }
+        expect([...(spellings.get("LOG") ?? [])].sort()).toEqual(["LOG", "Log", "lOg", "log"])
+        expect(keys("refused-names", v)).toEqual(expect.arrayContaining(casing.map((s) => s.tag!)))
+      }
+      const method = t.filter((s) => s.tag!.startsWith("METHOD.casing-")).flatMap((s) => s.names)
+      expect(method).toEqual(expect.arrayContaining(["To_Bool", "__FOO", "sin", "Min", "public"]))
+    }
+  })
+
+  it("identifier-shapes (C28): every shape for a POU and all five member kinds, and CODESYS builds a backtick name", () => {
+    for (const v of ["codesys", "twincat"] as const) {
+      const t = tries("identifier-shapes", v)
+      expect(t.map((s) => s.tag)).toEqual(["pou", "method", "action", "property", "itf_method", "itf_property"])
+      for (const s of t) expect(s.names).toEqual(expect.arrayContaining(["Run", "Fööbar", "`ab`", "`ab", "a__b", "_"]))
+      expect(keys("identifier-shapes", v)).toEqual(expect.arrayContaining(t.map((s) => s.tag!)))
+    }
+    expect(keys("identifier-shapes", "codesys")).toEqual(
+      expect.arrayContaining(["diagnostics@built", "diagnostics@negative"]),
+    )
+  })
+
+  it("task-priority-range (C19c): every value the log sent, XML-escaped, read back off TaskDef and the module Context", () => {
+    const sent = planRow(byId("task-priority-range"), "twincat")
+      .steps.filter((s) => s.op === "invoke" && s.tag?.startsWith("="))
+      .map((s) => (s.op === "invoke" && "args" in s ? String(s.args?.[0]) : ""))
+    expect(sent).toHaveLength(19)
+    expect(sent).toContain("<TreeItem><TaskDef><Priority>&lt;5&gt;</Priority></TaskDef></TreeItem>")
+    expect(sent).toContain("<TreeItem><TaskDef><Priority>&amp;</Priority></TaskDef></TreeItem>")
+    expect(sent).toContain("<TreeItem><TaskDef><Priority></Priority></TaskDef></TreeItem>")
+    expect(keys("task-priority-range", "twincat")).toEqual(
+      expect.arrayContaining(["taskdef@=99999999999", "context@=99999999999", "taskdef@=<5>"]),
+    )
+    expect(byId("task-priority-range").vendors.codesys).toBeUndefined()
+  })
+
+  it("interface-accessor-write (D41): the accessor's slots, its declaration written by script, and each build", () => {
+    expect(keys("interface-accessor-write", "codesys")).toEqual(
+      expect.arrayContaining([
+        "has-implementation.get",
+        "implementation-aspect.set",
+        "declaration.set@set-written",
+        "diagnostics@created",
+        "diagnostics@set-built",
+        "diagnostics@get-built",
+      ]),
+    )
+  })
+
+  it("body-language-change (N24): CODESYS through the shipped push, TwinCAT through ImplementationText", () => {
+    const cs = planRow(byId("body-language-change"), "codesys").steps
+    expect(cs.filter((s) => s.op === "setText" && s.on === "pou").every((s) => "via" in s && s.via === "push")).toBe(
+      true,
+    )
+    expect(keys("body-language-change", "codesys")).toEqual(
+      expect.arrayContaining([
+        "guid.pou@graphical",
+        "aspect.pou@graphical",
+        "aspect.set@graphical",
+        "diagnostics@graphical-built",
+      ]),
+    )
+    const tc = planRow(byId("body-language-change"), "twincat").steps
+    expect(tc.some((s) => s.op === "setText" && "implFrom" in s && s.implFrom === "fbd")).toBe(true)
+    expect(keys("body-language-change", "twincat")).toEqual(expect.arrayContaining(["diagnostics"]))
+    // N24 says the FBD body stays unchanged under refused ST and the archive over ST reads back VERBATIM: the reads are
+    // the whole ImplementationText, not a list of element names (which a changed attribute or value would not move).
+    const tcReads = byId("body-language-change").reads.filter((r) => r.vendor === "twincat" && r.op === "member")
+    for (const r of tcReads) expect(r.op === "member" && r.path).toBe("item.ImplementationText")
+    expect(keys("body-language-change", "twincat")).toEqual(
+      expect.arrayContaining(["fbd-body@made", "fbd-body@st-over-fbd", "st-body@made", "st-body@fbd-over-st"]),
+    )
+  })
+
+  it("move-target (C2q): CODESYS into Device and Task Configuration; TwinCAT into a POU node and References", () => {
+    const to = (v: "codesys" | "twincat") =>
+      planRow(byId("move-target"), v).steps.flatMap((s) => (s.op === "move" ? [`${s.to} ${s.via}`] : []))
+    expect(to("codesys")).toEqual(["folder script", "device script", "taskconfig script"])
+    expect(to("twincat")).toEqual(["folder script", "pou script", "references script"])
+    expect(keys("move-target", "twincat")).toEqual(expect.arrayContaining(["root-children@into-references"]))
+    // C2q's TwinCAT target is a POU node (602, a program), as the deleted probe's was; CODESYS reads what the device
+    // and the task configuration hold after the move, not only where the subject stayed.
+    const target = planRow(byId("move-target"), "twincat").steps.find((s) => s.op === "create" && s.as === "pou")
+    expect(target?.op === "create" && target.kind).toBe("program")
+    expect(keys("move-target", "codesys")).toEqual(
+      expect.arrayContaining(["device-children@into-device", "taskconfig-children@into-taskconfig"]),
+    )
+  })
+
+  it("no committed snapshot holds a path of this machine or account (a refused import quotes its archive path)", () => {
+    const { readFileSync } = require("node:fs") as typeof import("node:fs")
+    const { tmpdir, homedir } = require("node:os") as typeof import("node:os")
+    for (const v of ["codesys", "twincat"]) {
+      const text = readFileSync(new URL(`../../scripts/vendor-facts.${v}.json`, import.meta.url), "utf8")
+      for (const local of [tmpdir(), homedir()]) expect(text).not.toContain(JSON.stringify(local).slice(1, -1))
+      expect(text).not.toMatch(/[A-Z]:\\Users\\/)
+    }
   })
 })

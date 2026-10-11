@@ -331,3 +331,42 @@ holds or builds on a fixture is a row (`coils`, `boxoutputs`, `execute-create`, 
 **Migration.** (a) Rows + DIALECT markers (C28 C19c D41 N24 N25 C2q N23) + core reads: one commit. (b) Two agreeing
 live runs per vendor; before any log goes, the snapshot's refused lists must equal the logs' (1092 / 933) — a
 difference is a DIALECT finding first. (c) Gate switch + delete the probes and logs (+ README rows): one commit.
+
+**Built (2026-10-11) — where the build departs from the plan above, each a finding.**
+- **N23 and N25 are not rows.** Both need a graphical body BUILT or OPENED through the vendor API: N25 constructs NWL
+  nodes with a stored output type (the push's own reader refuses the contradiction, so a push measures Volt), N23 runs
+  the View command on an opened NWL editor and compares every node by reflection. The closed vocabulary has neither,
+  and adding an NWL builder is the LD/FBD design's to decide, so both join the deferred N-rows of 4.2. Their probes go
+  with the rest (`git show 5312b799fe:…`), as the `probe-nwl-*` family went on 2026-10-03; DIALECT N23/N25 cite that.
+  The push half of N23 stays pinned by `view-change.test.ts` and `CodesysViewFlipParallelTests`.
+- **The vocabulary grew by one step, one read and two fields** — each generic, none fact-specific: `tryNames` (a
+  create of each name under a parent through the vendor API, the name read back, the object removed; script-only, ≤ 500
+  names, each once case-insensitively) and `tried` (`verdicts` = `{ accepted, refused, other, unexplained }`,
+  `outcomes` = per name); `create.language` (CODESYS `ImplementationLanguages`, TwinCAT vInfo) and `setText.implFrom` (another handle's
+  implementation text, verbatim). TwinCAT gained `move` (Volt's archive round trip, no undo) and the interface member
+  codes 610/612.
+- **A `refused-names` read holds the accepted words too** (`{ accepted, refused, other, unexplained }`, not the refused
+  list alone):
+  the gate's split check (refused as one kind, accepted as another) needs both, and `other` (created under another
+  name) fails the gate, as `LANDED-OTHER` was the probe's. Groups: `METHOD.vocabulary` (268), `METHOD.families` (134),
+  `METHOD.conversions-1/2/3` (397 / 395 / 300 — every `<T>_TO_<T>` incl. the verify run's self-conversions), and the
+  216 cross-check words as `ACTION` / `PROPERTY` / `TOPLEVEL.vocabulary`; one spelling per word (the first asked).
+- **Step-4 gate (2026-10-11): the casing controls and the refusal's reason are rows too.** Every OTHER spelling the logs
+  asked (`log` / `Log` / `lOg`, `To_Bool`, `__FOO` … — 395 METHOD asks in 3 rounds, 6 per cross kind) is a
+  `<KIND>.casing-N` group, a round per step because a step asks a word once: the measurement every case-insensitive
+  consumer relies on. `refused` holds only the IDE's own NAME refusal (CODESYS "The name 'X' is not valid for this
+  object.", TwinCAT "… named 'X' is not possible on node (Name mismatch)"); any other refusal — a kind refusal, a COM
+  fault, a busy IDE — is `unexplained` (`"<name>: <the vendor's words>"`), and the gate refuses it rather than putting a
+  word the IDE would take into a driver's list.
+- **Measured cost is far below the estimate:** through the vendor API, `refused-names` took ≈ 40 s on CODESYS and
+  ≈ 52 s on TwinCAT (2142 asks each) — the 46 min were the push's refs/push/fetch/delete per word.
+- **Probe faults found live, fixed before any snapshot:** IronPython 2.7's `json.dumps` raises on a non-ASCII `str`
+  (the CODESYS core writes its own ASCII JSON; requests reach both cores in ASCII); the CODESYS `.error`/`.out` files
+  are written then renamed (the runner had read an empty `.error`); TwinCAT's system manager answered null once
+  mid-run (`Sm` waits it out, printed, 30 s bound); a refused import quotes the archive path, so the TwinCAT move uses
+  one fixed archive name; and a TwinCAT cleanup sweeps every PLC-root child the row began without (C2q's deposit has
+  no handle).
+- **`merged-classes.log` goes too** (bridge-refusal-review 4.31 was its only reason to stay): its move finding is the
+  `move-target` row, the rest is DIALECT C2n's, which `merged-classes` re-measures. `measure-library-signatures.ts`
+  goes with `probe-library-signature-cost.py` (its CODESYS half) and their nine logs; `directed-library-signatures` is
+  archived and holds the numbers.

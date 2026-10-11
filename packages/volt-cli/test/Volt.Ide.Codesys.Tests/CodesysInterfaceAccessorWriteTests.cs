@@ -13,7 +13,7 @@ namespace Volt.Ide.Codesys.Tests
     /// <summary>
     /// A CODESYS INTERFACE PROPERTY'S GET/SET (openspec <c>bridge-refusal-review</c> 3.6, D28; DIALECT D41). Both drivers
     /// refused any change to one on the strength of TwinCAT's crash (DIALECT D21); CODESYS was never measured. Measured
-    /// (<c>scripts/interface-accessor-write.log</c>): the accessor's DECLARATION is written through the driver's own write and
+    /// (<c>scripts/vendor-facts.codesys.json, fact interface-accessor-write</c>): the accessor's DECLARATION is written through the driver's own write and
     /// read back equal, the IDE keeps answering, and the build judges it ("Only inputs, outputs, and inouts allowed in
     /// interface methods" for a VAR block); the accessor has NO Implementation aspect, so a body has no slot. So on
     /// CODESYS the declaration is written and a body is refused by name; the TwinCAT refusal stands (its own tests).

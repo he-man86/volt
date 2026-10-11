@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests;
 /// (<c>POUObjectCheckFunction</c>), a text-list enum (<c>TextListEnumerationObject</c>), a persistent list
 /// (<c>VarPersistentObject</c>), an NVL (<c>NVLObject</c>), a GVL with network properties, an abstract method
 /// (<c>AbstractPOUMethodObject</c>) — a push must never turn the richer object into the plain one. Measured live on
-/// CODESYS (<c>scripts/merged-classes.log</c>, Pro2193 and Bakon Nano copies): an update, a rename and a move through the
+/// CODESYS (<c>merged-classes.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/merged-classes.log)</c>, Pro2193 and Bakon Nano copies): an update, a rename and a move through the
 /// bridge keep the object's GUID and its class, every one of them. A create makes the plain class (three of these have
 /// no scripting create at all), so the guarantee is that no update, rename or move ever becomes a delete + a create.</para>
 ///

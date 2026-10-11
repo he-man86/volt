@@ -23,7 +23,7 @@ public class TcScopeFactsTests
     }
 
     /// <summary>TwinCAT TAKES <c>LDT</c>, <c>LDATE</c>, <c>LTOD</c>, <c>LTIME_OF_DAY</c> and <c>LDATE_AND_TIME</c> as POU
-    /// names (<c>tc-refusal-measure-names.log</c>; CODESYS refuses them), so a project or library may hold an FB of that
+    /// names (<c>vendor-facts.twincat.json, fact identifier-shapes</c>; CODESYS refuses them), so a project or library may hold an FB of that
     /// name and a variable of it is its instance — the build judges it. <c>INT</c> it refuses.</summary>
     [Theory]
     [InlineData("LDT", "LDT")]

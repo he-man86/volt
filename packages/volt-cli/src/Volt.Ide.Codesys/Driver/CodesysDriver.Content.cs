@@ -350,7 +350,9 @@ public sealed partial class CodesysDriver
     }
 
     /// <summary>The push's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>). Measured (DIALECT N24,
-    /// <c>scripts/body-language-change.log</c> and <c>member-language-change.log</c>): a POU's own body, a METHOD's, an
+    /// <c>scripts/vendor-facts.codesys.json, fact body-language-change</c>, which re-measures both deleted logs,
+    /// <c>body-language-change.log</c> (the POU) and <c>member-language-change.log</c> (its members) —
+    /// <c>git show 5312b799fe:packages/volt-cli/scripts/…</c>): a POU's own body, a METHOD's, an
     /// ACTION's and a property's GET and SET each take a freshly constructed aspect of the other language in place — ST
     /// over LD/FBD and LD/FBD over ST, the guid unchanged — and the swapped body built and RAN. A site outside those is
     /// no body this driver was measured on, and is refused by name.</summary>

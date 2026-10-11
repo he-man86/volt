@@ -131,12 +131,12 @@ internal static class TreeNav
     /// folder created under <c>Device</c> is unmeasured (4d review), and the move's post-condition catches a move it
     /// ignores.
     ///
-    /// <para>The holders are MEASURED, not assumed (<c>scripts/move-holders.log</c>, CODESYS SP21: every top-level source
+    /// <para>The holders are MEASURED, not assumed (<c>move-holders.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/move-holders.log)</c>, CODESYS SP21: every top-level source
     /// object of Pro2193, Bakon, AWA, Lenze and the CODESYS fixture sits at the tree root, in a folder or directly in an
     /// Application; TwinCAT's, censused on the pulled <c>twincat-project14</c> corpus, at the PLC project root or in a
     /// folder). Any other node — <c>Device</c>, <c>Plc
     /// Logic</c>, <c>Task Configuration</c>, a library manager — is no holder: CODESYS accepts the move and leaves the object
-    /// where it was (<c>scripts/merged-classes.log</c> 225-229), so the push reported "moved" and the next pull moved the
+    /// where it was (<c>scripts/vendor-facts.codesys.json</c>, fact <c>move-target</c>), so the push reported "moved" and the next pull moved the
     /// file back (DIALECT C2q). A holder kind measured later joins <see cref="MoveHolders"/>; nothing is a holder by default.</para></summary>
     internal static string? RefusedMoveTarget(IIdeDriver ide, string folder)
     {

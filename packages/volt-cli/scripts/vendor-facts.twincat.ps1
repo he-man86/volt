@@ -9,9 +9,10 @@
 # request per stdin line, one answer per stdout line, marked `@@vf ` (anything else printed is log).
 #
 # It implements the table's closed vocabulary ONCE, the same interface as the CODESYS core (vendor-facts.codesys.py):
-# the steps that are not a push (create, find, setText, rename, delete, reload, invoke) and the reads (member, class,
-# guid, parent, children, xml, same, process). `build` and `diagnostics` are the runner's on TwinCAT (the bridge's own
-# build: a DTE build out of process leaves every Output pane empty). No fact has a code path of its own here.
+# the steps that are not a push (create, find, setText, rename, move, delete, reload, invoke, tryNames) and the reads
+# (member, class, guid, parent, children, xml, same, process, tried). `build` and `diagnostics` are the runner's on
+# TwinCAT (the bridge's own build: a DTE build out of process leaves every Output pane empty). No fact has a code path
+# of its own here.
 #
 # A VENDOR exception during a step is its outcome (`refused: <its words>`); a probe fault is an error answer and the
 # runner aborts naming it. A member that is not there reads null - on COM that IS the vendor's answer (DIALECT D35).
@@ -41,7 +42,12 @@ public static class VoltFactsPlain {
   }
 }
 "@
-function Answer($o) { [Console]::Out.WriteLine("@@vf " + $JS.Serialize([VoltFactsPlain]::Of($o))); [Console]::Out.Flush() }
+# In ASCII, every other character a \uXXXX escape: the console writes in the OEM code page, and a non-ASCII name (C28)
+# must reach the runner as itself.
+function Answer($o) {
+    $s = [regex]::Replace($JS.Serialize([VoltFactsPlain]::Of($o)), '[^\x00-\x7e]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+    [Console]::Out.WriteLine("@@vf " + $s); [Console]::Out.Flush()
+}
 
 class ProbeError : System.Exception { ProbeError([string]$m) : base($m) {} }
 function Fault([string]$m) { throw [ProbeError]::new($m) }
@@ -92,6 +98,29 @@ public static class VoltFactsRot {
     } }
 }
 "@
+    # The shipped bridge's COM message filter (Volt.Ide.Twincat ComMessageFilter, KB201600): a call the busy XAE rejects
+    # with RPC_E_CALL_REJECTED is retried, not answered as an exception. Without it a DeleteChild in the middle of
+    # `refused-names` failed once with "Aanroep geweigerd door aangeroepene" (measured 2026-10-11) - and a rejected
+    # CreateChild would have been recorded as the NAME's refusal. Registered on this STA thread, which makes every call.
+    Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices;
+public static class VoltFactsFilter {
+  [ComImport, Guid("00000016-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  public interface IMessageFilter {
+    [PreserveSig] int HandleInComingCall(int t, IntPtr c, int k, IntPtr i);
+    [PreserveSig] int RetryRejectedCall(IntPtr c, int k, int rejectType);
+    [PreserveSig] int MessagePending(IntPtr c, int k, int p); }
+  class Filter : IMessageFilter {
+    public int HandleInComingCall(int t, IntPtr c, int k, IntPtr i) { return 0; }
+    public int RetryRejectedCall(IntPtr c, int k, int rejectType) { return rejectType == 2 ? 100 : -1; }
+    public int MessagePending(IntPtr c, int k, int p) { return 2; } }
+  [DllImport("ole32.dll")] static extern int CoRegisterMessageFilter(IMessageFilter f, out IMessageFilter old);
+  public static int Register() { IMessageFilter old; return CoRegisterMessageFilter(new Filter(), out old); }
+}
+"@
+    if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne "STA") { throw "the TwinCAT core needs an STA thread for its COM message filter" }
+    $hr = [VoltFactsFilter]::Register()
+    if ($hr -ne 0) { throw "CoRegisterMessageFilter answered 0x$('{0:X8}' -f $hr)" }
     $script:dte = [VoltFactsRot]::Get("!TcXaeShell.DTE.15.0:$XaePid")
     if (-not $script:dte) { throw "XAE $XaePid has no DTE in the ROT" }
     if ($script:dte.Solution.FullName -notlike "*volt-ide-twincat-$Instance*") { throw "XAE $XaePid is not on the $Instance fixture copy: $($script:dte.Solution.FullName)" }
@@ -103,7 +132,24 @@ $M = [Type]::Missing
 
 # ---- the tree --------------------------------------------------------------------------------------------------------
 
-function Sm { return ,$script:dte.Solution.Projects.Item(1).Object }
+# The system manager. TcXaeShell answers null for it now and then between two COM calls with nothing reloading (measured
+# 2026-10-11: once mid-way through 1494 creates, `You cannot call a method on a null-valued expression`), the way it does
+# for a moment after a reload. The wait is the probe's own, never an outcome: it is printed, and past 30 s it is a fault.
+function Sm {
+    $t0 = Get-Date
+    while ($true) {
+        $o = $null
+        try { $o = $script:dte.Solution.Projects.Item(1).Object } catch {}
+        if ($null -ne $o) {
+            $ms = [int]((Get-Date) - $t0).TotalMilliseconds
+            if ($ms -gt 0 -and $script:SmWaited) { [Console]::Out.WriteLine("waited $ms ms for the system manager"); $script:SmWaited = $false }
+            return ,$o
+        }
+        $script:SmWaited = $true
+        if (((Get-Date) - $t0).TotalSeconds -gt 30) { Fault "the solution's system manager stayed null for 30 s" }
+        Start-Sleep -Milliseconds 200
+    }
+}
 function PlcItem { return ,(Sm).LookupTreeItem("TIPC").Child(1) }
 function Root { return ,(PlcItem).NestedProject }
 function Single($x) { if ($x -is [object[]]) { return ,$x[0] } return ,$x }
@@ -152,20 +198,31 @@ $CODES = @{ folder = 601; program = 602; function = 603; function_block = 604; g
             property = 611; action = 608; task_plc = 621; task_system = 1 }
 $DUTS = @{ struct = 606; enum = 605; union = 607; alias = 623 }
 
-function CreateItem($step) {
-    $parent = Single (Resolve $step["parent"])
-    $kind = $step["kind"]; $name = $step["name"]
+# The tree code and vInfo of one create: the driver's (TcObjectModel.CreateChild) - none for a FUNCTION, a task item
+# or a system task, null for an interface, the TYPE for an interface's method or property (610/612), the body
+# language otherwise.
+function CodeOf($step, [string]$parentKind) {
+    $kind = $step["kind"]
     if ($kind -eq "dut") {
         $seed = if ($step["seed"]) { $step["seed"] } else { "struct" }
         if (-not $DUTS.ContainsKey($seed)) { Fault "unknown DUT seed '$seed'" }
-        $code = $DUTS[$seed]
         $vInfo = if ($seed -eq "alias") { "INT" } else { $M }      # 623 takes the alias's BASE type as vInfo
-    } elseif ($CODES.ContainsKey($kind)) {
-        $code = $CODES[$kind]
-        # The driver's vInfo (TcObjectModel.CreateChild): none for a FUNCTION, a task item or a system task, null for
-        # an interface, the body language otherwise.
-        $vInfo = switch ($kind) { "function" { $M } "task_plc" { $M } "task_system" { $M } "interface" { $null } default { "ST" } }
-    } else { Fault "TwinCAT has no create for kind '$kind'" }
+        return @($DUTS[$seed], $vInfo)
+    }
+    if ($parentKind -eq "interface" -and $kind -eq "method") { return @(610, "INT") }
+    if ($parentKind -eq "interface" -and $kind -eq "property") { return @(612, "INT") }
+    if (-not $CODES.ContainsKey($kind)) { Fault "TwinCAT has no create for kind '$kind'" }
+    $lang = if ($step["language"]) { [string]$step["language"] } else { "ST" }
+    $vInfo = switch ($kind) { "function" { $M } "task_plc" { $M } "task_system" { $M } "interface" { $null } default { $lang } }
+    return @($CODES[$kind], $vInfo)
+}
+
+function KindOf([string]$handle) { if ($script:H.ContainsKey($handle)) { return [string]$script:H[$handle].kind } return "" }
+
+function CreateItem($step) {
+    $parent = Single (Resolve $step["parent"])
+    $kind = $step["kind"]; $name = $step["name"]
+    $code, $vInfo = CodeOf $step (KindOf $step["parent"])
     $made = Single ($parent.CreateChild($name, $code, "", $vInfo))
     Keep $step["as"] $made "script" $kind
     # The text goes to the item CreateChild handed back, never to a re-resolve by path: a POU beside a same-named
@@ -233,7 +290,11 @@ function RootOf([string]$head, $on) {
 
 function Why($e) {
     while ($e.InnerException) { $e = $e.InnerException }
-    return "$($e.GetType().Name): $(([string]$e.Message).Replace("`r`n", "`n").Trim())"
+    $msg = ([string]$e.Message).Replace("`r`n", "`n").Trim()
+    # A refused import quotes the move's archive path, which lives under this account's TEMP: the snapshot holds the
+    # token, so the fact reads the same on every machine and account.
+    if ($script:MoveArchive) { $msg = $msg.Replace($script:MoveArchive, "<archive>") }
+    return "$($e.GetType().Name): $msg"
 }
 
 # A call through PowerShell's COM adapter, else late-bound by name; a member that is not there is null (D35).
@@ -340,11 +401,80 @@ function Reload-Solution {
     while ((Get-Date) -lt $until -and $streak -lt 2) {
         Start-Sleep -Milliseconds 500
         $ok = $false
-        try { $ok = $script:dte.Solution.Projects.Count -ge 1 -and $null -ne (Root) } catch {}
+        # Asked directly, not through Sm (which waits out a null): here a null is the answer "not yet".
+        try { $ok = $script:dte.Solution.Projects.Count -ge 1 -and $null -ne $script:dte.Solution.Projects.Item(1).Object.LookupTreeItem("TIPC").Child(1).NestedProject } catch {}
         $streak = if ($ok) { $streak + 1 } else { 0 }
     }
     if ($streak -lt 2) { Fault "the solution did not reopen within 240 s" }
     $script:Reloaded = $true
+}
+
+# Each name alone: CreateChild under the parent (re-resolved every time: a TwinCAT tree item is invalidated by a mutation
+# under it), the name read back, DeleteChild. A vendor exception is the NAME's verdict; a failed delete is a probe fault
+# (it would leave the name taken for the next one).
+$script:Tried = New-Object System.Collections.ArrayList
+function TryNames($step) {
+    $script:Tried = New-Object System.Collections.ArrayList
+    $code, $vInfo = CodeOf $step (KindOf $step["parent"])
+    foreach ($name in $step["names"]) {
+        $parent = Single (Resolve $step["parent"])
+        try { $made = Single ($parent.CreateChild([string]$name, $code, "", $vInfo)); $got = [string]$made.Name }
+        catch [ProbeError] { throw }
+        catch { $why = "refused: " + (Why $_.Exception); [void]$script:Tried.Add(@([string]$name, $why)); continue }
+        $verdict = if ($got -ceq $name) { "created" } else { "created as $got" }
+        [void]$script:Tried.Add(@([string]$name, $verdict))
+        try { (Single (Resolve $step["parent"])).DeleteChild($got) }
+        catch { Fault "tryNames: '$got' was created and could not be deleted: $(Why $_.Exception)" }
+    }
+}
+
+# Whether an outcome is TwinCAT's refusal of the NAME - its own sentence for exactly that name, the one every reserved
+# word and every non-identifier shape answered (vendor-facts.twincat.json, identifier-shapes). A SubType mismatch (the
+# kind), a rejected or failed COM call, a timeout: no verdict on the name.
+function NameRefusal([string]$name, [string]$outcome) {
+    return $outcome.StartsWith("refused: ") -and $outcome.Contains("Creating the child named '$name' is not possible on node (Name mismatch)")
+}
+
+function Tried([string]$what) {
+    $sorted = { param($xs) $l = New-Object System.Collections.Generic.List[string]; foreach ($x in $xs) { $l.Add([string]$x) }; $l.Sort([StringComparer]::Ordinal); ,$l }
+    switch ($what) {
+        "outcomes" { $o = @{}; foreach ($t in $script:Tried) { $o[$t[0]] = $t[1] }; return $o }
+        "verdicts" {
+            return @{
+                accepted = & $sorted @($script:Tried | Where-Object { $_[1] -eq "created" } | ForEach-Object { $_[0] })
+                refused = & $sorted @($script:Tried | Where-Object { NameRefusal $_[0] $_[1] } | ForEach-Object { $_[0] })
+                other = & $sorted @($script:Tried | Where-Object { $_[1].StartsWith("created as ") } | ForEach-Object { "$($_[0]) -> $($_[1].Substring(11))" })
+                unexplained = & $sorted @($script:Tried | Where-Object { $_[1].StartsWith("refused: ") -and -not (NameRefusal $_[0] $_[1]) } | ForEach-Object { "$($_[0]): $($_[1].Substring(9))" })
+            }
+        }
+        default { Fault "unknown tried read '$what'" }
+    }
+}
+
+# TwinCAT's one move, the archive round trip Volt's driver makes (D4f, TcItemArchive.RoundTrip): ExportChild from the
+# parent, the archive's entry paths flattened, DeleteChild, ImportChild into the target. No undo - what the vendor did
+# with a refused import is what the row reads.
+function MoveItem($step) {
+    $item = Single (Resolve $step["on"]); $from = Single $item.Parent; $name = [string]$item.Name
+    # A refused import quotes the archive path; `Why` writes it as `<archive>` (the path is this account's TEMP).
+    $zip = Join-Path $env:TEMP "volt-vendor-facts-move.zip"
+    $script:MoveArchive = $zip
+    Remove-Item $zip, "$zip.flat" -ErrorAction SilentlyContinue
+    try {
+        $from.ExportChild($name, $zip)
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $flat = "$zip.flat"
+        $src = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        $dst = [System.IO.Compression.ZipFile]::Open($flat, "Create")
+        foreach ($e in $src.Entries) {
+            $c = $dst.CreateEntry(($e.FullName -split '[\\/]')[-1]); $i = $e.Open(); $o = $c.Open(); $i.CopyTo($o); $o.Dispose(); $i.Dispose()
+        }
+        $dst.Dispose(); $src.Dispose(); Remove-Item $zip; Move-Item $flat $zip
+        $from.DeleteChild($name)
+        $target = Single (Resolve $step["to"])
+        $target.ImportChild($zip, "", $false, "")
+        $script:H[$step["on"]].path = "$([string]$target.PathName)^$name"
+    } finally { Remove-Item $zip -ErrorAction SilentlyContinue }
 }
 
 function Do-Step($step) {
@@ -356,7 +486,10 @@ function Do-Step($step) {
             if ($null -ne $step["decl"]) { $item.DeclarationText = $step["decl"] }
             if ($null -ne $step["impl"]) { $item.ImplementationText = $step["impl"] }
             if ($null -ne $step["appendImpl"]) { $item.ImplementationText = $item.ImplementationText + $step["appendImpl"] }
+            if ($null -ne $step["implFrom"]) { $item.ImplementationText = [string](Single (Resolve $step["implFrom"])).ImplementationText }
         }
+        "tryNames" { if ($step["via"] -ne "script") { Fault "tryNames is script-only" }; TryNames $step }
+        "move" { if ($step["via"] -ne "script") { Fault "a push move is the runner's, not the core's" }; MoveItem $step }
         "rename" {
             $item = Single (Resolve $step["on"]); $item.Name = $step["to"]
             $script:H[$step["on"]].path = [string](Single $item).PathName
@@ -367,7 +500,7 @@ function Do-Step($step) {
         }
         "reload" { Reload }
         "invoke" { Invoke-Step $step }
-        default { Fault "TwinCAT has no step '$($step["op"])' (open/close/move have no TwinCAT row; build is the runner's)" }
+        default { Fault "TwinCAT has no step '$($step["op"])' (open/close have no TwinCAT row; build is the runner's)" }
     }
 }
 
@@ -447,6 +580,7 @@ function Do-Read($r) {
             $script:RV = [object]::ReferenceEquals($script:R, $script:Cache[$r["as"]])
         }
         "process" { $script:RV = ProcessRead $r["what"] }
+        "tried" { $script:RV = Tried $r["what"] }
         default { Fault "TwinCAT has no read '$($r["op"])'$(if ($r["op"] -eq 'diagnostics') { ' (the runner reads it from the bridge build)' })" }
     }
 }
@@ -471,11 +605,25 @@ function Cleanup {
         $parent = Single $item.Parent
         $parent.DeleteChild($item.Name)
     }
+    # What a vendor put where no handle points - a refused archive import deposits the item at the PLC project root
+    # (C2q) - is the row's too: every root child the row began without goes.
+    if ($null -ne $script:RootBefore) {
+        RootChildren; foreach ($n in $script:RC.ToArray()) { if (-not $script:RootBefore.Contains($n)) { (Root).DeleteChild($n) } }
+    }
     if ($script:Reloaded) { $script:dte.ExecuteCommand("File.SaveAll") }
     Begin-Row
 }
 
-function Begin-Row { $script:H = @{}; $script:Order = New-Object System.Collections.ArrayList; $script:Cache = @{}; $script:Reloaded = $false }
+# The PLC project root's child names, in $script:RC (a List[string]: never emitted - PowerShell would unroll it).
+function RootChildren {
+    $root = Root; $script:RC = New-Object System.Collections.Generic.List[string]
+    for ($i = 1; $i -le $root.ChildCount; $i++) { $script:RC.Add([string]$root.Child($i).Name) }
+}
+
+function Begin-Row {
+    $script:H = @{}; $script:Order = New-Object System.Collections.ArrayList; $script:Cache = @{}; $script:Reloaded = $false
+    $script:RootBefore = $null
+}
 
 # ---- the request loop ------------------------------------------------------------------------------------------------
 
@@ -488,7 +636,7 @@ while ($true) {
     $seq = $req["seq"]
     try {
         switch ($req["kind"]) {
-            "begin" { Begin-Row; Answer @{ seq = $seq } }
+            "begin" { Begin-Row; RootChildren; $script:RootBefore = [System.Collections.Generic.HashSet[string]]::new($script:RC); Answer @{ seq = $seq } }
             "step" {
                 $outcome = "accepted"; $made = $false
                 $as = $req["step"]["as"]

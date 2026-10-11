@@ -70,7 +70,7 @@ namespace Volt.Ide.Codesys.Tests
         const string Decl = "PROGRAM P\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR";
 
         /// <summary>A POU's, a METHOD's, an ACTION's and a property accessor's body each change language in place —
-        /// measured live, each in both directions, built and run (N24, <c>scripts/member-language-change.log</c>).</summary>
+        /// measured live, each in both directions, built and run (N24, <c>scripts/vendor-facts.codesys.json, fact body-language-change</c>).</summary>
         [Theory]
         [InlineData("pou")]
         [InlineData("method")]

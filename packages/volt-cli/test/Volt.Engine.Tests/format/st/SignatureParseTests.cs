@@ -40,7 +40,7 @@ public class SignatureParseTests
     /// bridge-refusal-review 3.1). This reader refused a name that was no ASCII identifier ("not a valid IEC
     /// identifier", <c>IsIdentifier</c>) on the belief, never measured, that the vendor would not create it. Measured
     /// since: both vendors refuse every such shape themselves with their name refusal, and CODESYS CREATES a
-    /// backtick-quoted name the check refused (<c>scripts/identifier-names.log</c>, <c>tc-refusal-measure-names.log</c>).
+    /// backtick-quoted name the check refused (<c>scripts/vendor-facts.codesys.json, fact identifier-shapes</c>, <c>vendor-facts.twincat.json, fact identifier-shapes</c>).
     /// The pre-flight asks the driver (<c>ICodeStore.RefusedName</c>), so the batch still stops before its first write.
     /// (The premise of the test this replaces — the reader judges the name — was the unmeasured belief.)</summary>
     [Theory]
@@ -55,7 +55,7 @@ public class SignatureParseTests
     }
 
     /// <summary>A BACKTICK-QUOTED NAME IS ONE NAME, whatever stands between the backticks (review 3a+3b). CODESYS creates
-    /// <c>`a b`</c> for all six kinds and builds it clean (<c>identifier-names.log</c>, "backtick, space inside"); the
+    /// <c>`a b`</c> for all six kinds and builds it clean (<c>vendor-facts.codesys.json, fact identifier-shapes</c>, "backtick, space inside"); the
     /// reader split the line at the space and refused it, INVALID_ST "'`a' is not an access modifier" — a CODESYS
     /// member that could be pulled and never pushed back. A colon inside the backticks is the name's too, not the start
     /// of the type.</summary>

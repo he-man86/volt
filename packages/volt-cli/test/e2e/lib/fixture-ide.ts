@@ -278,7 +278,7 @@ export function vendorOf(value: string | undefined, fallback: Vendor = "codesys"
 	return v
 }
 
-// The CLI for PowerShell callers (`probe-tc-refusal-measure.ps1`): print the one pipe, or the refusal and exit 1.
+// The CLI for PowerShell callers (a script that cannot import TypeScript): print the one pipe, or the refusal and exit 1.
 if (import.meta.main) {
 	const [vendor, instance] = process.argv.slice(2)
 	try {

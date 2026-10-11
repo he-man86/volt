@@ -344,7 +344,7 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>A measured word (for the kinds the words were asked on), or a name that is no ASCII identifier — refused
     /// by TcXaeShell for every kind asked, backtick-quoted names included (openspec <c>bridge-refusal-review</c> 3.1,
-    /// <c>scripts/tc-refusal-measure-names.log</c>: 42 shapes x 6 kinds, every one "Name mismatch").</summary>
+    /// <c>scripts/vendor-facts.twincat.json, fact identifier-shapes</c>: 45 of its 50 shapes x 6 kinds, every one "Name mismatch").</summary>
     internal static string? NameRefusal(string kind, string name) =>
         (MeasuredNames.WordMeasuredFor(kind, name) && TcRefusedNames.Words.Contains(name)) || !MeasuredNames.IsAsciiIdentifier(name)
             ? $"TwinCAT does not take '{name}' as a name (\"Creating the child named '{name}' is not possible on node (Name mismatch)\")"

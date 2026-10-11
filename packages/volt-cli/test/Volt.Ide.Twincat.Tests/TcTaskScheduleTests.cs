@@ -130,7 +130,7 @@ public class TcTaskScheduleTests
 
     /// <summary>openspec bridge-refusal-review 3.9, DIALECT C19c: TwinCAT's <c>ConsumeXml</c> refuses NO priority — it
     /// stores a UINT16 and coerces anything else silently (<c>-1</c> -> 65535, <c>65536</c> -> 0, <c>99999999999</c> -> 59391,
-    /// <c>abc</c> -> 0; <c>scripts/tc-refusal-measure-priority.log</c>). Passed through escaped, the read-back would catch
+    /// <c>abc</c> -> 0; <c>scripts/vendor-facts.twincat.json, fact task-priority-range</c>). Passed through escaped, the read-back would catch
     /// it only after the system task was overwritten with the coerced number, so the patch keeps refusing it BEFORE the
     /// write — now by the range TwinCAT holds, not merely "a whole number", which let <c>-1</c> through.</summary>
     [Theory]

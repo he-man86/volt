@@ -9,8 +9,9 @@ A probe is one question put to a live IDE. Once its answer is recorded — a `DI
 test, an openspec note — the script is legacy and goes, with its `.log`. The citation stays and points at history:
 `probe-x.py (deleted; git show <last commit that had it>:packages/volt-cli/scripts/probe-x.py)`.
 
-That rule removed 54 scripts (53 probes and one analysis of their logs) and 44 logs on 2026-10-03 (last commit holding them: `b2496efb4b`). The probes that
-remain are named by `bridge-refusal-review`, which is executing, or feed a Repo.Gates gate — see the table.
+That rule removed 54 scripts (53 probes and one analysis of their logs) and 44 logs on 2026-10-03 (last commit holding them: `b2496efb4b`). On 2026-10-11 the last ones — `bridge-refusal-review`'s, archived
+2026-10-04 — became rows of the vendor-fact table and went with their logs (last commit holding them: `5312b799fe`;
+where each fact went is below). **No probe script remains.**
 
 **No new per-fact probe scripts — a new vendor question is a table row, never a new probe script.** A vendor fact
 that a new IDE build could change lives in ONE data-driven, re-runnable probe (openspec `vendor-fact-probe`):
@@ -25,11 +26,10 @@ bun scripts/vendor-facts.ts <codesys|twincat> [--write] [--only <fact>,<fact>…
 | `vendor-facts.ts` | the runner: starts its OWN `ide.ps1` instance (`vendor-fact-probe`, a copy of a committed fixture; CODESYS on the runscript below, TwinCAT `-Fixture 14`), runs each row step by step — `via: "push"` writes over the pipe, everything else in the vendor core — and diffs the sorted snapshot against `vendor-facts.<vendor>.json`, failing on any difference with the fact and both values. `--write` replaces the snapshot (a change to it is a DIALECT finding to record); `--only` runs and writes only the named facts. Every run (an `--only` one too) first reads `ide-identity` and refuses any IDE build but the one the committed snapshot was recorded on, naming both. Self-check `test/unit/vendor-facts.test.ts` |
 | `vendor-facts.codesys.py` | the CODESYS core: the `-RunScript` that runs `run_pipe_production.py` verbatim and answers request files on the UI thread |
 | `vendor-facts.twincat.ps1` | the TwinCAT core: COM on this instance's XAE (ROT by pid), one JSON line each way |
-| `vendor-facts.codesys.json` / `vendor-facts.twincat.json` | the committed snapshots — reviewed like any baseline (recorded by openspec `vendor-fact-probe` 3.1) |
+| `vendor-facts.codesys.json` / `vendor-facts.twincat.json` | the committed snapshots — reviewed like any baseline (recorded by openspec `vendor-fact-probe` 3.1). Their `refused-names` fact is the drivers' refused-word lists: Repo.Gates `RefusedNamesMatchTheSnapshotTests` holds `CodesysRefusedNames` / `TcRefusedNames` / `BothVendorsRefusedNames` to it (`VOLT_WRITE_REFUSED_NAMES=1` regenerates them) |
 
 Adding a fact is one row (and its `[PROBE: <id>]` marker on the DIALECT row it backs); adding an item type is one
-row. If a fact does not fit the vocabulary, that is a design finding for the table, not a reason for a script. The
-probes below that remain are `bridge-refusal-review`'s, folded into the table once that change is archived.
+row. If a fact does not fit the vocabulary, that is a design finding for the table, not a reason for a script.
 
 ## Which bridge a script may touch
 
@@ -39,12 +39,11 @@ recorders import it too, via `volt-lsp-iec/scripts/bridge.ts`): `scriptPipe(vend
 (unset = the default instance) or a `VOLT_PIPE` naming one exact `volt.bridge.<vendor>.<pid>` that an instance
 provably owns — `ide.ps1` recorded the process, it opened a copy under that instance's root, and a TwinCAT XAE's
 own command line names that copy's `.sln`. Anything else is refused, naming the pipe and its project; so are several
-pipes (`-Fixture both`) — a script drives ONE. A PowerShell probe asks the same code through its CLI,
-`bun ../test/e2e/lib/fixture-ide.ts <vendor> [instance]` (prints the pipe, or the refusal and exit 1) —
-`probe-tc-refusal-measure.ps1` does. The `.ts` probe over the pipe (`probe-member-name-refusal`) resolves through `scriptPipe`;
-before this the `.ts` probes took `VOLT_PIPE` unchecked. The IronPython
-probes call no pipe: they run INSIDE the CODESYS `ide.ps1 -RunScript` (or a hand-started `--runscript`) launched, and
-the few that pair with a `.ts` half SERVE the pipe that half then resolves (`run_pipe_production.py`, as `ide.ps1` does).
+pipes (`-Fixture both`) — a script drives ONE. A PowerShell script asks the same code through its CLI,
+`bun ../test/e2e/lib/fixture-ide.ts <vendor> [instance]` (prints the pipe, or the refusal and exit 1). `vendor-facts.ts`
+resolves through `scriptPipe`; before this the `.ts` probes took `VOLT_PIPE` unchecked. An IronPython runscript calls no
+pipe: it runs INSIDE the CODESYS `ide.ps1 -RunScript` (or a hand-started `--runscript`) launched, and the CODESYS
+vendor core SERVES the pipe the runner then resolves (`run_pipe_production.py`, as `ide.ps1` does).
 
 ## Tooling
 
@@ -60,25 +59,22 @@ the few that pair with a `.ts` half SERVE the pipe that half then resolves (`run
 | `refusal-census.ts` | every refusal site in `src` (throw, network-text diagnostic, coded conflict row) as TSV; `--rev <commit>` for an older tree, `--against <commit>` for the sites gone / new / moved since then | openspec `bridge-refusal-review` 6.3; self-check `test/unit/refusal-census.test.ts` |
 | `e2e-graphical-coverage.ts` | which network-text constructs the live suite actually PUSHES — a report, not a gate (20 of 25) | by hand, when the graphical e2e tier changes (`test/e2e/graphical/uncovered-shapes.test.ts`) |
 | `author-hidden-member-fixture.py` / `-tc.ps1` | AUTHOR `VltFixtureMembers` (an ST FB with a CFC method and an SFC action) into the CODESYS / TwinCAT fixture, by the IDE itself — Volt creates no diagram | whenever a fixture project is regenerated (`test/e2e/README.md`) |
-| `voltprobe.py` | the shared helpers every IronPython probe imports (below) | the `.py` probes and `author-hidden-member-fixture.py` |
+| `voltprobe.py` | the shared helpers every IronPython script here imports (below) | `vendor-facts.codesys.py` and `author-hidden-member-fixture.py` |
 
-## Probes that remain
+## Where the last probes went (2026-10-11, openspec `vendor-fact-probe` 4.1)
 
-| Files | What it settles | Why it stays |
-|---|---|---|
-| `probe-member-name-refusal.ts` → `member-name-refusal{,-families,-verify}{,-tc}.log` | both vendors refuse a member or item NAME by the word alone (1475 words as a METHOD, ~220 also as ACTION / PROPERTY / top-level FB, three context controls; `PROBE_SET=verify` re-asks the accepts) | Repo.Gates `RefusedNamesMatchTheLogsTests` reads the six logs: the drivers' `CodesysRefusedNames` / `TcRefusedNames` are their refused words (`VOLT_WRITE_REFUSED_NAMES=1` regenerates); a new IDE build is re-probed with this |
-| `probe-identifier-names.py` → `identifier-names.log` | CODESYS refuses every non-identifier name shape for a POU and all five member kinds; a backtick-quoted name builds (DIALECT C28) | `bridge-refusal-review` 3.1 |
-| `probe-tc-refusal-measure.ps1 -Phase names\|language\|priority` → `tc-refusal-measure-<phase>.log` | TwinCAT, COM on an `ide.ps1 -Instance bridge-refusal-review` copy: the same name shapes refused (C28); ST over an archive refused, an archive over ST stored as text (N24); every task priority coerced to a UINT16 (C19c) | `bridge-refusal-review` section 3 |
-| `probe-move-holders.py` → `move-holders.log` | CODESYS, `--noUI` on project COPIES (Pro2193, the fixture, Bakon, AWA, Lenze): the parent of every top-level source object is the tree root, a folder or an Application — nothing else (DIALECT C2q) | `bridge-refusal-review` 4.31 |
-| `probe-tc-move-target.ps1` → `tc-move-target.log` | TwinCAT, COM on an `ide.ps1 -Instance bridge-refusal-review -Fixture 14` copy: Volt's archive move into a POU node and into `References` is refused ("No elements imported"), and the second refusal leaves the item at the PLC project root (DIALECT C2q) | `bridge-refusal-review` 4.31 |
-| `probe-wire-type-build.py` → `wire-type-build.log` | a comparison box whose stored output type contradicts it is kept and ignored by the build (N25) | `bridge-refusal-review` 3.2 |
-| `probe-body-language-change.py` → `body-language-change.log` | an existing body takes an Implementation aspect of the other language in place, compiles and runs (N24) | `bridge-refusal-review` 3.3 / 3.4 |
-| `probe-member-language-change.py` → `member-language-change.log` | the same for members | `bridge-refusal-review` |
-| `probe-view-switch.py` → `view-switch.log` (GUI CODESYS, no `--noUI`: the command needs the editor in front) | the vendor's own View command (`ViewAsFBD` / `ViewAsLD`, run through its `ExecuteBatch` on an opened NWL editor) changes `DefaultViewMode` and nothing stored — an LD body with two `PARALLEL`s goes to FBD and back with every network and the language model unchanged, saved, closed and reopened — every node member compared by value, the few it skips checked unserialized and listed at the end of the log; only the unserialized `Ordinary` of an AND/OR box follows the view (DIALECT N23) | `bridge-refusal-review` 3.10 |
-| `probe-tc-view-switch.ps1` (+ its bridge half `probe-tc-view-switch.ts`) → `tc-view-switch.log` | TwinCAT, DTE on an `ide.ps1 -Instance bridge-refusal-review -Fixture 14` copy: `FBDLDIL.Viewasfunctionblockdiagram` / `Viewasladderlogic` change exactly one archive line, `DefaultViewMode`; opening the editor alone re-resolves operand types (no pull change); the build after the switches logs every diagnostic and matches a baseline build taken before the probe POUs exist (N23) | `bridge-refusal-review` 3.10 |
-| `probe-interface-accessor-write.py` → `interface-accessor-write.log` | an interface accessor's declaration takes the driver's write and has no body slot (D41) | `bridge-refusal-review` 3.6 |
-| `measure-library-signatures.ts` + `probe-library-signature-cost.py` → `library-signature-cost-{codesys-fixture,codesys-fixture-settled,codesys-pro2193,codesys-pro2193-settled,twincat-project14,codesys-fixture-step2,twincat-project14-step2}.log` | what a directed `.library` read answers today (the manifest alone), the cost of the signature extraction (cold / warm / after an edit / after Clean, over the pipe; extraction ≈ init − a no-extraction fetch), the message view a read leaves behind, and the raw CODESYS `LibraryPath`s against each ref's RESOLUTION (wildcard refs, paths two refs claim, refs repeating one RESOLUTION, `.library` names a known fetch re-sends). `-settled` runs wait 60 s (`MEASURE_SETTLE_MS`) before the first fetch and repeat Clean twice. The `.py` is the CODESYS `-RunScript` that serves the pipe and answers `messages` / `libpaths` / `edit` / `clean` by request file; TwinCAT runs the `.ts` alone. Since 2.3 it also reads two DIFFERENT libraries directed in a row, each checked against the full fetch, and `MEASURE_PARITY=1` reads every name `refs` publishes on its own and tallies `SAME`/`DIFFERS`/`AMBIGUOUS` per extension (the `-step2` logs are that baseline, for 4.1 / 4.3) | `directed-library-signatures` 1.1 / 1.2 / 1.3 / 2.3 (numbers in its tasks.md) |
-| `merged-classes.log` (its probe deleted — `git show b2496efb4b:packages/volt-cli/scripts/probe-merged-classes.py` / `.ts`) | every merged class keeps GUID and CLR class through write / rename / move; lines 112 and 229 show a move into a non-folder node accepted (DIALECT C2n) | `bridge-refusal-review` 4.31 cites its lines (refused since, DIALECT C2q) |
+| Deleted (`git show 5312b799fe:packages/volt-cli/scripts/<file>`) | Now |
+|---|---|
+| `probe-member-name-refusal.ts` → `member-name-refusal{,-families,-verify}{,-tc}.log` | row `refused-names` (C28): the 1494 words the logs asked, frozen in the table, each asked as a METHOD and the 216 cross-check words as an ACTION / PROPERTY / top-level FB, through the vendor API; Repo.Gates `RefusedNamesMatchTheSnapshotTests` replaced `RefusedNamesMatchTheLogsTests` |
+| `probe-identifier-names.py`, `probe-tc-refusal-measure.ps1 -Phase names` + logs | row `identifier-shapes` (C28) |
+| `probe-tc-refusal-measure.ps1 -Phase priority` + log | row `task-priority-range` (C19c) |
+| `probe-body-language-change.py`, `probe-member-language-change.py`, `probe-tc-refusal-measure.ps1 -Phase language` + logs | row `body-language-change` (N24) |
+| `probe-interface-accessor-write.py` + log | row `interface-accessor-write` (D41) |
+| `probe-tc-move-target.ps1` + log, `merged-classes.log` lines 225-229 | row `move-target` (C2q) |
+| `probe-move-holders.py` + log | not a row — a census over real projects; its counts stay in DIALECT C2q |
+| `probe-view-switch.py`, `probe-tc-view-switch.{ps1,ts}`, `probe-wire-type-build.py` + logs | not rows — they build or open graphical bodies, which the table's vocabulary cannot; N23 and N25 wait with the other N-rows for the LD/FBD design (`vendor-fact-probe` 4.2) |
+| `measure-library-signatures.ts`, `probe-library-signature-cost.py` + nine logs | not rows — timings, not facts; the numbers are in openspec `directed-library-signatures` (archived) |
+| `merged-classes.log` | its other findings are DIALECT C2n's, which the row `merged-classes` re-measures |
 
 ## `voltprobe.py` — the shared half of every probe
 
@@ -108,7 +104,7 @@ Two traps it now absorbs, both of which cost a debugging round:
   `SyntaxError` that breaks *every* probe here at once, before any of them can open its log. Hence the encoding
   declaration as well as the ASCII-only rule.
 
-## Running one
+## Running an IronPython script by hand
 
 ```pwsh
 $env:VOLT_PROBE_PROJECTS = "C:\...\a.project;C:\...\b.project"   # or VOLT_PROBE_PROJECT for one

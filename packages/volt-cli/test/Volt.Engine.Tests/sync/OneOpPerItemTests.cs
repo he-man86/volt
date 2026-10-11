@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests;
 /// <para>A batch that names one item in two ops — <c>deleteItem X.gvl</c> beside <c>set X.gvl</c>, in either order — was
 /// the one path on which a push could replace an IDE object, and with it the class the wire does not carry: the apply
 /// resolves the set from the pre-apply walk's cache, which a delete never updates. Measured live on a Pro2193 copy
-/// (<c>scripts/merged-classes.log</c>): forced, <c>[deleteItem, set]</c> of <c>PersistentVars.gvl</c> (a
+/// (<c>merged-classes.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/merged-classes.log)</c>): forced, <c>[deleteItem, set]</c> of <c>PersistentVars.gvl</c> (a
 /// <c>VarPersistentObject</c>) deleted it and then failed on its dead GUID, and <c>[set, deleteItem]</c> of
 /// <c>CheckBounds.pou</c> (a <c>POUObjectCheckFunction</c>) was ACCEPTED with the object gone. And the CLI sent exactly
 /// that batch for a file moved and edited past git's rename threshold.</para>

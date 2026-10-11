@@ -914,7 +914,7 @@ public static class PushService
     /// <para><b>Why.</b> The apply resolves each op from the PRE-APPLY walk's cache, which a delete never updates. So
     /// <c>deleteItem X</c> + <c>set X</c> wrote through the handle of the object it had just deleted, and <c>set X</c> +
     /// <c>deleteItem X</c> wrote it and then deleted it: either way the object was GONE, and with it the class the wire
-    /// does not carry — measured forced on a Pro2193 copy (<c>scripts/merged-classes.log</c>): a persistent list deleted
+    /// does not carry — measured forced on a Pro2193 copy (<c>merged-classes.log (deleted; git show 5312b799fe:packages/volt-cli/scripts/merged-classes.log)</c>): a persistent list deleted
     /// and the push failing on its dead GUID, a check function deleted under an ACCEPTED push. The CLI sent this batch
     /// for a file moved and edited past git's rename threshold; it pairs the two rows into one move+edit now.</para>
     ///

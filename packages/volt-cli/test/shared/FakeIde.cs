@@ -43,7 +43,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // `Class`: a LABEL for the vendor class the wire does not name (a check function, a text-list enum, a persistent
         // list, an NVL, a GVL with network properties, an abstract method — DIALECT C2n). The double keeps it on every
         // in-place write, rename and move, and `CreateChild` makes the plain class (null), as both vendors do
-        // (`scripts/merged-classes.log`), so a push that replaced an object instead of writing it shows as a lost label.
+        // (`merged-classes.log`, deleted: `git show 5312b799fe:packages/volt-cli/scripts/merged-classes.log`), so a push that replaced an object instead of writing it shows as a lost label.
 
         // `Unsupported`: the IDE holds an LD/FBD body (`BodyLang`) that network text cannot represent, and this is the
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
@@ -686,7 +686,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public Func<string, Exception?>? FailMove { get; init; }
 
     /// <summary>Accept the move call and DO NOTHING — CODESYS's answer to a move into a node that is no folder
-    /// (<c>Device</c>, <c>Task Configuration</c>: the object stays, <c>scripts/merged-classes.log</c> 225-229). Models the
+    /// (<c>Device</c>, <c>Task Configuration</c>: the object stays, <c>scripts/vendor-facts.codesys.json</c>, fact <c>move-target</c>). Models the
     /// state the move's post-condition exists to catch (openspec <c>bridge-refusal-review</c> 4.31).</summary>
     public bool IgnoreMoves { get; init; }
 

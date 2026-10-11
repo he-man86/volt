@@ -833,7 +833,7 @@ public class CodesysViewModeTests
 
 /// <summary>VOLT'S FLIP OF AN LD BODY HOLDING A <c>PARALLEL</c> IS THE VENDOR'S FLIP (DIALECT N23; openspec
 /// <c>bridge-refusal-review</c> 3.10, review 3a). The vendor's own View command was measured live to write
-/// <c>DefaultViewMode</c> and nothing else stored, a Parallel included (<c>scripts/probe-view-switch.py</c>). That a Volt
+/// <c>DefaultViewMode</c> and nothing else stored, a Parallel included (<c>probe-view-switch.py (deleted; git show 5312b799fe:packages/volt-cli/scripts/probe-view-switch.py)</c>). That a Volt
 /// flip does the same rested on reading <c>WriteView</c> and the change gate; this pins it through the shipped write
 /// (<c>CodesysNetworkWriter.Write</c>): the LD body is pushed, pulled, its IMPLEMENTATION line flipped, pushed again —
 /// the view is the one member written, no network is torn down or rebuilt, and the pull states the same networks under
