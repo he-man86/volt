@@ -1,6 +1,6 @@
 /**
  * Rules (Layer D) — the diagnostics more than one checker applies. The ST checks under `checks/` and the network-text
- * checks in `network/` turn a store, a conversion argument or a binary operator into the same diagnostic with the same
+ * checks in `analysis/checks/network/` turn a store, a conversion argument or a binary operator into the same diagnostic with the same
  * wording. The rules lived inside check files, so the network layer imported three check files through the analysis
  * index (consolidate-lsp-structure C3).
  */

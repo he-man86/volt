@@ -98,3 +98,7 @@ export {
 } from "./arith/operators.js"
 export { atomicOperand, BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, selectionValueArguments, type AtomicOperand, type BuiltinName } from "./builtins.js"
 export { resolveBareName, resolveGlobalName, type BareName } from "./names.js"
+
+// network text — the reader typed by the operators' rule, and each network's wire scope over the POU's
+export { parseNetworkText } from "./network/network-parse.js"
+export { analyzeNetworkText, headIsVariable, instanceFb, networkNetworkAt, type NetworkTextAnalysis } from "./network/network-analyze.js"

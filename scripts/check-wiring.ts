@@ -60,14 +60,14 @@ console.log("\nAgent-facing surface");
 console.log("\nBuilt binaries");
 // The `volt` PLC CLI is now the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
 // Windows (dotnet), not here. This key-free Linux check covers the LSP + the agent-config layer only.
-check("volt-lsp-iec dist/src/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/bin.js");
+check("volt-lsp-iec dist/src/server/bin.js", () => {
+	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/server/bin.js");
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-iec build";
 });
 
 console.log("\nRuntime smoke test");
 check("volt-lsp-iec --version exits 0", () => {
-	const binJs = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/bin.js");
+	const binJs = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/server/bin.js");
 	if (!existsSync(binJs)) return "dist not built";
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
@@ -176,7 +176,7 @@ function workspaceContainsExts(pkg: any): string[] {
 }
 
 const copies: Array<{ name: string; get: () => string[]; superset?: boolean }> = [
-	{ name: "lsp-iec src/source-extensions.ts", get: () => normExts(literalArray(readRepo("packages/volt-lsp-iec/src/source-extensions.ts"), "SOURCE_EXTENSIONS")) },
+	{ name: "lsp-iec src/workspace/source-extensions.ts", get: () => normExts(literalArray(readRepo("packages/volt-lsp-iec/src/workspace/source-extensions.ts"), "SOURCE_EXTENSIONS")) },
 	{ name: "volt-control src/state/files.ts", get: () => normExts(literalArray(readRepo("packages/volt-control/src/state/files.ts"), "SOURCE_EXTENSIONS")) },
 	{ name: "volt-vscode language extensions", get: () => jsonAt("packages/volt-vscode/package.json", (o) => o.contributes?.languages?.find((l: any) => l.id === "structured-text")?.extensions) },
 	{ name: "volt-vscode tmLanguage fileTypes", get: () => jsonAt("packages/volt-vscode/languages/structured-text/syntax.tmLanguage.json", (o) => o.fileTypes) },

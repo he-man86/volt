@@ -16,13 +16,12 @@ import {
   type TokenKind,
   type TopLevel,
   unitBodies,
+  NETWORK_TEXT_KEYWORDS,
+  walkValues,
 } from "../../frontend/syntax/index.js"
 import { bareEnumMember, lookup, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
-import { isKnownPrimitive } from "../../frontend/types/index.js"
+import { analyzeNetworkText, isKnownPrimitive } from "../../frontend/types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
-import { NETWORK_TEXT_KEYWORDS } from "../../network-text/parser.js"
-import { analyzeNetworkText } from "../../network/network-analyze.js"
-import { walkValues } from "../../network-text/ast.js"
 import type { Document } from "../shared/index.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */

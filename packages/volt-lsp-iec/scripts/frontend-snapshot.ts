@@ -275,7 +275,10 @@ async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
  */
 async function fixtureDiagnostics(sink: Sink, want: (id: string) => boolean): Promise<void> {
   const analysis = await load<Record<string, any>>("src/analysis/index.ts")
-  const network = await load<Record<string, any>>("src/network/index.ts")
+  // the network-text pass: `src/network/` before openspec lsp-package-structure dissolved it, the analysis barrel after
+  const network = existsSync(join(PKG, "src", "network", "index.ts"))
+    ? await load<Record<string, any>>("src/network/index.ts")
+    : analysis
   const { ALL_TESTS } = await load<typeof import("../test/conformance/fixtures/index.ts")>("test/conformance/fixtures/index.ts")
   const { withReplayFixture } = await load<typeof import("../test/conformance/support/replay.ts")>(
     "test/conformance/support/replay.ts",

@@ -25,7 +25,7 @@
 import { describe, expect, test } from "bun:test"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
-import { checkBaseline, tally, type Baseline } from "./baseline.js"
+import { checkBaseline, tally, type Baseline } from "../baseline/baseline.js"
 import { parse, parseErrors } from "./dumps.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { build } from "../../src/frontend/symbols/index.js"

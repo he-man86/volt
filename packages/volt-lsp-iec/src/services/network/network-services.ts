@@ -1,6 +1,6 @@
 /**
  * network text services (Layer F, F.2d) — the graphical branch of hover · definition · type-definition · completion.
- * Native by reuse: network-text operands are ST `Expr` (`network-text/exprs`), so cursor→symbol resolution runs the
+ * Native by reuse: network-text operands are ST `Expr` (`syntax/network/exprs`), so cursor→symbol resolution runs the
  * SAME descent (`exprAtOffset`/`memberAtOffset`) and `resolveMemberChain`/`lookup` the ST services use, against the
  * network scope (POU + the network's `VAR_TEMP` wires). Results render through the ST cores (`symbolHover`,
  * `completionAtScope`, `locationOf`), so network text understanding matches ST — a wire hovers as its declaration.
@@ -20,26 +20,20 @@ import {
   type TopLevel,
   unitBodies,
   walkAllExprs,
-} from "../frontend/syntax/index.js"
-import { bareEnumMember, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../frontend/symbols/index.js"
-import { resolveMemberChain } from "../frontend/types/index.js"
-import { lookupReference, renderReferenceHover } from "../reference/index.js"
-import {
-  completionAtScope,
-  findReferences,
-  locationOf,
-  rangeFromSpan,
-  resolveAt,
-  symbolHover,
-  toLocations,
-  type Ref,
-} from "../services/index.js"
-import { analyzeNetworkText, networkNetworkAt, type NetworkTextAnalysis } from "./network-analyze.js"
-import { statementTargets, walkValues, type NetworkTextStatement } from "../network-text/ast.js"
-import { executeBoxes, statementExprs } from "../network-text/exprs.js"
-import { NETWORK_TEXT_WORDS } from "../network-text/parser.js"
-import type { Document } from "../services/shared/index.js"
-import { exprAtOffset, memberAtOffset, tokenAtOffset } from "../services/shared/index.js"
+  executeBoxes,
+  NETWORK_TEXT_WORDS,
+  statementExprs,
+  statementTargets,
+  walkValues,
+  type NetworkTextStatement,
+} from "../../frontend/syntax/index.js"
+import { bareEnumMember, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../../frontend/symbols/index.js"
+import { analyzeNetworkText, networkNetworkAt, resolveMemberChain, type NetworkTextAnalysis } from "../../frontend/types/index.js"
+import { lookupReference, renderReferenceHover } from "../../reference/index.js"
+import { completionAtScope, symbolHover } from "../assist/index.js"
+import { findReferences, toLocations, type Ref } from "../navigation/index.js"
+import { locationOf, rangeFromSpan, resolveAt } from "../shared/index.js"
+import { exprAtOffset, memberAtOffset, tokenAtOffset, type Document } from "../shared/index.js"
 
 /** True when the offset falls inside a graphical (network text) body — the server's routing discriminator. */
 export function inNetworkText(doc: Document, offset: number): boolean {

@@ -76,7 +76,7 @@ mkdirSync(bin, { recursive: true })
 // Windows, so on a box without it (or with --no-cli) there is no `volt` binary — the self-check below reflects
 // that.
 console.log("• volt-lsp-iec")
-compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
+compile("packages/volt-lsp-iec/src/server/bin.ts", "volt-lsp-iec")
 
 // VERIFY the stamp landed. The version is baked via a compile-time --define, which failed SILENTLY once (cmd.exe
 // stripped the quotes) and fell back to "(dev)" — a shipped binary that could not report its own version, exactly

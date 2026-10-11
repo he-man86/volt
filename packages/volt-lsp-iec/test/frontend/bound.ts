@@ -12,7 +12,7 @@
  */
 import { parseSource, type Dialect } from "../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../src/frontend/symbols/index.js"
-import { loadWorkspaceRefs, workspaceEnvironment } from "../../src/workspace-refs.js"
+import { loadWorkspaceRefs, workspaceEnvironment } from "../../src/workspace/workspace-refs.js"
 import { splitLists, withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS, projectDevices } from "../conformance/support/project-libraries.js"
 import { RECORDING_ENVIRONMENT } from "../conformance/support/recording-environment.js"

@@ -18,21 +18,16 @@
  * Unlike the bridge, a finding does not discard the network it is in: the statements read before it are kept, so
  * hover, rename and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.
  */
-import {
-  type BodySpan,
-  type Dialect,
-  type Expr,
-  graphicalMarkerLanguage,
-  implementationLine,
-  type Span,
-  type StatementList,
-  type Token,
-  isTrivia,
-  lex,
-  parseExprFromTokens,
-  bodyStatements,
-  parseTypeExprFromTokens,
-} from "../frontend/syntax/index.js"
+import type { Span } from "../span.js"
+import type { BodySpan, Expr, StatementList } from "../ast/nodes.js"
+import type { Dialect } from "../lex/vocabulary.js"
+import { isTrivia, type Token } from "../lex/tokens.js"
+import { lex } from "../lex/lexer.js"
+import { graphicalMarkerLanguage } from "../format/bodies.js"
+import { implementationLine } from "../format/implementation-line.js"
+import { parseExprFromTokens } from "../parse/expression.js"
+import { bodyStatements } from "../parse/body-parse.js"
+import { parseTypeExprFromTokens } from "../parse/type-expr.js"
 import type {
   NetworkAssign,
   NetworkCall,
@@ -51,7 +46,6 @@ import type {
   NetworkWire,
 } from "./ast.js"
 import { NetworkLexer, OPERATOR_HEADS, SYMBOL_TO_TYPE, type Tok, isOperator, isSym, isWord } from "./lexer.js"
-import { BIT_OPERATOR_FUNCTIONS, isBitOperatorWireType, operatorFunctionResult } from "../frontend/types/index.js"
 
 /**
  * Words the text's own grammar gives a meaning at operand position (`NetworkSpelling.TextWords`); an operand spelled
@@ -149,14 +143,27 @@ export interface NetworkScopeView {
  */
 export const STRUCTURE_ONLY = "structure-only" as const
 
-/** Parse a graphical body into networks, statements and the bridge reader's structural findings. Everything that reads
- *  the statements passes the POU's scope (`network/network-analyze`). */
-export function parseNetworkText(
+/**
+ * The operators' typing rule the reader types a wire by (`checkWireTypes`) — the type layer's (`types/arith/operators`
+ * `operatorFunctionResult`, `isBitOperatorWireType`), handed in because syntax imports no type fact. Its one composer is
+ * `types/network/network-parse.ts` `parseNetworkText`, the reader every caller uses.
+ */
+export interface NetworkWireTyping {
+  /** A function-form operator box's result: a comparison BOOL, a bit operator a type of ANY_BIT, else undefined. */
+  operatorResult(name: string): { exact: "BOOL" } | { group: "ANY_BIT" } | undefined
+  /** Whether a bit operator box's output wire may be declared this type. */
+  isBitWireType(name: string): boolean
+}
+
+/** Read a graphical body into networks, statements and the bridge reader's structural findings, typing its wires by
+ *  `typing`. Everything that reads the statements passes the POU's scope (`types/network/network-analyze`). */
+export function readNetworkText(
   body: BodySpan,
   scope: NetworkScopeView | typeof STRUCTURE_ONLY,
   dialect: Dialect,
+  typing: NetworkWireTyping,
 ): NetworkTextBody {
-  return new Parser(body, scope === STRUCTURE_ONLY ? undefined : scope, dialect).parseBody()
+  return new Parser(body, scope === STRUCTURE_ONLY ? undefined : scope, dialect, typing).parseBody()
 }
 
 class Parser {
@@ -178,6 +185,7 @@ class Parser {
     private readonly scope: NetworkScopeView | undefined,
     /** The document's vocabulary, for the ST fragments in the text (`stTokens`) — the parse's own. */
     private readonly dialect: Dialect,
+    private readonly typing: NetworkWireTyping,
   ) {
     // The body's text is its tokens' text: the ST lexer emits every character, whitespace included.
     this.text = body.tokens.map((t) => t.text).join("")
@@ -442,7 +450,7 @@ class Parser {
     for (const wire of wires) {
       if (wire.definition === undefined) continue
       const produced = this.producerType(wire.definition.value, wire, statements, wires)
-      const says = disagreement(produced, wire.typeText)
+      const says = disagreement(produced, wire.typeText, this.typing)
       if (says === undefined) {
         if (produced.exact !== undefined) wire.typeConfirmed = true
         continue
@@ -475,9 +483,9 @@ class Parser {
         return other !== undefined ? { exact: other.typeText } : {}
       }
       case "group":
-        return boxProduces(operatorType(v.op))
+        return boxProduces(operatorType(v.op), this.typing)
       case "call":
-        return v.eno ? { exact: BOOL } : boxProduces(v.boxType)
+        return v.eno ? { exact: BOOL } : boxProduces(v.boxType, this.typing)
       case "empty_slot":
         return {}
     }
@@ -501,12 +509,12 @@ class Parser {
         case "edge":
           return walk(v.operand, boolean)
         case "group": {
-          const contacts = ld && BIT_OPERATOR_FUNCTIONS.has(operatorType(v.op))
+          const contacts = ld && isBitOperatorBox(operatorType(v.op), this.typing)
           for (const o of v.operands) walk(o, contacts)
           return
         }
         case "call": {
-          const contacts = ld && BIT_OPERATOR_FUNCTIONS.has(v.boxType.toUpperCase())
+          const contacts = ld && isBitOperatorBox(v.boxType.toUpperCase(), this.typing)
           for (const p of v.pins) if (p.kind === "input") walk(p.value, p.name?.text.toUpperCase() === "EN" || contacts)
           return
         }
@@ -1332,6 +1340,12 @@ function operatorType(op: string): string {
   return type
 }
 
+/** A bit operator box (AND, OR, XOR, NOT): the rule types it ANY_BIT — in ladder, its inputs are contacts. */
+function isBitOperatorBox(type: string, typing: NetworkWireTyping): boolean {
+  const result = typing.operatorResult(type)
+  return result !== undefined && "group" in result
+}
+
 /** What a producer says of a wire's type: an exact type, "BOOL or another bit string", or nothing. */
 interface Produced {
   exact?: string
@@ -1340,8 +1354,8 @@ interface Produced {
 
 /** A box's word on its output, with no stored output type (the text carries none): the operators' own rule
  *  (`types/arith/operators` `operatorFunctionResult`) — a comparison BOOL, a bit operator a type of ANY_BIT. */
-function boxProduces(type: string): Produced {
-  const result = operatorFunctionResult(type)
+function boxProduces(type: string, typing: NetworkWireTyping): Produced {
+  const result = typing.operatorResult(type)
   if (result === undefined) return {}
   return "exact" in result ? { exact: result.exact } : { anyBit: true }
 }
@@ -1350,9 +1364,9 @@ function boxProduces(type: string): Produced {
 const typeKey = (t: string): string => t.replace(/\s+/g, "").toUpperCase()
 
 /** How `p` disagrees with a DECLARED type — what the producer says instead — or undefined (`NetworkSpelling.Disagreement`). */
-function disagreement(p: Produced, declared: string): string | undefined {
+function disagreement(p: Produced, declared: string, typing: NetworkWireTyping): string | undefined {
   if (p.exact !== undefined) return typeKey(p.exact) === typeKey(declared) ? undefined : p.exact
-  return p.anyBit === true && !isBitOperatorWireType(typeKey(declared))
+  return p.anyBit === true && !typing.isBitWireType(typeKey(declared))
     ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
     : undefined
 }

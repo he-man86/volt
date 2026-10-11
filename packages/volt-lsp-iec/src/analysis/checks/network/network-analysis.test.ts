@@ -4,15 +4,15 @@
  * is declared with its full type, and the message a mismatch prints must keep it.
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../frontend/syntax/index.js"
-import { build } from "../frontend/symbols/index.js"
-import { messagesFor } from "../analysis/index.js"
-import { computeNetworkTextDiagnostics } from "./index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
+import { messagesFor } from "../../index.js"
+import { computeNetworkTextDiagnostics } from "./network-analysis.js"
 
 const messages = (source: string): string[] => {
   const parseResult = parseSource(source, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source }])
-  return computeNetworkTextDiagnostics({ uri: "F.pou", source, parseResult }, project, messagesFor("codesys")).map((d) => d.message)
+  return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 
 test("a wire declared STRING(10) keeps the length a message prints", () => {

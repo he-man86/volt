@@ -36,8 +36,9 @@ function walk(dir: string, keep: (name: string) => boolean, out: string[] = []):
   return out
 }
 
-/** `a/b.ts` or `b.ts`, optionally `:NNN` or `:NNN-MMM`; never inside a longer path, a URL or a glob (`*.test.ts`). */
-const CITATION = /(?<![\w./*<>{}$-])((?:[\w-]+(?:\.[\w-]+)*\/)*[\w-]+(?:\.[\w-]+)*\.ts)\b(?::(\d+)(?:-\d+)?)?/g
+/** `a/b.ts` or `b.ts`, optionally `:NNN` or `:NNN-MMM`; never inside a longer path, a URL, a glob (`*.test.ts`) or a git
+ *  object (`<rev>:path.ts`, how a deleted file is cited). */
+const CITATION = /(?<![\w./*<>{}$:-])((?:[\w-]+(?:\.[\w-]+)*\/)*[\w-]+(?:\.[\w-]+)*\.ts)\b(?::(\d+)(?:-\d+)?)?/g
 
 export interface Citation {
   /** The citing file, relative to the repository. */
@@ -126,9 +127,6 @@ export function citingFiles(pkg: string = PACKAGE, repo: string = REPO): string[
  * (`stalePlanned`), so the list only holds what is still to come.
  */
 export const PLANNED: Readonly<Record<string, string>> = {
-  "packages/volt-lsp-iec/src/network-text/index.ts": "lsp-package-structure (the network seam)",
-  "packages/volt-cli/scripts/vendor-facts.ts": "vendor-fact-probe 2.3",
-  "packages/volt-cli/scripts/vendor-facts.table.ts": "vendor-fact-probe 2.1",
 }
 
 /** Each planned file that already exists — its task wrote it, so its entry goes. */

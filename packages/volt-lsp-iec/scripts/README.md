@@ -6,9 +6,10 @@ exception is the unit tests of the libraries and gates below (`bridge.test.ts`, 
 `suite-snapshot.test.ts`, `check-layering.test.ts`, `check-size.test.ts`, `check-citations.test.ts`,
 `dead-exports.test.ts`): a bare `bun test` discovers them here and runs them with the rest. `bun run typecheck` covers every `.ts` file in this directory.
 
-Every file is listed once, grouped by purpose. **Live** = a bridge (or a CODESYS install) must be up; **offline** =
+Every file is listed once, grouped by purpose — `test/package/structure.test.ts` fails on one that is not. **Live** = a bridge (or a CODESYS install) must be up; **offline** =
 pure, runs under `bun`. The paths stay flat on purpose: open openspec changes, tests and source comments name
-`scripts/<file>`, and a move would break them (re-checked by openspec `lsp-package-structure` 2.3).
+`scripts/<file>`, and a move would break them (re-checked by openspec `lsp-package-structure` 2.3, 2026-10-11: still
+so — package.json, the recorders' imports, the C# repo gates and the open changes name the flat paths).
 
 To bring a bridge up: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat [-Instance <name>] -Wait`.
 **A live tool drives only that instance's fixture IDE** (`bridge.ts` → volt-cli's `test/e2e/lib/fixture-ide.ts`, the one
@@ -24,8 +25,9 @@ only that child), opening a copy of the fixture.
 **Probes are single use.** A one-question measurement goes once its answer is cited; the citation stays and points at
 history (`… (deleted; git show <commit>:packages/volt-lsp-iec/scripts/<file>)`). On 2026-10-03 that removed
 `probe-dep-depth.ts`, `probe-is-it-compiled.ts`, `probe-order-dependence.ts`, `probe-position-length.ts` and
-`measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`). The three `probe-*` files left are named by open
-openspec tasks — see the Measure table.
+`measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`); on 2026-10-11 `probe-projectsettings-effect.ts`
+(openspec `lsp-package-structure`, its change archived; last commit holding it: `6d856b66a3`). The one `probe-*` file
+left, `probe-lowering-refusals.ts`, is a re-run measure the corpus suite names — see the Measure table.
 
 ## Libraries (imported by the tools, not run)
 
@@ -52,9 +54,9 @@ openspec tasks — see the Measure table.
 
 | File | Live? | Does |
 |---|---|---|
-| `check-layering.ts` | offline | the `bun run lint` gate — fails on an illegal upward layer import, and on a front-end import rule (F1–F6: the front-end imports no consumer, consumers import it through its indexes) or an analysis rule (A1–A6: analysis reaches the reference catalog through its index, outsiders only `analysis/index.js`, a check imports no other check nor the registry/pipeline, only the registry and pipeline import checks, no analysis test imports a rank above analysis, every check has its colocated test) or a transpiler rule (transpile-restructure design.md P2: 4 the transpile folder table — `ir/` itself only, `semantics/` → `ir/`, `lower/`/`interp/` → `ir/` + `semantics/`, `emit/` → `ir/`, only the barrel imports `pipeline/`; 4b the `lower/` leaves `diagnostics`/`core`/`values`/`project`, and only `entry/` imports `project/`; 6 nothing under `src/` imports `test/`) outside its known-violation lists (`KNOWN_ANALYSIS_VIOLATIONS` is empty; `KNOWN_TRANSPILE_VIOLATIONS` is empty since transpile-restructure 1.5.13); `test/frontend/layering.test.ts` runs it inside `bun test`, `check-layering.test.ts` plants each transpiler rule's violation |
+| `check-layering.ts` | offline | the `bun run lint` gate — fails on an illegal upward layer import, and on a front-end import rule (F1–F6: the front-end imports no consumer, consumers import it through its indexes) or an analysis rule (A1–A6: analysis reaches the reference catalog through its index, outsiders only `analysis/index.js`, a check imports no other check nor the registry/pipeline, only the registry and pipeline import checks, no analysis test imports a rank above analysis, every check has its colocated test) or a transpiler rule (transpile-restructure design.md P2: 4 the transpile folder table — `ir/` itself only, `semantics/` → `ir/`, `lower/`/`interp/` → `ir/` + `semantics/`, `emit/` → `ir/`, only the barrel imports `pipeline/`; 4b the `lower/` leaves `diagnostics`/`core`/`values`/`project`, and only `entry/` imports `project/`; 6 nothing under `src/` imports `test/`) outside its known-violation lists (`KNOWN_ANALYSIS_VIOLATIONS` is empty; `KNOWN_TRANSPILE_VIOLATIONS` is empty since transpile-restructure 1.5.13); `test/package/layering.test.ts` runs it inside `bun test`, `check-layering.test.ts` plants each transpiler rule's violation |
 | `check-size.ts` | offline | the size ratchet in `bun run lint` (transpile-restructure design.md P5, §8): a `src/transpile/**` file ≤ 400 lines, a test ≤ 600; `CEILINGS` listed the files over on 2026-10-07 at that count (one may not grow, a stale entry fails, a shrunk one is told its new ceiling) and is empty since transpile-restructure 1.8.1; functions over 80 lines are printed as a warning list (its own small lexer: the package's TypeScript is the native 7.x compiler, with no JS API); tested in `check-size.test.ts` |
-| `check-citations.ts` | offline | in `bun run lint` as an error (`--strict`, since transpile-restructure 1.9.3): every `path.ts[:NNN]` citation in `src/**`, the conformance fixtures, the authored NOTES/LEAN texts (`test/conformance/support/notes/`), `docs/*.md` and the open openspec changes' `tasks.md` (outside a ticked task, whose lines are its record) whose file no longer exists (a citation resolves by its tail anywhere in the repo, or names a file an open task will create — `PLANNED`, each with its task; a planned file that exists fails); `--all` lists each; tested in `check-citations.test.ts` |
+| `check-citations.ts` | offline | in `bun run lint` as an error (`--strict`, since transpile-restructure 1.9.3): every `path.ts[:NNN]` citation in `src/**`, the conformance fixtures, the authored NOTES/LEAN texts (`test/conformance/support/notes/`), `docs/*.md` and the open openspec changes' `tasks.md` (outside a ticked task, whose lines are its record) whose file no longer exists (a citation resolves by its tail anywhere in the repo; a git object `<rev>:path.ts`, how a deleted file is cited, is none; or names a file an open task will create — `PLANNED`, each with its task; a planned file that exists fails); `--all` lists each; tested in `check-citations.test.ts` |
 | `check-recording.ts` | offline | is a fresh `<vendor>.build.new.json` fit to adopt (dropped rows, cross-fixture contamination, the target's pointer width)? `--diff` compares the committed CODESYS and TwinCAT recordings |
 | `suite-snapshot.ts` | offline | gate T: every test of the suites a move touches as `status  describe › title` — the gate for moving tests between files (`<out.txt>`, `--compare <before.txt>`; `--dirs a,b`, default the conformance suite, `src/transpile`, `src/frontend/{types,symbols,syntax}` and `test/libraries`) |
 | `transpile-snapshot.ts` | offline | `snapshot:transpile` — snapshot S (transpile-restructure design.md §8): per fixture the canonical IR, the emitted Rust + source map, both backends' values on the declared and the edge inputs, and the edge verdict (`test/conformance/support/snapshot.ts`); `write [--baseline]`, `check [--layers ir,rust,outputs,edge]` against `test/conformance/.snapshot/baseline/` (gitignored), printing the first difference per fixture; Rust built through the rustc cache |
@@ -86,4 +88,3 @@ openspec tasks — see the Measure table.
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
 | `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (run by openspec `transpile-restructure` 4.1; named by `test/corpus/corpus.test.ts`) |
-| `probe-projectsettings-effect.ts` | proves a project's `.projectsettings` actually SUPPRESSES diagnostics (per-code delta, settings on vs off; rewired by openspec `analysis-conformance` 1.3, re-run after it) |

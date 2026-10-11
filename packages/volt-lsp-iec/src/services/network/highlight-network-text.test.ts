@@ -4,8 +4,8 @@
  * the network-text-aware `allReferences`.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../frontend/syntax/index.js"
-import { build } from "../frontend/symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
+import { build } from "../../frontend/symbols/index.js"
 import { documentHighlightsAnywhere } from "./network-services.js"
 
 const LD = `FUNCTION_BLOCK FB_LD

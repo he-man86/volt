@@ -16,7 +16,7 @@ import { parseDocument, type ParseOptions, type Span } from "../frontend/syntax/
 import { build, type Scope } from "../frontend/symbols/index.js"
 import type { ResolvedConfig } from "../analysis/index.js"
 import { deadPousFromInfos, deadMemberSpansFromInfos, fileReachInfo, type FileReachInfo } from "./reachability.js"
-import { EMPTY_WORKSPACE_REFS, workspaceEnvironment, type WorkspaceRefs } from "../workspace-refs.js"
+import { EMPTY_WORKSPACE_REFS, workspaceEnvironment, type WorkspaceRefs } from "../workspace/workspace-refs.js"
 import { deadNameUniverse, reachDeadEquivalent } from "./dead-code-equivalence.js"
 import type { Document } from "../services/shared/index.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"

@@ -21,7 +21,7 @@
     }
   },
   "bin": {
-    "volt-lsp-iec": "./dist/src/bin.js"
+    "volt-lsp-iec": "./dist/src/server/bin.js"
   },
   "files": [
     "dist",

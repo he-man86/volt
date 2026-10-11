@@ -15,7 +15,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseSource, bodyStatements, unitBodies, isStBody } from "../src/frontend/syntax/index.js"
-import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
+import { SOURCE_EXTENSION_SET } from "../src/workspace/source-extensions.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")

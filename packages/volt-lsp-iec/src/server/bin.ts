@@ -2,8 +2,8 @@
 // `volt-lsp-iec` CLI (next). `--stdio` runs the LSP server; `--version` prints the version.
 // Internal: `--server-version <v>` lets a client (the VS Code extension) tell the server its identity for
 // `serverInfo.version` — the meaningful identity when the server runs under an editor's node.
-import { runServer } from "./server/index.js"
-import type { Vendor } from "./analysis/index.js"
+import { runServer } from "./index.js"
+import type { Vendor } from "../analysis/index.js"
 
 // Baked in at compile time by build-payload.ts (`--define __VOLT_VERSION__`), stamped from the same VOLT_VERSION
 // that stamps FileVersion into the .NET binaries — so every Volt binary reports the SAME version and cannot drift

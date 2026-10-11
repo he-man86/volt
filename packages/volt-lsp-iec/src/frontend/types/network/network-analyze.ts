@@ -22,12 +22,26 @@ import {
   type Scope,
   scopeForUnit,
   type Symbol as StSymbol,
-} from "../frontend/symbols/index.js"
-import { type BodySpan, type Expr, type TopLevel, type TypeExpr, isTrivia, lex, parseExprFromTokens } from "../frontend/syntax/index.js"
-import { type FunctionBlockType, inferExprType, isSameType, resolveTypeExpr } from "../frontend/types/index.js"
-import { type NetworkScopeView, parseNetworkText } from "../network-text/parser.js"
-import type { NetworkTextBody, NetworkTextNetwork, NetworkWire } from "../network-text/ast.js"
-import { networkValueExpr } from "../network-text/exprs.js"
+} from "../../symbols/index.js"
+import {
+  type BodySpan,
+  type Expr,
+  type NetworkScopeView,
+  type NetworkTextBody,
+  type NetworkTextNetwork,
+  type NetworkWire,
+  type TopLevel,
+  type TypeExpr,
+  isTrivia,
+  lex,
+  networkValueExpr,
+  parseExprFromTokens,
+} from "../../syntax/index.js"
+import type { FunctionBlockType } from "../type.js"
+import { inferExprType } from "../infer/expr.js"
+import { isSameType } from "../compat.js"
+import { resolveTypeExpr } from "../resolve.js"
+import { parseNetworkText } from "./network-parse.js"
 
 export interface NetworkTextAnalysis {
   vg: NetworkTextBody

@@ -13,7 +13,8 @@
  * the text spells that ST has no node for — an empty slot, `PARALLEL`, an edge, `.ENO`, an EXECUTE box, `=> v` — is a
  * node of its own here, and `networkValueExpr` says which values have an ST reading at all.
  */
-import type { Expr, Span, StatementList, TypeExpr } from "../frontend/syntax/index.js"
+import type { Span } from "../span.js"
+import type { Expr, StatementList, TypeExpr } from "../ast/nodes.js"
 
 export type NetworkLanguage = "FBD" | "LD"
 

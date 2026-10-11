@@ -182,7 +182,7 @@ public class NoKindFromTextTests
     {
         ["packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md"] = new(7,
             "the vendor-fact census: rows that served the subtype are KEPT as history notes (5.F.1)"),
-        ["packages/volt-lsp-iec/src/source-extensions.test.ts"] = new(3,
+        ["packages/volt-lsp-iec/src/workspace/source-extensions.test.ts"] = new(3,
             "pins that the retired extensions are no source kind"),
         ["packages/volt-control/src/state/files.test.ts"] = new(4, "pins that the retired DUT extensions are no POU file"),
         ["packages/volt-cli/docs/items.html"] = new(2,

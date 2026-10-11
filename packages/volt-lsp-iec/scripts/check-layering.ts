@@ -25,7 +25,7 @@
 // and the ANALYSIS rules A1–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
 // shrinking list, KNOWN_ANALYSIS_VIOLATIONS.
 //
-// A violation this change has not yet removed is named in KNOWN_FRONTEND_VIOLATIONS; `test/frontend/layering.test.ts`
+// A violation this change has not yet removed is named in KNOWN_FRONTEND_VIOLATIONS; `test/package/layering.test.ts`
 // fails on a violation not listed AND on a listed one that no longer occurs, so the list can only shrink.
 //
 // ponytail: regex import-scan, not a full TS-parse graph. Ceiling: misses imports written across lines or via computed
@@ -38,21 +38,17 @@ const PACKAGE = resolve(import.meta.dir, "..")
 const ROOTS = ["src", "test", "scripts", "libraries"]
 
 // Layer rank: import target rank must be <= source rank. `reference` is a data catalog (depends only on `types`,
-// consumed BY analysis + services), while `network` reuses the services core (so it sits above them).
+// consumed BY analysis + services). Network text (LD/FBD) has no rank of its own: each layer holds its part in a
+// `network/` folder (`frontend/syntax/network`, `frontend/types/network`, `analysis/checks/network`, `services/network`).
 const RANK: Record<string, number> = {
   library: 0,
   syntax: 0,
   symbols: 1,
   types: 2,
-  // network-text/ is the network-text FRONTEND (text→AST): it depends only on syntax. Ranked above `types` it is an
-  // ordinary consumer, and the front-end is ranks 0–2 with nothing interleaved (design.md "Where the tree lives").
-  "network-text": 2.5,
   reference: 3,
   analysis: 4,
   services: 5,
-  network: 6,
-  // the top-level app modules (workspace-refs, source-extensions): file I/O over the analysis stack,
-  // consumed by the server. A rank comment is a list of files and rots like one.
+  // `workspace/`: file I/O over the analysis stack (the workspace scan, the writable-source set), consumed by the server
   workspace: 6.5,
   server: 7,
 }
@@ -76,11 +72,13 @@ const SYNTAX_FOLDERS: Record<string, (target: string) => boolean> = {
   format: (t) => t === "span.ts" || t.startsWith("lex/") || t.startsWith("ast/") || t.startsWith("format/"),
   pragmas: (t) => t === "span.ts" || t.startsWith("lex/") || t.startsWith("ast/") || t.startsWith("pragmas/"),
   parse: (t) => t !== "print.ts",
+  // the network-text reader: ST fragments are read by the ST parser, so it stands beside parse/
+  network: (t) => t !== "print.ts",
 }
 // transpile is a sibling backend, not a stack rung: it may only reach the front-end.
 const TRANSPILE_ALLOWED = FRONTEND
-// The top-level files that may import anything: the package barrel and the executable.
-const BARRELS = new Set(["index.ts", "bin.ts"])
+// The top-level file that may import anything: the package barrel (the CLI entry is `server/bin.ts`).
+const BARRELS = new Set(["index.ts"])
 
 /**
  * The front-end violations this change has not removed yet (tasks.md 1.2 → 1.41). Each entry is a violation string
@@ -94,7 +92,6 @@ export const KNOWN_FRONTEND_VIOLATIONS: readonly string[] = [
  * named so the gate can still fail on a NEW one.
  */
 export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
-  "services/structure/semantic-tokens.ts → network/network-analyze.ts: upward import (services must not import network)",
 ]
 
 /**

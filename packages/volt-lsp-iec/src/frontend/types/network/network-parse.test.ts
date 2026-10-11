@@ -5,10 +5,22 @@
  * reader's finding where the bridge raises it (`NetworkTextReaderTests`, `NetworkTextGateTests` in volt-cli).
  */
 import { expect, test } from "bun:test"
-import { type BodySpan, type Expr, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../frontend/syntax/index.js"
-import { type NetworkScopeView, STRUCTURE_ONLY, parseNetworkText } from "./parser.js"
-import { networkValueExpr, statementExprs } from "./exprs.js"
-import type { NetworkTextBody, NetworkTextStatement, NetworkValue } from "./ast.js"
+import {
+  type BodySpan,
+  type Expr,
+  type NetworkScopeView,
+  type NetworkTextBody,
+  type NetworkTextStatement,
+  type NetworkValue,
+  isGraphicalBody,
+  networkValueExpr,
+  parseSource,
+  statementExprs,
+  STRUCTURE_ONLY,
+  unitBodies,
+  walkExpr,
+} from "../../syntax/index.js"
+import { parseNetworkText } from "./network-parse.js"
 
 /** A POU whose graphical body is `networks`, under the line stating LD. */
 function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {

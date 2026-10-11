@@ -39,3 +39,5 @@ export { unresolvedInExprs, unresolvedMembers, type BareRef, type MemberRef } fr
 export { compilerExprText, structEcho } from "./shared/expr-echo.js"
 export { bareConversionArgument, isHole, reported } from "./shared/hole.js"
 export { isStructInit } from "./checks/types/struct-init.js"
+// the network-text pass — outside the registry until the LD/FBD coverage change makes it a check (tasks.md hand-in)
+export { computeNetworkTextDiagnostics, type NetworkTextDocument } from "./checks/network/network-analysis.js"

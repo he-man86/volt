@@ -37,15 +37,15 @@ import {
   type DiagnosticItem,
   type Messages,
   type Vendor,
+  computeNetworkTextDiagnostics,
 } from "../../src/analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { comparable } from "../conformance/support/compare-message.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "../conformance/support/divergences.js"
 import { networkDocuments, replayDocuments, withReplayFixture } from "../conformance/support/replay.js"
 import { projectDocuments } from "../corpus/support/diagnostics.js"
 import { corpusProjects, normMessage, PACKAGE } from "../frontend/sources.js"
-import type { Baseline } from "../frontend/baseline.js"
+import type { Baseline } from "../baseline/baseline.js"
 
 export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 /** The network-text pass — outside the registry while design.md §3 is parked, and the one census row with no entry. */
@@ -66,7 +66,7 @@ export interface RegistryRow {
 }
 
 const CHECKS_DIR = join(PACKAGE, "src", "analysis", "checks")
-const NETWORK_FILE = join(PACKAGE, "src", "network", "network-analysis.ts")
+const NETWORK_FILE = join(PACKAGE, "src", "analysis", "checks", "network", "network-analysis.ts")
 const portable = (path: string): string => relative(PACKAGE, path).split(sep).join("/")
 const walkTs = (dir: string): string[] =>
   readdirSync(dir).flatMap((n) => {
@@ -128,7 +128,7 @@ export function builderOwners(): Map<string, Set<string>> {
     const builders = builderNames()
     const rowsOfFile = new Map<string, Set<string>>()
     for (const r of registryRows()) rowsOfFile.set(r.file, (rowsOfFile.get(r.file) ?? new Set<string>()).add(r.check))
-    const files = [...walkTs(join(PACKAGE, "src", "analysis")), NETWORK_FILE]
+    const files = walkTs(join(PACKAGE, "src", "analysis"))
       .filter((p) => !p.endsWith(`${sep}messages.ts`))
       .map((p) => ({ file: portable(p), text: readFileSync(p, "utf8") }))
     const imports = new Map(files.map((f) => [f.file, (f.text.match(/^import[\s\S]*?from\s+["'][^"']+["']/gm) ?? []).join("\n")]))
@@ -342,7 +342,7 @@ function fixtureFindings(i: number, vendor: Vendor, rec: ReturnType<typeof recor
     }
     for (const doc of networkDocuments(files)) {
       rec.take()
-      const network = computeNetworkTextDiagnostics({ uri: doc.uri, source: doc.source, parseResult: doc.parseResult }, project, rec.messages)
+      const network = computeNetworkTextDiagnostics({ uri: doc.uri, parseResult: doc.parseResult }, project, rec.messages)
       const window = rec.take()
       for (const it of network)
         if (isReported(it)) out.push({ severity: it.severity, message: it.message, row: NETWORK_ROW, builder: window.get(it.message) ?? INLINE })

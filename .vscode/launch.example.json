@@ -5,7 +5,7 @@
       "type": "node",
       "request": "launch",
       "name": "volt-lsp-iec (stdio)",
-      "program": "${workspaceFolder}/packages/volt-lsp-iec/dist/src/bin.js",
+      "program": "${workspaceFolder}/packages/volt-lsp-iec/dist/src/server/bin.js",
       "args": ["--stdio"],
       "console": "integratedTerminal"
     },

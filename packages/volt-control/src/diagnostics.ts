@@ -59,14 +59,14 @@ export function describeDiagnostics(d: { errors: number; warnings: number }): st
 
 // ── server resolution ────────────────────────────────────────────────────────
 let serverModule: string | undefined
-/** Point the collector at volt-lsp-iec's stdio entry (dist/src/bin.js). Set once by the host. */
+/** Point the collector at volt-lsp-iec's stdio entry (dist/src/server/bin.js). Set once by the host. */
 export function setLspServer(path: string): void {
   if (existsSync(path)) serverModule = path
 }
 function resolveServer(workspaceRoot: string): string | undefined {
   const candidates = [
     serverModule,
-    join(workspaceRoot, "node_modules", "@volt", "lsp-iec", "dist", "src", "bin.js"),
+    join(workspaceRoot, "node_modules", "@volt", "lsp-iec", "dist", "src", "server", "bin.js"),
   ].filter((p): p is string => p !== undefined)
   return candidates.find((p) => existsSync(p))
 }

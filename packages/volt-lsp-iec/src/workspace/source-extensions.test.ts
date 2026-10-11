@@ -5,7 +5,7 @@
  */
 import { expect, test } from "bun:test"
 import { SOURCE_EXTENSIONS } from "./source-extensions.js"
-import { sourceObjectOf } from "./frontend/syntax/index.js"
+import { sourceObjectOf } from "../frontend/syntax/index.js"
 
 test("every writable-source extension names its object; nothing else does", () => {
   expect(Object.fromEntries(SOURCE_EXTENSIONS.map((e) => [e, sourceObjectOf(`file:///w/X${e}`)]))).toEqual({

@@ -19,8 +19,8 @@ import { WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics } from "./diagnostics.js"
 import { resolveConfig } from "../analysis/index.js"
 import { definition } from "../services/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../workspace-refs.js"
-import { SOURCE_EXTENSION_SET } from "../source-extensions.js"
+import { loadWorkspaceRefs, loadTaskRoots } from "../workspace/workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../workspace/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const ITERATIONS = 40

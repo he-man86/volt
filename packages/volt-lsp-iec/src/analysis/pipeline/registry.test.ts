@@ -115,7 +115,11 @@ describe("the run order", () => {
   })
 
   test("every code a check reads is produced by registry checks that run BEFORE it, or by the network pass after the registry", () => {
-    const network = [...filesUnder(join(ANALYSIS, "..", "network")), ...filesUnder(join(ANALYSIS, "..", "network-text"))].map((p) =>
+    const network = [
+      ...filesUnder(join(CHECKS, "network")),
+      ...filesUnder(join(ANALYSIS, "..", "frontend", "syntax", "network")),
+      ...filesUnder(join(ANALYSIS, "..", "frontend", "types", "network")),
+    ].map((p) =>
       readFileSync(p, "utf8"),
     )
     const late: string[] = []

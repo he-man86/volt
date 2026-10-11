@@ -62,7 +62,7 @@ bun typecheck                   # tsc --noEmit — src + test + scripts (this ts
 bun test                        # all three layers, offline & deterministic
 bun test src/frontend/types     # a single dir / module's unit tests
 bun test test/conformance       # just the conformance replay
-bun run build                   # tsc -> dist/ (also runs on prepare; bin is ./dist/src/bin.js)
+bun run build                   # tsc -> dist/ (also runs on prepare; bin is ./dist/src/server/bin.js)
 bun run lint                    # the layer-boundary check (fails on an upward import)
 ```
 
@@ -73,11 +73,12 @@ produce the recorded ground truth; they are run by hand, never by `bun test`. Ev
 ## Layout
 
 Folders are layers; **imports point downward only** (the front-end `syntax ← symbols ← types` ← analysis ←
-services ← server), lint-enforced. See [`docs/architecture.md`](./docs/architecture.md) for the full ownership map.
+services ← server), lint-enforced. Network text (LD/FBD) has no folder of its own: each layer holds its part in a
+`network/` folder. Every folder's one line is [`docs/architecture.md`](./docs/architecture.md) "The tree" (held to the
+disk by `test/package/structure.test.ts`), with the full ownership map.
 
 | Path | Layer / role |
 |---|---|
-| `src/bin.ts` | CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
 | `src/frontend/syntax/` | the vocabulary · lexer (error-tolerant) · the complete AST · parser · literals · pragmas · the Volt file format. |
 | `src/frontend/symbols/` | binder · scope-nav · `scoped-bodies` (the one shared "walk every ST body" iterator). |
 | `src/frontend/types/` | elementary type facts · the `Type` model · resolve · const · infer · compat · arith · render. |
@@ -85,13 +86,13 @@ services ← server), lint-enforced. See [`docs/architecture.md`](./docs/archite
 | `src/analysis/` | `pipeline/` (the one diagnostics pipeline, the check registry as data, the policy) · per-vendor messages · `shared/` rules · the `checks/`. |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
 | `src/reference/` | language-data catalogs (types · operators · conversions · pragmas · standard fns/fbs · lifecycle). |
-| `src/network-text/` · `src/network/` | the network-text (FBD/LD) lexer · parser · AST · its analysis and services (reusing the shared core). |
-| `src/index.ts` · `src/source-extensions.ts` · `src/workspace-refs.ts` | the package barrel · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
-| `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics. |
+| `src/index.ts` | the package barrel — the one file at the top of `src/`. |
+| `src/workspace/` | the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
+| `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics · `bin.ts`, the CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
 | `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution: `lower/` (every decision, refusals by name) → `ir/` (the contract) → `interp/` (the oracle, running `semantics/`, the value model) and `emit/rust/` (the printer, whose `runtime/` mirrors `semantics/`); its four models — loops, strings, pointers, initialization — in `docs/architecture.md`. |
 | `libraries/` | the library repo: each referenced library's elements written in ST, per version, for the transpiler (never the LSP). |
 | `test/conformance/` · `test/corpus/` | oracle replay (LSP diagnostics, transpiler execution) · real-project ratchet. |
-| `test/catalog/` · `test/frontend/` · `test/libraries/` | the C-code catalog · front-end baselines, censuses and the layering gate · the library repo. Map: [`test/README.md`](./test/README.md). |
+| `test/catalog/` · `test/frontend/` · `test/analysis/` · `test/baseline/` · `test/libraries/` · `test/package/` | the C-code catalog · the front-end and the analysis measured, and the baseline discipline they share · the library repo · the package's own shape (the build, the layering, the tree). Map: [`test/README.md`](./test/README.md). |
 | `scripts/` · `docs/` | dev tooling — recorders, gates, generators, measurements ([`scripts/README.md`](./scripts/README.md)) · the docs below. |
 
 ## Docs

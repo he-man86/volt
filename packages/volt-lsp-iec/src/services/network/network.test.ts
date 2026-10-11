@@ -1,15 +1,21 @@
 import { test, expect } from "bun:test"
-import { type BodySpan, type Expr, graphicalMarkerLanguage, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../frontend/syntax/index.js"
-import { build, type Scope } from "../frontend/symbols/index.js"
-import { messagesFor, type DiagnosticItem } from "../analysis/index.js"
-import type { LibraryManifest } from "../frontend/library/index.js"
 import {
-  STRUCTURE_ONLY,
-  parseNetworkText,
-  computeNetworkTextDiagnostics,
-  documentSymbolsWithVg,
-  analyzeNetworkText,
+  type BodySpan,
+  type Expr,
+  graphicalMarkerLanguage,
+  isGraphicalBody,
   networkValueExpr,
+  parseSource,
+  STRUCTURE_ONLY,
+  unitBodies,
+  walkExpr,
+} from "../../frontend/syntax/index.js"
+import { analyzeNetworkText, parseNetworkText } from "../../frontend/types/index.js"
+import { build, type Scope } from "../../frontend/symbols/index.js"
+import { computeNetworkTextDiagnostics, messagesFor, type DiagnosticItem } from "../../analysis/index.js"
+import type { LibraryManifest } from "../../frontend/library/index.js"
+import {
+  documentSymbolsWithVg,
   networkHover,
   networkDefinition,
   networkCompletion,
@@ -18,7 +24,7 @@ import {
   referencesAnywhere,
   renameAnywhere,
 } from "./index.js"
-import type { Document } from "../services/shared/index.js"
+import type { Document } from "../shared/index.js"
 
 /** Every identifier name referenced anywhere in an expression. */
 function idents(e: Expr | undefined): string[] {

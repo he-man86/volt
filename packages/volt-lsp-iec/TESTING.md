@@ -17,7 +17,7 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 | a **C-code** (a `Cnnnn` diagnostic) — is it emitted, with the right wording? | `test/catalog/catalog.test.ts` (master net, one test per code) **+** the check's own `src/analysis/checks/**/*.test.ts` | Unit |
 | check a C-code matches the **real CODESYS/TwinCAT** byte-for-byte | run `scripts/verify-catalog.ts` (live) → stamps `docs/codesys-reference/error-catalog.json`; view status with `scripts/catalog-status.ts` | Tooling |
 | a **language feature** — parse, resolve, hover, completion, signature, format, semantic tokens | colocated `src/frontend/{syntax,symbols,types}/`, `src/services/**/*.test.ts` | Unit |
-| a **graphical (network-text)** body | `src/network/*.test.ts` | Unit |
+| a **graphical (network-text)** body | `src/services/network/*.test.ts` · `src/frontend/types/network/*.test.ts` · `src/analysis/checks/network/*.test.ts` | Unit |
 | prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/lsp-replay.test.ts` and `transpile-replay.test.ts` (replay recorded IDE output — no live IDE) | Conformance |
 | **no invented diagnostics on real projects** | `test/corpus/corpus.test.ts` | Corpus |
 
@@ -75,7 +75,7 @@ test/
   frontend/                  the front-end MEASURED against the recordings (openspec frontend-conformance phase 0):
                              parse census, printer fixed point, resolution / type / fold dumps, each with a pinned
                              baseline of findings in baselines/ and a ceiling per disagreement measure in
-                             baselines/ceilings.json (baseline.test.ts: may only fall, against git history);
+                             baselines/ceilings.json (baseline/baseline.test.ts: may only fall, against git history);
                              rules.ts + rules.test.ts, the rule catalogue as data
   analysis/                  the analysis MEASURED against the recordings (openspec analysis-conformance phase 0):
                              diagnostic-census.test.ts — every registry check and message builder over every fixture
@@ -83,9 +83,15 @@ test/
                              baselines/ with a ceiling per open FP, GAP, unowned GAP and never-fired builder
                              (VOLT_CENSUS_REPORT=1 prints the per-check table). Counts move only with
                              VOLT_WRITE_BASELINE=1 in the commit that moves them; a ceiling never rises — a rise
-                             the ratchet accepts is a NAMED exception (frontend/baseline.ts CEILING_EXCEPTIONS: the
+                             the ratchet accepts is a NAMED exception (test/baseline/baseline.ts CEILING_EXCEPTIONS: the
                              fixture, the task that owns its fix, why) that fails once the fixture stops producing it.
                              Every analysis-conformance 3.x step wrote its group's FP/GAP before → after from it.
+  baseline/                  the baseline discipline frontend/ and analysis/ share: pinned findings, ceilings that only
+                             fall, CEILING_EXCEPTIONS (baseline.test.ts holds both ceilings files to their history)
+  package/                   the package's own shape: build.test.ts (the published build compiles), layering.test.ts
+                             (every import obeys scripts/check-layering.ts), structure.test.ts (no loose src/ file but
+                             the barrel, every src/ and test/ folder in docs/architecture.md "The tree", every script
+                             in scripts/README.md)
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two
@@ -161,6 +167,7 @@ bun test test/analysis
 - **One baseline file** runs alone. `type-dump`, `fold-dump` and `resolution-dump` read one census
   (`bound-census.ts`, ~13 s), built once per process — name them in ONE `bun test` call to pay it once. Measured
   alone (2026-10-02): parse-census ~10 s, fixed-point ~10 s, type-dump / fold-dump ~16 s, resolution-dump ~27 s (it
-  also runs the server's pass over the corpus), rules / bound-census / baseline / layering < 1 s; the whole folder ~36 s.
+  also runs the server's pass over the corpus), rules / bound-census < 1 s; the whole folder ~36 s (`test/baseline/` and `test/package/layering.test.ts`, < 1 s,
+  were in it until openspec lsp-package-structure 2.2).
 - **`bun run rate:fixtures` once, at the end** of a piece of work, not after every edit: the map carries project-wide
   totals, so there is no partial rewrite.

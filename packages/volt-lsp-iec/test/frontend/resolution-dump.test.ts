@@ -20,7 +20,7 @@ import { lspErrors } from "../conformance/support/evidence.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { projectDocuments } from "../corpus/support/diagnostics.js"
-import { checkBaseline, tally } from "./baseline.js"
+import { checkBaseline, tally } from "../baseline/baseline.js"
 import { boundCensus } from "./bound-census.js"
 import { corpusProjects, fixtureSources, normMessage } from "./sources.js"
 

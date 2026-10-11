@@ -13,8 +13,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { computeDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
+import { computeDiagnostics, computeNetworkTextDiagnostics, messagesFor, resolveConfig, type AnalysisInitOptions } from "../../../src/analysis/index.js"
 import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"

@@ -56,7 +56,7 @@
       "name": "@volt/lsp-iec",
       "version": "0.1.0",
       "bin": {
-        "volt-lsp-iec": "./dist/src/bin.js",
+        "volt-lsp-iec": "./dist/src/server/bin.js",
       },
       "dependencies": {
         "vscode-languageserver-protocol": "^3.18.3",

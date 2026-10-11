@@ -8,9 +8,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
-import { WorkspaceStore } from "./server/workspace-store.js"
-import { documentDiagnostics } from "./server/diagnostics.js"
-import { resolveConfig } from "./analysis/index.js"
+import { WorkspaceStore } from "../server/workspace-store.js"
+import { documentDiagnostics } from "../server/diagnostics.js"
+import { resolveConfig } from "../analysis/index.js"
 
 let root: string
 

@@ -2,7 +2,7 @@
  * network-text diagnostics (Layer F, F.2c) — the graphical branch of the analysis orchestrator. Two streams, both
  * lifted into the same `DiagnosticItem` the ST checks emit so the server merges them onto one
  * `PublishDiagnostics`:
- *   1. STRUCTURAL — the bridge gate's `NETWORK_*` findings (`network-text/parser`, a port of the bridge reader, which
+ *   1. STRUCTURAL — the bridge gate's `NETWORK_*` findings (`syntax/network/parser`, a port of the bridge reader, which
  *      asks the POU's scope what the bridge reader asks it, and holds a wire's declared type to its producer as the
  *      reader does). Canonical form is no finding: the push writes any spelling that reads (bridge-refusal-review 2.12).
  *   2. CODE CORRECTNESS — an assign `target := value` is an assignment, so it runs the SAME assignment-type check as ST
@@ -20,36 +20,40 @@
  */
 import {
   type Expr,
+  type NetworkName,
+  type NetworkTextNetwork,
+  type NetworkTextStatement,
+  type NetworkValue,
+  type ParseResult,
   type Span,
+  callReading,
+  executeBoxes,
   graphicalBodies,
+  networkValueExpr,
+  statementExprs,
   stmtExprs,
+  SYMBOL_TO_TYPE,
   walkExpr,
   walkStatements,
-} from "../frontend/syntax/index.js"
-import { inferExprType, renderType, resolveCallee } from "../frontend/types/index.js"
-import {
-  compilerExprText,
-  isHole,
-  reported,
-  assignmentPairError,
-  narrowingPairError,
-  conversionArgError,
-  binaryOpError,
-  unresolvedInExprs,
-  unresolvedMembers,
-  SOURCE,
-  type DiagnosticItem,
-  type Messages,
-} from "../analysis/index.js"
-import { extendsChain, hasUnresolvedBase, type Scope } from "../frontend/symbols/index.js"
-import { analyzeNetworkText, headIsVariable, instanceFb } from "./network-analyze.js"
-import { walkValues, type NetworkName, type NetworkTextNetwork, type NetworkTextStatement, type NetworkValue } from "../network-text/ast.js"
-import { callReading, executeBoxes, networkValueExpr, statementExprs } from "../network-text/exprs.js"
-import { SYMBOL_TO_TYPE } from "../network-text/lexer.js"
-import type { Document } from "../services/shared/index.js"
+  walkValues,
+} from "../../../frontend/syntax/index.js"
+import { analyzeNetworkText, headIsVariable, inferExprType, instanceFb, renderType, resolveCallee } from "../../../frontend/types/index.js"
+import { extendsChain, hasUnresolvedBase, type Scope } from "../../../frontend/symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
+import { isHole, reported } from "../../shared/hole.js"
+import { assignmentPairError, binaryOpError, conversionArgError, narrowingPairError } from "../../shared/rules.js"
+import { unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
+import type { Messages } from "../../messages.js"
+
+/** What the network pass reads of a document: its uri and its parse. */
+export interface NetworkTextDocument {
+  uri: string
+  parseResult: ParseResult
+}
 
 export function computeNetworkTextDiagnostics(
-  doc: Document,
+  doc: NetworkTextDocument,
   project: Scope,
   messages: Messages,
 ): DiagnosticItem[] {
@@ -86,7 +90,7 @@ export function computeNetworkTextDiagnostics(
  * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so network text matches ST byte-for-byte.
  *
  * No word of the text reaches it as an identifier any more: an edge is `R_EDGE(x)`, a flag on `x` that reads as an
- * opaque BOOL whose operand is still resolved (`network-text/exprs`), where v1 left a trailing `RISING`/`FALLING` in
+ * opaque BOOL whose operand is still resolved (`syntax/network/exprs`), where v1 left a trailing `RISING`/`FALLING` in
  * the operand for this check to skip by name.
  */
 function checkUndeclared(

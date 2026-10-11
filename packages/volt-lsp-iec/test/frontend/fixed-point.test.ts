@@ -14,7 +14,7 @@
  * since frontend-conformance 2.9 and its ceilings are 0, so any non-fixed point fails.
  */
 import { describe, expect, test } from "bun:test"
-import { checkBaseline, tally, type Baseline } from "./baseline.js"
+import { checkBaseline, tally, type Baseline } from "../baseline/baseline.js"
 import { parse, printFindings, type Parsed } from "./dumps.js"
 import { corpusProjects, fixtureSources, libraryRepoFiles } from "./sources.js"
 

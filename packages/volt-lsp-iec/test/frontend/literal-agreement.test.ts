@@ -16,7 +16,7 @@
  * unifying the two is handed to transpile-restructure (frontend-conformance 5.3).
  */
 import { describe, test } from "bun:test"
-import { checkBaseline, tally } from "./baseline.js"
+import { checkBaseline, tally } from "../baseline/baseline.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { literalAnswers } from "./literal-agreement.js"
 import { corpusProjects, fixtureSources } from "./sources.js"

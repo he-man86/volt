@@ -16,7 +16,7 @@ import { EXPLICIT_PAIR_TESTS } from "../conformance/fixtures/conversions/explici
 
 /** The front-end's baselines — the default directory. A measurement elsewhere (`test/analysis/baselines/`) passes its own:
  *  the discipline, the ceilings and the history check are shared, not copied. */
-export const FRONTEND_BASELINES = join(import.meta.dir, "baselines")
+export const FRONTEND_BASELINES = join(import.meta.dir, "..", "frontend", "baselines")
 export const CEILINGS_PATH = join(FRONTEND_BASELINES, "ceilings.json")
 /** A baseline directory's ceilings file. */
 export const ceilingsPath = (dir: string): string => join(dir, "ceilings.json")

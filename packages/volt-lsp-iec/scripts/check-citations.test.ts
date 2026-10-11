@@ -12,6 +12,7 @@ test("a citation is a .ts path with an optional line; URLs, globs, placeholders 
   const text = [
     "// see lower/calls.ts:976 and `interp.ts:289-292`, also ir/ir.ts",
     "// https://example.com/a/b.ts, *.test.ts, <file>.test.ts, pipeline/{arith,control}.test.ts, lib.d.ts",
+    "// a deleted file by its git object: `git show f5a189cb83:scripts/probe.ts`",
   ].join("\n")
   expect(citationsIn("x.ts", text).map((c) => `${c.line} ${c.cited}`)).toEqual([
     "1 lower/calls.ts",

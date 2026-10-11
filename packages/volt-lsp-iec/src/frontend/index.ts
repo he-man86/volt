@@ -214,3 +214,8 @@ export {
   type FunctionBlockType,
   type Type,
 } from "./types/index.js"
+
+// network text (LD/FBD) — its AST and walks, and the typed reader with each network's wire scope
+export * from "./syntax/network/ast.js"
+export { networkValueExpr, statementExprs, STRUCTURE_ONLY } from "./syntax/index.js"
+export { analyzeNetworkText, parseNetworkText, type NetworkTextAnalysis } from "./types/index.js"

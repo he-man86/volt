@@ -11,8 +11,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
 import { parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
-import { SOURCE_EXTENSION_SET } from "../../../src/source-extensions.js"
-import { readSourceText, scanLibraryManifests } from "../../../src/workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../../../src/workspace/source-extensions.js"
+import { readSourceText, scanLibraryManifests } from "../../../src/workspace/workspace-refs.js"
 import { withImplementations } from "../../../libraries/index.js"
 
 /**

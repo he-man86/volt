@@ -49,6 +49,7 @@ import {
   type BodySpan,
   type TopLevel,
   type TypeExpr,
+  STRUCTURE_ONLY,
 } from "../../src/frontend/syntax/index.js"
 import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/frontend/symbols/index.js"
 import { libraryRank } from "../../src/frontend/symbols/index.js"
@@ -56,7 +57,7 @@ import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerUnit } from "../../src/transpile
 import type { IrBuiltinName, IrExpr, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
-import { STRUCTURE_ONLY, parseNetworkText } from "../../src/network/index.js"
+import { parseNetworkText } from "../../src/frontend/types/index.js"
 import { projectDocuments } from "./support/diagnostics.js"
 import { loweringProject, walkSources } from "./support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"

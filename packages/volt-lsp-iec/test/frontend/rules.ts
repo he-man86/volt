@@ -2577,10 +2577,10 @@ export const RULES: readonly Rule[] = [
         title: "IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic",
       },
       {
-        file: "src/network-text/parser.test.ts",
+        file: "src/frontend/types/network/network-parse.test.ts",
         title: "the header carries LABEL, TITLE and DISABLED, and a title spells ST's escapes",
       },
-      { file: "src/network-text/parser.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
+      { file: "src/frontend/types/network/network-parse.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
     ],
     design: "rcc_st_body_network, rcc_implementation_variable",
   },

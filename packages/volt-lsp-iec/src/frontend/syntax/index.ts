@@ -106,3 +106,17 @@ export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isStBody, un
 
 // printing a declared type or an expression
 export { compilerTypeText, dimText, exprText, initOperatorText, renderTypeExpr } from "./print.js"
+
+// network text — the LD/FBD bodies' own text (`packages/volt-cli/docs/network-text.html`): its AST and walks, the
+// operator table, and the reader, which types wires by a rule the type layer hands it (`types` `parseNetworkText`)
+export * from "./network/ast.js"
+export { callReading, executeBoxes, networkValueExpr, statementExprs } from "./network/exprs.js"
+export { SYMBOL_TO_TYPE } from "./network/lexer.js"
+export {
+  NETWORK_TEXT_KEYWORDS,
+  NETWORK_TEXT_WORDS,
+  readNetworkText,
+  STRUCTURE_ONLY,
+  type NetworkScopeView,
+  type NetworkWireTyping,
+} from "./network/parser.js"

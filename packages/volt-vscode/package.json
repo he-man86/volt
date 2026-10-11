@@ -771,7 +771,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-iec/src/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs",
+    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-iec/src/server/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",

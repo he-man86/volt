@@ -16,10 +16,10 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
-import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "./analysis/index.js"
-import { parseLibraryManifest, type LibraryManifest } from "./frontend/library/index.js"
-import type { DeviceInstance } from "./frontend/symbols/index.js"
-import type { CompileEnvironment, Target } from "./frontend/syntax/index.js"
+import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "../analysis/index.js"
+import { parseLibraryManifest, type LibraryManifest } from "../frontend/library/index.js"
+import type { DeviceInstance } from "../frontend/symbols/index.js"
+import type { CompileEnvironment, Target } from "../frontend/syntax/index.js"
 
 /** What a workspace holds beside its sources that the symbol table binds: the referenced libraries' manifests, the
  *  device tree's instances, and the compilation target where a device descriptor names one whose width is measured. */

@@ -25,7 +25,7 @@ the type layer (`src/frontend/syntax`, `symbols`, `types`) answer as the recordi
 and library body? `parse-census` (0.1), `fixed-point` (0.2, the printer), `resolution-dump` (0.3), `type-dump` and
 `fold-dump` (0.4) each pin their findings in `frontend/baselines/` — a new finding fails and so does one that vanished
 (`VOLT_WRITE_BASELINE=1` rewrites them). `baselines/ceilings.json` makes "may only fall" mechanical: the writer refuses a
-disagreement measure above its ceiling and lowers each ceiling to what it measured, and `baseline.test.ts` fails a
+disagreement measure above its ceiling and lowers each ceiling to what it measured, and `baseline/baseline.test.ts` fails a
 ceilings file that rose against any committed version of itself; `rules.test.ts` (0.5) holds design.md §4's rule catalogue (`rules.ts`) to the
 fixtures and recordings that exist. The dump builders (`dumps.ts`) are shared with snapshot F. `bound-census.ts` walks
 everything bound ONCE for 0.3 and 0.4.
@@ -37,11 +37,19 @@ both vendors, and over the six corpora as the server analyses them, and attribut
 message builder: TP, SEV, FP (`div` where the replay pins a divergence) and GAP (IDE-only, attributed by shape, or
 `unowned`). The builder is `census.ts`; the counts and findings are pinned in `analysis/baselines/` (`fixtures.codesys`,
 `fixtures.twincat`, `corpus`, `coverage`) with their own `ceilings.json`, held by the same discipline as `frontend/`
-(`frontend/baseline.ts` takes the directory; `frontend/baseline.test.ts` holds both ceilings files to their history).
+(`baseline/baseline.ts` takes the directory; `baseline/baseline.test.ts` holds both ceilings files to their history).
 A census row is a registry entry (`diagnostic-census.test.ts` holds census rows == `CHECK_REGISTRY`); an unowned GAP is
 classed `owned-by-frontend` / `project-config` / `missing-rule` by its wording (`census.ts` `unownedClass`). A GAP that
-rises because a step recorded new ground no check owns yet is a named `CEILING_EXCEPTIONS` entry in `frontend/baseline.ts`,
+rises because a step recorded new ground no check owns yet is a named `CEILING_EXCEPTIONS` entry in `baseline/baseline.ts`,
 never a raised ceiling (analysis-conformance 3.11's REFERENCE TO BIT alias, 3.12's initialization order of PROGRAMs).
+
+Plus `baseline/` — the discipline `frontend/` and `analysis/` share (pinned findings, ceilings that only fall,
+`CEILING_EXCEPTIONS`), at the root because it belongs to neither (openspec `lsp-package-structure` 2.2).
+
+Plus `package/` — the PACKAGE'S OWN SHAPE: the published build compiles (`build.test.ts`), every import obeys the layer
+rules (`layering.test.ts`, over `scripts/check-layering.ts`), and the tree is explained and kept (`structure.test.ts`:
+no loose file at the top of `src/` but the barrel, every folder of `src/` and `test/` in `docs/architecture.md` "The
+tree", every script in `scripts/README.md`). And `network-text-on.ts`, the preload `bunfig.toml` names.
 
 ## Why these four, and not more
 

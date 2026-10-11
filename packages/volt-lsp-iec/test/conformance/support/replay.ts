@@ -11,8 +11,7 @@
  */
 import { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
-import { computeDiagnostics, messagesFor, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
+import { computeDiagnostics, computeNetworkTextDiagnostics, messagesFor, resolveConfig, type DiagnosticItem, type Vendor } from "../../../src/analysis/index.js"
 import { ALL_TESTS } from "../fixtures/index.js"
 import { splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
@@ -227,7 +226,7 @@ export function replayDiagnostics({ own, plc, lists, dependencies }: ReplayFiles
   return [
     ...docs.flatMap((d) => computeDiagnostics({ uri: d.uri, parseResult: d.parseResult, source: d.source, project, config })),
     ...networkDocuments({ own, plc, lists, dependencies }).flatMap((d) =>
-      computeNetworkTextDiagnostics({ uri: d.uri, source: d.source, parseResult: d.parseResult }, project, messagesFor(vendor)),
+      computeNetworkTextDiagnostics({ uri: d.uri, parseResult: d.parseResult }, project, messagesFor(vendor)),
     ),
   ]
 }

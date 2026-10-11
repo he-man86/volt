@@ -77,7 +77,7 @@ import {
   UNKNOWN,
   type Type,
 } from "../../src/frontend/types/index.js"
-import { tally } from "./baseline.js"
+import { tally } from "../baseline/baseline.js"
 
 /** Every kind of `Expr`, for the UNKNOWN counts (`summarize`). */
 const EXPR_KINDS: readonly Expr["kind"][] = [

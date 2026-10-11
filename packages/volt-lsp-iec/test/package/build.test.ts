@@ -13,7 +13,7 @@ import { join } from "node:path"
 
 test("tsc -p tsconfig.build.json compiles with no error — the build reaches no Bun-only test helper", () => {
   const out = Bun.spawnSync([process.execPath, "x", "tsc", "-p", "tsconfig.build.json", "--noEmit"], {
-    cwd: join(import.meta.dir, ".."),
+    cwd: join(import.meta.dir, "..", ".."),
   })
   expect(out.stdout.toString() + out.stderr.toString()).toBe("")
   expect(out.exitCode).toBe(0)

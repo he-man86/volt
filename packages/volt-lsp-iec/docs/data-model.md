@@ -475,7 +475,7 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 
 ## network text (FBD/LD as text)
 
-**As-built (network text v2, openspec `network-text-literal-nwl`; `src/network-text/`).** The body is read by a port of
+**As-built (network text v2, openspec `network-text-literal-nwl`; `src/frontend/syntax/network/`).** The body is read by a port of
 the bridge reader (`parser.ts`, over its own `lexer.ts`): one statement per vendor network item, the values a tree of
 their own (`NetworkValue`) because the text spells things ST has no node for — an empty slot, an edge FLAG, `PARALLEL`,
 an EXECUTE box, `.ENO`, `=> v`. Every operand, target and backticked text is still an ST `Expr`, and `exprs.ts` gives

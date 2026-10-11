@@ -14,11 +14,11 @@ import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-proto
 import {
   codesysCodeFor,
   computeDiagnostics,
+  computeNetworkTextDiagnostics,
   messagesFor,
   PARSE_ERROR_CODES,
   type DiagnosticItem,
 } from "../analysis/index.js"
-import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { inDeadMember, ownerPou } from "./reachability.js"
 import {
   isLibrarySymbol,

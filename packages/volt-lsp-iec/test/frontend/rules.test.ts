@@ -12,7 +12,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { LanguageTest } from "../conformance/types.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
-import { ceilingsOf } from "./baseline.js"
+import { ceilingsOf } from "../baseline/baseline.js"
 import { explicitConversionPairs, recordedFixtures } from "./conversion-pairs.js"
 import { RULES } from "./rules.js"
 

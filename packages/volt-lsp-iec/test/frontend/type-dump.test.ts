@@ -8,7 +8,7 @@
  * must infer the type its value prints as. Each that is not is a finding in `baselines/type-dump.json`.
  */
 import { describe, expect, test } from "bun:test"
-import { checkBaseline } from "./baseline.js"
+import { checkBaseline } from "../baseline/baseline.js"
 import { boundCensus } from "./bound-census.js"
 
 describe("0.4 types", () => {

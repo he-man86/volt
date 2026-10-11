@@ -202,8 +202,8 @@ function resolveServerModule(context: vscode.ExtensionContext, override: string)
 	const candidates = [
 		override, // volt.iec.server
 		join(context.extensionPath, "dist", "lsp-server.js"), // packaged (the `bun run build` output)
-		join(context.extensionPath, "node_modules", "@volt", "lsp-iec", "dist", "src", "bin.js"),
-		join(dirname(context.extensionPath), "volt-lsp-iec", "dist", "src", "bin.js"), // dev workspace
+		join(context.extensionPath, "node_modules", "@volt", "lsp-iec", "dist", "src", "server", "bin.js"),
+		join(dirname(context.extensionPath), "volt-lsp-iec", "dist", "src", "server", "bin.js"), // dev workspace
 	]
 	return candidates.find((p) => p.length > 0 && existsSync(p))
 }

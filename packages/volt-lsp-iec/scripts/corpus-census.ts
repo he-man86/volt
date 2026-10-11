@@ -15,7 +15,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseSource, bodyStatements, isGraphicalBody, isStBody, type ParseResult } from "../src/frontend/syntax/index.js"
-import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
+import { SOURCE_EXTENSION_SET } from "../src/workspace/source-extensions.js"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 

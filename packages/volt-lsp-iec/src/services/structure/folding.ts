@@ -3,8 +3,8 @@
  * and each multi-line block statement (IF/CASE/FOR/WHILE/REPEAT) in a POU body. Pure AST/structure.
  */
 import type { FoldingRange } from "vscode-languageserver-protocol"
-import { isGraphicalBody, isStBody, sourceStatements, type Span, unitBodies, walkStatements } from "../../frontend/syntax/index.js"
-import { STRUCTURE_ONLY, parseNetworkText } from "../../network-text/parser.js"
+import { isGraphicalBody, isStBody, sourceStatements, STRUCTURE_ONLY, type Span, unitBodies, walkStatements } from "../../frontend/syntax/index.js"
+import { parseNetworkText } from "../../frontend/types/index.js"
 import type { Document } from "../shared/index.js"
 
 export function foldingRanges(doc: Document): FoldingRange[] {

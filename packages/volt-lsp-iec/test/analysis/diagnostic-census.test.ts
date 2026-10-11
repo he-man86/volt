@@ -11,7 +11,7 @@
  *   corpus.json                                     per project and per code; the FP / SEV / GAP lines
  *   coverage.json                                   the builders with no TP on a vendor, the checks firing on no fixture
  *   ceilings.json                                   open FP, GAP, unowned GAP and never-fired builders, per vendor and
- *                                                   per group — they may only fall (`test/frontend/baseline.test.ts`
+ *                                                   per group — they may only fall (`test/baseline/baseline.test.ts`
  *                                                   holds this file to its history too)
  *
  * A new finding fails, and so does one that vanished, until the baseline says so: `VOLT_WRITE_BASELINE=1` rewrites them
@@ -23,7 +23,7 @@
 import { describe, expect, test } from "bun:test"
 import { join } from "node:path"
 import { CHECK_REGISTRY } from "../../src/analysis/index.js"
-import { checkBaseline } from "../frontend/baseline.js"
+import { checkBaseline } from "../baseline/baseline.js"
 import { readFileSync } from "node:fs"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import {

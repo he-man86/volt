@@ -1,7 +1,7 @@
 /**
  * The transpiler's own layering rules fire (openspec transpile-restructure task 1.0.1, design.md P2): each case plants one
  * violation of rule 4, 4b or 6 in a scratch package and asserts the scan names it by rule, with both files; the allowed
- * shape beside each is clean. (`test/frontend/layering.test.ts` runs the scan on the real tree and the front-end and
+ * shape beside each is clean. (`test/package/layering.test.ts` runs the scan on the real tree and the front-end and
  * analysis rules' planted cases.)
  */
 import { expect, test } from "bun:test"

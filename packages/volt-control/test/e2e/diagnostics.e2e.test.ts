@@ -15,7 +15,7 @@ import { join, resolve } from "node:path"
 import { collectDiagnostics, setLspServer } from "../../src/index.js"
 
 const LSP_DIR = resolve(import.meta.dir, "..", "..", "..", "volt-lsp-iec")
-const SERVER = join(LSP_DIR, "dist", "src", "bin.js")
+const SERVER = join(LSP_DIR, "dist", "src", "server", "bin.js")
 
 let ready = false
 let dir = ""

@@ -12,8 +12,9 @@ import {
   parseSource,
   bodyStatements,
   unitBodies,
-} from "../frontend/syntax/index.js"
-import { STRUCTURE_ONLY, parseNetworkText } from "./parser.js"
+  STRUCTURE_ONLY,
+} from "../../syntax/index.js"
+import { parseNetworkText } from "./network-parse.js"
 
 const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 

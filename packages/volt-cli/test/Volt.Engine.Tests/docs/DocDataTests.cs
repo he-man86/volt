@@ -845,7 +845,7 @@ public class DocDataTests
     [InlineData("packages/volt-cli/docs/wire.html")]
     [InlineData("packages/volt-cli/src/Volt.Contracts/Wire/RefsFetch.cs")]
     [InlineData("packages/volt-control/src/state/files.ts")]
-    [InlineData("packages/volt-lsp-iec/src/source-extensions.ts")]
+    [InlineData("packages/volt-lsp-iec/src/workspace/source-extensions.ts")]
     [InlineData("packages/volt-web/app/docs/agents.mdx")]
     public void No_doc_names_a_dut_by_a_split_subtype_name(string relative)
     {
@@ -908,7 +908,7 @@ public class DocDataTests
         while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
             root = root.Parent;
         Assert.NotNull(root);
-        var text = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-lsp-iec", "src", "source-extensions.ts"));
+        var text = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-lsp-iec", "src", "workspace", "source-extensions.ts"));
         Assert.Contains("ItemKind.SourceKindExtensions", text, StringComparison.Ordinal);
         Assert.DoesNotContain("ItemKind.ExtFor", text, StringComparison.Ordinal);
     }

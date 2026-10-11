@@ -30,7 +30,7 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ```
 G  server        LSP 3.17 / stdio · dispatch · capabilities · WorkspaceStore (eager index + watched-file
                  freshness) · push+pull diagnostics · progress
-F  reference · network(-text) language data catalogs · the FBD/LD sublanguage (native, by reuse)
+F  reference      language data catalogs (network text: a network/ folder inside each layer)
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -40,27 +40,101 @@ A  syntax        vocabulary · lexer · complete AST · parser · literals · pr
                       ↘ transpile (Rust backend) consumes the front-end directly — headless test execution
 ```
 
-## The tree (as it stands; openspec `lsp-package-structure` gives it its final shape)
+## The tree
+
+One line per folder, held to the disk both ways by `test/package/structure.test.ts`: a folder missing here, or a line
+naming a folder that is gone, fails it — so does a loose file at the top of `src/` other than the package barrel, and a
+script not in `scripts/README.md`. Network text (LD/FBD) is another language the LSP reads, so it has no root folder:
+each layer holds its part in a `network/` folder. Unit tests sit beside their module; `test/` holds what crosses
+modules.
 
 ```
-src/
-  frontend/      A–C — syntax · symbols · types, and library (the Volt library format); one index per sub-layer
-  analysis/      D — the diagnostics pipeline/ and registry, messages, shared/ rules, and checks/ by concern
-  services/      E — the LSP features over the layers below
-  reference/     F — the language data catalogs
-  network-text/  F — the network-text (FBD/LD) lexer, parser and AST
-  network/       F — network-text analysis and services over the shared core
-  server/        G — LSP 3.17 over stdio, the WorkspaceStore, push+pull diagnostics
-  transpile/     the Rust backend — lower/ → ir/ → interp/ · emit/rust/
-  bin.ts · index.ts · source-extensions.ts · workspace-refs.ts
-                 the CLI entry · the package barrel · the writable-source extension set · the workspace scan
-test/            cross-cutting suites — conformance/ · corpus/ · catalog/ · frontend/ · libraries/ (map: test/README.md);
-                 unit tests sit beside their module in src/
-libraries/       the library repo: referenced libraries' elements in ST, per version, for the transpiler
-scripts/         dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
-docs/            this file · behavior.md · data-model.md · language-reference.md · reserved-il-operators.md ·
-                 codesys-reference/ (vendor docs + the C-code catalog) · twincat-reference/
-test-corpus/     the real projects the corpus suite reads
+src/  the product code, one folder per layer; imports point down the stack (scripts/check-layering.ts)
+  index.ts  the package barrel (package.json exports) — the one file at the top of src/
+  frontend/  A–C — the front-end every consumer asks: syntax, symbols, types, and the library format
+    library/  the Volt library format: path layout, manifest, materialization (a leaf that imports nothing)
+    syntax/  A — ST text to a tree: vocabulary, lexer, AST, parser, literals, pragmas, the workspace file format
+      ast/  the AST node types, their walks, and questions about declarations answered from the tree alone
+      format/  the Volt workspace file format: the IMPLEMENTATION line, folders, which reader reads a body
+      lex/  the vocabulary, the token kinds and the hand-written ST lexer
+      literal/  literal values: numbers, strings, durations, calendar values, direct addresses
+      network/  the network-text (LD/FBD) lexer, AST, value walks and reader (it types wires by a rule types/ hands it)
+      parse/  the ST parser: bodies, statements, expressions, type expressions, declarations
+        units/  one parser per top-level unit (PROGRAM, FUNCTION_BLOCK, METHOD, PROPERTY, TYPE, GVL …)
+      pragmas/  attributes in the AST and the conditional-compilation pragmas
+    symbols/  B — the scope tree: binder, lookup, scope navigation, EXTENDS chains, the scoped-body iterator
+    types/  C — elementary facts, the Type model, resolution, compatibility, rendering, layout
+      arith/  the operators' typing rules: runtime and checked arithmetic, temporal arithmetic
+      const/  constancy and the AST constant fold
+      infer/  expression type inference and a call's callee
+      network/  network text typed: the reader composed with the operators' rule, each network's wire scope
+  reference/  F — the language data catalogs: types, operators, conversions, pragmas, standard functions and FBs
+  analysis/  D — the diagnostics: pipeline and registry, per-vendor messages, shared rules, the checks
+    checks/  one folder per concern; a check imports no other check, its test sits beside it
+      calls/  call arguments against the callee's parameters
+      declarations/  declarations, initializers, addresses, VAR sections
+      flow/  control flow: CASE labels, jumps, loops, empty blocks
+      names/  name resolution: unresolved, ambiguous, shadowed names
+      network/  the network-text (LD/FBD) findings — outside the registry until the LD/FBD coverage change
+      oop/  function blocks, methods, interfaces, properties, inheritance
+      pragmas/  pragma and attribute diagnostics
+      syntax/  every parse error the parser recorded
+      types/  type checks: assignments, conversions, operators, bounds, overflow
+    pipeline/  the registry, its run order and the context a check is handed
+    shared/  rules more than one check applies, and the diagnostic item
+  services/  E — the LSP features over the layers below
+    assist/  hover, completion, signature help, inlay hints, code lens, code actions
+    formatting/  the formatter
+    navigation/  definition, references, highlight, rename, implementation, hierarchy
+    network/  the services over a network-text body, and the references and rename that span both languages
+    shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
+    structure/  document and workspace symbols, folding, selection, semantic tokens
+  workspace/  file I/O over the stack: the workspace scan and the writable-source extension set
+  server/  G — LSP 3.17 over stdio, the WorkspaceStore, push+pull diagnostics, and the CLI entry bin.ts
+  transpile/  the Rust backend — it consumes the front-end only
+    emit/  the printers of the IR
+      rust/  IR to Rust text and its source map
+        runtime/  the Rust helpers the emitted code calls, mirrored by semantics/
+    interp/  the IR interpreter — the oracle the emitted Rust is checked against
+    ir/  the transpiler IR every backend consumes
+    lower/  AST to IR — the only place ST semantics are decided
+      builtins/  the builtins' lowering and their arity
+      calls/  calls: binding, in-outs, outputs, FB and method calls, SUPER
+      core/  the frame, the shared builders, the AST walks, the identity keys
+      diagnostics/  the refusal registry
+      entry/  the per-POU pipeline and the source path
+      expressions/  expressions, date and time arithmetic among them
+      init/  the init step: initializers, FB_init, attributes
+      interfaces/  calls through an interface
+      places/  places, their paths and access guards
+      pointers/  pointers, references and addresses
+      project/  the input assembly: files, libraries, attributes
+      statements/  statements: assignment, loops, CASE, jumps
+      storage/  storage: frames, layout, direct addresses
+      values/  literals, constant folds, conversions
+    pipeline/  the composition root: lower, then run or print
+    semantics/  the value model: what an IR node means on values
+test/  what crosses modules, one folder per concern (map: test/README.md)
+  analysis/  the analysis measured: every check and message builder against both vendors' builds and the corpora
+    baselines/  its pinned findings and ceilings
+  baseline/  the baseline discipline both measures share: pinned findings, ceilings that only fall
+  catalog/  every documented Cnnnn code has a repro and a message
+  conformance/  the fixture contract: LSP replay, transpile replay, the map, backends, properties
+    fixtures/  one fixture per rule, grouped by concern (map.generated.ts maps every one)
+    recordings/  the committed oracle truth: CODESYS and TwinCAT builds and runs
+    support/  the suites' shared machinery: replay, evidence, divergences, rustc
+      notes/  the authored notes the fixture map renders
+      transpile/  the transpile replay's harness
+  corpus/  the real-project ratchet over test-corpus/
+    support/  the corpus projects, read once, and their diagnostics
+  frontend/  the front-end measured: parse census, printer fixed point, resolution, type and fold dumps
+    baselines/  its pinned findings and ceilings
+  libraries/  the library repo's ST bodies, run
+  package/  the package's own shape: the build compiles, the layering, this tree
+libraries/  the library repo: referenced libraries' elements in ST, per version, for the transpiler
+scripts/  dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
+docs/  this file, behavior.md, data-model.md, language-reference.md, the vendor references
+test-corpus/  the real projects the corpus suite reads
 ```
 
 ## Layers
@@ -92,7 +166,7 @@ fact, rule and engine a consumer asks; `library/index.ts` — the path layout, t
 format. `frontend/index.ts` re-exports the three language indexes for the package barrel (`src/index.ts`) alone.
 
 **Import rules** (`scripts/check-layering.ts`, over `src/`, `test/`, `scripts/` and `libraries/`, tests included; run
-inside `bun test` by `test/frontend/layering.test.ts`, which fails on a new violation and on a listed one that has
+inside `bun test` by `test/package/layering.test.ts`, which fails on a new violation and on a listed one that has
 gone — the known-violation list is empty):
 
 - **F1** — nothing under `frontend/` imports outside `frontend/`: the front-end imports no consumer.
@@ -185,10 +259,10 @@ suppression policy and lives in `server/reachability`.
 The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
 in its entry's `reads`, and nothing else of `out` is read. `diagnostic-census.test.ts` (test/analysis) measures every
 check and message builder against both vendors' build recordings and the corpora, with ceilings that only fall.
-**Network text is NOT in the one pipeline yet** — its findings still come from `network/`'s own
-`computeNetworkTextDiagnostics`, merged by `server/diagnostics`, and `services/structure/semantic-tokens` still imports
-`network/` (the one `KNOWN_OTHER_VIOLATIONS` entry). That integration is unchanged and PARKED for the LD/FBD coverage
-change (openspec analysis-conformance design.md §3, the hand-off in its tasks.md 5.3).
+**Network text is NOT in the one pipeline yet** — its findings come from `checks/network/`'s own
+`computeNetworkTextDiagnostics`, outside the registry, merged by `server/diagnostics`. Making it a registry check is
+PARKED for the LD/FBD coverage change (openspec analysis-conformance design.md §3; the work list is the hand-in in the
+archived `lsp-package-structure` tasks.md).
 
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,
@@ -198,14 +272,14 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 (document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
 `code-actions`.
 
-### F — `reference/` · `network-text/` · `network/`
+### F — `reference/`, and network text in every layer
 `reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
-lifecycle) — ranges derive from `frontend/types/elementary`. The FBD/LD family is two folders today:
-`network-text/` reads the text (lexer, parser, AST of a network-text body, the format specified in
-`packages/volt-cli/docs/network-text.html`), and `network/` analyzes it — wire symbols and types, the checks, the
-services — **reusing the shared core**: one type engine, one orchestrator, one service set. Graphical is a second
-front-end that plugs in, not a second stack. (Both dissolve into the layers — `frontend/syntax/network`,
-`frontend/symbols`/`types`, `analysis/checks/network` — in openspec `lsp-package-structure`.)
+lifecycle) — ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
+language the layers read, **reusing the shared core** — one type engine, one orchestrator, one service set.
+`frontend/syntax/network/` reads the text (lexer, AST, reader; the format specified in
+`packages/volt-cli/docs/network-text.html`) and types its wires by the operators' rule the type layer hands it;
+`frontend/types/network/` composes that reader (`parseNetworkText`) and builds each network's wire scope over the POU's
+(`analyzeNetworkText`); `analysis/checks/network/` holds its findings; `services/network/` its services.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,

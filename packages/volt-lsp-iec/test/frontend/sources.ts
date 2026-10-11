@@ -14,7 +14,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
-import { readSourceText } from "../../src/workspace-refs.js"
+import { readSourceText } from "../../src/workspace/workspace-refs.js"
 import { walkSources } from "../corpus/support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { plcPrgSource } from "../conformance/support/plc-prg.js"

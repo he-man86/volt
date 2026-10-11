@@ -77,8 +77,8 @@ import {
   type DiagnosticState,
   type Vendor,
 } from "../analysis/index.js"
-import { scanWorkspace } from "../workspace-refs.js"
-import { SOURCE_EXTENSIONS } from "../source-extensions.js"
+import { scanWorkspace } from "../workspace/workspace-refs.js"
+import { SOURCE_EXTENSIONS } from "../workspace/source-extensions.js"
 import type { Scope, Symbol } from "../frontend/symbols/index.js"
 import { sameDocument, WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
@@ -110,9 +110,6 @@ import {
   typeSupertypes,
   workspaceSymbols,
   type HierItem,
-} from "../services/index.js"
-import type { Document } from "../services/shared/index.js"
-import {
   documentHighlightsAnywhere,
   documentSymbolsWithVg,
   inNetworkText,
@@ -124,7 +121,8 @@ import {
   networkHover,
   readOnlyBodyHover,
   networkTypeDefinition,
-} from "../network/index.js"
+} from "../services/index.js"
+import type { Document } from "../services/shared/index.js"
 
 /** Resolve the workspace root to a filesystem path from a `file://` `rootUri` (preferred) or `rootPath`. */
 function workspaceRoot(rootUri: string | null | undefined, rootPath: string | null | undefined): string | undefined {
