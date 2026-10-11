@@ -18,8 +18,9 @@
  *   `calls/routines.ts`), `init/attributes.pathFields`, `storage/addresses.addressSharedByInstances`. A base with no
  *   queued body ends it.
  * - BY NAME LOOKUP in the project (`lookup(project, base.text)`): `declaredChain` — `chainNames` and `pouChain`
- *   (`calls/routines.calledRoutine`'s in-outs), `init/fb-init.declaredArgs`, `interfaces/tags.implementsInterface`; and
- *   `interfaceChainOf` for an interface's EXTENDS list.
+ *   (`calls/routines.calledRoutine`'s in-outs), `init/fb-init.declaredArgs`, `interfaces/tags.implementsInterface`;
+ *   `declaredTypeChain`, which a STRUCT's EXTENDS continues too (`init/initial-values.fieldWritten`, the declaration a
+ *   field is written with); and `interfaceChainOf` for an interface's EXTENDS list.
  *
  * Each walk visits a unit once: a cycle ends it where it closes. Three of the hand-written walks had no guard
  * (`pathFields`, `addressSharedByInstances`, `declaredArgs`) and `initMethod` neither — on a cycle they did not end, so no
@@ -72,6 +73,23 @@ export function declaredChain(lw: Lowering, start: TopLevel | undefined): TopLev
     units.push(unit)
     const base = unit.kind === "function_block" ? unit.extends : undefined
     unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
+  }
+  return units
+}
+
+/**
+ * BY NAME LOOKUP, A TYPE'S DECLARATIONS: the FB, PROGRAM or STRUCT named `name` and what it EXTENDS — an FB's base, or a
+ * STRUCT's — NEAREST FIRST, while each name finds a declaration; a name reached again ends it.
+ */
+export function declaredTypeChain(lw: Lowering, name: string): TopLevel[] {
+  const units: TopLevel[] = []
+  const names = new Set<string>()
+  for (let at: string | undefined = name; at !== undefined && !names.has(at.toUpperCase()); ) {
+    names.add(at.toUpperCase())
+    const unit = lookup(lw.project, at)?.symbol.ast as TopLevel | undefined
+    if (unit === undefined) break
+    units.push(unit)
+    at = unit.kind === "function_block" ? unit.extends?.text : unit.kind === "type_decl" && unit.body.kind === "struct" ? unit.body.extends?.text : undefined
   }
   return units
 }

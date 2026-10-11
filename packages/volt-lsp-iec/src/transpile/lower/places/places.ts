@@ -4,7 +4,7 @@
 
 import type { Lowering } from "../core/lowering.js"
 import { type Expr, isSelfRef, selfRefKind, type Span } from "../../../frontend/syntax/index.js"
-import type { Access, IrExpr, Place } from "../../ir/index.js"
+import { type Access, fieldIn, type IrExpr, type Place } from "../../ir/index.js"
 import { imageStep } from "../../semantics/index.js"
 import { imageType } from "../pointers/escape.js"
 import { lookup } from "../../../frontend/symbols/index.js"
@@ -19,7 +19,6 @@ import { convert } from "../values/convert.js"
 import { cursorChar, cursorString, cursorStringChar } from "../pointers/cursor.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { pointerFrame } from "../pointers/state.js"
-import { fieldIn } from "./path.js"
 
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {

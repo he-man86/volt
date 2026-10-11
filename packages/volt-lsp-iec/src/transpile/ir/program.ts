@@ -102,6 +102,27 @@ export interface IrLayout {
 }
 
 /**
+ * THE ONE FIELD LOOKUP, of every layer (transpile-restructure 8.3 R6): the slot named `name` among `fields` — ST names
+ * are case-insensitive. Lowering (`lower/places/path.ts` `fieldOf`), the byte image (`semantics/memory.ts`) and the Rust
+ * printer (`emit/rust/place.ts`) read a field by it, so a field step means one field in all three.
+ */
+export function fieldIn<T extends { readonly name: string }>(fields: readonly T[] | undefined, name: string): T | undefined {
+  const key = name.toUpperCase()
+  return fields?.find((f) => f.name.toUpperCase() === key)
+}
+
+/** Where the slot named `name` stands among `fields` — -1 when none does (`fieldIn`). */
+export function fieldIndex(fields: readonly { readonly name: string }[] | undefined, name: string): number {
+  const key = name.toUpperCase()
+  return fields?.findIndex((f) => f.name.toUpperCase() === key) ?? -1
+}
+
+/** A composite type's field by name, from its layout — `layouts` keyed by the type's upper-cased name. */
+export function layoutField(layouts: ReadonlyMap<string, IrLayout>, typeName: string, name: string): IrSlot | undefined {
+  return fieldIn(layouts.get(typeName.toUpperCase())?.fields, name)
+}
+
+/**
  * THE PROGRAM'S BYTE IMAGE (design.md §3.3 step 4d): every variable whose address a program stores, laid out as CODESYS
  * lays it out, from `IMAGE_BASE` (`semantics/memory.ts`). Lowering allocates every region statically — a program's or
  * GVL's variable alone (where a program places its variables is not measured), an instance's measured runs of fields —

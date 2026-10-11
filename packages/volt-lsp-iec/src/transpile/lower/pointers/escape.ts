@@ -16,16 +16,19 @@
  * an FB instance (a handle), another pointer — keeps form 1's TAG (`state.ts`), and its pointer is TAGGED: a pointer holds
  * addresses or tags, never both (`tagged` is closed over copies, both ways).
  */
-import type { Place } from "../../ir/index.js"
+import { globalKey, imagedTypeKey, imagedTypeOf, pouContext, variableIn } from "../core/keys.js"
+import type { IrSlot, Place } from "../../ir/index.js"
 import { elementarySize } from "../../semantics/index.js"
 import type { Lowering } from "../core/lowering.js"
 import type { Shared } from "../core/shared.js"
 import { sharedState } from "../core/shared.js"
+import { baseOf } from "../core/chain.js"
 import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { fieldBytes } from "../storage/bytes.js"
 import { unionsOf } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
-import { pointerKey } from "./state.js"
+import { instanceFieldKey, pointerKey } from "./state.js"
+import { fieldOf, rootType, typeAlong } from "../places/path.js"
 import { boolBytes, viewsBool } from "./bool-views.js"
 
 /** One pass's answer: the FB types and the variables the image holds, the pointers that hold tags, the ANY inputs
@@ -106,8 +109,8 @@ export function escapesSeen(shared: Shared): Escapes {
   }
   const targets = seen.stores.flatMap((s) => (s.target !== undefined && (s.pointer === undefined || !tagged.has(s.pointer)) ? [s.target] : []))
   return {
-    types: families(shared, new Set(targets.flatMap((t) => (t.startsWith("TYPE:") ? [t.slice(5)] : [])))),
-    variables: new Set(targets.filter((t) => !t.startsWith("TYPE:"))),
+    types: families(shared, new Set(targets.flatMap((t) => imagedTypeOf(t) ?? []))),
+    variables: new Set(targets.filter((t) => imagedTypeOf(t) === undefined)),
     tagged,
     anyAddresses: seen.anyAddresses,
     ...boolBytes(seen),
@@ -137,7 +140,7 @@ function families(shared: Shared, types: Set<string>): Set<string> {
   for (let grew = true; grew; ) {
     grew = false
     for (const [name, body] of shared.bodies) {
-      const base = body.unit.kind === "function_block" ? body.unit.extends?.text.toUpperCase() : undefined
+      const base = baseOf(body.unit)?.text.toUpperCase()
       if (base === undefined || types.has(name) === types.has(base)) continue
       types.add(name)
       types.add(base)
@@ -223,14 +226,7 @@ export function noteCopy(lw: Lowering, to: Holder, from: Holder): void {
 /** A variable's key: its own frame's (`pointerKey`), or — for a field reached from outside its instance — the key its own
  *  FB's bodies give it (`FB:<type>.<field>`). Undefined for one kept nowhere a store can name (an element, a field of a
  *  struct). A pointer's for the escape pass, a BOOL's for `raw-bool.ts`. */
-export function variableKey(lw: Lowering, pointer: Place): string | undefined {
-  const own = pointerKey(lw, pointer)
-  if (own !== undefined) return own
-  const last = pointer.path.at(-1)
-  if (last?.kind !== "field" || pointer.guard !== undefined) return undefined
-  const holder = typeOfPrefix(lw, pointer, pointer.path.length - 1)
-  return holder?.kind === "function_block" ? `FB:${holder.name.toUpperCase()}.${last.name.toUpperCase()}` : undefined
-}
+export const variableKey = (lw: Lowering, pointer: Place): string | undefined => pointerKey(lw, pointer) ?? instanceFieldKey(lw, pointer, false)
 
 /** Whether a pointer or reference holds ADDRESSES into the image: its target is an image type, and no store made it hold
  *  a tag. Form 2's borrow and a string cursor are asked before this, by their own names. */
@@ -287,70 +283,49 @@ export function escapeKey(lw: Lowering, target: Place): string | undefined {
   if (target.guard !== undefined || target.root === "image" || target.path.some((s) => s.kind === "bit") || !imageType(lw, target.type)) return undefined
   // an FB, METHOD or ACTION body's plain slot IS a field of its instance: the walk starts on that instance
   const ownFields = (target.root === undefined && lw.selfType?.kind === "function_block") || target.root === "this"
-  const steps = target.root === undefined && ownFields ? [{ kind: "field" as const, name: lw.slots[target.slot]!.name }, ...target.path] : target.path
-  let type: Type | undefined = ownFields ? lw.selfType : rootTypeOf(lw, target)
   let holder: string | undefined
-  let throughInstance = ownFields
-  for (const step of steps) {
-    if (type === undefined) return undefined
+  let root: Type | undefined = rootType(lw, target)
+  let path = target.path
+  if (ownFields) {
     // the instance this body runs on: its fields are this frame's slots — its layout is not laid until they are
-    const own = ownFields && type === lw.selfType ? lw.slots[lw.byName.get(step.kind === "field" ? step.name.toUpperCase() : "") ?? -1] : undefined
-    const field =
-      own ??
-      (step.kind === "field" && (type.kind === "struct" || type.kind === "function_block")
-        ? lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())
-        : undefined)
-    // a field right under an instance: the image holds it when its section is the instance's and its type an image type
-    if (field !== undefined && type.kind === "function_block") {
-      throughInstance = true
-      holder = INSTANCE_FIELD.has(field.section) && imageType(lw, field.type) ? type.name.toUpperCase() : undefined
-    }
-    type = step.kind === "field" ? field?.type : peelArray(type)?.element
+    const self = lw.selfType
+    const first = target.root === undefined ? lw.slots[target.slot]!.name : path[0]?.kind === "field" ? path[0].name : undefined
+    if (self === undefined || first === undefined) return undefined
+    const field = lw.slots[lw.byName.get(first.toUpperCase()) ?? -1] ?? (self.kind === "struct" || self.kind === "function_block" ? fieldOf(lw, self.name, first) : undefined)
+    if (field !== undefined && self.kind === "function_block") holder = instanceHolder(lw, self.name, field)
+    if (field === undefined) return undefined
+    root = field.type
+    path = target.root === undefined ? path : path.slice(1)
   }
-  if (holder !== undefined) return `TYPE:${holder}`
+  let throughInstance = ownFields
+  const walked = typeAlong(lw, root, path, { fields: "composite", element: "sized" }, (step, on) => {
+    if (on === undefined) return null
+    if (step.kind !== "field" || on.kind !== "function_block") return undefined
+    // a field right under an instance: the image holds it when its section is the instance's and its type an image type
+    const field = fieldOf(lw, on.name, step.name)
+    if (field !== undefined) {
+      throughInstance = true
+      holder = instanceHolder(lw, on.name, field)
+    }
+    return undefined
+  })
+  if ("stopped" in walked) return undefined
+  if (holder !== undefined) return imagedTypeKey(holder)
   return throughInstance ? undefined : rootVariableKey(lw, target)
 }
+
+/** The FB type that holds `field` of one of its instances in the image — its section the instance's, its type an image
+ *  type — or none. */
+const instanceHolder = (lw: Lowering, fb: string, field: IrSlot): string | undefined =>
+  INSTANCE_FIELD.has(field.section) && imageType(lw, field.type) ? fb.toUpperCase() : undefined
 
 /** The escape key of a variable of the POU's own frame or of a GVL, whose own type is an image type. */
 function rootVariableKey(lw: Lowering, target: Place): string | undefined {
   if (target.root === "global") {
     const slot = lw.shared.globals.slots[target.slot]
-    return slot !== undefined && slot.section !== "program" && imageType(lw, slot.type) ? `GLOBAL.${slot.name.toUpperCase()}` : undefined
+    return slot !== undefined && slot.section !== "program" && imageType(lw, slot.type) ? globalKey(slot.name) : undefined
   }
-  if (target.root !== undefined || lw.routineMode || lw.frameContext !== `POU:${lw.shared.root.toUpperCase()}`) return undefined
+  if (target.root !== undefined || lw.routineMode || lw.frameContext !== pouContext(lw.shared.root)) return undefined
   const slot = lw.slots[target.slot]
-  return slot !== undefined && slot.section !== "temp" && imageType(lw, slot.type) ? `POU:${lw.shared.root.toUpperCase()}.${slot.name.toUpperCase()}` : undefined
-}
-
-/** The type a place's root slot holds. */
-function rootTypeOf(lw: Lowering, p: Place): Type | undefined {
-  switch (p.root) {
-    case "local":
-      return lw.localSlots[p.slot]?.type
-    case "inout":
-      return lw.inoutSlots[p.slot]?.type
-    case "global":
-      return lw.shared.globals.slots[p.slot]?.type
-    case "lent":
-      return p.path.length === 0 ? p.type : undefined
-    default:
-      return lw.slots[p.slot]?.type
-  }
-}
-
-/** The type the first `n` steps of a place reach. */
-function typeOfPrefix(lw: Lowering, p: Place, n: number): Type | undefined {
-  let type = rootTypeOf(lw, p)
-  for (const step of p.path.slice(0, n)) {
-    if (type === undefined) return undefined
-    type =
-      step.kind === "field"
-        ? type.kind === "struct" || type.kind === "function_block"
-          ? lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type
-          : undefined
-        : step.kind === "index"
-          ? peelArray(type)?.element
-          : undefined
-  }
-  return type
+  return slot !== undefined && slot.section !== "temp" && imageType(lw, slot.type) ? variableIn(pouContext(lw.shared.root), slot.name) : undefined
 }

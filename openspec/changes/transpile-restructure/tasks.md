@@ -7063,6 +7063,18 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
         `reachesFbInit`). (d) EXTENDS read outside `core/chain.ts`: `init/initial-values.ts` `fieldWritten` (5c,
         b277626431) walks the FB and STRUCT EXTENDS chain by name itself (`chain.ts` has no STRUCT chain), and
         `pointers/escape.ts` `families` reads `unit.extends` inline where `chain.ts` `baseOf` answers it.
+        FIXED by step 8e (2026-10-11), output-neutral — S `ir,rust` identical over all 5581 fixtures against a baseline
+        written from c77cfc746a, after each of (a)-(d) and again at the end. (b) the one field lookup is `ir/program.ts`
+        `fieldIn` / `fieldIndex` / `layoutField` (`ir/program.test.ts`); `path.ts` `fieldOf` builds on it, `semantics/memory.ts`'
+        three lookups and `emit/rust/place.ts` read it, and the 13 `lower/` importers import it from `ir/`. (a) `escape.ts`
+        `rootTypeOf` and `typeOfPrefix` are gone: `escapeKey` takes the body's own field first (its layout is not laid yet)
+        and walks the rest with `typeAlong`; `path.ts` `rootType` answers every root — `lent` by the lend's FB type
+        (`interfaceFrame`), `image` none — where its default case had read a frame slot for both. (c) `path.ts`
+        `holdsAtAnyDepth`, the one walk into a type at any depth, carries `holdsInstance` (one, exported; `layout.ts`'s
+        copy gone), `holdsBool`, `holdsOwnAddress`, `holdsEscaped` and `registerWholeCopy`; `init/fb-init.ts`
+        `reachesFbInit` keeps its own walk — its answer is memoized across calls of the init step per type and question,
+        which a per-call cycle set is not. (d) `chain.ts` `declaredTypeChain` (an FB's or a STRUCT's EXTENDS by name) is
+        `fieldWritten`'s walk; `families` asks `baseOf`.
       - R7 (FIX or FILE, P1 — the escape/identity key namespace): 42 template spellings over 16 `lower/` files of
         `GLOBAL.<n>`, `<frameContext|routineContext>.<n>`, `POU:<root>.<n>`, `FB:<type>.<field>`, `ROUTINE:<key>.<n>`,
         `TYPE:<fb>`, `VIEW:<key>` — a key one file writes must equal the key another writes (`pointers/state.ts`
@@ -7071,6 +7083,14 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
         `interfaceKey` and `escape.ts` `variableKey` are near-copies (own key, else `FB:<type>.<field>`). And
         `init/bindings.ts` `INIT_KEY` re-parses by regex the `__INIT` key `init/instance-init.ts` :33 builds. One module of
         key constructors (and the `__INIT` predicate beside its builder) makes each format one home.
+        FIXED by step 8e, output-neutral (S `ir,rust` identical): `lower/core/keys.ts` builds every one — `pouContext`,
+        `fbContext`, `functionContext`, `GLOBAL_CONTEXT`, `routineContext` / `runOf`, `variableIn` / `isVariableOf`,
+        `globalKey`, `parameterKey`, `fbFieldKey` / `fbOfContext`, `imagedTypeKey` / `imagedTypeOf`, `viewKey` — and no
+        `lower/` file spells one by hand (a scan of the template literals finds none outside it). `escape.ts` `variableKey`
+        and `tags.ts` `interfaceKey` share `pointers/state.ts` `instanceFieldKey` (the interface's walk static-only, as
+        before); `placeKey`'s GLOBAL test is `path.ts` `globalPlaceKey`, beside its builder; `instance-init.ts` holds
+        `initPartKey` and `isInitPartKey` side by side. The ANY holder's key reads `ROUTINE:<variant>.__ANY_<V>` now (it
+        was `.__any_<V>`): every writer and reader goes through `anyHolder`, so nothing compared changed.
       - R8 (FIX, P8, cheap): `lower/pointers/raw-bool.ts` :41 `export { isPlainBool } from "./bool-views.js"` — a
         re-export left by gate 8c's split, kept for `calls/invoke.ts` :29 and `statements/assign.ts` :25, which import it
         through `raw-bool.ts`; P8: the consumers change instead.

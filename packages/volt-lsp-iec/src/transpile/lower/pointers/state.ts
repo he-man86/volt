@@ -3,6 +3,7 @@
  * reaches it agrees on, and the value naming it.
  */
 
+import { fbFieldKey, fbOfContext, GLOBAL_CONTEXT, globalKey, isRunVariable, isVariableOf, variableIn } from "../core/keys.js"
 import type { Place } from "../../ir/index.js"
 import type { Type } from "../../../frontend/types/index.js"
 import { type FbType, frameState, type Lowering } from "../core/lowering.js"
@@ -10,7 +11,7 @@ import { instanceHandle } from "../interfaces/tags.js"
 import { type Shared, sharedState } from "../core/shared.js"
 import { unionOf } from "../storage/unions.js"
 import type { Span } from "../../../frontend/syntax/index.js"
-import { sameTarget } from "../places/path.js"
+import { rootType, sameTarget, typeAlong } from "../places/path.js"
 import { tagOfIndex } from "../core/tags.js"
 
 /**
@@ -167,15 +168,32 @@ export function pointerKey(lw: Lowering, p: Place): string | undefined {
   const union = unionOf(lw, p)
   if (union !== undefined) return p.path.length === union.union.path.length + 1 ? pointerKey(lw, union.union) : undefined
   const field = p.path[0]
-  if (p.root === "this" && p.path.length === 1 && field?.kind === "field") return `${lw.frameContext}.${field.name.toUpperCase()}`
+  if (p.root === "this" && p.path.length === 1 && field?.kind === "field") return variableIn(lw.frameContext, field.name)
   // a pointer reached THROUGH another one (`pp^` of a POINTER TO POINTER) is the variable that one names — form 1 erases
   // the step (`pointeePlace`), and the guard is only the null check of `pp` (`decl_pointer_to_pointer_deref`)
   if (p.guard !== undefined && p.path.length === 0) return pointerKey(lw, { ...p, guard: undefined })
   if (p.path.length > 0 || p.guard !== undefined) return undefined
-  if (p.root === undefined) return `${lw.frameContext}.${lw.slots[p.slot]!.name.toUpperCase()}`
-  if (p.root === "local") return `${lw.routineContext}.${lw.localSlots[p.slot]!.name.toUpperCase()}`
-  if (p.root === "global") return `GLOBAL.${lw.shared.globals.slots[p.slot]!.name.toUpperCase()}`
+  if (p.root === undefined) return variableIn(lw.frameContext, lw.slots[p.slot]!.name)
+  if (p.root === "local") return variableIn(lw.routineContext, lw.localSlots[p.slot]!.name)
+  if (p.root === "global") return globalKey(lw.shared.globals.slots[p.slot]!.name)
   return undefined
+}
+
+/**
+ * A FIELD OF AN FB INSTANCE REACHED FROM OUTSIDE IT — `inst.p`, `arr[2].fb.p` — as that FB's own bodies name it
+ * (`FB:<type>.<field>`), so what a caller stores into the field is what the body reads. Undefined unless the place ends on
+ * a field of an FB instance, under no dereference; `staticOnly`: reached through fields and constant indices only (an
+ * interface's instances are recorded per element of an array, `interfaces/tags.ts`). A pointer's key for the escape pass
+ * (`escape.variableKey`), an interface variable's (`tags.interfaceKey`).
+ */
+export function instanceFieldKey(lw: Lowering, place: Place, staticOnly: boolean): string | undefined {
+  const last = place.path.at(-1)
+  if (last?.kind !== "field" || place.guard !== undefined) return undefined
+  const walked = typeAlong(lw, rootType(lw, place), place.path.slice(0, -1), { fields: "composite", element: "sized" }, (step, on) =>
+    staticOnly && (on === undefined || !(step.kind === "field" || (step.kind === "index" && step.index.kind === "const"))) ? null : undefined,
+  )
+  const holder = "type" in walked ? walked.type : undefined
+  return holder?.kind === "function_block" ? fbFieldKey(holder.name, last.name) : undefined
 }
 
 /** Record `target` among the pointer's targets and answer its TAG — undefined when the pointer outlives it. */
@@ -186,11 +204,11 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
   // unmeasured: `pointeePlace` refuses those.
   // The same holds for a field pointing at the body's own VAR_TEMP, a local of its run since 7.6.4 (conformance
   // `var_temp_address_kept_in_pointer_field`, `var_temp_reference_kept_in_field`: seen = 3): exact where this run stored it.
-  const ownField = !lw.routineMode && key.startsWith(`${lw.frameContext}.`)
-  const scoped = ownField && ((target.base.root === "inout" && lw.frameContext.startsWith("FB:")) || target.base.root === "local")
+  const ownField = !lw.routineMode && isVariableOf(key, lw.frameContext)
+  const scoped = ownField && ((target.base.root === "inout" && fbOfContext(lw.frameContext) !== undefined) || target.base.root === "local")
   if (scoped) target = { ...target, scopedTo: lw }
-  const outlives = !key.startsWith("ROUTINE:") && !scoped && (target.base.root === "local" || target.base.root === "inout")
-  if (outlives || (key.startsWith("GLOBAL.") && target.base.root !== "global")) {
+  const outlives = !isRunVariable(key) && !scoped && (target.base.root === "local" || target.base.root === "inout")
+  if (outlives || (isVariableOf(key, GLOBAL_CONTEXT) && target.base.root !== "global")) {
     lw.bail("pointer-outlives", "a pointer that outlives the variable it points at", span)
     return undefined
   }

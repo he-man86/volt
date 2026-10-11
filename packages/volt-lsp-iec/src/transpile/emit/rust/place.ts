@@ -1,6 +1,6 @@
 /** A PLACE AS A RUST LVALUE — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)` — and a PROGRAM's
  *  instance as a call runs it, moved out of `Programs`. */
-import type { IrExpr, IrPou, Place } from "../../ir/index.js"
+import { fieldIndex, type IrExpr, type IrPou, type Place } from "../../ir/index.js"
 import { elementOf, isIntegral, type Type } from "../../../frontend/types/index.js"
 import { castTo } from "./convert.js"
 import { byValue, rustType } from "./types.js"
@@ -67,7 +67,7 @@ export function place(p: Printer, at: Place, slots: IrPou["slots"]): string {
   for (const step of at.path) {
     if (step.kind === "field") {
       const entry = type.kind === "struct" || type.kind === "function_block" ? p.layouts.get(type.name.toUpperCase()) : undefined
-      const i = entry?.layout.fields.findIndex((f) => f.name.toUpperCase() === step.name.toUpperCase()) ?? -1
+      const i = entry === undefined ? -1 : fieldIndex(entry.layout.fields, step.name)
       if (entry === undefined || i < 0) throw new Error(`no field ${step.name} in ${type.kind}`)
       text += `.${entry.fields[i]}`
       type = entry.layout.fields[i]!.type

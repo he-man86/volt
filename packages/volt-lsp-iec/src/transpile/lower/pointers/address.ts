@@ -2,6 +2,7 @@
  * An address as a pointer's value: `ADR(x)`, an element's address, and pointer arithmetic.
  */
 
+import { runOf } from "../core/keys.js"
 import type { Lowering } from "../core/lowering.js"
 import { exprText, type Expr, selfRefKind, type Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
@@ -167,7 +168,7 @@ export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | u
       noteStore(lw, pointer, undefined)
       return lw.bail("any-input", `${e.base.name}.pValue, whose argument this call site does not name as a variable`, e.span)
     }
-    const holder = anyHolder(lw.routineContext.slice("ROUTINE:".length), input)
+    const holder = anyHolder(runOf(lw.routineContext), input)
     noteAnyAddress(lw, holder)
     noteCopy(lw, pointer, holder)
     if (refusedBoolCopy(lw, pointer, holder, e.span)) return undefined

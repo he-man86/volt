@@ -26,6 +26,7 @@
  * `bool-byte` by name (`refuseUnmeasuredRawBools`): its byte's meaning there is unmeasured; so is a BOOL's byte no key can
  * follow (`refusedBoolAddress`, `refusedBoolCopy`, `refusedBoolLent`).
  */
+import { GLOBAL_CONTEXT, variableIn, viewKey } from "../core/keys.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { elementaryRef, elemOf, type Type } from "../../../frontend/types/index.js"
 import type { IrBinOp, IrBinding, IrExpr, IrSlot, IrStmt, Place } from "../../ir/index.js"
@@ -35,8 +36,8 @@ import { sharedState } from "../core/shared.js"
 import { convert } from "../values/convert.js"
 import { slotOf } from "../places/access-guards.js"
 import { escapesOf, type Holder, noteBoolAddress, noteBoolFlow, noteBoolSeed, noteByteView, variableKey } from "./escape.js"
-import { isPlainBool, viewKey, viewsBool } from "./bool-views.js"
-import { sameStorage } from "../places/path.js"
+import { isPlainBool, viewsBool } from "./bool-views.js"
+import { holdsAtAnyDepth, sameStorage } from "../places/path.js"
 
 const BOOL = elementaryRef("BOOL")
 const BYTE = elementaryRef("BYTE")
@@ -65,7 +66,7 @@ function byteOf(lw: Lowering, e: IrExpr): IrExpr {
  */
 export function rawBoolSlot(lw: Lowering, name: string, type: Type, perRun: boolean): Pick<IrSlot, "type" | "rawBool"> | undefined {
   if (!isPlainBool(type)) return undefined
-  const key = lw.globalMode ? `GLOBAL.${name.toUpperCase()}` : `${perRun ? lw.routineContext : lw.frameContext}.${name.toUpperCase()}`
+  const key = variableIn(lw.globalMode ? GLOBAL_CONTEXT : perRun ? lw.routineContext : lw.frameContext, name)
   return escapesOf(lw).rawBools.has(key) ? { type: BYTE, rawBool: true } : undefined
 }
 
@@ -237,15 +238,8 @@ function sameView(target: Type, t: Type | undefined): boolean {
 
 /** Whether a value of `t` holds a BOOL — itself, a field of a struct or an instance, an element, at any depth (a BIT does
  *  not: its byte is its neighbours'). */
-function holdsBool(lw: Lowering, t: Type, seen = new Set<string>()): boolean {
-  if (isPlainBool(t)) return true
-  if (t.kind === "array") return holdsBool(lw, t.element, seen)
-  if (t.kind !== "struct" && t.kind !== "function_block") return false
-  const name = t.name.toUpperCase()
-  if (seen.has(name)) return false
-  seen.add(name)
-  return (lw.layouts.get(name)?.fields ?? []).some((f) => f.rawBool === true || holdsBool(lw, f.type, seen))
-}
+const holdsBool = (lw: Lowering, t: Type): boolean =>
+  holdsAtAnyDepth(lw, t, (u) => (isPlainBool(u) ? true : undefined), (f) => (f.rawBool === true ? true : undefined))
 
 /**
  * A BOOL value stored into a variable — an assignment, an input, an output read back: the flow recorded for the escape pass

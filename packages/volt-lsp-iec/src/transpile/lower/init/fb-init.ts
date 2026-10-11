@@ -3,12 +3,13 @@
  * initializers interleaved by declaration, and the instances inside it.
  */
 
+import { fbContext } from "../core/keys.js"
 import { type Fb, initFrame, type InitStep, pendingInitsOf } from "./state.js"
 import { lookup, lookupLocal, type Symbol } from "../../../frontend/symbols/index.js"
 import { peelArray, type Type, typeZero, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CallArg, Expr, TopLevel } from "../../../frontend/syntax/index.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
-import type { IrExpr, IrInit, IrRoutine, IrSlot, IrStmt, Place } from "../../ir/index.js"
+import { fieldIn, type IrExpr, type IrInit, type IrRoutine, type IrSlot, type IrStmt, type Place } from "../../ir/index.js"
 import { INIT_ATTRIBUTE, initMethod, instancePaths, pathFields, slotMethodCall } from "./attributes.js"
 import { chainNamesOf, declaredChain, scopeChain } from "../core/chain.js"
 import { ownProgram, programReentrant, programTarget, routineCallee } from "../calls/reentrancy.js"
@@ -16,7 +17,6 @@ import { calledRoutine } from "../calls/routines.js"
 import { holdsCall, type IrNode, isPlace, someNode } from "../../ir/walk.js"
 import { instanceInitRoutine } from "./instance-init.js"
 import { fbInitInput, siblingsUnset } from "./fb-init-args.js"
-import { fieldIn } from "../places/path.js"
 import { fieldsOf, namedIn, startStatement, startsAsStatement, structuredUnread, enclosingStructuredFree } from "./position.js"
 import { bindsOnly } from "./bindings.js"
 
@@ -80,8 +80,8 @@ export function writesGlobal(lw: Lowering, root: readonly IrStmt[], seen: Set<st
       const called = lw.routines.get(n.routine)
       if (called?.state === "lowered" && someNode(called.routine.body, visit)) return true
     }
-    if (n.kind === "call" && !seen.has(`FB:${n.fb}`)) {
-      seen.add(`FB:${n.fb}`)
+    if (n.kind === "call" && !seen.has(fbContext(n.fb))) {
+      seen.add(fbContext(n.fb))
       if (someNode(lw.layouts.get(n.fb.toUpperCase())?.body ?? [], visit)) return true
     }
     return false

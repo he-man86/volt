@@ -3,6 +3,7 @@
  * the frame, the place a caller lends, and one call's lend to its callee (design §24).
  */
 
+import { GLOBAL_CONTEXT } from "../core/keys.js"
 import type { Lowering } from "../core/lowering.js"
 import type { IrCall, IrInvoke, Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
@@ -35,7 +36,7 @@ export const instanceRelative = (root: Lowering, tag: number): boolean => interf
  */
 export function lendPlace(root: Lowering, body: Lowering, tag: number, span: Span): Place | undefined {
   const instance = interfaceTables(body).instances[indexOfTag(tag)]!
-  if (instance.context === body.frameContext || instance.context === "GLOBAL") return instance.place
+  if (instance.context === body.frameContext || instance.context === GLOBAL_CONTEXT) return instance.place
   if (body === root)
     return body.bail("interface-context", `an instance of ${instance.fb.name} held where no caller can lend it`, span)
   let at = interfaceFrame(body).lends.findIndex((l) => l.tag === tag)

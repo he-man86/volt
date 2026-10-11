@@ -30,15 +30,10 @@ import { childrenOf, initReadChildren, type IrNode, isPlace } from "../../ir/wal
 import { peelArray, type Type } from "../../../frontend/types/index.js"
 import { BASE_FIELD, LoweringBug } from "../../semantics/index.js"
 import type { Lowering } from "../core/lowering.js"
+import { isInitPartKey } from "./instance-init.js"
 
 /** A binding's statement: the whole slot stored, and the address it stores. */
 type Binding = Extract<IrStmt, { kind: "assign" }>
-
-/** An `__init` part's routine key (`instance-init.ts`): `T.__INIT`, `T.__INIT[BASE]`, `T.__INIT@from..to`. */
-const INIT_KEY = /\.__INIT(?:\[[^\]]*\])?(?:@\d+\.\.\d+)?$/
-
-/** Whether a routine key names an `__init` part. */
-const isInitPart = (key: string): boolean => INIT_KEY.test(key)
 
 /** Whether a place is a whole slot of the frame the statement runs in — no root, no path, no dereference. */
 const wholeSlot = (p: Place): boolean => p.root === undefined && p.path.length === 0 && p.guard === undefined
@@ -91,7 +86,7 @@ export function provenBindings(lw: Lowering, init: readonly IrStmt[]): ReadonlyS
   }
   const walk = (statements: readonly IrStmt[], owner: string, fields: readonly IrSlot[]): void => {
     for (const s of statements) {
-      const part = s.kind === "eval" && s.value.kind === "invoke" && isInitPart(s.value.routine) ? lw.routines.get(s.value.routine) : undefined
+      const part = s.kind === "eval" && s.value.kind === "invoke" && isInitPartKey(s.value.routine) ? lw.routines.get(s.value.routine) : undefined
       if (part?.state === "lowered" && part.routine.fb !== undefined) {
         const fb = part.routine.fb.toUpperCase()
         walk(part.routine.body, fb, lw.layouts.get(fb)?.fields ?? [])
@@ -166,7 +161,7 @@ export function foldBindings(pou: IrPou, proven: ReadonlySet<string>): IrPou {
   for (const r of pou.routines) {
     const fb = r.fb?.toUpperCase()
     const layout = fb === undefined ? undefined : layouts.get(fb)
-    if (!isInitPart(r.key) || fb === undefined || layout === undefined) {
+    if (!isInitPartKey(r.key) || fb === undefined || layout === undefined) {
       routines.push(r)
       continue
     }

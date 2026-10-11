@@ -3,6 +3,7 @@
  * refusals of an overlap or an address shared by several instances.
  */
 
+import { fbOfContext, GLOBAL_CONTEXT } from "../core/keys.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
 import { bodyChain } from "../core/chain.js"
@@ -111,7 +112,7 @@ function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: st
     lw.bail("var-at", `${text} overlaps ${clash} — the vendor aliases them and this has no byte-addressable area to do it in`, span)
     return false
   }
-  claimAddress(lw, m, name, "GLOBAL")
+  claimAddress(lw, m, name, GLOBAL_CONTEXT)
   return true
 }
 
@@ -137,7 +138,7 @@ export function bindAddress(lw: Lowering, decl: VarDecl, perRun: boolean): boole
   if (decl.names.length > 1) return refuse("several variables on one address")
   const clash = addressClash(lw, m)
   if (clash !== undefined) return refuse(`it overlaps ${clash} — the vendor aliases them and this has no byte-addressable area to do it in`)
-  claimAddress(lw, m, decl.names[0]!.text, lw.globalMode ? "GLOBAL" : lw.frameContext)
+  claimAddress(lw, m, decl.names[0]!.text, lw.globalMode ? GLOBAL_CONTEXT : lw.frameContext)
   return true
 }
 
@@ -147,7 +148,7 @@ export function bindAddress(lw: Lowering, decl: VarDecl, perRun: boolean): boole
  * arrays (by length), globals and routine locals; an instance of a derived FB counts for each of its bases.
  */
 export function addressSharedByInstances(lw: Lowering, slots: readonly { type: Type }[]): string | undefined {
-  const addressed = new Set(addressedOf(lw).filter((a) => a.owner.startsWith("FB:")).map((a) => a.owner.slice(3)))
+  const addressed = new Set(addressedOf(lw).flatMap((a) => fbOfContext(a.owner) ?? []))
   if (addressed.size === 0) return undefined
   const count = new Map<string, number>()
   const walk = (t: Type, times: number): void => {

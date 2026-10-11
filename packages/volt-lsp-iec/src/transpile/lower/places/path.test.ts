@@ -1,12 +1,12 @@
 /**
- * The one field lookup and the one path walk (task 1.7.10): case-insensitive lookup, and each walk rule.
+ * A layout field and the one path walk (task 1.7.10): the lookup through a layout, and each walk rule.
  */
 import { expect, test } from "bun:test"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import { elementaryRef, type Type } from "../../../frontend/types/index.js"
 import type { Access, IrSlot } from "../../ir/index.js"
 import { Lowering } from "../core/lowering.js"
-import { fieldIn, fieldIndex, fieldOf, sameStep, sameTarget, staticKey, staticPath, suffixOf, typeAlong } from "./path.js"
+import { fieldOf, sameStep, sameTarget, staticKey, staticPath, suffixOf, typeAlong } from "./path.js"
 
 const INT = elementaryRef("INT")
 const slot = (name: string, type: Type = INT): IrSlot => ({ name, type, section: "VAR", init: 0n })
@@ -20,15 +20,9 @@ lw.layouts.set("ST_B", { name: "ST_B", kind: "struct", fields: [slot("x"), slot(
 const field = (name: string): Access => ({ kind: "field", name })
 const index: Access = { kind: "index", index: { kind: "const", value: 1n, type: INT, span: undefined as never }, lower: 0n }
 
-test("a field by name, whatever its case — or none", () => {
-  const fields = [slot("Alpha"), slot("beta")]
-  expect(fieldIn(fields, "ALPHA")?.name).toBe("Alpha")
-  expect(fieldIn(fields, "Beta")?.name).toBe("beta")
-  expect(fieldIn(fields, "gamma")).toBeUndefined()
-  expect(fieldIn(undefined, "x")).toBeUndefined()
-  expect(fieldIndex(fields, "BETA")).toBe(1)
-  expect(fieldIndex(undefined, "x")).toBe(-1)
+test("a field of a layout the lowering holds, by the type and field names in any case", () => {
   expect(fieldOf(lw, "st_b", "X")?.name).toBe("x")
+  expect(fieldOf(lw, "fb_a", "inner")?.name).toBe("Inner")
 })
 
 test("typeAlong: a struct rule does not enter an FB, a composite one does; sized vs any element", () => {

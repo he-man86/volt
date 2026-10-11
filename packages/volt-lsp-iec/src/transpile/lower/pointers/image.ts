@@ -12,6 +12,7 @@
  *   measured (4.1).
  * Regions are 16 bytes apart, so a step off one lands on no variable and faults by name rather than reading the next.
  */
+import { globalKey, pouContext, variableIn } from "../core/keys.js"
 import type { IrImage, IrInit, IrLayout, IrSlot } from "../../ir/index.js"
 import { ADDRESS, BASE_FIELD, IMAGE_BASE, instantiate, storeValue } from "../../semantics/index.js"
 import type { Lowering } from "../core/lowering.js"
@@ -113,8 +114,8 @@ export function layOutImage(lw: Lowering, slots: IrSlot[], globals: IrSlot[], sp
   const escapes = escapesOf(lw)
   const types = [...escapes.types].filter((name) => lw.layouts.get(name)?.kind === "function_block")
   const own = (key: string): boolean => escapes.variables.has(key)
-  const pou = `POU:${lw.shared.root.toUpperCase()}`
-  if (types.length === 0 && !slots.some((s) => own(`${pou}.${s.name.toUpperCase()}`)) && !globals.some((s) => own(`GLOBAL.${s.name.toUpperCase()}`))) return undefined
+  const pou = pouContext(lw.shared.root)
+  if (types.length === 0 && !slots.some((s) => own(variableIn(pou, s.name))) && !globals.some((s) => own(globalKey(s.name)))) return undefined
   const runs = new Map<string, Runs>()
   for (const name of types) {
     const measured = measuredType(lw, name, span)
@@ -129,8 +130,8 @@ export function layOutImage(lw: Lowering, slots: IrSlot[], globals: IrSlot[], sp
     layout.writes.push({ at, type: s.type, init: s.init })
     return { ...s, image: Number(IMAGE_BASE) + at }
   }
-  slots.forEach((s, i) => (slots[i] = own(`${pou}.${s.name.toUpperCase()}`) ? variable(s) : s))
-  globals.forEach((s, i) => (globals[i] = s.section !== "program" && own(`GLOBAL.${s.name.toUpperCase()}`) ? variable(s) : s))
+  slots.forEach((s, i) => (slots[i] = own(variableIn(pou, s.name)) ? variable(s) : s))
+  globals.forEach((s, i) => (globals[i] = s.section !== "program" && own(globalKey(s.name)) ? variable(s) : s))
   const place = (s: IrSlot): IrSlot => ({ ...s, init: instancesIn(lw, runs, layout, s.type, s.init) ?? s.init })
   slots.forEach((s, i) => (slots[i] = place(s)))
   globals.forEach((s, i) => (globals[i] = place(s)))

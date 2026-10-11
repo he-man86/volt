@@ -17,8 +17,8 @@
 import { elemOf, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
-import type { IrSlot, IrStmt, Place } from "../../ir/index.js"
-import { fieldIn, rootType, typeAlong } from "../places/path.js"
+import { fieldIn, type IrSlot, type IrStmt, type Place } from "../../ir/index.js"
+import { rootType, typeAlong } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { assignTo } from "../values/convert.js"
 

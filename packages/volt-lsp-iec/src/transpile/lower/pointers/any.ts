@@ -2,6 +2,7 @@
  * ANY inputs: what a routine reads of the argument behind one.
  */
 
+import { parameterKey } from "../core/keys.js"
 import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import { type CallArg, type Expr, exprText, type Span, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { IrExpr } from "../../ir/index.js"
@@ -62,7 +63,7 @@ const PVALUE: Type = { kind: "pointer", target: elementaryRef("BYTE") }
  */
 export const anyHolder = (routineKey: string, input: string): Holder => ({
   type: PVALUE,
-  key: `ROUTINE:${routineKey}.${ANY_TARGET}${input.toUpperCase()}`,
+  key: parameterKey(routineKey, `${ANY_TARGET}${input}`),
   name: `${input}.pValue`,
 })
 

@@ -4,7 +4,7 @@
 
 import { type Expr, selfRefKind, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import type { FbType, Lowering } from "../core/lowering.js"
-import type { IrBinding, IrInvoke, IrLayout, IrRoutine, IrStmt, Place } from "../../ir/index.js"
+import { fieldIn, fieldIndex, type IrBinding, type IrInvoke, type IrLayout, type IrRoutine, type IrStmt, type Place } from "../../ir/index.js"
 import { selfFb, thisPlace } from "../places/self.js"
 import { baseBody } from "./routines.js"
 import { type InFrame, isInFrame, specializeRoutine } from "./specialize.js"
@@ -16,7 +16,6 @@ import { refuseImplicitString } from "../statements/assign.js"
 import { assignTo } from "../values/convert.js"
 import { openDims } from "../places/bounds.js"
 import { bindingRecords } from "./last-binding.js"
-import { fieldIn, fieldIndex } from "../places/path.js"
 
 export const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && selfRefKind(e.base.name) === "SUPER"
 

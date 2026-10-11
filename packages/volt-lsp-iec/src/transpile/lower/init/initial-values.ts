@@ -9,23 +9,22 @@ import type {
   Expr,
   Initializer,
   Span,
-  TopLevel,
   TypeDecl,
   TypeExpr,
 } from "../../../frontend/syntax/index.js"
 import { type Lowering, zeroInit } from "../core/lowering.js"
 import { elemOf, enumDefault, inlineEnumDefault, peelArray, type Type, typeZero } from "../../../frontend/types/index.js"
-import type { IrInit, IrValue } from "../../ir/index.js"
+import { fieldIn, type IrInit, type IrValue } from "../../ir/index.js"
 import { calendarOf, durationOf, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "../values/literals.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { exprHoldsCall } from "../core/ast-walk.js"
+import { declaredTypeChain } from "../core/chain.js"
 import { constantValue, NaNBits } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { stored, valueAs } from "../values/convert.js"
 import { enumeratorValue } from "../values/enums.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { unionsOf } from "../storage/unions.js"
-import { fieldIn } from "../places/path.js"
 import { refusedRotateInInitializer } from "../builtins/value-functions.js"
 
 /**
@@ -263,17 +262,13 @@ function arrayWritten(lw: Lowering, written: TypeExpr | undefined): Extract<Type
 
 /** The type a field of the struct or FB `layoutName` is DECLARED with — its own declaration or a base's. */
 function fieldWritten(lw: Lowering, layoutName: string, field: string): TypeExpr | undefined {
-  const seen = new Set<string>()
-  for (let name: string | undefined = layoutName; name !== undefined && !seen.has(name.toUpperCase()); ) {
-    seen.add(name.toUpperCase())
-    const ast = lookup(lw.project, name)?.symbol.ast as TopLevel | undefined
+  for (const unit of declaredTypeChain(lw, layoutName)) {
     const decls =
-      ast?.kind === "function_block" || ast?.kind === "program" ? ast.varSections.flatMap((sec) => sec.decls)
-      : ast?.kind === "type_decl" && ast.body.kind === "struct" ? ast.body.fields
+      unit.kind === "function_block" || unit.kind === "program" ? unit.varSections.flatMap((sec) => sec.decls)
+      : unit.kind === "type_decl" && unit.body.kind === "struct" ? unit.body.fields
       : []
     const decl = decls.find((d) => d.names.some((n) => n.text.toUpperCase() === field.toUpperCase()))
     if (decl !== undefined) return decl.type
-    name = ast?.kind === "function_block" ? ast.extends?.text : ast?.kind === "type_decl" && ast.body.kind === "struct" ? ast.body.extends?.text : undefined
   }
   return undefined
 }

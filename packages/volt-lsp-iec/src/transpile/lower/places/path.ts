@@ -1,16 +1,22 @@
 /**
- * Paths through places: the type a place's root holds, the one field lookup (`fieldIn`, `fieldOf`) and the one walk of
- * the types along a path (`typeAlong`; transpile-restructure 1.7.10).
+ * Paths through places: the type a place's root holds, a layout's field (`fieldOf`, over the IR's one field lookup
+ * `fieldIn`) and the one walk of the types along a path (`typeAlong`; transpile-restructure 1.7.10).
  */
 
+import { GLOBAL_CONTEXT } from "../core/keys.js"
 import type { Lowering } from "../core/lowering.js"
-import type { Access, IrSlot, IrValue, Place } from "../../ir/index.js"
+import { type Access, type IrSlot, type IrValue, layoutField, type Place } from "../../ir/index.js"
 import { elementOf, peelArray, type Type } from "../../../frontend/types/index.js"
 import type { PointerTarget } from "../pointers/state.js"
+import { interfaceFrame } from "../interfaces/state.js"
 
-/** The type a place's root holds — where a byte offset along its path starts. */
+/** THE TYPE A PLACE'S ROOT HOLDS — where a walk along its path starts: its slot's, the instance the body runs on for
+ *  `this`, the instance a caller lends for `lent` (`interfaceFrame` `lends`); none for an `image` place, whose root is an
+ *  address. */
 export function rootType(lw: Lowering, place: Place): Type | undefined {
   switch (place.root) {
+    case undefined:
+      return lw.slots[place.slot]?.type
     case "local":
       return lw.localSlots[place.slot]?.type
     case "inout":
@@ -19,26 +25,16 @@ export function rootType(lw: Lowering, place: Place): Type | undefined {
       return lw.shared.globals.slots[place.slot]?.type
     case "this":
       return lw.selfType
-    default:
-      return lw.slots[place.slot]?.type
+    case "lent":
+      return interfaceFrame(lw).lends[place.slot]?.type
+    case "image":
+      return undefined
   }
 }
 
-/** THE ONE FIELD LOOKUP: the slot named `name` among `fields` — ST names are case-insensitive. */
-export function fieldIn<T extends { readonly name: string }>(fields: readonly T[] | undefined, name: string): T | undefined {
-  const key = name.toUpperCase()
-  return fields?.find((f) => f.name.toUpperCase() === key)
-}
-
-/** Where the slot named `name` stands among `fields` — -1 when none does (`fieldIn`). */
-export function fieldIndex(fields: readonly { readonly name: string }[] | undefined, name: string): number {
-  const key = name.toUpperCase()
-  return fields?.findIndex((f) => f.name.toUpperCase() === key) ?? -1
-}
-
-/** A composite type's field by name, from its layout (`lw.layouts`, by the type's upper-cased name). */
+/** A composite type's field by name, from its layout (`lw.layouts`) — the IR's one field lookup (`ir` `layoutField`). */
 export function fieldOf(lw: Lowering, typeName: string, name: string): IrSlot | undefined {
-  return fieldIn(lw.layouts.get(typeName.toUpperCase())?.fields, name)
+  return layoutField(lw.layouts, typeName, name)
 }
 
 /**
@@ -174,8 +170,11 @@ export function placeKey(lw: Lowering, p: Place): string | undefined {
   if (p.guard !== undefined || (p.root !== undefined && p.root !== "global" && p.root !== "this")) return undefined
   const steps = staticSteps(p.path, KEY_STEP)
   if (steps === undefined) return undefined
-  return `${p.root === "global" ? "GLOBAL" : lw.frameContext}|${p.root ?? ""}:${p.root === "this" ? "" : p.slot}|${steps.join(".")}`
+  return `${p.root === "global" ? GLOBAL_CONTEXT : lw.frameContext}|${p.root ?? ""}:${p.root === "this" ? "" : p.slot}|${steps.join(".")}`
 }
+
+/** Whether a place key (`placeKey`) names a place of the globals. */
+export const globalPlaceKey = (key: string): boolean => key.startsWith(`${GLOBAL_CONTEXT}|`)
 
 /** Whether the path passes through an FB instance — a holder's field, a program's variable — which its own frame names too. */
 function throughInstance(lw: Lowering, p: Place): boolean {
@@ -217,13 +216,34 @@ export const insideInstance =
     return holdsInstance(lw, walked.type) ? nameAt(place.path.length) : undefined
   }
 
-/** Whether a value of `t` is or holds an FB instance — a struct's field or an array's element, at any depth. */
-function holdsInstance(lw: Lowering, t: Type | undefined, seen = new Set<string>()): boolean {
-  if (t === undefined) return false
-  if (t.kind === "function_block") return true
-  const element = peelArray(t)?.element
-  if (element !== undefined) return holdsInstance(lw, element, seen)
-  if (t.kind !== "struct" || seen.has(t.name.toUpperCase())) return false
-  seen.add(t.name.toUpperCase())
-  return (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type, seen))
+/**
+ * THE ONE WALK INTO A VALUE'S TYPE, AT ANY DEPTH (transpile-restructure 8.3 R6): whether `t` — itself, an array's element
+ * (an `ARRAY[*]`'s too), a STRUCT's or an FB's field, at any depth — is answered true. `own(t)` is asked of every type
+ * reached that is no array: true (it holds), false (it does not, and is not entered), undefined (a STRUCT or an FB is
+ * entered, anything else does not hold). `field(f, owner)` is asked of each field entered, before its type is: true,
+ * false (skipped), undefined (its type is asked). A composite reached again while asked answers false — a cycle, or one
+ * already answered false. Its sites: `holdsInstance`, `pointers/raw-bool.ts` `holdsBool`, `statements/assign.ts`
+ * `holdsOwnAddress` / `holdsEscaped`, `calls/last-binding.ts` `registerWholeCopy`. (`init/fb-init.ts`
+ * `reachesFbInit` keeps its own: its answer is memoized across calls in the init step, per type and question.)
+ */
+export function holdsAtAnyDepth(
+  lw: Lowering,
+  t: Type,
+  own: (t: Type) => boolean | undefined,
+  field: (f: IrSlot, owner: string) => boolean | undefined = () => undefined,
+  seen = new Set<string>(),
+): boolean {
+  const element = elementOf(t)
+  if (element !== undefined) return holdsAtAnyDepth(lw, element, own, field, seen)
+  const verdict = own(t)
+  if (verdict !== undefined) return verdict
+  if (t.kind !== "struct" && t.kind !== "function_block") return false
+  const name = t.name.toUpperCase()
+  if (seen.has(name)) return false
+  seen.add(name)
+  return (lw.layouts.get(name)?.fields ?? []).some((f) => field(f, name) ?? holdsAtAnyDepth(lw, f.type, own, field, seen))
 }
+
+/** Whether a value of `t` is or holds an FB instance — an element or a field, at any depth. */
+export const holdsInstance = (lw: Lowering, t: Type | undefined): boolean =>
+  t !== undefined && holdsAtAnyDepth(lw, t, (u) => (u.kind === "function_block" ? true : undefined))

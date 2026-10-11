@@ -2,7 +2,8 @@
  * A call expression → an `IrInvoke`: which routine on which instance, and each argument bound in the order it is written.
  */
 
-import type { IrBinding, IrDispatch, IrExpr, IrInvoke, IrRoutine, Place } from "../../ir/index.js"
+import { parameterKey } from "../core/keys.js"
+import { fieldIndex, type IrBinding, type IrDispatch, type IrExpr, type IrInvoke, type IrRoutine, type Place } from "../../ir/index.js"
 import { type InFrame, isInFrame, specializeRoutine } from "./specialize.js"
 import { aliases, bindInOut, bindWhereWritten, holding, shadowedInOutsOf } from "./binding.js"
 import type { Lowering, RoutineSymbol } from "../core/lowering.js"
@@ -21,7 +22,7 @@ import { methodOf, ownMember } from "../places/names.js"
 import { lowerPlace } from "../places/places.js"
 import { interfaceCall } from "../interfaces/dispatch.js"
 import { inGlobals, programReentrant, programTarget, routineCallee } from "./reentrancy.js"
-import { fieldIndex, staticPath } from "../places/path.js"
+import { staticPath } from "../places/path.js"
 import { positionalBinding, positionalOf } from "./parameters.js"
 import { bindCursorArgument, cursorInputsOf } from "../pointers/cursor.js"
 import { type Holder, holderHoldsAddresses } from "../pointers/escape.js"
@@ -204,7 +205,7 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
     if (target === undefined) return undefined
     // a BOOL in-out and what it is lent are one byte (`bool_byte_flow_inout`), under the routine's own key for it
     const lent = "kind" in target && target.kind === "inframe" ? target.place : target
-    if (refusedBoolLent(lw, `ROUTINE:${routine.key}.${param.name.toUpperCase()}`, param, lent, arg.span)) return undefined
+    if (refusedBoolLent(lw, parameterKey(routine.key, param.name), param, lent, arg.span)) return undefined
     b.inouts[bound] = target
     b.order.push({ inout: bound })
     return true
@@ -222,7 +223,7 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
     // `itf_method_input_passed_on`) — the instances it names are lent to the routine by its callers (design §24)
     // handed to a METHOD of an instance other than this body's own (an in-out, a lent instance, a global): foreign
     const foreign = b.instance !== undefined && b.instance.root !== undefined && b.instance.root !== "this"
-    const tag = interfaceArgument(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, arg.value!, arg.span, foreign)
+    const tag = interfaceArgument(lw, parameterKey(routine.key, slot.name), slot.type, arg.value!, arg.span, foreign)
     if (tag === undefined) return undefined
     b.inputs[k] = tag
     b.order.push(k)
@@ -230,7 +231,7 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
   }
   // A POINTER INPUT that holds addresses (model 3) is handed one — `ADR(x)` of a variable the image holds, a pointer, a
   // step — recorded for the escape pass under the routine's own key for it, as the routine's body names it
-  const holder: Holder = { type: slot.type, key: `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, name: `the pointer input ${slot.name}` }
+  const holder: Holder = { type: slot.type, key: parameterKey(routine.key, slot.name), name: `the pointer input ${slot.name}` }
   if (slot.type.kind === "pointer" && holderHoldsAddresses(lw, holder, arg.span)) {
     const address = addressValue(lw, arg.value!, holder)
     if (address === undefined) return undefined
@@ -246,7 +247,7 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
   if (value === undefined || refuseImplicitString(lw, value, slot.type, arg.span)) return undefined
   // a BOOL input takes the byte of a BOOL held as its byte (`bool_byte_ops`: `x = TRUE` FALSE in the FUNCTION for a 2), the
   // flow recorded under the routine's own key for the input (`pointers/raw-bool.ts`)
-  b.inputs[k] = raw || isPlainBool(slot.type) ? storedBool(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, raw, value) : convert(value, slot.type)
+  b.inputs[k] = raw || isPlainBool(slot.type) ? storedBool(lw, parameterKey(routine.key, slot.name), slot.type, raw, value) : convert(value, slot.type)
   b.order.push(k)
   return true
 }

@@ -8,6 +8,7 @@
  * contract in `../../index.ts`): a rule here exists for valid programs only.
  */
 
+import { pouContext, routineContext } from "../core/keys.js"
 import { isStBody, type TopLevel } from "../../../frontend/syntax/index.js"
 import { type Scope, scopeUri } from "../../../frontend/symbols/index.js"
 import type { LoweringProject } from "../project/prepare.js"
@@ -90,9 +91,9 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   if (!isStBody(unit.body)) return refusedBody(unit, bodyOf(lowering, unit, unit.body, undefined, { library: false }) as BodyRefusal)
   lowering.isRoot = true
   lowering.displayName = unit.name.text
-  lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
+  lowering.frameContext = pouContext(unit.name.text)
   // its VAR_TEMP are the scan's locals, keyed as a routine's are (a pointer's key, an instance handle's context)
-  lowering.routineContext = `ROUTINE:${lowering.frameContext}`
+  lowering.routineContext = routineContext(lowering.frameContext)
   const asInstance = runsAsInstance(unit, scope)
   const body = asInstance ? rootInstance(lowering, unit) : programBody(lowering, unit)
   if (!Array.isArray(body)) return body

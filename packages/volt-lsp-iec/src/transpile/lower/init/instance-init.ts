@@ -10,6 +10,18 @@ import { once } from "../calls/routines.js"
 import { ZERO_SPAN } from "../core/build.js"
 
 /**
+ * AN `__INIT` PART'S ROUTINE KEY — `T.__INIT` (the whole sequence on an instance of `on`), `T.__INIT[BASE]` (a base's,
+ * run on the derived type `T`), `T.__INIT@from..to` (the part of the slots it covers) — and the one test that a key is
+ * one (`isInitPartKey`, which `bindings.ts` asks), side by side so the format has one home.
+ */
+const initPartKey = (on: string, fb: string, part: readonly [number, number] | undefined): string =>
+  `${on.toUpperCase()}.__INIT${on.toUpperCase() === fb.toUpperCase() ? "" : `[${fb.toUpperCase()}]`}${part === undefined ? "" : `@${part[0]}..${part[1]}`}`
+const INIT_PART_KEY = /\.__INIT(?:\[[^\]]*\])?(?:@\d+\.\.\d+)?$/
+
+/** Whether a routine key names an `__init` part (`initPartKey`). */
+export const isInitPartKey = (key: string): boolean => INIT_PART_KEY.test(key)
+
+/**
  * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — those of the fields at
  * slots `from` up to (not including) `to` — its key, or `undefined` when there are none, or `null` when one of them
  * cannot lower.
@@ -29,8 +41,7 @@ export function instanceInitRoutine(lw: Lowering, fb: string, from = 0, to = Num
   const inRange = initFrame(nested).pendingInits.filter((p) => p.slot >= from && p.slot < to)
   if (inRange.length === 0) return undefined
   const whole = inRange.length === initFrame(nested).pendingInits.length
-  const base = on.toUpperCase() === fb.toUpperCase() ? "" : `[${fb.toUpperCase()}]`
-  const key = `${on.toUpperCase()}.__INIT${base}${whole ? "" : `@${inRange[0]!.slot}..${inRange.at(-1)!.slot}`}`
+  const key = initPartKey(on, fb, whole ? undefined : [inRange[0]!.slot, inRange.at(-1)!.slot])
   const routine = once(lw, key, ZERO_SPAN, () => {
     // `nested`'s diagnostics were drained into `lw` when the layout was built, so only what THIS lowering adds is new
     const before = nested.diagnostics.length

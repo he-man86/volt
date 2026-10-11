@@ -254,8 +254,9 @@ declared capacity — it is bound at its caller's, which CODESYS's input copy do
 transpile/
   index.ts          the public barrel — explicit named exports, pinned by index.test.ts
   pipeline/         the composition root: load (lower, then run) and lowerAndEmit; the ST → lower → interp tests
-  ir/               expr.ts stmt.ts program.ts — the node contract; walk.ts — the one exhaustive walk (childrenOf) every
-                    IR walk is built on; path.ts — the IDE path grammar; faults.ts — fault kinds and their texts
+  ir/               expr.ts stmt.ts program.ts — the node contract, and the one field lookup every layer reads a field step
+                    by (program.ts `fieldIn`); walk.ts — the one exhaustive walk (childrenOf) every IR walk is built on;
+                    path.ts — the IDE path grammar; faults.ts — fault kinds and their texts
   semantics/        value.ts nan.ts store.ts convert.ts arith.ts operators.ts builtins.ts math.ts text.ts parse.ts string.ts
                     memory.ts instantiate.ts fold.ts faults.ts; cases.ts and the *.cases.ts tables the twin tests share
   lower/
@@ -263,7 +264,7 @@ transpile/
     project/        prepare.ts library-base.ts — the transpiler's input assembly (files, libraries, attributes)
     diagnostics/    codes.ts (the registry) diagnostic.ts — a refusal by name
     core/           lowering.ts shared.ts (the frame and the POU's state) temps.ts nested.ts build.ts chain.ts
-                    ast-walk.ts tags.ts
+                    ast-walk.ts tags.ts keys.ts (the identity keys: a frame, a run, a variable in either, an imaged type)
     values/         literals.ts fold.ts enums.ts convert.ts promote.ts
     storage/        layout.ts declare.ts statics.ts addresses.ts bytes.ts unions.ts
     init/           state.ts step.ts sequence.ts fb-init.ts fb-init-args.ts instance-init.ts initial-values.ts
@@ -550,6 +551,9 @@ constant, look it up here; if it exists, import it — never redefine.
 | The transpiler's input assembly (files, libraries, attributes) | `transpile/lower/project` |
 | The lowering's view of a call's parameters | `transpile/lower/calls/parameters` (over `frontend/types/infer/callee`) |
 | Place identity · the tag encoding | `transpile/lower/places/path` `staticKey` · `transpile/lower/core/tags` |
+| The identity keys lowering's tables compare (`POU:`, `FB:`, `ROUTINE:`, `GLOBAL.`, `TYPE:`, `VIEW:`, `<context>.<name>`) | `transpile/lower/core/keys` |
+| A field by name, in every transpiler layer · the walk along a place's path · the walk into a type at any depth | `transpile/ir/program` `fieldIn` · `transpile/lower/places/path` `typeAlong` · `holdsAtAnyDepth` |
+| An EXTENDS chain inside lowering (by the binder's link, the queued bodies, name lookup) | `transpile/lower/core/chain` |
 | The value semantics (what an IR node means on values) | `transpile/semantics` |
 | The IR walk | `transpile/ir/walk` (`childrenOf`, total over every node kind) |
 | Fault kinds and messages | `transpile/ir/faults` |

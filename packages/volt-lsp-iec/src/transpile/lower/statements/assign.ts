@@ -3,11 +3,13 @@
  * conversions CODESYS refuses.
  */
 
+import { fbFieldKey } from "../core/keys.js"
 import type { Lowering } from "../core/lowering.js"
 import { isSelfRef, type Span, type Statement } from "../../../frontend/syntax/index.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { lowerAccess, lowerPlace } from "../places/places.js"
+import { holdsAtAnyDepth } from "../places/path.js"
 import { guardWrite, PLAIN_WRITE, STORE_WRITE } from "../places/access-guards.js"
 import { assignTo, convert, sameType } from "../values/convert.js"
 import { classifyConversion, elementaryRef, elemOf, isIntegerType, type Type } from "../../../frontend/types/index.js"
@@ -180,18 +182,10 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
 
 /** Whether a value of `t` holds an FB whose POINTER or REFERENCE field has a target that is not a global — a target kept
  *  relative to the instance, which a whole-value copy would re-target (transpile-review 15). */
-function holdsOwnAddress(lw: Lowering, t: Type, seen = new Set<string>()): boolean {
-  if (t.kind === "array") return holdsOwnAddress(lw, t.element, seen)
-  if (t.kind !== "struct" && t.kind !== "function_block") return false
-  const name = t.name.toUpperCase()
-  if (seen.has(name)) return false
-  seen.add(name)
-  return (lw.layouts.get(name)?.fields ?? []).some((f) =>
-    f.type.kind === "pointer" || f.type.kind === "reference"
-      ? (readTargets(lw, `FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
-      : holdsOwnAddress(lw, f.type, seen),
+const holdsOwnAddress = (lw: Lowering, t: Type): boolean =>
+  holdsAtAnyDepth(lw, t, () => undefined, (f, owner) =>
+    f.type.kind === "pointer" || f.type.kind === "reference" ? (readTargets(lw, fbFieldKey(owner, f.name)) ?? []).some((target) => target.base.root !== "global") : undefined,
   )
-}
 
 /**
  * `b := a` OF AN FB WHOSE DATA THE IMAGE HOLDS (model 3, design.md §3.3 step 4d; RC 15): the instance's struct is copied —
@@ -241,15 +235,8 @@ function boolStored(lw: Lowering, target: Place, rawTarget: boolean, value: IrEx
 }
 
 /** Whether a value of `t` holds an instance of an escaped FB type, at any depth. */
-function holdsEscaped(lw: Lowering, t: Type, escaped: ReadonlySet<string>, seen = new Set<string>()): boolean {
-  if (t.kind === "array") return holdsEscaped(lw, t.element, escaped, seen)
-  if (t.kind !== "struct" && t.kind !== "function_block") return false
-  const name = t.name.toUpperCase()
-  if (escaped.has(name) && t.kind === "function_block") return true
-  if (seen.has(name)) return false
-  seen.add(name)
-  return (lw.layouts.get(name)?.fields ?? []).some((f) => f.section !== "VAR_STAT" && holdsEscaped(lw, f.type, escaped, seen))
-}
+const holdsEscaped = (lw: Lowering, t: Type, escaped: ReadonlySet<string>): boolean =>
+  holdsAtAnyDepth(lw, t, (u) => (u.kind === "function_block" && escaped.has(u.name.toUpperCase()) ? true : undefined), (f) => (f.section === "VAR_STAT" ? false : undefined))
 
 /**
  * A STRING or WSTRING converted IMPLICITLY into anything but itself, or anything converted implicitly into one — which

@@ -15,11 +15,12 @@
  * Anything else is refused (`call-fb-inout`).
  */
 
+import { fbContext, pouContext } from "../core/keys.js"
 import { elementaryRef, type Type, typeZero } from "../../../frontend/types/index.js"
 import type { Lowering } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
-import type { IrBinding, IrCall, IrDispatch, IrInvoke, IrRoutine, IrSlot, Place } from "../../ir/index.js"
-import { fieldIndex, instanceKey, placeKey } from "../places/path.js"
+import { fieldIndex, type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, type Place } from "../../ir/index.js"
+import { globalPlaceKey, holdsAtAnyDepth, instanceKey, placeKey } from "../places/path.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import { holdsCall } from "../../ir/walk.js"
 import { aliases } from "./binding.js"
@@ -46,14 +47,8 @@ interface BindingRecords {
 export const bindingRecords = sharedState<BindingRecords>(() => ({ bodyCalls: [], superRebinds: new Set(), copiedWhole: new Set() }))
 
 /** A value of `t` stored whole: every FB it holds is copied with its in-out binding — for `lastBinding` to arm. */
-export function registerWholeCopy(lw: Lowering, t: Type, seen = new Set<string>()): void {
-  if (t.kind === "array") return registerWholeCopy(lw, t.element, seen)
-  if (t.kind !== "struct" && t.kind !== "function_block") return
-  const name = t.name.toUpperCase()
-  if (seen.has(name)) return
-  seen.add(name)
-  if (t.kind === "function_block") bindingRecords(lw).copiedWhole.add(name)
-  for (const f of lw.layouts.get(name)?.fields ?? []) registerWholeCopy(lw, f.type, seen)
+export function registerWholeCopy(lw: Lowering, t: Type): void {
+  holdsAtAnyDepth(lw, t, (u) => void (u.kind === "function_block" && bindingRecords(lw).copiedWhole.add(u.name.toUpperCase())))
 }
 
 /** Every call of an FB with VAR_IN_OUT: the instance it runs on and the places it binds, keyed — for `lastBinding`. */
@@ -66,7 +61,7 @@ type BodyCall = BindingRecords["bodyCalls"][number]
 
 /** A frame with ONE instance: the POU's own, or the root PROGRAM lowered as its instance — the only frames whose places a
  *  PROGRAM's one binding can name (review: bound from an FB with two instances, the tag lent the running one's field). */
-const singleFrame = (lw: Lowering, context: string) => context === `POU:${lw.shared.root.toUpperCase()}` || context === `FB:${lw.shared.root.toUpperCase()}`
+const singleFrame = (lw: Lowering, context: string) => context === pouContext(lw.shared.root) || context === fbContext(lw.shared.root)
 
 /** Why the FB's recorded calls give no binding a dispatch can arm from, over every call (`calls`) and this instance's
  *  (`mine`); undefined when they do. */
@@ -76,7 +71,7 @@ function bindingRefusal(lw: Lowering, fb: string, calls: readonly BodyCall[], mi
   // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
   if (bindingRecords(lw).superRebinds.has(fb)) return "while its SUPER^ binds the in-out to another place, which is not recorded"
   if (mine.length === 0 && calls.length > 0) return "never called on this instance, while it is called on others — a copy's binding is not recorded"
-  if (mine.some((c) => c.instance!.startsWith("GLOBAL") && !singleFrame(lw, c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
+  if (mine.some((c) => globalPlaceKey(c.instance!) && !singleFrame(lw, c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
     return "bound from a frame of which there can be several instances, which the one binding cannot name"
   return undefined
 }

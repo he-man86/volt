@@ -12,6 +12,7 @@
  * variable shared by every instance, and a PROPERTY getter runs once per read with its own VAR started over.
  */
 
+import { fbContext, functionContext, routineContext } from "../core/keys.js"
 import { type FbType, Lowering, type RoutineSymbol, zeroInit } from "../core/lowering.js"
 import type { PendingBody } from "../core/shared.js"
 import { type Expr, isStBody, type Span, type StatementList, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
@@ -83,8 +84,8 @@ export function routineLowering(lw: Lowering, scope: Scope, frame: FbType | unde
   r.selfType = frame
   r.codeOwner = codeOwner
   // a METHOD's plain slots are its FB's fields, so its pointers there share the FB's keys; its locals are its own
-  r.frameContext = frame === undefined ? `FUNCTION:${key}` : `FB:${frame.name.toUpperCase()}`
-  r.routineContext = `ROUTINE:${key}`
+  r.frameContext = frame === undefined ? functionContext(key) : fbContext(frame.name)
+  r.routineContext = routineContext(key)
   r.routineMode = true
   return r
 }

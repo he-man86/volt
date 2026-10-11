@@ -6,6 +6,7 @@
  * (`call-inout-alias`). And an instance of an escaped FB type that no static region holds — a METHOD's or FUNCTION's
  * local, a VAR_TEMP — is refused (`image-stack`): a region per call is not built.
  */
+import { fbContext, routineContext } from "../core/keys.js"
 import type { IrBinding, IrLayout, IrRoutine, IrSlot, IrStmt, Place } from "../../ir/index.js"
 import { callsIn, type IrNode, isPlace, mapPlaces, someNode } from "../../ir/walk.js"
 import { type ImageRoot, toImage } from "../../semantics/index.js"
@@ -116,8 +117,8 @@ const reachesImage = (root: IrNode | readonly IrNode[]): boolean =>
  */
 function refuseImageAlias(lw: Lowering, bodies: readonly (readonly IrStmt[])[], layouts: readonly IrLayout[], routines: readonly IrRoutine[]): boolean {
   const bodyOf = new Map<string, readonly IrStmt[]>([
-    ...layouts.flatMap((l): [string, readonly IrStmt[]][] => (l.body === undefined ? [] : [[`FB:${l.name.toUpperCase()}`, l.body]])),
-    ...routines.map((r): [string, readonly IrStmt[]] => [`R:${r.key}`, r.body]),
+    ...layouts.flatMap((l): [string, readonly IrStmt[]][] => (l.body === undefined ? [] : [[fbContext(l.name), l.body]])),
+    ...routines.map((r): [string, readonly IrStmt[]] => [routineContext(r.key), r.body]),
   ])
   const memo = new Map<string, boolean>()
   const touches = (key: string): boolean => {
@@ -125,14 +126,14 @@ function refuseImageAlias(lw: Lowering, bodies: readonly (readonly IrStmt[])[], 
     if (known !== undefined) return known
     memo.set(key, false)
     const body = bodyOf.get(key) ?? []
-    const answer = reachesImage(body) || callsIn(body).some((c) => touches(c.kind === "call" ? `FB:${c.fb.toUpperCase()}` : `R:${c.routine}`))
+    const answer = reachesImage(body) || callsIn(body).some((c) => touches(c.kind === "call" ? fbContext(c.fb) : routineContext(c.routine)))
     memo.set(key, answer)
     return answer
   }
   for (const body of [...bodies, ...bodyOf.values()])
     for (const c of callsIn(body)) {
       const lent = c.inouts.some((b) => "kind" in b && b.back?.root === "image")
-      if (lent && touches(c.kind === "call" ? `FB:${c.fb.toUpperCase()}` : `R:${c.routine}`)) {
+      if (lent && touches(c.kind === "call" ? fbContext(c.fb) : routineContext(c.routine))) {
         lw.bail("call-inout-alias", "a VAR_IN_OUT bound to a variable in the byte image, whose callee reaches the image too while the call holds its copy", c.span)
         return true
       }

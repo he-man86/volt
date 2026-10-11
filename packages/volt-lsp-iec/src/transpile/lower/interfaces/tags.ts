@@ -28,13 +28,14 @@
  * (`interface-context`; a limitation, not recorded behaviour).
  */
 
+import { GLOBAL_CONTEXT } from "../core/keys.js"
 import type { Type } from "../../../frontend/types/index.js"
 import type { FbType, Lowering } from "../core/lowering.js"
 import type { Expr, Span, TopLevel } from "../../../frontend/syntax/index.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import type { IrExpr, IrStmt, Place } from "../../ir/index.js"
-import { rootType, sameTarget, staticPath, typeAlong } from "../places/path.js"
-import { pointerKey } from "../pointers/state.js"
+import { sameTarget, staticPath } from "../places/path.js"
+import { instanceFieldKey, pointerKey } from "../pointers/state.js"
 import { foreignWrite } from "./query.js"
 import { lowerPlace } from "../places/places.js"
 import { heldAt } from "./lend.js"
@@ -70,7 +71,7 @@ function tagOf(lw: Lowering, place: Place, fb: FbType, span: Span): number | und
  * or the frame's. A static place, not under a dereference: the caller says so.
  */
 export function instanceHandle(lw: Lowering, place: Place, fb: FbType): number {
-  const context = place.root === "global" ? "GLOBAL" : place.root === "local" ? lw.routineContext : lw.frameContext
+  const context = place.root === "global" ? GLOBAL_CONTEXT : place.root === "local" ? lw.routineContext : lw.frameContext
   const known = interfaceTables(lw).instances.findIndex((x) => x.context === context && sameTarget({ base: x.place }, { base: place }))
   if (known >= 0) return tagOfIndex(known)
   const index = interfaceTables(lw).instances.length
@@ -99,13 +100,7 @@ function interfaceKey(lw: Lowering, written: Place): string | undefined {
   const place = elementOfArray(written)
   const own = pointerKey(lw, place)
   if (own !== undefined) return own
-  const last = place.path.at(-1)
-  if (place.guard !== undefined || place.root === "inout" || place.root === "lent" || last?.kind !== "field") return undefined
-  const walked = typeAlong(lw, rootType(lw, place), place.path.slice(0, -1), { fields: "composite", element: "sized" }, (step, on) =>
-    on === undefined || !(step.kind === "field" || (step.kind === "index" && step.index.kind === "const")) ? null : undefined,
-  )
-  const type = "type" in walked ? walked.type : undefined
-  return type?.kind === "function_block" ? `FB:${type.name.toUpperCase()}.${last.name.toUpperCase()}` : undefined
+  return place.root === "inout" || place.root === "lent" ? undefined : instanceFieldKey(lw, place, true)
 }
 
 /** The instances recorded under a key — created at its first use. */

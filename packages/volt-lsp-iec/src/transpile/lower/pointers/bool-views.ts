@@ -4,16 +4,13 @@
  * BOOL no key names — closed over what one lowering saw (`escape.ts` `Seen`), to one fixed point.
  */
 import { elemOf, isBit, type Type } from "../../../frontend/types/index.js"
+import { viewKey } from "../core/keys.js"
 
 /** A BOOL as declared — not a BIT, which is one bit of its neighbours' bytes. */
 export const isPlainBool = (t: Type): boolean => elemOf(t)?.name === "BOOL" && !isBit(t)
 
 /** Whether a pointer's (or a reference's) target is a plain BOOL. */
 export const viewsBool = (t: Type): boolean => (t.kind === "pointer" || t.kind === "reference") && isPlainBool(t.target)
-
-/** The key under which a BOOL flow names what the POINTER TO BOOL `pointerKey` reads (`raw-bool.ts` `carried`): raw
- *  exactly when that pointer is a byte view. */
-export const viewKey = (pointerKey: string): string => `VIEW:${pointerKey}`
 
 /** What one lowering saw that `boolBytes` reads (`escape.ts` `Seen` names each). */
 interface BoolsSeen {

@@ -3,6 +3,7 @@
  * program it runs in.
  */
 
+import { fbContext } from "../core/keys.js"
 import { frameState, type Lowering } from "../core/lowering.js"
 import type { IrRoutine, IrStmt, Place } from "../../ir/index.js"
 import { type IrNode, isPlace, someNode } from "../../ir/walk.js"
@@ -84,8 +85,8 @@ function reachesDispatch(lw: Lowering, body: readonly IrStmt[], seen = new Set<s
       const called = lw.routines.get(n.routine)
       if (called?.state === "lowered" && someNode(called.routine.body, visit)) return true
     }
-    if (n.kind === "call" && !seen.has(`FB:${n.fb}`)) {
-      seen.add(`FB:${n.fb}`)
+    if (n.kind === "call" && !seen.has(fbContext(n.fb))) {
+      seen.add(fbContext(n.fb))
       if (someNode(lw.layouts.get(n.fb.toUpperCase())?.body ?? [], visit)) return true
     }
     return false

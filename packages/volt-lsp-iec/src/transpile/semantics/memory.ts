@@ -10,7 +10,7 @@
  * answer and never the vendor's, so both fault by name. The Rust runtime's `Mem` (`emit/rust/runtime/pointer.ts`) is
  * this file's twin, held to the same cases (`memory.cases.ts`).
  */
-import type { Access, IrExpr, IrImage, IrLayout, Place } from "../ir/index.js"
+import { type Access, type IrExpr, type IrImage, type IrLayout, layoutField, type Place } from "../ir/index.js"
 import { indexOutOfBounds } from "../ir/faults.js"
 import { elementaryRef, floatBits, isBit, isBoolValued, peelArray, type Type } from "../../frontend/types/index.js"
 import { IecFault, LoweringBug } from "./faults.js"
@@ -186,7 +186,7 @@ export function offsetBy(at: IrExpr, bytes: number): IrExpr {
  */
 export function imageStep(place: Place, step: Access, on: Type, layouts: ReadonlyMap<string, IrLayout>): Place {
   if (step.kind === "field") {
-    const field = on.kind === "struct" ? layouts.get(on.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase()) : undefined
+    const field = on.kind === "struct" ? layoutField(layouts, on.name, step.name) : undefined
     if (field?.image === undefined) throw new LoweringBug(`no image offset for ${step.name}`)
     // a field after an index adds to `at` all the same: every step's bytes are a sum
     return { ...place, at: offsetBy(place.at!, field.image) }
@@ -222,7 +222,7 @@ export function toImage(place: Place, root: ImageRoot, layouts: ReadonlyMap<stri
     if (type === undefined) throw new LoweringBug("a place whose type was lost along its path")
     if (image !== undefined) image = imageStep(image, step, type, layouts)
     else if (step.kind === "field" && type.kind === "function_block") {
-      const field = layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())
+      const field = layoutField(layouts, type.name, step.name)
       if (field?.image !== undefined) {
         const base: Place = { ...place, path: [...place.path.slice(0, i), { kind: "field", name: BASE_FIELD }], type: ADDRESS, guard: undefined }
         if (place.guard === undefined) delete base.guard
@@ -240,7 +240,7 @@ export const BASE_FIELD = "__base"
 
 function stepType(t: Type, step: Access, layouts: ReadonlyMap<string, IrLayout>): Type | undefined {
   if (step.kind === "field")
-    return t.kind === "struct" || t.kind === "function_block" ? layouts.get(t.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type : undefined
+    return t.kind === "struct" || t.kind === "function_block" ? layoutField(layouts, t.name, step.name)?.type : undefined
   if (step.kind === "index") return peelArray(t)?.element
   return undefined
 }

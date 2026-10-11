@@ -17,10 +17,10 @@
  * substitution is one rewrite, not a runtime choice. Anything else stays `call-inout-alias`.
  */
 
-import type { Access, IrBinding, IrPou, IrRoutine, Place } from "../../ir/index.js"
+import { type Access, fieldIndex, type IrBinding, type IrPou, type IrRoutine, type Place } from "../../ir/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { Lowering } from "../core/lowering.js"
-import { fieldIndex, sameStep, suffixOf } from "../places/path.js"
+import { sameStep, suffixOf } from "../places/path.js"
 import { isPlace, mapPlaces, someNode } from "../../ir/walk.js"
 import { once } from "./routines.js"
 import { ZERO_SPAN } from "../core/build.js"

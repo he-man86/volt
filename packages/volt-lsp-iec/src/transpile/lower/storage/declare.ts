@@ -8,7 +8,8 @@ import { nested } from "../core/nested.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { Expr, VarDecl, VarSection } from "../../../frontend/syntax/index.js"
 import { bindAddress } from "./addresses.js"
-import { holdsInstance, storageOf } from "./layout.js"
+import { storageOf } from "./layout.js"
+import { holdsInstance } from "../places/path.js"
 import { aggregateInit, aliasInit, type DynamicLeaves, elementDefaults, runnableInit, scalarInit } from "../init/initial-values.js"
 import {
   constantSlotType,

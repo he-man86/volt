@@ -3,7 +3,8 @@
  * queued.
  */
 
-import { elementOf, resolveNamedType, type Type } from "../../../frontend/types/index.js"
+import { fbContext, routineContext } from "../core/keys.js"
+import { resolveNamedType, type Type } from "../../../frontend/types/index.js"
 import { Lowering } from "../core/lowering.js"
 import { sharedState } from "../core/shared.js"
 import { baseOf } from "../core/chain.js"
@@ -77,9 +78,9 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
   nested.selfType = t
   nested.codeOwner = t.scope
-  nested.frameContext = `FB:${t.name.toUpperCase()}`
+  nested.frameContext = fbContext(t.name)
   // its body's VAR_TEMP are the run's locals, keyed as a routine's are (a pointer's key, an instance handle's context)
-  nested.routineContext = `ROUTINE:${nested.frameContext}`
+  nested.routineContext = routineContext(nested.frameContext)
   const statics: { name: string; global: number }[] = []
   const base = (name: string | undefined): void => {
     if (name === undefined) return
@@ -145,11 +146,3 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   }
 }
 
-/** Whether a value of `t` holds an FB instance — it is one, or an element or a field at any depth is. */
-export function holdsInstance(lw: Lowering, t: Type): boolean {
-  // an `ARRAY[*]` of instances holds them too
-  const element = elementOf(t)
-  if (element !== undefined) return holdsInstance(lw, element)
-  if (t.kind === "function_block") return true
-  return t.kind === "struct" && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type))
-}
