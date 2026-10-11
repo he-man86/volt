@@ -2591,6 +2591,70 @@ transpile-restructure`, every build clean) or held by a test, then built:
 **Corpora:** the refusal list of all 304 POUs with code identical before and after the gate (54 lowered, 250 refused, 0
 `bool-byte`).
 
+### §7.2 Decision (step 8e): a STRING VAR_IN_OUT bound wider — one model for both backends (8.3 R10, the two 7.4c marks), 2026-10-11
+
+**Target.** `string_inout_wider_unit_read` and `string_inout_wider_copies` — the two marks the 7.4c gate added, outside both
+of 8.2's lists — confirmed in both backends and their marks removed, as the owner's rule for 8.2's six asks (fix each against
+its recording; only a fix MEASURED impossible joins §7.2). Today the backends hold two models of one in-out (R10): the Rust
+generic over the caller's capacity, the interpreter at the declared one; P3 wants one.
+
+**Recorded first, one batch** (CODESYS 3.5.21.40 `record:language` and `record:exec`, TwinCAT Project13 `record:language`;
+`ide.ps1 -Instance transpile-restructure`): `string_inout_wider_stores`, `string_inout_wider_reads`, `wstring_inout_wider`,
+`string_inout_narrower`, `wstring_inout_narrower`. With the two marked fixtures and `string_input_lent_inout_wider` (7.4c), the facts:
+- **Narrower does not build.** A STRING(4) bound to a VAR_IN_OUT STRING(10), and a STRING(10) in-out passed on to a STRING(12)
+  one: "String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_InoutNarrowerCopy'" — judged by the DECLARED
+  capacity; a WSTRING(4) to a WSTRING(10) alike; TwinCAT names the two the other way round. So a non-CONSTANT string
+  in-out is bound at its declared capacity or wider (a VAR_IN_OUT CONSTANT builds narrower:
+  `xo4_inout_constant_chain`, a STRING(12) into a sizeless one).
+- **`io[k]` reaches the caller's buffer**: unit 11 of the STRING(12) reads 'l'; `io[11] := 81` leaves the caller 'abcdefghijkQ';
+  passed on to another FUNCTION's STRING(10) in-out, its `io[11]` still reads 'l' (the binding passes the caller's buffer on).
+- **Every COPY takes the DECLARED capacity**: stored into a STRING(20) ('abcdefghij'), a FUNCTION's STRING(255) input (LEN 10),
+  a result, a Standard function's input (LEN 10, LEFT(io, 20) 'abcdefghij'), STRING_TO_LINT ('123456789012' → 1234567890),
+  STRING_TO_WSTRING, MOVE and SEL — 'abcdefghij' each.
+- **A COMPARISON reads the caller's string in place**: `io = 'abcdefghij'` FALSE, `io <> …` TRUE, `io > …` TRUE.
+- **A whole STORE writes as into a STRING(10)**: min(n, 10) units of the source and a 0 at that unit, the caller's units behind
+  it kept — a 15-unit literal leaves 'XYZXYZXYZX', [10] 0, [11] 'l'; 'pq' leaves [2] 0, [3] 'd'; a STRING(20) 'ABCDEFGHIJ', [10]
+  0, [11] 'l' — model 2's store with the declared capacity as its m.
+- **SIZEOF(io) is 11**, the declared.
+- **A WSTRING the same**, unit for unit (`wstring_inout_wider`).
+
+**Choice: the in-out IS the caller's buffer, seen through its declared capacity, decided in lowering.** A FUNCTION or METHOD a
+call binds a STRING / WSTRING VAR_IN_OUT (CONSTANT or not) to a WIDER variable is lowered per bound capacity — the variant
+`io@=STRING12` in its key (`calls/routines.ts` `calledRoutine`, beside the 7.4c string inputs; `calls/string-inouts.ts`):
+- the slot holds the CALLER's type (STRING(12)), so `io[k]` reads and writes its units and its bounds are the caller's — in
+  both backends unchanged (`char` / `setchar` on the slot's type; Rust's `N_IO` is 12);
+- its `readAs` is the DECLARED type, so every value read is the copy at the declared capacity (`places/access-guards.ts`
+  `loadValue`'s convert: Rust `io.to::<10>()`, the interpreter's `fit` cut) — every consumer the recordings name takes it;
+- a comparison's operand reads the caller's buffer in place: `stringCompare` takes the load out of the view's convert
+  (`inPlace`);
+- a whole store targets the place typed at the declared capacity: the interpreter's `storeString(dst, 10, …)` already writes
+  model 2 at that m; Rust prints `io.store_within::<10>(&…)` (`runtime/string.ts`, on demand), whose twin cases join
+  `string.cases.ts` (a store with `within`);
+- SIZEOF answers the declared type (`declared`, as a held constant's).
+A routine whose string in-outs are all bound at their own capacity is lowered as before, and in Rust N is then the declared
+capacity — so 7.4c's `callersCapacity` (a whole string in-out was always lent to a Standard function as a copy at its
+declared capacity) goes: such an in-out is lent as it is (`len(io)`), a widened one through its view's copy.
+
+**Refused by name.** An FB's string VAR_IN_OUT bound at a capacity other than its own (`call-inout-capacity`, not-modelled):
+an FB's body is lowered once per type and serves every instance, so it cannot see one caller's capacity — 0 fixtures, 0 in
+the corpora (7.4c's count: every call of the 13 string in-outs the six corpora declare binds one of its own capacity). A non-CONSTANT one bound narrower
+(`call-inout-short`, invalid): CODESYS refuses it, so it is outside the input contract, refused rather than lent silently.
+The LSP is silent on it — filed in `lsp-transpile-review-gaps` 2.5 (the two fixtures `MEASURED_SILENT`). Found beside it,
+also the LSP's: a literal too long for a VAR_IN_OUT STRING(10) it is stored into builds with no warning on both vendors,
+where the LSP warns C0198 — filed there as 2.6 (`support/divergences.ts` `STRING_CONSTANT_INTO_AN_INOUT`).
+- Rejected: (a) the in-out at its declared capacity in both backends (the interpreter's model) — the read and the write of
+  unit 11 are recorded, and a 10-unit view cannot reach them; (b) generic over the caller's capacity everywhere (the Rust's
+  model) — every copy is recorded at 10; (c) a run-time capacity carried by the binding in both backends — a second string
+  representation for every in-out, to answer statically known capacities.
+- Not changed: a VAR_IN_OUT CONSTANT bound NARROWER (`xo4_inout_constant_chain`): every read the recordings make stops at its
+  terminator, which lies inside the caller's variable; what a copy carries behind it would be the caller's neighbours — neither
+  backend models that and no recording asks (0 in the corpora).
+
+**Migration.** The batch recorded; `string.cases.ts` + `store_within` and its twin (red first); `slotOf` names an in-out's
+slot; the variant and the view; the comparison; the store; `string-inputs.ts`; the refusals; the marks removed (the guard
+fails while they stand); `rate:fixtures`. Accept: the six fixtures `confirmed` in both backends, edge agree, no
+`diverges` row outside §7.2's lists.
+
 ### 7.3 `transpile-st-to-rust` (reconciled by task 0.8)
 
 That change has 39 open tasks. Those this change covers are ticked there with "superseded by transpile-restructure <task>":
