@@ -29,7 +29,13 @@ export function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "c
   const baseScope = lw.codeOwner?.baseScope
   const base = baseScope === undefined ? undefined : lw.bodies.get(baseScope.name.toUpperCase())
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
-  if (frame === undefined || base === undefined || layout === undefined) return lw.bail("call-super", "SUPER^() outside a derived FB, or on a base with no body", call.span)
+  // outside a derived FB, both vendors refuse it ("Expression SUPER is not allowed in this context", `flw_super_in_program`);
+  // in an FB whose base the binder linked to an FB lowering holds no body for — a library's — it builds
+  // (`rk_super_base_library`): `call-library`, not modelled (transpile-refusal-classification 2.1)
+  if (frame === undefined || base === undefined || layout === undefined) {
+    const libraryBase = frame !== undefined && base === undefined && baseScope?.kind === "pou"
+    return lw.bail(libraryBase ? "call-library" : "call-super", "SUPER^() outside a derived FB, or on a base with no body", call.span)
+  }
   const routine = baseBody(lw, frame, base, call.span)
   if (routine === undefined) return undefined
   const instance = thisPlace(frame, call.callee.span)
@@ -58,7 +64,9 @@ function superArguments(
 ): IrStmt[] | undefined {
   const before: IrStmt[] = []
   for (const arg of call.args) {
-    if (arg.param === undefined || arg.output) return lw.bail("call-positional", "SUPER^ called with a positional or output argument", arg.span)
+    // a positional argument is an FB called positionally, which both vendors refuse (`refuse_fb_called_positionally`); an output
+    // read out, `SUPER^(o => got)`, builds (`rk_super_call_output_argument`: got 7) — valid ST, not built
+    if (arg.param === undefined || arg.output) return lw.bail(arg.param === undefined ? "call-positional" : "call-super-output", "SUPER^ called with a positional or output argument", arg.span)
     if (arg.value === undefined) continue
     const name = arg.param.name.toUpperCase()
     const k = fieldIndex(routine.inouts, name)

@@ -11,14 +11,14 @@
     "fixtures codesys: body does not fold": 77,
     "fixtures codesys: body folds": 562,
     "fixtures codesys: decl NOSCOPE": 31,
-    "fixtures codesys: decl does not fold": 940,
-    "fixtures codesys: decl folds": 4166,
+    "fixtures codesys: decl does not fold": 944,
+    "fixtures codesys: decl folds": 4223,
     "fixtures codesys: files of a known divergence (support/divergences.ts), not measured": 402,
     "fixtures twincat: body does not fold": 74,
     "fixtures twincat: body folds": 527,
     "fixtures twincat: decl NOSCOPE": 31,
-    "fixtures twincat: decl does not fold": 913,
-    "fixtures twincat: decl folds": 4071,
+    "fixtures twincat: decl does not fold": 917,
+    "fixtures twincat: decl folds": 4128,
     "fixtures twincat: files of a known divergence (support/divergences.ts), not measured": 570,
     "library: body folds": 9,
     "library: decl does not fold": 2,
@@ -26,15 +26,18 @@
     "run: fold equals the recorded value": 245,
     "run: initializer does not fold": 0,
     "run: not asked, __POSITION's text — niche: accepted loss (0 occurrences in the corpora)": 1,
-    "run: not asked, a body names the variable": 2072,
+    "run: not asked, a body names the variable": 2083,
     "run: not asked, a non-ASCII character in a STRING literal, its stored bytes not measured — niche: accepted loss (0 occurrences in the corpora)": 1,
     "run: not asked, reached through an initializing declaration": 15,
-    "run: not asked, the declaration holds no scalar initializer": 7907,
+    "run: not asked, the declaration holds no scalar initializer": 7962,
     "run: not asked, the initializer reads a variable, an element or a project function": 33,
-    "run: not asked, the path resolves to no declaration": 1468,
-    "run: recorded values": 11743,
-    "run: recorded values still holding their initializer": 246,
+    "run: not asked, the path resolves to no declaration": 1470,
+    "run: recorded values": 11813,
+    "run: recorded values still holding their initializer": 248,
     "run: value not comparable with a fold": 1
   },
-  "findings": []
+  "findings": [
+    "rk_fb_init_with_inout: inst_rk_fb_init_with_inout.src is INT#4, the initializer folds to 3",
+    "rk_union_member_initial_value: inst_rk_union_member_initial_value.u.w is WORD#256, the initializer folds to 258"
+  ]
 }

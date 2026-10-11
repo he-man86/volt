@@ -71,7 +71,7 @@ function binaryMeet(lw: Lowering, l: IrExpr, r: IrExpr, context: { lift: boolean
     if (elemOf(right.type)?.family === "int") right = retype(right, fold)
   }
   const met = commonType(left.type, right.type)
-  if (met === UNKNOWN) return lw.bail("type-unknown", `the operands of ${context.operator} have no common type`, span)
+  if (met === UNKNOWN) return lw.bail("operand-types", `the operands of ${context.operator} have no common type`, span)
   return { operands: [left, right], type: lift(met) }
 }
 
@@ -90,7 +90,7 @@ function builtinMeet(lw: Lowering, operands: readonly IrExpr[], span: Span): Typ
       const own = ownIntegerType(o, promoteForRuntime(type))
       if (own !== undefined) type = commonType(promoteForRuntime(type), own)
     }
-  if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
+  if (type === UNKNOWN) return lw.bail("operand-types", "the arguments have no common type", span)
   return promoteForRuntime(type)
 }
 

@@ -19,7 +19,7 @@ import { propertyRoutine } from "../calls/property.js"
 import { inGlobals } from "../calls/reentrancy.js"
 import { interfaceTables } from "./state.js"
 import { tempPlace } from "../core/temps.js"
-import { interfaceChainOf } from "../core/chain.js"
+import { interfaceChainOf, libraryOnChain } from "../core/chain.js"
 import { indexOfTag } from "../core/tags.js"
 
 /** A call through `ref`: one arm per instance it may hold, each built by `arm` once every store has lowered. */
@@ -49,7 +49,9 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
 export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { kind: "call" }>, name: string): IrDispatch | undefined {
   const itf = (ref.type as { name: string }).name
   const method = interfaceChainOf(lw, itf).flatMap((a) => a.methods).find((m) => m.name.text.toUpperCase() === name.toUpperCase())
-  if (method === undefined) return lw.bail("call-method", `${name} is no METHOD of ${itf}`, call.span)
+  // no such METHOD: invalid in the project (`mem_unknown_method_of_interface`); on a library's interface, whose METHODs its
+  // materialized declaration need not hold, not modelled (`libraryOnChain`; the 115 corpus hits were all that)
+  if (method === undefined) return lw.bail(libraryOnChain(lw, { itf }) ? "library-declaration" : "call-method", `${name} is no METHOD of ${itf}`, call.span)
   const declared = method.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => ({ section: s.sectionKind, name: n.text.toUpperCase(), type: d.type }))))
   if (declared.some((d) => d.section !== "VAR_INPUT")) return lw.bail("interface-call-shape", `${name} has a VAR_IN_OUT or VAR_OUTPUT — through an interface, not built yet`, call.span)
   const inputs = new Map<string, IrExpr>()
@@ -87,7 +89,15 @@ export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { ki
     const routine = methodOf(lw, fb, name, call.span)
     if (routine === undefined) return undefined
     const args = routine.inputs.map((i) => inputs.get(routine.locals[i]!.name.toUpperCase()))
-    if (routine.inouts.length > 0 || args.includes(undefined)) return lw.bail("interface-call-shape", `${fb.name}.${name} does not take the arguments of ${itf}.${name}`, call.span)
+    if (routine.inouts.length > 0 || args.includes(undefined)) {
+      // An implementation whose METHOD DECLARES parameters the interface's has not — an input of another name, a VAR_IN_OUT, a
+      // VAR_OUTPUT — is refused by both vendors: "Interface of overridden method 'M' … doesn't match declaration"
+      // (`rk_interface_impl_method_inout`). One whose in-outs are only the hidden ones a body earns (its FB's VAR_IN_OUT, an
+      // ANY input) matches: valid ST, not built (transpile-refusal-classification 2.1).
+      const own = fb.scope === undefined ? undefined : (lookupMember(fb.scope, name)?.ast as { varSections?: readonly { sectionKind: string }[] } | undefined)
+      const declaresMore = args.includes(undefined) || (own?.varSections ?? []).some((s) => s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT")
+      return lw.bail(declaresMore ? "interface-impl-signature" : "interface-call-shape", `${fb.name}.${name} does not take the arguments of ${itf}.${name}`, call.span)
+    }
     return { kind: "invoke", routine: routine.key, instance, inputs: args as IrExpr[], inouts: [], type, span: call.span }
   }, call.span)
 }

@@ -46,7 +46,7 @@ test("a root PROGRAM calls its own METHODs and ACTIONs bare, on its one instance
   const arguedRun = run(argued.pou!)
   arguedRun.scan()
   expect([arguedRun.get("P.fromVariable.started"), arguedRun.get("P.fromGlobal.started")]).toEqual([4n, 6n])
-  expect(lowerSource(withMethod("fromLater : FB_In(startValue := later); later : INT := 3;"), "P", seedList).diagnostics.map((d) => d.code)).toContain("fb-init-argument")
+  expect(lowerSource(withMethod("fromLater : FB_In(startValue := later); later : INT := 3;"), "P", seedList).diagnostics.map((d) => d.code)).toContain("fb-init-argument-shape")
   // A PROGRAM's own FB_Init was refused while unrecorded; recorded since (`fb_init_program_own`: 1), it leaves the program's
   // variables as they were — seed stays 4. One that calls something could still show more: refused.
   const ownInit = "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nseed := 100;\nEND_METHOD\n"

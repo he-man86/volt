@@ -21,8 +21,21 @@ test("once: built once and cached; a failure is refused by name on every later a
   expect(builds).toBe(1)
   expect(once(lw, "G", span, () => undefined)).toBeUndefined()
   expect(once(lw, "G", span, () => routine("G"))).toBeUndefined()
+  // H reached again from a lowering that is not H's own: recursion through another routine, which runs
+  // (`calls_functions_mutually_recursive`)
   expect(once(lw, "H", span, () => once(lw, "H", span, () => routine("H")))).toBeUndefined()
-  expect(lw.diagnostics.map((d) => d.code)).toEqual(["call-body", "call-recursive"])
+  expect(lw.diagnostics.map((d) => d.code)).toEqual(["call-body", "call-recursion"])
+})
+
+test("once: a routine reached again from its OWN lowering is `call-recursive` only when the call named it bare", () => {
+  const lw = new Lowering(scope, scope)
+  lw.shared.routineLowerings.set("K", lw)
+  // `K(...)` in K's body: its name is its result there, refused by both vendors (`cc2_call_recursion`, `calls_method_recursive`)
+  expect(once(lw, "K", span, () => once(lw, "K", span, () => routine("K"), { bare: true }))).toBeUndefined()
+  // `THIS^.K(...)`: no recording refuses it
+  lw.routines.delete("K")
+  expect(once(lw, "K", span, () => once(lw, "K", span, () => routine("K")))).toBeUndefined()
+  expect(lw.diagnostics.map((d) => d.code)).toEqual(["call-recursive", "call-recursion"])
 })
 
 test("once quiet: a built routine's failure is not refused again, and it has no recursion guard", () => {

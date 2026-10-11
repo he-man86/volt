@@ -274,8 +274,9 @@ export interface Messages {
   abstractInstantiation(fb: string): string
   /** Value-assigning to an abstract-FB target (C0511). The message names the FB TYPE. CODESYS-verified. */
   abstractAssignTarget(fb: string): string
-  /** An interface member with no implementation — identical both vendors; member + interface UPPERCASED. */
-  missingInterfaceImpl(kind: "method" | "property", member: string, iface: string): string
+  /** An interface member with no implementation — identical both vendors; member + interface UPPERCASED; a PROPERTY named by
+   *  its accessor METHOD, `__GET<name>` / `__SET<name>` (`rk_interface_property_not_implemented`). */
+  missingInterfaceImpl(member: string, iface: string): string
   /** A property read in a context where it has no get accessor (C0143). verified both vendors. */
   propertyLacksGetter(name: string): string
   genericCount(fb: string, count: number): string
@@ -705,8 +706,8 @@ export function messagesFor(vendor: Vendor): Messages {
     // (mirrors abstractInstantiation's one-word "Functionblock").
     abstractAssignTarget: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be used as a target for an assignment`,
-    missingInterfaceImpl: (kind, member, iface) =>
-      `There is no implementation for ${kind} '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
+    missingInterfaceImpl: (member, iface) =>
+      `There is no implementation for method '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
     propertyLacksGetter: (name) => `The property '${name}' cannot be used in this context because it lacks the get accessor`,
     // CODESYS SP21 (`decl_var_generic_no_argument`); TwinCAT has no VAR_GENERIC
     genericCount: (fb, count) => `Generic Functionblock '${fb}' expects exactly '${count}' number of Generic Constant Definitions`,

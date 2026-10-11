@@ -86,7 +86,18 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     if (name === undefined) return
     const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where)
     const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
-    if (layout === undefined) return void lw.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, where)
+    // A base the binder linked to an FB or a STRUCT, not on its way back to the type, whose own declaration did not lay
+    // out — or a library FB lowering resolves no type for (`unit_fb_extends_qualified`: CODESYS builds it) — is
+    // `layout-base`, valid ST not built. One no declaration resolves, an interface, or an EXTENDS that comes back to the
+    // type is `base-unresolved`, which both vendors refuse (`inh_unresolved_base`, `oopa_extends_interface`,
+    // `inh_extends_cycle`; openspec transpile-refusal-classification 2.1).
+    if (layout === undefined) {
+      const resolved = baseType.kind === "struct" || baseType.kind === "function_block"
+      const linked = resolved
+        ? !buildingOf(lw).has(baseType.name.toUpperCase())
+        : baseType.kind === "unknown" && (t.scope?.baseScope?.kind === "pou" || t.scope?.baseScope?.kind === "struct")
+      return void lw.bail(linked ? "layout-base" : "base-unresolved", `the base type ${name} of ${t.name} has no layout`, where)
+    }
     nested.inherit(layout.fields)
     for (const shared of layout.statics ?? []) {
       nested.statics.set(shared.name.toUpperCase(), shared.global)
@@ -104,8 +115,12 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // `state_any_int_pointer_increment`).
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
     const pointers = nested.slots.length > 0 && nested.slots.every((f) => f.type.kind === "pointer")
-    if (ast.body.fields.some((f) => f.init !== undefined) || !(pointers || nested.slots.every((f) => overlayBytes(f.type) !== undefined))) {
-      lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where)
+    // Two refusals, a code each (transpile-refusal-classification 2.1): a member whose overlaid bytes no recording measured
+    // is `union-overlay`, not measured (19 corpus POUs); a member declared with an initial value builds
+    // (`rk_union_member_initial_value`: w 16#0100, b 0) and is `layout-union`, not modelled.
+    const unmeasured = !(pointers || nested.slots.every((f) => overlayBytes(f.type) !== undefined))
+    if (unmeasured || ast.body.fields.some((f) => f.init !== undefined)) {
+      lw.bail(unmeasured ? "union-overlay" : "layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where)
       return
     }
     unionsOf(lw).add(t.name.toUpperCase())

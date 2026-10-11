@@ -15,7 +15,7 @@ import { lastBinding } from "./last-binding.js"
 import { bindStringInput, stringInputsOf } from "./string-inputs.js"
 import { isSuper } from "./super.js"
 import { instancePlace, selfFb, thisPlace } from "../places/self.js"
-import { lookup, lookupLocal, lookupMember, pickForAsker, scopeUri } from "../../../frontend/symbols/index.js"
+import { isLibrarySymbol, lookup, lookupLocal, lookupMember, pickForAsker, scopeUri } from "../../../frontend/symbols/index.js"
 import { calledRoutine } from "./routines.js"
 import { namespaceOf } from "./namespace.js"
 import { methodOf, ownMember } from "../places/names.js"
@@ -109,7 +109,13 @@ function invokeTarget(lw: Lowering, call: Extract<Expr, { kind: "call" }>): { ro
     instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
     const sym = functionCalled(lw, callee)
-    if (sym === undefined) return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
+    // A name that resolves to what no call reaches — a variable, a constant, a type of the project's — is refused by both
+    // vendors: "Program name, function or function block instance expected" (`calls_constant_called`,
+    // `dt_struct_type_name_called`). One that resolves to nothing, or to a LIBRARY's declaration, stays `expr-call`: valid
+    // ST reaches it — an operator lowering lacks (`TEST_AND_SET`, `__XADD`), a library FUNCTION the lowering project holds
+    // none of whose name another library's FB bears (`DELETE`, awa-palletizer: Standard's FUNCTION, CAA File's FB;
+    // transpile-refusal-classification 2.1).
+    if (sym === undefined) return lw.bail(notCallable(lw, callee.name) ? "call-not-callable" : "expr-call", `${callee.name} is not a project FUNCTION`, call.span)
     // A library FUNCTION lowers like a project one when its body is there — the library repo's (`libraries/`) — and is
     // refused as `call-library` by `calledRoutine` when only the materialized declaration is.
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
@@ -197,7 +203,8 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
   const param = bound >= 0 ? routine.inouts[bound]! : undefined
   // `name => target`: a VAR_OUTPUT bound to the caller's place (conformance `state_routine_outputs`); left empty, a temp
   if (arg.output) return bindOutputArgument(lw, b, arg, bound, param)
-  if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
+  // `F(a := , b := 2)` builds and runs `a` on its default (`rk_function_empty_argument`: 6) — valid ST, not built
+  if (arg.value === undefined) return lw.bail("call-empty-argument", `${routine.name} called with an empty argument`, arg.span)
   if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
   if (param !== undefined) {
     // a Standard string input this variant takes read-only (`string-inputs.ts`): lent as it is, no alias to check
@@ -312,4 +319,15 @@ function bindInstanceInOuts(lw: Lowering, b: InvokeBindings, span: Span): boolea
     }
   }
   return outside
+}
+
+/**
+ * A name called that resolves to a declaration of the PROJECT's no call reaches (a variable, a constant, a type, a GVL):
+ * `call-not-callable`, invalid. A name that resolves to nothing, or to a library's declaration — the lowering project holds
+ * a library's elements only as far as they were materialized, so the vendor's own target may be one it lacks (`DELETE`) —
+ * is not decided by the name alone.
+ */
+export function notCallable(lw: Lowering, name: string): boolean {
+  const sym = lookup(lw.scope, name)?.symbol
+  return sym !== undefined && !isLibrarySymbol(sym)
 }

@@ -4,12 +4,12 @@
  *
  *   1. every code the lowering actually emits resolves in the registry — a new `bail` with a new slug fails
  *      here rather than quietly becoming an unregistered 99th code;
- *   2. the `unclassified` count only ever goes DOWN.
+ *   2. every code has one of the three kinds.
  *
- * The second is a ratchet rather than a demand for zero, because classifying all 98 in one sitting would mean
- * reading each call site and deciding what it means to a user — which is the confident guessing this component
- * has already paid for twice today. A wrong `kind` is worse than an absent one: it sends someone to fix ST that
- * is already correct, or to wait for a release that will never mention their case.
+ * The second was a RATCHET on an `unclassified` kind, from 83 down, while each code got its kind from evidence rather
+ * than from reading its call sites (openspec transpile-refusal-classification): a wrong `kind` is worse than an absent
+ * one — it sends someone to fix ST that is already correct, or to wait for a release that will never mention their
+ * case. It reached 0 and the kind is gone from `LowerCodeKind`; a new code is classified when it is written.
  */
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
@@ -38,16 +38,55 @@ function lowerSources(dir: string = LOWER_DIR): string[] {
   })
 }
 
+/**
+ * The CODE ARGUMENT of every `bail(…)` / `fail(…)` / `lowerDiagnostic(…)` call in `src`: the first argument that is not a
+ * bare name (`fail(lw, pending, code, …)` passes two first), read to the comma that ENDS it at its own depth — a code chosen
+ * by a call, `bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", …)`, has commas of its own, and reading
+ * to the first comma saw neither slug (transpile-refusal-classification 2.1).
+ */
+export function codeArguments(src: string): string[] {
+  const found: string[] = []
+  for (const m of src.matchAll(/\b(?:bail|fail|lowerDiagnostic)\(/g)) {
+    const args: string[] = []
+    let depth = 0
+    let quote: string | undefined
+    let start = m.index + m[0].length
+    for (let i = start; i < src.length; i++) {
+      const c = src[i]!
+      if (quote !== undefined) {
+        if (c === "\\") i++
+        else if (c === quote) quote = undefined
+        continue
+      }
+      if (c === '"' || c === "'" || c === "`") quote = c
+      else if (c === "(" || c === "[" || c === "{") depth++
+      else if ((c === ")" || c === "]" || c === "}") && depth > 0) depth--
+      else if ((c === "," || c === ")") && depth === 0) {
+        args.push(src.slice(start, i).trim())
+        if (c === ")") break
+        start = i + 1
+      }
+    }
+    const code = args.find((a) => !/^[A-Za-z_$][\w$]*$/.test(a))
+    if (code !== undefined) found.push(code)
+  }
+  return found
+}
+
 function emittedCodes(): string[] {
   const found = new Set<string>()
   for (const src of lowerSources()) {
-    // the first argument of each call, up to the comma that ends it — then every quoted slug inside it
-    for (const m of src.matchAll(/(?:bail|fail|lowerDiagnostic)\(\s*(?:pending,\s*)?([^,\n]*)/g))
-      for (const lit of m[1]!.matchAll(/"([a-z0-9_-]+)"/g)) found.add(lit[1]!)
+    // the code argument of each call, whole — then every quoted slug inside it
+    for (const arg of codeArguments(src)) for (const lit of arg.matchAll(/"([a-z0-9_-]+)"/g)) found.add(lit[1]!)
     for (const m of src.matchAll(/code:\s*"([a-z0-9_-]+)"/g)) found.add(m[1]!)
   }
   return [...found].sort()
 }
+
+test("the code argument is read whole, past the commas of a call that chooses it", () => {
+  const src = 'lw.bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a ${x}, b`, span)\n' + 'fail(lw, pending, f(a, b) ? "p-one" : "p-two", "m", span)\n' + 'lw.bail("plain", "m, with a comma", span)'
+  expect(codeArguments(src)).toEqual(['brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved"', 'f(a, b) ? "p-one" : "p-two"', '"plain"'])
+})
 
 /** Every TEMPLATED code, as its prefix — `bail(\`expr-${e.kind}\`, …)` is a family, not a code. */
 function emittedPrefixes(): string[] {
@@ -78,13 +117,13 @@ describe("the refusal registry covers what lowering emits", () => {
   })
 
   /**
-   * THE RATCHET. Lower it when codes are classified; it may never rise. A new code that arrives unclassified
-   * fails here, which is the point — the moment to decide what a refusal MEANS is when it is written, while the
-   * person who wrote it still knows.
+   * The ratchet that stood here counted the `unclassified` kind down to 0 (transpile-refusal-classification 2.2) — the
+   * moment to decide what a refusal MEANS is when it is written, while the person who wrote it still knows.
    */
-  test("the unclassified count only goes down", () => {
-    const unclassified = Object.values(LOWER_CODES).filter((k) => k === "unclassified").length
-    expect(unclassified).toBeLessThanOrEqual(83)
+  test("every code has one of the three kinds", () => {
+    const kinds = new Set(["invalid", "not-modelled", "not-measured"])
+    expect(Object.entries(LOWER_CODES).filter(([, k]) => !kinds.has(k)).map(([c]) => c)).toEqual([])
+    expect(LOWER_CODE_PREFIXES.filter((p) => !kinds.has(p.kind)).map((p) => p.prefix)).toEqual([])
   })
 })
 

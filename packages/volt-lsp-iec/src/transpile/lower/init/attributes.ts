@@ -64,7 +64,13 @@ export function slotMethodCall(st: InitStep, place: Place, t: Fb): boolean {
   if (sym === undefined) return true
   const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
   if (routine === undefined) return false
-  if (routine.inputs.length > 0 || routine.inouts.length > 0) return lw.bail("attr-init-inputs", `${sym.name} takes arguments`, span) ?? false
+  // "A signature decorated with the 'call_after_global_init_slot' attribute must either have no arguments or a single input
+  // named 'bInitRetains'" (`rk_init_slot_method_with_input`): that one input builds (`rk_init_slot_method_binitretains`: it
+  // ran once) — valid ST, not built; any other is refused (transpile-refusal-classification 2.2)
+  if (routine.inputs.length > 0 || routine.inouts.length > 0) {
+    const retainsOnly = routine.inouts.length === 0 && routine.inputs.length === 1 && routine.locals[routine.inputs[0]!]!.name.toUpperCase() === "BINITRETAINS"
+    return lw.bail(retainsOnly ? "attr-init-inputs" : "attr-init-signature", `${sym.name} takes arguments`, span) ?? false
+  }
   if (programReentrant(lw, routineCallee(lw, routine), programTarget(place)) !== undefined)
     return lw.bail("call-program-reentrant", `${sym.name} may reach the PROGRAM its instance lives in, which it runs moved out of`, span) ?? false
   st.slotCalls.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })

@@ -79,3 +79,11 @@ test("H4: a base interface nothing declares is unprovable — no obligation is g
 test("an interface property with neither accessor owes nothing (oopb_itf_property_missing)", () => {
   expect(missing(`INTERFACE IP\nPROPERTY P : INT\nEND_PROPERTY\nEND_INTERFACE\n\nFUNCTION_BLOCK F IMPLEMENTS IP\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
+
+// transpile-refusal-classification 2.2 (`rk_interface_property_not_implemented`, both vendors 2026-10-11): a missing interface
+// PROPERTY is named by its ACCESSOR, as a METHOD — "There is no implementation for method '__GETLEVEL' defined in interface
+// 'ITF_LANG_RK_IPNI'". The LSP said "property 'LEVEL'", a wording neither vendor writes.
+test("a missing interface property is named by its accessor method, `__GET<name>`", () => {
+  const ip = `INTERFACE IP\nPROPERTY Level : INT\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n`
+  expect(missing(`${ip}FUNCTION_BLOCK F IMPLEMENTS IP\nEND_FUNCTION_BLOCK`)).toEqual(["There is no implementation for method '__GETLEVEL' defined in interface 'IP'"])
+})

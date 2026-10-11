@@ -70,7 +70,7 @@ export function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const steps = [...ordered, ...programOrder.flatMap((p) => p.statements)]
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (st.globalArguments.size > 0 && writesGlobal(lw, steps))
-    return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
+    return lw.bail("fb-init-order", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
   // MORE THAN ONE init-slot METHOD whose order could show: their order among themselves is neither declaration nor frame
   // order — it moved with the names (`init_gvl_program_slot_order{,_renamed}`, M5.1.4) — and the attribute's value is a
   // priority nothing models. niche: accepted loss (0 occurrences in the corpora: no `call_after_global_init_slot`). Several

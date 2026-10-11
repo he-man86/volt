@@ -251,8 +251,8 @@ caller's buffer seen through its declared capacity (`lower/calls/string-inouts.t
 is lowered per bound capacity, its slot the caller's type — `io[k]` reads and writes the caller's units — with `readAs`
 the declared type, so every copy of it takes the declared units, but a comparison, which reads the caller's string in
 place; a whole store into it writes within the declared capacity (the interpreter's `storeString`, Rust's `store_within`);
-SIZEOF is the declared. Bound narrower, CODESYS refuses it (`call-inout-short`) but for a VAR_IN_OUT CONSTANT; an FB's
-bound at another capacity is refused (`call-inout-capacity`: one body serves every instance).
+SIZEOF is the declared. Bound narrower, CODESYS refuses it (`call-inout-short` [invalid]) but for a VAR_IN_OUT CONSTANT; an FB's
+bound at another capacity is refused (`call-inout-capacity` [not-modelled]: one body serves every instance).
 
 **The folders** (openspec `transpile-restructure` design.md §2; each test sits next to its module as `<file>.test.ts`):
 
@@ -295,6 +295,16 @@ transpile/
     runtime/        string.ts text.ts parse.ts numeric.ts pointer.ts bytes.ts — the Rust the emitted code carries, by
                     registry (index.ts); the mirror of semantics/
 ```
+
+**Every refusal names what it asks of the user** (`lower/diagnostics/codes.ts`, openspec transpile-refusal-classification):
+`invalid` — CODESYS refuses the ST too, fix it; `not-modelled` — valid ST, understood, not built, wait or ask;
+`not-measured` — valid ST whose behaviour no recording settles, record it. Each code's kind was decided from its call
+sites, the fixtures whose lowering reaches each site and what the vendor did with them, and the corpora (every corpus
+project builds), and where none of that decided, a fixture asked CODESYS first (`fixtures/{calls,memory,oop,operators}/
+refusal-kinds.ts`). A site valid ST reaches is never `invalid`; a code whose sites refused two kinds was split
+(`diagnostics/classification.test.ts`). The rules were applied to the codes that change classified; seven `invalid` codes
+classified before it are still reached by valid ST, named in `codes.ts`'s header until a change re-reads them. The lists
+below name each code's kind in brackets.
 
 **The layers** — enforced by `scripts/check-layering.ts` (rules 3, 4, 4b and 6), a lint failure, not a convention.
 `transpile/` as a whole may import only `syntax`, `symbols` and `types`; inside it:
@@ -346,19 +356,22 @@ holds it; the residual DATA TAG — a pointer to a routine's local, a VAR_IN_OUT
 non-image ANY argument, numbered per `pointerKey`, a copy into a pointer of several targets re-mapped so NULL stays NULL;
 and `__inout_binding` (`calls/last-binding.ts`) — folding it into the image would make every VAR_IN_OUT target escape.
 Form 2 (a `POINTER TO` parameter only dereferenced is a borrow) and the string cursor stay as built. Refused by name:
-`pointer-shape` (the address of a BIT, of a dereference), `cursor-overrun`, `sizeof-unmeasured`, `layout-unmeasured`,
-`dynamic-memory` (`__NEW`/`__DELETE`), `call-inout-alias`, `place-not-local`, `image-stack` (an escaped routine local),
-for a TAGGED pointer (a pointer that holds addresses does all of these) `pointer-type` (read or given as another type than
-its target), `pointer-step` and `pointer-runtime-index` (stepped, or the address of a runtime-indexed place) and
-`pointer-order` (dereferenced or copied before any address was stored into it), `pointer-value` (a pointer's value used
-as a number, an integer stored as a pointer), `pointer-foreign` (a pointer INPUT followed in an FB body
+`pointer-shape` [not-modelled] (the address of a BIT, of a dereference), `cursor-overrun` [not-modelled], `sizeof-unmeasured` [not-measured], `layout-unmeasured` [not-measured],
+`dynamic-memory` [not-measured] (`__NEW`/`__DELETE`), `call-inout-alias` [not-modelled], `place-not-local` [not-modelled], `image-stack` [not-modelled] (an escaped routine local),
+for a TAGGED pointer (a pointer that holds addresses does all of these) `pointer-type` [not-modelled] (read or given as another type than
+its target — a REFERENCE bound to another type than its own, not an FB derived from it, is `reference-type` [invalid],
+which both vendors refuse; a REFERENCE given is read as what it refers to, so `REF=` from a REFERENCE of the same type is
+`pointer-type`), `pointer-step` [not-modelled] and `pointer-runtime-index` [not-modelled] (stepped, or the address of a runtime-indexed place) and
+`pointer-order` [not-modelled] (dereferenced or copied before any address was stored into it), `pointer-value` [not-modelled] (a pointer's value used
+as a number — a mixed site, its vendor-refused half not yet split off, see `codes.ts`'s header; an integer the assignment table takes stored as a pointer — one it refuses, a 32-bit integer on the 64-bit
+target, is `integer-into-pointer` [invalid]; stepped by what is no number, `pointer-operand` [invalid]), `pointer-foreign` [not-modelled] (a pointer INPUT followed in an FB body
 lowered as any POU but the root — an FB reached by a call: its caller's address would have to be lent per call; a
-METHOD/ACTION/FUNCTION routine's inputs are supplied by its caller and not refused) and `pointer-root-input` (a pointer
-INPUT followed in the root POU, which has no caller to supply it — a harness limit, not a work item), `any-input` (an ANY
-argument that is no named variable, or whose size is unmeasured), `call-fb-inout` (a METHOD reaching its FB's
-VAR_IN_OUT where no binding can be known), `pointer-outlives`, `pointer-targets` (a pointer that would hold both a tag and an index, or a tag and an address; a
+METHOD/ACTION/FUNCTION routine's inputs are supplied by its caller and not refused) and `pointer-root-input` [not-measured] (a pointer
+INPUT followed in the root POU, which has no caller to supply it — a harness limit, not a work item), `any-input` [not-measured] (an ANY
+argument that is no named variable, or whose size is unmeasured), `call-fb-inout` [not-modelled] (a METHOD reaching its FB's
+VAR_IN_OUT where no binding can be known), `pointer-outlives` [not-modelled], `pointer-targets` [not-modelled] (a pointer that would hold both a tag and an index, or a tag and an address; a
 copy of a pointer of several targets; a target set that still grew after `ESCAPE_PASSES` lowerings, `entry/lower-unit.ts`),
-`interface-instance` (an instance at a runtime index), `interface-instance-relative`, `call-global-instance` (a METHOD
+`interface-instance` [not-modelled] (an instance at a runtime index), `interface-instance-relative` [not-modelled], `call-global-instance` [not-modelled] (a METHOD
 called on a GVL's instance, directly or through an interface); a pointer→DWORD conversion is vendor-refused.
 
 *A BOOL whose byte another type reaches* (transpile-restructure 8.2, design.md §7.2 step 8c) is HELD AS ITS BYTE
@@ -373,7 +386,7 @@ BOOL whose address reaches a pointer of another target type — given, or carrie
 (`bool_pointer_copied_to_byte_pointer`) — is a seed; a POINTER TO BOOL given another type's bytes, a raw BOOL's address or a
 copy of another type's pointer is a byte view; every BOOL a store, an input or an in-out fills from a raw one's byte (a
 load, an AND / OR / XOR of one — not a NOT or a comparison, which answer 0 or 1) is raw too, to a fixed point. Every other
-BOOL keeps `bool` / `boolean`. Refused by name `bool-byte`: a raw BOOL's byte read anywhere else (a WHILE, an order, SEL,
+BOOL keeps `bool` / `boolean`. Refused by name `bool-byte` [not-measured]: a raw BOOL's byte read anywhere else (a WHILE, an order, SEL,
 an unmeasured conversion, a destination no key names — `refuseUnmeasuredRawBools` walks the IR for one no measured
 operator took); a BOOL's byte no key can follow — an element's or a field's address given to (or a pointer holding one
 copied into) a pointer of another type, a byte view no variable names, the address of what holds a BOOL (a struct, an
@@ -384,11 +397,12 @@ each member, and a store into one member is followed by ONE assignment per other
 little-endian bytes read at that member's type — the IR expression `reinterpret` (`lower/storage/unions.ts`
 `unionCopies`; the interpreter's twin is `semantics/memory.ts`, the Rust `to_le_bytes`/`from_le_bytes`,
 `emit/rust/reinterpret.ts`) — so every read stays a plain field read. A union of pointers keeps one field per member too
-(the DUT struct's fields are the emitted Rust's contract). Refused by name: `layout-union` (a member that is not an
+(the DUT struct's fields are the emitted Rust's contract). Refused by name: `union-overlay` [not-measured] (a member that is not an
 integer — an enum is its base integer —, a bit string of 8 bits or more (BYTE to LWORD: a BOOL or BIT member is
 refused, though BOOL is ANY_BIT), a REAL/LREAL or a one-dimensional array of them — so also a STRING, a duration, a
-struct, or a pointer beside such members; or a member with an initial value) and
-`union-write` (a member written other than by `:=` — a VAR_IN_OUT or output binding, a latch, a chain link, a FOR
+struct, or a pointer beside such members), `layout-union` [not-modelled] (a member with an initial value, which CODESYS
+builds: `rk_union_member_initial_value`) and
+`union-write` [not-modelled] (a member written other than by `:=` — a VAR_IN_OUT or output binding, a latch, a chain link, a FOR
 variable, an address taken — or reached through a runtime index).
 
 *A REAL NaN is its bits* (transpile-restructure 8.2, design.md §7.2 step 8c; `semantics/nan.ts` `NaNBits`): JavaScriptCore
@@ -401,7 +415,7 @@ it is. The emitted Rust CHOOSES each NaN in the code (gate 8c): a REAL `+ - * /`
 `iec_fdiv` (`iec_fdivz` with the zero check), a function `iec_fn(x, f64::ln)`, REAL <-> LREAL `iec_widen` / `iec_narrow`
 (`emit/rust/runtime/numeric.ts` `IEC_REAL`) — Rust leaves which NaN an operation answers to the compiler, and an optimized
 build commuted an add and folded constants into another NaN than CODESYS's; the twin harness runs the NaN cells in an
-`-O` build too. An initializer that folds to a NaN is refused `init-nan` (no IR constant holds one; the fold's bits are unmeasured).
+`-O` build too. An initializer that folds to a NaN is refused `init-nan` [not-measured] (no IR constant holds one; the fold's bits are unmeasured).
 
 *The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
 constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —
@@ -410,16 +424,16 @@ not a second type model. **If a backend ever has to decide something, the loweri
 *Loops* (transpile-restructure §3.1). There is no loop bound in the semantics — CODESYS caps no loop (`tr_27_loop_cap_*`) —
 so only a harness bounds a runaway: `loopGuard` on `run` and `emitRust`, one body entry after a head test counted as one
 pass in both backends, and its `LoopGuardError` is never a fault match. A FOR step and limit are judged by their front-end
-type (`for-step-type`, `for-limit-type`: a DINT limit on an INT counter does not compile), an expression of untyped
-literals by its value. Refused by name besides those two: `for-bound-call` (a call in the step, or in a limit tested on
-both arms of a runtime step — its run count is unrecorded) and `exit-outside-loop`. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
+type (`for-step-type` [invalid], `for-limit-type` [invalid]: a DINT limit on an INT counter does not compile), an expression of untyped
+literals by its value. Refused by name besides those two: `for-bound-call` [not-measured] (a call in the step, or in a limit tested on
+both arms of a runtime step — its run count is unrecorded) and `exit-outside-loop` [invalid]. Whether a Rust loop names its `'loop_N`/`'body_N` labels is asked of the IR before it prints
 (`ir/walk.loopUses`).
 
 *Strings* (transpile-restructure §3.2). A STRING(n) is ONE buffer of n units plus the terminator at n: the interpreter
 holds it as a JS string of the whole buffer, trailing zeros trimmed (`semantics/string.ts` `held`), Rust as
 `IecStr<T, N>` (`[T; N]`, the terminator implied), and `LEN` is the first 0 — the units behind it are real (`s[i]` reads
 and writes them). Every Type lowering holds carries its capacity (`Lowering.resolve` applies the default 80; a capacity
-that does not fold is refused `string-capacity`). One store rule: `assign` into an existing string writes `min(n, m)`
+that does not fold is refused `string-capacity` [not-modelled]). One store rule: `assign` into an existing string writes `min(n, m)`
 units of the SOURCE buffer and a 0 there, and leaves the destination's units behind it (`storeString`, Rust
 `dst.store(&src)`; a literal is a source of its own units); a `convert` fills a fresh buffer. A string conversion hands
 its text through a 255-unit buffer: STRING <-> WSTRING gives STRING(255)/WSTRING(255), a parse reads at most 255 units,
@@ -428,12 +442,12 @@ parsed into an integer reads the WSTRING by its own grammar — the STRING parse
 whole text, else 0 (`semantics/parse.ts` `parseIntegerWide`, Rust `iec_parse_int_wide`, `wstring_parse_grammar`), into
 every integer type as the STRING parse does past 32 and 64 bits; a negative text into an unsigned type is 0 for both, where
 a signed one wraps it (`wstring_parse_widths`, 108 cells). Refused by name:
-an implicit string crossing (`assign-string`), unmeasured escapes (`string-escape`, `wstring-surrogate`,
-`string-non-ascii`), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
-a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun`), REAL_TO_STRING
-(`conversion-type`), a Standard function's lent input that the library repo's body writes, lends writable or takes the
-address of (`input-borrow-written` — a repo defect, never a silent copy) and LEN_INTERNAL of a STRING longer than its
-UINT count holds (`string-length-width`).
+an implicit string crossing (`assign-string` [invalid]), unmeasured escapes (`string-escape` [not-measured], `wstring-surrogate` [not-measured],
+`string-non-ascii` [not-measured]), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
+a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun` [not-modelled]), REAL_TO_STRING
+(`conversion-type` [not-measured]), a Standard function's lent input that the library repo's body writes, lends writable or takes the
+address of (`input-borrow-written` [not-modelled] — a repo defect, never a silent copy) and LEN_INTERNAL of a STRING longer than its
+UINT count holds (`string-length-width` [not-modelled]).
 
 *Initialization* (transpile-restructure §3.4). An initializer is a statement that RUNS, once before the first scan, in
 declaration order — not a constant expression. `IrSlot.init` holds the folded constant (an `IrInit` complete to every
@@ -448,7 +462,7 @@ FUNCTION's VAR and an FB's or PROGRAM's VAR_TEMP are PER-RUN LOCALS (`Lowering.p
 between runs. Each starts at its `IrInit` on every run (the interpreter instantiates it, the Rust binds it with a `let` at
 the top of the fn that runs the body, `emit/rust/routine.ts` `printLocals`), and only an initializer that is not a constant
 is a statement of the run, the dynamic elements after the static part (`init/temp-resets.ts` `localInits`). A VAR_TEMP
-named where it is visible but not run — its FB's ACTION, `THIS^.x`, an instance path — is `var-temp-outside-body`; where
+named where it is visible but not run — its FB's ACTION, `THIS^.x`, an instance path — is `var-temp-outside-body` [not-modelled]; where
 it is not visible — a METHOD, a derived body — the name is whatever else declares it, a global of that name (the
 symbols' `lookup`), and a derived FB may declare its own variable of a base VAR_TEMP's name. A field holding a VAR_TEMP's
 address reads it in the run that stored it, as one into the body's VAR_IN_OUT does (`pointers/state.ts` `scopedTo`). What an initializer reads is `ir/walk.ts` `initReadChildren` — `childrenOf`, an
@@ -458,15 +472,18 @@ but the slot's initial value (`lower/init/bindings.ts`, transpile-restructure 7.
 writes each address into the struct's field (`p: __base + k` at a static instance), and an `init()` / `__init()` left
 empty goes with its call chain. It is folded only where `provenBindings` shows, on the built sequence, that nothing
 before it reads or writes a variable of its name, dereferences or calls anything (each conservative); an unproven binding keeps its store, the exact
-declaration-order answer. A binding reads nothing, so it never starts the position rule's walk. Refused by name: `init-reads-later` (a later struct's or instance's field, by any path; a VAR_TEMP read by the run-once
+declaration-order answer. A binding reads nothing, so it never starts the position rule's walk. Refused by name: `init-reads-later` [not-measured] (a later struct's or instance's field, by any path; a VAR_TEMP read by the run-once
 init step, which runs before any run holds one),
-`init-reads-instance` (an instance declared with a structured initializer, its field, a METHOD on it, the instance
+`init-reads-instance` [not-measured] (an instance declared with a structured initializer, its field, a METHOD on it, the instance
 itself or a struct holding it — also handed to a call by name, as an interface lends it after the guards ran),
-`fb-init-order` (a nested structured initializer reaching an FB_Init, or setting the sibling a STRUCT field instance's
-argument reads), `fb-init-argument` (an argument neither a constant, a variable nor an elementary struct field — THIS
-among them, and in a struct any expression naming something), `init-frame-order` (a PROGRAM not first called by the POU's
-own top-level statements), `init-slot-order` (several slot methods whose order could show), `init-not-constant` (a GVL
-initializer that runs; a STRUCT field's dynamic initializer — a STRUCT has no init frame), `init-composite-scalar`.
+`fb-init-order` [not-measured] (a nested structured initializer reaching an FB_Init, or setting the sibling a STRUCT field instance's
+argument reads; an argument reading a global while an FB_Init writes globals), `fb-init-argument-shape` [not-modelled] (an
+argument CODESYS builds that lowering cannot pass: neither a constant, a variable nor an elementary struct field — THIS
+among them, and in a struct any expression naming something —, given positionally, or bound to an FB_Init VAR_IN_OUT),
+`fb-init-argument` [invalid] (an input given no argument at all, `bInitRetains`/`bInCopyCode` of another type than BOOL, a
+struct field that is no elementary value, a variable of the declaring POU), `init-frame-order` [not-measured] (a PROGRAM not first called by the POU's
+own top-level statements), `init-slot-order` [not-measured] (several slot methods whose order could show), `init-not-constant` [not-modelled] (a GVL
+initializer that runs; a STRUCT field's dynamic initializer — a STRUCT has no init frame), `init-composite-scalar` [invalid].
 
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
 a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering
@@ -501,7 +518,7 @@ a Rust form — the emitter's faults are `panic!`, so `catch_unwind` or a `Resul
 design question. Six corpus POUs are blocked by this, three of them by nothing else.
 
 AND IT IS BLOCKED ON THE FRONTEND FIRST, measured 2026-09-24: `__SYSTEM.ExceptionCode` — the type every
-`__CATCH` operand is declared with — does not resolve, so `ec` is `type-unknown` before lowering reaches the
+`__CATCH` operand is declared with — does not resolve, so `ec` is `type-unknown` [not-modelled] before lowering reaches the
 statement at all. The eight fixtures give its VALUES (258, 338) and that `ANY_TO_DWORD` takes it; they do not
 give its base type or its enumerators. Inferring DWORD from two observed values is a guess of exactly the
 kind `refused` exists to prevent, so the type has to be READ from a live CODESYS before any of this is built.

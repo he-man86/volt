@@ -79,7 +79,7 @@ export function qualifiedGlobal(lw: Lowering, list: string, name: string, span: 
   const gvl = block.ast as Extract<TopLevel, { kind: "global_var_list" }>
   const decl = gvl.varSections.flatMap((s) => s.decls).find((d) => d.names.some((n) => n.text.toUpperCase() === name.toUpperCase()))
   const sym = decl === undefined ? undefined : lw.project.symbols.get(name.toLowerCase())?.find((s) => s.kind === "gvl_var" && s.ast === decl)
-  if (sym === undefined) return lw.bail("place-not-local", `${list}.${name} names no variable of that list`, span)
+  if (sym === undefined) return lw.bail("gvl-member-unknown", `${list}.${name} names no variable of that list`, span)
   const slot = listVariable(lw, sym, decl!, name)
   return slot === undefined ? undefined : { slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" }
 }

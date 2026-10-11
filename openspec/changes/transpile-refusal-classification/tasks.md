@@ -182,9 +182,151 @@ Paths are relative to `packages/volt-lsp-iec/`. Filed by `transpile-restructure`
 
 ## 2. Classify
 
-- [ ] 2.1 Every code the evidence decides gets its kind; a code whose sites refuse two kinds is split, one code per kind.
+- [x] 2.1 Every code the evidence decides gets its kind; a code whose sites refuse two kinds is split, one code per kind.
   - Accept: `codes.test.ts`'s ratchet lowered to the new count; S `ir,rust` identical (no refusal moves).
-- [ ] 2.2 Every undecided code is asked first (fixtures written, then one `record:language` / `record:exec` batch per vendor),
+- [x] 2.2 Every undecided code is asked first (fixtures written, then one `record:language` / `record:exec` batch per vendor),
   then classified.
   - Accept: the ratchet at 0 — the `unclassified` kind removed from `LowerCodeKind`; `docs/architecture.md`'s refused lists
     name each code's kind.
+  - Done 2026-10-11 (2.1 and 2.2 in one step: 1.1's evidence decided few codes alone, so the asks and the splits went
+    together). **The ratchet is gone: 0 `unclassified`, and the kind is removed from `LowerCodeKind`**; `codes.test.ts`'s
+    ratchet is now "every code has one of the three kinds". The registry holds 163 codes (140 + 24 new − `call-base`): 60
+    invalid, 73 not-modelled, 30 not-measured. Of the 83: 21 invalid, 52 not-modelled, 9 not-measured, `call-base` removed.
+  - **The rules, per call site** (written into `codes.ts`'s header): a site only vendor-refused ST reaches, refused there for
+    the site's own reason (each fixture's recorded error read against the site), is `invalid`. A site valid ST reaches (a
+    vendor-run fixture, a corpus POU) is NEVER `invalid` — a wrong `invalid` sends a user to fix correct ST, while invalid ST
+    that reaches a not-invalid site is reported by the front-end with CODESYS's own error beside it. Valid ST whose behaviour
+    a recording states is `not-modelled`; valid ST whose behaviour no recording settles (a layout or address fact, an order,
+    a project or device fact Volt is not given, a harness limit — precedent `fb-init-root`, `pointer-root-input`) is
+    `not-measured`. A code whose sites refuse two of these is split (`lower/diagnostics/classification.test.ts`,
+    test-first, 69 tests).
+  - **Asked first**: 49 fixtures `rk_*` (`test/conformance/fixtures/{calls,memory,oop,operators}/refusal-kinds.ts`), each
+    lowered first to prove it reaches the site it asks (its `feature` names the site); one `record:language` batch per
+    vendor (CODESYS 48, then 3 again — `rk_interface_from_runtime_indexed_element` wrote a VAR from outside and
+    `rk_queryinterface_from_instance` lacked `EXTENDS __SYSTEM.IQueryInterface`, fixture faults the first answer named,
+    and the added `rk_init_slot_method_binitretains`; TwinCAT 50, Project13), one `record:exec` (31 cases, 0 failed), and
+    one follow-up on all three for `rk_program_calls_itself` (the gap below). CODESYS refused 18 and built 31; TwinCAT
+    differs on 3 (`rk_function_empty_argument`, `rk_fb_init_with_inout`, `rk_super_base_library` — its library is
+    `Tc2_Standard`); the kind is CODESYS's, the transpiler's target. 8 probes were dropped before recording, lowering
+    already passing them or another site coming first (an open array passed on, a struct output, REF= into a struct field,
+    borrowed and scalar image pointers, an interface output, a FOR bound moved by a later METHOD).
+  - **Splits, one code per kind**, each half with its recording: `call-base` → `base-unresolved` [invalid] (no FB
+    declaration, a cycle, an interface or STRUCT base) + `call-library` [not-modelled] (a library base the binder linked);
+    `layout-base` [not-modelled] + `base-unresolved`; `call-method` and `interface-type` [invalid, the project's] +
+    `library-declaration` [not-modelled] (a library interface's METHODs after END_INTERFACE, a library FB with no
+    IMPLEMENTS — all 115 and 175 corpus hits); `call-output` [invalid] + `call-empty-argument` [not-modelled]
+    (`rk_function_empty_argument`: 6); `call-positional` [invalid] + `call-super-output` [not-modelled];
+    `call-program-property` [not-modelled] + `program-property-written` [invalid]; `expr-call` and `stmt-call_stmt`
+    [not-modelled, their families'; both FAMILY_EXCEPTIONS removed] + `call-not-callable` [invalid] (a name resolving to a
+    variable, constant, type, GVL); `fb-init-argument` [invalid] + `fb-init-argument-shape` [not-modelled] (positional: 5;
+    an FB_Init VAR_IN_OUT; THIS), and `step.ts`'s global read while FB_Init writes globals → `fb-init-order`
+    [not-measured]; `interface-call-shape` [not-modelled] + `interface-impl-signature` [invalid]; `interface-query`
+    [not-modelled] (an FB instance first operand: found TRUE, 4) + `interface-query-operand` [invalid]; `interface-value`
+    [not-modelled] + `interface-given-value` [invalid]; `layout-union` [not-modelled] (an initial value builds) +
+    `union-overlay` [not-measured]; `parse` [invalid] + `pragma-undecided` [not-measured] (`prag_if_hasconstanttype`);
+    `place-not-local` [not-modelled] + `gvl-member-unknown` [invalid]; `place-shape` [not-modelled] + `deref-not-pointer`
+    and `index-dims` [invalid] (`pointer-index`'s two-index site too); `pointer-type` [not-modelled] + `reference-type`
+    [invalid]; `pointer-value` [not-modelled] + `integer-into-pointer` (the assignment table's CV6) and `pointer-operand`
+    [invalid]; `type-unknown` [not-modelled] + `operand-types` [invalid]; `var-at` [not-modelled] (`%I*`) +
+    `var-at-address` [invalid]; `call-inout-derived` [not-modelled] (a derived FB: `rk_inout_derived_fb` builds) + the
+    existing `call-inout-type` [invalid] (`rk_inout_other_struct`); `call-super` [invalid] + `call-library` (`SUPER^()` over
+    a library base); `attr-init-inputs` [not-modelled] (one `bInitRetains`) + `attr-init-signature` [invalid].
+  - **Kinds, unsplit**, and what each rests on beyond 1.1's table. invalid: `assign-op` (`rk_ref_assign_in_chain`,
+    `rk_interface_set_by_ref`), `call-named-args` (`rk_builtin_named_args`), `call-output-type`, `call-param`, `case-label`,
+    `enum-value`, `inout-constant-write`, `no-unit`, `open-array-value` (`rk_open_array_assigned_whole`), `partial-access`
+    (`rk_partial_access_signed`, `_out_of_range`; its message said "not measured", now that CODESYS refuses it),
+    `property-accessor` (`rk_interface_property_not_implemented`), `string-op`, `this-in-program`, `unary-op`.
+    not-modelled: `attr-init-unreached` (`rk_fb_init_array_elements`: 7, 7), `call-body`, `call-fb-inout`,
+    `call-global-instance`, `call-inout-alias`, `call-inout-shadowed` (35), `call-nested` (`rk_nested_method_in_argument`:
+    111 — the arguments in order, measured), `call-program-member`, `-method`, `-reentrant` (1, 1, 9), `graphical-body`,
+    `init-not-constant`, `interface-input` (32), `interface-instance` (8), `interface-instance-relative`, `interface-place`
+    (13), `interface-store` (`rk_interface_bound_to_inout` builds), `pointer-foreign`, `pointer-index` (33), `pointer-order`,
+    `pointer-outlives` (42), `pointer-place`, `pointer-runtime-index` (23), `pointer-shape`, `pointer-step` (4660, 22),
+    `pointer-targets`, `property-store` (sets 1), `union-write` (11, 10), `var-at-instances` (55, 55); and, reached by no
+    fixture, no corpus POU and no ST found to reach them, Volt's own gaps — a defect if seen, so "wait or ask":
+    `call-open-array`, `call-target`, `init-dropped`, `interface-context`, `interface-lend-alias`, `no-scope`, `unit-kind`,
+    `call-this` (niche: accepted loss (0 occurrences in the corpora) for asking further). not-measured: `adr-offset` (an
+    address gap is the compiler's allocation), `any-input` (TypeClass, the pValue of an unnamed argument),
+    `attr-instance-path` (the project tree and the root are harness facts; `rk_instance_path_not_string` builds),
+    `call-inout-order`, `fb-init-order`, `fb-init-program`, `for-bound-call`, `root-inout` (a harness limit, as
+    `pointer-root-input`), `sizeof-unmeasured`.
+  - **Found along the way, fixed test-first:**
+    - `call-program` and `call-this` were emitted UNREGISTERED: `codes.test.ts`'s scan read a code argument only to its first
+      comma, so a code chosen by a call (`bail(f(a, b) ? "x" : "y", …)`) or held in a variable was invisible to it — and a
+      PROGRAM lowered as the root calling itself THREW LoweringBug instead of refusing. The scan reads the argument whole
+      now (`codeArguments`, tested), the choice sits in the bail argument, and both are registered: `call-program`
+      [not-modelled] (`rk_program_calls_itself`: CODESYS warns "Call recursion" and runs it, 3; TwinCAT builds),
+      `call-this` [not-modelled] (no input reaches it).
+    - `call-recursive` was `invalid` for every recursion, but recursion through ANOTHER routine runs
+      (`calls_functions_mutually_recursive`) and so does a PROGRAM's (`rk_program_calls_itself`). Split: `call-recursive`
+      [invalid] stays a FUNCTION or METHOD naming itself in its own body, where its name is its result
+      (`cc2_call_recursion`, `calls_method_recursive`); `call-recursion` [not-modelled] is the rest.
+    - The LSP's two false positives on the new fixtures: a missing interface PROPERTY is named by its accessor method,
+      "There is no implementation for method '__GETLEVEL' …" (both vendors; it said "property 'LEVEL'"), and a struct field
+      called is named as written, 'rec.M' (as every recorded member call is; it said 'M').
+    - The asks' invalid ST found 14 front-end gaps (CODESYS refuses, the LSP says nothing: rated `lsp-gap`, the ceiling
+      74 → 88 FOR MEASUREMENT in `map.test.ts`) — each niche: accepted loss (0 occurrences in the corpora, every corpus
+      project builds), 12 by their fixtures' `deferred.lsp`, the two partial accesses `MEASURED_SILENT` (TwinCAT has no
+      `.%` access and the LSP agrees with it); the front-end baselines name them as ceiling exceptions
+      (`test/frontend/baseline.ts`, the fold dump's finding form now recognised there).
+  - **S `ir,rust`** (baseline written from HEAD's `src/` with this step's fixtures, then checked): Rust identical for all
+    3480; IR identical for 4218 fixtures, 1346 differ in `kind` only, 93 in `kind` and a split code's slug, 2 in the
+    message (`partial-access`, reworded to its recorded kind) — no refusal moved: the same fixtures refused at the same
+    spans.
+  - Tests: `lower/diagnostics` 69 (all new or rewritten), `src/transpile/lower` + `src/analysis/checks` 1181 pass, `scripts`
+    38, `test/frontend` 45 (baselines rewritten for the new fixtures), `test/conformance` 6736 with `rate:fixtures` rerun —
+    one test, `call-parameters.test.ts`'s positional binding, runs at its 5 s timeout at HEAD as here (4.9–5.4 s at HEAD,
+    5.1–5.7 s now, timed alone) and fails under load; flagged, not raised. Typecheck clean.
+  - The probe `scripts/probe-refusal-evidence.ts` and its test are deleted: single-use, its table above is the record
+    (`git show f5a189cb83:packages/volt-lsp-iec/scripts/probe-refusal-evidence.ts`).
+  - `docs/architecture.md`: each registry code its refused lists name carries its kind in brackets (51 mentions), the split
+    codes are in the lists, and a paragraph states the three kinds and how they were decided.
+  - Gate 2 (2026-10-11): six review findings, five fixed test-first (`classification.test.ts` 66 tests, `routines.test.ts`),
+    one scoped. A scan of every corpus POU's diagnostics with their kinds (one-off, not kept) moved 49 `reference-type` →
+    `pointer-type` and 1 `call-not-callable` → `expr-call`, and nothing else; `rate:fixtures` leaves the map unchanged.
+    - (1) `reference-type` took any REFERENCE of other STORAGE than its target, including a REFERENCE given to `REF=`: pro2193
+      `MapperBase.SetSliceRef`'s `THIS^.sliceInfo REF= sliceInfo` (both `REFERENCE TO Slice_Type`), 49 corpus diagnostics.
+      A REFERENCE given is now read as what it refers to: the same type → `pointer-type` [not-modelled]; another type stays
+      `reference-type` (`cv_reference_to_other_reference`'s `ri REF= rr`, refused).
+    - (2) `call-not-callable` took a name that resolves to a LIBRARY's declaration: awa-palletizer `DELETE(STR := …)`
+      resolved to CAA File's FB `DELETE` before Standard's FUNCTION. Now invalid only for a project declaration
+      (`invoke.ts` `notCallable`, used by the statement call in `fb-call.ts` too); a library one stays `expr-call` /
+      `stmt-call_stmt`.
+    - (3) `call-recursive` was decided by the call path, so `THIS^.M()` inside METHOD M was refused as invalid like the bare
+      `M()`. `once` now takes `bare` (the call named the routine by its bare name, `calledRoutine`): only a bare self-name in
+      the routine's own lowering is `call-recursive`; `THIS^.M()` is `call-recursion` [not-modelled] (no recording refuses
+      it). `totality.test.ts`'s THIS^ case and `routines.test.ts`'s `once` case read `call-recursion` on that ground —
+      no recording refuses a re-entry not made by the bare name — and a new `once` test holds the bare case.
+    - (4) `parse` → not-modelled: the LSP's parser refuses ST CODESYS builds (`expr_pool_qualified_fb_type`, and five more
+      vendor-built fixtures), and a refusal cannot tell that from a syntax error; invalid ST reaching it is reported by the
+      front-end with CODESYS's own error beside it.
+    - (5) `interface-given-value` took a REFERENCE TO an FB that implements the interface. Now invalid only for an
+      elementary value (`rk_interface_given_integer`); anything else stays `interface-value` [not-modelled].
+    - (6) the "a site valid ST reaches is never invalid" rule is stated for the codes this change classified; `codes.ts`'s
+      header and `docs/architecture.md` name the seven older `invalid` codes valid ST still reaches (`var-duplicate` 189,
+      `layout-recursive` 168, `call-arity` 66, `call-input-missing` 16, `bad-literal` 2 in the corpora; `constant-overflow`,
+      `case-label-type` in vendor-built fixtures) until a change re-reads them — out of this change's 83.
+  - Gate 2, second review (2026-10-11): four findings, two fixed test-first (`classification.test.ts` 68 tests), two
+    scoped in `codes.ts`'s header with their reason.
+    - (1) `call-recursive` [invalid] took any bare self-call, so an ACTION calling itself (`Act();` in ACTION Act) or a
+      METHOD with no result type (`M();`) was refused as invalid, though neither has a name-as-result. `bare` is now set only
+      for a routine with a result (`hasResult` in `routines.ts`: not an ACTION, a declared return type); the rest is
+      `call-recursion` [not-modelled] (0 in the corpora).
+    - (2) `pointer-value` at `loadValue` ("a pointer's value used as a number") is a mixed site: of the fixtures lowering to
+      it, CODESYS refuses 22 (`ptrsc_into_*`, `cmpop_pointer_vs_dint`, `cc5_pointer_not_convertible`) and builds 14
+      (`cmpop_pointer_vs_lint`, …), by the DESTINATION type; `loadValue` is not given that type. Not cheap: left
+      `not-modelled` (4 corpus diagnostics, valid ST) and named in `codes.ts`'s header and `docs/architecture.md`.
+    - (3) skipped: `reference-type` is not reached by an image-pointer REFERENCE (`bindReference` → `imageAddressOf` compares
+      no types), so `rx REF= y` (REAL into REFERENCE TO INT, `refdecl_target_wrong_type`) lowers silently. A missing
+      refusal older than this step; this change adds no refusal (proposal non-goals). Named in `codes.ts`'s header.
+    - (4) an interface given a REFERENCE TO a project FB that does NOT implement it is now `interface-type` [invalid], read
+      through the reference as the FB instance itself is (`tags.ts` `interfaceArgument`); one that implements it stays
+      `interface-value` [not-modelled] (0 in the corpora).
+    - Found by the gate's full run: the diagnostic census (`test/analysis/diagnostic-census.test.ts`) had not been
+      re-measured for the 49 `rk_*` asks — it failed with 25 new CODESYS GAPs and 27 TwinCAT (the same front-end gaps 2.2
+      lists, plus TwinCAT-only refusals of `rk_function_empty_argument`, `rk_fb_init_with_inout`, `rk_super_base_library`
+      and CODESYS's "Call recursion" warning on `rk_program_calls_itself`). Each is a named ceiling exception per fixture and
+      measure in `test/frontend/baseline.ts` (niche: accepted loss, 0 occurrences in the corpora), and the two fixture
+      baselines rewritten (`VOLT_WRITE_BASELINE=1`: only `rk_*` rows and counts change; no ceiling rises).
+    - Gate 2 numbers (2026-10-11): typecheck clean; `rate:fixtures` rerun after the fixes, the map unchanged by them; the full
+      LSP suite with `VOLT_REQUIRE_FULL=1`: 9516 pass, 0 fail, 35 skip, 421 todo, 9972 tests in 326 files (808 s).

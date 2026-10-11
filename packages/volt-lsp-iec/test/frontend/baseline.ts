@@ -824,6 +824,108 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   ),
   // (`tr_a18_char_store_through_reference`'s `rs[1]` and `string_inout_wider_reads`' `SEL(g, 'x', io)` left 2026-10-11,
   // lsp-transpile-review-gaps 2.3 and 2.7: a STRING's unit and a selection over STRINGs are typed, `infer/expr`.)
+  // FOR MEASUREMENT (transpile-refusal-classification 2.2): the `rk_*` asks are each one question for a refusal code, and the
+  // invalid ST among them reaches the front-end's own gaps — each niche: accepted loss (0 occurrences in the corpora, every
+  // corpus project builds), each the fixture's `deferred.lsp` or `MEASURED_SILENT` in `transpile-replay.test.ts`
+  ...(["codesys", "twincat"] as const).flatMap((vendor) =>
+    (
+      [
+        ["binary UNKNOWN", "rk_pointer_stepped_by_struct", "a pointer plus a STRUCT, which CODESYS refuses (\"Cannot convert type 'DUT…' to type 'LWORD'\")"],
+        ["call UNKNOWN", "rk_builtin_mixed_types", "MAX of a BOOL and a TIME, which CODESYS refuses (\"Cannot convert type 'BOOL' to type 'TIME'\")"],
+        ["index UNKNOWN", "rk_string_indexed_two_dims", "a STRING indexed twice, which CODESYS refuses (\"… requires exactly 1 Index\")"],
+        ["unary UNKNOWN, a signed untyped number (context-typed, as a literal)", "rk_partial_access_signed", "`i : INT := -2`, a negated untyped number as LITERAL_TYPING leaves them"],
+        ["parameter NO-CALLEE", "rk_builtin_named_args", "LIMIT given NAMED parameters (`MN :=`), which CODESYS refuses: the names bind to no callee's parameter"],
+        ["recorded only", "rk_builtin_named_args", "LIMIT given NAMED parameters: \"Identifier 'MN' not defined\", one per name, which the LSP does not say"],
+      ] as const
+    ).map(([measure, fixture, why]) => ({
+      baseline: measure.startsWith("parameter") || measure === "recorded only" ? "resolution-dump" : "type-dump",
+      measure: measure === "recorded only" ? `messages ${vendor}: recorded only` : `fixtures ${vendor}: ${measure}`,
+      by: measure.startsWith("parameter") || measure === "recorded only" ? 3 : 1,
+      fixture,
+      task: "openspec transpile-refusal-classification 2.2 — a front-end gap the asks measured, niche",
+      why,
+    })),
+  ),
+  ...(
+    [
+      ["type-dump", 2, "rk_pointer_stepped_by_struct", "the build's \"Cannot convert type 'DUT…' to type 'LWORD'\" types no store the front-end types"],
+      ["type-dump", 2, "rk_open_array_assigned_whole", "the build's \"Cannot convert type 'POINTER TO INT' to type 'ARRAY [1..3] OF INT'\" types no store the front-end types"],
+      ["type-dump", 2, "rk_builtin_mixed_types", "the build's \"Cannot convert type 'BOOL' to type 'TIME'\" types no store the front-end types"],
+      ["resolution-dump", 12, "rk_builtin_named_args", "LIMIT's named parameters: three NO-CALLEE sites and three recorded-only messages, per vendor"],
+      ["fold-dump", 1, "rk_fb_init_with_inout", "`src` runs at 4 where its initializer folds to 3: the FB_Init it is bound to as a VAR_IN_OUT adds 1 before the first cycle"],
+      ["fold-dump", 1, "rk_union_member_initial_value", "a UNION member's initial value, 16#0102, reads 16#0100 (256) after the init: how CODESYS initializes an overlaid member is the open question (`layout-union`)"],
+    ] as const
+  ).map(([baseline, by, fixture, why]) => ({
+    baseline,
+    measure: "findings",
+    by,
+    fixture,
+    task: "openspec transpile-refusal-classification 2.2 — a front-end gap the asks measured, niche",
+    why,
+  })),
+  // …and the diagnostic census (`test/analysis`) counts the same asks' GAPs: CODESYS or TwinCAT refuses (or, for
+  // `rk_program_calls_itself`, warns "Call recursion" about) ST the LSP says nothing of — the same niche, accepted loss
+  // (0 occurrences in the corpora; transpile-refusal-classification gate 2). TwinCAT alone refuses
+  // `rk_function_empty_argument`, `rk_fb_init_with_inout` and `rk_super_base_library` (its library is `Tc2_Standard`).
+  ...(
+    [
+      ["fixtures.codesys", "rk_builtin_mixed_types", "total: GAP", 2],
+      ["fixtures.codesys", "rk_builtin_mixed_types", "group types: GAP", 1],
+      ["fixtures.codesys", "rk_builtin_named_args", "total: GAP", 10],
+      ["fixtures.codesys", "rk_function_output_bound_with_assign", "total: GAP", 1],
+      ["fixtures.codesys", "rk_function_output_bound_with_assign", "group calls: GAP", 1],
+      ["fixtures.codesys", "rk_init_slot_method_with_input", "total: GAP", 1],
+      ["fixtures.codesys", "rk_init_slot_method_with_input", "total: unowned GAP", 1],
+      ["fixtures.codesys", "rk_inout_other_struct", "total: GAP", 1],
+      ["fixtures.codesys", "rk_inout_other_struct", "group calls: GAP", 1],
+      ["fixtures.codesys", "rk_interface_given_fb_not_implementing", "total: GAP", 1],
+      ["fixtures.codesys", "rk_interface_given_integer", "total: GAP", 1],
+      ["fixtures.codesys", "rk_open_array_assigned_whole", "total: GAP", 1],
+      ["fixtures.codesys", "rk_partial_access_out_of_range", "total: GAP", 1],
+      ["fixtures.codesys", "rk_partial_access_out_of_range", "total: unowned GAP", 1],
+      ["fixtures.codesys", "rk_partial_access_signed", "total: GAP", 1],
+      ["fixtures.codesys", "rk_partial_access_signed", "total: unowned GAP", 1],
+      ["fixtures.codesys", "rk_pointer_stepped_by_struct", "total: GAP", 1],
+      ["fixtures.codesys", "rk_program_calls_itself", "total: GAP", 1],
+      ["fixtures.codesys", "rk_program_calls_itself", "total: unowned GAP", 1],
+      ["fixtures.codesys", "rk_program_instance_property_written", "total: GAP", 1],
+      ["fixtures.codesys", "rk_ref_assign_in_chain", "total: GAP", 1],
+      ["fixtures.codesys", "rk_ref_assign_in_chain", "group types: GAP", 1],
+      ["fixtures.codesys", "rk_string_indexed_two_dims", "total: GAP", 1],
+      ["fixtures.codesys", "rk_string_indexed_two_dims", "group types: GAP", 1],
+      ["fixtures.twincat", "rk_builtin_mixed_types", "total: GAP", 2],
+      ["fixtures.twincat", "rk_builtin_mixed_types", "group types: GAP", 1],
+      ["fixtures.twincat", "rk_builtin_named_args", "total: GAP", 10],
+      ["fixtures.twincat", "rk_fb_init_with_inout", "total: GAP", 1],
+      ["fixtures.twincat", "rk_fb_init_with_inout", "group oop: GAP", 1],
+      ["fixtures.twincat", "rk_function_empty_argument", "total: GAP", 1],
+      ["fixtures.twincat", "rk_function_empty_argument", "group calls: GAP", 1],
+      ["fixtures.twincat", "rk_function_output_bound_with_assign", "total: GAP", 1],
+      ["fixtures.twincat", "rk_function_output_bound_with_assign", "group calls: GAP", 1],
+      ["fixtures.twincat", "rk_init_slot_method_with_input", "total: GAP", 1],
+      ["fixtures.twincat", "rk_init_slot_method_with_input", "total: unowned GAP", 1],
+      ["fixtures.twincat", "rk_inout_other_struct", "total: GAP", 1],
+      ["fixtures.twincat", "rk_inout_other_struct", "group calls: GAP", 1],
+      ["fixtures.twincat", "rk_interface_given_fb_not_implementing", "total: GAP", 1],
+      ["fixtures.twincat", "rk_interface_given_integer", "total: GAP", 1],
+      ["fixtures.twincat", "rk_open_array_assigned_whole", "total: GAP", 1],
+      ["fixtures.twincat", "rk_pointer_stepped_by_struct", "total: GAP", 1],
+      ["fixtures.twincat", "rk_program_instance_property_written", "total: GAP", 1],
+      ["fixtures.twincat", "rk_ref_assign_in_chain", "total: GAP", 1],
+      ["fixtures.twincat", "rk_ref_assign_in_chain", "group types: GAP", 1],
+      ["fixtures.twincat", "rk_string_indexed_two_dims", "total: GAP", 1],
+      ["fixtures.twincat", "rk_string_indexed_two_dims", "group types: GAP", 1],
+      ["fixtures.twincat", "rk_super_base_library", "total: GAP", 3],
+      ["fixtures.twincat", "rk_super_base_library", "group flow: GAP", 1],
+    ] as const
+  ).map(([baseline, fixture, measure, by]) => ({
+    baseline,
+    measure,
+    by,
+    fixture,
+    task: "openspec transpile-refusal-classification 2.2 — a front-end gap the asks measured, niche",
+    why: "an `rk_*` ask's vendor-refused ST, which the LSP does not refuse — niche: accepted loss (0 occurrences in the corpora)",
+  })),
 ]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */
@@ -837,9 +939,11 @@ export function allowanceOf(name: string, exceptions: readonly CeilingException[
 function namesFixture(f: string, fixture: string): boolean {
   // a dump's site (`fixture/<name>/<file>`), a census line (`codesys <name>: …`), the parse census's (`codesys fixture/<name> — …`),
   // resolution's message agreement (`fixture codesys <name>: recorded only …`)
+  // …and the fold dump's (`<name>: <path> is …, the initializer folds to …`)
   return (
     f.includes(`/${fixture}/`) ||
     new RegExp(`^(fixture )?(codesys|twincat) ${fixture}: `).test(f) ||
+    f.startsWith(`${fixture}: `) ||
     f.includes(`fixture/${fixture} `)
   )
 }

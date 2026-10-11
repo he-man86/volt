@@ -5,7 +5,8 @@
 import { runOf } from "../core/keys.js"
 import type { Lowering } from "../core/lowering.js"
 import { exprText, type Expr, selfRefKind, type Span } from "../../../frontend/syntax/index.js"
-import { elementaryRef, peelArray, type Type } from "../../../frontend/types/index.js"
+import { elementaryRef, isAssignable, peelArray, type Type } from "../../../frontend/types/index.js"
+import { targetOf } from "../../../frontend/symbols/index.js"
 import type { IrExpr, Place } from "../../ir/index.js"
 import { ELEMENT_TAG_BIAS, pointerFrame, pointerKey, type PointerTarget, readTargets, refuseAfterStore } from "./state.js"
 import { lowerPlace } from "../places/places.js"
@@ -25,6 +26,7 @@ import { escapeKey, type Holder, holderOf, holdsAddresses, noteAnyAddress, noteC
 import { anyHolder } from "./any.js"
 import { refusedBoolAddress, refusedBoolCopy } from "./raw-bool.js"
 import { isNew, refuseDynamicMemory } from "../builtins/system.js"
+import { chainNames } from "../core/chain.js"
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
@@ -54,7 +56,8 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
     const unit = charsOf(place.type)
     if (unit !== undefined && sameStorage(declared, unit))
       return { value: { kind: "const", value: 1n, type: pointerType, span }, target: { base: place, chars: unit } }
-    if (!sameStorage(declared, place.type)) return lw.bail("pointer-type", "the address of a variable of another type than the pointer's", span)
+    if (!sameStorage(declared, place.type))
+      return lw.bail(referenceOfOtherType(lw, pointerType, declared, place.type) ? "reference-type" : "pointer-type", "the address of a variable of another type than the pointer's", span)
     return { value: { kind: "const", value: 1n, type: pointerType, span }, target: { base: place } }
   }
   if (x.kind !== "index" || x.indices.length !== 1) return lw.bail("pointer-shape", "the address of an element of a multi-dimensional array", span)
@@ -64,7 +67,8 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   // an `ARRAY[*]` in-out's element: its lower bound is the call's, not a constant — unmodelled. It returned undefined with
   // no diagnostic, and the whole store vanished (review of batch 3b).
   if (array === undefined) return lw.bail("pointer-shape", "the address of an element of an ARRAY[*]", span)
-  if (!sameStorage(declared, array.element)) return lw.bail("pointer-type", "the address of an element of another type than the pointer's", span)
+  if (!sameStorage(declared, array.element))
+    return lw.bail(referenceOfOtherType(lw, pointerType, declared, array.element) ? "reference-type" : "pointer-type", "the address of an element of another type than the pointer's", span)
   const lint = elementaryRef("LINT")
   const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - ELEMENT_TAG_BIAS, type: lint, span }, lint, span)
   return { value: cast(offset, pointerType), target: { base, element: { lower: array.lower, length: array.length, type: array.element } } }
@@ -96,7 +100,7 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   // pointer into an integer — it said `pointer-order`, "the pointer variable lw copied before any address was stored
   // into it", naming an LWORD a pointer and filing a byte-view question under the cross-frame ones (4b).
   if (source.type.kind === "elementary")
-    return lw.bail("pointer-value", `an integer (${exprText(operand)}) stored as a pointer — its value is a byte address`, e.span)
+    return lw.bail(integerIntoPointer(lw, pointerType, source.type) ? "integer-into-pointer" : "pointer-value", `an integer (${exprText(operand)}) stored as a pointer — its value is a byte address`, e.span)
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
   const targets = readTargets(lw, key)
   // COPYING a multi-target pointer is not built: the copy would have to carry every arm, and its own reads would
@@ -180,14 +184,15 @@ export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | u
     const from = addressValue(lw, e.left, pointer)
     const bytes = from === undefined ? undefined : lowerExpr(lw, e.right)
     if (from === undefined || bytes === undefined) return undefined
-    if (bytes.type.kind !== "elementary") return lw.bail("pointer-value", "a pointer stepped by something that is not a number of bytes", e.span)
+    // stepped by what is no number: "Cannot convert type 'DUT…' to type 'LWORD'" (`rk_pointer_stepped_by_struct`)
+    if (bytes.type.kind !== "elementary") return lw.bail("pointer-operand", "a pointer stepped by something that is not a number of bytes", e.span)
     return binaryOf(e.op === "+" ? "add" : "sub", from, cast(bytes, pointerType), pointerType, e.span)
   }
   if (e.kind !== "ident_expr" && e.kind !== "member" && e.kind !== "index") return lw.bail("pointer-value", "a pointer value this does not model", e.span)
   const source = lowerPlace(lw, e)
   if (source === undefined) return undefined
   if (source.type.kind === "elementary")
-    return lw.bail("pointer-value", `an integer (${exprText(e)}) stored as a pointer — its value is a byte address`, e.span)
+    return lw.bail(integerIntoPointer(lw, pointerType, source.type) ? "integer-into-pointer" : "pointer-value", `an integer (${exprText(e)}) stored as a pointer — its value is a byte address`, e.span)
   if (source.type.kind !== "pointer") return lw.bail("pointer-value", "a pointer value this does not model", e.span)
   const from = holderOf(lw, source, exprText(e))
   noteCopy(lw, pointer, from)
@@ -281,4 +286,30 @@ export function adrOperand(value: Expr | undefined, { parens = true }: { parens?
   return value.kind === "call" && value.callee.kind === "ident_expr" && value.callee.name.toUpperCase() === "ADR" && value.args.length === 1
     ? value.args[0]!.value
     : undefined
+}
+
+/**
+ * AN ADDRESS OF ANOTHER TYPE THAN ITS POINTER'S (transpile-refusal-classification 2.1). A REFERENCE bound to one
+ * — not an FB derived from its own — is refused by both vendors: "Cannot convert type 'STRING' to type 'REFERENCE TO INT'"
+ * (`refdecl_target_wrong_type`, `cv_reference_to_other_reference`), `reference-type`. A POINTER given one builds and reads
+ * the bytes as its own type (`calls_adr_on_bit_field`, `tr_17_any_pvalue_*`), as does a REFERENCE to a derived FB
+ * (`oopb_abstract_ref_rebind`): `pointer-type`, not modelled. A REFERENCE given is read as what it refers to: `REF=` from
+ * another REFERENCE of the same type builds (pro2193 `MapperBase.SetSliceRef`: 49 corpus diagnostics), from one of another
+ * type it does not (`cv_reference_to_other_reference`'s `ri REF= rr`).
+ */
+function referenceOfOtherType(lw: Lowering, pointerType: Type, declared: Type, given: Type): boolean {
+  if (pointerType.kind !== "reference") return false
+  const referred = given.kind === "reference" ? given.target : given
+  if (sameStorage(declared, referred)) return false
+  return !(declared.kind === "function_block" && referred.kind === "function_block" && chainNames(lw, referred.name).has(declared.name.toUpperCase()))
+}
+
+/**
+ * AN INTEGER STORED INTO A POINTER (transpile-refusal-classification 2.1): one the assignment table refuses — a 32-bit integer
+ * on the 64-bit target, rule CV6: "Cannot convert type 'DWORD' to type 'POINTER TO INT'" (`pointer_to_dword_roundtrip`,
+ * `cv_integers_into_pointer`) — is `integer-into-pointer`, invalid; one it takes (an LWORD, `pointer_to_lword_roundtrip`;
+ * `__XWORD`, `cv_xword_into_pointer`) is the byte view `pointer-value` does not model.
+ */
+function integerIntoPointer(lw: Lowering, pointerType: Type, given: Type): boolean {
+  return !isAssignable(pointerType, given, targetOf(lw.project))
 }

@@ -57,7 +57,7 @@ export function fbInitInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, giv
   // a field named like a global constant gave the global's value, a POU constant the struct cannot see folded): refused,
   // as design.md §3.4 step 5d keeps any expression. niche: accepted loss (0 occurrences: every corpus argument is a literal)
   if (structScope && expr !== undefined && expr.kind !== "ident_expr" && namesSomething(expr))
-    return lw.bail("fb-init-argument", `${last.name}'s FB_Init argument for ${slot.name} is an expression naming something, judged in no struct scope`, span) ?? false
+    return lw.bail("fb-init-argument-shape", `${last.name}'s FB_Init argument for ${slot.name} is an expression naming something, judged in no struct scope`, span) ?? false
   // bInitRetains / bInCopyCode are BOOL inputs the runtime hands TRUE / FALSE; declared as another type the vendor
   // refuses the FB (`oopb_fb_init_input_wrong_type`, both vendors) — refused by name, not handed a BOOL unconverted
   if ((name === "BINITRETAINS" || name === "BINCOPYCODE") && !isBoolValued(slot.type))
@@ -137,7 +137,9 @@ function refuseInput(st: InitStep, place: Place, t: Fb, slot: IrSlot, args: read
     )
   return (
     lw.bail(
-      "fb-init-argument",
+      // no argument at all: both vendors refuse it (`fb_init_argument_left_out`); an argument lowering cannot pass — THIS^
+      // (`init_this_in_initializer_argument`), a positional one — builds: valid ST, not built
+      args.length === 0 ? "fb-init-argument" : "fb-init-argument-shape",
       `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass` +
         (args.length === 0 ? " — it is declared with no argument at all, which the vendor refuses too" : ""),
       span,

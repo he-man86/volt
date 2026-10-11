@@ -36,7 +36,7 @@ test("FB_Init runs once per instance before the first cycle, with its declared a
   const fromVariable = run(ir(source.replace("five : FB_Args(startValue := 5);", "n : INT := 2; five : FB_Args(startValue := n);"), "P"))
   fromVariable.scan()
   expect(fromVariable.get("five.started")).toEqual(2n)
-  expect(codes("five : FB_Args(5);")).toContain("fb-init-argument")
+  expect(codes("five : FB_Args(5);")).toContain("fb-init-argument-shape")
   expect(codes("five : FB_Args(startValue := 5); many : ARRAY[1..2] OF FB_Args;")).toContain("attr-init-unreached")
 })
 
@@ -117,12 +117,12 @@ test("FB_Init: an inner instance's runs first, and an argument may name a variab
   // `init_extends_field_instance` recorded its order — transpile-restructure 5.6, the test below.)
   const codes = (decls: string, extra = "") => lowerSource(source(decls, extra), "P", seedList).diagnostics.map((d) => d.code)
   expect(codes("h : ST_H;", "TYPE ST_H :\nSTRUCT\n  held : FB_In(startValue := seed);\nEND_STRUCT\nEND_TYPE\n")).toContain("fb-init-argument")
-  expect(codes("fromLater : FB_In(startValue := later); later : INT := 3;")).toContain("fb-init-argument")
+  expect(codes("fromLater : FB_In(startValue := later); later : INT := 3;")).toContain("fb-init-argument-shape")
   expect(
     lowerSource(`PROGRAM P\nVAR_TEMP temp : INT := 4; END_VAR\nVAR a : FB_In(startValue := temp); END_VAR\ntemp := temp;\nEND_PROGRAM\n${inner}`, "P").diagnostics.map((d) => d.code),
-  ).toContain("fb-init-argument")
+  ).toContain("fb-init-argument-shape")
   const globalWriter = "FUNCTION_BLOCK FB_Wg\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\ngSeed := startValue;\nEND_METHOD\n"
-  expect(codes("w : FB_Wg(startValue := 1); fromGlobal : FB_In(startValue := gSeed);", globalWriter)).toContain("fb-init-argument")
+  expect(codes("w : FB_Wg(startValue := 1); fromGlobal : FB_In(startValue := gSeed);", globalWriter)).toContain("fb-init-order")
 })
 
 // transpile-restructure 5.6: an EXTENDS chain initializes PER CLASS, the base first — that class's own fields in declaration
@@ -278,10 +278,10 @@ test("a STRUCT field instance's FB_Init argument: refused where the struct's sco
   r.scan()
   expect(r.get("rec.held.got")).toBe(4n)
   // an EXPRESSION naming anything is not judged in the struct's scope (the global constant's 11, a POU constant the struct
-  // cannot see): `fb-init-argument`, as design.md §3.4 step 5d keeps any expression
-  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := first + 0);")).toEqual(["fb-init-argument"])
-  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := -first);")).toEqual(["fb-init-argument"])
-  expect(codes("rec : DUT; END_VAR VAR CONSTANT seed : INT := 4;", "", "held : FB_T(v := seed + 0);")).toEqual(["fb-init-argument"])
+  // cannot see): `fb-init-argument-shape`, as design.md §3.4 step 5d keeps any expression
+  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := first + 0);")).toEqual(["fb-init-argument-shape"])
+  expect(codes("rec : DUT;", "", "first : INT := 4;\nheld : FB_T(v := -first);")).toEqual(["fb-init-argument-shape"])
+  expect(codes("rec : DUT; END_VAR VAR CONSTANT seed : INT := 4;", "", "held : FB_T(v := seed + 0);")).toEqual(["fb-init-argument-shape"])
   // ...a literal one still folds
   const literal = lowered("rec : DUT;", "", "held : FB_T(v := -3 + 1);")
   expect(literal.diagnostics).toEqual([])

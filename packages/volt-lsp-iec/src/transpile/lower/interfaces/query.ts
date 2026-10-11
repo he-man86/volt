@@ -36,11 +36,19 @@ const isQuery = (e: Expr): e is Extract<Expr, { kind: "call" }> => e.kind === "c
 
 /** The query itself: `into` set to the instance or null, `target` to whether it implements `into`'s interface. */
 function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" }>, span: Span): IrStmt[] | undefined {
+  // other than two operands: "'__QUERYINTERFACE' needs exactly '2' operands" (`lex_keyword_called_sys_queryinterface`)
   if (v.args.length !== 2 || v.args.some((a) => a.param !== undefined || a.value === undefined))
-    return lw.bail("interface-query", "__QUERYINTERFACE other than `found := __QUERYINTERFACE(from, into)`", span)
+    return lw.bail("interface-query-operand", "__QUERYINTERFACE other than `found := __QUERYINTERFACE(from, into)`", span)
   const [from, into] = [lowerPlace(lw, v.args[0]!.value!), lowerPlace(lw, v.args[1]!.value!)]
   if (from === undefined || into === undefined) return undefined
-  if (from.type.kind !== "interface" || into.type.kind !== "interface") return lw.bail("interface-query", "__QUERYINTERFACE of something other than two interfaces", span)
+  // An FB instance as the first operand builds (`rk_queryinterface_from_instance`): valid ST, not built. Any other operand that
+  // is no interface is refused: "First operand of __QueryInterface must be an interface reference or the instance of a
+  // function block", "Second operand … must be an interface reference" (`calls_queryinterface_int_first`, `_second`;
+  // transpile-refusal-classification 2.1).
+  if (from.type.kind !== "interface" || into.type.kind !== "interface") {
+    const fromInstance = from.type.kind === "function_block" && into.type.kind === "interface"
+    return lw.bail(fromInstance ? "interface-query" : "interface-query-operand", "__QUERYINTERFACE of something other than two interfaces", span)
+  }
   const [source, dest] = [heldAt(lw, from, span), heldAt(lw, into, span)]
   if (source === undefined || dest === undefined) return undefined
   const wanted = into.type.name

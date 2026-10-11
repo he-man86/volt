@@ -102,3 +102,11 @@ test("a STRUCT instance called calls a TYPE; an enum value called is named as wr
     "Program name, function or function block instance expected instead of 'E.Busy'",
   ])
 })
+
+// transpile-refusal-classification 2.2 (`rk_method_call_on_struct`, both vendors 2026-10-11): a struct FIELD called names the
+// callee as written, `rec.M` — as every recorded member call does ('sb.Nope', 'i.Nope'); the LSP said 'M'
+test("C0035 — a struct field called is named as written, base and member", () => {
+  const src = "TYPE DUT_S :\nSTRUCT\n\tM : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\trec : DUT_S;\n\tv : INT;\nEND_VAR\nv := rec.M();\nEND_PROGRAM"
+  const ds = one(src).filter((d) => d.code === "invalid-call-target")
+  expect(ds.map((d) => d.message)).toEqual(["Program name, function or function block instance expected instead of 'rec.M'"])
+})

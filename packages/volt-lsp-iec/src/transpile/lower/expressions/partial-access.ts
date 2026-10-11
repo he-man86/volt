@@ -13,8 +13,10 @@ import { convert } from "../values/convert.js"
  * `x.%X3` / `.%B3` / `.%W1` / `.%D0` — partial access, a bit, byte, word or double word of an unsigned integer counted
  * from the low end: DWORD 16#DEADBEEF has %W1 16#DEAD, %B3 16#DE and %X3 TRUE (conformance
  * `operand_partial_word_in_dword`, `operand_partial_bit_in_dword`, `operand_partial_dword_in_lword`). The slice is the
- * value shifted down and narrowed. A signed source and a store INTO a slice are still not measured. `null` when the
- * member is no partial access.
+ * value shifted down and narrowed. A signed source and a slice past the source are refused by both vendors ("Partial
+ * access is only supported on ANY_BIT types and not on 'INT'", "'%W1' is not a valid partial component of 'WORD'":
+ * `rk_partial_access_signed`, `rk_partial_access_out_of_range`; transpile-refusal-classification 2.2). A store INTO a
+ * slice is not measured. `null` when the member is no partial access.
  */
 export function partialAccess(lw: Lowering, e: Extract<Expr, { kind: "member" }>): IrExpr | undefined | null {
   const partial = /^%([XBWD])(\d+)$/i.exec(e.member.name)
@@ -26,7 +28,7 @@ export function partialAccess(lw: Lowering, e: Extract<Expr, { kind: "member" }>
   const at = Number(partial[2])
   const unsigned = elem !== undefined && (elem.family === "bitstring" || (elem.family === "int" && !elem.signed))
   if (width === undefined || !unsigned || (at + 1) * width > elem.bits)
-    return lw.bail("partial-access", `${e.member.name} of a ${source.type.kind === "elementary" ? source.type.name : source.type.kind} is not measured`, e.span)
+    return lw.bail("partial-access", `${e.member.name} of a ${source.type.kind === "elementary" ? source.type.name : source.type.kind}, which CODESYS refuses`, e.span)
   const count: IrExpr = { kind: "const", value: BigInt(at * width), type: elementaryRef("INT"), span: e.span }
   const shifted: IrExpr = { kind: "builtin", name: "shr", args: [source, count], type: source.type, span: e.span }
   // A BIT is not a one-wide slice of the same shape — there is no 1-bit elementary type to narrow into, and

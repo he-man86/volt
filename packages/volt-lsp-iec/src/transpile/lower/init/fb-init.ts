@@ -154,13 +154,15 @@ function callFbInits(st: InitStep, place: Place, t: Fb, inits: readonly Symbol[]
   const { lw, span } = st
   const given = new Map<string, Expr>()
   for (const arg of args) {
-    if (arg.param === undefined || arg.output || arg.value === undefined) return lw.bail("fb-init-argument", `${t.name} declared with a positional FB_Init argument`, span) ?? false
+    // a positional FB_Init argument builds (`rk_fb_init_positional_argument`: 5), as does an FB_Init VAR_IN_OUT bound in the
+    // declaration (`rk_fb_init_with_inout`) — valid ST, not built
+    if (arg.param === undefined || arg.output || arg.value === undefined) return lw.bail("fb-init-argument-shape", `${t.name} declared with a positional FB_Init argument`, span) ?? false
     given.set(arg.param.name.toUpperCase(), arg.value)
   }
   for (const sym of inits) {
     const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span, sym.owner === t.scope ? sym.name : `SUPER_${sym.owner.name}_${sym.name}`)
     if (routine === undefined) return false
-    if (routine.inouts.length > 0) return lw.bail("fb-init-argument", `${sym.owner.name}'s FB_Init has a VAR_IN_OUT or VAR_OUTPUT`, span) ?? false
+    if (routine.inouts.length > 0) return lw.bail("fb-init-argument-shape", `${sym.owner.name}'s FB_Init has a VAR_IN_OUT or VAR_OUTPUT`, span) ?? false
     const inputs: IrExpr[] = []
     for (const index of routine.inputs) {
       const input = fbInitInput(st, place, t, routine.locals[index]!, given, args, declaring, holder)

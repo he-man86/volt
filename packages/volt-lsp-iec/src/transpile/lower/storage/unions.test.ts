@@ -24,10 +24,10 @@ test("a UNION member's store shows through every member it overlays; a write the
   const codes = (body: string, member?: string) => lowerSource(union(body, member), "P").diagnostics.map((d) => d.code)
   expect(codes("inst(q => u.wd);")).toEqual(["union-write"])
   // a member whose bytes are not measured — a duration — is refused (a REAL's were measured since: lean 7.8.4)
-  expect(codes("FOR n := 1 TO 2 DO u.wd := 1; END_FOR", "wide : TIME;")).toContain("layout-union")
+  expect(codes("FOR n := 1 TO 2 DO u.wd := 1; END_FOR", "wide : TIME;")).toContain("union-overlay")
   // a member under a byte — BOOL, BIT — has no bytes of its own to overlay: refused by name, though BOOL is ANY_BIT
   // (the architecture.md list says "a bit string of 8 bits or more", the 7.11b+8b review); an enum is its base integer
-  for (const member of ["flag : BOOL;", "x : BIT;"]) expect(codes("u.wd := 1;", member)).toContain("layout-union")
+  for (const member of ["flag : BOOL;", "x : BIT;"]) expect(codes("u.wd := 1;", member)).toContain("union-overlay")
   const withEnum = run(ir(union("u.wd := 16#0102;", "e : E_C;") + "TYPE E_C : (A, B); END_TYPE\n", "P"))
   withEnum.scan()
   expect(withEnum.get("u.e")).toBe(0x0102n)

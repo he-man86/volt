@@ -66,7 +66,7 @@ function claimAddress(lw: Lowering, m: RegExpExecArray, name: string, owner: str
  */
 export function addressPlace(lw: Lowering, text: string, span: Span): Place | undefined {
   const m = parseAddress(text)
-  if (m === undefined) return lw.bail("var-at", `${text}: an address that is incomplete, or of a shape not modelled`, span)
+  if (m === undefined) return lw.bail(text.includes("*") ? "var-at" : "var-at-address", `${text}: an address that is incomplete, or of a shape not modelled`, span)
   const key = text.toUpperCase()
   const known = lw.shared.globals.byName.get(key)
   const width = m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"
@@ -131,7 +131,13 @@ export function bindAddress(lw: Lowering, decl: VarDecl, perRun: boolean): boole
     return false
   }
   const m = parseAddress(text)
-  if (m === undefined) return refuse("an address that is incomplete, or of a shape not modelled")
+  // An incomplete `%I*` is valid ST mapped elsewhere (`var-at`, not modelled); any other address this does not read is one
+  // CODESYS calls malformed — "Direct address '%MX3' malformed", "Unknown type: '%M?0.1'" (`lit_address_unsized`, 12
+  // vendor-refused fixtures): `var-at-address` (transpile-refusal-classification 2.1)
+  if (m === undefined) {
+    lw.bail(text.includes("*") ? "var-at" : "var-at-address", `${decl.names.map((n) => n.text).join(", ")} AT ${text}: an address that is incomplete, or of a shape not modelled`, decl.span)
+    return false
+  }
   // a per-run local (`Lowering.perRun`) is no storage an address could name between runs — a METHOD's or FUNCTION's, a
   // VAR_TEMP (7.6.4)
   if (perRun) return refuse(lw.routineMode ? "an address inside a METHOD or FUNCTION" : "an address on a VAR_TEMP, a local of its body's run")

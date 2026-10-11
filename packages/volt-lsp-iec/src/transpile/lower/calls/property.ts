@@ -124,9 +124,9 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   if (access === null) return interfacePropertySet(lw, s)
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.sym.name} set by ${s.op ?? "a chain"}`, s.span)
   // written from outside the PROGRAM it lives in, it does not compile: "'gauge' is no input of 'PRG_CS_station21'"
-  // (recorded while making `callshape_program_instance_property`)
+  // (recorded while making `callshape_program_instance_property`; `rk_program_instance_property_written`: "'cell' is no input of …")
   if (access.instance.root === "global" && access.instance.path.length > 0)
-    return lw.bail("call-program-property", `${access.sym.name} is written on an instance inside a PROGRAM, from outside it`, s.span)
+    return lw.bail("program-property-written", `${access.sym.name} is written on an instance inside a PROGRAM, from outside it`, s.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span, access.as)
   if (routine === undefined) return undefined
   const type = routine.locals[0]!.type

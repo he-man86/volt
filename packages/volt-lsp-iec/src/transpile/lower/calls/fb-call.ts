@@ -9,7 +9,7 @@ import { isSuper, lowerSuperCall } from "./super.js"
 import { bindInOut, frozenWhereWritten, holding } from "./binding.js"
 import { holdsCall } from "../../ir/walk.js"
 import { registerBodyCall } from "./last-binding.js"
-import { lowerInvoke } from "./invoke.js"
+import { lowerInvoke, notCallable } from "./invoke.js"
 import { lookup } from "../../../frontend/symbols/index.js"
 import { ownMember } from "../places/names.js"
 import { namespaceOf } from "./namespace.js"
@@ -74,8 +74,19 @@ function routineCallStatement(lw: Lowering, call: Extract<Statement, { kind: "ca
     // a PROGRAM's one instance is global, and calls like an FB's; a GVL instance goes on to be refused by what it is
     const global = kind === "gvl_var" || sym?.varSection === "VAR_EXTERNAL"
     if (!global && (kind !== "program" || callee.name.toUpperCase() === lw.shared.root.toUpperCase())) {
-      const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
-      return lw.bail(code, `${callee.name} is not a callable instance yet`, call.span)
+      // A name that resolves to what no call reaches — a type, a GVL, a variable: "Program name, function or function block
+      // instance expected" (`cc5_type_invoked_directly`, `cc6_call_a_gvl`) — is `call-not-callable`. One that resolves to
+      // NOTHING, or to a library's declaration (`notCallable`), stays `stmt-call_stmt`: valid ST reaches it, a device the
+      // lowering project holds none of (`EtherCAT_Master`, bakon-nano), a library FUNCTION it lacks (`DELETE`;
+      // transpile-refusal-classification 2.1).
+      const program = kind === "program"
+      const routine = kind === "method" || kind === "action"
+      const unresolved = !notCallable(lw, callee.name)
+      return lw.bail(
+        program ? "call-program" : routine ? "call-this" : unresolved ? "stmt-call_stmt" : "call-not-callable",
+        `${callee.name} is not a callable instance yet`,
+        call.span,
+      )
     }
   }
   if (callee.kind === "member") {
@@ -114,7 +125,7 @@ function calledInstance(lw: Lowering, call: Extract<Statement, { kind: "call_stm
         `the type of ${callee.kind === "ident_expr" ? callee.name : "this instance"} is not declared — no library declaring it was handed to lowering`,
         call.span,
       )
-    return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
+    return lw.bail("call-not-callable", "a call of something that is not an FB instance", call.span)
   }
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
   // An FB instance inside a PROGRAM, called from outside it (`callshape_program_instance_from_outside`): the program is

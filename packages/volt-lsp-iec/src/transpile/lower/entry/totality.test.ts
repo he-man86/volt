@@ -342,8 +342,10 @@ END_PROGRAM
   // lower-once cache was always filled before a second lookup; nothing tested the lookup DURING lowering.
   test("a FUNCTION or METHOD that calls itself is refused, not lowered without end", () => {
     const code = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+    // the bare self-name is the result variable, refused by both vendors (`call-recursive`); `THIS^.M()` is a call no
+    // recording refuses (`call-recursion`, transpile-refusal-classification 2.x)
     expect(code("PROGRAM P\nVAR n : INT; END_VAR\nn := F_Down(3);\nEND_PROGRAM\nFUNCTION F_Down : INT\nVAR_INPUT k : INT; END_VAR\nIF k > 0 THEN F_Down := F_Down(k - 1); END_IF\nEND_FUNCTION\n")).toContain("call-recursive")
-    expect(code("PROGRAM P\nVAR inst : FB_R; END_VAR\ninst.M();\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M\nn := n + 1;\nIF n < 3 THEN THIS^.M(); END_IF\nEND_METHOD\n")).toContain("call-recursive")
+    expect(code("PROGRAM P\nVAR inst : FB_R; END_VAR\ninst.M();\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M\nn := n + 1;\nIF n < 3 THEN THIS^.M(); END_IF\nEND_METHOD\n")).toContain("call-recursion")
   })
 
   // Transpiler review 2026-09-15. Why missed: the globals tests read and wrote GVL variables and called a PROGRAM; none

@@ -470,7 +470,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 87 -> 74, CLOSED (lsp-transpile-review-gaps, 2026-10-11): the ten FOR limits and steps that do not convert into the
   // counter (1.1, 1.2, 2.1), the routine output `tr_43_routine_output_dint_to_int` (2.4) and the two string in-outs bound
   // narrower (2.5) rate `refused`. `for_step_wider_than_counter_dint_expr` stays, now by its `deferred.lsp` (2.2, niche).
-  "lsp-gap": 74,
+  // 74 -> 88, FOR MEASUREMENT (transpile-refusal-classification 2.2, no fixture moved): fourteen of the `rk_*` asks are
+  // invalid ST CODESYS refuses and the LSP says nothing about (a VAR_IN_OUT bound to another struct type, LIMIT with named
+  // parameters, a FUNCTION output given `:=`, a program instance's property written from outside, `REF=` in a chain, a
+  // pointer stepped by a STRUCT, an ARRAY[*] assigned whole, a STRING indexed twice, an init-slot METHOD's input, an
+  // interface given a non-implementing FB or an INT, two partial accesses, MAX of a BOOL and a TIME) — each niche:
+  // accepted loss (0 occurrences in the corpora), its `deferred.lsp` (the partial accesses `MEASURED_SILENT`: TwinCAT agrees).
+  "lsp-gap": 88,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

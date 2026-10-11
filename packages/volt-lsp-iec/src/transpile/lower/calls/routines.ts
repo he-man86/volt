@@ -32,7 +32,7 @@ import { libraryOf } from "../../../frontend/library/index.js"
 import { execBodyStatements } from "../conditions.js"
 import { storageOf } from "../storage/layout.js"
 import { overridesCalled } from "../core/ast-walk.js"
-import { chainOf } from "../core/chain.js"
+import { brokenAtLibrary, chainOf } from "../core/chain.js"
 import { lowerBlock } from "../statements/statements.js"
 import { localInits } from "../init/temp-resets.js"
 import { interfaceFrame } from "../interfaces/state.js"
@@ -50,11 +50,26 @@ import { hiddenInOuts, instanceInOuts, routineInputs } from "./routine-frame.js"
  * answers undefined without a second refusal, and it is never `lowering` while it builds (no recursion guard): both
  * kept as they were before the cache had one writer.
  */
-export function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | undefined, { quiet = false }: { quiet?: boolean } = {}): IrRoutine | undefined {
+export function once(
+  lw: Lowering,
+  name: string,
+  span: Span,
+  build: () => IrRoutine | undefined,
+  { quiet = false, bare = false }: { quiet?: boolean; bare?: boolean } = {},
+): IrRoutine | undefined {
   const key = name.toUpperCase()
   const cached = lw.routines.get(key)
   if (cached?.state === "failed") return quiet ? undefined : lw.bail("call-body", `${name}'s body does not lower`, span)
-  if (cached?.state === "lowering" && !quiet) return lw.bail("call-recursive", `${name} calls itself`, span)
+  // A FUNCTION or METHOD naming ITSELF by its BARE name in its own body is refused by both vendors — its name is its result
+  // there ("Program name, function or function block instance expected instead of 'F_C2_loop'", `cc2_call_recursion`,
+  // `calls_method_recursive`): `bare` says the call named it so, and the routine has a result (an ACTION or a METHOD with no
+  // result type has no name-as-result: `call-recursion`, gate 2). Reached again through ANOTHER routine
+  // (`calls_functions_mutually_recursive`), or through `THIS^.M()` — the qualified call no recording refuses — it is
+  // `call-recursion`, not modelled (transpile-refusal-classification 2.2).
+  if (cached?.state === "lowering" && !quiet) {
+    const direct = bare && lw.shared.routineLowerings.get(key) === lw
+    return lw.bail(direct ? "call-recursive" : "call-recursion", `${name} calls itself`, span)
+  }
   let routine = cached?.state === "lowered" ? cached.routine : undefined
   if (routine === undefined) {
     if (!quiet) lw.routines.set(key, { state: "lowering" })
@@ -187,7 +202,7 @@ function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unkno
 
 /** Why a body cannot be lowered: not ST, not parsed, or a library's declaration with no body written. */
 export interface BodyRefusal {
-  code: "graphical-body" | "parse" | "call-library"
+  code: "graphical-body" | "parse" | "pragma-undecided" | "call-library"
   message: string
 }
 
@@ -209,10 +224,20 @@ export function bodyOf(
 ): { statements: StatementList } | BodyRefusal {
   if (!isStBody(body)) return { code: "graphical-body", message: name === undefined ? "a body that is not ST is not lowered here" : `${name} has no ST body` }
   const parsed = execBodyStatements(lw.project, unit, body)
+  // A body that parses but for a conditional pragma asking what Volt is not given — a project option, a device fact, a
+  // compile define — is valid ST CODESYS decides (`prag_if_hasconstanttype`: c 5, out 1) and no recording settles here:
+  // `pragma-undecided`. A body that does not parse is `parse` (transpile-refusal-classification 2.1).
+  if (!parsed.ok && parsed.errors.length === 0 && parsed.refused !== undefined) return { code: "pragma-undecided", message: parsed.refused }
   if (!parsed.ok) return { code: "parse", message: parsed.firstError ?? (name === undefined ? "body did not parse" : `${name}'s body did not parse`) }
   if (library && isBodylessLibrary(lw, unit, parsed.statements))
     return { code: "call-library", message: `${name ?? "the body"} is a library declaration without a body` }
   return { statements: parsed.statements }
+}
+
+/** A FUNCTION or METHOD declaring a result type — the routines whose bare name is their result in their own body. */
+function hasResult(sym: RoutineSymbol): boolean {
+  const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
+  return ast.kind !== "action" && ast.returnType !== undefined
 }
 
 /**
@@ -276,7 +301,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const body = [...resets.filter((reset) => !assignedFirst(reset, rest)), ...rest]
     if (drain(lw, r)) return undefined
     return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: interfaceFrame(r).lends }
-  })
+  }, { bare: call?.callee.kind === "ident_expr" && hasResult(sym) })
 }
 
 /**
@@ -288,7 +313,7 @@ export function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: S
   const name = `${frame.name}.SUPER_${unit.name.text}`
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
-    if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
+    if (chain === undefined) return lw.bail(brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${unit.name.text} has no body lowering can reach`, span)
     const parsed = bodyOf(lw, unit, unit.body, unit.name.text)
     if ("code" in parsed) return lw.bail(parsed.code, parsed.message, span)
     const key = name.toUpperCase()
@@ -330,10 +355,11 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
     return layout
   }
   if (pending.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
-  if (pending.state === "lowering") return lw.bail("call-recursive", `${name} is reached again while its own body lowers`, span)
+  // a PROGRAM or FB body reached again while it lowers runs: CODESYS warns "Call recursion" and runs it (`rk_program_calls_itself`: 3)
+  if (pending.state === "lowering") return lw.bail("call-recursion", `${name} is reached again while its own body lowers`, span)
   const unit = pending.unit
   const chain = chainOf(lw, unit)
-  if (chain === undefined) return fail(lw, pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
+  if (chain === undefined) return fail(lw, pending, brokenAtLibrary(lw, unit) ? "call-library" : "base-unresolved", `a base of ${name} has no body lowering can reach`, span)
   const parsed = bodyOf(lw, unit, unit.body, name)
   if ("code" in parsed) return fail(lw, pending, parsed.code, parsed.message, span)
   const frame = pending.lowering

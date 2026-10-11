@@ -733,6 +733,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // text at all — see `network/network-analysis.ts`.
     "network_unnamed_target_of_void_call",
     "network_unnamed_target_of_valued_call",
+    // partial access CODESYS refuses — `.%B0` of an INT ("Partial access is only supported on ANY_BIT types and not on
+    // 'INT'"), `.%W1` of a WORD ("'%W1' is not a valid partial component of 'WORD'"; transpile-refusal-classification 2.2).
+    // TwinCAT has no `.%` access and the LSP's TwinCAT parse agrees, so it cannot be a deferral on the fixture. niche:
+    // accepted loss (0 occurrences in the corpora).
+    "rk_partial_access_signed",
+    "rk_partial_access_out_of_range",
     // (`op_sys_queryinterface` left 2026-10-06, analysis-conformance 3.8: the interface named as an operand must be
     // instantiated, `fb-instantiation` says so now; its two other errors stay GAPs — niche, task 3.8.4.)
     // (the FOR limits and steps that do not convert into the counter left 2026-10-11, lsp-transpile-review-gaps 1.1, 1.2,

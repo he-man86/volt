@@ -6,7 +6,7 @@
  *
  * - the BINDER'S LINK is the TYPE's chain: the order the fields lie in and the FB_Inits run in, the members a type has.
  * - the QUEUED BODIES are what lowering can RUN: a base with no queued body (a library FB, one that did not prepare) is
- *   a refusal (`call-base`), not a shorter chain — the binder's link does not say whether lowering holds a body.
+ *   a refusal (`brokenAtLibrary`), not a shorter chain — the binder's link does not say whether lowering holds a body.
  * - NAME LOOKUP reads the DECLARATION — the AST a scope does not carry: a field's FB_Init arguments (`declaredArgs`, a
  *   STRUCT's too), a unit's IMPLEMENTS list, an interface's EXTENDS list.
  *
@@ -29,9 +29,10 @@
 
 import type { Lowering } from "./lowering.js"
 import type { PendingBody } from "./shared.js"
-import { extendsChain, lookup, type Scope } from "../../../frontend/symbols/index.js"
+import { extendsChain, lookup, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
 import type { Interface, TopLevel } from "../../../frontend/syntax/index.js"
 import type { Type } from "../../../frontend/types/index.js"
+import { libraryOf } from "../../../frontend/library/index.js"
 
 type Unit = PendingBody["unit"]
 
@@ -61,6 +62,22 @@ export function bodyChain(lw: Lowering, unit: Unit): { units: Unit[]; complete: 
 export function chainOf(lw: Lowering, unit: Unit): Unit[] | undefined {
   const { units, complete } = bodyChain(lw, unit)
   return complete ? units.reverse() : undefined
+}
+
+/**
+ * WHY `bodyChain` STOPPED SHORT (openspec transpile-refusal-classification 2.1): true when at a base the BINDER linked to an
+ * FB that lowering holds no body for — a library FB (`unit_fb_extends_qualified`, `rk_super_base_library`: CODESYS builds
+ * both), refused `call-library`, valid ST not built. False at a base no FB declaration resolves (nothing, an interface, a
+ * STRUCT), or an EXTENDS that comes back to a unit already on the chain — `base-unresolved`, which both vendors refuse ("No
+ * definition found for base class", "Recursion in base function block list": `inh_unresolved_base`,
+ * `oopa_extends_interface`, `oopa_extends_struct`, `inh_extends_cycle`).
+ */
+export function brokenAtLibrary(lw: Lowering, unit: Unit): boolean {
+  const { units } = bodyChain(lw, unit)
+  const last = units[units.length - 1]!
+  const base = baseOf(last)
+  if (base === undefined || lw.bodies.has(base.text.toUpperCase())) return false
+  return scopeForUnit(lw.project, last)?.baseScope?.kind === "pou"
 }
 
 /**
@@ -135,4 +152,20 @@ export function scopeChain(scope: Scope | undefined): Scope[] {
 export function chainNamesOf(t: Extract<Type, { kind: "function_block" }>): string[] {
   if (t.scope === undefined) throw new Error(`lowering bug: the FB type ${t.name} carries no scope`)
   return extendsChain(t.scope).map((s) => s.name)
+}
+
+/**
+ * WHETHER A LIBRARY'S DECLARATION IS ON A CHAIN — the FB `fb` or any base it EXTENDS, or the interface `itf` or any it
+ * EXTENDS, materialized from a compiled library (`libraryOf`). Such a declaration can lack what CODESYS knows of the element:
+ * an FB's IMPLEMENTS list (awa-palletizer `L_IMHP_MODULEHANDLER.pou`), an interface's METHODs, written after its
+ * END_INTERFACE (pro2193 `IADDLOG.itf`). A refusal that rests on what such a chain DOES NOT declare is
+ * `library-declaration`, not the `invalid` the same absence means in the project (transpile-refusal-classification 2.1).
+ */
+export function libraryOnChain(lw: Lowering, of: { fb: string } | { itf: string }): boolean {
+  const units: { name: { text: string } }[] =
+    "fb" in of ? declaredChain(lw, lookup(lw.project, of.fb)?.symbol.ast as TopLevel | undefined).filter((u) => "name" in u) as { name: { text: string } }[] : interfaceChainOf(lw, of.itf)
+  return units.some((u) => {
+    const sym = lookup(lw.project, u.name.text)?.symbol
+    return sym !== undefined && libraryOf(sym) !== undefined
+  })
 }

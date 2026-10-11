@@ -63,13 +63,18 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
             // vendors 2026-10-06: they warn about the interface and never ask the FB)
             if (m.kind === "interface_property" && !(m.ast as InterfaceProperty).hasGetter && !(m.ast as InterfaceProperty).hasSetter) continue
             if (provided.has(m.name.toLowerCase())) continue
-            out.push({
-              severity: "error",
-              span: ifaceName.span,
-              source: SOURCE,
-              code: "missing-interface-implementation",
-              message: ctx.messages.missingInterfaceImpl(m.kind === "interface_method" ? "method" : "property", m.name, declaring.name),
-            })
+            // a PROPERTY is named by its accessor METHODs, as both vendors name it: "There is no implementation for method
+            // '__GETLEVEL' defined in interface …" (`rk_interface_property_not_implemented`, 2026-10-11)
+            const prop = m.kind === "interface_property" ? (m.ast as InterfaceProperty) : undefined
+            const members = prop === undefined ? [m.name] : [...(prop.hasGetter ? [`__GET${m.name}`] : []), ...(prop.hasSetter ? [`__SET${m.name}`] : [])]
+            for (const member of members)
+              out.push({
+                severity: "error",
+                span: ifaceName.span,
+                source: SOURCE,
+                code: "missing-interface-implementation",
+                message: ctx.messages.missingInterfaceImpl(member, declaring.name),
+              })
           }
     }
   }

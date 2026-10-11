@@ -19,6 +19,7 @@ import { holdsCall, type IrNode, touchesOnlyItsOwn, writesOnlyLocals } from "../
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
 import { inputWhereWritten, stringInputsOf } from "./string-inputs.js"
+import { chainNames } from "../core/chain.js"
 
 /** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calledRoutine`). */
 export const shadowedInOutsOf = frameState(() => new Set<string>())
@@ -103,8 +104,13 @@ export function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrS
   }
   if (lendGuards(lw, target, param.name, arg.span) === undefined) return undefined
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
-  if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
-    return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  // An FB DERIVED from the in-out's type builds (`rk_inout_derived_fb`) — valid ST, not built. Any other type is refused:
+  // "Type 'DUT_B' is not equal to type 'DUT_A' of VAR_IN_OUT" (`rk_inout_other_struct`), `call-inout-type`
+  // (transpile-refusal-classification 2.1).
+  if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type)) {
+    const derived = param.type.kind === "function_block" && target.type.kind === "function_block" && chainNames(lw, target.type.name).has(composite(param.type)!)
+    return lw.bail(derived ? "call-inout-derived" : "call-inout-type", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  }
   // A STRING VAR_IN_OUT BOUND AT ANOTHER CAPACITY than it declares (transpile-restructure 8.2, design.md §7.2 Decision
   // (step 8e)). Wider, a routine is lowered per bound capacity (`string-inouts.ts`), so a parameter that still differs is
   // an FB's: its one body serves every instance and cannot see one caller's capacity — not modelled. Narrower does not

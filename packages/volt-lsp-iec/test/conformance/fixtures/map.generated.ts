@@ -15,9 +15,9 @@
  *
  *   evidence
  *     confirmed     3055
- *     refused       2034
- *     not-lowered    346
- *     lsp-gap         74
+ *     refused       2038
+ *     not-lowered    378
+ *     lsp-gap         88
  *     diverges         5
  *     unaskable       95
  *
@@ -4176,6 +4176,56 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   region_pragma_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "327c35c6c4" },
   region_pragma_nested: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "c71da7e88d" },
   reinterpret_dint_as_real_edges: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 1.8, shape: "18078fb2c7" },
+  rk_adr_local_runtime_index_before_last: { evidence: "not-lowered" },
+  rk_adr_of_string_character: { evidence: "not-lowered" },
+  rk_adr_of_union_member: { evidence: "not-lowered" },
+  rk_at_in_fb_two_instances: { evidence: "not-lowered" },
+  rk_builtin_mixed_types: { evidence: "lsp-gap" },
+  rk_builtin_named_args: { evidence: "lsp-gap" },
+  rk_fb_init_array_elements: { evidence: "not-lowered" },
+  rk_fb_init_positional_argument: { evidence: "not-lowered" },
+  rk_fb_init_with_inout: { evidence: "not-lowered" },
+  rk_function_empty_argument: { evidence: "not-lowered" },
+  rk_function_output_bound_with_assign: { evidence: "lsp-gap" },
+  rk_init_slot_method_binitretains: { evidence: "not-lowered" },
+  rk_init_slot_method_with_input: { evidence: "lsp-gap" },
+  rk_inout_derived_fb: { evidence: "not-lowered" },
+  rk_inout_other_struct: { evidence: "lsp-gap" },
+  rk_inout_shadowed_by_local: { evidence: "not-lowered" },
+  rk_instance_path_not_string: { evidence: "not-lowered" },
+  rk_interface_bound_to_inout: { evidence: "not-lowered" },
+  rk_interface_from_runtime_indexed_element: { evidence: "not-lowered" },
+  rk_interface_given_fb_not_implementing: { evidence: "lsp-gap" },
+  rk_interface_given_integer: { evidence: "lsp-gap" },
+  rk_interface_impl_method_inout: { evidence: "refused" },
+  rk_interface_input_through_interface: { evidence: "not-lowered" },
+  rk_interface_property_not_implemented: { evidence: "refused" },
+  rk_interface_read_from_other_instance_field: { evidence: "not-lowered" },
+  rk_interface_set_by_ref: { evidence: "refused" },
+  rk_method_call_on_struct: { evidence: "refused" },
+  rk_nested_method_in_argument: { evidence: "not-lowered" },
+  rk_nested_property_in_argument: { evidence: "not-lowered" },
+  rk_open_array_assigned_whole: { evidence: "lsp-gap" },
+  rk_partial_access_out_of_range: { evidence: "lsp-gap" },
+  rk_partial_access_signed: { evidence: "lsp-gap" },
+  rk_pointer_index_on_local_scalar: { evidence: "not-lowered" },
+  rk_pointer_stepped_by_struct: { evidence: "lsp-gap" },
+  rk_pointer_stepped_local_partial_element: { evidence: "not-lowered" },
+  rk_pointer_to_inout_kept_in_field: { evidence: "not-lowered" },
+  rk_pointer_to_local_scalar_stepped: { evidence: "not-lowered" },
+  rk_program_calls_itself: { evidence: "not-lowered" },
+  rk_program_instance_property_written: { evidence: "lsp-gap" },
+  rk_program_member_runtime_index: { evidence: "not-lowered" },
+  rk_program_method_runtime_index: { evidence: "not-lowered" },
+  rk_program_property_runtime_index: { evidence: "not-lowered" },
+  rk_program_reentrant_method: { evidence: "not-lowered" },
+  rk_property_set_by_s: { evidence: "not-lowered" },
+  rk_queryinterface_from_instance: { evidence: "not-lowered" },
+  rk_ref_assign_in_chain: { evidence: "lsp-gap" },
+  rk_string_indexed_two_dims: { evidence: "lsp-gap" },
+  rk_super_base_library: { evidence: "not-lowered" },
+  rk_super_call_output_argument: { evidence: "not-lowered" },
+  rk_union_member_initial_value: { evidence: "not-lowered" },
   rkw_method_input_using: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "7643ce49a8" },
   rkw_struct_field_char: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "78768568f8" },
   rotate_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 5.2, shape: "01b5fbaaa4" },

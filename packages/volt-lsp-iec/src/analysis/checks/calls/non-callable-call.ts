@@ -16,6 +16,7 @@ import { inferExprType, resolveMemberChain, resolveNamedType } from "../../../fr
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { unknownTypeName } from "../../shared/resolution.js"
+import { compilerExprText } from "../../shared/expr-echo.js"
 
 // `interface` is here so C0035 cedes the INTERFACE case to `fb-instantiation`, which has the IDE's own two messages
 // for it — "Cannot call object of type 'INTERFACE'" and "Interface '…' must be instantiated to be accessed"
@@ -30,7 +31,10 @@ function calleeName(e: Expr, scope?: Scope, ctx?: CheckContext): string {
     return ctx.source.slice(e.span.start, e.span.end)
   // `.gCall(1)` is "… instead of '.gCall'", the dot kept (`expr_global_namespace_call_non_callable`, both vendors)
   if (e.kind === "global_expr") return `.${e.name.name}`
-  return e.kind === "ident_expr" ? e.name : e.kind === "member" ? e.member.name : e.kind === "paren" ? calleeName(e.inner, scope, ctx) : "?"
+  // a member call is named as written, base and member — 'rec.M', 'sb.Nope', 'i.Nope' (`rk_method_call_on_struct`,
+  // `mem_unknown_method_of_fb_instance`, both vendors); it was the member alone
+  if (e.kind === "member") return compilerExprText(e)
+  return e.kind === "ident_expr" ? e.name : e.kind === "paren" ? calleeName(e.inner, scope, ctx) : "?"
 }
 
 export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): void {

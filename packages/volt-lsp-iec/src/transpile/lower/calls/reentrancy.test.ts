@@ -55,7 +55,7 @@ test("an instance inside a PROGRAM: a PROPERTY, a runtime index, a body reaching
   const getter = run(ir(program("n := PRG_S.relay.Level;"), "P"))
   getter.scan()
   expect(getter.get("n")).toEqual(0n)
-  expect(codes(program("PRG_S.relay.Level := 1;"))).toContain("call-program-property")
+  expect(codes(program("PRG_S.relay.Level := 1;"))).toContain("program-property-written")
   expect(codes(program("n := PRG_S.relays[i].Level;"))).toContain("call-program-property")
   expect(codes(program("PRG_S.relays[i](amount := 1);"))).toContain("call-program-member")
   expect(codes(program("n := PRG_S.relay.Reach();"))).toContain("call-program-reentrant")

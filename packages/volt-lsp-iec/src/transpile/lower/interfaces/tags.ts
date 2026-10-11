@@ -38,9 +38,10 @@ import { sameTarget, staticPath } from "../places/path.js"
 import { instanceFieldKey, pointerKey } from "../pointers/state.js"
 import { foreignWrite } from "./query.js"
 import { lowerPlace } from "../places/places.js"
+import { storageOf } from "../storage/layout.js"
 import { heldAt } from "./lend.js"
 import { interfaceTables } from "./state.js"
-import { declaredChain, implementsOf, interfaceChainOf } from "../core/chain.js"
+import { declaredChain, implementsOf, interfaceChainOf, libraryOnChain } from "../core/chain.js"
 import { indexOfTag, NO_TAG, tagOfIndex } from "../core/tags.js"
 
 /** Whether the FB, or a base FB of it, IMPLEMENTS the interface — itself or one that EXTENDS it. */
@@ -143,7 +144,10 @@ export function interfaceArgument(lw: Lowering, key: string, itf: Type, value: E
   if (source === undefined) return undefined
   if (source.type.kind === "function_block") {
     const name = (itf as { name: string }).name
-    if (!implementsInterface(lw, source.type.name, name)) return lw.bail("interface-type", `${source.type.name} does not implement ${name}`, span)
+    // not implemented: refused in the project (`rk_interface_given_fb_not_implementing`); an FB of a library's, whose
+    // materialized declaration holds no IMPLEMENTS list, is not modelled (`libraryOnChain`: the 175 corpus hits)
+    if (!implementsInterface(lw, source.type.name, name))
+      return lw.bail(libraryOnChain(lw, { fb: source.type.name }) ? "library-declaration" : "interface-type", `${source.type.name} does not implement ${name}`, span)
     const tag = tagOf(lw, source, source.type, span)
     if (tag === undefined) return undefined
     held.tags.set(tag, (held.tags.get(tag) ?? false) || foreign)
@@ -155,5 +159,17 @@ export function interfaceArgument(lw: Lowering, key: string, itf: Type, value: E
     held.from.push({ key: from.key, foreign })
     return { kind: "load", place: source, type: itf, span }
   }
-  return lw.bail("interface-value", "an interface given something that is neither an FB instance nor an interface", span)
+  // A REFERENCE TO a project FB is read through: one that does not implement the interface is refused as the FB itself is
+  // (`rk_interface_given_fb_not_implementing`) — the same ST behind a REFERENCE (transpile-refusal-classification gate 2).
+  if (source.type.kind === "reference") {
+    const referred = storageOf(lw, source.type.target, span)
+    const name = (itf as { name: string }).name
+    if (referred.kind === "function_block" && !implementsInterface(lw, referred.name, name) && !libraryOnChain(lw, { fb: referred.name }))
+      return lw.bail("interface-type", `${referred.name} does not implement ${name}`, span)
+  }
+  // An elementary value is refused by both vendors: "Cannot convert type 'INT' to type 'ITF…'" (`rk_interface_given_integer`).
+  // Anything else — a REFERENCE TO an FB that implements it, read through implicitly — is valid ST no recording refuses: not
+  // modelled (transpile-refusal-classification 2.x).
+  const scalar = source.type.kind === "elementary"
+  return lw.bail(scalar ? "interface-given-value" : "interface-value", "an interface given something that is neither an FB instance nor an interface", span)
 }

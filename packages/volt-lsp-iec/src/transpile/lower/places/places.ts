@@ -77,7 +77,7 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
     const whole = cursorString(lw, pointer, e.span)
     if (whole === null) return undefined
     if (whole !== undefined) return { place: whole }
-    if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
+    if (pointer.type.kind !== "pointer") return lw.bail("deref-not-pointer", "a dereference of something that is not a pointer", e.span)
     const pointee = pointeePlace(lw, pointer, undefined, e.span)
     return pointee && { place: pointee }
   }
@@ -95,14 +95,14 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
   // `s[i]` on a STRING or WSTRING — one character, a BYTE (a WSTRING's WORD), counted from 0
   const text = place?.type.kind === "elementary" && (place.type.name === "STRING" || place.type.name === "WSTRING") ? place.type.name : undefined
   if (place !== undefined && text !== undefined) {
-    if (e.indices.length !== 1) return lw.bail("place-shape", "a string indexed in more than one dimension", e.span)
+    if (e.indices.length !== 1) return lw.bail("index-dims", "a string indexed in more than one dimension", e.span)
     const index = lowerExpr(lw, e.indices[0]!)
     // the capacity is what `s[i]` is bounded by; every string place carries one (`Lowering.resolve`, `storageOf`)
     return index && { char: { place, index, unit: elementaryRef(text === "STRING" ? "BYTE" : "WORD") } }
   }
   // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
   if (place !== undefined && place.type.kind === "pointer") {
-    if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
+    if (e.indices.length !== 1) return lw.bail("index-dims", "a pointer indexed in more than one dimension", e.span)
     const extra = lowerExpr(lw, e.indices[0]!)
     if (extra === undefined) return undefined
     const char = cursorChar(lw, place, extra, e.span)

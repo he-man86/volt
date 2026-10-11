@@ -78,6 +78,10 @@ import { POINTER_MODEL_TESTS } from "./memory/pointer-model.js"
 import { INIT_MODEL_TESTS } from "./oop/init-model.js"
 import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
+import { CALL_REFUSAL_KIND_PROGRAM_TESTS, CALL_REFUSAL_KIND_TESTS } from "./calls/refusal-kinds.js"
+import { MEMORY_REFUSAL_KIND_TESTS } from "./memory/refusal-kinds.js"
+import { OOP_REFUSAL_KIND_TESTS } from "./oop/refusal-kinds.js"
+import { OPERATOR_REFUSAL_KIND_TESTS } from "./operators/refusal-kinds.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
 import { INITIALIZER_TESTS } from "./declarations/initializers.js"
 import { ARRAY_INIT_SHAPE_TESTS } from "./declarations/array-init-shapes.js"
@@ -198,6 +202,10 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "primitive-bounds", tests: PRIMITIVE_BOUNDS_TESTS },
   { name: "platform-integers", tests: PLATFORM_INTEGER_TESTS },
   { name: "real-overflow", tests: REAL_OVERFLOW_TESTS },
+  { name: "call-refusal-kinds", tests: [...CALL_REFUSAL_KIND_TESTS, ...CALL_REFUSAL_KIND_PROGRAM_TESTS] },
+  { name: "memory-refusal-kinds", tests: MEMORY_REFUSAL_KIND_TESTS },
+  { name: "oop-refusal-kinds", tests: OOP_REFUSAL_KIND_TESTS },
+  { name: "operator-refusal-kinds", tests: OPERATOR_REFUSAL_KIND_TESTS },
   { name: "math-domain", tests: MATH_DOMAIN_TESTS },
   { name: "arithmetic-edges", tests: ARITHMETIC_EDGE_TESTS },
   { name: "comparison", tests: COMPARISON_TESTS },
