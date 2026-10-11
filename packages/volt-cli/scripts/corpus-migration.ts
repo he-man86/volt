@@ -540,7 +540,7 @@ async function migrate(name: string): Promise<string[]> {
 	const unauthorable = all.size - authorable.size
 	const { files: staged, notes } = adaptForVendor(authorable)
 
-	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (hidden bodies, members with no body slot)` : ""}`)
+	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (hidden bodies)` : ""}`)
 	// Printed BEFORE the run, never buried in the result: an adapted field is a fact about what this vendor
 	// pair can carry, and it IS the finding - not noise on the way to one.
 	for (const n of notes) console.log(`   adapted  ${n}`)

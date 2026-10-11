@@ -578,7 +578,7 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // `AbstractPOUMethodObject`s and its abstract property's GET hold no body slot, and the pull now states each
 // `IMPLEMENTATION NONE` instead of an empty `IMPLEMENTATION ST` body (the corpus re-pulled live, exactly those 11 lines
 // in 7 files). `ActuatorWithAlarm_BaseFB` (an abstract base) "lowered" only by running its own abstract `Alarms` as an
-// empty body; now it is refused `graphical-body` ("is abstract: it has no body slot"). Measured per POU with
+// empty body; now it is refused `graphical-body` ("is abstract: it holds no code"). Measured per POU with
 // `scripts/probe-lowering-refusals.ts` before and after the 7 files: that is the only verdict that moved — four other
 // already-refused bases gain the `graphical-body` code, nothing else changes.
 const REACH = { bodies: 304, lowered: 53 }

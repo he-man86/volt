@@ -275,7 +275,7 @@ test("a body whose line only looks like the boundary states no language, and the
   expect(text(word[0]!)).toContain("'SST' is no language a body can state")
 })
 
-/** A member with no body slot (`IMPLEMENTATION NONE`, openspec abstract-member-push) draws nothing — pro2193's abstract
+/** An abstract member with no code (`IMPLEMENTATION NONE`, openspec abstract-member-push / -parity) draws nothing — pro2193's abstract
  *  members re-pulled — and code under it is the keyword finding on its line, read by neither reader. */
 test("IMPLEMENTATION NONE draws no diagnostic, and code under it is a keyword diagnostic on its line", async () => {
   const src =

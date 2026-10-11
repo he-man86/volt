@@ -178,8 +178,8 @@ test("a VAR_OUTPUT first stored from a STRING of another capacity keeps its rese
   expect([runner.get("x"), runner.get("c3")]).toEqual(["ab", 0n])
 })
 
-/** AN ABSTRACT MEMBER RUNS NOTHING A LOWERING COULD RUN (openspec abstract-member-push): the pull states a member with no
- *  body slot `IMPLEMENTATION NONE`, and lowering refuses it by name — it used to be an empty `IMPLEMENTATION ST` body,
+/** AN ABSTRACT MEMBER RUNS NOTHING A LOWERING COULD RUN (openspec abstract-member-push): the pull states an abstract
+ *  member with no code `IMPLEMENTATION NONE` (abstract-member-parity: on both vendors), and lowering refuses it by name — it used to be an empty `IMPLEMENTATION ST` body,
  *  which ran an abstract base's call to its own abstract member as nothing (pro2193 `ActuatorWithAlarm_BaseFB`). */
 test("a call to an abstract member (IMPLEMENTATION NONE) is refused by name, never run as an empty body", () => {
   const r = lowerSource(
@@ -188,5 +188,5 @@ test("a call to an abstract member (IMPLEMENTATION NONE) is refused by name, nev
   )
   expect(r.pou).toBeUndefined()
   const refusal = r.diagnostics.find((d) => d.code === "graphical-body")
-  expect(refusal?.message).toContain("is abstract: it has no body slot (IMPLEMENTATION NONE)")
+  expect(refusal?.message).toContain("is abstract: it holds no code (IMPLEMENTATION NONE)")
 })

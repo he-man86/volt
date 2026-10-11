@@ -384,9 +384,9 @@ test("the line is taken out of the body: the code starts under it, and it is not
   expect(body.implementation?.text).toBe("IMPLEMENTATION ST")
 })
 
-// ── IMPLEMENTATION NONE: a member with no body slot (openspec abstract-member-push) ──────────────────────────────────
+// ── IMPLEMENTATION NONE: an abstract member with no code (openspec abstract-member-push / -parity) ──────────────────
 
-/** A CODESYS abstract method or abstract property's GET has no body slot, and the pull states it `IMPLEMENTATION NONE`
+/** An abstract method or an abstract property's GET/SET with no code is pulled `IMPLEMENTATION NONE` on both vendors
  *  (the bridge's `ImplementationMarker.IsNone`). It is a boundary line — so a re-pulled pro2193 owner does not read as
  *  "states no language" — whose body neither parser reads, in one spelling however typed. */
 test("IMPLEMENTATION NONE is a boundary whose empty body is read by neither parser and is clean", () => {

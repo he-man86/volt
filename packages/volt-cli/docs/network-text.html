@@ -295,14 +295,16 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   <code>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</code>, and a body in a language Volt has never seen — an unknown view,
   body aspect or archive root — is hidden the same way under the vendor's own name for it, upper case
   (<code>IMPLEMENTATION NWL UNSUPPORTED</code> for a network body that states no view), so its item still pulls
-  (<code>bridge-refusal-review</code> D27). A member the IDE holds with <b>no body slot</b> — a CODESYS abstract
-  method (<code>AbstractPOUMethodObject</code>) or abstract property's GET, which hold no <code>Implementation</code>
-  aspect — states <code>IMPLEMENTATION NONE</code>, alone, nothing under it (openspec <code>abstract-member-push</code>,
-  DIALECT C2n): no language, read by neither reader, never written, and a body pushed at it, NONE pushed at a member
-  with a slot, or NONE on a created member is refused by name. <code>IMPLEMENTATION NONE UNSUPPORTED</code> is another
-  line: a hidden body of a language spelled NONE. TwinCAT's abstract members have a slot and keep
-  <code>IMPLEMENTATION ST</code>. A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
-  FBD body the same way, with the reason "LD and FBD are not enabled in this build". Editing the line between
+  (<code>bridge-refusal-review</code> D27). An <code>ABSTRACT</code> member with <b>no code</b> — a METHOD, or a GET/SET under
+  <code>PROPERTY ABSTRACT</code>, whose body is empty or missing — states <code>IMPLEMENTATION NONE</code>, alone, nothing
+  under it, on both vendors and whatever object holds it (openspec <code>abstract-member-push</code>,
+  <code>abstract-member-parity</code>, DIALECT C2n): no language, read by neither reader; a push writes an empty body
+  where the object has a slot and nothing where it has none, and a create of it is accepted. Code under
+  <code>ABSTRACT</code> (both compilers refuse it: "must not contain any statements"), NONE without
+  <code>ABSTRACT</code> (unless the IDE already holds it so, C2l), and NONE at a POU's own body or an action are refused by name; a comment-only abstract body
+  stays <code>IMPLEMENTATION ST</code>. <code>IMPLEMENTATION NONE UNSUPPORTED</code> is another line: a hidden body of
+  a language spelled NONE. A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
+  FBD body under the marker, with the reason "LD and FBD are not enabled in this build". Editing the line between
   <code>LD</code> and <code>FBD</code> changes the body's view: both drivers write it (<code>bridge-refusal-review</code>
   2.22, 2.31).
 </p>

@@ -269,3 +269,33 @@
     `Volt.Connector.Tests` 115 (all 0 fail); volt-cli `bun test test/unit` 78 pass / 0 fail; `bun run typecheck` clean
     (5 packages); `bun run lint` exit 0 (warnings only); LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset)
     9525 pass / 35 skip / 421 todo / 0 fail (9981 tests, 327 files, 851 s). No conformance fixture or transpiler change — the fixture map is not affected (not regenerated).
+
+## 4. Close
+
+- [x] 4.1 Cold full suite, docs, final review (SPEC + LAYERING), archive.
+  - **LSP full suite COLD** (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset): 9525 pass / 35 skip /
+    421 todo / 0 fail (9981 tests, 327 files, 1121.7 s), run after the review fixes below.
+  - **Docs the change names, updated:** DIALECT C2n (step 3). Found stale at close and rewritten to the one rule (an
+    `ABSTRACT` member with no code is `IMPLEMENTATION NONE` on both vendors; create accepted; code, NONE without
+    ABSTRACT and NONE at an item/action refused; comment-only stays ST): `packages/volt-cli/docs/network-text.html`
+    (said "TwinCAT's abstract members ... keep `IMPLEMENTATION ST`" and "NONE on a created member is refused"),
+    `packages/volt-lsp-iec/docs/behavior.md` (the scenario, same two claims), the vscode grammar's comment.
+  - **Review, SPEC lens:** the spec delta describes what was built — both scenarios (byte-identical pull, migration
+    create + pull back) are the e2e cases of 3.3; "no body where no slot, an empty body where one" is `OnlyChanged`
+    dropping an unchanged NONE + `Written(NONE)` = `""`. One user-facing message still said the old fact: the
+    transpiler's refusal "is abstract: it has no body slot (IMPLEMENTATION NONE)" — test-first (`routines.test.ts`
+    expectation changed to "it holds no code", red, then `routines.ts`), green; stale "no body slot" comments in two
+    LSP tests, the vscode grammar test, `corpus.test.ts`, and `corpus-migration.ts`'s "unauthorable (… members with no
+    body slot)" (NONE is authorable now) corrected. Checked and kept: `WithoutUnchangedBodies` compares body text
+    only, as the item's own body drop does — a LD↔FBD view edit is not lost, the network body text carries its
+    `IMPLEMENTATION LD|FBD` line; `BodyFormatGuard`'s "no body slot" refusal is the slotless non-abstract row (C2l),
+    where it is still the fact.
+  - **Review, LAYERING lens:** the rule lives once, in `Volt.Engine/Format/St/AbstractMemberFold`, applied where
+    content enters the engine (two driver reads, the pushed source, the CLI's post-push compare); drivers keep their
+    storage facts and gained no slot check (the one driver line, CODESYS accessor `Body` not `Code`, makes it match
+    TwinCAT's "null = leave alone"); `StReader` and the LSP read the text as written; nothing above the seam names a
+    vendor class. No finding.
+  - Close gate: `bun run typecheck` clean (5 packages); `bun run lint` exit 0; LSP targeted
+    (`routines.test.ts`, `implementation-line.test.ts`, `implementation-keyword-diagnostics.test.ts`) 57 pass;
+    volt-vscode `implementation-line-grammar.test.ts` 4 pass; `Volt.Engine.Tests` `DocData` 20 pass. No C# change at
+    close; no conformance fixture or transpiler-behaviour change (fixture map not affected).
