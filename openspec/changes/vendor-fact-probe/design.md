@@ -204,3 +204,45 @@ deferred N-rows carry no marker, so the gate asks nothing of them until 4.1 / 4.
 
 **Migration.** 1.1 commits the test (red, one reason). 2.1 writes the table in the shape above → green. 4.1 adds the
 `refused-names` row and its markers in one commit, so the sets stay equal at every commit after 2.1.
+
+## 2 — Build: table, cores, runner, README
+
+**Target.** `bun scripts/vendor-facts.ts <codesys|twincat> [--write]` runs every row of the 0.1 table in one IDE
+session on instance `vendor-fact-probe` and diffs the snapshot against `scripts/vendor-facts.<vendor>.json`.
+
+**Choice: the runner drives each row ONE STEP AT A TIME; `via: "push"` steps run in the runner, everything else in a
+long-lived vendor core reached by one request/answer protocol.** 0.1 said "all rows in one JSON file, one result back";
+that cannot hold, because a row interleaves `script` and `push` steps (C2e, C2n) and a push must reach the pipe BETWEEN
+two core steps. So:
+- **Table** (`vendor-facts.table.ts`, 2.1): `export const rows: Row[]` with the 0.1 `Row`/`Step`/`Read` types in the same
+  file, one literal per row in the strict shape 1.1 parses. The 25 rows are recovered from `b2496efb4b`'s probes.
+- **Runner** (`vendor-facts.ts`, 2.3): owns the session — `ide.ps1 up -Vendor <v> -Instance vendor-fact-probe -Wait`
+  (CODESYS `-RunScript vendor-facts.codesys.py`, TwinCAT `-Fixture 14`), `down` in `finally`; the pipe through
+  `scriptPipe` (`fixture-ide.ts`), so no other IDE is touched. Per row: each step in order (`push` via
+  `test/e2e/lib/workspace.ts` `pushOps`, vendor-blind; the rest to the core), each read after its `at` step, then
+  `cleanup`. A vendor the row marks `absent` writes `"absent: <reason>"` and asks nothing.
+- **Core interface** (TS, the same for both): `step(row, i)`, `read(row, r)`, `cleanup(row)`, each one JSON request →
+  one JSON answer with a per-op timeout (60 s; `build`/`open`/`reload` 300 s). The core holds the row's handles by
+  `(row id, step index)` and re-resolves them by guid after `open`/`reload`.
+  - **CODESYS** (`vendor-facts.codesys.py`, IronPython 2.7, ASCII, on `voltprobe.py`): runs `run_pipe_production.py`
+    verbatim, then a UI-thread timer answers `request` files under `%LOCALAPPDATA%\volt-bridge\vendor-facts\<pid>\`
+    (`<id>.out` + `<id>.done`, or `<id>.error`) — the `probe-library-signature-cost.py` protocol, already measured.
+  - **TwinCAT** (`vendor-facts.twincat.ps1`): ONE PowerShell process for the session, DTE from the ROT by this
+    instance's XAE pid (`probe-tc-refusal-measure.ps1`'s lookup), one JSON request per stdin line, one answer per
+    stdout line.
+- **Outcomes vs errors.** Every step records `accepted | refused: <verbatim>` (that IS data). A READ that throws, or a
+  request past its timeout, aborts the run naming fact, step/read and the message — a probe bug is never a value.
+- **Snapshot/diff**: keys sorted at every level, no timestamps/pids/addresses; the diff lists every differing path as
+  `<fact>.<key>: committed <a> / measured <b>` and exits 1; `--write` replaces the file and prints the same list.
+- **README** (2.4): the one command, and "a new vendor question is a table row — never a new probe script".
+
+**Rejected:** *whole-batch file* — breaks the push interleave (above); *the core pushes itself* — the CODESYS core runs
+on the UI thread that serves the pipe, so a pipe call from it deadlocks; *a PowerShell spawn per TwinCAT step* — DTE
+lookup + `Add-Type` per spawn × ~300 steps; *a bridge op for reads* — refused in 0.1; *the user runs `ide.ps1 up`
+first* — two commands, and a CODESYS without `-RunScript vendor-facts.codesys.py` answers no request.
+
+**Refused by name:** the NVL (`absent`), the TwinCAT warning list's GUI half, corpus censuses, N-rows (4.2), the
+fold-in probes (4.1). No default `via`, no default timeout-retry, no guessed value for a missing member (`null` = absent).
+
+**Migration.** 2.1 table → the 1.1 gate goes green. 2.2 both cores. 2.3 runner (no snapshot committed until 3.1).
+2.4 README. Each its own commit; nothing deleted until 4.1.
