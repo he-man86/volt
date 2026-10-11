@@ -105,3 +105,47 @@ listed under 3.2 — that list is the expected set; the re-pull must rewrite EXA
 finding, as is more) and no other line of any file. Versions hash the written text (`Versioning` →
 `Materializer`), so only the owners of the listed sites (at most those 7) see their versions move. Docs: `ImplementationMarker` summary, DIALECT C2n,
 `docs/network-text.html` (the line list), the LSP's format notes.
+
+## Design: the fix (3.1–3.2)
+
+**Target.** `CodesysAbstractMemberPushTests` un-skipped and green, with its assertion as committed. A pulled pro2193
+owner holding an abstract member pushes back live on CODESYS, keeping the member's GUID and class. No TwinCAT twin:
+1.1 measured a slot there. Its stand-in is a TwinCAT test that pins its abstract member staying `IMPLEMENTATION ST`.
+
+**Choice: measure first, then build the fix inside out in one red→green chain.**
+1. The `vendor-facts` key `implementation-declared` on `merged-classes`, for `abstract` and `busyget`. It reads
+   `NwlInterop.Has(obj, "Implementation")`, i.e. case (b) vs (c). It also classifies the 12 pro2193 ABSTRACT sites
+   (class + declared), and that list becomes the migration's expected set. Two agreeing runs, on
+   `-Instance abstract-member-push` with `-Fixture` = the pro2193 copy.
+2. Red, un-skipped: the test's `Method(decl, null!)` double declares `Implementation` holding null. That is case (c),
+   which the design refuses. If step 1 measures (b), the double becomes an `AbstractMethod` class without the member,
+   which models the measured vendor class. Only the double changes. The assertion stays as committed.
+3. `ImplementationMarker`: the `None` stated value, `Parse`/`Canonical`/`Split`/`Join`, `Written` → null. It is told
+   apart from `IMPLEMENTATION NONE UNSUPPORTED`. Src tests are added next to it.
+4. `CodesysDriver.ReadBody` `impl is null` arm, only at body sites (`ShapeOf`): (a) refused by name, (b) → NONE,
+   (c) refused by name. The ST arm and `BodyText` are untouched.
+5. `BodyFormatGuard`: ST over a live NONE, NONE over a slot, and NONE on a create, each refused before any write with
+   the member and its remedy (`volt pull` / `IMPLEMENTATION ST`). Engine tests run on `FakeIde`.
+6. LSP `implementation-line.ts`: NONE is a boundary with no body. Code under it is reported, and a src test is added.
+7. DIALECT C2n, `network-text.html`, and the LSP format notes are updated. Then the live e2e on the pro2193 copy:
+   pull `VisionSystem_BaseFB` (NONE under `TakePicture`), add a declaration line, push → accepted. The line lands, and
+   GUID and class are unchanged. A second push with `IMPLEMENTATION ST` there → refused by name.
+
+Rejected, one line each:
+- **Un-skip with the double as is**: under the design it asserts case (c), which stays refused, so the test would pass
+  only through a fallback.
+- **Infer (b) from the 1.1 `implementation` key**: that key reads null for both (b) and (c). Step 1 is the one
+  measurement that decides between them.
+- **A TwinCAT twin test**: 1.1 measured a slot, so the twin would assert a refusal that cannot happen.
+- **Fix only C# and leave the LSP for later**: the re-pulled corpus would report "states no language" on 7 files the
+  moment the migration lands.
+
+**Stays refused by name:** code under `IMPLEMENTATION NONE`; NONE on a create, a rename or a retype (with the
+`IMPLEMENTATION ST` remedy); case (a); case (c) unless step 1 measures it. `RequireSlot` (D26) stays the driver's
+backstop.
+
+**Migration.** Re-pull `packages/volt-lsp-iec/test-corpus/pro2193` and diff it against the step-1 list. Exactly the
+listed slotless sites flip `ST`→`NONE`, nothing else changes, and the owners' versions move. Then `rate:fixtures` and
+the LSP corpus tests run on the new text. `corpus-migration.ts pro2193` creates into a blank project, so it now
+refuses the owners that hold NONE. It counts them as unauthorable, as it counts CFC/SFC; this is expected, not a
+regression.
