@@ -330,3 +330,15 @@ Paths are relative to `packages/volt-lsp-iec/`. Filed by `transpile-restructure`
       baselines rewritten (`VOLT_WRITE_BASELINE=1`: only `rk_*` rows and counts change; no ceiling rises).
     - Gate 2 numbers (2026-10-11): typecheck clean; `rate:fixtures` rerun after the fixes, the map unchanged by them; the full
       LSP suite with `VOLT_REQUIRE_FULL=1`: 9516 pass, 0 fail, 35 skip, 421 todo, 9972 tests in 326 files (808 s).
+
+## Close-out (2026-10-11)
+
+- Full LSP suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset): 9516 pass, 0 fail, 35 skip,
+  421 todo, 9972 tests in 326 files (1060 s). Typecheck clean.
+- Docs: `docs/architecture.md`'s refused lists carry each code's kind (step 2); `docs/data-model.md`'s `LowerDiagnostic`
+  names `LowerCodeKind` without the removed kind; no doc mentions `unclassified` or `call-base`.
+- Final review, SPEC lens: the spec delta said each kind was decided by call sites and recordings alone, with no word on
+  what was built beyond that — the per-site rules, the splits, the codes no input reaches (Volt's own gaps, `not-modelled`),
+  the older `invalid` codes not re-read and `pointer-value`'s mixed site. Rewritten to state what was built before archiving.
+  LAYERING lens: `scripts/check-layering.ts` clean (imports down only; the change's new imports reach `frontend/*` through
+  their indexes); nothing to fix.
