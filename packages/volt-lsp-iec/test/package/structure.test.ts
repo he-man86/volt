@@ -4,12 +4,18 @@
  * (and that tree names no folder that is gone), and every file of `scripts/` is listed in `scripts/README.md`. The
  * layer imports are `layering.test.ts`'s, beside this file.
  *
+ * No `src/` file is test support (openspec lsp-same-standard design.md §5, task 1.2): a `src/` file whose every importer
+ * is a test fails, named. The server's import rule (S1) is `layering.test.ts`'s, where imports are scanned; this gate
+ * borrows that scanner (`importGraph`), so the package has one.
+ *
  * Data trees are one entry each: the fixtures and recordings under `test/conformance/` are grouped by concern and mapped
  * by `fixtures/map.generated.ts`, so their sub-folders are not listed; a dot-folder (`.snapshot/`) is a local cache.
  */
 import { expect, test } from "bun:test"
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { dirname, join } from "node:path"
+import { importGraph } from "../../scripts/check-layering.js"
 
 const PACKAGE = join(import.meta.dir, "..", "..")
 /** The one file `src/` may hold at its top: the package barrel `package.json` exports. */
@@ -96,4 +102,100 @@ test("the tree reader: a folder's path is its indent; a folder line without a se
     ["src/a/b", "inside a"],
   ])
   expect(malformed).toEqual(["  c/", "      d/  too deep"])
+})
+
+/** A file that drives tests is not product: `*.test.ts`, anything under `test/`. */
+const isTestFile = (f: string): boolean => f.startsWith("test/") || f.endsWith(".test.ts")
+/** The `src/` files the rule does not ask: tests, colocated case tables, barrels and the CLI entry. */
+const notAsked = (f: string): boolean => {
+  const base = f.split("/").pop()!
+  return isTestFile(f) || f.endsWith(".cases.ts") || base === "index.ts" || base === "bin.ts"
+}
+
+/**
+ * Every `src/` file whose importers are all tests (or that nothing imports), as `<file>: <why>` — a script or a product
+ * file importing it makes it product.
+ */
+export function testSupportInSrc(pkg: string): string[] {
+  const graph = importGraph(pkg)
+  const importers = new Map<string, string[]>()
+  for (const [from, targets] of graph) for (const t of targets) importers.set(t, [...(importers.get(t) ?? []), from])
+  const out: string[] = []
+  for (const file of [...graph.keys()].filter((f) => f.startsWith("src/") && !notAsked(f)).sort()) {
+    const by = importers.get(file) ?? []
+    if (by.length === 0) out.push(`${file}: nothing imports it`)
+    else if (by.every(isTestFile)) out.push(`${file}: only tests import it (${by.length}) — test support lives under test/`)
+  }
+  return out
+}
+
+/**
+ * The test support still in `src/` (design.md §1.4), by file, measured 2026-10-12 at fddcde2a6e (importers then:
+ * `test-uri.ts` 78, `diagnostic-codes.ts` 2, `harness.ts` 5 — a count, not part of the key). All three move under
+ * `test/` in step 2 (tasks 2.1, design.md §2.3). The list may only shrink.
+ */
+const KNOWN_TEST_SUPPORT_IN_SRC: readonly string[] = [
+  "src/analysis/test-uri.ts",
+  "src/server/diagnostic-codes.ts",
+  "src/server/harness.ts",
+]
+
+/**
+ * The test-support gate's verdict: a finding whose FILE the known list does not name is unexpected, a listed file with no
+ * finding is stale. Keyed by the file alone — the importer count in a finding is information, so a test added beside the
+ * 78 that import `test-uri.ts` changes nothing here.
+ */
+export function testSupportReport(found: readonly string[], known: readonly string[]): { unexpected: string[]; stale: string[] } {
+  const fileOf = (finding: string): string => finding.split(": ")[0]!
+  const knownFiles = new Set(known)
+  const foundFiles = new Set(found.map(fileOf))
+  return { unexpected: found.filter((f) => !knownFiles.has(fileOf(f))), stale: known.filter((k) => !foundFiles.has(k)) }
+}
+
+test("no src/ file is test support, but the listed ones; a listed one that moved is stale", () => {
+  const found = testSupportInSrc(PACKAGE)
+  expect(testSupportReport(found, KNOWN_TEST_SUPPORT_IN_SRC)).toEqual({ unexpected: [], stale: [] })
+})
+
+test("the test-support verdict is keyed by file: a moved importer count is neither unexpected nor stale", () => {
+  const known = ["src/analysis/test-uri.ts", "src/server/harness.ts"]
+  expect(
+    testSupportReport(
+      [
+        "src/analysis/test-uri.ts: only tests import it (79) — test support lives under test/",
+        "src/analysis/new.ts: nothing imports it",
+      ],
+      known,
+    ),
+  ).toEqual({ unexpected: ["src/analysis/new.ts: nothing imports it"], stale: ["src/server/harness.ts"] })
+})
+
+test("the test-support gate fires: a src/ file only tests import, and one nothing imports, are named", () => {
+  const root = mkdtempSync(join(tmpdir(), "volt-structure-"))
+  const files: Record<string, string> = {
+    "src/server/harness.ts": `import { run } from "./server.js"\nexport const h = run\n`,
+    "src/server/server.ts": `export const run = 1\n`,
+    "src/server/index.ts": `export { run } from "./server.js"\n`,
+    "src/server/server.test.ts": `import { h } from "./harness.js"\n`,
+    // three levels deep, so the planted text read as THIS file's import resolves outside the package's src/
+    "test/x/y/z.test.ts": `const m = await import("../../../src/analysis/uri.js")\n`,
+    "src/analysis/uri.ts": `export const u = 1\n`,
+    "src/analysis/orphan.ts": `export const o = 1\n`,
+    "src/analysis/table.cases.ts": `export const c = 1\n`,
+    "src/analysis/tool.ts": `export const t = 1\n`,
+    "scripts/use-tool.ts": `import { t } from "../src/analysis/tool.js"\n`,
+  }
+  try {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true })
+      writeFileSync(join(root, path), text)
+    }
+    expect(testSupportInSrc(root)).toEqual([
+      "src/analysis/orphan.ts: nothing imports it",
+      "src/analysis/uri.ts: only tests import it (1) — test support lives under test/",
+      "src/server/harness.ts: only tests import it (1) — test support lives under test/",
+    ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

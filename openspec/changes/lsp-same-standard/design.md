@@ -404,7 +404,8 @@ removed, a new violation fails. Each later step deletes its own entries in its c
   `crossCheckBuildTypes` 84, `units` 82 — not in §1.2, go to 4.4). NT 3 marked "LD/FBD change". Measured what decides
   the key: `file#name` is unique for all 31 (no duplicate), so no line number in the key (lines move on every edit).
 - *Dead exports* — `dead-exports.ts --gate` in lint: NOBODY over `src`, less (a) the members of any exported union
-  declared in the same file (`irUnionMembers` generalised; measured: excludes 41 of the 72 — the 21 + 14 NT + 6 IR), (b)
+  declared in the same file, keyed (name, file) (`irUnionMembers` generalised; measured on the step-1 tree, the gates'
+  planted tests not a use: excludes 44 of the 75 — AST 18, `Type` 4, NT 13, IR 9), (b)
   the transpile barrel surface + `ir/` types (`IrUnOp`, `PathSegment`). Allowlist = the remaining 29: 25 non-NT (→ 0
   by 4.5) + 4 NT (`TokKind` `CONSTRUCT_WORDS` `v1Refusal` `resolveAnywhere`).
 - *Structure* — `structure.test.ts`: a `src/` file whose every importer is a test fails, unless `*.test.ts`,

@@ -396,8 +396,9 @@ Inside `lower/` the recursion is real (an expression lowers a call, a call lower
 each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `lower/` folder, `core/` only
 `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`, and only `entry/` imports
 `project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
-only shrinks). Rule 6: nothing under `src/` imports `test/`. Size is ratcheted too (`scripts/check-size.ts`: a file
-within 400 lines, a test within 600, a function within 80 — the last reported, none over it since 1.9.4).
+only shrinks). Rule 6: nothing under `src/` imports `test/`. Size is ratcheted too (`scripts/check-size.ts`, over all of
+`src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80 — the
+oversize ones listed as shrink-only ceilings; none in `transpile/` but `buildLayout`).
 
 **The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
 never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold

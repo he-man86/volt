@@ -5,11 +5,13 @@
  *   bun run scripts/dead-exports.ts                     the two lists
  *   bun run scripts/dead-exports.ts --all               …and every export with its importer counts
  *   bun run scripts/dead-exports.ts --scope <dir>       the NOBODY list of the exports declared under <dir>
+ *   bun run scripts/dead-exports.ts --gate              the `bun run lint` gate: NOBODY over src/ vs the allowlist
  *
- * Under `--scope src/transpile` (openspec transpile-restructure design.md §8, task 1.0.4) the NOBODY list leaves out
- * (a) the members of the IR unions (`IrExpr`, `IrStmt`: their node interfaces are used by the union beside them by
- * design) and (b) the names the transpile barrel re-exports on purpose (design.md §2.1.1 — `ir/`'s types among them).
- * "No finding" means that filtered list is empty.
+ * `--scope` and `--gate` (openspec transpile-restructure design.md §8, task 1.0.4; lsp-same-standard design.md §5, task
+ * 1.1) leave out (a) the members of every exported union (`Expr`, `Type`, `IrExpr` …: a node interface is used by the
+ * union declared beside it, by design) and (b) the names the transpile barrel re-exports on purpose (its design.md
+ * §2.1.1 — `ir/`'s types among them), each by (name, declaring file), never by bare name. "No finding" means that filtered list is empty. `--gate` fails on a NOBODY export
+ * not in `DEAD_EXPORT_ALLOWLIST`, and on a listed one that is no longer dead.
  *
  * It answers TWO different questions and keeps them apart, because only one of them is about dead code:
  *
@@ -41,6 +43,15 @@ const walk = (dir: string, out: string[] = []): string[] => {
 }
 const isTest = (f: string): boolean => f.includes(".test.") || f.startsWith("test/")
 const isScript = (f: string): boolean => f.startsWith("scripts/")
+/** The gates whose own lists name src/ exports (the allowlist below, the function ceilings), and their planted tests: a
+ *  name there is debt being tracked or a scratch tree's word, not a use — counting it would let a gate keep real
+ *  exports alive (`dead-exports.test.ts` plants `IfStatement`, a real AST export). */
+const NOT_A_USE: ReadonlySet<string> = new Set([
+  "scripts/dead-exports.ts",
+  "scripts/dead-exports.test.ts",
+  "scripts/check-size.ts",
+  "scripts/check-size.test.ts",
+])
 
 /** `export function|const|class|interface|type|enum <name>` — the declaration forms; `export {…}` re-exports
  *  are deliberately not counted, since a barrel naming something is not a USE of it. */
@@ -68,7 +79,7 @@ export function exportRows(texts: ReadonlyMap<string, string>): Row[] {
       const name = m[1]!
       const row: Row = { name, file, src: 0, test: 0, script: 0 }
       for (const [other] of texts) {
-        if (other === file || !words.get(other)!.has(name)) continue
+        if (other === file || NOT_A_USE.has(other) || !words.get(other)!.has(name)) continue
         if (isScript(other)) row.script += 1
         else if (isTest(other)) row.test += 1
         else row.src += 1
@@ -105,32 +116,100 @@ export const TRANSPILE_SURFACE: readonly string[] = [
   "IrValue",
 ]
 
-/** The members of the IR unions `IrExpr` and `IrStmt`, read from their declarations under `src/transpile/ir/`. */
-export function irUnionMembers(texts: ReadonlyMap<string, string>): Set<string> {
+/** An exclusion's key: the export's name AND its declaring file, so a name excluded in one file is still asked in any other. */
+const keyOf = (name: string, file: string): string => `${name} ${file}`
+
+/**
+ * The members of every exported UNION in `src/` (`Expr`, `Statement`, `Type`, `IrExpr`, the network-text unions …), as
+ * `<name> <file>`: the names a `export type X = A | B …` declaration lists that are exported from the same file. They
+ * are used by the union beside them by design; what is redundant is their `export`, not the type (lsp-same-standard
+ * design.md §5, generalising the transpile scope's IR rule). Read from the declarations, never a hand list.
+ */
+export function unionMembers(texts: ReadonlyMap<string, string>): Set<string> {
   const members = new Set<string>()
   for (const [file, body] of texts) {
-    if (!file.startsWith("src/transpile/ir/")) continue
-    for (const m of body.matchAll(/^export\s+type\s+(?:IrExpr|IrStmt)\s*=([^;]*?)(?=\n\s*\n|\nexport\s|\n\s*\/[/*]|$(?![\s\S]))/gm))
-      for (const id of m[1]!.matchAll(/\b(Ir\w+)\b/g)) members.add(id[1]!)
+    if (!file.startsWith("src/") || isTest(file)) continue
+    const exported = new Set([...body.matchAll(EXPORT)].map((m) => m[1]!))
+    for (const m of body.matchAll(/^export\s+type\s+\w+\s*(?:<[^=]*>)?\s*=([^;]*?)(?=\n\s*\n|\nexport\s|\n\s*\/[/*]|$(?![\s\S]))/gm)) {
+      if (!m[1]!.includes("|")) continue
+      for (const id of m[1]!.matchAll(/\b([A-Za-z_]\w*)\b/g)) if (exported.has(id[1]!)) members.add(keyOf(id[1]!, file))
+    }
   }
   return members
 }
 
-/** The names `--scope src/transpile` leaves out of NOBODY: the IR union members and the deliberate barrel surface. */
-export function transpileExclusions(texts: ReadonlyMap<string, string>): Set<string> {
-  const out = new Set<string>([...irUnionMembers(texts), ...TRANSPILE_SURFACE])
-  for (const [file, body] of texts)
-    if (file.startsWith("src/transpile/ir/") && !isTest(file)) for (const m of body.matchAll(EXPORT_TYPE)) out.add(m[1]!)
+/**
+ * The exports the NOBODY gate leaves out, in any scope, as `<name> <file>`: each union's members in the union's file, the
+ * transpile barrel's deliberate surface where it is declared under `src/transpile/`, and `ir/`'s types in their `ir/`
+ * files (transpile-restructure design.md §2.1.1). Never a bare name: the same name declared elsewhere is still asked.
+ */
+export function exclusions(texts: ReadonlyMap<string, string>): Set<string> {
+  const out = unionMembers(texts)
+  const surface = new Set(TRANSPILE_SURFACE)
+  for (const [file, body] of texts) {
+    if (!file.startsWith("src/transpile/") || isTest(file)) continue
+    for (const m of body.matchAll(EXPORT)) if (surface.has(m[1]!)) out.add(keyOf(m[1]!, file))
+    if (file.startsWith("src/transpile/ir/")) for (const m of body.matchAll(EXPORT_TYPE)) out.add(keyOf(m[1]!, file))
+  }
   return out
 }
 
-/** The NOBODY list of the exports declared under `scope` (a directory relative to the package), less its exclusions. */
+/** The NOBODY list of the exports declared under `scope` (a directory relative to the package), less the exclusions. */
 export function nobodyIn(texts: ReadonlyMap<string, string>, scope: string): Row[] {
   const dir = scope.replace(/\/+$/, "") + "/"
-  const excluded = dir === "src/transpile/" ? transpileExclusions(texts) : new Set<string>()
+  const excluded = exclusions(texts)
   return exportRows(texts).filter(
-    (r) => r.file.startsWith(dir) && r.src === 0 && r.test === 0 && r.script === 0 && !excluded.has(r.name),
+    (r) => r.file.startsWith(dir) && r.src === 0 && r.test === 0 && r.script === 0 && !excluded.has(keyOf(r.name, r.file)),
   )
+}
+
+/**
+ * The NOBODY exports of `src/` the gate still tolerates, as `<name> <file>` (openspec lsp-same-standard design.md §5, task
+ * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text (→ 0 by task 4.5) and 4 network-text ones marked
+ * "LD/FBD change". The list only shrinks: a name not listed fails the gate, and so does a listed one that is now
+ * imported or gone. No inline ignore comment exists.
+ */
+export const DEAD_EXPORT_ALLOWLIST: readonly string[] = [
+  "FolderCursor src/frontend/syntax/format/folder.ts",
+  "FolderLine src/frontend/syntax/format/folder.ts",
+  "ReadLanguage src/frontend/syntax/format/implementation-line.ts",
+  "isImplementationKeyword src/frontend/syntax/format/implementation-line.ts",
+  "ParsedLiteral src/frontend/syntax/literal/value.ts",
+  "TokKind src/frontend/syntax/network/lexer.ts", // LD/FBD change
+  "CONSTRUCT_WORDS src/frontend/syntax/network/parser.ts", // LD/FBD change
+  "v1Refusal src/frontend/syntax/network/parser.ts", // LD/FBD change
+  "ErrorCursor src/frontend/syntax/parse/errors.ts",
+  "readIdent src/frontend/syntax/parse/names.ts",
+  "refusedPropertyModifier src/frontend/syntax/parse/names.ts",
+  "ReturnTypeClause src/frontend/syntax/parse/units/header.ts",
+  "Condition src/frontend/syntax/pragmas/conditional.ts",
+  "UNKNOWN_OPERATOR_ERRORS src/frontend/syntax/pragmas/conditional.ts",
+  "ConditionValue src/frontend/syntax/pragmas/conditional.ts",
+  "COMPILER_IMPLICITS src/frontend/types/builtins.ts",
+  "EnumeratorValue src/frontend/types/enums.ts",
+  "EnumeratorNumbering src/frontend/types/enums.ts",
+  "staticOf src/frontend/types/infer/member.ts",
+  "ReferenceKind src/reference/reference.ts",
+  "ReferenceEntry src/reference/reference.ts",
+  "VoltDiagnostic src/server/diagnostics.ts",
+  "Harness src/server/harness.ts",
+  "normalizeKey src/server/workspace-store.ts",
+  "FormatOptions src/services/formatting/print.ts",
+  "CallRef src/services/navigation/hierarchy.ts",
+  "TypeNameRef src/services/navigation/type-refs.ts",
+  "resolveAnywhere src/services/network/network-services.ts", // LD/FBD change
+  "WorkspaceScan src/workspace/workspace-refs.ts",
+]
+
+/** The gate: NOBODY over `src/` against `allowlist` — what is new, and what is listed but no longer dead. */
+export function deadExportReport(
+  texts: ReadonlyMap<string, string>,
+  allowlist: readonly string[] = DEAD_EXPORT_ALLOWLIST,
+): { unexpected: string[]; stale: string[] } {
+  const found = nobodyIn(texts, "src").map((r) => `${r.name} ${r.file}`)
+  const foundSet = new Set(found)
+  const listed = new Set(allowlist)
+  return { unexpected: found.filter((f) => !listed.has(f)), stale: allowlist.filter((a) => !foundSet.has(a)) }
 }
 
 const show = (title: string, list: Row[]): void => {
@@ -145,7 +224,17 @@ export const packageTexts = (): Map<string, string> => new Map(ROOTS.flatMap((r)
 if (import.meta.main) {
   const texts = packageTexts()
   const at = process.argv.indexOf("--scope")
-  if (at >= 0) {
+  if (process.argv.includes("--gate")) {
+    const { unexpected, stale } = deadExportReport(texts)
+    if (unexpected.length + stale.length > 0) {
+      if (unexpected.length) console.error(`✗ dead exports: ${unexpected.length} export(s) nobody imports — delete the export`)
+      for (const u of unexpected) console.error(`  ${u}`)
+      if (stale.length) console.error(`✗ dead exports: ${stale.length} allowlisted export(s) no longer dead — remove them from the list`)
+      for (const s of stale) console.error(`  ${s}`)
+      process.exit(1)
+    }
+    console.log(`✓ dead exports: src/ exports nothing nobody imports (${DEAD_EXPORT_ALLOWLIST.length} allowlisted)`)
+  } else if (at >= 0) {
     const scope = process.argv[at + 1]?.split("\\").join("/")
     if (scope === undefined || !existsSync(scope)) throw new Error(`--scope needs an existing directory, got ${scope}`)
     const list = nobodyIn(texts, scope)

@@ -22,6 +22,9 @@
 //   F4. no sanctioned upward edge exists (there is no ALLOWED_UPWARD);
 //   F5. the front-end reads no environment (`process.env`);
 //   F6. no import cycle inside `syntax`.
+// the SERVER rule S1 (openspec lsp-same-standard design.md §5): `server/` imports only `analysis/index`,
+// `services/index`, `frontend/*/index`, `workspace/*` and itself — tests included — with its own shrinking list,
+// KNOWN_SERVER_VIOLATIONS;
 // and the ANALYSIS rules A1–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
 // shrinking list, KNOWN_ANALYSIS_VIOLATIONS.
 //
@@ -99,6 +102,17 @@ export const KNOWN_OTHER_VIOLATIONS: readonly string[] = [
  * not removed yet. Each entry names the task that removes it; the list may only shrink.
  */
 export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
+]
+
+/**
+ * The server-rule violations (S1 below, openspec lsp-same-standard design.md §5, task 1.2): `server/` reaching past the
+ * indexes it dispatches through. All three go with task 2.1 (`../services/shared/index.js` → `../services/index.js`,
+ * design.md §2.3). The list may only shrink.
+ */
+export const KNOWN_SERVER_VIOLATIONS: readonly string[] = [
+  "S1 server/diagnostics.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
+  "S1 server/server.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
+  "S1 server/workspace-store.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
 ]
 
 /**
@@ -237,6 +251,14 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
         // Rule 6: nothing under src/ — tests included — imports test/.
         if (inSrc && tsTarget.startsWith("test/")) {
           violations.push(`6 ${relFrom} → ${relTo}: a src/ file imports test/`)
+          continue
+        }
+
+        // S1: the server is the LSP adapter — it imports only the indexes it dispatches through, the workspace, itself.
+        if (inSrc && from.layer === "server" && targetInSrc && to.layer !== "server" && !serverMayImport(relTo)) {
+          violations.push(
+            `S1 ${relFrom} → ${relTo}: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself`,
+          )
           continue
         }
 
@@ -383,6 +405,32 @@ export function transpileViolation(relFrom: string, relTo: string): string | und
 /** A static `import … from "x"` / `export … from "x"` / `import "x"`, or a dynamic `import("x")` — the A rules count both. */
 const ANY_IMPORT_RE = /(?:(?:import|export)\s+(?:[^'"`;]*?\bfrom\s*)?|\bimport\(\s*)["']([^"']+)["']/g
 
+/** What `server/` may import outside itself (S1), as a src-relative path. */
+const serverMayImport = (relTo: string): boolean =>
+  relTo === "analysis/index.ts" ||
+  relTo === "services/index.ts" ||
+  /^frontend\/[^/]+\/index\.ts$/.test(relTo) ||
+  relTo.startsWith("workspace/")
+
+/**
+ * Who imports what, package-relative (`src/server/harness.ts` → its `.ts` targets), over src/, test/, scripts/ and
+ * libraries/, tests included, a dynamic `import()` counted — the scan the A rules use, lent to the structure gate
+ * (`test/package/structure.test.ts`) so the package has one import scanner.
+ */
+export function importGraph(pkg: string = PACKAGE): Map<string, Set<string>> {
+  const graph = new Map<string, Set<string>>()
+  for (const root of ROOTS)
+    for (const file of walk(join(pkg, root))) {
+      const targets = new Set<string>()
+      for (const m of readFileSync(file, "utf8").matchAll(ANY_IMPORT_RE)) {
+        if (!m[1]!.startsWith(".")) continue
+        targets.add(slash(relative(pkg, resolve(dirname(file), m[1]!))).replace(/\.js$/, ".ts"))
+      }
+      graph.set(slash(relative(pkg, file)), targets)
+    }
+  return graph
+}
+
 /**
  * THE ANALYSIS RULES (openspec analysis-conformance design.md §2 "Import rules", P4), over src/, test/ and scripts/ —
  * tests included, a dynamic `import()` counted:
@@ -479,6 +527,7 @@ export function layeringReport(): { unexpected: string[]; stale: string[] } {
     ...KNOWN_OTHER_VIOLATIONS,
     ...KNOWN_ANALYSIS_VIOLATIONS,
     ...KNOWN_TRANSPILE_VIOLATIONS,
+    ...KNOWN_SERVER_VIOLATIONS,
   ])
   const foundSet = new Set(found)
   return {
@@ -500,7 +549,8 @@ if (import.meta.main) {
     KNOWN_FRONTEND_VIOLATIONS.length +
     KNOWN_OTHER_VIOLATIONS.length +
     KNOWN_ANALYSIS_VIOLATIONS.length +
-    KNOWN_TRANSPILE_VIOLATIONS.length
+    KNOWN_TRANSPILE_VIOLATIONS.length +
+    KNOWN_SERVER_VIOLATIONS.length
   console.log(
     `✓ layering: every folder ranked, imports point downward only, no cross-layer cycle` +
       (pending ? ` (${pending} known violation(s) listed)` : ""),

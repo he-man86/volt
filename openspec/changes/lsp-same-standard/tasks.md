@@ -57,10 +57,44 @@
 
 ## 1. Gates first (red where the code is not there yet)
 
-- [ ] 1.1 `check-size.ts` scope `src` + `test/` support, today's oversize files as shrink-only ceilings (network-text
+- [x] 1.1 `check-size.ts` scope `src` + `test/` support, today's oversize files as shrink-only ceilings (network-text
       ones marked "LD/FBD change"); `dead-exports` over `src` in lint with today's list as a shrink-only allowlist.
-- [ ] 1.2 Structure gate (`test/package/structure.test.ts`): no `src/` file is test support; `server/` imports only the
-      indexes it dispatches through.
+      Done at fddcde2a6e: `check-size.ts` roots `src` + `test`, keys package-relative, `map.generated.ts` exempt by name;
+      `CEILINGS` 56 (19 `src/` + 3 colocated tests + 4 `test/` suites + 30 `test/` non-test; NT 4: `network/parser.ts`
+      1372, `network/lexer.ts` 414, `network-analysis.ts` 521, `network.test.ts` 1213); `FUNCTION_CEILINGS` 31 keyed
+      `file#name` (25 `src` incl. `intrinsic-operands.ts#(anonymous)`, 6 `bound-census.ts`; NT 3) — a new long function
+      now FAILS. `dead-exports.ts --gate` in `bun run lint`: 75 raw − 44 union members (`unionMembers`, any exported union,
+      read from its declaration, keyed (name, file): AST 18, `Type` 4, NT 13, IR 9) − 2 (`IrUnOp`, `PathSegment`: `ir/`
+      types) = 29 = `DEAD_EXPORT_ALLOWLIST` (25 non-NT + 4 NT); the gates' own lists AND planted tests
+      (`dead-exports.ts`, `check-size.ts`, their `*.test.ts`) do not count as a use. Planted tests:
+      `check-size.test.ts` (7), `dead-exports.test.ts` (6). (Corrected by the step-1 review: the first count, 72 − 41,
+      was HEAD's — the planted test kept `IfStatement` `ForStatement` `IrLoad` `IrEval` alive.)
+- [x] 1.2 Structure gate (`test/package/structure.test.ts`): no `src/` file is test support; `server/` imports only the
+      indexes it dispatches through. Done: `testSupportInSrc` over `check-layering.ts`'s `importGraph` (one scanner;
+      static + dynamic imports, tests included) — a `src/` file only tests import, or nothing imports, fails unless
+      `*.test.ts`/`*.cases.ts`/`index.ts`/`bin.ts`; known 3 (`analysis/test-uri.ts` 78 importers,
+      `server/diagnostic-codes.ts` 2, `server/harness.ts` 5) → 0 in step 2. Rule S1 in `check-layering.ts` (tests
+      included): `KNOWN_SERVER_VIOLATIONS` 3 (`server.ts`, `diagnostics.ts`, `workspace-store.ts` →
+      `services/shared/index.ts`) → 0 in 2.1. Planted tests in `structure.test.ts` and `layering.test.ts`.
+- [x] 1.3 Step-1 review findings (3), fixed test-first:
+      - `--gate` excluded by bare NAME across `src/` (a hand-listed transpile-surface name such as `IrValue` or
+        `lowerSource`, dead anywhere in `src/`, went unreported). FIXED: exclusions are keyed (name, declaring file) —
+        union members in their union's file, the surface only where `src/transpile/` declares it, `ir/` types in `ir/`.
+        Red first: `dead-exports.test.ts` "an exclusion is bound to its declaring file" (a dead `IrValue`/`lowerSource`
+        in `services/` → reported). The review's union-member repro (`Foo` in another file) does not reproduce: the
+        union's own file mentions the word, so a namesake is never NOBODY under the textual rule (the over-count, safe
+        direction); that half is pinned by the keyed `unionMembers` test.
+      - the gates' planted tests counted as a use (`dead-exports.test.ts` plants `IfStatement` `ForStatement` `IrLoad`
+        `IrEval`, all real exports). FIXED: `NOT_A_USE` adds `dead-exports.test.ts` and `check-size.test.ts`; red first:
+        "the gates' own files, tests included, are not a use". Census corrected in 1.1 and design §5 (75 − 44 − 2 = 29;
+        the allowlist is unchanged — all four are union members).
+      - `KNOWN_TEST_SUPPORT_IN_SRC` matched the importer count, so a new test importing `test-uri.ts` tripped the gate.
+        FIXED: the list names files only (`testSupportReport`, keyed by file; the count stays in the finding as
+        information); pinned by "the test-support verdict is keyed by file".
+      Gate: `bun typecheck` clean; `bun run lint` green (layering 3 known, size 56 files + 31 functions listed, dead
+      exports 29 allowlisted, citations); fixtures and transpiler untouched (map not regenerated); full suite
+      `VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset: 9534 pass, 35 skip, 421 todo, 0 fail, 9990 tests across 327 files
+      (769 s) — +8 tests over step 0 (the step's planted/gate tests).
 
 ## 2. Folders (output-neutral)
 

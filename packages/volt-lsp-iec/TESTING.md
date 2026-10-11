@@ -90,7 +90,7 @@ test/
                              fall, CEILING_EXCEPTIONS (baseline.test.ts holds both ceilings files to their history)
   package/                   the package's own shape: build.test.ts (the published build compiles), layering.test.ts
                              (every import obeys scripts/check-layering.ts), structure.test.ts (no loose src/ file but
-                             the barrel, every src/ and test/ folder in docs/architecture.md "The tree", every script
+                             the barrel, no src/ file only tests import, every src/ and test/ folder in docs/architecture.md "The tree", every script
                              in scripts/README.md)
 ```
 

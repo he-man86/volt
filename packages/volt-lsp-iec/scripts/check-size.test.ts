@@ -1,7 +1,8 @@
 /**
- * The size ratchet (openspec transpile-restructure task 1.0.2): green on the real tree with its ceilings; on a scratch
- * tree a new 401-line file fails, a 601-line test fails, a file over its ceiling fails, a stale ceiling fails, and a
- * function over 80 lines is listed — by its name and first line.
+ * The size ratchet (openspec transpile-restructure task 1.0.2; the whole package since lsp-same-standard task 1.1): green
+ * on the real tree with its ceilings; on a scratch tree a new 401-line file fails anywhere under `src/` or `test/`, a
+ * 601-line test fails, `map.generated.ts` is exempt by name, a file or a function over its ceiling fails, a stale
+ * ceiling fails, a new function over 80 lines fails — each named by its file (and function).
  */
 import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
@@ -22,48 +23,88 @@ function inScratch<T>(files: Record<string, string>, run: (root: string) => T): 
   }
 }
 const lines = (n: number): string => Array.from({ length: n }, (_, k) => `export const v${k} = ${k}\n`).join("")
+const fn = (name: string, n: number): string =>
+  `export function ${name}(): number {\n  let x = 0\n${Array.from({ length: n - 4 }, () => "  x += 1\n").join("")}  return x\n}\n`
 
 test("the real tree is within its limits or its ceilings", () => {
   expect(sizeReport().errors).toEqual([])
 })
 
-test("a new 401-line file fails; 400 lines passes", () => {
-  const report = inScratch(
-    { "src/transpile/lower/big.ts": lines(401), "src/transpile/lower/ok.ts": lines(400) },
-    (root) => sizeReport(root, {}),
-  )
-  expect(report.errors).toEqual(["src/transpile/lower/big.ts: 401 lines is over the 400-line limit (a new oversize file)"])
-})
-
-test("a test file may hold 600 lines, not 601", () => {
-  const report = inScratch(
-    { "src/transpile/lower/a.test.ts": lines(601), "src/transpile/lower/b.test.ts": lines(600) },
-    (root) => sizeReport(root, {}),
-  )
-  expect(report.errors).toEqual(["src/transpile/lower/a.test.ts: 601 lines is over the 600-line limit (a new oversize file)"])
-})
-
-test("a ceiling may not rise, a stale one fails, a shrunk file is told its new ceiling", () => {
+test("a new 401-line file fails anywhere under src/ or test/; 400 lines passes; scripts/ is not scanned", () => {
   const report = inScratch(
     {
-      "src/transpile/lower/grew.ts": lines(451),
-      "src/transpile/lower/shrank.ts": lines(420),
-      "src/transpile/lower/fits.ts": lines(390),
+      "src/analysis/big.ts": lines(401),
+      "src/transpile/lower/ok.ts": lines(400),
+      "test/conformance/support/big.ts": lines(401),
+      "scripts/big.ts": lines(900),
+    },
+    (root) => sizeReport(root, {}, {}),
+  )
+  expect(report.errors).toEqual([
+    "src/analysis/big.ts: 401 lines is over the 400-line limit (new — split it)",
+    "test/conformance/support/big.ts: 401 lines is over the 400-line limit (new — split it)",
+  ])
+})
+
+test("a test file may hold 600 lines, not 601; map.generated.ts is exempt by name, and only it", () => {
+  const report = inScratch(
+    {
+      "src/server/a.test.ts": lines(601),
+      "test/corpus/b.test.ts": lines(600),
+      "test/conformance/fixtures/map.generated.ts": lines(5000),
+      "test/conformance/fixtures/other.generated.ts": lines(401),
+    },
+    (root) => sizeReport(root, {}, {}),
+  )
+  expect(report.errors).toEqual([
+    "src/server/a.test.ts: 601 lines is over the 600-line limit (new — split it)",
+    "test/conformance/fixtures/other.generated.ts: 401 lines is over the 400-line limit (new — split it)",
+  ])
+})
+
+test("a file ceiling may not rise, a stale one fails, a shrunk file is told its new ceiling", () => {
+  const report = inScratch(
+    {
+      "src/frontend/grew.ts": lines(451),
+      "test/frontend/shrank.ts": lines(420),
+      "src/services/fits.ts": lines(390),
     },
     (root) =>
-      sizeReport(root, {
-        "lower/grew.ts": 450,
-        "lower/shrank.ts": 430,
-        "lower/fits.ts": 500,
-        "lower/gone.ts": 500,
+      sizeReport(
+        root,
+        { "src/frontend/grew.ts": 450, "test/frontend/shrank.ts": 430, "src/services/fits.ts": 500, "src/gone.ts": 500 },
+        {},
+      ),
+  )
+  expect(report.errors).toEqual([
+    "src/frontend/grew.ts: 451 lines is over its ceiling of 450 (the ceilings only fall)",
+    "src/gone.ts: listed with a ceiling but within its limit or gone — remove its ceiling",
+    "src/services/fits.ts: listed with a ceiling but within its limit or gone — remove its ceiling",
+  ])
+  expect(report.lower).toEqual(["test/frontend/shrank.ts: 420 lines — lower its ceiling from 430 to 420"])
+})
+
+test("a function over 80 lines FAILS unless listed; a listed one may not grow, a stale one fails, a shrunk one is told", () => {
+  const report = inScratch(
+    {
+      "src/analysis/a.ts": fn("fresh", 81) + fn("grew", 90) + fn("shrank", 85) + fn("fits", 80),
+      "test/frontend/support.ts": fn("helper", 82),
+      "src/analysis/a.test.ts": fn("inTest", 200),
+    },
+    (root) =>
+      sizeReport(root, {}, {
+        "src/analysis/a.ts#grew": 89,
+        "src/analysis/a.ts#shrank": 86,
+        "src/analysis/a.ts#fits": 81,
+        "test/frontend/support.ts#helper": 82,
       }),
   )
   expect(report.errors).toEqual([
-    "src/transpile/lower/fits.ts: 390 lines is within the 400-line limit — remove its ceiling",
-    "src/transpile/lower/grew.ts: 451 lines is over its ceiling of 450 (the ceilings only fall)",
-    "src/transpile/lower/gone.ts: listed with a ceiling but does not exist — remove its ceiling",
+    "function src/analysis/a.ts#fresh: 81 lines is over the 80-line limit (new — split it)",
+    "function src/analysis/a.ts#grew: 90 lines is over its ceiling of 89 (the ceilings only fall)",
+    "function src/analysis/a.ts#fits: listed with a ceiling but within its limit or gone — remove its ceiling",
   ])
-  expect(report.lower).toEqual(["src/transpile/lower/shrank.ts: 420 lines — lower its ceiling from 430 to 420"])
+  expect(report.lower).toEqual(["function src/analysis/a.ts#shrank: 85 lines — lower its ceiling from 86 to 85"])
 })
 
 const body = (n: number): string => Array.from({ length: n }, (_, k) => `  x += ${k}\n`).join("")

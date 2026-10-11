@@ -1,14 +1,17 @@
 #!/usr/bin/env bun
 /**
- * The size ratchet (openspec transpile-restructure design.md P5, §8; task 1.0.2), in `bun run lint`.
+ * The size ratchet, in `bun run lint`. Started for `src/transpile` (openspec transpile-restructure design.md P5, §8);
+ * holds the whole package since openspec lsp-same-standard (design.md §5, task 1.1):
  *
- *   - a `src/transpile/**` file stays at 400 lines or less, a test file at 600 or less;
- *   - the files that were over on the day the ratchet started are CEILINGS at their line count then: one may not grow,
- *     and a listed file that no longer exists, or has come under its limit, is a stale entry that fails until removed —
- *     the list only shrinks (it is empty at task 1.9.4);
- *   - a file under its ceiling is reported with the number to lower the ceiling to (not a failure: the step that shrinks
- *     a file lowers its entry);
- *   - functions longer than 80 lines are printed as a WARNING list (it must be empty at 1.9.4).
+ *   - every `.ts` file under `src/` and `test/` stays within its limit: a test file (`*.test.ts`) 600 lines, any other
+ *     file 400; `test/conformance/fixtures/map.generated.ts` is exempt BY NAME (written by `rate:fixtures`, held by
+ *     `map.test.ts`) — no folder is exempt, and no inline comment exempts a file;
+ *   - every function outside a `*.test.ts` stays within 80 lines;
+ *   - the files and functions over on the day the ratchet widened are CEILINGS at their size then (`CEILINGS`,
+ *     `FUNCTION_CEILINGS`): one may not grow; a listed one that no longer exists or has come within its limit is a stale
+ *     entry that fails until removed; one under its ceiling is reported with the number to lower the ceiling to (not a
+ *     failure: the step that shrinks it lowers its entry). The lists only shrink — a new entry is not how a file or a
+ *     function gets past its limit. Network text is marked "LD/FBD change": its ceilings stay until that change splits it.
  *
  * A line is a line of the file as an editor numbers them (`wc -l` for a file that ends in a newline).
  */
@@ -16,26 +19,124 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative, resolve } from "node:path"
 
 const PACKAGE = resolve(import.meta.dir, "..")
-/** The tree the ratchet covers, relative to the package. */
-export const SCOPE = "src/transpile"
+/** The trees the ratchet covers, relative to the package. */
+export const ROOTS: readonly string[] = ["src", "test"]
+/** The one file exempt from the limit, by name. */
+export const EXEMPT: ReadonlySet<string> = new Set(["test/conformance/fixtures/map.generated.ts"])
 export const FILE_LIMIT = 400
 export const TEST_LIMIT = 600
 export const FUNCTION_LIMIT = 80
 
 /**
- * The ceilings, relative to `src/transpile/`. Measured 2026-10-07 (at fd0865a913): design.md's twelve of 2026-09-29, at
- * their line counts then, plus two that had grown past 400 — `lower/statements.ts` and `interp/interp.ts`. Phase 1
- * dissolved them file by file (steps 1.3-1.6; the in-place splits of 1.6a/1.6b raised four for the steps between, each
- * file then moved into its folder); the last, the lowering test file, went with 1.8.1. None is left: every file is within its
- * limit, and a new ceiling is not how a file gets past it.
+ * The file ceilings, package-relative. Measured 2026-10-12 at fddcde2a6e (openspec lsp-same-standard design.md §1.1):
+ * 19 `src/` files over 400, 3 colocated tests over 600, 4 `test/` suites over 600, 30 `test/` support and fixture-data
+ * files over 400. Each later step of that change deletes its own entries; task 4.5 leaves only the "LD/FBD change" ones.
  */
-export const CEILINGS: Readonly<Record<string, number>> = {}
+export const CEILINGS: Readonly<Record<string, number>> = {
+  "src/analysis/checks/calls/call-arguments.test.ts": 870,
+  "src/analysis/checks/calls/call-arguments.ts": 550,
+  "src/analysis/checks/network/network-analysis.ts": 521, // LD/FBD change
+  "src/analysis/messages.ts": 830,
+  "src/frontend/symbols/binder.ts": 470,
+  "src/frontend/symbols/scope-nav.ts": 586,
+  "src/frontend/syntax/ast/nodes.ts": 896,
+  "src/frontend/syntax/lex/lexer.ts": 685,
+  "src/frontend/syntax/lex/vocabulary.ts": 574,
+  "src/frontend/syntax/network/lexer.ts": 414, // LD/FBD change
+  "src/frontend/syntax/network/parser.ts": 1372, // LD/FBD change
+  "src/frontend/syntax/parse/declarations.ts": 501,
+  "src/frontend/syntax/parse/expression.ts": 575,
+  "src/frontend/syntax/parse/statements.ts": 901,
+  "src/frontend/syntax/parse/type-expr.ts": 468,
+  "src/frontend/syntax/pragmas/conditional.ts": 459,
+  "src/frontend/types/const/fold.ts": 704,
+  "src/frontend/types/infer/expr.ts": 426,
+  "src/server/server.test.ts": 910,
+  "src/server/server.ts": 624,
+  "src/services/formatting/print.ts": 451,
+  "src/services/network/network.test.ts": 1213, // LD/FBD change
+  "test/analysis/census.ts": 723,
+  "test/baseline/baseline.ts": 1041,
+  "test/conformance/fixtures/batches/check-coverage.ts": 473,
+  "test/conformance/fixtures/calls/call-shapes.ts": 1495,
+  "test/conformance/fixtures/calls/refusal-kinds.ts": 465,
+  "test/conformance/fixtures/cross-object/cross-object-four.ts": 458,
+  "test/conformance/fixtures/cross-object/cross-object-three.ts": 417,
+  "test/conformance/fixtures/cross-object/cross-object-two.ts": 452,
+  "test/conformance/fixtures/cross-object/cross-object.ts": 426,
+  "test/conformance/fixtures/declarations/section-semantics.ts": 834,
+  "test/conformance/fixtures/grammar/expressions.ts": 404,
+  "test/conformance/fixtures/grammar/units.ts": 628,
+  "test/conformance/fixtures/graphical/network-graphical.ts": 492,
+  "test/conformance/fixtures/libraries/library-bodies.ts": 622,
+  "test/conformance/fixtures/memory/pointer-model.ts": 643,
+  "test/conformance/fixtures/oop/init-model.ts": 662,
+  "test/conformance/fixtures/oop/lifecycle.ts": 1023,
+  "test/conformance/fixtures/oop/refusal-kinds.ts": 478,
+  "test/conformance/fixtures/operators/operator.ts": 888,
+  "test/conformance/fixtures/pragmas/pragma.ts": 1088,
+  "test/conformance/fixtures/semantics/execution.ts": 1952,
+  "test/conformance/fixtures/strings/string-edges.ts": 1998,
+  "test/conformance/fixtures/types/data-type.ts": 561,
+  "test/conformance/map.test.ts": 731,
+  "test/conformance/runtime-twins.test.ts": 711,
+  "test/conformance/support/divergences.ts": 1779,
+  "test/conformance/support/fixture-units.ts": 440,
+  "test/conformance/support/notes/lean.data.ts": 1455,
+  "test/conformance/support/rustc-cache.ts": 535,
+  "test/conformance/transpile-replay.test.ts": 888,
+  "test/corpus/corpus.test.ts": 793,
+  "test/frontend/bound-census.ts": 1378,
+  "test/frontend/dumps.ts": 627,
+  "test/frontend/rules.ts": 4629,
+}
+
+/**
+ * The function ceilings, keyed `<package-relative file>#<name>` (`(anonymous)` for an unnamed arrow) — no line number,
+ * which moves on every edit; the key is unique for all 31. Same day as `CEILINGS` (design.md §1.2, plus the six of
+ * `test/frontend/bound-census.ts`). `intrinsic-operands.ts` holds two on purpose: `checkIntrinsicOperands` and the
+ * arrow that is its whole body are each over the limit.
+ */
+export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {
+  "src/analysis/checks/calls/call-arguments.ts#checkCall": 273,
+  "src/analysis/checks/calls/intrinsic-operands.ts#checkIntrinsicOperands": 149,
+  "src/analysis/checks/calls/intrinsic-operands.ts#(anonymous)": 147,
+  "src/analysis/checks/declarations/header-rules.ts#checkHeaderRules": 150,
+  "src/analysis/checks/flow/case-labels.ts#checkOneCase": 86,
+  "src/analysis/checks/names/unresolved-identifier.ts#checkUnresolvedIdentifiers": 96,
+  "src/analysis/checks/pragmas/pragmas.ts#checkPragmas": 152,
+  "src/analysis/checks/types/narrowing.ts#operandSignWarnings": 93,
+  "src/analysis/messages.ts#messagesFor": 335,
+  "src/frontend/symbols/library-namespaces.ts#bindLibraryNamespaces": 85,
+  "src/frontend/syntax/lex/lexer.ts#lex": 566,
+  "src/frontend/syntax/network/lexer.ts#next": 95, // LD/FBD change
+  "src/frontend/syntax/network/parser.ts#parseNetwork": 101, // LD/FBD change
+  "src/frontend/syntax/network/parser.ts#parseCall": 90, // LD/FBD change
+  "src/frontend/syntax/parse/expression.ts#parsePostfix": 93,
+  "src/frontend/syntax/parse/expression.ts#parsePrimary": 170,
+  "src/frontend/syntax/parse/type-expr.ts#parseTypeExpression": 229,
+  "src/frontend/syntax/parse/units/interface.ts#parseInterface": 96,
+  "src/frontend/syntax/parse/units/interface.ts#parseInterfaceProperty": 84,
+  "src/frontend/syntax/parse/units/property.ts#parseProperty": 90,
+  "src/frontend/syntax/pragmas/conditional.ts#parseCondition": 129,
+  "src/frontend/syntax/pragmas/conditional.ts#evaluateCondition": 107,
+  "src/frontend/types/infer/expr.ts#inferExprType": 109,
+  "src/server/server.ts#runServer": 486,
+  "src/transpile/lower/storage/layout.ts#buildLayout": 86,
+  "test/frontend/bound-census.ts#boundCensus": 393,
+  "test/frontend/bound-census.ts#known": 276,
+  "test/frontend/bound-census.ts#storesOf": 263,
+  "test/frontend/bound-census.ts#e": 118,
+  "test/frontend/bound-census.ts#units": 82,
+  "test/frontend/bound-census.ts#crossCheckBuildTypes": 84,
+}
 
 const slash = (p: string): string => p.split("\\").join("/")
 
 function walk(dir: string, out: string[] = []): string[] {
   if (!existsSync(dir)) return out
   for (const name of readdirSync(dir)) {
+    if (name.startsWith(".") || name === "node_modules") continue
     const p = join(dir, name)
     if (statSync(p).isDirectory()) walk(p, out)
     else if (name.endsWith(".ts")) out.push(p)
@@ -266,49 +367,67 @@ export function longFunctions(file: string, text: string, limit = FUNCTION_LIMIT
 }
 
 export interface SizeReport {
-  /** Failures: a file over its limit with no ceiling, a file over its ceiling, a stale ceiling. */
+  /** Failures: a file or function over its limit with no ceiling, over its ceiling, or a stale ceiling. */
   errors: string[]
-  /** A listed file under its ceiling: the number to lower it to. */
+  /** A listed file or function under its ceiling: the number to lower it to. */
   lower: string[]
-  /** Functions over the limit (warning). */
-  functions: LongFunction[]
 }
 
-/** The ratchet over `pkg`'s `src/transpile/` against `ceilings` (both overridable so the tests plant a scratch tree). */
-export function sizeReport(pkg: string = PACKAGE, ceilings: Readonly<Record<string, number>> = CEILINGS): SizeReport {
-  const root = join(pkg, SCOPE)
+/** One shrink-only list against what was measured (`over`: every key over its limit in the tree, with its size). */
+function ratchet(
+  over: ReadonlyMap<string, { size: number; limit: number }>,
+  ceilings: Readonly<Record<string, number>>,
+  label: (key: string) => string,
+  errors: string[],
+  lower: string[],
+): void {
+  for (const key of [...over.keys()].sort()) {
+    const { size, limit } = over.get(key)!
+    const ceiling = ceilings[key]
+    if (ceiling === undefined) errors.push(`${label(key)}: ${size} lines is over the ${limit}-line limit (new — split it)`)
+    else if (size > ceiling) errors.push(`${label(key)}: ${size} lines is over its ceiling of ${ceiling} (the ceilings only fall)`)
+    else if (size < ceiling) lower.push(`${label(key)}: ${size} lines — lower its ceiling from ${ceiling} to ${size}`)
+  }
+  for (const key of Object.keys(ceilings).sort())
+    if (!over.has(key)) errors.push(`${label(key)}: listed with a ceiling but within its limit or gone — remove its ceiling`)
+}
+
+/**
+ * The ratchet over `pkg`'s `src/` and `test/` against the file and the function ceilings (all three overridable, so the
+ * tests plant a scratch tree).
+ */
+export function sizeReport(
+  pkg: string = PACKAGE,
+  ceilings: Readonly<Record<string, number>> = CEILINGS,
+  functionCeilings: Readonly<Record<string, number>> = FUNCTION_CEILINGS,
+): SizeReport {
   const errors: string[] = []
   const lower: string[] = []
-  const functions: LongFunction[] = []
-  const seen = new Set<string>()
-  for (const file of walk(root).sort()) {
-    const rel = slash(relative(root, file))
-    const text = readFileSync(file, "utf8")
-    const lines = lineCount(text)
-    const limit = rel.endsWith(".test.ts") ? TEST_LIMIT : FILE_LIMIT
-    const ceiling = ceilings[rel]
-    if (ceiling !== undefined) {
-      seen.add(rel)
-      if (lines <= limit) errors.push(`${SCOPE}/${rel}: ${lines} lines is within the ${limit}-line limit — remove its ceiling`)
-      else if (lines > ceiling) errors.push(`${SCOPE}/${rel}: ${lines} lines is over its ceiling of ${ceiling} (the ceilings only fall)`)
-      else if (lines < ceiling) lower.push(`${SCOPE}/${rel}: ${lines} lines — lower its ceiling from ${ceiling} to ${lines}`)
-    } else if (lines > limit) {
-      errors.push(`${SCOPE}/${rel}: ${lines} lines is over the ${limit}-line limit (a new oversize file)`)
+  const files = new Map<string, { size: number; limit: number }>()
+  const functions = new Map<string, { size: number; limit: number }>()
+  for (const root of ROOTS)
+    for (const file of walk(join(pkg, root)).sort()) {
+      const rel = slash(relative(pkg, file))
+      if (EXEMPT.has(rel)) continue
+      const text = readFileSync(file, "utf8")
+      const isTest = rel.endsWith(".test.ts")
+      const limit = isTest ? TEST_LIMIT : FILE_LIMIT
+      const lines = lineCount(text)
+      if (lines > limit) files.set(rel, { size: lines, limit })
+      if (isTest) continue
+      for (const f of longFunctions(rel, text)) {
+        const key = `${rel}#${f.name}`
+        if (functions.has(key)) errors.push(`function ${key}: two functions over ${FUNCTION_LIMIT} lines share this key — name one`)
+        functions.set(key, { size: Math.max(f.lines, functions.get(key)?.size ?? 0), limit: FUNCTION_LIMIT })
+      }
     }
-    if (!rel.endsWith(".test.ts")) functions.push(...longFunctions(`${SCOPE}/${rel}`, text))
-  }
-  for (const rel of Object.keys(ceilings).sort())
-    if (!seen.has(rel)) errors.push(`${SCOPE}/${rel}: listed with a ceiling but does not exist — remove its ceiling`)
-  return { errors, lower, functions }
+  ratchet(files, ceilings, (k) => k, errors, lower)
+  ratchet(functions, functionCeilings, (k) => `function ${k}`, errors, lower)
+  return { errors, lower }
 }
 
 if (import.meta.main) {
-  const { errors, lower, functions } = sizeReport()
-  if (functions.length > 0) {
-    console.warn(`! size: ${functions.length} function(s) over ${FUNCTION_LIMIT} lines (split before 1.9.4):`)
-    for (const f of [...functions].sort((a, b) => b.lines - a.lines))
-      console.warn(`  ${String(f.lines).padStart(4)}  ${f.file}:${f.line} ${f.name}`)
-  }
+  const { errors, lower } = sizeReport()
   for (const l of lower) console.warn(`! size: ${l}`)
   if (errors.length > 0) {
     console.error(`✗ size: ${errors.length} violation(s)`)
@@ -316,6 +435,7 @@ if (import.meta.main) {
     process.exit(1)
   }
   console.log(
-    `✓ size: every ${SCOPE} file within ${FILE_LIMIT} lines (tests ${TEST_LIMIT}) or its ceiling (${Object.keys(CEILINGS).length} listed)`,
+    `✓ size: every src/ and test/ file within ${FILE_LIMIT} lines (tests ${TEST_LIMIT}) and every function within ` +
+      `${FUNCTION_LIMIT}, or its ceiling (${Object.keys(CEILINGS).length} files, ${Object.keys(FUNCTION_CEILINGS).length} functions listed)`,
   )
 }

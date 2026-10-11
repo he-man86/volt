@@ -47,8 +47,9 @@ Plus `baseline/` — the discipline `frontend/` and `analysis/` share (pinned fi
 `CEILING_EXCEPTIONS`), at the root because it belongs to neither (openspec `lsp-package-structure` 2.2).
 
 Plus `package/` — the PACKAGE'S OWN SHAPE: the published build compiles (`build.test.ts`), every import obeys the layer
-rules (`layering.test.ts`, over `scripts/check-layering.ts`), and the tree is explained and kept (`structure.test.ts`:
-no loose file at the top of `src/` but the barrel, every folder of `src/` and `test/` in `docs/architecture.md` "The
+rules (`layering.test.ts`, over `scripts/check-layering.ts` — the server's rule S1 among them), and the tree is
+explained and kept (`structure.test.ts`: no loose file at the top of `src/` but the barrel, no `src/` file that only
+tests import — test support lives under `test/` — every folder of `src/` and `test/` in `docs/architecture.md` "The
 tree", every script in `scripts/README.md`). And `network-text-on.ts`, the preload `bunfig.toml` names.
 
 ## Why these four, and not more

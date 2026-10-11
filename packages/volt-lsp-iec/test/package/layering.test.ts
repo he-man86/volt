@@ -150,3 +150,25 @@ test("A6: a check without a test beside it, and a test without its subject, are 
     ].sort(),
   )
 })
+
+/**
+ * THE SERVER RULE FIRES (openspec lsp-same-standard design.md §5, task 1.2): `server/` imports only the indexes it
+ * dispatches through (`analysis/index`, `services/index`, each front-end sub-layer's `index`), the `workspace/` files
+ * and itself — its tests too.
+ */
+test("S1: the server reaching past an index is named, with both files; the indexes, workspace and itself are clean", () => {
+  const found = scan({
+    "src/server/server.ts":
+      `import { a } from "../analysis/index.js"\nimport { s } from "../services/index.js"\n` +
+      `import { y } from "../frontend/syntax/index.js"\nimport { w } from "../workspace/workspace-refs.js"\n` +
+      `import { c } from "./config.js"\nimport { d } from "../services/shared/index.js"\n`,
+    "src/server/server.test.ts": `import { h } from "../services/assist/hover.js"\n`,
+    "src/frontend/syntax/index.ts": "",
+  }).filter((v) => v.startsWith("S1 "))
+  expect(found.sort()).toEqual(
+    [
+      "S1 server/server.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
+      "S1 server/server.test.ts → services/assist/hover.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
+    ].sort(),
+  )
+})
