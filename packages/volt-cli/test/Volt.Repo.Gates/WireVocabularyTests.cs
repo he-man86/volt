@@ -66,7 +66,7 @@ public class WireVocabularyTests
             ("Volt.Wire/PipeServer.cs", 1))),
         new("the IDE, or a documented Volt limit on a vendor shape, will not take it", "change the TEXT, or do it in the IDE",
             "UNSUPPORTED", At(
-            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 5),
+            ("Volt.Engine/Format/Body/BodyFormatGuard.cs", 9),   // +4: IMPLEMENTATION NONE over a body, a body over NONE, NONE on a create, ABSTRACT dropped over NONE (abstract-member-push)
             ("Volt.Engine/Format/Network/NetworkText.cs", 1),
             ("Volt.Engine/Format/St/ImplementationMarker.cs", 1),
             ("Volt.Engine/Format/St/StReader.cs", 3),
@@ -76,7 +76,7 @@ public class WireVocabularyTests
             ("Volt.Engine/Library/LibraryFetch.cs", 1),
             ("Volt.Engine/Sync/Materializer.cs", 4),
             ("Volt.Engine/Sync/PushService.cs", 8),
-            ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
+            ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 2),   // +1: a body site whose type declares no Implementation (abstract-member-push)
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 1),
             ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
@@ -101,7 +101,7 @@ public class WireVocabularyTests
         new("a create collided with a child already there", "rename, or update instead", "DUPLICATE_CHILD", At(
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
-            ("Volt.Engine/Format/St/StReader.cs", 19))),
+            ("Volt.Engine/Format/St/StReader.cs", 20))),   // +1: code under IMPLEMENTATION NONE (abstract-member-push)
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
             ("Volt.Engine/Ide/ItemLookup.cs", 1),
@@ -320,7 +320,7 @@ public class WireVocabularyTests
         ("Volt.Engine/Format/St/StReader.cs", 1),
         ("Volt.Engine/Ide/SourceScopes.cs", 1),
         ("Volt.Engine/Sync/Materializer.cs", 1),
-        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
+        ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 2),   // +1: a body site read with no object — a driver invariant (abstract-member-push, gate 3)
         ("Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs", 1),
         ("Volt.Ide.Codesys/Driver/CodesysDriver.cs", 1),
         ("Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs", 9),

@@ -10,7 +10,8 @@ that slot, so an edit of the owner's text is accepted and the abstract member ke
 - **THEN** the push is accepted, the declaration lands, and no body is written at the method
 
 #### Scenario: The pulled text states a member with no body slot
-- **WHEN** CODESYS holds a member whose object has no `Implementation` aspect at a site whose kind has a body
+- **WHEN** CODESYS holds a member whose object holds no `Implementation` aspect (the member declared, holding null) at a
+  site whose kind has a body
 - **THEN** the pulled text states `IMPLEMENTATION NONE` under it with nothing below, an empty body keeps
   `IMPLEMENTATION ST`, and TwinCAT (whose abstract members have a slot) keeps writing `IMPLEMENTATION ST`
 
@@ -25,10 +26,17 @@ that slot, so an edit of the owner's text is accepted and the abstract member ke
 - **THEN** the push is refused before any write, naming the member and telling the user to change its line to
   `IMPLEMENTATION ST`
 
+#### Scenario: Removing ABSTRACT from a member with no slot is refused as a re-type
+- **WHEN** a push keeps `IMPLEMENTATION NONE` under a member the IDE holds with no body slot but drops `ABSTRACT` from
+  its declaration (or from its property's, for an accessor)
+- **THEN** the push is refused before any write, naming the member and saying the IDE keeps it abstract (a re-type the
+  push cannot make in place)
+
 #### Scenario: A member whose object cannot be read is not stated as having no slot
-- **WHEN** the driver reads no object for a body site, or an object whose type declares an `Implementation` member
-  holding null (not measured)
-- **THEN** the pull refuses that site by name and never writes `IMPLEMENTATION NONE` for it
+- **WHEN** the driver reads no object for a body site (its declaration read refuses that first), or an object whose
+  type declares no `Implementation` member at all (measured on no object: every slotless CODESYS object declares the
+  member and holds null there)
+- **THEN** the pull refuses that item and never writes `IMPLEMENTATION NONE` for it — the declared-nothing type by name
 
 #### Scenario: A hidden body of a vendor language spelled NONE keeps its UNSUPPORTED line
 - **WHEN** a body's view mode, aspect or archive root is spelled NONE

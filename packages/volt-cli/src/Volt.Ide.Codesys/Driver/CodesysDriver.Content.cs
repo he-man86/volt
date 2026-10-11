@@ -30,7 +30,9 @@ public sealed partial class CodesysDriver
     {
         var declaration = ReadDeclarationText(item);
         var iobj = _om.ReadObject(item.Native);
-        var (body, unsupported, stated) = ReadBody(iobj, declaration);
+        var kind = KindOf(item);
+        var (body, unsupported, stated) = ReadBody(iobj, declaration, ItemKind.IsSourceKind(kind) && ItemKind.ShapeOf(kind).Body
+            ? $"'{Name(item)}'" : null);
 
         var members = new List<Member>();
         var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
@@ -40,7 +42,7 @@ public sealed partial class CodesysDriver
         // The body's language travels as the FACT this read took it from (the aspect class and its view mode), beside
         // the text that spells it — the push's guard compares the fact and reads no text (openspec
         // bridge-refusal-review D6). ReadBody makes both from the one aspect, so they cannot disagree.
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
+        return new ItemContent(kind, declaration.TrimEnd('\n'), body, members, unsupported, stated);
     }
 
     public void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)
@@ -122,10 +124,40 @@ public sealed partial class CodesysDriver
     /// UNSUPPORTED</c> (network text is off, or cannot represent it: <see cref="NetworkText.Pulled"/>) — why, for the
     /// pull to report; null for every other body — and the language the body's line states, from the aspect
     /// (<see cref="StatedLanguage"/>, D6), null exactly where there is no body text.</returns>
-    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object? iobj, string? declaration)
+    /// <param name="bodySite">How the site is named when its kind's row HAS a body (<see cref="ItemKind.ShapeOf"/>: a
+    /// POU, a method or action in a POU, a property accessor in a POU), or null where it has none — an interface, its
+    /// members, a property's own object — which hold no <c>Implementation</c> aspect and are written with no line.
+    /// <para><b>NO BODY SLOT</b> (openspec <c>abstract-member-push</c>, DIALECT C2n): at a body site, an object whose type
+    /// DECLARES <c>Implementation</c> and holds null there is the member with no slot, and its body IS the line
+    /// <c>IMPLEMENTATION NONE</c>. Measured (<c>vendor-facts</c> <c>merged-classes</c>, <c>implementation-declared.*</c>
+    /// and <c>implementation.*</c>): pro2193's 10 <c>AbstractPOUMethodObject</c>s and the abstract property's
+    /// <c>InterfacePropertyAccessorObject</c> GET all declare the member and hold null; every object with a body holds an
+    /// aspect, an empty ST body included. Two other facts used to fold into the same null and are refused by name
+    /// instead: no object read at all (a driver bug — the site's kind came from that object), and a type that does not declare the member
+    /// (measured on no object — another or unpinned assembly, <see cref="NwlInterop.Declared"/>). An empty ST body stays
+    /// null (<see cref="BodyText"/>): only the missing slot is NONE.</para></param>
+    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object? iobj, string? declaration,
+                                                                                 string? bodySite)
     {
         var impl = iobj is null ? null : NwlInterop.Get(iobj, "Implementation");
-        if (impl is null) return (null, null, null);
+        if (impl is null)
+        {
+            if (bodySite is null) return (null, null, null);
+            // No object at a body site cannot come from the IDE (gate 3 review): the site's kind was classified from
+            // this same object (`KindCodeOf` reads its class), and every body site but an action reads its declaration
+            // through it first, which refuses a missing object (`TryReadAspectText`). So it is a broken invariant of this
+            // driver — never stated as NONE, and not a wire refusal.
+            if (iobj is null)
+                throw new InvalidOperationException(
+                    $"{bodySite}: no object was read for a body site whose kind was classified from that object — a " +
+                    "driver bug, not stated as a member with no body slot.");
+            if (NwlInterop.Has(iobj, "Implementation"))
+                return (ImplementationMarker.NoneLine, null, StatedLanguage.None);
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{bodySite}: its CODESYS object ({iobj.GetType().Name}) declares no Implementation member at all — a " +
+                "shape Volt has not measured (another or unpinned vendor assembly), so it is stated neither as an empty " +
+                "body nor as a member with no body slot.");
+        }
 
         switch (impl.GetType().Name)
         {
@@ -227,7 +259,7 @@ public sealed partial class CodesysDriver
         var declaration = MemberDeclaration(site);
         // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
         var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);
-        var (body, unsupported, stated) = ReadBody(iobj, scope);
+        var (body, unsupported, stated) = ReadBody(iobj, scope, ItemKind.ShapeOf(kind).Body ? $"'{site.Name}'" : null);
 
         Accessor? getter = null, setter = null;
         if (ItemKind.ShapeOf(kind).Accessors != AccessorShape.None)
@@ -236,7 +268,9 @@ public sealed partial class CodesysDriver
             for (int i = 1; i <= n; i++)
             {
                 var acc = ChildAt(site.Ref, i);
-                var accessor = ReadAccessor(acc, scope);
+                var accessor = ReadAccessor(acc, scope,
+                    ItemKind.ShapeOf(kind).Accessors == AccessorShape.WithBodies
+                        ? $"'{site.Name}' {(KindCode(acc) == ItemKind.PlcPropGet ? "GET" : "SET")}" : null);
                 if (KindCode(acc) == ItemKind.PlcPropGet) getter = accessor;
                 else if (KindCode(acc) == ItemKind.PlcPropSet) setter = accessor;
             }
@@ -257,11 +291,11 @@ public sealed partial class CodesysDriver
         return null;
     }
 
-    private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
+    private Accessor ReadAccessor(ItemRef acc, string? propertyScope, string? bodySite)
     {
         var iobj = _om.ReadObject(acc.Native);
         var declaration = AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface"));
-        var (body, unsupported, stated) = ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope));
+        var (body, unsupported, stated) = ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope), bodySite);
         return new Accessor(declaration, body, unsupported, stated);
     }
 
@@ -489,7 +523,7 @@ public sealed partial class CodesysDriver
             // to, so it stays a silent return.
             var live = FindAccessor(property, code);
             if (live is null) return;
-            var was = ReadAccessor(live.Value, null);
+            var was = ReadAccessor(live.Value, null, bodySite: null);   // an interface accessor has no body site
             if (!InterfaceAccessorGuard.Unchanged(was.Declaration, accessor.Declaration))
                 _om.WriteSourceText(live.Value.Native, accessor.Declaration ?? "", null);
             return;

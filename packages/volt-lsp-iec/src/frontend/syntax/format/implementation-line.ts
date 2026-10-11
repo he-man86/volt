@@ -14,6 +14,10 @@
  *    name (`IMPLEMENTATION NWL UNSUPPORTED` — D27), and for an LD/FBD body network text cannot represent yet;
  *    never for ST. The body under the line is empty and read by neither parser; the push never writes it, and the
  *    DECLARATION above the line stays editable and is analysed like any other.
+ *  - `IMPLEMENTATION NONE` — a member the IDE holds with NO body slot (openspec `abstract-member-push`): a CODESYS
+ *    abstract method or abstract property's GET, which the driver reads with no `Implementation` aspect. No language;
+ *    the body under it is empty and read by neither parser, and code there is reported as the push refuses it. NONE is
+ *    not reserved as a language: `IMPLEMENTATION NONE UNSUPPORTED` stays a hidden body of a language spelled NONE.
  *
  * WHY a whole line, and why it matters here: `IMPLEMENTATION ST` is a line an engineer can plausibly write in a
  * comment, and a look-alike after code (`x := IMPLEMENTATION LD;`) is a use of a name. So the boundary is a line holding
@@ -41,6 +45,9 @@ export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
 
 /** The word after a language that states a body Volt does not show. */
 const UNSUPPORTED_WORD = "UNSUPPORTED"
+
+/** The word that states a member with no body slot: `IMPLEMENTATION NONE`, alone. */
+const NONE_WORD = "NONE"
 
 /** The languages a body's line may state that a parser READS. */
 export type ReadLanguage = "ST" | "LD" | "FBD"
@@ -92,6 +99,7 @@ function statementOf(line: string): ImplementationStatement | undefined {
   const language = m[1].toUpperCase()
   const unsupported = m[2] !== undefined
   if (language === UNSUPPORTED_WORD) return undefined
+  if (language === NONE_WORD && !unsupported) return { kind: "none" }
   if (unsupported) return language === "ST" ? undefined : { kind: "unsupported", language }
   if (!KNOWN.has(language) || NEVER_SHOWN.has(language)) return undefined
   return { kind: "read", language: language as ReadLanguage }
@@ -131,6 +139,7 @@ function lacksOf(stated: string): string {
 /** The line in its one spelling — as the refusals quote it and the formatter prints it. */
 export function statedLine(line: ImplementationLine): string {
   const s = line.statement
+  if (s.kind === "none") return `${IMPLEMENTATION_KEYWORD} ${NONE_WORD}`
   return s.kind === "read" ? implementationLine(s.language) : unsupportedLine(s.language)
 }
 
@@ -217,6 +226,13 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
   // Anything but whitespace is text under the line — a comment and a pragma included. Not `isTrivia`: the push tests
   // the raw text (`StReader.Body`), and since no driver writes a hidden body, a comment there would be silently lost.
   const hasCode = code.some((t) => t.kind !== "whitespace" && t.kind !== "eof")
+  if (s.kind === "none" && hasCode)
+    report(
+      `the body holds code under '${statedLine(line)}'. That line states a member the IDE holds with no body slot (an ` +
+        "abstract member), so the code has nowhere to go. Remove it — or, to give the member a body, make it concrete " +
+        "in the IDE and run `volt pull`.",
+      line.span,
+    )
   if (s.kind === "unsupported" && hasCode)
     report(
       `the body holds code under '${statedLine(line)}'. Volt shows no implementation for that body and never writes it` +
@@ -242,7 +258,8 @@ export function readNoNetworkText(body: BodySpan): void {
   NO_NETWORK_TEXT.add(body)
 }
 
-/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, or an LD/FBD body parsed with
+/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a member with no body slot
+ *  (`IMPLEMENTATION NONE`), or an LD/FBD body parsed with
  *  network text off (`ParseOptions.networkText`) — neither. A body with no
  *  line is ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file
  *  the server reports it as stating no language and shows none of its findings (see `splitImplementation`). */

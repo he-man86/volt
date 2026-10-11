@@ -609,6 +609,13 @@ The push never writes such a body (openspec `implementation-keyword`).
 - **WHEN** a project contains a CFC (or SFC, or IL) body
 - **THEN** it materializes as `IMPLEMENTATION CFC UNSUPPORTED` (the hover on the line explains it) and is not analyzed as network text or ST
 
+#### Scenario: A member with no body slot states IMPLEMENTATION NONE
+- **WHEN** CODESYS holds a member with no body slot — an abstract method (`AbstractPOUMethodObject`) or an abstract
+  property's GET, neither with an `Implementation` aspect (openspec `abstract-member-push`, DIALECT C2n)
+- **THEN** it materializes as `IMPLEMENTATION NONE` with nothing under it, which names no language and is read by neither
+  parser; text under it is a diagnostic on the line, as the push refuses it; `IMPLEMENTATION NONE UNSUPPORTED` stays a
+  hidden body of a language spelled NONE; and TwinCAT's abstract members, which have a slot, keep `IMPLEMENTATION ST`
+
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
 `volt-vscode` SHALL highlight network text by a content injection on the `NETWORK` token. Because a POU is named

@@ -629,7 +629,8 @@ public class ImplementationKeywordTests
     [Theory]
     [InlineData("x := 1;")]
     [InlineData("(*\nIMPLEMENTATION CFC\n*)\nx := 1;")]
-    [InlineData("s := 'IMPLEMENTATION ST';")]
+    [InlineData("(*\nIMPLEMENTATION NONE\n*)\nx := 1;")]   // NONE in a comment is no boundary either (gate 3 review)
+    [InlineData("s :='IMPLEMENTATION ST';")]
     [InlineData("IMPLEMENTATION := 1;")]              // a name, the IDE's to compile (1.2)
     // A line that only LOOKS like the boundary is code (openspec bridge-refusal-review D9, 4.9): the keyword alone, a bare
     // CFC (section 2b's line, no line since 3b), and the identifier in a wrapped expression — all compile as ST in the IDE
@@ -688,5 +689,85 @@ public class ImplementationKeywordTests
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, kind, "X"));
         Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
         Assert.Equal($"Missing {ends} in 'X' — the text does not say where the item ends and its members begin.", ex.Message);
+    }
+
+    // ── IMPLEMENTATION NONE: a member with no body slot (openspec abstract-member-push) ──────────────────────────────
+
+    /// <summary>NONE is a boundary line that names no reader, in one spelling however typed, and is no hidden body.</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION NONE")]
+    [InlineData("implementation none")]
+    [InlineData("  IMPLEMENTATION \t None  ")]
+    public void IMPLEMENTATION_NONE_is_a_boundary_that_names_no_reader(string line)
+    {
+        Assert.True(ImplementationMarker.Is(line));
+        Assert.True(ImplementationMarker.IsNone(line));
+        Assert.False(ImplementationMarker.IsUnsupported(line));
+        Assert.Null(ImplementationMarker.LanguageOf(line));
+        Assert.Equal("IMPLEMENTATION NONE", ImplementationMarker.Canonical(line));
+        Assert.Null(ImplementationMarker.Written(line));
+        Assert.False(ImplementationMarker.IsUnsupportedBody(line));
+        Assert.Null(ImplementationMarker.UnsupportedLanguageOf(line));
+    }
+
+    /// <summary>NONE is NOT reserved as a vendor language: <c>IMPLEMENTATION NONE UNSUPPORTED</c> is a hidden body of a
+    /// language spelled NONE (its UNSUPPORTED word tells it apart, as for <c>IMPLEMENTATION LD UNSUPPORTED</c>), and the
+    /// two stated values differ.</summary>
+    [Fact]
+    public void IMPLEMENTATION_NONE_UNSUPPORTED_is_a_hidden_body_read_apart_from_IMPLEMENTATION_NONE()
+    {
+        Assert.Equal("NONE", ImplementationMarker.VendorLanguage("None"));       // not reserved: the read path keeps the item
+        var hidden = ImplementationMarker.Unsupported("NONE");
+        Assert.Equal("IMPLEMENTATION NONE UNSUPPORTED", hidden);
+        Assert.True(ImplementationMarker.IsUnsupported(hidden));
+        Assert.False(ImplementationMarker.IsNone(hidden));
+        Assert.Equal((hidden, ""), ImplementationMarker.Split(hidden));
+        Assert.Equal("NONE", ImplementationMarker.UnsupportedLanguageOf(hidden));
+        Assert.NotEqual(StatedLanguage.HiddenIn("NONE"), StatedLanguage.None);
+
+        var item = StReader.Read($"{FbDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD A\n{hidden}\nEND_METHOD\n" +
+                                 "\nMETHOD B\nIMPLEMENTATION NONE\nEND_METHOD\n", ItemKind.Kinds.Pou);
+        Assert.Equal(StatedLanguage.HiddenIn("NONE"), item.Members.Single(m => m.Name == "A").Stated);
+        Assert.Equal(StatedLanguage.None, item.Members.Single(m => m.Name == "B").Stated);
+    }
+
+    /// <summary>A no-slot body is never written (<see cref="ImplementationMarker.Written"/> → null, "leave the IDE
+    /// alone"), and the file's line and the body in memory are the same text, so the driver's read and the file's read
+    /// give the same body.</summary>
+    [Fact]
+    public void A_no_slot_body_is_its_line_is_written_as_nothing_and_round_trips()
+    {
+        const string line = "IMPLEMENTATION NONE";
+        Assert.Null(ImplementationMarker.Written(line));
+        Assert.Equal((line, ""), ImplementationMarker.Split(line));
+        Assert.Equal(line, ImplementationMarker.Join(line, ""));
+
+        var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, "x := 1;", new List<Member>
+        {
+            new(ItemKind.Kinds.Method, "Take", "METHOD ABSTRACT Take : INT", line, Stated: StatedLanguage.None),
+            new(ItemKind.Kinds.Property, "Busy", "PROPERTY ABSTRACT Busy : BOOL", null,
+                Getter: new Accessor("VAR\nEND_VAR", line, Stated: StatedLanguage.None), Setter: null),
+        }, Stated: StatedLanguage.St);
+
+        var text = StWriter.Write(item);
+
+        Assert.Contains("\nMETHOD ABSTRACT Take : INT\nIMPLEMENTATION NONE\nEND_METHOD\n", text);
+        Assert.Contains("\nGET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET\n", text);
+        var back = StReader.Read(text, ItemKind.Kinds.Pou);
+        var take = back.Members.Single(m => m.Name == "Take");
+        Assert.Equal(line, take.Body);
+        Assert.Equal(StatedLanguage.None, take.Stated);
+        Assert.Equal(line, back.Members.Single(m => m.Name == "Busy").Getter?.Body);
+        Assert.Equal(StatedLanguage.None, back.Members.Single(m => m.Name == "Busy").Getter?.Stated);
+        Assert.Equal(text, StWriter.Write(back));
+    }
+
+    /// <summary>An ST body in the IDE holding the NONE line would read back as a member with no slot — refused on the
+    /// way up, as a body holding any other boundary line is.</summary>
+    [Fact]
+    public void An_ST_body_holding_the_NONE_line_is_refused_on_the_read()
+    {
+        var ex = Assert.Throws<BridgeException>(() => ImplementationMarker.RequireStBody("x := 1;\nIMPLEMENTATION NONE"));
+        Assert.Contains("IMPLEMENTATION NONE", ex.Message);
     }
 }

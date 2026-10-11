@@ -574,7 +574,14 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // (`EjectorCorePullerFB`) as reach. Pulled now as `IMPLEMENTATION CFC|FBD UNSUPPORTED`, neither parser reads them and
 // lowering refuses `graphical-body` where it truly stops. Measured: stating those two bodies `IMPLEMENTATION ST` again
 // restores 55 / 20 / 78 exactly, so nothing else moved.
-const REACH = { bodies: 304, lowered: 54 }
+// 54 -> 53 on 2026-10-11, DOWN and the same correction (openspec abstract-member-push): pro2193's 10
+// `AbstractPOUMethodObject`s and its abstract property's GET hold no body slot, and the pull now states each
+// `IMPLEMENTATION NONE` instead of an empty `IMPLEMENTATION ST` body (the corpus re-pulled live, exactly those 11 lines
+// in 7 files). `ActuatorWithAlarm_BaseFB` (an abstract base) "lowered" only by running its own abstract `Alarms` as an
+// empty body; now it is refused `graphical-body` ("is abstract: it has no body slot"). Measured per POU with
+// `scripts/probe-lowering-refusals.ts` before and after the 7 files: that is the only verdict that moved — four other
+// already-refused bases gain the `graphical-body` code, nothing else changes.
+const REACH = { bodies: 304, lowered: 53 }
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
  * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —
@@ -604,7 +611,10 @@ const REACH = { bodies: 304, lowered: 54 }
 // that lowers is reached from a POU that RUNS: 20 of 20. (One more was reached only past an empty library body.)
 // 20 -> 14 on 2026-09-28, the same correction as REACH: six routines were reached only past the chart and the FBD body
 // that lowered as empty ST.
-const ROUTINES = { routines: 14, routinesFromRunning: 14 }
+// 14 -> 13 on 2026-10-11, the same correction as REACH (openspec abstract-member-push): the routine was
+// `ActuatorWithAlarm_BaseFB.Alarms`, an abstract method (`IMPLEMENTATION NONE` now) its abstract owner's body
+// (`Alarms();`, nothing else) ran as an empty body.
+const ROUTINES = { routines: 13, routinesFromRunning: 13 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir/expr.ts` and `ir/stmt.ts`. Checked by the compiler
  *  both ways, as BUILTINS is below: it held eight expression kinds while the IR defined eleven (`fresh`, `select`, and

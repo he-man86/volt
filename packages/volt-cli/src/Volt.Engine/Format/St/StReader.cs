@@ -339,6 +339,29 @@ public static class StReader
 		return null;
 	}
 
+	/// <summary>Does a MEMBER's declaration say <c>ABSTRACT</c> — among the modifiers between its keyword (METHOD /
+	/// PROPERTY) and its name, on its first line of code (read through <see cref="StTrivia.Code"/>, so a commented
+	/// <c>ABSTRACT</c> is none)? The push's guard reads it for a member with no body slot (openspec
+	/// <c>abstract-member-push</c>, gate 3): a declaration that drops ABSTRACT there is a re-type the IDE cannot make in
+	/// place (DIALECT C2l), refused by name. Any case.</summary>
+	public static bool MemberHeaderIsAbstract(string declaration)
+	{
+		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
+		foreach (var line in StTrivia.Code(NormalizeLines(declaration)))
+		{
+			var words = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+			if (words.Length == 0) continue;
+			for (int i = 1; i < words.Length; i++)
+			{
+				var word = words[i].ToUpperInvariant();
+				if (word == "ABSTRACT") return true;
+				if (Array.IndexOf(HeaderModifiers, word) < 0) return false;   // the name: no modifier after it
+			}
+			return false;
+		}
+		return false;
+	}
+
 	/// <summary>A POU's or an interface's structure: the outer block, the declaration/body split, the children.</summary>
 	private static ItemContent ReadStructure(List<string> lines, string kind, string what, bool splitOnly)
 	{
@@ -643,6 +666,17 @@ public static class StReader
 	private static (string Body, StatedLanguage Stated) Body(string line, string code, string what)
 	{
 		var stated = line.Trim();
+		// A MEMBER WITH NO BODY SLOT (`IMPLEMENTATION NONE`, openspec abstract-member-push): the IDE holds no
+		// implementation there to write code into, so code under the line is refused by name, as under an UNSUPPORTED one.
+		if (ImplementationMarker.IsNone(line))
+		{
+			if (code.Trim().Length > 0)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{what} holds code under '{stated}'. That line states a member the IDE holds with no body slot (an " +
+					"abstract member), so the code has nowhere to go. Remove it — or, to give the member a body, make it " +
+					$"concrete in the IDE and run `volt pull`.");
+			return (ImplementationMarker.NoneLine, StatedLanguage.None);
+		}
 		if (ImplementationMarker.IsUnsupported(line))
 		{
 			if (code.Trim().Length > 0)

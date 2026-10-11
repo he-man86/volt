@@ -49,6 +49,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
         // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
 
+        /// <summary>The object has NO body slot — CODESYS's <c>AbstractPOUMethodObject</c> and an abstract property's GET
+        /// (DIALECT C2n, openspec <c>abstract-member-push</c>). Read as the CODESYS driver reads one, <c>IMPLEMENTATION
+        /// NONE</c>; a body written at it is refused as the driver's <c>RequireSlot</c> (D26) refuses one. Kept on every
+        /// write that sends no body.</summary>
+        public bool NoSlot { get; init; }
+
         /// <summary>A plain textual (ST) item — materializes via the declaration/implementation transports.
         ///
         /// <para>The TREE CODE — which CLASS of object the fixture describes — is derived from the declaration HERE,
@@ -925,6 +931,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// fake exactly as they reach a vendor.</summary>
     private static (string? Body, string? Unsupported, StatedLanguage? Stated) BodyOf(Item it)
     {
+        if (it.NoSlot) return (Volt.Engine.Format.St.ImplementationMarker.NoneLine, null, StatedLanguage.None);
         // No `BodyLang` is ST — or a network body this fake stored from a push, which it keeps as its network text
         // (`WriteContent` records no language). ST goes up the drivers' ST arm: a keyword-shaped line in it is refused.
         if (it.BodyLang is not { } lang)
@@ -1070,6 +1077,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         WrittenBodies[name] = bodies;
 
         var owner = FindOrNull(item);
+        if (owner is not null) RequireSlot(owner, Volt.Engine.Format.St.ImplementationMarker.Written(content.Body));
+        foreach (var m in content.Members)
+            if (FindOrNull(Ref(m.Name)) is { } target) RequireSlot(target, Volt.Engine.Format.St.ImplementationMarker.Written(m.Body));
         if (owner is not null)
             _items[_items.IndexOf(owner)] = owner with
             {
@@ -1102,9 +1112,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // never re-placed") passed green against a fake that asserted the bug away. Placement changes only
             // through `Move`, which is what the real IDEs require too.
             var folder = existing?.Folder ?? m.Folder ?? "";
-            // An UNSUPPORTED body is never written — both drivers skip it and write the declaration alone — so the
-            // member keeps the body the IDE holds (its language, and what made it UNSUPPORTED).
-            var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.IsUnsupportedBody(m.Body)
+            // An UNSUPPORTED body, or IMPLEMENTATION NONE (a member with no body slot), is never written — both drivers
+            // skip it (`Written` is null for it) and write the declaration alone — so the member keeps the body the IDE
+            // holds (its language, what made it UNSUPPORTED, its missing slot). So does a slotless member sent no body.
+            var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.Written(m.Body) is null
+                                              && (m.Body is not null || existing.NoSlot)
                 ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
                            Held(m.Body, bodies, new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
@@ -1126,6 +1138,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
         // Bumped LAST, so this call's own handle was still valid.
         if (InvalidatesHandlesOnWrite) _generation++;
+    }
+
+    /// <summary>The CODESYS driver's backstop (<c>CodesysObjectModel.RequireSlot</c>, D26): a body written at an object
+    /// with no body slot is refused, in its words. Raised before this write changes anything.</summary>
+    private static void RequireSlot(Item target, string? written)
+    {
+        if (target.NoSlot && written is not null)
+            throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
+                $"FakeIde: '{target.Name}' has no Implementation — a body was pushed at a slot this object does not have");
     }
 
     /// <summary>Write one pushed accessor into the property's existing accessor child of that role, as the drivers'
@@ -1163,6 +1184,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 return;
             }
             var written = Volt.Engine.Format.St.ImplementationMarker.Written(pushed.Code);
+            RequireSlot(acc, written);
             _items[_items.IndexOf(acc)] = acc with
             {
                 Declaration = pushed.Declaration,

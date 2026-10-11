@@ -36,7 +36,8 @@ language), which the guard reads as a hidden body (below). Null and `""` keep me
 state. Today that arm folds three facts into one null (gate 2 review): (a) `iobj is null` — `ReadObject` answers null
 whenever the object manager is missing, a READ failure, not a vendor fact; (b) the object's type does not declare
 `Implementation` — the real "no slot"; (c) the type declares it and it holds null. `NwlInterop.Get` answers null for both
-(b) and (c); `NwlInterop.Has` is the split. At a site whose kind's row has a body (below):
+(b) and (c); `NwlInterop.Has` is the split. At a site whose kind's row has a body (below), the PLAN before the
+measurement — superseded by the next paragraph, kept as the decision record:
 - (a) is refused by name (the object the site names could not be read) — never stated as NONE, which would make a
   missing fact a stated one and have the guard refuse every push of that POU as "NONE over a member with a slot";
 - (b), `!NwlInterop.Has(iobj, "Implementation")`, is the NONE body;
@@ -44,6 +45,14 @@ whenever the object manager is missing, a READ failure, not a vendor fact; (b) t
   such aspect") does not tell (b) from (c), so 3.2 FIRST adds a `vendor-facts` key that does (whether the type declares
   the member, on `abstract` and `busyget` in `merged-classes`) and states NONE only for the case that key measures; if
   the measured classes are (c), the design's "(c) is refused" is revisited with that number, not assumed.
+
+**Measured in 3.2, and the producer revisited with it** (`merged-classes` `implementation-declared.*`, two agreeing
+runs): every slotless object — the 10 `AbstractPOUMethodObject`s and the `Busy` GET — DECLARES `Implementation` and
+holds null; every object with a slot holds an aspect, an empty ST body included. So the measured "no slot" is (c), and
+the producer states NONE for (c); (b), a type without the member, is the one measured on no object and is refused by
+name (another or unpinned assembly); (a) is never stated NONE — and, found by the gate 3 review, it cannot reach the body
+read from the IDE at all (the site's kind is classified from the same object, and the declaration read refuses a
+missing object first), so `ReadBody` checks it as a driver invariant (`InvalidOperationException`), not a wire refusal.
 
 The ST arm and `BodyText` are untouched (a blank ST body stays null → `IMPLEMENTATION ST`, as written today), so
 no empty body's text changes. NONE is stated only at a site whose kind's row HAS a body (`ItemKind.ShapeOf`): the POU's
@@ -64,8 +73,15 @@ pro2193 file would be reported "states no language" — the parser MUST change w
 **Push, by the guard (`BodyFormatGuard`), before any write** — NONE is treated as a hidden body:
 - NONE over a live NONE (the unedited abstract member): the ordinary no-op; the declaration edit beside it lands.
 - `IMPLEMENTATION ST` (empty or with code) over a live NONE: refused, naming the missing slot and `volt pull` — a
-  workspace pulled before this change holds exactly that, so it keeps today's refusal with a better message;
-  removing ABSTRACT is a re-type (C2q). `RequireSlot` (D26) stays the driver's backstop.
+  workspace pulled before this change holds exactly that, so it keeps today's refusal with a better message.
+  `RequireSlot` (D26) stays the driver's backstop.
+- NONE over a live NONE with `ABSTRACT` REMOVED from the declaration (the member's own, or its property's for an
+  accessor): refused as a re-type (gate 3 review). The reconciler does not see it — same name, same kind — and NONE
+  writes no body, so without this the push wrote plain `METHOD` text into the `AbstractPOUMethodObject`, which stays
+  abstract whatever its text (C2l), and reported success over a member the file calls concrete. Only a REMOVAL is
+  refused (`StReader.MemberHeaderIsAbstract` on live vs pushed): a slotless member the IDE already holds without
+  ABSTRACT, pushed back unchanged, changes nothing. The message names the member and the routes (make it concrete in
+  the IDE and `volt pull`, or delete and re-add it with `IMPLEMENTATION ST` over two pushes).
 - NONE over a live member that HAS a slot (any live body that is not NONE): REFUSED, as an UNSUPPORTED line over an ST
   body is (the guard's rule: a hidden line over a body it is not would silently do nothing). The first draft let it
   travel as null; that is the silent no-op the guard exists to stop. Its message is NONE's own, not the UNSUPPORTED
@@ -117,13 +133,16 @@ owner holding an abstract member pushes back live on CODESYS, keeping the member
    `NwlInterop.Has(obj, "Implementation")`, i.e. case (b) vs (c). It also classifies the 12 pro2193 ABSTRACT sites
    (class + declared), and that list becomes the migration's expected set. Two agreeing runs, on
    `-Instance abstract-member-push` with `-Fixture` = the pro2193 copy.
-2. Red, un-skipped: the test's `Method(decl, null!)` double declares `Implementation` holding null. That is case (c),
-   which the design refuses. If step 1 measures (b), the double becomes an `AbstractMethod` class without the member,
-   which models the measured vendor class. Only the double changes. The assertion stays as committed.
+2. Red, un-skipped: the test's `Method(decl, null!)` double declares `Implementation` holding null — case (c), which
+   step 1 measured on every slotless object, so the double already models the vendor class and only the Skip goes. The
+   assertion stays as committed.
 3. `ImplementationMarker`: the `None` stated value, `Parse`/`Canonical`/`Split`/`Join`, `Written` → null. It is told
    apart from `IMPLEMENTATION NONE UNSUPPORTED`. Src tests are added next to it.
-4. `CodesysDriver.ReadBody` `impl is null` arm, only at body sites (`ShapeOf`): (a) refused by name, (b) → NONE,
-   (c) refused by name. The ST arm and `BodyText` are untouched.
+4. `CodesysDriver.ReadBody` `impl is null` arm, only at body sites (`ShapeOf`): (c) → NONE (measured, step 1), (b)
+   refused by name (measured on no object), (a) a driver invariant — unreachable from the IDE, because the site's kind
+   is classified from the same object and every non-action site reads its declaration through it first, which refuses
+   a missing object (`TryReadAspectText`); so it throws `InvalidOperationException`, not a wire code (gate 3 review).
+   The ST arm and `BodyText` are untouched.
 5. `BodyFormatGuard`: ST over a live NONE, NONE over a slot, and NONE on a create, each refused before any write with
    the member and its remedy (`volt pull` / `IMPLEMENTATION ST`). Engine tests run on `FakeIde`.
 6. LSP `implementation-line.ts`: NONE is a boundary with no body. Code under it is reported, and a src test is added.
@@ -132,8 +151,8 @@ owner holding an abstract member pushes back live on CODESYS, keeping the member
    GUID and class are unchanged. A second push with `IMPLEMENTATION ST` there → refused by name.
 
 Rejected, one line each:
-- **Un-skip with the double as is**: under the design it asserts case (c), which stays refused, so the test would pass
-  only through a fallback.
+- **Model case (b) in the double**: step 1 measured (c) on every slotless object, so a (b) double would model a class
+  no project holds.
 - **Infer (b) from the 1.1 `implementation` key**: that key reads null for both (b) and (c). Step 1 is the one
   measurement that decides between them.
 - **A TwinCAT twin test**: 1.1 measured a slot, so the twin would assert a refusal that cannot happen.
@@ -141,11 +160,28 @@ Rejected, one line each:
   moment the migration lands.
 
 **Stays refused by name:** code under `IMPLEMENTATION NONE`; NONE on a create, a rename or a retype (with the
-`IMPLEMENTATION ST` remedy); case (a); case (c) unless step 1 measures it. `RequireSlot` (D26) stays the driver's
-backstop.
+`IMPLEMENTATION ST` remedy); ABSTRACT dropped over a live NONE (a re-type, C2l); case (b). Case (a) never reaches the
+body read (step 4). `RequireSlot` (D26) stays the driver's backstop.
 
 **Migration.** Re-pull `packages/volt-lsp-iec/test-corpus/pro2193` and diff it against the step-1 list. Exactly the
 listed slotless sites flip `ST`→`NONE`, nothing else changes, and the owners' versions move. Then `rate:fixtures` and
 the LSP corpus tests run on the new text. `corpus-migration.ts pro2193` creates into a blank project, so it now
-refuses the owners that hold NONE. It counts them as unauthorable, as it counts CFC/SFC; this is expected, not a
-regression.
+refuses the owners that hold NONE. It counts them as unauthorable, as it counts CFC/SFC.
+
+**The wire divergence this makes, and what it costs (gate 3 review).** The same `METHOD ABSTRACT` declaration now pulls
+as `IMPLEMENTATION NONE` from CODESYS and `IMPLEMENTATION ST` from TwinCAT (`TcAbstractMemberSlotTests`). The text states
+the vendor OBJECT, and the objects differ (measured: CODESYS `AbstractPOUMethodObject` / `InterfacePropertyAccessorObject`
+declare `Implementation` and hold null; TwinCAT 609/613 hold `""` and a saved `<Implementation><ST/>`). The memory rule
+"wire divergence is a defect" asks for two measured alternatives and the owner's sign-off before a divergence is called
+irreducible. The two alternatives, both measured and rejected above: **ABSTRACT decides** (1.1: TwinCAT's abstract
+members HAVE a slot and accept a body; CODESYS's `ModuleWithStateFB.Cyclic` is ABSTRACT text on a `POUMethodObject`
+with a slot) and **drop `""` at a missing slot in the driver** (D26: "the producer is fixed, not a driver table"; it also
+swallows code an engineer writes there). **The cost, both directions:** a cross-vendor or blank-project migration of
+pro2193 (`corpus-migration.ts`, CODESYS→TwinCAT or CODESYS→blank CODESYS) refuses the 7 owner files that hold NONE
+(`VisionSystem_BaseFB`, `RejectStation_BaseFB`, `ActuatorWithAlarm_BaseFB`, `ActuatorWithManualControlAndAlarm_BaseFB`,
+`ActuatorWithManualControl_BaseFB`, `ModuleResettableFB`, `ModuleWithStateFB`), which used to be created as members with
+a slot and an empty body — on TwinCAT exactly the measured shape of its abstract members. Nothing is lost silently: each
+refusal names the member and the remedy (change the line to `IMPLEMENTATION ST`), after which the create lands as
+before. No cross-vendor parity fixture holds an abstract member (0 ABSTRACT texts in Project13/14), so no parity test
+pins this. **Owner sign-off is open**; the default this change ships with is the divergence above (the line states
+the object), asked for at the close.

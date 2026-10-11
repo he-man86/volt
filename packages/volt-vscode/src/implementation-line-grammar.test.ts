@@ -28,11 +28,11 @@ const KEYWORD = "keyword.other.implementation.structured-text"
 const LANGUAGE = "keyword.other.implementation.language.structured-text"
 
 test("IMPLEMENTATION and the language it states colour as keywords, for every line a body can state", () => {
-	for (const language of ["ST", "LD", "FBD"])
+	for (const language of ["ST", "LD", "FBD", "NONE"]) // NONE: a member with no body slot (abstract-member-push)
 		expect(coloured(`IMPLEMENTATION ${language}`)).toEqual({ IMPLEMENTATION: KEYWORD, [language]: LANGUAGE })
 	// A body Volt does not show (section 3b): its language and UNSUPPORTED, on every language but ST.
 	// …and any other word: the vendor's own name for a language Volt has never seen (bridge-refusal-review D27).
-	for (const language of ["LD", "FBD", "CFC", "SFC", "IL", "UML", "NWL"])
+	for (const language of ["LD", "FBD", "CFC", "SFC", "IL", "UML", "NWL", "NONE"])
 		expect(coloured(`IMPLEMENTATION ${language} UNSUPPORTED`)).toEqual({
 			IMPLEMENTATION: KEYWORD,
 			[language]: LANGUAGE,

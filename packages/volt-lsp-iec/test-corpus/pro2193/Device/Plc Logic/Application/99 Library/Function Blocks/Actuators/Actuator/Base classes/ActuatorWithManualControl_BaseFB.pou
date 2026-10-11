@@ -61,7 +61,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 END_METHOD
 
 // The Update method is called when subjects have a new state

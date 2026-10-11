@@ -97,5 +97,84 @@
 
 ## 3. Fix
 
-- [ ] 3.1 Un-skip `CodesysAbstractMemberPushTests` (red: the refusal above); the TwinCAT twin if 1.1 finds the same.
-- [ ] 3.2 The fix at the producer; DIALECT C2n updated; a live e2e round trip of an abstract member on CODESYS.
+- [x] 3.1 Un-skip `CodesysAbstractMemberPushTests` (red: the refusal above); the TwinCAT twin if 1.1 finds the same.
+  - Un-skipped; red first against HEAD's producer (`Failed: 1`, the D26 refusal), green with the fix, assertion as
+    committed. Its `Method(decl, null!)` double is exactly the measured class (below: case (c)), so only the Skip went.
+  - No TwinCAT twin (1.1 measured a slot). Stand-in: `TcAbstractMemberSlotTests` — a TwinCAT abstract method and
+    abstract property GET (`ImplementationText` `""`) pull as `IMPLEMENTATION ST`, never NONE.
+- [x] 3.2 The fix at the producer; DIALECT C2n updated; a live e2e round trip of an abstract member on CODESYS.
+  - **Measured first** (`vendor-facts` `merged-classes`, new keys `implementation-declared.*` = `object.$methods("get_Implementation")`,
+    `implementation.*` and `class.*` over all 12 ABSTRACT texts; run 1 compare + run 2 `--write` + run 3 "every fact as
+    committed", 145/144/148 s): **every slotless object DECLARES `Implementation` and holds null — case (c), not (b).**
+    So the design's "(c) is refused" was revisited with that number (as it said): NONE = declared-and-null at a body
+    site; (b) "declares no `Implementation`" (measured on no object) and (a) "no object" are refused by name.
+  - **The expected set** (classified before the re-pull): 11 slotless sites — `AbstractPOUMethodObject` ×10
+    (`TakePicture`, `GetProducts`, `Alarms` ×2, `ManualControl`, `Reset`, `EStop`, `Execute`, `Execute_Sequence1`,
+    `Stop`) + the `Busy` GET (`InterfacePropertyAccessorObject`); `ModuleWithStateFB.Cyclic` is a `POUMethodObject`
+    with ABSTRACT text and an `STImplementationObject` (has a slot → stays ST).
+  - **Producer**: `CodesysDriver.ReadBody(iobj, scope, bodySite)` — body site per `ItemKind.ShapeOf` (POU; method/
+    action; accessor of a POU property); interface, interface members, a property's own object untouched; ST arm and
+    `BodyText` untouched. `ImplementationMarker`: `NoneWord`/`NoneLine`, `IsNone`, `Parse`/`Canonical`/`Split`/`Join`,
+    `Written` → null; `IMPLEMENTATION NONE UNSUPPORTED` stays a hidden vendor language (`VendorLanguage` does not
+    reserve NONE). `StatedLanguage.None` (`NoSlot`), distinct from `HiddenIn("NONE")`. `StReader`: NONE line → body
+    `IMPLEMENTATION NONE`, code under it `INVALID_ST` by name. `BodyFormatGuard`: NONE over NONE no-op; body over NONE,
+    NONE over a slot, NONE on a create/rename/retype refused before any write naming the member and remedy.
+  - **LSP**: `implementation-line.ts` statement `{ kind: "none" }` (boundary, read by neither parser, code under it
+    reported); `routines.ts` names an abstract member's refusal ("is abstract: it has no body slot"). VS Code grammar
+    colours the line.
+  - **Migration**: pro2193 re-pulled live (`refresh:corpus`, 8106 files): exactly the 11 listed sites flip
+    `IMPLEMENTATION ST` → `IMPLEMENTATION NONE` in the 7 owner files, `Cyclic` stays ST, nothing else in those files.
+    FINDING, not this change's: the pulling IDE resolved pro2193's library placeholders, moving 595 `(unresolved)`
+    library files into named library folders (577 byte-identical, 18 differ, 1 new) — reverted, only the 7 owners kept.
+    Corpus gate: `REACH` 54 → 53 and `ROUTINES` 14 → 13, attributed per POU (`probe-lowering-refusals.ts` before/after):
+    `ActuatorWithAlarm_BaseFB` "lowered" only by running its own abstract `Alarms` as an empty body — the same
+    correction as 2026-09-28. `corpus-migration.ts` counts a NONE owner as unauthorable (a create refuses NONE).
+  - **Live**: `merged-classes` `pushed` step (a line after `TakePicture`'s signature in `VisionSystem_BaseFB`'s pulled
+    text, through the shipped push): accepted, `decl@pushed` landed, `guid|class.abstract@pushed` unchanged (run 4
+    `--write` 187 s, run 5 "every fact as committed" 208 s). e2e `test/e2e/items/abstract-member.test.ts` on the
+    pro2193 copy (`-Instance abstract-member-push`): 3 pass — pulls NONE ×2, the edit lands and still pulls NONE, ST
+    there refused naming `'TakePicture'` and `volt pull`, version unchanged.
+  - Tests added: `AbstractMemberNoSlotTests` (9, Engine on `FakeIde`, which now models `NoSlot` + D26's backstop),
+    `ImplementationKeywordTests` +6, `CodesysAbstractMemberPushTests` +3, `TcAbstractMemberSlotTests` 1, LSP
+    `implementation-line.test.ts` +3, `implementation-keyword-diagnostics.test.ts` +1, `routines.test.ts` +1, VS Code
+    grammar +2 rows. Census: `WireVocabularyTests` INVALID_ST StReader 19→20, UNSUPPORTED BodyFormatGuard 5→8,
+    UNSUPPORTED/UNREADABLE CodesysDriver.Content 1→2 each.
+  - **Gate 3 (2026-10-11): five review findings — three fixed, one fixed in docs with an open owner sign-off, one skipped
+    as wrong.**
+    - (medium, FIXED) NONE over NONE with `ABSTRACT` removed from the declaration was accepted: the guard returned at the
+      no-op and the driver wrote plain `METHOD` text into an `AbstractPOUMethodObject`, which stays abstract (C2l).
+      Red first (`AbstractMemberNoSlotTests` +2: the method, and the abstract property whose GET has no slot — 2 failed
+      on the tree), then green: `BodyFormatGuard.Check` now takes the live and pushed declaration (the member's, or its
+      property's for an accessor) and refuses a REMOVAL of ABSTRACT over a live NONE as a re-type, naming the member and
+      the routes, before any write (`StReader.MemberHeaderIsAbstract`, the modifiers between keyword and name; a slotless
+      member already held without ABSTRACT, pushed back unchanged, stays a no-op). design.md's "removing ABSTRACT is a
+      re-type (C2q)" — which no code path did — replaced by this rule; spec scenario added; DIALECT C2n lists it. 0
+      occurrences in the corpora (it needs a user edit).
+    - (low, DOCUMENTED, owner sign-off open) the vendors' wire text differs for the same `METHOD ABSTRACT` declaration
+      (CODESYS NONE, TwinCAT ST), so a cross-vendor or blank-project migration refuses pro2193's 7 NONE owners (each by
+      name with the `IMPLEMENTATION ST` remedy) that it used to create. design.md now records the divergence, the two
+      measured-and-rejected alternatives (ABSTRACT decides; drop `""` in the driver), the cost in both directions and the
+      7 owners; DIALECT C2n names it. Not changed in code: the line states the vendor OBJECT, which differs (measured).
+      Default shipped: the divergence; the owner's sign-off is asked at the close.
+    - (low, SKIPPED — wrong) "an `IMPLEMENTATION NONE` line inside a `(* *)` comment of an ST body is now refused on
+      read": it is not — `StatedLinesIn` skips every line inside a comment, exactly as for `IMPLEMENTATION CFC`. Pinned:
+      `ImplementationKeywordTests.An_ST_body_without_a_keyword_line_is_handed_up_unchanged` + the row
+      `(*
+IMPLEMENTATION NONE
+*)
+x := 1;` (green on the tree). The line OUTSIDE a comment is refused, as every other
+      boundary line is (`An_ST_body_holding_the_NONE_line_is_refused_on_the_read`), and such ST does not compile in the
+      IDE; 0 such ST lines in the six corpora (the 7 `IMPLEMENTATION NONE` lines there are the owners' boundaries).
+    - (low, FIXED) `ReadBody`'s UNREADABLE refusal of a null object could not be reached from the IDE: the site's kind is
+      classified from the same object (`KindCodeOf`), and every non-action site reads its declaration through it first
+      (`TryReadAspectText` refuses a missing object). Now a driver invariant (`InvalidOperationException`, counted in the
+      uncoded-throw census) instead of a wire code; census UNREADABLE CodesysDriver.Content back 2→1, uncoded 1→2;
+      UNSUPPORTED BodyFormatGuard 8→9 (the re-type refusal). Spec scenario reworded to the read that refuses it.
+    - (low, FIXED) design.md "Design: the fix" still described the replaced producer: steps 2 and 4, the Rejected item
+      and "Stays refused" now state (c) → NONE as measured, (b) refused, (a) an invariant; the 2.1 Producer paragraph is
+      marked as the pre-measurement plan superseded by "Measured in 3.2".
+    - Numbers: `bun run typecheck` clean (5 packages); `bun run lint` exit 0; `openspec validate` valid; `dotnet test
+      Volt.sln -c Release` (VOLT_REQUIRE_FULL=1) all green — Repo.Gates 160, Contracts 34, Twincat 451, Relay 62,
+      Connector 115, Engine 2325 (+1 skip), Codesys 313, Cli 264; volt-cli `bun test test/unit` 75 pass / 0 fail;
+      volt-vscode `bun test` 40 pass / 0 fail; volt-lsp-iec full `bun test` (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset)
+      9525 pass / 35 skip / 421 todo / 0 fail (9981 tests, 327 files, 769 s); `rate:fixtures` (3m28s) left `map.generated.ts` unchanged (edge agree 3261 / disagree 0 / not-run 219).

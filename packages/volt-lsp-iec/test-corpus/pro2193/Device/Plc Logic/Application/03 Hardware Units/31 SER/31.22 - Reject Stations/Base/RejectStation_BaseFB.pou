@@ -79,7 +79,7 @@ METHOD ABSTRACT GetProducts : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 %FOLDER Commands
 END_METHOD
 

@@ -21,7 +21,9 @@
  *
  * WHAT IS NOT MIGRATABLE, AND WHY THAT IS NOT A FINDING. A hidden body has no text form — its file carries the line
  * `IMPLEMENTATION <LANG> UNSUPPORTED` (every CFC/SFC/IL body, and an LD/FBD body network text cannot represent)
- * and nothing under it — so there is nothing to create it FROM.
+ * and nothing under it — so there is nothing to create it FROM. The same holds for a member with NO body slot,
+ * `IMPLEMENTATION NONE` (a CODESYS abstract method or abstract property's GET — openspec `abstract-member-push`): a
+ * create makes a member WITH a slot, so the push refuses NONE on a create, naming the `IMPLEMENTATION ST` remedy.
  * Those are counted and reported, never staged; pushing one is refused by `BodyFormatGuard`.
  *
  * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus — `ide.ps1` instance
@@ -60,9 +62,10 @@ let activePipe: string | undefined
  *  Each vendor names that folder itself: `Library Manager` on CODESYS, `References` on TwinCAT. */
 const LIBRARY_DIRS = new Set(["Library Manager", "References"])
 const FOLDER_MARKER = ".gitkeep"
-/** A body with no text form: its IMPLEMENTATION line states UNSUPPORTED (the spelling is the bridge's
- *  `ImplementationMarker`; a script matches the line, it does not define it). */
-const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z]+[ \t]+UNSUPPORTED[ \t]*\r?$/im
+/** A body no create can author: its IMPLEMENTATION line states UNSUPPORTED (no text form), or NONE (no body slot,
+ *  which a created member always has). The spelling is the bridge's `ImplementationMarker`; a script matches the line,
+ *  it does not define it. */
+const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+(?:[A-Za-z_][A-Za-z0-9_]*[ \t]+UNSUPPORTED|NONE)[ \t]*\r?$/im
 
 const VENDOR = vendorOf(process.env.VOLT_VENDOR)
 
@@ -538,7 +541,7 @@ async function migrate(name: string): Promise<string[]> {
 	const unauthorable = all.size - authorable.size
 	const { files: staged, notes } = adaptForVendor(authorable)
 
-	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (hidden bodies)` : ""}`)
+	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (hidden bodies, members with no body slot)` : ""}`)
 	// Printed BEFORE the run, never buried in the result: an adapted field is a fact about what this vendor
 	// pair can carry, and it IS the finding - not noise on the way to one.
 	for (const n of notes) console.log(`   adapted  ${n}`)

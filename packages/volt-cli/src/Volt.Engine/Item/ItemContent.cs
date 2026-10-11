@@ -46,11 +46,19 @@ public sealed record ItemContent(
 /// keyword line for network text, the UNSUPPORTED line for a hidden body), and the push's guard decoded it back. That
 /// held only while every reader kept the encoding lossless, in three places; one that forgot made the guard misjudge
 /// silently. The fact travels as a fact now.</para>
+/// <para><b><see cref="NoSlot"/></b> is no language: the member has NO body slot in the IDE (<c>IMPLEMENTATION NONE</c>,
+/// openspec <c>abstract-member-push</c>). It is a value of its own — not <c>HiddenIn("NONE")</c>, the hidden body of a
+/// vendor language spelled NONE (<c>IMPLEMENTATION NONE UNSUPPORTED</c>) — and the guard reads it before any language
+/// rule.</para>
 /// </summary>
-public sealed record StatedLanguage(string Language, bool Hidden)
+public sealed record StatedLanguage(string Language, bool Hidden, bool NoSlot = false)
 {
     /// <summary>A body Volt shows as ST.</summary>
     public static readonly StatedLanguage St = new(Volt.Engine.Format.Body.Languages.St, false);
+
+    /// <summary>A member with no body slot: its line is <c>IMPLEMENTATION NONE</c>. Hidden (no code is shown or written)
+    /// and naming no language.</summary>
+    public static readonly StatedLanguage None = new(Volt.Engine.Format.St.ImplementationMarker.NoneWord, true, NoSlot: true);
 
     /// <summary>A body Volt shows in <paramref name="language"/> (ST, LD or FBD).</summary>
     public static StatedLanguage Shown(string language) => new(language, false);
@@ -63,7 +71,8 @@ public sealed record StatedLanguage(string Language, bool Hidden)
 
     /// <summary>The language as its line states it: <c>LD</c>, or <c>IMPLEMENTATION CFC UNSUPPORTED</c> for a hidden body.</summary>
     public override string ToString() =>
-        Hidden ? Volt.Engine.Format.St.ImplementationMarker.Unsupported(Language) : Language;
+        NoSlot ? Volt.Engine.Format.St.ImplementationMarker.NoneLine
+        : Hidden ? Volt.Engine.Format.St.ImplementationMarker.Unsupported(Language) : Language;
 }
 
 /// <summary>A method, action or property. A PROPERTY is a member like any other — it used to be a member in two of

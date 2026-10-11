@@ -50,6 +50,10 @@ export type ImplementationStatement =
   | { kind: "read"; language: "ST" | "LD" | "FBD" }
   /** A language and `UNSUPPORTED` (never ST): a body Volt does not show, empty and read by neither parser. */
   | { kind: "unsupported"; language: string }
+  /** `IMPLEMENTATION NONE`: a member the IDE holds with NO body slot (a CODESYS abstract method or abstract property's
+   *  GET — openspec `abstract-member-push`, DIALECT C2n). No language; nothing under it, read by neither parser. Not
+   *  `IMPLEMENTATION NONE UNSUPPORTED`, which is a hidden body of a vendor language spelled NONE. */
+  | { kind: "none" }
   // A line that only LOOKS like the boundary — the keyword alone, a bare CFC/SFC/IL, a word no body can state — is no
   // boundary line and so no statement (openspec bridge-refusal-review D9): it is code, named only as the hint of the
   // finding for a body that states no language (`lookalikeLine`).

@@ -383,3 +383,49 @@ test("the line is taken out of the body: the code starts under it, and it is not
   expect(body.tokens.map((t) => t.text).join("").trim()).toBe("out := a;")
   expect(body.implementation?.text).toBe("IMPLEMENTATION ST")
 })
+
+// ── IMPLEMENTATION NONE: a member with no body slot (openspec abstract-member-push) ──────────────────────────────────
+
+/** A CODESYS abstract method or abstract property's GET has no body slot, and the pull states it `IMPLEMENTATION NONE`
+ *  (the bridge's `ImplementationMarker.IsNone`). It is a boundary line — so a re-pulled pro2193 owner does not read as
+ *  "states no language" — whose body neither parser reads, in one spelling however typed. */
+test("IMPLEMENTATION NONE is a boundary whose empty body is read by neither parser and is clean", () => {
+  for (const line of ["IMPLEMENTATION NONE", "implementation  none"]) {
+    const src = fb(`${line}\n`)
+    expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
+    const body = bodiesOf(src)[0]!
+    expect({ line, kind: body.implementation?.statement.kind, st: isStBody(body), graphical: isGraphicalBody(body) }).toEqual({
+      line,
+      kind: "none",
+      st: false,
+      graphical: false,
+    })
+  }
+  const pro2193 =
+    "FUNCTION_BLOCK ABSTRACT B\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" +
+    "\nMETHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD\n" +
+    "\nPROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET\nEND_PROPERTY\n"
+  expect(syntaxErrors(pro2193)).toEqual([])
+  expect(bodiesOf(pro2193).map((b) => b.implementation?.statement.kind)).toEqual(["read", "none", "none"])
+})
+
+/** NONE is not reserved as a vendor language: `IMPLEMENTATION NONE UNSUPPORTED` stays a hidden body of a language
+ *  spelled NONE, read apart from `IMPLEMENTATION NONE` by its UNSUPPORTED word (as the bridge reads the two apart). */
+test("IMPLEMENTATION NONE UNSUPPORTED is a hidden body of a language spelled NONE, not a member with no slot", () => {
+  const body = bodiesOf(fb("IMPLEMENTATION NONE UNSUPPORTED\n"))[0]!
+  expect(body.implementation?.statement).toEqual({ kind: "unsupported", language: "NONE" })
+})
+
+/** Code under the line has no slot to go to: refused naming the line, as the push refuses it (`StReader.Body`), and
+ *  read by neither reader. */
+test("code, a comment or a pragma under IMPLEMENTATION NONE is refused naming the line, and read by neither reader", () => {
+  for (const under of ["out := a;", "// a note", "{attribute 'x'}"]) {
+    const src = fb(`IMPLEMENTATION NONE\n${under}`)
+    const errors = parseSource(src, { networkText: true }).errors.map((e) => e.message)
+    expect({ under, named: errors.some((m) => m.includes("under 'IMPLEMENTATION NONE'") && m.includes("no body slot")) }).toEqual({
+      under,
+      named: true,
+    })
+    expect({ under, reader: bodiesOf(src).map((b) => [isStBody(b), isGraphicalBody(b)]) }).toEqual({ under, reader: [[false, false]] })
+  }
+})

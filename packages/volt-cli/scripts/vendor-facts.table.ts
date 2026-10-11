@@ -1610,11 +1610,29 @@ export const ROWS: Row[] = [
       { op: "find", as: "abstract", name: "TakePicture", under: "basefb" },
       // The abstract PROPERTY's accessor: whether IT has an Implementation slot is a fact of its own (C2n).
       { op: "find", as: "busy", name: "Busy", under: "basefb" },
-      { tag: "found", op: "find", as: "busyget", name: "Get", under: "busy" },
+      { op: "find", as: "busyget", name: "Get", under: "busy" },
+      // The other ABSTRACT member texts of pro2193 (openspec `abstract-member-push` 3.2): which class holds each, and
+      // whether that class DECLARES an Implementation slot — the migration's expected set.
+      { op: "find", as: "rejectfb", name: "RejectStation_BaseFB" },
+      { op: "find", as: "getproducts", name: "GetProducts", under: "rejectfb" },
+      { op: "find", as: "alarmfb", name: "ActuatorWithAlarm_BaseFB" },
+      { op: "find", as: "alarms1", name: "Alarms", under: "alarmfb" },
+      { op: "find", as: "manualalarmfb", name: "ActuatorWithManualControlAndAlarm_BaseFB" },
+      { op: "find", as: "alarms2", name: "Alarms", under: "manualalarmfb" },
+      { op: "find", as: "manualfb", name: "ActuatorWithManualControl_BaseFB" },
+      { op: "find", as: "manualcontrol", name: "ManualControl", under: "manualfb" },
+      { op: "find", as: "resettablefb", name: "ModuleResettableFB" },
+      { op: "find", as: "reset", name: "Reset", under: "resettablefb" },
+      { op: "find", as: "statefb", name: "ModuleWithStateFB" },
+      { op: "find", as: "cyclic", name: "Cyclic", under: "statefb" },
+      { op: "find", as: "estop", name: "EStop", under: "statefb" },
+      { op: "find", as: "execute", name: "Execute", under: "statefb" },
+      { op: "find", as: "execute1", name: "Execute_Sequence1", under: "statefb" },
+      { tag: "found", op: "find", as: "stop", name: "Stop", under: "statefb" },
       // Update in place, rename, rename back + move, move home + original text — all through the shipped push. The
-      // abstract method is the exception: the bridge refuses its owner's push today (a body pushed as "" at a slot the
-      // object lacks — openspec `abstract-member-push`), so a push would record a VOLT refusal, not the vendor's answer.
-      // Its in-place update is the vendor's own: the declaration written through scripting.
+      // abstract method's in-place update is measured twice: the vendor's own (its declaration written through
+      // scripting, `updated`), and — since `abstract-member-push` (the pull states it IMPLEMENTATION NONE and the push
+      // writes no body there) — a line added beside it in its OWNER's pulled text, through the shipped push (`pushed`).
       { op: "setText", on: "check", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "persistent", via: "push", prepend: "// volt vendor-facts: written in place\n" },
       { op: "setText", on: "textlist", via: "push", prepend: "// volt vendor-facts: written in place\n" },
@@ -1624,6 +1642,16 @@ export const ROWS: Row[] = [
         on: "abstract",
         via: "script",
         decl: "METHOD ABSTRACT TakePicture : enumResultTakePicture\n// volt vendor-facts: written in place\n",
+      },
+      {
+        tag: "pushed",
+        op: "setText",
+        on: "basefb",
+        via: "push",
+        after: {
+          line: "METHOD ABSTRACT TakePicture : enumResultTakePicture",
+          add: "// volt vendor-facts: pushed beside the abstract member",
+        },
       },
       { op: "rename", on: "check", to: "VltR_CheckBounds", via: "push" },
       { op: "rename", on: "persistent", to: "VltR_PersistentVars", via: "push" },
@@ -1644,28 +1672,78 @@ export const ROWS: Row[] = [
     reads: [
       {
         key: "guid",
-        at: ["found", "updated", "renamed", "moved", "restored"],
+        at: ["found", "updated", "pushed", "renamed", "moved", "restored"],
         on: ["check", "persistent", "textlist", "abstract"],
         op: "guid",
       },
       {
         key: "class",
-        at: ["found", "updated", "renamed", "moved", "restored"],
+        at: ["found", "updated", "pushed", "renamed", "moved", "restored"],
         on: ["check", "persistent", "textlist", "abstract"],
         op: "class",
       },
       { key: "check-kind", at: ["found", "restored"], on: "check", op: "member", path: "object.KindOfCheckFunction" },
       // The write landed (or not): the declaration the IDE holds, before and after.
-      { key: "decl", at: ["found", "updated"], on: "abstract", op: "member", path: "script.textual_declaration.text" },
+      {
+        key: "decl",
+        at: ["found", "updated", "pushed"],
+        on: "abstract",
+        op: "member",
+        path: "script.textual_declaration.text",
+      },
       // Which slots the abstract members have: null = no such aspect.
       {
         key: "implementation",
         at: "found",
-        on: ["abstract", "busy", "busyget"],
+        on: [
+          "abstract",
+          "busy",
+          "busyget",
+          "getproducts",
+          "alarms1",
+          "alarms2",
+          "manualcontrol",
+          "reset",
+          "cyclic",
+          "estop",
+          "execute",
+          "execute1",
+          "stop",
+        ],
         op: "member",
         path: "object.Implementation.$type",
       },
       { key: "class", at: "found", on: ["busy", "busyget"], op: "class" },
+      // Whether each abstract site's CLASS declares `Implementation` (`NwlInterop.Has`): the `implementation` read above
+      // is null both for a type without the member and for one holding null (openspec `abstract-member-push` design,
+      // case (b) vs (c)). [] = not declared. Measured: every site declares it — a missing slot is case (c), the member
+      // declared and holding null, which is what the driver states as IMPLEMENTATION NONE.
+      {
+        key: "implementation-declared",
+        at: "found",
+        on: [
+          "abstract",
+          "busyget",
+          "getproducts",
+          "alarms1",
+          "alarms2",
+          "manualcontrol",
+          "reset",
+          "cyclic",
+          "estop",
+          "execute",
+          "execute1",
+          "stop",
+        ],
+        op: "member",
+        path: 'object.$methods("get_Implementation")',
+      },
+      {
+        key: "class",
+        at: "found",
+        on: ["getproducts", "alarms1", "alarms2", "manualcontrol", "reset", "cyclic", "estop", "execute", "execute1", "stop"],
+        op: "class",
+      },
       {
         key: "nvl",
         at: "start",

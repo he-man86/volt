@@ -274,3 +274,19 @@ test("a body whose line only looks like the boundary states no language, and the
   expect(word.length).toBe(1)
   expect(text(word[0]!)).toContain("'SST' is no language a body can state")
 })
+
+/** A member with no body slot (`IMPLEMENTATION NONE`, openspec abstract-member-push) draws nothing — pro2193's abstract
+ *  members re-pulled — and code under it is the keyword finding on its line, read by neither reader. */
+test("IMPLEMENTATION NONE draws no diagnostic, and code under it is a keyword diagnostic on its line", async () => {
+  const src =
+    "FUNCTION_BLOCK ABSTRACT F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := a;\nEND_FUNCTION_BLOCK\n" +
+    "\nMETHOD ABSTRACT TakePicture : INT\nIMPLEMENTATION NONE\nEND_METHOD\n" +
+    "\nPROPERTY PUBLIC ABSTRACT Busy : BOOL\nGET\nVAR\nEND_VAR\nIMPLEMENTATION NONE\nEND_GET\nEND_PROPERTY\n"
+  // Exactly the ST body's type error, on its line (6): the abstract members draw nothing.
+  expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["6: C0032"])
+
+  const ds = await diagnostics(fb("IMPLEMENTATION NONE\ni := a;"))
+  const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
+  expect(on.some((d) => text(d).includes("IMPLEMENTATION NONE") && text(d).includes("no body slot"))).toBe(true)
+  expect(readByNeither(ds)).toBe(true)
+})

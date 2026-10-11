@@ -55,17 +55,17 @@ EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
 EStop := TRUE;
 
  *)
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED ABSTRACT Execute
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 END_METHOD
 
 // Here is the State Machine for the default exchangeset
 METHOD PROTECTED ABSTRACT Execute_Sequence1
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 END_METHOD
 
 // Logs a warning in the PLC log when there is a module that has not defined a program for an exchange set.
@@ -82,5 +82,5 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC ABSTRACT Stop : BOOL	// Returns true when drives are in standstill
-IMPLEMENTATION ST
+IMPLEMENTATION NONE
 END_METHOD
