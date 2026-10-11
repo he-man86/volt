@@ -1,40 +1,46 @@
 ## Why
 
-`lsp-package-structure` (archived 2026-10-11) put every folder of `packages/volt-lsp-iec/src` in a layer and gated
-that; it did not check that each FILE is in the right folder. The owner (2026-10-11) named two folders that are not
-fully covered:
+The owner (2026-10-11): "make sure everything is up to the same standard". `transpile-restructure` (archived 2026-10-11)
+set the standard for `packages/volt-lsp-iec`: a review per area with root causes fixed test-first, one home per concern,
+file and function size limits (400 / 600 test / 80 per function), clean layering, strict citations, no dead exports,
+every behaviour pinned by a recorded fixture. Only `src/transpile` is held to it. Measured 2026-10-11 (HEAD abdaac2ae2),
+running the transpile gates over all of `src/`:
 
-- **`src/server/` (≈3900 lines) is half not-server.** The layer is the LSP process: the stdio connection, capability
-  negotiation, dispatch to `services/`, publishing diagnostics. Beside that it holds:
-  - `reachability.ts` + `dead-code-equivalence.ts` (≈400 lines): dead-code reachability over the PROGRAM — an analysis,
-    called "server suppression policy" in `docs/architecture.md`, but nothing in it reads the connection;
-  - `workspace-store.ts` (267): the workspace index (parse, build, relink per file) — `src/workspace/` exists beside it
-    with `workspace-refs.ts`;
-  - `harness.ts` (156): a TEST client that drives the server over in-process pipes — test-only code in `src/`,
-    imported only by six `server/*.test.ts` files.
-- **`src/reference/` (368 lines) is a folder for two unrelated things.** `reference.ts` is hover text for built-ins
-  (one-liners; type ranges derived from `frontend/types`), consumed only by `services/assist` and
-  `services/network`. `pragmas.ts` is a language fact — which `{attribute …}` names exist per dialect — read by
-  `analysis/checks/pragmas` (a diagnostic) as well as by hover/completion. `docs/architecture.md` still describes the
-  folder as "types, operators, conversions, pragmas, standard functions and FBs" — stale: library FBs are never there
-  (by design) and types are derived. The catalog is "curated, not exhaustive" (its own `ponytail:`), so its coverage of
-  the built-in set is unmeasured.
+- **Size:** 19 source files over 400 lines (`syntax/network/parser.ts` 1372, `parse/statements.ts` 901, `ast/nodes.ts`
+  892, `analysis/messages.ts` 830, `types/const/fold.ts` 704, `lex/lexer.ts` 685, `server/server.ts` 624, …), 3 colocated
+  test files over 600, and `test/` support files far over (`test/frontend/rules.ts` 4629, `support/divergences.ts` 1779,
+  `notes/lean.data.ts` 1455, `bound-census.ts` 1378, `baseline/baseline.ts` 1041).
+- **Functions:** 25 over 80 lines — `lex` 566, `runServer` 486, `messagesFor` 335, `checkCall` 273,
+  `parseTypeExpression` 229, `parsePrimary` 170, …
+- **Dead exports:** 72 under `src/` (frontend 53, transpile 9, services 4, server 3, reference 2, workspace 1).
+- **Never reviewed:** `services/`, `server/`, `reference/`, `workspace/`. `frontend-conformance` named "the rest of the
+  LSP review (analysis, services, server)"; `analysis-conformance` did analysis, nothing did the rest.
+- **Files in the wrong folder** (`lsp-package-structure` gated folders, not files): `server/` holds dead-code
+  reachability (an analysis), the workspace index (`workspace/` exists beside it) and a test client (`harness.ts`, used
+  only by `server/*.test.ts`); `reference/` mixes a language fact (the pragma attribute catalog, read by a diagnostic)
+  with hover text read only by services, and its docs row is stale. Its built-in hover coverage is unmeasured
+  ("curated, not exhaustive").
+
+**Out of scope, by standing rule:** network text (`frontend/syntax/network/*`, `analysis/checks/network/*`,
+`services/network/*`) is not refactored until the LD/FBD design. It gets ceilings at today's size (may not grow) and its
+splits are handed to the LD/FBD coverage change.
 
 ## What Changes
 
-- `server/` keeps only the LSP adapter: `server.ts`, `bin.ts`, `config.ts`, `index.ts`, `diagnostics.ts`,
-  `diagnostic-codes.ts`. Moved: reachability + dead-code equivalence → `analysis/` (their own folder there),
-  `workspace-store.ts` → `workspace/`, `harness.ts` → `test/` support (no `src/` file is test support).
-- `reference/` dissolves by what each part IS: the attribute catalog (a language fact) → `frontend/` beside the pragma
-  syntax; the built-in hover catalog → `services/assist/` (its only consumers are services). The layering gate's
-  `reference` rank and rule A1 go with it.
-- Built-in hover coverage measured: every elementary type, operator and compiler-provided function (`types/builtins`
-  `BUILTIN_RESULT`, `ELEMENTARY_TYPES`) has a hover entry, or the gap is listed and closed; the `ponytail:` "add as needs
-  surface" is replaced by a test that every built-in has one.
-- The structure gate (`test/package/structure.test.ts`) gains: no `src/` file is test support or imported only by
-  tests; `server/` imports nothing from below `services` except the indexes it dispatches through.
+- **The gates cover the whole package.** `check-size.ts` scope `src` (and `test/` support), today's oversize files as
+  shrink-only ceilings that end empty except the network-text ones; the function limit a failure once its list is empty;
+  `dead-exports` over `src` in lint, at 0 (or a documented barrel surface).
+- **Review per area, transpile-style,** for the never-reviewed areas — `services/` (assist, formatting, navigation,
+  structure, shared), `server/`, `workspace/`: findings against the LSP behaviour tests and the recorded fixtures, root
+  causes fixed test-first, each finding fixed or filed.
+- **Files in the folder of what they are:** `server/` only the LSP adapter; reachability → `analysis/`; the workspace
+  index → `workspace/`; `harness.ts` → `test/`; `reference/` dissolved (attribute catalog → `frontend/`, hover catalog →
+  `services/assist/`); every built-in has hover (test).
+- **Splits, output-neutral:** every oversize file and long function outside network text split by concern (the lexer by
+  token class, the parsers by construct, `messages.ts` by check group, `const/fold.ts` by operator family, `runServer` by
+  request group, …); `test/` support files split by topic.
 
 ## Impact
 
-`packages/volt-lsp-iec` only (src/server, src/reference, src/analysis, src/workspace, src/frontend, src/services/assist,
-test/, scripts/check-layering.ts, docs/architecture.md). Output-neutral except the hover entries added. No wire change.
+`packages/volt-lsp-iec` only; output-neutral (fixture map, recordings and LSP behaviour tests unchanged) except the
+hover entries added and any finding fixed test-first. No wire change.
