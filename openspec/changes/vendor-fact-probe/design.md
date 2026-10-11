@@ -184,8 +184,9 @@ two sets are EQUAL, reporting each side's extras by name:
 - from `scripts/vendor-facts.table.ts`: every row's `id: "<fact>"` and its `dialect: ["C2e", …]` give `(C2e, fact)`.
 
 Equality is stronger than the two directions 0.1 named (marker → row, row.dialect → existing id): it also refuses a row
-citing a DIALECT row that does not carry its marker. Measured 2026-10-11: today's 30 markers on 29 rows ARE exactly the
-30 citations of the 0.1 table (C19 holds two facts, C2e two, three rows hold `ide-identity`), so nothing has to move.
+citing a DIALECT row that does not carry its marker. Measured 2026-10-11: today's 31 markers on 29 rows ARE exactly the
+31 citations of the 0.1 table (C19 holds two facts, C2e two; `kind-source` cites three rows, `ide-identity` three,
+`tc-project-settings` two), so nothing has to move.
 Three more asserts, each named: table ids are unique; a cited DIALECT id exists; a marker never sits on a retracted
 (`~~id~~`) row — a withdrawn fact is not re-measurable.
 

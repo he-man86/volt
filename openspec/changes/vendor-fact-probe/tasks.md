@@ -24,8 +24,25 @@
 
 ## 1. Gate first (offline)
 
-- [ ] 1.1 Repo.Gates `VendorFactTableMatchesDialectTests`: every `[PROBE: id]` row has a table row with that id, every
+- [x] 1.1 Repo.Gates `VendorFactTableMatchesDialectTests`: every `[PROBE: id]` row has a table row with that id, every
       table row cites an existing DIALECT row; red until 2.x lands the table.
+  - Done (2026-10-11): pair-set equality plus the named asserts of design 1.1, and 11 synthetic-input tests of the
+    gate's own teeth (all green). The real gate is red for ONE reason: `vendor-facts.table.ts not found (task 2.1)`.
+    Repo.Gates 147 passed / 1 failed (that one). DIALECT today: 31 markers on 29 rows (design 1.1's "30" miscounted, fixed at the gate:
+    C2e and C19 each carry two). Checked with a throwaway table of design 0.1's 25 rows (deleted): the sets are
+    equal, the gate goes green; a wrong citation fails naming both sides.
+  - Gate (2026-10-11): three review findings taken, failing tests first. (1) A marker in another case (`[probe: …]`,
+    `[Probe: …]`) was dropped silently; `PROBE` now matches case-insensitively, and a `[PROBE` in any cell but the id
+    cell is a finding (`A_marker_in_another_case_fails`, `A_marker_outside_the_id_cell_fails`). (2) design 1.1 now says
+    31 markers / 31 citations. (3) The DIALECT-only findings (malformed spelling, marker on a retracted row) are checked
+    before the table-exists assert and carried in its message (`A_missing_table_still_reports_the_DIALECT_findings`).
+    Found on the way: `bun run check`'s citation scan read the synthetic rows' `DIALECT C3` / `C99` as real citations
+    (1 failed); the synthetic ids are now N903 / N999, which that scan does not read and DIALECT does not have.
+    Numbers: Repo.Gates 150 passed / 1 failed — the one designed red, `vendor-facts.table.ts not found (task 2.1)`
+    (design 1.1 "Migration": 1.1 commits the test red, one reason; real DIALECT has no DIALECT-only finding);
+    `bun run check` 18 passed / 0 failed; `openspec validate` valid; typecheck control/desktop/cli/vscode 0, lsp-iec
+    still fails at `test/frontend/baseline.ts(850)` `STRING_INDEX_TASK` — a parallel session's uncommitted
+    volt-lsp-iec work, not this step's paths. No LSP file changed, so the LSP suites are not this step's.
 
 ## 2. Build
 
