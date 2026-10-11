@@ -5,7 +5,8 @@ import type { Val } from "./value.js"
 import { fit } from "./store.js"
 import { visible } from "./string.js"
 import { calendarText, longCalendarText, lrealText, ltimeText, timeText } from "./text.js"
-import { parseInteger, parseReal } from "./parse.js"
+import { parseInteger, parseIntegerWide, parseReal } from "./parse.js"
+import { atWidth, NaNBits } from "./nan.js"
 
 /** A type's elementary name, for a message — `unknown` where it has none. */
 const elemName = (t: Type): string => (t.kind === "elementary" ? t.elem.name : t.kind)
@@ -40,9 +41,11 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   if (to.kind !== "elementary") return v
   const family = to.elem.family
   if (family === "string") return toText(v, to, from)
-  if (typeof v === "string") return fromText(visible(v), to)
+  if (typeof v === "string") return fromText(visible(v), to, from)
   if (isBoolValued(to)) return toBool(v)
-  const n = typeof v === "boolean" ? (v ? 1n : 0n) : v
+  // a NaN into a REAL of the other width is quieted, its payload moved (`atWidth`); into anything else it is the number NaN
+  if (v instanceof NaNBits && family === "real") return atWidth(v, to.elem.bits === 32 ? 32 : 64)
+  const n = typeof v === "boolean" ? (v ? 1n : 0n) : v instanceof NaNBits ? Number.NaN : v
   if (family === "real") return toReal(n, to)
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
   // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
@@ -61,7 +64,7 @@ function toText(v: Val, to: Elementary, from: Type): Val {
   if (typeof v === "string") return source === to.elem.name ? v : visible(v)
   if (source === "TIME") return timeText(v as bigint)
   if (source === "LTIME") return ltimeText(v as bigint)
-  if (source === "LREAL") return lrealText(v as number)
+  if (source === "LREAL") return lrealText(v instanceof NaNBits ? Number.NaN : (v as number))
   if (source === "LDATE" || source === "LDT" || source === "LTOD") return longCalendarText(source, v as bigint)
   return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
 }
@@ -69,9 +72,10 @@ function toText(v: Val, to: Elementary, from: Type): Val {
 /**
  * STRING → number, on the string the buffer holds: a REAL target reads a decimal prefix (`parseReal`); an integer target
  * skips leading spaces and tabs, reads an optional sign and the digits that follow, stopping at the first other
- * character — '12abc' is 12, '$T7' is 7, '+5' is 5, '- 5' and '' are 0 (conformance `string_conversions*`, `parseInteger`).
+ * character — '12abc' is 12, '$T7' is 7, '+5' is 5, '- 5' and '' are 0 (conformance `string_conversions*`, `parseInteger`);
+ * from a WSTRING, only a parse that reads the whole text answers — "12abc" is 0 (`parseIntegerWide`).
  */
-function fromText(v: string, to: Elementary): Val {
+function fromText(v: string, to: Elementary, from: Type): Val {
   if (to.elem.family === "real") return parseReal(v)
   // …AND ONLY FOR AN INTEGER TARGET. This was a catch-all: any string reaching any non-REAL target was parsed
   // for leading digits, so a BOOL or a TIME target got a digit parse nobody had measured. Lowering refuses
@@ -86,12 +90,16 @@ function fromText(v: string, to: Elementary): Val {
   //
   // So: refuse rather than invent. Unreachable today, and if lowering ever lets one through, this says which.
   if (!isInt(to)) throw new TypeError(`no measured conversion from a STRING to ${elemName(to)}`)
-  return parseInteger(v)
+  // a WSTRING reads the whole text or nothing (`parseIntegerWide`, `wstring_parse_grammar`); lowering hands a REAL parse
+  // the narrowed STRING
+  // a negative text into an unsigned type is 0 (`wstring_parse_widths`)
+  const unsigned = to.elem.signed !== true
+  return elemName(from) === "WSTRING" ? parseIntegerWide(v, unsigned) : parseInteger(v, unsigned)
 }
 
 /** numeric → BOOL is "not zero". */
 export function toBool(v: Val): Val {
-  return typeof v === "boolean" ? v : typeof v === "bigint" ? v !== 0n : v !== 0
+  return typeof v === "boolean" ? v : typeof v === "bigint" ? v !== 0n : v instanceof NaNBits || v !== 0
 }
 
 /** → REAL: an integer rounds to the target's width ONCE: `Number(n)` then `fit`'s `Math.fround` rounds a 64-bit value

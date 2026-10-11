@@ -18,7 +18,9 @@ describe("emit/rust/runtime — the registry", () => {
   test("the string family goes in front, everything else after, and the two lists are the whole registry", () => {
     expect(FRONT[0]).toBe("string")
     expect(BACK).toEqual([
-      "iec_deref", "iec_r2i64", "iec_r2i32", "iec_trunc_i32", "iec_fmax", "iec_fmin", "iec_log", "iec_pow", "iec_div",
+      "iec_deref", "iec_r2i64", "iec_r2i32", "iec_trunc_i32", "iec_fmax", "iec_fmin", "iec_fneg32", "iec_fneg64", "iec_fabs32",
+      "iec_fabs64", "iec_log", "real_nan", "iec_fadd", "iec_fsub", "iec_fmul", "iec_fdiv", "iec_fdivz", "iec_fn", "iec_widen",
+      "iec_narrow", "iec_pow", "iec_div",
       "mem", "mem_region", "mem_at", "mem_ld", "mem_ld_bool", "mem_st", "mem_order", "iec_ix",
       "le", "iec_bytes", "iec_elements", "iec_overlay",
     ])

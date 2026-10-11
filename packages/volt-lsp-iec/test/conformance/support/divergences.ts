@@ -25,6 +25,19 @@ export const X87_TRIG_DIVERGENCES = {
 } as const
 
 /**
+ * THE FUNCTION-FRAME RESIDUE (design.md §7.2, transpile-restructure 8.2): the units behind a FUNCTION's STRING input's
+ * terminator are whatever the vendor's STACK held at that frame's address — measured, and not modelled: reproducing them
+ * needs every routine's frame layout on the vendor's stack, which no declaration states. Both backends start a
+ * FUNCTION's input at zeros. Each fixture's `deferred.transpile` is its entry here.
+ */
+const FUNCTION_FRAME_RESIDUE =
+  "FUNCTION frame residue (accepted, design.md §7.2, transpile-restructure 8.2): behind a FUNCTION's VAR_INPUT STRING(20)'s terminator stands what the vendor's shared stack held there — the previous call's 20 'Y' (89) at p[11..19] when nothing ran between the two calls (`string_store_function_input_tail`, record:exec 2026-10-08, twice: 'Y' and then 'Z'); with another FUNCTION called between them, at the same depth, still 'Y' at p[11..15] but an address's bytes (176, 250, 63, 25, 178) at p[16..20], which that FUNCTION's frame wrote (`string_input_tail_interleaved`, record:exec 2026-10-11) — the buffer is the stack, not one the function keeps. Measured impossible to model: it needs every routine's frame layout on the vendor's stack, which declarations do not state; both backends start the input at zeros. niche: accepted loss (0 occurrences in the corpora: the 72 index or address reads of a STRING VAR_INPUT in the 61 FUNCTIONs and METHODs that declare one all stop at its terminator — StrCpyA / StrConcatA, LEN-bounded indexes)"
+export const FUNCTION_FRAME_RESIDUE_DIVERGENCES = {
+  string_store_function_input_tail: FUNCTION_FRAME_RESIDUE,
+  string_input_tail_interleaved: FUNCTION_FRAME_RESIDUE,
+} as const
+
+/**
  * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not. THREE, as of the end of
  * 2026-09-20, from 79 that morning.
  *

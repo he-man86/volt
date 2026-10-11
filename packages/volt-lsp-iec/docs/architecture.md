@@ -256,7 +256,7 @@ transpile/
   pipeline/         the composition root: load (lower, then run) and lowerAndEmit; the ST → lower → interp tests
   ir/               expr.ts stmt.ts program.ts — the node contract; walk.ts — the one exhaustive walk (childrenOf) every
                     IR walk is built on; path.ts — the IDE path grammar; faults.ts — fault kinds and their texts
-  semantics/        value.ts store.ts convert.ts arith.ts operators.ts builtins.ts math.ts text.ts parse.ts string.ts
+  semantics/        value.ts nan.ts store.ts convert.ts arith.ts operators.ts builtins.ts math.ts text.ts parse.ts string.ts
                     memory.ts instantiate.ts fold.ts faults.ts; cases.ts and the *.cases.ts tables the twin tests share
   lower/
     entry/          lower-unit.ts lower-source.ts checks.ts finish.ts — where a POU's lowering starts and ends
@@ -271,7 +271,8 @@ transpile/
                     slot's initial value, proven unread before it runs
     places/         places.ts names.ts self.ts globals.ts bounds.ts path.ts access-guards.ts
     pointers/       state.ts address.ts store.ts deref.ts borrowed.ts cursor.ts any.ts escape.ts image.ts
-                    image-rewrite.ts — the escape pass, the image layout and its rewrite are model 3's
+                    image-rewrite.ts raw-bool.ts bool-views.ts — the escape pass, the image layout and its rewrite are
+                    model 3's, and the BOOLs held as their byte (`bool-views.ts` the escape pass's fixed point over them)
     expressions/    expressions.ts operators.ts calendar.ts partial-access.ts
     builtins/       arity.ts builtins.ts value-functions.ts system.ts clock.ts conversions.ts sizeof.ts length.ts
     statements/     statements.ts assign.ts loops.ts case.ts
@@ -353,6 +354,24 @@ copy of a pointer of several targets; a target set that still grew after `ESCAPE
 `interface-instance` (an instance at a runtime index), `interface-instance-relative`, `call-global-instance` (a METHOD
 called on a GVL's instance, directly or through an interface); a pointer→DWORD conversion is vendor-refused.
 
+*A BOOL whose byte another type reaches* (transpile-restructure 8.2, design.md §7.2 step 8c) is HELD AS ITS BYTE
+(`lower/pointers/raw-bool.ts`, `IrSlot.rawBool`: a BYTE slot): CODESYS keeps the whole byte a POINTER TO BYTE wrote into a
+BOOL and every operator acts on it (`bool_byte_ops`, the bytes 2, 3 and 255) — AND / OR / XOR the bytes, NOT bit 0
+inverted and the rest cleared, `=` / `<>` the bytes, IF any byte but 0, BOOL_TO_INT / BOOL_TO_BYTE bit 0, and a copy, a
+FUNCTION's or an FB's input (in the call or `inst.x :=`), MOVE and a FUNCTION's VAR_IN_OUT keep the byte (`bool_byte_flow_*`,
+gate 8c). A POINTER TO BOOL over what is no plain BOOL's byte — a BYTE, a WORD, an ARRAY OF BYTE, a raw BOOL, a pointer of
+another type copied into it — is a BYTE VIEW: it dereferences as a BYTE and reads by the same table
+(`bool_pointer_over_bytes`, `byte_pointer_copied_to_bool_pointer`). The escape pass names them (`pointers/bool-views.ts`): a
+BOOL whose address reaches a pointer of another target type — given, or carried there by a pointer copy
+(`bool_pointer_copied_to_byte_pointer`) — is a seed; a POINTER TO BOOL given another type's bytes, a raw BOOL's address or a
+copy of another type's pointer is a byte view; every BOOL a store, an input or an in-out fills from a raw one's byte (a
+load, an AND / OR / XOR of one — not a NOT or a comparison, which answer 0 or 1) is raw too, to a fixed point. Every other
+BOOL keeps `bool` / `boolean`. Refused by name `bool-byte`: a raw BOOL's byte read anywhere else (a WHILE, an order, SEL,
+an unmeasured conversion, a destination no key names — `refuseUnmeasuredRawBools` walks the IR for one no measured
+operator took); a BOOL's byte no key can follow — an element's or a field's address given to (or a pointer holding one
+copied into) a pointer of another type, a byte view no variable names, the address of what holds a BOOL (a struct, an
+instance, an array) given to a pointer that views it otherwise; and a raw BOOL lent to an FB's VAR_IN_OUT.
+
 *Unions* (transpile-restructure §3.3/§3.4, step 7.8d) stay out of the image: a UNION is laid out as a struct holding
 each member, and a store into one member is followed by ONE assignment per other member, the stored member's
 little-endian bytes read at that member's type — the IR expression `reinterpret` (`lower/storage/unions.ts`
@@ -364,6 +383,18 @@ refused, though BOOL is ANY_BIT), a REAL/LREAL or a one-dimensional array of the
 struct, or a pointer beside such members; or a member with an initial value) and
 `union-write` (a member written other than by `:=` — a VAR_IN_OUT or output binding, a latch, a chain link, a FOR
 variable, an address taken — or reached through a runtime index).
+
+*A REAL NaN is its bits* (transpile-restructure 8.2, design.md §7.2 step 8c; `semantics/nan.ts` `NaNBits`): JavaScriptCore
+keeps one NaN in a `number`, CODESYS keeps the sign and payload — so a REAL or LREAL NaN value is its bits and every other
+REAL stays a number. Recorded as bits (`nan_payload_ops*`, the cells in `semantics/nan.cases.ts`): an operation answers its
+first NaN operand quieted (x86 SSE, the source's operand order), NEG keeps its sign and ABS clears it (the Rust prints
+`iec_fneg32` / `iec_fabs32`, where `-x` flips the sign and `abs` keeps a signalling NaN), a NaN made from no NaN is x86's
+default 16#FFC00000, REAL <-> LREAL quiets it and moves its payload, a copy, a load, a store and the selects carry it as
+it is. The emitted Rust CHOOSES each NaN in the code (gate 8c): a REAL `+ - * /` is `iec_fadd` / `iec_fsub` / `iec_fmul` /
+`iec_fdiv` (`iec_fdivz` with the zero check), a function `iec_fn(x, f64::ln)`, REAL <-> LREAL `iec_widen` / `iec_narrow`
+(`emit/rust/runtime/numeric.ts` `IEC_REAL`) — Rust leaves which NaN an operation answers to the compiler, and an optimized
+build commuted an add and folded constants into another NaN than CODESYS's; the twin harness runs the NaN cells in an
+`-O` build too. An initializer that folds to a NaN is refused `init-nan` (no IR constant holds one; the fold's bits are unmeasured).
 
 *The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
 constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —
@@ -385,7 +416,11 @@ that does not fold is refused `string-capacity`). One store rule: `assign` into 
 units of the SOURCE buffer and a 0 there, and leaves the destination's units behind it (`storeString`, Rust
 `dst.store(&src)`; a literal is a source of its own units); a `convert` fills a fresh buffer. A string conversion hands
 its text through a 255-unit buffer: STRING <-> WSTRING gives STRING(255)/WSTRING(255), a parse reads at most 255 units,
-a same-width TO_STRING / TO_WSTRING and a number's text are the default 80 (`lower/builtins/conversions.ts`). Refused by name:
+a same-width TO_STRING / TO_WSTRING and a number's text are the default 80 (`lower/builtins/conversions.ts`); a WSTRING
+parsed into an integer reads the WSTRING by its own grammar — the STRING parse's reading, answered only when it reads the
+whole text, else 0 (`semantics/parse.ts` `parseIntegerWide`, Rust `iec_parse_int_wide`, `wstring_parse_grammar`), into
+every integer type as the STRING parse does past 32 and 64 bits; a negative text into an unsigned type is 0 for both, where
+a signed one wraps it (`wstring_parse_widths`, 108 cells). Refused by name:
 an implicit string crossing (`assign-string`), unmeasured escapes (`string-escape`, `wstring-surrogate`,
 `string-non-ascii`), a whole-string write through a cursor's `p^` that would go past the caller's variable — a store,
 a chain link, an FB output copied out, `p^` lent to a wider writable VAR_IN_OUT (`cursor-overrun`), REAL_TO_STRING

@@ -22,6 +22,7 @@ import { lowerExpr } from "../expressions/expressions.js"
 import { NO_TAG } from "../core/tags.js"
 import { escapeKey, type Holder, holderOf, holdsAddresses, noteAnyAddress, noteCopy, noteStore } from "./escape.js"
 import { anyHolder } from "./any.js"
+import { refusedBoolAddress, refusedBoolCopy } from "./raw-bool.js"
 import { isNew, refuseDynamicMemory } from "../builtins/system.js"
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
@@ -169,6 +170,7 @@ export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | u
     const holder = anyHolder(lw.routineContext.slice("ROUTINE:".length), input)
     noteAnyAddress(lw, holder)
     noteCopy(lw, pointer, holder)
+    if (refusedBoolCopy(lw, pointer, holder, e.span)) return undefined
     const given = pointerFrame(lw).anyAddresses.get(input)
     if (given === undefined) return lw.bail("any-input", `${e.base.name}.pValue stored into a pointer that holds addresses, before its call sites hand an address`, e.span)
     return convert({ kind: "load", place: { slot: given.slot, path: [], type: lw.localSlots[given.slot]!.type, span: e.span, root: "local" }, type: lw.localSlots[given.slot]!.type, span: e.span }, pointerType)
@@ -186,7 +188,9 @@ export function addressValue(lw: Lowering, e: Expr, pointer: Holder): IrExpr | u
   if (source.type.kind === "elementary")
     return lw.bail("pointer-value", `an integer (${exprText(e)}) stored as a pointer — its value is a byte address`, e.span)
   if (source.type.kind !== "pointer") return lw.bail("pointer-value", "a pointer value this does not model", e.span)
-  noteCopy(lw, pointer, holderOf(lw, source, ""))
+  const from = holderOf(lw, source, exprText(e))
+  noteCopy(lw, pointer, from)
+  if (refusedBoolCopy(lw, pointer, from, e.span)) return undefined
   if (!holdsAddresses(lw, source)) return lw.bail("pointer-targets", `${describePointer(lw, source)} holds a tag, copied into a pointer that holds addresses`, e.span)
   if (unsuppliedRoot(lw, source, e.span)) return undefined
   return convert({ kind: "load", place: source, type: source.type, span: e.span }, pointerType)
@@ -254,6 +258,8 @@ export function imagePlaceAddress(lw: Lowering, place: Place, text: string, poin
   const type: Type = pointer?.type ?? { kind: "pointer", target: place.type }
   if (place.root === "image") return { kind: "address", place, type, span }
   if (place.guard !== undefined) return lw.bail("pointer-shape", "the address of a dereference", span)
+  // a BOOL given to a pointer of another type is held as its byte from the next lowering on (`raw-bool.ts`)
+  if (refusedBoolAddress(lw, pointer, place, span)) return undefined
   noteStore(lw, pointer, place)
   if (escapeKey(lw, place) === undefined)
     return lw.bail("pointer-targets", `${pointer === undefined ? "an address compared" : `${pointer.name} holds addresses, and`} ${text} is not in the image — a routine's local, a VAR_IN_OUT's target, a string's characters or an instance keep a tag`, span)

@@ -74,10 +74,11 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("self.w = i32::from(!(self.a as u16));")
   })
 
-  test("integer negation wraps — Rust's `-` panics on a minimum — while REAL negation stays plain", () => {
+  test("integer negation wraps — Rust's `-` panics on a minimum — while REAL negation keeps a NaN's sign, quieted", () => {
     const code = rust("PROGRAM P\nVAR d : DINT; e : DINT; x : REAL; y : REAL; END_VAR\ne := -d; y := -x;\nEND_PROGRAM\n")
     expect(code).toContain("self.d.wrapping_neg()")
-    expect(code).toContain("self.y = -self.x;")
+    // `-x` flips a NaN's sign; CODESYS keeps it and quiets the NaN (`nan_payload_ops`, 8.2) — `iec_fneg32`
+    expect(code).toContain("self.y = iec_fneg32(self.x);")
   })
 })
 
@@ -88,8 +89,9 @@ test("MOD and a REAL `/` by a constant lowering proved harmless print plain `%` 
   expect(code).toContain("self.a = self.i % 4i32;")
   expect(code).toContain("self.b = { let __mod_l = self.i; let __mod_r = self.z;")
   expect(code).toContain("self.c = { let __mod_l = self.i; let __mod_r = -1i32;")
-  expect(code).toContain("self.y = self.x / 2.0f32;")
-  expect(code).toContain("self.w = iec_div(self.x, self.x);")
+  // a REAL division through the helper that chooses its NaN (gate 8c) — with the zero check, `iec_fdivz`, or without
+  expect(code).toContain("self.y = iec_fdiv(self.x, 2.0f32);")
+  expect(code).toContain("self.w = iec_fdivz(self.x, self.x);")
 })
 
 // the narrow rule's fallout (7.3.1, 7.3.3): a range test over one operand prints `contains`, a store back into its own

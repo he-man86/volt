@@ -2445,6 +2445,16 @@ the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir
 deliberately not emulated. They stay as named expected failures, each with that reason in `support/divergences.ts`, and are the only
 open marks besides the refusals the model decisions name (task 6.21; 8.2's target).
 
+The FUNCTION-frame residue `string_store_function_input_tail`, `string_input_tail_interleaved` (their reason is
+`support/divergences.ts` `FUNCTION_FRAME_RESIDUE_DIVERGENCES`, step 8c — a named loss FOR OWNER REVIEW): the units behind a
+FUNCTION's STRING input's terminator are whatever the vendor's shared stack held at that frame's address. Measured
+impossible to model (`string_input_tail_interleaved`, record:exec 2026-10-11): with another FUNCTION called between two
+calls, at the same depth, p[11..15] still hold the first call's 'Y' while p[16..20] hold an address's bytes (176, 250, 63,
+25, 178) that call's frame wrote — so the buffer is the stack, and reproducing it needs every routine's frame layout on
+the vendor's stack, which no declaration states. Both backends start a FUNCTION's input at zeros. 0 occurrences in the
+corpora (the 72 index or address reads of a STRING VAR_INPUT in the 61 FUNCTIONs and METHODs that declare one all stop at
+its terminator).
+
 ### §7.2 Decision (step 8c): the six reopened marks (task 8.2, owner 2026-10-10), 2026-10-11
 
 **Target.** Each of the 6 marks outside §7.2 confirmed against its recording, or joining §7.2 as a named loss with the
@@ -2488,6 +2498,98 @@ vendor frame layout (unmeasured, not derivable from declarations) — it joins �
 batch of four fixtures → one recording run → NaN carrier (interpreter only; the `deferred.transpile` marks removed,
 and `memory.cases.ts`) → BOOL raw byte (both backends, src tests first) → wide parse → residue per the recording →
 `rate:fixtures`, the corpora's refusal counts before/after, 8.2's delta re-measured with §7.2 as the only open marks.
+
+### §7.2 Decision (step 8c, as built): where the recordings moved the plan above, 2026-10-11
+
+**Recorded** (CODESYS 3.5.21.40, both vendors' builds clean, TwinCAT Project13): `nan_payload_ops`, `nan_payload_ops_lreal`,
+`bool_byte_ops`, `wstring_parse_grammar`, `string_input_tail_interleaved` in one batch, then `nan_payload_select_trig` in a
+second — asked by the first's answers (ABS cleared the sign, so the trigonometric functions, ABS of a positive sNaN, EXPT
+with a NaN base and a zero exponent, and the selects over an sNaN were recorded before a rule was written for them). The
+four test-first families, each held to its recording:
+
+- **NaN bits — the hypothesis held, with two operators of their own.** An operation answers its FIRST NaN operand, quieted
+  (sign and payload kept, the source's operand order: `pay + sig` is pay, `sig + pay` the sNaN quieted) — + - * /, EXPT,
+  SQRT, LN, LOG, EXP and the x87 trigonometry alike; a NaN made from no NaN is 16#FFC00000 / 16#FFF8000000000000; REAL ↔
+  LREAL quiets it and moves its 23 payload bits to the top of the 52 (the low 29 cut going down); a copy, a load, a store
+  and MAX / MIN / LIMIT / SEL / MUX carry an sNaN unquieted; EXPT(NaN, 0) is 1. NEG keeps the NaN's SIGN, quieted, and
+  ABS quiets it and CLEARS the sign — where Rust's `-x` flips it and `abs` keeps an sNaN signalling, so the emitter prints
+  `iec_fneg32/64`, `iec_fabs32/64` for a REAL operand (`emit/rust/runtime/numeric.ts`; a constant operand keeps `-c`).
+  The carrier is `semantics/nan.ts` `NaNBits`; `fit` turns a JavaScript NaN (an operation over no NaN operand) into the
+  default one, so no REAL value is ever a JavaScript NaN (`floatBitsOf` refuses one by name). The cells: `nan.cases.ts`,
+  87, run by `nan.test.ts` and the twin harness. The interpreter's runner shows a NaN as its bits; the replay's display
+  maps it to `REAL#NaN`, the b↔c harness compares the bits (it compared the canonical 7FF8… against the Rust's FFF8… for
+  a SQRT(-1), `cmp_nan_number_gt`). Also found: the IDE displays -0 as `REAL#0` (`rNzero` beside bNzero 16#80000000) —
+  `asDisplayed` reduces it, as the display does. An initializer that folds to a NaN is refused `init-nan` (it reached the
+  IR as the number NaN and printed `NaNf32`); 0 in the corpora.
+- **BOOL byte — as planned, keyed by the escape pass.** Recorded for 2, 3 and 255: AND / OR / XOR the bytes, NOT bit 0
+  inverted, `=` / `<>` the bytes, IF non-zero, BOOL_TO_INT / BYTE bit 0, a copy into a plain BOOL and a FUNCTION input keep
+  the byte. `lower/pointers/raw-bool.ts`: the escape pass gathers SEEDS (a BOOL's address given to a pointer of another
+  target type — `imagePlaceAddress`, every image address store and an ANY's `pValue` alike) and FLOWS (each BOOL store or
+  input with the variables whose byte its value carries — a load, an AND / OR / XOR, not a NOT or a comparison), closes
+  them to a fixed point (`Escapes.rawBools`, keyed by `escape.variableKey`, which the pointer key became), and the next
+  lowering declares those as BYTE slots marked `IrSlot.rawBool`. `loadValue` marks a raw BOOL's load; the operators, IF and
+  the two conversions take it; `refuseUnmeasuredRawBools` walks the lowered IR and refuses `bool-byte` for any raw byte no
+  measured operator took — a WHILE, an order, SEL, BOOL_TO_DINT, a store into an element, a FUNCTION result. Refused at
+  the address: a raw BOOL's into a POINTER TO BOOL, and the address of what holds a BOOL into a pointer that views it
+  otherwise than as laid out (its own type, an array's element type, or BOOL for a struct of plain BOOLs are views —
+  bakon-nano's `ADR(g_aCuttingPositions)` into a POINTER TO the element, lenze-mid's struct of BOOLs walked by a POINTER TO
+  BOOL; the first version refused both, measured on the corpora and narrowed before it shipped). A BOOL constant
+  converted into an integer is 1 / 0 (`values/convert.ts` `valueAs`; it stayed `true`, which printed `true` as a `u8` —
+  three refused fixtures' Rust now builds). The harness shows a raw BOOL as its declared BOOL (`rustAccess`'s `rawBool`:
+  0 FALSE, 1 TRUE), and a path the monitor could not show is checked to be one the model explains (a raw BOOL holding
+  another byte) instead of failing the `confirmed` row outright.
+- **WSTRING parse — one rule, no refusal.** Into an integer a WSTRING reads what a STRING reads and answers it only when
+  that is the WHOLE text ('12abc', '1 0', '5 ', '16#1FZ', '8#19', '-16#F' are 0); into a REAL it reads the STRING's prefix
+  ("1.5x" is 1.5). `semantics/parse.ts` `parseIntegerWide` over the one scan both parses share (`scanInteger`); Rust
+  `iec_parse_int_wide` over `iec_scan_int` (`iec_parse_int` reads the same scan); lowering hands an integer parse the
+  WSTRING itself (cut at 255) and a REAL parse the narrowed STRING. All 46 cells stated (`WIDE_PARSE_INT_CASES`), so
+  `wstring-parse` was not needed.
+- **FUNCTION input residue — 'other'**: 'Y' at p[11..15], an address's bytes at p[16..20] (marked `residue`) — the stack.
+  It joins §7.2 as a named loss (above), for the owner's review.
+
+**Stays refused, by name:** `bool-byte`, `init-nan` (both `not-measured`). **Corpora:** the refusal list of every POU with
+code is identical before and after (304 POUs: 54 lowered, 250 refused — `scripts/probe-lowering-refusals.ts`, HEAD in a
+worktree against the change); 0 `bool-byte`, 0 `init-nan`.
+
+### §7.2 Decision (gate 8c): the review of step 8c, 2026-10-11
+
+The review found the step had answered four things no recording decided, and left two of its own NaN facts unenforced.
+Each is now RECORDED first (CODESYS build + `record:exec`, TwinCAT Project13 build — `ide.ps1 -Instance
+transpile-restructure`, every build clean) or held by a test, then built:
+
+- **BOOL byte, the flows and the views** (`bool_byte_flow_fb_input`, `_fb_field`, `_inout`, `_move`, `_any`,
+  `bool_pointer_over_bytes`, `bool_pointer_copied_to_byte_pointer`, `byte_pointer_copied_to_bool_pointer`): every one keeps
+  the byte, by the table above — an FB's input (in the call and `inst.x :=`), a FUNCTION's VAR_IN_OUT (which reads the
+  caller's byte), MOVE and an ANY input carry it; a POINTER TO BOOL over a BYTE / WORD / ARRAY OF BYTE reads it (`c := p^`
+  of a WORD 16#0205 holds 5); a POINTER TO BOOL copied into a POINTER TO BYTE makes the BOOL raw as the direct address
+  does, and the reverse copy reads the byte. So the model grew, not the refusals: a POINTER TO BOOL that reads a byte is a
+  BYTE VIEW — its dereference a BYTE (`deref.ts` `imageDeref`), what it reads raw under its `viewKey` — and the escape pass
+  carries BOOL addresses along pointer copies (`lower/pointers/bool-views.ts`, the fixed point split out of `escape.ts`); a
+  FUNCTION's BOOL VAR_IN_OUT and what it is lent are one byte (a flow both ways; `declareInOuts` holds a raw one as a BYTE,
+  which the step had missed: `BOOL_TO_INT(x)` of a lent 255 answered 255). Refused `bool-byte` where no key can follow the
+  byte: a byte view no variable names, a copy out of a POINTER TO BOOL that holds an element's or a field's BOOL into
+  another type, a POINTER TO what holds a BOOL over other bytes (`POINTER TO ARRAY OF BOOL` over a DWORD lowered before), a
+  copy across types either of which holds a BOOL, and a raw BOOL lent to an FB's VAR_IN_OUT (unmeasured).
+- **WSTRING parse widths** (`wstring_parse_widths`, 108 cells: 9 texts past 32 / 64 bits, negative, past INT / SINT into
+  all 12 integer types, the WSTRING and the STRING parse side by side): the two agree in every cell, so the step's reading
+  — the wide parse's value reaches a type as the STRING parse's does — is now recorded; nothing refused. And the recording
+  found what no earlier one had asked: a NEGATIVE text into an UNSIGNED type is 0, for both parses ('-5' into UINT, BYTE,
+  ULINT is 0; into INT -5, a signed type wraps it), where both backends wrapped it (65531) — 48 cells red in the replay. Now
+  `parseInteger` / `parseIntegerWide` and Rust `iec_parse_int` / `iec_parse_int_wide` are told whether the target is
+  unsigned (`semantics/parse.ts`; all 216 cells in `parse.cases.ts`, run by `parse.test.ts` and the twin harness).
+- **NaN under optimization**: Rust leaves which NaN an operation answers unspecified, and an `-O` build answered other
+  NaNs than CODESYS's (constant folding canonicalized `sNaN + 1` to 16#7FC00000; LLVM commuted `sNaN + pay`). The emitted
+  Rust now CHOOSES each NaN in the code — `iec_fadd` / `iec_fsub` / `iec_fmul` / `iec_fdiv` (`iec_fdivz` with the zero
+  check), `iec_fn(x, f64::ln)` for a function, `iec_widen` / `iec_narrow` for REAL <-> LREAL, `iec_pow` through the same
+  `IecReal::nan_of` (`emit/rust/runtime/numeric.ts`); the twin harness runs the 87 NaN cells in an `-O` build beside the
+  plain one (red before, green after).
+- **The edge column compares a NaN by its bits** (`support/display.ts`; `rustRender` deleted), with a negative signalling
+  NaN with a payload added to the REAL and LREAL seeds — a backend that flips, quiets or drops a NaN's bits where the other
+  does not now disagrees (it read every NaN as one class).
+- The scan's leading-whitespace class is `[ \t]` again (a literal TAB stood in it, invisible to review).
+
+**Corpora:** the refusal list of all 304 POUs with code identical before and after the gate (54 lowered, 250 refused, 0
+`bool-byte`).
 
 ### 7.3 `transpile-st-to-rust` (reconciled by task 0.8)
 

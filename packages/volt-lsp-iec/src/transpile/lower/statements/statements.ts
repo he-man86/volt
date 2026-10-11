@@ -12,6 +12,7 @@ import { lowerExpr } from "../expressions/expressions.js"
 import { elementaryRef } from "../../../frontend/types/index.js"
 import { queryCondition } from "../interfaces/query.js"
 import { lowerCallStatement } from "../calls/fb-call.js"
+import { rawCondition } from "../pointers/raw-bool.js"
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -64,8 +65,10 @@ function lowerIf(lw: Lowering, s: Extract<Statement, { kind: "if" }>): IrStmt[] 
     if (branch === undefined) return undefined
     const query = queryCondition(lw, branch.cond)
     if (query === undefined) return undefined
-    const cond = query === null ? lowerExpr(lw, branch.cond, elementaryRef("BOOL")) : query.cond
-    if (cond === undefined) return undefined
+    const lowered = query === null ? lowerExpr(lw, branch.cond, elementaryRef("BOOL")) : query.cond
+    if (lowered === undefined) return undefined
+    // a BOOL held as its byte is taken when the byte is not 0 (`pointers/raw-bool.ts`)
+    const cond = rawCondition(lw, lowered)
     const rest = build(i + 1)
     const otherwise = rest !== undefined ? rest : s.elseBody ? lowerBlock(lw, s.elseBody) : []
     return [...(query?.before ?? []), { kind: "if", cond, then: lowerBlock(lw, branch.body), else: otherwise, span: branch.span }]

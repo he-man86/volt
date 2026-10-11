@@ -3,6 +3,8 @@
 import { holdsIntegerBits, isBoolValued, storeInteger, type Type } from "../../frontend/types/index.js"
 import type { Val } from "./value.js"
 import { held } from "./string.js"
+import { defaultNaN, NaNBits } from "./nan.js"
+import { LoweringBug } from "./faults.js"
 
 /**
  * A value as its type STORES it — the interpreter's counterpart of the emitter's `wrapping_*` and `f32`. IEC
@@ -31,6 +33,16 @@ export function fit(v: Val, type: Type): Val {
     //
     // So a REAL variable can hold `REAL#Infinity` — `bound_real_above_max` holds one from a mere declaration — and
     // what stops the task is DIVIDING BY ZERO, exactly as it is for integers. That rule lives in `arith`.
+    //
+    // A NaN IS ITS BITS (`semantics/nan.ts`), never a JavaScript NaN, which has no sign or payload: one an operation made
+    // from operands that are none — the only kind that reaches here, every operation over a NaN answering its operand
+    // (`realResult`) — is x86's default NaN, sign set (SQRT(-1) recorded 16#FFC00000). One of the other width is a
+    // conversion lowering did not make.
+    if (v instanceof NaNBits) {
+      if (v.width !== bits) throw new LoweringBug(`a ${v.width}-bit NaN stored as a ${type.elem.name}`)
+      return v
+    }
+    if (typeof v === "number" && Number.isNaN(v)) return defaultNaN(bits === 32 ? 32 : 64)
     return bits === 32 && typeof v === "number" ? Math.fround(v) : v
   }
   // A BIT HOLDS A BOOLEAN. It is `bitstring` in the type table because it is one bit of LAYOUT, and everything else

@@ -81,7 +81,16 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // `tr_22_fb_init_reads_adr_field`'s and `initseq_adr_of_*`'s `seen`), in the two new fixtures whose FB takes the
 // address of its own field: `init_structured_binding_override`'s `seen := p^`, `init_structured_null_over_binding`'s
 // `isNull := p = 0`.
-const RENAMED_TARGETS = 165
+// 165 -> 468 (2026-10-11, transpile-restructure 8.2), each fixture's lines read: no new class — the four new fixtures whose
+// FB takes the address of its own fields store every result through `Mem` (`{ let __v = …; let __a =
+// self.__base.wrapping_add(k); __mem.st(__a, …); }`, the image class): `bool_byte_ops` 95 (its BOOLs held as their byte
+// included), `nan_payload_ops` 90, `nan_payload_ops_lreal` 72, `nan_payload_select_trig` 46 — every result twice, once into
+// the scratch and once into the DWORD its bits are read into.
+// 468 -> 535 (2026-10-11, gate 8c), each line read: no new class — the eight BOOL-byte fixtures the gate recorded store every
+// result through `Mem` as well (their BOOLs' addresses taken, so the FB's fields are the image's): `bool_pointer_over_bytes`
+// 28, `bool_byte_flow_move` 8, `_any` 8, `_inout` 6 (the in-out's copy back included), `_fb_input` 6, `_fb_field` 6,
+// `bool_pointer_copied_to_byte_pointer` 4, `byte_pointer_copied_to_bool_pointer` 3 (69; the other fixtures' lines fell by 2).
+const RENAMED_TARGETS = 535
 
 interface Program {
   name: string

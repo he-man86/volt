@@ -21,6 +21,7 @@ import { emissionShape, normalizeRustLine, shapeId, sizeRatio } from "./support/
 import { tierOf } from "./support/transpile/tier.js"
 // the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
 import { runtimeText } from "../../src/transpile/emit/rust/runtime/index.js"
+import { NaNBits } from "../../src/transpile/semantics/nan.js"
 import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
 import { EVIDENCE_ORDER, rateFixture, type Evidence } from "./support/evidence.js"
 import { lowering, rated, SELECTION, whole } from "./support/fixture-suite.js"
@@ -155,8 +156,9 @@ describe("the map's measured columns — the pure halves", () => {
       for (const l of ["NaN", "+inf", "-inf", "0", "-0", `${name}_MAX`, `-${name}_MAX`, "min_subnormal"])
         expect(seeds).toContain(`${name}#${l}`)
     }
+    // the SAME NaN in both backends: the interpreter's is its bits (`NaNBits`, transpile-restructure 8.2), as the Rust's is
     const nan = edgeSeeds(elementary("REAL")).find((s) => s.label === "REAL#NaN")!
-    expect(Number.isNaN(nan.interp as number)).toBe(true)
+    expect(nan.interp).toEqual(new NaNBits(0x7fc00000n, 32))
     expect(nan.rust).toBe("f32::from_bits(0x7fc00000)")
   })
 

@@ -23,6 +23,7 @@ import { LoweringBug } from "../../semantics/faults.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { convert } from "../values/convert.js"
 import { lookup } from "../../../frontend/symbols/index.js"
+import { rawConversion } from "../pointers/raw-bool.js"
 
 /**
  * `X_TO_Y(v)` / `TO_Y(v)` → an explicit `convert` node. The rules themselves live in that IR node (design §11), so
@@ -155,10 +156,11 @@ const withLength = (t: Type, length: number): Type => ({ ...(t as Extract<Type, 
  *     IS cutting the operand there — no separate operand node.
  *   - a SAME-width TO_STRING(STRING) / TO_WSTRING(WSTRING): the result is the NAMED type at the default capacity — 80, not
  *     255 and not the operand's own (`string_conversion_same_width_255`: 100, 255 and 300 in, 80 out, both widths).
- *   - a parse (STRING or WSTRING to a number): the operand is cut at 255 on the way in (`string_parse_beyond_255`); a WSTRING
- *     is narrowed to a STRING of its capacity up to that (`tr_11_string_conversion_beyond_80`: 85 spaces then '12345' is
- *     12345). An operand of at most 255 units is converted as it is. A WSTRING number followed by spaces parses 0 in
- *     CODESYS and 5 here (`wstring_parse_trailing_spaces`, niche: accepted loss).
+ *   - a parse (STRING or WSTRING to a number): the operand is cut at 255 on the way in (`string_parse_beyond_255`;
+ *     `tr_11_string_conversion_beyond_80`: 85 spaces then '12345' is 12345). An operand of at most 255 units is converted as
+ *     it is. A WSTRING into an integer is parsed as a WSTRING, by its own grammar — the whole text or 0
+ *     (`wstring_parse_grammar`, `wstring_parse_trailing_spaces`: "5   " is 0, transpile-restructure 8.2); into a REAL it is
+ *     narrowed to a STRING first, whose prefix parse the wide one reads alike ("1.5x" and '1.5x' are 1.5).
  *   - a number's text: a STRING at the default capacity — no text these produce is longer.
  */
 function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse: boolean): IrExpr | undefined {
@@ -171,7 +173,11 @@ function stringConversion(lw: Lowering, e: Call, from: Type, to: Type, wideParse
   const source = sameWidth ? arg : convert(arg, defaultCapacity(from))
   const capacity = isString(source.type) && source.type.kind === "elementary" ? source.type.length : undefined
   if (isString(source.type) && capacity === undefined) throw new LoweringBug(`a string conversion's operand has no capacity (${elemOf(source.type)?.name})`)
-  if (wideParse) return { kind: "convert", value: convert(source, withLength(elementaryRef("STRING"), Math.min(capacity!, CONVERSION_RESULT))), type: to, span: e.span }
+  // a WSTRING parsed into an integer reads the WSTRING itself — its own grammar (`parseIntegerWide`); into a REAL, its
+  // narrowed STRING, whose prefix parse the wide one reads alike (`wstring_parse_grammar`); into every integer type as the
+  // STRING parse is (`wstring_parse_widths`)
+  if (wideParse && isReal(to)) return { kind: "convert", value: convert(source, withLength(elementaryRef("STRING"), Math.min(capacity!, CONVERSION_RESULT))), type: to, span: e.span }
+  if (wideParse) return { kind: "convert", value: capacity! > CONVERSION_RESULT ? convert(source, withLength(source.type, CONVERSION_RESULT)) : source, type: defaultCapacity(to), span: e.span }
   if (isString(to) && isString(source.type)) {
     const cross = elemOf(to)?.name !== elemOf(source.type)?.name
     return { kind: "convert", value: source, type: cross ? withLength(to, CONVERSION_RESULT) : defaultCapacity(to), span: e.span }
@@ -228,6 +234,9 @@ function numericConversion(lw: Lowering, e: Call, from: Type | undefined, to: Ty
   if (only === undefined) return arityRefusal(lw, e)
   const arg = bare ?? lowerExpr(lw, only)
   if (arg === undefined) return undefined
+  // BOOL_TO_INT / BOOL_TO_BYTE of a BOOL held as its byte: its bit 0 (`pointers/raw-bool.ts`)
+  const raw = from !== undefined && isBoolValued(from) ? rawConversion(lw, arg, to, e.span) : null
+  if (raw !== null) return raw
   const source = from === undefined ? arg : convert(arg, from)
   const fromName = elemOf(source.type)?.name ?? ""
   const toName = elemOf(to)?.name ?? ""

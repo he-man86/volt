@@ -5,12 +5,13 @@
  *   `ideValue`      a monitoring string as CODESYS prints it (`INT#5`, `DUT_X.Running`, `TIME#1s1ns`) as the
  *                   interpreter's value — refused, never guessed, when the form is unknown;
  *   `asDisplayed`   a stored value reduced the way the IDE's display reduces it (a TOD modulo a day, a STRING decoded);
- *   `interpRender`  an interpreter value as the edge harness's Rust prints it (a REAL by its bits, a string by unit);
- *   `rustRender`    what the Rust printed, with every NaN read as one.
+ *   `interpRender`  an interpreter value as the edge harness's Rust prints it (a REAL by its bits — a NaN's sign and
+ *                   payload included — a string by unit).
  */
 import { decodeStringLiteral } from "../../../src/frontend/syntax/index.js"
 import { isBit, type Type } from "../../../src/frontend/types/index.js"
 import type { IrValue } from "../../../src/transpile/index.js"
+import { NaNBits } from "../../../src/transpile/semantics/nan.js"
 
 /** A monitoring string as CODESYS prints it — `INT#5`, `REAL#3`, `TRUE` — as the interpreter's value. A form this
  *  does not know is refused, never guessed: a wrong parse would make both sides agree on something untrue. */
@@ -91,7 +92,7 @@ export function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new M
  * interpreter's and emitter's values are reduced the same way before comparing; the STORED truth is compared through
  * the cases' own `*Units` variables (`TOD_TO_UDINT(…)`), which display losslessly.
  */
-export function asDisplayed(raw: string, value: IrValue): IrValue {
+export function asDisplayed(raw: string, value: IrValue | NaNBits): IrValue {
   // A STRING IS STORED AS UTF-8 BYTES AND DISPLAYED AS TEXT. `strings/escapes.ts` measured both halves: `LEN('a$FFb')`
   // is 4, so the bytes are what the value IS, and the IDE reads it back as `'aÿb'`, so decoding is what the DISPLAY
   // does. We hold the bytes one JS char each (`literal-value.ts`), which is the right model and the wrong thing to
@@ -101,6 +102,12 @@ export function asDisplayed(raw: string, value: IrValue): IrValue {
   // `prim_default_wstring`). Decoding a WSTRING here mangled `wstring_basic` and `wstring_code_units`.
   if (typeof value === "string" && raw.startsWith("'"))
     return new TextDecoder().decode(Uint8Array.from(value, (ch) => ch.charCodeAt(0) & 0xff))
+  // A NEGATIVE ZERO DISPLAYS AS `REAL#0`: `reinterpret_dint_as_real_edges` records rNzero `REAL#0` beside its bits bNzero
+  // 16#80000000, and `tr_28_*` nz `REAL#0` beside wnz with the sign bit set — the display drops the sign the value keeps
+  // (the bits are compared through those DWORDs). No recording spells `#-0`.
+  if (typeof value === "number" && Object.is(value, -0)) return 0
+  // A NaN displays as `REAL#NaN`, whatever its bits — which the model keeps (`NaNBits`, transpile-restructure 8.2)
+  if (value instanceof NaNBits) return Number.NaN
   if (typeof value !== "bigint") return value
   const floorTo = (v: bigint, step: bigint): bigint => v - (((v % step) + step) % step)
   if (raw.startsWith("TIME_OF_DAY#")) return ((value % 86_400_000n) + 86_400_000n) % 86_400_000n
@@ -135,8 +142,10 @@ export function seedable(t: Type): Seedable | undefined {
 export function interpRender(v: unknown, t: Type): string {
   const kind = seedable(t)
   if (kind === "real" && t.kind === "elementary") {
+    // a NaN by its BITS, as the Rust prints it (gate 8c): both backends keep a NaN's sign and payload since step 8c, so a
+    // backend that flips or drops them disagrees here (the Rust's `-x` flipped a NaN's sign before `iec_fneg32`)
+    if (v instanceof NaNBits) return v.bits.toString()
     if (typeof v !== "number") return `?${String(v)}`
-    if (Number.isNaN(v)) return "NaN"
     return t.elem.bits === 64
       ? new BigUint64Array(new Float64Array([v]).buffer)[0]!.toString()
       : String(new Uint32Array(new Float32Array([v]).buffer)[0]!)
@@ -145,14 +154,4 @@ export function interpRender(v: unknown, t: Type): string {
   if (kind === "string")
     return typeof v === "string" ? `[${Array.from({ length: v.length }, (_, i) => v.charCodeAt(i)).join(", ")}]` : `?${String(v)}`
   return String(v)
-}
-
-export function rustRender(raw: string, t: Type): string {
-  if (seedable(t) !== "real" || t.kind !== "elementary") return raw
-  const b = BigInt(raw)
-  const nan =
-    t.elem.bits === 64
-      ? (b & 0x7ff0000000000000n) === 0x7ff0000000000000n && (b & 0xfffffffffffffn) !== 0n
-      : (b & 0x7f800000n) === 0x7f800000n && (b & 0x7fffffn) !== 0n
-  return nan ? "NaN" : raw
 }

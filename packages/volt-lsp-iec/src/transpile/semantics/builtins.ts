@@ -4,13 +4,14 @@
  * cannot disagree (`declarations/constant-folding.ts`, 29 probes, 2026-09-19).
  */
 import type { IrBuiltinName } from "../ir/index.js"
-import { type Type, widthOf as typeWidth } from "../../frontend/types/index.js"
+import { floatBits, type Type, widthOf as typeWidth } from "../../frontend/types/index.js"
 import { bool, num, type Val } from "./value.js"
 import { ord } from "./arith.js"
 import { fit } from "./store.js"
 import { expt, MATH } from "./math.js"
 import { charAt, lengthOf, setChar } from "./string.js"
 import { LoweringBug } from "./faults.js"
+import { absNaN, NaNBits, realResult } from "./nan.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
@@ -63,11 +64,14 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     case "ror":
       return fit(bitValue(name, args, type, rotateBits), type)
     case "expt":
-      // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL)
-      return fit(expt(Number(num(args[0]!)), Number(num(args[1]!))), type)
+      // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL);
+      // a NaN answered is the first NaN argument quieted, and EXPT(NaN, 0) is 1 (`nan_payload_select_trig`)
+      return fit(realResult(expt(Number(num(args[0]!)), Number(num(args[1]!))), args, floatBits(type)), type)
     case "abs": {
-      // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself
+      // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself. A NaN is quieted and its sign
+      // cleared (`nan_payload_ops`: ABS(16#FF812345) is 16#7FC12345)
       const v = args[0]!
+      if (v instanceof NaNBits) return absNaN(v)
       return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), type)
     }
     case "char":
@@ -88,8 +92,9 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     case "asin":
     case "acos":
     case "atan":
-      // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits
-      return fit(MATH[name](Number(num(args[0]!))), type)
+      // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits; a NaN
+      // answered is the NaN argument quieted, or the default one (SQRT(-1), `nan_payload_ops`)
+      return fit(realResult(MATH[name](Number(num(args[0]!))), args, floatBits(type)), type)
   }
 }
 

@@ -43,6 +43,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "bad-literal": "invalid",
   "binary-op": "invalid",
   "bit-index": "invalid",
+  "bool-byte": "not-measured",
   "call-arity": "invalid",
   "call-base": "unclassified",
   "call-body": "unclassified",
@@ -118,6 +119,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   // A BACKSTOP, not a construct: an initializer that lowered to nothing and reported nothing. It names a lowering
   // bug rather than a language feature, so a program producing it is a defect to fix here, not a gap to build.
   "init-dropped": "unclassified",
+  "init-nan": "not-measured",
   "init-not-constant": "unclassified",
   "init-composite-scalar": "invalid",
   "inout-constant-write": "unclassified",

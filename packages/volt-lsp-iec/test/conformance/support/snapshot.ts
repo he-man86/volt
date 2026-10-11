@@ -25,6 +25,7 @@
  * DETERMINISM: a clocked fixture scans on the edge run's synthetic 10 ms per scan in both halves (the recorded instants
  * are the value pass's business, not a neutrality check's); the interpreter runs with the harness's loop guard.
  */
+import { NaNBits } from "../../../src/transpile/semantics/nan.js"
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { renderType, type Type } from "../../../src/frontend/types/index.js"
@@ -122,6 +123,8 @@ export function canonical(value: unknown): string {
       return x
     }
     if (x === null || typeof x !== "object") return x
+    // a NaN value is its bits (`NaNBits`, transpile-restructure 8.2)
+    if (x instanceof NaNBits) return `#NaN ${x.bits.toString(16)}`
     if (isType(key, x)) return `#type ${typeText(x)}`
     if (isSpan(x)) return `#span ${x.startLine}:${x.startCol}-${x.endLine}:${x.endCol}`
     if (onPath.has(x)) throw new Error(`canonical IR: a reference cycle at ${where} — the IR is a tree, a back-reference is not followed`)

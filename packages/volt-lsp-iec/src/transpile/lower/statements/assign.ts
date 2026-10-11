@@ -21,7 +21,8 @@ import { registerWholeCopy } from "../calls/last-binding.js"
 import { readTargets } from "../pointers/state.js"
 import { tempPlace } from "../core/temps.js"
 import { refuseCursorOverrun } from "../pointers/cursor.js"
-import { escapesOf } from "../pointers/escape.js"
+import { escapesOf, variableKey } from "../pointers/escape.js"
+import { isPlainBool, isRawBoolPlace, storedBool } from "../pointers/raw-bool.js"
 import { byteRun, imageRuns } from "../pointers/image.js"
 import { ADDRESS, BASE_FIELD, offsetBy } from "../../semantics/index.js"
 
@@ -140,12 +141,16 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
     // a write through a reference is a write to its target
     const pointee = pointeePlace(lw, target, undefined, s.span)
     if (pointee === undefined || guardWrite(lw, pointee, s.span, PLAIN_WRITE) === undefined) return undefined
-    const written = lowerExpr(lw, s.value, pointee.type)
+    // a REFERENCE TO BOOL that reads a byte is given a BOOL, stored as `p^` stores it (`pointers/raw-bool.ts`)
+    const rawPointee = isRawBoolPlace(lw, pointee)
+    const written = lowerExpr(lw, s.value, rawPointee ? elementaryRef("BOOL") : pointee.type)
     // the same implicit store as into the target itself: `ri := str` is refused as `v := str` is (`tr_38_ref_store_*`)
     if (written === undefined || refuseImplicitString(lw, written, pointee.type, s.span)) return undefined
-    return assignTo(pointee, written, s.span)
+    return assignTo(pointee, boolStored(lw, pointee, rawPointee, written), s.span)
   }
-  const value = lowerExpr(lw, s.value, target.type, true)
+  // a BOOL held as its byte is given a BOOL (`pointers/raw-bool.ts`)
+  const rawTarget = isRawBoolPlace(lw, target)
+  const value = lowerExpr(lw, s.value, rawTarget ? elementaryRef("BOOL") : target.type, true)
   if (value === undefined) return undefined
   // A STRING DOES NOT IMPLICITLY BECOME A NUMBER. CODESYS rejects `i := 'a$Tb'` outright — "Cannot convert type
   // 'STRING(INT#4)' to type 'INT'" (`literal_string_to_int_assignment`, `cc_init_string_into_int`,
@@ -166,7 +171,7 @@ function storeValue(lw: Lowering, s: Extract<Statement, { kind: "assign" }>, tar
   if (holdsOwnAddress(lw, target.type))
     return lw.bail("copy-instance-pointer", "a whole-value store of an instance whose POINTER or REFERENCE field targets its own member — the copy would re-target it", s.span)
   registerWholeCopy(lw, target.type)
-  const store: IrStmt = assignTo(target, value, s.span)
+  const store: IrStmt = assignTo(target, boolStored(lw, target, rawTarget, value), s.span)
   // a UNION member's store, then its bytes into the members it overlays
   const copies = unionCopies(lw, target, s.span)
   return copies && [store, ...copies]
@@ -225,7 +230,13 @@ function instanceCopy(lw: Lowering, target: Place, value: IrExpr, span: Span): I
  */
 export function storeArgument(lw: Lowering, target: Place, value: IrExpr, span: Span): IrStmt[] | undefined {
   const imaged = instanceCopy(lw, target, value, span)
-  return imaged === null ? [assignTo(target, value, span)] : imaged
+  return imaged === null ? [assignTo(target, boolStored(lw, target, isRawBoolPlace(lw, target), value), span)] : imaged
+}
+
+/** A value stored into a BOOL — held as its byte or not — as `raw-bool.ts` `storedBool` stores it, the flow recorded; any
+ *  other value as it is. */
+function boolStored(lw: Lowering, target: Place, rawTarget: boolean, value: IrExpr): IrExpr {
+  return rawTarget || isPlainBool(target.type) ? storedBool(lw, variableKey(lw, target), target.type, rawTarget, value) : value
 }
 
 /** Whether a value of `t` holds an instance of an escaped FB type, at any depth. */

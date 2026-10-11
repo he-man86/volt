@@ -25,6 +25,7 @@
  * `Unexpected token 's'`, `docs/reserved-il-operators.md`. Thirteen fixtures were once written that way and recorded
  * a parse error in place of an answer, which is a trap this file walked straight into before renaming.
  */
+import { FUNCTION_FRAME_RESIDUE_DIVERGENCES } from "../../support/divergences.js"
 import type { LanguageTest } from "../../types.js"
 
 function probe(slug: string, expr: string, outType: string, feature: string, decls = ""): LanguageTest {
@@ -318,6 +319,39 @@ const dumpPaths = (p: string, from: number, to: number): string[] =>
 const dumps = (pairs: readonly (readonly [string, string])[]): string =>
   `FOR i := 0 TO 15 DO\n${pairs.map(([p, text]) => `\t${p}Lo[i] := ${text}[i];\n`).join("")}END_FOR\n` +
   `FOR i := 16 TO 20 DO\n${pairs.map(([p, text]) => `\t${p}Hi[i] := ${text}[i];\n`).join("")}END_FOR\n`
+
+/**
+ * The cells of `wstring_parse_grammar` (transpile-restructure 8.2): `[name, text]`, the text as it stands inside a WSTRING
+ * literal (`$T` a tab). The integer ones are the `tr_a10_*` STRING cells of `semantics/parse.cases.ts` widened, then plain
+ * decimals and what may stand before or after them; the REAL ones `string_to_real_parse`'s, then trailing characters.
+ */
+const WIDE_PARSE_INT: readonly (readonly [string, string])[] = [
+  ["Hex", "16#FF"], ["Bin", "2#101"], ["Oct", "8#17"], ["Typed", "INT#5"], ["TypedHex", "INT#16#1F"], ["LowerHex", "16#ff"],
+  ["Under", "1_000"], ["NegHex", "-16#F"], ["SpaceHex", " 16#FF"], ["BadHex", "16#G"],
+  ["HexUnder", "16#FF_FF"], ["DoubleUnder", "1__0"], ["LeadUnder", "_5"], ["TrailUnder", "5_"], ["NoDigits", "16#"],
+  ["OctNine", "8#19"], ["PlusHex", "+16#F"], ["Base3", "3#12"], ["Base10", "10#99"], ["HexTail", "16#1FZ"], ["ZeroHex", "016#F"],
+  ["NegUnder", "-1_0"], ["PlusLead", "+_5"], ["SpaceLead", " _5"], ["Only", "_"], ["NegLead", "-_5"], ["HexLead", "16#_F"],
+  ["BinUnder", "2#1_0"], ["DoubleLead", "__5"], ["SpaceInside", "1 0"], ["TabLead", "$T16#F"],
+  ["Plain", "5"], ["Neg", "-5"], ["Plus", "+5"], ["Lead", " 5"], ["TabPlain", "$T7"], ["Letters", "12abc"], ["SpaceSign", "- 5"],
+  ["Empty", ""], ["TrailSpace", "5 "], ["TrailTab", "5$T"], ["TrailLetter", "5a"], ["Big", "99999"], ["HexTrailSpace", "16#FF "],
+  ["Alpha", "abc"],
+]
+const WIDE_PARSE_REAL: readonly (readonly [string, string])[] = [
+  ["DotFirst", ".5"], ["DotLast", "5."], ["BareExp", "1.5E"], ["LowerExp", "2e2"], ["NegR", " -2.5"], ["AlphaR", "abc"],
+  ["TabbedR", "$T3.25"], ["Comma", "1,5"], ["Long", "1.23456789"], ["TrailSpaceR", "1.5 "], ["TrailTabR", "1.5$T"],
+  ["TrailLetterR", "1.5x"], ["IntR", "7"], ["EmptyR", ""], ["ExpSpace", "1E3 "],
+]
+
+/**
+ * The cells of `wstring_parse_widths` (gate 8c): texts past 32 bits, past 64, negative, past INT and SINT, each parsed into
+ * every integer type by WSTRING_TO_<type> and by STRING_TO_<type> beside it — `wstring_parse_grammar` parsed into a DINT
+ * only, so whether the wide parse wraps into a narrower or wider type as the STRING one does is asked here.
+ */
+const WIDE_WIDTH_TEXTS: readonly (readonly [string, string])[] = [
+  ["Past32", "9999999999"], ["Two32", "4294967296"], ["Neg5", "-5"], ["Past16", "70000"], ["Past8", "300"], ["NegPast8", "-129"],
+  ["U64Max", "18446744073709551615"], ["Past64", "99999999999999999999"], ["NegPast64", "-9223372036854775809"],
+]
+const WIDE_WIDTH_TYPES = ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT", "BYTE", "WORD", "DWORD", "LWORD"] as const
 
 export const STRING_MODEL_TESTS: readonly LanguageTest[] = [
   // M1: the bytes behind a $00 inside a literal. RC 45's LIVE run reported c3 = uc3 = 99 for `STRING(3) := 'ab$00c'`; the
@@ -815,8 +849,9 @@ ${dumps([["arr", "arr[0]"], ["rec", "rec.text"], ["inOut", "viaInOut"], ["input"
   // RECORDED (CODESYS 3.5.21.40, 2026-10-08): `p` is 'abc' + 0 + 'efghij' + 0 at [0..10] — the pass is M2's store, eleven
   // units — and [11..19] are the units the FIRST call left in the same stack frame. Recorded twice with a 20-'Z' first call
   // (90, identical) and then, gate 3c, with a 20-'Y' one (89): the units FOLLOW the previous call, so they are a
-  // deterministic carry-over of the function's frame, not residue (`LanguageTest.residue` is memory no program wrote). The
-  // model starts a function's VAR_INPUT at zeros and writes 0 there — a known divergence (`deferred.transpile`).
+  // carry-over of the function's frame. `string_input_tail_interleaved` (8.2) then showed the frame is the vendor's shared
+  // stack — another call between the two overwrote part of it — so the model, which starts a function's VAR_INPUT at
+  // zeros, diverges here by an accepted loss (design.md §7.2, `FUNCTION_FRAME_RESIDUE_DIVERGENCES`).
   { ...whole("string_store_function_input_tail", "a STRING(10) with units behind its terminator passed to a FUNCTION's VAR_INPUT STRING(20): what stands behind the stored units (transpile-restructure 3.6)",
     `FUNCTION F_StrTailInput : BOOL
 VAR_INPUT
@@ -849,7 +884,7 @@ src[3] := 0;
 okDirty := F_StrTailInput(p := 'YYYYYYYYYYYYYYYYYYYY', lo := dirtyLo, hi := dirtyHi);
 okP := F_StrTailInput(p := src, lo := pLo, hi := pHi);
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure gate 3c): a FUNCTION's VAR_INPUT STRING(20) holds, behind the units a call's pass stores, the units the PREVIOUS call through the same frame left there — p[11..19] read 89 after a 20-'Y' call, 90 after a 20-'Z' one (record:exec, both reproducible); both backends start the input at zeros and read 0. Modelling it means a function frame that persists between calls at the vendor's stack layout. Only reachable by reading behind a function input's terminator; niche: accepted loss (0 occurrences in the corpora: 0 of the corpora's FUNCTIONs with a STRING/WSTRING VAR_INPUT index it)" } },
+`), deferred: { transpile: FUNCTION_FRAME_RESIDUE_DIVERGENCES.string_store_function_input_tail } },
 
   // 3.8's two unmeasured neighbours of M5 (design §3.2 Decision step 3d), recorded before their rule is written.
   // SAME-width: TO_STRING of a STRING and TO_WSTRING of a WSTRING of 300, 255 and 100 units ('x' / 'y', filled by index),
@@ -998,8 +1033,9 @@ END_FUNCTION_BLOCK
   // review): "5   " in a WSTRING(20), and '5' then 254 / 255 / 290 spaces in a WSTRING(300), through WSTRING_TO_INT and
   // TO_INT, beside the same "5   " as a STRING(20). RECORDED (CODESYS 3.5.21.40, 2026-10-08): every wide one parses 0,
   // the narrow one 5 — a WSTRING parse refuses trailing spaces where a STRING parse stops at them; inside 255 as much as
-  // past it, so it is not the cut.
-  { ...whole("wstring_parse_trailing_spaces", "WSTRING_TO_INT / TO_INT of a WSTRING number followed by spaces (\"5   \", '5' + 254/255/290 spaces) beside STRING_TO_INT of '5   ' (transpile-restructure 3.8)",
+  // past it, so it is not the cut. `wstring_parse_grammar` (8.2) found the rule: a WSTRING parse answers only when it reads
+  // the whole text (`semantics/parse.ts` `parseIntegerWide`).
+  whole("wstring_parse_trailing_spaces", "WSTRING_TO_INT / TO_INT of a WSTRING number followed by spaces (\"5   \", '5' + 254/255/290 spaces) beside STRING_TO_INT of '5   ' (transpile-restructure 3.8)",
     `FUNCTION_BLOCK FB_LANG_wstring_parse_trailing_spaces
 VAR
 \ti : INT;
@@ -1040,7 +1076,7 @@ wideBareLead := TO_INT(wLead);
 wideNamedLead255 := WSTRING_TO_INT(wLead255);
 wideNamedLead256 := WSTRING_TO_INT(wLead256);
 END_FUNCTION_BLOCK
-`), deferred: { transpile: "2026-10-08 (transpile-restructure gate 3d): a WSTRING parse of a number followed by spaces answers 0 (\"5   \", '5' + 254/255/290 spaces, WSTRING_TO_INT and TO_INT alike) where a STRING parse stops at the spaces and answers 5; both backends narrow the WSTRING and parse it as a STRING, and answer 5. What a WSTRING parse does with any other trailing character is unmeasured. niche: accepted loss (0 occurrences in the corpora: no WSTRING_TO_* parse, and no user POU declares a WSTRING)" } },
+`),
 
   // 3.10 (design §3.2 Decision step 3d): a WHOLE-string store through a POINTER TO STRING(20) aimed at a STRING(5) — through
   // a local pointer and through a FUNCTION's pointer input (a cursor) — of a STRING(10) 'abcdefghij'. The STRING(5) sits in
@@ -1314,4 +1350,88 @@ stored := F_WiderStored(io := v);
 END_FUNCTION_BLOCK
 `), pouName: "FB_LANG_string_inout_wider_copies", plcPrgVar: "inst : FB_LANG_string_inout_wider_copies;",
     deferred: { transpile: "2026-10-10 (transpile-restructure gate 7.4c), recorded: CODESYS copies the in-out at its DECLARED capacity both ways — the project FUNCTION's input counts 10, the STRING(20) holds 'abcdefghij' — as the Standard functions' lent input now reads it (`string_input_lent_inout_wider`); both backends copy the caller's 12 into the input (`viaInput` 12), and the Rust store reads the caller's capacity too (`stored` 'abcdefghijkl'; the interpreter's 'abcdefghij'). niche: accepted loss (0 occurrences in the corpora: of the 13 STRING VAR_IN_OUTs the six declare, every call binds one of its own capacity — the recipe managers a STRING to a STRING, pro2193's JSON builders a STRING(n) to a STRING(n) — and the STRING(1) any-length idiom is Tc2_System's CONCATX and AppendErrorString, library declarations with no body)" } },
+  // transpile-restructure 8.2 (design.md §7.2 Decision step 8c), recorded before the wide parse is written: the WIDE twin
+  // of every STRING → integer cell `semantics/parse.cases.ts` holds (the `tr_a10_*` forms, edges and signs), plain decimals
+  // with a sign, a space, a tab or a letter before or after them, an empty text, into a DINT (no width cuts); and the REAL
+  // parse's cells (`string_to_real_parse`) with a trailing space, tab or letter, into a REAL, beside two STRING twins.
+  // RECORDED (CODESYS 3.5.21.40, record:exec 2026-10-11): into a DINT a WSTRING reads what a STRING reads, and answers it
+  // only when that is the WHOLE text ('12abc', '1 0', '5 ', '16#1FZ', '8#19', '-16#F' are 0) — `semantics/parse.ts`
+  // `parseIntegerWide`, the cells `parse.cases.ts` `WIDE_PARSE_INT_CASES`; into a REAL it reads the STRING's prefix ("1.5x" 1.5).
+  whole("wstring_parse_grammar", "WSTRING_TO_DINT and WSTRING_TO_REAL over every recorded STRING parse form, plus trailing space / tab / letter (transpile-restructure 8.2)",
+    `FUNCTION_BLOCK FB_LANG_wstring_parse_grammar
+VAR
+${WIDE_PARSE_INT.map(([n, text]) => `\tw${n} : WSTRING := "${text}";\n\td${n} : DINT;\n`).join("")}${WIDE_PARSE_REAL.map(([n, text]) => `\tw${n} : WSTRING := "${text}";\n\tr${n} : REAL;\n`).join("")}\tnTrailSpaceR : STRING := '1.5 ';
+\tnTrailLetterR : STRING := '1.5x';
+\trNarrowTrailSpace : REAL;
+\trNarrowTrailLetter : REAL;
+END_VAR
+${WIDE_PARSE_INT.map(([n]) => `d${n} := WSTRING_TO_DINT(w${n});\n`).join("")}${WIDE_PARSE_REAL.map(([n]) => `r${n} := WSTRING_TO_REAL(w${n});\n`).join("")}rNarrowTrailSpace := STRING_TO_REAL(nTrailSpaceR);
+rNarrowTrailLetter := STRING_TO_REAL(nTrailLetterR);
+END_FUNCTION_BLOCK
+`),
+
+  // gate 8c (review of step 8c): `wstring_parse_grammar` recorded the wide parse into a DINT only. Into every other integer
+  // type, and for texts past 32 / 64 bits or negative into an unsigned type, the answer is asked here — the WSTRING and the
+  // STRING parse of the same text side by side — before lowering answers it.
+  whole("wstring_parse_widths", "WSTRING_TO_<every integer type> beside STRING_TO_<type> of texts past 32 and 64 bits, negative, and past INT / SINT (transpile-restructure 8.2, gate 8c)",
+    `FUNCTION_BLOCK FB_LANG_wstring_parse_widths
+VAR
+${WIDE_WIDTH_TEXTS.map(([n, text]) => `\tw${n} : WSTRING := "${text}";\n\ts${n} : STRING := '${text}';\n`).join("")}${WIDE_WIDTH_TEXTS.flatMap(([n]) => WIDE_WIDTH_TYPES.map((t) => `\twide${n}${t} : ${t};\n\tnarrow${n}${t} : ${t};\n`)).join("")}END_VAR
+${WIDE_WIDTH_TEXTS.flatMap(([n]) => WIDE_WIDTH_TYPES.map((t) => `wide${n}${t} := WSTRING_TO_${t}(w${n});\nnarrow${n}${t} := STRING_TO_${t}(s${n});\n`)).join("")}END_FUNCTION_BLOCK
+`),
+
+  // transpile-restructure 8.2 (design.md §7.2 Decision step 8c): whose units stand behind a FUNCTION's STRING input's
+  // terminator (`string_store_function_input_tail`: the previous call's 'Y')? F is called with 20 'Y', then G — another
+  // FUNCTION, called from the same body at the same depth, whose local 256 bytes it fills with 'Q' (81) — then F with a
+  // STRING(10) 'abc' + 0 + 'efghij'. 'Y' behind the pass says F's input buffer persists per function; 'Q' that it is the
+  // vendor's shared stack, which G's frame overwrote. RECORDED (CODESYS 3.5.21.40, 2026-10-11): neither — 'Y' at p[11..15]
+  // and an address's bytes at p[16..20] (176, 250, 63, 25, 178: stack residue, `residue`), which G's frame wrote: the stack,
+  // so a named loss (design.md §7.2, `FUNCTION_FRAME_RESIDUE_DIVERGENCES`).
+  { ...whole("string_input_tail_interleaved", "a FUNCTION's VAR_INPUT STRING(20) passed 20 'Y', then another FUNCTION filling 256 local bytes with 'Q', then the first passed a short STRING: what stands behind the stored units (transpile-restructure 8.2)",
+    `FUNCTION F_StrTailInter : BOOL
+VAR_INPUT
+\tp : STRING(20);
+END_VAR
+VAR_IN_OUT
+\tlo : ARRAY[0..15] OF BYTE;
+\thi : ARRAY[16..20] OF BYTE;
+END_VAR
+VAR
+\ti : INT;
+END_VAR
+FOR i := 0 TO 15 DO
+\tlo[i] := p[i];
+END_FOR
+FOR i := 16 TO 20 DO
+\thi[i] := p[i];
+END_FOR
+F_StrTailInter := TRUE;
+END_FUNCTION
+
+FUNCTION G_StrTailQ : BOOL
+VAR
+\tq : ARRAY[0..255] OF BYTE;
+\ti : INT;
+END_VAR
+FOR i := 0 TO 255 DO
+\tq[i] := 81;
+END_FOR
+G_StrTailQ := q[255] = 81;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_string_input_tail_interleaved
+VAR
+\tsrc : STRING(10);
+\tokDirty : BOOL;
+\tokQ : BOOL;
+\tokP : BOOL;
+${dumpArrays(["dirty", "p"])}END_VAR
+src := 'abcdefghij';
+src[3] := 0;
+okDirty := F_StrTailInter(p := 'YYYYYYYYYYYYYYYYYYYY', lo := dirtyLo, hi := dirtyHi);
+okQ := G_StrTailQ();
+okP := F_StrTailInter(p := src, lo := pLo, hi := pHi);
+END_FUNCTION_BLOCK
+`), pouName: "FB_LANG_string_input_tail_interleaved", plcPrgVar: "inst : FB_LANG_string_input_tail_interleaved;",
+    residue: dumpPaths("pHi", 16, 20), deferred: { transpile: FUNCTION_FRAME_RESIDUE_DIVERGENCES.string_input_tail_interleaved } },
 ]

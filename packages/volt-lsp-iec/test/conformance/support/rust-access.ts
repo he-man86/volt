@@ -18,6 +18,9 @@ export interface RustAccess {
   readonly type: Type
   readonly read: string
   write(value: string): string
+  /** A BOOL held as its byte (`IrSlot.rawBool`): `type` is its BYTE, and it SHOWS as the BOOL it is declared — 0 FALSE,
+   *  1 TRUE (transpile-restructure 8.2). */
+  readonly rawBool?: true
 }
 
 const NO_SPAN = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
@@ -29,13 +32,13 @@ const NO_SPAN = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCo
  * instance whose data it holds, is its bytes in `Mem` — found by the one rewrite the interpreter's runner asks too.
  */
 export function rustAccess(pou: IrPou, path: string): RustAccess {
-  const { place, rootType, address, global } = placeOf(pou, path)
+  const { place, rootType, address, global, rawBool } = placeOf(pou, path)
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const image = toImage(place, { type: rootType, ...(address === undefined ? {} : { address }) }, layouts)
   const type = place.type
   if (image.root !== "image") {
     const text = `${global ? ROOTS.globals : ROOTS.pou}.${fieldPath(pou, place, rootType)}`
-    return { type, read: text, write: (value) => `${text} = ${value};` }
+    return { type, read: text, write: (value) => `${text} = ${value};`, ...rawBool }
   }
   if (type.kind !== "elementary") throw new Error(`${path} is a composite the image holds — read its elements`)
   const at = `${addressText(pou, image.at!)} + ${image.path.reduce((n, s) => n + (s.kind === "index" ? (Number((s.index as { value: bigint }).value) - Number(s.lower)) * s.size! : 0), 0)}`
@@ -44,11 +47,11 @@ export function rustAccess(pou: IrPou, path: string): RustAccess {
   const typed = (value: string): string => `(${value.endsWith(" as _") ? value.slice(0, -5) : `(${value})`} as ${rustType(type)})`
   const write = (value: string): string =>
     isBoolValued(type) ? `${ROOTS.image}.st(${at}, [u8::from(${value})]);` : `${ROOTS.image}.st(${at}, ${typed(value)}.to_le_bytes());`
-  return { type, read, write }
+  return { type, read, write, ...rawBool }
 }
 
 /** A path as the place it names, under the POU's frame or the application's globals. */
-function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; address?: number; global: boolean } {
+function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; address?: number; global: boolean; rawBool: { rawBool?: true } } {
   // the IDE's path grammar (`ir/path.ts`), the one the interpreter's `get` reads
   const parts = parsePath(path)
   const head = parts[0]
@@ -63,6 +66,8 @@ function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; addr
   let inGlobals = global >= 0
   let type = root.type
   let steps: Access[] = []
+  // the slot or field the path names whole — whether it is a BOOL held as its byte
+  let whole: { rawBool?: true } | undefined = root
   for (const part of parts.slice(1)) {
     if (part.kind === "name") {
       const named = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
@@ -76,20 +81,24 @@ function placeOf(pou: IrPou, path: string): { place: Place; rootType: Type; addr
         inGlobals = true
         steps = []
         type = root.type
+        whole = root
         continue
       }
       if (field === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
       steps.push({ kind: "field", name: field.name })
       type = field.type
+      whole = field
     } else {
       const array = peelArray(type)
       if (array === undefined) throw new Error(`${path} indexes a non-array`)
       steps.push({ kind: "index", index: { kind: "const", value: part.index, type: elementaryRef("LINT"), span: NO_SPAN }, lower: array.lower, length: array.length })
       type = array.element
+      whole = undefined
     }
   }
   const place: Place = { slot: at, path: steps, type, span: NO_SPAN, ...(inGlobals ? { root: "global" as const } : {}) }
-  return { place, rootType: root.type, ...(root.image === undefined ? {} : { address: root.image }), global: inGlobals }
+  const rawBool = whole?.rawBool === true ? { rawBool: true as const } : {}
+  return { place, rootType: root.type, ...(root.image === undefined ? {} : { address: root.image }), global: inGlobals, rawBool }
 }
 
 /** A place's struct path under its root — `inst.arr[2].x` as the emitter names the fields. */

@@ -38,8 +38,9 @@ export const MEMORY_CASES: Readonly<Record<string, readonly Case<MemoryInput, st
     { name: "a byte 16#FF over byte 1 of a DWORD 16#A4A3A2A1, read as a DINT", input: { stores: [{ type: "DWORD", at: 4, value: 0xa4a3a2a1n }, { type: "BYTE", at: 5, value: 0xffn }], read: { load: "DINT", at: 4 } }, expected: "-1532756063" },
     { name: "a byte 16#EE over the low byte of a WORD 16#B2B1", input: { stores: [{ type: "WORD", at: 8, value: 0xb2b1n }, { type: "BYTE", at: 8, value: 0xeen }], read: { load: "WORD", at: 8 } }, expected: "45806" },
     { name: "a BYTE 255 read as a SINT", input: { stores: [{ type: "BYTE", at: 2, value: 255n }], read: { load: "SINT", at: 2 } }, expected: "-1" },
-    // NO case for a BOOL whose byte is 2: CODESYS keeps the byte (`bool_byte_two_through_pointer`: `b = TRUE` FALSE, `NOT b`
-    // TRUE), which a BOOL read as `<> 0` cannot show — that fixture holds the divergence (niche: accepted loss, review 4d)
+    // NO case for a BOOL whose byte is 2 loaded AS A BOOL: a BOOL whose byte a store of another type reaches is held as
+    // its BYTE and loaded as one (`lower/pointers/raw-bool.ts`; `bool_byte_two_through_pointer`, `bool_byte_ops`, 8.2), so
+    // a BOOL load reads a byte no other type wrote — 0 or 1
     { name: "a BOOL TRUE is the byte 1", input: { stores: [{ type: "BOOL", at: 3, value: true }], read: { load: "BYTE", at: 3 } }, expected: "1" },
     { name: "a LINT at the minimum, read back", input: { stores: [{ type: "LINT", at: 8, value: -(1n << 63n) }], read: { load: "LINT", at: 8 } }, expected: "-9223372036854775808" },
   ],
@@ -67,16 +68,6 @@ export const MEMORY_CASES: Readonly<Record<string, readonly Case<MemoryInput, st
     { name: "a load in the gap between two regions", input: { stores: [], read: { load: "BYTE", at: 18 } }, expected: "fault: address-outside-image" },
     { name: "a load past the image", input: { stores: [], read: { load: "BYTE", at: 40 } }, expected: "fault: address-outside-image" },
   ],
-}
-
-/**
- * The cases the INTERPRETER cannot answer, each with its reason — run as expected failures by `memory.test.ts`, so one
- * that starts passing fails the suite until its mark is removed. A REAL is a JavaScript number in the value model, and
- * every NaN a number holds is the one quiet NaN: a signalling NaN's bits do not survive a load (the Rust `f32` keeps
- * them, as CODESYS does).
- */
-export const MEMORY_INTERPRETER_DIVERGENCES: Readonly<Record<string, string>> = {
-  "a signalling NaN": "a REAL is a JavaScript number, whose NaN is always 7fc00000 — niche: accepted loss (1 occurrence in the corpora: bakon-nano ReadParametersFromAGM views a REAL's bytes through a POINTER TO ARRAY OF BYTE) (design.md §3.3 step 4e)",
 }
 
 // ─── a value's bytes read at another type (lean 7.8.4) ─────────────────────────────────────────────────────────
@@ -127,9 +118,4 @@ export const REINTERPRET_CASES: Readonly<Record<string, readonly Case<Reinterpre
     { name: "two INTs -1, 2 over an LINT 16#7FFF000000000000", input: { from: { array: "INT", lower: 0, length: 2 }, value: [-1n, 2n], to: "LINT", over: 0x7fff000000000000n }, expected: "9223090561878261759" },
     { name: "an LREAL 1.0 read as two bytes", input: { from: "LREAL", value: 1, to: BYTES2 }, expected: "[0, 0]" },
   ],
-}
-
-/** The reinterpret cases the INTERPRETER cannot answer — the same reason as `MEMORY_INTERPRETER_DIVERGENCES`'. */
-export const REINTERPRET_INTERPRETER_DIVERGENCES: Readonly<Record<string, string>> = {
-  "a signalling NaN's DWORD as a REAL": MEMORY_INTERPRETER_DIVERGENCES["a signalling NaN"]!,
 }

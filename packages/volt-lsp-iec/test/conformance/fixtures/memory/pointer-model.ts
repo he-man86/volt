@@ -16,6 +16,128 @@ import type { LanguageTest } from "../../types.js"
 const doc = "openspec transpile-restructure design.md §3.3 (task 4.1)"
 const doc413 = "openspec transpile-restructure design.md §3.3 Decision (step 4f), task 4.13"
 
+// ─── transpile-restructure 8.2 (design.md §7.2 Decision step 8c): the NaN bits and the BOOL byte, recorded first ───
+// RECORDED (CODESYS 3.5.21.40, record:exec 2026-10-11) and modelled: a NaN is its bits (`semantics/nan.ts`, the cells in
+// `semantics/nan.cases.ts`) — an operation answers its first NaN operand quieted, NEG keeps the sign and ABS clears it, a
+// NaN made from no NaN is 16#FFC00000, REAL <-> LREAL moves the payload, a copy or a select carries it as it is; a BOOL whose
+// byte another type reaches is held as its BYTE (`lower/pointers/raw-bool.ts`) — AND / OR / XOR the bytes, NOT bit 0
+// inverted, = and <> the bytes, IF non-zero, BOOL_TO_INT / BYTE bit 0, a copy and a FUNCTION input the byte.
+const doc82 = "openspec transpile-restructure design.md §7.2 Decision (step 8c), task 8.2"
+
+/**
+ * An FB's rows whose every result is a REAL (LREAL) stored into the scratch `res` (`lr`) and read back as its BITS through
+ * a pointer, so a NaN's sign and payload are recorded and not only its being a NaN. A row is `[name, expression, type]`;
+ * its bits land in the DWORD (LWORD) `w<name>`. Every operand is a variable loaded through a pointer, so no compile-time
+ * fold stands in for the run-time operation.
+ */
+function bitsRows(rows: readonly (readonly [string, string, "REAL" | "LREAL"])[]): { vars: string; body: string } {
+  const vars = rows.map(([name, , t]) => `\tw${name} : ${t === "REAL" ? "DWORD" : "LWORD"};\n`).join("")
+  const body = rows
+    .map(([name, expr, t]) =>
+      t === "REAL" ? `res := ${expr};\npd := ADR(res);\nw${name} := pd^;\n` : `lr := ${expr};\npq := ADR(lr);\nw${name} := pq^;\n`,
+    )
+    .join("")
+  return { vars, body }
+}
+
+// REAL: an operand NaN — signalling (sig, 16#7FA00000), quiet with a payload (pay, 16#7FC12345), negative (neg,
+// 16#FFC00000), negative signalling with a payload (negSig, 16#FF812345) — through + - * / in both operand orders, two NaN operands in both
+// orders, negation, ABS, a plain copy, SQRT / LN / LOG / EXP / EXPT of a NaN; the NaNs an operation makes from non-NaN
+// operands (LN(-1), ASIN(2), inf - inf, inf * 0); and a NaN compared and converted to an integer.
+const NAN_REAL_ROWS = [
+  ["AddSOne", "sig + one"], ["AddOneS", "one + sig"], ["SubSOne", "sig - one"], ["SubOneS", "one - sig"],
+  ["MulSOne", "sig * one"], ["MulOneS", "one * sig"], ["DivSOne", "sig / one"], ["DivOneS", "one / sig"],
+  ["AddPOne", "pay + one"], ["AddOneP", "one + pay"], ["AddNOne", "neg + one"], ["AddOneNS", "one + negSig"],
+  ["AddSP", "sig + pay"], ["AddPS", "pay + sig"], ["AddPN", "pay + neg"], ["AddNP", "neg + pay"],
+  ["MulNSP", "negSig * pay"], ["MulPNS", "pay * negSig"], ["SubPS", "pay - sig"], ["SubSP", "sig - pay"],
+  ["NegS", "-sig"], ["NegP", "-pay"], ["NegN", "-neg"], ["AbsN", "ABS(neg)"], ["AbsNS", "ABS(negSig)"],
+  ["CopyS", "sig"], ["CopyNS", "negSig"],
+  ["SqrtS", "SQRT(sig)"], ["SqrtP", "SQRT(pay)"], ["SqrtN", "SQRT(neg)"], ["LnP", "LN(pay)"], ["LogP", "LOG(pay)"], ["ExpP", "EXP(pay)"],
+  ["ExptPTwo", "EXPT(pay, two)"], ["ExptTwoP", "EXPT(two, pay)"],
+  ["LnMinusOne", "LN(zero - one)"], ["AsinTwo", "ASIN(two)"], ["InfMinusInf", "pinf - pinf"], ["InfTimesZero", "pinf * zero"],
+].map(([n, e]) => [n!, e!, "REAL"] as const)
+const nanReal = bitsRows(NAN_REAL_ROWS)
+
+// LREAL: the same operand classes in 64 bits (sig 16#7FF4000000000000, pay 16#7FF8000000012345, neg 16#FFF8000000000000),
+// and the two conversions: REAL → LREAL of a REAL NaN (fs, fp, fn, fns as above), LREAL → REAL of an LREAL NaN whose payload
+// sits in the low bits (pay), the high bits (high 16#7FF8123400000000, highSig 16#7FF1234500000000 signalling) or nowhere
+// (neg); and a REAL NaN beside an LREAL in one expression (the REAL converted first).
+const NAN_LREAL_ROWS = [
+  ...[
+    ["AddSOne", "sig + one"], ["AddOneS", "one + sig"], ["SubOneS", "one - sig"], ["MulOneP", "one * pay"],
+    ["AddSP", "sig + pay"], ["AddPS", "pay + sig"], ["AddPN", "pay + neg"], ["AddNP", "neg + pay"],
+    ["NegP", "-pay"], ["AbsN", "ABS(neg)"], ["CopyS", "sig"],
+    ["SqrtS", "SQRT(sig)"], ["SqrtP", "SQRT(pay)"], ["LnP", "LN(pay)"], ["ExpP", "EXP(pay)"],
+    ["LnMinusOne", "LN(zero - one)"], ["AsinTwo", "ASIN(two)"], ["InfMinusInf", "pinf - pinf"],
+    ["FromFS", "REAL_TO_LREAL(fs)"], ["FromFP", "REAL_TO_LREAL(fp)"], ["FromFN", "REAL_TO_LREAL(fn)"], ["FromFNS", "REAL_TO_LREAL(fns)"],
+    ["MixPOne", "fp + one"], ["MixOneP", "one + fp"], ["MixFSP", "fs + pay"], ["MixPFS", "pay + fs"],
+  ].map(([n, e]) => [n!, e!, "LREAL"] as const),
+  ...[
+    ["ToS", "LREAL_TO_REAL(sig)"], ["ToP", "LREAL_TO_REAL(pay)"], ["ToHi", "LREAL_TO_REAL(high)"], ["ToHiS", "LREAL_TO_REAL(highSig)"],
+    ["ToN", "LREAL_TO_REAL(neg)"],
+  ].map(([n, e]) => [n!, e!, "REAL"] as const),
+]
+const nanLreal = bitsRows(NAN_LREAL_ROWS)
+
+// The second round, asked by the first's answers (an operand NaN comes out quieted, ABS clears its sign, a copy keeps it):
+// the trigonometric functions of a NaN (x87, design.md §7.2), ABS of a positive signalling NaN, EXPT with a NaN base and a
+// zero exponent, and whether the selects — MAX, MIN, LIMIT, SEL, MUX — carry a signalling NaN unquieted, as a copy does.
+const NAN_SELECT_ROWS = [
+  ...[
+    ["SinP", "SIN(pay)"], ["CosP", "COS(pay)"], ["TanP", "TAN(pay)"], ["AsinP", "ASIN(pay)"], ["AcosP", "ACOS(pay)"],
+    ["AtanP", "ATAN(pay)"], ["SinS", "SIN(sig)"], ["AbsS", "ABS(sig)"], ["ExptSTwo", "EXPT(sig, two)"],
+    ["ExptPZero", "EXPT(pay, zero)"], ["MaxOneS", "MAX(one, sig)"], ["MaxSOne", "MAX(sig, one)"], ["MinOneS", "MIN(one, sig)"],
+    ["LimitZeroOneS", "LIMIT(zero, one, sig)"], ["SelS", "SEL(TRUE, one, sig)"], ["MuxS", "MUX(1, one, sig)"],
+  ].map(([n, e]) => [n!, e!, "REAL"] as const),
+  ...[
+    ["LSinP", "SIN(lpay)"], ["LAtanP", "ATAN(lpay)"], ["LAbsS", "ABS(lsig)"], ["LMaxOneS", "MAX(lone, lsig)"],
+    ["LSelS", "SEL(TRUE, lone, lsig)"],
+  ].map(([n, e]) => [n!, e!, "LREAL"] as const),
+]
+const nanSelect = bitsRows(NAN_SELECT_ROWS)
+
+/** The BOOL-byte rows: a result BOOL stored into the scratch `res` and read back as its BYTE (`y<name>`). */
+function byteRows(rows: readonly (readonly [string, string])[]): { vars: string; body: string } {
+  return {
+    vars: rows.map(([name]) => `\ty${name} : BYTE;\n`).join(""),
+    body: rows.map(([name, expr]) => `res := ${expr};\npb := ADR(res);\ny${name} := pb^;\n`).join(""),
+  }
+}
+// For each of the bytes 2, 3 and 255 written into a BOOL through a POINTER TO BYTE: AND / OR / XOR with a TRUE or FALSE
+// variable and with another such BOOL, NOT, the BOOL copied — every result's byte; then `<> TRUE`, `= FALSE`, `<> FALSE`,
+// `=` of two such BOOLs, BOOL_TO_INT / BOOL_TO_BYTE, IF, a copy into a plain BOOL (no address taken) compared with TRUE and
+// negated, and the BOOL given to a FUNCTION's input (BOOL_TO_BYTE of it there, and `= TRUE` there).
+const BOOL_BYTES = [2, 3, 255] as const
+const BOOL_BYTE_ROWS = BOOL_BYTES.flatMap((k) => [
+  [`And${k}T`, `b${k} AND t`], [`And${k}F`, `b${k} AND f`], [`Or${k}F`, `b${k} OR f`], [`Or${k}T`, `b${k} OR t`],
+  [`Xor${k}T`, `b${k} XOR t`], [`Xor${k}F`, `b${k} XOR f`], [`Not${k}`, `NOT b${k}`], [`Copy${k}`, `b${k}`],
+] as const)
+const boolBytes = byteRows([
+  ...BOOL_BYTE_ROWS,
+  ["And2b3", "b2 AND b3"], ["Or2b3", "b2 OR b3"], ["Xor2b3", "b2 XOR b3"], ["And3b255", "b3 AND b255"], ["Xor3b255", "b3 XOR b255"],
+])
+const boolPlain = BOOL_BYTES.map(
+  (k) =>
+    `ne${k}T := b${k} <> TRUE;\neq${k}F := b${k} = FALSE;\nne${k}F := b${k} <> FALSE;\nint${k} := BOOL_TO_INT(b${k});\nbyte${k} := BOOL_TO_BYTE(b${k});\n` +
+    `if${k} := FALSE;\nIF b${k} THEN\n\tif${k} := TRUE;\nEND_IF\nc${k} := b${k};\ncEqT${k} := c${k} = TRUE;\ncNot${k} := NOT c${k};\n` +
+    `fIn${k} := F_MEM_bool_in_byte(x := b${k});\nfEqT${k} := F_MEM_bool_in_eq(x := b${k});\n`,
+).join("")
+const boolPlainVars = BOOL_BYTES.map(
+  (k) =>
+    `\tne${k}T : BOOL;\n\teq${k}F : BOOL;\n\tne${k}F : BOOL;\n\tint${k} : INT;\n\tbyte${k} : BYTE;\n\tif${k} : BOOL;\n\tc${k} : BOOL;\n` +
+    `\tcEqT${k} : BOOL;\n\tcNot${k} : BOOL;\n\tfIn${k} : BYTE;\n\tfEqT${k} : BOOL;\n`,
+).join("")
+
+// Gate 8c's flows: an FB whose VAR_INPUT BOOL `x` is compared with TRUE, negated and converted — no address of it taken, so
+// only the flow into the input can make it hold a byte; and the caller's result variables, for the bytes 2 and 255.
+const boolFlowQ = (name: string): string =>
+  `FUNCTION_BLOCK ${name}\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tisT : BOOL;\n\tnx : BOOL;\n\txInt : INT;\nEND_VAR\nisT := x = TRUE;\nnx := NOT x;\nxInt := BOOL_TO_INT(x);\nEND_FUNCTION_BLOCK\n\n`
+const boolFlowOutVars = [2, 255].map((k) => `\tisT${k} : BOOL;\n\tnx${k} : BOOL;\n\txInt${k} : INT;\n`).join("")
+const boolFlowOutBody = [2, 255].map((k) => `isT${k} := q${k}.isT;\nnx${k} := q${k}.nx;\nxInt${k} := q${k}.xInt;\n`).join("")
+/** Gate 8c's views: what a POINTER TO BOOL is given the address of, by row name. */
+const BOOL_VIEW_OF: Readonly<Record<string, string>> = { Y2: "y2", Y255: "y255", W: "w", Arr: "arr" }
+const BOOL_VIEWS = Object.keys(BOOL_VIEW_OF)
+
 export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
   {
     name: "pointer_order_compare",
@@ -138,10 +260,6 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
   },
   {
     name: "reinterpret_dint_as_real_edges",
-    deferred: {
-      transpile:
-        "2026-10-09 (transpile-restructure 4d): recorded for 4.12 — CODESYS keeps every bit of a DINT read as a REAL, the signalling NaN 16#7FA00000 included (bSnan), as the emitted Rust's f32 does; the INTERPRETER's REAL is a JavaScript number, whose NaN is always 16#7FC00000, so its bSnan reads the quiet one. Every other path agrees. Decided 4.12 (design.md §3.3 step 4e): the interpreter's REAL stays a JavaScript number — niche: accepted loss (1 occurrence in the corpora: bakon-nano `ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE).",
-    },
     pouName: "FB_MEM_reinterp_edges",
     kind: "function_block" as const,
     feature: "a DINT read as a REAL through a pointer at a quiet and a signalling NaN, ±0, the smallest denormal and ±max",
@@ -185,10 +303,6 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
   },
   {
     name: "bool_byte_two_through_pointer",
-    deferred: {
-      transpile:
-        "2026-10-09 (review of step 4d): CODESYS keeps the byte 2 a BOOL — `b = TRUE` is FALSE (the bytes compared), `NOT b` is TRUE and stores the byte 1 (bit 0 flipped), `IF b` is taken (non-zero) — where both backends read a BOOL's byte as `<> 0`, so eqT is TRUE, nb FALSE and notRaw 0; niche: accepted loss (0 occurrences in the corpora: 4 ADR of a BOOL, none stores a byte other than 0 or 1 through it)",
-    },
     pouName: "FB_MEM_bool_two",
     kind: "function_block" as const,
     feature: "a BOOL whose byte is set to 2 through a POINTER TO BYTE: compared with TRUE, negated, tested by IF, read back as a BYTE",
@@ -320,5 +434,210 @@ export const POINTER_MODEL_TESTS: readonly LanguageTest[] = [
     plcPrgBody: "anySzRef REF= anySzX;\nanySzOnly := F_MEM_any_ref_size(v := anySzRef);",
     source:
       "FUNCTION F_MEM_any_ref_size : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nF_MEM_any_ref_size := v.diSize;\nEND_FUNCTION\n",
+  },
+  // ─── transpile-restructure 8.2 (design.md §7.2 Decision step 8c): recorded before the NaN carrier and the raw BOOL ───
+  {
+    name: "nan_payload_ops",
+    pouName: "FB_MEM_nan_ops",
+    kind: "function_block" as const,
+    feature: "REAL NaN operands (signalling, payload, negative) through + - * /, two NaNs both orders, NEG/ABS/copy, SQRT/LN/LOG/EXP/EXPT; NaNs made from non-NaN operands; every result read as its bits",
+    fromDoc: doc82,
+    plcPrgVar: "inst_nan : FB_MEM_nan_ops;",
+    plcPrgBody: "inst_nan();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_nan_ops\nVAR\n\tdS : DWORD := 16#7FA00000;\n\tdP : DWORD := 16#7FC12345;\n\tdN : DWORD := 16#FFC00000;\n\tdNS : DWORD := 16#FF812345;\n\tdInf : DWORD := 16#7F800000;\n\tone : REAL := 1.0;\n\ttwo : REAL := 2.0;\n\tzero : REAL;\n\tsig : REAL;\n\tpay : REAL;\n\tneg : REAL;\n\tnegSig : REAL;\n\tpinf : REAL;\n\tres : REAL;\n\tpr : POINTER TO REAL;\n\tpd : POINTER TO DWORD;\n" +
+      nanReal.vars +
+      "\teqPP : BOOL;\n\tnePP : BOOL;\n\tltPOne : BOOL;\n\tgePOne : BOOL;\n\teqSS : BOOL;\n\tdintP : DINT;\n\ttruncP : DINT;\nEND_VAR\n" +
+      "pr := ADR(dS);\nsig := pr^;\npr := ADR(dP);\npay := pr^;\npr := ADR(dN);\nneg := pr^;\npr := ADR(dNS);\nnegSig := pr^;\npr := ADR(dInf);\npinf := pr^;\n" +
+      nanReal.body +
+      "eqPP := pay = pay;\nnePP := pay <> pay;\nltPOne := pay < one;\ngePOne := pay >= one;\neqSS := sig = sig;\ndintP := REAL_TO_DINT(pay);\ntruncP := TRUNC(pay);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "nan_payload_ops_lreal",
+    pouName: "FB_MEM_nan_ops_l",
+    kind: "function_block" as const,
+    feature: "LREAL NaN operands through + - * /, NEG/ABS/copy, SQRT/LN/EXP; REAL NaN to LREAL and LREAL NaN (payload low, high, none) to REAL; a REAL NaN beside an LREAL; every result read as its bits",
+    fromDoc: doc82,
+    plcPrgVar: "inst_nan_l : FB_MEM_nan_ops_l;",
+    plcPrgBody: "inst_nan_l();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_nan_ops_l\nVAR\n\tqS : LWORD := 16#7FF4000000000000;\n\tqP : LWORD := 16#7FF8000000012345;\n\tqN : LWORD := 16#FFF8000000000000;\n\tqHi : LWORD := 16#7FF8123400000000;\n\tqHiS : LWORD := 16#7FF1234500000000;\n\tqInf : LWORD := 16#7FF0000000000000;\n" +
+      "\tdS : DWORD := 16#7FA00000;\n\tdP : DWORD := 16#7FC12345;\n\tdN : DWORD := 16#FFC00000;\n\tdNS : DWORD := 16#FF812345;\n" +
+      "\tone : LREAL := 1.0;\n\ttwo : LREAL := 2.0;\n\tzero : LREAL;\n\tsig : LREAL;\n\tpay : LREAL;\n\tneg : LREAL;\n\thigh : LREAL;\n\thighSig : LREAL;\n\tpinf : LREAL;\n\tfs : REAL;\n\tfp : REAL;\n\tfn : REAL;\n\tfns : REAL;\n\tlr : LREAL;\n\tres : REAL;\n" +
+      "\tpl : POINTER TO LREAL;\n\tpq : POINTER TO LWORD;\n\tpr : POINTER TO REAL;\n\tpd : POINTER TO DWORD;\n" +
+      nanLreal.vars +
+      "END_VAR\n" +
+      "pl := ADR(qS);\nsig := pl^;\npl := ADR(qP);\npay := pl^;\npl := ADR(qN);\nneg := pl^;\npl := ADR(qHi);\nhigh := pl^;\npl := ADR(qHiS);\nhighSig := pl^;\npl := ADR(qInf);\npinf := pl^;\n" +
+      "pr := ADR(dS);\nfs := pr^;\npr := ADR(dP);\nfp := pr^;\npr := ADR(dN);\nfn := pr^;\npr := ADR(dNS);\nfns := pr^;\n" +
+      nanLreal.body +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "nan_payload_select_trig",
+    pouName: "FB_MEM_nan_sel",
+    kind: "function_block" as const,
+    feature: "a NaN through SIN/COS/TAN/ASIN/ACOS/ATAN, ABS of a signalling NaN, EXPT(NaN, 0), and a signalling NaN through MAX/MIN/LIMIT/SEL/MUX, REAL and LREAL; every result read as its bits",
+    fromDoc: doc82,
+    plcPrgVar: "inst_nan_sel : FB_MEM_nan_sel;",
+    plcPrgBody: "inst_nan_sel();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_nan_sel\nVAR\n\tdS : DWORD := 16#7FA00000;\n\tdP : DWORD := 16#7FC12345;\n\tqS : LWORD := 16#7FF4000000000000;\n\tqP : LWORD := 16#7FF8000000012345;\n" +
+      "\tone : REAL := 1.0;\n\ttwo : REAL := 2.0;\n\tzero : REAL;\n\tsig : REAL;\n\tpay : REAL;\n\tres : REAL;\n\tlone : LREAL := 1.0;\n\tlsig : LREAL;\n\tlpay : LREAL;\n\tlr : LREAL;\n" +
+      "\tpr : POINTER TO REAL;\n\tpd : POINTER TO DWORD;\n\tpl : POINTER TO LREAL;\n\tpq : POINTER TO LWORD;\n" +
+      nanSelect.vars +
+      "END_VAR\n" +
+      "pr := ADR(dS);\nsig := pr^;\npr := ADR(dP);\npay := pr^;\npl := ADR(qS);\nlsig := pl^;\npl := ADR(qP);\nlpay := pl^;\n" +
+      nanSelect.body +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_ops",
+    pouName: "FB_MEM_bool_ops",
+    kind: "function_block" as const,
+    feature: "BOOLs whose bytes are 2, 3 and 255 (set through a POINTER TO BYTE) through AND/OR/XOR/NOT, <> TRUE, = FALSE, =, BOOL_TO_INT/BYTE, IF, a copy into a plain BOOL, a FUNCTION input; each BOOL result's byte read",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_ops : FB_MEM_bool_ops;",
+    plcPrgBody: "inst_bool_ops();",
+    source:
+      "FUNCTION F_MEM_bool_in_byte : BYTE\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nF_MEM_bool_in_byte := BOOL_TO_BYTE(x);\nEND_FUNCTION\n\n" +
+      "FUNCTION F_MEM_bool_in_eq : BOOL\nVAR_INPUT\n\tx : BOOL;\nEND_VAR\nF_MEM_bool_in_eq := x = TRUE;\nEND_FUNCTION\n\n" +
+      "FUNCTION_BLOCK FB_MEM_bool_ops\nVAR\n\tb2 : BOOL;\n\tb3 : BOOL;\n\tb255 : BOOL;\n\tt : BOOL := TRUE;\n\tf : BOOL;\n\tres : BOOL;\n\tpb : POINTER TO BYTE;\n\teq2b3 : BOOL;\n" +
+      boolBytes.vars +
+      boolPlainVars +
+      "END_VAR\n" +
+      "pb := ADR(b2);\npb^ := 2;\npb := ADR(b3);\npb^ := 3;\npb := ADR(b255);\npb^ := 255;\n" +
+      boolBytes.body +
+      "eq2b3 := b2 = b3;\n" +
+      boolPlain +
+      "END_FUNCTION_BLOCK\n",
+  },
+  // ─── transpile-restructure 8.2, gate 8c (review of step 8c): the BOOL-byte flows and views the step did not record ───
+  // Asked before a rule is written for them (the step lowered them silently, or did not refuse them): does the byte of a
+  // BOOL set to 2 / 255 through a POINTER TO BYTE reach an FB's VAR_INPUT (call form and `inst.x :=`), a FUNCTION's
+  // VAR_IN_OUT, MOVE's result and an ANY input's target; what does a POINTER TO BOOL read over a BYTE, a WORD, an ARRAY OF
+  // BYTE; and does a POINTER TO BOOL copied into a POINTER TO BYTE (and back) build, and answer what the direct one does.
+  {
+    name: "bool_byte_flow_fb_input",
+    pouName: "FB_MEM_bool_flow_in",
+    kind: "function_block" as const,
+    feature: "a BOOL whose byte is 2 / 255 (set through a POINTER TO BYTE) given to an FB's VAR_INPUT in the call: `= TRUE`, NOT and BOOL_TO_INT of the input there",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_flow_in : FB_MEM_bool_flow_in;",
+    plcPrgBody: "inst_bool_flow_in();",
+    source:
+      boolFlowQ("FB_MEM_bool_flow_in_q") +
+      "FUNCTION_BLOCK FB_MEM_bool_flow_in\nVAR\n\tb2 : BOOL;\n\tb255 : BOOL;\n\tpb : POINTER TO BYTE;\n\tq2 : FB_MEM_bool_flow_in_q;\n\tq255 : FB_MEM_bool_flow_in_q;\n" +
+      boolFlowOutVars +
+      "END_VAR\npb := ADR(b2);\npb^ := 2;\npb := ADR(b255);\npb^ := 255;\nq2(x := b2);\nq255(x := b255);\n" +
+      boolFlowOutBody +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_flow_fb_field",
+    pouName: "FB_MEM_bool_flow_field",
+    kind: "function_block" as const,
+    feature: "a BOOL whose byte is 2 / 255 stored into an FB instance's VAR_INPUT from outside (`inst.x := b`) before the call: `= TRUE`, NOT and BOOL_TO_INT of the input there",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_flow_field : FB_MEM_bool_flow_field;",
+    plcPrgBody: "inst_bool_flow_field();",
+    source:
+      boolFlowQ("FB_MEM_bool_flow_field_q") +
+      "FUNCTION_BLOCK FB_MEM_bool_flow_field\nVAR\n\tb2 : BOOL;\n\tb255 : BOOL;\n\tpb : POINTER TO BYTE;\n\tq2 : FB_MEM_bool_flow_field_q;\n\tq255 : FB_MEM_bool_flow_field_q;\n" +
+      boolFlowOutVars +
+      "END_VAR\npb := ADR(b2);\npb^ := 2;\npb := ADR(b255);\npb^ := 255;\nq2.x := b2;\nq2();\nq255.x := b255;\nq255();\n" +
+      boolFlowOutBody +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_flow_inout",
+    pouName: "FB_MEM_bool_flow_io",
+    kind: "function_block" as const,
+    feature: "a BOOL whose byte is 2 / 255 bound to a FUNCTION's VAR_IN_OUT BOOL: `= TRUE`, NOT and BOOL_TO_INT of the in-out there",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_flow_io : FB_MEM_bool_flow_io;",
+    plcPrgBody: "inst_bool_flow_io();",
+    source:
+      "FUNCTION F_MEM_bool_io_eq : BOOL\nVAR_IN_OUT\n\tx : BOOL;\nEND_VAR\nF_MEM_bool_io_eq := x = TRUE;\nEND_FUNCTION\n\n" +
+      "FUNCTION F_MEM_bool_io_not : BOOL\nVAR_IN_OUT\n\tx : BOOL;\nEND_VAR\nF_MEM_bool_io_not := NOT x;\nEND_FUNCTION\n\n" +
+      "FUNCTION F_MEM_bool_io_int : INT\nVAR_IN_OUT\n\tx : BOOL;\nEND_VAR\nF_MEM_bool_io_int := BOOL_TO_INT(x);\nEND_FUNCTION\n\n" +
+      "FUNCTION_BLOCK FB_MEM_bool_flow_io\nVAR\n\tb2 : BOOL;\n\tb255 : BOOL;\n\tpb : POINTER TO BYTE;\n" +
+      boolFlowOutVars +
+      "END_VAR\npb := ADR(b2);\npb^ := 2;\npb := ADR(b255);\npb^ := 255;\n" +
+      [2, 255].map((k) => `isT${k} := F_MEM_bool_io_eq(x := b${k});\nnx${k} := F_MEM_bool_io_not(x := b${k});\nxInt${k} := F_MEM_bool_io_int(x := b${k});\n`).join("") +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_flow_move",
+    pouName: "FB_MEM_bool_flow_move",
+    kind: "function_block" as const,
+    feature: "a BOOL whose byte is 2 / 255 through MOVE into a plain BOOL: `= TRUE`, NOT and BOOL_TO_INT of the result",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_flow_move : FB_MEM_bool_flow_move;",
+    plcPrgBody: "inst_bool_flow_move();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_bool_flow_move\nVAR\n\tb2 : BOOL;\n\tb255 : BOOL;\n\tpb : POINTER TO BYTE;\n\tc2 : BOOL;\n\tc255 : BOOL;\n" +
+      boolFlowOutVars +
+      "END_VAR\npb := ADR(b2);\npb^ := 2;\npb := ADR(b255);\npb^ := 255;\n" +
+      [2, 255].map((k) => `c${k} := MOVE(b${k});\nisT${k} := c${k} = TRUE;\nnx${k} := NOT c${k};\nxInt${k} := BOOL_TO_INT(c${k});\n`).join("") +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_byte_flow_any",
+    pouName: "FB_MEM_bool_flow_any",
+    kind: "function_block" as const,
+    feature: "a plain BOOL given to a FUNCTION's ANY input, whose pValue writes the byte 2 / 255 as a POINTER TO BYTE: `= TRUE`, NOT and BOOL_TO_INT of the BOOL after the call",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_flow_any : FB_MEM_bool_flow_any;",
+    plcPrgBody: "inst_bool_flow_any();",
+    source:
+      "FUNCTION F_MEM_bool_any_set : BOOL\nVAR_INPUT\n\tv : ANY;\n\tk : BYTE;\nEND_VAR\nVAR\n\tp : POINTER TO BYTE;\nEND_VAR\np := v.pValue;\np^ := k;\nF_MEM_bool_any_set := TRUE;\nEND_FUNCTION\n\n" +
+      "FUNCTION_BLOCK FB_MEM_bool_flow_any\nVAR\n\tb2 : BOOL;\n\tb255 : BOOL;\n\tok2 : BOOL;\n\tok255 : BOOL;\n" +
+      boolFlowOutVars +
+      "END_VAR\nok2 := F_MEM_bool_any_set(v := b2, k := 2);\nok255 := F_MEM_bool_any_set(v := b255, k := 255);\n" +
+      [2, 255].map((k) => `isT${k} := b${k} = TRUE;\nnx${k} := NOT b${k};\nxInt${k} := BOOL_TO_INT(b${k});\n`).join("") +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_pointer_over_bytes",
+    pouName: "FB_MEM_bool_view",
+    kind: "function_block" as const,
+    feature: "a POINTER TO BOOL over a BYTE 2 / 255, a WORD 16#0205 and an ARRAY OF BYTE [2, 0]: `= TRUE`, NOT, BOOL_TO_INT, IF of what it reads, and the byte a copy of it holds",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_view : FB_MEM_bool_view;",
+    plcPrgBody: "inst_bool_view();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_bool_view\nVAR\n\ty2 : BYTE := 2;\n\ty255 : BYTE := 255;\n\tw : WORD := 16#0205;\n\tarr : ARRAY[0..1] OF BYTE := [2, 0];\n\tp : POINTER TO BOOL;\n\tpr : POINTER TO BYTE;\n" +
+      BOOL_VIEWS.map((v) => `\tisT${v} : BOOL;\n\tnx${v} : BOOL;\n\txInt${v} : INT;\n\ttaken${v} : BOOL;\n\tc${v} : BOOL;\n\tcByte${v} : BYTE;\n`).join("") +
+      "END_VAR\n" +
+      BOOL_VIEWS.map(
+        (v) =>
+          `p := ADR(${BOOL_VIEW_OF[v]});\nisT${v} := p^ = TRUE;\nnx${v} := NOT p^;\nxInt${v} := BOOL_TO_INT(p^);\ntaken${v} := FALSE;\nIF p^ THEN\n\ttaken${v} := TRUE;\nEND_IF\n` +
+          `c${v} := p^;\npr := ADR(c${v});\ncByte${v} := pr^;\n`,
+      ).join("") +
+      "END_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "bool_pointer_copied_to_byte_pointer",
+    pouName: "FB_MEM_bool_ptr_copy",
+    kind: "function_block" as const,
+    feature: "a POINTER TO BOOL holding a BOOL's address, copied into a POINTER TO BYTE that writes 2 there: `= TRUE`, NOT, BOOL_TO_INT of the BOOL",
+    fromDoc: doc82,
+    plcPrgVar: "inst_bool_ptr_copy : FB_MEM_bool_ptr_copy;",
+    plcPrgBody: "inst_bool_ptr_copy();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_bool_ptr_copy\nVAR\n\tb : BOOL;\n\tpbo : POINTER TO BOOL;\n\tpby : POINTER TO BYTE;\n\tisT : BOOL;\n\tnx : BOOL;\n\txInt : INT;\n\traw : BYTE;\nEND_VAR\n" +
+      "pbo := ADR(b);\npby := pbo;\npby^ := 2;\nisT := b = TRUE;\nnx := NOT b;\nxInt := BOOL_TO_INT(b);\nraw := pby^;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "byte_pointer_copied_to_bool_pointer",
+    pouName: "FB_MEM_byte_ptr_copy",
+    kind: "function_block" as const,
+    feature: "a POINTER TO BYTE holding a BYTE 2's address, copied into a POINTER TO BOOL: `= TRUE`, NOT, BOOL_TO_INT of what it reads",
+    fromDoc: doc82,
+    plcPrgVar: "inst_byte_ptr_copy : FB_MEM_byte_ptr_copy;",
+    plcPrgBody: "inst_byte_ptr_copy();",
+    source:
+      "FUNCTION_BLOCK FB_MEM_byte_ptr_copy\nVAR\n\ty : BYTE := 2;\n\tpby : POINTER TO BYTE;\n\tpbo : POINTER TO BOOL;\n\tisT : BOOL;\n\tnx : BOOL;\n\txInt : INT;\nEND_VAR\n" +
+      "pby := ADR(y);\npbo := pby;\nisT := pbo^ = TRUE;\nnx := NOT pbo^;\nxInt := BOOL_TO_INT(pbo^);\nEND_FUNCTION_BLOCK\n",
   },
 ]

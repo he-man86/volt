@@ -107,3 +107,12 @@ test("a subrange with no initializer starts at 0 inside its range, else at its l
   runner.scan()
   expect(["a", "b", "c", "d", "u", "arr[0]", "arr[1]", "h.f", "n"].map((v) => runner.get(v))).toEqual([3n, 0n, -10n, 0n, 1n, 3n, 3n, 3n, 3n])
 })
+
+// transpile-restructure 8.2: a REAL NaN is its bits (`semantics/nan.ts`), which no IR constant holds, and what CODESYS's
+// own initializer fold stores for one is unmeasured — refused by name. It used to reach the IR as the number NaN, which the
+// interpreter held as the one quiet NaN and the emitter printed as `NaNf32`, no Rust at all.
+test("an initializer that folds to a NaN is refused by name (init-nan)", () => {
+  const codes = (init: string): string[] => lowerSource(`PROGRAM P\nVAR x : REAL := ${init}; END_VAR\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+  expect(codes("SQRT(0.0 - 1.0)")).toEqual(["init-nan"])
+  expect(codes("SQRT(4.0)")).toEqual([])
+})

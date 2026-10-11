@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { load } from "../index.js"
 import { lowerSource } from "../lower/index.js"
+import { NaNBits } from "../semantics/index.js"
 
 // End to end, ST -> lower -> interpreter: arithmetic, promotion, conversions, bit operations, the math builtins.
 describe("interp — the executable core", () => {
@@ -348,9 +349,10 @@ END_PROGRAM
 
 // transpile-review-2026-09-29 task 28 (conformance `tr_28_minmax_limit_nan_signed_zero_lreal` / `_real`, recorded as bits):
 // MAX(a, b) is `IF a > b THEN a ELSE b`, MIN(a, b) `IF a < b THEN a ELSE b` — the SECOND argument on a tie or a NaN —
-// and LIMIT(mn, in, mx) is MIN(MAX(mn, in), mx).
+// and LIMIT(mn, in, mx) is MIN(MAX(mn, in), mx). The NaN is SQRT(-1)'s, x86's default — its sign SET, as recorded (`wn`),
+// which a NaN's bits keep since transpile-restructure 8.2 (`NaNBits`).
 describe("interp — MAX / MIN / LIMIT on a NaN and a signed zero", () => {
-  const shown = (v: unknown): string => (Object.is(v, -0) ? "-0" : String(v))
+  const shown = (v: unknown): string => (Object.is(v, -0) ? "-0" : v instanceof NaNBits ? `NaN ${v.bits.toString(16)}` : String(v))
   for (const t of ["LREAL", "REAL"])
     test(`${t}: the second argument on a tie or NaN`, () => {
       const pou = load(`PROGRAM P
@@ -363,6 +365,7 @@ r8 := MAX(nz, pz); r9 := MAX(pz, nz);
 END_PROGRAM
 `)
       pou.scan()
-      expect(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].map((n) => shown(pou.get(n)))).toEqual(["1", "NaN", "1", "NaN", "5", "1", "NaN", "0", "-0"])
+      const nan = t === "REAL" ? "NaN ffc00000" : "NaN fff8000000000000"
+      expect(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].map((n) => shown(pou.get(n)))).toEqual(["1", nan, "1", nan, "5", "1", nan, "0", "-0"])
     })
 })

@@ -1,13 +1,15 @@
 /** THE OPERATORS ON VALUES: comparison, arithmetic (with the two faults a division has) and AND/OR/XOR. */
-import { elemOf, type Type } from "../../frontend/types/index.js"
+import { elemOf, floatBits, type Type } from "../../frontend/types/index.js"
 import { IecFault } from "./faults.js"
 import { bool, num, type Val } from "./value.js"
 import { visible } from "./string.js"
+import { NaNBits, realResult } from "./nan.js"
 
 // Lowering converts both operands of a comparison to ONE type, so the two values always share a representation, and
 // JavaScript's own operators compare it exactly — bigints as bigints (a LINT above 2^53 included), strings by code unit.
-// a string compares as the string it holds, not its buffer: the bytes behind the terminator are not part of it
-const compared = (v: Val): Val => (typeof v === "string" ? visible(v) : v)
+// a string compares as the string it holds, not its buffer: the bytes behind the terminator are not part of it; a NaN as
+// the number NaN, unequal to everything, itself included (`nan_payload_ops`: `p = p` FALSE, `p <> p` TRUE)
+const compared = (v: Val): Val | number => (typeof v === "string" ? visible(v) : v instanceof NaNBits ? Number.NaN : v)
 
 export function eq(a: Val, b: Val): boolean {
   return compared(a) === compared(b)
@@ -68,6 +70,11 @@ export function arith(op: string, a: Val, b: Val, type?: Type): Val {
   // overflows to the same infinity without a zero divisor, finishes fine. The divisor is what matters, not the
   // result. `-0.0 === 0` in JS, so a negative zero divisor is caught by the same test.
   if (op === "div" && y === 0) throw new IecFault("division-by-zero")
+  // a NaN answered is the first NaN operand, quieted, or the default one (`semantics/nan.ts`, `nan_payload_ops`)
+  return realResult(realArith(op, x, y), [a, b], type === undefined ? undefined : floatBits(type))
+}
+
+function realArith(op: string, x: number, y: number): number {
   switch (op) {
     case "add":
       return x + y

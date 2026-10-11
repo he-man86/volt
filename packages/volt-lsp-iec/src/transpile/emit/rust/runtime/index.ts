@@ -8,8 +8,32 @@
  * (`FRONT`: the string type, MAX/MIN over a string, the formatters, the parsers) is printed IN FRONT of the code, in
  * registry order, as the string prelude always was; every other helper after the code, in `BACK` order.
  */
-import { IEC_DIV, IEC_FMAX, IEC_FMIN, IEC_LOG, IEC_MAX, IEC_MIN, IEC_POW, IEC_R2I32, IEC_R2I64, IEC_TRUNC_I32 } from "./numeric.js"
-import { IEC_PARSE_INT, IEC_PARSE_REAL } from "./parse.js"
+import {
+  IEC_DIV,
+  IEC_FABS32,
+  IEC_FADD,
+  IEC_FDIV,
+  IEC_FDIVZ,
+  IEC_FMUL,
+  IEC_FN,
+  IEC_FSUB,
+  IEC_NARROW,
+  IEC_REAL,
+  IEC_WIDEN,
+  IEC_FABS64,
+  IEC_FMAX,
+  IEC_FMIN,
+  IEC_FNEG32,
+  IEC_FNEG64,
+  IEC_LOG,
+  IEC_MAX,
+  IEC_MIN,
+  IEC_POW,
+  IEC_R2I32,
+  IEC_R2I64,
+  IEC_TRUNC_I32,
+} from "./numeric.js"
+import { IEC_PARSE_INT, IEC_PARSE_INT_WIDE, IEC_PARSE_REAL, IEC_SCAN_INT } from "./parse.js"
 import { IEC_BYTES, IEC_ELEMENTS, IEC_LE, IEC_OVERLAY } from "./bytes.js"
 import { IEC_DEREF, IEC_IX, MEM, MEM_AT, MEM_LD, MEM_LD_BOOL, MEM_ORDER, MEM_REGION, MEM_ST } from "./pointer.js"
 import { IEC_STR, IEC_STR_LENGTH } from "./string.js"
@@ -48,7 +72,9 @@ const HELPERS = {
   iec_ldate_text: { deps: ["string_write", "iec_civil"], rust: IEC_LDATE_TEXT },
   iec_ltod_text: { deps: ["string_write", "iec_lclock"], rust: IEC_LTOD_TEXT },
   iec_parse_real: { deps: [], rust: IEC_PARSE_REAL },
-  iec_parse_int: { deps: [], rust: IEC_PARSE_INT },
+  iec_scan_int: { deps: [], rust: IEC_SCAN_INT },
+  iec_parse_int: { deps: ["iec_scan_int"], rust: IEC_PARSE_INT },
+  iec_parse_int_wide: { deps: ["iec_scan_int"], rust: IEC_PARSE_INT_WIDE },
   // ── BACK ──
   iec_deref: { deps: [], rust: IEC_DEREF },
   iec_r2i64: { deps: [], rust: IEC_R2I64 },
@@ -56,8 +82,21 @@ const HELPERS = {
   iec_trunc_i32: { deps: [], rust: IEC_TRUNC_I32 },
   iec_fmax: { deps: [], rust: IEC_FMAX },
   iec_fmin: { deps: [], rust: IEC_FMIN },
+  iec_fneg32: { deps: [], rust: IEC_FNEG32 },
+  iec_fneg64: { deps: [], rust: IEC_FNEG64 },
+  iec_fabs32: { deps: [], rust: IEC_FABS32 },
+  iec_fabs64: { deps: [], rust: IEC_FABS64 },
   iec_log: { deps: [], rust: IEC_LOG },
-  iec_pow: { deps: [], rust: IEC_POW },
+  real_nan: { deps: [], rust: IEC_REAL },
+  iec_fadd: { deps: ["real_nan"], rust: IEC_FADD },
+  iec_fsub: { deps: ["real_nan"], rust: IEC_FSUB },
+  iec_fmul: { deps: ["real_nan"], rust: IEC_FMUL },
+  iec_fdiv: { deps: ["real_nan"], rust: IEC_FDIV },
+  iec_fdivz: { deps: ["iec_fdiv"], rust: IEC_FDIVZ },
+  iec_fn: { deps: ["real_nan"], rust: IEC_FN },
+  iec_widen: { deps: [], rust: IEC_WIDEN },
+  iec_narrow: { deps: [], rust: IEC_NARROW },
+  iec_pow: { deps: ["real_nan"], rust: IEC_POW },
   iec_div: { deps: [], rust: IEC_DIV },
   mem: { deps: ["mem_ld", "mem_st"], rust: MEM },
   mem_region: { deps: [], rust: MEM_REGION },

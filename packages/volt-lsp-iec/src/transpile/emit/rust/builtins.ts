@@ -117,21 +117,34 @@ const rotate: BuiltinPrinter = (e, args, argv, _p, raw) => {
   return call(`{ let ${tmp("rot")} = ${argv[0]}; (${tmp("rot")} & !${(1n << BigInt(e.bits)) - 1n}) | ((${tmp("rot")} as u${e.bits}).${rotate} as ${rustType(e.type)}) }`)
 }
 
+/**
+ * A REAL ARGUMENT AS THE f64 A MATH ROUTINE TAKES, and its f64 answer back at the IEC type — through `iec_widen` /
+ * `iec_narrow` for a REAL, which move a NaN's payload as CODESYS does (gate 8c: `as` leaves that to the compiler, which
+ * folds it away in an optimized build); any other argument as `castTo` casts it.
+ */
+function asF64(p: Printer, value: Printed, arg: IrExpr): Printed {
+  // a constant is no NaN (an initializer folding to one is refused, `init-nan`): its f64 literal, as `castTo` prints it
+  return rustType(arg.type) === "f32" && arg.kind !== "const" ? call(`${use(p, "iec_widen")}(${at(value, Prec.Block)})`) : castTo(value, arg.type, "f64", arg)
+}
+const fromF64Real = (p: Printer, value: Printed, target: string): Printed =>
+  target === "f32" ? call(`${use(p, "iec_narrow")}(${at(value, Prec.Block)})`) : fromF64(value, target)
+
 // The emitted twin of `MATH`'s `logarithm` guard: `LN(0)` and `LOG(0)` stop the task on CODESYS, and Rust
 // answers `-inf` and carries on. Nothing else in this group stops anything — `EXP(1000)` is an infinity
-// and runs. Measured in `operators/math-domain.ts`.
+// and runs. Measured in `operators/math-domain.ts`. Its NaN is the argument's, quieted (`iec_fn`).
 const logarithm: BuiltinPrinter = (e, _args, _argv, p, raw) =>
-  fromF64(call(`${use(p, "iec_log")}(${arg(castTo(raw[0]!, e.args[0]!.type, "f64", e.args[0]))}).${RUST_MATH[e.name as IrMathName]}()`), rustType(e.type))
+  fromF64Real(p, call(`${use(p, "iec_fn")}(${use(p, "iec_log")}(${arg(asF64(p, raw[0]!, e.args[0]!))}), f64::${RUST_MATH[e.name as IrMathName]})`), rustType(e.type))
 
 // through f64 and back, the same path the interpreter takes — `f32::ln` is a different float32 routine: over all 2^32 REAL
 // inputs `f32::exp` differs from the f64 round trip on 23,280, `ln` 210,637, `log10` 2,418,508, `sin` 2,866,998, `cos`
 // 2,876,136, `tan` 480,626, `asin` 2,352,772, `acos` 693,829, `atan` 3,532 (7.3.12, measured 2026-10-10 on this platform's
 // libm) — but SQRT on a REAL is `f32::sqrt`: IEEE sqrt rounds correctly, and f64 holds 53 >= 2·24 + 2 bits, so the round
 // trip's double rounding is innocuous — 0 of 2^32 inputs differ (7.3.6; the twins in `runtime-twins.test.ts` hold it)
-const math: BuiltinPrinter = (e, args, _argv, _p, raw) =>
+// — each through `iec_fn`, whose NaN is the argument's, quieted (gate 8c)
+const math: BuiltinPrinter = (e, _args, argv, p, raw) =>
   e.name === "sqrt" && rustType(e.type) === "f32"
-    ? call(`${args[0]}.sqrt()`)
-    : fromF64(call(`${at(castTo(raw[0]!, e.args[0]!.type, "f64", e.args[0]), Prec.Postfix)}.${RUST_MATH[e.name as IrMathName]}()`), rustType(e.type))
+    ? call(`${use(p, "iec_fn")}(${argv[0]}, f32::sqrt)`)
+    : fromF64Real(p, call(`${use(p, "iec_fn")}(${arg(asF64(p, raw[0]!, e.args[0]!))}, f64::${RUST_MATH[e.name as IrMathName]})`), rustType(e.type))
 
 /** Every builtin's printer, by name. */
 const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
@@ -170,10 +183,12 @@ const BUILTINS: Readonly<Record<IrBuiltinName, BuiltinPrinter>> = {
   },
   // `iec_pow`: EXPT(0, finite negative) stops the task on CODESYS, where `powf` answers inf (`semantics/math.ts` `expt`)
   expt: (e, _args, _argv, p, raw) =>
-    fromF64(call(`${use(p, "iec_pow")}(${arg(castTo(raw[0]!, e.args[0]!.type, "f64", e.args[0]))}, ${arg(castTo(raw[1]!, e.args[1]!.type, "f64", e.args[1]))})`), rustType(e.type)),
+    fromF64Real(p, call(`${use(p, "iec_pow")}(${arg(asF64(p, raw[0]!, e.args[0]!))}, ${arg(asF64(p, raw[1]!, e.args[1]!))})`), rustType(e.type)),
   // `abs` would panic on a signed minimum in a debug build; an unsigned operand never reaches here — ABS of one is the
   // operand itself, decided in lowering (7.3.4)
-  abs: (e, args) => call(isReal(e.type) ? `${args[0]}.abs()` : `${args[0]}.wrapping_abs()`),
+  // a REAL NaN's ABS is quieted, its sign cleared (`iec_fabs32`), where `f32::abs` keeps a signalling one signalling
+  abs: (e, args, argv, p) =>
+    call(isReal(e.type) ? `${use(p, rustType(e.type) === "f32" ? "iec_fabs32" : "iec_fabs64")}(${argv[0]})` : `${args[0]}.wrapping_abs()`),
   // a constant position prints bare: the parameter is an i64 (7.2.3)
   char: (e, args, _argv, _p, raw) => call(`${args[0]}.char_at(${position(e, raw)})`),
   setchar: (e, args, argv, _p, raw) => call(`${args[0]}.with_char(${position(e, raw)}, ${argv[2]})`),

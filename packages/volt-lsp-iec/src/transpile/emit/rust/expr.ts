@@ -22,6 +22,9 @@ import { comparedUnits, initOf, literal } from "./values.js"
 import { imageAddress, loadImage } from "./image.js"
 import { exprReinterpret } from "./reinterpret.js"
 
+/** The REAL arithmetic operators, each through the helper that chooses its NaN (`runtime/numeric.ts` `IEC_REAL`). */
+const REAL_OPS: Readonly<Record<string, "iec_fadd" | "iec_fsub" | "iec_fmul" | "iec_fdiv">> = { add: "iec_fadd", sub: "iec_fsub", mul: "iec_fmul", div: "iec_fdiv" }
+
 /** `wrapping_add` and friends — IEC integers wrap at their width; Rust's `+` would panic in debug. */
 const WRAPPING: Readonly<Record<string, string>> = { add: "add", sub: "sub", mul: "mul", div: "div", mod: "rem" }
 
@@ -149,7 +152,10 @@ function exprUnary(p: Printer, e: Extract<IrExpr, { kind: "unary" }>, slots: IrP
   if (e.op === "not") return printed(`!${prefixed("!", operand)}`, Prec.Unary)
   // An integer's minimum has no positive counterpart in its own width, and Rust's `-` PANICS on it in a debug
   // build — found by the differential test (conformance `unary_minus_at_the_edge`, a DINT at its minimum).
-  return isReal(e.type) ? printed(`-${prefixed("-", operand)}`, Prec.Unary) : printed(`${at(operand, Prec.Postfix)}.wrapping_neg()`, Prec.Postfix)
+  if (!isReal(e.type)) return printed(`${at(operand, Prec.Postfix)}.wrapping_neg()`, Prec.Postfix)
+  // a REAL NaN is negated as CODESYS negates it — quieted, its sign kept (`iec_fneg32`); a constant is none
+  if (e.operand.kind === "const") return printed(`-${prefixed("-", operand)}`, Prec.Unary)
+  return printed(`${use(p, rustType(e.type) === "f32" ? "iec_fneg32" : "iec_fneg64")}(${at(operand, Prec.Block)})`, Prec.Postfix)
 }
 
 function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: IrPou["slots"]): Printed {
@@ -194,7 +200,14 @@ function exprBinary(p: Printer, e: Extract<IrExpr, { kind: "binary" }>, slots: I
   // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
   // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `semantics/arith.ts`.
   // (a constant divisor lowering proved nonzero needs no check: `IrBinary.nonzeroDivisor`, 7.2.6)
-  if (real && e.op === "div" && e.nonzeroDivisor !== true) return printed(`${use(p, "iec_div")}(${at(l, Prec.Block)}, ${at(r, Prec.Block)})`, Prec.Postfix)
+  //
+  // A REAL OPERATION'S NaN IS CHOSEN IN THE CODE (gate 8c): which NaN `a + b` answers is unspecified in Rust, and an
+  // optimized build commuted the add and folded constants into another NaN than CODESYS's (`runtime/numeric.ts` `IEC_REAL`)
+  const helper = real ? REAL_OPS[e.op] : undefined
+  if (helper !== undefined) {
+    const id = e.op === "div" && e.nonzeroDivisor !== true ? "iec_fdivz" : helper
+    return printed(`${use(p, id)}(${at(l, Prec.Block)}, ${at(r, Prec.Block)})`, Prec.Postfix)
+  }
   return infix(l, plain, r)
 }
 

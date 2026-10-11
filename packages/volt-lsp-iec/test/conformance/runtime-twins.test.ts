@@ -34,7 +34,7 @@ import {
   LTIME_TEXT_CASES,
   type LongCalendarInput,
 } from "../../src/transpile/semantics/text.cases.js"
-import { PARSE_INT_CASES, type ParseIntInput } from "../../src/transpile/semantics/parse.cases.js"
+import { PARSE_INT_CASES, type ParseIntInput, WIDE_PARSE_INT_CASES } from "../../src/transpile/semantics/parse.cases.js"
 import { type Seen, STRING_CASES, type StringCase, type StringInput } from "../../src/transpile/semantics/string.cases.js"
 import { lengthOf, visible } from "../../src/transpile/semantics/string.js"
 import {
@@ -49,6 +49,7 @@ import {
   type ReinterpretInput,
 } from "../../src/transpile/semantics/memory.cases.js"
 import { reinterpretText } from "../../src/transpile/emit/rust/reinterpret.js"
+import { NAN_CASES, type NaNInput } from "../../src/transpile/semantics/nan.cases.js"
 import { Prec, printed, type Printed } from "../../src/transpile/emit/rust/precedence.js"
 import { FAULT_TEXT } from "../../src/transpile/ir/faults.js"
 import { RUNS } from "./support/recordings.js"
@@ -136,11 +137,15 @@ function realToInt(input: RealToIntInput): string {
 }
 
 /** A STRING → integer case as the Rust that parses its text and stores it at its target (`emit/rust/convert.ts`'s `as`). */
-function parseIntRust(input: ParseIntInput): string {
+function parseIntRust(input: ParseIntInput, wide = false): string {
   const elem = elementaryType(input.to)
   if (elem === undefined) throw new Error(`no elementary type ${input.to}`)
-  const bytes = [...input.text].map((ch) => ch.charCodeAt(0)).join(", ")
-  return `iec_parse_int(&[${bytes}]) as ${rustType(elementaryTypeRef(elem))}`
+  const codes = [...input.text].map((ch) => ch.charCodeAt(0))
+  const target = rustType(elementaryTypeRef(elem))
+  const unsigned = !elem.signed
+  if (!wide) return `iec_parse_int(&[${codes.join(", ")}], ${unsigned}) as ${target}`
+  // a WSTRING's units are u16, which the first unit's suffix says (and an empty array's length, which has none)
+  return `iec_parse_int_wide(&${codes.length === 0 ? "[0u16; 0]" : `[${codes.map((u, i) => (i === 0 ? `${u}u16` : `${u}`)).join(", ")}]`}, ${unsigned}) as ${target}`
 }
 
 /** The recorded NaN (CODESYS's SQRT(-1), sign bit set) and -0 a compare-select case runs on, as the Rust it is. */
@@ -167,6 +172,64 @@ function exptCaseRust(input: ExptInput): string {
   return `std::panic::catch_unwind(|| format!("{:x}", ${bits})).unwrap_or_else(|_| "stop".to_string())`
 }
 
+/** A NaN case's operand as the Rust it is: its bits, at the width the operation reads it (`widen` a REAL, `narrow` an
+ *  LREAL, anything else its own type). */
+function nanArg(bits: bigint, input: NaNInput): string {
+  const real = input.op === "widen" || (input.op !== "narrow" && input.type === "REAL")
+  return `${real ? "f32" : "f64"}::from_bits(0x${bits.toString(16)})`
+}
+
+/** A NaN case as the emitter prints its operation (`emit/rust/expr.ts`, `builtins.ts`, `convert.ts`), its bits in hex. */
+function nanCaseRust(input: NaNInput): string {
+  const [a, b, c] = input.args.map((x) => nanArg(x, input))
+  const real = input.type === "REAL"
+  // a math function goes through f64 and back for a REAL (`emit/rust/builtins.ts` `math`), each NaN chosen by `iec_fn`;
+  // LN and LOG through `iec_log`
+  const viaF64 = (f: string, x: string): string => (real ? `iec_narrow(iec_fn(iec_widen(${x}), f64::${f}))` : `iec_fn(${x}, f64::${f})`)
+  const value = ((): string => {
+    switch (input.op) {
+      case "add":
+        return `iec_fadd(${a}, ${b})`
+      case "sub":
+        return `iec_fsub(${a}, ${b})`
+      case "mul":
+        return `iec_fmul(${a}, ${b})`
+      case "div":
+        return `iec_fdivz(${a}, ${b})`
+      case "neg":
+        return `iec_fneg${real ? 32 : 64}(${a})`
+      case "abs":
+        return `iec_fabs${real ? 32 : 64}(${a})`
+      case "copy":
+        return a!
+      case "widen":
+        return `iec_widen(${a})`
+      case "narrow":
+        return `iec_narrow(${a})`
+      case "sqrt":
+        return `iec_fn(${a}, ${real ? "f32" : "f64"}::sqrt)`
+      case "ln":
+      case "log": {
+        const f = input.op === "ln" ? "ln" : "log10"
+        return real ? `iec_narrow(iec_fn(iec_log(iec_widen(${a})), f64::${f}))` : `iec_fn(iec_log(${a}), f64::${f})`
+      }
+      case "expt":
+        return real ? `iec_narrow(iec_pow(iec_widen(${a}), iec_widen(${b!})))` : `iec_pow(${a}, ${b})`
+      case "max":
+      case "min":
+        return `iec_f${input.op}(${a}, ${b})`
+      case "limit":
+        return `iec_fmin(iec_fmax(${a}, ${b}), ${c})`
+      case "sel":
+      case "mux":
+        return `(if true { ${b} } else { ${a} })`
+      default:
+        return viaF64(input.op, a!)
+    }
+  })()
+  return `format!("{:x}", ${value}.to_bits())`
+}
+
 /** An EXPT case's expected answer as `exptCaseRust` prints it. */
 function exptExpected(c: (typeof EXPT_CASES)[number]): string {
   if (c.expected === "stop") return "stop"
@@ -179,14 +242,15 @@ function exptExpected(c: (typeof EXPT_CASES)[number]): string {
   return view.getBigUint64(0).toString(16)
 }
 
-/** Build `runtime` + a `main` printing each expression on its own line, run it, and return the lines. */
-async function runTwin(name: string, runtime: string, exprs: readonly string[]): Promise<string[]> {
+/** Build `runtime` + a `main` printing each expression on its own line, run it, and return the lines — `optimized`, built
+ *  as `-O` builds it (a transpiled program a user builds with `--release`), which the harness's own builds are not. */
+async function runTwin(name: string, runtime: string, exprs: readonly string[], optimized = false): Promise<string[]> {
   const main = `fn main() {\n${exprs.map((e) => `    println!("{}", ${e});`).join("\n")}\n}\n`
   const dir = await mkdtemp(join(tmpdir(), `volt-twin-${name}-`))
   try {
     const file = join(dir, `${name}.rs`)
     const exe = join(dir, process.platform === "win32" ? `${name}.exe` : name)
-    const build = await buildRust([RUSTC!, "--edition", "2021", "-o", exe, file], file, exe, `#![allow(dead_code)]\n${runtime}\n${main}`)
+    const build = await buildRust([RUSTC!, "--edition", "2021", ...(optimized ? ["-O"] : []), "-o", exe, file], file, exe, `#![allow(dead_code)]\n${runtime}\n${main}`)
     expect(build.stderr).toBe("")
     const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 30_000 })
     expect(ran.exitCode).toBe(0)
@@ -252,6 +316,8 @@ const stringCaseUnits = (c: StringCase): string =>
 
 /** Every byte-image case, its rule's cases flattened. */
 const MEMORY_CASE_LIST = Object.values(MEMORY_CASES).flat()
+/** Every NaN case, its rule's cases flattened. */
+const NAN_CASE_LIST = Object.values(NAN_CASES).flat()
 
 /** An IEC type of the memory cases as its Rust type. */
 const RUST_OF: Readonly<Record<MemoryType, string>> = { BOOL: "bool", BYTE: "u8", SINT: "i8", WORD: "u16", INT: "i16", DWORD: "u32", DINT: "i32", REAL: "f32", LINT: "i64", LREAL: "f64" }
@@ -323,9 +389,9 @@ describe("runtime twins — the case tables hold their recordings", () => {
     expect(got).toEqual(named.map((c) => `${c.name}: ${c.expected} from ${String(c.input.stores[0]!.value)}`))
   })
 
-  test("every STRING -> integer case is the recorded cell of the fixture it names, from the text it parsed", () => {
+  test("every STRING and WSTRING -> integer case is the recorded cell of the fixture it names, from the text it parsed", () => {
     const bad: string[] = []
-    for (const c of PARSE_INT_CASES) {
+    for (const c of [...PARSE_INT_CASES, ...WIDE_PARSE_INT_CASES]) {
       const rec = c.recording!
       const out = typed(recorded(c), `${rec.fixture} ${rec.variable}`)
       if (out.type !== c.input.to || BigInt(out.text) !== c.expected) bad.push(`${c.name}: recorded ${recorded(c)}, case ${c.input.to}#${c.expected}`)
@@ -390,6 +456,27 @@ describe("runtime twins — the case tables hold their recordings", () => {
       return `${c.name}: ${out.type}#${out.text} from ${v.type}#${value}`
     })
     expect(got).toEqual(TRUNC_CASES.map((c) => `${c.name}: DINT#${c.expected} from ${c.input.from}#${c.input.value}`))
+  })
+
+  test("every NaN case is the recorded bits of the fixture it names, from the NaN operand it ran on (8.2)", () => {
+    const bad: string[] = []
+    for (const c of NAN_CASE_LIST) {
+      const out = typed(recorded(c), c.name)
+      if (BigInt(out.text) !== c.expected) bad.push(`${c.name}: recorded ${recorded(c)}, case ${c.expected.toString(16)}`)
+      // the operand: a NaN's bits (a DWORD or LWORD the fixture loads it from), or the plain value beside it (`one`, `two`:
+      // LN(zero - one) runs on its negation)
+      const input = typed(recordedInput(c), c.name)
+      const word = input.type === "DWORD" || input.type === "LWORD"
+      const bits = (v: number, real: boolean): bigint => {
+        const view = new DataView(new ArrayBuffer(8))
+        if (real) view.setFloat32(0, v)
+        else view.setFloat64(0, v)
+        return real ? BigInt(view.getUint32(0)) : view.getBigUint64(0)
+      }
+      const ran = word ? [BigInt(input.text)] : [bits(Number(input.text), input.type === "REAL"), bits(-Number(input.text), input.type === "REAL")]
+      if (!ran.some((b) => c.input.args.includes(b))) bad.push(`${c.name}: recorded ${c.recording!.input} ${recordedInput(c)}, operands ${c.input.args.map((a) => a.toString(16))}`)
+    }
+    expect(bad).toEqual([])
   })
 
   test("every 64-bit integer -> REAL case is the recorded cell, from the integer it ran", () => {
@@ -500,6 +587,16 @@ ${FAULT_OF}`
     expect(REINTERPRET_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(REINTERPRET_CASE_LIST.map((c) => `${c.name}: ${c.expected}`))
   }, 60_000)
 
+  test("runtime/numeric.ts + the emitter's REAL operations: a NaN's bits through every recorded operation (8.2)", async () => {
+    const runtime = runtimeText("iec_fadd", "iec_fsub", "iec_fmul", "iec_fdivz", "iec_fn", "iec_widen", "iec_narrow", "iec_fneg32", "iec_fneg64", "iec_fabs32", "iec_fabs64", "iec_log", "iec_pow", "iec_fmax", "iec_fmin")
+    const got = await runTwin("nan_bits", runtime, NAN_CASE_LIST.map((c) => nanCaseRust(c.input)))
+    expect(NAN_CASE_LIST.map((c, i) => `${c.name}: ${got[i]}`)).toEqual(NAN_CASE_LIST.map((c) => `${c.name}: ${c.expected.toString(16)}`))
+    // …and in an OPTIMIZED build (gate 8c): which NaN an operation answers is the code's choice, not the compiler's — LLVM
+    // commutes an add and folds a widened NaN under -O, where the unoptimized build only happened to answer CODESYS's
+    const optimized = await runTwin("nan_bits_opt", runtime, NAN_CASE_LIST.map((c) => nanCaseRust(c.input)), true)
+    expect(NAN_CASE_LIST.map((c, i) => `${c.name}: ${optimized[i]}`)).toEqual(NAN_CASE_LIST.map((c) => `${c.name}: ${c.expected.toString(16)}`))
+  }, 60_000)
+
   test("runtime/numeric.ts: iec_fmax / iec_fmin over every recorded compare-select cell, the NaN's sign bit kept", async () => {
     const got = await runTwin("numeric_select", runtimeText("iec_fmax") + runtimeText("iec_fmin"), SELECT_CASES.map((c) => selectCaseRust(c.input)))
     const { got: g, expected } = compare(SELECT_CASES, got)
@@ -552,6 +649,12 @@ ${FAULT_OF}`
   test("runtime/parse.ts: iec_parse_int over every recorded STRING -> integer cell, stored at its target", async () => {
     const got = await runTwin("parse_int", runtimeText("iec_parse_int"), PARSE_INT_CASES.map((c) => parseIntRust(c.input)))
     const { got: g, expected } = compare(PARSE_INT_CASES, got)
+    expect(g).toEqual(expected)
+  }, 60_000)
+
+  test("runtime/parse.ts: iec_parse_int_wide over every recorded WSTRING -> integer cell (8.2), stored at its target", async () => {
+    const got = await runTwin("parse_int_wide", runtimeText("iec_parse_int_wide"), WIDE_PARSE_INT_CASES.map((c) => parseIntRust(c.input, true)))
+    const { got: g, expected } = compare(WIDE_PARSE_INT_CASES, got)
     expect(g).toEqual(expected)
   }, 60_000)
 

@@ -26,26 +26,58 @@ import { fieldBytes } from "../storage/bytes.js"
 import { unionsOf } from "../storage/unions.js"
 import { storageOf } from "../storage/layout.js"
 import { pointerKey } from "./state.js"
+import { boolBytes, viewsBool } from "./bool-views.js"
 
-/** One pass's answer: the FB types and the variables the image holds, the pointers that hold tags, and the ANY inputs
- *  whose `pValue` a body stores into a pointer that holds addresses (by their holder key, `any.anyHolder`). */
+/** One pass's answer: the FB types and the variables the image holds, the pointers that hold tags, the ANY inputs
+ *  whose `pValue` a body stores into a pointer that holds addresses (by their holder key, `any.anyHolder`), and the BOOL
+ *  bytes (`raw-bool.ts`): the BOOLs held as their byte (by `variableKey`), the POINTERs TO BOOL that read a byte (whose
+ *  `viewKey` is among the raw BOOLs too) and the pointers that hold the address of a BOOL no key names. */
 export interface Escapes {
   readonly types: ReadonlySet<string>
   readonly variables: ReadonlySet<string>
   readonly tagged: ReadonlySet<string>
   readonly anyAddresses: ReadonlySet<string>
+  readonly rawBools: ReadonlySet<string>
+  readonly byteViews: ReadonlySet<string>
+  readonly unkeyedBools: ReadonlySet<string>
 }
 
-const NONE: Escapes = { types: new Set(), variables: new Set(), tagged: new Set(), anyAddresses: new Set() }
+const NONE: Escapes = {
+  types: new Set(),
+  variables: new Set(),
+  tagged: new Set(),
+  anyAddresses: new Set(),
+  rawBools: new Set(),
+  byteViews: new Set(),
+  unkeyedBools: new Set(),
+}
 
 /** What one lowering saw: each address store (its pointer's key, its target's escape key — none for a tag), each copy,
- *  each ANY input whose `pValue` was stored into a pointer that holds addresses. */
+ *  each ANY input whose `pValue` was stored into a pointer that holds addresses; and for `raw-bool.ts`: each BOOL whose
+ *  address a pointer of another type was given, each BOOL store with the BOOLs whose byte its value carries, each BOOL's
+ *  address a POINTER TO BOOL was given (`null`: a BOOL no key names — an element, a struct's field), each POINTER TO
+ *  BOOL given the address of what is no plain BOOL's byte, and whether each pointer's target is a plain BOOL. */
 interface Seen {
   readonly stores: { pointer: string | undefined; target: string | undefined }[]
   readonly copies: [string, string][]
   readonly anyAddresses: Set<string>
+  readonly boolSeeds: Set<string>
+  readonly boolFlows: [string, readonly string[]][]
+  readonly boolAddresses: [string, string | null][]
+  readonly byteViews: Set<string>
+  readonly boolPointers: Map<string, boolean>
 }
-const seenOf = sharedState<Seen>(() => ({ stores: [], copies: [], anyAddresses: new Set() }))
+const seenOf = sharedState<Seen>(() => ({
+  stores: [],
+  copies: [],
+  anyAddresses: new Set(),
+  boolSeeds: new Set(),
+  boolFlows: [],
+  boolAddresses: [],
+  byteViews: new Set(),
+  boolPointers: new Map(),
+}))
+
 
 /** The answer a lowering runs on — the previous pass's (`lower-unit.ts`), or none on the first. */
 const given = new WeakMap<Shared, Escapes>()
@@ -78,6 +110,7 @@ export function escapesSeen(shared: Shared): Escapes {
     variables: new Set(targets.filter((t) => !t.startsWith("TYPE:"))),
     tagged,
     anyAddresses: seen.anyAddresses,
+    ...boolBytes(seen),
   }
 }
 
@@ -87,10 +120,14 @@ export const joined = (a: Escapes, b: Escapes): Escapes => ({
   variables: new Set([...a.variables, ...b.variables]),
   tagged: new Set([...a.tagged, ...b.tagged]),
   anyAddresses: new Set([...a.anyAddresses, ...b.anyAddresses]),
+  rawBools: new Set([...a.rawBools, ...b.rawBools]),
+  byteViews: new Set([...a.byteViews, ...b.byteViews]),
+  unkeyedBools: new Set([...a.unkeyedBools, ...b.unkeyedBools]),
 })
 
 /** Whether an answer holds nothing — a lowering that stored no address needs no second one. */
-export const isEmpty = (e: Escapes): boolean => e.types.size + e.variables.size + e.tagged.size + e.anyAddresses.size === 0
+export const isEmpty = (e: Escapes): boolean =>
+  e.types.size + e.variables.size + e.tagged.size + e.anyAddresses.size + e.rawBools.size + e.byteViews.size + e.unkeyedBools.size === 0
 
 /**
  * The escaped FB types closed over EXTENDS, both ways: a base's body runs on a derived instance and a derived body reads
@@ -113,11 +150,19 @@ function families(shared: Shared, types: Set<string>): Set<string> {
 /** Whether `b` adds nothing to `a` — the passes have reached their fixed point. */
 export function covers(a: Escapes, b: Escapes): boolean {
   const all = (x: ReadonlySet<string>, y: ReadonlySet<string>): boolean => [...y].every((k) => x.has(k))
-  return all(a.types, b.types) && all(a.variables, b.variables) && all(a.tagged, b.tagged) && all(a.anyAddresses, b.anyAddresses)
+  return (
+    all(a.types, b.types) &&
+    all(a.variables, b.variables) &&
+    all(a.tagged, b.tagged) &&
+    all(a.anyAddresses, b.anyAddresses) &&
+    all(a.rawBools, b.rawBools) &&
+    all(a.byteViews, b.byteViews) &&
+    all(a.unkeyedBools, b.unkeyedBools)
+  )
 }
 
 /**
- * A pointer something is stored into, as the escape pass names it: its type, its key (`addressKey`; undefined for one
+ * A pointer something is stored into, as the escape pass names it: its type, its key (`variableKey`; undefined for one
  * kept nowhere a store can name) and how a message names it. A pointer VARIABLE is one (`holderOf`); so is a routine's
  * pointer INPUT a call hands an address to, named by the routine's own key for it.
  */
@@ -127,12 +172,18 @@ export interface Holder {
   readonly name: string
 }
 
-export const holderOf = (lw: Lowering, pointer: Place, name: string): Holder => ({ type: pointer.type, key: addressKey(lw, pointer), name })
+export const holderOf = (lw: Lowering, pointer: Place, name: string): Holder => ({ type: pointer.type, key: variableKey(lw, pointer), name })
 
 /** An address of `target` stored into the pointer `pointer` — the target's escape key, or none: a tag. An address
  *  compared, stored nowhere, has no pointer: its target is in the image all the same, so the two can be compared. */
 export function noteStore(lw: Lowering, pointer: Holder | undefined, target: Place | undefined): void {
   seenOf(lw).stores.push({ pointer: pointer?.key, target: target === undefined ? undefined : escapeKey(lw, target) })
+  if (pointer !== undefined) notePointer(lw, pointer)
+}
+
+/** Whether a pointer a key names views a plain BOOL, for `boolBytes`. */
+function notePointer(lw: Lowering, pointer: Holder): void {
+  if (pointer.key !== undefined) seenOf(lw).boolPointers.set(pointer.key, viewsBool(pointer.type))
 }
 
 /** `p := v.pValue` into a pointer that holds addresses: the ANY input's holder (`any.anyHolder`) asks its call sites for
@@ -141,14 +192,38 @@ export function noteAnyAddress(lw: Lowering, holder: Holder): void {
   if (holder.key !== undefined) seenOf(lw).anyAddresses.add(holder.key)
 }
 
+/** A BOOL whose address a pointer of another target type was given (`raw-bool.ts`): a raw BOOL. */
+export function noteBoolSeed(lw: Lowering, key: string): void {
+  seenOf(lw).boolSeeds.add(key)
+}
+
+/** A BOOL's address — `null`: one no key names — given to the POINTER TO BOOL `pointer` (`raw-bool.ts`). */
+export function noteBoolAddress(lw: Lowering, pointer: Holder, bool: string | null): void {
+  notePointer(lw, pointer)
+  if (pointer.key !== undefined) seenOf(lw).boolAddresses.push([pointer.key, bool])
+}
+
+/** A POINTER TO BOOL given the address of what is no plain BOOL's byte: a byte view (`raw-bool.ts`). */
+export function noteByteView(lw: Lowering, pointer: string): void {
+  seenOf(lw).byteViews.add(pointer)
+}
+
+/** A BOOL store: the variable `to` takes the byte of every BOOL in `from` (`raw-bool.ts`). */
+export function noteBoolFlow(lw: Lowering, to: string, from: readonly string[]): void {
+  if (from.length > 0) seenOf(lw).boolFlows.push([to, from])
+}
+
 /** `to := from`, two pointers: one kind of value. */
 export function noteCopy(lw: Lowering, to: Holder, from: Holder): void {
   if (to.key !== undefined && from.key !== undefined) seenOf(lw).copies.push([to.key, from.key])
+  notePointer(lw, to)
+  notePointer(lw, from)
 }
 
-/** A pointer variable's key: its own frame's (`pointerKey`), or — for a field reached from outside its instance — the
- *  key its own FB's bodies give it (`FB:<type>.<field>`). Undefined for a pointer kept nowhere a store can name. */
-function addressKey(lw: Lowering, pointer: Place): string | undefined {
+/** A variable's key: its own frame's (`pointerKey`), or — for a field reached from outside its instance — the key its own
+ *  FB's bodies give it (`FB:<type>.<field>`). Undefined for one kept nowhere a store can name (an element, a field of a
+ *  struct). A pointer's for the escape pass, a BOOL's for `raw-bool.ts`. */
+export function variableKey(lw: Lowering, pointer: Place): string | undefined {
   const own = pointerKey(lw, pointer)
   if (own !== undefined) return own
   const last = pointer.path.at(-1)
@@ -160,7 +235,7 @@ function addressKey(lw: Lowering, pointer: Place): string | undefined {
 /** Whether a pointer or reference holds ADDRESSES into the image: its target is an image type, and no store made it hold
  *  a tag. Form 2's borrow and a string cursor are asked before this, by their own names. */
 export function holdsAddresses(lw: Lowering, pointer: Place): boolean {
-  return holderHoldsAddresses(lw, { type: pointer.type, key: addressKey(lw, pointer), name: "" }, pointer.span)
+  return holderHoldsAddresses(lw, { type: pointer.type, key: variableKey(lw, pointer), name: "" }, pointer.span)
 }
 
 /** `holdsAddresses`, asked of a holder. */

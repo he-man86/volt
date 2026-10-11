@@ -19,7 +19,7 @@ import type { IrInit, IrValue } from "../../ir/index.js"
 import { calendarOf, durationOf, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "../values/literals.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { exprHoldsCall } from "../core/ast-walk.js"
-import { constantValue } from "../../semantics/index.js"
+import { constantValue, NaNBits } from "../../semantics/index.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { stored, valueAs } from "../values/convert.js"
 import { enumeratorValue } from "../values/enums.js"
@@ -59,6 +59,9 @@ export function scalarInit(lw: Lowering, e: Expr, type: Type, asConstant = false
   // folded in its declared type's context: an untyped literal under the NOT or shift it is takes it (`constEval`)
   const folded = temporal?.value ?? text ?? foldConstant(lw, e, asConstant, elemOf(type)) ?? foldedCall(lw, e, type)
   if (folded === undefined) return lw.bail("init-not-constant", "an initial value that is not a compile-time constant", e.span)
+  // a fold that is a NaN is its bits (`semantics/nan.ts`), which no IR constant holds — and what CODESYS's own fold stores
+  // for one is unmeasured (transpile-restructure 8.2)
+  if (folded instanceof NaNBits || (typeof folded === "number" && Number.isNaN(folded))) return lw.bail("init-nan", "an initial value that folds to a NaN, whose bits CODESYS's fold is unmeasured for", e.span)
   // A SCALAR CONSTANT ON A COMPOSITE is refused by CODESYS (`litc_array_init_one`, `litc_struct_init_one`,
   // `litc_fb_init_one`) — and here it was dropped in silence: the array's backends printed its zeros, the struct its
   // `new()`. Once an array's `IrInit` must state its elements (transpile-restructure 5.3), the drop is a refusal.
@@ -310,8 +313,8 @@ export function aliasInit(lw: Lowering, t: TypeExpr): Initializer | undefined {
  * HERE, not in `values/fold.ts` (design.md §2.4 put it there): it lowers the expression (`lowerExpr`), and `values/` is a
  * leaf that imports no `expressions/` (rule 4b, transpile-restructure 6.B.6). Its one caller is `scalarInit`.
  */
-function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
+function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | NaNBits | undefined {
   if (!exprHoldsCall(e)) return undefined
   const lowered = lowerExpr(lw, e, type)
-  return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
+  return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | NaNBits | undefined)
 }

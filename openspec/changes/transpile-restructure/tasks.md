@@ -6849,6 +6849,96 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
       owner's later triage rule ("niche: accepted loss (N occurrences)"), which design.md §7.2's target predates. The
       OWNER decides: amend the target to "the model decisions' refusals, the trig family, and the named niche losses",
       or reopen those 6.
+  - Step 8c (2026-10-11), the owner's reopening, per design.md §7.2 Decision (step 8c) and its "as built" record. NOT
+    ticked: the gate decides, and two marks outside both lists remain (below).
+    - Recorded first: `nan_payload_ops`, `nan_payload_ops_lreal`, `bool_byte_ops`, `wstring_parse_grammar`,
+      `string_input_tail_interleaved` (one CODESYS build batch, one `record:exec` batch, one TwinCAT Project13 build batch
+      with the sixth), then `nan_payload_select_trig` (a second CODESYS batch, asked by the first's answers) — every build
+      clean on both vendors (`ide.ps1 -Instance transpile-restructure`, every IDE it started closed after).
+    - Fixed, each test-first against its recording, its mark removed: `reinterpret_dint_as_real_edges` and
+      `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` (a NaN is its bits: `semantics/nan.ts`, `nan.cases.ts` 87 cells in
+      `nan.test.ts` and the twin harness; Rust `iec_fneg*` / `iec_fabs*`; `memory.cases.ts`' two interpreter divergences
+      gone), `bool_byte_two_through_pointer` (a BOOL held as its byte: `lower/pointers/raw-bool.ts`, `raw-bool.test.ts`),
+      `wstring_parse_trailing_spaces` (`parseIntegerWide` / `iec_parse_int_wide`, `WIDE_PARSE_INT_CASES` 46 cells). The four
+      new fixtures of those families are `confirmed` in both backends.
+    - Measured impossible, joined design.md §7.2 as a named loss FOR OWNER REVIEW: `string_store_function_input_tail`, with
+      `string_input_tail_interleaved` (p[11..15] the first call's 'Y', p[16..20] an address's bytes another FUNCTION's frame
+      wrote — the vendor's stack; `support/divergences.ts` `FUNCTION_FRAME_RESIDUE_DIVERGENCES`, 0 occurrences in the corpora).
+    - Refusals added (both `not-measured`, 0 in the corpora): `bool-byte`, `init-nan`. Corpora: the refusal list of all 304
+      POUs with code identical before and after (54 lowered, 250 refused; `probe-lowering-refusals.ts`, HEAD worktree).
+    - THE DELTA, 0.2 (3f42db0e71) → now (`rate:fixtures` after the step; 5357 → 5572 fixtures):
+      - evidence: confirmed 2806 → 3022, refused 1989 → 2018, not-lowered 389 → 345, lsp-gap 76 → 85, diverges 5 → 7,
+        unaskable 92 → 95.
+      - tier (lowered / clean): 3225 / 3206 → 3449 / 3439 — decl 805 / 805, arith 1595 / 1595, control 162 / 152, aggregate
+        149 / 149, call 342 / 342, indirect 396 / 396.
+      - edge: agree 3046 → 3228, disagree 0 → 2, not-run 179 → 219 (libm 77, the Rust does not build 70, no elementary
+        variable 66, the loop guard gives up on every variant 6). The two disagreements are `string_inout_wider_copies` and
+        `string_inout_wider_unit_read` (below); the three NaN disagreements of 8a are gone (both backends seed and keep
+        the same NaN bits).
+      - size (7.1.4's definition): median 3.1 (0.2 re-computed under it, 8a) → 2.7; the ten largest string_positions_low
+        26.2, string_positions_high 25, string_insert_delete_replace_find 19.5, string_edge_positions 18,
+        string_conversions_formats 14.3, string_len_left_right_mid 13.3, tr_a10_string_to_dint_based_edges 11.7,
+        tr_a27_for_unsigned_counters_negative_step 11.5, tr_a10_string_to_dint_underscore_sign_edges 10.8,
+        tr_a10_string_to_int_literal_forms 10.8.
+      - pedantic: 30845 → 1961 (1864 before this step; +97 all from the six new fixtures, no existing fixture's count
+        moved); the ten most frequent cast_possible_truncation 866, cast_sign_loss 564, cast_possible_wrap 301,
+        pub_underscore_fields 93, struct_excessive_bools 44, cast_precision_loss 31, float_cmp 14, used_underscore_binding
+        12, cast_lossless 10, single_match_else 7.
+      - surviving lints: 24 findings of 10 kinds → 14 of 4: unreachable_patterns 6, clippy::match_overlapping_arm 5,
+        clippy::match_single_binding 2, overlapping_range_endpoints 1 (8a's clippy::bool_comparison went with the BOOL byte).
+      - ALLOWED, fixtures excused: 11 entries → 12: missing_panics_doc 259, self_assignment 42, dead_code 42, eq_op 15,
+        unused_assignments 14, absurd_extreme_comparisons 6, approx_constant 6, unused_comparisons 6, too_many_arguments 2,
+        manual_range_patterns 1, never_loop 1, unreachable_code 1.
+      - notes: 723 noted constructs → 16 (all `keep`); improvable fixtures 3056 → 37, touching a construct with
+        alternatives 2971 → 23; shapes 1716 → 1897 over 3225 → 3449 lowered; constructs 1798 → 2117.
+      - Open marks (the transpiler's `diverges` rows), 5 → 7: the trig family of §7.2 (3), the FUNCTION-frame residue of
+        §7.2 (2, the named loss above, for owner review), and OUTSIDE both lists `string_inout_wider_copies` and
+        `string_inout_wider_unit_read` — added by the 7.4c gate (2026-10-10) after 8a's count and after the owner's
+        reopening named its six, each "niche: accepted loss (0 occurrences in the corpora)". Not this step's to fix: the
+        OWNER decides them as he decided the six. The LSP's marks are unchanged (`KNOWN_DIVERGENCES`, `deferred.lsp`).
+    - Accept: M met; "every open mark in one of the two lists" met but for the two 7.4c marks (owner).
+  - GATE 8c (2026-10-11): the seven review findings of step 8c, each fixed test-first against a recording (design.md §7.2
+    Decision (gate 8c)) — none skipped. NOT ticked: 8.2's Accept still waits on the owner for the two 7.4c marks and the
+    FUNCTION-frame residue named loss (unchanged by the gate).
+    - Recorded first (one CODESYS build batch, one `record:exec` batch, one TwinCAT Project13 build batch, `ide.ps1
+      -Instance transpile-restructure`, both IDEs closed after; every build clean on both vendors): `bool_byte_flow_fb_input`,
+      `bool_byte_flow_fb_field`, `bool_byte_flow_inout`, `bool_byte_flow_move`, `bool_byte_flow_any`,
+      `bool_pointer_over_bytes`, `bool_pointer_copied_to_byte_pointer`, `byte_pointer_copied_to_bool_pointer`,
+      `wstring_parse_widths` — all nine `confirmed`, both backends.
+    - (1) POINTER TO BOOL over other bytes, recorded as reading the byte: modelled, not refused — a BYTE VIEW dereferences
+      as a BYTE and reads by the table (`raw-bool.ts` `boolView` / `isByteView`, `deref.ts` `imageDeref`); refused
+      `bool-byte` only where no key can follow (a byte view no variable names; a POINTER TO what holds a BOOL over other
+      bytes — `POINTER TO ARRAY OF BOOL` over a DWORD lowered silently before). (2) The copy POINTER TO BOOL -> POINTER TO
+      BYTE (it builds on both vendors): the escape pass carries BOOL addresses along pointer copies
+      (`pointers/bool-views.ts`, split out of `escape.ts`, which was at 409 lines), the reverse copy is a byte view;
+      `refusedBoolCopy` names what cannot be followed. (3) The flows, recorded as keeping the byte: the FB input (both
+      forms), MOVE and ANY answered right already; the FUNCTION VAR_IN_OUT did NOT — `BOOL_TO_INT(x)` of a lent 255 answered
+      255 and the Rust did not build — now one byte both ways (`refusedBoolLent`, `declareInOuts` holds a raw in-out as a
+      BYTE); a raw BOOL lent to an FB's VAR_IN_OUT is refused (unmeasured). `raw-bool.test.ts` 12 -> 21 tests.
+      (4) `wstring_parse_widths` (108 cells): WSTRING and STRING agree in every cell, and the replay found 48 red — a
+      NEGATIVE text into an UNSIGNED type is 0 for both parses, where both backends wrapped it (`parseInteger` /
+      `parseIntegerWide` / `iec_parse_int` / `iec_parse_int_wide` take `unsigned`; `parse.cases.ts` +216 cells, 47 -> 155
+      STRING and 46 -> 154 WSTRING). (5) NaN under `-O`: the twin harness's new optimized build of the 87 NaN cells was red
+      (folding gave 16#7FC00000 for `sNaN + 1`); the emitted Rust now chooses each NaN (`iec_fadd` / `iec_fsub` / `iec_fmul`
+      / `iec_fdiv` / `iec_fdivz`, `iec_fn`, `iec_widen` / `iec_narrow`, `IecReal::nan_of`), green in both builds. (6) The edge
+      column compares a NaN by its bits (`rustRender` deleted) and seeds a negative signalling NaN with a payload;
+      `edge.test.ts` +2. (7) `scanInteger`'s class is `[ \t]` again (the TabLead / TabPlain cells hold its behaviour).
+    - Re-keyed (the math constructs changed text, the reasons did not): the five `keep` notes 84845bb684, d47543941e,
+      7eff84bf36, b07338e4d9, 1671a3249d -> 23ec96d0b2 + 25ab369c9b, 332a313c3b + 363e21f766, 9548514a68 + 50a5f5e236,
+      36577535d8, 83c9c59d10 + b580176580 (a REAL and an integer argument print apart now). `source-map.test.ts`
+      RENAMED_TARGETS 468 -> 535 (the image class, read). Front-end and analysis baselines: COUNT moves only (+9 fixtures).
+    - Corpora: the refusal list of all 304 POUs identical before and after the gate (54 lowered, 250 refused, 0 `bool-byte`;
+      `probe-lowering-refusals.ts`).
+    - THE DELTA, step 8c -> gate (`rate:fixtures`, 5572 -> 5581 fixtures): confirmed 3022 -> 3031, refused 2018, not-lowered
+      345, lsp-gap 85, diverges 7, unaskable 95 (unchanged); tier lowered / clean 3449 / 3439 -> 3458 / 3448 (arith 1596,
+      indirect 404); edge agree 3228 -> 3237, disagree 2 (the 7.4c marks), not-run 219; size median 2.7, the ten largest
+      unchanged; pedantic 1961 -> 2199 (+316 the nine new fixtures, 308 of them `wstring_parse_widths`' casts; -78 the
+      existing ones, the math's `as f32` gone); surviving lints 14 of 4 (unchanged); ALLOWED clippy::eq_op 15 -> 6 (a REAL
+      `x - x` is a helper call now), missing_panics_doc 259, the rest unchanged; notes 16 -> 20 (all `keep`, the four split
+      re-keys), improvable 37, with alternatives 23; shapes 1897 -> 1905 over 3458 lowered, constructs 2117 -> 2159.
+    - Gate checks: `bun typecheck` clean; `bun run lint` green (layering 1 known, size 0 listed, citations 0 missing);
+      `rate:fixtures` as above; full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 9367 pass / 35 skip / 388 todo / 0 fail, 9790 tests across 323 files (665s); `bun run
+      test:corpus` 19 pass / 1 skip / 0 fail; `bun run check` 18 passed.
 - [ ] 8.3 Final review.
   - What: spec, layering and a fresh-implementation review over the whole change; fix or file.
   - Where: all touched files.

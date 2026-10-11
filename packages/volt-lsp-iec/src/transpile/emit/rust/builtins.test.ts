@@ -42,26 +42,28 @@ describe("emit/rust", () => {
     expect(code).toContain("match ")
   })
 
-  test("math computes through f64 and narrows; ABS wraps a signed minimum and is the identity on unsigned", () => {
+  test("math computes through f64 and narrows; ABS wraps a signed minimum, quiets a REAL NaN and is the identity on unsigned", () => {
     const code = rust(
       "PROGRAM P\nVAR x : REAL; y : REAL; i : INT; j : DINT; u : ULINT; v : ULINT; END_VAR\ny := LN(x); j := ABS(i); y := ABS(x); v := ABS(u);\nEND_PROGRAM\n",
     )
     // LN GOES THROUGH `iec_log` — `LN(0)` and `LOG(0)` stop the task on CODESYS and Rust answers `-inf` and carries
-    // on (`operators/math-domain.ts`, which asked every math function's domain edges). The `as f64` / `as f32` trip
-    // this test is really about is unchanged.
-    expect(code).toContain("iec_log(f64::from(self.x)).ln() as f32")
+    // on (`operators/math-domain.ts`, which asked every math function's domain edges). The trip through f64 is
+    // `iec_widen` / `iec_narrow` and the routine is handed to `iec_fn`, which choose a NaN as CODESYS does (gate 8c).
+    expect(code).toContain("self.y = iec_narrow(iec_fn(iec_log(iec_widen(self.x)), f64::ln));")
     expect(code).toContain('assert!(x != 0.0, "the logarithm of zero stops the task on CODESYS")')
     expect(code).toContain("i32::from(self.i).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
-    expect(code).toContain("self.x.abs()")
+    // a REAL's ABS is `iec_fabs32`: CODESYS quiets a NaN and clears its sign, `f32::abs` keeps a signalling one (8.2)
+    expect(code).toContain("self.y = iec_fabs32(self.x);")
     expect(code).toContain("self.v = self.u;") // u64 has no `abs`
   })
 
   test("EXPT is `powf` through f64, narrowed to REAL only when both arguments are REAL", () => {
     const code = rust("PROGRAM P\nVAR x : REAL; y : REAL; n : INT; z : LREAL; END_VAR\ny := EXPT(x, y); z := EXPT(x, n);\nEND_PROGRAM\n")
-    expect(code).toContain("iec_pow(f64::from(self.x), f64::from(self.y)) as f32")
-    expect(code).toContain("self.z = iec_pow(f64::from(self.x), f64::from(self.n));") // one INT: LREAL
-    // through `iec_pow`: EXPT(0, -1) stops the task on CODESYS where `powf` answers inf (`tr_46_exptdom_zero_pow_*`)
-    expect(code).toContain('assert!(!stops, "zero to a negative power stops the task on CODESYS"); x.powf(y)')
+    expect(code).toContain("self.y = iec_narrow(iec_pow(iec_widen(self.x), iec_widen(self.y)));")
+    expect(code).toContain("self.z = iec_pow(iec_widen(self.x), f64::from(self.n));") // one INT: LREAL
+    // through `iec_pow`: EXPT(0, -1) stops the task on CODESYS where `powf` answers inf (`tr_46_exptdom_zero_pow_*`),
+    // and its NaN is chosen as CODESYS chooses it (gate 8c)
+    expect(code).toContain('assert!(!stops, "zero to a negative power stops the task on CODESYS"); f64::nan_of(x.powf(y), x, y)')
   })
 
   test("bit operations print Rust's own wrapping_shl/rotate_left, MUX a match, and bit access one slot's mask", () => {

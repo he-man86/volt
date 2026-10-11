@@ -3,20 +3,17 @@ import { describe, expect, test } from "bun:test"
 import { elementaryRef, type Type } from "../../frontend/types/index.js"
 import type { IrLayout, Place } from "../ir/index.js"
 import { IecFault } from "./faults.js"
-import { CASE_IMAGE, MEMORY_CASES, MEMORY_INTERPRETER_DIVERGENCES, type MemoryInput, type OverlayType, REINTERPRET_CASES, REINTERPRET_INTERPRETER_DIVERGENCES } from "./memory.cases.js"
+import { CASE_IMAGE, MEMORY_CASES, type MemoryInput, type OverlayType, REINTERPRET_CASES } from "./memory.cases.js"
 import { ADDRESS, BASE_FIELD, IMAGE_BASE, indexAddress, Memory, reinterpret, toImage } from "./memory.js"
 import type { Val } from "./value.js"
+import { floatBitsOf, type NaNBits } from "./nan.js"
 
 const NO_LAYOUTS: ReadonlyMap<string, IrLayout> = new Map()
 
-/** A loaded value as the cases print it: a REAL or LREAL by its bits in hex, anything else as itself. */
+/** A loaded value as the cases print it: a REAL or LREAL by its bits in hex — a NaN's own (`NaNBits`) — anything else as
+ *  itself. */
 function printed(v: unknown, type: string): string {
-  if (type === "REAL" || type === "LREAL") {
-    const view = new DataView(new ArrayBuffer(8))
-    if (type === "REAL") view.setFloat32(0, v as number)
-    else view.setFloat64(0, v as number)
-    return type === "REAL" ? view.getUint32(0).toString(16) : view.getBigUint64(0).toString(16)
-  }
+  if (type === "REAL" || type === "LREAL") return floatBitsOf(v as number | NaNBits, type === "REAL" ? 32 : 64).toString(16)
   return String(v)
 }
 
@@ -37,12 +34,7 @@ function run(input: MemoryInput): string {
 describe("the byte image's cases", () => {
   for (const [rule, cases] of Object.entries(MEMORY_CASES))
     describe(rule, () => {
-      for (const c of cases) {
-        const why = MEMORY_INTERPRETER_DIVERGENCES[c.name]
-        // a known divergence runs as an expected failure: it fails the suite the day it starts to agree
-        if (why !== undefined) test(`${c.name} — diverges: ${why}`, () => expect(run(c.input)).not.toBe(c.expected))
-        else test(c.name, () => expect(run(c.input)).toBe(c.expected))
-      }
+      for (const c of cases) test(c.name, () => expect(run(c.input)).toBe(c.expected))
     })
 })
 
@@ -63,9 +55,7 @@ describe("a value's bytes read at another type (reinterpret)", () => {
       for (const c of cases) {
         const { from, value, to, over } = c.input
         const answer = () => overlayPrinted(reinterpret(value as Val, overlayType(from), overlayType(to), over as Val | undefined, NO_LAYOUTS), to)
-        const why = REINTERPRET_INTERPRETER_DIVERGENCES[c.name]
-        if (why !== undefined) test(`${c.name} — diverges: ${why}`, () => expect(answer()).not.toBe(c.expected))
-        else test(c.name, () => expect(answer()).toBe(c.expected))
+        test(c.name, () => expect(answer()).toBe(c.expected))
       }
     })
 })

@@ -1202,8 +1202,6 @@ const CASES: readonly ExecCase[] = [
   // NaN and -0 do not compare, so every result is also read as its BITS through a pointer (`wN`).
   {
     name: "tr_28_minmax_limit_nan_signed_zero_lreal",
-    deferred:
-      "2026-10-09 (transpile-restructure 4d): model 3 lowers the LWORD read through `pw` over the LREALs' bytes (design.md §3.3 step 4d), and the emitted Rust keeps every bit; the INTERPRETER's LREAL is a JavaScript number, whose NaN is always the positive quiet one, so the sign CODESYS's SQRT(-1) NaN carries (w2/w4/w7 recorded with the sign bit set) is lost on the way through its value. Decided 4.12 (design.md §3.3 step 4e): the interpreter's LREAL stays a JavaScript number — niche: accepted loss (1 occurrence in the corpora: bakon-nano `ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE).",
     vars: [
       "seed : LREAL := 1.0; n : LREAL; pz : LREAL := 0.0; nz : LREAL;",
       "r1 : LREAL; r2 : LREAL; r3 : LREAL; r4 : LREAL; r5 : LREAL; r6 : LREAL; r7 : LREAL; r8 : LREAL; r9 : LREAL;",
@@ -1223,8 +1221,6 @@ const CASES: readonly ExecCase[] = [
   },
   {
     name: "tr_28_minmax_limit_nan_signed_zero_real",
-    deferred:
-      "2026-10-09 (transpile-restructure 4d): model 3 lowers the DWORD read through `pw` over the REALs' bytes (design.md §3.3 step 4d), and the emitted Rust keeps every bit; the INTERPRETER's REAL is a JavaScript number, whose NaN is always the positive quiet one, so the sign CODESYS's SQRT(-1) NaN carries (w2/w4/w7 recorded with the sign bit set) is lost on the way through its value. Decided 4.12 (design.md §3.3 step 4e): the interpreter's REAL stays a JavaScript number — niche: accepted loss (1 occurrence in the corpora: bakon-nano `ReadParametersFromAGM` views a REAL's bytes through a POINTER TO ARRAY OF BYTE).",
     vars: [
       "seed : REAL := 1.0; n : REAL; pz : REAL := 0.0; nz : REAL;",
       "r1 : REAL; r2 : REAL; r3 : REAL; r4 : REAL; r5 : REAL; r6 : REAL; r7 : REAL; r8 : REAL; r9 : REAL;",

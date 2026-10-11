@@ -15,6 +15,7 @@ import { indexOutOfBounds } from "../ir/faults.js"
 import { elementaryRef, floatBits, isBit, isBoolValued, peelArray, type Type } from "../../frontend/types/index.js"
 import { IecFault, LoweringBug } from "./faults.js"
 import type { Val } from "./value.js"
+import { floatBitsOf, floatFromBits, type NaNBits } from "./nan.js"
 
 /** Where the image starts. NULL is 0 and every address is at least this, so a step below an array's first element
  *  (`tr_44_pointer_step_below_first_element`: `ADR(arr[0]) - SIZEOF(INT) = 0` is FALSE) never reaches NULL. */
@@ -45,10 +46,9 @@ function imageSize(t: Type, layouts: ReadonlyMap<string, IrLayout>): number | un
 function storeElementary(view: DataView, at: number, t: Type, v: Val): void {
   const size = elementarySize(t)!
   if (isBoolValued(t)) return view.setUint8(at, v === true ? 1 : 0)
+  // a REAL by its bits — a NaN's own (`NaNBits`), every other number's IEEE encoding
   const float = floatBits(t)
-  if (float === 32) return view.setFloat32(at, v as number, true)
-  if (float === 64) return view.setFloat64(at, v as number, true)
-  let bits = BigInt.asUintN(size * 8, v as bigint)
+  let bits = float === undefined ? BigInt.asUintN(size * 8, v as bigint) : floatBitsOf(v as number | NaNBits, float)
   for (let k = 0; k < size; k++, bits >>= 8n) view.setUint8(at + k, Number(bits & 0xffn))
 }
 
@@ -56,11 +56,11 @@ function storeElementary(view: DataView, at: number, t: Type, v: Val): void {
 function loadElementary(view: DataView, at: number, t: Type): Val {
   const size = elementarySize(t)!
   if (isBoolValued(t)) return view.getUint8(at) !== 0
-  const float = floatBits(t)
-  if (float === 32) return view.getFloat32(at, true)
-  if (float === 64) return view.getFloat64(at, true)
   let bits = 0n
   for (let k = size - 1; k >= 0; k--) bits = (bits << 8n) | BigInt(view.getUint8(at + k))
+  // a REAL's bits as the value they encode: a NaN keeps them, a signalling one included (`reinterpret_dint_as_real_edges`)
+  const float = floatBits(t)
+  if (float !== undefined) return floatFromBits(bits, float)
   return t.kind === "elementary" && t.elem.signed ? BigInt.asIntN(size * 8, bits) : bits
 }
 

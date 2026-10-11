@@ -28,6 +28,7 @@ import { boundName, boundOf, openDims } from "../places/bounds.js"
 import { refuseDynamicMemory } from "../builtins/system.js"
 import { holdsAddresses } from "../pointers/escape.js"
 import { storePointer } from "../pointers/store.js"
+import { refusedBoolLent } from "../pointers/raw-bool.js"
 
 /**
  * `inst(a := x, q => y)` → the input assignments, the call, the output assignments (IrCall). A FUNCTION, a METHOD or
@@ -158,7 +159,8 @@ function fbArguments(
     const param = fieldIn(inouts, name)
     if (param !== undefined) {
       const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name, undefined)
-      if (target === undefined || isInFrame(target)) return undefined
+      // a BOOL held as its byte lent to an FB's VAR_IN_OUT is unmeasured (`pointers/raw-bool.ts`)
+      if (target === undefined || isInFrame(target) || refusedBoolLent(lw, undefined, param, target, arg.span)) return undefined
       bound.set(name, target)
       writtenAt.set(name, before.length)
       continue

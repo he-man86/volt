@@ -16,6 +16,7 @@ import { lowerPlace } from "../places/places.js"
 import { lowerExpr } from "../expressions/expressions.js"
 import { holdsAddresses } from "./escape.js"
 import { byteSize } from "../storage/bytes.js"
+import { isByteView } from "./raw-bool.js"
 
 /**
  * A REFERENCE IS IMPLICITLY DEREFERENCED — `r.x` MEANS `r^.x`, and `r[1]` means `r^[1]`.
@@ -83,10 +84,11 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   return { ...target.base, path: [...target.base.path, step], type: target.element.type, guard: pointer, span }
 }
 
-/** `p^` (`p[extra]`) of a pointer that holds addresses: the image at its value, as the pointer's target type — guarded by
- *  the pointer, so NULL faults as a null dereference before the image is asked. */
+/** `p^` (`p[extra]`) of a pointer that holds addresses: the image at its value, as the pointer's target type — a BYTE
+ *  for a POINTER TO BOOL that reads a byte (`raw-bool.ts` `isByteView`) — guarded by the pointer, so NULL faults as a
+ *  null dereference before the image is asked. */
 function imageDeref(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): Place {
-  const type = storageOf(lw, (pointer.type as Extract<Type, { kind: "pointer" | "reference" }>).target, span)
+  const type = isByteView(lw, pointer) ? elementaryRef("BYTE") : storageOf(lw, (pointer.type as Extract<Type, { kind: "pointer" | "reference" }>).target, span)
   let at: IrExpr = { kind: "load", place: pointer, type: pointer.type, span }
   if (extra !== undefined) {
     const lint = elementaryRef("LINT")

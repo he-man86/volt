@@ -25,6 +25,7 @@
  * invisible under `==` — a gate that cannot see one of the defects that motivated it is decoration.
  */
 import { describe, expect, test } from "bun:test"
+import { NaNBits } from "../../src/transpile/semantics/nan.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -128,6 +129,8 @@ const seedable = (t: Type): "int" | "real" | "bool" | undefined => {
  */
 function render(v: unknown, wide: boolean): string {
   if (typeof v === "number") return bitsOf(v, wide)
+  // a NaN is its bits (`NaNBits`, transpile-restructure 8.2), compared exactly as every other REAL is
+  if (v instanceof NaNBits) return v.bits.toString()
   if (typeof v === "string") return `[${[...v].map((ch) => ch.charCodeAt(0)).join(", ")}]`
   return String(v)
 }

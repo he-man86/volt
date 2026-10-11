@@ -140,7 +140,7 @@ export class Lowering {
     return !this.globalMode && (this.routineMode || section === "VAR_TEMP")
   }
 
-  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit, extra?: Pick<IrSlot, "readAs" | "declared">): void {
+  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit, extra?: Pick<IrSlot, "readAs" | "declared" | "rawBool">): void {
     const slot: IrSlot = { name: name.text, type, section, init: init ?? zeroInit(type), ...extra }
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)

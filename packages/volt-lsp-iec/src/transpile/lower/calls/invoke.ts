@@ -9,7 +9,7 @@ import type { Lowering, RoutineSymbol } from "../core/lowering.js"
 import type { CallArg, Expr, Span } from "../../../frontend/syntax/index.js"
 import { anyInputsOf, bindAnyArgument, bindAnyTargets } from "../pointers/any.js"
 import { bindOutputArgument, bindUnconnectedOutputs } from "./outputs.js"
-import { UNKNOWN } from "../../../frontend/types/index.js"
+import { elementaryRef, UNKNOWN } from "../../../frontend/types/index.js"
 import { lastBinding } from "./last-binding.js"
 import { bindStringInput, stringInputsOf } from "./string-inputs.js"
 import { isSuper } from "./super.js"
@@ -26,6 +26,7 @@ import { positionalBinding, positionalOf } from "./parameters.js"
 import { bindCursorArgument, cursorInputsOf } from "../pointers/cursor.js"
 import { type Holder, holderHoldsAddresses } from "../pointers/escape.js"
 import { addressValue } from "../pointers/address.js"
+import { isPlainBool, refusedBoolLent, storedBool } from "../pointers/raw-bool.js"
 import { bindBorrowedArgument, borrowedInputsOf } from "../pointers/borrowed.js"
 import { interfaceArgument } from "../interfaces/tags.js"
 import { lowerExpr } from "../expressions/expressions.js"
@@ -200,6 +201,9 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
     // a Standard string input this variant takes read-only (`string-inputs.ts`): lent as it is, no alias to check
     const target = stringInputsOf(lw).get(routine.key)?.has(bound) === true ? bindStringInput(lw, arg, param) : bindInOut(lw, arg, param, callHolds(b), routine.body, routine.fb, b.instance)
     if (target === undefined) return undefined
+    // a BOOL in-out and what it is lent are one byte (`bool_byte_flow_inout`), under the routine's own key for it
+    const lent = "kind" in target && target.kind === "inframe" ? target.place : target
+    if (refusedBoolLent(lw, `ROUTINE:${routine.key}.${param.name.toUpperCase()}`, param, lent, arg.span)) return undefined
     b.inouts[bound] = target
     b.order.push({ inout: bound })
     return true
@@ -236,9 +240,12 @@ function bindArgument(lw: Lowering, b: InvokeBindings, arg: CallArg): true | und
   // A call or PROPERTY read in an input runs where it is written, before the call (`callshape_argument_order`,
   // `callshape_property_read_in_arguments`) — each backend takes the inputs in `order`. It was refused (`call-nested`),
   // which stays for a call inside an in-out binding, whose place the call borrows.
-  const value = lowerExpr(lw, arg.value!, slot.type)
+  const raw = slot.rawBool === true
+  const value = lowerExpr(lw, arg.value!, raw ? elementaryRef("BOOL") : slot.type)
   if (value === undefined || refuseImplicitString(lw, value, slot.type, arg.span)) return undefined
-  b.inputs[k] = convert(value, slot.type)
+  // a BOOL input takes the byte of a BOOL held as its byte (`bool_byte_ops`: `x = TRUE` FALSE in the FUNCTION for a 2), the
+  // flow recorded under the routine's own key for the input (`pointers/raw-bool.ts`)
+  b.inputs[k] = raw || isPlainBool(slot.type) ? storedBool(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, raw, value) : convert(value, slot.type)
   b.order.push(k)
   return true
 }

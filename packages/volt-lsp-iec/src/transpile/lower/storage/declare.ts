@@ -26,6 +26,7 @@ import { stored } from "../values/convert.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { boundName, openDims } from "../places/bounds.js"
 import { initFrame, type PendingInit } from "../init/state.js"
+import { rawBoolInit, rawBoolSlot } from "../pointers/raw-bool.js"
 
 /**
  * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal — or, for a
@@ -153,7 +154,10 @@ function declareNames(
     else {
       // a per-run variable is numbered in the body's LOCALS, as `lw.slot` files it
       const slot = perRun ? lw.localSlots.length : lw.slots.length
-      lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init, widened)
+      // a BOOL held as its byte (`pointers/raw-bool.ts`): a BYTE slot, starting at the BOOL's 0 or 1
+      const raw = rawBoolSlot(lw, name.text, type, perRun)
+      if (raw !== undefined) lw.slot(name, raw.type, sec.sectionKind, deferred || failed ? undefined : rawBoolInit(init), { rawBool: true })
+      else lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init, widened)
       if (sec.constant === true && !perRun && !lw.globalMode) initFrame(lw).constants.add(slot)
       // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
       // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
@@ -205,7 +209,9 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
       for (const name of decl.names) {
         lw.inoutByName.set(name.text.toUpperCase(), lw.inoutSlots.length)
         const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}
-        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: zeroInit(type), ...constant })
+        // a BOOL in-out lent a BOOL held as its byte reads that byte (`pointers/raw-bool.ts` `refusedBoolLent`)
+        const raw = rawBoolSlot(lw, name.text, type, lw.perRun("VAR_IN_OUT"))
+        lw.inoutSlots.push({ name: name.text, type: raw?.type ?? type, section: "VAR_IN_OUT", init: zeroInit(raw?.type ?? type), ...constant, ...(raw === undefined ? {} : { rawBool: true }) })
       }
     }
 }

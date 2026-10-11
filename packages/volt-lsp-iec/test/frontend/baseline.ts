@@ -167,7 +167,7 @@ const STRING_INDEX_TASK =
   "lsp-transpile-review-gaps 2.3: the front-end types `s[i]` on a STRING / WSTRING (a BYTE / WORD, `lib_prim_char_past_length`)"
 const STRING_INDEX_CELLS =
   "transpile-restructure 3.1's string-model fixtures dump a buffer through `s[i]`, which the front-end leaves UNKNOWN (26 such reads in the fixtures before them, 5 in the corpora) — measured, not regressed: the character access is typed by the hand-off, not by a measure step"
-/** transpile-restructure 3.1's (and gates 3a's and 7.4c's) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
+/** transpile-restructure 3.1's (and gates 3a's and 7.4c's, and 8.2's) fixtures, with how many `s[i]` uses (reads and writes) each leaves UNKNOWN (the same on both vendors). */
 const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["string_literal_nul_tail", 6],
   ["string_assign_tail_narrow", 3],
@@ -182,6 +182,7 @@ const STRING_INDEX_ROWS: readonly [string, number][] = [
   ["string_store_function_result_tail", 9],
   ["string_store_destination_kinds_tail", 12],
   ["string_store_function_input_tail", 3],
+  ["string_input_tail_interleaved", 3],
   ["string_conversion_same_width_255", 18],
   ["string_parse_beyond_255", 29],
   ["wstring_parse_trailing_spaces", 10],

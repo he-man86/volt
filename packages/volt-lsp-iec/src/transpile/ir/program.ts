@@ -48,6 +48,11 @@ export interface IrSlot {
   /** Set with `readAs`: the constant's DECLARED type, which SIZEOF measures — SIZEOF(B) of `B : BYTE := KB + 1` held as 256
    *  in a WORD slot is 1, of `D : DINT := K + 1` 4 (`tr_a29_sizeof_bound_widened_*_constant`, both vendors, 6Af gate). */
   declared?: Type
+  /** A BOOL HELD AS ITS BYTE (transpile-restructure 8.2, `lower/pointers/raw-bool.ts`): its address reaches a pointer of
+   *  another type, or a flow that keeps the byte fills it from such a BOOL, and CODESYS keeps that whole byte — its type is
+   *  BYTE, every operator on it lowered on the byte. It shows as the BOOL it is declared: 0 FALSE, 1 TRUE (any other byte
+   *  the monitor cannot show). */
+  rawBool?: true
 }
 
 /**

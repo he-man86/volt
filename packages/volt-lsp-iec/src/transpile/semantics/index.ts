@@ -5,6 +5,7 @@
  * deciding things.
  */
 export * from "./value.js"
+export * from "./nan.js"
 export * from "./store.js"
 export * from "./convert.js"
 export * from "./parse.js"

@@ -11,24 +11,32 @@ import { LEAN } from "./lean.data.js"
 import { merged, note } from "./lean.js"
 
 export const NOTES: Readonly<Record<string, ShapeNote>> = {
-  // self.f = f64::m(self.f).exp() as f32;
-  "84845bb684": note("keep:f32::exp differs from the f64 round trip on 23,280 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(self.f), f64::exp));
+  "23ec96d0b2": note("keep:f32::exp differs from the f64 round trip on 23,280 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(f64::m(self.f), f64::exp));
+  "25ab369c9b": note("keep:f32::exp differs from the f64 round trip on 23,280 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // while ((if self.f { -Li16 } else { Li16 }) >= Li16 && self.f <= self.f) || ((if self.f { -Li16 } else { Li16 }) < L
   "098f7b0911": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u16;
   "30c4deeec9": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
-  // self.f = f64::m(self.f).sin() as f32;
-  "d47543941e": note("keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
-  // self.f = m(f64::m(self.f)).ln() as f32;
-  "7eff84bf36": note("keep:f32::ln differs from the f64 round trip on 210,637 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(self.f), f64::sin));
+  "332a313c3b": note("keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(f64::m(self.f), f64::sin));
+  "363e21f766": note("keep:f32::sin differs from the f64 round trip on 2,866,998 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(m(self.f)), f64::ln));
+  "9548514a68": note("keep:f32::ln differs from the f64 round trip on 210,637 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(f64::m(self.f)), f64::ln));
+  "50a5f5e236": note("keep:f32::ln differs from the f64 round trip on 210,637 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // self.f = self.f.wrapping_add(if self.f { -Li16 } else { Li16 });
   "90ad40cc20": note("keep:niche: accepted loss (2 occurrences in the corpora; the IR has no binding a pass could hold the step in short of a struct field, which is more Rust, not less — 7.5.9)", LEAN.shapes11_8),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as i16;
   "756ba59393": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
-  // self.f = m(self.f).log10() as f32;
-  "b07338e4d9": note("keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
-  // self.f = f64::m(self.f).cos() as f32;
-  "1671a3249d": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(self.f), f64::log10));
+  "36577535d8": note("keep:f32::log10 differs from the f64 round trip on 2,418,508 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(m(self.f), f64::cos));
+  "83c9c59d10": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
+  // self.f = m(m(f64::m(self.f), f64::cos));
+  "b580176580": note("keep:f32::cos differs from the f64 round trip on 2,876,136 of the 2^32 REAL inputs (exhaustive, this platform's libm, 2026-10-10; 7.3.12)", LEAN.shapes6_10),
   // self.f = { let x = i32::m(self.f); let x = i32::m(self.f); if x == L { L } else { x % x } } as u8;
   "62891f3570": note("keep:a variable divisor stays promoted: SINT/INT MIN MOD -1 is 0, computed in DINT (6.A.3), where a narrow remainder stops the task; niche: accepted loss (11 MODs by a name in the corpora; 7.3.13)", LEAN.shapes10_3),
   // *x = (i32::m(x) / i32::m(x)) as i16;

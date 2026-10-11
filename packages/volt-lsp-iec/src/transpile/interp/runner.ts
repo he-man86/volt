@@ -5,7 +5,7 @@
 import type { Access, IrLayout, IrPou, Place } from "../ir/index.js"
 import { elementaryRef, peelArray, type Type } from "../../frontend/types/index.js"
 import type { Span } from "../../frontend/syntax/index.js"
-import { instantiate, Memory, storeAs, toImage, type Val, visible } from "../semantics/index.js"
+import { instantiate, Memory, NaNBits, storeAs, toImage, type Val, visible } from "../semantics/index.js"
 import { namesVariable, parsePath } from "../ir/path.js"
 import type { Located } from "./frame.js"
 import { Machine } from "./machine.js"
@@ -80,9 +80,11 @@ function resolvePath(pou: IrPou, machine: Machine, layouts: ReadonlyMap<string, 
 }
 
 /** A value as the IDE shows it: a string is what stands before its terminator, not the buffer behind it
- *  (`semantics/string.ts`). */
+ *  (`semantics/string.ts`). A NaN stays its bits (`NaNBits`): the IDE shows any NaN as `REAL#NaN`, and a harness that
+ *  compares two backends compares the bits. */
 function shown(v: Val): Val {
   if (typeof v === "string") return visible(v)
+  if (v instanceof NaNBits) return v
   if (Array.isArray(v)) return v.map(shown)
   if (typeof v === "object" && v !== null) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shown(x)]))
   return v

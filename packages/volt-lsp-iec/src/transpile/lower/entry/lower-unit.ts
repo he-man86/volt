@@ -18,6 +18,7 @@ import { covers, type Escapes, escapesSeen, isEmpty, joined, runOnEscapes } from
 import { layOutImage } from "../pointers/image.js"
 import { grownTargets, type PointerTarget, seedTargets } from "../pointers/state.js"
 import { anyImage, rewriteImage } from "../pointers/image-rewrite.js"
+import { refuseUnmeasuredRawBools } from "../pointers/raw-bool.js"
 import { initStep } from "../init/step.js"
 import { foldBindings, provenBindings } from "../init/bindings.js"
 import { foldPou } from "../values/fold.js"
@@ -106,6 +107,9 @@ function lowerOnce(unit: Extract<TopLevel, { kind: "program" | "function_block" 
   // category in the coverage report.
   const layouts = [...lowering.layouts.values()]
   const routines = [...lowering.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
+  // a BOOL held as its byte, read where no measured operator took its byte (`pointers/raw-bool.ts`)
+  refuseUnmeasuredRawBools(lowering, [body, init, ...layouts.flatMap((l) => (l.body === undefined ? [] : [l.body])), ...routines.map((r) => r.body)])
+  if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   const refused = slotRefusal(lowering, unit, layouts, routines)
   if (refused !== undefined) return refused
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart

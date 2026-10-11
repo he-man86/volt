@@ -11,6 +11,7 @@ import { constEval, inferExprType } from "../../../frontend/types/index.js"
 import { forEachExpr } from "../../ir/walk.js"
 import { pointeePlace, selectThrough } from "../pointers/deref.js"
 import { refuseUnionWrite } from "../storage/unions.js"
+import { rawBoolLoad } from "../pointers/raw-bool.js"
 import { refuseOpenArray } from "./bounds.js"
 
 /**
@@ -118,14 +119,15 @@ export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | unde
     const selected = selectThrough(lw, place, span)
     if (selected !== undefined) return selected
     const target = pointeePlace(lw, place, undefined, span)
-    return target && { kind: "load", place: target, type: target.type, span }
+    return target && rawBoolLoad(lw, target, { kind: "load", place: target, type: target.type, span })
   }
   if (place.type.kind === "pointer") return lw.bail("pointer-value", "a pointer's value used as a number", span)
   if (place.type.kind === "interface")
     return lw.bail("interface-value", "an interface used other than to call through it, store it, or compare it with 0", span)
   const load: IrExpr = { kind: "load", place, type: place.type, span }
   const readAs = slotOf(lw, place)?.readAs
-  return readAs === undefined ? load : convert(load, readAs)
+  // a BOOL held as its byte reads as its byte, marked for the operators that take one (`pointers/raw-bool.ts`)
+  return readAs === undefined ? rawBoolLoad(lw, place, load) : convert(load, readAs)
 }
 
 /**

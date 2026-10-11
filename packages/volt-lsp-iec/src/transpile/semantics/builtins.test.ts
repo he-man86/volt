@@ -1,34 +1,27 @@
 /**
  * MAX / MIN / LIMIT as compare-select (transpile-restructure 6.7, RC 28), over every cell `SELECT_CASES` holds — the
- * recorded NaN and signed-zero cells of `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`. Compared as VALUES (`Object.is`
- * tells -0 from +0 and NaN from a number): a JavaScript NaN carries no sign, so the recorded NaN's sign bit is the twin's
- * to check (`test/conformance/runtime-twins.test.ts`, the bits).
+ * recorded NaN and signed-zero cells of `tr_28_minmax_limit_nan_signed_zero_{real,lreal}`. Compared as BITS, as the twin
+ * compares them (`test/conformance/runtime-twins.test.ts`): the recorded NaN is CODESYS's SQRT(-1), sign bit set, which a
+ * REAL value now keeps (`NaNBits`, transpile-restructure 8.2) — this compared values while a NaN could carry no sign.
  */
 import { expect, test } from "bun:test"
 import { elementaryRef } from "../../frontend/types/index.js"
 import { builtinValue } from "./builtins.js"
+import { defaultNaN, floatBitsOf, NaNBits } from "./nan.js"
 import { SELECT_CASES, TRUNC_CASES } from "./numeric.cases.js"
 
-/** The number a REAL's or LREAL's bits hold. */
-function fromBits(bits: bigint, type: "REAL" | "LREAL"): number {
-  const view = new DataView(new ArrayBuffer(8))
-  if (type === "REAL") {
-    view.setUint32(0, Number(bits))
-    return view.getFloat32(0)
-  }
-  view.setBigUint64(0, bits)
-  return view.getFloat64(0)
-}
-
-const shown = (v: unknown): string => (Object.is(v, -0) ? "-0" : String(v))
-
-test("MAX / MIN / LIMIT answer every recorded NaN and signed-zero cell — the second argument on a tie or a NaN", () => {
+test("MAX / MIN / LIMIT answer every recorded NaN and signed-zero cell, as bits — the second argument on a tie or a NaN", () => {
   expect(SELECT_CASES).toHaveLength(18)
   const got = SELECT_CASES.map((c) => {
     const t = elementaryRef(c.input.type)
-    return `${c.name}: ${shown(builtinValue(c.input.fn, c.input.args, t, c.input.args.map(() => t)))}`
+    const width = c.input.type === "REAL" ? 32 : 64
+    // the NaN a cell runs on is the recorded SQRT(-1): x86's default NaN (`wn`, held to the recording by the twin)
+    const args = c.input.args.map((a) => (Number.isNaN(a) ? defaultNaN(width) : a))
+    const result = builtinValue(c.input.fn, args, t, args.map(() => t))
+    if (typeof result !== "number" && !(result instanceof NaNBits)) throw new TypeError(`${c.name}: no REAL`)
+    return `${c.name}: ${floatBitsOf(result, width)}`
   })
-  expect(got).toEqual(SELECT_CASES.map((c) => `${c.name}: ${shown(fromBits(c.expected, c.input.type))}`))
+  expect(got).toEqual(SELECT_CASES.map((c) => `${c.name}: ${c.expected}`))
 })
 
 // transpile-restructure 6.A.4 (Appendix A): a shift or rotate COUNT above 2^53 — a ULINT/LWORD count is an exact bigint,

@@ -232,8 +232,8 @@ export interface SelectInput {
  * `IF a < b THEN a ELSE b` — the SECOND argument on a tie or a NaN — and LIMIT(mn, in, mx) is MIN(MAX(mn, in), mx). Every
  * cell `tr_28_minmax_limit_nan_signed_zero_{real,lreal}` recorded, as the BITS of the result (`w1`…`w9`, read through a
  * pointer: NaN and -0 do not compare), each naming the recorded bits of the NaN or -0 it ran on (`wn`, `wnz`). The NaN is
- * CODESYS's SQRT(-1), sign bit set — which the Rust keeps and a JavaScript number cannot (`semantics/builtins.test.ts`
- * compares the value, the twin the bits; tasks 4.12 and 6.7: niche: accepted loss).
+ * CODESYS's SQRT(-1), sign bit set — which both backends keep (`semantics/builtins.test.ts` and the twin compare the bits;
+ * the interpreter's NaN is its bits since transpile-restructure 8.2, `semantics/nan.ts`).
  */
 export const SELECT_CASES: readonly Case<SelectInput, bigint>[] = (["REAL", "LREAL"] as const).flatMap((type) => {
   const fixture = `tr_28_minmax_limit_nan_signed_zero_${type.toLowerCase()}`

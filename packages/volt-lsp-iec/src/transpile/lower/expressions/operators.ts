@@ -37,6 +37,7 @@ import { lowerPlace } from "../places/places.js"
 import { foldConstant, foldsToConstant } from "../values/fold.js"
 import { meet } from "../values/promote.js"
 import { EXEC_ORACLE_DIALECT } from "../conditions.js"
+import { isRawBool, rawBinary, rawNot } from "../pointers/raw-bool.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent: neither is an
  *  operator in CODESYS, and the parser refuses both (`parse/expression` `REFUSED_OPERATORS`), so no tree holds one. */
@@ -114,6 +115,9 @@ export function lowerUnary(lw: Lowering, e: Extract<Expr, { kind: "unary" }>, ex
   // — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768` into a DINT is 32768, and a DINT's
   // minimum still negates to itself even into a LINT (conformance `unary_minus_at_the_edge`).
   if (e.op === "NOT") {
+    // NOT of a BOOL held as its byte: bit 0 inverted, the rest cleared (`pointers/raw-bool.ts`)
+    const raw = rawNot(lw, operand, e.span)
+    if (raw !== null) return raw
     const held = heldConstantOperation(lw, e, operand)
     if (held !== null) return held
     // the front-end's rule (`types/arith/operators` `notResultType`, recorded `uop_not_*`): the UNSIGNED integer of a signed
@@ -150,8 +154,11 @@ export function lowerBinary(lw: Lowering, e: Extract<Expr, { kind: "binary" }>):
   // different program. The context reaches a literal only when there is no typed operand to meet.
   const left = lowerExpr(lw, e.left)
   if (left === undefined) return undefined
-  const right = lowerExpr(lw, e.right, left.kind === "const" ? undefined : left.type)
+  // beside a BOOL held as its byte the other side is a BOOL, not a byte (`pointers/raw-bool.ts`)
+  const right = lowerExpr(lw, e.right, left.kind === "const" ? undefined : isRawBool(lw, left) ? elementaryRef("BOOL") : left.type)
   if (right === undefined) return undefined
+  const raw = rawBinary(lw, op, left, right, e.span)
+  if (raw !== null) return raw
   const strings = stringCompare(lw, e, op, left, right)
   if (strings !== null) return strings
   // A 32-bit date ± an LTIME is ULINT arithmetic CODESYS refuses ("Cannot convert type 'LTIME' to type 'ULINT'",

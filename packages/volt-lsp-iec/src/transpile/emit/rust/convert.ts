@@ -125,7 +125,12 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
   }
   // the parse helpers already RETURN `f64` / `i64`; casting to the same type is `unnecessary_cast`
   if (from === "string") {
-    const parsed = printed(`${use(p, to === "real" ? "iec_parse_real" : "iec_parse_int")}(${receiver}.units())`, Prec.Postfix)
+    // a WSTRING reaches a parse only into an integer — its own grammar (lowering narrows one parsed into a REAL)
+    const wide = stringType(e.value.type).name !== "IecString"
+    const parser = to === "real" ? "iec_parse_real" : wide ? "iec_parse_int_wide" : "iec_parse_int"
+    // an integer parse is told whether its target is unsigned: a negative text into one is 0 (`wstring_parse_widths`)
+    const unsigned = to === "real" ? "" : `, ${e.type.kind === "elementary" && e.type.elem.signed !== true}`
+    const parsed = printed(`${use(p, parser)}(${receiver}.units()${unsigned})`, Prec.Postfix)
     return target === (to === "real" ? "f64" : "i64") ? parsed : printed(`${parsed.text} as ${target}`, Prec.As)
   }
   if (to === "bool") return from === "bool" ? value : printed(`${at(value, Prec.Compare + 1)} != ${from === "real" ? "0.0" : "0"}`, Prec.Compare)
@@ -142,5 +147,8 @@ export function exprConvert(p: Printer, e: Extract<IrExpr, { kind: "convert" }>,
     const call = printed(`${helper}(${at(castTo(value, e.value.type, "f64", e.value), Prec.Block)})`, Prec.Postfix)
     return target === (wide ? "i64" : "i32") ? call : printed(`${call.text} as ${target}`, Prec.As)
   }
+  // REAL <-> LREAL moves a NaN's payload as CODESYS does (`iec_widen` / `iec_narrow`, gate 8c): `f64::from` and `as f32`
+  // leave a NaN to the compiler, which an optimized build folds into another one
+  if (from === "real" && to === "real") return printed(`${use(p, target === "f64" ? "iec_widen" : "iec_narrow")}(${bare})`, Prec.Postfix)
   return cast(value, rustType(e.value.type), target)
 }

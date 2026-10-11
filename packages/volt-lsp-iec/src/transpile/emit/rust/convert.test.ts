@@ -69,8 +69,8 @@ test("a constant cast prints as a literal of the target type — a REAL's f32 va
   // (EXP, not SQRT: a REAL SQRT computes in f32 since 7.3.6 — `0.1f32.sqrt()` — and the digits group, 7.2.11)
   const { pou } = lowerSource("PROGRAM P\nVAR a : LREAL; b : LREAL; c : DINT; END_VAR\na := EXP(REAL#0.1);\nb := SQRT(4);\nc := TRUNC(REAL#2.5);\nEND_PROGRAM\n")
   const code = emitRust(pou!).code
-  expect(code).toContain("0.100_000_001_490_116_12f64.exp()") // the f32 0.1, widened — not the f64 0.1
-  expect(code).not.toContain(" as f64).exp()")
+  expect(code).toContain("iec_fn(0.100_000_001_490_116_12f64, f64::exp)") // the f32 0.1, widened — not the f64 0.1
+  expect(code).not.toContain("iec_widen(0.1f32)")
 })
 
 /**
@@ -84,7 +84,8 @@ test("a lossless widening prints T::from, a truncating or reinterpreting cast `a
   )
   expect(code).toContain("self.di = i32::from(self.si);")
   expect(code).toContain("self.li = i64::from(self.ui);")
-  expect(code).toContain("self.lr = f64::from(self.rl);")
+  // REAL -> LREAL is `iec_widen`: lossless too, and it moves a NaN's payload as CODESYS does (gate 8c)
+  expect(code).toContain("self.lr = iec_widen(self.rl);")
   expect(code).toContain("self.rb = f32::from(u8::from(self.b));")
   expect(code).toContain("self.di = i32::from(self.b);")
   expect(code).toContain("self.i2 = self.di as i16;")

@@ -197,15 +197,15 @@ test("`g` and `prg` as arguments and as parameters — one list, in that order, 
 
 test("a user FUNCTION named like a runtime helper gets a suffixed fn, and the helper keeps its name (7.1.5, was 6.A.7)", () => {
   const code = rust(
-    "FUNCTION iec_div : REAL\nVAR_INPUT a : REAL; b : REAL; END_VAR\niec_div := a + b;\nEND_FUNCTION\n" +
-      "PROGRAM P\nVAR x : REAL := 6.0; y : REAL := 2.0; q : REAL; r2 : REAL; END_VAR\nq := x / y;\nr2 := iec_div(x, y);\nEND_PROGRAM\n",
+    "FUNCTION iec_fdivz : REAL\nVAR_INPUT a : REAL; b : REAL; END_VAR\niec_fdivz := a - b;\nEND_FUNCTION\n" +
+      "PROGRAM P\nVAR x : REAL := 6.0; y : REAL := 2.0; q : REAL; r2 : REAL; END_VAR\nq := x / y;\nr2 := iec_fdivz(x, y);\nEND_PROGRAM\n",
   )
   // the runtime's zero-divisor check, once, and the user's FUNCTION beside it under its own name
-  expect(code.match(/\bfn iec_div\b/g)).toEqual(["fn iec_div"])
-  expect(code).toContain("fn iec_div<T")
-  expect(code).toContain("pub fn iec_div_(")
-  expect(code).toContain("iec_div_(self.x, self.y)")
-  expect(code).toContain("iec_div(self.x, self.y)")
+  expect(code.match(/\bfn iec_fdivz\b/g)).toEqual(["fn iec_fdivz"])
+  expect(code).toContain("fn iec_fdivz<T")
+  expect(code).toContain("pub fn iec_fdivz_(")
+  expect(code).toContain("iec_fdivz_(self.x, self.y)")
+  expect(code).toContain("iec_fdivz(self.x, self.y)")
 })
 
 // 7.8.10: the reserved-prefix rule is STRUCTURAL — every binding the printer makes up is a `tmp()`, `__<purpose>`, and

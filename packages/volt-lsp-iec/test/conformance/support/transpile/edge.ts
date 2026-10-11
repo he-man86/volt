@@ -7,10 +7,12 @@ import type { Type } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 import type { EdgeVerdict } from "../../fixtures/map-row.js"
 import { compareOutcomes } from "../differential.js"
-import { interpRender, rustRender, seedable } from "../display.js"
+import { interpRender, seedable } from "../display.js"
 import { runPaths } from "../run-paths.js"
 import { type RustAccess, rustAccess } from "../rust-access.js"
 import { preludeLines } from "./shape.js"
+// the value model's REAL bits — a deep path, test support only (as the twin harness reads it)
+import { floatFromBits } from "../../../../src/transpile/semantics/nan.js"
 
 /*
  * THE INTERPRETER AGAINST THE COMPILED RUST, ON INPUTS NOBODY RECORDED — the review's step 3, as a column.
@@ -23,8 +25,9 @@ import { preludeLines } from "./shape.js"
  *   integers       MIN, -1, 0, 1, MAX. "Overflow by one" and an out-of-range index are what MIN and MAX ARE to a
  *                  body that steps or indexes with them: one past the range is a wrap to the other end, which the
  *                  type cannot hold as a seed. An unsigned type has no -1; its -1 is its MAX.
- *   REAL / LREAL   ±0, ±1.5, ±2.5 (the tie rounding cases), NaN, ±inf, ±MAX, the smallest subnormal and ±1e19
- *                  (beyond every integer a conversion could land in), all as exact bit patterns.
+ *   REAL / LREAL   ±0, ±1.5, ±2.5 (the tie rounding cases), the quiet NaN, a negative signalling NaN with a payload,
+ *                  ±inf, ±MAX, the smallest subnormal and ±1e19 (beyond every integer a conversion could land in), all as
+ *                  exact bit patterns.
  *   STRING         empty, and full to its capacity.
  *   BOOL           both.
  *
@@ -40,8 +43,9 @@ import { preludeLines } from "./shape.js"
  * `abs`, `trunc` and the arithmetic operators are exact by the standard and stay in.
  *
  * DETERMINISTIC by construction: the inputs are fixed bit patterns, a CLOCKED fixture scans on a synthetic 10 ms per
- * scan in both backends rather than on a recorded instant, NaN is compared as a class (its payload is not a value
- * anything reads), and the verdict does not depend on how many lanes ran or in what order.
+ * scan in both backends rather than on a recorded instant, a NaN is compared by its BITS (both backends keep a NaN's
+ * sign and payload since transpile-restructure 8.2 — a backend that flips, quiets or drops them where the other does not
+ * disagrees; gate 8c), and the verdict does not depend on how many lanes ran or in what order.
  */
 
 type InterpValue = Parameters<Runner["set"]>[1]
@@ -53,17 +57,19 @@ export interface EdgeSeed {
 
 const F32_EDGES: readonly (readonly [string, number])[] = [
   ["0", 0x00000000], ["-0", 0x80000000], ["1.5", 0x3fc00000], ["2.5", 0x40200000], ["-2.5", 0xc0200000],
-  ["NaN", 0x7fc00000], ["+inf", 0x7f800000], ["-inf", 0xff800000], ["REAL_MAX", 0x7f7fffff], ["-REAL_MAX", 0xff7fffff],
+  ["NaN", 0x7fc00000], ["-sNaN", 0xffa12345], ["+inf", 0x7f800000], ["-inf", 0xff800000], ["REAL_MAX", 0x7f7fffff], ["-REAL_MAX", 0xff7fffff],
   ["min_subnormal", 0x00000001], ["1e19", 0x5f0ac723], ["-1e19", 0xdf0ac723],
 ]
 const F64_EDGES: readonly (readonly [string, bigint])[] = [
   ["0", 0x0000000000000000n], ["-0", 0x8000000000000000n], ["1.5", 0x3ff8000000000000n], ["2.5", 0x4004000000000000n],
-  ["-2.5", 0xc004000000000000n], ["NaN", 0x7ff8000000000000n], ["+inf", 0x7ff0000000000000n], ["-inf", 0xfff0000000000000n],
+  ["-2.5", 0xc004000000000000n], ["NaN", 0x7ff8000000000000n], ["-sNaN", 0xfff4000000012345n],
+  ["+inf", 0x7ff0000000000000n], ["-inf", 0xfff0000000000000n],
   ["LREAL_MAX", 0x7fefffffffffffffn], ["-LREAL_MAX", 0xffefffffffffffffn], ["min_subnormal", 0x0000000000000001n],
   ["1e19", 0x43e158e460913d00n], ["-1e19", 0xc3e158e460913d00n],
 ]
-const f32Of = (bits: number): number => new Float32Array(new Uint32Array([bits]).buffer)[0]!
-const f64Of = (bits: bigint): number => new Float64Array(new BigUint64Array([bits]).buffer)[0]!
+// the value the bits encode, a NaN as its own bits (`NaNBits`), so both backends are seeded with the same NaN
+const f32Of = (bits: number): InterpValue => floatFromBits(BigInt(bits), 32)
+const f64Of = (bits: bigint): InterpValue => floatFromBits(bits, 64)
 
 /** The edge inputs of one variable of type `t` — empty for a type that is not elementary. */
 export function edgeSeeds(t: Type): EdgeSeed[] {
@@ -106,7 +112,9 @@ export type EdgePlan =
   | { notRun: string }
 
 /** A transcendental the platform's libm computes — the last bit of its answer is not the repo's (see above). */
-const LIBM = /\.(powf|powi|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|ln|log|log2|log10|exp|exp2|exp_m1|ln_1p|cbrt|hypot)\(/
+const LIBM_NAMES = "powf|powi|sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|ln|log|log2|log10|exp|exp2|exp_m1|ln_1p|cbrt|hypot"
+// a method call (`x.powf(y)`), or the routine handed to `iec_fn` by its path (`iec_fn(x, f64::ln)`, gate 8c)
+const LIBM = new RegExp(`\\.(?:${LIBM_NAMES})\\(|\\bf64::(?:${LIBM_NAMES})\\b`)
 
 /** Does this emitted code reach the platform's libm? Read off the code itself, so it is the same answer everywhere. */
 export function reachesLibm(code: string): boolean {
@@ -326,7 +334,6 @@ export function compareEdge(
   interp: (k: number) => EdgeOutcome = (k) => interpOutcome(pou, plan, k),
 ): EdgeComparison {
   const paths = plan.paths.map((p) => p.path)
-  const types = new Map(plan.paths.map((p) => [p.path, p.type]))
   let unanswered = 0
   for (let k = 0; k < plan.variants.length; k++) {
     const mine = interp(k)
@@ -336,14 +343,14 @@ export function compareEdge(
     }
     const rust = outcomes.get(k) ?? { faulted: true, done: false, values: new Map() }
     const label = plan.variants[k]!.label
-    const [d] = compareOutcomes(mine, rust, paths, (path, want, raw) => want === rustRender(raw, types.get(path)!)).differences
+    const [d] = compareOutcomes(mine, rust, paths, (_path, want, raw) => want === raw).differences
     if (d === undefined) continue
     if (d.kind === "fault")
       return { verdict: "disagree", first: `${label}: interpreter ${mine.faulted ? "faults" : "runs"}, Rust ${rust.faulted ? "panics" : "runs"}` }
     // `interpOutcome` answers every plan path of a run that did not fault: a path it left out is this harness's bug
     if (d.kind === "unanswered" && d.by === "interpreter") throw new Error(`${label}: the interpreter's outcome has no ${d.path}`)
     if (d.kind === "unanswered") return { verdict: "disagree", first: `${label}: Rust printed no ${d.path}` }
-    return { verdict: "disagree", first: `${label}: ${d.path} interpreter ${d.interpreter}, Rust ${rustRender(d.rust, types.get(d.path)!)}` }
+    return { verdict: "disagree", first: `${label}: ${d.path} interpreter ${d.interpreter}, Rust ${d.rust}` }
   }
   if (unanswered === plan.variants.length) return { verdict: "not-run", unanswered }
   return unanswered === 0 ? { verdict: "agree" } : { verdict: "agree", unanswered }

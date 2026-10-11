@@ -140,10 +140,19 @@ function compareInterp(c: LanguageTest, rec: RunRecorded): void {
     pou.scan()
   }
   const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
-  const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
+  // a BOOL held as its byte shows as the BOOL it is declared (`rustAccess`'s `rawBool`): 0 FALSE, 1 TRUE
+  const shown = (k: string, v: IrValue): IrValue => (rustAccess(lowered.pou!, k).rawBool === true ? v !== 0n : v)
+  const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, shown(k, pou.get(k) as IrValue))]))
   expect(got).toEqual(want)
   // a wall-clock or residue path is not compared, and it is still one the run must PRODUCE
   for (const path of uncompared(c)) expect(typeof pou.get(path)).toBe("bigint")
+  // a path the IDE's monitor could not show is one the model explains, or the row fails: a BOOL held as its byte shows
+  // only as 0 or 1 — any other byte is "Failed to convert input bytes to monitoring variables" (`bool_byte_ops`, 8.2)
+  const unexplained = Object.keys(rec.unreadable ?? {}).filter((k) => {
+    const v = pou.get(k)
+    return !(rustAccess(lowered.pou!, k).rawBool === true && typeof v === "bigint" && v > 1n)
+  })
+  expect(unexplained).toEqual([])
 }
 
 /** Every fixture by name — the lint ratchet looked one up per case, which is 1,900 x 2,600 string compares a run. */
@@ -259,9 +268,11 @@ function compareRust(c: LanguageTest, result: RustRun): void {
   for (const path of uncompared(c)) expect(printed.has(path)).toBe(true)
   const got = Object.fromEntries(
     Object.keys(want).map((k) => {
-      const { type } = rustAccess(pou, k)
+      const { type, rawBool } = rustAccess(pou, k)
       const raw = printed.get(k)!
       if (isBoolValued(type)) return [k, raw === "true"]
+      // a BOOL held as its byte shows as the BOOL it is declared: 0 FALSE, 1 TRUE
+      if (rawBool === true) return [k, raw !== "0"]
       // The Rust side prints a STRING as its BYTES, which is what it holds — decoded as UTF-8 for the same
       // reason `asDisplayed` decodes the interpreter's: the IDE shows text, the value is bytes.
       if (type.kind === "elementary" && type.elem.family === "string")
@@ -275,7 +286,7 @@ function compareRust(c: LanguageTest, result: RustRun): void {
         // RUST SPELLS AN INFINITY `inf`, and `Number("inf")` is NaN — so an overflow read back as a NaN and
         // every real-overflow fixture reported the wrong divergence. `Number` handles `NaN` itself.
         const n = raw === "inf" ? Infinity : raw === "-inf" ? -Infinity : Number(raw)
-        return [k, type.elem.bits === 32 ? Math.fround(n) : n]
+        return [k, asDisplayed(rec.values![k]!, type.elem.bits === 32 ? Math.fround(n) : n)]
       }
       return [k, asDisplayed(rec.values![k]!, BigInt(raw))]
     }),
@@ -331,7 +342,6 @@ describe("confirmed — the vendor ran it, and we produce its values", () => {
       continue
     }
     test(c.name, () => {
-      expect(rec.unreadable).toBeUndefined()
       expect(ideValue(rec.cycles!)).toBe(BigInt(c.cycles ?? 1)) // the recorder's gate held
       compareInterp(c, rec)
     })

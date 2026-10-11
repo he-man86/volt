@@ -152,6 +152,9 @@ export function valueAs(v: IrValue, to: Type): IrValue {
   // `isBoolValued` here, `x : BIT := 0` stored `0n` and the emitted Rust printed an integer into a `bool` field
   // (`bound_bit_at_min` / `_at_max`, measured 2026-09-18 — CODESYS reads them back FALSE and TRUE).
   if (isBoolValued(to) && typeof v === "bigint") return v !== 0n
+  // …and a BOOL into a number is 1 or 0 (a BOOL constant beside a BOOL held as its byte, `pointers/raw-bool.ts`): kept a
+  // boolean, it printed `true` as a `u8`
+  if (typeof v === "boolean" && !isBoolValued(to) && (target.family === "int" || target.family === "bitstring")) return valueAs(v ? 1n : 0n, to)
   if (!isReal(to) && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
   return v
 }
