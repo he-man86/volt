@@ -173,10 +173,10 @@ namespace Volt.Ide.Codesys
             catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
             // An older object model lacks the constructor: SP18 (NWLObject 4.1.0.0) has no Operand(string), measured
             // 2026-10-10 — every graphical write there failed as INTERNAL_ERROR "Constructor on type ... not found".
-            // NotSupportedException makes it an UNSUPPORTED refusal (PushService) that says why.
+            // An UNSUPPORTED refusal that says why.
             catch (MissingMethodException)
             {
-                throw new NotSupportedException(
+                throw new Volt.Engine.BridgeException(Volt.Contracts.BridgeErrorCodes.Unsupported,
                     $"CODESYS: this CODESYS version cannot take an LD/FBD body from Volt — its graphical object model " +
                     $"({Describe(asm)}) has no '{typeName}' constructor for ({string.Join(", ", args.Select(a => a?.GetType().Name ?? "null"))}). " +
                     "Volt writes LD/FBD against CODESYS V3.5 SP21 or later. Structured text and declarations still sync; " +

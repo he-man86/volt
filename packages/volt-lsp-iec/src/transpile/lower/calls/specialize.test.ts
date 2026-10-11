@@ -98,7 +98,7 @@ test("an ANY input instantiates once per array type — element, bounds and nest
 // in the POU (`ptrparam_method` printed its generic `read` beside `read_ptr_p_0` / `read_ptr_p_1`, a fn nothing calls)
 test("a generic routine every call replaced by a specialization is not in the POU", () => {
   const pou = ir(
-    "FUNCTION_BLOCK FB_M\nVAR a : INT := 3; b : INT := 4; fa : INT; fb : INT; END_VAR\nfa := Read(p := ADR(a));\nfb := Read(p := ADR(b));\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION_BLOCK FB_M\nVAR a : INT := 3; b : INT := 4; ra : INT; rb : INT; END_VAR\nra := Read(p := ADR(a));\nrb := Read(p := ADR(b));\nEND_FUNCTION_BLOCK\n" +
       "METHOD Read : INT\nVAR_INPUT p : POINTER TO INT; END_VAR\nRead := p^ * 10;\nEND_METHOD\n" +
       "PROGRAM P\nVAR inst : FB_M; END_VAR\ninst();\nEND_PROGRAM\n",
     "P",
@@ -108,5 +108,5 @@ test("a generic routine every call replaced by a specialization is not in the PO
   expect(names).not.toContain("FB_M.READ")
   const runner = run(pou)
   runner.scan()
-  expect(["inst.fa", "inst.fb"].map((v) => runner.get(v))).toEqual([30n, 40n])
+  expect(["inst.ra", "inst.rb"].map((v) => runner.get(v))).toEqual([30n, 40n])
 })

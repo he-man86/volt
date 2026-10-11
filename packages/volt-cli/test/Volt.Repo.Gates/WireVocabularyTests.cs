@@ -79,6 +79,7 @@ public class WireVocabularyTests
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.Descriptors.cs", 3),
             ("Volt.Ide.Codesys/Ide/CodesysObjectModel.cs", 1),
+            ("Volt.Ide.Codesys/Ide/NwlInterop.cs", 1),   // an LD/FBD write on a CODESYS older than SP21 (2026-10-10)
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Task.cs", 3),
             ("Volt.Ide.Twincat/Ide/TcObjectModel.cs", 3),
@@ -100,7 +101,7 @@ public class WireVocabularyTests
         new("a create collided with a child already there", "rename, or update instead", "DUPLICATE_CHILD", At(
             ("Volt.Engine/Sync/PushService.cs", 1))),
         new("the text cannot be split into what the push writes", "fix the body", "INVALID_ST", At(
-            ("Volt.Engine/Format/St/StReader.cs", 18))),
+            ("Volt.Engine/Format/St/StReader.cs", 19))),
         new("the IDE holds the item and Volt cannot read it whole",
             "fix it in the IDE, or push with force — or, for an item the IDE does not return, delete then create", "UNREADABLE", At(
             ("Volt.Engine/Ide/ItemLookup.cs", 1),

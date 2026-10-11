@@ -9,7 +9,7 @@ namespace Volt.Ide.Codesys.Tests
     /// <summary>
     /// A GRAPHICAL WRITE ON AN OLDER CODESYS IS REFUSED BY NAME. Measured on SP18 (2026-10-10): every LD/FBD create
     /// failed as <c>INTERNAL_ERROR Constructor on type '_3S.CoDeSys.NWLObject.Operand' not found</c>, which tells the
-    /// user nothing. A missing constructor is now a <see cref="NotSupportedException"/> (an UNSUPPORTED refusal) that
+    /// user nothing. A missing constructor is now a coded UNSUPPORTED refusal that
     /// names the object model and what still works.
     /// </summary>
     public class NwlInteropVersionTests
@@ -17,8 +17,9 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_missing_constructor_is_an_unsupported_refusal_that_says_why()
         {
-            var ex = Assert.Throws<NotSupportedException>(() =>
+            var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
                 NwlInterop.New(new NwlOperandWithoutStringCtor(0), nameof(NwlOperandWithoutStringCtor), "x"));
+            Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
             Assert.Contains("NwlOperandWithoutStringCtor", ex.Message);
             Assert.Contains("(String)", ex.Message);
             Assert.Contains("SP21 or later", ex.Message);
