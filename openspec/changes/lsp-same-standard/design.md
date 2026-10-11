@@ -429,3 +429,47 @@ members (drifts from the unions).
 **Migration.** Step 1: the gates with today's lists, lint + `test/package` green, `scripts/README.md` and
 `test/README.md` rows updated. Steps 2–4 delete entries as they land (the `lower` hint names the number). 4.5 asserts the
 lists hold only NT entries; 5.2 hands those over.
+
+## 6. Step 2 — folders (design)
+
+**Target.** `server/` = the LSP adapter only (`server`, `bin`, `config`, `index`, `diagnostics`); `reference/` gone; no
+test support in `src/` (structure known 3 → 0, S1 known 3 → 0); the `reference` rank, rule A1 and its planted test
+deleted. Every built-in the dialect has gets hover and none it refuses does, through ONE entry for both vendors and both
+hover paths: the vendors are identical on the Volt layer, their difference is data (`builtinName`, `KNOWN_BY_DIALECT`).
+
+**Measured (only what decides).** `reachability.ts` imports only `frontend/syntax` and reads no file. `src/` tests
+importing `test/` today: 0; `tsconfig.build.json` excludes `**/*.test.ts`, so `test-uri` (78 importers) and the harness
+(5) can leave `src/` without reaching `dist/`. `frontend/syntax/pragmas/attributes.ts` already exists (128 lines, AST
+attachment): §2.3's target name is taken. Consumers of the `reference` exports outside the package: 0. Built-in hover
+has TWO paths: `assist/hover.ts` asks `builtinName(name, dialect)` first, `network/network-services.ts:104` calls
+`lookupReference` dialect-blind (step 0's TwinCAT defect, still live in network text); `pragmaHelp` hovers `TcRetain`
+on CODESYS, which CODESYS warns unknown.
+
+**Choice.**
+- 2.1: `reachability.ts` + `dead-code-equivalence.ts` (+ tests) → `analysis/reachability/`, read through `analysis/index`
+  (A2); the suppression policy stays in `server/diagnostics.ts`. `workspace-store.ts` (+ its tests,
+  `incremental-index.test.ts`) → `workspace/`, `constructor(config, parse: ParseOptions)` required. `harness.ts` →
+  `test/server/`, `diagnostic-codes.ts` → `test/corpus/support/`, `analysis/test-uri.ts` → `test/support/`.
+- 2.2: the attribute lists + `attributeNames`/`isKnownAttribute` → `frontend/syntax/pragmas/known-attributes.ts`
+  (a dialect vocabulary, out through `syntax/index`); `reference.ts` + the directive texts →
+  `services/assist/builtin-hover.ts`, exporting only `builtinHover(name, dialect)` and `pragmaHover(word, dialect)`
+  (`lookupReference` file-private). `assist/hover.ts`, `network-services.ts` and completion call those — one path.
+  An attribute hovers only where `isKnownAttribute(word, dialect)` (reverses `pragmaHelp`'s "either dialect" comment:
+  the built-in rule of step 0). `src/index.ts` drops `export * from "./reference/index.js"` (0 outside consumers;
+  overrides 2.2's "exports stable": a dialect-blind lookup on the package surface is the trap).
+- 2.3: the 9 entries of §1.6; `builtin-hover.test.ts` per dialect, both directions, over §1.6's sets and the closed
+  `__` list. Red first: the coverage test, and network-text hover of `__POUNAME` on TwinCAT.
+
+**Rejected.** Reachability → `workspace/` (that rank is file I/O; it reads none) or kept in `server/` (a computation in
+the adapter). Attributes merged into `attributes.ts` (AST attachment + a vocabulary: two concerns) or → `analysis/`
+(completion would reach analysis for a word list). A `*.support.ts` suffix admitting test support in `src/` (a second
+exemption; spec: test support only under `test/`). Per-vendor hover catalogs or builders (vendors identical on the Volt
+layer).
+
+**Refused by name.** A dialect-blind built-in or attribute lookup exported anywhere; a `ParseOptions` default; a
+re-export shim at an old path; a NEW ceiling or allowlist entry — a moved file's entries are re-keyed to its new path,
+`ReferenceKind`/`ReferenceEntry`/`Harness` leave the allowlist (file-private / out of `src/`).
+
+**Migration.** One commit per task, each re-pointing every citation of a moved file (fixture comments, `docs/`,
+scripts) and `docs/architecture.md`'s tree and layer F row in the commit that moves it. Each: typecheck, lint, the moved
+files' tests + `test/package`; at the end `rate:fixtures` once — map unchanged.
