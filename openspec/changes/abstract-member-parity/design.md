@@ -178,3 +178,46 @@ answers `STALE_ITEM_VERSION` for them until a `volt pull`. The pull brings the N
 and git merges it with a local edit elsewhere in the file.
 
 The pushed-side fold covers what is left: a forced push, or a merge that kept the old line. The LSP already reads NONE.
+
+## Design (step 3): the fix — where each piece lands
+
+**Target.** Step 2's rule, built with tests that fail first: the same `ABSTRACT` member pulls the same text, and its push
+gets the same answer, on CODESYS SP21 and TwinCAT, whoever made the object.
+
+**Choice: tasks.md 3.2's "read rule in both drivers" is built as the ONE engine fold (step 2), not as a driver read.**
+Drivers keep their storage facts unchanged (CODESYS declared-and-null `Implementation` → NONE in `ReadBody`; TwinCAT `""`
+→ null). Pieces, in order:
+1. `Volt.Engine`: `AbstractMemberFold.Apply(ItemContent, kind)` (Format/St, beside `ImplementationMarker`) — member
+   sites only (`ItemKind.ShapeOf` first, then the METHOD / PROPERTY declaration), null/whitespace ST body → NONE. Called
+   at `Materializer.BuildSource`, `PushService.ReadLive`, the pushed source after `StReader.Read` (`PushService` 1318),
+   and both reads in `PushedText.SameExceptLayout`. `StatedLanguage.NoSlot` → `IsNone`; `StReader`'s NONE-with-code
+   wording → "an abstract member holds no code".
+2. `ImplementationMarker.Written(NONE)` = `""`; `BodyFormatGuard.PushedLanguage(NONE)` = `St`; `PushService.OnlyChanged`
+   drops an unchanged body at every member and accessor site.
+3. `BodyFormatGuard`: the step-2 table, branching on the site BEFORE D is read; a `Statements(body)` helper (text left
+   after whitespace and comments); `RequireAuthorable` accepts NONE+D, refuses statements under D.
+4. DIALECT C2n rewritten: one text for both vendors, no divergence left; the class stays below the wire (kept, not
+   recreated). Vendor-facts rows: none new — `abstract-member-code` / `-slot` already record every fact the guard
+   cites; their snapshots must stay "every fact as committed".
+
+Rejected (one line each):
+- A driver-side read rule: two copies of a text rule — how the divergence began (step 2).
+- A driver-side slot check before writing `""`: hides the one engine place that decides a body is sent.
+- A new vendor-facts row for the fixed bridge's fetch: the e2e parity suite is that oracle; vendor-facts records the
+  vendor, never a Volt answer.
+
+**Red tests first (3.1), each confirmed red before 3.2 lands:** the step-2 guard rows in
+`test/Volt.Engine.Tests/sync/AbstractMemberParityTests.cs` (FakeIde, METHOD + accessor each), `PushedTextTests`
+(+fold), `UnchangedBodyIsNotWrittenTests` (+member/accessor); driver tests `CodesysAbstractMemberPushTests` (NONE over
+LD → ST aspect, `""`) and a TwinCAT twin; e2e: `vendor-parity.test.ts` + an abstract method/property case, and
+`items/abstract-member.test.ts` + the migration (a pro2193-shaped NONE owner created into the blank fixture, pulled back
+unchanged) on both vendors. Tests that assert the old refusals (create of NONE, `IMPLEMENTATION ST` refused on TwinCAT
+parity) change ONLY where step 2 measured their premise wrong — named in the commit, nowhere else.
+
+**Stays refused, by name, before any write:** NONE at an item body or action (incl. `FUNCTION_BLOCK ABSTRACT`);
+statements under ABSTRACT unless the live body unchanged; NONE without ABSTRACT (except the IDE holding it so, C2l);
+dropping ABSTRACT or a comment over a live NONE; a body over a slotless non-abstract member; `RequireSlot` (D26).
+
+**Migration.** Live (3.3, `-Instance abstract-member-parity`, both vendors up): re-pull pro2193 and diff — exactly
+`Cyclic`'s line flips ST → NONE, nothing else; TwinCAT fixture abstract members flip ST → NONE; the first push after the
+upgrade answers `STALE_ITEM_VERSION` for those owners until `volt pull`. Full e2e on both vendors green.
