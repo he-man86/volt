@@ -14,7 +14,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 function msgs(decl: string, vendor: Vendor = "codesys"): string[] {
   const src = `FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK`

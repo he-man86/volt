@@ -55,7 +55,7 @@ import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/frontend/s
 import { libraryRank } from "../../src/frontend/symbols/index.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerUnit } from "../../src/transpile/index.js"
 import type { IrBuiltinName, IrExpr, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
-import { allowedCode } from "../../src/server/diagnostic-codes.js"
+import { allowedCode } from "./support/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText } from "../../src/frontend/types/index.js"
 import { projectDocuments } from "./support/diagnostics.js"
@@ -511,7 +511,7 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
   /**
    * Diagnostic-identity invariants over the FULL LSP wire path (`documentDiagnostics` — the exact bytes a client
    * receives), folded into the corpus so every real file is checked rather than synthetic cases:
-   *   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see `server/diagnostic-codes.ts`)
+   *   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see `corpus/support/diagnostic-codes.ts`)
    *   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed cannot recur
    */
   test("every diagnostic has a valid code identity, and no document repeats a (range, code)", () => {

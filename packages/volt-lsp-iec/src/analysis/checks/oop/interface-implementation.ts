@@ -7,7 +7,7 @@
  *
  * NOT SAID: a base's ABSTRACT method a concrete FB leaves unimplemented ("There is no implementation for ABSTRACT method
  * 'M' defined in function block '<BASE>'", `inh_abstract_method_not_implemented`, both vendors) — a known divergence: a
- * wire diagnostic needs its CODESYS `Cnnnn`, which the build message does not carry (`server/diagnostic-codes.ts`).
+ * wire diagnostic needs its CODESYS `Cnnnn`, which the build message does not carry (`corpus/support/diagnostic-codes.ts`).
  *
  * ONLY AN FB THE VENDOR COMPILES owes anything (`analysis/shared/compiled.ts`): an FB nothing reaches builds without the method
  * its derived interface inherits (`inh_implements_derived_missing_base_method_uninstanced`, both vendors 2026-10-02) — the

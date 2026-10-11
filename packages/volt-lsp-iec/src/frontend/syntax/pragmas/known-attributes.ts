@@ -1,16 +1,16 @@
 /**
- * Pragma-attribute catalog (Layer F · reference). The known names that may follow `{attribute '…'}` — the
- * oracle for the opt-in `unknown-attribute` lint: CODESYS warns "The attribute <n> is unknown and will be
- * ignored by the compiler" on an attribute it doesn't recognize (a typo like `qualifid_only`, or a name from
- * a library not referenced). Matching that is only as good as this list is COMPLETE, so the lint is opt-in
- * (default OFF) — a missing entry would false-positive on a valid attribute.
+ * THE `{attribute '…'}` NAMES EACH DIALECT KNOWS — a vocabulary of the language (moved here from the dissolved
+ * `reference/` catalog, openspec lsp-same-standard 2.2). The oracle for the opt-in `unknown-attribute` check: CODESYS
+ * warns "The attribute <n> is unknown and will be ignored by the compiler" on an attribute it doesn't recognize (a typo
+ * like `qualifid_only`, or a name from a library not referenced). Matching that is only as good as this list is
+ * COMPLETE, so the check is opt-in (default OFF) — a missing entry would false-positive on a valid attribute.
+ * Completion offers these names and hover describes them (`services/assist/builtin-hover.ts`), each in the project's
+ * dialect only.
  *
- * Source: CODESYS `07-pragmas.md` (+ the TwinCAT `Tc*` attribute family). Lowercased, alias-folded.
- * ponytail: names only — the lint needs a membership test, not the full hover metadata (syntax/gotchas/
- * companions). Add the rich `PragmaEntry` shape back when hover/completion or conflict checks need it.
+ * Source: CODESYS `07-pragmas.md` (+ the TwinCAT `Tc*` attribute family). Lowercased, alias-folded. The attributes in
+ * the AST (where an attribute attaches) are `attributes.ts`, beside this file.
  */
-
-import type { Dialect } from "../frontend/syntax/index.js"
+import type { Dialect } from "../lex/vocabulary.js"
 
 // Attribute names accepted after `{attribute '…'}` (CODESYS + shared), plus alias spellings.
 const CODESYS_ATTRIBUTES: readonly string[] = [
@@ -126,37 +126,4 @@ export function attributeNames(dialect: Dialect): readonly string[] {
 /** True when `name` is an attribute THIS DIALECT recognizes (case-insensitive). */
 export function isKnownAttribute(name: string, dialect: Dialect): boolean {
   return KNOWN_BY_DIALECT[dialect].has(name.toLowerCase())
-}
-
-/**
- * Pragma DIRECTIVES — the first word of a `{…}` pragma (as opposed to the attribute NAME that follows
- * `{attribute '…'}`). One-liners power hover; the name set powers the opt-in `unknown-pragma` lint.
- * Source: CODESYS `07-pragmas.md` (conditional-compilation, message, region, attribute) + the corpus.
- * `end_region`/`endregion` are both accepted spellings. Directive-arg operators (`defined`, `hasvalue`,
- * `hastype`, `hasattribute`) live INSIDE `{IF …}`, so they are never a leading directive — not listed.
- */
-const DIRECTIVES: Readonly<Record<string, string>> = {
-  attribute: "Attaches a compiler attribute to the following declaration.",
-  if: "Conditional-compilation start — the block compiles only when the expression is true.",
-  elsif: "Conditional-compilation alternative branch (`{IF}` … `{ELSIF}` … `{END_IF}`).",
-  else: "Conditional-compilation fallback branch.",
-  end_if: "Closes a conditional-compilation `{IF}` block.",
-  define: "Defines a conditional-compilation symbol (used by `{IF defined(…)}`).",
-  undefine: "Removes a conditional-compilation symbol.",
-  region: "Starts a named, foldable source region (editor-only).",
-  end_region: "Closes a `{region}` block.",
-  endregion: "Closes a `{region}` block (alias of `end_region`).",
-  warning: "Emits an author-defined compiler warning where reached.",
-  error: "Emits an author-defined compiler error where reached.",
-  info: "Emits an author-defined compiler info message.",
-  text: "Author-defined compile-time text (hint-level).",
-}
-
-/** A one-line description for a pragma directive or `{attribute '…'}` name — powers pragma hover. Hover says
- *  what a name IS, not whether this compiler takes it, so it answers for either dialect. */
-export function pragmaHelp(word: string): string | undefined {
-  const w = word.toLowerCase()
-  if (w in DIRECTIVES) return DIRECTIVES[w]
-  if (KNOWN_BY_DIALECT.twincat.has(w)) return `Recognized \`{attribute '${word}'}\` compiler attribute.`
-  return undefined
 }

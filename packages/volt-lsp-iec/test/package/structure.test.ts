@@ -130,15 +130,11 @@ export function testSupportInSrc(pkg: string): string[] {
 }
 
 /**
- * The test support still in `src/` (design.md §1.4), by file, measured 2026-10-12 at fddcde2a6e (importers then:
- * `test-uri.ts` 78, `diagnostic-codes.ts` 2, `harness.ts` 5 — a count, not part of the key). All three move under
- * `test/` in step 2 (tasks 2.1, design.md §2.3). The list may only shrink.
+ * The test support still in `src/` (design.md §1.4). Measured 2026-10-12 at fddcde2a6e: `analysis/test-uri.ts`,
+ * `server/diagnostic-codes.ts`, `server/harness.ts`; all three moved under `test/` in task 2.1 (design.md §2.3). Empty,
+ * and it stays empty.
  */
-const KNOWN_TEST_SUPPORT_IN_SRC: readonly string[] = [
-  "src/analysis/test-uri.ts",
-  "src/server/diagnostic-codes.ts",
-  "src/server/harness.ts",
-]
+const KNOWN_TEST_SUPPORT_IN_SRC: readonly string[] = []
 
 /**
  * The test-support gate's verdict: a finding whose FILE the known list does not name is unexpected, a listed file with no

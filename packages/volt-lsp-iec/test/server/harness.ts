@@ -3,7 +3,7 @@
  * in-process pipes and records the *responses a client actually receives* — the layer the unit/conformance
  * gates can't see, because they test the analysis output (`DiagnosticItem`), not the wire.
  *
- * Generalises the `connect()` helper from `src/server/server.test.ts`: init with an arbitrary capability
+ * Generalises the `connect()` helper of `src/server/server.test.ts`: init with an arbitrary capability
  * set, drive the document lifecycle, and collect pushed notifications (publishDiagnostics) + server→client
  * refresh requests so a test can assert which delivery channel fired. Offline/deterministic: no root, so
  * the eager crawl + file watcher are no-ops.
@@ -28,7 +28,7 @@ import {
   type Diagnostic,
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
-import { runServer } from "./server.js"
+import { runServer } from "../../src/server/index.js"
 
 /** Capability presets keyed to the delivery channel a client selects. */
 export const CAPS = {

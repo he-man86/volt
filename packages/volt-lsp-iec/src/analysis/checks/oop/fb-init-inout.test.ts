@@ -6,7 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 const FB = `\nFUNCTION_BLOCK MyFB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nVAR_INPUT\n inp : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const diag = (decls: string): { code: string; message: string }[] => {

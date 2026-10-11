@@ -49,6 +49,9 @@ export { ancestry, baseOf, basesOf, extendsChain, extendsCycle } from "./extends
 export { libraryRank, pickForAsker, scopeUri } from "./precedence.js"
 export { manifestsByTitle } from "./library-namespaces.js"
 
+// where THIS and SUPER mean something
+export { declaresNoBase, instanceless, selfRefAllowed } from "./self-ref.js"
+
 // the names a conditional pragma asks
 export { bodyConditionWorld, conditionWorld } from "./condition-world.js"
 

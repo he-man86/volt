@@ -13,8 +13,7 @@
  * The CONDITIONAL structure (an orphan `{ELSE}`/`{ELSIF}`/`{END_IF}`, an `{IF}` never closed) is the statement parser's
  * (`parse/statements` `applyPragmas`), reported with the body's other syntax errors by `parse-errors`.
  */
-import { isKnownAttribute } from "../../../reference/index.js"
-import { allUnits, bodyStatements, directiveOf, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
+import { allUnits, bodyStatements, directiveOf, isKnownAttribute, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"

@@ -1,5 +1,5 @@
 /**
- * WorkspaceStore — the live server's document + project state (Layer G, extracted from `server.ts`).
+ * WorkspaceStore — the live server's document + project state (the workspace layer; extracted from `server.ts`).
  *
  * Two source layers feed one project symbol table:
  *   - `open`  — `TextDocument`s the client has opened (an unsaved edit still drives analysis).
@@ -14,15 +14,17 @@ import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
 import { parseDocument, type ParseOptions, type Span } from "../frontend/syntax/index.js"
 import { build, type Scope } from "../frontend/symbols/index.js"
-import type { ResolvedConfig } from "../analysis/index.js"
-import { deadPousFromInfos, deadMemberSpansFromInfos, fileReachInfo, type FileReachInfo } from "./reachability.js"
-import { EMPTY_WORKSPACE_REFS, workspaceEnvironment, type WorkspaceRefs } from "../workspace/workspace-refs.js"
-import { deadNameUniverse, reachDeadEquivalent } from "./dead-code-equivalence.js"
-import type { Document } from "../services/shared/index.js"
-import { NETWORK_TEXT_ENABLED } from "./config.js"
-
-/** Every parse the server makes reads network text as its environment says (`config.ts`). */
-const PARSE_OPTIONS: ParseOptions = { networkText: NETWORK_TEXT_ENABLED }
+import {
+  deadMemberSpansFromInfos,
+  deadNameUniverse,
+  deadPousFromInfos,
+  fileReachInfo,
+  reachDeadEquivalent,
+  type FileReachInfo,
+  type ResolvedConfig,
+} from "../analysis/index.js"
+import { EMPTY_WORKSPACE_REFS, workspaceEnvironment, type WorkspaceRefs } from "./workspace-refs.js"
+import type { Document } from "../services/index.js"
 
 // Windows and macOS default to case-insensitive filesystems; Linux is case-sensitive. Case-fold the key on
 // the former so an open buffer and its disk crawl (which may differ in path case) collapse to one entry.
@@ -79,8 +81,13 @@ export class WorkspaceStore {
   // only the changed file, not all N. A WeakMap so a replaced Document's info is collected automatically.
   private reachCache = new WeakMap<Document, FileReachInfo>()
 
-  constructor(config: ResolvedConfig) {
+  /** How every parse of this store reads its sources — network text on or off. REQUIRED, never defaulted: the server
+   *  passes what its environment says (`server/config.ts`), and a test states its own. */
+  private readonly parse: ParseOptions
+
+  constructor(config: ResolvedConfig, parse: ParseOptions) {
     this.config = config
+    this.parse = parse
   }
 
   /** Parse an open document once per version; reuse the cached parse for the same (uri, version). */
@@ -89,7 +96,7 @@ export class WorkspaceStore {
     const hit = this.cache.get(key)
     if (hit !== undefined && hit.version === td.version) return hit.doc
     const source = td.getText()
-    const doc: Document = { uri: td.uri, source, parseResult: parseDocument(td.uri, source, PARSE_OPTIONS, this.config.vendor) }
+    const doc: Document = { uri: td.uri, source, parseResult: parseDocument(td.uri, source, this.parse, this.config.vendor) }
     this.cache.set(key, { version: td.version, doc })
     return doc
   }
@@ -255,7 +262,7 @@ export class WorkspaceStore {
   seedDisk(files: readonly { uri: string; source: string }[]): void {
     this.disk.clear()
     for (const f of files)
-      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseDocument(f.uri, f.source, PARSE_OPTIONS, this.config.vendor) })
+      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseDocument(f.uri, f.source, this.parse, this.config.vendor) })
     this.projectScope = undefined
     this.boundDocs.clear()
     this.cachedDead = undefined // wholesale reseed ⇒ the dead caches + their snapshot are stale

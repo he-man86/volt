@@ -49,7 +49,7 @@ import {
   type CallHierarchyItem,
   type TypeHierarchyItem,
 } from "vscode-languageserver-protocol/node"
-import { connectToServer } from "./harness.js"
+import { connectToServer } from "../../test/server/harness.js"
 import { MATERIALIZATION } from "../frontend/library/index.js"
 
 /** A client connection wired to an in-process server over two pipes — `harness.ts` owns the setup, and the typed

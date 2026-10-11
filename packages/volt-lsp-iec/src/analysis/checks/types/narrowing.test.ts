@@ -6,7 +6,7 @@ import { test, expect, describe } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 
 test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns twice", () => {

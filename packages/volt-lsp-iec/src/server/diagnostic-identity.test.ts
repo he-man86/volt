@@ -9,8 +9,8 @@
  *      transport now can't silently return via the compute path.
  */
 import { test, expect } from "bun:test"
-import { CAPS, harness } from "./harness.js"
-import { allowedCode } from "./diagnostic-codes.js"
+import { CAPS, harness } from "../../test/server/harness.js"
+import { allowedCode } from "../../test/corpus/support/diagnostic-codes.js"
 
 const C0032 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
 const NETWORK_UNCLOSED = `FUNCTION_BLOCK G\nVAR out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK`

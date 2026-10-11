@@ -6,7 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 type Vendor = "codesys" | "twincat"
 

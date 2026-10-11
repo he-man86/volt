@@ -6,7 +6,7 @@
  * ("The name used in the signature is not identical to the object name", measured on SP21), so a harness that
  * invents a file name accuses its own fixture of a real defect. Seventeen tests across five files did.
  */
-import type { ParseResult } from "../frontend/syntax/index.js"
+import type { ParseResult } from "../../src/frontend/syntax/index.js"
 
 const EXT: Record<string, string> = {
   // Every POU is `.pou` whatever its text says (openspec push-without-header-check 5.Q).

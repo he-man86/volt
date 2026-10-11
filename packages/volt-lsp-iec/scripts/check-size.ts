@@ -52,7 +52,7 @@ export const CEILINGS: Readonly<Record<string, number>> = {
   "src/frontend/types/const/fold.ts": 704,
   "src/frontend/types/infer/expr.ts": 426,
   "src/server/server.test.ts": 910,
-  "src/server/server.ts": 624,
+  "src/server/server.ts": 623,
   "src/services/formatting/print.ts": 451,
   "src/services/network/network.test.ts": 1213, // LD/FBD change
   "test/analysis/census.ts": 723,

@@ -5,7 +5,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 const noop = (body: string): string[] => {
   const src = `PROGRAM P\nVAR i:INT; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`

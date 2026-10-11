@@ -72,6 +72,19 @@ test("F5: a front-end file reading the environment is named", () => {
   expect(found).toEqual(["F5 frontend/syntax/span.ts: reads process.env (the front-end reads no environment)"])
 })
 
+test("6: a src/ product file importing test/ is named; a colocated test reading test/ support is not", () => {
+  const found = scan({
+    "test/support/uri.ts": `export const u = 1
+`,
+    "src/analysis/rules.ts": `import { u } from "../../test/support/uri.js"
+export const r = u
+`,
+    "src/analysis/rules.test.ts": `import { u } from "../../test/support/uri.js"
+`,
+  }).filter((v) => v.startsWith("6 "))
+  expect(found).toEqual(["6 analysis/rules.ts → test/support/uri.ts: a src/ product file imports test/"])
+})
+
 /**
  * THE ANALYSIS RULES FIRE (openspec analysis-conformance design.md §2 "Import rules", task 1.2): one planted violation
  * per rule, named with both files; the clean shape beside each is not.
@@ -81,14 +94,6 @@ const CHECK = {
   "src/analysis/checks/types/a.ts": `export const a = 1\n`,
   "src/analysis/checks/types/a.test.ts": `import { a } from "./a.js"\n`,
 }
-
-test("A1: analysis reaching into the reference catalog past its index is named", () => {
-  const found = analysisRules({ "src/analysis/rules.ts": `import { k } from "../reference/catalog.js"\n`, "src/reference/catalog.ts": "" })
-  expect(found).toEqual([
-    "A1 analysis/rules.ts → reference/catalog.ts: deep import (analysis reads the reference catalog through reference/index.js)",
-  ])
-  expect(analysisRules({ "src/analysis/rules.ts": `import { k } from "../reference/index.js"\n` })).toEqual([])
-})
 
 test("A2: outside analysis, an import of any analysis file but its index is named — a dynamic import() too", () => {
   const found = analysisRules({
@@ -131,9 +136,9 @@ test("A4: a shared module importing a check is named; the registry importing one
 })
 
 test("A5: an analysis test importing the server is named", () => {
-  const found = analysisRules({ "src/analysis/x.test.ts": `import { s } from "../server/workspace-store.js"\n` })
+  const found = analysisRules({ "src/analysis/x.test.ts": `import { s } from "../workspace/workspace-store.js"\n` })
   expect(found).toEqual([
-    "A5 analysis/x.test.ts → server/workspace-store.ts: an analysis test imports a rank above analysis (server)",
+    "A5 analysis/x.test.ts → workspace/workspace-store.ts: an analysis test imports a rank above analysis (workspace)",
   ])
 })
 

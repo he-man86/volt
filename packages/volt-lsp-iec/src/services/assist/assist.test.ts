@@ -17,6 +17,7 @@ function setup(src: string) {
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }
+const projectOf = (doc: Document) => build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: doc.source }])
 
 // `Compute` (not `Add` — ADD is a reserved IEC operator keyword).
 const SRC = `FUNCTION_BLOCK Lib
@@ -70,7 +71,7 @@ END_METHOD`
   expect(kw("METHOD M", "METHOD ")).toContain("METHOD M") // return-less method → declKeyword path
 })
 
-test("hover: a built-in type falls back to the reference catalog", () => {
+test("hover: a built-in type falls back to the built-in hover", () => {
   const { doc, project } = setup(SRC)
   const h = hover(doc, project, SRC.indexOf("rx : INT") + "rx : ".length)
   expect(h).toBeDefined()
@@ -100,16 +101,16 @@ test("hover: whitespace / unknown token yields nothing", () => {
 test("pragma hover: an {attribute '<name>'} name describes the attribute", () => {
   const src = `{attribute 'qualified_only'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const h = pragmaHover(doc, src.indexOf("qualified_only") + 2)
+  const h = pragmaHover(doc, projectOf(doc), src.indexOf("qualified_only") + 2)
   expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
 })
 
 test("pragma hover: a directive word describes the directive; an unknown one yields nothing", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n{IF defined(FOO)}\nx := 1;\n{END_IF}\nEND_FUNCTION_BLOCK`
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const onIf = pragmaHover(doc, src.indexOf("{IF") + 1)
+  const onIf = pragmaHover(doc, projectOf(doc), src.indexOf("{IF") + 1)
   expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
-  expect(pragmaHover(doc, src.indexOf("x : INT"))).toBeUndefined() // not a pragma
+  expect(pragmaHover(doc, projectOf(doc), src.indexOf("x : INT"))).toBeUndefined() // not a pragma
 })
 
 test("completion: inside {attribute '…'} offers the known attribute names, not scope symbols", () => {

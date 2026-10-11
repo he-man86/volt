@@ -2,17 +2,15 @@
  * hover (Layer E · E.3 · assist). A markdown tooltip for the symbol under the cursor: a reconstructed
  * declaration line in an `iecst` code fence + the human kind label (the same `humanKind` completion
  * uses — the parity test guards they agree). Thin over `resolveAt` + `types/renderTypeExpr`.
- * A compiler built-in (`INT`, `MOD`, `SQRT`) that no symbol answers falls back to the reference catalog — only when
- * `builtinName` says the project's dialect HAS it (the one dialect-aware path the analysis asks too: `__POUNAME` or
- * `BOOL_TO_LDATE` on TwinCAT is "not defined", so it gets no built-in tooltip). A library element never needs the
- * catalog — it is a symbol, from its materialized declaration.
+ * A compiler built-in (`INT`, `MOD`, `SQRT`) that no symbol answers falls back to `builtinHover` — the one dialect-aware
+ * entry network text asks too: `__POUNAME` or `BOOL_TO_LDATE` on TwinCAT is "not defined", so it gets no built-in
+ * tooltip. A library element never needs it — it is a symbol, from its materialized declaration.
  */
 import type { Hover } from "vscode-languageserver-protocol"
-import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
-import { renderTypeExpr } from "../../frontend/syntax/index.js"
+import { renderTypeExpr, type Dialect } from "../../frontend/syntax/index.js"
 import { dialectOf, type Scope, type Symbol, type SymbolKind } from "../../frontend/symbols/index.js"
-import { builtinName } from "../../frontend/types/index.js"
 import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
+import { builtinHover, pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
 
@@ -23,38 +21,34 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
   const sym = resolveAt(doc, project, offset)
   if (sym !== undefined) return { ...symbolHover(sym), ...range }
 
-  // Not a user symbol — a built-in (INT / MOD / SQRT / …). Fall back to the reference catalog.
-  if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
-    if (builtinName(tok.text, dialectOf(project)) === undefined) return undefined
-    const entry = lookupReference(tok.text)
-    if (entry !== undefined) return { contents: { kind: "markdown", value: renderReferenceHover(entry) }, ...range }
-  }
-  return undefined
+  // Not a user symbol — a built-in (INT / MOD / SQRT / …) the project's dialect has.
+  return builtinHover(doc, project, offset)
 }
 
 /**
  * Hover for a pragma — the directive (`{IF …}`, `{region …}`) or the `{attribute '<name>'}` name under the
- * cursor, described from the reference catalog. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
+ * cursor, described by `pragmaHelp` in the project's dialect. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
  * read the parse's tokens for the `pragma` token spanning the offset. Wired as a hover fallback.
  */
-export function pragmaHover(doc: Document, offset: number): Hover | undefined {
+export function pragmaHover(doc: Document, project: Scope, offset: number): Hover | undefined {
+  const dialect = dialectOf(project)
   for (const t of doc.parseResult.tokens) {
     if (t.kind !== "pragma" || offset < t.span.start || offset >= t.span.end) continue
     // Cursor on the attribute NAME inside `{attribute 'NAME'}` → describe the attribute.
     const am = /^\{\s*attribute\s+'([^']*)'/i.exec(t.text)
     if (am?.[1] !== undefined) {
       const nameStart = t.span.start + am[0].length - am[1].length - 1 // just inside the closing quote-less name
-      if (offset >= nameStart && offset < nameStart + am[1].length) return pragmaMd(am[1])
+      if (offset >= nameStart && offset < nameStart + am[1].length) return pragmaMd(am[1], dialect)
     }
     // Otherwise the leading directive word.
     const dm = /^\{\s*([A-Za-z_]\w*)/.exec(t.text)
-    return dm?.[1] !== undefined ? pragmaMd(dm[1]) : undefined
+    return dm?.[1] !== undefined ? pragmaMd(dm[1], dialect) : undefined
   }
   return undefined
 }
 
-function pragmaMd(word: string): Hover | undefined {
-  const help = pragmaHelp(word)
+function pragmaMd(word: string, dialect: Dialect): Hover | undefined {
+  const help = pragmaHelp(word, dialect)
   return help !== undefined ? { contents: { kind: "markdown", value: `\`{${word}}\`\n\n${help}` } } : undefined
 }
 

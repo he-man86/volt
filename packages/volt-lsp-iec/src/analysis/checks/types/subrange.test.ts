@@ -7,7 +7,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 
 test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the lower bound, TwinCAT does not", () => {

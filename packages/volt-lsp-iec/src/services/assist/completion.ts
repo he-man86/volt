@@ -10,9 +10,9 @@
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import { dialectOf, findChildScope, lookup, type Scope, type Symbol, type SymbolKind, visibleNames } from "../../frontend/symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
-import { attributeNames, pragmaHelp } from "../../reference/index.js"
 import { humanKind, scopeAtOffset } from "../shared/index.js"
-import type { Dialect } from "../../frontend/syntax/index.js"
+import { attributeNames, type Dialect } from "../../frontend/syntax/index.js"
+import { pragmaHelp } from "./builtin-hover.js"
 import type { Document } from "../shared/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
@@ -26,11 +26,10 @@ export function completion(doc: Document, project: Scope, offset: number): Compl
 function attributeCompletions(src: string, offset: number, dialect: Dialect): CompletionItem[] | undefined {
   const open = src.lastIndexOf("{", offset - 1)
   if (open === -1 || !/^\{\s*attribute\s+'[^'}]*$/i.test(src.slice(open, offset))) return undefined
-  return attributeNames(dialect).map((name) => ({
-    label: name,
-    kind: CompletionItemKind.EnumMember,
-    ...(pragmaHelp(name) !== undefined ? { detail: pragmaHelp(name) } : {}),
-  }))
+  return attributeNames(dialect).map((name) => {
+    const detail = pragmaHelp(name, dialect)
+    return { label: name, kind: CompletionItemKind.EnumMember, ...(detail !== undefined ? { detail } : {}) }
+  })
 }
 
 /**

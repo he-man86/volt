@@ -83,16 +83,15 @@ disk by `test/package/structure.test.ts`), with the full ownership map.
 | `src/frontend/symbols/` | binder · scope-nav · `scoped-bodies` (the one shared "walk every ST body" iterator). |
 | `src/frontend/types/` | elementary type facts · the `Type` model · resolve · const · infer · compat · arith · render. |
 | `src/frontend/library/` | the Volt library format: path layout · manifest · materialization format. |
-| `src/analysis/` | `pipeline/` (the one diagnostics pipeline, the check registry as data, the policy) · per-vendor messages · `shared/` rules · the `checks/`. |
-| `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
-| `src/reference/` | language-data catalogs (types · operators · conversions · pragmas · standard fns/fbs · lifecycle). |
+| `src/analysis/` | `pipeline/` (the one diagnostics pipeline, the check registry as data, the policy) · per-vendor messages · `shared/` rules · the `checks/` · `reachability/` (dead code). |
+| `src/services/` | navigation · hierarchy · hover/completion/signature-help (with the built-in hover text, per dialect) · semantic-tokens · formatting · code-actions. |
 | `src/index.ts` | the package barrel — the one file at the top of `src/`. |
-| `src/workspace/` | the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
-| `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics · `bin.ts`, the CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
+| `src/workspace/` | `WorkspaceStore` (eager index + watched-file freshness) · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
+| `src/server/` | LSP 3.17 over stdio · push+pull diagnostics · `bin.ts`, the CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
 | `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution: `lower/` (every decision, refusals by name) → `ir/` (the contract) → `interp/` (the oracle, running `semantics/`, the value model) and `emit/rust/` (the printer, whose `runtime/` mirrors `semantics/`); its four models — loops, strings, pointers, initialization — in `docs/architecture.md`. |
 | `libraries/` | the library repo: each referenced library's elements written in ST, per version, for the transpiler (never the LSP). |
 | `test/conformance/` · `test/corpus/` | oracle replay (LSP diagnostics, transpiler execution) · real-project ratchet. |
-| `test/catalog/` · `test/frontend/` · `test/analysis/` · `test/baseline/` · `test/libraries/` · `test/package/` | the C-code catalog · the front-end and the analysis measured, and the baseline discipline they share · the library repo · the package's own shape (the build, the layering, the tree). Map: [`test/README.md`](./test/README.md). |
+| `test/catalog/` · `test/frontend/` · `test/analysis/` · `test/baseline/` · `test/libraries/` · `test/package/` · `test/server/` · `test/support/` | the C-code catalog · the front-end and the analysis measured, and the baseline discipline they share · the library repo · the package's own shape (the build, the layering, the tree) · the LSP test client · the test URI colocated tests use. Map: [`test/README.md`](./test/README.md). |
 | `scripts/` · `docs/` | dev tooling — recorders, gates, generators, measurements ([`scripts/README.md`](./scripts/README.md)) · the docs below. |
 
 ## Docs

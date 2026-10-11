@@ -1069,9 +1069,9 @@ END_FUNCTION_BLOCK
     name: "pragma_conflicting_pair",
     pouName: "FB_LANG_pragma_conflicting_pair",
     kind: "function_block",
-    feature: "Two mutually-exclusive attribute pragmas on the same FB — triggers pragmaConflict check",
+    feature: "Two layout attribute pragmas on the same FB (`pin_presentation_order_inputs` + `pingroup`) — no conflict between them",
     fromDoc: "07-pragmas.md",
-    note: "`pin_presentation_order_inputs` and `pingroup` are listed as mutually exclusive in src/reference/pragmas.ts; TC accepts both individually so the file builds, but the LSP pragmaConflict check (default ON) flags the pair.",
+    note: "No conflict between the two: TwinCAT builds the pair clean, and CODESYS warns only that `pingroup` belongs on a variable declaration (\"can only be added to variable declarations\") — a placement rule, not a pair rule. The LSP has no conflict list and no pragma-conflict check. (This note used to cite a mutually-exclusive list and a `pragmaConflict` check; neither exists in src/.)",
     plcPrgVar: "fb_pcp : FB_LANG_pragma_conflicting_pair;",
     plcPrgBody: "fb_pcp();",
     source: `{attribute 'pin_presentation_order_inputs' := 'iA, iB'}

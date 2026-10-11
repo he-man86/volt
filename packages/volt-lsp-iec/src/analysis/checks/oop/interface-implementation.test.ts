@@ -8,7 +8,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 /** missing-interface-implementation messages for one source (codesys) — with `instanced`, every FB of it INSTANCED by
  *  a program, as the vendor checks only an FB it compiles (`analysis/shared/compiled.ts`). */

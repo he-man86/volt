@@ -1,10 +1,8 @@
 /**
- * LSP server (Layer G, G.1) — LSP 3.17 over stdio, vendor-keyed. Wires the analysis diagnostics + every
- * E service to the protocol via `vscode-languageserver-protocol`'s connection. Incremental document
- * sync (TextDocument), push diagnostics on change, one rebuilt project symbol table per workspace edit.
- *
- * Thin dispatch: each handler converts LSP Position→offset and calls the matching service. The heavy
- * lifting lives in the layers below; this file is glue + capability advertisement.
+ * LSP server (Layer G, G.1) — LSP 3.17 over stdio, vendor-keyed. Wires the analysis diagnostics + every E service to the
+ * protocol via `vscode-languageserver-protocol`'s connection; the `WorkspaceStore` (`workspace/`) holds the documents,
+ * parsed as this process's environment says (`config.ts`). Thin dispatch: each handler converts LSP Position→offset and
+ * calls the matching service — the heavy lifting lives in the layers below; this file is glue + capabilities.
  */
 import type { Readable, Writable } from "node:stream"
 import {
@@ -80,8 +78,9 @@ import {
 import { scanWorkspace } from "../workspace/workspace-refs.js"
 import { SOURCE_EXTENSIONS } from "../workspace/source-extensions.js"
 import type { Scope, Symbol } from "../frontend/symbols/index.js"
-import { sameDocument, WorkspaceStore } from "./workspace-store.js"
+import { sameDocument, WorkspaceStore } from "../workspace/workspace-store.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
+import { NETWORK_TEXT_ENABLED } from "./config.js"
 import {
   callIncoming,
   callOutgoing,
@@ -122,7 +121,7 @@ import {
   readOnlyBodyHover,
   networkTypeDefinition,
 } from "../services/index.js"
-import type { Document } from "../services/shared/index.js"
+import type { Document } from "../services/index.js"
 
 /** Resolve the workspace root to a filesystem path from a `file://` `rootUri` (preferred) or `rootPath`. */
 function workspaceRoot(rootUri: string | null | undefined, rootPath: string | null | undefined): string | undefined {
@@ -138,7 +137,7 @@ function workspaceRoot(rootUri: string | null | undefined, rootPath: string | nu
 
 export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys", version = "(dev)"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  const store = new WorkspaceStore(resolveConfig({ vendor }))
+  const store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED })
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
   /** What the EDITOR asked for, kept so a re-crawl can re-apply the project's settings on top of it. */
@@ -432,7 +431,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     at(p.textDocument.uri, p.position, (d, o) =>
       inNetworkText(d, o)
         ? networkHover(d, project(), o)
-        : (readOnlyBodyHover(d, o) ?? hover(d, project(), o) ?? pragmaHover(d, o)),
+        : (readOnlyBodyHover(d, o) ?? hover(d, project(), o) ?? pragmaHover(d, project(), o)),
     ),
   )
   conn.onRequest(DefinitionRequest.type, (p) =>

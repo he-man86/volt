@@ -59,7 +59,7 @@ const deferLsp = (t: LanguageTest, reason: string): LanguageTest => ({ ...t, def
 
 /** A refusal whose sentence no catalog code carries. */
 const noCatalogCode = (what: string, count: string): string =>
-  `niche: accepted loss (${count}) (2026-10-03) — both vendors' words are recorded (${what}); not trivial: no catalog code carries the sentence, and a wire diagnostic is one (server/diagnostic-codes.ts admits no new slug)`
+  `niche: accepted loss (${count}) (2026-10-03) — both vendors' words are recorded (${what}); not trivial: no catalog code carries the sentence, and a wire diagnostic is one (corpus/support/diagnostic-codes.ts admits no new slug)`
 
 // ─── TY5/TY6 — the target's width (4.1.1) ─────────────────────────────────────────────────────────────────────────────
 

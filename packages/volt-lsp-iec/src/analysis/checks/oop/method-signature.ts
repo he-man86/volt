@@ -29,7 +29,7 @@
  *
  * NOT SAID (frontend-conformance 3.2, known divergences): an override of a FINAL method (`inh_override_final_method`) and
  * a base's ABSTRACT method left unimplemented (`inh_abstract_method_not_implemented`). Both vendors' words are recorded;
- * what is missing is the CODESYS code number — a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts`
+ * what is missing is the CODESYS code number — a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts`
  * admits no new slug) and a build message carries none.
  */
 import {

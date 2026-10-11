@@ -98,11 +98,58 @@
 
 ## 2. Folders (output-neutral)
 
-- [ ] 2.1 `server/`: reachability + dead-code equivalence → `analysis/`; `workspace-store.ts` → `workspace/`;
+- [x] 2.1 `server/`: reachability + dead-code equivalence → `analysis/`; `workspace-store.ts` → `workspace/`;
       `harness.ts` → `test/` support; `server/` = server, bin, config, index, diagnostics, diagnostic-codes.
-- [ ] 2.2 `reference/` dissolved: attribute catalog → `frontend/` (beside pragma syntax), hover catalog →
+      Done: `reachability.ts` + `dead-code-equivalence.ts` (+ test) → `analysis/reachability/`, read through
+      `analysis/index`; `workspace-store.ts` (+ `workspace-store.test.ts`, `incremental-index.test.ts`,
+      `dead-code-cache.test.ts`) → `workspace/`; `harness.ts` → `test/server/`, `diagnostic-codes.ts` →
+      `test/corpus/support/`, `analysis/test-uri.ts` → `test/support/` (its 78 importers re-pointed). Structure known
+      3 → 0 (`KNOWN_TEST_SUPPORT_IN_SRC` empty), S1 known 3 → 0 (`KNOWN_SERVER_VIOLATIONS` empty).
+- [x] 2.2 `reference/` dissolved: attribute catalog → `frontend/` (beside pragma syntax), hover catalog →
       `services/assist/`; `check-layering.ts` reference rank and rule A1 updated; `src/index.ts` exports stable.
-- [ ] 2.3 Every built-in has a hover entry (missing ones added); a test asserts it.
+      Done: attribute lists + `isKnownAttribute` → `frontend/syntax/pragmas/known-attributes.ts` (out through
+      `syntax/index`); `reference.ts` + directive texts → `services/assist/builtin-hover.ts`; the `reference` rank, rule
+      A1 and its planted test deleted; `src/index.ts` drops the `reference` re-export (design §6). Dead-export allowlist
+      29 → 25 (`ReferenceKind`, `ReferenceEntry` file-private, `Harness` out of `src/`, `COMPILER_IMPLICITS` now read;
+      `normalizeKey` re-keyed to `workspace/`). Departures from design §6, kept: the entry is
+      `builtinHover(doc, project, offset)` — not `(name, dialect)` — because the PLACE decides too (`THIS` in a FUNCTION,
+      review finding 6a) and the target decides a platform integer's width (finding 4), and both hover paths need the
+      same three facts; the pragma entry kept its name `pragmaHelp(word, dialect)` (hover and completion detail).
+- [x] 2.3 Every built-in has a hover entry (missing ones added); a test asserts it.
+      Done: the 9 of design §1.6 (`THIS` `SUPER` `IoConfig_Globals` `TYPE_CLASS` `__UXINT` `__XINT` `__XWORD`
+      `__VECTOR` `__SYSTEM`); `builtin-hover.test.ts` per dialect, both directions, THROUGH `hover()` (one bound
+      document, one FB per name) over §1.6's sets and the closed 21-name `__` list; network-text `__POUNAME` on
+      TwinCAT answers nothing (red first).
+- [x] 2.4 Step-2 review findings (6), fixed test-first:
+      - `builtin-hover.test.ts` had weakened the old `reference.test.ts` (kind and `returnType` no longer asserted,
+        `toBe` → `toContain`). FIXED: the hover now renders what an entry IS (`_operator · returns REAL_`,
+        `_data type · 16-bit signed int · range …_`), and the test asserts exact hovers again (`INT`, `MOD`, `SQRT`,
+        `INT_TO_REAL`, `to_real`, `TO_SINT`, `TRUNC`), every `BUILTIN_OPERATOR_NAMES` name hovering as an operator or a
+        standard function, and every `BUILTIN_RESULT` entry showing its result type. The other direction (no catalog
+        operator outside the set) is refused when the module loads, which let `catalogNames` — a dialect-blind name list
+        on the surface — go.
+      - `returnType` was dead data. FIXED: rendered ("returns STRING" on `__POSITION`, "returns DINT" on `TRUNC`); the
+        comments in `builtins.ts` and `builtin-hover.ts` are true again.
+      - `pragmaHelp` took `Object.prototype` keys for directives (`{constructor}` hovered "function Object() …").
+        FIXED: `Object.hasOwn`; red first: "an inherited object key is no directive".
+      - A platform integer hovered "LINT on a 64-bit target" whatever the project's target. FIXED: the width is the
+        target's (`canonicalElem`: "DINT on this target (32-bit pointers)"), and an unmeasured target says "width
+        unknown" instead of a guessed one.
+      - The `pragma_conflicting_pair` note cited a mutually-exclusive list in `known-attributes.ts` and a
+        `pragmaConflict` check; neither exists, and the hover file claimed an `unknown-pragma` lint reads `DIRECTIVES`.
+        FIXED: the note says what the recordings hold (TwinCAT clean; CODESYS warns `pingroup` placement only — not a
+        pair rule) and the hover comment no longer names a lint. Map unchanged (notes are not in it).
+      - (a) `THIS`/`SUPER` hovered in a FUNCTION/PROGRAM and `SUPER` in a base-less FB, where the analysis reports them.
+        FIXED: the rule has one home, `frontend/symbols/self-ref.ts` (`instanceless`, `declaresNoBase`,
+        `selfRefAllowed`), read by `this-super-context` and by `builtinHover`; red first: "THIS and SUPER hover only
+        where they mean something". (b) the coverage test now runs through the service (above). `catalogNames` gone (above).
+      Also: `scripts/check-layering.test.ts` rule 6 still asserted "a test file too", the rule 2.1 relaxed on purpose
+      (test support lives under `test/`, so a colocated test imports it; `dist/` excludes tests) — the test now names
+      the product file only.
+      Gate: `bun typecheck` clean; `bun run lint` green (layering 0 known server/test-support violations, size 56 files +
+      31 functions listed, dead exports 25 allowlisted, citations); `rate:fixtures` run — map unchanged; full suite
+      `VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset: 9543 pass, 35 skip, 421 todo, 0 fail, 9999 tests across 327 files
+      (703 s) — +9 tests over step 1.
 
 ## 3. Review (services, server, workspace)
 

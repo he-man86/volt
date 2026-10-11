@@ -8,7 +8,7 @@ import { expect, test } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 const FB = `FUNCTION_BLOCK FB_LANG_hide_var
 VAR

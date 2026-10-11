@@ -92,6 +92,8 @@ test/
                              (every import obeys scripts/check-layering.ts), structure.test.ts (no loose src/ file but
                              the barrel, no src/ file only tests import, every src/ and test/ folder in docs/architecture.md "The tree", every script
                              in scripts/README.md)
+  server/                    harness.ts — the LSP client src/server's wire tests drive (test support, no suite)
+  support/                   test-uri.ts — the URI a colocated test names a source by (test support, no suite)
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

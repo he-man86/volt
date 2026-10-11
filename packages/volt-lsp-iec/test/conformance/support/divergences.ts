@@ -1028,7 +1028,7 @@ const TWINCAT_SCOPE_DIVERGENCES: readonly string[] = [
  *   `inh_abstract_method_not_implemented` — a concrete FB leaving its base's ABSTRACT method unimplemented: "There is no
  *        implementation for ABSTRACT method 'M' defined in function block 'B'" (TwinCAT: "functionblock").
  * Niche: accepted loss (0 occurrences in the corpora — they build, holding 7 FINAL and 11 ABSTRACT methods). Not trivial:
- * a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) and a build message carries
+ * a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug) and a build message carries
  * none, so emitting either waits for the number from the vendor's help.
  */
 const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method", "inh_abstract_method_not_implemented"]
@@ -1045,7 +1045,7 @@ const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method",
  * PROTECTED PROPERTY), 380 under `01 Main`…`04 Physical Interfaces` and 145 in its project-local `99 Library` folder,
  * none from a referenced library (counted 2026-10-03; the first note said "all library code", which was wrong). So an
  * edit reaching one from outside is a realistic mistake the LSP stays silent on — the loss is accepted, not absent.
- * Not trivial: a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug). A METHOD's
+ * Not trivial: a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug). A METHOD's
  * refusal ("Cannot access private method B.M") has none. The PROPERTY cells have catalog entries — C0513 private, C0514
  * internal, C0515 protected property access — but each documents another sentence ("Should not access private property
  * POU Prop") than the one recorded ("Cannot access private property B.P"), unverified on either vendor (`ide-only`), so
@@ -1076,7 +1076,7 @@ const MEMBER_DIVERGENCES: readonly string[] = [
  *   `enum_same_member_comparison`, `enum_implicit_member_in_other_pou` — `IF e = x THEN` with `x` a name that names nothing
  *        (a member two enums declare; another POU's implicit enum's value): the LSP says what the vendors say of `x`, and
  *        misses "Expression of type 'BOOL' expected in this place" for the condition the hole leaves untyped. Not trivial:
- *        a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) and the message has none
+ *        a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug) and the message has none
  *        in the catalog. Niche: accepted loss (0 occurrences in the corpora — they build).
  *   (`enum_member_vs_global` left 2026-10-06, analysis-conformance 3.5: a project global and an own enum's member of one
  *        name clash at the globals' step of the search order — `types/names` `globalClash`.)

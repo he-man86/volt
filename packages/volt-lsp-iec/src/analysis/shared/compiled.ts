@@ -21,7 +21,7 @@
  * (no fixture leaves one uncalled); a `__NEW(D)` whose result is held only as a `POINTER TO` a base of D does not reach D.
  *
  * The checks of an FB's own declaration against its bases' and interfaces' (`method-signature`,
- * `interface-implementation`) answer only for an FB in this set. Dead-code suppression (`server/reachability.ts`) cannot answer
+ * `interface-implementation`) answer only for an FB in this set. Dead-code suppression (`analysis/reachability/reachability.ts`) cannot answer
  * this: it keeps an FB that implements a referenced interface live, which is the safe direction for hiding diagnostics
  * and the wrong one for raising them.
  */

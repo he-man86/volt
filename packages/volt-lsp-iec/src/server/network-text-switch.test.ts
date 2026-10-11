@@ -20,7 +20,7 @@ const PACKAGE = path.resolve(import.meta.dir, "..", "..")
 /** Pull diagnostics for `src` from a server running in a child process whose environment is `graphical`. */
 async function diagnostics(src: string, graphical: "1" | undefined): Promise<{ code: string; message: string }[]> {
   const script = `
-    import { CAPS, harness } from "./src/server/harness.ts"
+    import { CAPS, harness } from "./test/server/harness.ts"
     const h = harness()
     await h.init(CAPS.pull)
     await h.open("file:///F.pou", ${JSON.stringify(src)})

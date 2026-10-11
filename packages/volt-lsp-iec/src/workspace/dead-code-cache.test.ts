@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { WorkspaceStore } from "./workspace-store.js"
-import { resolveConfig } from "../analysis/index.js"
-import { deadPous, deadMemberSpans } from "./reachability.js"
+import { NETWORK_TEXT_ENABLED } from "../server/config.js"
+import { deadMemberSpans, deadPous, resolveConfig } from "../analysis/index.js"
 import { parseSource } from "../frontend/syntax/index.js"
 
 // A tiny multi-POU project: MAIN (task root) calls A; B is dead; A has a called + an uncalled method.
@@ -17,7 +17,7 @@ const freshDead = (files: { uri: string; source: string }[]) => {
 const storeDead = (store: WorkspaceStore) => ({ dead: [...store.deadSet()].sort(), members: store.deadMembers().size })
 
 test("cached dead == fresh dead across edit types (whitespace, add-call, revert)", () => {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
   const files = FILES("VAR x : INT; END_VAR")
   store.seedDisk(files)
   store.project()

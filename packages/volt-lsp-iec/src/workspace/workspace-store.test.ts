@@ -5,13 +5,14 @@
 import { test, expect } from "bun:test"
 import { resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
+import { NETWORK_TEXT_ENABLED } from "../server/config.js"
 
 const cfg = () => resolveConfig({ vendor: "codesys" })
 const URI = "file:///F.pou"
 const SRC = `FUNCTION_BLOCK F\nVAR i : INT; END_VAR\ni := i + 1;\nEND_FUNCTION_BLOCK`
 
 test("store: an open document is parsed once per version (cached parseResult identity)", () => {
-  const store = new WorkspaceStore(cfg())
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
   store.openDocument(URI, "iecst", 1, SRC)
   const a = store.doc(URI)!
   const b = store.doc(URI)!
@@ -24,7 +25,7 @@ test("store: an open document is parsed once per version (cached parseResult ide
 })
 
 test("store: an open buffer overrides its disk entry (open wins), close leaves disk intact", () => {
-  const store = new WorkspaceStore(cfg())
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
   store.seedDisk([{ uri: URI, source: SRC }])
   const disk = store.doc(URI)!
   store.openDocument(URI, "iecst", 1, SRC.replace("INT", "DINT"))
@@ -34,7 +35,7 @@ test("store: an open buffer overrides its disk entry (open wins), close leaves d
 })
 
 test("store: disk and open for the same URI yield one merged entry", () => {
-  const store = new WorkspaceStore(cfg())
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
   store.seedDisk([{ uri: URI, source: SRC }])
   store.openDocument(URI, "iecst", 1, SRC)
   expect(store.workspace().length).toBe(1) // not duplicated across the two layers

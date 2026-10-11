@@ -2,7 +2,7 @@
  * TwinCAT-only `Tc*` attribute-pragma conformance catalog.
  *
  * These are the 20 Beckhoff `Tc`-prefixed attribute pragmas the LSP tags
- * `vendor: "twincat"` in `src/reference/pragmas.ts`. They drive the
+ * `vendor: "twincat"` in `src/frontend/syntax/pragmas/known-attributes.ts`. They drive the
  * `wrong-vendor-pragma` check: a CODESYS project that pastes one should be
  * warned, a TwinCAT project must NOT be. Until now that tag was doc-verified
  * only (design.md "Findings → Pragmas" caveat). These fixtures make it

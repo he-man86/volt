@@ -7,7 +7,7 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 // THE VENDOR HAS TO REACH ALL THREE. The dialect is read when LEXING (a CODESYS-only keyword is an ordinary
 // identifier on TwinCAT), when RESOLVING (`project.dialect` is what makes `LDATE` unresolvable there) and when

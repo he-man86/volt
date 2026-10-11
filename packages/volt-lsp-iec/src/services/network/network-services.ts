@@ -29,8 +29,7 @@ import {
 } from "../../frontend/syntax/index.js"
 import { bareEnumMember, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../../frontend/symbols/index.js"
 import { analyzeNetworkText, networkNetworkAt, resolveMemberChain, type NetworkTextAnalysis } from "../../frontend/types/index.js"
-import { lookupReference, renderReferenceHover } from "../../reference/index.js"
-import { completionAtScope, symbolHover } from "../assist/index.js"
+import { builtinHover, completionAtScope, symbolHover } from "../assist/index.js"
 import { findReferences, toLocations, type Ref } from "../navigation/index.js"
 import { locationOf, rangeFromSpan, resolveAt } from "../shared/index.js"
 import { exprAtOffset, memberAtOffset, tokenAtOffset, type Document } from "../shared/index.js"
@@ -99,12 +98,7 @@ export function networkHover(doc: Document, project: Scope, offset: number): Hov
     const value = (hover.contents as { value: string }).value
     return { contents: { kind: "markdown", value: `${value}\n\n\`\`\`iecst\n${def.wire.text} := ${producer};\n\`\`\`` } }
   }
-  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
-  if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
-    const entry = lookupReference(tok.text)
-    if (entry !== undefined) return { contents: { kind: "markdown", value: renderReferenceHover(entry) } }
-  }
-  return undefined
+  return builtinHover(doc, project, offset)
 }
 
 /** Go-to-definition for a network-text operand/wire reference. */

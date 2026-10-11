@@ -15,11 +15,12 @@ import {
   codesysCodeFor,
   computeDiagnostics,
   computeNetworkTextDiagnostics,
+  inDeadMember,
   messagesFor,
+  ownerPou,
   PARSE_ERROR_CODES,
   type DiagnosticItem,
 } from "../analysis/index.js"
-import { inDeadMember, ownerPou } from "./reachability.js"
 import {
   isLibrarySymbol,
 } from "../frontend/symbols/index.js"
@@ -36,8 +37,8 @@ import {
   type TopLevel,
   unitBodies,
 } from "../frontend/syntax/index.js"
-import type { WorkspaceStore } from "./workspace-store.js"
-import type { Document } from "../services/shared/index.js"
+import type { WorkspaceStore } from "../workspace/workspace-store.js"
+import type { Document } from "../services/index.js"
 import { MATERIALIZATION, MATERIALIZATION_FORMATS, materializationMismatch, newerLibraryManifests, staleLibraryManifests, type LibraryManifest } from "../frontend/library/index.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {

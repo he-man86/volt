@@ -1,5 +1,6 @@
 // Layer E · assist — hover · completion · signature-help · inlay-hints · code-lens · code-actions.
 export * from "./hover.js"
+export { builtinHover } from "./builtin-hover.js"
 export * from "./completion.js"
 export * from "./signature-help.js"
 export * from "./inlay-hints.js"

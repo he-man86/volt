@@ -52,6 +52,11 @@ explained and kept (`structure.test.ts`: no loose file at the top of `src/` but 
 tests import — test support lives under `test/` — every folder of `src/` and `test/` in `docs/architecture.md` "The
 tree", every script in `scripts/README.md`). And `network-text-on.ts`, the preload `bunfig.toml` names.
 
+Plus the test SUPPORT that colocated tests under `src/` read (openspec lsp-same-standard 2.1: test support lives only under
+`test/`, and layering rule 6 bars only PRODUCT files from importing it): `server/harness.ts`, the LSP client the server's
+wire tests drive over two in-process pipes, and `support/test-uri.ts`, the URI a test names a source by. The corpus's
+wire-code debt list, `KNOWN_UNMAPPED`, is `corpus/support/diagnostic-codes.ts`.
+
 ## Why these four, and not more
 
 They divide by **what could be wrong**, which is the only division that makes a hole visible:

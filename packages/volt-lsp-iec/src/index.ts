@@ -1,7 +1,7 @@
 // @volt/lsp-iec — public API barrel.
 //
 // The layer stack (imports point DOWNWARD only, lint-enforced by scripts/check-layering.ts):
-//   frontend (syntax ← symbols ← types, library beside them) ← reference ← analysis ← services ← workspace ← server;
+//   frontend (syntax ← symbols ← types, library beside them) ← analysis ← services ← workspace ← server;
 //   transpile consumes the front-end. Network text (LD/FBD) has no layer of its own: each layer holds its part.
 //
 // Re-export each layer's public surface as it fills in. Consumers of the package
@@ -9,7 +9,6 @@
 export * from "./frontend/index.js"
 export * from "./analysis/index.js"
 export * from "./services/index.js"
-export * from "./reference/index.js"
 export * from "./server/index.js"
 
 // THERE IS NO WORKSPACE-INIT SURFACE HERE ANY MORE. `installCorpus` and `detectVendor` were exported for

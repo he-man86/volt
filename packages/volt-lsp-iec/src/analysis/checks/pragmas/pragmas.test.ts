@@ -6,7 +6,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, type Vendor } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 /** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
 function attrs(src: string, enabled: boolean, vendor: Vendor = "codesys") {

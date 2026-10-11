@@ -383,7 +383,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // variable).
   // 29 -> 31, FOR MEASUREMENT. frontend-conformance 3.2 (2026-10-02), new questions, no fixture moved (`deferred.lsp`):
   // `inh_override_final_method` and `inh_abstract_method_not_implemented` — both vendors' words recorded, the CODESYS code
-  // number unknown (a wire diagnostic is a catalog `Cnnnn`; `server/diagnostic-codes.ts` admits no new slug), 0
+  // number unknown (a wire diagnostic is a catalog `Cnnnn`; `corpus/support/diagnostic-codes.ts` admits no new slug), 0
   // occurrences of either refusal in the corpora.
   // 31 -> 34, FOR MEASUREMENT. frontend-conformance 3.3 (2026-10-02), new questions, no fixture moved, each niche and accepted
   // (`deferred.lsp`, 0 occurrences in the corpora): `enum_member_vs_global` (a project global and a project enum member of

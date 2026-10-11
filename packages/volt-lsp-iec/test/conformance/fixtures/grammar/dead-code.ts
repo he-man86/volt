@@ -3,7 +3,7 @@
  *
  * A POU no PROGRAM reaches, and a method nothing calls, is dead code: the compiler checks none of its semantics
  * (`check-coverage-three.ts`, `types.ts` `plcPrgVar`), and the server suppresses the semantic findings in it
- * (`src/server/reachability.ts`). Whether the vendor still reports a SYNTAX error there is a separate question, and
+ * (`src/analysis/reachability/reachability.ts`). Whether the vendor still reports a SYNTAX error there is a separate question, and
  * these fixtures put it: a statement parse error and a declaration parse error in an FB nothing instantiates, a
  * statement parse error in a method nothing calls (a declaration parse error in one is `sig_empty_type`, already
  * recorded), and the out-of-body `hasattribute` operand check (C0051) in a method nothing calls.

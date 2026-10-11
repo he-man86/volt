@@ -12,7 +12,8 @@
 //      `core/` only `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`; and
 //      only `entry/` (and the `lower/` barrel) imports `project/`,
 //   5. an import CYCLE that spans layers,
-//   6. a file under `src/` — tests included — importing from `test/`,
+//   6. a PRODUCT file under `src/` importing from `test/` (a colocated test may import `test/` support — the test support
+//      itself lives only under `test/`, openspec lsp-same-standard design.md §2.3),
 // and the FRONT-END rules (openspec frontend-conformance design.md §5, P2–P5), over src/, test/, scripts/ and the
 // top-level libraries/ — tests included:
 //   F1. nothing in the front-end imports outside the front-end;
@@ -25,7 +26,7 @@
 // the SERVER rule S1 (openspec lsp-same-standard design.md §5): `server/` imports only `analysis/index`,
 // `services/index`, `frontend/*/index`, `workspace/*` and itself — tests included — with its own shrinking list,
 // KNOWN_SERVER_VIOLATIONS;
-// and the ANALYSIS rules A1–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
+// and the ANALYSIS rules A2–A6 (openspec analysis-conformance design.md §2; `analysisViolations` below), with their own
 // shrinking list, KNOWN_ANALYSIS_VIOLATIONS.
 //
 // A violation this change has not yet removed is named in KNOWN_FRONTEND_VIOLATIONS; `test/package/layering.test.ts`
@@ -40,15 +41,15 @@ const PACKAGE = resolve(import.meta.dir, "..")
 /** The trees the front-end rules cover (rules 0–5 cover production `src/` only). */
 const ROOTS = ["src", "test", "scripts", "libraries"]
 
-// Layer rank: import target rank must be <= source rank. `reference` is a data catalog (depends only on `types`,
-// consumed BY analysis + services). Network text (LD/FBD) has no rank of its own: each layer holds its part in a
+// Layer rank: import target rank must be <= source rank. There is no catalog rank: the attribute names are a vocabulary
+// of the front-end (`syntax/pragmas/known-attributes.ts`) and the built-in hover text is a service
+// (`services/assist/builtin-hover.ts`) — openspec lsp-same-standard 2.2. Network text (LD/FBD) has no rank of its own: each layer holds its part in a
 // `network/` folder (`frontend/syntax/network`, `frontend/types/network`, `analysis/checks/network`, `services/network`).
 const RANK: Record<string, number> = {
   library: 0,
   syntax: 0,
   symbols: 1,
   types: 2,
-  reference: 3,
   analysis: 4,
   services: 5,
   // `workspace/`: file I/O over the analysis stack (the workspace scan, the writable-source set), consumed by the server
@@ -106,17 +107,13 @@ export const KNOWN_TRANSPILE_VIOLATIONS: readonly string[] = [
 
 /**
  * The server-rule violations (S1 below, openspec lsp-same-standard design.md §5, task 1.2): `server/` reaching past the
- * indexes it dispatches through. All three go with task 2.1 (`../services/shared/index.js` → `../services/index.js`,
- * design.md §2.3). The list may only shrink.
+ * indexes it dispatches through. Empty since task 2.1 (the three `../services/shared/index.js` imports became
+ * `../services/index.js`, design.md §2.3); it stays empty.
  */
-export const KNOWN_SERVER_VIOLATIONS: readonly string[] = [
-  "S1 server/diagnostics.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
-  "S1 server/server.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
-  "S1 server/workspace-store.ts → services/shared/index.ts: the server imports only analysis/index, services/index, frontend/*/index, workspace/* and itself",
-]
+export const KNOWN_SERVER_VIOLATIONS: readonly string[] = []
 
 /**
- * The analysis-rule violations (A1–A6 below) that openspec analysis-conformance has not removed yet, measured by the
+ * The analysis-rule violations (A2–A6 below) that openspec analysis-conformance has not removed yet, measured by the
  * rule itself (task 1.2). Each entry names the task that removes it; the list may only shrink.
  */
 export const KNOWN_ANALYSIS_VIOLATIONS: readonly string[] = [
@@ -248,9 +245,10 @@ export function layeringViolations(pkg: string = PACKAGE): string[] {
           continue
         }
 
-        // Rule 6: nothing under src/ — tests included — imports test/.
-        if (inSrc && tsTarget.startsWith("test/")) {
-          violations.push(`6 ${relFrom} → ${relTo}: a src/ file imports test/`)
+        // Rule 6: no product file under src/ imports test/ (what `dist/` compiles never reaches test code; a colocated test
+        // reads the test support that lives there — lsp-same-standard moved the test URI, the harness and the code list out).
+        if (production && tsTarget.startsWith("test/")) {
+          violations.push(`6 ${relFrom} → ${relTo}: a src/ product file imports test/`)
           continue
         }
 
@@ -413,7 +411,7 @@ const serverMayImport = (relTo: string): boolean =>
   relTo.startsWith("workspace/")
 
 /**
- * Who imports what, package-relative (`src/server/harness.ts` → its `.ts` targets), over src/, test/, scripts/ and
+ * Who imports what, package-relative (`src/server/server.ts` → its `.ts` targets), over src/, test/, scripts/ and
  * libraries/, tests included, a dynamic `import()` counted — the scan the A rules use, lent to the structure gate
  * (`test/package/structure.test.ts`) so the package has one import scanner.
  */
@@ -435,8 +433,8 @@ export function importGraph(pkg: string = PACKAGE): Map<string, Set<string>> {
  * THE ANALYSIS RULES (openspec analysis-conformance design.md §2 "Import rules", P4), over src/, test/ and scripts/ —
  * tests included, a dynamic `import()` counted:
  *
- *   A1  analysis reaches the reference catalog only through `reference/index.js` (the front-end through its indexes is
- *       F2's; the network-text clause is parked with design.md §3);
+ *   (A1, analysis reaching the reference catalog only through its index, went with the catalog — lsp-same-standard 2.2:
+ *       the attribute names are the front-end's, reached through `syntax/index.js` like any front-end fact, F2's;)
  *   A2  outside `src/analysis/`, the only analysis file anyone imports is `analysis/index.js`;
  *   A3  a check imports no other check and never `pipeline/registry` or `pipeline/diagnostics`; a colocated test imports
  *       only its own subject in `checks/` (the pipeline through `analysis/index.js`);
@@ -474,8 +472,6 @@ function analysisViolations(pkg: string): string[] {
             out.push(`A2 ${relFrom} → ${relTo}: deep import (outside analysis, only analysis/index.js)`)
           continue
         }
-        if (relTo.startsWith("reference/") && relTo !== "reference/index.ts")
-          out.push(`A1 ${relFrom} → ${relTo}: deep import (analysis reads the reference catalog through reference/index.js)`)
         if (fromCheck && (toCheck || toPipelineRun)) {
           const subject = relFrom.replace(/\.test\.ts$/, ".ts")
           if (!isTest && toCheck && relTo !== relFrom) out.push(`A3 ${relFrom} → ${relTo}: a check imports no other check`)

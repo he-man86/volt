@@ -15,7 +15,8 @@ import { test, expect } from "bun:test"
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
-import { WorkspaceStore } from "./workspace-store.js"
+import { WorkspaceStore } from "../workspace/workspace-store.js"
+import { NETWORK_TEXT_ENABLED } from "./config.js"
 import { documentDiagnostics } from "./diagnostics.js"
 import { resolveConfig } from "../analysis/index.js"
 import { definition } from "../services/index.js"
@@ -72,7 +73,7 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
     const { dir, files } = proj
     console.log(`[bench] project=${dir.split(/[\\/]/).pop()} files=${files.length}`)
 
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
     store.workspaceRefs = loadWorkspaceRefs(dir)
     store.taskRoots = loadTaskRoots(dir)
     store.seedDisk(files.map((p) => ({ uri: pathToFileURL(p).href, source: readFileSync(p, "utf8") })))

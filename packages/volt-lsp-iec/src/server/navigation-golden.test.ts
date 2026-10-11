@@ -5,7 +5,7 @@
  */
 import { test, expect } from "bun:test"
 import { DefinitionRequest, HoverRequest, ReferencesRequest } from "vscode-languageserver-protocol/node"
-import { CAPS, harness } from "./harness.js"
+import { CAPS, harness } from "../../test/server/harness.js"
 
 const URI = "file:///F.pou"
 //                        line0                    line1  line2 (decl)      line3      line4 (usages)

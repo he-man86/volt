@@ -59,7 +59,7 @@ function deferLsp(t: LanguageTest, reason: string): LanguageTest {
 }
 
 const NO_CODE_NUMBER =
-  "niche: accepted loss (0 occurrences in the corpora: they build, holding 7 FINAL and 11 ABSTRACT methods) (2026-10-02) — both vendors' words are recorded; not trivial: a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) which no build message carries (`support/divergences.ts` `INHERITANCE_DIVERGENCES`)"
+  "niche: accepted loss (0 occurrences in the corpora: they build, holding 7 FINAL and 11 ABSTRACT methods) (2026-10-02) — both vendors' words are recorded; not trivial: a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug) which no build message carries (`support/divergences.ts` `INHERITANCE_DIVERGENCES`)"
 
 /** `t` with PLC_PRG holding `plcPrgVar`/`plcPrgBody` in place of an instance of the fixture's FB — WHICH FB the vendor
  *  checks, asked by leaving it uninstanced, instancing it only where nothing is compiled, or reaching it only through a

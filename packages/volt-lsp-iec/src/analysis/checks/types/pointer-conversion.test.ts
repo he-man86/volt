@@ -15,7 +15,7 @@ import { test, expect } from "bun:test"
 import { parseSource, type Target } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 const pc = (body: string, target: Target | undefined, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; xw:__XWORD; i:INT; di:DINT; li:LINT; p2:POINTER TO INT; rr:REAL; lrr:LREAL; o:BOOL; t:TIME; ss:STRING;\nEND_VAR\n${body}\nEND_PROGRAM`

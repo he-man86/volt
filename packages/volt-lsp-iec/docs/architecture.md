@@ -28,15 +28,15 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ## The stack
 
 ```
-G  server        LSP 3.17 / stdio · dispatch · capabilities · WorkspaceStore (eager index + watched-file
-                 freshness) · push+pull diagnostics · progress
-F  reference      language data catalogs (network text: a network/ folder inside each layer)
+G  server        LSP 3.17 / stdio · dispatch · capabilities · push+pull diagnostics · progress
+W  workspace     WorkspaceStore (eager index + watched-file freshness) · the workspace scan · source extensions
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
 C  types         elementary facts · Type model · resolve · const · infer · compat · arith · render   ┐
 B  symbols       symbol table · binder · scope-nav · scoped-bodies (the shared ST-body iterator)    │ frontend/
 A  syntax        vocabulary · lexer · complete AST · parser · literals · pragmas · file format      │ (+ library)
+                 (network text: a network/ folder inside each layer)
                       ↘ transpile (Rust backend) consumes the front-end directly — headless test execution
 ```
 
@@ -61,14 +61,13 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       network/  the network-text (LD/FBD) lexer, AST, value walks and reader (it types wires by a rule types/ hands it)
       parse/  the ST parser: bodies, statements, expressions, type expressions, declarations
         units/  one parser per top-level unit (PROGRAM, FUNCTION_BLOCK, METHOD, PROPERTY, TYPE, GVL …)
-      pragmas/  attributes in the AST and the conditional-compilation pragmas
+      pragmas/  attributes in the AST, the attribute names each dialect knows, and the conditional-compilation pragmas
     symbols/  B — the scope tree: binder, lookup, scope navigation, EXTENDS chains, the scoped-body iterator
     types/  C — elementary facts, the Type model, resolution, compatibility, rendering, layout
       arith/  the operators' typing rules: runtime and checked arithmetic, temporal arithmetic
       const/  constancy and the AST constant fold
       infer/  expression type inference and a call's callee
       network/  network text typed: the reader composed with the operators' rule, each network's wire scope
-  reference/  F — the language data catalogs: types, operators, conversions, pragmas, standard functions and FBs
   analysis/  D — the diagnostics: pipeline and registry, per-vendor messages, shared rules, the checks
     checks/  one folder per concern; a check imports no other check, its test sits beside it
       calls/  call arguments against the callee's parameters
@@ -81,16 +80,17 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       syntax/  every parse error the parser recorded
       types/  type checks: assignments, conversions, operators, bounds, overflow
     pipeline/  the registry, its run order and the context a check is handed
+    reachability/  which units and members are dead — the server suppresses diagnostics on them
     shared/  rules more than one check applies, and the diagnostic item
   services/  E — the LSP features over the layers below
-    assist/  hover, completion, signature help, inlay hints, code lens, code actions
+    assist/  hover (the built-in hover text among it), completion, signature help, inlay hints, code lens, code actions
     formatting/  the formatter
     navigation/  definition, references, highlight, rename, implementation, hierarchy
     network/  the services over a network-text body, and the references and rename that span both languages
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
-  workspace/  file I/O over the stack: the workspace scan and the writable-source extension set
-  server/  G — LSP 3.17 over stdio, the WorkspaceStore, push+pull diagnostics, and the CLI entry bin.ts
+  workspace/  the WorkspaceStore (documents and the incremental index), the workspace scan, the writable-source extension set
+  server/  G — LSP 3.17 over stdio, push+pull diagnostics, the process environment (config.ts), and the CLI entry bin.ts
   transpile/  the Rust backend — it consumes the front-end only
     emit/  the printers of the IR
       rust/  IR to Rust text and its source map
@@ -126,11 +126,13 @@ test/  what crosses modules, one folder per concern (map: test/README.md)
       notes/  the authored notes the fixture map renders
       transpile/  the transpile replay's harness
   corpus/  the real-project ratchet over test-corpus/
-    support/  the corpus projects, read once, and their diagnostics
+    support/  the corpus projects, read once, their diagnostics, and the wire-code debt list
   frontend/  the front-end measured: parse census, printer fixed point, resolution, type and fold dumps
     baselines/  its pinned findings and ceilings
   libraries/  the library repo's ST bodies, run
   package/  the package's own shape: the build compiles, the layering, this tree
+  server/  the LSP test client the server's wire tests drive (harness.ts)
+  support/  test support colocated tests read: the URI a test names a source by
 libraries/  the library repo: referenced libraries' elements in ST, per version, for the transpiler
 scripts/  dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
 docs/  this file, behavior.md, data-model.md, language-reference.md, the vendor references
@@ -153,7 +155,7 @@ syntax  ←  symbols  ←  types
 ```
 
 The four sub-layers are `frontend/library/`, `frontend/syntax/`, `frontend/symbols/` and `frontend/types/` (A–C below,
-and the library format). The consumers are `analysis`, `services`, `server`, `network`, `network-text`, `reference`,
+and the library format). The consumers are `analysis`, `services`, `server`, `network`, `network-text`, `workspace`,
 `transpile`, the top-level workspace modules, `libraries/`, the tests and the scripts.
 
 **Indexes.** Each sub-layer has one curated `index.ts` that names its exports one by one (no `export *`): the export
@@ -251,10 +253,11 @@ note }`, in its stated run order; `policy` — configurable severity / off and T
 network-text checks share — `resolution`, `hole`, `expr-echo`, `body-context`, `compiled`), and `checks/` — thin
 walks over those rules, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` · `flow/` ·
 `pragmas/` · `syntax/`. A check imports `shared/`, `messages`, `config` and `pipeline/context`, never another check or
-the registry, and has its test beside it (`scripts/check-layering.ts`, rules A1–A6; openspec analysis-conformance
+the registry, and has its test beside it (`scripts/check-layering.ts`, rules A2–A6; openspec analysis-conformance
 design.md §2). Every body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each
-check traces to a conformance fixture recorded against the live compiler. Dead-code reachability is server
-suppression policy and lives in `server/reachability`.
+check traces to a conformance fixture recorded against the live compiler. Dead-code reachability — which units and
+members are dead — is an analysis of the program and lives in `reachability/` (out through `analysis/index`); the policy,
+suppressing diagnostics on dead code unless `diagnoseDeadCode`, is the server's (`server/diagnostics`).
 
 The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
 in its entry's `reads`, and nothing else of `out` is read. `diagnostic-census.test.ts` (test/analysis) measures every
@@ -272,9 +275,11 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 (document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
 `code-actions`.
 
-### F — `reference/`, and network text in every layer
-`reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
-lifecycle) — ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
+### Built-in hover, and network text in every layer
+There is no catalog layer. What the compiler provides is the front-end's (`types/builtins.ts` `builtinName`, the
+elementary facts, `syntax/pragmas/known-attributes.ts`); the hover TEXT for it is a service,
+`services/assist/builtin-hover.ts`, whose one entry both hover paths ask, in the project's dialect — a built-in or an
+attribute the dialect lacks gets no tooltip. Ranges derive from `frontend/types/elementary`. The FBD/LD family has no folder of its own: it is another
 language the layers read, **reusing the shared core** — one type engine, one orchestrator, one service set.
 `frontend/syntax/network/` reads the text (lexer, AST, reader; the format specified in
 `packages/volt-cli/docs/network-text.html`) and types its wires by the operators' rule the type layer hands it;
@@ -283,9 +288,9 @@ language the layers read, **reusing the shared core** — one type engine, one o
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,
-capabilities, and lifecycle. Thin handlers over the layers below; the state and the non-trivial compute live in
-three server modules:
-- `workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
+capabilities, and lifecycle. Thin handlers over the layers below; the state lives in the workspace layer and the
+non-trivial compute in two server modules:
+- `workspace/workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
   URI (open buffer wins), a `(uri, version)` parse cache, the memoized project symbol table, and the
   reference-crawl state. Backs the eager whole-workspace index (crawled on `initialized`) and stays fresh via
   `workspace/didChangeWatchedFiles` (freshness comes from watched-file events, **not** file-operation events —
@@ -396,7 +401,7 @@ Inside `lower/` the recursion is real (an expression lowers a call, a call lower
 each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `lower/` folder, `core/` only
 `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`, and only `entry/` imports
 `project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
-only shrinks). Rule 6: nothing under `src/` imports `test/`. Size is ratcheted too (`scripts/check-size.ts`, over all of
+only shrinks). Rule 6: no product file under `src/` imports `test/` (a colocated test reads the test support there). Size is ratcheted too (`scripts/check-size.ts`, over all of
 `src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80 — the
 oversize ones listed as shrink-only ceilings; none in `transpile/` but `buildLayout`).
 
@@ -663,8 +668,9 @@ constant, look it up here; if it exists, import it — never redefine.
 | Symbol → Location | `services/shared/locations` |
 | Symbol-kind labels | `services/shared/symbol-kinds` (one `humanKind`) |
 | Document → LSP diagnostics (push **and** pull) | `server/diagnostics` `documentDiagnostics` |
-| Live document + project state (open/disk layers, parse cache, eager index) | `server/workspace-store` `WorkspaceStore` |
-| Language reference data (types/operators/pragmas/…) | `reference/` |
+| Live document + project state (open/disk layers, parse cache, eager index) | `workspace/workspace-store` `WorkspaceStore` |
+| Built-in and pragma hover text (types/operators/conversions/pragmas/…) | `services/assist/builtin-hover` |
+| Dead-code reachability | `analysis/reachability` |
 
 **2. Per-layer barrels.** Each layer exposes its public surface through one `index.ts`; consumers import
 `from "../frontend/types/index.js"`, not `from "../frontend/types/elementary.js"`. One import path per layer makes "where does X come from"

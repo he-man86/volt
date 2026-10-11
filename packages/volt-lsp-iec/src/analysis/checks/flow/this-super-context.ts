@@ -15,7 +15,7 @@
  */
 import { selfRefKind, walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
-import { bodies, enclosingPou, type Scope } from "../../../frontend/symbols/index.js"
+import { bodies, declaresNoBase, instanceless } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 
@@ -28,22 +28,16 @@ function rootedAtSuper(e: Expr): boolean {
   return e.kind === "deref" || e.kind === "member" ? rootedAtSuper(e.base) : false
 }
 
-/** True when the nearest enclosing POU declares no EXTENDS at all — a method's base is its owner's. */
-function baseless(scope: Scope): boolean {
-  const pou = enclosingPou(scope)
-  return pou !== undefined && pou.extendsName === undefined
-}
-
 export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    if (unit.kind !== "program" && unit.kind !== "function") {
+    if (!instanceless(unit)) {
       // THIS and SUPER WITHOUT their `^` are the pointers themselves (`infer/member` `thisType`), which have no members:
       // `THIS.v` is "'THIS' is no structured variable" — any pointer's sentence, said by `unresolved-identifier` — and
       // `SUPER.Get()` that and no call target as written, each hole then converted as a refused name's
       // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors 2026-10-02). Where there is NO base a
       // bare SUPER is not allowed at all, and that is all it is: `SUPER.Get()` there is no structured-variable message
       // (SUPER has no type there), and its call target is said once, below (`expr_super_without_deref_without_base`)
-      const noBase = baseless(scope)
+      const noBase = declaresNoBase(scope)
       const pointer = (e: Expr): boolean => bareSelf(e) && !(noBase && e.kind === "ident_expr" && selfRefKind(e.name) === "SUPER")
       walkAllExprs(statements, (e) => {
         if (e.kind === "call" && e.callee.kind === "member" && pointer(e.callee.base))

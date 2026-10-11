@@ -12,7 +12,7 @@ import { build } from "../../../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import type { LibraryManifest } from "../../../frontend/library/index.js"
 import type { DeviceInstance } from "../../../frontend/symbols/index.js"
-import { uriFor } from "../../test-uri.js"
+import { uriFor } from "../../../../test/support/test-uri.js"
 
 /** What a workspace binds beside its sources: library manifests and device-tree instances. */
 interface Workspace {

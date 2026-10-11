@@ -4,7 +4,7 @@ import { build } from "../frontend/symbols/index.js"
 import { computeDiagnostics, resolveConfig, projectDiagnosticsFrom } from "./index.js"
 import { CONFIGURABLE_CHECKS } from "./config.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
-import { uriFor } from "./test-uri.js"
+import { uriFor } from "../../test/support/test-uri.js"
 
 /**
  * CODESYS's "Compiler warnings" dialog model: each configurable code is a 3-state control (off / warning /

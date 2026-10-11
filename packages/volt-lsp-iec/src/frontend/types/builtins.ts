@@ -2,8 +2,8 @@
  * THE COMPILER'S BUILT-IN RESULT TYPES — the one home of "what type does this built-in hand back" (openspec
  * frontend-conformance design.md P3 "1.6 in full", §3.2). Two kinds of answer:
  *
- *   FIXED    a built-in whose result does not depend on its arguments — `BUILTIN_RESULT`, data. The reference catalog
- *            (`reference/reference.ts`) reads its hover text's return type from here; there is no second table;
+ *   FIXED    a built-in whose result does not depend on its arguments — `BUILTIN_RESULT`, data. The built-in hover
+ *            (`services/assist/builtin-hover.ts`) reads its return type from here; there is no second table;
  *   RULES    a built-in whose result is a function of its arguments' types — the one-argument math functions, EXPT,
  *            TwinCAT's `__XADD`, and `__POSITION` named bare. Inference (`infer/expr.ts`) infers the arguments and asks here.
  *
@@ -22,7 +22,7 @@ import { REAL_LITERAL_TYPE } from "./literal.js"
 /**
  * THE COMPILER'S OWN NAMES — the operators and the IEC standard functions every project has without referencing a
  * library (upper-case). The one home of the set: the bare-name search order asks it (`names.ts` `resolveBareName`), and
- * the reference catalog (`reference/reference.ts`) holds the hover text of exactly these names and refuses any other. A
+ * the built-in hover (`services/assist/builtin-hover.ts`) holds the hover text of exactly these names and no other. A
  * LIBRARY'S element is never here — not Standard's LEN or TON: it exists only where a project references its library,
  * and resolves through that library's materialized declaration.
  *

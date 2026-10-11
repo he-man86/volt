@@ -123,7 +123,9 @@ test("rule 4b: only lower/entry (and the lower barrel) imports lower/project", (
   ])
 })
 
-test("rule 6: a src/ file importing test/ is named — a test file too; scripts/ and test/ may", () => {
+// lsp-same-standard 2.1 (design.md §6): test support lives only under test/, so a colocated test imports it there — what
+// dist/ compiles (tsconfig.build.json excludes **/*.test.ts) is the only src/ code that must never reach test/
+test("rule 6: a src/ product file importing test/ is named; a colocated test, scripts/ and test/ may", () => {
   const found = transpileRules({
     ...leaf("test/conformance/support/rustc.ts"),
     "src/transpile/emit/rust/emit.test.ts": `import { RUSTC } from "../../../../test/conformance/support/rustc.js"\n`,
@@ -131,10 +133,5 @@ test("rule 6: a src/ file importing test/ is named — a test file too; scripts/
     "scripts/b.ts": `import { RUSTC } from "../test/conformance/support/rustc.js"\n`,
     "test/conformance/c.test.ts": `import { RUSTC } from "./support/rustc.js"\n`,
   })
-  expect(found.sort()).toEqual(
-    [
-      "6 transpile/emit/rust/emit.test.ts → test/conformance/support/rustc.ts: a src/ file imports test/",
-      "6 transpile/lower/a.ts → test/conformance/support/rustc.ts: a src/ file imports test/",
-    ].sort(),
-  )
+  expect(found).toEqual(["6 transpile/lower/a.ts → test/conformance/support/rustc.ts: a src/ product file imports test/"])
 })

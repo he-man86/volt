@@ -6,7 +6,8 @@
  */
 import { test, expect } from "bun:test"
 import { resolveConfig } from "../analysis/index.js"
-import { WorkspaceStore } from "./workspace-store.js"
+import { WorkspaceStore } from "../workspace/workspace-store.js"
+import { NETWORK_TEXT_ENABLED } from "./config.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
 import { MATERIALIZATION } from "../frontend/library/index.js"
 
@@ -14,7 +15,7 @@ import { MATERIALIZATION } from "../frontend/library/index.js"
 const LIB_SRC = `VAR_GLOBAL\n  GC_USIMAXNETID : USINT := 9;\n  M_ISTACK : ARRAY [0..gc_usiMaxNetId] OF INT;\nEND_VAR`
 
 function diagnose(uri: string) {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
   store.seedDisk([{ uri, source: LIB_SRC }])
   const d = store.workspace().find((x) => x.uri === uri)!
   return documentDiagnostics(store, d)
@@ -84,7 +85,7 @@ test("libraryManifestDiagnostics: an older manifest names an older CLI as a poss
 // by the semantic pass, so the vendor's rule has to hold on both.
 test("a global missing its `;`: silent on CODESYS, reported on TwinCAT, in what the client receives", () => {
   const seen = (vendor: "codesys" | "twincat"): string[] => {
-    const store = new WorkspaceStore(resolveConfig({ vendor }))
+    const store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED })
     store.seedDisk([{ uri: "C:/w/GVL.gvl", source: "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\nEND_VAR\n" }])
     return [...new Set(store.workspace().flatMap((d) => documentDiagnostics(store, d).map((x) => x.message)))]
   }
@@ -100,7 +101,7 @@ const LIVE_FB = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\n
 /** `[code, line]` of every diagnostic on `uri`, with the dead-code suppression on (the default) or off (`diagnoseDeadCode`,
  *  the control: what the same file gives when nothing is suppressed). */
 function diagnoseIn(files: Record<string, string>, uri: string, diagnoseDeadCode = false): [unknown, number][] {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnoseDeadCode }))
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnoseDeadCode }), { networkText: NETWORK_TEXT_ENABLED })
   store.seedDisk(Object.entries(files).map(([u, source]) => ({ uri: u, source })))
   return documentDiagnostics(store, store.workspace().find((x) => x.uri === uri)!).map((d): [unknown, number] => [d.code, d.range.start.line])
     .sort((a, b) => a[1] - b[1])

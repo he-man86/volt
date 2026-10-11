@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../frontend/syntax/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { deadPous, deadMemberSpans, ownerPou, type ReachabilityInput } from "./reachability.js"
 
 /** Build a reachability input from a file's bare name + source (uri drives GVL naming, not needed here). */

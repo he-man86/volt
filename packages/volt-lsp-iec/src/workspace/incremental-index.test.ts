@@ -10,6 +10,7 @@ import { test, expect } from "bun:test"
 import { build, type Scope } from "../frontend/symbols/index.js"
 import { resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
+import { NETWORK_TEXT_ENABLED } from "../server/config.js"
 
 /** Order-insensitive structural key for a scope tree. baseScope is a pointer into a top-level child, so it's
  *  keyed by its identity (name+span), not recursed, to avoid cycles. */
@@ -53,7 +54,7 @@ function seed(store: WorkspaceStore) {
 }
 
 test("incremental index ≡ full rebuild across a sequence of edits", () => {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
   seed(store)
   assertEquivalent(store, "after seed")
 
@@ -87,7 +88,7 @@ test("incremental index ≡ full rebuild across a sequence of edits", () => {
 })
 
 test("incremental index ≡ full rebuild after a full disk reseed", () => {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
   seed(store)
   store.project() // build once
   store.openDocument("file:///Derived.pou", "iecst", 1, `${DERIVED}\nVAR y : INT; END_VAR`)

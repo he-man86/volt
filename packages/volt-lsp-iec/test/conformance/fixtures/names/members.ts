@@ -72,12 +72,12 @@ function deferLsp(t: LanguageTest, reason: string): LanguageTest {
 }
 
 const NO_CODE_NUMBER =
-  "niche: accepted loss (0 occurrences in the corpora of a refused access: they build — though pro2193's own Application declares 525 PRIVATE/PROTECTED/INTERNAL members, 524 METHODs and 1 PROPERTY, user code, not a referenced library's) (2026-10-02, counts corrected 2026-10-03) — both vendors' words are recorded and the member still resolves (its result typed, its parameters bound, as the LSP does); not trivial: a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) — a METHOD's refusal has none, and the PROPERTY ones (C0513/C0515) document another, unverified sentence (`support/divergences.ts` `MEMBER_DIVERGENCES`)"
+  "niche: accepted loss (0 occurrences in the corpora of a refused access: they build — though pro2193's own Application declares 525 PRIVATE/PROTECTED/INTERNAL members, 524 METHODs and 1 PROPERTY, user code, not a referenced library's) (2026-10-02, counts corrected 2026-10-03) — both vendors' words are recorded and the member still resolves (its result typed, its parameters bound, as the LSP does); not trivial: a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug) — a METHOD's refusal has none, and the PROPERTY ones (C0513/C0515) document another, unverified sentence (`support/divergences.ts` `MEMBER_DIVERGENCES`)"
 
 /** An interface METHOD's implementation declared PRIVATE: "Implementation of interface method 'M' of function block
  *  '…' must be PUBLIC" (TwinCAT "functionblock"), both vendors 2026-10-02. */
 const NOT_PUBLIC_NO_CODE_NUMBER =
-  "niche: accepted loss (0 occurrences in the corpora: they build — no interface METHOD implemented PRIVATE or PROTECTED, beside pro2193's 513 PRIVATE/PROTECTED METHODs of its own) (2026-10-02, counts corrected 2026-10-03) — both vendors' words are recorded; not trivial: a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) which no build message carries (`support/divergences.ts` `MEMBER_DIVERGENCES`)"
+  "niche: accepted loss (0 occurrences in the corpora: they build — no interface METHOD implemented PRIVATE or PROTECTED, beside pro2193's 513 PRIVATE/PROTECTED METHODs of its own) (2026-10-02, counts corrected 2026-10-03) — both vendors' words are recorded; not trivial: a wire diagnostic is a catalog `Cnnnn` (`corpus/support/diagnostic-codes.ts` admits no new slug) which no build message carries (`support/divergences.ts` `MEMBER_DIVERGENCES`)"
 
 export const MEMBER_RULE_TESTS: readonly LanguageTest[] = [
   // ─── M1 an unknown member, off each base a member is read from ─────────────────────────────────────────────────

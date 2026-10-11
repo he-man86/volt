@@ -196,7 +196,7 @@ A diagnostic from a semantic check SHALL expose the CODESYS `Cnnnn` it mirrors a
 `hasattribute` attribute C0051; an unterminated conditional pragma has no `Cnnnn` yet and rides as its slug
 `unterminated-conditional-pragma`, listed in `KNOWN_UNMAPPED`). Codes with no catalog mapping — graphical `NETWORK_*`, a body that states no language
 (no code), and the handful of semantic slugs not yet mapped to a `Cnnnn` (tracked as `KNOWN_UNMAPPED` in
-`src/server/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
+`test/corpus/support/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
 diagnostics on one document SHALL share the same `(range, code)`.
 
 #### Scenario: A diagnostic shows the recognizable code, once
