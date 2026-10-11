@@ -53,8 +53,47 @@
 
 ## 2. Design
 
-- [ ] 2.1 Decide the text form that tells "no body slot" from "empty body" on both vendors (proposal, What Changes),
+- [x] 2.1 Decide the text form that tells "no body slot" from "empty body" on both vendors (proposal, What Changes),
       and whether the LSP parser changes with it.
+  - **Decided (design.md): `IMPLEMENTATION NONE`, stated by the driver where it read no slot; the LSP parser changes.**
+    Checked against the code 2026-10-11, which changed three points of the first draft (design.md says why):
+    - in memory the no-slot body IS its line (as an UNSUPPORTED body is), not null — null is today's EMPTY body on
+      both vendors (CODESYS `BodyText`; `BeckhoffDriver.ReadBody` blank/empty → null), so "null = no slot" would write
+      NONE under every empty TwinCAT body. Only `CodesysDriver.ReadBody`'s `impl is null` arm changes; `BodyText` stays.
+    - NONE only at a site whose kind's row has a body: `ReadBody` also runs for interfaces, interface members and a
+      property's own object, which have no `Implementation` aspect and are written with no line.
+    - NONE over a member that HAS a slot is REFUSED by `BodyFormatGuard` (as UNSUPPORTED over ST), not sent as null; NONE
+      on a created member is refused (`Authorable`).
+    - TwinCAT is untouched (its abstract members have a slot), so the fetched TwinCAT text is no longer relied on; 3.2
+      records it as the check that it stays `IMPLEMENTATION ST`.
+    - LSP: `implementation-line.ts` `statementOf` reads `IMPLEMENTATION NONE` as no boundary today, so a re-pulled
+      pro2193 owner would be reported "states no language" — the parser must change in 3.2.
+  - Numbers (six corpora, counted 2026-10-11): 12 ABSTRACT member texts, all pro2193 — 11 METHOD + 1 PROPERTY (`Busy`,
+    its GET) in 7 owner files, every one `IMPLEMENTATION ST` with no code under it; 0 in the other five corpora; 0
+    `IMPLEMENTATION NONE` lines anywhere. No code, test or fixture changed in this step.
+  - **Gate 2 (2026-10-11): five review findings, all fixed in design.md / spec.md** (design-only, so no failing test
+    first — there is no code to make red; each becomes a test in 3.x):
+    - (medium) the `impl is null` arm folds a read failure (`iobj is null`), "type declares no `Implementation`" and
+      "declared, holds null". Design now: `iobj` null at a body site is refused by name; NONE only for
+      `!NwlInterop.Has(iobj, "Implementation")`; "declared, null" refused by name until 3.2 FIRST measures which case the
+      slotless classes are (new `vendor-facts` key — the 1.1 `implementation` key cannot tell them apart). Spec scenario
+      added.
+    - (low) the "12" is a TEXT count: a `POUMethodObject` with ABSTRACT text has a slot. 3.2 now classifies the 12
+      pro2193 objects before the re-pull and the oracle is two-sided per site (exactly the listed slotless sites change —
+      fewer or more is a finding).
+    - (low) NONE is NOT reserved as a vendor language: `VendorLanguage` is on the read path and a throw drops the whole
+      POU from fetch. A vendor language spelled NONE keeps `IMPLEMENTATION NONE UNSUPPORTED`, read apart from
+      `IMPLEMENTATION NONE` by its UNSUPPORTED word. Spec scenario added.
+    - (low) design and spec now agree: both NONE refusals (ST over live NONE, NONE over a slot) name the member and
+      `volt pull`; NONE-over-slot gets its own message, not the UNSUPPORTED one.
+    - (low) a rename/retype of a pulled abstract member (delete + create) is now refused where today it is accepted;
+      listed among the refusals, with the remedy the message names (change the line to `IMPLEMENTATION ST`). Spec
+      scenario added.
+    - Numbers: `bun run typecheck` clean (all 5 packages); volt-cli `bun test test/unit` 75 pass / 0 fail; `dotnet test
+      Volt.sln -c Release` (VOLT_REQUIRE_FULL=1) all green — Repo.Gates 160, Contracts 34, Twincat 450, Relay 62,
+      Connector 115, Engine 2307 (+1 skip), Codesys 309 (+1 skip: `CodesysAbstractMemberPushTests`, red until 3.1), Cli
+      264 — unchanged from gate 1; `openspec validate` valid. No code, LSP, fixture or transpiler change (fixture map
+      not regenerated).
 
 ## 3. Fix
 

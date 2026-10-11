@@ -18,24 +18,90 @@ Rejected, one line each:
 - **Bare `IMPLEMENTATION`** — today that is the named lookalike "states no language"; giving it a meaning drops that hint.
 - **Driver drops `""` at a missing slot** — D26 refused exactly this ("the producer is fixed, not a driver table"); it
   would also swallow code an engineer writes under an abstract member.
+- **A null body means "no slot"** (and an empty body becomes `""` everywhere) — checked against the code 2026-10-11 and
+  rejected: null is today's word for an EMPTY body on BOTH vendors — CODESYS `BodyText` maps a blank ST body to null,
+  `BeckhoffDriver.ReadBody` returns null for a blank `ImplementationText` (`IsNullOrWhiteSpace`) and for an empty ST body,
+  and `BodyFormatGuard.StatedOf` documents "TwinCAT stores an empty ST body as no text at all". Giving null the new
+  meaning would write `IMPLEMENTATION NONE` under every empty TwinCAT body (which HAS a slot), and any producer that
+  missed the switch would turn a missing fact into a stated one. The first draft of this design had this shape
+  (`ReadBody` stops folding, `StWriter` writes NONE for null); it is replaced by the representation below.
 
-**Producer.** `CodesysDriver.ReadBody` stops folding two facts into null: no `Implementation` aspect → no-slot; an empty
-or whitespace ST body → `""` (today `BodyText` maps it to null). `StWriter` writes `IMPLEMENTATION NONE` for a no-slot
-member/accessor and `IMPLEMENTATION ST` for `""` — the written text of every empty body is unchanged, and versions hash
-the written text (`Versioning` → `Materializer`), so no other item drifts. TwinCAT reads `ImplementationText ?? ""`
-(`TcObjectModel.cs:512`) and keeps writing `IMPLEMENTATION ST`; 3.2 records the fetched TwinCAT text (a `vendor-facts`
-key) before that is relied on. `ImplementationMarker` owns the spelling (`Parse`, `Written` → null, `Canonical`).
+**Representation.** The no-slot body IS its line, `IMPLEMENTATION NONE` — exactly as a hidden body IS its UNSUPPORTED
+line (`ImplementationMarker.IsUnsupportedBody`, `Split`/`Join`): `StWriter` and `StReader` carry it with no new field,
+the driver's read and the file's read give the SAME in-memory body (so `OnlyChanged`/reconcile see no difference on an
+unedited owner), and `Written` maps it to null. Its `Stated` (D6) is a value of its own (`IMPLEMENTATION NONE`, not a
+language), which the guard reads as a hidden body (below). Null and `""` keep meaning what they mean today.
+
+**Producer.** Only the `impl is null` arm of `CodesysDriver.ReadBody` changes, and only for the ONE fact it means to
+state. Today that arm folds three facts into one null (gate 2 review): (a) `iobj is null` — `ReadObject` answers null
+whenever the object manager is missing, a READ failure, not a vendor fact; (b) the object's type does not declare
+`Implementation` — the real "no slot"; (c) the type declares it and it holds null. `NwlInterop.Get` answers null for both
+(b) and (c); `NwlInterop.Has` is the split. At a site whose kind's row has a body (below):
+- (a) is refused by name (the object the site names could not be read) — never stated as NONE, which would make a
+  missing fact a stated one and have the guard refuse every push of that POU as "NONE over a member with a slot";
+- (b), `!NwlInterop.Has(iobj, "Implementation")`, is the NONE body;
+- (c) is refused by name until it is measured. The 1.1 key `implementation` (`object.Implementation.$type`, "null = no
+  such aspect") does not tell (b) from (c), so 3.2 FIRST adds a `vendor-facts` key that does (whether the type declares
+  the member, on `abstract` and `busyget` in `merged-classes`) and states NONE only for the case that key measures; if
+  the measured classes are (c), the design's "(c) is refused" is revisited with that number, not assumed.
+
+The ST arm and `BodyText` are untouched (a blank ST body stays null → `IMPLEMENTATION ST`, as written today), so
+no empty body's text changes. NONE is stated only at a site whose kind's row HAS a body (`ItemKind.ShapeOf`): the POU's
+own body, a method's or action's in a POU (not `MembersInside`), a property accessor in a POU (`WithBodies`).
+`ReadBody` is also called for an interface, an interface's members and a property's own object — none has an
+`Implementation` aspect and none is written with a line (`StWriter.AssembleChild`/`AssembleProperty`), so those stay
+null; stating NONE there would put a body in memory the file reader never produces. TwinCAT is not touched: its
+abstract members have a slot (1.1), it never states NONE, and it keeps writing `IMPLEMENTATION ST` under them. So the
+fetched TwinCAT text 1.1 asked for is no longer RELIED on by this design; 3.2 records it (a `vendor-facts` key or the
+e2e) as the check that it stays `IMPLEMENTATION ST`. `ImplementationMarker` owns the spelling (`Parse`, `Written` →
+null, `Canonical`, `Split`/`Join`).
 
 **LSP: yes, the parser changes** — `frontend/syntax/format/implementation-line.ts` mirrors the grammar: `NONE` is a
 boundary line whose body neither parser reads (as UNSUPPORTED), and code under it is reported as the push refuses it.
+Today `IMPLEMENTATION NONE` is no boundary there (`statementOf`: an unknown word without UNSUPPORTED), so a re-pulled
+pro2193 file would be reported "states no language" — the parser MUST change with the bridge.
+
+**Push, by the guard (`BodyFormatGuard`), before any write** — NONE is treated as a hidden body:
+- NONE over a live NONE (the unedited abstract member): the ordinary no-op; the declaration edit beside it lands.
+- `IMPLEMENTATION ST` (empty or with code) over a live NONE: refused, naming the missing slot and `volt pull` — a
+  workspace pulled before this change holds exactly that, so it keeps today's refusal with a better message;
+  removing ABSTRACT is a re-type (C2q). `RequireSlot` (D26) stays the driver's backstop.
+- NONE over a live member that HAS a slot (any live body that is not NONE): REFUSED, as an UNSUPPORTED line over an ST
+  body is (the guard's rule: a hidden line over a body it is not would silently do nothing). The first draft let it
+  travel as null; that is the silent no-op the guard exists to stop. Its message is NONE's own, not the UNSUPPORTED
+  one (which names no remedy): it names the member, says the IDE holds a body slot there, and names `volt pull` (the
+  stale-file case: the member was made concrete in the IDE) and `IMPLEMENTATION ST` (the hand-edit case). Both NONE
+  refusals — this one and ST over a live NONE — name the member and `volt pull`, as the spec's scenario states.
+- NONE on a member the push CREATES: refused (`Authorable`) — CODESYS's create makes a `POUMethodObject`, which has a
+  slot (C2n), so the next pull would contradict the file; an abstract member is created with `IMPLEMENTATION ST`.
+  **This refuses an edit accepted today:** the reconciler turns a member RENAME or RETYPE into delete + create
+  (`RequireWritable`: "not in the IDE under this name and kind … is a CREATE"), so renaming a pulled abstract method
+  (its file says `IMPLEMENTATION NONE`) is refused, where today the renamed member is created as a `POUMethodObject`
+  with an empty ST body. Nothing is lost silently; the refusal names the member and the remedy — change its line to
+  `IMPLEMENTATION ST` and push again (the created member then has a slot, and the next pull writes
+  `IMPLEMENTATION ST`, matching the file) — not the generic "can only be created in the IDE".
 
 **Stays refused by name:** code under `IMPLEMENTATION NONE` (no slot to write it to — the reader, like code under an
-UNSUPPORTED line); `IMPLEMENTATION ST` + code at a slotless member (`RequireSlot`, D26 — removing ABSTRACT is a re-type,
-C2q); `NONE` as a vendor language (`VendorLanguage`, 0 in the corpora). Not refused, stated: `NONE` typed over a member
-that HAS a body travels as null like UNSUPPORTED (the wire has no third value), so the IDE body is kept and the next pull
-shows it.
+UNSUPPORTED line). **NONE is NOT reserved as a vendor language.** `ImplementationMarker.VendorLanguage` is on the READ
+path (`NetworkText.ViewLanguage` for an unknown view mode, `CodesysDriver.UnreadLanguage` / `TcArchive.UnreadLanguage`
+for an unknown aspect or archive root), and a throw there makes `Versioning.SafeVersion` mark the item UNREADABLE and
+`FetchService` drop it from `changed`, `items` and `folders` — the whole POU lost for a name (gate 2 review). So a body
+in a vendor language spelled NONE keeps today's answer, `IMPLEMENTATION NONE UNSUPPORTED`: a hidden body of that
+language, told apart from `IMPLEMENTATION NONE` by its UNSUPPORTED word exactly as `IMPLEMENTATION LD` is from
+`IMPLEMENTATION LD UNSUPPORTED` — the line decides, both readers (C# and LSP) parse the two apart, and its `Stated` is
+`HiddenIn("NONE")`, a different value from the no-slot one. 0 of either in the six corpora (no view mode, aspect or
+archive root spelled NONE), so nothing in the corpora exercises it; a src test pins that the two lines read apart.
 
-**Migration.** A re-pull rewrites only the abstract members of pro2193 (12 texts, 7 owner files) from `IMPLEMENTATION ST`
-to `IMPLEMENTATION NONE`; a corpus or workspace pull that changes any other file is a finding. A workspace not re-pulled
-keeps today's refusal, whose message gains "run `volt pull`". Docs: `ImplementationMarker` summary, DIALECT C2n,
+**Migration.** A re-pull rewrites, from `IMPLEMENTATION ST` to `IMPLEMENTATION NONE`, exactly the members of pro2193
+whose OBJECTS have no slot — which is at most the 12 ABSTRACT member texts (11 METHOD bodies and 1 PROPERTY GET, 7 owner
+files; counted 2026-10-11 from TEXT, every one `IMPLEMENTATION ST` with no code under it; 0 ABSTRACT member texts in the
+other five corpora; 0 `IMPLEMENTATION NONE` lines anywhere). The 12 is a text count, not an object count (gate 2
+review): on CODESYS a `POUMethodObject` with ABSTRACT text is abstract too and HAS a slot (C2n), and only a script-made
+abstract method and the `Busy` GET were measured slotless, so a member behind those 12 texts may legitimately stay
+`IMPLEMENTATION ST`. The pro2193 objects behind the 12 were never classified. So 3.2's oracle is two-sided and named
+per site: BEFORE the re-pull, the class of each of the 12 members (`AbstractPOUMethodObject`, `POUMethodObject`,
+`InterfacePropertyAccessorObject`, …) and whether it declares `Implementation` are read from the opened pro2193 and
+listed under 3.2 — that list is the expected set; the re-pull must rewrite EXACTLY the listed slotless sites (fewer is a
+finding, as is more) and no other line of any file. Versions hash the written text (`Versioning` →
+`Materializer`), so only the owners of the listed sites (at most those 7) see their versions move. Docs: `ImplementationMarker` summary, DIALECT C2n,
 `docs/network-text.html` (the line list), the LSP's format notes.
