@@ -8,7 +8,7 @@
       lifecycle, formatting, diagnostics and structure handlers, named after them), the finding-named tests merged
       in; server-file tests beside `server.ts`, `state.ts`, `diagnostics.ts`, `vendor.ts`, `bin.ts`; the black-box suites
       to `test/lsp/`. Every test file gets a header saying what it covers. No assertion removed or weakened.
-- [ ] 1.4 Test count equal or higher than 1.1's; `bun typecheck`, lint, full suite `VOLT_REQUIRE_FULL=1` green;
+- [x] 1.4 Test count equal or higher than 1.1's; `bun typecheck`, lint, full suite `VOLT_REQUIRE_FULL=1` green;
       `test/README.md` names `test/lsp/`. Archive.
 
 ## 2. Widened: services/, workspace/, test/ root
@@ -19,6 +19,6 @@
       source file each exercises).
 - [x] 2.3 `test/`: `network-text-on.ts` into the support it serves; `test/server/` (harness, sources) and the black-box
       suites under ONE root `test/lsp/`.
-- [ ] 2.4 The gate's rule over all of `src/`: a colocated test is named after a source file beside it, except the listed
+- [x] 2.4 The gate's rule over all of `src/`: a colocated test is named after a source file beside it, except the listed
       topic suites (transpile/pipeline ×7, fuzz, totality, classification — each with its reason) and the 4 network-text
       tests (LD/FBD change). Test count equal or higher; full suite green.

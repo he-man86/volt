@@ -52,3 +52,10 @@ header comment inside), so its constants stay its own and the finding stays read
 263 tests in `services/` + `workspace/` before and after. The network-text tests the proposal counted as 4 are 5:
 `services/network/{network,network-real-shapes,highlight-network-text}`, `structure/folding-network-text` and
 `frontend/types/network/network-implementation-line` — all five listed in the gate with the reason, untouched.
+
+## Close (2026-10-12)
+
+Full suite cold (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`): 10047 tests, 9591 pass, 0 fail, 35 skip, 421 todo (1274 s).
+The cached gate run before it had one failure, `scripts/bridge.test.ts` "pipeName has no name of its own" timing out at
+5 s under load; it passed alone and in the cold run. No file of this change touches it. Typecheck, lint and `bun run check`
+are green; `rate:fixtures` left the fixture map unchanged.
