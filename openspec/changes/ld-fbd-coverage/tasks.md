@@ -166,6 +166,17 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
 - [ ] 1b.3 The completeness oracle (red first): for every corpus network on both vendors, NWL → text → NWL reproduces every
       non-cache member exactly (an extension of `ModelRoundTripOracleTests` over the corpora); a member the table does
       not list fails the gate by name — so a vendor adding a member in a future SP surfaces as a red test, not a silent loss.
+- [ ] 1b.4 **S4 and every shape no push can build: shown always, refused per NETWORK, never per body** (owner 2026-10-12,
+      "it sounds like we should improve this"). (a) Pull spells a call box whose main output is not slot 0 with the output
+      named from the box's own stored `OutputParam.Names` — `xFirstErrorBit := fbFirstErrCapture(…).xErrorActive;` — so no
+      library signature is needed and the body is never UNSUPPORTED for it (design.md's "the reader would also need the
+      library FB's output order" is superseded: the names are stored on the box). (b) A push leaves every network whose
+      text did not change exactly as the IDE holds it and rebuilds only the changed ones; an unbuildable shape (S4's
+      read-only `MainOutputIndex`, N21) is refused only when ITS network changed, naming the network and the reason.
+      (c) Measured first, both vendors, as a `vendor-facts` row (`nwl-keep-network-in-place`): whether a body's network
+      list can keep one network object untouched while its neighbours are replaced, and the object's identity after
+      save/reopen. If a vendor cannot, that vendor stays per-body for unbuildable shapes, stated in DIALECT, and the
+      text still shows the network (read-only body, never a missing one).
 ## 2. Build (after 1.2)
 
 - [ ] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,
@@ -180,5 +191,5 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       split structure of 2.1.
 ## 3. Verify and close
 
-- [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED except the shapes 1.2 kept refused by name; e2e on both
+- [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
       vendors; full LSP suite cold; archive.
