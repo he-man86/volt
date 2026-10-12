@@ -1,6 +1,7 @@
 ## 0. Census
 
-- [ ] 0.1 Schema census per item kind, per vendor (after `ld-fbd-coverage` 1b.1, so the two do not overlap). CODESYS: every
+- [ ] 0.1 Schema census per item kind, per vendor (runs BEFORE `ld-fbd-coverage`, owner 2026-10-12: the item frame and
+      contract are the foundation the LD/FBD build sits on; NWL members inside a body are out of scope here). CODESYS: every
       class the six corpora hold (POU classes incl. check functions, method/property/accessor classes, DUT and text-list
       enum, GVL/NVL/persistent/parameter list, task, library-manager item, device, text list, visualization) — every
       serialized member and every object-level property (build properties, comment, flags). TwinCAT: every attribute and
