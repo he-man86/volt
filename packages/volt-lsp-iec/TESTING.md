@@ -2,8 +2,8 @@
 
 **Quick answer to "where do the tests live?"** Two places, and `scripts/` is **not** one of them:
 
-- **`src/**/*.test.ts`** — unit tests, colocated next to the code they test (96 of them).
-- **`test/`** — the cross-cutting suites: four concerns across six files. See [`test/README.md`](test/README.md).
+- **`src/**/*.test.ts`** — unit tests, colocated next to the code they test.
+- **`test/`** — the cross-cutting suites: four concerns, each file named for its question. See [`test/README.md`](test/README.md).
 - **`scripts/`** — **tooling, NOT tests.** Dev tools that talk to a live IDE to *produce* the ground-truth data
   the tests check against. `bun test` never runs them (it targets `src/` and `test/`). See
   [`scripts/README.md`](scripts/README.md).
@@ -18,8 +18,8 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 | check a C-code matches the **real CODESYS/TwinCAT** byte-for-byte | run `scripts/verify-catalog.ts` (live) → stamps `docs/codesys-reference/error-catalog.json`; view status with `scripts/catalog-status.ts` | Tooling |
 | a **language feature** — parse, resolve, hover, completion, signature, format, semantic tokens | colocated `src/frontend/{syntax,symbols,types}/`, `src/services/**/*.test.ts` | Unit |
 | a **graphical (network-text)** body | `src/services/network/*.test.ts` · `src/frontend/types/network/*.test.ts` · `src/analysis/checks/network/*.test.ts` | Unit |
-| prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/lsp-replay.test.ts` and `transpile-replay.test.ts` (replay recorded IDE output — no live IDE) | Conformance |
-| **no invented diagnostics on real projects** | `test/corpus/corpus.test.ts` | Corpus |
+| prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/lsp-replay.test.ts` and `transpile-replay.test.ts` / `-lowered` / `-refusals` (replay recorded IDE output — no live IDE) | Conformance |
+| **no invented diagnostics on real projects** | `test/corpus/corpus-diagnostics.test.ts` | Corpus |
 
 ## The three test layers
 
@@ -33,15 +33,15 @@ They layer, they don't overlap:
 - **Unit** = white-box. "Does this function do what I wrote?"
 - **Conformance** = black-box vs the compiler. "Do we *agree with CODESYS/TwinCAT*?" It runs our LSP on each
   `fixtures/` case and compares to the recorded IDE output. The live IDE is **not** hit here — the replays
-  (`lsp-replay.test.ts`, `transpile-replay.test.ts`) read the JSON in `recordings/`.
+  (`lsp-replay.test.ts`, `transpile-replay*.test.ts`) read the JSON in `recordings/`.
 - **Corpus** = black-box vs reality. "Does the LSP survive real code without crying wolf?" Every error and
   warning we emit on a corpus project must be one the IDE's own build also emitted. (It is NOT "a clean project
   produces no diagnostics" — the projects are not clean.)
 
-### `test/`, in detail — four concerns, six files
+### `test/`, in detail — four concerns
 
 **[`test/README.md`](test/README.md) is the map** and is not repeated here. In short: the file name is the
-QUESTION, not the mechanism, and each concern owns one file.
+QUESTION, not the mechanism; a concern that outgrew one file is split by subject over one walk and one selection.
 
 ```
 test/
@@ -52,11 +52,16 @@ test/
       codesys.build.json     what CODESYS's build said     <- scripts/record-language.ts (live bridge)
       twincat.build.json     what TwinCAT's build said     <- scripts/record-language.ts (TwinCAT worker)
       codesys.run.json       every variable after N scans  <- scripts/record-exec.ts (headless simulator)
-    transpile-replay.test.ts THE FIXTURE CONTRACT's rows - one per evidence rating: the interpreter and the
-                             emitted Rust vs the run, every vendor refusal refused, every gap named
+    transpile-replay.test.ts THE FIXTURE CONTRACT's rows - one per evidence rating: the confirmed runs, the
+                             interpreter and the emitted Rust vs the run
+    transpile-replay-lowered.test.ts   the rest of the lowered fixtures: the emitted Rust builds (or says why
+                             not), the stored oracle matches the compiler, the diverges rows as expected failures
+                             (it and transpile-replay.test.ts run one set of steps, support/transpile/replay-steps.ts)
+    transpile-replay-refusals.test.ts  every vendor refusal refused, every lowering refusal a registered code,
+                             every gap named
     map.test.ts              the map's measured columns, the rating itself recomputed, the evidence ratchet
     lsp-replay.test.ts       the LSP's diagnostics vs each vendor's build (no false positive, the agreement
-                             ratchet); the three share support/fixture-suite.ts (selection, lowering, ratings)
+                             ratchet); all but -refusals share support/fixture-suite.ts (selection, lowering, ratings)
     backends.test.ts         interp vs emitted Rust, where no recording reaches
     suite.test.ts            is enough being ASKED - the census, our grammar, the vendor's index
     properties.test.ts       the memory model as properties
@@ -68,17 +73,21 @@ test/
     util.test.ts             Util's BLINK — one repo library (Standard's TP) inside another — in both backends
     stringutils.test.ts      the STR* functions over string cursors, their contract cases, in both backends
   corpus/
-    corpus.test.ts           THE CORPUS - one walk, three questions: the LSP can read it, it invents nothing
-                             (vs each project's recorded IDE build), and lowering is total over it
+    corpus.test.ts           THE CORPUS - three questions: the LSP can read it (the one walk, support/walk.ts),
+    corpus-diagnostics.test.ts  it invents nothing (vs each project's recorded IDE build; the one LSP diagnostic
+                                pass, support/diagnostics.ts),
+    corpus-lowering.test.ts     and lowering is total over it (the same walk)
   catalog/
     catalog.test.ts          one test per documented Cnnnn
   frontend/                  the front-end MEASURED against the recordings (openspec frontend-conformance phase 0):
                              parse census, printer fixed point, resolution / type / fold dumps, each with a pinned
                              baseline of findings in baselines/ and a ceiling per disagreement measure in
                              baselines/ceilings.json (baseline/baseline.test.ts: may only fall, against git history);
-                             rules.ts + rules.test.ts, the rule catalogue as data
+                             rules.ts + rules.test.ts, the rule catalogue as data (its rows in rules-a.ts …
+                             rules-p.ts, assembled in order); dumps.ts with dumps-bound.ts / dumps-printer.ts;
+                             bound-census.ts walks everything bound once (its question groups in bound-census-*.ts)
   analysis/                  the analysis MEASURED against the recordings (openspec analysis-conformance phase 0):
-                             diagnostic-census.test.ts — every registry check and message builder over every fixture
+                             diagnostic-census.test.ts (built by census.ts: census-fixtures.ts, census-owners.ts) — every registry check and message builder over every fixture
                              (both vendors, the replay's composition) and the six corpora: TP / SEV / FP / GAP, pinned in
                              baselines/ with a ceiling per open FP, GAP, unowned GAP and never-fired builder
                              (VOLT_CENSUS_REPORT=1 prints the per-check table). Counts move only with
@@ -87,13 +96,16 @@ test/
                              fixture, the task that owns its fix, why) that fails once the fixture stops producing it.
                              Every analysis-conformance 3.x step wrote its group's FP/GAP before → after from it.
   baseline/                  the baseline discipline frontend/ and analysis/ share: pinned findings, ceilings that only
-                             fall, CEILING_EXCEPTIONS (baseline.test.ts holds both ceilings files to their history)
+                             fall, CEILING_EXCEPTIONS (its entries in baseline-a.ts / baseline-b.ts; baseline.test.ts
+                             holds both ceilings files to their history)
   package/                   the package's own shape: build.test.ts (the published build compiles), layering.test.ts
                              (every import obeys scripts/check-layering.ts), structure.test.ts (no loose src/ file but
                              the barrel, no src/ file only tests import, every src/ and test/ folder in docs/architecture.md "The tree", every script
                              in scripts/README.md)
-  server/                    harness.ts — the LSP client src/server's wire tests drive (test support, no suite)
-  support/                   test-uri.ts — the URI a colocated test names a source by (test support, no suite)
+  server/                    harness.ts — the LSP client src/server's wire tests drive, sources.ts — the documents and
+                             client steps they share (test support, no suite)
+  support/                   test-uri.ts — the URI a colocated test names a source by; call-diagnostics.ts — the
+                             call-argument tests' harness (test support, no suite)
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two
@@ -149,7 +161,7 @@ the whole suite (and a close runs it cold, `VOLT_RUSTC_CACHE=0`).
 
 ```bash
 # the fixture contract for the NAMED fixtures only — registered, LSP-run and Rust-built alone (~3 s for three)
-VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/transpile-replay.test.ts test/conformance/map.test.ts test/conformance/lsp-replay.test.ts
+VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/transpile-replay.test.ts test/conformance/transpile-replay-lowered.test.ts test/conformance/transpile-replay-refusals.test.ts test/conformance/map.test.ts test/conformance/lsp-replay.test.ts
 # one front-end baseline file (test/frontend): census, resolution, type, fold, fixed point, rules
 bun test test/frontend/parse-census.test.ts
 bun test test/frontend/type-dump.test.ts test/frontend/fold-dump.test.ts test/frontend/resolution-dump.test.ts

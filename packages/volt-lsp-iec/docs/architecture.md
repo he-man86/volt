@@ -29,7 +29,7 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 
 ```
 G  server        LSP 3.17 / stdio · dispatch · capabilities · push+pull diagnostics · progress
-W  workspace     WorkspaceStore (eager index + watched-file freshness) · the workspace scan · source extensions
+W  workspace     WorkspaceStore (eager index + watched-file freshness) · the workspace scan · source extensions · binding
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -158,8 +158,8 @@ syntax  ←  symbols  ←  types
 ```
 
 The four sub-layers are `frontend/library/`, `frontend/syntax/`, `frontend/symbols/` and `frontend/types/` (A–C below,
-and the library format). The consumers are `analysis`, `services`, `server`, `network`, `network-text`, `workspace`,
-`transpile`, the top-level workspace modules, `libraries/`, the tests and the scripts.
+and the library format). The consumers are `analysis`, `services`, `server`, `workspace`, `transpile`, `libraries/`, the
+tests and the scripts.
 
 **Indexes.** Each sub-layer has one curated `index.ts` that names its exports one by one (no `export *`): the export
 list IS the public API, and it holds exactly the names something outside the sub-layer imports — a name nobody outside
@@ -251,7 +251,9 @@ navigation, and codegen alike.
 `pipeline/` (`context` — what a check is handed; `registry` — every check as data, `{ check, group, vendors, reads?,
 note }`, in its stated run order; `policy` — configurable severity / off and TwinCAT's per-line dedupe; `diagnostics` —
 `computeDiagnostics`, the one pipeline, optionally restricted to some groups), `config` (vendor-keyed configuration),
-`messages` (EVERY message text, per vendor, ordered like `checks/`, and the compiler-exact type text),
+`messages/` (EVERY message text, one slice per check group — `shared.ts` the builders several groups call — each ONE
+template per message for both vendors, the difference decided once in `index.ts` `messagesFor`; and the compiler-exact
+type text),
 `error-code-map` (slug → `Cnnnn`), `shared/` (the rules more than one check applies: `diagnostic-item` and its
 `emit`, `rules` — the store, narrowing, conversion-argument and binary-operator rules the ST checks and the
 network-text checks share — `resolution`, `hole`, `expr-echo`, `body-context`, `compiled`), and `checks/` — thin
@@ -291,21 +293,27 @@ language the layers read, **reusing the shared core** — one type engine, one o
 (`analyzeNetworkText`); `analysis/checks/network/` holds its findings; `services/network/` its services.
 
 ### G — `server/`
-LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle. The
-vendor is decided once, at `initialize` (`vendor.ts`), with the folder crawled: the first bound workspace folder's binding
-(`workspace/binding.ts`), else `--codesys|--twincat`, else a refusal by name — never a guessed dialect; a flag that
-contradicts the binding is refused naming both. Thin handlers over the layers below; the state lives in the workspace layer and the
-non-trivial compute in two server modules:
+LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle — the LSP
+adapter and nothing else (layering rule S1: it imports only `analysis/index`, `services/index`, `frontend/*/index`,
+`workspace/*` and itself). The vendor is decided once, at `initialize` (`vendor.ts` `servedWorkspace`), with the folder
+crawled: the first bound workspace folder's binding (`workspace/binding.ts`), else `--codesys|--twincat`, else a refusal by
+name — never a guessed dialect; a flag that contradicts the binding is refused naming both. Thin handlers over the layers
+below; the documents live in the workspace layer:
 - `workspace/workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
   URI (open buffer wins), a `(uri, version)` parse cache, the memoized project symbol table, and the
   reference-crawl state. Backs the eager whole-workspace index (crawled on `initialized`) and stays fresh via
   `workspace/didChangeWatchedFiles` (freshness comes from watched-file events, **not** file-operation events —
   those are out of scope; one item per file makes a rename just a delete+create the watcher already reports).
+- `server` — `runServer`: the capabilities, and one `ServerState` (`state.ts`: the store, the vendor and root decided, what
+  the client supports, the semantic-token cache, and what several groups run over it — the crawl with its work-done
+  progress, the diagnostics push, refresh-after-reindex, the live configuration) over which it registers the handler
+  groups, one file per request group under `handlers/`: `lifecycle` (initialize, initialized — the crawl and the file
+  watcher's registration —, shutdown, exit, configuration), `documents` (open, incremental sync, save, close, watched-file events), `diagnostics` (pull), `navigation`, `assist`, `structure` (symbols,
+  folding, selection, semantic tokens full · range · delta) and `formatting`. A handler group reads the vendor from the
+  state and decides nothing.
 - `diagnostics` — the one `documentDiagnostics(store, doc)` compute shared by the **push** transport
   (`publishDiagnostics` on open/change) and the **pull** transport (`textDocument/diagnostic` ·
-  `workspace/diagnostic`), so the two can never diverge.
-- `server` — the dispatch itself: incremental document sync, semantic tokens (full · range · delta),
-  refresh-after-reindex, live configuration, and work-done progress around the crawl.
+  `workspace/diagnostic`), so the two can never diverge; it suppresses findings on dead code (the store's dead set from `analysis/reachability`).
 
 Every advertised capability has a registered handler — an invariant guarded by a capability↔handler parity test
 in `server/server.test.ts`.
@@ -408,8 +416,9 @@ each other; rule 4b keeps the LEAVES acyclic: `diagnostics/` imports no other `l
 `diagnostics/`, `values/` only `core/` and `diagnostics/`, `project/` only `diagnostics/`, and only `entry/` imports
 `project/`. The edges the restructure has not removed yet are listed by name in `KNOWN_TRANSPILE_VIOLATIONS` (the list
 only shrinks). Rule 6: no product file under `src/` imports `test/` (a colocated test reads the test support there). Size is ratcheted too (`scripts/check-size.ts`, over all of
-`src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80 — the
-oversize ones listed as shrink-only ceilings; none in `transpile/` but `buildLayout`).
+`src/` and `test/` since lsp-same-standard 1.1: a file within 400 lines, a test within 600, a function within 80; since
+lsp-same-standard 4.5 the shrink-only ceilings hold network text alone — four files and three functions, handed to the
+LD/FBD coverage change — and nothing in `transpile/`).
 
 **The two constant folds.** The AST fold (`frontend/types/const/fold.ts` `constEval`) serves the LSP on code that is
 never lowered — declarations, CASE labels, array bounds, diagnostics — and lowering before any IR exists. The IR fold

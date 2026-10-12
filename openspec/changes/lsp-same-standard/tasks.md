@@ -336,8 +336,44 @@
 
 ## 5. Close
 
-- [ ] 5.1 `docs/architecture.md` (tree, layers, the reference row), `test/README.md`, `scripts/README.md` current.
-- [ ] 5.2 Network-text ceilings and their splits handed to the LD/FBD coverage change (memory note, and a line in its
-      proposal when it is created).
+- [x] 5.1 `docs/architecture.md` (tree, layers, the reference row), `test/README.md`, `scripts/README.md` current.
+      Checked against the disk at 29eed113a6 (every backticked path in the five docs resolved; the tree already held by
+      `test/package/structure.test.ts`, the reference row already `services/assist/builtin-hover`). Fixed:
+      architecture.md — G `server/` rewritten for step 4 (`runServer` + one `ServerState` + the seven `handlers/` groups,
+      rule S1, the dead-code suppression in `diagnostics`), the front-end's stale consumer list (`network`,
+      `network-text`, "top-level workspace modules"), D's `messages` → `messages/` slices, the size paragraph (ceilings =
+      network text alone, nothing in `transpile/`), `binding` in the stack's W row. test/README.md — the corpus and
+      transpile-replay splits (one walk `corpus/support/walk.ts`, one selection, `replay-steps.ts`), the split support
+      parts (`rules-a…p`, `dumps-*`, `bound-census-*`, `census-fixtures/-owners`, `baseline-a/-b`), `server/sources.ts`,
+      `support/call-diagnostics.ts`; "six files" dropped. TESTING.md — the same, the stale "96" colocated tests (286
+      now; the count dropped, it rots), the `VOLT_FIXTURES` line naming all five contract files. scripts/README.md —
+      `record-corpus-build` → `corpus-diagnostics.test.ts`, `probe-lowering-refusals` → `corpus-lowering.test.ts`, the
+      `check-size` / `dead-exports` rows say the lists hold network text alone since 4.5. Docs only; no code, test,
+      fixture or recording touched.
+- [x] 5.2 Network-text ceilings and their splits handed to the LD/FBD coverage change (memory note, and a line in its
+      proposal when it is created). No LD/FBD coverage change exists yet under `openspec/changes/`, so the hand-over is
+      the memory note `support-all-ld-fbd.md` (rewritten from the step-0 numbers to the measured state after step 4):
+      files 4 (`syntax/network/parser.ts` 1372, `syntax/network/lexer.ts` 414, `checks/network/network-analysis.ts` 521,
+      `services/network/network.test.ts` 1213 — each at its ceiling), functions 3 (`parseNetwork` 101, `parseCall` 90,
+      `next` 95), dead exports 4 (`TokKind`, `CONSTRUCT_WORDS`, `v1Refusal`, `resolveAnywhere`), with the instruction
+      to put one line naming them in that change's proposal when it is created. `bun run lint` green (size: 4 files +
+      3 functions listed; dead exports: 4 allowlisted).
+- [x] 5a Step-5 gate review findings (3, all docs, all correct), fixed:
+      - test/README.md "One walk per input" said all three corpus suites ask every question of the one parse. That is
+        false for question 2. `corpus-diagnostics.test.ts` never calls `pass()`. It asks of the one shared LSP diagnostic
+        pass (`corpus/support/diagnostics.ts` `projectDocuments()`: its own store, cached per project and vendor), as the
+        `corpus.test.ts` header says. Rewritten, and TESTING.md's corpus tree lines say the same. (5.1's record line "one
+        walk `corpus/support/walk.ts`" meant the same mistake; this entry corrects it.)
+      - TESTING.md never got the transpile-replay split. The routing table, the conformance paragraph and the `test/`
+        tree now name `transpile-replay-lowered.test.ts` and `transpile-replay-refusals.test.ts`. The tree's frontend/
+        entry now names `rules-a…p`, `dumps-*` and `bound-census-*`. The analysis/ entry now names `census-fixtures` /
+        `census-owners`, and the baseline/ entry `baseline-a/-b`. test/README.md's "One selection" paragraph now lists the
+        five contract files. Checked against the imports on the way: `support/fixture-suite.ts` is shared by four of the
+        five (not `-refusals`), and `support/transpile/replay-steps.ts` by `transpile-replay` and `-lowered`. The
+        docs now say that, where the old "the three share" was wrong.
+      - architecture.md G: the `documents` handler group now lists didOpen (`handlers/documents.ts` line 17).
+      Gate: `bun typecheck` clean; `bun run lint` exit 0 (warnings only). Full LSP suite with `VOLT_REQUIRE_FULL=1`,
+      `VOLT_FIXTURES` unset: 9582 pass, 35 skip, 421 todo, 0 fail (10038 tests across 343 files, 722 s). No fixture,
+      transpiler or recording change, so the fixture map was not regenerated. Docs only.
 - [ ] 5.3 `bun typecheck`, lint (layering, size, citations, dead exports) green, full suite cold green, fixture map
       unchanged except hover. Archive.
