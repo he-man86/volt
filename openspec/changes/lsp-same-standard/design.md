@@ -473,3 +473,43 @@ re-export shim at an old path; a NEW ceiling or allowlist entry — a moved file
 **Migration.** One commit per task, each re-pointing every citation of a moved file (fixture comments, `docs/`,
 scripts) and `docs/architecture.md`'s tree and layer F row in the commit that moves it. Each: typecheck, lint, the moved
 files' tests + `test/package`; at the end `rate:fixtures` once — map unchanged.
+
+## 7. Step 3 — review (design)
+
+**Target.** §3's table, read through one lens first (owner, 2026-10-12: "they need to be identical on the volt layer"):
+in `services/`, `server/`, `workspace/` a vendor difference is DATA read from one fact (`dialectOf`, `targetOf`,
+`builtinName`, `isKnownAttribute`), never a branch, and that fact is decided once. Then §3's per-area checks.
+
+**Measured (only what decides).** `services/`: every vendor mention is data-driven (hover, completion, pragma help,
+folding); no `=== "twincat"` branch. The vendor FACT is decided five times, each with a silent "codesys":
+`bin.ts` (`--twincat` ? twincat : codesys — no flag is codesys), `runServer(vendor = "codesys")`,
+`resolveConfig` ("`auto`/unset defaults to CODESYS"), `parseSource`/`parseDocument(dialect = "codesys")` and
+`incremental.ts`, plus `volt-vscode/vendor.ts` (unbound → codesys). The Claude Code plugin
+(`plugins/volt-lsp/.claude-plugin/plugin.json`) launches `--stdio` with no flag: **every TwinCAT workspace in Claude
+Code is analysed as CODESYS** — wrong names resolve, wrong messages (the vendors differ in the lexer). The vendor IS
+stated by the workspace: `.git/volt/config.json` `bridge.vendor`, written by `volt init --vendor`, already read by
+vscode. Diagnostic codes: one `CODESYS_CODE_MAP` for both vendors with CODESYS doc URLs; neither recording holds a
+code (0 of 6233 / 7792), so nothing recorded decides TwinCAT's.
+
+**Choice.** The SERVER resolves the vendor once, at `initialize`: `--codesys|--twincat` when the client states one
+(vscode's explicit setting), else the binding of the first bound workspace folder (vscode's `resolveVendor` rule moves
+into the server; vscode `auto` passes no flag and `vendor.ts` goes). Neither → the server refuses by name ("no vendor:
+`volt init --vendor <codesys|twincat>` or pass --codesys|--twincat") and serves nothing — no guessed dialect. The
+defaults in `runServer`, `resolveConfig` (vendor required), `parseDocument`, `incremental.ts` go; `parseSource`'s
+(539 callers, tests) goes in 4.1 where the parser's signature is cut anyway. Red first: a server test over a TwinCAT
+binding with no flag (hovers `__POUNAME` today; must answer nothing), and one with no binding and no flag (must refuse).
+Codes: one table for both (identical layer); the TwinCAT code column is unmeasured → filed "niche: accepted loss
+(0 codes in the recordings)" unless 3.1 finds it in a TwinCAT build log for free.
+
+**Rejected.** Require the flag in every host (the Claude plugin is static: one entry cannot know a workspace's vendor).
+Keep a codesys default for unbound folders (a guessed dialect gives wrong answers, not missing ones). Detect from the
+sources (a pulled workspace states nothing per file; TwinCAT has no `.device`/`.projectsettings`). The LSP importing
+`@volt/control` for the reader (a standalone binary on PATH gains a package for one JSON field; the field's shape is
+pinned by a test in each reader instead).
+
+**Refused by name.** A vendor/dialect default anywhere on the server path; a `=== "twincat"` branch in `services/`,
+`server/`, `workspace/`; a second place that decides the vendor.
+
+**Migration.** 3.1 writes the findings (this one first, then §3's areas) into tasks.md with severity and root cause;
+3.2 fixes test-first, one commit per finding; vscode: `auto` passes no flag, `vendor.ts` + its test deleted; the
+plugin unchanged. Targeted tests per finding; `rate:fixtures` once at the end — map unchanged.
