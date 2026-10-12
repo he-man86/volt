@@ -99,3 +99,54 @@ Volt-win-Setup.exe`; absent → refused by name ("no upgrade source"). `promote.
 shipped binary. **Red today:** no `desktop\VoltDesktop.exe`, `app-*`/`current` present, `VOLT_BRIDGE_DLL` set, the CLI
 killed in step 4. **Migration:** the extension checks go (the extension leaves the installer); `restoreExtensionBaseline`
 reinstalls from the Marketplace id while uninstall still runs `--uninstall-extension`, and is deleted with those lines.
+
+## 2. Build — payload, Volt.iss, connector cut, verified update, start script, leftovers
+
+**Target:** `dist/stage` IS the installed tree (`bin\`, `desktop\`, `connector\`, `codesys\`) — `{app}` copies it 1:1,
+so `[Files]` is four `recursesubdirs` lines and the stage, the gate and `installer/README.md` name the same paths.
+
+- **Payload.** `build-cli.ps1`: `volt.exe` `PublishSingleFile` (+`SatelliteResourceLanguages=en`, `DebugType=none`
+  on every publish); connector + worker publish into ONE `connector\` — measured: the 202 files both bundles carry
+  are byte-identical (0 differ), so an overlay is one runtime; the script refuses an overlap whose bytes differ, by
+  name. `codesys\` = the DLL + two scripts (no copy under the connector). `build-installer.ts`: electron-builder
+  `executableName: VoltDesktop`, `electronLanguages: [en-US]`, `-c.buildVersion=$VOLT_VERSION` (FileVersion = the
+  build, not `0.1.0`; `productName` stays `Volt`). Deleted, not kept: `build-payload.ts`'s "reused the prior
+  bundle" and "ships without the extension" branches (fallbacks that hid a failed build) and the `.vsix` step.
+  Rejected: an MSBuild target that merges the worker into the connector project (two TFMs' worth of glue for an
+  overlay already proven identical).
+- **Volt.iss, written new.** `[Files]` (above), `[Icons]` `{userprograms}\Volt` → `desktop\VoltDesktop.exe`,
+  `[Registry]` Run `VoltConnector` `uninsdeletevalue`, `[UninstallDelete]` the two `{userdocs}\Volt\*.py` +
+  `dirifempty`, `[Run]` connector `--silent nowait`. PATH is NOT `[Registry]`: an `uninsdeletevalue` on `Path`
+  deletes the user's whole PATH — `[Code]` adds/removes the exact `{app}\bin` entry; `ChangesEnvironment=yes`
+  broadcasts on install and uninstall. Processes in `[Code]` through ONE mechanism, WMI
+  (`WbemScripting.SWbemLocator`, `Win32_Process.ExecutablePath`): stop = terminate every process whose path is under
+  `{app}` and is not `bin\volt.exe`; wait = a `volt.exe` under `{app}` (today's `app-*\bin` and `current\bin`
+  included) → interactive Retry/Cancel naming its pid, silent → poll 2 s up to `{param:VOLTWAIT|3600}`, logging
+  `volt: waiting for volt.exe` / `volt: gave up waiting for volt.exe`. Path-scoped, so a dev tray or a `volt.exe`
+  running from the repo is neither killed nor waited on, and today's desktop (`app-*\desktop\Volt.exe`, the CLI's
+  image name) is stopped by its path. Rejected: `taskkill /IM` (no path — cannot tell old desktop from CLI, kills
+  dev builds); `tasklist`/PowerShell exec (no path / a process spawn plus execution policy per poll). Every
+  uninstall-log line goes through `ULog` (`volt:` prefix); per action: `volt: install <v>`, `volt: migrate <what>`,
+  `volt: uninstall`, the two wait lines.
+- **Connector cut.** Delete `LoginItem.cs`, `Pruner.cs`, `--uninstall` (the two Documents files are Inno's
+  `[UninstallDelete]` — a verb that only deletes two named files is not worth shipping), `VoltEnv`'s shortcut,
+  Run-key, env and kill code, and `claimTheMachine`/the `Updater.IsDev` ordering it guarded. Kept: publishing the
+  Documents\Volt scripts at startup (a dev tray publishes its own). `GuiExe` = `..\desktop\VoltDesktop.exe` from
+  `connector\`; CODESYS scripts from `..\codesys\`.
+- **Verified update** (as 0): `Updater` hashes the download (SHA-256) against the asset's GitHub `digest` and runs it
+  only on a match; missing/mismatching → refused by name, file deleted. `release.yml` adds nothing — GitHub computes
+  the digest server-side (tasks 2.3's "publishes it" is satisfied by the asset upload). Rejected: a `.sha256` sidecar.
+- **Start script.** `_INSTALL_SUBDIR` → `("Programs","Volt","codesys")`; lookup order unchanged (env override for
+  `ide.ps1`, beside the script, install dir). The env var is never written by an installer again.
+- **Leftovers.** `version.ts` prints one `version=` line; `base`/`vsix`/`prerelease` and `--vsix` go (consumers:
+  `release.yml` stamp, volt-vscode `package` script, `test-extension.ts` → `--version`); `--prerelease` arg and
+  its no-op comment go; `promote.yml` runs `test:install --older stable`. The local Velopack artifact is listed
+  for deletion in 3.2.
+
+**Migration (one release, `[Code]` `ssInstall`, each logged `volt: migrate …`):** stop by path, wait for an old CLI,
+`RemoveDir` the `current` junction FIRST (a recursive delete through a junction deletes its target), then `DelTree`
+each `app-*`; remove `{app}\current\bin` from PATH exactly, `VOLT_BRIDGE_DLL`, `OPENCODE_CONFIG_DIR`; the old
+Run value is overwritten by `[Registry]`, `Volt.lnk` by `[Icons]`.
+
+**Refused by name:** a reused/partial payload, a byte-differing shared runtime, PATH via `[Registry]`, killing by
+image name, a connector install-time write or `--uninstall` verb, an undigested download.
