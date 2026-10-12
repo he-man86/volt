@@ -61,7 +61,9 @@ public class WireVocabularyGuardTests
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },
             // TcObjectModel matches a TwinCAT menu-name substring, not the vendor id. CodesysPlatform compares the IDE's
             // OEM product name (IEngine3.OEMCustomization.ProductName), which plain CODESYS answers as "CODESYS".
-            new HashSet<string> { "Vendors.cs", "TcObjectModel.cs", "CodesysPlatform.cs" }),
+            // VoltEnv names the INSTALL folder `{app}\codesys` — the payload layout build-installer.ts and Volt.iss
+            // lay down, not the wire's vendor id; tying a disk path to the wire constant would move the folder with it.
+            new HashSet<string> { "Vendors.cs", "TcObjectModel.cs", "CodesysPlatform.cs", "VoltEnv.cs" }),
 
         ("health status (HealthStatus)",
             // `idle` was absent — the DEFAULT row state and the pivot of the whole serving rule (`status != idle`),
