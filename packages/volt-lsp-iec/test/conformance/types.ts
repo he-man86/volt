@@ -225,6 +225,24 @@ export interface LanguageTest {
    */
   asSent?: string
   /**
+   * THIS FIXTURE IS A QUICK FIX'S AFTER (openspec lsp-quick-fixes design.md §3, §7): the text the action titled `title`
+   * makes of the fixture `before`, written out — never derived — and recorded like any fixture, so its build says
+   * whether the compiler accepts the fix. `code` is the finding's wire code (`Cnnnn`, or the slug a code without one
+   * carries). `preferred` says the action is the one auto-apply picks — only where no other edit builds clean with a
+   * different meaning (§3). The pair declares no name in common: every name either declares carries its fixture's own
+   * name, and `src/services/assist/code-actions.test.ts` compares the edited BEFORE with this source after replacing
+   * the BEFORE's fixture name by this one's — the replay binds every fixture into one project, where a shared name
+   * would be a duplicate.
+   */
+  fixOf?: { before: string; code: string; title: string; preferred?: true }
+  /**
+   * THIS FIXTURE'S FINDING OF `code` MUST OFFER NO ACTION whose title starts with `title` — or none at all when `title`
+   * is absent — for the reason `why` (design.md §3: an edit the compiler accepts that changes what the program does,
+   * a finding parse recovery made, a use with nothing to infer a type from). Held by the same test as `fixOf`, so a
+   * later change cannot offer it unnoticed.
+   */
+  fixAbsent?: { code: string; title?: string; why: string }
+  /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is
    * named after `pouName` — which is fine for a fixture with a single list and wrong for one with two, where both
    * objects would collide on the wire. A fixture that needs two lists declaring the SAME global (the only way to

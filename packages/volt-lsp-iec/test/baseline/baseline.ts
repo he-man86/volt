@@ -15,6 +15,7 @@ import { join, relative } from "node:path"
 import { CeilingException } from "./baseline-shared.js"
 import { CEILING_EXCEPTIONS_A } from "./baseline-a.js"
 import { CEILING_EXCEPTIONS_B } from "./baseline-b.js"
+import { CEILING_EXCEPTIONS_C } from "./baseline-c.js"
 
 /** The front-end's baselines — the default directory. A measurement elsewhere (`test/analysis/baselines/`) passes its own:
  *  the discipline, the ceilings and the history check are shared, not copied. */
@@ -50,7 +51,7 @@ export function ceilingsOf(name: string, ceilings: Ceilings = readCeilings(), pa
   return section
 }
 
-export const CEILING_EXCEPTIONS: readonly CeilingException[] = [...CEILING_EXCEPTIONS_A, ...CEILING_EXCEPTIONS_B]
+export const CEILING_EXCEPTIONS: readonly CeilingException[] = [...CEILING_EXCEPTIONS_A, ...CEILING_EXCEPTIONS_B, ...CEILING_EXCEPTIONS_C]
 
 /** Per measure, how far `name`'s exceptions lift its ceiling. */
 export function allowanceOf(name: string, exceptions: readonly CeilingException[] = CEILING_EXCEPTIONS): Record<string, number> {

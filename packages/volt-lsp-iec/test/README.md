@@ -53,7 +53,7 @@ rises because a step recorded new ground no check owns yet is a named `CEILING_E
 never a raised ceiling (analysis-conformance 3.11's REFERENCE TO BIT alias, 3.12's initialization order of PROGRAMs).
 
 Plus `baseline/` — the discipline `frontend/` and `analysis/` share (pinned findings, ceilings that only fall,
-`CEILING_EXCEPTIONS`, its entries in `baseline-a.ts` / `baseline-b.ts`), at the root because it belongs to neither
+`CEILING_EXCEPTIONS`, its entries in `baseline-a.ts` / `baseline-b.ts` / `baseline-c.ts`), at the root because it belongs to neither
 (openspec `lsp-package-structure` 2.2).
 
 Plus `package/` — the PACKAGE'S OWN SHAPE: the published build compiles (`build.test.ts`), every import obeys the layer

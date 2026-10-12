@@ -3,7 +3,8 @@
  * reference / member / index whose value is computed and discarded.
  *
  * Zero-FP: a genuine call is a `call_stmt`, not an `expr_stmt`; an `expr_stmt` whose expression tree contains
- * ANY call (`foo().x;`) is skipped (the call may have effects); and the expression must RESOLVE to a known type
+ * a call (`foo().x;`) is skipped (the call may have effects) — except an array element indexed by one (`list[F()];`),
+ * which both vendors warn (`callsInSubscriptOnly`); and the expression must RESOLVE to a known type
  * — an unresolved bare name (gibberish, or code inside a stripped `{IF defined(…)}` branch the IDE never
  * compiles) is not a "no effect" case (CODESYS reports it as undefined, or strips it), so it must not fire here.
  *
@@ -53,7 +54,7 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
     // (`stmt_function_own_name_bare`, CODESYS 2026-10-02)
     const ownName = unit.kind === "function" ? unit.name.text.toLowerCase() : undefined
     walkStatements(statements, (s) => {
-      if (s.kind !== "expr_stmt" || containsCall(s.expr)) return
+      if (s.kind !== "expr_stmt" || (containsCall(s.expr) && !callsInSubscriptOnly(s.expr))) return
       if (s.expr.kind === "binary") return invalid(s)
       if (
         s.expr.kind === "ident_expr" &&
@@ -113,6 +114,18 @@ function withLineEnd(source: string, start: number, end: number): string {
 const lineBreakOf = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n")
 
 const KEYWORD_NAMES: ReadonlySet<string> = new Set(KEYWORDS)
+
+/**
+ * An array element whose only calls are in its SUBSCRIPTS, at any depth (`list[F()];`, `m[F()][1];`, `m[1][F()];`): the
+ * vendors warn it has no effect all the same (`qf_c0139_absent_call`, `qf_c0139_absent_call_nested`, both vendors
+ * 2026-10-12) — the array it indexes, the innermost base, calls nothing. Every other expression holding a call stays
+ * unwarned — unmeasured.
+ */
+function callsInSubscriptOnly(e: Expr): boolean {
+  let array: Expr = e
+  while (array.kind === "index") array = array.base
+  return array !== e && !containsCall(array)
+}
 
 function containsCall(e: Expr): boolean {
   let found = false

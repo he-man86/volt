@@ -8,12 +8,13 @@
  *
  * One file per concern (openspec lsp-same-standard 4.4): the triage backlogs are `divergences-triage.ts`, the transpiler's
  * accepted run divergences `divergences-transpile.ts`, and the sets this file assembles into `KNOWN_DIVERGENCES` are
- * `divergences-grammar.ts`, `-units`, `-declarations`, `-names` and `-types`, each set beside its reason.
+ * `divergences-grammar.ts`, `-units`, `-declarations`, `-names`, `-types` and `-quick-fixes`, each set beside its reason.
  */
 import type { Vendor } from "../../../src/analysis/index.js"
 import * as declarations from "./divergences-declarations.js"
 import * as grammar from "./divergences-grammar.js"
 import * as names from "./divergences-names.js"
+import { QUICK_FIX_BEFORE_CASCADES } from "./divergences-quick-fixes.js"
 import * as types from "./divergences-types.js"
 import * as units from "./divergences-units.js"
 
@@ -59,6 +60,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
+    ...QUICK_FIX_BEFORE_CASCADES.twincat,
     ...units.RECOVERY_DIVERGENCES,
     ...types.ANALYSIS_NICHE,
     ...types.DELETE_NOT_ALLOWED_IN_A_STATEMENT,
@@ -202,6 +204,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            `plcPrgVar` and recorded nothing; it instances the FB now and records the interface's
   //                            warning, so the measurement is 3 fixtures gained on each vendor and none lost.)
   codesys: new Set<string>([
+    ...QUICK_FIX_BEFORE_CASCADES.codesys,
     ...units.RECOVERY_DIVERGENCES,
     ...types.ANALYSIS_NICHE,
     ...types.DELETE_NOT_ALLOWED_IN_A_STATEMENT,

@@ -16,7 +16,8 @@ import { renderNotes } from "./support/notes/render.js"
 import { correctnessOf } from "./support/transpile/correctness.js"
 import { edgeSeeds, reachesLibm } from "./support/transpile/edge.js"
 import { assertPolicy } from "./support/transpile/lint-policy.js"
-import { divergesOf } from "./support/transpile/row.js"
+import { divergesOf, fixOfRow } from "./support/transpile/row.js"
+import { FIXTURE_MAP } from "./fixtures/map.generated.js"
 import { emissionShape, normalizeRustLine, shapeId, sizeRatio } from "./support/transpile/shape.js"
 import { tierOf } from "./support/transpile/tier.js"
 // the string blob a string program starts with — a deep path, test support only (the runtime registry is not surface)
@@ -237,6 +238,8 @@ describe("the table is total", () => {
       const diverges = divergesOf(t.name)
       if (JSON.stringify(diverges ?? null) !== JSON.stringify(t.transpile?.diverges ?? null))
         stale.push(`${t.name}: diverges stored ${JSON.stringify(t.transpile?.diverges)}, computed ${JSON.stringify(diverges)}`)
+      const fix = fixOfRow(t, ALL_TESTS)
+      if (fix !== FIXTURE_MAP[t.name]?.fix) stale.push(`${t.name}: fix stored ${JSON.stringify(FIXTURE_MAP[t.name]?.fix)}, computed ${JSON.stringify(fix)}`)
     }
     if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
@@ -477,7 +480,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // pointer stepped by a STRUCT, an ARRAY[*] assigned whole, a STRING indexed twice, an init-slot METHOD's input, an
   // interface given a non-implementing FB or an INT, two partial accesses, MAX of a BOOL and a TIME) — each niche:
   // accepted loss (0 occurrences in the corpora), its `deferred.lsp` (the partial accesses `MEASURED_SILENT`: TwinCAT agrees).
-  "lsp-gap": 88,
+  // 88 -> 89, FOR MEASUREMENT (lsp-quick-fixes, review of step 1, 2026-10-12; no fixture moved): `qf_c0228_bound_subrange`
+  // (a NAMED subrange's CONSTANT with no initial value as an ARRAY bound, "Array border cap does not evaluate to a valid
+  // signed integer constant" on both vendors) — niche: accepted loss (0 occurrences in the corpora), its `deferred.lsp`.
+  // 89 -> 90, FOR MEASUREMENT (lsp-quick-fixes, gate of step 1, 2026-10-12; no fixture moved): `qf_c0228_bound_inline_
+  // subrange`, the same refusal for an INLINE subrange's constant — niche: accepted loss (0 occurrences in the corpora).
+  "lsp-gap": 90,
   // its history, every move named: `support/evidence-ceilings.ts`
   "not-lowered": NOT_LOWERED_CEILING,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it

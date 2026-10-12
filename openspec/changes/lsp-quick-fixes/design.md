@@ -99,7 +99,7 @@ A fix ships only with a recording that shows the compiler accepts its result:
 | F4 | C0002 subset (97 / 91 of 2958 / 3906, measured by `fix-census.ts`'s C0002 family table: `';' expected instead of end of POU` 65/59, `';'` before `END_*` 10/10, `'END_*' expected` 10/10, end-of-file `END_*` 6/6, `'THEN' expected` 6/6), `unterminated-conditional-pragma` (3/3) | insert the expected token at the parser's recovery point | mechanical |
 | F5 | C0198 (86/42) | widen the destination to `STRING(<literal length>)`; or shorten the literal | choice |
 | F6 | C0136 (19/18) | qualify with each GVL that declares the name (`GVL_A.g`) | choice |
-| F7 | C0228 (1/1; 1) | `:= <the type's initial value>`, i.e. the value the compiler already assumes | mechanical |
+| F7 | C0228 (1/1; 1) | `:= <the value the compiler already gives it>` — its BASE type's zero, a named subrange's lower bound; none on an inline subrange that excludes 0 (measured, §7 review) | mechanical |
 | F8 | C0094 (14/14), C0089 (18/9), C0087 (4/4), C0119 (6/6), `abstract-keyword-missing` (8/0), `abstract-and-final` (3/3) | C0094/C0089: "make the override's declaration the base's / the interface's", NOT preferred, because changing the base or the interface is just as valid (that edit is not offered: it touches another file and every other override, §1); add the missing METHOD/PROPERTY stub with the interface's signature; add `bInitRetains`/`bInCopyCode`; add ABSTRACT; remove ABSTRACT or remove FINAL | C0094, C0089 and `abstract-and-final` choice; the rest mechanical |
 | F9 | LOCAL edits (§1's "trivial"): C0013 (12/12) `;`, C0130 (3/3) and `function-without-parens` (1/1) `()`, C0051 (6/6) quote, C0175 (4/4) RETAIN, `access-only-on-methods` (7/5), C0182 (2/2) remove `: T`, C0238 (1/1) remove the initializer, C0533 (2/0) remove the default value, C0550 (2/0) remove the pragma, C0421 (1/1) IMPLEMENTS→EXTENDS, `indexof-removed` (2/2) INDEXOF→ADR, C0203/C0204/C0206 (11/10, 4/4, 1/1) BIT→BOOL, `border-order`/`case-range-inverted` (2/2, 1/1) swap the bounds, C0118 (10/34) remove the label, `signature-name-mismatch` (8/8) rename to the object's name | the edit named | mechanical |
 | F10 | C0142 (12/12), C0097 (3/3) | C0142: "remove the first" and "remove the second" declaration; C0097: "remove the redeclaration", its title naming what the derived FB then gets (`inherit FB_Base.x : INT := 0`). `preferred` only when the declarations agree in type and initial value (§3) | choice |
@@ -200,3 +200,66 @@ with the compiler's words, and tasks.md records it. Network-text codes and §4's
 
 **Migration.** The inline wrap test in `code-actions.test.ts` is replaced by the F1 pairs. `types.ts` gains `fixOf` /
 `fixAbsent`; the rater learns to render them. Nothing else moves.
+
+**As built (step 1, 2026-10-12)** — what the recordings changed in the plan above:
+
+- *One project, so no shared name.* The replay binds every fixture into one project (`support/replay.ts`), where a
+  BEFORE and its AFTER declaring the same function block are a duplicate. So every name a pair declares carries its
+  fixture's name (`FB_LANG_<name>`, `F_LANG_<name>_half`, `g_<name>`, `GVL_LANG_<name>_a`), and the action test compares
+  the edited BEFORE with the AFTER after replacing the BEFORE's fixture name by the AFTER's — the one difference allowed;
+  the edit itself is still compared byte for byte. `fixOf` is `{ before, code, title, preferred? }` (the wire code the
+  finding carries; `preferred` asserted both ways); `fixAbsent` is `{ code, title?, why }`, `title` a prefix and none
+  meaning "no action at all". The map renders both as the row's `fix` (`support/transpile/row.ts` `fixOfRow`, a BEFORE
+  naming its AFTERs), recomputed by `map.test.ts`.
+- *Every BEFORE is new* (68 `qf_*_before*` fixtures) — no existing fixture reported its code exactly once on a span the
+  edit owns — except the two §3 classes recorded already: `flw_noop_property_read` (property read) and
+  `cc_time_nanosecond_literal` (recovery leftover) carry `fixAbsent`; `qf_c0046_absent_declare` is the third.
+- *75 AFTERs* (F1 9, F2 3, F3 16, F4 6, F5 4, F6 2, F7 1, F8 9, F9 19, F10 6) — more than the 63 planned, because
+  "each option at each site" counted: C0198 at its initializer too, C0136 per list, C0087 per METHOD and PROPERTY, C0119
+  per FB_Init and FB_Exit, C0139 "remove" on the instance as well as "call", and F10 split into declarations that agree
+  (`preferred`) and that differ (not — the fourth §3 case, asserted on the `_differ` pairs). **Every AFTER builds with
+  no diagnostic at all on CODESYS and on TwinCAT** (150 recordings); no option was refused.
+- *Measured departures.* An integer narrowing (`INT := DINT`) is C0032, an error, on both vendors and in the LSP; C0197
+  is the REAL family's, so the C0197 pairs store an LREAL into a REAL. C0032's `E.member` option is dropped: CODESYS reads
+  `E#member` as an unknown name (`unknown-source`, a no-fix code), TwinCAT as a parse error, and a strict ENUM's refusal
+  (`'5' is not a valid value`) names a value no member holds — no shape has one member to offer. An interface PROPERTY
+  states its accessors (`GET … END_GET`), and C0087 says `'__GETLEVEL'` for the missing one, so the stub carries the
+  interface's GET. C0077 is CODESYS's in this change: `unknownTypeName` judges a bare type on CODESYS only, until the
+  TwinCAT library rule (`References/`, 2.4) exists — a known divergence, `qf_c0077_before` (TwinCAT).
+
+**Review of step 1 (2026-10-12), what the recordings changed** — 24 fixtures more, recorded in one run per vendor (CODESYS 29
+then 2 re-asked, TwinCAT 24, `record:exec` 14):
+
+- *C0228's value is the BASE type's zero, not the type's initial value.* A constant of `TYPE A : INT := 42` with none runs
+  as 0 and bounds an array at 0; one of an inline `INT(3..9)` runs as 0, outside its range, and `:= 0` is refused there
+  ("Cannot convert type '0' to type 'INT (3..9)'") — so that BEFORE gets `fixAbsent`; a NAMED subrange's runs at 3. A
+  subrange's — named or inline (the gate below) — is no constant in an array bound ("Array border cap does not
+  evaluate…", a niche lsp-gap). The AST fold (`const/values.ts`) and the transpiler's slot start (`storage/declare.ts`,
+  which gave 42 and 3) follow the measurements. (This step also stopped the border check comparing a dimension that
+  NAMES such a constant; the gate below replaced that with the measured rule — an EMPTY dimension is admitted.)
+- *`Add ()` is refused on any callable with a parameter* — a VAR_INPUT as well as a VAR_IN_OUT ("Function 'Value'
+  requires exactly '1' inputs"): four `fixAbsent` BEFOREs, no AFTER. So is C0139's "call it" on an FB with a VAR_IN_OUT
+  ("VAR_IN_OUT 'count' must be assigned in call of …").
+- *A statement that calls* — `list[F()];` — is warned by both vendors; the LSP now warns it too, and offers no remove.
+- C0228 at an alias and at a named subrange (`qf_c0228_initialize_alias`, `_subrange`), C0087 stubs (every METHOD
+  section, a PROPERTY with SET) and C0119 (both inputs missing, bInitRetains alone) build clean: six more AFTERs, red until
+  2.2.
+
+**Gate of step 1 (2026-10-12), the review's findings measured** — 9 fixtures more, recorded in one run per vendor (CODESYS 8
+then 1 re-asked for the boundary, TwinCAT 9, `record:exec` 6), both vendors agreeing on every one:
+
+- *The border rule is about the VALUE, not the declaration's form.* `ARRAY[1..0]` — an EMPTY dimension — builds clean
+  however it is written: literally (`qf_c0228_bound_literal_empty`), from a constant that is 0 (`_init_zero`), from one
+  initialized FROM an uninitialized one (`_chained`); `ARRAY[2..0]` is refused (`_literal_two_below`). So border-order
+  on an array dimension is `lower > upper + 1` (a subrange's `lo = hi + 1` is unmeasured and keeps the plain order), and
+  the `namesUninitializedConstant` gate is deleted. The transpiler refused `1..0` as `array-reversed` too; it now lowers
+  it (`[T; 0]`), so `qf_c0228_bound` and the empty fixtures are `confirmed`.
+- *A subrange-typed constant is no array border only WITHOUT an initial value.* `cap : R := 5` and `cap : INT(3..9) := 5`
+  build clean (`qf_c0228_bound_subrange_init`, `_inline_subrange_init`); `cap : INT(3..9);` is refused exactly as the
+  named one ("Array border cap does not evaluate…", `qf_c0228_bound_inline_subrange`). The fold's rule is `isSubrange`
+  (inline or named) for a constant with no initial value; the inline one joins the named one as a niche lsp-gap and a
+  fold-agreement mark (it runs at 0, which the IR fold gives).
+- *`ARRAY[1..cap] := [1, 2]`* with `cap : INT;` is "Too many initializers for array" on both vendors
+  (`qf_c0228_bound_init_list`) — what the LSP said; now recorded.
+- *A call in an INNER subscript* — `m[F()][1];` — is warned exactly as `m[1][F()];` (`qf_c0139_absent_call_nested`):
+  `callsInSubscriptOnly` walks the base chain to the array, which must call nothing.

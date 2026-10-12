@@ -98,4 +98,9 @@ export interface FixtureMapRow {
   shape?: string
   /** The ids, sorted, of its constructs that carry a review note — each one's text is in the map's `NOTES` section. */
   notes?: readonly string[]
+  /**
+   * The QUICK FIX this fixture proves (openspec lsp-quick-fixes design.md §7) — `fixOfRow`: a BEFORE names its AFTERs, an
+   * AFTER its BEFORE and the action's title, a `fixAbsent` fixture the action it must not offer. Absent on every other.
+   */
+  fix?: string
 }

@@ -96,7 +96,7 @@ test/
                              fixture, the task that owns its fix, why) that fails once the fixture stops producing it.
                              Every analysis-conformance 3.x step wrote its group's FP/GAP before → after from it.
   baseline/                  the baseline discipline frontend/ and analysis/ share: pinned findings, ceilings that only
-                             fall, CEILING_EXCEPTIONS (its entries in baseline-a.ts / baseline-b.ts; baseline.test.ts
+                             fall, CEILING_EXCEPTIONS (its entries in baseline-a.ts / -b.ts / -c.ts; baseline.test.ts
                              holds both ceilings files to their history)
   lsp/                       the server as a client sees it: the black-box suites that drive the whole server over its
                              protocol (capability-matrix, diagnostic-identity, navigation-golden, network-text-switch,

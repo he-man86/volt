@@ -143,6 +143,17 @@ import { POINTER_REFERENCE_TESTS } from "./types/pointer-reference.js"
 import { CONSTANT_EVALUATION_TESTS } from "./types/constant-evaluation.js"
 import { DERIVED_TYPE_TESTS } from "./types/derived-types.js"
 import { EXPLICIT_PAIR_TESTS } from "./conversions/explicit-pairs.js"
+import { QF_CONVERSION_TESTS } from "./quick-fixes/f1-conversions.js"
+import { QF_NO_OP_TESTS } from "./quick-fixes/f2-no-op.js"
+import { QF_NEAR_MISS_TESTS } from "./quick-fixes/f3-near-miss.js"
+import { QF_INSERT_TOKEN_TESTS } from "./quick-fixes/f4-insert-token.js"
+import { QF_STRING_LENGTH_TESTS } from "./quick-fixes/f5-string-length.js"
+import { QF_AMBIGUOUS_GLOBAL_TESTS } from "./quick-fixes/f6-ambiguous-global.js"
+import { QF_CONSTANT_TESTS } from "./quick-fixes/f7-constant.js"
+import { QF_OOP_TESTS } from "./quick-fixes/f8-oop.js"
+import { QF_LOCAL_EDIT_TESTS } from "./quick-fixes/f9-local-edits.js"
+import { QF_LOCAL_EDIT_B_TESTS } from "./quick-fixes/f9-local-edits-b.js"
+import { QF_DUPLICATE_TESTS } from "./quick-fixes/f10-duplicates.js"
 
 export interface CategoryGroup {
   name: string
@@ -297,6 +308,17 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "types-constant-evaluation", tests: CONSTANT_EVALUATION_TESTS },
   { name: "types-derived-types", tests: DERIVED_TYPE_TESTS },
   { name: "conversions-explicit-pairs", tests: EXPLICIT_PAIR_TESTS },
+  // ── quick fixes: each fix's BEFORE and the AFTER the compiler must accept (openspec lsp-quick-fixes design.md §3, §7) ──
+  { name: "quick-fixes-conversions", tests: QF_CONVERSION_TESTS },
+  { name: "quick-fixes-no-op", tests: QF_NO_OP_TESTS },
+  { name: "quick-fixes-near-miss", tests: QF_NEAR_MISS_TESTS },
+  { name: "quick-fixes-insert-token", tests: QF_INSERT_TOKEN_TESTS },
+  { name: "quick-fixes-string-length", tests: QF_STRING_LENGTH_TESTS },
+  { name: "quick-fixes-ambiguous-global", tests: QF_AMBIGUOUS_GLOBAL_TESTS },
+  { name: "quick-fixes-constant", tests: QF_CONSTANT_TESTS },
+  { name: "quick-fixes-oop", tests: QF_OOP_TESTS },
+  { name: "quick-fixes-local-edits", tests: [...QF_LOCAL_EDIT_TESTS, ...QF_LOCAL_EDIT_B_TESTS] },
+  { name: "quick-fixes-duplicates", tests: QF_DUPLICATE_TESTS },
 ]
 
 /**
@@ -323,7 +345,8 @@ export const CATEGORIES: readonly CategoryGroup[] = RAW_CATEGORIES.map((c) => ({
   tests: c.tests.map((t) => {
     const row = FIXTURE_MAP[t.name]
     if (row === undefined) return t
-    const { evidence, ...transpile } = row
+    // `fix` is the row's rendering of the fixture's own `fixOf` / `fixAbsent` (`map.test.ts` recomputes it) — not merged back
+    const { evidence, fix: _fix, ...transpile } = row
     return {
       ...t,
       ...(t.evidence === undefined ? { evidence } : {}),

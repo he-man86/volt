@@ -31,7 +31,7 @@ const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
  * narrow it back at each use. */
 type VoltDiagnostic = Diagnostic & { message: string }
 
-function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
+export function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
   // Surface the CODESYS `Cnnnn` the check mirrors as the diagnostic code (users recognise it and can cross-
   // reference the IDE), with a link to its docs page. Falls back to our internal slug for codes with no mapping
   // (network text / parse errors). Config toggles still key on the slug server-side, so this is display-only. The

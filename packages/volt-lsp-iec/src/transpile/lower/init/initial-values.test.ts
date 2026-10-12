@@ -116,3 +116,19 @@ test("an initializer that folds to a NaN is refused by name (init-nan)", () => {
   expect(codes("SQRT(0.0 - 1.0)")).toEqual(["init-nan"])
   expect(codes("SQRT(4.0)")).toEqual([])
 })
+
+// openspec lsp-quick-fixes, review of step 1 (CODESYS record:exec 2026-10-12): a CONSTANT that states no initial value
+// (C0228) holds its BASE type's zero, not the start a VARIABLE of its type has — `cap : A` with `TYPE A : INT := 42` runs
+// as 0 (`qf_c0228_before_alias`), `cap : INT(3..9)` as 0, outside its range (`qf_c0228_before_inline_subrange`) — save
+// a NAMED subrange's, which runs at its lower bound (`qf_c0228_before_subrange`: 3).
+test("a CONSTANT with no initial value starts at its base type's zero — not an alias's :=, not an inline subrange's bound", () => {
+  const source =
+    "TYPE A : INT := 42;\nEND_TYPE\nTYPE R : INT(3..9);\nEND_TYPE\n" +
+    "PROGRAM P\nVAR CONSTANT\n\tca : A;\n\tci : INT(3..9);\n\tcr : R;\nEND_VAR\nVAR\n\tva : A;\n\tvi : INT(3..9);\n\toa : INT;\n\toi : INT;\n\tor_ : INT;\nEND_VAR\n" +
+    "oa := ca + 1;\noi := ci + 1;\nor_ := cr + 1;\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect([runner.get("oa"), runner.get("oi"), runner.get("or_")]).toEqual([1n, 1n, 4n])
+  // a VARIABLE of the same types starts as ever: the alias's 42, the subrange's lower bound
+  expect([runner.get("va"), runner.get("vi")]).toEqual([42n, 3n])
+})

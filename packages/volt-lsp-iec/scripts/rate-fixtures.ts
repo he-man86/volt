@@ -63,7 +63,7 @@ import { renderNotes } from "../test/conformance/support/notes/render.js"
 import { correctnessOf, rejectionIsADefect } from "../test/conformance/support/transpile/correctness.js"
 import { EDGE_ALL_GAVE_UP, EDGE_ARG, edgeHarness, edgePlan, edgeVerdict, HARNESS_LOOP_GUARD } from "../test/conformance/support/transpile/edge.js"
 import { ALLOWED, assertPolicy, buildArgv, rendered, splitFindings } from "../test/conformance/support/transpile/lint-policy.js"
-import { divergesOf, printRow } from "../test/conformance/support/transpile/row.js"
+import { divergesOf, fixOfRow, printRow } from "../test/conformance/support/transpile/row.js"
 import { emissionShape, sizeRatio } from "../test/conformance/support/transpile/shape.js"
 import { tierOf } from "../test/conformance/support/transpile/tier.js"
 import { TIERS, type EdgeVerdict, type FixtureMapRow } from "../test/conformance/fixtures/map-row.js"
@@ -125,7 +125,8 @@ await Promise.all(
         pou = undefined // a THROW is a defect `rateFixture` already reports as `diverges`; there is no Rust to rate
       }
       if (pou === undefined) {
-        rows.set(t.name, { evidence, ...(divergesOf(t.name) === undefined ? {} : { diverges: divergesOf(t.name) }) })
+        const fix = fixOfRow(t, ALL_TESTS)
+        rows.set(t.name, { evidence, ...(divergesOf(t.name) === undefined ? {} : { diverges: divergesOf(t.name) }), ...(fix === undefined ? {} : { fix }) })
         continue
       }
       // BUILT with the harness's loop guard (the edge run needs it); RATED on the emission a user gets, which has none
@@ -166,6 +167,7 @@ await Promise.all(
       const shape = emissionShape(shown)
       shape.constructs.forEach((id, k) => constructs.set(id, shape.lines[k]!))
       const diverges = divergesOf(t.name)
+      const fix = fixOfRow(t, ALL_TESTS)
       rows.set(t.name, {
         evidence,
         tier: tierOf(pou, t.pouName),
@@ -177,6 +179,7 @@ await Promise.all(
         size: sizeRatio(shown, source, gvls),
         shape: shape.shape,
         ...notesOf(shape.constructs),
+        ...(fix === undefined ? {} : { fix }),
         ...(diverges === undefined ? {} : { diverges }),
       })
     }

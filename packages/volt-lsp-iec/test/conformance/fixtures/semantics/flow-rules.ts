@@ -80,9 +80,13 @@ const NO_OP: LanguageTest[] = [
   flow("flw_noop_array_element", "an array element as a statement", "arr[1];\nout := 1;", "\tarr : ARRAY[1..2] OF INT;\n\tout : INT;"),
   flow("flw_noop_this_member", "`THIS^.out` as a statement", "THIS^.out;\nout := 1;", "\tout : INT;"),
   flow("flw_noop_typed_literal", "a typed literal `INT#5` as a statement", "INT#5;\nout := 1;", "\tout : INT;"),
-  fb("flw_noop_property_read", "an instance's property read as a statement",
-    `FUNCTION_BLOCK FB_LANG_flw_noop_property_read_t\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nGET\nP := stored;\nEND_GET\nEND_PROPERTY\n\n` +
-      fbText("flw_noop_property_read", "\tt : FB_LANG_flw_noop_property_read_t;\n\tout : INT;", "t.P;\nout := 1;")),
+  {
+    ...fb("flw_noop_property_read", "an instance's property read as a statement",
+      `FUNCTION_BLOCK FB_LANG_flw_noop_property_read_t\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nGET\nP := stored;\nEND_GET\nEND_PROPERTY\n\n` +
+        fbText("flw_noop_property_read", "\tt : FB_LANG_flw_noop_property_read_t;\n\tout : INT;", "t.P;\nout := 1;")),
+    // openspec lsp-quick-fixes design.md §3: the read runs the getter, so removing it builds clean and changes the program
+    fixAbsent: { code: "C0139", title: "Remove the statement", why: "a property read calls its getter: removing `t.P;` builds clean and changes what the program does" },
+  },
   fb("flw_noop_enum_value", "an enum value as a statement",
     `TYPE DUT_LANG_flw_noop_enum_value :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\n` +
       fbText("flw_noop_enum_value", "\tout : INT;", "DUT_LANG_flw_noop_enum_value.Busy;\nout := 1;")),

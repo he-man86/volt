@@ -92,7 +92,11 @@ export const LITERAL_RULE_TESTS: readonly LanguageTest[] = [
   assign("lit_real_underscore", "N2/N11 — `_` in a REAL: `1_000.25`", "REAL", "1_000.25"),
 
   // ─── N15 typed BOOL, every spelling (task 2.2.2) ──────────────────────────────────────────────────────────────────
-  assign("lit_bool_typed_true", "N15 — `BOOL#TRUE`", "BOOL", "BOOL#TRUE"),
+  {
+    ...assign("lit_bool_typed_true", "N15 — `BOOL#TRUE`", "BOOL", "BOOL#TRUE"),
+    // openspec lsp-quick-fixes design.md §3: `RUE;` is where recovery RESUMED after the refused `BOOL#T`
+    fixAbsent: { code: "C0139", why: "a parse-recovery leftover: `RUE;` is the tail of `BOOL#TRUE`, and deleting it is no repair" },
+  },
   assign("lit_bool_typed_false", "N15 — `BOOL#FALSE`", "BOOL", "BOOL#FALSE"),
   assign("lit_bool_typed_1", "N15 — `BOOL#1`", "BOOL", "BOOL#1"),
   assign("lit_bool_typed_0", "N15 — `BOOL#0`", "BOOL", "BOOL#0"),

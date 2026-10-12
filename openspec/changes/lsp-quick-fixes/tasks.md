@@ -38,7 +38,7 @@
       |---|---|---|---|---|---|---|---|
       | C0197 | narrowing-conversion | warning | 16 | 66 / 59 | 8 · 30 · 29 | mechanical | wrap the source in TO_<target>(…) (today: `x := y` only) |
       | C0139 | no-op-statement | warning | 4 | 180 / 192 | 0 · 0 · 0 | choice | remove the statement — not on a property read (`t.P;` calls the getter) or anything that calls, and no fix at all on a recovery leftover (`NS;`, `RUE;`, `NETWORK;`) / call it (`x();`) when it names an FB instance |
-      | C0228 | constant-no-initial-value | warning | 1 | 1 / 1 | 0 · 0 · 0 | mechanical | add `:= <the type's initial value>` (what the compiler assumes) |
+      | C0228 | constant-no-initial-value | warning | 1 | 1 / 1 | 0 · 0 · 0 | mechanical | add `:= <the value the compiler gives it>` — its BASE type's zero, a named subrange's lower bound (measured in 1.1's review) |
       | C0002 | syntax-error | error | 0 | 2958 / 3906 | 0 · 0 · 0 | choice | subset only: `';' expected instead of end of POU` (65/59) / `';'` before `END_*` (10/10) -> insert `;`; `'END_*' expected` (10/10) / end of file (6/6) -> insert the END_*; `'THEN' expected` (6/6) -> insert THEN — 97 / 91 in all; the rest is recovery cascade, no fix |
       | C0032 | assignment-type-mismatch | error | 0 | 812 / 787 | 0 · 691 · 668 | choice | wrap in TO_<target>(…) where the pair converts; `REF=` for a REFERENCE target; `E.member` for a strict-ENUM value |
       | C0195 | sign-change-conversion | warning | 0 | 373 / 316 | 0 · 0 · 0 | mechanical | wrap in TO_<target>(…) |
@@ -157,9 +157,70 @@
 
 ## 1. Red first
 
-- [ ] 1.1 Per planned fix: a fixture BEFORE (the diagnostic) and the expected AFTER text; the AFTER recorded with
+- [x] 1.1 Per planned fix: a fixture BEFORE (the diagnostic) and the expected AFTER text; the AFTER recorded with
       `record:language` on CODESYS (and TwinCAT where the code applies) — it must build clean; a test that the action
       produces exactly that text. Red until the fix exists.
+      **Done 2026-10-12** — `test/conformance/fixtures/quick-fixes/` (one file per F-row, F9 in two), 143 new fixtures:
+      68 BEFOREs and 75 AFTERs (F1 9, F2 3, F3 16, F4 6, F5 4, F6 2, F7 1, F8 9, F9 19, F10 6; design.md §7 "As built"
+      says why 75, not 63), plus `fixAbsent` on three: `qf_c0046_absent_declare` (no type to infer), and the recorded
+      `flw_noop_property_read` (property read) and `cc_time_nanosecond_literal` (recovery leftover). Recorded in ONE run
+      per vendor (`RECORD_ONLY`, instance `lsp-quick-fixes`, TwinCAT `-Fixture 13`): CODESYS 143, TwinCAT 143; and
+      `record:exec` 90 (every build-clean one, 0 failed). **All 75 AFTERs build with zero diagnostics on both vendors**;
+      no option refused. The action test (`src/services/assist/code-actions.test.ts`, the old inline wrap test replaced)
+      walks every `fixOf` per vendor the LSP reports the code on: 74 pairs red (`RED`, `test.failing`, each failing for
+      "no action" or — `qf_c0197_wrap_assign`, `_return`, which the old wrap answers — "not `preferred`"), 1 green
+      (`qf_c0032_wrap`), 3 `fixAbsent` green. Measured departures from 0.2 (design.md §7): C0197's pairs are LREAL→REAL
+      (an integer narrowing is C0032 on both vendors); C0032's `E.member` option dropped (no shape has one member to
+      offer); C0077 is CODESYS's here (the LSP judges a bare type on CODESYS only until 2.4's `References/` rule).
+      **Conformance, rule by rule** (every new fixture × vendor against its recording, 286): every AFTER agrees
+      exactly; 6 BEFOREs on 10 fixture-vendor pairs carry a follow-on message the LSP does not give, each the gap a
+      sibling already pins, niche (0 corpus occurrences — an undeclared name or unknown type never builds):
+      `KNOWN_DIVERGENCES` via `support/divergences-quick-fixes.ts`, the census GAPs as `CEILING_EXCEPTIONS_C`
+      (`test/baseline/baseline-c.ts`). One root cause FIXED test-first: the AST fold gave a CONSTANT with no initial
+      value no value where CODESYS runs it as its BASE type's zero (`qf_c0228_before`: cap 0, out 1;
+      `fold-agreement.test.ts` found it) — `const/values.ts` `noInitialValue`, `fold.test.ts`; fold-dump: 2 more bodies fold
+      per vendor. Two ratchets moved by reading: the source map's renamed targets 539 → 540 (`qf_c0032_ref`, the image
+      class) and type-dump's call UNKNOWN +1 per vendor (`qf_indexof_before`'s INDEXOF, untyped on both vendors).
+      Evidence: confirmed 3055 → 3141, refused 2038 → 2091, not-lowered 378 → 382 (ceiling 394: JMP/label and two
+      no-op statements the transpiler refuses — `qf_c0117_change`, `qf_c0118_before`, `qf_c0139_before`,
+      `_before_instance`), unasked 0.
+      **Review of step 1 fixed (2026-10-12)** — design.md §7 "Review of step 1": 24 fixtures recorded on both vendors (and
+      `record:exec`); the fold of a C0228 constant measured as its BASE type's zero (an alias's own `:=` and an inline
+      subrange's bound are not it; a named subrange's is no constant), the border check and the transpiler's slot start
+      fixed to match (`fold.test.ts`, `declared-type.test.ts`, `initial-values.test.ts`); `Add ()` absent on any callable
+      with a parameter, "call it" absent on an FB with a VAR_IN_OUT, remove absent on `list[F()];` (now warned, both
+      vendors); recovery leftovers `RUE;` and `b;` held; 6 new AFTERs red (C0228 ×2, C0087 ×2, C0119 ×2). The action test
+      now holds which vendors report each BEFORE's code against the recordings (`VENDOR_GAPS`: `qf_c0077_before` TwinCAT,
+      2.4). Evidence: confirmed 3150, refused 2101, not-lowered 385, lsp-gap 88 → 89 (`qf_c0228_bound_subrange`, niche).
+      **Gate of step 1 (2026-10-12)** — the review's six findings, none skipped (design.md §7 "Gate of step 1"). 9 fixtures
+      recorded in one run per vendor (CODESYS 8 + 1 re-asked for the boundary, TwinCAT 9, instance `lsp-quick-fixes`,
+      TwinCAT `-Fixture 13`; `record:exec` 6, 0 failed), both vendors agreeing on each:
+      - *T4 asserted an unrecorded answer* (high) — FIXED: `ARRAY[1..0]` builds clean written literally
+        (`qf_c0228_bound_literal_empty`), from `cap : INT := 0` (`_init_zero`); `ARRAY[2..0]` is refused
+        (`_literal_two_below`). border-order on an array dimension is now `lower > upper + 1`; `namesUninitializedConstant`
+        deleted; T4 rewritten to the recordings. The transpiler refused `1..0` as `array-reversed` too — it now lowers an
+        empty dimension (`checks.ts`, `totality.test.ts`: `ARRAY[3..2]` was asserted reversed, a premise the recording
+        refutes; `4..2` keeps the refusal).
+      - *A constant initialized FROM an uninitialized one* (medium) — FIXED by the same rule: `qf_c0228_bound_chained`
+        builds clean and the LSP is now silent on it.
+      - *The inline subrange's 0 at compile time; the init list* (medium) — FIXED: `qf_c0228_bound_inline_subrange` is
+        refused "Array border cap does not evaluate…" exactly as the named one, so the fold gives ANY subrange's
+        uninitialized constant no value (`values.ts` `isSubrange`; `fold.test.ts` `ci`/`cz` → none); niche lsp-gap
+        (`deferred.lsp`, 0 corpus occurrences), fold-agreement `SUBRANGE_BARE_CONSTANT`, census `ROOT_GAPS`.
+        `qf_c0228_bound_init_list` records "Too many initializers for array" on both vendors — what the LSP said.
+      - *Subrange constant WITH an initializer* (medium) — the uninitialized-only rule HOLDS: `qf_c0228_bound_subrange_init`
+        and `_inline_subrange_init` build clean, and the LSP is silent on both.
+      - *`m[F()][1];` unwarned* (low) — FIXED: `qf_c0139_absent_call_nested` records both statements warned on both
+        vendors; `callsInSubscriptOnly` walks the base chain (`no-op-statement.test.ts`, red first); `fixAbsent` remove.
+      - *Stale records* (low) — FIXED: the C0228 row and 1.1's `defaultValue` (now `noInitialValue`, the BASE type's zero),
+        `fold.test.ts`'s comment and test name, `qf_c0228_initialize`'s description, design.md's "four more AFTERs" (six:
+        C0228 ×2, C0087 ×2, C0119 ×2).
+      Numbers: confirmed 3150 → 3156, refused 2101 → 2103, not-lowered 385 (−1 `qf_c0228_bound` now lowered, +1 the
+      nested no-op statement), lsp-gap 89 → 90 (`qf_c0228_bound_inline_subrange`, niche; ceiling moved with its reason),
+      edge agree 3383. Census: TP 5832 → 5839 (CS); new GAPs excepted by name (`baseline-c.ts`: the inline subrange's
+      two, CODESYS's project-config "variable is too large" after `ARRAY[2..0]`). Gate: typecheck clean; full LSP suite
+      `VOLT_REQUIRE_FULL=1` (no `VOLT_FIXTURES`) 10 065 pass, 0 fail, 34 skip, 428 todo, 10 527 tests across 356 files,
+      760 s; fixture map regenerated (`rate:fixtures`).
 
 ## 2. Build
 

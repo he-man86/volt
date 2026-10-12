@@ -98,7 +98,9 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // (`unit_accessor_name_setter_deref`, `_setter_deref_member`, one line each).
 // 538 -> 539 (2026-10-11, lsp-transpile-review-gaps 2.6), read: no new class — the REFERENCE erased to its target (the
 // class at 27 -> 30): `string_literal_through_reference_too_long`'s `rf := 'XYZ…'` is `self.buf = …`.
-const RENAMED_TARGETS = 539
+// 539 -> 540 (2026-10-12, lsp-quick-fixes 1.1), read: no new class — the image class above: `qf_c0032_ref`'s FB takes the
+// address of its own field (`p := ADR(x)`), so `out := rf` stores through `Mem` (`__mem.st(__a, …)`), naming no field.
+const RENAMED_TARGETS = 540
 
 interface Program {
   name: string

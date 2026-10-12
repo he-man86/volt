@@ -20,6 +20,8 @@ import {
   inlineEnumDefault,
   promoteForRuntime,
   type Type,
+  typeZero,
+  withoutSubrange,
 } from "../../../frontend/types/index.js"
 import { enumeratorValue } from "../values/enums.js"
 import type { IrInit, IrSlot } from "../../ir/index.js"
@@ -59,7 +61,8 @@ function declareOne(lw: Lowering, sec: VarSection, written: VarDecl, deferInit: 
   // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
   // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
   // alias to INT and the alias's initializer went with it.
-  const decl = { ...written, init: written.init ?? aliasInit(lw, written.type) }
+  // …but a CONSTANT that states none does NOT: it holds its base type's zero (`bareConstant`).
+  const decl = { ...written, init: written.init ?? (bareConstant(sec, written) ? undefined : aliasInit(lw, written.type)) }
   // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
   // and the expression is queued in declaration order (`InitFrame.pendingInits`), which is what `ADR(x)`, `THIS`
   // and a call to a user FUNCTION are.
@@ -124,8 +127,20 @@ function startValue(lw: Lowering, sec: VarSection, written: VarDecl, decl: VarDe
     decl.init === undefined
       ? (enumDefault(lw.project, resolved, enumeratorValue(lw)) ?? inlineEnumDefault(written.type, enumeratorValue(lw)))
       : undefined
+  if (decl.init === undefined && bareConstant(sec, written) && written.type.kind === "named_type" && written.type.subrange !== undefined)
+    return typeZero(withoutSubrange(type))
   if (decl.init === undefined) return enumStart === undefined ? elementDefaults(lw, written.type, type) : stored(enumStart, type)
   return decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type, written.type, dynamic) : scalarInit(lw, decl.init, type, sec.constant === true)
+}
+
+/**
+ * A CONSTANT THAT STATES NO INITIAL VALUE (C0228, not a parameter) — it holds its BASE type's zero, not the start a
+ * VARIABLE of its type has (CODESYS record:exec 2026-10-12): `cap : A` with `TYPE A : INT := 42` runs as 0
+ * (`qf_c0228_before_alias`), `cap : INT(3..9)` as 0, outside its own range (`qf_c0228_before_inline_subrange`). A NAMED
+ * subrange's is the exception, measured: it runs at the lower bound (`qf_c0228_before_subrange`: 3), as a variable would.
+ */
+function bareConstant(sec: VarSection, written: VarDecl): boolean {
+  return written.init === undefined && sec.constant === true && sec.sectionKind !== "VAR_INPUT" && sec.sectionKind !== "VAR_IN_OUT"
 }
 
 /** Each name of a declaration becomes a slot — a duplicate refused by name — and a deferred initializer its init-step entry. */

@@ -102,3 +102,18 @@ test("T7 — a REFERENCE as an array's base type in a STRUCT's component is refu
   expect(run("reference-base-type", struct)).toEqual(["A reference type is not allowed as base type of an array, pointer, or reference"])
   expect(run("reference-base-type", struct, "twincat")).toEqual(["A reference type is not allowed as base type of an array, pointer or reference"])
 })
+
+test("T4 — an EMPTY array dimension (lower = upper + 1) is admitted however it is written; one below that is refused", () => {
+  // both vendors 2026-10-12: `ARRAY[1..0]` builds clean written literally (`qf_c0228_bound_literal_empty`), from a
+  // constant that is 0 (`qf_c0228_bound_init_zero`), from one with no initial value (`qf_c0228_bound`) and from one
+  // initialized FROM that (`qf_c0228_bound_chained`); `ARRAY[2..0]` is refused (`qf_c0228_bound_literal_two_below`)
+  const consts = (c: string, dim: string) => fb(`VAR CONSTANT\n${c}\nEND_VAR\nVAR\n\tarr : ARRAY[${dim}] OF INT;\nEND_VAR`)
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(run("border-order", inVar("arr : ARRAY[1..0] OF INT;"), vendor)).toEqual([])
+    expect(run("border-order", consts("\tcap : INT := 0;", "1..cap"), vendor)).toEqual([])
+    expect(run("border-order", consts("\tcap : INT;", "1..cap"), vendor)).toEqual([])
+    expect(run("border-order", consts("\tcap : INT;\n\tc2 : INT := cap;", "1..c2"), vendor)).toEqual([])
+  }
+  expect(run("border-order", inVar("arr : ARRAY[2..0] OF INT;"))).toEqual(["Lower border must be lower than upper border"])
+  expect(run("border-order", inVar("arr : ARRAY[2..0] OF INT;"), "twincat")).toEqual(["Lower border must be lower than upper border."])
+})

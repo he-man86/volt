@@ -1,8 +1,10 @@
 /**
  * declared-type (declarations/) — a declared TYPE both vendors refuse once it is read, though it parses
  * (frontend-conformance 2.3.6, `test/conformance/fixtures/grammar/type-expressions.ts`, both vendors 2026-10-01):
- *   border-order               a subrange or array dimension whose lower bound folds above its upper (`INT(10..0)`,
- *                              `ARRAY[5..1]`) — "Lower border must be lower than upper border";
+ *   border-order               a subrange whose lower bound folds above its upper (`INT(10..0)`), an array dimension
+ *                              whose lower bound folds above its upper PLUS ONE (`ARRAY[5..1]`, `ARRAY[2..0]`) — an
+ *                              EMPTY dimension `1..0` is admitted (`qf_c0228_bound_literal_empty`, both vendors) —
+ *                              "Lower border must be lower than upper border";
  *   reference-base-type        a REFERENCE as the base of an array, a pointer or a reference (`ARRAY OF REFERENCE TO
  *                              INT`, `POINTER TO REFERENCE TO INT`, `REFERENCE TO REFERENCE TO INT`), a STRUCT's component's
  *                              too;
@@ -42,10 +44,10 @@ export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): voi
     checkVariableLength(ctx, decl, takesVariableLength(ctx.config.vendor, unit.kind, section.sectionKind), push)
     walk(decl.type, (t, base) => {
       if (base && t.kind === "reference_type") push(t.span, "reference-base-type", ctx.messages.referenceAsBaseType())
-      if (t.kind === "named_type" && t.subrange !== undefined && reversed(t.subrange.lo, t.subrange.hi, scope))
+      if (t.kind === "named_type" && t.subrange !== undefined && reversed(t.subrange.lo, t.subrange.hi, scope, 0n))
         push(t.subrange.span, "border-order", ctx.messages.borderOrder())
       if (t.kind !== "array_type") return
-      for (const d of t.dims) if (reversed(d.lower, d.upper, scope)) push(d.span, "border-order", ctx.messages.borderOrder())
+      for (const d of t.dims) if (reversed(d.lower, d.upper, scope, 1n)) push(d.span, "border-order", ctx.messages.borderOrder())
       if (t.vector !== undefined && !vectorElement(t.element)) push(t.span, "vector-base-type", ctx.messages.vectorBaseType())
     })
   }
@@ -74,12 +76,18 @@ function walk(t: TypeExpr, visit: (t: TypeExpr, base: boolean) => void, base = f
   else if (t.kind === "pointer_type" || t.kind === "reference_type") walk(t.target, visit, true)
 }
 
-/** Both bounds fold and the lower is above the upper. */
-function reversed(lo: Expr | undefined, hi: Expr | undefined, scope: Scope): boolean {
+/**
+ * Both bounds fold and the lower is above the upper by more than `empty`. An ARRAY dimension may be EMPTY — `1..0` builds
+ * clean however it is written: literally (`qf_c0228_bound_literal_empty`), from a constant that is 0
+ * (`qf_c0228_bound_init_zero`), from one with no initial value (`qf_c0228_bound`) or initialized from one
+ * (`qf_c0228_bound_chained`) — while `2..0` is refused (`qf_c0228_bound_literal_two_below`), CODESYS 2026-10-12. A
+ * subrange's `lo = hi + 1` is unmeasured, so a subrange keeps the plain order (`empty` 0).
+ */
+function reversed(lo: Expr | undefined, hi: Expr | undefined, scope: Scope, empty: bigint): boolean {
   if (lo === undefined || hi === undefined) return false
   const l = constEval(lo, scope)
   const h = constEval(hi, scope)
-  return typeof l === "bigint" && typeof h === "bigint" && l > h
+  return typeof l === "bigint" && typeof h === "bigint" && l > h + empty
 }
 
 /** A vector's element type is refused only when it is ANOTHER ELEMENTARY type — the measured cells (INT, BOOL). */

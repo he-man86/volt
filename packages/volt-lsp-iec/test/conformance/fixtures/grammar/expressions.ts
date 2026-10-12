@@ -77,7 +77,12 @@ export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   ints("expr_div_left_assoc", "E7 — `/` left-associative: `a / b / c`", [100, 5, 2], "a / b / c"),
 
   // ─── E8 `**` (refused as an operator — E5): right associativity and a unary minus before it ─────────────────────────
-  ints("expr_power_right_assoc", "E5/E8 — `**` twice: `a ** b ** c`", [2, 3, 2], "a ** b ** c"),
+  {
+    ...ints("expr_power_right_assoc", "E5/E8 — `**` twice: `a ** b ** c`", [2, 3, 2], "a ** b ** c"),
+    // openspec lsp-quick-fixes design.md §3: `b;` and `c;` stand without their `;` (`ExprStatement.unterminated`), what
+    // recovery left of `a ** b ** c` — the repair is the root syntax error's
+    fixAbsent: { code: "C0139", why: "a parse-recovery leftover: `b;` is the operand after a refused `**`, and deleting it is no repair" },
+  },
   ints("expr_neg_power", "E5/E8 — a unary minus before `**`: `-a ** b`", [2, 2, 0], "-a ** b"),
 
   // ─── E10/E11 unary operators ──────────────────────────────────────────────────────────────────────────────────────

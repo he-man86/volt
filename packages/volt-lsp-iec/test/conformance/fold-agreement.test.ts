@@ -175,6 +175,14 @@ const same = (a: unknown, b: unknown): boolean => kindOf(a) === kindOf(b) && (ty
  */
 const LIBRARY_ENUM_STORAGE = "LIBRARY_ENUM_BASE_NOT_MATERIALIZED: a library enum's materialized declaration carries no base, so the AST fold has no size for it"
 const NOT_A_CONSTANT = "niche: accepted loss (0 occurrences in the corpora) — constancyOf calls a read-only parameter or a direct address a CONSTANT"
+/** lsp-quick-fixes, review of step 1 (2026-10-12): a CONSTANT of a SUBRANGE that states no initial value RUNS — at the
+ *  lower bound when the subrange is named (`qf_c0228_before_subrange`: out = 4), at 0 when it is inline
+ *  (`qf_c0228_before_inline_subrange`: out = 1), which the IR fold gives — but is NO constant to the compiler: "Array
+ *  border cap does not evaluate to a valid signed integer constant" (`qf_c0228_bound_subrange`, `qf_c0228_bound_inline_
+ *  subrange`, both vendors) — which the AST fold follows (`values.ts` `isSubrange`): the two folds answer two measured
+ *  questions. */
+const SUBRANGE_BARE_CONSTANT =
+  "niche: accepted loss (0 occurrences in the corpora) — a subrange's constant with no initial value runs (named: at its lower bound; inline: at 0) but does not evaluate as a constant; the AST fold answers the second"
 /** transpile-restructure 6.A.14: a body's SHL / SHR of an untyped literal by a constant count — lowering folds it at 64 bits as
  *  recorded (`tr_a14_*`: SHL(1, 40) 2^40); the AST fold gives an untyped literal under a shift no width without a typed
  *  context and answers nothing (frontend-conformance 4.6.1, `UNTYPED_OPERAND` in `fixtures/types/constant-evaluation.ts`).
@@ -189,6 +197,10 @@ const UNTYPED_ROTATE =
   "niche: accepted loss (0 ROL / ROR of an untyped literal in the six corpora) — the AST fold gives an untyped literal under a rotation no width without a typed context (`UNTYPED_OPERAND`)"
 const KNOWN: Readonly<Record<string, string>> = Object.fromEntries([
   ["dt_library_enum_storage_values: SIZEOF(w)", LIBRARY_ENUM_STORAGE],
+  ["qf_c0228_before_subrange: cap + 1", SUBRANGE_BARE_CONSTANT],
+  ["qf_c0228_before_subrange: cap", SUBRANGE_BARE_CONSTANT],
+  ["qf_c0228_before_inline_subrange: cap + 1", SUBRANGE_BARE_CONSTANT],
+  ["qf_c0228_before_inline_subrange: cap", SUBRANGE_BARE_CONSTANT],
   ...[
     "ca_direct_address_expression: %MW30 + 1",
     "var_input_constant: iLimit",

@@ -15,7 +15,7 @@ import {
   type Symbol,
   targetOf,
 } from "../../symbols/index.js"
-import { type Expr, type Target, type TypeExpr, type VarDecl, decodeStringLiteral } from "../../syntax/index.js"
+import { type Expr, type Target, type TypeDecl, type TypeExpr, type VarDecl, decodeStringLiteral } from "../../syntax/index.js"
 import { DEFAULT_STRING_LENGTH } from "../defaults.js"
 import type { ElementaryType } from "../elementary.js"
 import { enumMemberValue, enumValueStorage } from "../enums.js"
@@ -172,18 +172,23 @@ export function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   if (!compileTimeConstant(symbol) || ctx.folding.has(symbol)) return { value: undefined, constancy }
   const decl = symbol.ast as VarDecl
   // A scalar initializer is an Expr; an AggregateInit is not a constant scalar.
-  if (decl.init === undefined || decl.init.kind === "aggregate_init") return { value: undefined, constancy }
+  if (decl.init?.kind === "aggregate_init") return { value: undefined, constancy }
   // its declared type resolves in a fold of its own (a fresh context): an alias whose bound names the constant
   // (`TYPE A : INT(0..c)`, `c : A := 5`) reaches it again there — it has no value, as a cycle has none; it recursed until
   // the stack overflowed and the file got no diagnostics at all (step 4d review 2)
   if (typing.has(symbol)) return { value: undefined, constancy }
   typing.add(symbol)
   let e: ElementaryType | undefined
+  let subrange: boolean
   try {
     e = declaredElem(decl.type, symbol)
+    subrange = decl.init === undefined && isSubrange(decl.type, symbol.owner)
   } finally {
     typing.delete(symbol)
   }
+  // NO INITIAL VALUE: the compiler warns (C0228) and gives the constant its BASE type's zero (`noInitialValue`) — a
+  // subrange's has no compile-time value at all (`isSubrange`)
+  if (decl.init === undefined) return subrange ? { value: undefined, constancy } : noInitialValue(e, constancy)
   ctx.folding.add(symbol)
   const inner = expecting({ ...listOf(symbol), folding: ctx.folding, ...withCycle(ctx), inConstant: true }, unsignedType(integerType(e)))
   const { value } = fold(decl.init, symbol.owner, inner)
@@ -200,6 +205,48 @@ export function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   const integer = integerType(e)
   const held = decl.init.kind === "literal" && integer !== undefined ? wrapToWidth(value, integer) : value
   return integer === undefined ? { value: held, constancy } : { value: held, constancy, elem: integer }
+}
+
+/**
+ * A CONSTANT THAT STATES NO INITIAL VALUE — warned (C0228) — holds the ZERO OF ITS BASE elementary type, NOT its type's
+ * initial value as a variable has it (CODESYS record:exec and record:language, 2026-10-12, every kind of type):
+ *  - `cap : INT;` runs as 0 (`qf_c0228_before`), reads 0 in a CASE label ("CASE label duplicate" beside `0:`,
+ *    `qf_c0228_case_label`);
+ *  - a constant of an ALIAS that states its own (`TYPE A : INT := 42`) runs as 0, not 42 (`qf_c0228_before_alias`), and
+ *    bounds an array at 0 (`qf_c0228_bound_alias`: "The constant index '42' is not within the range from '1' to '0'");
+ *  - an initializer list over `ARRAY[1..cap]` has room for none: "Too many initializers for array"
+ *    (`qf_c0228_bound_init_list`, both vendors).
+ * An integer, a bit string, a REAL and a BOOL; any other type's zero is not this fold's to name. A SUBRANGE's constant
+ * has NO value here (`isSubrange`).
+ */
+function noInitialValue(e: ElementaryType | undefined, constancy: Constancy): Folded {
+  const integer = integerType(e)
+  if (integer !== undefined) return { value: 0n, constancy, elem: integer }
+  const width = realWidth(e)
+  if (width !== undefined) return { value: 0, constancy, width }
+  if (e?.family === "bool") return { value: false, constancy }
+  return { value: undefined, constancy }
+}
+
+/**
+ * Whether the type `t` is a SUBRANGE — written inline (`INT(3..9)`) or named through an alias (`TYPE R : INT(3..9)`).
+ * A constant of it that states no initial value is no constant to the compiler: "Array border cap does not evaluate to a
+ * valid signed integer constant" on both vendors, named (`qf_c0228_bound_subrange`) and inline
+ * (`qf_c0228_bound_inline_subrange`), 2026-10-12 — though it RUNS, at the lower bound when named (`qf_c0228_before_
+ * subrange`: out = 4) and at 0 inline (`qf_c0228_before_inline_subrange`: out = 1), which the transpiler gives. So the
+ * fold names no value for it. WITH an initial value it is a constant like any other (`qf_c0228_bound_subrange_init`,
+ * `qf_c0228_bound_inline_subrange_init` build clean).
+ */
+function isSubrange(t: TypeExpr, scope: Scope): boolean {
+  for (let at: TypeExpr | undefined = t, hops = 0; at?.kind === "named_type" && hops < 16; hops++) {
+    if (at.subrange !== undefined) return true
+    const sym: Symbol | undefined = lookup(scope, at.name.text)?.symbol
+    const body: TypeDecl["body"] | undefined = sym?.kind === "type" ? (sym.ast as TypeDecl | undefined)?.body : undefined
+    if (sym === undefined || body?.kind !== "alias") return false
+    at = body.target
+    scope = sym.owner
+  }
+  return false
 }
 
 /** The constants whose declared type is being resolved, across every fold that resolution starts — see `initialValue`. */

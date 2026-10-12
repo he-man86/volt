@@ -56,7 +56,11 @@ export const CHECK_COVERAGE_TESTS_B: readonly LanguageTest[] = [
   // Recorded: the declaration shape is a parse cascade that stops at the unit. Before mirroring it — the body shape,
   // a nanosecond unit, and a unit after a valid component.
   fb("cc_time_microsecond_literal_in_body", "`t := T#1500US` in a body → ?", "t1 : TIME;", "t1 := T#1500US;"),
-  fb("cc_time_nanosecond_literal", "`T#5NS` → ?", "t1 : TIME;", "t1 := T#5NS;"),
+  {
+    ...fb("cc_time_nanosecond_literal", "`T#5NS` → ?", "t1 : TIME;", "t1 := T#5NS;"),
+    // openspec lsp-quick-fixes design.md §3: `NS;` is what parse recovery left of `T#5NS` — the repair is the root syntax error's
+    fixAbsent: { code: "C0139", why: "a parse-recovery leftover: `NS;` is the tail of `T#5NS`, and deleting it is no repair" },
+  },
   fb("cc_time_seconds_then_microseconds", "`T#1S500US` → ?", "t1 : TIME;", "t1 := T#1S500US;"),
   fb("cc_fp_ltime_microsecond_literal", "`LTIME#1500US` → accepted", "lt1 : LTIME;", "lt1 := LTIME#1500US;"),
   // gap 12 — the declaration parser silently accepts a stray token after an initializer (why gap 7's declaration shape

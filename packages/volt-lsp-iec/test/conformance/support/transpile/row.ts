@@ -22,6 +22,7 @@
 import { KNOWN_DIVERGENCES } from "../divergences.js"
 import { CODESYS_TRIAGE, TWINCAT_TRIAGE } from "../divergences-triage.js"
 import type { FixtureMapRow } from "../../fixtures/map-row.js"
+import type { LanguageTest } from "../../types.js"
 
 /** Which vendors this fixture is recorded as not matching — derived from the authored sets in `divergences.ts`. */
 export function divergesOf(name: string): FixtureMapRow["diverges"] {
@@ -34,6 +35,17 @@ export function divergesOf(name: string): FixtureMapRow["diverges"] {
   // lists came out `{twincat, codesys}` here and `{codesys, twincat}` in the generated file — the same fact, and
   // the gate compared them as JSON and called six rows stale.
   return Object.fromEntries([...found].sort(([a], [b]) => a.localeCompare(b)))
+}
+
+/** The quick fix a fixture proves, as its row says it (`FixtureMapRow.fix`) — from its own `fixOf` / `fixAbsent` and,
+ *  for a BEFORE, the AFTERs that name it. */
+export function fixOfRow(t: LanguageTest, all: readonly LanguageTest[]): string | undefined {
+  if (t.fixOf !== undefined)
+    return `AFTER of ${t.fixOf.before}: ${t.fixOf.code} '${t.fixOf.title}'${t.fixOf.preferred === true ? " (preferred)" : ""}`
+  const afters = all.filter((a) => a.fixOf?.before === t.name).map((a) => a.name)
+  const absent = t.fixAbsent === undefined ? undefined : `offers no ${t.fixAbsent.title === undefined ? "action" : `'${t.fixAbsent.title}…'`} on ${t.fixAbsent.code}`
+  const parts = [...(afters.length > 0 ? [`BEFORE of ${afters.join(", ")}`] : []), ...(absent === undefined ? [] : [absent])]
+  return parts.length > 0 ? parts.join("; ") : undefined
 }
 
 /** One row as it is written — the key order is fixed so a regeneration diffs against the last one. */
@@ -49,6 +61,7 @@ export function printRow(name: string, row: FixtureMapRow): string {
   if (row.size !== undefined) parts.push(`size: ${row.size}`)
   if (row.shape !== undefined) parts.push(`shape: ${JSON.stringify(row.shape)}`)
   if (row.notes !== undefined) parts.push(`notes: [${row.notes.map((id) => JSON.stringify(id)).join(", ")}]`)
+  if (row.fix !== undefined) parts.push(`fix: ${JSON.stringify(row.fix)}`)
   if (row.diverges !== undefined)
     parts.push(
       `diverges: { ${Object.entries(row.diverges)

@@ -14,30 +14,30 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3055
- *     refused       2038
- *     not-lowered    378
- *     lsp-gap         88
+ *     confirmed     3156
+ *     refused       2103
+ *     not-lowered    385
+ *     lsp-gap         90
  *     diverges         5
  *     unaskable       95
  *
  *   tier                     lowered    clean
- *     decl                    808      808
- *     arith                  1596     1596
- *     control                 162      152
- *     aggregate               149      149
- *     call                    350      350
- *     indirect                415      415
+ *     decl                    842      842
+ *     arith                  1636     1636
+ *     control                 171      160
+ *     aggregate               157      157
+ *     call                    373      373
+ *     indirect                431      431
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
- *     unreachable_patterns                       6
- *     clippy::match_overlapping_arm              5
+ *     unreachable_patterns                       7
+ *     clippy::match_overlapping_arm              6
  *     clippy::match_single_binding               2
  *     overlapping_range_endpoints                1
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile/lint-policy.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     clippy::missing_panics_doc               265
+ *     clippy::missing_panics_doc               267
  *     clippy::self_assignment                   42
  *     dead_code                                 42
  *     unused_assignments                        14
@@ -52,12 +52,12 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3261
+ *     agree         3383
  *     disagree         0
- *     not-run        219
+ *     not-run        227
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
- *       not-run: the emitted Rust does not build                 70
- *       not-run: no elementary variable to seed or compare       66
+ *       not-run: no elementary variable to seed or compare       73
+ *       not-run: the emitted Rust does not build                 71
  *       not-run: the interpreter's loop guard gives up on every variant     6
  *       agree,   1/8 unanswered (the interpreter's loop guard): cc3_empty_and_noop
  *       agree,  1/11 unanswered (the interpreter's loop guard): flw_empty_semicolon_body
@@ -70,11 +70,11 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2205 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::cast_possible_truncation          951
- *     clippy::cast_sign_loss                    708
- *     clippy::cast_possible_wrap                304
- *     clippy::pub_underscore_fields             103
+ *   pedantic — 2220 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::cast_possible_truncation          953
+ *     clippy::cast_sign_loss                    712
+ *     clippy::cast_possible_wrap                310
+ *     clippy::pub_underscore_fields             105
  *     clippy::struct_excessive_bools             44
  *     clippy::cast_precision_loss                31
  *     clippy::float_cmp                          14
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1924 distinct emission shapes over 3480 lowered fixtures, 2211 distinct constructs.
+ *   shape — 1966 distinct emission shapes over 3610 lowered fixtures, 2226 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -840,7 +840,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_sub_udint_dint: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 3.3, shape: "b25bbda85f" },
   cc_time_microsecond_literal: { evidence: "refused" },
   cc_time_microsecond_literal_in_body: { evidence: "refused" },
-  cc_time_nanosecond_literal: { evidence: "refused" },
+  cc_time_nanosecond_literal: { evidence: "refused", fix: "offers no action on C0139" },
   cc_time_seconds_then_microseconds: { evidence: "refused" },
   cc_typed_fold_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "4ad6abca31" },
   cc_typed_fold_int_into_int: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "9e1bcd8911" },
@@ -1735,7 +1735,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   expr_pool_qualified_fb_type: { evidence: "not-lowered", diverges: { codesys: "known", twincat: "known" } },
   expr_pool_qualified_global: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
   expr_power_in_parens: { evidence: "refused" },
-  expr_power_right_assoc: { evidence: "refused" },
+  expr_power_right_assoc: { evidence: "refused", fix: "offers no action on C0139" },
   expr_prefix_ampersand: { evidence: "refused" },
   expr_super_deref_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "734b16f3f3" },
   expr_super_without_base: { evidence: "refused" },
@@ -1828,7 +1828,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   flw_label_unreferenced_two: { evidence: "not-lowered" },
   flw_noop_array_element: { evidence: "not-lowered" },
   flw_noop_enum_value: { evidence: "not-lowered" },
-  flw_noop_property_read: { evidence: "not-lowered" },
+  flw_noop_property_read: { evidence: "not-lowered", fix: "offers no 'Remove the statement…' on C0139" },
   flw_noop_this_member: { evidence: "not-lowered" },
   flw_noop_typed_literal: { evidence: "refused" },
   flw_super_in_function: { evidence: "refused" },
@@ -2913,7 +2913,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lit_bool_typed_1: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "3beee70050" },
   lit_bool_typed_2: { evidence: "refused" },
   lit_bool_typed_false: { evidence: "refused" },
-  lit_bool_typed_true: { evidence: "refused" },
+  lit_bool_typed_true: { evidence: "refused", fix: "offers no action on C0139" },
   lit_byte_2_typed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "46513b2895" },
   lit_byte_typed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "46513b2895" },
   lit_char_typed: { evidence: "refused" },
@@ -3820,6 +3820,181 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   pwh_unclosed_comment_gvl: { evidence: "refused" },
   pwh_unclosed_comment_struct: { evidence: "refused", diverges: { twincat: "known" } },
   pwh_var_missing_semicolon: { evidence: "refused" },
+  qf_abstract_before: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.5, shape: "390b906815", fix: "BEFORE of qf_abstract_keyword" },
+  qf_abstract_final_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "not-run", size: 1.6, shape: "390b906815", fix: "BEFORE of qf_abstract_final_keep_final, qf_abstract_final_keep_abstract" },
+  qf_abstract_final_keep_abstract: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.6, shape: "390b906815", fix: "AFTER of qf_abstract_final_before: abstract-and-final 'Remove FINAL'" },
+  qf_abstract_final_keep_final: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.6, shape: "390b906815", fix: "AFTER of qf_abstract_final_before: abstract-and-final 'Remove ABSTRACT'" },
+  qf_abstract_keyword: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.5, shape: "390b906815", fix: "AFTER of qf_abstract_before: abstract-keyword-missing 'Add ABSTRACT' (preferred)" },
+  qf_access_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "BEFORE of qf_access_remove", diverges: { codesys: "known", twincat: "known" } },
+  qf_access_remove: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "AFTER of qf_access_before: access-only-on-methods 'Remove PRIVATE' (preferred)" },
+  qf_border_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "f89750d7f6", fix: "BEFORE of qf_border_swap", diverges: { twincat: "known" } },
+  qf_border_swap: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "f89750d7f6", fix: "AFTER of qf_border_before: border-order 'Swap the bounds' (preferred)" },
+  qf_c0002_before_end_block: { evidence: "refused", fix: "BEFORE of qf_c0002_end_block" },
+  qf_c0002_before_end_file: { evidence: "refused", fix: "BEFORE of qf_c0002_end_file" },
+  qf_c0002_before_semicolon_block: { evidence: "refused", fix: "BEFORE of qf_c0002_semicolon_block" },
+  qf_c0002_before_semicolon_end: { evidence: "refused", fix: "BEFORE of qf_c0002_semicolon_end" },
+  qf_c0002_before_then: { evidence: "refused", fix: "BEFORE of qf_c0002_then" },
+  qf_c0002_end_block: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "5567008613", fix: "AFTER of qf_c0002_before_end_block: C0002 'Insert 'END_REPEAT'' (preferred)" },
+  qf_c0002_end_file: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "27160020fa", fix: "AFTER of qf_c0002_before_end_file: C0002 'Insert 'END_FOR'' (preferred)" },
+  qf_c0002_semicolon_block: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "7a195576ad", fix: "AFTER of qf_c0002_before_semicolon_block: C0002 'Insert ';'' (preferred)" },
+  qf_c0002_semicolon_end: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999", fix: "AFTER of qf_c0002_before_semicolon_end: C0002 'Insert ';'' (preferred)" },
+  qf_c0002_then: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "7a195576ad", fix: "AFTER of qf_c0002_before_then: C0002 'Insert 'THEN'' (preferred)" },
+  qf_c0004_before: { evidence: "refused", fix: "BEFORE of qf_c0004_change" },
+  qf_c0004_change: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "661ac90b48", fix: "AFTER of qf_c0004_before: C0004 'Change to 'value''" },
+  qf_c0013_before: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "594e2ef224", fix: "BEFORE of qf_c0013_insert" },
+  qf_c0013_insert: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "594e2ef224", fix: "AFTER of qf_c0013_before: C0013 'Insert the empty statement ';'' (preferred)" },
+  qf_c0032_before_ref: { evidence: "refused", fix: "BEFORE of qf_c0032_ref" },
+  qf_c0032_before_wrap: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "2e3da26994", fix: "BEFORE of qf_c0032_wrap" },
+  qf_c0032_ref: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "b7eb7118d0", fix: "AFTER of qf_c0032_before_ref: C0032 'Bind with 'rf REF= p^''" },
+  qf_c0032_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "2e3da26994", fix: "AFTER of qf_c0032_before_wrap: C0032 'Wrap in TO_INT(…)'" },
+  qf_c0037_before: { evidence: "refused", fix: "BEFORE of qf_c0037_change" },
+  qf_c0037_change: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "f41f00d6e3", fix: "AFTER of qf_c0037_before: C0037 'Change to 'value''" },
+  qf_c0038_before: { evidence: "refused", fix: "BEFORE of qf_c0038_change" },
+  qf_c0038_change: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "c3c9fa81a0", fix: "AFTER of qf_c0038_before: C0038 'Change to 'done''" },
+  qf_c0046_absent_declare: { evidence: "refused", fix: "offers no 'Declare…' on C0046" },
+  qf_c0046_before_declare_argument: { evidence: "refused", fix: "BEFORE of qf_c0046_declare_argument", diverges: { codesys: "known", twincat: "known" } },
+  qf_c0046_before_declare_condition: { evidence: "refused", fix: "BEFORE of qf_c0046_declare_condition", diverges: { codesys: "known", twincat: "known" } },
+  qf_c0046_before_declare_target: { evidence: "refused", fix: "BEFORE of qf_c0046_declare_target" },
+  qf_c0046_before_declare_value: { evidence: "refused", fix: "BEFORE of qf_c0046_declare_value" },
+  qf_c0046_before_near: { evidence: "refused", fix: "BEFORE of qf_c0046_change" },
+  qf_c0046_change: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999", fix: "AFTER of qf_c0046_before_near: C0046 'Change to 'counter''" },
+  qf_c0046_declare_argument: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "17b98e3b7d", fix: "AFTER of qf_c0046_before_declare_argument: C0046 'Declare 'amount' : REAL'" },
+  qf_c0046_declare_condition: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "42472d3dac", fix: "AFTER of qf_c0046_before_declare_condition: C0046 'Declare 'ready' : BOOL'" },
+  qf_c0046_declare_target: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "18959e77be", fix: "AFTER of qf_c0046_before_declare_target: C0046 'Declare 'total' : INT'" },
+  qf_c0046_declare_value: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "14c001c4f6", fix: "AFTER of qf_c0046_before_declare_value: C0046 'Declare 'level' : DINT'" },
+  qf_c0051_before: { evidence: "refused", fix: "BEFORE of qf_c0051_quote" },
+  qf_c0051_quote: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "fc896ff999", fix: "AFTER of qf_c0051_before: C0051 'Quote as 'qfMarker'' (preferred)" },
+  qf_c0077_before: { evidence: "refused", fix: "BEFORE of qf_c0077_change", diverges: { codesys: "known", twincat: "known" } },
+  qf_c0077_change: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "caac310331", fix: "AFTER of qf_c0077_before: C0077 'Change to 'DINT''" },
+  qf_c0086_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", fix: "BEFORE of qf_c0086_change" },
+  qf_c0086_change: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "7f327e5fec", fix: "AFTER of qf_c0086_before: C0086 'Change to 'ITF_LANG_qf_c0086_before_shape''" },
+  qf_c0087_before_method: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec", fix: "BEFORE of qf_c0087_stub_method" },
+  qf_c0087_before_method_sections: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.4, shape: "7f327e5fec", fix: "BEFORE of qf_c0087_stub_method_sections" },
+  qf_c0087_before_property: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.9, shape: "7f327e5fec", fix: "BEFORE of qf_c0087_stub_property" },
+  qf_c0087_before_property_set: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7f327e5fec", fix: "BEFORE of qf_c0087_stub_property_set" },
+  qf_c0087_stub_method: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.5, shape: "7f327e5fec", fix: "AFTER of qf_c0087_before_method: C0087 'Add METHOD 'Compute'' (preferred)" },
+  qf_c0087_stub_method_sections: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1, shape: "7f327e5fec", fix: "AFTER of qf_c0087_before_method_sections: C0087 'Add METHOD 'Compute'' (preferred)" },
+  qf_c0087_stub_property: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.6, shape: "7f327e5fec", fix: "AFTER of qf_c0087_before_property: C0087 'Add PROPERTY 'Level'' (preferred)" },
+  qf_c0087_stub_property_set: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 1.3, shape: "7f327e5fec", fix: "AFTER of qf_c0087_before_property_set: C0087 'Add PROPERTY 'Level'' (preferred)" },
+  qf_c0089_before: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2, shape: "2a7f7e770d", fix: "BEFORE of qf_c0089_match_interface" },
+  qf_c0089_match_interface: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2, shape: "95b2b21ac6", fix: "AFTER of qf_c0089_before: C0089 'Match the declaration of 'ITF_LANG_qf_c0089_before_area.Area''" },
+  qf_c0090_before: { evidence: "refused", fix: "BEFORE of qf_c0090_change" },
+  qf_c0090_change: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "82b6c17417", fix: "AFTER of qf_c0090_before: C0090 'Change to 'FB_LANG_qf_c0090_before_base''" },
+  qf_c0094_before: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.3, shape: "45c07caf34", fix: "BEFORE of qf_c0094_match_base" },
+  qf_c0094_match_base: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "8c277d06e2", fix: "AFTER of qf_c0094_before: C0094 'Match the declaration of 'FB_LANG_qf_c0094_before_base.Fetch''" },
+  qf_c0097_before_differ: { evidence: "refused", fix: "BEFORE of qf_c0097_remove_differ" },
+  qf_c0097_before_same: { evidence: "refused", fix: "BEFORE of qf_c0097_remove_same" },
+  qf_c0097_remove_differ: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "070d7e819c", fix: "AFTER of qf_c0097_before_differ: C0097 'Remove the redeclaration (inherit FB_LANG_qf_c0097_before_differ_base.shared : INT := 1)'" },
+  qf_c0097_remove_same: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "070d7e819c", fix: "AFTER of qf_c0097_before_same: C0097 'Remove the redeclaration (inherit FB_LANG_qf_c0097_before_same_base.shared : INT)' (preferred)" },
+  qf_c0117_before: { evidence: "refused", fix: "BEFORE of qf_c0117_change" },
+  qf_c0117_change: { evidence: "not-lowered", fix: "AFTER of qf_c0117_before: C0117 'Change to 'skip''" },
+  qf_c0118_before: { evidence: "not-lowered", fix: "BEFORE of qf_c0118_remove" },
+  qf_c0118_remove: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "7f327e5fec", fix: "AFTER of qf_c0118_before: C0118 'Remove the label 'lbl'' (preferred)" },
+  qf_c0119_before_exit: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.1, shape: "d1feadbb2e", fix: "BEFORE of qf_c0119_exit" },
+  qf_c0119_before_init: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "d4137b8a18", fix: "BEFORE of qf_c0119_init" },
+  qf_c0119_before_init_none: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.5, shape: "d4137b8a18", fix: "BEFORE of qf_c0119_init_both" },
+  qf_c0119_before_init_retains: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "d4137b8a18", fix: "BEFORE of qf_c0119_init_retains" },
+  qf_c0119_exit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 1.9, shape: "d1feadbb2e", fix: "AFTER of qf_c0119_before_exit: C0119 'Add the input 'bInCopyCode : BOOL'' (preferred)" },
+  qf_c0119_init: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "d4137b8a18", fix: "AFTER of qf_c0119_before_init: C0119 'Add the input 'bInCopyCode : BOOL'' (preferred)" },
+  qf_c0119_init_both: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "d4137b8a18", fix: "AFTER of qf_c0119_before_init_none: C0119 'Add the inputs 'bInitRetains : BOOL; bInCopyCode : BOOL'' (preferred)" },
+  qf_c0119_init_retains: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "d4137b8a18", fix: "AFTER of qf_c0119_before_init_retains: C0119 'Add the input 'bInitRetains : BOOL'' (preferred)" },
+  qf_c0130_before: { evidence: "refused", fix: "BEFORE of qf_c0130_call" },
+  qf_c0130_before_inout: { evidence: "refused", fix: "offers no 'Add '()'…' on C0130" },
+  qf_c0130_before_input: { evidence: "refused", fix: "offers no 'Add '()'…' on C0130" },
+  qf_c0130_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "466b4110f7", fix: "AFTER of qf_c0130_before: C0130 'Add '()'' (preferred)" },
+  qf_c0136_before: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "8b3d4cc77a", fix: "BEFORE of qf_c0136_qualify_a, qf_c0136_qualify_b" },
+  qf_c0136_qualify_a: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b3d4cc77a", fix: "AFTER of qf_c0136_before: C0136 'Qualify as 'GVL_LANG_qf_c0136_before_a.g_qf_c0136_before''" },
+  qf_c0136_qualify_b: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b3d4cc77a", fix: "AFTER of qf_c0136_before: C0136 'Qualify as 'GVL_LANG_qf_c0136_before_b.g_qf_c0136_before''" },
+  qf_c0139_absent_call: { evidence: "not-lowered", fix: "offers no 'Remove the statement…' on C0139" },
+  qf_c0139_absent_call_nested: { evidence: "not-lowered", fix: "offers no 'Remove the statement…' on C0139" },
+  qf_c0139_before: { evidence: "not-lowered", fix: "BEFORE of qf_c0139_remove" },
+  qf_c0139_before_instance: { evidence: "not-lowered", fix: "BEFORE of qf_c0139_remove_instance, qf_c0139_call_instance" },
+  qf_c0139_before_instance_inout: { evidence: "not-lowered", fix: "offers no 'Call…' on C0139" },
+  qf_c0139_call_instance: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "d670625aef", fix: "AFTER of qf_c0139_before_instance: C0139 'Call 'counter()''" },
+  qf_c0139_remove: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "8b162a0108", fix: "AFTER of qf_c0139_before: C0139 'Remove the statement'" },
+  qf_c0139_remove_instance: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "770b9aa8f6", fix: "AFTER of qf_c0139_before_instance: C0139 'Remove the statement'" },
+  qf_c0142_before_differ: { evidence: "refused", fix: "BEFORE of qf_c0142_remove_second_differ, qf_c0142_remove_first_differ" },
+  qf_c0142_before_same: { evidence: "refused", fix: "BEFORE of qf_c0142_remove_second_same, qf_c0142_remove_first_same" },
+  qf_c0142_remove_first_differ: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "fe93d81d24", fix: "AFTER of qf_c0142_before_differ: C0142 'Remove the first declaration of 'level''" },
+  qf_c0142_remove_first_same: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "721b41bc72", fix: "AFTER of qf_c0142_before_same: C0142 'Remove the first declaration of 'level''" },
+  qf_c0142_remove_second_differ: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "721b41bc72", fix: "AFTER of qf_c0142_before_differ: C0142 'Remove the second declaration of 'level''" },
+  qf_c0142_remove_second_same: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "721b41bc72", fix: "AFTER of qf_c0142_before_same: C0142 'Remove the second declaration of 'level'' (preferred)" },
+  qf_c0175_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.8, shape: "7b697e6c79", fix: "BEFORE of qf_c0175_remove" },
+  qf_c0175_remove: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "7b697e6c79", fix: "AFTER of qf_c0175_before: C0175 'Remove RETAIN' (preferred)" },
+  qf_c0182_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.9, shape: "4fa3ed32dc", fix: "BEFORE of qf_c0182_remove" },
+  qf_c0182_remove: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.9, shape: "4fa3ed32dc", fix: "AFTER of qf_c0182_before: C0182 'Remove the return type' (preferred)" },
+  qf_c0195_before: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "37e218e024", fix: "BEFORE of qf_c0195_wrap" },
+  qf_c0195_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "37e218e024", fix: "AFTER of qf_c0195_before: C0195 'Wrap in TO_UINT(…)' (preferred)" },
+  qf_c0197_before_argument: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "40ba845878", fix: "BEFORE of qf_c0197_wrap_argument" },
+  qf_c0197_before_assign: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "5141e49481", fix: "BEFORE of qf_c0197_wrap_assign" },
+  qf_c0197_before_init: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "5065de5569", fix: "BEFORE of qf_c0197_wrap_init" },
+  qf_c0197_before_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "56f26b0c4a", fix: "BEFORE of qf_c0197_wrap_return" },
+  qf_c0197_wrap_argument: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "40ba845878", fix: "AFTER of qf_c0197_before_argument: C0197 'Wrap in TO_REAL(…)' (preferred)" },
+  qf_c0197_wrap_assign: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "5141e49481", fix: "AFTER of qf_c0197_before_assign: C0197 'Wrap in TO_REAL(…)' (preferred)" },
+  qf_c0197_wrap_init: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 3.3, shape: "5065de5569", fix: "AFTER of qf_c0197_before_init: C0197 'Wrap in TO_REAL(…)' (preferred)" },
+  qf_c0197_wrap_return: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "56f26b0c4a", fix: "AFTER of qf_c0197_before_return: C0197 'Wrap in TO_REAL(…)' (preferred)" },
+  qf_c0198_before_assign: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "82955a8a50", fix: "BEFORE of qf_c0198_widen_assign, qf_c0198_shorten_assign" },
+  qf_c0198_before_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "bb3cef6343", fix: "BEFORE of qf_c0198_widen_init, qf_c0198_shorten_init" },
+  qf_c0198_shorten_assign: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "82955a8a50", fix: "AFTER of qf_c0198_before_assign: C0198 'Shorten to 'abcd''" },
+  qf_c0198_shorten_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "bb3cef6343", fix: "AFTER of qf_c0198_before_init: C0198 'Shorten to 'abcd''" },
+  qf_c0198_widen_assign: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3, shape: "82955a8a50", fix: "AFTER of qf_c0198_before_assign: C0198 'Change the type to STRING(6)'" },
+  qf_c0198_widen_init: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 1, edge: "agree", size: 3.2, shape: "bb3cef6343", fix: "AFTER of qf_c0198_before_init: C0198 'Change the type to STRING(6)'" },
+  qf_c0203_before: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 0, edge: "agree", size: 3.6, shape: "6250c76862", fix: "BEFORE of qf_c0203_bool" },
+  qf_c0203_bool: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 3.6, shape: "6250c76862", fix: "AFTER of qf_c0203_before: C0203 'Change BIT to BOOL' (preferred)" },
+  qf_c0204_before: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "3303ccac00", fix: "BEFORE of qf_c0204_bool" },
+  qf_c0204_bool: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "3303ccac00", fix: "AFTER of qf_c0204_before: C0204 'Change BIT to BOOL' (preferred)" },
+  qf_c0206_before: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.7, shape: "f5282c6862", fix: "BEFORE of qf_c0206_bool" },
+  qf_c0206_bool: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.7, shape: "f5282c6862", fix: "AFTER of qf_c0206_before: C0206 'Change BIT to BOOL' (preferred)" },
+  qf_c0228_before: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "8b162a0108", fix: "BEFORE of qf_c0228_initialize" },
+  qf_c0228_before_alias: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b162a0108", fix: "BEFORE of qf_c0228_initialize_alias" },
+  qf_c0228_before_inline_subrange: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "8b162a0108", fix: "offers no action on C0228" },
+  qf_c0228_before_subrange: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b162a0108", fix: "BEFORE of qf_c0228_initialize_subrange" },
+  qf_c0228_bound: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "4b3f5b85e5" },
+  qf_c0228_bound_alias: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 2, edge: "not-run", size: 2.1, shape: "44cb5bf967" },
+  qf_c0228_bound_chained: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "0ce61592ed" },
+  qf_c0228_bound_init_list: { evidence: "refused" },
+  qf_c0228_bound_init_zero: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "4b3f5b85e5" },
+  qf_c0228_bound_inline_subrange: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  qf_c0228_bound_inline_subrange_init: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.4, shape: "4f5637bf78" },
+  qf_c0228_bound_literal_empty: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "6866265e96" },
+  qf_c0228_bound_literal_two_below: { evidence: "refused" },
+  qf_c0228_bound_subrange: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  qf_c0228_bound_subrange_init: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.1, shape: "4f5637bf78" },
+  qf_c0228_case_label: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "unreachable_patterns"], pedantic: 0, edge: "agree", size: 2.3, shape: "79429d058c" },
+  qf_c0228_initialize: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "8b162a0108", fix: "AFTER of qf_c0228_before: C0228 'Initialize with ':= 0'' (preferred)" },
+  qf_c0228_initialize_alias: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b162a0108", fix: "AFTER of qf_c0228_before_alias: C0228 'Initialize with ':= 0'' (preferred)" },
+  qf_c0228_initialize_subrange: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "8b162a0108", fix: "AFTER of qf_c0228_before_subrange: C0228 'Initialize with ':= 3'' (preferred)" },
+  qf_c0237_before: { evidence: "refused", fix: "BEFORE of qf_c0237_change" },
+  qf_c0237_change: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "8b3d4cc77a", fix: "AFTER of qf_c0237_before: C0237 'Change to 'g_qf_c0237_before_counter''" },
+  qf_c0238_before: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "8b3d4cc77a", fix: "BEFORE of qf_c0238_remove" },
+  qf_c0238_remove: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "8b3d4cc77a", fix: "AFTER of qf_c0238_before: C0238 'Remove the initial value' (preferred)" },
+  qf_c0351_before: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "8b162a0108", fix: "BEFORE of qf_c0351_change, qf_c0351_remove" },
+  qf_c0351_change: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.6, shape: "8b162a0108", fix: "AFTER of qf_c0351_before: C0351 'Change to 'hide''" },
+  qf_c0351_remove: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "8b162a0108", fix: "AFTER of qf_c0351_before: C0351 'Remove the attribute'" },
+  qf_c0421_before: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "c19bf2911c", fix: "BEFORE of qf_c0421_extends" },
+  qf_c0421_extends: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "c19bf2911c", fix: "AFTER of qf_c0421_before: C0421 'Change to EXTENDS' (preferred)" },
+  qf_c0533_before: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.1, shape: "390b906815", fix: "BEFORE of qf_c0533_remove", diverges: { codesys: "known" } },
+  qf_c0533_remove: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "not-run", size: 1.1, shape: "390b906815", fix: "AFTER of qf_c0533_before: C0533 'Remove the default value' (preferred)" },
+  qf_c0550_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "0f3bd5572c", fix: "BEFORE of qf_c0550_remove" },
+  qf_c0550_remove: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "0f3bd5572c", fix: "AFTER of qf_c0550_before: C0550 'Remove the attribute' (preferred)" },
+  qf_callarg_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "3290bc9ae9", fix: "BEFORE of qf_callarg_wrap" },
+  qf_callarg_wrap: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "3290bc9ae9", fix: "AFTER of qf_callarg_before: call-argument-type 'Wrap in TO_INT(…)' (preferred)" },
+  qf_caserange_before: { evidence: "refused", fix: "BEFORE of qf_caserange_swap" },
+  qf_caserange_swap: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "e25068a8e3", fix: "AFTER of qf_caserange_before: case-range-inverted 'Swap the bounds' (preferred)" },
+  qf_convsrc_before: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.8, shape: "5414ad6fca", fix: "BEFORE of qf_convsrc_generic" },
+  qf_convsrc_generic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "5414ad6fca", fix: "AFTER of qf_convsrc_before: conversion-source-mismatch 'Change to TO_UDINT(…)' (preferred)" },
+  qf_fnparens_before: { evidence: "refused", fix: "BEFORE of qf_fnparens_call" },
+  qf_fnparens_before_inout: { evidence: "refused", fix: "offers no 'Add '()'…' on function-without-parens" },
+  qf_fnparens_before_input: { evidence: "refused", fix: "offers no 'Add '()'…' on function-without-parens" },
+  qf_fnparens_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "ebea3925d3", fix: "AFTER of qf_fnparens_before: function-without-parens 'Add '()'' (preferred)" },
+  qf_indexof_adr: { evidence: "confirmed", tier: "indirect", rust: "compiles", pedantic: 1, edge: "agree", size: 3.5, shape: "fe69e1efa3", fix: "AFTER of qf_indexof_before: indexof-removed 'Change to ADR' (preferred)" },
+  qf_indexof_before: { evidence: "refused", fix: "BEFORE of qf_indexof_adr" },
+  qf_pragma_before: { evidence: "refused", fix: "BEFORE of qf_pragma_end_if" },
+  qf_pragma_end_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 0, edge: "agree", size: 2.5, shape: "4b70673805", fix: "AFTER of qf_pragma_before: unterminated-conditional-pragma 'Insert '{END_IF}'' (preferred)" },
+  qf_sn_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999", fix: "BEFORE of qf_sn_rename" },
+  qf_sn_rename: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999", fix: "AFTER of qf_sn_before: signature-name-mismatch 'Rename to 'FB_LANG_qf_sn_before'' (preferred)" },
+  qf_structfield_before: { evidence: "refused", fix: "BEFORE of qf_structfield_change" },
+  qf_structfield_change: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "d13e3591a7", fix: "AFTER of qf_structfield_before: unknown-struct-field 'Change to 'value''" },
   r2i_lreal_to_byte_above_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "cb8a943835" },
   r2i_lreal_to_byte_below_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "d12f41733b" },
   r2i_lreal_to_byte_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "8b309c1c05" },

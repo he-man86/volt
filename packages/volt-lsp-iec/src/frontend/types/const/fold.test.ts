@@ -443,3 +443,32 @@ test("a VAR_EXTERNAL CONSTANT folds to the global it binds; one whose global is 
     for (const s of statements) if (s.kind === "assign") values.push(constEval(s.value, scope))
   expect(values).toEqual([20n, undefined, undefined])
 })
+
+// openspec lsp-quick-fixes 1.1 (2026-10-12): `qf_c0228_before` — `cap : INT;` in VAR CONSTANT, warned "No initial value for
+// constant variable 'cap'" — RAN with cap = 0 and `out := cap + 1` = 1 (CODESYS record:exec); the IR fold said 0, this said
+// nothing (`fold-agreement.test.ts`). The value is its elementary type's zero — the review of step 1 measured that it is
+// the BASE type's zero on every kind of type (the next test).
+test("a CONSTANT with no initial value folds to its elementary type's zero — what the compiler gives it (C0228)", () => {
+  const lists = [{ uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  cap : INT;\n  mask : WORD;\n  ratio : REAL;\n  flag : BOOL;\nEND_VAR\n" }]
+  expect(folded("cap + 1", lists)).toBe(1n)
+  expect(folded("mask", lists)).toBe(0n)
+  expect(folded("ratio / 4", lists)).toBe(0)
+  expect(folded("flag", lists)).toBe(false)
+})
+
+// Review of step 1 (2026-10-12) asked whether "its type's initial value" is always 0, and the answer was measured on every
+// kind of type (CODESYS record:exec + record:language): it is the BASE type's zero, not the type's initial value a
+// VARIABLE has. A constant of `TYPE A : INT := 42` runs as 0 and bounds an array at 0 (`qf_c0228_before_alias`,
+// `qf_c0228_bound_alias`), an alias of it too. A SUBRANGE's — named or inline — is no constant to the compiler ("Array
+// border cap does not evaluate to a valid signed integer constant", `qf_c0228_bound_subrange`, `qf_c0228_bound_inline_
+// subrange`, both vendors), though it runs (at the lower bound named, at 0 inline): it folds to nothing.
+test("a CONSTANT with no initial value folds to its BASE type's zero — never an alias's own value; a subrange's to none", () => {
+  const types = { uri: "file:///p/T.dut", source: "TYPE A : INT := 42;\nEND_TYPE\nTYPE AA : A;\nEND_TYPE\nTYPE R : INT(3..9);\nEND_TYPE\nTYPE N : DINT(-10..-2);\nEND_TYPE\n" }
+  const lists = [types, { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  ca : A;\n  caa : AA;\n  cr : R;\n  cn : N;\n  ci : INT(3..9);\n  cz : INT(-5..5);\nEND_VAR\n" }]
+  expect(folded("ca", lists)).toBe(0n)
+  expect(folded("caa", lists)).toBe(0n)
+  expect(folded("ci", lists)).toBeUndefined()
+  expect(folded("cz", lists)).toBeUndefined()
+  expect(folded("cr", lists)).toBeUndefined()
+  expect(folded("cn", lists)).toBeUndefined()
+})

@@ -18,7 +18,11 @@ export function representable(t: Type, lent: boolean): boolean {
   return array !== undefined && representable(array.element, false)
 }
 
-/** An array type, at any depth of its elements, with a dimension whose lower bound is above its upper. */
+/**
+ * An array type, at any depth of its elements, with a dimension whose lower bound is above its upper PLUS ONE. An EMPTY
+ * dimension (`1..0`) is storage of no element: both vendors build it (`qf_c0228_bound_literal_empty`, 2026-10-12) and
+ * refuse `2..0` (`qf_c0228_bound_literal_two_below`).
+ */
 export function reversedArray(t: Type): boolean {
-  return t.kind === "array" && ((t.bounds ?? []).some((b) => b.lower > b.upper) || reversedArray(t.element))
+  return t.kind === "array" && ((t.bounds ?? []).some((b) => b.lower > b.upper + 1n) || reversedArray(t.element))
 }

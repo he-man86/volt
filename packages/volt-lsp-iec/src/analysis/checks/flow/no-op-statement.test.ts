@@ -79,3 +79,25 @@ test("a call operator that took the next token for its `(` is no name standing w
   // both vendors: "'(' expected instead of ':='", the operand count and the resync — and no "no effect"
   expect(bare("__delete := 1;\n__queryinterface := 1;")).toEqual([])
 })
+
+test("an array element indexed by a CALL is a no-op all the same — the vendors warn it (qf_c0139_absent_call)", () => {
+  // both vendors 2026-10-12: "The code 'list[F_…_idx()];' has no effect" — the call inside does not make it a statement
+  const src = `FUNCTION F_idx : INT\nF_idx := 1;\nEND_FUNCTION\nPROGRAM P\nVAR list : ARRAY[1..3] OF INT;\nEND_VAR\nlist[F_idx()];\nEND_PROGRAM\n`
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+  const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "no-op-statement")
+    .map((d) => d.message)
+  expect(found).toEqual(["The code 'list[F_idx()];\n' has no effect. Is this the intent?"])
+})
+
+test("a NESTED array element is a no-op whichever subscript holds the call (qf_c0139_absent_call_nested)", () => {
+  // both vendors 2026-10-12 warn `m[F()][1];` and `m[1][F()];` alike
+  const src = `FUNCTION F_idx : INT\nF_idx := 1;\nEND_FUNCTION\nPROGRAM P\nVAR m : ARRAY[1..3] OF ARRAY[1..3] OF INT;\nEND_VAR\nm[F_idx()][1];\nm[1][F_idx()];\nEND_PROGRAM\n`
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+  const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "no-op-statement")
+    .map((d) => d.message)
+  expect(found).toEqual(["The code 'm[F_idx()][1];\n' has no effect. Is this the intent?", "The code 'm[1][F_idx()];\n' has no effect. Is this the intent?"])
+})

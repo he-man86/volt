@@ -290,8 +290,17 @@ END_PROGRAM
     // `decl_array_reversed_bounds`: both vendors refuse it ("Lower border must be lower than upper border")
     const codes = (decl: string) => lowerSource(`PROGRAM P\nVAR ${decl} out : INT; END_VAR\nout := 1;\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
     expect(codes("a : ARRAY[5..1] OF INT;")).toEqual(["array-reversed"])
-    expect(codes("a : ARRAY[0..1] OF ARRAY[3..2] OF INT;")).toEqual(["array-reversed"])
+    expect(codes("a : ARRAY[0..1] OF ARRAY[4..2] OF INT;")).toEqual(["array-reversed"])
     expect(codes("a : ARRAY[-3..-1] OF INT;")).toEqual([])
+  })
+
+  test("an EMPTY array dimension (lower = upper + 1) is lowered — both vendors build it; one below that is refused", () => {
+    // lsp-quick-fixes review of step 1 (2026-10-12): `ARRAY[1..0]` builds clean on both vendors and runs
+    // (`qf_c0228_bound_literal_empty`, record:exec), `ARRAY[2..0]` is refused (`qf_c0228_bound_literal_two_below`)
+    const codes = (decl: string) => lowerSource(`PROGRAM P\nVAR ${decl} out : INT; END_VAR\nout := 1;\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+    expect(codes("a : ARRAY[1..0] OF INT;")).toEqual([])
+    expect(codes("a : ARRAY[0..1] OF ARRAY[3..2] OF INT;")).toEqual([])
+    expect(codes("a : ARRAY[2..0] OF INT;")).toEqual(["array-reversed"])
   })
 
   test("an implicit enum's value is a constant when its variable is an ARRAY OF the enum", () => {
