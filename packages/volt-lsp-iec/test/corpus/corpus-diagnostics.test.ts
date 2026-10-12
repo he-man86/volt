@@ -40,13 +40,30 @@ const isTruncated = (msgs: readonly string[]): boolean => msgs.some((m) => /More
 // hand-kept table (pro2193 and lenze-mid, both "C0371 off, confirmed by its owner"), which was true and
 // unmaintainable: it had to be rediscovered per project and could not be checked against anything.
 
+/**
+ * A corpus project whose LSP findings are KNOWN to include false positives, and where they are. The gate still runs on
+ * it: the false positives must be non-empty (else the mark is stale and the test fails, naming it) and ALL under the
+ * named folder (any other false positive fails as on an unmarked project).
+ *
+ * twincat-project14: TwinCAT names its library manager `References` (TcObjectModel.FindLibraryManager), and
+ * `isLibraryUri` knows only `Library Manager`, so the library signatures there are read as project source — 216
+ * "states no language" errors. This gate read only `expected-build.codesys.json`, so it never ran on the one TwinCAT
+ * project and nothing went red (openspec lsp-quick-fixes 0.1; fixed or filed in 2.4).
+ */
+const CORPUS_DIVERGENCES: Readonly<Record<string, { folder: string; reason: string }>> = {
+  "twincat-project14": { folder: "References", reason: "isLibraryUri does not know TwinCAT's `References` library folder (openspec lsp-quick-fixes 2.4)" },
+}
+
 describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
   for (const project of projectDirs()) {
     const dir = join(CORPUS, project)
-    const recPath = join(dir, "expected-build.codesys.json")
+    // The project's OWN vendor and recording. This read `expected-build.codesys.json` only, so twincat-project14 was
+    // never gated (CODESYS-only gate, openspec lsp-quick-fixes 0.1).
+    const vendor = corpusVendor(dir)
+    const recPath = join(dir, `expected-build.${vendor}.json`)
     const has = existsSync(recPath)
 
-    test.skipIf(!has)(`${project}: every LSP error and warning is a real CODESYS build diagnostic`, () => {
+    test.skipIf(!has)(`${project}: every LSP error and warning is a real ${vendor} build diagnostic`, () => {
       const rec = JSON.parse(readFileSync(recPath, "utf8")) as BuildRecording
       const buildMsgs = rec.diagnostics.map((d) => d.message)
       // A TRUNCATED recording is reported, not thrown. `build-conformance.test.ts` threw here — and that is right
@@ -58,7 +75,8 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
           `  [corpus]   ${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) to gate warnings here.`,
         )
 
-      const ours = projectDocuments(dir, "codesys")
+      const docs = projectDocuments(dir, vendor)
+      const ours = docs
         .flatMap((d) => d.diagnostics)
         .filter((d) => d.severity === DiagnosticSeverity.Error || d.severity === DiagnosticSeverity.Warning)
         .map((d) => d.message)
@@ -68,7 +86,7 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
       // errors. Reported either way, because the list of warnings still to implement is the actionable half.
       const buildWarnings = new Set(rec.diagnostics.filter((d) => d.severity === "warning").map((d) => norm(d.message)))
       const ourWarnings = new Set(
-        projectDocuments(dir, "codesys")
+        docs
           .flatMap((d) => d.diagnostics)
           .filter((d) => d.severity === DiagnosticSeverity.Warning)
           .map((d) => norm(d.message)),
@@ -92,14 +110,22 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
       // one wins. It changes nothing today — awa-palletizer is the only build-failed project and the LSP emits
       // no warning on it — but the unsound version fails falsely the first time that stops being true.
       const complete = !buildFailed && !isTruncated(buildMsgs)
-      const gated = complete
-        ? ours
-        : projectDocuments(dir, "codesys")
-            .flatMap((d) => d.diagnostics)
-            .filter((d) => d.severity === DiagnosticSeverity.Error)
-            .map((d) => d.message)
+      const gatedSeverities: readonly DiagnosticSeverity[] = complete ? [DiagnosticSeverity.Error, DiagnosticSeverity.Warning] : [DiagnosticSeverity.Error]
       if (!complete) console.log(`  [corpus]   warning FPs UNCONFIRMED here — the build is an incomplete oracle`)
-      expect(buildFalsePositives(gated, buildMsgs)).toEqual([])
+      const mark = CORPUS_DIVERGENCES[project]
+      if (mark === undefined) {
+        const gated = docs.flatMap((d) => d.diagnostics).filter((d) => gatedSeverities.includes(d.severity!)).map((d) => d.message)
+        expect(buildFalsePositives(gated, buildMsgs)).toEqual([])
+        return
+      }
+      // A marked project: every false positive must sit under the named folder, and there must still be one.
+      const inFolder = (uri: string) => uri.replace(/%20/g, " ").slice(dir.length).split(/[\\/]/).includes(mark.folder)
+      const fps = docs.flatMap(({ uri, diagnostics }) =>
+        buildFalsePositives(diagnostics.filter((d) => gatedSeverities.includes(d.severity!)).map((d) => d.message), buildMsgs).map((m) => ({ uri, m })),
+      )
+      console.log(`  [corpus]   ${project}: KNOWN divergence — ${fps.length} false positives (${mark.reason})`)
+      expect(fps.filter((f) => !inFolder(f.uri)).map((f) => `${f.uri.slice(dir.length)}: ${f.m}`)).toEqual([])
+      if (fps.length === 0) throw new Error(`${project} now matches its ${vendor} build — remove its CORPUS_DIVERGENCES mark (${mark.reason})`)
     }, CORPUS_TIMEOUT)
   }
 
