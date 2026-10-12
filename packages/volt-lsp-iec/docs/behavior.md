@@ -145,7 +145,7 @@ The server SHALL cross-index the whole workspace so that types declared in unope
 
 ### Requirement: The workspace index stays fresh on file changes
 
-The server SHALL declare and handle `workspace/didChangeWatchedFiles` for kind-named source files and for the reference files it crawls (`.library`, `.device`, `.task`). On a create, change, or delete of a watched file, the server SHALL re-index so that subsequent queries reflect the new on-disk state without requiring the affected file to be opened, and SHALL invalidate any cached project scope. The reference-name crawl (library namespaces, device instance names, task program roots) SHALL be re-runnable on these events, not performed only at `initialize`.
+The server SHALL declare and handle `workspace/didChangeWatchedFiles` for kind-named source files and for the reference files it crawls (`.library`, `.device`, `.task`, `.projectsettings`), and for folders (create/delete). On a create, change, or delete of a watched file, the server SHALL re-index that file alone (a reference file or a directory event re-scans the references) so that subsequent queries reflect the new on-disk state without requiring the affected file to be opened, and SHALL invalidate any cached project scope. The reference-name crawl (library namespaces, device instance names, task program roots) SHALL be re-runnable on these events, not performed only at `initialize`.
 
 #### Scenario: A newly added source file becomes resolvable without opening it
 - **WHEN** a new `.dut` file is added on disk (e.g. by `volt pull`) and a watched-files change event is delivered
@@ -166,8 +166,9 @@ project symbol table incrementally (unbind the file's old scopes/symbols by URI,
 `EXTENDS`) and memoizes each file's dead-code inputs (the identifier scan) by document identity, re-scanning
 only the edited file. The incrementally-maintained project scope SHALL be identical to a from-scratch rebuild
 of the merged document set (same resolvable content; same-name items collapse last-write-wins, per the
-protocol invariant). A wholesale disk reseed (`initialize`, watched-file events) MAY rebuild from scratch —
-that is not the per-keystroke path. Per-edit diagnostics + go-to-definition latency SHALL stay within a
+protocol invariant). Only the crawl at `initialize` reseeds the disk layer wholesale; a watched-file event
+re-parses only the files it names (a batch rebound together, one relink), and only a reference file or a
+directory event re-scans the references (openspec lsp-server-scheduling). Per-edit diagnostics + go-to-definition latency SHALL stay within a
 documented budget; a request over budget is a defect to root-cause, not a threshold to raise.
 
 #### Scenario: An edit does not rebuild the world

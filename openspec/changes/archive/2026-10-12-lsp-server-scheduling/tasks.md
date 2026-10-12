@@ -230,5 +230,43 @@
 
 ## 3. Verify and close
 
-- [ ] 3.1 The bench after (same measures as 0.1); `docs/architecture.md` layer G; typecheck, lint, full suite cold green;
+- [x] 3.1 The bench after (same measures as 0.1); `docs/architecture.md` layer G; typecheck, lint, full suite cold green;
       archive.
+      **Bench fix first (measure-only):** the first run read `0` disk parses at the crawl and at the save — the bench
+      counted `seedDisk`, which a watched save no longer calls (it upserts), and timed the crawl to the first hover,
+      which no longer waits for it (the crawl now runs after the awaited progress create). The counter now wraps the
+      store's one parse site (`parseOrQuarantine`, disk layer) and the crawl is timed to the progress `end`.
+      **After, 2026-10-12** (`bun run scripts/bench-server.ts`):
+
+      | measure | pro2193 before → after | lenze-mid before → after |
+      |---|---|---|
+      | crawl (→ indexed) | 2242 ms / 7759 parsed → 2668 ms / 7759 | 1772 ms / 7599 → 2342 ms / 7599 |
+      | one workspace pass (first, cold) | 3438 ms → 3126 ms, 7759 `full` | 635 ms → 633 ms, 7599 `full` |
+      | 10 idle pulls | 23210 ms (6.8 passes), 0 `unchanged` → **471 ms (0.2 passes, p50 36 ms), 77590 `unchanged`** | 3773 ms, 0 → **332 ms (p50 29 ms), 75990 `unchanged`** |
+      | idle busy share at a 2 s re-pull | 54 % → 2 % | 16 % → 1 % |
+      | one save: disk entries re-parsed | 7759 → **1** | 7599 → **1** |
+      | one save: loop blocked | 2098 ms → 27 ms | 1759 ms → 26 ms |
+      | one save: re-pull / save → fresh | 2760 / 4858 ms → 2406 / 2433 ms | 620 / 2378 ms → 440 / 466 ms |
+      | hover behind a workspace pull | 2362 ms → 31 ms | 403 ms → 27 ms |
+      | progress | `["end","begin"]` → `["begin","end"]` | same |
+
+      Both targets met: 10 idle pulls ≈ 0.2 of one pass, all `unchanged`; a save re-parses exactly 1. The re-pull after
+      a save still recomputes every document (a generation move invalidates every cached finding — no dependency graph,
+      design.md), but answers `unchanged` for every one whose findings did not move. The crawl's ~0.4 s more is the
+      awaited progress create plus run noise, not parsing (same count).
+      **Docs:** `docs/architecture.md` layer G (the store's per-file disk sync and quarantine, the lifecycle gate, the
+      exit seam, cancellation, the `DiagnosticsPublisher`, the conversion-only `document-diagnostics`, the numbers),
+      its stack and tree lines and duplication table; `docs/behavior.md` (a watched event re-indexes that file alone;
+      `.projectsettings` and folders watched); `README.md` package map. `test/README.md`, `TESTING.md` and
+      `scripts/README.md` were updated by steps 1–2.
+      **Final review (SPEC and LAYERING lenses, the whole change):** spec — every requirement and scenario has its
+      test (idle pulls `unchanged`; a save re-parses one; a cancelled pull is never computed; a throwing parse is
+      logged, the server keeps serving, the project is rebuilt without it, the file reports one `not-analysed`).
+      Layering — `check-layering.ts` clean; the domain composition and the manifest and missing-language texts are in
+      `analysis/`; the server keeps the LSP conversion. One judgement recorded, not changed: the `not-analysed` text
+      stays in `server/diagnostics-publisher.ts` — it reports the SERVER's failure to read a file (it points at the
+      server's log), not a finding about the program, so it is no `analysis/messages` text. No finding to fix.
+      Gate: typecheck clean; `bun run lint` exit 0 (warnings only); `openspec validate` clean; full suite COLD
+      `VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1 bun test` (VOLT_FIXTURES unset) 9673 pass, 35 skip, 421 todo, 0 fail — 10129
+      tests across 356 files, 1137 s (= gate 2b's counts; no test added in 3.1). No fixture or transpiler change, so no
+      map regeneration.

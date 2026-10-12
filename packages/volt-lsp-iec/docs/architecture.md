@@ -28,8 +28,8 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ## The stack
 
 ```
-G  server        LSP 3.17 / stdio · dispatch · capabilities · push+pull diagnostics · progress
-W  workspace     WorkspaceStore (eager index + watched-file freshness) · the workspace scan · source extensions · binding
+G  server        LSP 3.17 / stdio · dispatch · capabilities · lifecycle · push|pull diagnostics (resultIds) · progress · watched-file batches
+W  workspace     WorkspaceStore (eager index, per-file disk sync, quarantine) · the workspace scan · source extensions · binding
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -92,8 +92,8 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     network/  the services over a network-text body, and the references, highlight and rename that span both languages
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
-  workspace/  the WorkspaceStore (documents and the incremental index), the workspace scan, the writable-source extension set, the binding's vendor
-  server/  G — LSP 3.17 over stdio, push+pull diagnostics, the process environment (config.ts), the vendor (vendor.ts), and the CLI entry bin.ts
+  workspace/  the WorkspaceStore (documents, the incremental index, per-file disk sync, the quarantine), the workspace scan, the writable-source extension set, the binding's vendor
+  server/  G — LSP 3.17 over stdio, the DiagnosticsPublisher (push or pull, resultIds), watched-file batches and the fs.watch fallback, the process environment (config.ts), the vendor (vendor.ts), and the CLI entry bin.ts
     handlers/  one file per request group, registered over the one ServerState (state.ts): lifecycle, documents, diagnostics, navigation, assist, structure, formatting
   transpile/  the Rust backend — it consumes the front-end only
     emit/  the printers of the IR
@@ -301,20 +301,47 @@ crawled: the first bound workspace folder's binding (`workspace/binding.ts`), el
 name — never a guessed dialect; a flag that contradicts the binding is refused naming both. Thin handlers over the layers
 below; the documents live in the workspace layer:
 - `workspace/workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
-  URI (open buffer wins), a `(uri, version)` parse cache, the memoized project symbol table, and the
-  reference-crawl state. Backs the eager whole-workspace index (crawled on `initialized`) and stays fresh via
-  `workspace/didChangeWatchedFiles` (freshness comes from watched-file events, **not** file-operation events —
-  those are out of scope; one item per file makes a rename just a delete+create the watcher already reports).
-- `server` — `runServer`: the capabilities, and one `ServerState` (`state.ts`: the store, the vendor and root decided, what
-  the client supports, the semantic-token cache, and what several groups run over it — the crawl with its work-done
-  progress, the diagnostics push, refresh-after-reindex, the live configuration) over which it registers the handler
-  groups, one file per request group under `handlers/`: `lifecycle` (initialize, initialized — the crawl and the file
-  watcher's registration —, shutdown, exit, configuration), `documents` (open, incremental sync, save, close, watched-file events), `diagnostics` (pull), `navigation`, `assist`, `structure` (symbols,
-  folding, selection, semantic tokens full · range · delta) and `formatting`. A handler group reads the vendor from the
-  state and decides nothing.
-- `diagnostics` — the one `documentDiagnostics(store, doc)` compute shared by the **push** transport
-  (`publishDiagnostics` on open/change) and the **pull** transport (`textDocument/diagnostic` ·
-  `workspace/diagnostic`), so the two can never diverge; it suppresses findings on dead code (the store's dead set from `analysis/reachability`).
+  URI (open buffer wins; `document-key`), a `(uri, version)` parse cache, the memoized project symbol table
+  (`project-build`), the dead-code cache (`dead-code-cache`), the reference state, and a `generation` bumped only when
+  what analysis sees moves (the merged text, the refs, the task roots, the config). The disk layer is crawled ONCE, at
+  `initialized` (`seedDisk`); after that it changes ONE FILE AT A TIME (`upsertDisk` / `deleteDisk` / `deleteDiskUnder`,
+  a watched batch's files rebound together with one relink in `diskBatch`), and only a reference file (`.library`,
+  `.device`, `.task`, `.projectsettings`) or a directory event re-scans the references (`workspace-refs`
+  `scanWorkspaceRefs`, which reads no source; `setRefs`). A document whose parse or bind throws is **quarantined**
+  (`quarantine`, one per layer): out of the merged set until its content changes, the project rebuilt without it,
+  logged by name, and reported as one `not-analysed` error — never a clean report. Freshness comes from
+  `workspace/didChangeWatchedFiles` (**not** file-operation events — one item per file makes a rename a delete+create
+  the watcher already reports); a client that cannot register a watcher gets the server's own recursive `fs.watch`
+  (`server/file-watch`), fed through the same batch.
+- `server` — `runServer(input, output, flag, version, exit)`: the capabilities, and one `ServerState` (`state.ts`: the
+  store, the vendor and root decided, what the client supports, the semantic-token cache, the `Logger` to
+  `window/logMessage`, and what several groups run over it — the crawl behind an awaited, bounded (2 s) progress create
+  so `begin` precedes `end`, the reference re-scan, the live configuration, the lifecycle gate every handler is
+  registered through (-32002 before `initialize`, -32600 after `shutdown`, notifications dropped), and the one way the
+  process ends: the `exit` notification, a closed connection and the 3 s `processId` watchdog all call the `exit` seam
+  `bin.ts` passes as `process.exit`). Requests cancelled before dispatch answer -32800 and are never computed
+  (`cancelUndispatched`). The handler groups, one file per request group under `handlers/`: `lifecycle` (initialize,
+  initialized — the crawl and the watchers' registration, `**/*` Create|Delete for folders beside the extension globs —,
+  shutdown, exit, configuration), `documents` (open, incremental sync, save, close, and watched-file batches through
+  `disk-sync` `applyWatchedChanges`: delete only on a fact, an unreadable file kept and re-read next batch, a folder
+  matched at its boundary, ONE refresh set per batch and none when nothing moved), `diagnostics` (pull), `navigation`,
+  `assist`, `structure` (symbols, folding, selection, semantic tokens full · range · delta) and `formatting`. A handler
+  group reads the vendor from the state and decides nothing.
+- `diagnostics-publisher` — the **DiagnosticsPublisher**, the one owner of how diagnostics reach a client: push
+  (`publishDiagnostics`) OR pull (`textDocument/diagnostic` · `workspace/diagnostic`), never both; the `indexed` gate
+  (before the crawl a pull answers `full []` with no resultId); each URI's findings cached at the store generation, so
+  a pull at an unchanged generation computes nothing; a `resultId` = the sha1 of the findings, so after a change only
+  the documents whose findings moved answer `full` and the rest `unchanged`; the open buffer's `version` on every
+  report and push; the manifest warnings beside the documents. In push mode a change re-publishes the other open
+  documents and the manifests only when their findings moved.
+- `document-diagnostics` — the LSP conversion only: `documentDiagnostics(store, doc)` reads the store's inputs and
+  converts `analysis` `documentFindings` (the library gate, the dead-code and unstated-body quiet, the missing-language
+  finding — composed in `analysis/pipeline/document`); `libraryManifestDiagnostics` converts the manifests' warnings
+  (`analysis/checks/workspace/materialization`). Push and pull share it, so the two can never diverge.
+
+Measured (`scripts/bench-server.ts`, openspec lsp-server-scheduling 0.1 → 3.1, pro2193 7759 files): 10 idle workspace
+pulls 23 s (every one a full recompute) → 0.47 s, all reports `unchanged`; one save re-parses 1 file, not 7759, and
+blocks the loop 27 ms, not ~2.1 s; a hover behind a workspace pull waits 31 ms, not 2.4 s.
 
 Every advertised capability has a registered handler — an invariant guarded by a capability↔handler parity test
 in `server/server.test.ts`.
@@ -685,7 +712,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Symbol-kind labels | `services/shared/symbol-kinds` (one `humanKind`) |
 | Document → findings (library gate, dead-code and unstated-body quiet, missing language) | `analysis/pipeline/document` `documentFindings` |
 | Findings → LSP diagnostics; push vs pull, resultIds, versions | `server/document-diagnostics` (the conversion) · `server/diagnostics-publisher` `DiagnosticsPublisher` |
-| Live document + project state (open/disk layers, parse cache, eager index) | `workspace/workspace-store` `WorkspaceStore` |
+| Live document + project state (open/disk layers, parse cache, eager index, per-file disk sync, quarantine) | `workspace/workspace-store` `WorkspaceStore` |
 | Built-in and pragma hover text (types/operators/conversions/pragmas/…) | `services/assist/builtin-hover` |
 | Dead-code reachability | `analysis/reachability` |
 

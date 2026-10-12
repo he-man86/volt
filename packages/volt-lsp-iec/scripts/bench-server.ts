@@ -4,7 +4,7 @@
  * `runServer` over two in-process pipes as a VS Code-like client (pull + workspace pull + refresh + dynamic watchers +
  * progress) with the project as its root, and measures the SCHEDULING the protocol layer adds:
  *
- *   crawl            `initialized` → the first request answered (the eager crawl blocks the loop)
+ *   crawl            `initialized` → the indexing progress `end`, then one hover answered
  *   workspace pass   one `workspace/diagnostic`
  *   10 idle pulls    ten back-to-back `workspace/diagnostic` with nothing changed (an idle editor re-pulls forever)
  *   save             Ctrl+S on ONE file whose content REALLY changed: a comment line is appended, sent as didChange,
@@ -21,7 +21,10 @@
  * `unchanged` whatever the server does. The project is COPIED to a temp dir first — the save writes to disk, and the
  * corpus is tracked.
  *
- * Counts re-parses by wrapping `WorkspaceStore.prototype.seedDisk` (the disk layer's only parse site) — no product hook.
+ * Counts disk parses by wrapping the store's one parse site, `WorkspaceStore.prototype.parseOrQuarantine`, for the disk
+ * layer — the crawl's `seedDisk` and a watched event's `upsertDisk` both go through it (3.1: the bench first wrapped
+ * `seedDisk`, which a watched save no longer calls, and read 0). No product hook. The crawl is timed to the progress
+ * `end` (the crawl now runs after the awaited progress create, so the first hover no longer waits for it).
  */
 import { PassThrough } from "node:stream"
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
@@ -59,11 +62,14 @@ const IDLE_PULLS = 10
 /** What VS Code (vscode-languageclient 10) advertises for the parts this server reads — the scheduling suites' client too. */
 const VSCODE_CAPS = CAPS.vscode
 
-let seeded = 0 // disk entries parsed by seedDisk since the last reset
-const realSeed = WorkspaceStore.prototype.seedDisk
-WorkspaceStore.prototype.seedDisk = function (files) {
-  seeded += files.length
-  return realSeed.call(this, files)
+let seeded = 0 // disk-layer parses since the last reset
+type ParseSite = (key: string, uri: string, source: string, layer: "open" | "disk") => unknown
+const proto = WorkspaceStore.prototype as unknown as { parseOrQuarantine: ParseSite }
+const realParse = proto.parseOrQuarantine
+if (typeof realParse !== "function") throw new Error("bench: WorkspaceStore has no parseOrQuarantine — re-point the counter")
+proto.parseOrQuarantine = function (this: unknown, key, uri, source, layer) {
+  if (layer === "disk") seeded++
+  return realParse.call(this, key, uri, source, layer)
 }
 
 function walk(dir: string): string[] {
@@ -104,10 +110,12 @@ async function benchAt(name: string, root: string): Promise<void> {
   const progress: string[] = []
   let refreshes = 0
   let onRefresh: (() => void) | undefined
+  let onIndexed: (() => void) | undefined
   client.onRequest(RegistrationRequest.type, () => {})
   client.onRequest(WorkDoneProgressCreateRequest.type, () => {})
   client.onProgress(WorkDoneProgress.type, "volt-index-1", (v) => {
     progress.push(v.kind)
+    if (v.kind === "end") onIndexed?.()
   })
   client.onRequest(DiagnosticRefreshRequest.type, () => {
     refreshes++
@@ -148,8 +156,13 @@ async function benchAt(name: string, root: string): Promise<void> {
     capabilities: VSCODE_CAPS,
   })
   seeded = 0
+  const indexed = new Promise<void>((res) => (onIndexed = res))
   let t = performance.now()
   await client.sendNotification(InitializedNotification.type, {})
+  await Promise.race([
+    indexed,
+    new Promise((_, rej) => setTimeout(() => rej(new Error("no progress end within 60 s")), 60_000)),
+  ])
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri, languageId: "iecst", version: 1, text: target.src },
   })
@@ -215,7 +228,7 @@ async function benchAt(name: string, root: string): Promise<void> {
   const sorted = [...idle].sort((a, b) => a - b)
   console.log(`\n== ${name}: ${files.length} source files; target ${target.p.slice(root.length + 1)} ==`)
   console.log(
-    `crawl (initialized → first answer) ${f(crawl)}   disk entries parsed ${crawlParsed}   progress ${JSON.stringify(progress)}`,
+    `crawl (initialized → indexed+hover) ${f(crawl)}   disk entries parsed ${crawlParsed}   progress ${JSON.stringify(progress)}`,
   )
   console.log(`workspace pass                     ${f(pass)}   reports ${reports} (full ${full})`)
   console.log(
