@@ -207,3 +207,36 @@ premise — fix the test before commit). A behaviour the wholesale re-crawl or t
 that 2.x could lose (an event kind `reindex` heals, a push-mode re-push, the pre-crawl `Full []`, a dropped
 pre-`initialize` notification, the bounded progress create), is a PLAIN pin, green today. tasks.md 1.1–1.3 list which
 is which. Each 2.x step removes the marks it turns green.
+
+## Build (step 2)
+
+**Target:** every `.failing` mark in `test/lsp/{diagnostics-pull,disk-sync,server-robustness}.test.ts` (6 + 7 + 10)
+removed by the step that builds its behaviour, the gate-0b/1 pins still green, conformance byte-identical. The design
+of each piece is section 0.2 above; this section only fixes HOW it lands.
+
+**Choice: five commits in task order 2.1 → 2.5, each removing exactly the marks it turns green.**
+- 2.1 publisher + `WorkspaceStore.generation` + versions → the six pull/version marks and "push mode: an edit
+  re-publishes the other open documents". 2.2 `upsertDisk`/`deleteDisk`/`scanWorkspaceRefs`/`setRefs` + the `**/*`
+  watcher → the other six disk-sync marks (the push no-op re-publish needs 2.1's resultId skip, which is why 2.1 is
+  first). 2.3 → all ten robustness marks; its first commit content is the `exit`-notification test (refused in step 1),
+  and `harness.ts`'s `@ts-expect-error` goes in the same commit. 2.4 → no mark (pins only; the compute probe moves to
+  the barrel export that composes a document). 2.5 → its own new tests (fs.watch upsert/delete/rename, coalescing).
+- Decided by: `documentDiagnostics` has exactly two callers today (`state.ts:141`, `handlers/diagnostics.ts`), and
+  after 2.1 one (the publisher) — so 2.4's move costs one call site whatever the order, and the order with the fewest
+  cross-step dependencies is the task order. Quarantine (2.3) wraps `upsertDisk`, so it follows 2.2.
+- Rejected: one commit for all of step 2 (a red gate cannot say which piece broke; marks cannot be attributed).
+- Rejected: 2.4 first (no saving — one call site either way — and it moves code the publisher then rewrites).
+- Rejected: building 2.2 before 2.1 (the push-mode "re-publishes nothing unchanged" test needs the publisher's
+  resultId skip; it would need a throw-away re-push in `state.ts`).
+- Each step runs its targeted tests (`bun test ./test/lsp ./src/server ./src/workspace`, plus `./src/analysis` in 2.4
+  and the conformance fixtures it touches); only the gate runs the full suite.
+
+**Refused by name (unchanged from 0.2):** a server debounce timer; per-file dependency tracking; a yielding/chunked
+workspace pass; "unreadable counts as deleted"; keeping a last-good parse for a quarantined file; quieting findings
+that might depend on a quarantined file; `process.exit` inside the server; dynamic workspace folders; any test seam or
+counter in product code (probes stay `mock.module`).
+
+**Migration:** `state.pushDiagnostics`/`pushManifestDiagnostics`, the close-handler clear and both pull handlers call
+the publisher (2.1); `reindex` per watched event is deleted, `seedDisk` stays the crawl (2.2); `lifecycle.ts`'s
+`process.exit(0)` becomes the seam (2.3); `src/server/document-diagnostics.ts` shrinks to `toLspDiagnostic` and its
+test file moves with the composition to `analysis/` (2.4); layer G docs wait for 3.1.
