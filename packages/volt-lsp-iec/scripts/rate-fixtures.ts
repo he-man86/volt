@@ -49,7 +49,7 @@
 // (bunfig.toml), so every rating the gate recomputes sees LD and FBD network text ON; a generator that did not load it
 // rated the thirteen network fixtures with the switch OFF — `lsp-gap` where the gate says `refused` — and wrote a map
 // its own gate rejected, unless whoever ran it remembered to set VOLT_GRAPHICAL=1 by hand.
-import "../test/network-text-on.js"
+import "../test/support/network-text-on.js"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"

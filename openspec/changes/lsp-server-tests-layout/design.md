@@ -33,3 +33,22 @@ the gate exempts it, as the test-support gate does.
 
 Choice: a finding-named file merged into a handler's test keeps its finding as a `describe` around its tests (with its
 header comment inside), so its constants stay its own and the finding stays readable in the test name.
+
+## 2. Widened (measured 2026-10-12)
+
+| was | now |
+|---|---|
+| `services/services.test.ts` (through the barrel) | split by feature: `assist/hover.test.ts`, `assist/completion.test.ts`, `structure/document-symbol.test.ts`, each a `describe("through the services barrel")` |
+| `services/accessor-scope.test.ts` | `services/shared/resolve-at.test.ts` (the accessor scope is `resolveAt`/`scopeAtOffset`'s) |
+| `assist/assist.test.ts` | split by file: `hover`, `completion`, `signature-help`, `inlay-hints`, `code-lens`, `code-actions` `.test.ts` |
+| `assist/gvl-members.test.ts`, `assist/interface-members.test.ts` | `completion.test.ts` / `hover.test.ts` / `signature-help.test.ts`, each a `describe` naming the topic (P1) |
+| `navigation/references-type-positions.test.ts` | `navigation/references.test.ts` |
+| `structure/structure.test.ts` | split by file: `document-symbol`, `folding`, `selection`, `semantic-tokens` `.test.ts` ("folding and selection reach every conditional branch" in `folding`) |
+| `structure/semantic-tokens-primitives.test.ts` | `structure/semantic-tokens.test.ts` |
+| `structure/implementation-keyword-structure.test.ts` | `semantic-tokens.test.ts` + `folding.test.ts`, a `describe("the implementation keyword")` each |
+| `workspace/dead-code-cache.test.ts`, `incremental-index.test.ts` | `workspace/workspace-store.test.ts`, a `describe` each |
+| `test/network-text-on.ts` | `test/support/network-text-on.ts` (bunfig, `rate-fixtures.ts`, `transpile-snapshot.ts` re-pointed) |
+
+263 tests in `services/` + `workspace/` before and after. The network-text tests the proposal counted as 4 are 5:
+`services/network/{network,network-real-shapes,highlight-network-text}`, `structure/folding-network-text` and
+`frontend/types/network/network-implementation-line` — all five listed in the gate with the reason, untouched.

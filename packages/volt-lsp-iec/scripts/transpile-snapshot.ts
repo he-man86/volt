@@ -18,7 +18,7 @@
  * source.
  */
 // the environment the suite and `rate:fixtures` rate under (LD and FBD network text ON) — before anything reaches the LSP
-import "../test/network-text-on.js"
+import "../test/support/network-text-on.js"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"

@@ -135,7 +135,7 @@ test/  what crosses modules, one folder per concern (map: test/README.md)
   libraries/  the library repo's ST bodies, run
   lsp/  the server as a client sees it: the black-box protocol suites, and the LSP test client (harness.ts) every server test drives
   package/  the package's own shape: the build compiles, the layering, this tree
-  support/  test support colocated tests read: the URI a test names a source by
+  support/  test support colocated tests read: the URI a test names a source by, the preload that turns network text on
 libraries/  the library repo: referenced libraries' elements in ST, per version, for the transpiler
 scripts/  dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
 docs/  this file, behavior.md, data-model.md, language-reference.md, the vendor references

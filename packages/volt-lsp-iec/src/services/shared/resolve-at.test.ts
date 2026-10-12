@@ -1,6 +1,7 @@
 /**
- * Cursor features inside a property ACCESSOR body resolve against the accessor's own scope (consolidate-lsp-structure A5),
- * and inlay hints read a callee's parameters the way every other feature does (A6).
+ * The cursor's scope (`resolve-at.ts` `resolveAt`, `scopeAtOffset`), as every feature that reads it sees it: cursor
+ * features inside a property ACCESSOR body resolve against the accessor's own scope
+ * (consolidate-lsp-structure A5), and inlay hints read a callee's parameters the way every other feature does (A6).
  *
  * Why these were broken: `symbols/scoped-bodies` pairs a GET/SET body with its own child scope, but go-to-definition,
  * signature help and inlay hints each re-walked the bodies with the UNIT scope — so a local declared inside the accessor
@@ -8,13 +9,13 @@
  * a function-block INSTANCE (and its inherited inputs) does not have.
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../frontend/syntax/index.js"
-import { resolveAt, scopeAtOffset } from "./shared/resolve-at.js"
-import { signatureHelp } from "./assist/signature-help.js"
-import { inlayHints } from "./assist/inlay-hints.js"
-import { completion } from "./assist/completion.js"
-import { build, lookup } from "../frontend/symbols/index.js"
-import type { Document } from "./shared/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
+import { resolveAt, scopeAtOffset } from "./resolve-at.js"
+import { signatureHelp } from "../assist/signature-help.js"
+import { inlayHints } from "../assist/inlay-hints.js"
+import { completion } from "../assist/completion.js"
+import { build, lookup } from "../../frontend/symbols/index.js"
+import type { Document } from "./index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src, { networkText: true }, "codesys")

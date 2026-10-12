@@ -9,8 +9,9 @@
  * borrows that scanner (`importGraph`), so the package has one.
  *
  * A colocated test is named after the source file beside it (openspec lsp-server-tests-layout): every `src/server/` and
- * `handlers/` source file has its own `<name>.test.ts`, and no test there is named after anything else — a finding, a
- * topic, a mechanism. The suites that drive the whole server over its protocol live under `test/lsp/`.
+ * `handlers/` source file has its own `<name>.test.ts`, and no test under `src/` is named after anything else — a finding,
+ * a topic, a mechanism — but the topic suites listed with their reason (`TOPIC_SUITES`). The suites that drive the whole
+ * server over its protocol live under `test/lsp/`.
  *
  * Data trees are one entry each: the fixtures and recordings under `test/conformance/` are grouped by concern and mapped
  * by `fixtures/map.generated.ts`, so their sub-folders are not listed; a dot-folder (`.snapshot/`) is a local cache.
@@ -251,9 +252,32 @@ export function untestedSources(pkg: string, dir: string): string[] {
   return out
 }
 
-test("every src/server/ and handlers/ source file has its own test, and every test there is named after a source file beside it", () => {
+const PIPELINE = "the end-to-end pipeline for one subject, source to run, over the whole backend — no one file of it"
+const NETWORK_TEXT = "network text: its tests are laid out with the change that supports every LD/FBD shape, not before"
+/**
+ * The colocated tests named after a TOPIC, on purpose (openspec lsp-server-tests-layout 2.4): each asks a question of a
+ * whole folder, not of one file beside it.
+ */
+const TOPIC_SUITES: ReadonlyMap<string, string> = new Map([
+  ...["aggregates", "arith", "calls", "control", "pointers", "strings", "time"].map(
+    (s): [string, string] => [`src/transpile/pipeline/${s}.test.ts`, PIPELINE],
+  ),
+  ["src/frontend/syntax/parse/fuzz.test.ts", "the parser never throws: a mutation sweep over the whole parser"],
+  ["src/transpile/lower/entry/totality.test.ts", "lowering is total: a property of all of lower/, never one file of it"],
+  ["src/transpile/lower/diagnostics/classification.test.ts", "every refusal code names one kind of thing: the codes' split, over all of lower/"],
+  ["src/frontend/types/network/network-implementation-line.test.ts", NETWORK_TEXT],
+  ["src/services/network/network.test.ts", NETWORK_TEXT],
+  ["src/services/network/network-real-shapes.test.ts", NETWORK_TEXT],
+  ["src/services/network/highlight-network-text.test.ts", NETWORK_TEXT],
+  ["src/services/structure/folding-network-text.test.ts", NETWORK_TEXT],
+])
+
+test("every src/server/ and handlers/ source file has its own test", () => {
   expect(untestedSources(PACKAGE, "src/server")).toEqual([])
-  expect(misnamedTests(PACKAGE, "src/server", new Map())).toEqual([])
+})
+
+test("every colocated test under src/ is named after a source file beside it, but the listed topic suites", () => {
+  expect(misnamedTests(PACKAGE, "src", TOPIC_SUITES)).toEqual([])
 })
 
 test("the test-layout gate fires: a source with no test, a test named after a finding, and a listed suite that is gone, are named", () => {

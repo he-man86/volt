@@ -200,7 +200,7 @@ export const RULES_F: readonly Rule[] = [
         title: "`.g` declared by two global lists names no global (expr_global_namespace_ambiguous, E33)",
       },
       {
-        file: "src/services/navigation/references-type-positions.test.ts",
+        file: "src/services/navigation/references.test.ts",
         title: "rename, references and definition see `.gv` (the global-namespace dot, E33)",
       },
     ],

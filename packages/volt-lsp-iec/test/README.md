@@ -60,8 +60,8 @@ Plus `package/` — the PACKAGE'S OWN SHAPE: the published build compiles (`buil
 rules (`layering.test.ts`, over `scripts/check-layering.ts` — the server's rule S1 among them), and the tree is
 explained and kept (`structure.test.ts`: no loose file at the top of `src/` but the barrel, no `src/` file that only
 tests import — test support lives under `test/` — every folder of `src/` and `test/` in `docs/architecture.md` "The
-tree", every script in `scripts/README.md`, and every `src/server/` file with its own test, every test there named after
-the file beside it). And `network-text-on.ts`, the preload `bunfig.toml` names.
+tree", every script in `scripts/README.md`, every `src/server/` file with its own test, and every colocated test named
+after the source file beside it but the topic suites it lists with their reason).
 
 Plus `lsp/` — THE SERVER AS A CLIENT SEES IT (openspec lsp-server-tests-layout): the suites that drive the whole server
 over its protocol and are no unit test of one file — `capability-matrix`, `diagnostic-identity`, `navigation-golden`,
@@ -71,7 +71,8 @@ over its protocol and are no unit test of one file — `capability-matrix`, `dia
 Plus the test SUPPORT that colocated tests under `src/` read (openspec lsp-same-standard 2.1: test support lives only under
 `test/`, and layering rule 6 bars only PRODUCT files from importing it): `lsp/harness.ts`, the LSP client the server's
 tests drive over two in-process pipes, with `lsp/sources.ts`, the documents and client steps those tests share;
-`support/test-uri.ts`, the URI a test names a source by; and `support/call-diagnostics.ts`, the call-argument tests'
+`support/test-uri.ts`, the URI a test names a source by; `support/network-text-on.ts`, the preload `bunfig.toml` names
+(LD and FBD network text on for every test); and `support/call-diagnostics.ts`, the call-argument tests'
 harness. The corpus's
 wire-code debt list, `KNOWN_UNMAPPED`, is `corpus/support/diagnostic-codes.ts`.
 

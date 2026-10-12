@@ -1,5 +1,5 @@
 /**
- * references/rename over TYPE positions (P0 — the rename-corruption bug). A type used only in declarations
+ * The reference set (`references.ts`), as references and rename read it: references/rename over TYPE positions (P0 — the rename-corruption bug). A type used only in declarations
  * (`inst : T`, `EXTENDS T`, `IMPLEMENTS T`, return type) must be found by references and updated by rename —
  * otherwise renaming the type silently leaves those uses stale, producing a broken project.
  */

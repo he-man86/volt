@@ -13,11 +13,11 @@
 
 ## 2. Widened: services/, workspace/, test/ root
 
-- [ ] 2.1 `services/` (not network): the 9 topic/finding-named tests merged into or renamed after the source file they
+- [x] 2.1 `services/` (not network): the 9 topic/finding-named tests merged into or renamed after the source file they
       exercise; the two loose root tests beside what they test.
-- [ ] 2.2 `workspace/`: `dead-code-cache.test` and `incremental-index.test` into `workspace-store.test.ts` (or split by the
+- [x] 2.2 `workspace/`: `dead-code-cache.test` and `incremental-index.test` into `workspace-store.test.ts` (or split by the
       source file each exercises).
-- [ ] 2.3 `test/`: `network-text-on.ts` into the support it serves; `test/server/` (harness, sources) and the black-box
+- [x] 2.3 `test/`: `network-text-on.ts` into the support it serves; `test/server/` (harness, sources) and the black-box
       suites under ONE root `test/lsp/`.
 - [ ] 2.4 The gate's rule over all of `src/`: a colocated test is named after a source file beside it, except the listed
       topic suites (transpile/pipeline ×7, fuzz, totality, classification — each with its reason) and the 4 network-text

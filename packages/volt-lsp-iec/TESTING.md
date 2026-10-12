@@ -107,7 +107,8 @@ test/
                              the barrel, no src/ file only tests import, every src/ and test/ folder in docs/architecture.md "The tree", every script
                              in scripts/README.md)
   support/                   test-uri.ts — the URI a colocated test names a source by; call-diagnostics.ts — the
-                             call-argument tests' harness (test support, no suite)
+                             call-argument tests' harness; network-text-on.ts — the preload bunfig.toml names (test
+                             support, no suite)
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

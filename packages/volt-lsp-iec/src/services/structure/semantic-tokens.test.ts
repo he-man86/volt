@@ -1,11 +1,14 @@
 /**
- * semantic-tokens: elementary type names (P2). `INT`/`BOOL`/… are not in the symbol table, so the classifier
- * fell through to `variable` — mis-coloring a type name as a variable on every file. They should be `type`.
+ * Semantic tokens (`semantic-tokens.ts`): 5-int tuples with valid type indices; an elementary type name colours as
+ * `type`, not `variable` (P2), only in a dialect that has it; network-text structure words, operands and wires; a
+ * declared name over the keyword list; comments line by line; and the implementation keyword line.
  */
-import { test, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { build } from "../../frontend/symbols/index.js"
 import { semanticTokensData, SEMANTIC_TOKEN_TYPES } from "./semantic-tokens.js"
+import { semanticTokens } from "./index.js"
+import type { Document } from "../shared/index.js"
 
 test("an elementary type name colors as `type`, not `variable`", () => {
   const src = `FUNCTION_BLOCK FB\nVAR\n\tn : INT;\n\tb : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK`
@@ -97,7 +100,8 @@ test("semantic tokens: a wire has its own class, resolved through its network's 
     line += data[i]!
     if (data[i]! > 0) ch = 0
     ch += data[i + 1]!
-    if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "wire") wires.push(`${line}:${lines[line]!.slice(ch, ch + data[i + 2]!)}`)
+    if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "wire")
+      wires.push(`${line}:${lines[line]!.slice(ch, ch + data[i + 2]!)}`)
   }
   expect(wires).toEqual(["6:g1", "7:g1", "8:g1", "9:g1"])
 })
@@ -171,7 +175,10 @@ test("a multi-line block comment is one comment token per line, each its own lin
   const src = `PROGRAM P\n(* one\n   two *)\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc = { uri: "file:///P.pou", source: src, parseResult }
-  const data = semanticTokensData(doc, build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys"))
+  const data = semanticTokensData(
+    doc,
+    build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys"),
+  )
   const comments: number[][] = []
   let line = 0
   let char = 0
@@ -184,4 +191,127 @@ test("a multi-line block comment is one comment token per line, each its own lin
     [1, 0, "(* one".length],
     [2, 0, "   two *)".length],
   ])
+})
+
+describe("the whole-document pass", () => {
+  function setup(src: string) {
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
+    const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
+    return { doc, project }
+  }
+
+  const SRC = `FUNCTION_BLOCK F
+VAR
+	i : INT;
+	total : INT;
+END_VAR
+FOR i := 0 TO 10 DO
+	total := total + i;
+END_FOR
+END_FUNCTION_BLOCK`
+
+  test("semantic tokens: color network-text operand text (whole-doc pass covers graphical bodies)", () => {
+    // A network text (LD) body's operands are ordinary lexer tokens, so the whole-document semantic pass colors them —
+    // no network text-specific pass needed. Guards that graphical bodies produce valid tokens over their operand region.
+    const src = `FUNCTION_BLOCK F
+VAR
+	a : BOOL; b : BOOL; out : BOOL;
+END_VAR
+IMPLEMENTATION LD
+NETWORK
+out := (a AND b);
+END_NETWORK
+END_FUNCTION_BLOCK`
+    const { doc, project } = setup(src)
+    const { data } = semanticTokens(doc, project)
+    expect(data.length % 5).toBe(0)
+    // a token lands on the `out` operand line inside the network (line index 6, 0-based)
+    let line = 0
+    const lines: number[] = []
+    for (let i = 0; i < data.length; i += 5) {
+      line += data[i]! // deltaLine is cumulative in the LSP encoding
+      lines.push(line)
+    }
+    expect(lines).toContain(6) // the `out := (a AND b);` operand line is tokenized
+  })
+
+  test("semantic tokens: emits 5-int tuples with valid type indices", () => {
+    const { doc, project } = setup(SRC)
+    const { data } = semanticTokens(doc, project)
+    expect(data.length % 5).toBe(0)
+    expect(data.length).toBeGreaterThan(0)
+    // every emitted type index is within the legend
+    for (let i = 3; i < data.length; i += 5) expect(data[i]).toBeLessThan(SEMANTIC_TOKEN_TYPES.length)
+    // an identifier bound to a variable colors as "variable"; a keyword as "keyword"
+    expect(SEMANTIC_TOKEN_TYPES).toContain("variable")
+    expect(SEMANTIC_TOKEN_TYPES).toContain("keyword")
+  })
+})
+
+describe("the implementation keyword", () => {
+  /**
+   * The implementation keyword in the structure services (openspec `implementation-keyword`): `IMPLEMENTATION` and the
+   * language it states colour as keywords, and a body stated `LD`/`FBD` folds per NETWORK like any graphical body.
+   */
+  /** `line:text → semantic type` for every token on `lines`. */
+  function typesOn(src: string, lines: readonly number[]): Record<string, string> {
+    const doc = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+    const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
+    const data = semanticTokensData(doc as never, project)
+    const text = src.split("\n")
+    const out: Record<string, string> = {}
+    let line = 0
+    let ch = 0
+    for (let i = 0; i < data.length; i += 5) {
+      line += data[i]!
+      if (data[i]! > 0) ch = 0
+      ch += data[i + 1]!
+      if (lines.includes(line))
+        out[`${line}:${text[line]!.slice(ch, ch + data[i + 2]!)}`] = SEMANTIC_TOKEN_TYPES[data[i + 3]!]!
+    }
+    return out
+  }
+
+  const ST_FB = `FUNCTION_BLOCK F
+VAR
+\tx : INT;
+END_VAR
+IMPLEMENTATION ST
+x := 1;
+END_FUNCTION_BLOCK
+`
+
+  const LD_FB = `FUNCTION_BLOCK FB_LD
+VAR
+\ta : BOOL; b : BOOL; out : BOOL;
+END_VAR
+IMPLEMENTATION LD
+NETWORK
+out := (a AND b);
+END_NETWORK
+NETWORK
+out := (a OR b);
+END_NETWORK
+END_FUNCTION_BLOCK`
+
+  test("semantic tokens: IMPLEMENTATION and its stated language colour as keywords", () => {
+    expect(typesOn(ST_FB, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:ST": "keyword" })
+    expect(typesOn(LD_FB, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:LD": "keyword" })
+    expect(typesOn(LD_FB.replace("IMPLEMENTATION LD", "IMPLEMENTATION FBD"), [4])).toEqual({
+      "4:IMPLEMENTATION": "keyword",
+      "4:FBD": "keyword",
+    })
+  })
+
+  test("semantic tokens: the body after IMPLEMENTATION ST still colours as ST", () => {
+    expect(typesOn(ST_FB, [5])["5:x"]).toBe("variable")
+  })
+
+  test("semantic tokens: an UNSUPPORTED line colours every word it states, and a look-alike in a comment none", () => {
+    const ro = ST_FB.replace("IMPLEMENTATION ST\nx := 1;", "IMPLEMENTATION LD UNSUPPORTED\n")
+    expect(typesOn(ro, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:LD": "keyword", "4:UNSUPPORTED": "keyword" })
+    const commented = ST_FB.replace("END_VAR\n", "END_VAR\n// IMPLEMENTATION LD\n")
+    expect(typesOn(commented, [4])).toEqual({ "4:// IMPLEMENTATION LD": "comment" })
+  })
 })
