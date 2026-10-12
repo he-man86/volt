@@ -37,7 +37,7 @@ function lspMessages(repro: string, extra?: { uri: string; source: string }[]): 
   })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
-  // The server surfaces unit/declaration parse errors too (`server/diagnostics.ts` pushes
+  // The server surfaces unit/declaration parse errors too (`server/document-diagnostics.ts` pushes
   // `parseResult.errors`), so the burn-in must see them — else declaration-syntax codes look unimplemented.
   return [...parseResult.errors.map((e) => e.message), ...semantic]
 }

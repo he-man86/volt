@@ -263,13 +263,13 @@ the registry, and has its test beside it (`scripts/check-layering.ts`, rules A2�
 design.md §2). Every body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each
 check traces to a conformance fixture recorded against the live compiler. Dead-code reachability — which units and
 members are dead — is an analysis of the program and lives in `reachability/` (out through `analysis/index`); the policy,
-suppressing diagnostics on dead code unless `diagnoseDeadCode`, is the server's (`server/diagnostics`).
+suppressing diagnostics on dead code unless `diagnoseDeadCode`, is the server's (`server/document-diagnostics`).
 
 The registry's ORDER is a contract (`registry.test.ts` lists it): a check that reads earlier findings says which codes
 in its entry's `reads`, and nothing else of `out` is read. `diagnostic-census.test.ts` (test/analysis) measures every
 check and message builder against both vendors' build recordings and the corpora, with ceilings that only fall.
 **Network text is NOT in the one pipeline yet** — its findings come from `checks/network/`'s own
-`computeNetworkTextDiagnostics`, outside the registry, merged by `server/diagnostics`. Making it a registry check is
+`computeNetworkTextDiagnostics`, outside the registry, merged by `server/document-diagnostics`. Making it a registry check is
 PARKED for the LD/FBD coverage change (openspec analysis-conformance design.md §3; the work list is the hand-in in the
 archived `lsp-package-structure` tasks.md).
 
@@ -682,7 +682,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Cursor → symbol resolution | `services/shared/resolve-at` |
 | Symbol → Location | `services/shared/locations` |
 | Symbol-kind labels | `services/shared/symbol-kinds` (one `humanKind`) |
-| Document → LSP diagnostics (push **and** pull) | `server/diagnostics` `documentDiagnostics` |
+| Document → LSP diagnostics (push **and** pull) | `server/document-diagnostics` `documentDiagnostics` |
 | Live document + project state (open/disk layers, parse cache, eager index) | `workspace/workspace-store` `WorkspaceStore` |
 | Built-in and pragma hover text (types/operators/conversions/pragmas/…) | `services/assist/builtin-hover` |
 | Dead-code reachability | `analysis/reachability` |

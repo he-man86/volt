@@ -10,7 +10,7 @@ import { join } from "node:path"
 import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
 import { WorkspaceStore } from "./workspace-store.js"
 import { NETWORK_TEXT_ENABLED } from "../server/config.js"
-import { documentDiagnostics } from "../server/diagnostics.js"
+import { documentDiagnostics } from "../server/document-diagnostics.js"
 import { resolveConfig } from "../analysis/index.js"
 
 let root: string

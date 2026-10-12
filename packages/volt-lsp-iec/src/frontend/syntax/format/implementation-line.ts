@@ -166,7 +166,7 @@ export type BodyOwner = "member" | "pou-or-accessor"
  * metadata, not code (`peelFolder` says exactly where). A body that opens with anything else has no line and is returned whole: the
  * parser also reads text that is no workspace file — conformance fixture ST and the library repo, which are the IDE's
  * own body text and carry no line. In a WORKSPACE file such a body states no language: the server reports it naming
- * `volt pull`, as the push refuses it, and reports nothing else in it (`server/diagnostics.ts`), so no language is
+ * `volt pull`, as the push refuses it, and reports nothing else in it (`server/document-diagnostics.ts`), so no language is
  * guessed for it there.
  *
  * Reported, each on its own line, as the push refuses the same file: code under an UNSUPPORTED line, and a second

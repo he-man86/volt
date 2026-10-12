@@ -8,7 +8,7 @@ import { test, expect } from "bun:test"
 import { resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "../workspace/workspace-store.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"
-import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
+import { documentDiagnostics, libraryManifestDiagnostics } from "./document-diagnostics.js"
 import { MATERIALIZATION } from "../frontend/library/index.js"
 
 // A library GVL that would otherwise trip array-bound-non-const (bound is a plain global, not provably const).

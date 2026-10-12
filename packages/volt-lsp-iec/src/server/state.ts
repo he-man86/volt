@@ -27,7 +27,7 @@ import type { Scope } from "../frontend/symbols/index.js"
 import { offsetFromPosition, type Document } from "../services/index.js"
 import { scanWorkspace } from "../workspace/workspace-refs.js"
 import type { WorkspaceStore } from "../workspace/workspace-store.js"
-import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
+import { documentDiagnostics, libraryManifestDiagnostics } from "./document-diagnostics.js"
 
 /** What the editor configures: everything but the vendor, which `initialize` decides. */
 export type EditorOptions = Omit<AnalysisInitOptions, "vendor">

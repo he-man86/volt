@@ -11,7 +11,7 @@ import {
   type WorkspaceDocumentDiagnosticReport,
 } from "vscode-languageserver-protocol/node"
 import { sameDocument } from "../../workspace/workspace-store.js"
-import { documentDiagnostics } from "../diagnostics.js"
+import { documentDiagnostics } from "../document-diagnostics.js"
 import type { ServerState } from "../state.js"
 
 export function registerDiagnosticHandlers(s: ServerState): void {

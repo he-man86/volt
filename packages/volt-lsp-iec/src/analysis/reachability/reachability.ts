@@ -1,6 +1,6 @@
 /**
  * Project-level dead-code detection — an analysis of the program (it reads only the front-end); the POLICY, suppressing
- * diagnostics on what it finds dead, is the server's (`server/diagnostics`). openspec lsp-same-standard 2.1 brought it
+ * diagnostics on what it finds dead, is the server's (`server/document-diagnostics`). openspec lsp-same-standard 2.1 brought it
  * back from `server/`, where analysis-conformance 1.4 had put it. A top-level POU (FUNCTION_BLOCK / FUNCTION / PROGRAM)
  * that is structurally unreachable from any PROGRAM entry point — and not kept live by a global
  * instance or interface dispatch — is "dead". When `diagnoseDeadCode` is off (the default), the

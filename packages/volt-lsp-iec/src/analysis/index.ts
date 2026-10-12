@@ -41,7 +41,7 @@ export { isStructInit } from "./checks/types/struct-init.js"
 // the network-text pass — outside the registry until the LD/FBD coverage change makes it a check (tasks.md hand-in)
 export { computeNetworkTextDiagnostics, type NetworkTextDocument } from "./checks/network/network-analysis.js"
 // dead-code reachability (openspec lsp-same-standard 2.1): which units and members are dead is an analysis of the
-// program; the policy — suppress diagnostics on dead code unless `diagnoseDeadCode` — is the server's (`server/diagnostics`)
+// program; the policy — suppress diagnostics on dead code unless `diagnoseDeadCode` — is the server's (`server/document-diagnostics`)
 export {
   deadMemberSpans,
   deadMemberSpansFromInfos,
