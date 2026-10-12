@@ -16,7 +16,13 @@
       measurement, so for this change it is applied on the fixtures instead: a fix that is NOT a one-token edit and
       whose code fires on ≤ 3 fixtures per vendor is "niche: accepted loss". Overturn by saying so; design.md names
       the one code it removes. (Restated after review: "not a one-token edit" read as "not a LOCAL edit" — design.md
-      §1; still pending the owner's approval.)
+      §1.)
+      **OWNER DECISION 2026-10-12 — overrides the niche default above:** "please fix whatever is possible, even niche
+      situations if possible — this was just so you don't have to jump all loops for very niche ones" / "but if fixable
+      then please do". So: EVERY mechanical and choice code gets its fix, however few fixtures it fires on — the code
+      design.md §1 removed included. "Niche: accepted loss" is allowed ONLY for a fix that needs disproportionate machinery
+      (a new analysis or model, not just a text edit); each such exclusion is listed by name with the reason in the close
+      report. A small fixture count is never a reason on its own.
 
       **Classes (codes · corpus · fixtures CS · TC):** mechanical 29 · 17 · 591 · 530; choice 21 · 4 · 4336 · 5521
       (of which C0002 is 2958 · 3906 and only its "expected X" subset is fixable: 97 · 91, measured by
