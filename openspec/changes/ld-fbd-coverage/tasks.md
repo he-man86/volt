@@ -145,6 +145,27 @@
           shape is added, so every shape lands once, in its place. Section 2 is renumbered accordingly.
       S4 stays refused by name ("niche: accepted loss (1 occurrence in the corpora)") as designed; S1 follows its probe.
 
+## 1b. Close every gap, future-proof (owner 2026-10-12, before the build)
+
+Owner: "we have control over the resulting code so we must make it as easy for ourself" — "this is the moment to close all
+gaps and make it futureproof". **Rule P1: network text is the NWL tree one to one for every member that is not a measured
+editor cache.** Nothing is folded or guessed ("probably inert"); a member that carries data is spelled. The census covers
+the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so a new project's shape is already decided.
+
+- [ ] 1b.1 Schema census: every class and member of the NWL object model on both vendors (the shipped DLLs' types —
+      `BoxTreeBox`, `BoxTreeOperand`, `BoxTreeAssign`, `BoxTreeDemux`, `Parallel`/`Terminator`, `Operand`, `Flags`,
+      `Network`, `OutputItemList`, `InputParam`/`OutputParam`, jumps/labels/returns, EXECUTE, every other class the DLL
+      defines), with each member's value distribution over the six corpora (all networks, both vendors). Found already:
+      the reader takes `Operand.SymbolComment` into the model and the writer never writes it; `Operand.Comment` is not read
+      at all — measure both (non-empty counts per corpus, and whether either is engineer-typed or derived from the
+      declaration). A measure, not a probe script; any vendor fact it needs is a `vendor-facts` row.
+- [ ] 1b.2 The disposition table in design.md: every member → **spelled** (its text form), **editor cache** (with the
+      measurement that it is derived and rebuilt on push), or **refused by name** (with the measurement that no push can
+      build it). No member left undecided; members with 0 corpus occurrences still get a decision. New spellings follow
+      the existing style (trees, one named node per split point) and are listed for the owner in the close report.
+- [ ] 1b.3 The completeness oracle (red first): for every corpus network on both vendors, NWL → text → NWL reproduces every
+      non-cache member exactly (an extension of `ModelRoundTripOracleTests` over the corpora); a member the table does
+      not list fails the gate by name — so a vendor adding a member in a future SP surfaces as a red test, not a silent loss.
 ## 2. Build (after 1.2)
 
 - [ ] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,
@@ -154,7 +175,7 @@
 - [ ] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
       S1's outcome), `nwl-leaf-wire-type` (decides S3a, owner amendment a), `nwl-nested-assign`, `nwl-rail-fed-wire`,
       `nwl-input-pin-flag`, `nwl-super-call`; DIALECT N-rows updated.
-- [ ] 2.3 Per shape, in the design's order (S1 per its probe, S2, S3, S6, S5), test-first: a recorded fixture on both
+- [ ] 2.3 Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
       vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
       split structure of 2.1.
 ## 3. Verify and close
