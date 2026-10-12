@@ -1,11 +1,33 @@
 ## 0. Requirements and design
 
-- [ ] 0.1 The requirements checklist: every behaviour the current installer and connector install-side provide, from
+- [x] 0.1 The requirements checklist: every behaviour the current installer and connector install-side provide, from
       the 2026-10-12 audit (proposal), each marked keep (and where it lives in the new design) or drop (with the deleted
       thing it served). Measure today's payload per component (`dist/stage`, uncompressed, and the installer size).
-- [ ] 0.2 design.md: the target from the ground up — layout, Inno sections, the `[Code]` that remains, process handling
+- [x] 0.2 design.md: the target from the ground up — layout, Inno sections, the `[Code]` that remains, process handling
       (stop own processes by their own names; wait for a running CLI, never kill it), the update verification, the
       one-release upgrade from today's layout, the size levers. Every choice states the lean alternative it beat.
+
+      **Measured 2026-10-12** (`bun scripts/measure-payload.ts`, `dist/stage` of build 09:15; MiB unless "MB"):
+      installer 208.4 MB = 198.8 MiB; unpacked 650.9 MiB / 569 files — `desktop\` 369.3 (Electron exe 234.9, `locales\`
+      48.3 of which en-US 0.6, `LICENSES.chromium.html` 19.5), `bin\` 161.0 / 199 files (`volt-lsp-iec.exe` 83.1, CLI +
+      runtime 77.8 / 198, its 4 PDBs included), connector + worker 118.9 / 289 (one runtime, all 52 satellites 8.5 inside),
+      PDBs 0.4 / 12 (4 in `bin\`, 8 connector-side 0.25),
+      `.vsix` 0.4, `codesys-scriptcommands\` 1.7. Single-file `volt.exe` (self-contained, uncompressed,
+      `SatelliteResourceLanguages=en`, no PDB) publishes to ONE 71.0 MiB file and runs (compressed: 36.1 MiB, rejected). Projected
+      after: ≈ 587.1 MiB unpacked (−63.8, each MiB counted once). Every published release asset carries a GitHub `digest` (0.1.16883 … 0.1.17512); the current
+      stable for `--older` is 0.1.16986. Findings beyond the proposal: `VoltEnv.Uninstall` kills `Volt.Cli.Beckhoff`
+      (a name no process has had since the toolchain merge); the uninstaller also kills `volt.exe` — the design extends
+      "never kill the CLI" to uninstall.
+
+      **Gate 0 review (2026-10-12):** (a) `measure-payload.ts` buckets were today's file names — a renamed
+      `desktop\VoltDesktop.exe` read `0 files` and exited 0 (reproduced red on a renamed copy of `dist/stage`). Now by
+      ROLE (components desktop / bin / connector + worker / codesys, matching both layouts; Electron exe = the largest
+      `desktop\*.exe`; satellites = any non-en `<culture>\*.resources.dll`) and it REFUSES (exit 1) an unclaimed file or
+      a required lever with 0 files; the levers the rebuild deletes (satellites, PDBs, `.vsix`) are marked and may read 0.
+      Verified on a copy re-laid to the target layout (`connector\`, `codesys\`, `VoltDesktop.exe`, an `sv\` satellite):
+      same rows, satellite counted; a stray dir + a missing desktop exe → refused by name. (b) PDBs were counted twice
+      in the projection (−64 → −63.8). (c) Units: design/proposal sizes all MiB or marked MB; the compressed single-file
+      re-measured (37.9 MB = 36.1 MiB). Typecheck green (`scripts/` tsc, `bun run typecheck`), oxlint clean.
 
 ## 1. Gate first (red)
 

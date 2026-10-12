@@ -21,7 +21,7 @@ for why it was added; dev at 44dd466bad):
   (`Programs\Volt\codesys-scriptcommands`, the flat-era path).
 - **PATH is not broadcast** (no `ChangesEnvironment=yes`): the one thing Volt publishes for agents is invisible to
   Explorer-launched shells and editors until the next logon. Uninstall strips every PATH entry containing `\programs\volt`.
-- **Size:** installer 208 MB, 653 MB unpacked — Electron 370 MB (49 MB of locales, only en-US used), two self-contained
+- **Size:** installer 208.4 MB (198.8 MiB), 650.9 MiB unpacked — Electron 369.3 MiB (48.3 MiB of locales, only en-US used), two self-contained
   .NET 10 runtimes (one of them, 199 files, dumped on PATH with `volt.exe`), WinForms satellite locales, PDBs.
 - **An unverified silent update:** the updater downloads `Setup.exe` and runs it `/VERYSILENT` with no hash check.
 - **The extension sideload** — superseded by `vscode-extension-marketplace`.

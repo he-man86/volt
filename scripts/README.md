@@ -98,6 +98,7 @@ silences every network-text diagnostic. Offline and key-free, so **CI runs it on
 | Script | Does |
 |---|---|
 | `version.ts` | compute the one git-derived version (base from volt-desktop, build = commit count) — `release.yml` injects it |
+| `measure-payload.ts` | read-only: the installer payload per component (`dist/stage`, uncompressed, MiB) + the installer size — `bun scripts/measure-payload.ts [stage] [installer]`; buckets by role (same rows for the old and the new layout), refuses an unclaimed file or an empty required lever |
 
 > **There are no infra scripts any more.** Volt deploys one thing — the static site at `packages/volt-web` —
 > and it needs no secrets: `bunx sst deploy --stage <stage>` with a `CLOUDFLARE_API_TOKEN`. See `infra/README.md`.
