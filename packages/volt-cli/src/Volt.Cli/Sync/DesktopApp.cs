@@ -11,7 +11,7 @@ namespace Volt.Cli.Sync;
 /// is what is worth testing and a spawn cannot be. Everything here is a path and a
 /// <see cref="ProcessStartInfo"/>; nothing starts.</para>
 /// </summary>
-internal static class DesktopApp
+public static class DesktopApp
 {
     /// <summary>The desktop exe, from the directory <c>volt.exe</c> runs in.
     ///

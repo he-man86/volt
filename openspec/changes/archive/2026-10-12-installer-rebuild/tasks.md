@@ -277,5 +277,18 @@
       tsc / lint (exit 0) / `check` 18/18 green; Volt.Connector.Tests 119/119, Volt.Repo.Gates 160/160. The live
       `test:install` is still 3.1's (the stale `Volt.lnk` and the foreign TcXaeShell 52036 + CODESYS 27112 are still
       on the machine). No LSP, fixture or transpiler change (no LSP suite, no map).
-- [ ] 3.3 Archive. Committed, NOT pushed or released (owner away); the follow-up release deletes the one-release
+- [x] 3.3 Archive. Committed, NOT pushed or released (owner away); the follow-up release deletes the one-release
       upgrade step and the `--uninstall-extension` lines.
+
+      **Closed 2026-10-12.** Full LSP suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, no VOLT_FIXTURES, from
+      `packages/volt-lsp-iec`): **10047 tests, 9591 pass, 35 skip, 421 todo, 0 fail, 1137 s**. Final review (SPEC +
+      LAYERING lenses): (a) SPEC — the spec delta was the proposal-time text; rewritten to what was built (exact
+      `{app}\bin` PATH entry, no env var but PATH, nothing stopped before the CLI ends, the bounded `/VOLTWAIT` +
+      retry, the elevated CLI waited on, the aborted uninstall, PATH value byte- and type-identical, the GitHub asset
+      digest, the undigested release refused). (b) LAYERING — `volt open`'s `DesktopApp.GuiExePath` states the
+      install layout from the CLI's side and nothing checked it (`test:install` never runs `volt open`): new
+      `Volt.Cli.Tests/DesktopAppTests` derives the expected path from `installer/Volt.iss` (the `[Icons]` target from
+      the folder `AddPathEntry` puts on PATH); red against the pre-change `desktop\Volt.exe`, green now
+      (`DesktopApp` made public like its sibling `BridgeResolver`). No stale `current\bin` / `codesys-scriptcommands`
+      / `LoginItem` / `Pruner` / `--uninstall` reference outside history notes. Numbers: Volt.Cli.Tests 266/266,
+      Volt.Repo.Gates 160/160, `bun run check` 18/18. Docs (installer/README.md, scripts/README.md, CLAUDE.md) as 3.2.
