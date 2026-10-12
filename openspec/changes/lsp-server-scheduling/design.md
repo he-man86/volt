@@ -4,43 +4,145 @@
 `begin` before `end`; no stale or blank diagnostics after a throw. Handlers stay synchronous (arrival-order correctness).
 
 **DiagnosticsPublisher** (`src/server/diagnostics-publisher.ts`) — the ONE owner of push vs pull, the `indexed` gate
-and the manifest warnings; `state.ts`, `diagnostics.ts` and `documents.ts` call it and keep no gate of their own.
-- `WorkspaceStore.generation`: bumped by every mutation (open/change/close, disk upsert/delete, refs, config).
-- Per URI a cache `{ generation, resultId, items }`. A pull at an unchanged generation reuses it (no compute); after a
-  change it recomputes, `resultId` = a hash of the serialized items, and answers `Unchanged` when that equals the
-  client's `previousResultId` — so an edit re-sends only the documents whose findings moved.
-  Rejected: `resultId = generation` (any keystroke re-sends all ~7.7k reports); per-file dependency tracking (no
-  dependency graph exists — relink and dead-code reach cross files; a pass per CHANGE, not per pull, is the target).
-- Versions: a report/publish carries the open buffer's version, `null` for a disk-only file.
-- No server debounce: the client already paces pulls and batches watched events; an idle re-pull now costs ~nothing.
-  Rejected: a timer debounce (async state in synchronous handlers, latency on every edit).
+and the manifest warnings. The four copies of the gate today (`state.pushDiagnostics`, `state.pushManifestDiagnostics`,
+the close handler in `documents.ts`, both pull handlers in `diagnostics.ts`) go; those callers call the publisher.
+- `WorkspaceStore.generation`: bumped by every mutation that changes what analysis sees (merged sources, refs, config,
+  task roots). A mutation that leaves the merged source unchanged does not bump it: opening a file whose buffer equals its
+  disk copy, closing an unedited buffer, a watched event with the same bytes. VS Code opens files constantly.
+- Per URI a cache `{ generation, resultId, items }`. A pull at an unchanged generation reuses it (no compute). After a
+  change the pulled document is recomputed, with `resultId` = sha1 (`node:crypto`) of the serialized items, and the answer
+  is `Unchanged` when that equals the client's `previousResultId(s)`. An edit then re-sends only the documents whose
+  findings moved, and only the documents actually pulled are computed (a document pull computes one).
+  Rejected: `resultId = generation` (any keystroke re-sends all ~7.7k reports). Rejected: per-file dependency tracking
+  (there is no dependency graph; relink and dead code reach across files). The target is a pass per CHANGE, not per pull.
+- Before the crawl the publisher answers `Full []` with NO resultId and caches nothing, so the post-crawl refresh recomputes.
+- Versions: a workspace report and a `publishDiagnostics` carry the open buffer's version, and `null` for a disk-only
+  file. A document pull report has no version field in LSP 3.17.
+- No server debounce. The client already paces pulls and batches watched events, and an idle re-pull now costs almost
+  nothing. Rejected: a timer debounce (it puts async state into synchronous handlers and adds latency to every edit).
 
-**Incremental disk sync** — `WorkspaceStore.upsertDisk(uri, source)` / `deleteDisk(uri)`: one parse + the existing
-`rebindKey`. Reference files (`.library`, `.projectsettings`, `.task`, `.device`) re-scan the REFS only (no source
-re-parse) and drop the project scope (rebuild = bind from cached parses). A directory event deletes/scans that subtree.
-Rejected: keep the wholesale `reindex` per event (0.1: 7759 re-parsed, ~2.1 s blocked per Ctrl+S).
+**Incremental disk sync** — `WorkspaceStore.upsertDisk(uri, source)` / `deleteDisk(uri)`: one parse plus the existing
+`rebindKey`. If the source equals the stored disk entry, nothing is parsed and the generation is not bumped.
+- A file is deleted only on a FACT: the event's kind is Deleted, or a `stat` answers ENOENT. Any other read failure
+  (EBUSY/EPERM while the CLI or the IDE is still writing — common on Windows) KEEPS the previous entry, logs the URI
+  and the error code to `window/logMessage`, and re-reads that one file on the next watched notification of any file
+  (a per-store "unread" set, drained at the start of every batch). Rejected: "unreadable counts as deleted" (a guess:
+  the file would leave the project until it changed again, and every caller would show a false unresolved error that
+  the wholesale re-walk used to heal on the next event).
+- Reference files (`.library`, `.projectsettings`, `.task`, `.device`) go through a new `scanWorkspaceRefs(root)` in
+  `workspace-refs.ts`: one walk that reads only the reference files and no source. It returns the WHOLE reference
+  state — `{ refs, taskRoots, projectDiagnostics }`, as `scanWorkspace` does today — and `store.setRefs(refs,
+  taskRoots)` applies refs AND task roots in one mutation before it drops the project scope and the dead caches (the
+  rebuild binds from the cached parses, nothing is re-parsed), so a `.task` edit recomputes the dead set from the NEW
+  roots; `projectDiagnostics` re-resolves the config on every refs scan (not only on a `.projectsettings` event — a
+  folder event can carry one). Rejected: applying `refs` alone (`WorkspaceRefs` has no task roots; today `reindex`
+  sets `store.taskRoots` beside it, and a literal `setRefs(refs)` would rebuild the dead caches from the old roots).
+- Directories: a host may report a folder delete or create as ONE event for the folder, and the `**/*<ext>` globs never
+  match a folder. So `initialized` registers one more watcher, `**/*` with kind Create|Delete. A delete of an unknown
+  key drops every disk entry UNDER that folder: the key is normalized like `normalizeKey` (`fileURLToPath`, lowercased
+  on a case-insensitive file system) and matched as `key + path.sep` — never a bare prefix, which would also drop the
+  sibling `POUs/MotorControl/…` of a deleted `POUs/Motor`. A created directory scans its subtree's sources, and those
+  go through `upsertDisk`. EVERY directory event (create or delete) also re-runs `scanWorkspaceRefs`, since the folder
+  may hold — or have held — a `.library`, `.device`, `.task` or `.projectsettings` that no per-file event names.
+  Rejected: re-scanning refs only when the subtree holds a reference extension (a deleted folder's subtree can no
+  longer be listed; the refs walk reads only reference files and is cheap). Other paths are dropped by extension.
+- One `didChangeWatchedFiles` notification sends ONE set of refreshes (tokens, hints, lenses, diagnostics), as the old
+  `reindex` did. In PUSH mode (no `textDocument.diagnostic` capability) the diagnostics refresh request does not exist,
+  so the publisher instead RE-PUSHES every open URI and the manifest set after any disk or refs mutation, skipping a
+  URI whose computed `resultId` equals the one it last published (no duplicate publish). The same re-push of the
+  OTHER open URIs follows a `didChange` in push mode: a change to A can move the findings of an open B (today only
+  the changed URI is re-pushed, so B stays stale until it is itself edited).
+- The wholesale `seedDisk` stays as the crawl at `initialized`. The 3.1 bench counts parses at both entry points
+  (`seedDisk` and `upsertDisk`); today it wraps `seedDisk` only.
+- Rejected: keeping the wholesale `reindex` per event (0.1: 7759 files re-parsed and ~2.1 s blocked per Ctrl+S).
 
-**Cancellation** — a `ConnectionStrategy.cancelUndispatched` answering `RequestCancelled` (-32800). Same-URI
-coalescing comes from the client, which cancels a superseded pull; the strategy makes that cancel cost nothing.
-Rejected: a server-side `MessageStrategy` queue that drops/reorders requests (breaks arrival order). Refused for now: a
-yielding (chunked) workspace pass — a hover after an EDIT still waits one pass; revisit only if 3.1 measures it.
+**Cancellation** — `createProtocolConnection(…, { connectionStrategy: { cancelUndispatched } })` answers
+`RequestCancelled` (-32800) for a request still in jsonrpc's queue. In vscode-jsonrpc 9.0.2 a `$/cancelRequest` is
+handled in the reader callback, and dispatch runs on `setImmediate`, so a cancel read while a synchronous handler runs
+reaches the requests queued behind it. Same-URI coalescing comes from the client, which cancels a superseded pull; the
+strategy makes that cancel free.
+- Rejected: a `MessageStrategy` queue that drops or reorders requests (it breaks arrival order).
+- Refused for now: a yielding (chunked) workspace pass. A hover after an EDIT still waits one pass; revisit only if 3.1
+  measures it.
 
-**Progress** — `crawlWithProgress` awaits `window/workDoneProgress/create`, sends `begin`, then crawls, then `end`.
-Rejected: dropping progress (the crawl is 2–3 s, user-visible).
+**Progress** — `crawlWithProgress` awaits `window/workDoneProgress/create`, then sends `begin`, crawls, and sends `end`.
+If the create fails, it crawls with no progress. A client with no progress support gets the synchronous crawl as today.
+- The create is BOUNDED: if no answer arrives within 2 s, the crawl runs with no progress (logged by name), and a
+  late answer is ignored (no `begin` after the crawl). A client that advertises `window.workDoneProgress` and never
+  answers would otherwise leave `indexed` false and every pull answering `Full []` for good — diagnostics silently
+  lost. Rejected: an unbounded await (every wait has a timeout).
+- The cost is one create round trip in which queued messages run before the crawl. Diagnostics are gated (above), and
+  tokens, hints and lenses get the post-crawl refresh. Only a hover or definition sent inside that window answers against
+  the open buffers alone. This is a bounded staleness that heals; it is not a false error.
+- Rejected: `begin` before the create is answered (the client does not know the token yet; that is today's M2).
+- Rejected: crawling inside `initialize` on the client's `workDoneToken` (the handshake would wait 2–3 s, and only
+  clients that send a token would get progress).
+- Rejected: dropping progress (the crawl takes 2–3 s and the user sees it).
 
-**Error isolation** — the connection's logger becomes `conn.console` (`window/logMessage`, replacing `NullLogger`).
-`rebindKey`/`upsertDisk` are transactional: a throw logs the URI + stack, drops the project scope (the next `project()`
-rebuilds) and stores nothing for that file — refused by name in the log, never a guessed parse.
+**Error isolation** — `ProtocolConnection` has no `console`. A small `Logger` sends `window/logMessage` and is passed to
+`createProtocolConnection` in place of the default `NullLogger`. jsonrpc's own "handler failed" reports land there too;
+today a throwing NOTIFICATION handler fails silently.
+- Quarantine: when parsing or binding one document throws (`openParse`, `upsertDisk`, `rebindKey`, `seedDisk`), the
+  store logs the URI and stack, drops the project scope, and leaves that document out of the merged set until its
+  content changes. The next `project()` rebuilds without it, so one bad file never wedges every later request. The
+  document is refused by name in the log; no parse is guessed for it.
+- The quarantined document's OWN report (pull and push alike) is not empty: one error diagnostic on line 0, code
+  `not-analysed`, saying the server failed reading this file and names the log — never `Full []`, which would show a
+  clean file the server could not read. Its declarations are out of the project scope, so files that use them get
+  unresolved findings CODESYS does not give; those are ACCEPTED (not quieted): they are true of what the server could
+  read, the named error on the quarantined file explains them, and a throw is a server bug fixed at its root, not an
+  input condition to mask. Rejected: quieting every finding that might depend on it (there is no dependency graph —
+  see the publisher — so "might depend" is every unresolved name in the workspace). Rejected: keeping the last good
+  parse (a stale answer presented as current).
+- 1.3 makes a parse throw with `mock.module` on the syntax index, not with a test seam in the store.
 
-**Domain findings to `analysis/`** — `documentDiagnostics`' composition (library gate, dead/quiet filter, network pass)
-moves to `analysis/pipeline/document.ts` returning `DiagnosticItem[]`; missing language/unstated bodies to
-`analysis/checks/syntax/missing-language.ts`; the manifest warnings to `analysis/checks/workspace/materialization.ts`.
-The server keeps `toLspDiagnostic` only (layer G = the LSP adapter).
+**Domain findings to `analysis/`** — the composition in `documentDiagnostics` (library gate, dead/quiet filter, network
+pass) moves to `analysis/pipeline/document.ts` `documentFindings` and returns `DiagnosticItem[]`.
+- Layering: `workspace` ranks ABOVE `analysis`, so `documentFindings` cannot take the store. It takes
+  `{ doc, project, config, dead, deadMembers, manifests }`, and the publisher reads those from the store.
+- Missing language and unstated bodies go to `analysis/checks/syntax/missing-language.ts`. Like `checks/network`, this
+  is outside the registry, because it quiets other findings inside its bodies.
+- The manifest warnings go to `analysis/checks/workspace/materialization.ts`. They are keyed by manifest path, and the
+  server makes the URI.
+- The message texts go to `analysis/messages` (`syntax.ts`; a new `workspace.ts`) and stay byte-identical. Conformance
+  must not move.
+- Wire: the missing-language finding gets the slug `missing-language` inside analysis. `toLspDiagnostic` OMITS its
+  `code`, so the wire is unchanged: `test/corpus/support/diagnostic-codes.ts` documents that this finding has no code,
+  and `KNOWN_UNMAPPED` only shrinks.
+- The missing-language finding keeps today's composition, which is NOT the common path: it is gated by the library
+  gate and by `materializationMismatch` only; it is NOT dead-gated (a dead POU or a dead member with an unstated body
+  still gets it — the push refuses that file whether or not anything calls it) and it is appended AFTER `quiet()`
+  (its range lies inside the unstated body, so `inUnstated` would swallow it). Pinned before the move by colocated
+  tests in `src/server/document-diagnostics.test.ts` (gate 0b), which travel with it in 2.4.
+- The server keeps `toLspDiagnostic` only (layer G = the LSP adapter). The ownership-map row "Document → LSP
+  diagnostics" moves with it.
 
-**Lifecycle** — -32002 before `initialize`; `InvalidRequest` after `shutdown`; `exit` code 0 after shutdown else 1; a
-`processId` watchdog (unref'd 3 s `process.kill(pid, 0)` probe → exit 1) besides stdin close (LSP-zombie history).
-**Watcher fallback** — a client without dynamic `didChangeWatchedFiles` gets a recursive `fs.watch` on the root feeding
-the same upsert/delete path. Rejected: documenting the gap (a pull from the IDE would leave such a host stale).
+**Lifecycle** — `ServerState.onRequest`, one registration helper every handler group uses, answers -32002
+(`ServerNotInitialized`) to any request before `initialize` and `InvalidRequest` after `shutdown`. Notifications before
+`initialize` are dropped, except `exit`.
+- `exit` exits with code 0 after `shutdown` and 1 otherwise.
+- `conn.onClose` exits; nothing does this today. Without it, the fallback watcher below is a handle that keeps an
+  orphaned server alive.
+- A `processId` watchdog: an unref'd 3 s `process.kill(pid, 0)` probe. ESRCH means the parent is gone, so exit 1;
+  EPERM means it is alive. This matters because of the LSP-zombie history.
+- Exit seam: every process exit (the `exit` notification, `conn.onClose`, the watchdog) goes through an
+  `exit: (code: 0 | 1) => void` that `runServer` takes as a parameter. `bin.ts` passes `process.exit`; the in-process
+  callers (`test/lsp/harness.ts`, `server.test.ts`, `state.test.ts`, `scripts/bench-server.ts`) pass a recorder, so a
+  test that ends the streams or sends `exit` does not end `bun test` mid-suite, and 1.3 asserts the exit code
+  in-process. Rejected: `process.exit` inside the server (kills the runner; later files silently do not run).
+  Rejected: a subprocess-only exit test (slower, and every other in-process test would still be one `onClose` away
+  from killing the runner).
+- Workspace folders stay fixed at `initialize` (no `workspace/didChangeWorkspaceFolders`). This is documented in layer
+  G (3.1), not changed.
 
-**Migration** — red tests (1.x) first; then publisher (2.1) → disk sync (2.2) → cancellation/progress/logger/lifecycle
-(2.3) → move (2.4, no message text changes; conformance must stay byte-identical) → watcher (2.5); bench again (3.1).
+**Watcher fallback** — a client without dynamic `didChangeWatchedFiles` gets a recursive `fs.watch` on the root that
+feeds the same upsert, delete and directory path.
+- `.git` and unscanned extensions are skipped.
+- `rename` is decided by a `stat`.
+- Unlike a client, `fs.watch` fires several times per save, so its events are coalesced per macrotask (one flush, one
+  refresh set). This async state lives outside the protocol handlers. Equal bytes are free (`upsertDisk` short-circuit).
+- Rejected: documenting the gap (after a pull from the IDE, such a host would stay stale).
+
+**Migration** — red tests (1.x) first. Then the publisher (2.1), disk sync (2.2), cancellation, progress, logger,
+quarantine and lifecycle (2.3), the move (2.4: no message-text changes, conformance byte-identical) and the watcher
+(2.5). Then the bench again (3.1).

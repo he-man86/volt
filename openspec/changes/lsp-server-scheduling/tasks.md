@@ -41,17 +41,47 @@
         the bench run above.
       - Gate: typecheck clean; full suite `VOLT_REQUIRE_FULL=1 bun test` (VOLT_FIXTURES unset) 9591 pass, 35 skip,
         421 todo, 0 fail — 10047 tests across 347 files, 798 s. No fixture or transpiler change, so no map regeneration.
-- [ ] 0.2 design.md: the `DiagnosticsPublisher` (channels, gate, generations/resultIds, versions, debounce), incremental
+- [x] 0.2 design.md: the `DiagnosticsPublisher` (channels, gate, generations/resultIds, versions, debounce), incremental
       disk sync, cancellation strategy, progress, error isolation, where the moved findings live in `analysis/`; each
       choice with the alternative it beat.
+      **Gate 0b (review fixes to the design, 2026-10-12)** — all nine findings checked against the code and accepted;
+      design.md changed for each, none skipped:
+      1. Folder delete matches `normalizeKey(folder) + path.sep`, never a bare prefix (`POUs/Motor` vs `POUs/MotorControl`).
+      2. Every directory event (create or delete) re-runs `scanWorkspaceRefs` (a folder can hold `.library`/`.device`/
+         `.task`/`.projectsettings` that no per-file event names).
+      3. A quarantined document reports one `not-analysed` error on line 0 (never `Full []`); dependents' unresolved
+         findings are accepted, not quieted (no dependency graph; the named error explains them). Spec scenario amended.
+      4. `window/workDoneProgress/create` is bounded (2 s): on expiry the crawl runs without progress, a late answer is
+         ignored.
+      5. Deleted only on a fact (Deleted event or `stat` ENOENT); EBUSY/EPERM keeps the previous entry, logs it and
+         re-reads it at the next watched batch.
+      6. `scanWorkspaceRefs` returns `{ refs, taskRoots, projectDiagnostics }`; `store.setRefs(refs, taskRoots)` applies
+         both before the dead caches drop; the config is re-resolved on every refs scan.
+      7. The missing-language composition is pinned (library + `materializationMismatch` gated; NOT dead-gated; appended
+         after `quiet()`) — and covered NOW by three colocated tests in `src/server/document-diagnostics.test.ts` (dead
+         POU, dead member, Library Manager file). They pass today: they pin present behaviour for 2.4, so there is no
+         red phase (the regression they guard is not written yet).
+      8. Push mode: after any disk/refs mutation, and after a `didChange`, the publisher re-pushes every open URI and the
+         manifest set, skipping a URI whose `resultId` equals its last publish.
+      9. Exit seam: `runServer` takes `exit: (code) => void`; `bin.ts` passes `process.exit`, in-process callers a recorder.
+      "Failing test first" otherwise does not apply: findings 1–6, 8, 9 are about behaviour no code implements yet; their
+      red tests are task 1.x's (listed there).
+      Gate: typecheck clean; `openspec validate` clean; full suite `VOLT_REQUIRE_FULL=1 bun test` (VOLT_FIXTURES unset)
+      9594 pass, 35 skip, 421 todo, 0 fail — 10050 tests across 347 files, 720 s (0a: 9591 pass / 10047; +3 = the pins
+      of finding 7). No fixture or transpiler change, so no map regeneration.
 
 ## 1. Red tests first (test/lsp black-box + colocated)
 
 - [ ] 1.1 10 idle workspace pulls answer `Unchanged` after the first (cost ≈ one pass); a change answers `Full` for that
       document only.
 - [ ] 1.2 Saving one file re-parses one file (no wholesale re-scan); a reference-file change re-scans references.
+      Also (gate 0b): a folder delete drops only entries under `folder + sep` (not a sibling `…Control`); a directory
+      event re-scans references (a deleted folder's `.device` unbinds, a created one's `.library` binds); a read failing
+      with EBUSY keeps the entry; a `.task` edit applies the new task roots; push mode re-publishes the other open URIs.
 - [ ] 1.3 A queued cancelled pull is never computed; progress `begin` precedes `end`; a throwing parse leaves the server
       serving and logs to `window/logMessage`; lifecycle: -32002 before initialize, refusal after shutdown, exit code.
+      Also (gate 0b): the throwing document reports one `not-analysed` error; a client that never answers the progress
+      create still gets diagnostics (bounded create); the exit code via the `runServer` exit seam, in-process.
 
 ## 2. Build
 

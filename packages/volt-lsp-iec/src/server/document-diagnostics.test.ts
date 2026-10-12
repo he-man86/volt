@@ -143,3 +143,35 @@ test("a parse error in a dead member is still shown (recorded), the member's sem
   expect(diagnoseIn(files, "C:/w/FB_Live.pou", true)).toEqual([["C0002", 10], ["C0032", 13], ["C0002", 17]])
   expect(diagnoseIn(files, "C:/w/FB_Live.pou")).toEqual([["C0002", 10], ["C0002", 17]])
 })
+
+// THE MISSING-LANGUAGE FINDING'S COMPOSITION, PINNED before lsp-server-scheduling 2.4 moves it into `analysis/` (review
+// finding 7 of gate 0b). It is the push's own refusal of the file (`StReader.Unmarked`), not a compiler finding, so it
+// does NOT follow the build's dead-code rule: a DEAD POU and a DEAD member with an unstated body still get it (the push
+// refuses that file whether or not anything calls it), and the unstated-body quiet() does not swallow it although its
+// range lies inside that body. A Library Manager file gets nothing (the library gate comes first).
+const UNSTATED_DEAD_FB = "FUNCTION_BLOCK FB_Dead\nVAR\n\ti : INT;\nEND_VAR\ni := 1;\nEND_FUNCTION_BLOCK\n"
+const missingLanguageLines = (files: Record<string, string>, uri: string): number[] => {
+  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
+  store.seedDisk(Object.entries(files).map(([u, source]) => ({ uri: u, source })))
+  return documentDiagnostics(store, store.workspace().find((x) => x.uri === uri)!)
+    .filter((d) => d.message.includes("states no language"))
+    .map((d) => d.range.start.line)
+}
+
+test("missing language: a DEAD POU with an unstated body still gets the one finding (not dead-gated, not quieted)", () => {
+  const files = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": LIVE_FB, "C:/w/FB_Dead.pou": UNSTATED_DEAD_FB }
+  expect(missingLanguageLines(files, "C:/w/FB_Dead.pou")).toEqual([4])
+})
+
+test("missing language: a DEAD member with an unstated body inside a live FB still gets the one finding", () => {
+  const files = {
+    "C:/w/PLC_PRG.pou": PRG_MAIN,
+    "C:/w/FB_Live.pou": LIVE_FB + "METHOD Unused\nVAR\n\tx : INT;\nEND_VAR\nx := 1;\nEND_METHOD\n",
+  }
+  expect(missingLanguageLines(files, "C:/w/FB_Live.pou")).toEqual([12])
+})
+
+test("missing language: a Library Manager file with an unstated body gets nothing (the library gate comes first)", () => {
+  const uri = "file:///App/Library%20Manager/Lib/FB_Dead.pou"
+  expect(missingLanguageLines({ [uri]: UNSTATED_DEAD_FB }, uri)).toEqual([])
+})

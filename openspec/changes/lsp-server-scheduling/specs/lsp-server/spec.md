@@ -19,3 +19,4 @@ A failure in one document SHALL be logged to the client and SHALL NOT leave the 
 #### Scenario: a throwing parse
 - **WHEN** parsing one file throws
 - **THEN** the error is logged, the server keeps serving, and the next request rebuilds the project scope
+- **AND** that file reports one error saying it was not analysed, never an empty (clean) report
