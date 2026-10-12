@@ -159,6 +159,9 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
       the reader takes `Operand.SymbolComment` into the model and the writer never writes it; `Operand.Comment` is not read
       at all — measure both (non-empty counts per corpus, and whether either is engineer-typed or derived from the
       declaration). A measure, not a probe script; any vendor fact it needs is a `vendor-facts` row.
+      **Default (owner 2026-10-12, "better to be safe and make it as 1 to 1 as possible"): a member is SPELLED unless a
+      measurement proves it an editor cache** (derived from other members or the declarations, and rebuilt by the IDE on
+      push). No proof, no exclusion — an unforeseen case can then only make the text longer, never lose data.
 - [ ] 1b.2 The disposition table in design.md: every member → **spelled** (its text form), **editor cache** (with the
       measurement that it is derived and rebuilt on push), or **refused by name** (with the measurement that no push can
       build it). No member left undecided; members with 0 corpus occurrences still get a decision. New spellings follow
