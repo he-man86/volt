@@ -2,9 +2,11 @@
 
 The owner (2026-09-28): "we need to support all ld and fbd" — `IMPLEMENTATION LD|FBD UNSUPPORTED` is a temporary state to
 eliminate, not a feature. Volt claims to read LD and FBD; a body it cannot show is a gap (unlike CFC, SFC and IL, which are
-deliberately unsupported). Known shapes without a network-text spelling today: an assign below the top level (lenze-mid
-`Mach1_MIDS` net41, `TrayFiller` net12 — 6 bodies), a flag on a box input pin, a wire of unknown type. The full list is
-unmeasured.
+deliberately unsupported). Measured by the census (tasks 0.1, 2026-10-12): 12 of 46 LD/FBD bodies across the six corpora
+pull UNSUPPORTED, all on CODESYS, over six shapes — a bit operator connected by a stored output slot (7 networks in 5
+bodies), an assign below the top level (lenze-mid `SpeedCalculationDryer` 0, `Mach1_MIDS` 7/29/52, `Dryer` 1, `TrayFiller`
+30 — 6 networks in 4 bodies; 0-based network positions), a wire of unknown type (6 in 3), a main output other than slot 0,
+a call through `SUPER^`, and a flag on a box input pin (1 each).
 
 Carried in by earlier changes:
 - `vendor-fact-probe` 4.2: which deferred `probe-nwl-*` facts (and DIALECT N23, N25) become rows in

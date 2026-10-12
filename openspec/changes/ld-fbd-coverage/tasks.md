@@ -1,10 +1,134 @@
 ## 0. Census
 
-- [ ] 0.1 Pull the six corpora on both vendors (own `ide.ps1 -Instance ld-fbd-coverage`, corpus copies only) and count every
+- [x] 0.1 Pull the six corpora on both vendors (own `ide.ps1 -Instance ld-fbd-coverage`, corpus copies only) and count every
       LD/FBD body that pulls `IMPLEMENTATION LD|FBD UNSUPPORTED`, per vendor, per reason/shape, with one example network
       each; plus the bodies that pull as network text today (the denominator).
-- [ ] 0.2 Per shape: the NWL tree it is (which node kinds, which flags, where the current writer/reader refuses), and whether
+
+      **Measured 2026-10-12** (bridge built from `2f17c5ce7c`, `VOLT_GRAPHICAL` on; CODESYS SP21 Patch 4, TcXaeShell 15.0).
+      Each corpus served as a COPY by `ide.ps1 up -Instance ld-fbd-coverage` (CODESYS: the variant project files named in
+      `refresh-corpus.ts`; TwinCAT: `-Fixture 14`), one `fetch {knownItems:{}}` over the instance's pipe; per item the
+      `IMPLEMENTATION LD|FBD` lines of `sourceText` (shown) and the wire's `unsupported[]` (`member`, `language`, `reason`).
+      Example networks from the IDE's own `export_native` of each refused object (the harness probe in
+      `run_pipe_production.py`), dumped as NWL trees. Scripts were scratch (census / native-export / tree dump), not kept.
+      "Both vendors" in practice: the five CODESYS corpora open only in CODESYS and Project14 only in TwinCAT, so each
+      corpus is pulled by its own vendor. Every pull matches the committed `test-corpus/` counts exactly (no drift).
+
+      | corpus (vendor) | items | LD shown | FBD shown | LD UNSUPPORTED | FBD UNSUPPORTED |
+      |---|---|---|---|---|---|
+      | lenze-mid (CODESYS) | 7833 | 24 | 5 | 10 | 1 |
+      | pro2193 (CODESYS) | 8106 | 0 | 1 | 0 | 1 |
+      | awa-palletizer (CODESYS) | 6485 | 0 | 1 | 0 | 0 |
+      | bakon-nano (CODESYS) | 6664 | 0 | 1 | 0 | 0 |
+      | CodesysTestProject (CODESYS) | 851 | 0 | 0 | 0 | 0 |
+      | twincat-project14 (TwinCAT) | 252 | 2 | 0 | 0 | 0 |
+      | **total** | | **26** | **8** | **10** | **2** |
+
+      12 of 46 LD/FBD bodies (26 %) pull UNSUPPORTED — all on CODESYS, 11 of them in lenze-mid. TwinCAT pulls none hidden,
+      but its one corpus holds only 2 LD bodies: every shape below is the shared NWL model (DIALECT N1), so its TwinCAT half
+      has no corpus witness and is measured by the step-2 fixture.
+
+      **The wire reports a body's FIRST refusal only** (`NetworkText.Pulled` catches the first `UnrepresentableBodyException`),
+      so the network-level census below is a SECOND measurement, made 2026-10-12 (gate step 0, review finding 2) to
+      replace a heuristic scan that looked only for the five shapes the bridge named. A scratch build of the bridge whose
+      `NetworkTextWriter.Write` caught the refusal of EVERY top-level tree of every network (instead of letting the
+      body's first one escape) served lenze-mid and pro2193 again (`ide.ps1 -Instance ld-fbd-coverage`, same project
+      files) and the 12 refused bodies' reasons were read off one fetch each; the patch was reverted and the bridge
+      rebuilt. Every writer refusal was in scope, not five. What the scan still cannot see: a second refusal INSIDE one
+      tree (the writer stops at a tree's first). "a wire referenced before its definition" hits were all cascades of the
+      scan itself — the trees that use a wire whose defining tree had just been refused (VarIds checked) — and are
+      not counted. No body was refused by a READER (all 12 reached the writer). Same LD/FBD counts as the first pull;
+      the fetch reported 7852 lenze-mid items against 7833 then (8106 pro2193 both times) — not investigated, the
+      LD/FBD bodies and their reasons are identical.
+
+      | # | refusal (writer) | bodies (first reason) | networks (per-tree scan) | where |
+      |---|---|---|---|---|
+      | S1 | `a bit operator box connected by a stored output slot` | 3 (LD 2, FBD 1) | 7 in 5 bodies (AND, OR, NOT) | pro2193 `Cylinder_53ValveFB.SetAlarm` 0; lenze `ServoControl` 15, `Mach1_MotionControl` 9, `Mach1_MIDS` 42/64, `FirstErrorCapture.call_FirstErrorCapture_FB` 3/4 |
+      | S2 | `an assign below the top level` | 4 (LD) | 6 in 4 bodies | lenze `SpeedCalculationDryer` 0, `Mach1_MIDS` 7/29/52, `Dryer` 1, `TrayFiller` 30 |
+      | S3 | `a wire of unknown type` | 3 (LD) | 6 in 3 bodies | (a) leaf-fed: lenze `WSM` 10, `GeneralMachineFlags` 6; (b) terminator-fed: `GeneralProgramFlags` 4/5/6/7 |
+      | S4 | `a main output other than slot 0` | 1 (FBD) | 1 | lenze `FirstErrorCapture.call_FirstErrorCapture_FB` 2 |
+      | S5 | `an FB instance the declarations do not name` | 1 (LD) | 1 | lenze `ATD_TorqueControl` 0 |
+      | S6 | `a flag on a box input pin` | 0 | 1 | lenze `FirstErrorCapture.call_FirstErrorCapture_FB` 8 (a negation on `L_FECA.L_FirstErrCaptureErrorAccess.xEnable`, fed by `xStructError`) |
+
+      Corrections to the first (heuristic) scan: S6 was "not seen" — it is in `call_FirstErrorCapture_FB` 8, which the
+      heuristic had filed under S1 (and the "S4 also net 8" was this network too); S1 adds `Mach1_MIDS` 42 (a NOT) and
+      drops `Mach1_MIDS` 52/62 (52 is the nested assign; the heuristic's bit-operator hit there may sit behind it in the
+      same tree, and 62 writes clean — a heuristic false positive). Not seen on either corpus, measured by the per-tree
+      scan: every other writer refusal (a vendor split point, a terminator with an input, a Parallel fed by the empty
+      terminator, a negated/edge coil, a lone unconnected Parallel branch, …). The four CODESYS corpora with no refused
+      body and Project14 need no scan: a body that writes has no refusal.
+      Network numbers are 0-based positions in the body's `NetworkList` (the title the engineer gave is often
+      "NETWORK n" with another n); the proposal's `Mach1_MIDS` net41 / `TrayFiller` net12 were not those positions
+      (proposal corrected).
+- [x] 0.2 Per shape: the NWL tree it is (which node kinds, which flags, where the current writer/reader refuses), and whether
       a vendor fact is missing to spell it (→ a probe-table row, never a probe script).
+
+      All six are READ by both readers into the model without loss — every one is a **writer** refusal
+      (`NetworkTextWriter`), i.e. a model the text has no spelling for, not a vendor object Volt cannot read.
+
+      - **S1 — a bit operator stored in full-box form.** `BoxTreeBox` `AND`/`OR` (and `NOT`, `Mach1_MIDS` 42/64) consumed as an input of another box or the
+        RValue of an Assign, carrying what a plain contact-logic AND/OR never carries: `OutputParam` `Names=[""]`
+        `Types=["BOOL"]`, one stored `OutputItems` slot (null = the connected one), `EN`/`ENO` members as bools. SetAlarm:
+        `SetAlarm := AND(OR(AND(xOutput, xOutInv, xSensor), AND(...), AND(...)), EnableOutputs.Q)` with every inner AND
+        in that form, the OR not. The reader reads `ConnectedSlot = 0` off it; `Suffix` refuses
+        (`NetworkTextWriter.cs` ~477) because the text reads a consumed bit operator back as connected by NO slot (census 1.6).
+        Missing vendor fact: whether the stored form is semantically inert (same build, same execution) and whether a
+        push can BUILD it on each vendor — a probe-table row (`nwl-bitop-stored-slot`), not a probe script; without it the
+        honest spelling is a marker on the box, never folding it into the plain form.
+      - **S2 — an Assign below the top level (a coil mid-rung).** `BoxTreeAssign` as an `InputItems` entry of a `Box` (a
+        MOVE's EN, an AND input) — the coil writes its targets and its value flows on. SpeedCalculationDryer net 0:
+        `MOVE(EN := (Mach1_AuxData.ADS_StopOnZeroPulse := w188 AND (I133_1 OR ADS_StopOnZeroPulse)), 750) => Cor_numerator`.
+        Read as `Assign(value, targets)` nested; refused by the writer's node walk (`case Assign`, ~388). Missing vendor fact: that a push can build an Assign as a box input on each
+        vendor and read it back nested (pull needs none) — a probe-table row (`nwl-nested-assign`).
+      - **S3 — a Demux whose producer states no type** (`WireType`, ~693). Two sub-shapes:
+        (a) a LEAF-fed wire (`Demux(VarId, Leaf)`) used as an FB/function input — WSM net 10: `w46 := stFeedForward;`
+        feeding `R_TRIG.CLK` and `TON.IN`. `ProducerType` types a leaf-fed wire only when every use is boolean
+        (`EveryUseIsBoolean`), and a call-box input does not count. **A vendor fact or a text fact is missing — not none**
+        (corrected, gate step 0 review finding 1). The consumer's stored input type (`InputParam.Types` = `BOOL`) cannot
+        be the rule's input: the model carries no input types (`Box`, `NetworkModel.cs` ~120, has `OutputTypes` only, so
+        both readers drop them); Volt's own push writes them EMPTY on purpose (`CodesysNetworkWriter.cs` ~396, "the IDE's
+        to resolve"), so a pushed body has none until the IDE resolves it — an editor cache like the operand `Type` N23
+        dismisses; and `ProducerType`/`EveryUseIsBoolean` is ONE rule shared by the writer and the reader over what the
+        text carries (the writer even strips stored output types, `WithoutStoredTypes`) — a rule keyed on a stored input
+        type could not be applied when the text is read back, so the same body would type on pull and come back untyped
+        or refused from its text. 1.1 picks one of two: (i) the type from something the text DOES carry — the callee's
+        declared pin type (`R_TRIG.CLK`, `TON.IN` are BOOL), which needs the scope to resolve callee signatures on both
+        sides; or (ii) a vendor fact — whether `InputParam.Types` is authoritative and survives a push on both vendors
+        (a probe-table row, `nwl-input-param-type`), and then the model must carry input types.
+        (b) a RAIL-fed wire (`Demux(VarId, Terminator)`) — GeneralProgramFlags nets 4–7: `w2 := <left rail>;` feeding two
+        `AND` inputs of a TON pair (a flip-flop). In LD that is the power rail, BOOL TRUE; the text has no spelling for a
+        wire fed by nothing. Missing vendor fact: whether a Demux fed by a Terminator is what a pushed `w := TRUE;` builds
+        or a distinct stored form (it is distinct today: TRUE pulls as a Leaf) — a probe-table row (`nwl-rail-fed-wire`).
+      - **S4 — a call box consumed by an output other than slot 0.** `BoxTreeBox L_FECA.L_FirstFASTErrCapture` (instance
+        `fbFirstErrCapture`) as the RValue of the coil `GVL_FirstErrCapture.xFirstErrorBit`, its stored `OutputItems`
+        null at slot 1 = `xErrorActive` (`MainOutputIndex` 1); `Suffix` refuses (~503) because the text reads a consumed
+        box as connected by slot 0. The census-1.6 "3 Lenze call boxes store main output 1" are these. Missing vendor fact:
+        whether a push can SET the main output of a call box (`MainOutputIndex`) on each vendor — a probe-table row
+        (`nwl-main-output-slot`); the spelling would name the pin (`fb(...).xErrorActive`, as `.ENO` is named).
+      - **S5 — a call through `SUPER^`.** `BoxTreeBox ATD_FQI` whose instance operand is `SUPER^` (an FB extending
+        `ATD_FQI` calling its base body). Not an NWL-shape gap: the scope (`_scope.InstanceType`) has no declaration named
+        `SUPER^`, so the writer refuses (~584) rather than let it read back as a function. The fact needed is the POU's
+        `EXTENDS` (declaration text Volt already has), not a vendor one; push of a SUPER^ box is unmeasured — a
+        probe-table row (`nwl-super-call`) only if the build step cannot pin it by fixture.
+
+      - **S6 — a negation on a box input pin.** `call_FirstErrorCapture_FB` net 8: the input `xEnable` of the call box
+        `L_FECA.L_FirstErrCaptureErrorAccess` carries `InputFlags` negation, fed by the leaf `xStructError`. Both readers
+        read pin flags into `Input.Flags` (CODESYS `PinFlags`, TwinCAT `TcNetworkReader`); the WRITER refuses (`BoxCore`,
+        `NetworkTextWriter.cs` ~406: "a modifier on the PIN has no spelling yet"). Pull needs no vendor fact; push needs
+        whether a pin flag can be built on each vendor — a probe-table row (`nwl-input-pin-flag`) unless the build step
+        pins it by fixture.
+
+      Deferred facts carried in (proposal): N23 and N25 stay NOT rows (both build/open NWL nodes outside the table's
+      vocabulary, as recorded in DIALECT); the `nwl-*` rows above are the candidates for 1.1 to accept or replace.
+
+      **Gate step 0 (2026-10-12).** Review findings: (1) S3(a) "no vendor fact missing" was wrong — corrected above;
+      (2) the census claimed every other refusal 0 without measuring it — re-measured per tree, which found S6 and moved
+      S1's network list; (3) the proposal's net41/net12 "6 bodies" — corrected in proposal.md. No code changed (the
+      per-tree scan was a reverted scratch patch). Gate: typecheck clean (5 packages); LSP full suite with
+      `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset: 10047 tests, 9591 pass, 35 skip, 421 todo, 0 fail (815 s);
+      `Volt.Engine.Tests` 2371 pass / 1 skip (was 1 FAIL on HEAD — `WireVocabularyGuardTests` flagged the install
+      folder `{app}\codesys` in `Volt.Connector/VoltEnv.cs`, from installer-rebuild; a different vocabulary than the
+      vendor id, allowlisted with the reason, committed separately), `Volt.Ide.Codesys.Tests` 318 pass,
+      `Volt.Ide.Twincat.Tests` 453 pass. Fixture map unchanged (no fixture or transpiler change).
 
 ## 1. Design (owner review before code)
 
