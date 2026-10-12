@@ -96,15 +96,19 @@ if (process.env.VOLT_VERSION) {
 // regression — would ship green while the desktop just times out. This is the gate that catches that.
 {
   const { collectDiagnostics, setLspServer } = await import("../packages/volt-control/src/index.js")
-  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs")
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs")
   const { tmpdir } = await import("node:os")
   const { join } = await import("node:path")
   setLspServer(resolve(bin, "volt-lsp-iec" + ext))
   const fx = mkdtempSync(join(tmpdir(), "volt-lsp-smoke-"))
+  // A BOUND workspace, as `volt init --vendor codesys` leaves it: the server takes its vendor from the binding and
+  // refuses an unbound folder (volt-lsp-iec `server/vendor.ts`, lsp-same-standard) — the desktop only ever opens bound ones.
+  mkdirSync(join(fx, ".git", "volt"), { recursive: true })
+  writeFileSync(join(fx, ".git", "volt", "config.json"), JSON.stringify({ bridge: { vendor: "codesys" } }))
   // `i := b` assigns a BOOL to an INT — a type error the eager crawl must find without opening the file.
   writeFileSync(join(fx, "F.pou"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK")
   try {
-    const r = await collectDiagnostics(fx, "codesys", { timeoutMs: 30_000 })
+    const r = await collectDiagnostics(fx, { timeoutMs: 30_000 })
     if (r.errors < 1) {
       console.error(`✗ volt-lsp-iec compiled but served NO diagnostics for a known-bad file — got ${JSON.stringify(r)}`)
       process.exit(1)
