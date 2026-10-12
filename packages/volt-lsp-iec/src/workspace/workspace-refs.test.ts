@@ -9,6 +9,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
 import { WorkspaceStore } from "./workspace-store.js"
+import { failLoud } from "../../test/support/fail-loud.js"
 import { NETWORK_TEXT_ENABLED } from "../server/config.js"
 import { documentDiagnostics } from "../server/document-diagnostics.js"
 import { resolveConfig } from "../analysis/index.js"
@@ -122,7 +123,7 @@ test("the workspace scan reads a file saved with a BOM as the push sends it — 
     writeFileSync(join(dir, "GVL.gvl"), "﻿VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")
     const scan = scanWorkspace(dir)
     expect(scan.sources.every((s) => !s.source.startsWith("﻿"))).toBe(true)
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     const messages = store
       .workspace()
@@ -165,9 +166,8 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
   // `n;` is a bare expression statement: C0139, one of the codes the compiler-warnings dialog can switch off.
   const noOpCount = (): number => {
     const scan = scanWorkspace(dir)
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnostics: scan.projectDiagnostics }), { networkText: NETWORK_TEXT_ENABLED })
-    store.workspaceRefs = loadWorkspaceRefs(dir)
-    store.taskRoots = loadTaskRoots(dir)
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnostics: scan.projectDiagnostics }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.setRefs(loadWorkspaceRefs(dir), loadTaskRoots(dir))
     store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
     let n = 0
     for (const d of store.workspace())

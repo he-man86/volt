@@ -6,7 +6,7 @@
  * a body states its language (openspec bridge-refusal-review 1.4/2.1; `rcc_retired_comment_in_body` and
  * `pwh_gvl_retired_volt_comment` build clean on both vendors). It is read in ONE place, as the bridge reads it
  * (`StReader.Unmarked`, `ImplementationMarker.FindRetiredComment`): a body that states no language and holds one was
- * pulled by an older Volt, and the finding for that body names the comment (`server/document-diagnostics.ts`).
+ * pulled by an older Volt, and the finding for that body names the comment (`analysis/checks/syntax/missing-language.ts`).
  *
  * A comment only: the lexer puts a comment in its own token with every comment nested in it, so an opening anywhere in
  * a block comment's text is a comment's; the same characters after `//` or in a string are text.

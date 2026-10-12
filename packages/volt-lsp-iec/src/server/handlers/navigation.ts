@@ -47,28 +47,27 @@ import {
 import type { ServerState } from "../state.js"
 
 export function registerNavigationHandlers(s: ServerState): void {
-  const conn = s.conn
-  conn.onRequest(DefinitionRequest.type, (p) =>
+  s.onRequest(DefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
       inNetworkText(d, o) ? networkDefinition(d, s.project(), o) : definition(d, s.project(), o),
     ),
   )
-  conn.onRequest(TypeDefinitionRequest.type, (p) =>
+  s.onRequest(TypeDefinitionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
       inNetworkText(d, o) ? networkTypeDefinition(d, s.project(), o) : typeDefinition(d, s.project(), o),
     ),
   )
-  conn.onRequest(ImplementationRequest.type, (p) =>
+  s.onRequest(ImplementationRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => implementation(s.workspace(), s.project(), d, o) ?? null),
   )
-  conn.onRequest(ReferencesRequest.type, (p) =>
+  s.onRequest(ReferencesRequest.type, (p) =>
     s.at(
       p.textDocument.uri,
       p.position,
       (d, o) => referencesAnywhere(s.workspace(), s.project(), d, o, p.context.includeDeclaration) ?? null,
     ),
   )
-  conn.onRequest(DocumentHighlightRequest.type, (p) =>
+  s.onRequest(DocumentHighlightRequest.type, (p) =>
     s.at(
       p.textDocument.uri,
       p.position,
@@ -76,16 +75,16 @@ export function registerNavigationHandlers(s: ServerState): void {
     ),
   )
   // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
-  conn.onRequest(LinkedEditingRangeRequest.type, (p) =>
+  s.onRequest(LinkedEditingRangeRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
       const ranges = documentHighlightsAnywhere(d, s.project(), o)
       return ranges !== undefined && ranges.length > 0 ? { ranges } : null
     }),
   )
-  conn.onRequest(PrepareRenameRequest.type, (p) =>
+  s.onRequest(PrepareRenameRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(), o)),
   )
-  conn.onRequest(RenameRequest.type, (p) => {
+  s.onRequest(RenameRequest.type, (p) => {
     const refused = renameRefusal(p.newName, s.project())
     if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
     return s.at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(s.workspace(), s.project(), d, o, p.newName) ?? null)
@@ -99,7 +98,6 @@ export function registerNavigationHandlers(s: ServerState): void {
  * resolution path.
  */
 function registerHierarchyHandlers(s: ServerState): void {
-  const conn = s.conn
   const reResolve = (
     item: HierItem,
     prepare: (d: Document, project: Scope, o: number) => { sym: Symbol } | undefined,
@@ -112,36 +110,36 @@ function registerHierarchyHandlers(s: ServerState): void {
     return p !== undefined ? { d, sym: p.sym } : undefined
   }
 
-  conn.onRequest(CallHierarchyPrepareRequest.type, (p) =>
+  s.onRequest(CallHierarchyPrepareRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
       const r = prepareCallHierarchy(d, s.project(), o)
       return r !== undefined ? [r.item] : null
     }),
   )
-  conn.onRequest(CallHierarchyIncomingCallsRequest.type, (p) => {
+  s.onRequest(CallHierarchyIncomingCallsRequest.type, (p) => {
     const r = reResolve(p.item, prepareCallHierarchy)
     return r === undefined
       ? null
       : callIncoming(s.workspace(), s.project(), r.sym).map((c) => ({ from: c.item, fromRanges: c.ranges }))
   })
-  conn.onRequest(CallHierarchyOutgoingCallsRequest.type, (p) => {
+  s.onRequest(CallHierarchyOutgoingCallsRequest.type, (p) => {
     const r = reResolve(p.item, prepareCallHierarchy)
     return r === undefined
       ? null
       : callOutgoing(r.d, s.project(), r.sym).map((c) => ({ to: c.item, fromRanges: c.ranges }))
   })
 
-  conn.onRequest(TypeHierarchyPrepareRequest.type, (p) =>
+  s.onRequest(TypeHierarchyPrepareRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => {
       const r = prepareTypeHierarchy(d, s.project(), o)
       return r !== undefined ? [r.item] : null
     }),
   )
-  conn.onRequest(TypeHierarchySupertypesRequest.type, (p) => {
+  s.onRequest(TypeHierarchySupertypesRequest.type, (p) => {
     const r = reResolve(p.item, prepareTypeHierarchy)
     return r === undefined ? null : typeSupertypes(s.project(), r.sym)
   })
-  conn.onRequest(TypeHierarchySubtypesRequest.type, (p) => {
+  s.onRequest(TypeHierarchySubtypesRequest.type, (p) => {
     const r = reResolve(p.item, prepareTypeHierarchy)
     return r === undefined ? null : typeSubtypes(s.project(), r.sym)
   })

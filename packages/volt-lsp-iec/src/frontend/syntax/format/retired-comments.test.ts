@@ -1,6 +1,6 @@
 /**
  * THE RETIRED `(* @volt-… *)` COMMENTS (rule FMT7) — an older Volt's boundary and marker comments: a comment to the
- * IDE, reported nowhere, and read only as the hint of a body that states no language (`server/document-diagnostics.ts`).
+ * IDE, reported nowhere, and read only as the hint of a body that states no language (`analysis/checks/syntax/missing-language.ts`).
  */
 import { expect, test } from "bun:test"
 import { isGraphicalBody, lex, parseSource, bodyStatements, unitBodies } from "../index.js"

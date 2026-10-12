@@ -139,12 +139,94 @@
 
 ## 2. Build
 
-- [ ] 2.1 `DiagnosticsPublisher` (new file); the four duplicated gates removed; versioned publishes.
-- [ ] 2.2 Incremental disk sync in `WorkspaceStore` (`upsertDisk` / `deleteDisk`, per-URI rebind).
-- [ ] 2.3 Cancellation (ConnectionStrategy, same-URI coalescing), progress fix, logger, transactional rebind, lifecycle
+- [x] 2.1 `DiagnosticsPublisher` (new file); the four duplicated gates removed; versioned publishes.
+      `src/server/diagnostics-publisher.ts` (+ colocated test, 7): per-URI findings cached at the store `generation`
+      (`WorkspaceStore.generation`, bumped only when the merged text, refs, task roots or config move); resultId = sha1 of
+      the serialized findings; `unchanged` against the client's id; versions on workspace reports and pushes; pre-crawl
+      `full []` with no resultId; push mode publishes the named document always and re-publishes the other open documents
+      and the manifests only when moved. `state.pushDiagnostics`/`pushManifestDiagnostics`, the close-handler clear and
+      both pull handlers' gates are gone. Marks removed: the 6 of `diagnostics-pull.test.ts` and "push mode: an edit
+      re-publishes the other open documents".
+- [x] 2.2 Incremental disk sync in `WorkspaceStore` (`upsertDisk` / `deleteDisk`, per-URI rebind).
+      `upsertDisk`/`deleteDisk`/`deleteDiskUnder`/`setRefs` in the store; `scanWorkspaceRefs` (+ `paths`) and
+      `sourceFilesUnder` in `workspace-refs.ts`; `src/server/disk-sync.ts` (+ colocated test, 3) applies one batch (delete
+      only on a fact, EBUSY kept/logged/re-read, folder boundary, refs re-scan on reference and directory events, ONE
+      refresh set, none when nothing moved); the `**/*` Create|Delete watcher. `reindex` per event is deleted; `seedDisk`
+      stays the crawl. The store split for the 400-line limit (`dead-code-cache.ts`, `document-key.ts`). Marks removed:
+      the other 6 of `disk-sync.test.ts`. Store unit tests +4 (generation rules, a save under an open buffer, folder
+      boundary, quarantine).
+- [x] 2.3 Cancellation (ConnectionStrategy, same-URI coalescing), progress fix, logger, transactional rebind, lifecycle
       conformance, processId watchdog.
-- [ ] 2.4 Domain findings moved to `analysis/` (missing language, unstated bodies, manifest warnings).
-- [ ] 2.5 Watcher fallback (`fs.watch`) for clients without dynamic registration, or the limitation documented.
+      `cancelUndispatched` answers -32800; a `Logger` to `window/logMessage` (jsonrpc's own reports too); progress create
+      awaited and bounded (2 s), `begin` only on an accepted token; quarantine in the store (parse or bind throws → out of
+      the merged set until the content changes, project rebuilt, logged by name; the file reports one `not-analysed`
+      error); `ServerState.onRequest`/`onNotification` gate (-32002 before `initialize`, -32600 after `shutdown`,
+      notifications dropped); `exit`, `onClose` and the 3 s `processId` watchdog end through `runServer`'s `exit` seam
+      (`bin.ts` passes `process.exit`). The `exit`-notification tests (2, refused in step 1) landed with the seam; the
+      harness's `@ts-expect-error` is gone. Marks removed: the 11 of `server-robustness.test.ts`.
+- [x] 2.4 Domain findings moved to `analysis/` (missing language, unstated bodies, manifest warnings).
+      `analysis/pipeline/document.ts` `documentFindings` (the composition; + test, 6 — the gate-0b pins moved with it),
+      `checks/syntax/missing-language.ts` (+ test, 4), `checks/workspace/materialization.ts` (+ test, 3), texts in
+      `messages/syntax.ts` and `messages/workspace.ts` (byte-identical). `server/document-diagnostics.ts` is the LSP
+      conversion (`toLspDiagnostic`, codeless `missing-language`) and the store-reading adapter; its test keeps the wire
+      (6). The compute probe moved to `documentFindings`. No mark (pins only). Conformance unchanged: `test/conformance`
+      6736 pass / 378 todo / 0 fail; `test/analysis` + `test/corpus` 32 pass / 0 fail; `rate:fixtures` leaves
+      `map.generated.ts` unchanged.
+- [x] 2.5 Watcher fallback (`fs.watch`) for clients without dynamic registration, or the limitation documented.
+      `src/server/file-watch.ts` (+ colocated test, 1: a written, saved — one refresh however often `fs.watch` fires —
+      and deleted source reach the store): a recursive `fs.watch` on the root, coalesced per macrotask into one batch
+      through `applyWatchedChanges`, `.git` skipped, closed when the server ends. Also started when a client advertised
+      dynamic registration and refused it.
+      **Gate 2 (review fixes to step 2, 2026-10-12)** — five findings checked, all accepted, none skipped; each red
+      before its fix (the equivalence pin excepted: it pins today's answer). No fixture or recording changed.
+      1. A watched batch relinked once PER FILE (`build.relink` ~25 ms on pro2193 — 7759 Changed events took 258 s, a
+         100-file pull ~3.3 s, both worse than the 2 s re-crawl). `WorkspaceStore.diskBatch` defers the batch's keys and
+         rebinds them together, ONE relink (`rebindKeys`); a multi-key mutation no longer drops the project either.
+         Measured: all 7759 pro2193 sources changed in one batch 1.2 s (the re-parse; relink 83 ms). Red test: "a
+         watched batch that moves several sources relinks the project once" (4 relinks → 1; the new relink counter in
+         `test/lsp/probes.ts`).
+      2. A reference re-scan dropped a reference file it could not read (EBUSY) and applied the rest — a disabled
+         warning came back, a library unbound. `scanWorkspaceRefs`/`scanWorkspace` now name what exists and could not
+         be read (`unreadable`, I/O code, ENOENT excluded); `ServerState.rescanRefs` keeps the last reference state,
+         logs the file, and re-scans at the next batch (`refsUnread`); the crawl logs both kinds and re-reads an
+         unreadable source at the next batch (`unread`). Red test in `disk-sync.test.ts` (C0139 came back).
+      3. A BIND throw at the full build (crawl, refs change, quarantine) made every `project()` throw. `project()`
+         catches it, finds the files whose bind throws in a scratch project (`project-build.ts` `bindFailures`, only
+         after a failed build), quarantines them and builds again; a throw no one file causes is rethrown. The
+         publisher builds the project before it asks whether a document is quarantined. Probe: `THROWS_IN_BIND`
+         (`build.bindFile`, and `build.buildSymbolTable` for the same files). Red test: the crawl-time bind throw; a
+         pin for the watched bind throw.
+      4. A Deleted event was acted on without the disk: a case-only rename (`FB_A.pou` → `fb_a.pou`, one key on a
+         case-folding FS) dropped the file when its Deleted came after the Created. A Deleted path the disk still holds
+         (exact name, or the one case variant on a case-folding FS) is read as Changed under the disk's spelling; an
+         upsert with equal bytes under a new spelling re-parses. Red test: both event orders (Created first was red).
+      5. The equivalence gate covered open/change/close only. New pin in `workspace-store.test.ts`: CodesysTestProject
+         with its manifests, devices and task roots — deletes, re-upserts, then one `diskBatch` of upserts plus a
+         `Library Manager/` folder delete; project scope and dead set ≡ a freshly seeded store at each step.
+      `workspace-store.ts` stays within 400 lines: the whole-project build moved to `project-build.ts`.
+      **Gate 2b (second review of step 2, 2026-10-12)** — three findings checked, all accepted, none skipped; each red
+      before its fix (8 tests added). No fixture, recording or transpiler change.
+      1. A directory event for a folder the disk still holds (a Deleted folder present again, or one coalesced Changed)
+         only upserted its sources and left phantom entries bound. `Batch.folder` now drops every entry under the folder
+         the disk no longer holds (`deleteDiskUnder(uri, kept)`), keeping what the disk lists and what is under a folder
+         it could not list. Red test in `disk-sync.test.ts`: Deleted+Created, Created+Deleted and one Changed (Main
+         reported no `Unknown type: 'FB_A'`); store pin "a folder event keeps the entries the disk still holds".
+      2. One quarantine map for both layers: a disk upsert equal to an OPEN-layer quarantine dropped the disk entry
+         unquarantined, and the close cleared the rest — the file gone with no `not-analysed`. The quarantine is now per
+         layer (`src/workspace/quarantine.ts`); content the other layer already quarantined is quarantined in this one
+         unparsed and not reported again. The same split fixes the converse (found while fixing): a clean unsaved edit of
+         a buffer over a quarantined disk file cleared the disk copy's quarantine. Red tests in
+         `server-robustness.test.ts` (parse and bind; the edit-then-close case); store pin "each their own".
+      3. `walkFiles` swallowed a `readdirSync`/`statSync` failure as absence. It now names any non-ENOENT failure
+         (`unlisted`): a refs re-scan counts it `unreadable` (the last references stand, logged, re-scanned next batch),
+         the crawl logs it once and re-reads it next batch, `sourceFilesUnder` returns it so a folder event keeps the
+         entries under it, and a Deleted path whose folder cannot be listed is unreadable, not gone. Probe:
+         `deniedList(path)` (`readdirSync` EPERM) in `test/lsp/probes.ts` instead of `icacls` (portable, no ACL left
+         behind). Red tests in `disk-sync.test.ts`: refs re-scan (Dev1 unbound), a folder event under an unlistable
+         folder (not logged), the crawl (not logged).
+      Gate: typecheck clean; `bun run lint` clean; full suite `VOLT_REQUIRE_FULL=1 bun test` (VOLT_FIXTURES unset) 9673
+      pass, 35 skip, 421 todo, 0 fail — 10129 tests across 356 files, 730 s. No fixture or transpiler change, so no map
+      regeneration (`map.generated.ts` untouched).
 
 ## 3. Verify and close
 

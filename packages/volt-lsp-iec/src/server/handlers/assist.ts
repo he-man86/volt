@@ -27,23 +27,22 @@ import {
 import type { ServerState } from "../state.js"
 
 export function registerAssistHandlers(s: ServerState): void {
-  const conn = s.conn
-  conn.onRequest(HoverRequest.type, (p) =>
+  s.onRequest(HoverRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
       inNetworkText(d, o)
         ? networkHover(d, s.project(), o)
         : (readOnlyBodyHover(d, o) ?? hover(d, s.project(), o) ?? pragmaHover(d, s.project(), o)),
     ),
   )
-  conn.onRequest(CompletionRequest.type, (p) =>
+  s.onRequest(CompletionRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) =>
       inNetworkText(d, o) ? networkCompletion(d, s.project(), o) : completion(d, s.project(), o),
     ),
   )
-  conn.onRequest(SignatureHelpRequest.type, (p) =>
+  s.onRequest(SignatureHelpRequest.type, (p) =>
     s.at(p.textDocument.uri, p.position, (d, o) => signatureHelp(d, s.project(), o)),
   )
-  conn.onRequest(InlayHintRequest.type, (p) => {
+  s.onRequest(InlayHintRequest.type, (p) => {
     const d = s.doc(p.textDocument.uri)
     if (d === undefined) return null
     return inlayHints(
@@ -53,8 +52,8 @@ export function registerAssistHandlers(s: ServerState): void {
       clampedOffset(d.source, p.range.end),
     )
   })
-  conn.onRequest(CodeLensRequest.type, (p) => s.whole(p.textDocument.uri, (d) => codeLenses(s.workspace(), s.project(), d)))
-  conn.onRequest(CodeActionRequest.type, (p) =>
+  s.onRequest(CodeLensRequest.type, (p) => s.whole(p.textDocument.uri, (d) => codeLenses(s.workspace(), s.project(), d)))
+  s.onRequest(CodeActionRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => codeActions(d, s.project(), p.context.diagnostics)),
   )
 }

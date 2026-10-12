@@ -25,18 +25,17 @@ import {
 import type { ServerState } from "../state.js"
 
 export function registerStructureHandlers(s: ServerState): void {
-  const conn = s.conn
-  conn.onRequest(DocumentSymbolRequest.type, (p) => s.whole(p.textDocument.uri, documentSymbolsWithVg))
-  conn.onRequest(WorkspaceSymbolRequest.type, (p) => workspaceSymbols(s.project(), p.query))
-  conn.onRequest(FoldingRangeRequest.type, (p) => s.whole(p.textDocument.uri, foldingRanges))
-  conn.onRequest(SelectionRangeRequest.type, (p) => {
+  s.onRequest(DocumentSymbolRequest.type, (p) => s.whole(p.textDocument.uri, documentSymbolsWithVg))
+  s.onRequest(WorkspaceSymbolRequest.type, (p) => workspaceSymbols(s.project(), p.query))
+  s.onRequest(FoldingRangeRequest.type, (p) => s.whole(p.textDocument.uri, foldingRanges))
+  s.onRequest(SelectionRangeRequest.type, (p) => {
     const d = s.doc(p.textDocument.uri)
     if (d === undefined) return null
     return p.positions.map(
       (pos) => selectionRange(d, offsetFromPosition(d.source, pos)) ?? { range: { start: pos, end: pos } },
     )
   })
-  conn.onRequest(SemanticTokensRequest.type, (p) =>
+  s.onRequest(SemanticTokensRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => {
       const data = semanticTokensData(d, s.project())
       const resultId = String(++s.semTokSeq)
@@ -44,7 +43,7 @@ export function registerStructureHandlers(s: ServerState): void {
       return { resultId, data }
     }),
   )
-  conn.onRequest(SemanticTokensRangeRequest.type, (p) => {
+  s.onRequest(SemanticTokensRangeRequest.type, (p) => {
     const d = s.doc(p.textDocument.uri)
     if (d === undefined) return null
     return semanticTokensRange(
@@ -54,7 +53,7 @@ export function registerStructureHandlers(s: ServerState): void {
       clampedOffset(d.source, p.range.end),
     )
   })
-  conn.onRequest(SemanticTokensDeltaRequest.type, (p) =>
+  s.onRequest(SemanticTokensDeltaRequest.type, (p) =>
     s.whole(p.textDocument.uri, (d) => {
       const data = semanticTokensData(d, s.project())
       const resultId = String(++s.semTokSeq)

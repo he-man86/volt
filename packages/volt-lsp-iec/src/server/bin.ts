@@ -31,7 +31,7 @@ function main(argv: readonly string[]): number | undefined {
     // into this binary at compile time, else "(dev)".
     const vi = argv.indexOf("--server-version")
     const version = vi >= 0 && vi + 1 < argv.length ? argv[vi + 1] : shippedVersion()
-    runServer(process.stdin, process.stdout, flag, version)
+    runServer(process.stdin, process.stdout, flag, version, (code) => process.exit(code))
     return undefined // server owns the event loop; do not exit
   }
   console.error("usage: volt-lsp-iec --stdio [--codesys|--twincat]")

@@ -6,8 +6,8 @@
  * pulls cost one pass. An edit re-sends only the document whose findings moved, and every report says which version of
  * an open buffer it describes.
  *
- * Red until 2.1 builds the `DiagnosticsPublisher`: each test is `test.failing` and the step that makes it pass removes
- * the mark (a `.failing` test that passes fails the suite). The bench (`scripts/bench-server.ts`) measures the time; this
+ * Written red (`test.failing`) in step 1; the `DiagnosticsPublisher` (2.1, `server/diagnostics-publisher.ts`) turned them
+ * green and dropped the marks. The bench (`scripts/bench-server.ts`) measures the time; this
  * suite counts the answers AND the computes (the compute probe, `probes.ts`): `unchanged` alone cannot show the cost — a
  * server that recomputes every document and hashes the same items answers `unchanged` too.
  */
@@ -41,7 +41,7 @@ const resultIdsOf = (reports: WorkspaceReport[]): PreviousResultId[] =>
 
 const kinds = (reports: WorkspaceReport[]) => new Map(reports.map((r) => [r.uri, r.kind]))
 
-test.failing("10 idle workspace pulls answer `unchanged` for every document after the first", async () => {
+test("10 idle workspace pulls answer `unchanged` for every document after the first", async () => {
   const { root } = workspace()
   const h = harness()
   await h.initIn(root, CAPS.vscode)
@@ -62,7 +62,7 @@ test.failing("10 idle workspace pulls answer `unchanged` for every document afte
   h.dispose()
 })
 
-test.failing("10 idle workspace pulls compute no document after the first", async () => {
+test("10 idle workspace pulls compute no document after the first", async () => {
   // The generation cache: a pull at an unchanged generation reuses the last findings. Counted as computes, which the
   // answers cannot show (a recompute of the same items hashes to the same resultId).
   const { root, rootUri } = workspace()
@@ -105,7 +105,7 @@ test("before the crawl a pull answers `full` with no findings and no resultId; t
   h.dispose()
 })
 
-test.failing("an edit answers `full` for the edited document only; the others stay `unchanged`", async () => {
+test("an edit answers `full` for the edited document only; the others stay `unchanged`", async () => {
   const { root, a, b } = workspace()
   const h = harness()
   await h.initIn(root, CAPS.vscode)
@@ -119,7 +119,7 @@ test.failing("an edit answers `full` for the edited document only; the others st
   h.dispose()
 })
 
-test.failing("a document pull that sends back its resultId answers `unchanged` when nothing moved", async () => {
+test("a document pull that sends back its resultId answers `unchanged` when nothing moved", async () => {
   const { root, a } = workspace()
   const h = harness()
   await h.initIn(root, CAPS.vscode)
@@ -132,7 +132,7 @@ test.failing("a document pull that sends back its resultId answers `unchanged` w
   h.dispose()
 })
 
-test.failing("a workspace report carries the open buffer's version, and null for a file only on disk", async () => {
+test("a workspace report carries the open buffer's version, and null for a file only on disk", async () => {
   const { root, a, b } = workspace()
   const h = harness()
   await h.initIn(root, CAPS.vscode)
@@ -143,7 +143,7 @@ test.failing("a workspace report carries the open buffer's version, and null for
   h.dispose()
 })
 
-test.failing("a push carries the version of the buffer it describes", async () => {
+test("a push carries the version of the buffer it describes", async () => {
   const { root, a } = workspace()
   const h = harness()
   await h.initIn(root, CAPS.pushWatch)

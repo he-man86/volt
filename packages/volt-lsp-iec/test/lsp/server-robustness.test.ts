@@ -7,9 +7,9 @@
  * ServerNotInitialized and one after `shutdown` with InvalidRequest; a closed connection and a dead parent process
  * end the server, through `runServer`'s exit seam (never a real `process.exit` here).
  *
- * The `test.failing` tests are red until 2.3 builds them (cancellation, progress, logger, quarantine, lifecycle); the
- * step that turns one green removes its mark. Refused by name: the `exit`-notification test — today `exit` calls
- * `process.exit(0)`, which would end `bun test` mid-run; it lands with the exit seam in 2.3.
+ * Written red in step 1; 2.3 (cancellation, progress, logger, quarantine, lifecycle) turned them green. The
+ * `exit`-notification tests came with the exit seam in 2.3: before it `exit` called `process.exit(0)`, which would have
+ * ended `bun test` mid-run.
  */
 import { afterAll, expect, test } from "bun:test"
 import { rmSync, writeFileSync } from "node:fs"
@@ -19,6 +19,7 @@ import {
   DiagnosticSeverity,
   DidOpenTextDocumentNotification,
   DocumentDiagnosticRequest,
+  ExitNotification,
   FileChangeType,
   FoldingRangeRequest,
   HoverRequest,
@@ -27,7 +28,7 @@ import {
   type Diagnostic,
 } from "vscode-languageserver-protocol/node"
 import { CAPS, fileUri, harness, until, within, type Harness } from "./harness.js"
-import { parsed, resetParses, THROWS_IN_PARSE } from "./probes.js"
+import { parsed, resetParses, THROWS_IN_BIND, THROWS_IN_PARSE } from "./probes.js"
 import { tempWorkspace } from "./sources.js"
 
 const PRG = (name: string, body = "i := i + 1;") =>
@@ -78,7 +79,7 @@ const NOT_ANALYSED = [{ code: "not-analysed", line: 0, severity: DiagnosticSever
 
 const HOVER = { textDocument: { uri: "file:///A.pou" }, position: { line: 0, character: 9 } }
 
-test.failing("a pull cancelled while still queued answers RequestCancelled and is never computed", async () => {
+test("a pull cancelled while still queued answers RequestCancelled and is never computed", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   const a = "file:///A.pou"
@@ -89,15 +90,16 @@ test.failing("a pull cancelled while still queued answers RequestCancelled and i
   // One burst: A (a request that parses A alone), B (a pull, which would build the project and parse B), cancel B.
   const cancel = new CancellationTokenSource()
   const first = h.request(FoldingRangeRequest.type, { textDocument: { uri: a } })
-  const second = h.request(DocumentDiagnosticRequest.type, { textDocument: { uri: b } }, cancel.token)
+  // Its rejection is observed at once: one left unobserved while `first` is awaited is an unhandled rejection.
+  const second = errorCode(h.request(DocumentDiagnosticRequest.type, { textDocument: { uri: b } }, cancel.token))
   cancel.cancel()
   await first
-  expect(await errorCode(second)).toBe(-32800) // RequestCancelled
+  expect(await second).toBe(-32800) // RequestCancelled
   expect(parsed().get(b)).toBeUndefined()
   h.dispose()
 })
 
-test.failing("the indexing progress begins before it ends", async () => {
+test("the indexing progress begins before it ends", async () => {
   const h = harness("codesys", "answer")
   await h.initIn(workspace(), CAPS.vscode)
   await until(() => h.progress().length >= 2, 3000, "a begin and an end")
@@ -105,7 +107,7 @@ test.failing("the indexing progress begins before it ends", async () => {
   h.dispose()
 })
 
-test.failing("a refused progress create still crawls, and sends no progress on its token", async () => {
+test("a refused progress create still crawls, and sends no progress on its token", async () => {
   // A refusal is no reason to skip the crawl: without it `indexed` stays false and every pull answers `Full []`.
   const h = harness("codesys", "refuse")
   const root = workspace()
@@ -126,13 +128,13 @@ test("a client that never answers the progress create still gets its diagnostics
   h.dispose()
 }, 10_000)
 
-test.failing(
+test(
   "a throwing parse leaves the server serving, is logged, and its file reports one `not-analysed` error",
   async () => {
     const h = harness()
     await h.init(CAPS.pull)
     const good = "file:///Good.pou"
-    const bad = "file:///Quarantine.pou"
+    const bad = "file:///PQ.pou" // named after its POU: a file's name and its POU's must match (signature-name-mismatch)
     await h.open(good, BROKEN)
     await h.open(bad, `${PRG("PQ")}${THROWS_IN_PARSE}\n`)
     // Every other document is still analysed…
@@ -151,7 +153,7 @@ test.failing(
   },
 )
 
-test.failing("a disk file whose parse throws during the crawl is quarantined; the crawl serves every other file", async () => {
+test("a disk file whose parse throws during the crawl is quarantined; the crawl serves every other file", async () => {
   const root = tempWorkspace({ "Main.pou": BROKEN, "Bad.pou": `${PRG("PQ")}${THROWS_IN_PARSE}\n` })
   roots.push(root)
   const h = harness()
@@ -162,7 +164,7 @@ test.failing("a disk file whose parse throws during the crawl is quarantined; th
   h.dispose()
 })
 
-test.failing("a watched source whose parse throws is quarantined; every other file is still served", async () => {
+test("a watched source whose parse throws is quarantined; every other file is still served", async () => {
   const root = tempWorkspace({ "Main.pou": BROKEN, "Bad.pou": PRG("PQ") })
   roots.push(root)
   const h = harness()
@@ -171,6 +173,65 @@ test.failing("a watched source whose parse throws is quarantined; every other fi
   await h.watched([{ uri: fileUri(root, "Bad.pou"), type: FileChangeType.Changed }])
   expect((await findings(h, fileUri(root, "Main.pou"))).map((f) => f.code)).toContain("C0032")
   expect(await findings(h, fileUri(root, "Bad.pou"))).toEqual(NOT_ANALYSED)
+  h.dispose()
+})
+
+
+test("a disk file whose BIND throws during the crawl is quarantined; the crawl serves every other file", async () => {
+  const root = tempWorkspace({ "Main.pou": BROKEN, "Bad.pou": `${PRG("PQ")}${THROWS_IN_BIND}\n` })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, CAPS.vscode)
+  expect((await findings(h, fileUri(root, "Main.pou"))).map((f) => f.code)).toContain("C0032")
+  expect(await findings(h, fileUri(root, "Bad.pou"))).toEqual(NOT_ANALYSED)
+  expect(h.logs().some((l) => l.message.includes(fileUri(root, "Bad.pou")))).toBe(true)
+  h.dispose()
+})
+
+test("a watched source whose BIND throws is quarantined; every other file is still served", async () => {
+  const root = tempWorkspace({ "Main.pou": BROKEN, "Bad.pou": PRG("PQ") })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, CAPS.vscode)
+  await h.workspacePull() // the project is built: the upsert rebinds the one file
+  writeFileSync(join(root, "Bad.pou"), `${PRG("PQ")}${THROWS_IN_BIND}\n`)
+  await h.watched([{ uri: fileUri(root, "Bad.pou"), type: FileChangeType.Changed }])
+  expect((await findings(h, fileUri(root, "Main.pou"))).map((f) => f.code)).toContain("C0032")
+  expect(await findings(h, fileUri(root, "Bad.pou"))).toEqual(NOT_ANALYSED)
+  h.dispose()
+})
+test("a buffer that throws, saved to disk and closed, still reports `not-analysed` (parse and bind)", async () => {
+  // The disk now holds the content the open buffer threw on: the quarantine belongs to the disk copy too, and the
+  // file never drops out of the project with nothing in the pull to say why (gate 2 review).
+  for (const marker of [THROWS_IN_PARSE, THROWS_IN_BIND]) {
+    const root = tempWorkspace({ "Main.pou": BROKEN, "PQ.pou": PRG("PQ") })
+    roots.push(root)
+    const h = harness()
+    await h.initIn(root, CAPS.vscode)
+    const bad = fileUri(root, "PQ.pou")
+    const text = `${PRG("PQ")}${marker}\n`
+    await h.open(bad, text)
+    expect(await findings(h, bad), marker).toEqual(NOT_ANALYSED)
+    writeFileSync(join(root, "PQ.pou"), text)
+    await h.watched([{ uri: bad, type: FileChangeType.Changed }])
+    await h.close(bad)
+    expect(await findings(h, bad), marker).toEqual(NOT_ANALYSED)
+    expect((await findings(h, fileUri(root, "Main.pou"))).map((f) => f.code), marker).toContain("C0032")
+    h.dispose()
+  }
+})
+
+test("a disk file that throws stays `not-analysed` after a buffer of it is edited clean and closed unsaved", async () => {
+  const root = tempWorkspace({ "Main.pou": BROKEN, "PQ.pou": `${PRG("PQ")}${THROWS_IN_PARSE}\n` })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, CAPS.vscode)
+  const bad = fileUri(root, "PQ.pou")
+  await h.open(bad, `${PRG("PQ")}${THROWS_IN_PARSE}\n`)
+  await h.change(bad, 2, PRG("PQ")) // edited clean, never saved: the disk still holds the content that threw
+  expect(await findings(h, bad)).toEqual([])
+  await h.close(bad)
+  expect(await findings(h, bad)).toEqual(NOT_ANALYSED)
   h.dispose()
 })
 
@@ -185,13 +246,13 @@ test("a notification before `initialize` is dropped", async () => {
   h.dispose()
 })
 
-test.failing("a request before `initialize` is refused with ServerNotInitialized (-32002)", async () => {
+test("a request before `initialize` is refused with ServerNotInitialized (-32002)", async () => {
   const h = harness()
   expect(await errorCode(within(h.request(HoverRequest.type, HOVER), 2000, "the refusal"))).toBe(-32002)
   h.dispose()
 })
 
-test.failing("a request after `shutdown` is refused with InvalidRequest (-32600)", async () => {
+test("a request after `shutdown` is refused with InvalidRequest (-32600)", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   await h.open("file:///A.pou", PRG("PA"))
@@ -200,7 +261,26 @@ test.failing("a request after `shutdown` is refused with InvalidRequest (-32600)
   h.dispose()
 })
 
-test.failing("a closed connection after `shutdown` ends the server with code 0", async () => {
+test("`exit` after `shutdown` ends the server with code 0", async () => {
+  const h = harness()
+  await h.init(CAPS.pull)
+  await h.request(ShutdownRequest.type, undefined)
+  await h.notify(ExitNotification.type, undefined)
+  await until(() => h.exits().length > 0, 2000, "an exit after the `exit` notification")
+  expect(h.exits()).toEqual([0])
+  h.dispose()
+})
+
+test("`exit` with no `shutdown` first ends the server with code 1", async () => {
+  const h = harness()
+  await h.init(CAPS.pull)
+  await h.notify(ExitNotification.type, undefined)
+  await until(() => h.exits().length > 0, 2000, "an exit after the `exit` notification")
+  expect(h.exits()).toEqual([1])
+  h.dispose()
+})
+
+test("a closed connection after `shutdown` ends the server with code 0", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   await h.request(ShutdownRequest.type, undefined)
@@ -210,7 +290,7 @@ test.failing("a closed connection after `shutdown` ends the server with code 0",
   h.dispose()
 })
 
-test.failing("a closed connection ends the server, with code 1 when no `shutdown` came first", async () => {
+test("a closed connection ends the server, with code 1 when no `shutdown` came first", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   h.endInput()
@@ -219,7 +299,7 @@ test.failing("a closed connection ends the server, with code 1 when no `shutdown
   h.dispose()
 })
 
-test.failing(
+test(
   "a dead parent process (`processId`) ends the server with code 1",
   async () => {
     // A process that has exited: its pid names no live process (the server's watchdog probes it every 3 s).

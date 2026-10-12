@@ -12,6 +12,11 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   TextDocumentSyncKind,
+  LSPErrorCodes,
+  ResponseError,
+  type Message,
+  type RequestMessage,
+  type ResponseMessage,
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
 import type { Vendor } from "../analysis/index.js"
@@ -23,7 +28,7 @@ import { registerFormattingHandlers } from "./handlers/formatting.js"
 import { registerLifecycleHandlers } from "./handlers/lifecycle.js"
 import { registerNavigationHandlers } from "./handlers/navigation.js"
 import { registerStructureHandlers } from "./handlers/structure.js"
-import { ServerState } from "./state.js"
+import { ServerState, type Exit } from "./state.js"
 
 /** What this server answers: every provider here has its handler in a group under `handlers/`. */
 const CAPABILITIES: InitializeResult["capabilities"] = {
@@ -55,10 +60,25 @@ const CAPABILITIES: InitializeResult["capabilities"] = {
   diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true },
 }
 
-/** `flag`: the vendor the client stated (`--codesys|--twincat`), or undefined — `initialize` then reads the binding (`vendor.ts`). */
-export function runServer(input: Readable, output: Writable, flag: Vendor | undefined, version: string): void {
-  const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  const s = new ServerState(conn)
+/** `flag`: the vendor the client stated (`--codesys|--twincat`), or undefined — `initialize` then reads the binding (`vendor.ts`).
+ *  `exit`: how the process ends (the `exit` notification, a closed connection, a dead parent) — `bin.ts` passes
+ *  `process.exit`, an in-process caller a recorder: the server never calls `process.exit` itself. */
+export function runServer(input: Readable, output: Writable, flag: Vendor | undefined, version: string, exit: Exit): void {
+  // A request the client cancelled while it still waited in jsonrpc's queue is answered RequestCancelled and never
+  // run (the cancel is read in the reader callback; dispatch runs on `setImmediate`, so it reaches the requests queued
+  // behind a running synchronous handler). Same-URI pulls coalesce through the client, which cancels a superseded one.
+  const cancelUndispatched = (message: Message): ResponseMessage => ({
+    jsonrpc: "2.0",
+    id: (message as RequestMessage).id,
+    error: new ResponseError(LSPErrorCodes.RequestCancelled, `${(message as RequestMessage).method} was cancelled before it ran`).toJson(),
+  })
+  const s = new ServerState(
+    (logger) =>
+      createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output), logger, {
+        connectionStrategy: { cancelUndispatched },
+      }),
+    exit,
+  )
   registerLifecycleHandlers(s, flag, version, CAPABILITIES)
   registerDocumentHandlers(s)
   registerDiagnosticHandlers(s)
@@ -66,5 +86,5 @@ export function runServer(input: Readable, output: Writable, flag: Vendor | unde
   registerAssistHandlers(s)
   registerStructureHandlers(s)
   registerFormattingHandlers(s)
-  conn.listen()
+  s.conn.listen()
 }

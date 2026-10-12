@@ -240,3 +240,33 @@ counter in product code (probes stay `mock.module`).
 the publisher (2.1); `reindex` per watched event is deleted, `seedDisk` stays the crawl (2.2); `lifecycle.ts`'s
 `process.exit(0)` becomes the seam (2.3); `src/server/document-diagnostics.ts` shrinks to `toLspDiagnostic` and its
 test file moves with the composition to `analysis/` (2.4); layer G docs wait for 3.1.
+
+**As built (step 2, 2026-10-12) — where reality forced a different choice than the text above, and why:**
+- **Not five commits.** The step runs as one implement agent under a gate that commits; the five pieces landed in one
+  working tree, in task order, and every mark was removed by the piece that turned it green (6 pull/version + 7
+  disk-sync + 11 robustness = 24 marks; design.md said 6 + 7 + 10 — gate 1 added the closed-after-`shutdown` test).
+- **`scanWorkspaceRefs` also returns `paths`** (every reference file it read). A deleted path with no scanned extension
+  is a folder event only when it held a disk entry or one of those paths; otherwise it is dropped (a deleted `.txt` or a
+  folder that held nothing read does not re-walk the references). Without the paths, a deleted `Devices/` — no source in
+  it — could not be told from a deleted file of no interest.
+- **The store split three ways** (the 400-line limit): `workspace/dead-code-cache.ts` (the dead set and members, kept
+  across edits — unchanged logic) and `workspace/document-key.ts` (`normalizeKey`, `sameDocument`, the folder boundary
+  `isUnder`). The store's `FailureReport` is a REQUIRED constructor argument; tests pass `test/support/fail-loud.ts`.
+- **A save of an OPEN file** (`upsertDisk` under a buffer) bumps no generation and rebinds nothing: the buffer is what
+  analysis sees; the close then switches to the disk copy (and bumps).
+- **Push triggers.** The document an open, change, close or save names is always published (the existing pins expect a
+  publish on save and on close); every OTHER open document is re-published only when its findings moved. A config change
+  re-publishes every open document (`capability-matrix.test.ts` pins that a config change reaches a push client).
+- **The moved texts are plain builders beside the `Messages` slices** (`messages/syntax.ts` `missingLanguageMessage`,
+  `messages/workspace.ts`), not in `messagesFor`: they are Volt's texts with no compiler counterpart, and a builder in
+  `messagesFor` is held by the analysis census to the vendors' recordings (it would count as a never-firing builder in
+  the coverage baseline, whose counts may only fall). Byte-identical to the server's old texts.
+- **Layering rule A4** names `analysis/pipeline/document.ts` as pipeline beside `registry.ts` and `diagnostics.ts`
+  (`scripts/check-layering.ts` `isRegistryOrPipeline`): it composes the network and missing-language checks.
+- **The harness's `initialized` waits for the progress `end`** when the client answers the create: the crawl now follows
+  the create round trip, so the one-pull barrier alone could run before it (a barrier, not an assertion).
+- **Two red tests had a test bug the build exposed** (each independent of the code): the cancelled pull's rejection was
+  observed only after `await first` (an unhandled rejection in bun) — it is observed at once now; and the quarantine
+  test's `Quarantine.pou` declared `PROGRAM PQ`, which reports `signature-name-mismatch` once the file is analysed again
+  — it is `PQ.pou` now.
+- **The fallback watcher also starts when a client advertised dynamic registration and then refused it.**

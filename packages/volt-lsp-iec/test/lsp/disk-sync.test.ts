@@ -7,20 +7,20 @@
  * fails while the CLI or the IDE is still writing is not a delete; and in push mode a change re-publishes every open
  * document it moved, and none it did not.
  *
- * Work is counted by the parse probe (`probes.ts`), never by wall clock. The `test.failing` tests are red until 2.2
- * (incremental disk sync) or 2.1 (the publisher's push re-publish) builds them; the step that turns one green removes
- * its mark. The plain tests pin what the wholesale re-crawl already gets right, so 2.2 cannot lose it: every event kind
+ * Work is counted by the parse probe (`probes.ts`), never by wall clock. The tests written red in step 1
+ * were turned green by 2.2 (incremental disk sync, `server/disk-sync.ts`) and 2.1 (the publisher's push re-publish).
+ * The others pinned, before 2.2, what the wholesale re-crawl already got right, so the per-file sync could not lose it: every event kind
  * it heals today (a created, deleted or changed source; a created folder's sources; a Changed whose file is gone; a
  * `.projectsettings` edit; a deleted file's own report) and, in push mode, the re-push of an open document a watched
  * batch DID move and of the manifest set.
  */
 import { afterAll, afterEach, expect, test } from "bun:test"
-import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
-import { FileChangeType } from "vscode-languageserver-protocol/node"
+import { FileChangeType, type FileEvent } from "vscode-languageserver-protocol/node"
 import { CAPS, fileUri, harness, type Harness } from "./harness.js"
-import { busyRead, parsed, resetParses } from "./probes.js"
+import { busyRead, deniedList, parsed, relinked, resetParses, resetRelinks } from "./probes.js"
 import { tempWorkspace } from "./sources.js"
 
 const MAIN = `PROGRAM Main
@@ -45,7 +45,10 @@ const roots: string[] = []
 afterAll(() => {
   for (const r of roots) rmSync(r, { recursive: true, force: true })
 })
-afterEach(() => busyRead(undefined))
+afterEach(() => {
+  busyRead(undefined)
+  deniedList(undefined)
+})
 
 /** `POUs/Motor` and its sibling `POUs/MotorControl` (whose name the first one prefixes), a device, a task, and three
  *  files nothing uses. */
@@ -78,7 +81,7 @@ async function messagesOf(h: Harness, uri: string): Promise<string[]> {
 }
 const unknownType = (name: string) => `Unknown type: '${name}'`
 
-test.failing("a watched Changed for one source re-parses that file and no other", async () => {
+test("a watched Changed for one source re-parses that file and no other", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.vscode)
@@ -101,7 +104,7 @@ test("a folder delete drops the entries under that folder, not a sibling whose n
   h.dispose()
 })
 
-test.failing("a folder delete re-parses no file", async () => {
+test("a folder delete re-parses no file", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.vscode)
@@ -139,7 +142,7 @@ test("a directory event re-scans the references: a created folder's `.library` b
   h.dispose()
 })
 
-test.failing("the server watches directories: one `**/*` watcher for Create and Delete", async () => {
+test("the server watches directories: one `**/*` watcher for Create and Delete", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.vscode)
@@ -163,7 +166,7 @@ test("a `.task` edit applies the new task roots", async () => {
   h.dispose()
 })
 
-test.failing("a reference-file change re-scans the references and re-parses no source", async () => {
+test("a reference-file change re-scans the references and re-parses no source", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.vscode)
@@ -174,7 +177,7 @@ test.failing("a reference-file change re-scans the references and re-parses no s
   h.dispose()
 })
 
-test.failing(
+test(
   "a read failing with EBUSY keeps the entry, is logged, and is re-read at the next watched batch",
   async () => {
     const w = workspace()
@@ -197,7 +200,7 @@ test.failing(
   },
 )
 
-test.failing("push mode: an edit re-publishes the other open documents whose findings it moved", async () => {
+test("push mode: an edit re-publishes the other open documents whose findings it moved", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.pushWatch)
@@ -211,7 +214,7 @@ test.failing("push mode: an edit re-publishes the other open documents whose fin
   h.dispose()
 })
 
-test.failing("push mode: a watched batch re-publishes no open document whose findings did not move", async () => {
+test("push mode: a watched batch re-publishes no open document whose findings did not move", async () => {
   const w = workspace()
   const h = harness()
   await h.initIn(w.root, CAPS.pushWatch)
@@ -340,5 +343,143 @@ test("push mode: a watched batch publishes the manifest warnings it brought", as
   )
   await h.watched([{ uri: manifest, type: FileChangeType.Created }])
   expect(h.published(manifest)?.map((d) => d.code)).toEqual(["library-stale"])
+  h.dispose()
+})
+
+// ─── review fixes (lsp-server-scheduling step 2) ───
+
+test("a watched batch that moves several sources relinks the project once", async () => {
+  const w = workspace()
+  const h = harness()
+  await h.initIn(w.root, CAPS.vscode)
+  await h.workspacePull() // the project is built: a batch now rebinds it, file by file
+  const files = ["Other1.pou", "Other2.pou", "Other3.pou", "POUs/Motor/FB_A.pou"]
+  for (const f of files) appendFileSync(w.at(f), "// pulled\n")
+  resetRelinks()
+  await h.watched(files.map((f) => ({ uri: w.uri(f), type: FileChangeType.Changed })))
+  // one relink per batch: a `volt pull` of N files cost N relinks (~33 ms each on pro2193), slower than a re-crawl
+  expect(relinked()).toBe(1)
+  expect(await messagesOf(h, w.uri("Main.pou"))).not.toContain(unknownType("FB_A"))
+  h.dispose()
+})
+
+test("a reference file the re-scan cannot read (EBUSY) keeps the last references, is logged, and is re-read at the next batch", async () => {
+  // C0139 ("the code has no effect") is switched off by the project; `b;` is such a statement.
+  const root = tempWorkspace({
+    "Prog.pou": `PROGRAM Prog\nVAR\n\tb : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nb;\nEND_PROGRAM\n`,
+    "Project Settings.projectsettings": "Disabled warnings: C0139\n",
+    "Task.task": TASK("Prog"),
+    "Other.pou": fb("FB_Other"),
+  })
+  roots.push(root)
+  const h = harness()
+  await h.initIn(root, CAPS.vscode)
+  const codes = async () =>
+    ((await h.workspacePull()).find((r) => r.uri === fileUri(root, "Prog.pou"))?.items ?? []).map((d) => d.code)
+  expect(await codes()).not.toContain("C0139")
+  // The IDE is rewriting the settings (now enabling C0139) while a `.task` event re-scans the references.
+  writeFileSync(join(root, "Project Settings.projectsettings"), "Disabled warnings: \n")
+  busyRead(join(root, "Project Settings.projectsettings"))
+  await h.watched([{ uri: fileUri(root, "Task.task"), type: FileChangeType.Changed }])
+  expect(await codes()).not.toContain("C0139") // the last state the project said, never the editor default
+  expect(h.logs().some((l) => l.message.includes("EBUSY") && l.message.includes("Project%20Settings.projectsettings"))).toBe(true)
+  // The write completes; the next batch — for a source — re-reads the references.
+  busyRead(undefined)
+  appendFileSync(join(root, "Other.pou"), "// saved\n")
+  await h.watched([{ uri: fileUri(root, "Other.pou"), type: FileChangeType.Changed }])
+  expect(await codes()).toContain("C0139")
+  h.dispose()
+})
+
+test("a case-only rename keeps the file's declarations, whichever event of the batch comes first", async () => {
+  for (const order of ["created first", "deleted first"] as const) {
+    const w = workspace()
+    const h = harness()
+    await h.initIn(w.root, CAPS.vscode)
+    renameSync(w.at("POUs/Motor/FB_A.pou"), w.at("POUs/Motor/fb_a.pou"))
+    const created: FileEvent = { uri: w.uri("POUs/Motor/fb_a.pou"), type: FileChangeType.Created }
+    const deleted: FileEvent = { uri: w.uri("POUs/Motor/FB_A.pou"), type: FileChangeType.Deleted }
+    await h.watched(order === "created first" ? [created, deleted] : [deleted, created])
+    expect(await messagesOf(h, w.uri("Main.pou")), order).not.toContain(unknownType("FB_A"))
+    h.dispose()
+  }
+})
+
+test("a folder removed and re-created drops the entries the disk no longer has, in every form a host sends", async () => {
+  // `git checkout` or `volt pull` rewriting a folder: Deleted + Created (either order), or one coalesced Changed.
+  const forms: Record<string, (folder: string) => FileEvent[]> = {
+    "deleted then created": (uri) => [
+      { uri, type: FileChangeType.Deleted },
+      { uri, type: FileChangeType.Created },
+    ],
+    "created then deleted": (uri) => [
+      { uri, type: FileChangeType.Created },
+      { uri, type: FileChangeType.Deleted },
+    ],
+    "one changed": (uri) => [{ uri, type: FileChangeType.Changed }],
+  }
+  for (const [form, events] of Object.entries(forms)) {
+    const w = workspace()
+    const h = harness()
+    await h.initIn(w.root, CAPS.vscode)
+    rmSync(w.at("POUs/Motor"), { recursive: true })
+    mkdirSync(w.at("POUs/Motor"))
+    writeFileSync(w.at("POUs/Motor/FB_C.pou"), fb("FB_C"))
+    await h.watched(events(w.uri("POUs/Motor")))
+    const main = await messagesOf(h, w.uri("Main.pou"))
+    expect(main, form).toContain(unknownType("FB_A"))
+    expect(main, form).not.toContain(unknownType("FB_B"))
+    h.dispose()
+  }
+})
+
+const logged = (h: Harness, ...parts: string[]) => h.logs().some((l) => parts.every((p) => l.message.includes(p)))
+
+test("a reference re-scan that cannot list a folder keeps the last references, logs the folder, and re-scans at the next batch", async () => {
+  const w = workspace()
+  const h = harness()
+  await h.initIn(w.root, CAPS.vscode)
+  const main = w.uri("Main.pou")
+  expect(await messagesOf(h, main)).not.toContain("Identifier 'Dev1' not defined")
+  deniedList(w.at("Devices"))
+  await h.watched([{ uri: w.uri("Task.task"), type: FileChangeType.Changed }])
+  expect(await messagesOf(h, main)).not.toContain("Identifier 'Dev1' not defined") // never a guessed unbind
+  expect(logged(h, "EPERM", w.uri("Devices"))).toBe(true)
+  // The device goes while the folder cannot be listed; once it can, the next batch — for a source — re-scans.
+  rmSync(w.at("Devices/Dev1.device"))
+  deniedList(undefined)
+  appendFileSync(w.at("Other1.pou"), "// saved\n")
+  await h.watched([{ uri: w.uri("Other1.pou"), type: FileChangeType.Changed }])
+  expect(await messagesOf(h, main)).toContain("Identifier 'Dev1' not defined")
+  h.dispose()
+})
+
+test("a directory event under which a folder cannot be listed keeps that folder's entries, logs it, and re-reads it at the next batch", async () => {
+  const w = workspace()
+  const h = harness()
+  await h.initIn(w.root, CAPS.vscode)
+  const main = w.uri("Main.pou")
+  deniedList(w.at("POUs/Motor"))
+  await h.watched([{ uri: w.uri("POUs"), type: FileChangeType.Changed }])
+  expect(await messagesOf(h, main)).not.toContain(unknownType("FB_A")) // never a guessed delete
+  expect(logged(h, "EPERM", w.uri("POUs/Motor"))).toBe(true)
+  rmSync(w.at("POUs/Motor/FB_A.pou"))
+  deniedList(undefined)
+  appendFileSync(w.at("Other1.pou"), "// saved\n")
+  await h.watched([{ uri: w.uri("Other1.pou"), type: FileChangeType.Changed }])
+  expect(await messagesOf(h, main)).toContain(unknownType("FB_A"))
+  h.dispose()
+})
+
+test("a folder the crawl cannot list is logged, and its sources are read at the next batch", async () => {
+  const w = workspace()
+  const h = harness()
+  deniedList(w.at("POUs/Motor"))
+  await h.initIn(w.root, CAPS.vscode)
+  expect(logged(h, "EPERM", w.uri("POUs/Motor"))).toBe(true)
+  deniedList(undefined)
+  appendFileSync(w.at("Other1.pou"), "// saved\n")
+  await h.watched([{ uri: w.uri("Other1.pou"), type: FileChangeType.Changed }])
+  expect(await messagesOf(h, w.uri("Main.pou"))).not.toContain(unknownType("FB_A"))
   h.dispose()
 })

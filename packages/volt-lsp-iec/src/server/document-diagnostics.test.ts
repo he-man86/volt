@@ -1,25 +1,31 @@
 /**
- * documentDiagnostics — the ONE compute shared by push + pull. Focused on the library-origin gate: a
- * referenced library is precompiled (CODESYS never recompiles it), so its materialized source must not be
- * error-checked. This is the root fix for the class where library GVLs/FBs false-positived (e.g. an array
- * bound `[0..GC_MAX]` on a library global that we can't prove constant).
+ * `document-diagnostics.ts` — what a client receives: the store's inputs read for one document, its findings converted
+ * to the wire (the compiler `Cnnnn` where one is mapped, no code on the missing-language finding), and the manifest
+ * warnings named by file URI. The composition itself (dead code, unstated bodies) is `analysis/pipeline/document.test.ts`'s
+ * (moved there with it, openspec lsp-server-scheduling 2.4). The library-origin gate is pinned here end to end: a
+ * referenced library is precompiled (CODESYS never recompiles it), so its materialized source must not be error-checked
+ * — the root fix for the class where library GVLs/FBs false-positived (an array bound `[0..GC_MAX]` on a library global
+ * that we can't prove constant).
  */
 import { test, expect } from "bun:test"
-import { resolveConfig } from "../analysis/index.js"
+import { pathToFileURL } from "node:url"
+import { resolveConfig, type Vendor } from "../analysis/index.js"
 import { WorkspaceStore } from "../workspace/workspace-store.js"
+import { failLoud } from "../../test/support/fail-loud.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./document-diagnostics.js"
 import { MATERIALIZATION } from "../frontend/library/index.js"
 
+/** What a client receives for `uri` in a workspace of `files`. */
+function diagnoseIn(files: Record<string, string>, uri: string, vendor: Vendor = "codesys") {
+  const store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+  store.seedDisk(Object.entries(files).map(([u, source]) => ({ uri: u, source })))
+  return documentDiagnostics(store, store.workspace().find((x) => x.uri === uri)!)
+}
+
 // A library GVL that would otherwise trip array-bound-non-const (bound is a plain global, not provably const).
 const LIB_SRC = `VAR_GLOBAL\n  GC_USIMAXNETID : USINT := 9;\n  M_ISTACK : ARRAY [0..gc_usiMaxNetId] OF INT;\nEND_VAR`
-
-function diagnose(uri: string) {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
-  store.seedDisk([{ uri, source: LIB_SRC }])
-  const d = store.workspace().find((x) => x.uri === uri)!
-  return documentDiagnostics(store, d)
-}
+const diagnose = (uri: string) => diagnoseIn({ [uri]: LIB_SRC }, uri)
 
 test("a library-origin document (Library Manager path) is not error-checked at all", () => {
   // Live server URI form: file:// with an encoded space (`Library%20Manager`) — the exact case a raw match missed.
@@ -31,147 +37,41 @@ test("the same source in a PROJECT file IS checked (the gate is library-only, no
   expect(diags.some((x) => x.code === "C0161")).toBe(true) // the mapped wire code for array-bound-non-const
 })
 
-// Every format below this server's own must say what it lacks: the stale-manifest warning is built from that list,
-// and a format with no entry printed "…(format 3, now 4): . Run `volt pull`…" — an empty clause, no failure.
-test("libraryManifestDiagnostics: every older format names what the workspace lacks", () => {
-  for (let format = 1; format < MATERIALIZATION; format++) {
-    const uri = `/w/Library Manager/Standard/Standard.library`
-    const byUri = libraryManifestDiagnostics([
-      {
-        uri,
-        folder: "Library Manager/Standard",
-        dir: "/w/Library Manager/Standard/",
-        namespace: "Standard",
-        library: "Standard",
-        dependencies: [],
-        materialization: format,
-      },
-    ])
-    const [warning] = [...byUri.values()].flat()
-    expect(warning?.code).toBe("library-stale")
-    expect(warning!.message).not.toContain("): .")
-    const clause = warning!.message.split(`(format ${format}, now ${MATERIALIZATION}): `)[1] ?? ""
-    expect(clause.startsWith(".")).toBe(false)
-    expect(clause.length).toBeGreaterThan(0)
-  }
-})
-
-// The re-pull repair assumes the CLI on PATH is at least this server's format. volt-vscode is published on its own and
-// bundles its own LSP, so the extension can be AHEAD of the installed CLI — and then `volt pull` writes the same old
-// format back and the warning (with every graphical body unchecked) never clears. The warning must name that case:
-// the CLI is the stale side, and the repair is updating it before the pull.
-test("libraryManifestDiagnostics: an older manifest names an older CLI as a possible stale side", () => {
-  const uri = `/w/Library Manager/Standard/Standard.library`
-  const byUri = libraryManifestDiagnostics([
-    {
-      uri,
-      folder: "Library Manager/Standard",
-      dir: "/w/Library Manager/Standard/",
-      namespace: "Standard",
-      library: "Standard",
-      dependencies: [],
-      materialization: MATERIALIZATION - 1,
-    },
-  ])
-  const [warning] = [...byUri.values()].flat()
-  expect(warning?.code).toBe("library-stale")
-  expect(warning!.message).toContain("volt pull")
-  expect(warning!.message).toContain(`format ${MATERIALIZATION}`)
-  expect(warning!.message).toMatch(/update the volt CLI/i)
-})
-
 // What a client SEES for a GVL whose global misses its `;` (`pwh_gvl_missing_semicolon`): on CODESYS nothing, since the
-// compiler says nothing; on TwinCAT the one message it gives. The parse errors reach a client by this path as well as
-// by the semantic pass, so the vendor's rule has to hold on both.
+// compiler says nothing; on TwinCAT the one message it gives.
 test("a global missing its `;`: silent on CODESYS, reported on TwinCAT, in what the client receives", () => {
-  const seen = (vendor: "codesys" | "twincat"): string[] => {
-    const store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED })
-    store.seedDisk([{ uri: "C:/w/GVL.gvl", source: "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\nEND_VAR\n" }])
-    return [...new Set(store.workspace().flatMap((d) => documentDiagnostics(store, d).map((x) => x.message)))]
-  }
+  const seen = (vendor: Vendor): string[] =>
+    diagnoseIn({ "C:/w/GVL.gvl": "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\nEND_VAR\n" }, "C:/w/GVL.gvl", vendor).map((x) => x.message)
   expect(seen("codesys")).toEqual([])
   expect(seen("twincat")).toEqual(["';, :=, REF=, ( or [' expected instead of 'g_b'"])
 })
 
-// ONE PARSE ERROR, ONE DIAGNOSTIC (analysis-conformance 2.5). The server used to append the parse's raw error stream
-// beside the pipeline's `checkParseErrors`, so every top-level parse error reached a client twice: once as C0002 and
-// once with no code. The pipeline's finding is the one a client gets; the codeless copy is gone.
-const PRG_MAIN = "PROGRAM PLC_PRG\nVAR\n\tfb : FB_Live;\nEND_VAR\nIMPLEMENTATION ST\nfb();\nEND_PROGRAM\n"
-const LIVE_FB = "FUNCTION_BLOCK FB_Live\nVAR\n\tb : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n"
-/** `[code, line]` of every diagnostic on `uri`, with the dead-code suppression on (the default) or off (`diagnoseDeadCode`,
- *  the control: what the same file gives when nothing is suppressed). */
-function diagnoseIn(files: Record<string, string>, uri: string, diagnoseDeadCode = false): [unknown, number][] {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys", diagnoseDeadCode }), { networkText: NETWORK_TEXT_ENABLED })
-  store.seedDisk(Object.entries(files).map(([u, source]) => ({ uri: u, source })))
-  return documentDiagnostics(store, store.workspace().find((x) => x.uri === uri)!).map((d): [unknown, number] => [d.code, d.range.start.line])
-    .sort((a, b) => a[1] - b[1])
-}
-
+// ONE PARSE ERROR, ONE DIAGNOSTIC (analysis-conformance 2.5): once, with its code — the codeless copy the server's own
+// raw parse-error stream added is gone.
 test("one top-level parse error is one diagnostic, with its code", () => {
   const files = { "C:/w/H.pou": "FUNCTION_BLOCK H\nVAR\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" }
-  expect(diagnoseIn(files, "C:/w/H.pou")).toEqual([["C0002", 2]])
+  expect(diagnoseIn(files, "C:/w/H.pou").map((d) => [d.code, d.range.start.line])).toEqual([["C0002", 2]])
 })
 
-// DEAD CODE, RECORDED (analysis-conformance 2.5, 2026-10-06): an FB nothing reaches builds CLEAN on both vendors even
-// with a parse error in it — `dead_fb_missing_then` (a statement), `dead_fb_declaration_parse_error` (a declaration) —
-// so a dead POU shows nothing, parse errors included. A method nothing calls inside a LIVE FB is not skipped that way:
-// its parse errors are reported on both vendors (`dead_method_missing_then`, `sig_empty_type`), so they stay.
-test("a dead POU shows nothing, not even its parse errors (the build never reads it)", () => {
-  const files = {
-    "C:/w/PLC_PRG.pou": PRG_MAIN,
-    "C:/w/FB_Live.pou": LIVE_FB,
-    // an FB no PROGRAM reaches: a declaration parse error (line 4), a conversion error (line 7), and a statement parse
-    // error in its method (line 11)
-    "C:/w/FB_Dead.pou":
-      "FUNCTION_BLOCK FB_Dead\nVAR\n\tb : BOOL;\n\ti : INT;\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK\n" +
-      "METHOD M\nIMPLEMENTATION ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
-  }
-  expect(diagnoseIn(files, "C:/w/FB_Dead.pou", true)).toEqual([["C0002", 4], ["C0032", 7], ["C0002", 11]])
-  expect(diagnoseIn(files, "C:/w/FB_Dead.pou")).toEqual([])
+test("the missing-language finding carries no code on the wire", () => {
+  const uri = "C:/w/FB.pou"
+  const [d, ...rest] = diagnoseIn({ [uri]: "FUNCTION_BLOCK FB\nVAR\n\ti : INT;\nEND_VAR\ni := 1;\nEND_FUNCTION_BLOCK\n" }, uri)
+  expect(rest).toEqual([])
+  expect(d!.message).toContain("states no language")
+  expect("code" in d!).toBe(false)
+  expect(d!.range.start).toEqual({ line: 4, character: 0 })
 })
 
-test("a parse error in a dead member is still shown (recorded), the member's semantic findings are not", () => {
-  const files = {
-    "C:/w/PLC_PRG.pou": PRG_MAIN,
-    // two methods nothing calls: a declaration parse error (line 10) and a conversion error (line 13); a statement parse
-    // error (line 17)
-    "C:/w/FB_Live.pou":
-      LIVE_FB +
-      "METHOD Unused\nVAR\n\tx : ;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_METHOD\n" +
-      "METHOD Unused2\nIMPLEMENTATION ST\nIF TRUE i := 1; END_IF\nEND_METHOD\n",
-  }
-  expect(diagnoseIn(files, "C:/w/FB_Live.pou", true)).toEqual([["C0002", 10], ["C0032", 13], ["C0002", 17]])
-  expect(diagnoseIn(files, "C:/w/FB_Live.pou")).toEqual([["C0002", 10], ["C0002", 17]])
-})
-
-// THE MISSING-LANGUAGE FINDING'S COMPOSITION, PINNED before lsp-server-scheduling 2.4 moves it into `analysis/` (review
-// finding 7 of gate 0b). It is the push's own refusal of the file (`StReader.Unmarked`), not a compiler finding, so it
-// does NOT follow the build's dead-code rule: a DEAD POU and a DEAD member with an unstated body still get it (the push
-// refuses that file whether or not anything calls it), and the unstated-body quiet() does not swallow it although its
-// range lies inside that body. A Library Manager file gets nothing (the library gate comes first).
-const UNSTATED_DEAD_FB = "FUNCTION_BLOCK FB_Dead\nVAR\n\ti : INT;\nEND_VAR\ni := 1;\nEND_FUNCTION_BLOCK\n"
-const missingLanguageLines = (files: Record<string, string>, uri: string): number[] => {
-  const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
-  store.seedDisk(Object.entries(files).map(([u, source]) => ({ uri: u, source })))
-  return documentDiagnostics(store, store.workspace().find((x) => x.uri === uri)!)
-    .filter((d) => d.message.includes("states no language"))
-    .map((d) => d.range.start.line)
-}
-
-test("missing language: a DEAD POU with an unstated body still gets the one finding (not dead-gated, not quieted)", () => {
-  const files = { "C:/w/PLC_PRG.pou": PRG_MAIN, "C:/w/FB_Live.pou": LIVE_FB, "C:/w/FB_Dead.pou": UNSTATED_DEAD_FB }
-  expect(missingLanguageLines(files, "C:/w/FB_Dead.pou")).toEqual([4])
-})
-
-test("missing language: a DEAD member with an unstated body inside a live FB still gets the one finding", () => {
-  const files = {
-    "C:/w/PLC_PRG.pou": PRG_MAIN,
-    "C:/w/FB_Live.pou": LIVE_FB + "METHOD Unused\nVAR\n\tx : INT;\nEND_VAR\nx := 1;\nEND_METHOD\n",
-  }
-  expect(missingLanguageLines(files, "C:/w/FB_Live.pou")).toEqual([12])
-})
-
-test("missing language: a Library Manager file with an unstated body gets nothing (the library gate comes first)", () => {
-  const uri = "file:///App/Library%20Manager/Lib/FB_Dead.pou"
-  expect(missingLanguageLines({ [uri]: UNSTATED_DEAD_FB }, uri)).toEqual([])
+test("a manifest's warning is named by the manifest's file URI, at its top", () => {
+  const path = "/w/Library Manager/Standard/Standard.library"
+  const byUri = libraryManifestDiagnostics([
+    { uri: path, folder: "Library Manager/Standard", dir: "/w/Library Manager/Standard/", namespace: "Standard", library: "Standard", dependencies: [], materialization: MATERIALIZATION - 1 },
+  ])
+  expect([...byUri.keys()]).toEqual([pathToFileURL(path).href])
+  const [warning] = [...byUri.values()].flat()
+  expect({ code: warning?.code, range: warning?.range, codeDescription: warning?.codeDescription }).toEqual({
+    code: "library-stale",
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+    codeDescription: undefined,
+  })
 })

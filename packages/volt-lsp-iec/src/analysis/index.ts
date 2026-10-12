@@ -12,6 +12,10 @@ export {
   CHECK_REGISTRY,
   type DiagnosticsArgs,
 } from "./pipeline/diagnostics.js"
+// one document's findings, composed (the server adds only the LSP conversion — openspec lsp-server-scheduling 2.4)
+export { documentFindings, type DocumentFindingsArgs } from "./pipeline/document.js"
+export { MISSING_LANGUAGE } from "./checks/syntax/missing-language.js"
+export { materializationFindings } from "./checks/workspace/materialization.js"
 export type { Check, CheckContext } from "./pipeline/context.js"
 export type { CheckGroup } from "./pipeline/registry.js"
 export { initializerWarnedTwice, SOURCE, type DiagnosticItem } from "./shared/diagnostic-item.js"
@@ -41,7 +45,7 @@ export { isStructInit } from "./checks/types/struct-init.js"
 // the network-text pass — outside the registry until the LD/FBD coverage change makes it a check (tasks.md hand-in)
 export { computeNetworkTextDiagnostics, type NetworkTextDocument } from "./checks/network/network-analysis.js"
 // dead-code reachability (openspec lsp-same-standard 2.1): which units and members are dead is an analysis of the
-// program; the policy — suppress diagnostics on dead code unless `diagnoseDeadCode` — is the server's (`server/document-diagnostics`)
+// program; the policy — suppress diagnostics on dead code unless `diagnoseDeadCode` — is `pipeline/document` `documentFindings`
 export {
   deadMemberSpans,
   deadMemberSpansFromInfos,

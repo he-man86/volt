@@ -97,7 +97,9 @@ async function benchAt(name: string, root: string): Promise<void> {
 
   const c2s = new PassThrough()
   const s2c = new PassThrough()
-  runServer(c2s, s2c, "codesys", "(bench)")
+  runServer(c2s, s2c, "codesys", "(bench)", (code) => {
+    throw new Error(`bench: the server asked to exit(${code}) mid-run`)
+  })
   const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
   const progress: string[] = []
   let refreshes = 0

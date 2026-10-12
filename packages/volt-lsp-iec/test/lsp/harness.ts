@@ -198,7 +198,6 @@ export function connectToServer(
   const c2s = new PassThrough()
   const s2c = new PassThrough()
   input?.(c2s)
-  // @ts-expect-error -- the exit seam (openspec lsp-server-scheduling 2.3) is not built yet; this marker fails typecheck once it is
   runServer(c2s, s2c, flag, "(test)", exit) // server reads c2s, writes s2c
   const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
   client.onRequest(RegistrationRequest.type, () => {}) // ack the file-watcher dynamic registration
@@ -320,6 +319,16 @@ export function harness(vendor: Vendor = "codesys", progressCreate: ProgressCrea
   // notification's side effects (a push) have run before we assert. `pull` doubles as that barrier.
   const settled = () => client.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: "file:///_.st" } })
 
+  // A client that accepts the progress token gets the crawl only after the create round trip (the server sends `begin`
+  // once the client answered), so the barrier alone may run BEFORE the crawl: `initialized` then also waits for the
+  // progress `end`, which the server sends when the crawl is done. Without progress the crawl is synchronous.
+  let progressShown = false
+  const initialized = async () => {
+    await client.sendNotification(InitializedNotification.type, {})
+    await settled()
+    if (progressShown) await until(() => seen.progress.includes("end"), 5000, "the indexing progress `end` (the crawl)")
+  }
+
   return {
     async init(capabilities, initializationOptions) {
       return client.sendRequest(InitializeRequest.type, {
@@ -335,16 +344,15 @@ export function harness(vendor: Vendor = "codesys", progressCreate: ProgressCrea
         rootUri: pathToFileURL(root).href,
         capabilities,
       })
-      await client.sendNotification(InitializedNotification.type, {})
-      await settled()
+      progressShown = capabilities.window?.workDoneProgress === true && progressCreate === "answer"
+      await initialized()
       return r
     },
-    initializeIn: (root, capabilities) =>
-      client.sendRequest(InitializeRequest.type, { processId: null, rootUri: pathToFileURL(root).href, capabilities }),
-    async initialized() {
-      await client.sendNotification(InitializedNotification.type, {})
-      await settled()
+    initializeIn: (root, capabilities) => {
+      progressShown = capabilities.window?.workDoneProgress === true && progressCreate === "answer"
+      return client.sendRequest(InitializeRequest.type, { processId: null, rootUri: pathToFileURL(root).href, capabilities })
     },
+    initialized,
     notify: (type, params) => client.sendNotification(type as never, params as never),
     ...documentSteps(client, settled),
     request: (type, params, token) =>

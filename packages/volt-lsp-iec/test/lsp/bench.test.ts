@@ -16,6 +16,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { WorkspaceStore } from "../../src/workspace/workspace-store.js"
+import { failLoud } from "../support/fail-loud.js"
 import { NETWORK_TEXT_ENABLED } from "../../src/server/config.js"
 import { documentDiagnostics } from "../../src/server/document-diagnostics.js"
 import { resolveConfig } from "../../src/analysis/index.js"
@@ -73,9 +74,8 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
     const { dir, files } = proj
     console.log(`[bench] project=${dir.split(/[\\/]/).pop()} files=${files.length}`)
 
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
-    store.workspaceRefs = loadWorkspaceRefs(dir)
-    store.taskRoots = loadTaskRoots(dir)
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.setRefs(loadWorkspaceRefs(dir), loadTaskRoots(dir))
     store.seedDisk(files.map((p) => ({ uri: pathToFileURL(p).href, source: readFileSync(p, "utf8") })))
 
     // Edit target: the largest PROJECT POU (.pou, not a library file) — a representative real edit.

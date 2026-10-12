@@ -174,7 +174,7 @@ export const CODESYS_DECLARATION_DIVERGENCES: readonly string[] = ["decl_nested_
  *        error on both. Niche: accepted loss (0 occurrences in the corpora — no `hasattribute` at all).
  *        `dead_method_hasattribute_unquoted` (analysis-conformance 2.5) is the same shape in a method NOTHING CALLS, and
  *        both vendors answer exactly as they do for the live one: CODESYS reports it in the dead member too (so the
- *        server keeps C0051 there, `src/server/document-diagnostics.ts`), TwinCAT builds it clean. Same accepted loss.
+ *        server keeps C0051 there, `src/analysis/pipeline/document.ts`), TwinCAT builds it clean. Same accepted loss.
  */
 export const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_value", "prag_project_defined_in_declaration", "prag_hasattribute_unquoted_in_declaration", "dead_method_hasattribute_unquoted"]
 
@@ -185,7 +185,7 @@ export const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_v
  * does not compile. (A method nothing calls inside a LIVE FB is different: its parse errors ARE reported on both —
  * `dead_method_missing_then`, `sig_empty_type` — and agree.) The replay analyses each fixture's file with no
  * reachability, so it reports the parse error the build did not; the SERVER suppresses it (`diagnoseDeadCode` off,
- * `src/server/document-diagnostics.ts`, tested in `src/server/document-diagnostics.test.ts`). Not a check to change: the replay has no
+ * `src/analysis/pipeline/document.ts`, tested in `src/analysis/pipeline/document.test.ts`). Not a check to change: the replay has no
  * reachability, the same cause as `sn_dut_mismatch` and `cc2_var_in_interface`.
  */
 export const DEAD_POU_NOT_IN_THE_REPLAY: readonly string[] = ["dead_fb_missing_then", "dead_fb_declaration_parse_error"]

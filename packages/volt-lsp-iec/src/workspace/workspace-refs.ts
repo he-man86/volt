@@ -12,7 +12,10 @@
  *         the search order (`types/names` `resolveBareName`) is the one answer.
  *   - **task roots** — the `.task` `Calls:` PROGRAM names (comma-separated) dead-code reachability seeds from.
  *
- * Unreadable files/dirs are skipped, never thrown ⇒ an empty scan means "nothing known", which degrades safely.
+ * Unreadable files/dirs are skipped, never thrown ⇒ an empty scan means "nothing known", which degrades safely. The
+ * server's scans say which files — and folders they could not list — they could not read for a reason other than their
+ * absence (`unreadable`): EBUSY or EPERM while the CLI or the IDE is still writing one, or a folder the user may not
+ * list, is no fact about it, and the server keeps what it last read.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
@@ -58,20 +61,26 @@ const deviceNameOf = (file: string): string | undefined => readFileSync(file, "u
 export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [] }
 import { SOURCE_EXTENSION_SET, SOURCE_EXTENSIONS } from "./source-extensions.js"
 
+/** The extensions of the reference files: the scanned ones that are no source. */
+export const REFERENCE_EXTENSIONS: ReadonlySet<string> = new Set([".library", ".device", ".projectsettings", ".task"])
+
 /** Every extension `scanWorkspace` reads — the sources and the reference files beside them. The server watches exactly
  *  these: a file the scan reads and no watcher reports is a change the running server never sees. */
-export const SCANNED_EXTENSIONS: readonly string[] = [...SOURCE_EXTENSIONS, ".library", ".device", ".projectsettings", ".task"]
+export const SCANNED_EXTENSIONS: readonly string[] = [...SOURCE_EXTENSIONS, ...REFERENCE_EXTENSIONS]
 
 const withTarget = (target: Target | undefined): { target?: Target } => (target === undefined ? {} : { target })
 
 /** All files under `root`, recursively — never under `.git`, the repository `volt init` makes of the workspace, which holds
- *  no item of it. Unreadable directories are skipped, not thrown. */
-function walkFiles(root: string): string[] {
+ *  no item of it. A folder that cannot be listed, or an entry that cannot be stat'ed, is skipped, not thrown — and,
+ *  unless it is gone (ENOENT), named in `unlisted`: what is under it is unknown, never absent. */
+function walkFiles(root: string, unlisted: Unreadable[]): string[] {
   const out: string[] = []
   let entries: string[]
   try {
     entries = readdirSync(root)
-  } catch {
+  } catch (e) {
+    const code = ioFailure(e)
+    if (code !== undefined) unlisted.push({ path: root, code })
     return out
   }
   for (const name of entries) {
@@ -80,10 +89,12 @@ function walkFiles(root: string): string[] {
     let dir = false
     try {
       dir = statSync(p).isDirectory()
-    } catch {
+    } catch (e) {
+      const code = ioFailure(e)
+      if (code !== undefined) unlisted.push({ path: p, code })
       continue
     }
-    if (dir) out.push(...walkFiles(p))
+    if (dir) out.push(...walkFiles(p, unlisted))
     else out.push(p)
   }
   return out
@@ -93,7 +104,7 @@ function walkFiles(root: string): string[] {
  *  (`bindLibraryNamespaces`). Separate from the source walk: a `.library` file is not ST and never parses as one. */
 export function scanLibraryManifests(root: string): LibraryManifest[] {
   const out: LibraryManifest[] = []
-  for (const file of walkFiles(root)) {
+  for (const file of walkFiles(root, [])) {
     if (extname(file) !== ".library") continue
     try {
       const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
@@ -129,7 +140,7 @@ const taskRootsOf = (file: string): string[] =>
 
 /** The device tree's instances, one per `.device` descriptor (the instance name is the file's stem). */
 export function loadDeviceInstances(root: string): DeviceInstance[] {
-  return walkFiles(root).filter((file) => extname(file) === ".device").map(deviceInstanceOf)
+  return walkFiles(root, []).filter((file) => extname(file) === ".device").map(deviceInstanceOf)
 }
 
 /**
@@ -141,7 +152,7 @@ export function loadDeviceInstances(root: string): DeviceInstance[] {
  */
 export function loadTaskRoots(root: string): Set<string> {
   const out = new Set<string>()
-  for (const file of walkFiles(root)) {
+  for (const file of walkFiles(root, [])) {
     if (extname(file) !== ".task") continue
     try {
       for (const p of taskRootsOf(file)) out.add(p.toLowerCase())
@@ -156,64 +167,141 @@ export function loadTaskRoots(root: string): Set<string> {
 export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   // The refs half of the server's own one-walk scan. It was four walks (one per catalog) and a second read of every
   // source: 10.2 s over the six corpora against 5.2 s for the scan (measured 2026-10-01), for the identical catalogs.
-  return scanWorkspace(root).refs
+  return scanWorkspaceRefs(root).refs
 }
 
-interface WorkspaceScan {
+/** What a workspace holds beside its sources — the WHOLE reference state, which a `.task`, `.library`, `.device` or
+ *  `.projectsettings` event, or a directory event, replaces in one piece (openspec lsp-server-scheduling). */
+export interface WorkspaceRefScan {
   refs: WorkspaceRefs
   taskRoots: Set<string>
-  sources: { path: string; source: string }[]
   /** Per-code states from the project's `.projectsettings`, or undefined when the project has none (a
    *  TwinCAT workspace, or one pulled before the bridge emitted it) ⇒ the editor's settings stand alone. */
   projectDiagnostics?: Partial<Record<ConfigurableCode, DiagnosticState>>
+  /** Every reference file read, by path — what tells a deleted folder that held one (a host may send ONE event for it). */
+  paths: string[]
+  /** The reference files that exist and could not be read (EBUSY, EPERM…): a scan with one is NOT the whole reference
+   *  state — dropping that file's library, settings or task roots would be a guess, not a fact. */
+  unreadable: Unreadable[]
+}
+
+/** A file that exists and could not be read, with the I/O code that said so. */
+export interface Unreadable {
+  path: string
+  code: string
+}
+
+interface WorkspaceScan extends WorkspaceRefScan {
+  sources: { path: string; source: string }[]
+  /** The source files that exist and could not be read. */
+  unreadableSources: Unreadable[]
+}
+
+/** The I/O code of a read failure that is no fact about the file — anything but ENOENT (the file is gone) — or
+ *  undefined: a gone file, or a throw that is no I/O failure (a manifest that does not parse), skipped as before. */
+const ioFailure = (e: unknown): string | undefined => {
+  const code = (e as NodeJS.ErrnoException | undefined)?.code
+  return typeof code === "string" && code !== "ENOENT" ? code : undefined
+}
+
+
+/** Collects the reference files one walk meets. */
+class RefCollector {
+  private readonly libraryManifests: LibraryManifest[] = []
+  private readonly devices: DeviceInstance[] = []
+  private readonly deviceNames: string[] = []
+  private readonly taskRoots = new Set<string>()
+  private readonly paths: string[] = []
+  private projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
+
+  /** Read `file` when it is a reference file (`ext` EXACT — see `scanWorkspace`); false when it is not one. */
+  read(file: string, ext: string): boolean {
+    if (!REFERENCE_EXTENSIONS.has(ext)) return false
+    this.paths.push(file)
+    if (ext === ".library") {
+      const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
+      if (manifest !== undefined) this.libraryManifests.push(manifest)
+    } else if (ext === ".device") {
+      this.devices.push(deviceInstanceOf(file))
+      const name = deviceNameOf(file)
+      if (name !== undefined) this.deviceNames.push(name)
+    } else if (ext === ".projectsettings") {
+      // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
+      // a second would mean two projects in one root, which the workspace model does not support anyway.
+      this.projectDiagnostics = projectDiagnosticsFrom(readFileSync(file, "utf8"))
+    } else {
+      for (const p of taskRootsOf(file)) this.taskRoots.add(p.toLowerCase())
+    }
+    return true
+  }
+
+  result(): Omit<WorkspaceRefScan, "unreadable"> {
+    return {
+      refs: { libraryManifests: this.libraryManifests, devices: this.devices, ...withTarget(targetOfDevices(this.deviceNames)) },
+      taskRoots: this.taskRoots,
+      paths: this.paths,
+      ...(this.projectDiagnostics === undefined ? {} : { projectDiagnostics: this.projectDiagnostics }),
+    }
+  }
 }
 
 /**
  * One directory walk yielding everything the live server seeds: source files (for the disk layer),
- * reference-name skip sets, and task roots. Re-runnable — the server calls this at `initialized` and on
- * every watched-file event so `volt pull` changes are picked up without a restart.
+ * reference-name skip sets, and task roots. The server runs it once, at `initialized`; a watched event after that
+ * re-reads one source (`readSourceText`) or the references alone (`scanWorkspaceRefs`).
  */
 export function scanWorkspace(root: string): WorkspaceScan {
-  const empty: WorkspaceScan = { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [] }
-  let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
-  if (root.length === 0) return empty
-  const libraryManifests: LibraryManifest[] = []
-  const devices: DeviceInstance[] = []
-  const deviceNames: string[] = []
-  const taskRoots = new Set<string>()
+  if (root.length === 0)
+    return { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [], paths: [], unreadable: [], unreadableSources: [] }
+  const refs = new RefCollector()
   const sources: { path: string; source: string }[] = []
-  for (const file of walkFiles(root)) {
+  const unreadable: Unreadable[] = []
+  const unreadableSources: Unreadable[] = []
+  const unlisted: Unreadable[] = []
+  for (const file of walkFiles(root, unlisted)) {
     // EXACT, never case-folded — here and in every loader above. A file name IS its item's wire name, and the
     // CLI classifies an extension Ordinally: `E_Mode.Dut` is a foreign file `volt push` refuses, not the
     // `E_Mode.dut` the IDE publishes. Folded, the LSP indexed it as a source unit and resolved names from a file
     // Volt will never push.
     const ext = extname(file)
     try {
-      if (ext === ".library") {
-        const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
-        if (manifest !== undefined) libraryManifests.push(manifest)
-      } else if (ext === ".device") {
-        devices.push(deviceInstanceOf(file))
-        const name = deviceNameOf(file)
-        if (name !== undefined) deviceNames.push(name)
-      } else if (ext === ".projectsettings") {
-        // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
-        // a second would mean two projects in one root, which the workspace model does not support anyway.
-        projectDiagnostics = projectDiagnosticsFrom(readFileSync(file, "utf8"))
-      } else if (ext === ".task") {
-        for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
-      } else if (SOURCE_EXTENSION_SET.has(ext)) {
-        const source = readSourceText(file)
-        sources.push({ path: file, source })
-      }
-    } catch {
-      continue // unreadable file — skip
+      if (!refs.read(file, ext) && SOURCE_EXTENSION_SET.has(ext)) sources.push({ path: file, source: readSourceText(file) })
+    } catch (e) {
+      const code = ioFailure(e)
+      if (code !== undefined) (REFERENCE_EXTENSIONS.has(ext) ? unreadable : unreadableSources).push({ path: file, code })
     }
   }
-  return {
-    refs: { libraryManifests, devices, ...withTarget(targetOfDevices(deviceNames)) },
-    taskRoots,
-    sources,
-    ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),
+  // A path the walk could not list or stat may be (or hold) either kind: named in each list its extension allows.
+  for (const u of unlisted) {
+    const ext = extname(u.path)
+    if (!SOURCE_EXTENSION_SET.has(ext)) unreadable.push(u)
+    if (!REFERENCE_EXTENSIONS.has(ext)) unreadableSources.push(u)
   }
+  return { ...refs.result(), unreadable, sources, unreadableSources }
+}
+
+/** The reference files alone — one walk that reads no source: what a reference-file or directory event re-runs. */
+export function scanWorkspaceRefs(root: string): WorkspaceRefScan {
+  const refs = new RefCollector()
+  const unreadable: Unreadable[] = []
+  if (root.length === 0) return { ...refs.result(), unreadable } // no root: nothing known (`walkFiles("")` would walk the working directory)
+  const unlisted: Unreadable[] = []
+  for (const file of walkFiles(root, unlisted)) {
+    try {
+      refs.read(file, extname(file))
+    } catch (e) {
+      const code = ioFailure(e)
+      if (code !== undefined) unreadable.push({ path: file, code })
+    }
+  }
+  unreadable.push(...unlisted.filter((u) => !SOURCE_EXTENSION_SET.has(extname(u.path)))) // a folder may hold one
+  return { ...refs.result(), unreadable }
+}
+
+/** The source files under `dir` (a folder a watched event named), by path, unread — and what under it could not be
+ *  listed (`unlisted`): the sources there are unknown, not gone. */
+export function sourceFilesUnder(dir: string): { files: string[]; unlisted: Unreadable[] } {
+  const unlisted: Unreadable[] = []
+  const files = walkFiles(dir, unlisted).filter((file) => SOURCE_EXTENSION_SET.has(extname(file)))
+  return { files, unlisted: unlisted.filter((u) => !REFERENCE_EXTENSIONS.has(extname(u.path))) }
 }

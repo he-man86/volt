@@ -1,6 +1,6 @@
 /**
  * THE DOCUMENT HANDLERS — open, change, close and save of a buffer, and the watched files whose create, change or
- * delete re-indexes the workspace (freshness).
+ * delete reach the store one file at a time (`disk-sync.ts`).
  */
 import {
   DidChangeTextDocumentNotification,
@@ -8,37 +8,33 @@ import {
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DidSaveTextDocumentNotification,
-  PublishDiagnosticsNotification,
 } from "vscode-languageserver-protocol/node"
+import { applyWatchedChanges } from "../disk-sync.js"
 import type { ServerState } from "../state.js"
 
 export function registerDocumentHandlers(s: ServerState): void {
-  const conn = s.conn
-  conn.onNotification(DidOpenTextDocumentNotification.type, (p) => {
+  // In push mode the named document is published, then every OTHER open document whose findings the change moved (a
+  // change to A can move an open B's). A pull client re-pulls on its own.
+  s.onNotification(DidOpenTextDocumentNotification.type, (p) => {
     const t = p.textDocument
     s.store.openDocument(t.uri, t.languageId, t.version, t.text)
-    s.pushDiagnostics(t.uri)
+    s.publisher.push(t.uri)
+    s.publisher.republish()
   })
-  conn.onNotification(DidChangeTextDocumentNotification.type, (p) => {
+  s.onNotification(DidChangeTextDocumentNotification.type, (p) => {
     if (!s.store.changeDocument(p.textDocument.uri, p.textDocument.version, p.contentChanges)) return
-    s.pushDiagnostics(p.textDocument.uri)
+    s.publisher.push(p.textDocument.uri)
+    s.publisher.republish()
   })
-  conn.onNotification(DidCloseTextDocumentNotification.type, (p) => {
+  s.onNotification(DidCloseTextDocumentNotification.type, (p) => {
     s.store.closeDocument(p.textDocument.uri)
     s.semTok.delete(p.textDocument.uri) // drop the semantic-token result cache for the closed doc
-    // The file may still be in the disk index; re-publish so any diagnostics reflect the on-disk copy.
-    s.pushDiagnostics(p.textDocument.uri)
-    // Clear diagnostics for a file no longer indexed — but only for push clients. A pull client owns its
-    // channel (it re-pulls and gets []); pushing to it here would be the very double-channel the pull guard
-    // forbids. (Guarded like pushDiagnostics; not `clientSupportsPull` inline so the intent reads.)
-    if (!s.clientSupportsPull && s.doc(p.textDocument.uri) === undefined)
-      void conn.sendNotification(PublishDiagnosticsNotification.type, { uri: p.textDocument.uri, diagnostics: [] })
+    // The file may still be on disk: its findings are now the disk copy's — or none, which clears it.
+    s.publisher.push(p.textDocument.uri)
+    s.publisher.republish()
   })
   // A save re-validates (a fallback for clients that don't emit watched-file events); the open buffer is
   // already current, so this is just a re-publish.
-  conn.onNotification(DidSaveTextDocumentNotification.type, (p) => s.pushDiagnostics(p.textDocument.uri))
-
-  // ─── watched files (freshness): re-index on create/change/delete of source + reference files ──
-  // A full rescan reflects creates, deletes, and reference-file edits in one path (reads current disk).
-  conn.onNotification(DidChangeWatchedFilesNotification.type, () => s.reindex())
+  s.onNotification(DidSaveTextDocumentNotification.type, (p) => s.publisher.push(p.textDocument.uri))
+  s.onNotification(DidChangeWatchedFilesNotification.type, (p) => applyWatchedChanges(s, p.changes))
 }

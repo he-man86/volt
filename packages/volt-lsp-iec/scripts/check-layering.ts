@@ -516,6 +516,7 @@ function analysisViolations(pkg: string): string[] {
 const isRegistryOrPipeline = (relFrom: string): boolean =>
   relFrom === "analysis/pipeline/registry.ts" ||
   relFrom === "analysis/pipeline/diagnostics.ts" ||
+  relFrom === "analysis/pipeline/document.ts" ||
   relFrom === "analysis/index.ts"
 
 /** The scan against the two known lists: what is new, and what is listed but no longer occurs. */

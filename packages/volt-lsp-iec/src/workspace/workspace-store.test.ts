@@ -4,8 +4,14 @@
  * index, equal to a full rebuild. The cache is the thing that stops the pre-extraction closure's double-parse per request.
  */
 import { describe, expect, test } from "bun:test"
+import { resolve } from "node:path"
+import { pathToFileURL } from "node:url"
 import { resolveConfig, deadMemberSpans, deadPous } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
+import { normalizeKey } from "./document-key.js"
+import { scanWorkspace } from "./workspace-refs.js"
+import { failLoud } from "../../test/support/fail-loud.js"
+import { THROWS_IN_PARSE } from "../../test/lsp/probes.js"
 import { NETWORK_TEXT_ENABLED } from "../server/config.js"
 import { parseSource } from "../frontend/syntax/index.js"
 import { build, type Scope } from "../frontend/symbols/index.js"
@@ -17,7 +23,7 @@ const URI = "file:///F.pou"
 const SRC = `FUNCTION_BLOCK F\nVAR i : INT; END_VAR\ni := i + 1;\nEND_FUNCTION_BLOCK`
 
 test("store: an open document is parsed once per version (cached parseResult identity)", () => {
-  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
   store.openDocument(URI, "iecst", 1, SRC)
   const a = store.doc(URI)!
   const b = store.doc(URI)!
@@ -30,7 +36,7 @@ test("store: an open document is parsed once per version (cached parseResult ide
 })
 
 test("store: an open buffer overrides its disk entry (open wins), close leaves disk intact", () => {
-  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
   store.seedDisk([{ uri: URI, source: SRC }])
   const disk = store.doc(URI)!
   store.openDocument(URI, "iecst", 1, SRC.replace("INT", "DINT"))
@@ -40,7 +46,7 @@ test("store: an open buffer overrides its disk entry (open wins), close leaves d
 })
 
 test("store: disk and open for the same URI yield one merged entry", () => {
-  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED })
+  const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
   store.seedDisk([{ uri: URI, source: SRC }])
   store.openDocument(URI, "iecst", 1, SRC)
   expect(store.workspace().length).toBe(1) // not duplicated across the two layers
@@ -75,7 +81,7 @@ describe("the cached dead set", () => {
   })
 
   test("cached dead == fresh dead across edit types (whitespace, add-call, revert)", () => {
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     const files = FILES("VAR x : INT; END_VAR")
     store.seedDisk(files)
     store.project()
@@ -161,7 +167,7 @@ describe("the incremental index (Phase B correctness gate)", () => {
   }
 
   test("incremental index ≡ full rebuild across a sequence of edits", () => {
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     seed(store)
     assertEquivalent(store, "after seed")
 
@@ -199,12 +205,141 @@ describe("the incremental index (Phase B correctness gate)", () => {
     assertEquivalent(store, "after close Derived (reverts to disk)")
   })
 
+
+  /**
+   * THE DISK PATH ≡ A FRESH SEED (lsp-server-scheduling step 2 review) — a watched batch rebinds the files it names
+   * (`upsertDisk` / `deleteDisk` / `deleteDiskUnder`, one at a time or as one `diskBatch`), files under `Library Manager/`
+   * included, which before 2.2 always went through a reseed. On a real project WITH its manifests, devices and task
+   * roots: the incremental project and dead set equal a store freshly seeded with the same final disk.
+   */
+  test("incremental index ≡ fresh seed across upserts, deletes and a folder delete, with the manifests", () => {
+    const scan = scanWorkspace(resolve(import.meta.dir, "../../test-corpus/CodesysTestProject"))
+    const files = scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source }))
+    const make = (seed: { uri: string; source: string }[]) => {
+      const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+      store.setRefs(scan.refs, scan.taskRoots)
+      store.seedDisk(seed)
+      return store
+    }
+    const store = make(files)
+    store.project()
+    store.deadSet()
+    const disk = new Map(files.map((f) => [f.uri, f.source]))
+    const check = (label: string) => {
+      const fresh = make([...disk].map(([uri, source]) => ({ uri, source })))
+      expect(scopeKey(store.project()), label).toBe(scopeKey(fresh.project()))
+      expect([...store.deadSet()].sort(), label).toEqual([...fresh.deadSet()].sort())
+    }
+    const library = files.find((f) => f.uri.includes("/Library%20Manager/"))!.uri.replace(/\/[^/]+$/, "")
+    expect(files.filter((f) => f.uri.startsWith(`${library}/`)).length).toBeGreaterThan(0) // a library folder with sources
+    // one file at a time
+    files.forEach((f, i) => {
+      if (i % 7 === 0) (store.deleteDisk(f.uri), disk.delete(f.uri))
+    })
+    check("after deleting every 7th")
+    files.forEach((f, i) => {
+      if (i % 14 === 0) (store.upsertDisk(f.uri, f.source), disk.set(f.uri, f.source))
+    })
+    check("after restoring every 14th")
+    // one batch
+    store.diskBatch(() => {
+      files.forEach((f, i) => {
+        if (i % 5 === 0) (store.upsertDisk(f.uri, `${f.source}\n// x\n`), disk.set(f.uri, `${f.source}\n// x\n`))
+      })
+      store.deleteDiskUnder(library, () => false)
+      for (const uri of [...disk.keys()]) if (uri.startsWith(`${library}/`)) disk.delete(uri)
+    })
+    check("after a batch: every 5th changed, a library folder deleted")
+  })
   test("incremental index ≡ full rebuild after a full disk reseed", () => {
-    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED })
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
     seed(store)
     store.project() // build once
     store.openDocument("file:///Derived.pou", "iecst", 1, `${DERIVED}\nVAR y : INT; END_VAR`)
     seed(store) // wholesale reseed while a buffer is open — open buffer must still win after rebuild
     assertEquivalent(store, "after reseed with an open buffer")
+  })
+})
+
+describe("generation, the per-file disk layer and the quarantine (openspec lsp-server-scheduling 2.2, 2.3)", () => {
+  const at = (path: string) => pathToFileURL(resolve(path)).href // an absolute path on this platform
+  const A = at("/w/POUs/Motor/A.pou")
+  const B = at("/w/POUs/MotorControl/B.pou")
+  const fresh = () => {
+    const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, failLoud)
+    store.seedDisk([{ uri: A, source: SRC }, { uri: B, source: SRC.replace("F", "G") }])
+    store.project()
+    return store
+  }
+
+  test("what leaves the merged text as it was bumps no generation; what changes it does", () => {
+    const store = fresh()
+    const g = store.generation
+    store.openDocument(A, "iecst", 1, SRC) // equal to its disk copy
+    store.closeDocument(A) // unedited
+    expect(store.upsertDisk(A, SRC)).toBe(false) // equal bytes: no parse either
+    expect(store.generation).toBe(g)
+    store.openDocument(A, "iecst", 2, SRC + "\n")
+    expect(store.generation).toBeGreaterThan(g)
+  })
+
+  test("a disk change under an open buffer is kept for the close, and moves nothing until then", () => {
+    const store = fresh()
+    store.openDocument(A, "iecst", 1, SRC)
+    const g = store.generation
+    expect(store.upsertDisk(A, SRC.replace("INT", "DINT"))).toBe(true)
+    expect(store.generation).toBe(g)
+    expect(store.doc(A)!.source).toBe(SRC)
+    store.closeDocument(A)
+    expect(store.doc(A)!.source).toContain("DINT")
+    expect(store.generation).toBeGreaterThan(g)
+  })
+
+  test("a folder delete drops the entries under it, never a sibling its name prefixes", () => {
+    const store = fresh()
+    expect(store.deleteDiskUnder(at("/w/POUs/Motor"), () => false)).toBe(true)
+    expect([store.doc(A), store.doc(B)?.uri]).toEqual([undefined, B])
+    expect(store.deleteDiskUnder(at("/w/POUs/Motor"), () => false)).toBe(false)
+    expect(store.deleteDisk(B)).toBe(true)
+    expect(store.workspace()).toEqual([])
+  })
+
+  test("a folder event keeps the entries the disk still holds under it, and drops the rest", () => {
+    const store = fresh()
+    const C = at("/w/POUs/Motor/C.pou")
+    store.upsertDisk(C, SRC.replace("F", "H"))
+    expect(store.deleteDiskUnder(at("/w/POUs"), (key) => key === normalizeKey(C))).toBe(true)
+    expect(store.workspace().map((d) => d.uri)).toEqual([C])
+  })
+
+  test("a buffer's quarantine and its disk copy's are each their own", () => {
+    const failures: string[] = []
+    const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, (uri) => failures.push(uri))
+    const bad = `${SRC}\n${THROWS_IN_PARSE}`
+    store.seedDisk([{ uri: A, source: SRC }])
+    store.openDocument(A, "iecst", 1, bad)
+    store.workspace() // an open buffer is parsed when the merged set is asked for
+    expect(store.quarantinedUris()).toEqual([A])
+    store.upsertDisk(A, bad) // the buffer saved: the disk copy holds the content that threw, quarantined unparsed
+    store.closeDocument(A)
+    expect([store.quarantined(A), store.workspace(), failures]).toEqual([true, [], [A]])
+    store.openDocument(A, "iecst", 2, SRC) // a clean buffer over it, closed unsaved: the disk copy's quarantine stands
+    expect(store.quarantined(A)).toBe(false)
+    store.closeDocument(A)
+    expect(store.quarantined(A)).toBe(true)
+  })
+
+  test("a parse that throws quarantines the document by name until its content changes", () => {
+    const failures: string[] = []
+    const store = new WorkspaceStore(cfg(), { networkText: NETWORK_TEXT_ENABLED }, (uri) => failures.push(uri))
+    store.seedDisk([{ uri: A, source: `${SRC}\n${THROWS_IN_PARSE}` }, { uri: B, source: SRC.replace("F", "G") }])
+    expect({ failures, quarantined: store.quarantinedUris(), merged: store.workspace().map((d) => d.uri) }).toEqual({
+      failures: [A],
+      quarantined: [A],
+      merged: [B],
+    })
+    expect(store.upsertDisk(A, `${SRC}\n${THROWS_IN_PARSE}`)).toBe(false) // the same content: still out, not re-reported
+    expect(store.upsertDisk(A, SRC)).toBe(true)
+    expect([store.quarantined(A), store.workspace().length, failures.length]).toEqual([false, 2, 1])
   })
 })
