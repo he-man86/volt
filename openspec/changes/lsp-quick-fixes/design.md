@@ -157,3 +157,46 @@ Filed (not this change):
   `References/`) that fails the suite the day they stop. Remove the mark then.
 - **Ranking a 10–12k-symbol workspace answer.** The client filters by query, so the cost is only latency. Filed
   unless B5's bench shows it.
+
+## 7. Red first (task 1.1)
+
+**Target.** Every option §4 builds, at every site kind §3 names, has a recorded BEFORE → AFTER pair and an action test
+that is red until its fix exists. Tally from §4: 63 AFTERs (F1 7, F2 2, F3 15, F4 6, F5 2, F6 1, F7 1, F8 7, F9 19,
+F10 3) and 4 ABSENT cases (§3: F2 property read, F2 recovery leftover, F3 use with no inferred type, F10 declarations
+that disagree — offered, not `preferred`).
+
+**Choice: the AFTER is an ordinary fixture with its source written out, linked to its BEFORE by one new field.**
+
+- `LanguageTest.fixOf?: { before: string; title: string }` on the AFTER (`qf_<code>_<option>[_<site>]`), in a new
+  category `fixtures/quick-fixes/` (one file per F-row, registered in `fixtures/index.ts`). Being a plain fixture, the
+  AFTER is recorded, rated and replayed by what exists: `record:language` records it, `lsp-replay` holds the LSP to it,
+  `rate:fixtures` renders `fixOf` in `map.generated.ts`.
+- The BEFORE is an existing fixture only when it reports exactly ONE finding of the code (the action has one target);
+  otherwise a new `qf_<code>_before[_<site>]` beside its AFTERs. The ABSENT cases are BEFOREs carrying
+  `fixAbsent: { title, why }`.
+- ONE table-driven test beside the renderer (`src/services/assist/code-actions.test.ts`) walks every `fixOf`: binds the
+  BEFORE as the replay does (`conformance/support/replay.ts`), takes its finding of the code through `toLspDiagnostic`
+  (so `Diagnostic.data` is on the path), calls `codeActions`, applies the action titled `title`, and expects the AFTER's
+  source byte for byte. It also asserts the recordings: BEFORE reports the code; AFTER `buildSuccess`, no error, no
+  finding of the code. Each `fixAbsent` asserts no action with that title.
+- Red is `test.failing` per pair (the lsp-server-scheduling precedent), so a fix that lands fails the suite until its
+  mark goes. The F1 assignment pairs the current `wrapConversionFix` already answers run as plain tests from step 1.
+
+Rejected:
+- *AFTER derived by applying the LSP's own action* — the code would write its own oracle.
+- *AFTER derived from BEFORE by a hand-written substitution* — compact, but recordings carry no source digest
+  (`recordings/*.build.json` stores verdicts only), so editing a BEFORE would silently change an AFTER whose recording
+  then proves a different text. A written-out AFTER fails the byte-for-byte test instead.
+- *Variants on the BEFORE (`fixes: [{ title, after }]`)* — the recorder, rater and replays key one recording per fixture
+  name; a variant would need a second key everywhere. `fixOf` costs one field.
+- *A pairing table in the test file* — a second truth beside `map.generated.ts`.
+
+**Recording.** All step-1 fixtures written first, then ONE `RECORD_ONLY=<qf_… list>` run per vendor, CODESYS and
+TwinCAT (`VOLT_E2E_INSTANCE=lsp-quick-fixes`); CS-only codes (C0351, `abstract-keyword-missing`, C0533, C0550) still
+record on TwinCAT, where the BEFORE builds clean and the test asserts the code only on the vendor that reported it.
+
+**Refused by name.** An AFTER the compiler rejects is not shipped: its fixture is deleted, the BEFORE gets `fixAbsent`
+with the compiler's words, and tasks.md records it. Network-text codes and §4's niche and no-fix codes get no pair.
+
+**Migration.** The inline wrap test in `code-actions.test.ts` is replaced by the F1 pairs. `types.ts` gains `fixOf` /
+`fixAbsent`; the rater learns to render them. Nothing else moves.
