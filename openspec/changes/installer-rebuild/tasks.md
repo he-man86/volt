@@ -217,7 +217,7 @@
 
 ## 3. Verify and close
 
-- [ ] 3.1 `build:installer` + the new `test:install` green on this machine (install, update ×N, upgrade from today's
+- [x] 3.1 `build:installer` + the new `test:install` green on this machine (install, update ×N, upgrade from today's
       build, CLI-alive update, tampered download, uninstall leaves nothing); desktop opens; tray starts at login.
 
       **Partial 2026-10-12 — the live gate was NOT run (blocked by the machine, not by the build).** `bun run
@@ -237,6 +237,13 @@
       artifacts from 2.5 deleted (`dist\Volt-Setup-0.1.0-x64.exe`, `%LOCALAPPDATA%\velopack\`). To finish: delete the
       stale `Volt.lnk`, close the foreign IDEs, `bun run test:install --older dist\older-0.1.17562\Volt-win-Setup.exe`,
       then open the desktop from the Start Menu and sign out/in for the login item.
+      **Live gate 2026-10-12 (owner: "run the installer gate"; the stale Start Menu `Volt.lnk` deleted and PLCAssist's two
+      gate IDEs (CODESYS 27112, XAE 52036) closed with the owner's OK):** `bun run test:install --older
+      dist/older-0.1.17562/Volt-win-Setup.exe` exit 0, "install gate clean at every step": upgrade from 0.1.17562 (today's
+      layout), PATH exactly once after every step, CLI alive during update (setup gave up, exit 7, volt.exe survived, 7 NTFS
+      file ids unchanged, nothing stopped), CLI ends (update completes), uninstall with CLI alive (aborted, 13 files kept,
+      nothing stopped), uninstall leaves the user PATH byte-identical, fresh install, updater refuses an unverified download
+      (1 test). Not machine-checkable here, left to the owner: opening the desktop from the Start Menu, the tray at next logon.
 - [x] 3.2 Docs: `installer/README.md` "every location" table from the new installer, `scripts/README.md`, CLAUDE.md.
 
       **Done 2026-10-12.** `installer/README.md` rewritten from `Volt.iss`: the table is the four `{app}` folders
