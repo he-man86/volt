@@ -513,3 +513,39 @@ pinned by a test in each reader instead).
 **Migration.** 3.1 writes the findings (this one first, then §3's areas) into tasks.md with severity and root cause;
 3.2 fixes test-first, one commit per finding; vscode: `auto` passes no flag, `vendor.ts` + its test deleted; the
 plugin unchanged. Targeted tests per finding; `rate:fixtures` once at the end — map unchanged.
+
+## 8. Step 4 — splits (design)
+
+**Target.** `CEILINGS` and `FUNCTION_CEILINGS` hold only the "LD/FBD change" entries; `DEAD_EXPORT_ALLOWLIST` holds only
+the NT four. Output-neutral: `rate:fixtures` leaves the map unchanged, every `test/frontend` baseline byte-equal, LSP
+behaviour tests untouched. Through §7's lens: a split cuts by CONCERN, never by vendor — the lexer's scanners, the
+messages slices and the server handlers each take the one decided `Dialect`/vendor; no per-vendor file appears.
+
+**Choice.** §2.2's targets, with three corrections measured at 536a731f20:
+- `ast/nodes.ts` (896) → `ast/nodes/` (expressions, statements, types, declarations, units) + `ast/nodes/index.ts`.
+  §2.2's flat `ast/declarations.ts` collides with the existing tree-query file of that name, and §2.2's "`ast/index.ts`
+  remains the barrel" names a file that does not exist: 44 files inside `syntax/` import `ast/nodes.js` (the rest of
+  `src/` goes through `syntax/index`). The folder index is admitted by §2's rule (more than one outside importer); the
+  44 import paths change, nothing else.
+- `parse/declarations.ts`' initializer half (`parseInitializer` … `positionalStructInit`, ~115 lines) joins the EXISTING
+  `parse/initializer.ts` (230) — one home for initializers, not a second file beside it.
+- `services/formatting/print.ts` is 356 since R2 (no ceiling): its §2.2 split is dropped.
+- `server/handlers/*`: `runServer` builds one `ServerState` holding the vendor and root `servedWorkspace` decided; a
+  handler group reads them from there and decides nothing.
+- Dead exports (21 non-NT): 20 are read inside their own file → `export` dropped; `readIdent` (no reader) deleted;
+  `Condition`/`ConditionValue`/`UNKNOWN_OPERATOR_ERRORS` become real imports if the `conditional.ts` cut puts a reader
+  on the other side, else private. The 63 test-only exports are not NOBODY and stay outside this gate.
+- Messages wording proven by §2.2's single-use before/after dump (both vendors, byte-equal), deleted after 4.2.
+
+**Rejected.** Re-export shims at the old paths (two homes for one name; dead-exports would count them). Per-family
+imports in the 44 AST importers (most need `Expr` and `Statement` together — churn for no boundary). Rewriting while
+cutting (a behaviour change hides in a move; a finding met during a split is a separate test-first commit). Raising a
+limit or adding an exemption for a file that "reads better whole".
+
+**Refused by name.** A new ceiling or allowlist entry; a split that changes a baseline, a recording or the map; a file
+split by vendor; a barrel added for a single outside importer.
+
+**Migration.** One commit per task (4.1 frontend, 4.2 analysis, 4.3 server + `buildLayout`, 4.4 tests, 4.5 the lists),
+each deleting its own entries (a stale entry fails the gate, so none can be left behind). Inner loop: `bun typecheck`,
+the colocated tests of the cut files, the `test/frontend` baseline file for that area. End of each task: `bun run lint`,
+`test/frontend`, `test/conformance`, `rate:fixtures` once. No recorder run (no compiler-observable answer changes).
