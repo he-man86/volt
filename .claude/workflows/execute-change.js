@@ -26,7 +26,15 @@ const DEFAULTS = {
   designLines: 40,      // a design section stays this short
   secondReview: false,  // a second review round on HIGH findings — only when thorough
 }
-if (args.light === undefined) args.light = !args.thorough
+// MODE (owner 2026-10-12, "this needs to be done for every workflow"): MIXED by default — a DECISION step (a design
+// step, a model step, a step that needs a design note first) runs thorough (small rounds, second review on HIGH); an
+// EXECUTION step (structure, fix, lean, measure, conformance, downstream) runs light (big rounds, no second review),
+// because its oracle — the full suite, recorded fixtures, the gates — catches what a second reviewer would. Pass
+// { thorough: true } or { light: true } to force one intensity for the whole change.
+const MODE = args.thorough ? "thorough" : args.light ? "light" : "mixed"
+const isDecision = s => s.kind === "model" || !!s.designFirst
+const stepThorough = s => MODE === "thorough" || (MODE === "mixed" && isDecision(s))
+args.light = MODE !== "thorough"
 const CHANGE = `openspec/changes/${args.change}`
 const REQUIRES = args.requires ?? []
 
@@ -111,9 +119,9 @@ const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure', 'conformance']
 const GROUP_MAX = { structure: 8, measure: 4, fix: 5, lean: 5, conformance: 3 }
 // args.light (owner 2026-10-03, "a bit less is also good enough"): double the chunk sizes and no second review round —
 // for changes like bridge-refusal-review where the gate's full suites are the safety net, not a second pair of eyes.
-if (args.light) for (const k of Object.keys(GROUP_MAX)) GROUP_MAX[k] *= 2
+if (MODE !== "thorough") for (const k of Object.keys(GROUP_MAX)) GROUP_MAX[k] *= 2   // only execution steps group
 // A round never carries more than TASK_CAP tasks, whatever the step counts say (one agent ran 41 on 2026-09-30).
-const TASK_CAP = args.light ? DEFAULTS.roundTasks : DEFAULTS.roundTasksThorough
+const TASK_CAP = MODE !== "thorough" ? DEFAULTS.roundTasks : DEFAULTS.roundTasksThorough
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
@@ -193,7 +201,7 @@ ${impl}`, { label: `review:${s.id}`, phase: 'Review', schema: FIND }))?.findings
   // agent re-read the whole context and re-ran the tests the gate then ran again; the GATE now fixes ordinary findings itself.
   // Only a HIGH finding keeps the separate fix + second review (independent eyes on the risky change).
   let pending = findings
-  if ((DEFAULTS.secondReview || !args.light) && findings.some(f => f.severity === 'high')) {
+  if ((DEFAULTS.secondReview || stepThorough(s)) && findings.some(f => f.severity === "high")) {
     const fix = await agent(`${RULES}
 
 FIX the confirmed findings for step ${s.id} (failing test first; skip a wrong one with the reason). Do not commit.

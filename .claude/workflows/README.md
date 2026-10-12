@@ -22,12 +22,15 @@ every commit, a close that archives). **How big each step is** is set in ONE pla
 | `designLines` | 40 | A design section stays this short: target, choice and why, rejected options in one line each, migration. |
 | `secondReview` | false | A second review round on HIGH findings. Off by default; on when `thorough`. |
 
-**Light is the default.** The heavier process is opt-in per change: pass `{ thorough: true }` — for one run
-(`Workflow execute-change { change: X, thorough: true }`) or permanently in `run-queue.js`'s `QUEUE` entry. Use it for
-a change that reshapes a core model (e.g. the transpiler's pointer/string models), not for features or fixes.
+**Mixed is the default** (owner 2026-10-12: "this needs to be done for every workflow"). Each step's intensity follows
+what it IS: a **decision** step — a model step, or one that needs a design note first — runs thorough (round cap
+`roundTasksThorough`, a second review on HIGH findings); an **execution** step — structure, fix, lean, measure,
+conformance, downstream — runs light (bigger rounds, no second review), because its oracle (the full suite, recorded
+fixtures, the gates) catches what a second reviewer would. Measured motive: thorough everywhere spent about 35–45 % more
+on steps whose oracle already decided the outcome.
 
-To mix modes in one change, launch per section: `{ change: X, sections: ['0', '1'] }` light, then `{ change: X, sections:
-['2', '3'], thorough: true }`, then a last launch with no `sections` (it closes). A launch with `sections` never closes.
+Force one intensity for a whole change with `{ thorough: true }` (a change that reshapes a core model end to end) or
+`{ light: true }`. `sections` still runs a subset (a launch with `sections` never closes).
 
 Before launching a workflow, estimate its agent count and hours against the size of the work (owner rule,
 2026-10-04): a small feature that gets more than about two agents is too heavy.
