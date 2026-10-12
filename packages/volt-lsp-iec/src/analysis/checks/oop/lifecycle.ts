@@ -8,7 +8,7 @@
  * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
 import { varInputParams, type TypeExpr } from "../../../frontend/syntax/index.js"
-import type { LifecycleMethod } from "../../messages.js"
+import type { LifecycleMethod } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 

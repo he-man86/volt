@@ -15,13 +15,14 @@
  * Under an accessor's IMPLEMENTATION line, and in its VAR blocks, GET and SET are NAMES (`SOFT_NAME_KEYWORDS`): a body
  * runs to its own END keyword (`collectAccessorBody`, openspec lsp-accessor-keyword-at-line-start).
  */
-import type { Property } from "../../ast/nodes.js"
+import type { Property, TypeExpr } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import type { Token } from "../../lex/tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { emptyType } from "./header.js"
-import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
-import { joinSpans } from "../../span.js"
+import { type Keyword } from "../../lex/vocabulary.js"
+import { MEMBER_MODIFIERS } from "../../lex/word-sets.js"
+import { joinSpans, type Span } from "../../span.js"
 import { vendorTokenText } from "../errors.js"
 import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
 import { collectVarSections } from "../declarations.js"
@@ -49,13 +50,51 @@ export function parseProperty(c: Cursor): Property | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  // A header ending at its NAME declares no type, as one ending at its colon does: the push writes both as sent (openspec
-  // bridge-refusal-review 2.6) and the IDE builds the property without one. Read as the empty type, not as a header
-  // that broke off, so the accessors under it stay the property's. The vendors' own answer to either shape is a cascade
-  // over the declaration they synthesize for the getter (`rcc_property_no_type`, `rcc_property_empty_type`): a known
-  // divergence, niche. The one message the LSP gives is that cascade's own, which BOTH builds give for each shape: the
-  // synthesized declaration's first token, ';', where the colon or the type belongs — not the METHOD rule's "instead of
-  // ''" (`refusedEmptyType`), which neither build says for a POU property.
+  const dataType = parsePropertyType(c, nameTok)
+  if (dataType === undefined) return undefined
+  c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
+
+  const parts: PropertyParts = {}
+  const node = (end: Span): Property => ({
+    kind: "property",
+    name,
+    modifiers,
+    ...(parts.folder !== undefined ? { folder: parts.folder } : {}),
+    dataType,
+    ...(parts.getter !== undefined ? { getter: parts.getter } : {}),
+    ...(parts.setter !== undefined ? { setter: parts.setter } : {}),
+    span: joinSpans(start.span, end),
+  })
+
+  while (!c.atEof()) {
+    const endProp = c.eatKeyword("END_PROPERTY")
+    if (endProp !== undefined) return node(endProp.span)
+    if (!parsePropertyPart(c, parts)) break
+  }
+
+  c.pushError("unterminated PROPERTY: expected END_PROPERTY", start.span)
+  return node(dataType.span)
+}
+
+/** What a property's body holds, read part by part (`parsePropertyPart`). */
+interface PropertyParts {
+  getter?: Property["getter"]
+  setter?: Property["setter"]
+  folder?: string
+}
+
+/**
+ * The property's type, after its name.
+ *
+ * A header ending at its NAME declares no type, as one ending at its colon does: the push writes both as sent (openspec
+ * bridge-refusal-review 2.6) and the IDE builds the property without one. Read as the empty type, not as a header
+ * that broke off, so the accessors under it stay the property's. The vendors' own answer to either shape is a cascade
+ * over the declaration they synthesize for the getter (`rcc_property_no_type`, `rcc_property_empty_type`): a known
+ * divergence, niche. The one message the LSP gives is that cascade's own, which BOTH builds give for each shape: the
+ * synthesized declaration's first token, ';', where the colon or the type belongs — not the METHOD rule's "instead of
+ * ''" (`refusedEmptyType`), which neither build says for a POU property.
+ */
+function parsePropertyType(c: Cursor, nameTok: Token): TypeExpr | undefined {
   const colon = c.eatPunct(":")
   const untyped = endsUntyped(c)
   if (untyped)
@@ -67,65 +106,35 @@ export function parseProperty(c: Cursor): Property | undefined {
     c.expectPunct(":")
     return undefined
   }
-  const dataType = untyped ? emptyType((colon ?? nameTok).span) : parseTypeExpression(c)
-  if (dataType === undefined) return undefined
-  c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
+  return untyped ? emptyType((colon ?? nameTok).span) : parseTypeExpression(c)
+}
 
-  let getter: Property["getter"]
-  let setter: Property["setter"]
-  let folder: string | undefined
-
-  while (!c.atEof()) {
-    const endProp = c.eatKeyword("END_PROPERTY")
-    if (endProp !== undefined) {
-      return {
-        kind: "property",
-        name,
-        modifiers,
-        ...(folder !== undefined ? { folder } : {}),
-        dataType,
-        ...(getter !== undefined ? { getter } : {}),
-        ...(setter !== undefined ? { setter } : {}),
-        span: joinSpans(start.span, endProp.span),
-      }
-    }
-    // A property in a sub-folder closes its declaration with `%FOLDER <path>` (`StWriter.AssembleProperty`): the
-    // last line before its first accessor, which is where the push reads it. Anywhere else the push refuses it.
-    const directive = readFolderLine(c)
-    if (directive !== undefined) {
-      const closing =
-        directive.path !== undefined &&
-        folder === undefined &&
-        getter === undefined &&
-        setter === undefined &&
-        closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
-      if (closing) folder = directive.path
-      else reportMisplacedFolder(c, directive)
-      continue
-    }
-    const accessor = parseInlineAccessor(c)
-    if (accessor !== undefined) {
-      if (accessor.kind === "get") getter = accessor
-      else setter = accessor
-      continue
-    }
-    // Unknown content inside PROPERTY — record and skip to next anchor
-    const stray = c.peek()
-    c.pushError(`unexpected ${vendorTokenText(stray)} inside PROPERTY body`, stray.span)
-    if (!c.recoverTo({ keywords: ["END_PROPERTY", "GET", "SET"] })) break
+/** The next part of a property's body into `parts` — false when nothing is left to resume the body at. */
+function parsePropertyPart(c: Cursor, parts: PropertyParts): boolean {
+  // A property in a sub-folder closes its declaration with `%FOLDER <path>` (`StWriter.AssembleProperty`): the
+  // last line before its first accessor, which is where the push reads it. Anywhere else the push refuses it.
+  const directive = readFolderLine(c)
+  if (directive !== undefined) {
+    const closing =
+      directive.path !== undefined &&
+      parts.folder === undefined &&
+      parts.getter === undefined &&
+      parts.setter === undefined &&
+      closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
+    if (closing) parts.folder = directive.path
+    else reportMisplacedFolder(c, directive)
+    return true
   }
-
-  c.pushError("unterminated PROPERTY: expected END_PROPERTY", start.span)
-  return {
-    kind: "property",
-    name,
-    modifiers,
-    ...(folder !== undefined ? { folder } : {}),
-    dataType,
-    ...(getter !== undefined ? { getter } : {}),
-    ...(setter !== undefined ? { setter } : {}),
-    span: joinSpans(start.span, dataType.span),
+  const accessor = parseInlineAccessor(c)
+  if (accessor !== undefined) {
+    if (accessor.kind === "get") parts.getter = accessor
+    else parts.setter = accessor
+    return true
   }
+  // Unknown content inside PROPERTY — record and skip to next anchor
+  const stray = c.peek()
+  c.pushError(`unexpected ${vendorTokenText(stray)} inside PROPERTY body`, stray.span)
+  return c.recoverTo({ keywords: ["END_PROPERTY", "GET", "SET"] })
 }
 
 /** The keywords the push reads an accessor by — each only at the START of a line (`StReader.LineStartsWithKeyword`). */

@@ -11,7 +11,7 @@
  * `IdentExpr` in the tree; a consumer that only wants "real" references
  * filters by context.
  */
-import type { Expr, Statement, StatementList, TopLevel } from "./nodes.js"
+import type { Expr, Statement, StatementList, TopLevel } from "./nodes/index.js"
 
 /**
  * EVERY UNIT OF A FILE, NAMESPACES FLATTENED — in source order, each namespace's units where the namespace stands; a

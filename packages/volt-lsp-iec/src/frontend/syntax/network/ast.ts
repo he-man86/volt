@@ -14,7 +14,7 @@
  * node of its own here, and `networkValueExpr` says which values have an ST reading at all.
  */
 import type { Span } from "../span.js"
-import type { Expr, StatementList, TypeExpr } from "../ast/nodes.js"
+import type { Expr, StatementList, TypeExpr } from "../ast/nodes/index.js"
 
 export type NetworkLanguage = "FBD" | "LD"
 

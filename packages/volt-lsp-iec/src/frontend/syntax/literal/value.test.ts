@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { parseLiteralValue, typedLiteralForm } from "./value.js"
-import type { DurationValue } from "../ast/nodes.js"
+import type { DurationValue } from "../ast/nodes/index.js"
 
 test("integer literals: decimal, radix, underscores", () => {
   expect(parseLiteralValue("int", "42").value).toBe(42n)

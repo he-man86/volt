@@ -19,7 +19,7 @@
  * hover, rename and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.
  */
 import type { Span } from "../span.js"
-import type { BodySpan, Expr, StatementList } from "../ast/nodes.js"
+import type { BodySpan, Expr, StatementList } from "../ast/nodes/index.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { lex } from "../lex/lexer.js"

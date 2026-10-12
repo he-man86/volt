@@ -5,7 +5,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../parser.js"
-import type { TypeDecl } from "../../ast/nodes.js"
+import type { TypeDecl } from "../../ast/nodes/index.js"
 
 const parse = (src: string) => {
   const r = parseSource(src, { networkText: true }, "codesys")

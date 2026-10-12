@@ -17,7 +17,7 @@
  * that branch uses is never asked (frontend-conformance 2.7.1 — this check used to skip every body holding an `{IF}`).
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
-import { bodies, forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
+import { bodies, forEachDecl, lookupLocal, type Scope } from "../../../frontend/symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
@@ -33,73 +33,79 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
   // Suppressing it HERE covers the second message too. "'cal' is no valid assignment target" comes from
   // `unknown-source`, which reports a hole only once an earlier check has EXPLAINED it — and this is that check.
   const unparsed = new Set(ctx.parseResult.failedDeclarations)
-  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    walkStatements(statements, (stmt) => {
-      const exprs = stmtExprs(stmt)
-      const callees = new Set<number>()
-      // a called MEMBER, by its member name's start: an unknown one is no call target either, named as written —
-      // "Program name, function or function block instance expected instead of 'sb.Nope'" (rule M1,
-      // `mem_unknown_method_of_fb_instance`, `mem_unknown_method_of_interface`, both vendors 2026-10-02)
-      // — off the recorded bases only: a variable that IS an FB instance or an interface. A global list's member called
-      // (`GVL_X.nope()`) and a dereferenced pointer's (`p^.Nope()`) are unasked (step 3 review, 2026-10-03).
-      const calledMembers = new Map<number, Expr>()
-      for (const e of exprs)
-        walkExpr(e, (x) => {
-          if (x.kind !== "call") return
-          if (x.callee.kind === "ident_expr") callees.add(x.callee.span.start)
-          else if (x.callee.kind === "member" && x.callee.base.kind === "ident_expr") {
-            const base = inferExprType(x.callee.base, scope, ctx.project).kind
-            if (base === "function_block" || base === "interface") calledMembers.set(x.callee.member.span.start, x.callee)
-          }
-        })
-      for (const ref of unresolvedInExprs(exprs, scope)) {
-        if (unparsed.has(ref.name.toLowerCase())) continue
-        out.push({
-          severity: "error",
-          span: ref.span,
-          source: SOURCE,
-          code: "unresolved-identifier",
-          message: ctx.messages.undefinedIdentifier(ref.name),
-        })
-        if (callees.has(ref.span.start))
-          out.push({
-            severity: "error",
-            span: ref.span,
-            source: SOURCE,
-            code: "invalid-call-target",
-            message: ctx.messages.callTargetExpected(ref.name),
-          })
-      }
-      // `.name`, the global-namespace operator: the GLOBAL namespace only, so a local of the name does not answer it
-      // (rule E33, `GlobalExpr`; `expr_global_namespace_undefined`, `_local_only`, both vendors 2026-10-02)
-      for (const e of exprs)
-        walkExpr(e, (x) => {
-          if (x.kind !== "global_expr" || resolveMemberChain(x, scope, ctx.project) !== undefined) return
-          out.push({ severity: "error", span: x.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.noGlobalDefinition(x.name.name) })
-        })
-      for (const ref of unresolvedMembers(exprs, scope, ctx.project)) {
-        out.push({
-          severity: "error",
-          span: ref.span,
-          source: SOURCE,
-          code: "unknown-member",
-          message: ctx.messages.notAMember(ref.member, ref.typeName),
-        })
-        const called = calledMembers.get(ref.span.start)
-        if (called !== undefined)
-          out.push({ severity: "error", span: called.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(called)) })
-      }
-      // a POINTER read without its `^` has no members: "'p' is no structured variable" (rule M3,
-      // `mem_pointer_member_without_deref`, both vendors 2026-10-02) — THIS's and SUPER's sentence, under their code
-      for (const base of pointerMemberBases(exprs, scope, ctx.project))
-        out.push({ severity: "error", span: base.span, source: SOURCE, code: "self-not-structured", message: ctx.messages.notStructuredVariable(compilerExprText(base)) })
-    })
-  }
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
+    walkStatements(statements, (stmt) => statementFindings(ctx, stmtExprs(stmt), scope, unparsed, out))
+  initializerFindings(ctx, unparsed, out)
+}
 
-  // AND IN A DECLARATION'S INITIALIZER, which this walked past because it walked BODIES. An initializer is not a
-  // constant-only place — `other : DINT; n : DINT := other;` compiles on both vendors — so a name is as real there
-  // as in a statement, and `n : DINT := nope;` is "Identifier 'nope' not defined" on both
-  // (`cc_decl_init_unknown_name`, `cc_decl_init_sibling_var`, 2026-09-21).
+/** The unresolved names, members and global-namespace names of one statement's expressions. */
+function statementFindings(ctx: CheckContext, exprs: readonly Expr[], scope: Scope, unparsed: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  const callees = new Set<number>()
+  // a called MEMBER, by its member name's start: an unknown one is no call target either, named as written —
+  // "Program name, function or function block instance expected instead of 'sb.Nope'" (rule M1,
+  // `mem_unknown_method_of_fb_instance`, `mem_unknown_method_of_interface`, both vendors 2026-10-02)
+  // — off the recorded bases only: a variable that IS an FB instance or an interface. A global list's member called
+  // (`GVL_X.nope()`) and a dereferenced pointer's (`p^.Nope()`) are unasked (step 3 review, 2026-10-03).
+  const calledMembers = new Map<number, Expr>()
+  for (const e of exprs)
+    walkExpr(e, (x) => {
+      if (x.kind !== "call") return
+      if (x.callee.kind === "ident_expr") callees.add(x.callee.span.start)
+      else if (x.callee.kind === "member" && x.callee.base.kind === "ident_expr") {
+        const base = inferExprType(x.callee.base, scope, ctx.project).kind
+        if (base === "function_block" || base === "interface") calledMembers.set(x.callee.member.span.start, x.callee)
+      }
+    })
+  for (const ref of unresolvedInExprs(exprs, scope)) {
+    if (unparsed.has(ref.name.toLowerCase())) continue
+    out.push({
+      severity: "error",
+      span: ref.span,
+      source: SOURCE,
+      code: "unresolved-identifier",
+      message: ctx.messages.undefinedIdentifier(ref.name),
+    })
+    if (callees.has(ref.span.start))
+      out.push({
+        severity: "error",
+        span: ref.span,
+        source: SOURCE,
+        code: "invalid-call-target",
+        message: ctx.messages.callTargetExpected(ref.name),
+      })
+  }
+  // `.name`, the global-namespace operator: the GLOBAL namespace only, so a local of the name does not answer it
+  // (rule E33, `GlobalExpr`; `expr_global_namespace_undefined`, `_local_only`, both vendors 2026-10-02)
+  for (const e of exprs)
+    walkExpr(e, (x) => {
+      if (x.kind !== "global_expr" || resolveMemberChain(x, scope, ctx.project) !== undefined) return
+      out.push({ severity: "error", span: x.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.noGlobalDefinition(x.name.name) })
+    })
+  for (const ref of unresolvedMembers(exprs, scope, ctx.project)) {
+    out.push({
+      severity: "error",
+      span: ref.span,
+      source: SOURCE,
+      code: "unknown-member",
+      message: ctx.messages.notAMember(ref.member, ref.typeName),
+    })
+    const called = calledMembers.get(ref.span.start)
+    if (called !== undefined)
+      out.push({ severity: "error", span: called.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(called)) })
+  }
+  // a POINTER read without its `^` has no members: "'p' is no structured variable" (rule M3,
+  // `mem_pointer_member_without_deref`, both vendors 2026-10-02) — THIS's and SUPER's sentence, under their code
+  for (const base of pointerMemberBases(exprs, scope, ctx.project))
+    out.push({ severity: "error", span: base.span, source: SOURCE, code: "self-not-structured", message: ctx.messages.notStructuredVariable(compilerExprText(base)) })
+}
+
+/**
+ * AND IN A DECLARATION'S INITIALIZER, which this walked past because it walked BODIES. An initializer is not a
+ * constant-only place — `other : DINT; n : DINT := other;` compiles on both vendors — so a name is as real there
+ * as in a statement, and `n : DINT := nope;` is "Identifier 'nope' not defined" on both
+ * (`cc_decl_init_unknown_name`, `cc_decl_init_sibling_var`, 2026-09-21).
+ */
+function initializerFindings(ctx: CheckContext, unparsed: ReadonlySet<string>, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     // an AGGREGATE initializer is a different shape with its own element list, and `struct-init`/`array-init`
     // own it — this is the plain-expression case only
@@ -120,4 +126,3 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
     }
   }
 }
-

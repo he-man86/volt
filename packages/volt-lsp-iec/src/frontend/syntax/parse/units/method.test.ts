@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../parser.js"
-import type { Method } from "../../ast/nodes.js"
+import type { Method } from "../../ast/nodes/index.js"
 
 const method = (header: string) => {
   const r = parseSource(`FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n\n${header}\nM := 7;\nEND_METHOD\n`, { networkText: true }, "codesys")

@@ -4,7 +4,7 @@
  * `--gate` fails on a NOBODY export the allowlist does not name and on a listed one that is no longer dead.
  */
 import { expect, test } from "bun:test"
-import { deadExportReport, exportRows, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
+import { DEAD_EXPORT_ALLOWLIST, deadExportReport, exportRows, nobodyIn, packageTexts, unionMembers } from "./dead-exports.js"
 
 const texts = new Map<string, string>([
   [
@@ -83,4 +83,8 @@ test("src/ exports nothing nobody reads, but the allowlist (lsp-same-standard 1.
   const texts = packageTexts()
   expect(deadExportReport(texts)).toEqual({ unexpected: [], stale: [] })
   expect(nobodyIn(texts, "src/transpile").map((r) => `${r.name} ${r.file}`)).toEqual([])
+})
+
+test("the allowlist holds network text alone (lsp-same-standard 4.5): outside it src/ exports nothing nobody imports", () => {
+  expect(DEAD_EXPORT_ALLOWLIST.filter((entry) => !entry.includes("/network/"))).toEqual([])
 })

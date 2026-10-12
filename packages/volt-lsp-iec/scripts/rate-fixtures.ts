@@ -68,7 +68,7 @@ import { emissionShape, sizeRatio } from "../test/conformance/support/transpile/
 import { tierOf } from "../test/conformance/support/transpile/tier.js"
 import { TIERS, type EdgeVerdict, type FixtureMapRow } from "../test/conformance/fixtures/map-row.js"
 import { CLIPPY } from "../test/conformance/support/rustc.js"
-import { buildRust } from "../test/conformance/support/rustc-cache.js"
+import { buildRust } from "../test/conformance/support/rustc-cache-build.js"
 
 /** What a harness binary is run with; a re-proved cache hit runs both builds on each (`support/rustc-cache.ts`). */
 const HARNESS_PROBES = [[], [EDGE_ARG]]

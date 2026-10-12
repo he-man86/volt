@@ -83,7 +83,7 @@ export function prepareCallHierarchy(
   return { item: itemOf(sym), sym }
 }
 
-export interface CallRef {
+interface CallRef {
   item: HierItem
   ranges: Range[]
 }

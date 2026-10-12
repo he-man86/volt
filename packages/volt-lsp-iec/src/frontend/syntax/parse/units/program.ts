@@ -5,7 +5,7 @@
  * entry points and don't participate in the FB inheritance graph. The header may end in `;` (`PROGRAM P;`, both
  * vendors build it: `unit_program_trailing_semicolon`).
  */
-import type { Program } from "../../ast/nodes.js"
+import type { Program } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import { parseOptionalReturnType } from "./header.js"
 import { collectBodyUntil } from "../body.js"

@@ -5,7 +5,7 @@
  */
 import { expect, test } from "bun:test"
 import { isTrivia, lex, parseExprFromTokens, type Expr } from "../../src/frontend/syntax/index.js"
-import { memberShapes } from "./bound-census.js"
+import { memberShapes } from "./bound-census-summarize.js"
 
 const expr = (src: string): Expr => {
   const e = parseExprFromTokens(lex(src, "codesys").filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))

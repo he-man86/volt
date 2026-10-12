@@ -17,7 +17,7 @@
  * Every POU is REFERENCED from PLC_PRG: a build reaches only what something references.
  */
 import type { LanguageTest } from "../../types.js"
-import { NOT_ST } from "../graphical/network-graphical.js"
+import { NOT_ST } from "../graphical/network-graphical-shared.js"
 
 const doc = "openspec bridge-refusal-review — What the LSP must pick up (task 5.1)"
 const asSent = "bridge-refusal-review: the item's text as a workspace file holds it — the push writes it as sent"

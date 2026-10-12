@@ -9,7 +9,7 @@ import type { Document } from "../shared/index.js"
 import { printUnit, TAB, verbatimText } from "./print.js"
 
 /** LSP-shaped formatting options (`editorconfig`): tabs by default, spaces on request. */
-export interface FormatOptions {
+interface FormatOptions {
   insertSpaces?: boolean
   tabSize?: number
 }

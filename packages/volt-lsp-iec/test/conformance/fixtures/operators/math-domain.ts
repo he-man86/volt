@@ -53,7 +53,7 @@
  * See `semantics/math.ts` for why neither is emulated.
  */
 import type { LanguageTest } from "../../types.js"
-import { X87_TRIG_DIVERGENCES } from "../../support/divergences.js"
+import { X87_TRIG_DIVERGENCES } from "../../support/divergences-transpile.js"
 
 /** `arg` is built from `seed`, so the value is computed rather than folded. */
 function domain(slug: string, seed: string, arg: string, feature: string): LanguageTest {

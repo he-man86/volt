@@ -6,33 +6,27 @@
  *
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
-import { bareEnumMember, isLibrarySymbol, lookup, scopeUri, targetOf, type Scope } from "../../symbols/index.js"
+import { bareEnumMember, lookup, type Scope } from "../../symbols/index.js"
 import { globalClash } from "../names.js"
-import { decodeStringLiteral, selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
+import { selfRefKind, type BinaryExpr, type Expr } from "../../syntax/index.js"
 import { bitwiseLiteralOperandType, checkedMeetType, checkedNegationType, literalOperandType } from "../arith/checked.js"
 import { temporalArithmeticType } from "../arith/temporal.js"
-import {
-  ARGUMENT_TYPED,
-  bareBuiltinType,
-  builtinCallResult,
-  clockCallResult,
-  exptCheckedType,
-  MATH_ARG_TYPED,
-  mathResultType,
-  pointerTo,
-  selectionValueArguments,
-  sizeofResultType,
-  twincatXaddResultType,
-  type ExptArgument,
-} from "../builtins.js"
-import { aliasElem, elementaryType } from "../elementary.js"
-import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
+import { bareBuiltinType } from "../builtins.js"
+import { aliasElem } from "../elementary.js"
+import { resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
-import { DEFAULT_STRING_LENGTH } from "../defaults.js"
-import { isUntypedNumber, literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
+import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
-import { typeBytes } from "../layout.js"
-import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType, staticNameOf, insideOwnBody } from "./member.js"
+import {
+  resolveMemberChain,
+  enumValueType,
+  memberScopeOf,
+  staticScopeType,
+  superType,
+  thisType,
+  staticNameOf,
+} from "./member.js"
+import { callReturnType } from "./builtin-call.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -43,74 +37,18 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
   switch (expr.kind) {
     case "literal":
       return literalType(expr)
-    case "ident_expr": {
-      // THIS denotes the enclosing FB instance — resolve to its member scope so `THIS^.field` navigates.
-      if (expr.name.toUpperCase() === "THIS") return thisType(scope)
-      // …and SUPER its base's, so `SUPER^.Get()` navigates (rule E27)
-      if (expr.name.toUpperCase() === "SUPER") return superType(scope)
-      // `__POSITION` has a value without its parentheses (`builtins.ts` `bareBuiltinType`).
-      const bare = bareBuiltinType(expr.name, project.dialect)
-      if (bare !== undefined) return bare
-      const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
-      // a global that clashes — two of the project's lists, or a global and an own enum's member — names nothing, so it
-      // has no type (`names.ts` `globalClash`)
-      if (sym?.kind === "gvl_var" && globalClash(scope, sym, expr.name) !== undefined) return UNKNOWN
-      // a GVL's name, and a FUNCTION's or METHOD's where it is no call, denote the declaration (rule DT8)
-      const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
-      if (denoted !== undefined) return denoted
-      // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
-      // which file is reading `v` now. Its bounds and lengths fold where it is declared (rule CE8): `v : INT(0..N)` with N
-      // its POU's own CONSTANT is a subrange, and `a : ARRAY[0..N]` a sized array, wherever `v` is read.
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
-      const value = sym === undefined ? undefined : enumValueType(sym, project)
-      if (value !== undefined) return value
-      // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
-      return staticScopeType(project, expr.name) ?? UNKNOWN
-    }
+    case "ident_expr":
+      return identType(expr, scope, project)
     case "global_expr": {
       // `.g` names the global past every local (rule E33): what the project scope holds under the name
       const sym = resolveMemberChain(expr, scope, project)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? staticScopeType(project, expr.name.name) ?? UNKNOWN
     }
-    case "member": {
-      // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD
-      // (`operand_partial_*`, `accepts_partial_access`, `expr_partial_access_beside_undefined` build into those)
-      const part = PARTIAL_ACCESS.exec(expr.member.name)?.[1]?.toUpperCase()
-      if (part !== undefined) return elementaryRef(PARTIAL_ACCESS_TYPE[part]!)
-      // THIS and SUPER without their `^` are the pointers, which have no members: `THIS.v` has no type
-      // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors)
-      if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
-      const sym = resolveMemberChain(expr, scope, project)
-      // a METHOD named without its call is the method — 'VALUE' for `other.Value` (rule DT8)
-      const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
-      if (denoted !== undefined) return denoted
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
-      const value = sym === undefined ? undefined : enumValueType(sym, project)
-      if (value !== undefined) return value
-      // `Ns.Dep` — the namespace of a library `Ns` depends on, which `Ns` holds (rule LB8: `DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO`
-      // builds and runs 2, `Util.Standard.LEN('abcd')` runs 4, `lib_ns_transitive_qualification*`, CODESYS 2026-10-02): a
-      // static base, as the bare `Ns` is
-      if (sym?.kind === "namespace") return staticScopeType(project, sym.name) ?? UNKNOWN
-      // `Ns.E` — an ENUM a namespace holds is a static base, as the bare `E` is (rule EN6: `Util.WEEKDAY.THURSDAY`,
-      // `enum_library_namespace_qualified`, builds and runs 4). Only an enum: no recording asks `Ns.Func` or `Ns.FB.x`,
-      // and `staticScopeType` would call a FUNCTION an FB instance
-      const holder = memberScopeOf(inferExprType(expr.base, scope, project))
-      const held = holder?.kind === "namespace" ? staticScopeType(holder, expr.member.name) : undefined
-      return held?.kind === "enum" ? held : UNKNOWN
-    }
-    case "index": {
-      // an index through a REFERENCE TO an array reads the array (`decl_reference_to_array`, both vendors run `rf[1]`)
-      const written = inferExprType(expr.base, scope, project)
-      const base = written.kind === "reference" ? written.target : written
-      if (base.kind === "array") return base.element
-      // …and a STRING indexed is one of its units: a BYTE, a WSTRING's a WORD (`lib_prim_char_past_length` records `BYTE#…`,
-      // `string_non_ascii_bytes` `text[0]` = BYTE#99; lsp-transpile-review-gaps 2.3)
-      if (base.kind === "elementary" && base.elem.family === "string" && expr.indices.length === 1) return elementaryRef(base.elem.bits === 16 ? "WORD" : "BYTE")
-      // …and a POINTER indexed once is its target, `i` elements on (rule M3: `p[2].x` over `p : POINTER TO S` runs 30 in
-      // `mem_pointer_index_struct_array`, both vendors build it); a second index is the arity error C0126, untyped
-      return base.kind === "pointer" && expr.indices.length === 1 ? base.target : UNKNOWN
-    }
+    case "member":
+      return memberType(expr, scope, project)
+    case "index":
+      return indexType(expr, scope, project)
     case "deref": {
       const base = inferExprType(expr.base, scope, project)
       if (base.kind === "pointer" || base.kind === "reference") return base.target
@@ -119,25 +57,8 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     }
     case "call":
       return callReturnType(expr, scope, project)
-    case "unary": {
-      // `+` keeps the operand's type; unary MINUS does not (see `checkedNegationType`); and NOT keeps it EXCEPT on a
-      // signed integer, where the result is the UNSIGNED type of the same width.
-      //
-      // That last part is the same fact the sign-change warning already states — "AND, OR, XOR and NOT meet in the
-      // UNSIGNED integer of the width" (`checks/types/narrowing.ts`) — and it was applied to the OPERAND and not to
-      // the RESULT, so only half of what CODESYS reports could be reproduced. Measured on `not_result_width`, with
-      // `i5 : INT`: `NOT i5` into a DINT or an LREAL is silent (a UINT widens into either without a sign change),
-      // and into an INT it warns "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'". Three
-      // assignments of the same expression, two answers — which only makes sense if the expression is UINT.
-      //
-      // A BOOL operand is a logical NOT and keeps BOOL; an already-unsigned operand keeps its own type. Both fall out
-      // of the guard rather than needing a case.
-      // an operation on a SUBRANGE value yields its base, never the subrange (`dt_subrange_arithmetic_result`, rule DT3)
-      const operand = withoutSubrange(inferExprType(expr.operand, scope, project))
-      if (expr.op === "-") return checkedNegationType(operand)
-      if (expr.op === "NOT") return notResultType(operand)
-      return operand
-    }
+    case "unary":
+      return unaryType(expr, scope, project)
     case "binary":
       return binaryResultType(expr, scope, project)
     case "paren":
@@ -147,6 +68,91 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "assign_expr":
       return inferExprType(expr.target, scope, project)
   }
+}
+
+function identType(expr: Extract<Expr, { kind: "ident_expr" }>, scope: Scope, project: Scope): Type {
+  // THIS denotes the enclosing FB instance — resolve to its member scope so `THIS^.field` navigates.
+  if (expr.name.toUpperCase() === "THIS") return thisType(scope)
+  // …and SUPER its base's, so `SUPER^.Get()` navigates (rule E27)
+  if (expr.name.toUpperCase() === "SUPER") return superType(scope)
+  // `__POSITION` has a value without its parentheses (`builtins.ts` `bareBuiltinType`).
+  const bare = bareBuiltinType(expr.name, project.dialect)
+  if (bare !== undefined) return bare
+  const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
+  // a global that clashes — two of the project's lists, or a global and an own enum's member — names nothing, so it
+  // has no type (`names.ts` `globalClash`)
+  if (sym?.kind === "gvl_var" && globalClash(scope, sym, expr.name) !== undefined) return UNKNOWN
+  // a GVL's name, and a FUNCTION's or METHOD's where it is no call, denote the declaration (rule DT8)
+  const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
+  if (denoted !== undefined) return denoted
+  // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
+  // which file is reading `v` now. Its bounds and lengths fold where it is declared (rule CE8): `v : INT(0..N)` with N
+  // its POU's own CONSTANT is a subrange, and `a : ARRAY[0..N]` a sized array, wherever `v` is read.
+  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
+  const value = sym === undefined ? undefined : enumValueType(sym, project)
+  if (value !== undefined) return value
+  // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
+  return staticScopeType(project, expr.name) ?? UNKNOWN
+}
+
+function memberType(expr: Extract<Expr, { kind: "member" }>, scope: Scope, project: Scope): Type {
+  // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD
+  // (`operand_partial_*`, `accepts_partial_access`, `expr_partial_access_beside_undefined` build into those)
+  const part = PARTIAL_ACCESS.exec(expr.member.name)?.[1]?.toUpperCase()
+  if (part !== undefined) return elementaryRef(PARTIAL_ACCESS_TYPE[part]!)
+  // THIS and SUPER without their `^` are the pointers, which have no members: `THIS.v` has no type
+  // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors)
+  if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
+  const sym = resolveMemberChain(expr, scope, project)
+  // a METHOD named without its call is the method — 'VALUE' for `other.Value` (rule DT8)
+  const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
+  if (denoted !== undefined) return denoted
+  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
+  const value = sym === undefined ? undefined : enumValueType(sym, project)
+  if (value !== undefined) return value
+  // `Ns.Dep` — the namespace of a library `Ns` depends on, which `Ns` holds (rule LB8: `DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO`
+  // builds and runs 2, `Util.Standard.LEN('abcd')` runs 4, `lib_ns_transitive_qualification*`, CODESYS 2026-10-02): a
+  // static base, as the bare `Ns` is
+  if (sym?.kind === "namespace") return staticScopeType(project, sym.name) ?? UNKNOWN
+  // `Ns.E` — an ENUM a namespace holds is a static base, as the bare `E` is (rule EN6: `Util.WEEKDAY.THURSDAY`,
+  // `enum_library_namespace_qualified`, builds and runs 4). Only an enum: no recording asks `Ns.Func` or `Ns.FB.x`,
+  // and `staticScopeType` would call a FUNCTION an FB instance
+  const holder = memberScopeOf(inferExprType(expr.base, scope, project))
+  const held = holder?.kind === "namespace" ? staticScopeType(holder, expr.member.name) : undefined
+  return held?.kind === "enum" ? held : UNKNOWN
+}
+
+function indexType(expr: Extract<Expr, { kind: "index" }>, scope: Scope, project: Scope): Type {
+  // an index through a REFERENCE TO an array reads the array (`decl_reference_to_array`, both vendors run `rf[1]`)
+  const written = inferExprType(expr.base, scope, project)
+  const base = written.kind === "reference" ? written.target : written
+  if (base.kind === "array") return base.element
+  // …and a STRING indexed is one of its units: a BYTE, a WSTRING's a WORD (`lib_prim_char_past_length` records `BYTE#…`,
+  // `string_non_ascii_bytes` `text[0]` = BYTE#99; lsp-transpile-review-gaps 2.3)
+  if (base.kind === "elementary" && base.elem.family === "string" && expr.indices.length === 1) return elementaryRef(base.elem.bits === 16 ? "WORD" : "BYTE")
+  // …and a POINTER indexed once is its target, `i` elements on (rule M3: `p[2].x` over `p : POINTER TO S` runs 30 in
+  // `mem_pointer_index_struct_array`, both vendors build it); a second index is the arity error C0126, untyped
+  return base.kind === "pointer" && expr.indices.length === 1 ? base.target : UNKNOWN
+}
+
+function unaryType(expr: Extract<Expr, { kind: "unary" }>, scope: Scope, project: Scope): Type {
+  // `+` keeps the operand's type; unary MINUS does not (see `checkedNegationType`); and NOT keeps it EXCEPT on a
+  // signed integer, where the result is the UNSIGNED type of the same width.
+  //
+  // That last part is the same fact the sign-change warning already states — "AND, OR, XOR and NOT meet in the
+  // UNSIGNED integer of the width" (`checks/types/narrowing.ts`) — and it was applied to the OPERAND and not to
+  // the RESULT, so only half of what CODESYS reports could be reproduced. Measured on `not_result_width`, with
+  // `i5 : INT`: `NOT i5` into a DINT or an LREAL is silent (a UINT widens into either without a sign change),
+  // and into an INT it warns "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'". Three
+  // assignments of the same expression, two answers — which only makes sense if the expression is UINT.
+  //
+  // A BOOL operand is a logical NOT and keeps BOOL; an already-unsigned operand keeps its own type. Both fall out
+  // of the guard rather than needing a case.
+  // an operation on a SUBRANGE value yields its base, never the subrange (`dt_subrange_arithmetic_result`, rule DT3)
+  const operand = withoutSubrange(inferExprType(expr.operand, scope, project))
+  if (expr.op === "-") return checkedNegationType(operand)
+  if (expr.op === "NOT") return notResultType(operand)
+  return operand
 }
 
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
@@ -195,225 +201,6 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
     const meet = checkedMeetType(l, r)
     if (meet !== undefined) return meet
     if (aliasElem(l.name) === aliasElem(r.name)) return l
-  }
-  return UNKNOWN
-}
-
-/**
- * EXPT's checked type (`builtins.ts` `exptCheckedType`) over its arguments as inferred here. The reference catalog used
- * to say "always LREAL", from recollection — which made the narrowing check warn on `real := EXPT(real, real)`, code the
- * compiler accepts silently.
- */
-function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
-  // Each argument is REAL, NOT REAL, or unknown. An integer LITERAL has no width but can never be a REAL, so it counts
-  // as not-REAL: `REAL_TO_DINT(EXPT(10, n))` warns LREAL → REAL in a real project (build conformance). A REAL literal
-  // can take either width, so it stays unknown.
-  const kinds = call.args.map((a): ExptArgument => {
-    if (a.value === undefined) return "unknown"
-    if (a.value.kind === "literal") return typeof a.value.value === "bigint" ? "int-literal" : "unknown"
-    const t = inferExprType(a.value, scope, project)
-    if (t.kind !== "elementary" || elementaryType(t.name)?.rank === undefined) return "unknown"
-    return aliasElem(t.name) === "REAL" ? "real" : "not-real"
-  })
-  return exptCheckedType(kinds)
-}
-
-/**
- * A selection over STRINGs (or over WSTRINGs) — undefined for any other operands. Measured on both vendors 2026-10-11 by
- * storing each into an INT, which names the type (`sel_string_meet_type`, `limit_string_meet_type`, `_in`;
- * lsp-transpile-review-gaps 2.7): SEL and MUX answer the WIDEST value argument's type — a sizeless one is 80 units, a
- * literal is as wide as its text and is then named by it, `STRING(INT#20)`; LIMIT answers its IN's type whatever MN and
- * MX are; MIN and MAX a sizeless STRING (over WSTRINGs unmeasured, UNKNOWN). An operand whose capacity is no fact
- * leaves it UNKNOWN.
- */
-function stringSelection(name: string, values: readonly (Expr | undefined)[], typeOf: (e: Expr | undefined) => Type): Type | undefined {
-  const types = values.map(typeOf)
-  const first = types[0]
-  if (first?.kind !== "elementary" || first.elem.family !== "string") return undefined
-  if (types.some((t) => t.kind !== "elementary" || t.name !== first.name)) return undefined
-  if (name === "MIN" || name === "MAX") return first.name === "STRING" ? elementaryRef("STRING") : UNKNOWN
-  if (name === "LIMIT") return values[1]?.kind === "literal" ? UNKNOWN : (types[1] ?? UNKNOWN)
-  const capacities: (number | undefined)[] = values.map((v, i) => {
-    if (v?.kind === "literal") return typeof v.value === "string" ? decodeStringLiteral(v.value, first.name === "WSTRING")?.length : undefined
-    const t = types[i]
-    return t?.kind !== "elementary" || t.unfoldedLength === true ? undefined : (t.length ?? DEFAULT_STRING_LENGTH)
-  })
-  const known = capacities.filter((c): c is number => c !== undefined)
-  if (known.length !== capacities.length) return UNKNOWN
-  const widest = Math.max(...known)
-  const variable = values.findIndex((v, i) => v?.kind !== "literal" && capacities[i] === widest)
-  return types[variable] ?? { ...first, length: widest, lengthText: `INT#${widest}` }
-}
-
-/**
- * A BUILT-IN WHOSE RESULT IS A FUNCTION OF ITS ARGUMENTS (`builtins.ts` holds each rule), or undefined for any other name.
- * The selection functions return the MEET of their value arguments — the one a binary operator's operands reach. They
- * are extensible and type-dependent, so the catalog models no fixed result, and inferring UNKNOWN left `MIN(anInt, aUint)`
- * invisible to every check downstream. An argument whose type is unknown — an untyped literal takes its type from the
- * context — leaves the result unknown.
- */
-function builtinArgumentResult(name: string, call: CallExpr, scope: Scope, project: Scope): Type | undefined {
-  const upper = name.toUpperCase()
-  const values = call.args.map((a) => a.value)
-  const typeOf = (e: Expr | undefined): Type => (e === undefined ? UNKNOWN : inferExprType(e, scope, project))
-  const selected = selectionValueArguments(upper, values)
-  if (selected !== undefined) {
-    const strings = stringSelection(upper, selected, typeOf)
-    if (strings !== undefined) return strings
-    const types = selected.map(typeOf)
-    if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
-    return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)
-  }
-  const argument = ARGUMENT_TYPED.get(upper)
-  if (argument !== undefined) {
-    const t = typeOf(values[argument])
-    return t.kind === "elementary" ? t : UNKNOWN
-  }
-  const clock = clockCallResult(upper, call.args.length)
-  if (clock !== undefined) return clock
-  if (call.args.length !== 1 && upper !== "__NEW") return undefined
-  const operand = values[0]
-  if (upper === "ADR") return pointerTo(operand === undefined ? UNKNOWN : valueOperandType(operand, scope, project))
-  if (upper === "__NEW") return pointerTo(operand?.kind === "ident_expr" ? resolveNamedType(operand.name, project, scopeUri(scope)) : UNKNOWN)
-  if (upper === "SIZEOF") {
-    if (operand === undefined) return UNKNOWN
-    const sized = sizedOperandType(operand, scope, project)
-    // SIZEOF of a STRUCT or a UNION is a UINT, where SIZEOF of an elementary type, an enum, an alias or an array is the
-    // smallest unsigned integer holding the size: a one-byte STRUCT, a one-byte UNION and a four-byte one are UINT, a
-    // four-byte DINT USINT (`dt_sizeof_derived_type`, `dt_union_sizeof_type`, `ar_sizeof_type`, both vendors 2026-10-03).
-    // Asked only where the size certainly fits a UINT — a larger one is unmeasured.
-    if (sized.kind === "struct") {
-      const bound = structSizeBound(sized, project)
-      return bound !== undefined && bound < 65536n ? elementaryRef("UINT") : UNKNOWN
-    }
-    const bytes = storageBytes(sized, project)
-    // an enum whose storage is no fact here (a library enum's base is not materialized) is still at most an LWORD: USINT
-    // (`dt_sizeof_derived_type` — every enum's SIZEOF is one)
-    if (bytes === undefined && sized.kind === "enum") return elementaryRef("USINT")
-    return bytes === undefined ? UNKNOWN : sizeofResultType(bytes)
-  }
-  return undefined
-}
-
-/** A VALUE's type, as ADR addresses it — a variable, a member, an element or a dereference; anything else (a POU's
- *  name, a literal) unknown. */
-function valueOperandType(e: Expr, scope: Scope, project: Scope): Type {
-  if (e.kind === "ident_expr") {
-    const sym = lookup(scope, e.name)?.symbol
-    return sym !== undefined && VALUE_SYMBOLS.has(sym.kind) ? inferExprType(e, scope, project) : UNKNOWN
-  }
-  return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? inferExprType(e, scope, project) : UNKNOWN
-}
-
-/** SIZEOF's value, in bytes: of a value or a TYPE named bare, as the measured layout lays it out (`layout` `typeBytes`: a
- *  STRUCT and an FB instance too, transpile-restructure 6.A.31) — what a constant fold reads (`const/fold`). */
-export function sizeofOperandBytes(e: Expr, scope: Scope, project: Scope): bigint | undefined {
-  return typeBytes(sizedOperandType(e, scope, project), project)?.size
-}
-
-/**
- * The bytes of a value of `t` whose SIZEOF has a measured TYPE (`sizeofResultType`): an elementary type, an enum, an array
- * of them, a UNION of them (`layout` `typeBytes`). Undefined for one that holds a STRUCT or an FB instance — what type
- * their SIZEOF has is measured for a STRUCT alone (UINT, above), so a layout's size is a value here, never a type.
- */
-function storageBytes(t: Type, project: Scope): bigint | undefined {
-  const holdsLayout = (x: Type): boolean => (x.kind === "array" ? holdsLayout(x.element) : (x.kind === "struct" && x.union !== true) || x.kind === "function_block")
-  return holdsLayout(t) ? undefined : typeBytes(t, project)?.size
-}
-
-/** The declared types of a STRUCT's or UNION's fields, each resolved in its own file — undefined when its scope is not known. */
-function fieldTypes(t: Extract<Type, { kind: "struct" }>, project: Scope): Type[] | undefined {
-  if (t.scope === undefined) return undefined
-  const out: Type[] = []
-  for (const list of t.scope.symbols.values())
-    for (const s of list) if (s.kind === "struct_field" && s.typeExpr !== undefined) out.push(resolveTypeExpr(s.typeExpr, project, 0, project, s.uri))
-  return out
-}
-
-/**
- * An upper bound on a STRUCT's or UNION's size, when every field is sized (`storageBytes`, or a nested STRUCT bounded the
- * same way): the fields' sizes, each with the most padding an alignment of at most 8 can put before it, and the tail's.
- * Enough to know the size fits a UINT without owning the layout.
- */
-function structSizeBound(t: Extract<Type, { kind: "struct" }>, project: Scope, depth = 0): bigint | undefined {
-  if (depth > 8) return undefined
-  const exact = storageBytes(t, project)
-  if (exact !== undefined) return exact
-  const members = fieldTypes(t, project)
-  if (members === undefined) return undefined
-  let bound = 7n
-  for (const m of members) {
-    const bytes = m.kind === "struct" ? structSizeBound(m, project, depth + 1) : storageBytes(m, project)
-    if (bytes === undefined) return undefined
-    bound += bytes + 7n
-  }
-  return bound
-}
-
-/** SIZEOF's operand: a value, or a TYPE named bare (`SIZEOF(LINT)`, `ar_sizeof_type`). */
-function sizedOperandType(e: Expr, scope: Scope, project: Scope): Type {
-  // a name no scope declares (an elementary type, `SIZEOF(DINT)`), or a DUT's or an FB's — a TYPE, sized as lowering's
-  // `builtins/sizeof.ts` sizes one (`ct_bit_packing_sizes`: `SIZEOF(DUT_CT_p1)`; it was read as a value and had no type)
-  const named = e.kind === "ident_expr" ? lookup(scope, e.name)?.symbol : undefined
-  if (e.kind === "ident_expr" && (named === undefined || named.kind === "type" || named.kind === "function_block"))
-    return resolveNamedType(e.name, project, scopeUri(scope))
-  return valueOperandType(e, scope, project)
-}
-
-/** The symbols that hold a value — a call of one calls what its type is. */
-const VALUE_SYMBOLS: ReadonlySet<string> = new Set(["var", "gvl_var", "struct_field", "method_param"])
-/** The types a value can have that are no call target. */
-const NOT_CALLABLE: ReadonlySet<string> = new Set(["elementary", "enum", "struct", "array"])
-
-function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
-  // A project function/method wins (user code can shadow a built-in name).
-  const sym = resolveMemberChain(call.callee, scope, project)
-  // a FUNCTION called inside its own body calls its RESULT VARIABLE (rule Y20), which is no call target: the call has no
-  // result — "Program name, function or function block instance expected instead of 'F_C2_loop'" and "Cannot convert
-  // type 'Unknown type: 'F_C2_loop(depth := (depth - INT#1))'' to type 'INT'" (`cc2_call_recursion`, both vendors)
-  if (sym?.kind === "function" && call.callee.kind === "ident_expr" && insideOwnBody(sym, scope)) return UNKNOWN
-  if (sym?.typeExpr !== undefined) {
-    const declared = resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
-    // a VALUE that is no call target has no result: `.gCall(1)` over an INT is "Unknown type: '.gCall(1)'" on both
-    // vendors (`expr_global_namespace_call_non_callable`). A reference or pointer is judged by its target, as
-    // `analysis/checks/calls/non-callable-call` judges it — a REFERENCE TO an FB is called (`xo_reference_to_fb_call`).
-    // A CONSTANT is not asked: "called" in an aggregate it is a repeat count, `[L_UM1P_Internal.c_MaxTask(-1)]` (a
-    // lenze library), which the parser reads as a call — its value is the element's, not nothing. Nor is a library's
-    // value, whose declaration may be partial (that list's CONSTANT is not in its signature).
-    const target = declared.kind === "pointer" || declared.kind === "reference" ? declared.target : declared
-    if (VALUE_SYMBOLS.has(sym.kind) && sym.constant !== true && !isLibrarySymbol(sym) && NOT_CALLABLE.has(target.kind)) return UNKNOWN
-    return declared
-  }
-  // An element of an array of instances, called (`inst[0]()`), is the instance `inst()` is — typed alike, by the type
-  // the element has; it has no symbol of its own to carry one. So is a dereferenced instance: `SUPER^(…)`, `p^(…)`
-  // (rule M3, `mem_super_call_unknown_param`, `callshape_super_own_fields`).
-  if (call.callee.kind === "index" || call.callee.kind === "deref") {
-    const element = inferExprType(call.callee, scope, project)
-    if (element.kind === "function_block") return element
-  }
-  if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
-  if (call.callee.kind === "ident_expr") {
-    const builtin = builtinArgumentResult(call.callee.name, call, scope, project)
-    if (builtin !== undefined) return builtin
-  }
-  // TwinCAT's `__XADD` hands back what it was given (`builtins.ts` `twincatXaddResultType`).
-  if (project.dialect === "twincat" && call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "__XADD") {
-    const first = call.args[0]?.value
-    return twincatXaddResultType(first === undefined ? UNKNOWN : inferExprType(first, scope, project))
-  }
-  // A one-argument math function hands back the real it was given (`builtins.ts` `mathResultType`).
-  if (call.callee.kind === "ident_expr" && MATH_ARG_TYPED.has(call.callee.name.toUpperCase()) && call.args.length === 1) {
-    const arg = call.args[0]?.value
-    // a literal however written — negated, parenthesised — as a bare one (`tr_a23_*`, 6.A.23: SIN(-1.5) is LREAL)
-    const result = mathResultType(arg === undefined ? UNKNOWN : inferExprType(arg, scope, project), arg !== undefined && (arg.kind === "literal" || isUntypedNumber(arg)))
-    if (result !== undefined) return result
-  }
-  // Otherwise a built-in call: a conversion, or an operator with a FIXED result (`builtins.ts` `builtinCallResult`).
-  // Flows a built-in's result into downstream checks — e.g. `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an
-  // implicit LREAL→REAL narrowing on the argument.
-  if (call.callee.kind === "ident_expr") {
-    const builtin = builtinCallResult(call.callee.name, project.dialect, targetOf(project))
-    if (builtin !== undefined) return builtin
   }
   return UNKNOWN
 }

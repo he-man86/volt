@@ -12,7 +12,8 @@ import type { Attribute, BodySpan, ConditionNames, ConditionWorld, Expr, TopLeve
 import { memoByProject } from "./cache.js"
 import type { Scope, Symbol } from "./model.js"
 import { dialectOf } from "./scope.js"
-import { lookup, scopeForUnit } from "./scope-nav.js"
+import { lookup } from "./scope-nav.js"
+import { scopeForUnit } from "./name-index.js"
 
 const VARIABLE_KINDS = new Set(["var", "method_param", "gvl_var"])
 const POU_KINDS = new Set(["function", "function_block", "program", "interface", "method", "action"])

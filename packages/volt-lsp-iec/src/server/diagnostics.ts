@@ -66,7 +66,7 @@ function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
 /** LSP 3.18 widened `Diagnostic.message` to `string | MarkupContent`. Volt only ever emits a string, and
  * saying so here is what keeps every consumer (conformance suites, the push/pull transports) from having to
  * narrow it back at each use. */
-export type VoltDiagnostic = Diagnostic & { message: string }
+type VoltDiagnostic = Diagnostic & { message: string }
 
 /** The full LSP diagnostic set for one document — semantic + network text + parse errors, with dead-code suppression. */
 export function documentDiagnostics(store: WorkspaceStore, d: Document): VoltDiagnostic[] {

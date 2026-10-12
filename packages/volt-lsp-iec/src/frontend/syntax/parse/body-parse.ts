@@ -12,8 +12,9 @@
  * navigate the text (rename, references, folding, selection, hover). A branch the compiled tree leaves out (not taken, or
  * undecided) is still text a rename must reach: it comes back when its condition flips.
  */
-import type { BodySpan } from "../ast/nodes.js"
-import { isConditionalDirective, type ConditionWorld } from "../pragmas/conditional.js"
+import type { BodySpan } from "../ast/nodes/index.js"
+import { isConditionalDirective } from "../pragmas/conditional.js"
+import type { ConditionWorld } from "../pragmas/condition-eval.js"
 import { type BodyParse, parseSourceStatementTokens, parseStatementTokens } from "./statements.js"
 
 /** The world of a caller that holds none: every condition beyond the body's own defines is refused by name. */

@@ -13,7 +13,7 @@
  * cheap to run and to read.
  */
 import { describe, expect, test } from "bun:test"
-import { buildRust } from "../conformance/support/rustc-cache.js"
+import { buildRust } from "../conformance/support/rustc-cache-build.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { readdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"

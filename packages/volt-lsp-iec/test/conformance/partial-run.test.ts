@@ -5,7 +5,7 @@
  * `SELECTION.selected` rather than as `whole()`, a total quietly shrinks to the selection — `rated("diverges").length`
  * is 0 against its ceiling — and a partial run passes what the full run fails, with nothing red.
  *
- * So this runs the fixture contract (`transpile-replay.test.ts`, `map.test.ts`, `lsp-replay.test.ts`) partially, one
+ * So this runs the fixture contract (`transpile-replay*.test.ts`, `map.test.ts`, `lsp-replay.test.ts`) partially, one
  * fixture per rating, and holds what it executed:
  *   - every test passes (an expected failure passes; a skip is not a pass and is held below);
  *   - each named fixture gets its rating's row, under that rating's describe;
@@ -21,7 +21,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 /** The fixture contract's three files (they were one, `support/fixture-suite.ts` says why there are three). */
-const CONTRACT = ["transpile-replay", "map", "lsp-replay"].map((f) => `test/conformance/${f}.test.ts`)
+const CONTRACT = ["transpile-replay", "transpile-replay-lowered", "transpile-replay-refusals", "map", "lsp-replay"].map((f) => `test/conformance/${f}.test.ts`)
 
 /** One fixture per rating — `fixtures/map.generated.ts` is where each one's rating is read. `unaskable` has no
  *  per-fixture row (its one row checks each selected fixture says why), so it is `null` here. */

@@ -35,7 +35,7 @@ import { assembleFixture } from "./fixture-units.js"
 import { PROJECT_BASE } from "./project-libraries.js"
 import { runPaths } from "./run-paths.js"
 import { CLIPPY, RUSTC } from "./rustc.js"
-import { buildRust } from "./rustc-cache.js"
+import { buildRust } from "./rustc-cache-build.js"
 import { compareEdge, EDGE_ARG, edgeHarness, type EdgeOutcome, edgePlan, HARNESS_LOOP_GUARD, interpOutcome, reachesLibm, rustEdgeRun } from "./transpile/edge.js"
 import { buildArgv } from "./transpile/lint-policy.js"
 

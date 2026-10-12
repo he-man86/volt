@@ -19,32 +19,15 @@ export {
 } from "./model.js"
 export { defineSymbol, dialectOf, isLibrarySymbol, lookupLocal, targetOf } from "./scope.js"
 export { memoByProject } from "./cache.js"
-export { gvlName, type SymbolTableInput } from "./binder.js"
+export { type SymbolTableInput } from "./binder.js"
+export { gvlName } from "./bind-globals.js"
 
 // navigation
-export {
-  childScopesByName,
-  enclosingPou,
-  externalGlobal,
-  findChildScope,
-  findScopeByName,
-  gvlBlockOf,
-  hasUnresolvedBase,
-  lookup,
-  lookupUnit,
-  lookupGlobal,
-  lookupMember,
-  bareEnumMember,
-  resolveBareEnumMember,
-  resolveGvlMember,
-  resolveQualifiedConst,
-  rootOf,
-  scopeForUnit,
-  symbolDefinedAt,
-  visibleNames,
-  type BareEnumMember,
-  type LookupResult,
-} from "./scope-nav.js"
+export { childScopesByName, enclosingPou, externalGlobal, findChildScope, hasUnresolvedBase, lookup, lookupUnit, lookupGlobal, lookupMember, rootOf, symbolDefinedAt, visibleNames, type LookupResult } from "./scope-nav.js"
+export { resolveQualifiedConst } from "./qualified.js"
+export { bareEnumMember, resolveBareEnumMember, type BareEnumMember } from "./qualified.js"
+export { gvlBlockOf, resolveGvlMember } from "./qualified.js"
+export { findScopeByName, scopeForUnit } from "./name-index.js"
 export { ancestry, baseOf, basesOf, extendsChain, extendsCycle } from "./extends.js"
 export { libraryRank, pickForAsker, scopeUri } from "./precedence.js"
 export { manifestsByTitle } from "./library-namespaces.js"

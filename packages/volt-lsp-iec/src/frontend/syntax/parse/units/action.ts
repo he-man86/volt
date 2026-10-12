@@ -10,7 +10,7 @@
  * before the body — each would be dropped without a word. The parser reports the same text with the push's words, and
  * still reads the action by the name the push reads (the last word on the line), so a call to it binds.
  */
-import type { Action } from "../../ast/nodes.js"
+import type { Action } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import type { Token } from "../../lex/tokens.js"
 import { isTrivia } from "../../lex/tokens.js"

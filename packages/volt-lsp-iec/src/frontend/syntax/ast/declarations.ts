@@ -1,7 +1,7 @@
 /**
  * Questions about DECLARATIONS answered from the tree alone — no scope, no types.
  */
-import type { Identifier, TypeExpr, VarSection } from "./nodes.js"
+import type { Identifier, TypeExpr, VarSection } from "./nodes/index.js"
 
 /** The VAR_INPUT parameters (name + declared type) of a POU/method's var sections, in order. */
 export function varInputParams(sections: readonly VarSection[]): { name: Identifier; type: TypeExpr }[] {

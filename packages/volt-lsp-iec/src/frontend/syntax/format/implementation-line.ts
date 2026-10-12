@@ -34,7 +34,7 @@
  * IDE holds — which every consumer (the ST parser, the network parser, the recorder's `fixture-units`) then reads with
  * no special case.
  */
-import type { BodySpan, ImplementationLine, ImplementationStatement } from "../ast/nodes.js"
+import type { BodySpan, ImplementationLine, ImplementationStatement } from "../ast/nodes/index.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
 import type { Dialect } from "../lex/vocabulary.js"
@@ -51,7 +51,7 @@ const UNSUPPORTED_WORD = "UNSUPPORTED"
 const NONE_WORD = "NONE"
 
 /** The languages a body's line may state that a parser READS. */
-export type ReadLanguage = "ST" | "LD" | "FBD"
+type ReadLanguage = "ST" | "LD" | "FBD"
 
 // Every line a body can state, alone on its line: the keyword, a language, and UNSUPPORTED — which `statementOf`
 // requires after CFC, SFC, IL and every other word and refuses after ST. The language is a WORD: one of the six Volt
@@ -145,7 +145,7 @@ export function statedLine(line: ImplementationLine): string {
 }
 
 /** Is `t` the word `IMPLEMENTATION` (an identifier to the lexer, in any case)? */
-export const isImplementationKeyword = (t: Token): boolean => t.kind === "identifier" && t.text.toUpperCase() === IMPLEMENTATION_KEYWORD
+const isImplementationKeyword = (t: Token): boolean => t.kind === "identifier" && t.text.toUpperCase() === IMPLEMENTATION_KEYWORD
 
 /** Does `tokens[at]` open a boundary line — the grammar alone, outside every comment (a comment is its own token)? */
 export function opensKeywordLine(tokens: readonly Token[], at: number): boolean {

@@ -15,7 +15,8 @@
  */
 import { describe, expect, test } from "bun:test"
 import { checkBaseline, tally, type Baseline } from "../baseline/baseline.js"
-import { parse, printFindings, type Parsed } from "./dumps.js"
+import { parse, type Parsed } from "./dumps.js"
+import { printFindings } from "./dumps-printer.js"
 import { corpusProjects, fixtureSources, libraryRepoFiles } from "./sources.js"
 
 const clip = (s: string): string => (s.length > 140 ? `${s.slice(0, 140)}…` : s)

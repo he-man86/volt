@@ -16,7 +16,7 @@
  * BOTH VENDORS, measured 2026-09-20: TwinCAT has the rule and words it differently — "A Functionblock or
  * Structure needs the ATTRIBUTE …" where CODESYS says "A function block or structure needs the PRAGMA …"
  * (`newdel_without_pragma`, `newdel_with_pragma`). It was CODESYS-only on the grounds that TwinCAT's opt-in was
- * "documented, not measured"; it is measured now, and the wording is data in `messages.ts` like every other.
+ * "documented, not measured"; it is measured now, and the wording is data in `messages/` like every other.
  */
 import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { unitAttributes, type TopLevel } from "../../../frontend/syntax/index.js"

@@ -7,7 +7,7 @@
  */
 import type { Identifier, Span, TopLevel, TypeExpr } from "../../frontend/syntax/index.js"
 
-export interface TypeNameRef {
+interface TypeNameRef {
   name: string
   span: Span
   /** A qualified `NS.Type` — the root may be a library namespace the resolver can't see. */

@@ -8,7 +8,7 @@ import { expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { codeOnly, lineCount, longFunctions, sizeReport } from "./check-size.js"
+import { CEILINGS, codeOnly, FUNCTION_CEILINGS, lineCount, longFunctions, sizeReport } from "./check-size.js"
 
 function inScratch<T>(files: Record<string, string>, run: (root: string) => T): T {
   const root = mkdtempSync(join(tmpdir(), "volt-size-"))
@@ -123,9 +123,21 @@ test("functions over 80 lines are listed by name and first line: declarations, m
   ])
 })
 
+test("an interface's method signatures are no functions, though a function's body follows the interface", () => {
+  // the signature's return type ends where the interface closes — the `{` of the function after it is no body of it
+  const members = Array.from({ length: 90 }, (_, k) => `  m${k}(a: string): string\n`).join("")
+  const text = `export interface I {\n${members}}\n\nexport function f(): I {\n${body(5)}  return x\n}\n`
+  expect(longFunctions("f.ts", text)).toEqual([])
+})
+
 test("braces in strings, templates, comments and regexes are not code", () => {
   const code = codeOnly('const a = "{" + `x${"}"}y{` // {\nconst r = /[{}]/g /* } */\nconst d = 4 / 2 / 1\n')
   expect(code.replace(/[^{}\n/]/g, "")).toEqual("{}\n//\n//\n")
   expect(lineCount("a\nb\n")).toBe(2)
   expect(lineCount("a\nb")).toBe(2)
+})
+
+test("the ceilings hold network text alone (lsp-same-standard 4.5): every other file and function is within its limit", () => {
+  const outside = [...Object.keys(CEILINGS), ...Object.keys(FUNCTION_CEILINGS)].filter((key) => !key.includes("/network/"))
+  expect(outside).toEqual([])
 })

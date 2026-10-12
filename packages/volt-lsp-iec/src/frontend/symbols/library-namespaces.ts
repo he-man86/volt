@@ -92,7 +92,6 @@ export function unbindLibraryNamespaces(project: Scope): void {
  * A namespace a project unit already owns is left alone — the project's own name wins, as it does everywhere else.
  */
 export function bindLibraryNamespaces(project: Scope, manifests: readonly LibraryManifest[]): void {
-  let added = false
   const byTitle = manifestsByTitle(manifests)
   // WHICH LIBRARY A FILE BELONGS TO IS `libraryOf`'s QUESTION — asked ONCE per file here, not once per manifest per
   // scope and symbol. That was the cost of binding a project: every manifest re-ran the path regex over the whole
@@ -121,9 +120,8 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
   // library's namespace symbol whatever the manifests' order — `DED.CommFB.IO_SYSTEM_TYPE` (rule LB8) reaches CommFB's
   // namespace through DED's, and DED's manifest sorts before CommFB's: a one-pass bind gave a namespace only the namespace
   // symbols of libraries bound before it.
-  const bound: { manifest: LibraryManifest; sym: Symbol; scopes: Scope[]; folders: Set<string> }[] = []
+  const bound: BoundNamespace[] = []
   const taken = new Set<string>()
-  const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order
   // ONE NAMESPACE, EVERY LIBRARY THAT DECLARES IT. Two manifests may name the same NAMESPACE — the CAA Callback placeholder
   // (which materializes nothing) and its resolution CAA Callback Extern are both `CB`; SysTime and `SysTime, 3.5.9.0
   // (System)` both `SysTime` — and the namespace covers what EVERY one of them sees, as `linkExtends`' qualified
@@ -159,20 +157,36 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     own(namespace.toLowerCase(), sym)
     bound.push({ manifest, sym, scopes, folders })
   }
-  for (const { manifest, sym, scopes, folders } of bound) {
-    const symbols = new Map<string, Symbol[]>()
-    for (const { key, sym: s } of [...folders].flatMap((f) => symbolsOf.get(f) ?? []).sort(byOrder)) {
-      const list = symbols.get(key)
-      if (list === undefined) symbols.set(key, [s])
-      else list.push(s)
-    }
-    const ns = makeScope(project, "namespace", manifest.namespace, sym.span)
-    ns.libraryUri = manifest.uri
-    ns.children.push(...scopes)
-    for (const [key, syms] of symbols) ns.symbols.set(key, syms)
-    defineSymbol(project, sym)
-    added = true
-  }
+  for (const b of bound) defineNamespace(project, b, symbolsOf)
   // `makeScope` and `defineSymbol` both changed the project's children/symbols — the lazy indices must go
-  if (added) invalidate(project)
+  if (bound.length > 0) invalidate(project)
+}
+
+/** One library namespace the first pass of `bindLibraryNamespaces` filed: its manifest, symbol, scopes and folders. */
+interface BoundNamespace {
+  manifest: LibraryManifest
+  sym: Symbol
+  scopes: Scope[]
+  folders: Set<string>
+}
+
+const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order
+
+/** The second pass of `bindLibraryNamespaces` for one namespace: its scope over the units and symbols its folders own. */
+function defineNamespace(
+  project: Scope,
+  { manifest, sym, scopes, folders }: BoundNamespace,
+  symbolsOf: ReadonlyMap<string, { key: string; sym: Symbol; order: number }[]>,
+): void {
+  const symbols = new Map<string, Symbol[]>()
+  for (const { key, sym: s } of [...folders].flatMap((f) => symbolsOf.get(f) ?? []).sort(byOrder)) {
+    const list = symbols.get(key)
+    if (list === undefined) symbols.set(key, [s])
+    else list.push(s)
+  }
+  const ns = makeScope(project, "namespace", manifest.namespace, sym.span)
+  ns.libraryUri = manifest.uri
+  ns.children.push(...scopes)
+  for (const [key, syms] of symbols) ns.symbols.set(key, syms)
+  defineSymbol(project, sym)
 }

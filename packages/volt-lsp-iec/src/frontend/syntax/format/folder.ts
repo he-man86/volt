@@ -11,7 +11,7 @@ import { joinSpans } from "../span.js"
 import { lineAround } from "./lines.js"
 
 /** What reading a `%FOLDER` line needs of the parse cursor — the cursor itself satisfies it. */
-export interface FolderCursor {
+interface FolderCursor {
   peek(offset?: number): Token
   consume(): Token
   triviaAhead(): readonly Token[]
@@ -49,7 +49,7 @@ export function peelFolder(code: readonly Token[]): { path: string; end: number 
 
 /** A `%FOLDER` line the parser met in a declaration: the line as written, its path when it is the push's spelling
  *  (`folderOn`) and opens its own line, and where it stands. */
-export interface FolderLine {
+interface FolderLine {
   text: string
   path: string | undefined
   span: Span

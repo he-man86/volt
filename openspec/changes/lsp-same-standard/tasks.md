@@ -308,17 +308,31 @@
 
 ## 4. Splits (output-neutral)
 
-- [ ] 4.1 frontend: the lexer (`lex` by token class), the parsers (statements, expression, type-expr, declarations,
-      units), `ast/nodes.ts`, `pragmas/conditional.ts`, `types/const/fold.ts`, `types/infer/expr.ts`,
+- [x] 4.1 frontend: the lexer (`lex` by token class), the parsers (statements, expression, type-expr, declarations,
+      units), `ast/nodes`, `pragmas/conditional.ts`, `types/const/fold.ts`, `types/infer/expr.ts`,
       `symbols/scope-nav.ts`, `symbols/binder.ts`, `lex/vocabulary.ts` — each within 400, every function within 80.
-- [ ] 4.2 analysis: `messages.ts` by check group, `checks/calls/call-arguments.ts`, the long check functions
+- [x] 4.2 analysis: `messages` by check group, `checks/calls/call-arguments.ts`, the long check functions
       (`checkPragmas`, `checkHeaderRules`, `checkIntrinsicOperands`, `checkUnresolvedIdentifiers`, `operandSignWarnings`,
       `checkOneCase`).
-- [ ] 4.3 server + services: `runServer` by request group, `services/formatting/print.ts`; the transpile leftover
+- [x] 4.3 server + services: `runServer` by request group, `services/formatting/print.ts`; the transpile leftover
       `lower/storage/layout.ts` `buildLayout`.
-- [ ] 4.4 Tests: colocated tests over 600 split by subject; `test/` support files split by topic.
-- [ ] 4.5 Dead exports at 0 (or the documented barrel surface); the size ceilings empty except network text; the function
+- [x] 4.4 Tests: colocated tests over 600 split by subject; `test/` support files split by topic.
+- [x] 4.5 Dead exports at 0 (or the documented barrel surface); the size ceilings empty except network text; the function
       limit a failure.
+- [x] 4.6 Step-4 gate review findings (3):
+      (1) Two comments cited the deleted `messages.ts` (test/conformance/lsp-replay.test.ts, support/divergences-triage.ts)
+      — re-pointed to `src/analysis/messages/`. Comment only, no test can be red for it.
+      (2) SKIPPED, by design: `record-corpus-build.ts`'s `_doc` names `test/corpus/corpus-diagnostics.test.ts` while the
+      committed `expected-build.codesys.json` recordings still say `corpus.test.ts`. Recordings are never hand-edited;
+      the string follows on the next re-record. No diagnostic data is affected.
+      (3) No action: the independent DATA-lens check found no output difference (22,636 fuzzed sources x both vendors,
+      8,000 multi-file projects, 6,552 message-builder calls: 0 diffs; moved test data equal; titles unchanged).
+      Gate: `bun typecheck` clean (root `bun run typecheck` too); package `bun run lint` green (layering; size 4 files +
+      3 functions listed, all network text — was 55 + 31 after step 3; dead exports 4 allowlisted, all network text — was
+      25; citations); root lint exit 0; root `bun run check` 18 passed; `rate:fixtures` run — map unchanged (edge agree
+      3261, disagree 0); full LSP suite `VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset: 9582 pass, 35 skip, 421 todo, 0 fail,
+      10038 tests across 343 files (716 s) — +4 tests over step 3, none removed. volt-control 137 pass, volt-vscode 35
+      pass, volt-desktop 31 pass.
 
 ## 5. Close
 

@@ -4,11 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   buildKey,
-  buildRust,
   environmentIdentity,
   KEYED_ENV,
-  ledgerSize,
-  prune,
   sampled,
   StaleCacheError,
   toolchainIdentity,
@@ -16,6 +13,8 @@ import {
   type KeyInput,
   type Toolchain,
 } from "./rustc-cache.js"
+import { buildRust } from "./rustc-cache-build.js"
+import { ledgerSize, prune } from "./rustc-cache-store.js"
 import { CLIPPY, RUSTC, skipRustSuite } from "./rustc.js"
 import { buildArgv } from "./transpile/lint-policy.js"
 

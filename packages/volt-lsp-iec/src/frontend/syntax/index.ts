@@ -9,10 +9,12 @@ export { spanContains, zeroSpan, type Span } from "./span.js"
 export { isSelfRef, sameName, selfRefKind } from "./identifier.js"
 
 // the vocabulary and the lexer
-export { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_TYPE_WORDS, ELEMENTARY_TYPE_WORDS, TWINCAT_LITERAL_PREFIXES, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
+export { CODESYS_ONLY_KEYWORDS, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
+export { CODESYS_ONLY_TYPE_WORDS, ELEMENTARY_TYPE_WORDS } from "./lex/word-sets.js"
+export { TWINCAT_LITERAL_PREFIXES } from "./lex/prefixes.js"
 export { isTrivia, type Token, type TokenKind } from "./lex/tokens.js"
 export { lex } from "./lex/lexer.js"
-export { isRefusedDeclaredName } from "./lex/vocabulary.js"
+export { isRefusedDeclaredName } from "./lex/word-sets.js"
 
 // the tree
 export type {
@@ -59,8 +61,8 @@ export type {
   VarDecl,
   VarSection,
   VarSectionKind,
-} from "./ast/nodes.js"
-export { REFUSED_PLACEHOLDER } from "./ast/nodes.js"
+} from "./ast/nodes/index.js"
+export { REFUSED_PLACEHOLDER } from "./ast/nodes/index.js"
 export {
   allUnits,
   exprChildren,
@@ -75,9 +77,11 @@ export { varInputParams } from "./ast/declarations.js"
 // parsing
 export { parseDocument, parseSource, type ParseOptions } from "./parse/parser.js"
 export { bodyStatements, sourceStatements } from "./parse/body-parse.js"
-export type { Attribute } from "./ast/nodes.js"
-export type { BodyParse, PragmaMessage } from "./parse/statements.js"
-export { BINARY_PRECEDENCE, REFUSED_OPERATORS, parseExprFromTokens } from "./parse/expression.js"
+export type { Attribute } from "./ast/nodes/index.js"
+export type { BodyParse } from "./parse/statements.js"
+export type { PragmaMessage } from "./parse/body-pragmas.js"
+export { BINARY_PRECEDENCE, REFUSED_OPERATORS } from "./parse/precedence.js"
+export { parseExprFromTokens } from "./parse/expression.js"
 export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
 // literal values
@@ -90,7 +94,7 @@ export { calendarNanoseconds } from "./literal/calendar.js"
 export { declarationAttributes, FRONTEND_ATTRIBUTES, hasFrontendAttribute, memberAttributes, readAttribute, unitAttributes, type FrontendAttribute } from "./pragmas/attributes.js"
 export { attributeNames, isKnownAttribute } from "./pragmas/known-attributes.js"
 export { directiveOf } from "./pragmas/conditional.js"
-export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts, Target } from "./pragmas/conditional.js"
+export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts, Target } from "./pragmas/condition-eval.js"
 
 // the Volt workspace file format
 export {

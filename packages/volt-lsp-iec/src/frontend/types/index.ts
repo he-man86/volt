@@ -75,7 +75,8 @@ export { sfcStepTypeScope } from "./system.js"
 
 // compatibility, constants, arithmetic, operators, built-ins
 export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerComparison, pointerIntoElementary, type ConversionKind } from "./compat.js"
-export { constantSlotType, constEval, declaredValue, isRecursiveConstant, type ConstValue } from "./const/fold.js"
+export { constantSlotType, constEval, type ConstValue } from "./const/fold.js"
+export { declaredValue, isRecursiveConstant } from "./const/values.js"
 export { constancyOf } from "./const/constancy.js"
 export { commonType, promoteForRuntime } from "./arith/runtime.js"
 export { checkedMeetType, checkedNegationType, literalOperandType } from "./arith/checked.js"

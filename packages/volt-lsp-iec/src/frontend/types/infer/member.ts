@@ -182,6 +182,6 @@ export function insideOwnBody(sym: Symbol, scope: Scope): boolean {
 }
 
 /** The `StaticType` of a declaration of `denotes` named `name`. */
-export function staticOf(denotes: StaticType["denotes"], name: string, scope?: Scope): StaticType {
+function staticOf(denotes: StaticType["denotes"], name: string, scope?: Scope): StaticType {
   return { kind: "static", denotes, name, ...(scope !== undefined ? { scope } : {}) }
 }

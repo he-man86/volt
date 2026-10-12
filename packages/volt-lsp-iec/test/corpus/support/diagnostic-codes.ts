@@ -1,6 +1,6 @@
 /**
  * The one source of truth for the diagnostic-code identity invariant, shared by the synthetic behavior test
- * (`diagnostic-identity.test.ts`) and the whole-corpus fold (`test/corpus/corpus.test.ts`).
+ * (`diagnostic-identity.test.ts`) and the whole-corpus fold (`test/corpus/corpus-diagnostics.test.ts`).
  *
  * Every wire diagnostic `code` must be a CODESYS `Cnnnn`, a network-text `NETWORK_*`, absent (a body that states no language), or a
  * semantic slug in KNOWN_UNMAPPED — the checks that don't yet have a catalog `Cnnnn` mapping and so emit

@@ -6,7 +6,8 @@
 
 import { describe, expect, test } from "bun:test"
 import type { Vendor } from "../../src/analysis/index.js"
-import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
+import { KNOWN_DIVERGENCES } from "./support/divergences.js"
+import { CODESYS_TRIAGE, TWINCAT_TRIAGE } from "./support/divergences-triage.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { RUNS } from "./support/recordings.js"
 import { replayDiagnostics, withReplayFixture } from "./support/replay.js"
@@ -46,7 +47,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // covers only 893 fixtures, and re-recording it is the obvious next move.
   // 2200 -> 2203: the TwinCAT driver stopped gluing its build log onto three string-warning messages.
   // 2203 -> 2220 (2026-09-20). Five wording differences, measured on both recordings and now data in
-  // `messages.ts`: TwinCAT capitalises "Unexpected Token", drops the article and the full stop from
+  // `src/analysis/messages/`: TwinCAT capitalises "Unexpected Token", drops the article and the full stop from
   // "Assignment target not specified", upper-cases the names in a recursion chain, and never words a
   // function's input count as a range. Plus two rules TwinCAT does not have at all (the ABSTRACT-keyword
   // warning) and `INDEXOF`, which both vendors removed and word differently. No check changed its mind about
@@ -417,7 +418,6 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 4499 -> 4531 (2026-10-03, frontend-conformance 4e): the same, on CODESYS.
   { vendor: "codesys", floor: 4531 },
 ]
-
 
 /**
  * Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage) — ONCE per fixture and

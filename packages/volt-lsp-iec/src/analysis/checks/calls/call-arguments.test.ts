@@ -9,57 +9,11 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
+import { codes, FB_ONE_INPUT, caller, messagesOf } from "../../../../test/support/call-diagnostics.js"
 
-/** All diagnostic codes emitted across the given source units (project built from all of them). */
-function codes(...sources: string[]): string[] {
-  // Named after the POU each source declares, as a workspace is: one item, one file, and the file carries the
-  // object's name. An arbitrary `u0.pou` is a real CODESYS error ("The name used in the signature is not identical
-  // to the object name"), which `signature-name` now reports — so a harness that invents file names accuses its
-  // own fixtures.
-  const files = sources.map((source, i) => {
-    const parseResult = parseSource(source, { networkText: true }, "codesys")
-    const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
-    const ext = "pou"
-    return { uri: `${first?.name?.text ?? `u${i}`}.${ext}`, source, parseResult }
-  })
-  const project = build.buildSymbolTable(files, [], "codesys")
-  const config = resolveConfig({ vendor: "codesys" })
-  return files.flatMap((f) =>
-    computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => d.code),
-  )
-}
-
-const FB_ONE_INPUT = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const FB_TWO_INPUTS = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+
 const FB_THREE_INPUTS = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\n\tb : INT;\n\tc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-// `sText`, not `s`: CODESYS rejects a variable named `s` — the set keyword (conformance cc_reserved_name_s_string) —
-// so the "correct call is clean" premise of 4.5b never held for the caller this helper built.
-const caller = (body: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tsText : STRING;\nEND_VAR\n${body}\nEND_PROGRAM`
-
-test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given a WSTRING", () => {
-  // Every library callee was skipped ("library signatures flatten var sections"), so this was silent while CODESYS
-  // refuses it (conformance `cc_standard_len_wstring`). Flattening is an FB/inheritance effect; a FUNCTION keeps its
-  // VAR_INPUT — and its declared STRING(255) is printed with the length, as CODESYS prints it.
-  const len = {
-    uri: "Device/Plc Logic/Application/Library Manager/Standard/LEN.pou",
-    source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION",
-  }
-  const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
-  const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
-  const project = build.buildSymbolTable(files, [], "codesys")
-  const messages = computeDiagnostics({ uri: files[1]!.uri, parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
-    .filter((d) => d.code === "call-argument-type")
-    .map((d) => d.message)
-  expect(messages).toEqual(["Cannot convert type 'WSTRING' to type 'STRING(255)'"])
-})
-
-test("4.1 a wrong argument type is flagged (INT input called with STRING)", () => {
-  expect(codes(FB_ONE_INPUT, caller(`fb(n := sText);`))).toContain("call-argument-type")
-  // ...and positionally, on an all-positional call.
-  // NAMED, because an FB takes no positional argument at all — measured, see `calls/call-grid.ts`. The point of
-  // this test is the TYPE, and a positional call now stops at `input-assignment-missing` before reaching it.
-  expect(codes(FB_ONE_INPUT, caller(`fb(n := sText);`))).toContain("call-argument-type")
-})
 
 test("4.2 too many positional arguments is flagged", () => {
   expect(codes(FB_ONE_INPUT, caller(`fb(1, 2);`))).toContain("input-assignment-missing")
@@ -95,56 +49,6 @@ test("4.3b C0038: a `name => target` binding naming no output → unknown-named-
   expect(c).not.toContain("unknown-named-argument")
   // ...and a valid output binding is clean.
   expect(codes(fbOut, `PROGRAM P\nVAR fb : FB_T; y : INT; END_VAR\nfb(o => y);\nEND_PROGRAM`)).toEqual([])
-})
-
-test("4.3c C0041: a VAR_IN_OUT parameter passed a literal/constant is flagged; a variable is not", () => {
-  const fn = `FUNCTION TEST : INT\nVAR_IN_OUT in_out : INT; END_VAR\nTEST := in_out;\nEND_FUNCTION`
-  const call = (b: string) => `PROGRAM P\nVAR i : INT; x : INT; END_VAR\n${b}\nEND_PROGRAM`
-  expect(codes(fn, call(`i := TEST(31415);`))).toContain("in-out-needs-writable") // positional literal
-  expect(codes(fn, call(`i := TEST(in_out := 99);`))).toContain("in-out-needs-writable") // named literal
-  expect(codes(fn, call(`i := TEST(x);`))).not.toContain("in-out-needs-writable") // positional variable — ok
-  expect(codes(fn, call(`i := TEST(in_out := x);`))).not.toContain("in-out-needs-writable") // named variable — ok
-})
-
-// VAR_IN_OUT CONSTANT (conformance `inout_const_*`, CODESYS SP21). It was checked as a plain VAR_IN_OUT: the STRING literal
-// and STRING constant CODESYS accepts were reported, and a rejected integer literal read the plain in-out wording. Why
-// missed: no fixture or corpus project held the section.
-test("VAR_IN_OUT CONSTANT: a STRING literal or constant binds; an integer literal or constant needs a variable", () => {
-  const fns = `FUNCTION F_Int : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nF_Int := value;\nEND_FUNCTION\nFUNCTION F_Text : BOOL\nVAR_IN_OUT CONSTANT text : STRING; END_VAR\nF_Text := text = 'abc';\nEND_FUNCTION`
-  const call = (b: string) => `PROGRAM P\nVAR CONSTANT seven : INT := 7; fixed : STRING := 'abc'; END_VAR\nVAR n : INT; ok : BOOL; x : INT; END_VAR\n${b}\nEND_PROGRAM`
-  expect(codes(fns, call(`ok := F_Text(text := 'abc');`))).toEqual([])
-  expect(codes(fns, call(`ok := F_Text(text := fixed);`))).toEqual([])
-  expect(codes(fns, call(`n := F_Int(value := x);`))).toEqual([])
-  expect(codes(fns, call(`n := F_Int(value := seven);`))).toEqual(["in-out-constant-needs-variable"])
-  expect(codes(fns, call(`n := F_Int(value := 5);`))).toContain("in-out-constant-needs-variable")
-  expect(codes(fns, call(`n := F_Int(value := 5);`))).not.toContain("in-out-needs-writable")
-})
-
-test("4.3d C0039: a VAR_IN_OUT left unbound in a call is flagged; a bound one is not", () => {
-  const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT inout : INT; END_VAR\nVAR_INPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK`
-  const call = (b: string) => `PROGRAM P\nVAR inst : FB; x : INT; END_VAR\n${b}\nEND_PROGRAM`
-  expect(codes(fb, call(`inst();`))).toContain("in-out-not-assigned")
-  expect(codes(fb, call(`inst(n := 1);`))).toContain("in-out-not-assigned") // inout still unbound
-  expect(codes(fb, call(`inst(inout := x);`))).not.toContain("in-out-not-assigned") // bound by name
-  // an FB takes no positional argument, so a positional one binds no VAR_IN_OUT: `cg_fb_positional` records "VAR_IN_OUT
-  // 'touched' must be assigned" beside each positional refusal (both vendors) — this said "bound by position"
-  expect(codes(fb, call(`inst(x, 1);`))).toContain("in-out-not-assigned")
-})
-
-test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the same type is not", () => {
-  const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT; END_VAR\nEND_FUNCTION_BLOCK`
-  const call = (b: string) => `PROGRAM P\nVAR inst : FB; i : INT; bo : BOOL; END_VAR\n${b}\nEND_PROGRAM`
-  const msgs = (...s: string[]) => {
-    const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
-    const project = build.buildSymbolTable(files, [], "codesys")
-    return files.flatMap((f) =>
-      computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
-        .filter((d) => d.code === "in-out-type-mismatch")
-        .map((d) => d.message),
-    )
-  }
-  expect(msgs(fb, call(`inst(Variable := bo);`))).toEqual(["Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"])
-  expect(msgs(fb, call(`inst(Variable := i);`))).toEqual([])
 })
 
 test("4.4 a mixed named+positional call reports the POSITIONAL half, and still does not bind it by index", () => {
@@ -237,132 +141,6 @@ test("regression: a PROPERTY is a valid named-argument target (not flagged unkno
   expect(codes(fb, call)).not.toContain("unknown-named-argument")
 })
 
-test("regression: a qualified-enum argument is resolved (shared checkableType handles `E.X`)", () => {
-  // Passing an enum value to a STRING input is a genuine mismatch. The check must SEE `E_A.X` as an enum
-  // (not skip it): the old local enumValueRef only handled bare idents, so `E_A.X` slipped through untyped.
-  const enumA = `TYPE E_A : (X, Y); END_TYPE`
-  const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT sv : STRING; END_VAR\nEND_FUNCTION_BLOCK`
-  const call = `PROGRAM P\nVAR fb : FB_T; END_VAR\nfb(sv := E_A.X);\nEND_PROGRAM`
-  expect(codes(enumA, fb, call)).toContain("call-argument-type")
-})
-
-test("an enum VALUE argument converts as INT, like an assignment — into a SINT input an error, the name upper-cased", () => {
-  // This check typed enum values with its own lookup, which never learned the enum's base type: both were silent
-  // (conformance `cc_enum_arg_into_sint`, `cc_enum_arg_into_uint`).
-  const enumMode = `TYPE E_Mode : (Idle := 0, Busy := 1); END_TYPE`
-  const fn = (target: string) => `FUNCTION F_Take : BOOL\nVAR_INPUT x : ${target}; END_VAR\nF_Take := TRUE;\nEND_FUNCTION`
-  const call = `PROGRAM P\nVAR ok : BOOL; END_VAR\nok := F_Take(E_Mode.Busy);\nEND_PROGRAM`
-  const messages = (target: string): string[] => {
-    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
-    const project = build.buildSymbolTable(files, [], "codesys")
-    return computeDiagnostics({ uri: files[2]!.uri, parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
-      .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
-      .map((d) => d.message)
-  }
-  expect(messages("SINT")).toEqual(["Cannot convert type 'E_MODE' to type 'SINT'"])
-  expect(messages("UINT")).toEqual(["Implicit conversion from signed Type 'E_MODE' to unsigned Type 'UINT' : Possible change of sign"])
-  expect(messages("DINT")).toEqual([])
-})
-
-/**
- * AN ASSIGNABLE ARGUMENT IS NOT NECESSARILY A CLEAN ONE.
- *
- * `argTypeError` gated on `isAssignable`, which is true for every kind except `incompatible` — so a narrowing
- * (`LREAL`→`REAL`) or a sign crossing (`INT`→`UINT`) passed as an ARGUMENT produced nothing, while the identical
- * plain assignment warned. Found while chasing a corpus miss; the wording and codes come from `narrowing.ts`, so
- * a call site and an assignment now read the same.
- */
-test("4.9 an argument that is assignable but LOSSY still warns — same wording as the assignment", () => {
-  const fb = `FUNCTION_BLOCK FB_U
-VAR_INPUT
-	u : UINT;
-END_VAR
-END_FUNCTION_BLOCK`
-  const call = `PROGRAM P
-VAR
-	fb : FB_U;
-	i : INT;
-END_VAR
-fb(u := i);
-END_PROGRAM`
-  expect(codes(fb, call)).toContain("sign-change-conversion")
-
-  // ...and it stays a WARNING rather than the call-argument-type ERROR. This used to ask the same thing of a
-  // POSITIONAL call; an FB has no positional form, so the second shape is a FUNCTION, which does.
-  const fn = `FUNCTION FUN_U : INT
-VAR_INPUT
-	u : UINT;
-END_VAR
-FUN_U := 0;
-END_FUNCTION`
-  const positional = `PROGRAM P
-VAR
-	i : INT;
-	rv : INT;
-END_VAR
-rv := FUN_U(i);
-END_PROGRAM`
-  const cs = codes(fn, positional)
-  expect(cs).toContain("sign-change-conversion")
-  expect(cs).not.toContain("call-argument-type")
-})
-
-test("4.10 a narrowing argument (LREAL into a REAL input) warns as loss of information", () => {
-  const fb = `FUNCTION_BLOCK FB_R
-VAR_INPUT
-	rv : REAL;
-END_VAR
-END_FUNCTION_BLOCK`
-  const call = `PROGRAM P
-VAR
-	fb : FB_R;
-	l : LREAL;
-END_VAR
-fb(rv := l);
-END_PROGRAM`
-  expect(codes(fb, call)).toContain("narrowing-conversion")
-})
-
-test("4.11 an argument that converts CLEANLY stays silent — the check must not fire on a widen", () => {
-  const fb = `FUNCTION_BLOCK FB_D
-VAR_INPUT
-	d : DINT;
-END_VAR
-END_FUNCTION_BLOCK`
-  const call = `PROGRAM P
-VAR
-	fb : FB_D;
-	i : INT;
-END_VAR
-fb(d := i);
-END_PROGRAM`
-  const cs = codes(fb, call)
-  expect(cs).not.toContain("sign-change-conversion")
-  expect(cs).not.toContain("narrowing-conversion")
-})
-
-test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the identity test (C0201)", () => {
-  // Why missed: an untyped integer literal infers no type, so the by-reference identity test skipped every literal
-  // and four fixtures missed this error (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`).
-  const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
-    .filter((d) => d.code === "in-out-type-mismatch")
-    .map((d) => d.message)
-  expect(msgs).toEqual(["Type 'SINT' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'value'"])
-})
-
-test("a literal whose narrowest type MATCHES the parameter stays silent", () => {
-  const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : SINT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
-  expect(
-    computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
-      .filter((d) => d.code === "in-out-type-mismatch"),
-  ).toEqual([])
-})
-
 test("a FUNCTION's inputs WITHOUT a default are required — the count is a range when defaults exist", () => {
   // Too-few is not diagnosed in general (an FB retains its inputs between calls), but a function has no instance
   // to retain anything (conformance `callshape_function_input_no_default`).
@@ -396,6 +174,7 @@ test("the range wording is CODESYS's; TwinCAT says exactly", () => {
   expect(of("codesys")).toEqual(["Function 'F_c' requires at least '1' and maximum '2' inputs"])
   expect(of("twincat")).toEqual(["Function 'F_c' requires exactly '2' inputs"])
 })
+
 test("an FB's inputs are NOT required — they are retained between calls", () => {
   const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true }, "codesys")
@@ -618,72 +397,6 @@ test("M3/E21: the named-argument count leaves unrecorded shapes alone", () => {
   expect(counted(two, "out := F_T(a := 1, zz => x);")).toEqual(["function-argument-count: Function 'F_T' requires exactly '2' inputs"])
 })
 
-// ── GENERIC PARAMETERS (frontend-conformance 4.1.3, rule TY14; both vendors recorded 2026-10-03, `ty_any_*`) ──
-
-/** The messages a call `F(<arg>)` of `FUNCTION F : DINT` with `VAR_INPUT x : <group>` draws, as `vendor`. */
-function genericCall(group: string, decls: string, arg: string, vendor: "codesys" | "twincat"): string[] {
-  const fn = `FUNCTION F : DINT\nVAR_INPUT\n\tx : ${group};\nEND_VAR\nF := x.diSize;\nEND_FUNCTION`
-  const prg = `PROGRAM P\nVAR\n${decls}\n\tres : DINT;\nEND_VAR\nres := F(${arg});\nEND_PROGRAM`
-  const files = [
-    { uri: "F.pou", source: fn, parseResult: parseSource(fn, { networkText: true }, vendor) },
-    { uri: "P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, vendor) },
-  ]
-  const project = build.buildSymbolTable(files, [], vendor)
-  const f = files[1]!
-  return computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
-    .filter((d) => d.code === "call-argument-type" || d.code === "in-out-needs-writable")
-    .map((d) => d.message)
-}
-
-test("an ANY_* input refuses an argument outside its group, in the group's name — both vendors", () => {
-  const cells: [string, string, string, string][] = [
-    ["ANY_NUM", "v : STRING;", "v", "STRING"],
-    ["ANY_NUM", "v : BOOL;", "v", "BOOL"],
-    ["ANY_NUM", "v : TIME;", "v", "TIME"],
-    ["ANY_INT", "v : REAL;", "v", "REAL"],
-    ["ANY_REAL", "v : INT;", "v", "INT"],
-    ["ANY_BIT", "v : INT;", "v", "INT"],
-    ["ANY_STRING", "v : INT;", "v", "INT"],
-    ["ANY_DATE", "v : INT;", "v", "INT"],
-  ]
-  for (const vendor of ["codesys", "twincat"] as const)
-    for (const [group, decls, arg, type] of cells) expect(genericCall(group, decls, arg, vendor)).toEqual([`Cannot convert type '${type}' to type '${group}'`])
-})
-
-test("an ANY_* input takes an argument of its group, and ANY takes a STRUCT", () => {
-  const cells: [string, string][] = [
-    ["ANY_NUM", "v : INT;"],
-    ["ANY_NUM", "v : REAL;"],
-    ["ANY_INT", "v : WORD;"],
-    ["ANY_DATE", "v : TOD;"],
-    ["ANY", "v : STRING;"],
-  ]
-  for (const vendor of ["codesys", "twincat"] as const) for (const [group, decls] of cells) expect(genericCall(group, decls, "v", vendor)).toEqual([])
-})
-
-test("ANY_BIT takes a BOOL on CODESYS and refuses it on TwinCAT (`ty_any_bit_parameter_accepts_bool`)", () => {
-  expect(genericCall("ANY_BIT", "v : BOOL;", "v", "codesys")).toEqual([])
-  expect(genericCall("ANY_BIT", "v : BOOL;", "v", "twincat")).toEqual(["Cannot convert type 'BOOL' to type 'ANY_BIT'"])
-})
-
-test("a literal into an ANY_* input is refused — it needs a variable with write access (`lt_literal_any_int_argument`)", () => {
-  for (const vendor of ["codesys", "twincat"] as const)
-    for (const arg of ["5", "5000000000", "-1"])
-      expect(genericCall("ANY_INT", "", arg, vendor)).toEqual(["ANY parameter 'x' of 'F' needs variable with write access as input"])
-})
-
-test("a literal into any other generic input is unmeasured and stays silent — only ANY_INT with an integer literal is recorded (step 4a review)", () => {
-  const cells: [string, string][] = [
-    ["ANY_STRING", "5"],
-    ["ANY", "5"],
-    ["ANY_BIT", "16#FF"],
-    ["ANY_BIT", "TRUE"],
-    ["ANY_STRING", "'abc'"],
-    ["ANY", "1.5"],
-  ]
-  for (const vendor of ["codesys", "twincat"] as const) for (const [group, arg] of cells) expect(genericCall(group, "", arg, vendor)).toEqual([])
-})
-
 // A PROGRAM TAKES NO POSITIONAL ARGUMENT either: `P(5)` is "Assignment to input missing for parameter '5' in call of
 // 'P'", the callee upper-cased (rule DT9, `dt_program_called_positionally`, CODESYS 2026-10-03) — it was taken.
 test("a PROGRAM called positionally is refused, one error per argument (dt_program_called_positionally, DT9)", () => {
@@ -697,21 +410,8 @@ test("a PROGRAM called positionally is refused, one error per argument (dt_progr
   expect(msgs).toEqual(["Assignment to input missing for parameter '5' in call of 'PRG_T'"])
 })
 
-// ─── analysis-conformance 3.8 (`calls_*`, both vendors 2026-10-06) ──────────────────────────────────────────────────
-/** Every message of every source, `[severity] message`, on `vendor`. */
-function messagesOf(vendor: "codesys" | "twincat", ...sources: string[]): string[] {
-  const files = sources.map((source, i) => {
-    const parseResult = parseSource(source, { networkText: true }, vendor)
-    const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
-    return { uri: `${first?.name?.text ?? `u${i}`}.pou`, source, parseResult }
-  })
-  const project = build.buildSymbolTable(files, [], vendor)
-  const config = resolveConfig({ vendor })
-  return files.flatMap((f) =>
-    computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `[${d.severity}] ${d.message}`),
-  )
-}
 const FB_OUT = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ti : INT;\nEND_VAR\nVAR_OUTPUT\n\to : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+
 const outCaller = (body: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tres : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
 
 test("an output binding naming nothing is no output AND no identifier; naming an INPUT, no output (calls_unknown_output_*, calls_output_names_input)", () => {
@@ -758,20 +458,6 @@ test("an INTERFACE method's in-out left out is its input count (calls_inout_unbo
   expect(messagesOf("codesys", itf, prg)).toEqual(["[error] Function 'M' requires exactly '1' inputs"])
 })
 
-test("a VAR_IN_OUT bound to a call's result needs a variable; to a property, CODESYS says so of properties (calls_inout_bound_to_*)", () => {
-  const fbIo = `FUNCTION_BLOCK FB_T\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const fn = `FUNCTION F_V : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nF_V := a;\nEND_FUNCTION`
-  const prg = `PROGRAM P\nVAR\n\tfb : FB_T;\nEND_VAR\nfb(io := F_V(a := 2));\nEND_PROGRAM`
-  expect(messagesOf("codesys", fbIo, fn, prg)).toEqual([
-    "[error] VAR_IN_OUT respectively REFERENCE parameter 'io' of 'FB_T' needs variable with write access as input",
-  ])
-  expect(messagesOf("twincat", fbIo, fn, prg)).toEqual(["[error] VAR_IN_OUT parameter 'io' of 'FB_T' needs variable with write access as input"])
-  const owner = `FUNCTION_BLOCK FB_P\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\nGET\nP := stored;\nEND_GET\nSET\nstored := P;\nEND_SET\nEND_PROPERTY`
-  const prg2 = `PROGRAM P\nVAR\n\tfb : FB_T;\n\tow : FB_P;\nEND_VAR\nfb(io := ow.P);\nEND_PROGRAM`
-  expect(messagesOf("codesys", fbIo, owner, prg2)).toEqual(["[error] Properties can't be assigned to VAR_IN_OUT."])
-  expect(messagesOf("twincat", fbIo, owner, prg2)).toEqual(["[error] VAR_IN_OUT parameter 'io' of 'FB_T' needs variable with write access as input"])
-})
-
 test("a FUNCTION input defaulted with a VARIABLE is required on CODESYS (callarg_no_argument_variable_default)", () => {
   const gvl = `VAR_GLOBAL\n\tg : INT := 3;\nEND_VAR`
   const fn = `FUNCTION F_D : INT\nVAR_INPUT\n\ti : INT := g;\nEND_VAR\nF_D := i;\nEND_FUNCTION`
@@ -785,86 +471,4 @@ test("a default naming the callee's own CONSTANT is constant, though a global VA
   const fn = `FUNCTION F_D : INT\nVAR CONSTANT\n\tg : INT := 1;\nEND_VAR\nVAR_INPUT\n\ti : INT := g;\nEND_VAR\nF_D := i;\nEND_FUNCTION`
   const prg = `PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_D();\nEND_PROGRAM`
   expect(messagesOf("codesys", gvl, fn, prg).filter((m) => m.includes("requires"))).toEqual([])
-})
-
-test("a VAR_IN_OUT CONSTANT given an integer literal is refused on both vendors, a VAR CONSTANT on CODESYS alone (inout_const_bound_forms_1)", () => {
-  const fn = `FUNCTION F_C : INT
-VAR_IN_OUT CONSTANT
-	value : INT;
-END_VAR
-F_C := value;
-END_FUNCTION`
-  const prg = (arg: string) => `PROGRAM P
-VAR CONSTANT
-	seven : INT := 7;
-END_VAR
-VAR
-	out : INT;
-END_VAR
-out := F_C(value := ${arg});
-END_PROGRAM`
-  const said = (vendor: "codesys" | "twincat", arg: string) => messagesOf(vendor, fn, prg(arg)).filter((m) => m.includes("CONSTANT parameter"))
-  for (const vendor of ["codesys", "twincat"] as const) expect(said(vendor, "5")).toHaveLength(1)
-  expect(said("codesys", "seven")).toHaveLength(1)
-  expect(said("twincat", "seven")).toEqual([])
-})
-
-// lsp-transpile-review-gaps 1.4 (`tr_20_output_index_moved_by_callee`, CODESYS builds and runs it 2026-09-29): a FUNCTION's
-// and a METHOD's VAR_OUTPUT bound `o => target` beside no input is an output, not "no output of" nor a wrong input count
-test("a FUNCTION's / METHOD's VAR_OUTPUT binding `o => arr[k]` is read as an output (tr_20_output_index_moved_by_callee)", () => {
-  const fn = `FUNCTION F_CS_out20 : BOOL\nVAR_OUTPUT\n\to : INT;\nEND_VAR\no := 5;\nF_CS_out20 := TRUE;\nEND_FUNCTION`
-  const fb = `FUNCTION_BLOCK FB_CS_out20\nVAR_OUTPUT\n\tk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nVAR_OUTPUT\n\to : INT;\nEND_VAR\nk := k + 1;\no := 5;\nM := TRUE;\nEND_METHOD`
-  const prog = `PROGRAM P\nVAR\n\tfb1 : FB_CS_out20;\n\tarr : ARRAY[0..3] OF INT;\n\tarr2 : ARRAY[0..3] OF INT;\n\tg : INT;\n\tb : BOOL;\n\tc : BOOL;\nEND_VAR\nb := fb1.M(o => arr[fb1.k]);\nc := F_CS_out20(o => arr2[g]);\nEND_PROGRAM`
-  expect(codes(fn, fb, prog)).toEqual([])
-})
-
-// lsp-transpile-review-gaps 2.4 (`tr_43_routine_output_dint_to_int`, `tr_43_routine_output_word_to_int`, both vendors
-// record:language 2026-10-09): a FUNCTION's output binding is judged as an FB's is — a DINT output into an INT is "Cannot
-// convert type 'DINT' to type 'INT'", a WORD one warns "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'"
-test("a FUNCTION's output bound => a narrower target is judged as the FB's twin (tr_43_routine_output_*)", () => {
-  const messages = (out: string): string[] => {
-    const fn = `FUNCTION F_O : BOOL\nVAR_OUTPUT\n\to : ${out};\nEND_VAR\nF_O := TRUE;\nEND_FUNCTION`
-    const prog = `PROGRAM P\nVAR\n\tt : INT;\n\tok : BOOL;\nEND_VAR\nok := F_O(o => t);\nEND_PROGRAM`
-    const files = [fn, prog].map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, "codesys")
-      const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
-      return { uri: `${first?.name?.text}.pou`, source, parseResult }
-    })
-    const project = build.buildSymbolTable(files, [], "codesys")
-    const config = resolveConfig({ vendor: "codesys" })
-    return files.flatMap((f) =>
-      computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).map((d) => `[${d.severity}] ${d.message}`),
-    )
-  }
-  expect(messages("DINT")).toEqual(["[error] Cannot convert type 'DINT' to type 'INT'"])
-  expect(messages("WORD")).toEqual(["[warning] Implicit conversion from unsigned Type 'WORD' to signed Type 'INT' : Possible change of sign"])
-  expect(messages("INT")).toEqual([])
-})
-
-// lsp-transpile-review-gaps 2.5 (`string_inout_narrower`, `wstring_inout_narrower`, both vendors 2026-10-11): a STRING bound
-// to a VAR_IN_OUT that declares MORE units is "String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F'"
-// (TwinCAT names the two the other way round); wider builds (`string_inout_wider_*`), and a VAR_IN_OUT CONSTANT bound
-// narrower builds (`xo4_inout_constant_chain`)
-test("a STRING bound to a VAR_IN_OUT that declares more units is too short (string_inout_narrower)", () => {
-  const messages = (vendor: "codesys" | "twincat", param: string, arg: string, constant = false): string[] => {
-    const fn = `FUNCTION F_Io : BOOL\nVAR_IN_OUT${constant ? " CONSTANT" : ""}\n\tio : ${param};\nEND_VAR\nF_Io := TRUE;\nEND_FUNCTION`
-    const prog = `PROGRAM P\nVAR\n\tv : ${arg};\n\tok : BOOL;\nEND_VAR\nok := F_Io(io := v);\nEND_PROGRAM`
-    const files = [fn, prog].map((source) => {
-      const parseResult = parseSource(source, { networkText: true }, vendor)
-      const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
-      return { uri: `${first?.name?.text}.pou`, source, parseResult }
-    })
-    const project = build.buildSymbolTable(files, [], vendor)
-    const config = resolveConfig({ vendor })
-    return files.flatMap((f) =>
-      computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config }).filter((d) => d.severity === "error").map((d) => d.message),
-    )
-  }
-  expect(messages("codesys", "STRING(10)", "STRING(4)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
-  expect(messages("twincat", "STRING(10)", "STRING(4)")).toEqual(["String variable 'io' too short for the VAR_IN_OUT parameter 'v' of 'F_Io'"])
-  expect(messages("codesys", "WSTRING(10)", "WSTRING(4)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
-  expect(messages("codesys", "STRING", "STRING(10)")).toEqual(["String variable 'v' too short for the VAR_IN_OUT parameter 'io' of 'F_Io'"])
-  expect(messages("codesys", "STRING(10)", "STRING(12)")).toEqual([])
-  expect(messages("codesys", "STRING(10)", "STRING(10)")).toEqual([])
-  expect(messages("codesys", "STRING(10)", "STRING(4)", true)).toEqual([])
 })

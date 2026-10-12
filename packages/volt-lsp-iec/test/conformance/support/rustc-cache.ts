@@ -49,11 +49,10 @@
  * test of a file whose build was a hit. Only a ledger past the cap (or a missing one) pays the walk, which rewrites it. `VOLT_RUSTC_TRACE=<file>` appends one JSON line per build — what the
  * equivalence proof diffs.
  */
-import { createHash, randomBytes } from "node:crypto"
+import { createHash } from "node:crypto"
 import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { appendFile, copyFile, link, mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
-import { basename, dirname, extname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 
 /** Where entries live: outside git (`.cache/` is ignored), inside the package so `git clean -X` clears it. */
 export const CACHE_ROOT = join(import.meta.dir, "..", "..", "..", ".cache", "rustc")
@@ -92,7 +91,7 @@ export const KEYED_ENV = [
 
 const FILE = "\u0000FILE\u0000"
 const EXE = "\u0000EXE\u0000"
-const FORMAT = 2
+export const FORMAT = 2
 
 /** Everything a build's output depends on. `buildKey` hashes all of it; the unit test changes each field. */
 export interface KeyInput {
@@ -131,7 +130,7 @@ export const toolchainIdentity = (t: Toolchain): string =>
   JSON.stringify([t.versionVerbose, t.sysroot, t.binary, t.stdlib, t.linker])
 
 const toolchains = new Map<string, string>()
-function compilerIdentity(compiler: string): string {
+export function compilerIdentity(compiler: string): string {
   const known = toolchains.get(compiler)
   if (known !== undefined) return known
   const vv = spawnSync(compiler, ["-vV"], { encoding: "utf8" })
@@ -196,7 +195,7 @@ export interface RustBuild {
   cached: boolean
 }
 
-interface Entry {
+export interface Entry {
   format: number
   exit: number
   stdout: string
@@ -211,325 +210,26 @@ export const cacheEnabled = (): boolean => process.env.VOLT_RUSTC_CACHE !== "0"
 
 const reported = new Set<string>()
 /** Each kind of cache fault is reported ONCE per process — the build it affects is a real compile either way. */
-function once(kind: string, message: string): void {
+export function once(kind: string, message: string): void {
   if (reported.has(kind)) return
   reported.add(kind)
   // eslint-disable-next-line no-console
   console.warn(`  [rustc-cache] ${message}`)
 }
-const fault = (what: string, error: unknown) =>
+export const fault = (what: string, error: unknown) =>
   once(what, `${what}: ${(error as Error)?.message ?? error} — compiling instead (reported once)`)
-
-let seedMemo: string | undefined
-function verification(): { fraction: number; seed: string } {
-  const fraction = Number(process.env.VOLT_RUSTC_CACHE_VERIFY ?? 0.02)
-  if (!(fraction >= 0)) throw new Error(`VOLT_RUSTC_CACHE_VERIFY=${process.env.VOLT_RUSTC_CACHE_VERIFY} is not a fraction`)
-  const seed = (seedMemo ??= process.env.VOLT_RUSTC_CACHE_SEED ?? randomBytes(4).toString("hex"))
-  once("seed", `re-proving ${fraction * 100}% of hits by a real compile; VOLT_RUSTC_CACHE_SEED=${seed} repeats this sample`)
-  return { fraction, seed }
-}
 
 /** A path as rustc prints it in its JSON (escaped) and in plain text (raw) — each gets its own token, so a hit
  *  restores each spelling exactly where it was. On a platform where the two are equal there is just the one. */
-const escaped = (path: string) => JSON.stringify(path).slice(1, -1)
-function abstractPaths(text: string, file: string, exe: string): string {
+export const escaped = (path: string) => JSON.stringify(path).slice(1, -1)
+export function abstractPaths(text: string, file: string, exe: string): string {
   for (const [path, token] of [[file, FILE], [exe, EXE]] as const)
     text = text.split(escaped(path)).join(`${token}J`).split(path).join(`${token}R`)
   return text
 }
-function concretePaths(text: string, file: string, exe: string): string {
+export function concretePaths(text: string, file: string, exe: string): string {
   for (const [path, token] of [[file, FILE], [exe, EXE]] as const)
     text = text.split(`${token}J`).join(escaped(path)).split(`${token}R`).join(path)
   return text
 }
 
-/**
- * Build `source` with `argv` (which names `file` and `exe`), through the cache. On a miss `source` is written to
- * `file` and the compiler runs; on a hit nothing is compiled and, if it built, the stored executable lands at `exe`.
- * `probes` are the argument lists the caller will run the executable with — a verified hit runs both builds on each.
- */
-export async function buildRust(
-  argv: readonly string[],
-  file: string,
-  exe: string,
-  source: string,
-  probes: readonly (readonly string[])[] = [[]],
-  root = CACHE_ROOT,
-): Promise<RustBuild> {
-  let key: string | undefined
-  if (cacheEnabled()) {
-    const refused = uncacheable(source)
-    if (refused !== undefined) once("uncacheable", `${basename(file)}: not cached — ${refused}`)
-    else
-      try {
-        key = buildKey({ source, argv, file, exe, compiler: compilerIdentity(argv[0]!), environment: environment() })
-        await prune(root)
-      } catch (error) {
-        fault("the cache could not be keyed", error)
-        key = undefined
-      }
-  }
-  if (key !== undefined) {
-    let hit: { build: RustBuild; entry: Entry } | undefined
-    try {
-      hit = await lookup(root, key, file, exe)
-    } catch (error) {
-      fault("lookup failed", error)
-    }
-    if (hit !== undefined) {
-      const { fraction, seed } = verification()
-      if (!sampled(key, seed, fraction)) return trace(file, hit.build)
-      return trace(file, await verify(root, key, argv, file, exe, source, probes, hit))
-    }
-  }
-  const fresh = await compile(argv, file, source)
-  // only an ordinary verdict is stored: 0 (built) or 1 (refused). A crash, a signal or an ICE is not an answer.
-  if (key !== undefined && (fresh.exit === 0 || fresh.exit === 1)) {
-    try {
-      const entry = { format: FORMAT, exit: fresh.exit, stdout: fresh.stdout, stderr: abstractPaths(fresh.stderr, file, exe), origin: dirname(file) }
-      await store(root, key, entry, fresh.exit === 0 ? exe : undefined)
-    } catch (error) {
-      fault("store failed", error)
-    }
-  }
-  return trace(file, fresh)
-}
-
-async function compile(argv: readonly string[], file: string, source: string): Promise<RustBuild> {
-  await writeFile(file, source)
-  const p = Bun.spawn([...argv], { stdout: "pipe", stderr: "pipe" })
-  const [stdout, stderr, exit] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited])
-  return { exit, stdout, stderr, cached: false }
-}
-
-/** Re-prove a hit: compile for real, run both executables on every probe, and refuse the entry on any difference. */
-async function verify(
-  root: string,
-  key: string,
-  argv: readonly string[],
-  file: string,
-  exe: string,
-  source: string,
-  probes: readonly (readonly string[])[],
-  hit: { build: RustBuild; entry: Entry },
-): Promise<RustBuild> {
-  const side = join(dirname(exe), `${basename(exe, extname(exe))}.cached${extname(exe)}`)
-  // the stored executable, moved out of the way before the real compile writes that path: `exe` is a hard link to the
-  // entry (`placeExecutable`), so compiling over it in place would write the fresh build INTO the cache
-  if (hit.build.exit === 0) await rename(exe, side)
-  try {
-    const fresh = await compile(argv, file, source)
-    const parts: [string, unknown, unknown][] = [
-      ["build exit", hit.build.exit, fresh.exit],
-      ["build stdout", hit.build.stdout, fresh.stdout],
-      ["build stderr (diagnostics/lints)", hit.build.stderr, fresh.stderr],
-    ]
-    if (fresh.exit === 0 && hit.build.exit === 0)
-      for (const args of probes) {
-        const [was, is] = await Promise.all([probe([side, ...args]), probe([exe, ...args])])
-        // a panic names the source path compiled into the binary: the stored one was built in `origin`
-        was.stderr = was.stderr.split(join(hit.entry.origin, basename(file))).join(file)
-        // …and the OS thread id of the run (`thread 'main' (39996) panicked`), which no two runs share
-        const run = (r: typeof was) => ({ ...r, stderr: r.stderr.replace(/^(thread '[^']*') \(\d+\)/gm, "$1 (<tid>)") })
-        parts.push([`run [${args.join(" ")}]`, run(was), run(is)])
-      }
-    const differ = parts.find(([, a, b]) => JSON.stringify(a) !== JSON.stringify(b))
-    if (differ !== undefined) {
-      await rm(join(root, key), { recursive: true, force: true })
-      const message = `rustc cache stale: ${basename(file, ".rs")}, ${differ[0]} differed (entry ${key} evicted)`
-      // eslint-disable-next-line no-console
-      console.error(`  [rustc-cache] ${message}\n    cached: ${JSON.stringify(differ[1]).slice(0, 400)}\n    real:   ${JSON.stringify(differ[2]).slice(0, 400)}`)
-      throw new StaleCacheError(message)
-    }
-    return fresh
-  } finally {
-    await rm(side, { force: true })
-    await rm(side.replace(/\.exe$/, ".pdb"), { force: true })
-  }
-}
-
-async function probe(argv: string[]): Promise<{ exit: number; stdout: string; stderr: string; killed: boolean }> {
-  const p = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" })
-  let killed = false
-  const timer = setTimeout(() => {
-    killed = true
-    p.kill()
-  }, 120_000)
-  const [stdout, stderr, exit] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited])
-  clearTimeout(timer)
-  return { exit: killed ? -1 : exit, stdout, stderr, killed }
-}
-
-let environmentMemo: string | undefined
-const environment = () => (environmentMemo ??= environmentIdentity())
-
-async function trace(file: string, b: RustBuild): Promise<RustBuild> {
-  const out = process.env.VOLT_RUSTC_TRACE
-  if (out !== undefined) {
-    const dir = dirname(file)
-    const stderr = b.stderr.split(escaped(dir)).join("<dir>").split(dir).join("<dir>")
-    await appendFile(out, JSON.stringify({ file: basename(file), exit: b.exit, stdout: b.stdout, stderr, cached: b.cached }) + "\n")
-  }
-  return b
-}
-
-/** A present entry that cannot be read back whole is CORRUPT: reported, removed, and a miss. */
-async function lookup(root: string, key: string, file: string, exe: string): Promise<{ build: RustBuild; entry: Entry } | undefined> {
-  const dir = join(root, key)
-  let raw: string
-  try {
-    raw = await readFile(join(dir, "entry.json"), "utf8")
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined // absent: an ordinary miss
-    throw error
-  }
-  try {
-    const entry = JSON.parse(raw) as Entry
-    if (entry.format !== FORMAT || typeof entry.exit !== "number" || typeof entry.stdout !== "string" || typeof entry.stderr !== "string" || typeof entry.origin !== "string")
-      throw new Error("malformed entry.json")
-    if (entry.exit === 0) {
-      const stored = join(dir, "out.bin")
-      const bytes = await readFile(stored)
-      if (createHash("sha256").update(bytes).digest("hex") !== entry.exe) throw new Error("executable does not match its hash")
-      await placeExecutable(stored, exe)
-    }
-    const now = new Date()
-    await utimes(join(dir, "entry.json"), now, now) // the LRU clock
-    return { build: { exit: entry.exit, stdout: entry.stdout, stderr: concretePaths(entry.stderr, file, exe), cached: true }, entry }
-  } catch (error) {
-    fault("corrupt entry", new Error(`${key}: ${(error as Error).message}`))
-    await rm(dir, { recursive: true, force: true })
-    return undefined
-  }
-}
-
-/**
- * The stored executable at the caller's `exe` — as a HARD LINK, not a copy. Windows' virus scanner inspects every new
- * executable FILE before its first run, one at a time: a fresh copy per hit cost ~270 ms a run with 15 lanes, and with
- * ~4,600 runs a suite that was the whole Rust phase. A link is the same file the scanner already passed (measured
- * 2026-10-01: 60 runs in 0.45-0.55 s linked against 2.5 s copied).
- *
- * THE CALLER'S `exe` IS THEREFORE THE ENTRY'S OWN FILE, and nothing may write through it: `verify` renames it aside
- * before compiling over that path, and the hash check above catches anything else on the next lookup. A cache on another
- * volume than the caller's scratch directory cannot be linked (EXDEV) and is copied — same bytes, the old speed.
- */
-async function placeExecutable(stored: string, exe: string): Promise<void> {
-  await rm(exe, { force: true })
-  try {
-    await link(stored, exe)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error
-    await copyFile(stored, exe)
-  }
-}
-
-async function store(root: string, key: string, entry: Entry, exe: string | undefined): Promise<void> {
-  const tmp = join(root, `.tmp-${randomBytes(8).toString("hex")}`)
-  await mkdir(tmp, { recursive: true })
-  let bytesOut: number | undefined
-  try {
-    if (exe !== undefined) {
-      const bytes = await readFile(exe)
-      bytesOut = bytes.byteLength
-      entry.exe = createHash("sha256").update(bytes).digest("hex")
-      // EXECUTABLE ON POSIX: a hit hard-links (or copies, which keeps the mode) THIS file to the caller's `exe`, so
-      // its mode is the hit's mode — written with the default 0666 & ~umask, every hit was spawned to EACCES on
-      // Linux. Windows has no execute bit and ignores the mode, which is why it passed there.
-      await writeFile(join(tmp, "out.bin"), bytes, { mode: 0o755 })
-    }
-    const json = JSON.stringify(entry)
-    await writeFile(join(tmp, "entry.json"), json) // written last: its presence means complete
-    // WINDOWS REFUSES A RENAME while something holds a file inside the directory — the virus scanner opens every new
-    // executable — so EPERM/EBUSY are retried briefly (measured: one store in ~2,300 hit it) before it is a fault.
-    for (let attempt = 0; ; attempt++) {
-      try {
-        await rename(tmp, join(root, key))
-        break
-      } catch (error) {
-        if (existsSync(join(root, key, "entry.json"))) break // a lost race with an identical writer
-        const code = (error as NodeJS.ErrnoException).code
-        if (attempt >= 6 || (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES")) throw error
-        await Bun.sleep(25 * 2 ** attempt)
-      }
-    }
-    await appendFile(join(root, LEDGER), `${key} ${Buffer.byteLength(json) + (bytesOut ?? 0)}` + EOL)
-  } finally {
-    await rm(tmp, { recursive: true, force: true })
-  }
-}
-
-/** One line per stored entry, `<key> <bytes>`, appended by `store` — what `prune` reads instead of every entry. */
-const LEDGER = ".ledger"
-const EOL = "\n"
-
-/** The cache's size by its ledger (a key stored twice counts once), or undefined when there is no ledger to read.
- *  An evicted entry stays in it until the next walk: the ledger can only OVERstate the size, which prunes early. */
-export async function ledgerSize(root: string): Promise<number | undefined> {
-  let raw: string
-  try {
-    raw = await readFile(join(root, LEDGER), "utf8")
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
-    throw error
-  }
-  const sizes = new Map<string, number>()
-  for (const line of raw.split(EOL)) {
-    const [key, size] = line.split(" ")
-    if (key && size !== undefined) sizes.set(key, Number(size))
-  }
-  let total = 0
-  for (const n of sizes.values()) total += n
-  return total
-}
-
-const pruned = new Map<string, Promise<void>>()
-/** Once per process and root: past the cap, the least recently used entries go until it is at 3/4 of it. */
-export function prune(root: string): Promise<void> {
-  let p = pruned.get(root)
-  if (p === undefined) pruned.set(root, (p = pruneNow(root)))
-  return p
-}
-async function pruneNow(root: string): Promise<void> {
-  const cap = Number(process.env.VOLT_RUSTC_CACHE_MAX_MB ?? 4096) * 1024 * 1024
-  await mkdir(root, { recursive: true })
-  const names = await readdir(root)
-  for (const name of names)
-    if (name.startsWith(".tmp-")) {
-      // a writer that died mid-store; a live one finishes in well under an hour
-      const dir = join(root, name)
-      if (Date.now() - (await stat(dir)).mtimeMs > 3_600_000) await rm(dir, { recursive: true, force: true })
-    }
-  const recorded = await ledgerSize(root)
-  if (recorded !== undefined && recorded <= cap) return
-  // no ledger (a cache older than it) or past the cap: the walk measures every entry and rewrites the ledger
-  const entries: { key: string; dir: string; used: number; size: number }[] = []
-  for (const name of names) {
-    if (name.startsWith(".")) continue
-    const dir = join(root, name)
-    let size = 0
-    let used = 0
-    try {
-      for (const f of await readdir(dir)) {
-        const s = await stat(join(dir, f))
-        size += s.size
-        if (f === "entry.json") used = s.mtimeMs
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue // evicted by another process meanwhile
-      throw error
-    }
-    entries.push({ key: name, dir, used, size })
-  }
-  let total = entries.reduce((n, e) => n + e.size, 0)
-  const kept = new Set(entries)
-  if (total > cap)
-    for (const e of [...entries].sort((a, b) => a.used - b.used)) {
-      if (total <= cap * 0.75) break
-      await rm(e.dir, { recursive: true, force: true })
-      kept.delete(e)
-      total -= e.size
-    }
-  const tmp = join(root, `${LEDGER}.${randomBytes(4).toString("hex")}`)
-  await writeFile(tmp, [...kept].map((e) => `${e.key} ${e.size}` + EOL).join(""))
-  await rename(tmp, join(root, LEDGER))
-}

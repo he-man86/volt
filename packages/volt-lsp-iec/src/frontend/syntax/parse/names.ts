@@ -3,9 +3,10 @@
  * an identifier node from its token, a dotted (qualified) name, the rest of a comma-separated name list, and the
  * modifier words before a name. Each caller builds its own node shape from what these read.
  */
-import type { Identifier } from "../ast/nodes.js"
+import type { Identifier } from "../ast/nodes/index.js"
 import type { Token } from "../lex/tokens.js"
-import { ACCESS_MODIFIERS, MEMBER_MODIFIERS, type Keyword } from "../lex/vocabulary.js"
+import { type Keyword } from "../lex/vocabulary.js"
+import { ACCESS_MODIFIERS, MEMBER_MODIFIERS } from "../lex/word-sets.js"
 import { expectedInsteadOf, vendorTokenText } from "./errors.js"
 import { joinSpans } from "../span.js"
 import type { Cursor } from "./cursor.js"
@@ -13,12 +14,6 @@ import type { Cursor } from "./cursor.js"
 /** Convert an identifier token into an Identifier AST node. */
 export function identFromToken(tok: Token): Identifier {
   return { kind: "identifier", text: tok.text, span: tok.span }
-}
-
-/** An identifier the grammar requires here (`expectIdent`, which reports a missing one), as a node. */
-export function readIdent(c: Cursor): Identifier | undefined {
-  const t = c.expectIdent()
-  return t === undefined ? undefined : identFromToken(t)
 }
 
 /**
@@ -129,7 +124,7 @@ export function refusedAccessModifier(mods: readonly Token[]): Token | undefined
  * `unit_interface_property_abstract_final`, CODESYS 2026-10-01) — and so is an access modifier after another, as on
  * every unit kind.
  */
-export function refusedPropertyModifier(mods: readonly Token[]): Token | undefined {
+function refusedPropertyModifier(mods: readonly Token[]): Token | undefined {
   return mods.find((m, i) => i > 0 && (isAccessModifier(m) || !isAccessModifier(mods[i - 1]!)))
 }
 

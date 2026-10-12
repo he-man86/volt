@@ -5,7 +5,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../parser.js"
-import type { FunctionBlock } from "../../ast/nodes.js"
+import type { FunctionBlock } from "../../ast/nodes/index.js"
 
 const fb = (src: string) => {
   const r = parseSource(src, { networkText: true }, "codesys")

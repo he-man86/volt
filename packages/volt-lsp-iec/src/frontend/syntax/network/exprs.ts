@@ -14,7 +14,7 @@
  * a constant — and the operands inside them are read on their own (`sealed`).
  */
 import type { Span } from "../span.js"
-import type { CallArg, Expr, IdentExpr, Literal } from "../ast/nodes.js"
+import type { CallArg, Expr, IdentExpr, Literal } from "../ast/nodes/index.js"
 import type { NetworkCall, NetworkExecute, NetworkTextStatement, NetworkValue } from "./ast.js"
 import { statementValues, valueChildren, walkValues } from "./ast.js"
 import { OPERATOR_HEADS } from "./lexer.js"

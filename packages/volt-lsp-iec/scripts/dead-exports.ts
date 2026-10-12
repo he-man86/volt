@@ -165,36 +165,16 @@ export function nobodyIn(texts: ReadonlyMap<string, string>, scope: string): Row
 
 /**
  * The NOBODY exports of `src/` the gate still tolerates, as `<name> <file>` (openspec lsp-same-standard design.md §5, task
- * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text (→ 0 by task 4.5) and 4 network-text ones marked
- * "LD/FBD change". The list only shrinks: a name not listed fails the gate, and so does a listed one that is now
- * imported or gone. No inline ignore comment exists.
+ * 1.1), measured 2026-10-12 at fddcde2a6e: 25 outside network text and 4 network-text ones marked "LD/FBD change". Since
+ * task 4.5 only the network-text four remain — the outside 25 dropped their `export` (read in their own file only) or
+ * went (`readIdent`, read nowhere) — and they are handed to the LD/FBD coverage change. The list only shrinks: a name
+ * not listed fails the gate, and so does a listed one that is now imported or gone. No inline ignore comment exists.
  */
 export const DEAD_EXPORT_ALLOWLIST: readonly string[] = [
-  "FolderCursor src/frontend/syntax/format/folder.ts",
-  "FolderLine src/frontend/syntax/format/folder.ts",
-  "ReadLanguage src/frontend/syntax/format/implementation-line.ts",
-  "isImplementationKeyword src/frontend/syntax/format/implementation-line.ts",
-  "ParsedLiteral src/frontend/syntax/literal/value.ts",
   "TokKind src/frontend/syntax/network/lexer.ts", // LD/FBD change
   "CONSTRUCT_WORDS src/frontend/syntax/network/parser.ts", // LD/FBD change
   "v1Refusal src/frontend/syntax/network/parser.ts", // LD/FBD change
-  "ErrorCursor src/frontend/syntax/parse/errors.ts",
-  "readIdent src/frontend/syntax/parse/names.ts",
-  "refusedPropertyModifier src/frontend/syntax/parse/names.ts",
-  "ReturnTypeClause src/frontend/syntax/parse/units/header.ts",
-  "Condition src/frontend/syntax/pragmas/conditional.ts",
-  "UNKNOWN_OPERATOR_ERRORS src/frontend/syntax/pragmas/conditional.ts",
-  "ConditionValue src/frontend/syntax/pragmas/conditional.ts",
-  "EnumeratorValue src/frontend/types/enums.ts",
-  "EnumeratorNumbering src/frontend/types/enums.ts",
-  "staticOf src/frontend/types/infer/member.ts",
-  "VoltDiagnostic src/server/diagnostics.ts",
-  "normalizeKey src/workspace/workspace-store.ts",
-  "FormatOptions src/services/formatting/format.ts",
-  "CallRef src/services/navigation/hierarchy.ts",
-  "TypeNameRef src/services/navigation/type-refs.ts",
   "resolveAnywhere src/services/network/network-services.ts", // LD/FBD change
-  "WorkspaceScan src/workspace/workspace-refs.ts",
 ]
 
 /** The gate: NOBODY over `src/` against `allowlist` — what is new, and what is listed but no longer dead. */

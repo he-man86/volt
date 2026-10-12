@@ -19,7 +19,8 @@
  * (`shape.ts`), the edge differential (`edge.ts`) and the review's notes (`../notes/`) complete a row; this file
  * writes one.
  */
-import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "../divergences.js"
+import { KNOWN_DIVERGENCES } from "../divergences.js"
+import { CODESYS_TRIAGE, TWINCAT_TRIAGE } from "../divergences-triage.js"
 import type { FixtureMapRow } from "../../fixtures/map-row.js"
 
 /** Which vendors this fixture is recorded as not matching — derived from the authored sets in `divergences.ts`. */

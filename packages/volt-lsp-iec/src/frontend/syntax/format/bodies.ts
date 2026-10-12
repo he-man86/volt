@@ -7,7 +7,7 @@
  * nothing else — never the text's first line, a header's shape or a comment. A body that contradicts its line is a
  * diagnostic of the parser the line names, never re-read as the other language.
  */
-import type { BodySpan, Identifier, TopLevel, TypeExpr, VarSection } from "../ast/nodes.js"
+import type { BodySpan, TopLevel } from "../ast/nodes/index.js"
 import { allUnits } from "../ast/walk.js"
 import { bodyReader } from "./implementation-line.js"
 

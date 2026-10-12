@@ -11,9 +11,16 @@
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
-import type { ParseError } from "../ast/nodes.js"
+import type { ParseError } from "../ast/nodes/index.js"
 import { opensKeywordLine } from "../format/implementation-line.js"
-import { DECL_LIST_ENDERS, isRefusedDeclaredName, isRefusedWord, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Dialect, type Keyword } from "../lex/vocabulary.js"
+import { type Dialect, type Keyword } from "../lex/vocabulary.js"
+import {
+  DECL_LIST_ENDERS,
+  isRefusedDeclaredName,
+  isRefusedWord,
+  SOFT_NAME_KEYWORDS,
+  UNIT_NAME_KEYWORDS,
+} from "../lex/word-sets.js"
 import { expectedInsteadOf, nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
 
 export class Cursor {

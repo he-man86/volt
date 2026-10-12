@@ -35,7 +35,7 @@
  * commit between two tasks is then on both sides of the comparison.
  *
  * The script reaches the front-end only through paths every tree of this change has: `test/frontend/{dumps,bound,
- * sources}.ts`, the transpiler's and the conformance support's, and the syntax index at whichever of `src/syntax/` and
+ * sources}.ts` (the bound dumps in `dumps-bound.ts` where a tree has it), the transpiler's and the conformance support's, and the syntax index at whichever of `src/syntax/` and
  * `src/frontend/syntax/` exists. `--graphical` sets `VOLT_GRAPHICAL` as the test preload does (default 1) — it is read
  * when the modules load, so every import below is dynamic.
  */
@@ -84,6 +84,7 @@ if (graphical === "1") process.env.VOLT_GRAPHICAL = "1"
 else delete process.env.VOLT_GRAPHICAL
 
 const load = async <T>(path: string): Promise<T> => (await import(pathToFileURL(join(PKG, path)).href)) as T
+const boundDumps = existsSync(join(PKG, "test", "frontend", "dumps-bound.ts")) ? "test/frontend/dumps-bound.ts" : "test/frontend/dumps.ts"
 const syntaxIndex = existsSync(join(PKG, "src", "frontend", "syntax", "index.ts"))
   ? "src/frontend/syntax/index.ts"
   : "src/syntax/index.ts"
@@ -125,7 +126,8 @@ async function snapshot(sinkAll: Sink, only?: string): Promise<void> {
   const BOUND = ["resolution", "types", "folds"]
   const syntax = await load<Record<string, any>>(syntaxIndex)
   const sources = await load<typeof import("../test/frontend/sources.ts")>("test/frontend/sources.ts")
-  const dumps = await load<typeof import("../test/frontend/dumps.ts")>("test/frontend/dumps.ts")
+  // the bound dumps, wherever this tree keeps them: `dumps-bound.ts` since lsp-same-standard 4.4, `dumps.ts` before
+  const dumps = await load<typeof import("../test/frontend/dumps-bound.ts")>(boundDumps)
   const bound = await load<typeof import("../test/frontend/bound.ts")>("test/frontend/bound.ts")
 
   const front = (p: { id: string; source: string; dialect: string; parseResult: any }, key = p.id): void => {

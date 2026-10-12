@@ -22,7 +22,7 @@
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract says which programs are *defined*; this
  * says which are *reached*: a top-level PROGRAM or FUNCTION_BLOCK body lowers or is refused, and a METHOD or ACTION
  * lowers only when a POU that lowers calls it. The measured share of the corpus's bodies that lower is a small fraction,
- * written down and kept exact by `test/corpus/corpus.test.ts` (`REACH`, `ROUTINES`) — the one place the figures live.
+ * written down and kept exact by `test/corpus/corpus-lowering.test.ts` (`REACH`, `ROUTINES`) — the one place the figures live.
  * This backend executes a SUBSET: enough for the conformance oracle and for a POU written to be tested, not enough to
  * run a real project. That is a statement of fact rather than a roadmap; the number is measured because a plan for
  * this component once justified itself with a figure 470x the real one.

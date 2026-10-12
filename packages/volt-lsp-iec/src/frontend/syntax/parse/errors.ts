@@ -7,10 +7,11 @@
  */
 import type { Span } from "../span.js"
 import type { Token } from "../lex/tokens.js"
-import { isRefusedDeclaredName, SOFT_NAME_KEYWORDS, UNIT_STARTERS, type Dialect, type Keyword } from "../lex/vocabulary.js"
+import { type Dialect, type Keyword } from "../lex/vocabulary.js"
+import { isRefusedDeclaredName, SOFT_NAME_KEYWORDS, UNIT_STARTERS } from "../lex/word-sets.js"
 
 /** What an error needs of the cursor it resyncs — the cursor itself satisfies it. */
-export interface ErrorCursor {
+interface ErrorCursor {
   peek(offset?: number): Token
   consume(): Token
   pushError(message: string, span: Span, unexpectedToken?: string): void

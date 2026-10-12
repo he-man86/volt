@@ -7,7 +7,7 @@
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, unparenthesised, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
-import type { Messages } from "../../messages.js"
+import type { Messages } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { checkableType, conversionArgError, conversionWarning, narrowingPairError } from "../../shared/rules.js"
@@ -109,8 +109,6 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     const w = integer === undefined ? undefined : conversionWarning(notResultType(operand), operand, x.operand, messages)
     return w === undefined ? [] : [w]
   }
-  let rule: "signed" | "unsigned" | "signed-wide" | undefined
-  let pair: readonly [Expr, Expr] | undefined
   if (x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op)) {
     // AND_THEN / OR_ELSE: each signed integer operand converts into the unsigned integer they meet in (`shortCircuitType`)
     const sides = [x.left, x.right] as const
@@ -125,16 +123,27 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   if (x.kind === "binary") {
     const scaled = durationScaleWarnings(x.op, x.left, x.right, scope, project, messages)
     if (scaled !== undefined) return scaled
-    rule = operandConversion(x.op)
-    pair = [x.left, x.right]
-  } else if (x.kind === "call" && x.callee.kind === "ident_expr") {
+    const rule = operandConversion(x.op)
+    return rule === undefined ? [] : pairSignWarnings(rule, x.left, x.right, scope, project, messages)
+  }
+  if (x.kind === "call" && x.callee.kind === "ident_expr") {
     // MIN, MAX, LIMIT, SEL and MUX convert every VALUE argument into their meet (`builtins` `selectionValueArguments`)
     const values = selectionValueArguments(x.callee.name, x.args.map((a) => a.value))
-    if (values !== undefined && values.length === 2 && values.every((v) => v !== undefined)) [rule, pair] = ["signed", [values[0]!, values[1]!]]
-    else if (values !== undefined && values.length > 2) return meetAllWarnings(values, scope, project, messages) ?? []
+    if (values !== undefined && values.length === 2 && values.every((v) => v !== undefined)) return pairSignWarnings("signed", values[0]!, values[1]!, scope, project, messages)
+    if (values !== undefined && values.length > 2) return meetAllWarnings(values, scope, project, messages) ?? []
   }
-  if (rule === undefined || pair === undefined) return []
-  const [left, right] = pair
+  return []
+}
+
+/** The conversions of an operand pair under `rule` (see `operandSignWarnings`). */
+function pairSignWarnings(
+  rule: "signed" | "unsigned" | "signed-wide",
+  left: Expr,
+  right: Expr,
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+): DiagnosticItem[] {
   if (rule === "signed-wide") {
     const negative = negativeLiteralComparison(left, right, scope, project, messages)
     if (negative !== undefined) return negative
@@ -166,23 +175,7 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     })
   }
   if (l === undefined || r === undefined || l.bits !== r.bits) return []
-  // A BITWISE OPERATOR COMPUTES IN THE UNSIGNED INTEGER OF THE WIDTH, so EVERY signed operand converts on the way
-  // in — two warnings for `aLint AND bLint`, at two spans on one line, and then a third from the assignment when
-  // the result goes back into a signed destination (`bit_{and,or,xor}_{sint,int,dint,lint}`, three each on CODESYS).
-  // An untyped literal takes the other operand's type and is not one of the conversions: `sn AND 255` warns ONCE
-  // (`cc_bitwise_sint_and_literal`). A NEGATIVE one converts from its OWN type, the smallest signed integer holding it:
-  // `si AND -1` and `i XOR -1` convert the SINT literal into USINT / UINT beside the operand's own conversion
-  // (`ar_bitwise_literal_unsigned_or_negative`, both vendors 2026-10-03; TwinCAT's one copy per line makes `si AND -1` one
-  // warning there). A negative literal beyond the operand's signed width was not asked: `l.bits !== r.bits` above.
-  if (rule === "unsigned") {
-    const each = ([t, at]: readonly [typeof l, Expr]): DiagnosticItem | undefined => {
-      if (!isIntLiteral(at)) return t.signed ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), at, messages) : undefined
-      const v = negatedValue(at)
-      const own = v !== undefined && v < 0n ? integerLiteralType(v) : undefined
-      return own === undefined ? undefined : conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(own), at, messages)
-    }
-    return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
-  }
+  if (rule === "unsigned") return bitwiseSignWarnings(l, r, left, right, messages)
   if (l.signed === r.signed) return []
   // An untyped literal beside a narrower variable converts nothing on EITHER vendor: `si = 200` is silent on TwinCAT too,
   // where two narrow VARIABLES of a signedness each convert (`lt_literal_in_comparison`, 2026-10-03).
@@ -191,6 +184,32 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
   const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
   return w === undefined ? [] : [w]
+}
+
+/**
+ * A BITWISE OPERATOR COMPUTES IN THE UNSIGNED INTEGER OF THE WIDTH, so EVERY signed operand converts on the way
+ * in — two warnings for `aLint AND bLint`, at two spans on one line, and then a third from the assignment when
+ * the result goes back into a signed destination (`bit_{and,or,xor}_{sint,int,dint,lint}`, three each on CODESYS).
+ * An untyped literal takes the other operand's type and is not one of the conversions: `sn AND 255` warns ONCE
+ * (`cc_bitwise_sint_and_literal`). A NEGATIVE one converts from its OWN type, the smallest signed integer holding it:
+ * `si AND -1` and `i XOR -1` convert the SINT literal into USINT / UINT beside the operand's own conversion
+ * (`ar_bitwise_literal_unsigned_or_negative`, both vendors 2026-10-03; TwinCAT's one copy per line makes `si AND -1` one
+ * warning there). A negative literal beyond the operand's signed width was not asked: the widths are equal here.
+ */
+function bitwiseSignWarnings(
+  l: NonNullable<ReturnType<typeof integral>>,
+  r: NonNullable<ReturnType<typeof integral>>,
+  left: Expr,
+  right: Expr,
+  messages: Messages,
+): DiagnosticItem[] {
+  const each = ([t, at]: readonly [typeof l, Expr]): DiagnosticItem | undefined => {
+    if (!isIntLiteral(at)) return t.signed ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), at, messages) : undefined
+    const v = negatedValue(at)
+    const own = v !== undefined && v < 0n ? integerLiteralType(v) : undefined
+    return own === undefined ? undefined : conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(own), at, messages)
+  }
+  return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
 }
 
 /**

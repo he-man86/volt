@@ -10,7 +10,7 @@
  * phase flipping in the scan it runs out, and OUT kept as it was once ENABLE falls.
  */
 import { describe, expect, test } from "bun:test"
-import { buildRust } from "../conformance/support/rustc-cache.js"
+import { buildRust } from "../conformance/support/rustc-cache-build.js"
 import { readdirSync, readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"

@@ -18,13 +18,26 @@
  * optional (retained between calls) and function optional/EN-ENO inputs would false-positive.
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
-import { walkAllExprs, type CallArg, type Expr, type Span, type TopLevel, type TypeExpr, type VarSection } from "../../../frontend/syntax/index.js"
+import {
+  walkAllExprs,
+  type CallArg,
+  type Span,
+  type TopLevel,
+  type TypeExpr,
+  type VarSection,
+} from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
-import { type CalleeInfo, constancyOf, DEFAULT_STRING_LENGTH, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveMemberChain, resolveTypeExpr, takesNoPositionalArguments, type Type } from "../../../frontend/types/index.js"
+import {
+  type CalleeInfo,
+  constancyOf,
+  resolveCallee,
+  takesNoPositionalArguments,
+} from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../shared/rules.js"
 import { bindableMember } from "../../shared/resolution.js"
+import { argTypeError, outputTypeError } from "./_argument-types.js"
+import { checkInOutBindings, checkMissingInOuts, countsInOuts } from "./_in-out-arguments.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -41,6 +54,7 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
   }
 }
 
+/** One call's arguments against its resolved callee, concern by concern — in the order the findings are reported. */
 function checkCall(
   args: readonly CallArg[],
   callSpan: Span,
@@ -55,44 +69,7 @@ function checkCall(
   // resolved to project FBs). An unresolved or library base could contribute inherited params we can't see,
   // so flagging too-many or an unknown name there would false-positive; the type checks below still run
   // (they only fire on a param we DID resolve).
-
-  // (1) too many positional arguments vs positionally-bindable parameters — flag the first excess argument.
-  // Vendor-mirrored wording: a FUNCTION/METHOD reports the exact input count it requires (C0040); an FB reports
-  // the 1-based position of the arg that has no input to bind to (C0044).
-  if (callee.complete && positional.length > callee.positionalArity) {
-    // an FB and a PROGRAM (rule DT9, `dt_program_called_positionally`)
-    if (takesNoPositionalArguments(callee.sym)) {
-      // ONE MESSAGE PER POSITIONAL ARGUMENT, each naming THAT ARGUMENT'S SOURCE TEXT, and the callee UPPER-CASED.
-      // All three were wrong and the third is the vendor's own inconsistency, not ours: this message upper-cases the
-      // FB's name where the VAR_IN_OUT one two hundred lines below keeps the declared case — `refuse_inout_not_given`
-      // records 'FB_LANG_inoutmissing_target' in the same breath.
-      //
-      // Measured on `calls/call-grid.ts` (2026-09-19): `target(1, 2, mark)` on an FB is three errors naming '1',
-      // '2' and 'mark' — so the parameter is the argument as WRITTEN, not its position, which was only ever right
-      // by coincidence when somebody passed the number 1 first. `refuse_fb_called_positionally` passes `5` in the
-      // first slot and the vendor says '5'.
-      for (const arg of positional)
-        out.push({
-          severity: "error",
-          span: arg.span,
-          source: SOURCE,
-          code: "input-assignment-missing",
-          message: ctx.messages.inputAssignmentMissing(
-            ctx.source.slice(arg.span.start, arg.span.end).trim(),
-            callee.sym.name.toUpperCase(),
-          ),
-        })
-    } else {
-      const excess = positional[callee.positionalArity]!
-      out.push({
-        severity: "error",
-        span: excess.span,
-        source: SOURCE,
-        code: "function-argument-count",
-        message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
-      })
-    }
-  }
+  checkPositionalCount(positional, callee, ctx, out)
 
   // (2) positional type-check — only on all-positional calls (mixed calls can't bind by index), and only
   // when every positional slot is a VAR_INPUT (`positionalArity === params.length`). If VAR_IN_OUT params
@@ -105,25 +82,87 @@ function checkCall(
     })
   }
 
-  // (3) named arguments — an unknown name is flagged (complete callees only); a known VAR_INPUT name's value
-  // is type-checked. A name is known if it's a declared param OR (FB instance) a member a call may BIND —
-  // an input, an output, an in-out or a property. `p => out` binds an OUTPUT, and it is checked in the opposite
-  // direction — see the `arg.output` branch below.
-  //
-  // This asked `lookupMember` unfiltered, so ANY member counted and `inst(loc := 5)` on a plain `VAR loc : INT`
-  // was accepted in silence — while the network-text check beside it already restricted to the pin sections.
-  // One question, two answers in one package; `bindableMember` is now the one home, and both vendors say the
-  // ST side was the wrong one (`cc_named_arg_non_input`).
-  //
-  // A FUNCTION's or METHOD's named arguments are COUNTED first: more `name := value` arguments than it has inputs is
-  // "Function 'M1' requires exactly '1' inputs" (the declared case), once, and no name is then said to be no input or
-  // output of it — an unknown one is only "Identifier not defined" (`mem_method_unknown_param_beside_known`,
-  // `_no_input`, `mem_function_unknown_param_no_input`, and `expr_en_eno_call`'s `ENO => ok`, both vendors 2026-10-02).
-  // Within the count a name is named (`_one_input`: "'zz' is no input of 'M1'"). An FB is never counted so.
-  // Asked only of the recorded shape (step 3 review, 2026-10-03): plain VAR_INPUTs — no default, whose count CODESYS words
-  // as a range (4b), and no VAR_IN_OUT, which `positionalArity` counts and 4b does not — distinct names, and an unknown
-  // INPUT name among them (every recorded over-count has one: `zz`, `EN`). A repeated known name, a defaulted or in-out
-  // signature are unasked and keep their old answers.
+  const { overCount, namedUnknown } = checkNamedArguments(callSpan, positional, named, callee, scope, ctx, out)
+  checkInOutBindings(positional, named, callee, scope, ctx, out)
+  if (callee.complete && !overCount && !namedUnknown && countsInOuts(callee)) checkRequiredInputs(callSpan, positional, named, callee, ctx, out)
+  checkMissingInOuts(callSpan, positional, named, callee, ctx, out)
+}
+
+/**
+ * (1) too many positional arguments vs positionally-bindable parameters — flag the first excess argument.
+ * Vendor-mirrored wording: a FUNCTION/METHOD reports the exact input count it requires (C0040); an FB reports
+ * the 1-based position of the arg that has no input to bind to (C0044).
+ */
+function checkPositionalCount(positional: readonly CallArg[], callee: CalleeInfo, ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (!(callee.complete && positional.length > callee.positionalArity)) return
+  // an FB and a PROGRAM (rule DT9, `dt_program_called_positionally`)
+  if (takesNoPositionalArguments(callee.sym)) {
+    // ONE MESSAGE PER POSITIONAL ARGUMENT, each naming THAT ARGUMENT'S SOURCE TEXT, and the callee UPPER-CASED.
+    // All three were wrong and the third is the vendor's own inconsistency, not ours: this message upper-cases the
+    // FB's name where the VAR_IN_OUT one two hundred lines below keeps the declared case — `refuse_inout_not_given`
+    // records 'FB_LANG_inoutmissing_target' in the same breath.
+    //
+    // Measured on `calls/call-grid.ts` (2026-09-19): `target(1, 2, mark)` on an FB is three errors naming '1',
+    // '2' and 'mark' — so the parameter is the argument as WRITTEN, not its position, which was only ever right
+    // by coincidence when somebody passed the number 1 first. `refuse_fb_called_positionally` passes `5` in the
+    // first slot and the vendor says '5'.
+    for (const arg of positional)
+      out.push({
+        severity: "error",
+        span: arg.span,
+        source: SOURCE,
+        code: "input-assignment-missing",
+        message: ctx.messages.inputAssignmentMissing(
+          ctx.source.slice(arg.span.start, arg.span.end).trim(),
+          callee.sym.name.toUpperCase(),
+        ),
+      })
+  } else {
+    const excess = positional[callee.positionalArity]!
+    out.push({
+      severity: "error",
+      span: excess.span,
+      source: SOURCE,
+      code: "function-argument-count",
+      message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
+    })
+  }
+}
+
+/**
+ * (3) named arguments — an unknown name is flagged (complete callees only); a known VAR_INPUT name's value
+ * is type-checked. A name is known if it's a declared param OR (FB instance) a member a call may BIND —
+ * an input, an output, an in-out or a property. `p => out` binds an OUTPUT, and it is checked in the opposite
+ * direction — see `checkNamedArgument`.
+ *
+ * This asked `lookupMember` unfiltered, so ANY member counted and `inst(loc := 5)` on a plain `VAR loc : INT`
+ * was accepted in silence — while the network-text check beside it already restricted to the pin sections.
+ * One question, two answers in one package; `bindableMember` is now the one home, and both vendors say the
+ * ST side was the wrong one (`cc_named_arg_non_input`).
+ *
+ * A FUNCTION's or METHOD's named arguments are COUNTED first: more `name := value` arguments than it has inputs is
+ * "Function 'M1' requires exactly '1' inputs" (the declared case), once, and no name is then said to be no input or
+ * output of it — an unknown one is only "Identifier not defined" (`mem_method_unknown_param_beside_known`,
+ * `_no_input`, `mem_function_unknown_param_no_input`, and `expr_en_eno_call`'s `ENO => ok`, both vendors 2026-10-02).
+ * Within the count a name is named (`_one_input`: "'zz' is no input of 'M1'"). An FB is never counted so.
+ * Asked only of the recorded shape (step 3 review, 2026-10-03): plain VAR_INPUTs — no default, whose count CODESYS words
+ * as a range (4b), and no VAR_IN_OUT, which `positionalArity` counts and 4b does not — distinct names, and an unknown
+ * INPUT name among them (every recorded over-count has one: `zz`, `EN`). A repeated known name, a defaulted or in-out
+ * signature are unasked and keep their old answers.
+ *
+ * `namedUnknown`: whether a name was said to be no input or output — the call is then refused for it, and the inputs it
+ * left out are not counted on top (`mem_method_unknown_param_one_input`: "'zz' is no input of 'M1'" and no "requires"
+ * for `a`).
+ */
+function checkNamedArguments(
+  callSpan: Span,
+  positional: readonly CallArg[],
+  named: readonly CallArg[],
+  callee: CalleeInfo,
+  scope: Scope,
+  ctx: CheckContext,
+  out: DiagnosticItem[],
+): { overCount: boolean; namedUnknown: boolean } {
   const isKnown = (name: string): boolean =>
     callee.paramNames.has(name) || (callee.scope !== undefined && bindableMember(callee.scope, name) !== undefined)
   const namedInputs = named.filter((a) => !a.output).map((a) => a.param!.name.toLowerCase())
@@ -144,8 +183,6 @@ function checkCall(
       code: "function-argument-count",
       message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
     })
-  // whether a name was said to be no input or output — the call is then refused for it, and the inputs it left out are
-  // not counted on top (`mem_method_unknown_param_one_input`: "'zz' is no input of 'M1'" and no "requires" for `a`)
   let namedUnknown = false
   for (const arg of named) {
     const name = arg.param!.name.toLowerCase()
@@ -160,363 +197,135 @@ function checkCall(
     if (callee.complete && !known) {
       // an unknown INPUT name only (`mem_method_unknown_param_one_input`); an unknown output binding is unasked
       if (!arg.output) namedUnknown = true
-      // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
-      out.push({
-        severity: "error",
-        span: arg.param!.span,
-        source: SOURCE,
-        code: arg.output ? "unknown-named-output" : "unknown-named-argument",
-        // UPPER-CASED, as every recorded message from a CALL site is: `'loc' is no input of
-        // 'FB_LANG_NAMED_ARG_HOLDER'` (`cc_named_arg_non_input`, `cc_vg_unknown_pin`, and the FUNCTION case in
-        // `network_unnamed_target_of_valued_call`). A member WRITE from outside keeps the declared case —
-        // `'iSecret' is no input of 'FB_LANG_hide_var'` — which is `external-write`'s `noInput`, not this. Same
-        // sentence, two sites, and the vendors case them differently; the network check already knew.
-        message: arg.output
-          ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
-          : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
-      })
-      // …and a name the callee declares NOTHING of is then looked up as an ordinary identifier, and not found either:
-      // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" besides (`inh_interface_method_unknown_param`, both
-      // vendors 2026-10-02), as a network box's unknown pin is (`cc_vg_unknown_pin`); a member that is no input is not
-      // (`cc_named_arg_non_input`: `inst(loc := 5)` says only the first)
-      // …an output binding's name too (`calls_unknown_output_fb`, `_function`, `_method`, both vendors 2026-10-06)
-      if (!declaresAnything(callee, name))
-        out.push({
-          severity: "error",
-          span: arg.param!.span,
-          source: SOURCE,
-          code: "unresolved-identifier", // C0046's sentence, under C0046's code — not the C0037 of the one above
-          message: ctx.messages.undefinedIdentifier(arg.param!.name),
-        })
+      unknownNamedArgument(arg, name, callee, ctx, out)
       continue
     }
-    if (arg.output) {
-      // `w(o => text)` — the OUTPUT flows INTO the target, so the direction is the reverse of an input's: the
-      // output's declared type is the source and the bound variable is the destination. CODESYS reports it as a
-      // plain conversion, "Cannot convert type 'INT' to type 'STRING'" (conformance
-      // `accepts_output_into_other_type`); the transpiler already refuses the same shape (`call-output-type`).
-      // A FUNCTION's or METHOD's output is read from its own sections — it has no member scope — and judged alike, with
-      // the conversion warning an assignment earns: a DINT output into an INT is "Cannot convert type 'DINT' to type
-      // 'INT'", a WORD one "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'" (`tr_43_routine_output_*`,
-      // both vendors 2026-10-09; lsp-transpile-review-gaps 2.4). The FB path's warning is unmeasured.
-      if (callee.scope === undefined) {
-        const type = directOutputType(callee, name)
-        if (arg.value !== undefined && type !== undefined) outputTypeError(type, arg.value, scope, ctx, out, true)
-      } else {
-        const sym = lookupMember(callee.scope, name)
-        if (arg.value !== undefined && sym?.varSection === "VAR_OUTPUT" && sym.typeExpr !== undefined)
-          outputTypeError(sym.typeExpr, arg.value, scope, ctx, out)
-      }
-      continue
-    }
-    if (arg.value !== undefined) {
-      const param = callee.params.find((p) => p.name.text.toLowerCase() === name)
-      if (param !== undefined) argTypeError(arg.value, param, callee.sym.name, scope, ctx, out)
-    }
+    checkNamedArgument(arg, name, callee, scope, ctx, out)
   }
-
-  // (4) VAR_IN_OUT writability (C0041): a VAR_IN_OUT parameter must receive a writable variable, not a
-  // literal/constant. Positional args bind by index (all-positional, complete chains only — a mixed or
-  // incomplete call can't align indices); named args bind by name. Only a PROVABLY constant argument
-  // (literal / CONSTANT var / enum value) fires — a member/index/deref lvalue is "unknown" and skips (zero-FP).
-  if (callee.complete && named.length === 0) {
-    positional.forEach((arg, i) => {
-      const param = callee.positional[i]
-      if (param?.inOut && arg.value !== undefined) inOutChecks(arg.value, param, callee.sym.name, scope, ctx, out)
-    })
-  }
-  for (const arg of named) {
-    if (arg.output || arg.value === undefined) continue
-    const lname = arg.param!.name.toLowerCase()
-    const param = callee.positional.find((p) => p.inOut && p.name.text.toLowerCase() === lname)
-    if (param !== undefined) inOutChecks(arg.value, param, callee.sym.name, scope, ctx, out)
-  }
-
-  // (4b) a FUNCTION's inputs WITHOUT a default are REQUIRED. Too-few is not diagnosed in general — an FB's inputs
-  // are retained between calls, so leaving one out is normal — but a function has no instance to retain anything,
-  // and CODESYS says so with the count as a RANGE when defaults exist: "requires at least '1' and maximum '2'
-  // inputs" (conformance `callshape_function_input_no_default`). The trigger is the missing REQUIRED input, not the
-  // count: that fixture passes one argument, which is inside the range, and is still an error because the one it
-  // passed is the defaulted one.
-  // …AND A METHOD'S, identically. This was gated to `function` and the METHOD form had never been asked on its
-  // own; `callshape_method_input_no_default` asks it and both vendors answer with the FUNCTION message, naming the
-  // method: "Function 'Blend' requires at least '1' and maximum '2' inputs" on CODESYS, "exactly '2'" on TwinCAT.
-  // …AND AN INTERFACE METHOD'S through a reference (`calls_inout_unbound_interface_method`, gate 3.7+3.9).
-  const mixed = positional.length > 0 && named.length > 0
-  if (callee.complete && !overCount && !namedUnknown && countsInOuts(callee)) {
-    const bound = new Set<string>(named.map((a) => a.param!.name.toLowerCase()))
-    positional.forEach((_, i) => {
-      const p = callee.positional[i]
-      if (p !== undefined) bound.add(p.name.text.toLowerCase())
-    })
-    // A DEFAULT DOES NOT MAKE AN INPUT OPTIONAL ON TWINCAT — the question the wording note below called "a
-    // different question and not measured". `callshape_input_left_out` measures it: leaving out the DEFAULTED
-    // input alone is silent on CODESYS and "requires exactly '2' inputs" there, for a METHOD and a FUNCTION both.
-    // …and on CODESYS a default that is a VARIABLE is none: "Default value is not constant", and the input is required
-    // (`callarg_no_argument_variable_default`, CODESYS 2026-10-06)
-    // …read in the CALLEE's own scope, where its VAR CONSTANT shadows a global VARIABLE of the name
-    // (`calls_default_local_constant_shadows_global` builds, CODESYS gate 3.7+3.9); a callee with no scope of its own (a
-    // library's) has its defaults unjudged, as they were before 3.8
-    const ownScope = callee.scope ?? scopeForUnit(ctx.project, callee.sym.ast as TopLevel)
-    const variableDefault = (p: CalleeInfo["params"][number]) =>
-      p.default !== undefined && p.default.kind !== "aggregate_init" && ownScope !== undefined && constancyOf(p.default, ownScope) === "variable"
-    const required = ctx.config.vendor === "twincat" ? callee.params : callee.params.filter((p) => !p.hasDefault || variableDefault(p))
-    // A FUNCTION'S OR METHOD'S IN-OUTS ARE COUNTED AMONG ITS INPUTS, whichever argument is missing: "Function 'F' requires
-    // exactly '2' inputs" for one input and one in-out, given the input alone or the in-out alone (`calls_inout_unbound_function`,
-    // `_method`, both vendors 2026-10-06; `calls_inout_given_input_missing`, gate 3.7+3.9), where an FB's says "VAR_IN_OUT
-    // 'io' must be assigned". An in-out left out of a MIXED positional+named call is the count too (`calls_inout_unbound_mixed`:
-    // "exactly '3'"); a mixed call's missing input alone is unasked and stays silent. With defaults beside an in-out the
-    // range is unasked: its bounds count the in-outs alike.
-    const inOuts = callee.positional.filter((p) => p.inOut)
-    const inOutLeftOut = inOuts.some((p) => !bound.has(p.name.text.toLowerCase()))
-    const inputLeftOut = !mixed && required.some((p) => !bound.has(p.name.text.toLowerCase()))
-    if (inputLeftOut || inOutLeftOut) {
-      const [min, max] = [required.length + inOuts.length, callee.params.length + inOuts.length]
-      out.push({
-        severity: "error",
-        span: callSpan,
-        source: SOURCE,
-        code: "function-argument-count",
-        // TWINCAT NEVER WORDS IT AS A RANGE: it says "requires exactly '2' inputs" where CODESYS says "at
-        // least '1' and maximum '2'", counting ALL the inputs either way (`callshape_function_input_no_default`
-        // and `callshape_input_left_out`, its recording 2026-09-20). Whether a default also stops being
-        // OPTIONAL there is a different question and not measured: this changes the wording, not the trigger.
-        message:
-          min === max || inOutLeftOut || ctx.config.vendor === "twincat"
-            ? ctx.messages.functionRequiresInputs(callee.sym.name, max)
-            : ctx.messages.functionRequiresInputRange(callee.sym.name, min, max),
-      })
-    }
-  }
-
-  // (5) missing VAR_IN_OUT (C0039): a VAR_IN_OUT has no storage, so it MUST be bound at every call. Compute
-  // which params the args cover — positional args cover `positional[i]` by index (all-positional only), named
-  // args cover by name — and flag any VAR_IN_OUT left uncovered. Complete chains only; a MIXED named+positional
-  // call can't map coverage unambiguously, so it skips (zero-FP).
-  // A FUNCTION's or METHOD's is its count, above. An FB's positional arguments bind nothing (`input-assignment-missing`), so
-  // they cover no VAR_IN_OUT either (`cg_fb_positional`, both vendors).
-  if (callee.complete && !countsInOuts(callee) && !(positional.length > 0 && named.length > 0)) {
-    const covered = new Set<string>()
-    if (!takesNoPositionalArguments(callee.sym)) positional.forEach((_, i) => {
-      const p = callee.positional[i]
-      if (p !== undefined) covered.add(p.name.text.toLowerCase())
-    })
-    for (const arg of named) covered.add(arg.param!.name.toLowerCase())
-    for (const p of callee.positional) {
-      if (p.inOut && !covered.has(p.name.text.toLowerCase()))
-        out.push({
-          severity: "error",
-          span: callSpan,
-          source: SOURCE,
-          code: "in-out-not-assigned",
-          message: ctx.messages.inOutMustBeAssigned(p.name.text, callee.sym.name),
-        })
-    }
-  }
+  return { overCount, namedUnknown }
 }
 
-/** Both VAR_IN_OUT operand rules for one bound argument: writability (C0041) and exact-type identity (C0201). */
-function inOutChecks(
-  value: Expr,
-  param: { name: { text: string }; type: Parameters<typeof resolveTypeExpr>[0]; constant: boolean },
-  callee: string,
-  scope: Scope,
-  ctx: CheckContext,
-  out: DiagnosticItem[],
-): void {
-  // VAR_IN_OUT CONSTANT (conformance `inout_const_*`): a STRING literal or STRING constant binds; an integer literal or
-  // constant does not, in the section's own wording. It was reported in the plain VAR_IN_OUT wording — a false positive on
-  // the STRING forms, the wrong message on the rest. Other types are not measured and stay silent (zero-FP).
-  // An EXPRESSION is not an lvalue at all, whatever the parameter's constancy: `F(value := plainVar + 1)` is
-  // "needs variable with write access as input" even for a VAR_IN_OUT CONSTANT, where a LITERAL gets that
-  // section's own wording instead (conformance `inout_const_expression_2` against `inout_const_*`).
-  // …nor is a CALL's result (`calls_inout_bound_to_call_result`) or a BIT access (`refuse_inout_bound_to_bit`, beside its
-  // type identity below) — both vendors 2026-10-06. A PROPERTY is CODESYS's own sentence, TwinCAT's this one
-  // (`calls_inout_bound_to_property`).
-  const property = resolveMemberChain(value, scope, ctx.project)?.kind === "property"
-  const propertyMessage = property ? ctx.messages.propertyBoundToInOut() : undefined
-  if (propertyMessage !== undefined) {
-    out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-needs-writable", message: propertyMessage })
-  } else if (value.kind === "binary" || value.kind === "unary" || value.kind === "paren" || value.kind === "call" || property || isBitAccess(value)) {
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-needs-writable",
-      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
-    })
-  } else if (param.constant) {
-    const argType = constancyOf(value, scope) === "constant" ? inferExprType(value, scope, ctx.project) : undefined
-    // an untyped integer literal infers no type (its width is its context's), so it is recognised by its kind
-    // …a VAR CONSTANT of an integer type on CODESYS only: TwinCAT refuses the literal and binds the constant
-    // (`inout_const_bound_forms_1`'s TwinCAT recording, read in analysis-conformance 3.8)
-    const integer =
-      (value.kind === "literal" && value.literalKind === "int") ||
-      (ctx.config.vendor === "codesys" && value.kind !== "literal" && argType?.kind === "elementary" && argType.elem.family === "int")
-    if (integer) out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-constant-needs-variable", message: ctx.messages.inOutConstantNeedsVariable(param.name.text, callee) })
-  } else if (constancyOf(value, scope) === "constant") {
-    // C0041 — a VAR_IN_OUT needs a writable variable, not a literal/constant.
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-needs-writable",
-      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
-    })
-  }
-  // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
-  // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
-  const pt = resolveTypeExpr(param.type, ctx.project, 0, ctx.project, ctx.uri)
-  // A BIT ACCESS BOUND BY REFERENCE IS A `BIT`, and the vendor names it: `k(io := w.3)` against a
-  // `VAR_IN_OUT io : BOOL` is "Type 'BIT' is not equal to type 'BOOL' of VAR_IN_OUT respectively REFERENCE 'io'"
-  // (`refuse_inout_bound_to_bit`, measured). A numeric member is always a bit access (`checks/types/bit-number.ts`).
-  //
-  // ONLY HERE, and that is not timidity. Inferring BIT for every bit access was tried and the corpus gate refused
-  // it on four real projects: a bit access is a perfectly good assignment TARGET and a perfectly good BOOL source,
-  // and typing it BIT made both of those errors. What is special about a VAR_IN_OUT is that it binds by REFERENCE,
-  // where no conversion is allowed and the storage's own type is what counts.
-  const at = isBitAccess(value) ? elementaryTypeRef(elementaryType("BIT")!) : argumentType(value, scope, ctx)
-  if (pt.kind === "elementary" && at.kind === "elementary" && !isSameType(pt, at)) {
-    out.push({
-      severity: "error",
-      span: value.span,
-      source: SOURCE,
-      code: "in-out-type-mismatch",
-      message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
-    })
-  } else if (!param.constant && value.kind === "ident_expr" && pt.kind === "elementary" && at.kind === "elementary" && pt.elem.family === "string") {
-    // A STRING bound to a VAR_IN_OUT that declares MORE units than the variable holds is "String variable 'v' too short for
-    // the VAR_IN_OUT parameter 'io' of 'F'" (`string_inout_narrower`, `wstring_inout_narrower`, both vendors 2026-10-11;
-    // lsp-transpile-review-gaps 2.5). Bound wider it builds (`string_inout_wider_*`), and a VAR_IN_OUT CONSTANT bound
-    // narrower builds (`xo4_inout_constant_chain`). A capacity that does not fold is not judged.
-    const capacity = (t: typeof pt): number | undefined => (t.kind !== "elementary" || t.unfoldedLength === true ? undefined : (t.length ?? DEFAULT_STRING_LENGTH))
-    const [declared, held] = [capacity(pt), capacity(at)]
-    if (declared !== undefined && held !== undefined && held < declared)
-      out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-string-too-short", message: ctx.messages.stringTooShortForInOut(value.name, param.name.text, callee) })
-  }
-}
-
-/** `w.3` — a numeric member is always a bit access, never a field. */
-function isBitAccess(e: Expr): boolean {
-  return e.kind === "member" && /^\d+$/.test(e.member.name)
-}
-
-/**
- * The argument's type for the by-reference identity test. An untyped integer literal has no inferred type — its width
- * comes from its context — but a VAR_IN_OUT gives it none, so the compiler falls back to the literal's own NARROWEST
- * type and compares that: `F(value := 5)` where `value : INT` is "Type 'SINT' is not equal to type 'INT'"
- * (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`, `inout_const_bound_forms_1`,
- * `inout_const_fb_literal_6`). Without this the identity test skipped every literal.
- */
-function argumentType(value: Expr, scope: Scope, ctx: CheckContext): Type {
-  const inferred = inferExprType(value, scope, ctx.project)
-  if (inferred.kind !== "unknown") return inferred
-  if (value.kind !== "literal") return inferred
-  const narrowest = literalOwnType(value)
-  return narrowest === undefined ? inferred : elementaryTypeRef(narrowest)
-}
-
-/**
- * An output binding's target must be able to hold the output. Conservative in the same way `argTypeError` is: both
- * sides must be a checkable category, and it reuses the same wording and the same `isAssignable` engine, only with
- * source and destination the other way round. The conversion WARNING (`warn`) only on the routine path, where it is
- * measured (`tr_43_routine_output_word_to_int`); an FB's narrowing output binding has not been, and inventing one would be
- * a message the vendor may not print.
- */
-function outputTypeError(
-  outputType: Parameters<typeof resolveTypeExpr>[0],
-  target: Expr,
-  scope: Scope,
-  ctx: CheckContext,
-  out: DiagnosticItem[],
-  warn = false,
-): void {
-  const src = checkable(resolveTypeExpr(outputType, ctx.project, 0, ctx.project, ctx.uri))
-  if (src === undefined) return
-  const dst = checkableType(target, scope, ctx.project)
-  if (dst === undefined) return
-  if (isAssignable(dst, src)) {
-    const w = warn ? conversionWarning(dst, src, target, ctx.messages) : undefined
-    if (w !== undefined) out.push(w)
-    return
-  }
+/** A named argument the callee has no input (or, `=>`, no output) of. */
+function unknownNamedArgument(arg: CallArg, name: string, callee: CalleeInfo, ctx: CheckContext, out: DiagnosticItem[]): void {
+  // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
   out.push({
     severity: "error",
-    span: target.span,
+    span: arg.param!.span,
     source: SOURCE,
-    code: "call-argument-type",
-    message: ctx.messages.cannotConvert(renderType(src, { form: "compiler" }), renderType(dst, { form: "compiler" })),
+    code: arg.output ? "unknown-named-output" : "unknown-named-argument",
+    // UPPER-CASED, as every recorded message from a CALL site is: `'loc' is no input of
+    // 'FB_LANG_NAMED_ARG_HOLDER'` (`cc_named_arg_non_input`, `cc_vg_unknown_pin`, and the FUNCTION case in
+    // `network_unnamed_target_of_valued_call`). A member WRITE from outside keeps the declared case —
+    // `'iSecret' is no input of 'FB_LANG_hide_var'` — which is `external-write`'s `noInput`, not this. Same
+    // sentence, two sites, and the vendors case them differently; the network check already knew.
+    message: arg.output
+      ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
+      : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
   })
+  // …and a name the callee declares NOTHING of is then looked up as an ordinary identifier, and not found either:
+  // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" besides (`inh_interface_method_unknown_param`, both
+  // vendors 2026-10-02), as a network box's unknown pin is (`cc_vg_unknown_pin`); a member that is no input is not
+  // (`cc_named_arg_non_input`: `inst(loc := 5)` says only the first)
+  // …an output binding's name too (`calls_unknown_output_fb`, `_function`, `_method`, both vendors 2026-10-06)
+  if (!declaresAnything(callee, name))
+    out.push({
+      severity: "error",
+      span: arg.param!.span,
+      source: SOURCE,
+      code: "unresolved-identifier", // C0046's sentence, under C0046's code — not the C0037 of the one above
+      message: ctx.messages.undefinedIdentifier(arg.param!.name),
+    })
 }
 
-/** A literal argument, written plain or negated (`5`, `-1`, `TRUE`, `'abc'`, `INT#5`). */
-const isLiteralArgument = (e: Expr): boolean => e.kind === "literal" || (e.kind === "unary" && e.op === "-" && e.operand.kind === "literal")
+/** A named argument the callee knows: an input's value, or (`=>`) the target an output flows into, type-checked. */
+function checkNamedArgument(arg: CallArg, name: string, callee: CalleeInfo, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (arg.output) {
+    // `w(o => text)` — the OUTPUT flows INTO the target, so the direction is the reverse of an input's: the
+    // output's declared type is the source and the bound variable is the destination. CODESYS reports it as a
+    // plain conversion, "Cannot convert type 'INT' to type 'STRING'" (conformance
+    // `accepts_output_into_other_type`); the transpiler already refuses the same shape (`call-output-type`).
+    // A FUNCTION's or METHOD's output is read from its own sections — it has no member scope — and judged alike, with
+    // the conversion warning an assignment earns: a DINT output into an INT is "Cannot convert type 'DINT' to type
+    // 'INT'", a WORD one "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT'" (`tr_43_routine_output_*`,
+    // both vendors 2026-10-09; lsp-transpile-review-gaps 2.4). The FB path's warning is unmeasured.
+    if (callee.scope === undefined) {
+      const type = directOutputType(callee, name)
+      if (arg.value !== undefined && type !== undefined) outputTypeError(type, arg.value, scope, ctx, out, true)
+    } else {
+      const sym = lookupMember(callee.scope, name)
+      if (arg.value !== undefined && sym?.varSection === "VAR_OUTPUT" && sym.typeExpr !== undefined)
+        outputTypeError(sym.typeExpr, arg.value, scope, ctx, out)
+    }
+    return
+  }
+  if (arg.value !== undefined) {
+    const param = callee.params.find((p) => p.name.text.toLowerCase() === name)
+    if (param !== undefined) argTypeError(arg.value, param, callee.sym.name, scope, ctx, out)
+  }
+}
 
-/** Flag an argument whose checkable type is not assignment-compatible with its parameter's declared type. */
-function argTypeError(
-  value: Expr,
-  param: CalleeInfo["params"][number],
-  callee: string,
-  scope: Scope,
+/**
+ * (4b) a FUNCTION's inputs WITHOUT a default are REQUIRED. Too-few is not diagnosed in general — an FB's inputs
+ * are retained between calls, so leaving one out is normal — but a function has no instance to retain anything,
+ * and CODESYS says so with the count as a RANGE when defaults exist: "requires at least '1' and maximum '2'
+ * inputs" (conformance `callshape_function_input_no_default`). The trigger is the missing REQUIRED input, not the
+ * count: that fixture passes one argument, which is inside the range, and is still an error because the one it
+ * passed is the defaulted one.
+ * …AND A METHOD'S, identically. This was gated to `function` and the METHOD form had never been asked on its
+ * own; `callshape_method_input_no_default` asks it and both vendors answer with the FUNCTION message, naming the
+ * method: "Function 'Blend' requires at least '1' and maximum '2' inputs" on CODESYS, "exactly '2'" on TwinCAT.
+ * …AND AN INTERFACE METHOD'S through a reference (`calls_inout_unbound_interface_method`, gate 3.7+3.9).
+ */
+function checkRequiredInputs(
+  callSpan: Span,
+  positional: readonly CallArg[],
+  named: readonly CallArg[],
+  callee: CalleeInfo,
   ctx: CheckContext,
   out: DiagnosticItem[],
 ): void {
-  const paramType = param.type
-  // A GENERIC PARAMETER (rule TY14): ANY and the ANY_* groups take an argument by its family, and refuse one outside it
-  // in the group's own name — "Cannot convert type 'STRING' to type 'ANY_NUM'"; and they take a VARIABLE — a literal is
-  // "ANY parameter 'x' of 'F' needs variable with write access as input" (`ty_any_*`, `lt_literal_any_int_argument`, both
-  // vendors 2026-10-03). Its type resolves to nothing, so the elementary check below never reached it.
-  // Only those two shapes are measured: a VARIABLE (`ty_any_*`) and an untyped integer literal into ANY_INT
-  // (`lt_literal_any_int_argument`). Any other literal into a generic input — 5 into ANY_STRING, TRUE into ANY_BIT,
-  // 'abc', 1.5 — is unrecorded and stays silent (step 4a review).
-  if (paramType.kind === "named_type" && paramType.qualifiers === undefined && GENERIC_PARAMETER_TYPES.has(paramType.name.text.toUpperCase())) {
-    const group = paramType.name.text
-    if (isLiteralArgument(value)) {
-      if (isIntLiteral(value) && group.toUpperCase() === "ANY_INT")
-        out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-needs-writable", message: ctx.messages.anyNeedsWritable(param.name.text, callee) })
-      return
-    }
-    const argType = checkableType(value, scope, ctx.project)
-    if (argType !== undefined && genericParameterAccepts(group, argType, ctx.project.dialect) === false) {
-      out.push({
-        severity: "error",
-        span: value.span,
-        source: SOURCE,
-        code: "call-argument-type",
-        message: ctx.messages.cannotConvert(renderType(argType, { form: "compiler" }), group.toUpperCase()),
-      })
-      return
-    }
-  }
-  const target = checkable(resolveTypeExpr(paramType, ctx.project, 0, ctx.project, ctx.uri))
-  if (target === undefined) return
-  // An argument into a `{attribute 'strict'}` enum input is unmeasured: P14 was recorded on stores only, where the vendor
-  // refuses any value but the enum's own by its text, never with a conversion warning — so the plain-enum rules
-  // (another enum's value WARNS, a scalar converts as the base) would put words in its mouth here. Missing, never wrong.
-  if (isStrictEnum(target, ctx.project)) return
-  const arg = checkableType(value, scope, ctx.project)
-  if (arg === undefined) return
-  if (isAssignable(target, arg)) {
-    // ASSIGNABLE IS NOT THE SAME AS CLEAN. A narrowing (`LREAL`→`REAL`) and a sign crossing (`INT`→`UINT`) are
-    // both assignable, so this returned early and a call site never produced the warning an identical plain
-    // assignment does — measured on the lenze-mid corpus, where the build's one "change of sign" warning had no
-    // counterpart from us. Same relation, same wording, same codes: `narrowing.ts` owns the mapping.
-    // …ON CODESYS. TwinCAT warns about a sign crossing in every ASSIGNMENT and in none of these: six cells,
-    // two different sources and five target types — `cc_enum_arg_into_{uint,udint,word,dword}` (an enum into
-    // an unsigned input) and `atomic_xadd_{dword,lword}` (a DINT into one) — all silent there while CODESYS
-    // warns, with its recording of the same fixtures to compare against (2026-09-20). A NARROWING at an
-    // argument is not covered by that measurement and keeps firing for both.
-    const warning = conversionWarning(target, arg, value, ctx.messages)
-    if (warning !== undefined && !(ctx.config.vendor === "twincat" && warning.code === "sign-change-conversion"))
-      out.push(warning)
-    return
-  }
+  const mixed = positional.length > 0 && named.length > 0
+  const bound = new Set<string>(named.map((a) => a.param!.name.toLowerCase()))
+  positional.forEach((_, i) => {
+    const p = callee.positional[i]
+    if (p !== undefined) bound.add(p.name.text.toLowerCase())
+  })
+  // A DEFAULT DOES NOT MAKE AN INPUT OPTIONAL ON TWINCAT — the question the wording note below called "a
+  // different question and not measured". `callshape_input_left_out` measures it: leaving out the DEFAULTED
+  // input alone is silent on CODESYS and "requires exactly '2' inputs" there, for a METHOD and a FUNCTION both.
+  // …and on CODESYS a default that is a VARIABLE is none: "Default value is not constant", and the input is required
+  // (`callarg_no_argument_variable_default`, CODESYS 2026-10-06)
+  // …read in the CALLEE's own scope, where its VAR CONSTANT shadows a global VARIABLE of the name
+  // (`calls_default_local_constant_shadows_global` builds, CODESYS gate 3.7+3.9); a callee with no scope of its own (a
+  // library's) has its defaults unjudged, as they were before 3.8
+  const ownScope = callee.scope ?? scopeForUnit(ctx.project, callee.sym.ast as TopLevel)
+  const variableDefault = (p: CalleeInfo["params"][number]) =>
+    p.default !== undefined && p.default.kind !== "aggregate_init" && ownScope !== undefined && constancyOf(p.default, ownScope) === "variable"
+  const required = ctx.config.vendor === "twincat" ? callee.params : callee.params.filter((p) => !p.hasDefault || variableDefault(p))
+  // A FUNCTION'S OR METHOD'S IN-OUTS ARE COUNTED AMONG ITS INPUTS, whichever argument is missing: "Function 'F' requires
+  // exactly '2' inputs" for one input and one in-out, given the input alone or the in-out alone (`calls_inout_unbound_function`,
+  // `_method`, both vendors 2026-10-06; `calls_inout_given_input_missing`, gate 3.7+3.9), where an FB's says "VAR_IN_OUT
+  // 'io' must be assigned". An in-out left out of a MIXED positional+named call is the count too (`calls_inout_unbound_mixed`:
+  // "exactly '3'"); a mixed call's missing input alone is unasked and stays silent. With defaults beside an in-out the
+  // range is unasked: its bounds count the in-outs alike.
+  const inOuts = callee.positional.filter((p) => p.inOut)
+  const inOutLeftOut = inOuts.some((p) => !bound.has(p.name.text.toLowerCase()))
+  const inputLeftOut = !mixed && required.some((p) => !bound.has(p.name.text.toLowerCase()))
+  if (!inputLeftOut && !inOutLeftOut) return
+  const [min, max] = [required.length + inOuts.length, callee.params.length + inOuts.length]
   out.push({
     severity: "error",
-    span: value.span,
+    span: callSpan,
     source: SOURCE,
-    code: "call-argument-type",
-    message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
+    code: "function-argument-count",
+    // TWINCAT NEVER WORDS IT AS A RANGE: it says "requires exactly '2' inputs" where CODESYS says "at
+    // least '1' and maximum '2'", counting ALL the inputs either way (`callshape_function_input_no_default`
+    // and `callshape_input_left_out`, its recording 2026-09-20). Whether a default also stops being
+    // OPTIONAL there is a different question and not measured: this changes the wording, not the trigger.
+    message:
+      min === max || inOutLeftOut || ctx.config.vendor === "twincat"
+        ? ctx.messages.functionRequiresInputs(callee.sym.name, max)
+        : ctx.messages.functionRequiresInputRange(callee.sym.name, min, max),
   })
 }
 
@@ -524,12 +333,6 @@ function argTypeError(
 function inputSection(callee: CalleeInfo, name: string): boolean {
   if (callee.scope !== undefined) return lookupMember(callee.scope, name)?.varSection === "VAR_INPUT"
   return callee.params.some((p) => p.name.text.toLowerCase() === name)
-}
-
-/** A callee whose in-outs are counted among its inputs — a FUNCTION, a METHOD, an INTERFACE method (section 4b) — where an
- *  FB's missing in-out is its own sentence (section 5). */
-function countsInOuts(callee: CalleeInfo): boolean {
-  return callee.sym.kind === "function" || callee.sym.kind === "method" || callee.sym.kind === "interface_method"
 }
 
 /** A direct callable's (a FUNCTION's, a METHOD's) VAR_OUTPUT `name`'s declared type, from its own sections. */

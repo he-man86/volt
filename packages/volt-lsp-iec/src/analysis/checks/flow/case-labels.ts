@@ -101,6 +101,13 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
     }
   }
 
+  labelOverlaps(points, ranges, ctx, out)
+}
+
+/** C0217 a single label inside a range, C0219 two ranges overlapping. */
+function labelOverlaps(points: readonly Point[], ranges: readonly Range[], ctx: CheckContext, out: DiagnosticItem[]): void {
+  const push = (code: string, span: Span, message: string) =>
+    out.push({ severity: "error", span, source: SOURCE, code, message })
   // C0217 — a single label contained in a range.
   for (const p of points)
     for (const r of ranges)

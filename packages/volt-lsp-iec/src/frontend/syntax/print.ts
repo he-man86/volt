@@ -4,8 +4,8 @@
  * (`compilerTypeText`). They lived in `types/render.ts`, though they read only the AST — `types/renderType`, which prints
  * a RESOLVED type, stays there (consolidate-lsp-structure C4).
  */
-import type { CallArg, Expr, StringType, TypeExpr, VarDecl } from "./ast/nodes.js"
-import { BINARY_PRECEDENCE } from "./parse/expression.js"
+import type { CallArg, Expr, StringType, TypeExpr, VarDecl } from "./ast/nodes/index.js"
+import { BINARY_PRECEDENCE } from "./parse/precedence.js"
 
 /**
  * The operator written before a declaration's initializer, with the space after it: `:= `, `REF= `, or nothing for an

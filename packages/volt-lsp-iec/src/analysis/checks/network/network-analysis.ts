@@ -44,7 +44,7 @@ import { compilerExprText } from "../../shared/expr-echo.js"
 import { isHole, reported } from "../../shared/hole.js"
 import { assignmentPairError, binaryOpError, conversionArgError, narrowingPairError } from "../../shared/rules.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../shared/resolution.js"
-import type { Messages } from "../../messages.js"
+import type { Messages } from "../../messages/index.js"
 
 /** What the network pass reads of a document: its uri and its parse. */
 export interface NetworkTextDocument {

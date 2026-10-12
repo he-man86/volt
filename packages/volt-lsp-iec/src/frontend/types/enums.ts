@@ -9,7 +9,7 @@ import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef, type ElementaryTypeRef, type Type } from "./type.js"
 
 /** How an enumerator's written value (`Running := 3`) is folded — a bigint, or undefined when it does not fold. */
-export type EnumeratorValue = (e: Expr) => bigint | undefined
+type EnumeratorValue = (e: Expr) => bigint | undefined
 
 /**
  * The base type a PROJECT enum converts as, both ways: the base written after its list (`(Off, On) BYTE`), else INT
@@ -87,7 +87,7 @@ export function inlineEnumDefault(
 
 /** An enumerator's numbering (`numberEnumerators`): each member's value by its upper-cased name, and the member whose
  *  written value did not fold, which ended it. */
-export interface EnumeratorNumbering {
+interface EnumeratorNumbering {
   readonly values: ReadonlyMap<string, bigint>
   /** the source name of the member whose written value does not fold — neither it nor any member after it is numbered */
   readonly unfolded?: string

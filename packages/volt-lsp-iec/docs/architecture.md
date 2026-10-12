@@ -55,6 +55,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     library/  the Volt library format: path layout, manifest, materialization (a leaf that imports nothing)
     syntax/  A — ST text to a tree: vocabulary, lexer, AST, parser, literals, pragmas, the workspace file format
       ast/  the AST node types, their walks, and questions about declarations answered from the tree alone
+        nodes/  the AST node types, one file per family: expressions, statements, types, declarations, units
       format/  the Volt workspace file format: the IMPLEMENTATION line, folders, which reader reads a body
       lex/  the vocabulary, the token kinds and the hand-written ST lexer
       literal/  literal values: numbers, strings, durations, calendar values, direct addresses
@@ -79,6 +80,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
       pragmas/  pragma and attribute diagnostics
       syntax/  every parse error the parser recorded
       types/  type checks: assignments, conversions, operators, bounds, overflow
+    messages/  every message text, one slice per check group, one template per message for both vendors
     pipeline/  the registry, its run order and the context a check is handed
     reachability/  which units and members are dead — the server suppresses diagnostics on them
     shared/  rules more than one check applies, and the diagnostic item
@@ -91,6 +93,7 @@ src/  the product code, one folder per layer; imports point down the stack (scri
     structure/  document and workspace symbols, folding, selection, semantic tokens
   workspace/  the WorkspaceStore (documents and the incremental index), the workspace scan, the writable-source extension set, the binding's vendor
   server/  G — LSP 3.17 over stdio, push+pull diagnostics, the process environment (config.ts), the vendor (vendor.ts), and the CLI entry bin.ts
+    handlers/  one file per request group, registered over the one ServerState (state.ts): lifecycle, documents, diagnostics, navigation, assist, structure, formatting
   transpile/  the Rust backend — it consumes the front-end only
     emit/  the printers of the IR
       rust/  IR to Rust text and its source map
@@ -187,9 +190,10 @@ Every move inside `frontend/` was proved output-neutral by snapshot F (`scripts/
 against its parent commit).
 
 ### A — `frontend/syntax/`
-Text to a tree, and nothing about meaning. `lex/` — the token model, the vocabulary (`vocabulary.ts`: every keyword, the
-named keyword subsets the parser asks about, the dialect's differences, the literal prefixes, the punctuation) and the
-lexer (error-tolerant, trivia-preserving). `ast/` — the **complete AST** (`nodes.ts`: declarations · type expressions
+Text to a tree, and nothing about meaning. `lex/` — the token model, the vocabulary (`vocabulary.ts`: every keyword and the
+dialect's differences; `word-sets.ts`: the named keyword subsets the parser asks about; `prefixes.ts`: the literal
+prefixes and the punctuation) and the lexer (error-tolerant, trivia-preserving; `lexer.ts` the loop, one scanner per
+token class). `ast/` — the **complete AST** (`nodes/`, one file per family: declarations · type expressions
 with structured dims/length/subrange/vector · statements · expressions · literals carrying their value), its walks
 (`walk.ts`, `allUnits` the one namespace flattener) and declaration queries. `parse/` — the parser: the cursor, the
 messages (`errors.ts`), names, the balanced-token scanner, declarations, initializers, expressions, statements, type

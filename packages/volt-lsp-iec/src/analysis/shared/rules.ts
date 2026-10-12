@@ -8,7 +8,7 @@ import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryEx
 import { targetOf, type Scope } from "../../frontend/symbols/index.js"
 import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, REAL_LITERAL_TYPE, renderType, type Type, UNKNOWN, unparenthesised, untypedNumberValue } from "../../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
-import { compilerStringLiteralText, type Messages } from "../messages.js"
+import { compilerStringLiteralText, type Messages } from "../messages/index.js"
 
 // ─── checkable types ─────────────────────────────────────────────────────────
 

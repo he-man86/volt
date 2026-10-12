@@ -5,7 +5,7 @@
  * methods of their own. The optional return-type clause uses the
  * same TypeExpr grammar as VAR declarations.
  */
-import type { Function as FunctionAST, Identifier } from "../../ast/nodes.js"
+import type { Function as FunctionAST, Identifier } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import { collectBodyUntil } from "../body.js"
 import { joinSpans } from "../../span.js"

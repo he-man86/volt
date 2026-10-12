@@ -9,10 +9,10 @@
  * name was due there (`unit_method_final_private_order`, `unit_method_two_access`, 2026-10-01). A repeated modifier
  * is no error (`METHOD FINAL FINAL`, `unit_method_modifier_twice`).
  */
-import type { Method } from "../../ast/nodes.js"
+import type { Method } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import { collectBodyUntil } from "../body.js"
-import { MEMBER_MODIFIERS, SOFT_NAME_KEYWORDS } from "../../lex/vocabulary.js"
+import { MEMBER_MODIFIERS, SOFT_NAME_KEYWORDS } from "../../lex/word-sets.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readModifiers, refusedAccessModifier } from "../names.js"
 import { collectVarSections } from "../declarations.js"

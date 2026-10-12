@@ -73,8 +73,11 @@ export function storageOf(lw: Lowering, t: Type, at: Span): Type {
   return { ...t, name }
 }
 
+/** The symbol a laid-out type is declared by, when lowering found one. */
+type LayoutSymbol = ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never
+
 /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
-export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never, where: Span): void {
+export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: LayoutSymbol, where: Span): void {
   const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
   nested.selfType = t
   nested.codeOwner = t.scope
@@ -82,28 +85,7 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   // its body's VAR_TEMP are the run's locals, keyed as a routine's are (a pointer's key, an instance handle's context)
   nested.routineContext = routineContext(nested.frameContext)
   const statics: { name: string; global: number }[] = []
-  const base = (name: string | undefined): void => {
-    if (name === undefined) return
-    const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where)
-    const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
-    // A base the binder linked to an FB or a STRUCT, not on its way back to the type, whose own declaration did not lay
-    // out — or a library FB lowering resolves no type for (`unit_fb_extends_qualified`: CODESYS builds it) — is
-    // `layout-base`, valid ST not built. One no declaration resolves, an interface, or an EXTENDS that comes back to the
-    // type is `base-unresolved`, which both vendors refuse (`inh_unresolved_base`, `oopa_extends_interface`,
-    // `inh_extends_cycle`; openspec transpile-refusal-classification 2.1).
-    if (layout === undefined) {
-      const resolved = baseType.kind === "struct" || baseType.kind === "function_block"
-      const linked = resolved
-        ? !buildingOf(lw).has(baseType.name.toUpperCase())
-        : baseType.kind === "unknown" && (t.scope?.baseScope?.kind === "pou" || t.scope?.baseScope?.kind === "struct")
-      return void lw.bail(linked ? "layout-base" : "base-unresolved", `the base type ${name} of ${t.name} has no layout`, where)
-    }
-    nested.inherit(layout.fields)
-    for (const shared of layout.statics ?? []) {
-      nested.statics.set(shared.name.toUpperCase(), shared.global)
-      statics.push(shared)
-    }
-  }
+  const base = (name: string | undefined): void => inheritBase(lw, nested, t, sym, where, statics, name)
   const ast = sym?.ast
   if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "struct") {
     base(ast.body.extends?.text)
@@ -158,6 +140,38 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     const before = nested.diagnostics.length
     buildInitSequence(nested)
     drain(lw, nested, before)
+  }
+}
+
+/** The base type `name`'s fields (and its shared statics) into `nested`, laid out first — or the refusal of a base with no layout. */
+function inheritBase(
+  lw: Lowering,
+  nested: Lowering,
+  t: Extract<Type, { kind: "struct" | "function_block" }>,
+  sym: LayoutSymbol,
+  where: Span,
+  statics: { name: string; global: number }[],
+  name: string | undefined,
+): void {
+  if (name === undefined) return
+  const baseType = storageOf(lw, resolveNamedType(name, lw.project, sym?.uri), where)
+  const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
+  // A base the binder linked to an FB or a STRUCT, not on its way back to the type, whose own declaration did not lay
+  // out — or a library FB lowering resolves no type for (`unit_fb_extends_qualified`: CODESYS builds it) — is
+  // `layout-base`, valid ST not built. One no declaration resolves, an interface, or an EXTENDS that comes back to the
+  // type is `base-unresolved`, which both vendors refuse (`inh_unresolved_base`, `oopa_extends_interface`,
+  // `inh_extends_cycle`; openspec transpile-refusal-classification 2.1).
+  if (layout === undefined) {
+    const resolved = baseType.kind === "struct" || baseType.kind === "function_block"
+    const linked = resolved
+      ? !buildingOf(lw).has(baseType.name.toUpperCase())
+      : baseType.kind === "unknown" && (t.scope?.baseScope?.kind === "pou" || t.scope?.baseScope?.kind === "struct")
+    return void lw.bail(linked ? "layout-base" : "base-unresolved", `the base type ${name} of ${t.name} has no layout`, where)
+  }
+  nested.inherit(layout.fields)
+  for (const shared of layout.statics ?? []) {
+    nested.statics.set(shared.name.toUpperCase(), shared.global)
+    statics.push(shared)
   }
 }
 

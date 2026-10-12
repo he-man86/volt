@@ -11,7 +11,7 @@
  * fills to the size it is given — and this pins the same answers offline.
  */
 import { describe, expect, test } from "bun:test"
-import { buildRust } from "../conformance/support/rustc-cache.js"
+import { buildRust } from "../conformance/support/rustc-cache-build.js"
 import { readdirSync, readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"

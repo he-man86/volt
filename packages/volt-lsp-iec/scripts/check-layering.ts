@@ -72,7 +72,7 @@ const FRONTEND_MAY_IMPORT: Record<string, readonly string[]> = {
 const SYNTAX_FOLDERS: Record<string, (target: string) => boolean> = {
   lex: (t) => t === "span.ts" || t.startsWith("lex/"),
   ast: (t) => t === "span.ts" || t.startsWith("lex/") || t.startsWith("ast/"),
-  literal: (t) => t.startsWith("ast/") || t === "lex/vocabulary.ts" || t.startsWith("literal/"),
+  literal: (t) => t.startsWith("ast/") || t === "lex/vocabulary.ts" || t === "lex/prefixes.ts" || t.startsWith("literal/"),
   format: (t) => t === "span.ts" || t.startsWith("lex/") || t.startsWith("ast/") || t.startsWith("format/"),
   pragmas: (t) => t === "span.ts" || t.startsWith("lex/") || t.startsWith("ast/") || t.startsWith("pragmas/"),
   parse: (t) => t !== "print.ts",
@@ -436,7 +436,8 @@ export function importGraph(pkg: string = PACKAGE): Map<string, Set<string>> {
  *   (A1, analysis reaching the reference catalog only through its index, went with the catalog — lsp-same-standard 2.2:
  *       the attribute names are the front-end's, reached through `syntax/index.js` like any front-end fact, F2's;)
  *   A2  outside `src/analysis/`, the only analysis file anyone imports is `analysis/index.js`;
- *   A3  a check imports no other check and never `pipeline/registry` or `pipeline/diagnostics`; a colocated test imports
+ *   A3  a check imports no other check — but its own group's `_` helper (rule 2's exception) — and never `pipeline/registry`
+ *       or `pipeline/diagnostics`; a colocated test imports
  *       only its own subject in `checks/` (the pipeline through `analysis/index.js`);
  *   A4  nothing in analysis but the registry and the pipeline imports a check (`shared/`, `messages`, `config`,
  *       `pipeline/context` and the rest);
@@ -474,7 +475,9 @@ function analysisViolations(pkg: string): string[] {
         }
         if (fromCheck && (toCheck || toPipelineRun)) {
           const subject = relFrom.replace(/\.test\.ts$/, ".ts")
-          if (!isTest && toCheck && relTo !== relFrom) out.push(`A3 ${relFrom} → ${relTo}: a check imports no other check`)
+          // …but its OWN group's `_` helper, rule 2's exception: one check's concerns cut into files (lsp-same-standard 4.2)
+          const ownHelper = isHelper(relTo) && checkGroup(relTo) === checkGroup(relFrom)
+          if (!isTest && toCheck && relTo !== relFrom && !ownHelper) out.push(`A3 ${relFrom} → ${relTo}: a check imports no other check`)
           else if (isTest && toCheck && relTo !== subject)
             out.push(`A3 ${relFrom} → ${relTo}: a check's test imports only its own subject in checks/`)
           else if (toPipelineRun)

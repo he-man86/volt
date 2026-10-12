@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../parser.js"
-import type { Property } from "../../ast/nodes.js"
+import type { Property } from "../../ast/nodes/index.js"
 
 const property = (header: string) => {
   const r = parseSource(`FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n\n${header}\nGET\nP := 6;\nEND_GET\nEND_PROPERTY\n`, {

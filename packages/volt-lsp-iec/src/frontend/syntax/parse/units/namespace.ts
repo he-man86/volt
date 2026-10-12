@@ -24,7 +24,7 @@
  *     CODESYS declares nothing. Not binding it would not give the diagnostic either: no qualified type name is checked
  *     for being unknown.
  */
-import type { Namespace, TopLevel } from "../../ast/nodes.js"
+import type { Namespace, TopLevel } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import { joinSpans, type Span } from "../../span.js"
 import { vendorTokenText } from "../errors.js"

@@ -126,6 +126,21 @@ test("A3: a check importing another check or the registry, and a check's test im
   )
 })
 
+test("A3: a check may import its OWN group's `_` helper (rule 2's exception), never another group's — and a helper imports no check", () => {
+  const found = scan({
+    ...CHECK,
+    "src/analysis/checks/flow/b.ts": `import { h } from "./_h.js"\nimport { k } from "../types/_k.js"\n`,
+    "src/analysis/checks/flow/_h.ts": `import { b } from "./b.js"\nexport const h = 1\n`,
+    "src/analysis/checks/types/_k.ts": `export const k = 1\n`,
+  }).filter((v) => v.startsWith("A3 "))
+  expect(found.sort()).toEqual(
+    [
+      "A3 analysis/checks/flow/_h.ts → analysis/checks/flow/b.ts: a check imports no other check",
+      "A3 analysis/checks/flow/b.ts → analysis/checks/types/_k.ts: a check imports no other check",
+    ].sort(),
+  )
+})
+
 test("A4: a shared module importing a check is named; the registry importing one is not", () => {
   const found = analysisRules({
     ...CHECK,

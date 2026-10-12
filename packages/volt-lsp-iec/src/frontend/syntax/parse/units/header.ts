@@ -2,7 +2,7 @@
  * WHAT A UNIT'S HEADER HOLDS AFTER ITS NAME — the clauses more than one unit kind reads the same way: a return type,
  * and an IMPLEMENTS list (names through `names.ts`).
  */
-import type { Identifier, NamedType, TypeExpr } from "../../ast/nodes.js"
+import type { Identifier, NamedType, TypeExpr } from "../../ast/nodes/index.js"
 import type { Keyword } from "../../lex/vocabulary.js"
 import type { Span } from "../../span.js"
 import type { Cursor } from "../cursor.js"
@@ -11,7 +11,7 @@ import { vendorTokenText } from "../errors.js"
 import { parseTypeExpression } from "../type-expr.js"
 
 /** A header's return-type clause, as the unit node spreads it: the type, or that one was written and refused, or neither. */
-export type ReturnTypeClause = { returnType: TypeExpr } | { returnTypeRefused: true } | Record<string, never>
+type ReturnTypeClause = { returnType: TypeExpr } | { returnTypeRefused: true } | Record<string, never>
 
 /** A `: ReturnType` at the cursor, or nothing when no `:` stands there. */
 export function parseReturnTypeClause(c: Cursor): ReturnTypeClause {

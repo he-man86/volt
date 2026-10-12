@@ -159,7 +159,7 @@ export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   return scanWorkspace(root).refs
 }
 
-export interface WorkspaceScan {
+interface WorkspaceScan {
   refs: WorkspaceRefs
   taskRoots: Set<string>
   sources: { path: string; source: string }[]

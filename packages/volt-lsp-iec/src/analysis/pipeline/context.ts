@@ -5,7 +5,7 @@
 import type { ParseResult, Token } from "../../frontend/syntax/index.js"
 import type { Scope } from "../../frontend/symbols/index.js"
 import type { ResolvedConfig } from "../config.js"
-import type { Messages } from "../messages.js"
+import type { Messages } from "../messages/index.js"
 import type { DiagnosticItem } from "../shared/diagnostic-item.js"
 
 /** Everything any check might need; a check reads only what it uses. */

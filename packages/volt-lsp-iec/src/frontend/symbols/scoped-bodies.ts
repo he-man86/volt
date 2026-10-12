@@ -33,7 +33,7 @@ import {
   type StatementList,
   type TopLevel,
 } from "../syntax/index.js"
-import { scopeForUnit } from "./scope-nav.js"
+import { scopeForUnit } from "./name-index.js"
 import { conditionWorld } from "./condition-world.js"
 import type { Scope } from "./model.js"
 

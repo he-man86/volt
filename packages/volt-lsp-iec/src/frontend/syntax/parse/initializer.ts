@@ -2,14 +2,14 @@
  * INITIALIZERS — the right-hand side of a declaration's `:=`: a clean scalar expression stays an `Expr`; anything else
  * (a struct, FB or array aggregate) becomes an `AggregateInit` whose elements are parsed structurally, error-tolerant.
  */
-import { REFUSED_PLACEHOLDER, type AggregateElement, type AggregateForm, type AggregateInit, type Initializer, type RefusedInit } from "../ast/nodes.js"
+import { REFUSED_PLACEHOLDER, type AggregateElement, type AggregateForm, type AggregateInit, type Initializer, type RefusedInit } from "../ast/nodes/index.js"
 import type { Token } from "../lex/tokens.js"
 import { eofSpan, joinSpans, zeroSpan } from "../span.js"
 import { Cursor } from "./cursor.js"
 import { parseExpression, parseExprFromTokens } from "./expression.js"
-import { expectedInsteadOf, vendorExpressionExpected } from "./errors.js"
+import { expectedInsteadOf, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { collectUntilTopLevel } from "./scan.js"
-import { isRefusedWord } from "../lex/vocabulary.js"
+import { isRefusedWord } from "../lex/word-sets.js"
 
 /**
  * Collect an initializer's RHS tokens, depth-aware over `()`/`[]`, up to a top-level
@@ -88,7 +88,7 @@ const PLATFORM_CONVERSION = /^__U?X(?:INT|WORD)_TO_/i
  * then is `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)`, which the LSP does not build (a known divergence): no value is kept.
  * Undefined unless the initializer's expression parse stops exactly there; a `STRUCT(…)` is an aggregate, not asked.
  */
-export function refuseOperatorTrailingComma(cur: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
+function refuseOperatorTrailingComma(cur: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
   if (tokens.length === 0 || tokens.some((t) => t.kind === "keyword" && t.keyword === "STRUCT")) return undefined
   const last = tokens[tokens.length - 1]!
   const sub = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }])
@@ -227,4 +227,131 @@ function isBalancedAggregate(g: Token[]): boolean {
     }
   }
   return false
+}
+
+/**
+ * The first token after a COMPLETE scalar initializer, or undefined. `x : INT := 5 abc;` does not compile —
+ * "';' expected instead of 'abc'" (conformance `cc_decl_init_trailing_ident`, `_int`, `decl_struct_field_stray_token`) —
+ * but the initializer's tokens were collected up to the `;` and anything that did not parse became an opaque aggregate,
+ * silently (gap 12). An aggregate shape (`(`, `[`, `STRUCT`) is the aggregate parser's; a malformed literal is
+ * `refuseMalformedInit`'s, asked first.
+ * ponytail: tries each prefix, longest first — quadratic in the initializer's token count, which is a handful.
+ */
+function strayAfterScalarInit(tokens: readonly Token[]): Token | undefined {
+  const first = tokens[0]
+  if (first === undefined || ["(", "[", "STRUCT"].includes(first.text.toUpperCase())) return undefined
+  if (parseExprFromTokens(tokens) !== undefined) return undefined
+  for (let k = tokens.length - 1; k >= 1; k--) {
+    if (parseExprFromTokens(tokens.slice(0, k)) === undefined) continue
+    return tokens[k]!
+  }
+  return undefined
+}
+
+/**
+ * A declaration's initializer, if one follows its type. Two forms:
+ *   - `:= <expr>` / `REF= <target>` — a scalar, a struct `( f := v, … )`, an array literal;
+ *   - `[ (…), (…) ]` with no `:=` — an ARRAY OF a function block, element by element (`decl_bracket_init_no_assign_fb`).
+ * A clean scalar init becomes an `Expr`; an aggregate stays an `AggregateInit`. WHICH operator it was is kept: a
+ * REFERENCE binds its target with `REF=`, and dropping the operator made that declaration indistinguishable from an
+ * assignment to whatever the reference points at.
+ */
+export function parseInitializer(c: Cursor): { init?: Initializer; initOp?: "REF=" | "FB_Init"; refusedInit?: RefusedInit } {
+  if (c.peek().kind === "punct" && c.peek().text === "[") {
+    const tokens = collectInitTokens(c)
+    const refused = refuseBracketElement(c, tokens)
+    if (refused !== undefined) return { refusedInit: refused }
+    const init = initializerFromTokens(tokens)
+    return init === undefined ? {} : { init, initOp: "FB_Init" }
+  }
+  const assign = c.eatPunct(":=") ?? c.eatPunct("REF=")
+  if (assign === undefined) return {}
+  const initOp = assign.text === "REF=" ? ("REF=" as const) : undefined
+  const op = initOp !== undefined ? { initOp } : {}
+  const tokens = collectInitTokens(c)
+  // `v : INT := ;` — "Expression expected instead of ';'", and the value is the compiler's placeholder (`decl_init_empty`)
+  if (tokens.length === 0) {
+    const next = c.peek()
+    c.pushError(vendorExpressionExpected(next), next.span)
+    return { ...op, refusedInit: { span: next.span, value: { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: next.span } } }
+  }
+  const malformed = refuseMalformedInit(c, tokens)
+  if (malformed !== undefined) return { ...op, refusedInit: malformed }
+  const trailingComma = refuseOperatorTrailingComma(c, tokens)
+  if (trailingComma !== undefined) return { ...op, refusedInit: trailingComma }
+  const emptyRepeat = refuseEmptyRepeat(c, tokens)
+  if (emptyRepeat !== undefined) return { ...op, refusedInit: emptyRepeat }
+  const positional = positionalStructInit(c, tokens)
+  if (positional !== undefined) return { ...op, ...positional }
+  const init = initializerFromTokens(tokens)
+  const stray = strayAfterScalarInit(tokens)
+  if (stray !== undefined) c.pushError(`';' expected instead of '${stray.text}'`, stray.span)
+  return init === undefined ? op : { ...op, init }
+}
+
+/** The top-level groups of `tokens` between `[`/`(` and its closer (the outer pair excluded), split at their commas. */
+function topLevelGroups(inner: readonly Token[]): Token[][] {
+  const groups: Token[][] = [[]]
+  let depth = 0
+  for (const t of inner) {
+    if (t.text === "(" || t.text === "[") depth++
+    else if (t.text === ")" || t.text === "]") depth--
+    if (depth === 0 && t.text === ",") groups.push([])
+    else groups.at(-1)!.push(t)
+  }
+  return groups
+}
+
+/**
+ * A `[` straight after the type opens a list of PARENTHESIZED elements — an ARRAY OF a function block's per-element
+ * initialization. Any other element is refused at its first token: "'(' expected instead of '1'" (`decl_bracket_init_
+ * no_assign`, `_scalar`, `decl_struct_field_bracket_init`, both vendors 2026-10-01; what each vendor says after it is the
+ * declaration recovery's, task 2.8.2), and no initializer is kept.
+ */
+function refuseBracketElement(c: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
+  const inner = tokens.at(-1)?.text === "]" ? tokens.slice(1, -1) : tokens.slice(1)
+  for (const group of topLevelGroups(inner)) {
+    const first = group[0]
+    if (first === undefined || first.text === "(") continue
+    c.pushError(`'(' expected instead of ${vendorTokenText(first)}`, first.span)
+    return { span: first.span }
+  }
+  return undefined
+}
+
+/**
+ * A REPEAT COUNT WITH NO VALUE, `[3()]` — "Expression expected instead of ')'" (`decl_repeat_count_empty`, both vendors
+ * 2026-10-01), and nothing else: the initializer is gone.
+ */
+function refuseEmptyRepeat(c: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
+  if (tokens[0]?.text !== "[") return undefined
+  // the count is a literal that opens an element (`[` or `,` before it) — `F()` is a call with no arguments, not this
+  for (let i = 2; i + 1 < tokens.length; i++) {
+    if (tokens[i].text !== "(" || tokens[i + 1].text !== ")") continue
+    if (!tokens[i - 1].kind.endsWith("_lit") || !["[", ","].includes(tokens[i - 2].text)) continue
+    const close = tokens[i + 1]
+    c.pushError(vendorExpressionExpected(close), close.span)
+    return { span: close.span }
+  }
+  return undefined
+}
+
+/**
+ * A PARENTHESIZED LIST WITHOUT FIELD NAMES, `(1, 2)`, is no struct initializer: it is a parenthesized expression `(1`
+ * that wants its `)` at the comma, and a declaration that wants its `;` there — "';' expected instead of ','" and "')'
+ * expected instead of ','" — after which the compiler keeps the FIRST value as the initializer and type-checks it against
+ * the declared type: "Cannot convert type 'SINT' to type 'DUT_…'" (`decl_struct_init_positional_five`, both vendors
+ * 2026-10-01). Only that shape — the first element a value, a comma at the top level — is refused so.
+ */
+function positionalStructInit(c: Cursor, tokens: readonly Token[]): { init?: Initializer; refusedInit?: RefusedInit } | undefined {
+  if (tokens[0]?.text !== "(" || tokens.at(-1)?.text !== ")") return undefined
+  const groups = topLevelGroups(tokens.slice(1, -1))
+  if (groups.length < 2) return undefined
+  const first = groups[0]!
+  if (first.length === 0 || first[1]?.text === ":=") return undefined
+  const comma = tokens[first.length + 1]!
+  c.pushError(`';' expected instead of ${vendorTokenText(comma)}`, comma.span)
+  c.pushError(`')' expected instead of ${vendorTokenText(comma)}`, comma.span)
+  const value = parseExprFromTokens(first)
+  return value === undefined ? { refusedInit: { span: comma.span } } : { init: value }
 }

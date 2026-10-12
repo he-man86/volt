@@ -3,7 +3,7 @@
  * tests, which may not import `test/`: layering rule 6). Skipped where rustc is absent.
  */
 import { describe, expect, test } from "bun:test"
-import { buildRust } from "./support/rustc-cache.js"
+import { buildRust } from "./support/rustc-cache-build.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"

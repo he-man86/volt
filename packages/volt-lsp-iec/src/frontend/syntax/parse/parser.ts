@@ -11,7 +11,7 @@
  */
 import { lex } from "../lex/lexer.js"
 import type { Token } from "../lex/tokens.js"
-import type { ParseResult, TopLevel } from "../ast/nodes.js"
+import type { ParseResult, TopLevel } from "../ast/nodes/index.js"
 import { Cursor } from "./cursor.js"
 import { parseAction } from "./units/action.js"
 import { parseFunction } from "./units/function.js"
@@ -29,7 +29,8 @@ import { readNoNetworkText } from "../format/implementation-line.js"
 import { isTrivia } from "../lex/tokens.js"
 import { attachAttributes } from "../pragmas/attributes.js"
 import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "../format/source-object.js"
-import { UNIT_STARTERS, type Dialect, type UnitStarter } from "../lex/vocabulary.js"
+import { type Dialect } from "../lex/vocabulary.js"
+import { UNIT_STARTERS, type UnitStarter } from "../lex/word-sets.js"
 import { vendorTokenText } from "./errors.js"
 import { readFolderLine, reportMisplacedFolder } from "../format/folder.js"
 

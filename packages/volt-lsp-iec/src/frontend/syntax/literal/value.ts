@@ -5,11 +5,11 @@
  *
  * Conservative: anything malformed yields `undefined` (error-tolerant — a broken literal must not throw).
  */
-import type { DurationValue, LiteralKind, LiteralValue } from "../ast/nodes.js"
-import { QUOTED_LITERAL_PREFIXES, TYPED_PREFIXES } from "../lex/vocabulary.js"
+import type { DurationValue, LiteralKind, LiteralValue } from "../ast/nodes/index.js"
+import { QUOTED_LITERAL_PREFIXES, TYPED_PREFIXES } from "../lex/prefixes.js"
 import { decodeUtf8Literal } from "./string.js"
 
-export interface ParsedLiteral {
+interface ParsedLiteral {
   value: LiteralValue
   prefix?: string
 }

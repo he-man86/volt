@@ -5,7 +5,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "./parser.js"
-import type { EnumBody, FunctionBlock, TypeDecl, VarDecl } from "../ast/nodes.js"
+import type { EnumBody, FunctionBlock, TypeDecl, VarDecl } from "../ast/nodes/index.js"
 import { renderTypeExpr } from "../print.js"
 
 const parse = (src: string, vendor: "codesys" | "twincat" = "codesys") => parseSource(src, { networkText: true }, vendor)

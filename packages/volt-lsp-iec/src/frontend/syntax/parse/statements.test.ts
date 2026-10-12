@@ -4,7 +4,7 @@
  */
 import { expect, test } from "bun:test"
 import { lex } from "../lex/lexer.js"
-import type { BodySpan } from "../ast/nodes.js"
+import type { BodySpan } from "../ast/nodes/index.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { bodyStatements } from "./body-parse.js"
 

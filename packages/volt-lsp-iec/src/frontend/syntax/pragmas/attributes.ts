@@ -10,7 +10,7 @@
  *
  * The readers below fold or pick from the AST; none re-lexes.
  */
-import type { Attribute, ParseResult, TopLevel, VarDecl } from "../ast/nodes.js"
+import type { Attribute, ParseResult, TopLevel, VarDecl } from "../ast/nodes/index.js"
 import type { Token } from "../lex/tokens.js"
 
 /** The ATTRIBUTES THE FRONT-END ANSWERS BY (design.md §4 2.7): resolution (`qualified_only`), typing (`strict`,

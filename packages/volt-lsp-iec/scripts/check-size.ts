@@ -30,104 +30,25 @@ export const FUNCTION_LIMIT = 80
 /**
  * The file ceilings, package-relative. Measured 2026-10-12 at fddcde2a6e (openspec lsp-same-standard design.md §1.1):
  * 19 `src/` files over 400, 3 colocated tests over 600, 4 `test/` suites over 600, 30 `test/` support and fixture-data
- * files over 400. Each later step of that change deletes its own entries; task 4.5 leaves only the "LD/FBD change" ones.
+ * files over 400. Each later step of that change deleted its own entries; since task 4.5 only the network-text ones
+ * ("LD/FBD change") remain, handed to the LD/FBD coverage change.
  */
 export const CEILINGS: Readonly<Record<string, number>> = {
-  "src/analysis/checks/calls/call-arguments.test.ts": 870,
-  "src/analysis/checks/calls/call-arguments.ts": 550,
   "src/analysis/checks/network/network-analysis.ts": 521, // LD/FBD change
-  "src/analysis/messages.ts": 830,
-  "src/frontend/symbols/binder.ts": 470,
-  "src/frontend/symbols/scope-nav.ts": 586,
-  "src/frontend/syntax/ast/nodes.ts": 896,
-  "src/frontend/syntax/lex/lexer.ts": 685,
-  "src/frontend/syntax/lex/vocabulary.ts": 574,
   "src/frontend/syntax/network/lexer.ts": 414, // LD/FBD change
   "src/frontend/syntax/network/parser.ts": 1372, // LD/FBD change
-  "src/frontend/syntax/parse/declarations.ts": 501,
-  "src/frontend/syntax/parse/expression.ts": 575,
-  "src/frontend/syntax/parse/statements.ts": 901,
-  "src/frontend/syntax/parse/type-expr.ts": 468,
-  "src/frontend/syntax/pragmas/conditional.ts": 459,
-  "src/frontend/types/const/fold.ts": 704,
-  "src/frontend/types/infer/expr.ts": 426,
-  "src/server/server.test.ts": 910,
-  "src/server/server.ts": 617,
   "src/services/network/network.test.ts": 1213, // LD/FBD change
-  "test/analysis/census.ts": 723,
-  "test/baseline/baseline.ts": 1041,
-  "test/conformance/fixtures/batches/check-coverage.ts": 473,
-  "test/conformance/fixtures/calls/call-shapes.ts": 1495,
-  "test/conformance/fixtures/calls/refusal-kinds.ts": 465,
-  "test/conformance/fixtures/cross-object/cross-object-four.ts": 458,
-  "test/conformance/fixtures/cross-object/cross-object-three.ts": 417,
-  "test/conformance/fixtures/cross-object/cross-object-two.ts": 452,
-  "test/conformance/fixtures/cross-object/cross-object.ts": 426,
-  "test/conformance/fixtures/declarations/section-semantics.ts": 834,
-  "test/conformance/fixtures/grammar/expressions.ts": 404,
-  "test/conformance/fixtures/grammar/units.ts": 628,
-  "test/conformance/fixtures/graphical/network-graphical.ts": 492,
-  "test/conformance/fixtures/libraries/library-bodies.ts": 622,
-  "test/conformance/fixtures/memory/pointer-model.ts": 643,
-  "test/conformance/fixtures/oop/init-model.ts": 662,
-  "test/conformance/fixtures/oop/lifecycle.ts": 1023,
-  "test/conformance/fixtures/oop/refusal-kinds.ts": 478,
-  "test/conformance/fixtures/operators/operator.ts": 888,
-  "test/conformance/fixtures/pragmas/pragma.ts": 1088,
-  "test/conformance/fixtures/semantics/execution.ts": 1952,
-  "test/conformance/fixtures/strings/string-edges.ts": 1998,
-  "test/conformance/fixtures/types/data-type.ts": 561,
-  "test/conformance/map.test.ts": 731,
-  "test/conformance/runtime-twins.test.ts": 711,
-  "test/conformance/support/divergences.ts": 1779,
-  "test/conformance/support/fixture-units.ts": 440,
-  "test/conformance/support/notes/lean.data.ts": 1455,
-  "test/conformance/support/rustc-cache.ts": 535,
-  "test/conformance/transpile-replay.test.ts": 888,
-  "test/corpus/corpus.test.ts": 793,
-  "test/frontend/bound-census.ts": 1378,
-  "test/frontend/dumps.ts": 627,
-  "test/frontend/rules.ts": 4629,
 }
 
 /**
  * The function ceilings, keyed `<package-relative file>#<name>` (`(anonymous)` for an unnamed arrow) — no line number,
- * which moves on every edit; the key is unique for all 31. Same day as `CEILINGS` (design.md §1.2, plus the six of
- * `test/frontend/bound-census.ts`). `intrinsic-operands.ts` holds two on purpose: `checkIntrinsicOperands` and the
- * arrow that is its whole body are each over the limit.
+ * which moves on every edit. Same day as `CEILINGS` (design.md §1.2): 31 then; since task 4.5 only the network-text three
+ * ("LD/FBD change") remain, handed to the LD/FBD coverage change.
  */
 export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {
-  "src/analysis/checks/calls/call-arguments.ts#checkCall": 273,
-  "src/analysis/checks/calls/intrinsic-operands.ts#checkIntrinsicOperands": 149,
-  "src/analysis/checks/calls/intrinsic-operands.ts#(anonymous)": 147,
-  "src/analysis/checks/declarations/header-rules.ts#checkHeaderRules": 150,
-  "src/analysis/checks/flow/case-labels.ts#checkOneCase": 86,
-  "src/analysis/checks/names/unresolved-identifier.ts#checkUnresolvedIdentifiers": 96,
-  "src/analysis/checks/pragmas/pragmas.ts#checkPragmas": 152,
-  "src/analysis/checks/types/narrowing.ts#operandSignWarnings": 93,
-  "src/analysis/messages.ts#messagesFor": 335,
-  "src/frontend/symbols/library-namespaces.ts#bindLibraryNamespaces": 85,
-  "src/frontend/syntax/lex/lexer.ts#lex": 566,
   "src/frontend/syntax/network/lexer.ts#next": 95, // LD/FBD change
   "src/frontend/syntax/network/parser.ts#parseNetwork": 101, // LD/FBD change
   "src/frontend/syntax/network/parser.ts#parseCall": 90, // LD/FBD change
-  "src/frontend/syntax/parse/expression.ts#parsePostfix": 93,
-  "src/frontend/syntax/parse/expression.ts#parsePrimary": 170,
-  "src/frontend/syntax/parse/type-expr.ts#parseTypeExpression": 229,
-  "src/frontend/syntax/parse/units/interface.ts#parseInterface": 96,
-  "src/frontend/syntax/parse/units/interface.ts#parseInterfaceProperty": 84,
-  "src/frontend/syntax/parse/units/property.ts#parseProperty": 90,
-  "src/frontend/syntax/pragmas/conditional.ts#parseCondition": 129,
-  "src/frontend/syntax/pragmas/conditional.ts#evaluateCondition": 107,
-  "src/frontend/types/infer/expr.ts#inferExprType": 109,
-  "src/server/server.ts#runServer": 452,
-  "src/transpile/lower/storage/layout.ts#buildLayout": 86,
-  "test/frontend/bound-census.ts#boundCensus": 393,
-  "test/frontend/bound-census.ts#known": 276,
-  "test/frontend/bound-census.ts#storesOf": 263,
-  "test/frontend/bound-census.ts#e": 118,
-  "test/frontend/bound-census.ts#units": 82,
-  "test/frontend/bound-census.ts#crossCheckBuildTypes": 84,
 }
 
 const slash = (p: string): string => p.split("\\").join("/")
@@ -291,7 +212,8 @@ export function longFunctions(file: string, text: string, limit = FUNCTION_LIMIT
     while (k < code.length) {
       k = skipWs(k)
       const c = code[k]
-      if (c === undefined || c === ";" || (c === "=" && code[k + 1] !== ">")) return -1
+      // …or a `}` — the block around a SIGNATURE closing (an interface's member): no function header meets one before its body
+      if (c === undefined || c === ";" || c === "}" || (c === "=" && code[k + 1] !== ">")) return -1
       if (c === "{") {
         if (!expectType) return k
         const close2 = match(k, "{", "}")

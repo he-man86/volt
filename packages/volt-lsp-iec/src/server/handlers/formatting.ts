@@ -1,0 +1,31 @@
+/**
+ * THE FORMATTING HANDLERS — the whole document, a range, and format-on-type.
+ */
+import {
+  DocumentFormattingRequest,
+  DocumentOnTypeFormattingRequest,
+  DocumentRangeFormattingRequest,
+} from "vscode-languageserver-protocol/node"
+import { formatDocument, formatOnType, formatRange } from "../../services/index.js"
+import type { ServerState } from "../state.js"
+
+export function registerFormattingHandlers(s: ServerState): void {
+  const conn = s.conn
+  conn.onRequest(DocumentFormattingRequest.type, (p) =>
+    s.whole(p.textDocument.uri, (d) => {
+      const lineCount = d.source.split("\n").length
+      // one whole-document edit spanning [0,0]..[lineCount,0]
+      return [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: lineCount, character: 0 } },
+          newText: formatDocument(d, p.options),
+        },
+      ]
+    }),
+  )
+  conn.onRequest(DocumentRangeFormattingRequest.type, (p) =>
+    s.whole(p.textDocument.uri, (d) => formatRange(d, p.range, p.options)),
+  )
+  // Format-on-type: indent the new line to its block's depth — never a reprint of the unit around it.
+  conn.onRequest(DocumentOnTypeFormattingRequest.type, (p) => s.whole(p.textDocument.uri, (d) => formatOnType(d, p.position, p.ch, p.options)))
+}

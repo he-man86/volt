@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../parse/parser.js"
 import { bodyStatements, sourceStatements } from "../parse/body-parse.js"
-import { directiveOf, evaluateCondition, type ConditionNames, type ConditionWorld } from "./conditional.js"
+import { directiveOf } from "./conditional.js"
+import { evaluateCondition, type ConditionNames, type ConditionWorld } from "./condition-eval.js"
 
 /**
  * The world of a project that sets NO compile define — the recording projects', as measured (`prag_define_upper_case`,

@@ -4,7 +4,7 @@
  */
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans } from "../span.js"
-import type { BodySpan } from "../ast/nodes.js"
+import type { BodySpan } from "../ast/nodes/index.js"
 import type { Cursor } from "./cursor.js"
 import { type BodyOwner, codeBody } from "../format/implementation-line.js"
 import type { Keyword } from "../lex/vocabulary.js"

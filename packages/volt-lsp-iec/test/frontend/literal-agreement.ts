@@ -13,7 +13,8 @@
 import { allUnits, walkStatements, type Expr, type TopLevel } from "../../src/frontend/syntax/index.js"
 import { bodies, scopeForUnit, type Scope } from "../../src/frontend/symbols/index.js"
 import { inferExprType, literalCheckType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../src/frontend/types/index.js"
-import { valueExprs, type Bound } from "./dumps.js"
+import { type Bound } from "./dumps.js"
+import { valueExprs } from "./dumps-bound.js"
 import { contextLiteralType } from "../../src/transpile/lower/values/literals.js"
 
 /** One literal store's two answers. */

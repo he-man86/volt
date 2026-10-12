@@ -8,7 +8,8 @@ import type { Scope } from "../../symbols/index.js"
 import type { Expr } from "../../syntax/index.js"
 import { constancyIn, type Constancy } from "./fold.js"
 
-export { compileTimeConstant, type Constancy } from "./fold.js"
+export { type Constancy } from "./fold.js"
+export { compileTimeConstant } from "./values.js"
 
 /**
  * Whether an expression is a compile-time CONSTANT, a mutable VARIABLE, or UNDECIDABLE — the zero-FP basis for

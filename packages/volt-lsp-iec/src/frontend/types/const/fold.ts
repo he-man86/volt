@@ -9,30 +9,13 @@
  *
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
-import {
-  bareEnumMember,
-  externalGlobal,
-  isLibrarySymbol,
-  lookup,
-  lookupGlobal,
-  lookupLocal,
-  resolveQualifiedConst,
-  rootOf,
-  targetOf,
-  type Scope,
-  type Symbol,
-} from "../../symbols/index.js"
-import { decodeStringLiteral, type CallExpr, type Expr, type Target, type TypeExpr, type VarDecl } from "../../syntax/index.js"
-import { parseConversionName } from "../conversion-name.js"
-import { DEFAULT_STRING_LENGTH } from "../defaults.js"
+import { lookupGlobal, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
+import { type Expr } from "../../syntax/index.js"
 import { elementaryType, type ElementaryType } from "../elementary.js"
-import { enumMemberValue, enumValueStorage } from "../enums.js"
-import { resolveMemberChain } from "../infer/member.js"
-import { sizeofOperandBytes } from "../infer/expr.js"
-import { elementaryTypeOn } from "../platform.js"
-import { resolveTypeExpr } from "../resolve.js"
-import { elemOf } from "../type.js"
-import { integerOfWidth, wrapToWidth } from "../width.js"
+import { integerOfWidth } from "../width.js"
+import { foldUnary, foldBinary } from "./operators.js"
+import { literalOnly, call } from "./calls.js"
+import { constRef, integerType, memberValue, symbolValue, unsignedType } from "./values.js"
 
 export type ConstValue = bigint | number | boolean | undefined
 
@@ -74,88 +57,33 @@ function evaluate(expr: Expr, scope: Scope): Folded {
 }
 
 /**
- * THE VALUE A DECLARATION HOLDS BEFORE ANYTHING WRITES IT — its initializer folded and stored into its declared type. A
- * CONSTANT is its value as named (a literal held at the declared width, an expression not — rule CE2); a variable holds
- * its initializer as a store does: an integer wrapped to the declared width (`x : BYTE := -1` is 255, `si : SINT := C + …`
- * (200) is -56 — `bound_*`, `cc_init_constant_expr_into_sint`), a STRING literal cut at the declared capacity, a WSTRING's
- * in UTF-16 code units (`'abc'` into a STRING(2) is 'ab', "héllo" into a WSTRING(3) "hél" — `cc_string_*`,
- * `wstring_code_units`). Undefined when the initializer does not fold, or holds a character whose stored form is not
- * measured (a non-ASCII character typed into a STRING).
- */
-export function declaredValue(symbol: Symbol): ConstValue | string {
-  const decl = symbol.ast as VarDecl | undefined
-  if (decl?.kind !== "var_decl" || decl.init === undefined || decl.init.kind === "aggregate_init") return undefined
-  const init = decl.init
-  if (init.kind === "literal" && (init.literalKind === "string" || init.literalKind === "wstring")) {
-    const wide = init.literalKind === "wstring"
-    const text = typeof init.value === "string" ? decodeStringLiteral(init.value, wide) : undefined
-    if (text === undefined || (!wide && /[^\x00-\x7f]/.test(text))) return undefined
-    const type = resolveTypeExpr(decl.type, rootOf(symbol.owner), 0, symbol.owner, symbol.uri)
-    if (type.kind !== "elementary" || type.elem.family !== "string" || type.unfoldedLength === true) return undefined
-    return text.slice(0, type.length ?? DEFAULT_STRING_LENGTH)
-  }
-  if (compileTimeConstant(symbol)) return initialValue(symbol, { folding: new Set() }).value
-  const integer = integerType(declaredElem(decl.type, symbol))
-  const { value, width } = fold(init, symbol.owner, expecting({ folding: new Set() }, unsignedType(integer)))
-  if (typeof value === "number") return width === 32 ? Math.fround(value) : value
-  // NOT `storeInteger` (transpile-restructure 6.B.2: this guard is kept): the front-end holds only an INTEGER type's
-  // value at its width (`integerType`: a rank, the platform's `__XINT` read on the project's target). `storeInteger` would
-  // also wrap a duration's or a date's, which this fold has never done and no recording asks of it.
-  return typeof value === "bigint" && integer !== undefined ? wrapToWidth(value, integer) : value
-}
-
-/**
- * A CONSTANT DEFINED THROUGH ITSELF — its initializer reaches it again, directly (`cs : INT := cs + 1`) or through
- * another constant (`ca := cb + 1; cb := ca + 1`). CODESYS refuses each constant of the cycle, "Recursive definition of
- * constant value" (`ce_cycle` twice, `ce_cycle_self` once, 2026-10-03; rule CE5). One that merely names a cycle is not
- * one of it. The fold itself stops at the cycle and yields no value.
- */
-export function isRecursiveConstant(symbol: Symbol): boolean {
-  if (!compileTimeConstant(symbol)) return false
-  const decl = symbol.ast as VarDecl
-  if (decl.init === undefined || decl.init.kind === "aggregate_init") return false
-  const cycle = { start: symbol, hit: false }
-  fold(decl.init, symbol.owner, { ...listOf(symbol), folding: new Set([symbol]), cycle })
-  return cycle.hit
-}
-
-/**
- * A symbol whose initializer IS its value: one in a `CONSTANT` section that is not a parameter. A `VAR_INPUT CONSTANT`
- * (or `VAR_IN_OUT CONSTANT`) is read-only but holds the caller's argument — its default only when none is passed:
- * `F(n := 3)` steps `BY n` by 3 (conformance `var_input_constant_default_as_step`, LIVE; transpile-review-2026-09-29 task 4).
- */
-export function compileTimeConstant(symbol: Symbol): boolean {
-  return symbol.constant === true && symbol.varSection !== "VAR_INPUT" && symbol.varSection !== "VAR_IN_OUT"
-}
-
-/**
  * A folded value, its constancy and, where the walk knows it, its type: a REAL or LREAL's width, an integer's elementary
  * type (a typed literal, a conversion, a constant's declared type, an enum's storage) — what NOT and the shifts compute in.
  * An untyped literal has neither: it takes its partner's width, and an untyped integer its own narrowest type.
  */
-interface Folded {
+export interface Folded {
   value: ConstValue
   constancy: Constancy
   width?: RealWidth
   elem?: ElementaryType
 }
-type RealWidth = 32 | 64
+export type RealWidth = 32 | 64
 
-const UNKNOWN_VALUE: Folded = { value: undefined, constancy: "unknown" }
+export const UNKNOWN_VALUE: Folded = { value: undefined, constancy: "unknown" }
 const wider = (a?: RealWidth, b?: RealWidth): RealWidth | undefined => (a === undefined ? b : b === undefined ? a : a > b ? a : b)
-function realWidth(e: ElementaryType | undefined): RealWidth | undefined {
+export function realWidth(e: ElementaryType | undefined): RealWidth | undefined {
   return e?.family !== "real" ? undefined : e.bits === 32 ? 32 : 64
 }
 /** Two constancies met: a variable taints, two constants stay constant, anything else is undecidable. */
 function meet(a: Constancy, b: Constancy): Constancy {
   return a === "variable" || b === "variable" ? "variable" : a === "constant" && b === "constant" ? "constant" : "unknown"
 }
-const meetAll = (xs: readonly Folded[]): Constancy => xs.reduce<Constancy>((c, x) => meet(c, x.constancy), "constant")
+export const meetAll = (xs: readonly Folded[]): Constancy => xs.reduce<Constancy>((c, x) => meet(c, x.constancy), "constant")
 
 /** What a fold carries down: the constants being folded — a cycle (`X := Y; Y := X`, `P.N := P.N`) stops there instead of
  *  recursing forever, which froze the editor's diagnostics (rule CE5; CODESYS: "Recursive definition of constant value",
  *  `ce_cycle`, `ce_cycle_self`) — and the global list whose initializer is being folded. */
-interface FoldContext {
+export interface FoldContext {
   folding: Set<Symbol>
   list?: string
   /** The integer type an untyped literal takes here — an UNSIGNED CONSTANT's declared type over the NOT or the shift its
@@ -173,15 +101,15 @@ interface FoldContext {
 }
 
 /** The global list a symbol's initializer folds inside (its siblings seen bare first), when it is a list's. */
-const listOf = (symbol: Symbol): { list?: string } => (symbol.kind === "gvl_var" ? { list: symbol.uri } : {})
+export const listOf = (symbol: Symbol): { list?: string } => (symbol.kind === "gvl_var" ? { list: symbol.uri } : {})
 
 /** `ctx` with `expected` as the type an untyped literal takes — none when undefined. */
-function expecting(ctx: FoldContext, expected: ElementaryType | undefined): FoldContext {
+export function expecting(ctx: FoldContext, expected: ElementaryType | undefined): FoldContext {
   const { expected: _, ...rest } = ctx
   return expected === undefined ? rest : { ...rest, expected }
 }
 
-function fold(expr: Expr, scope: Scope, ctx: FoldContext): Folded {
+export function fold(expr: Expr, scope: Scope, ctx: FoldContext): Folded {
   switch (expr.kind) {
     case "literal":
       return literal(expr, ctx)
@@ -253,437 +181,8 @@ function not(operand: Folded): Folded {
  * transpiler folds an initializer by itself), the narrowest width is the wrong one — `NOT 0` into a WORD is 65535, not 255.
  * NOT or a shift of an untyped literal as a bound is niche: accepted loss (0 occurrences in the corpora).
  */
-function integerTypeOf(f: Folded): ElementaryType | undefined {
+export function integerTypeOf(f: Folded): ElementaryType | undefined {
   return f.elem
-}
-
-/**
- * `List.Const` / `Program.Const` — a CONSTANT named through its global variable list or its PROGRAM, as pro2193 sizes
- * arrays (`ARRAY[1..GVL_Constants.ChainProductsForReject]`, `MaxVacuums : USINT := XiUnits.MaxVacuums`). A library's are
- * left unfolded, like a bare one's constancy: its declarations may be partial. Otherwise an enum value `E.Member`
- * (`Ns.E.Member`), whatever its enum.
- */
-function memberValue(expr: Extract<Expr, { kind: "member" }>, scope: Scope, ctx: FoldContext): Folded {
-  const target = resolveQualifiedConst(expr, scope)
-  if (target !== undefined) return symbolValue(target, ctx)
-  const sym = resolveMemberChain(expr, scope, rootOf(scope))
-  return sym?.kind === "enum_value" ? symbolValue(sym, ctx) : UNKNOWN_VALUE
-}
-
-/**
- * A reference by a bare name. Inside a global list's own initializer its siblings are seen bare first — a `qualified_only`
- * list's too, which bare lookup skips: pro2193's `GVL_Constants` compiles `MaxProductsInMould := MaxMouldLevels * …`, and a
- * same-named constant of ANOTHER list was folded in its place. A name no scope declares may be an enum's member.
- */
-function constRef(name: string, scope: Scope, ctx: FoldContext): Folded {
-  const sibling = ctx.list === undefined ? undefined : lookupLocal(rootOf(scope), name).find((s) => s.kind === "gvl_var" && s.uri === ctx.list)
-  return symbolValue(sibling ?? lookup(scope, name)?.symbol ?? bareEnumMember(scope, name), ctx)
-}
-
-/** The constancy of the symbol a name resolved to, and its value when it has one. */
-function symbolValue(sym: Symbol | undefined, ctx: FoldContext): Folded {
-  if (sym === undefined) return UNKNOWN_VALUE // unresolved — could be a library constant or a typo
-  if (sym.kind === "enum_value") return enumValue(sym, ctx)
-  if (isLibrarySymbol(sym)) return UNKNOWN_VALUE // may be a constant we can't see (normalizes %20)
-  // a VAR_EXTERNAL CONSTANT has no initializer of its own: its value is the global it binds (rule Y13, `externalGlobal`),
-  // when that is a constant (`xo3_value_functions_across_objects`; the fold-agreement test, transpile-restructure 1.8.9)
-  if (sym.constant === true && sym.varSection === "VAR_EXTERNAL") {
-    const global = externalGlobal(rootOf(sym.owner), sym.name)
-    return global?.constant === true ? { ...read(initialValue(global, ctx), ctx), constancy: "constant" } : { value: undefined, constancy: "constant" }
-  }
-  if (sym.constant === true) return { ...read(initialValue(sym, ctx), ctx), constancy: "constant" }
-  if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
-    return { value: undefined, constancy: "variable" }
-  return UNKNOWN_VALUE // a function/type/namespace name is not a value in this position
-}
-
-/**
- * A CONSTANT's value as a READ outside another constant's initializer sees it: an integer one held unwrapped from an
- * expression (`initialValue`) in its type's RUN-TIME width — DINT for a narrower one, so `D : SINT := K + 1` (K = 127)
- * reads 128, but `D : DINT := K + 1` (K at DINT's max) reads -2147483648 in an initializer and at run time and
- * `U : UDINT := KU + 1` 0 (`tr_a29_dint_constant_expression_overflow`, `_udint_…`, transpile-restructure 6.A.29). Inside
- * a constant's own initializer the held value folds on: `F : DINT := D - 1` is 2147483647, which the monitor shows
- * (folded from the wrapped -2147483648 it would be -2147483649). A bit string's alike: B : BYTE := 255 + 1 reads 256,
- * W : DWORD := 16#FFFFFFFF + 1 reads 0 (`tr_a29_byte_…`, `_dword_constant_expression_overflow`).
- */
-function read(f: Folded, ctx: FoldContext): Folded {
-  if (ctx.inConstant === true || typeof f.value !== "bigint" || f.elem === undefined || (f.elem.family !== "int" && f.elem.family !== "bitstring")) return f
-  return { ...f, value: wrapToWidth(f.value, f.elem.bits < 32 ? integerOfWidth(32, true) : f.elem) }
-}
-
-/** An enum value: its written value folded in the project, else one more than the member before it (the first 0), in
- *  its enum's storage type (`enums` `enumValueStorage`). A member whose values do not fold has none — still a constant. */
-function enumValue(sym: Symbol, ctx: FoldContext): Folded {
-  if (ctx.folding.has(sym)) return { value: undefined, constancy: "constant" }
-  const project = rootOf(sym.owner)
-  ctx.folding.add(sym)
-  const value = enumMemberValue(sym, project, (e) => {
-    // the walk's cycle goes along: `A := c` with `c := E.A` is a cycle through the member (step 4d review)
-    const v = fold(e, project, { folding: ctx.folding, ...withCycle(ctx) }).value
-    return typeof v === "bigint" ? v : undefined
-  })
-  ctx.folding.delete(sym)
-  const elem = enumValueStorage(sym, project)?.elem
-  return elem === undefined ? { value, constancy: "constant" } : { value, constancy: "constant", elem }
-}
-
-/**
- * A constant's value: its initializer folded in its owning scope, at its declared type's kind of number. A REAL or LREAL
- * constant carries its declared width but NOT a rounded value — the fold it is named in rounds once, at its end. A
- * non-constant symbol has none.
- */
-function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
-  const constancy: Constancy = "constant"
-  if (ctx.folding.has(symbol) && ctx.cycle?.start === symbol) ctx.cycle.hit = true
-  if (!compileTimeConstant(symbol) || ctx.folding.has(symbol)) return { value: undefined, constancy }
-  const decl = symbol.ast as VarDecl
-  // A scalar initializer is an Expr; an AggregateInit is not a constant scalar.
-  if (decl.init === undefined || decl.init.kind === "aggregate_init") return { value: undefined, constancy }
-  // its declared type resolves in a fold of its own (a fresh context): an alias whose bound names the constant
-  // (`TYPE A : INT(0..c)`, `c : A := 5`) reaches it again there — it has no value, as a cycle has none; it recursed until
-  // the stack overflowed and the file got no diagnostics at all (step 4d review 2)
-  if (typing.has(symbol)) return { value: undefined, constancy }
-  typing.add(symbol)
-  let e: ElementaryType | undefined
-  try {
-    e = declaredElem(decl.type, symbol)
-  } finally {
-    typing.delete(symbol)
-  }
-  ctx.folding.add(symbol)
-  const inner = expecting({ ...listOf(symbol), folding: ctx.folding, ...withCycle(ctx), inConstant: true }, unsignedType(integerType(e)))
-  const { value } = fold(decl.init, symbol.owner, inner)
-  ctx.folding.delete(symbol)
-  // `RC : REAL := 10` is a REAL: `RC / 4` is 2.5, not the integer 2 the literal would fold to — and so is a constant of an
-  // alias of REAL (`c : A := 10` with `TYPE A : REAL`, `ce_real_alias_const` folds `REAL_TO_INT(c / 4)` to 3, rule CE9)
-  const width = realWidth(e)
-  if (width !== undefined) return { value: typeof value === "bigint" ? Number(value) : value, constancy, width }
-  if (typeof value !== "bigint") return { value, constancy }
-  // A LITERAL initializer is held at the declared width, as the constant's slot holds it: `C : INT := 40000` is -25536
-  // wherever it is named — an initializer, a CASE label. An EXPRESSION initializer is NOT: `D : SINT := K + 1` (K = 127)
-  // reads 128, even from D itself (conformance `named_const_literal_wrap`, `named_const_expression_keeps`, LIVE).
-  // A platform integer (`__XINT`) is held at the width of the project's target, and not at all where that is unknown.
-  const integer = integerType(e)
-  const held = decl.init.kind === "literal" && integer !== undefined ? wrapToWidth(value, integer) : value
-  return integer === undefined ? { value: held, constancy } : { value: held, constancy, elem: integer }
-}
-
-/** The constants whose declared type is being resolved, across every fold that resolution starts — see `initialValue`. */
-const typing = new Set<Symbol>()
-
-/** `e` when it is an unsigned integer or a bit string — the context an untyped literal may take (`FoldContext.expected`). */
-function unsignedType(e: ElementaryType | undefined): ElementaryType | undefined {
-  return e !== undefined && (e.family === "bitstring" || !e.signed) ? e : undefined
-}
-
-/** The cycle a walk is watching, carried into a nested fold (`isRecursiveConstant`). */
-const withCycle = (ctx: FoldContext): { cycle?: { start: Symbol; hit: boolean } } => (ctx.cycle === undefined ? {} : { cycle: ctx.cycle })
-
-/** `e` when it is an integer or bit-string type with a width (not BIT), else undefined. */
-function integerType(e: ElementaryType | undefined): ElementaryType | undefined {
-  return e !== undefined && e.rank !== undefined && (e.family === "int" || e.family === "bitstring") ? e : undefined
-}
-
-/** A declaration's elementary type: the name as the project's target reads it, else the type the name resolves to (an
- *  alias of one, `TYPE A : REAL`). Undefined for anything else. */
-function declaredElem(t: TypeExpr, symbol: Symbol): ElementaryType | undefined {
-  if (t.kind !== "named_type") return undefined
-  const project = rootOf(symbol.owner)
-  const target: Target | undefined = targetOf(project)
-  return elementaryTypeOn(t.name.text, target) ?? elemOf(resolveTypeExpr(t, project, 0, symbol.owner, symbol.uri))
-}
-
-// ─── calls: the conversions, the pure built-ins, SIZEOF ───────────────────────────────────────────────────────────
-
-/** The built-ins a constant expression may call, folded below — everything else (a user function, ADR, a math function not
- *  listed) is no constant this decides. */
-const FOLDED_BUILTINS: ReadonlySet<string> = new Set(["ABS", "MIN", "MAX", "LIMIT", "SEL", "MUX", "SHL", "SHR", "ROL", "ROR", "TRUNC", "EXPT", "SQRT", "SIZEOF"])
-
-/** The SIZEOF operands being sized, across every fold the sizing starts, and whether the sizing reached itself — see `call`. */
-const sizing = new Map<Expr, { reached: boolean }>()
-
-function call(expr: CallExpr, scope: Scope, ctx: FoldContext): Folded {
-  if (expr.callee.kind !== "ident_expr") return UNKNOWN_VALUE
-  const name = expr.callee.name
-  // a name the project declares is ITS function, not the built-in: user code can shadow a built-in name
-  if (lookup(scope, name) !== undefined) return UNKNOWN_VALUE
-  const upper = name.toUpperCase()
-  if (upper === "SIZEOF") {
-    const operand = expr.args.length === 1 ? expr.args[0]?.value : undefined
-    // its operand's type folds that type's bounds, a fold of their own (a fresh context): a size that reaches itself
-    // through one (`a : ARRAY[0..SIZEOF(a)]`, `c := SIZEOF(arr)` with `arr : ARRAY[0..c]`) has no size — it recursed
-    // until the stack overflowed, and the file got no diagnostics at all (step 4d review). The OUTER size has none either:
-    // `x : INT (0..SIZEOF(x))` sized x as an INT(0..2), a range CODESYS never computed (step 4d review 2)
-    if (operand === undefined) return { value: undefined, constancy: "constant" }
-    const inside = sizing.get(operand)
-    if (inside !== undefined) {
-      inside.reached = true
-      return { value: undefined, constancy: "constant" }
-    }
-    const self = { reached: false }
-    sizing.set(operand, self)
-    try {
-      const bytes = sizeofOperandBytes(operand, scope, rootOf(scope))
-      return bytes === undefined || self.reached ? { value: undefined, constancy: "constant" } : { value: bytes, constancy: "constant" }
-    } finally {
-      sizing.delete(operand)
-    }
-  }
-  const conversion = parseConversionName(name, targetOf(rootOf(scope)))
-  if (conversion === undefined && !FOLDED_BUILTINS.has(upper)) return UNKNOWN_VALUE
-  // positional arguments only — a named or output one is no call this folds
-  if (expr.args.some((a) => a.param !== undefined || a.output || a.value === undefined)) return UNKNOWN_VALUE
-  // a shift's operand takes what the call's context expects when it is an untyped literal (`FoldContext.expected`);
-  // anything else — a conversion's argument, a NOT under the shift — nothing: unmeasured (step 4d review 2)
-  const args = expr.args.map((a, i) =>
-    conversion !== undefined
-      ? converted(a.value!, scope, expecting(ctx, undefined))
-      : fold(a.value!, scope, literalOnly(a.value!, expecting(ctx, shiftContext(upper, i, ctx.expected)))),
-  )
-  const constancy = meetAll(args)
-  const result = conversion !== undefined ? (args.length === 1 ? convert(args[0]!, conversion.to) : undefined) : builtin(upper, args)
-  return result === undefined ? { value: undefined, constancy } : { ...result, constancy }
-}
-
-/** `ctx` for an operand of NOT or a shift: its context type reaches an untyped LITERAL there, nothing nested deeper. */
-const literalOnly = (operand: Expr, ctx: FoldContext): FoldContext => (operand.kind === "literal" ? ctx : expecting(ctx, undefined))
-
-/** The integer type a non-conversion's argument `i` takes as an untyped literal: a shift's operand, the context's — see `call`. */
-function shiftContext(name: string, i: number, expected: ElementaryType | undefined): ElementaryType | undefined {
-  return i === 0 && (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") ? expected : undefined
-}
-
-/** A CONVERSION's argument folded — a duration literal as its type's ticks (TIME milliseconds, LTIME nanoseconds), which
- *  only a conversion reads (`TIME_TO_DINT(T#5MS)` is 5, `ce_fold_conversion_bound_time`; `cfold_time_to_dint` 1500). Any
- *  other call of one yields a TIME, which no fold here holds: `MAX(T#1S, T#2S)` folded to the bare 2000 (step 4d review). */
-function converted(e: Expr, scope: Scope, ctx: FoldContext): Folded {
-  if (e.kind === "literal" && e.literalKind === "time" && typeof e.value === "object" && e.value !== null && "ns" in e.value) {
-    const t = elementaryType(/^LTIME#/i.test(e.text) ? "LTIME" : "TIME")!
-    return { value: e.value.ns / t.tickNs!, constancy: "constant", elem: t }
-  }
-  return fold(e, scope, ctx)
-}
-
-type Result = Omit<Folded, "constancy">
-
-/**
- * An explicit conversion into `to`: an integer target wraps (`INT_TO_USINT(300)` is 44, `INT_TO_SINT(200)` -56), a REAL
- * source rounds half away from zero (`REAL_TO_INT(2.5)` 3, -2.5 -3) at the destination's register (below), BOOL is 1 or 0
- * and an integer into BOOL is "not zero", an integer into a REAL is the number (`ce_fold_conversion_bound_*`, `cfold_*`).
- * A target or source of any other family is not folded.
- */
-function convert(arg: Folded, to: ElementaryType): Result | undefined {
-  const v = arg.value
-  if (v === undefined) return undefined
-  if (to.family === "bool") return { value: typeof v === "boolean" ? v : typeof v === "bigint" ? v !== 0n : v !== 0 }
-  if (to.family === "real") {
-    const n = typeof v === "boolean" ? (v ? 1 : 0) : typeof v === "bigint" ? exactNumber(v) : v
-    if (n === undefined) return undefined
-    return to.bits === 32 ? { value: Math.fround(n), width: 32 } : { value: n, width: 64 }
-  }
-  if ((to.family !== "int" && to.family !== "bitstring") || to.rank === undefined) return undefined
-  const integer = typeof v === "boolean" ? (v ? 1n : 0n) : typeof v === "bigint" ? v : realToInteger(v, to.bits)
-  return integer === undefined ? undefined : { value: wrapToWidth(integer, to), elem: to }
-}
-
-/** A bigint as a number when it is one exactly — the larger integers round, which no measured fold has asked for. */
-function exactNumber(v: bigint): number | undefined {
-  return v >= -(2n ** 53n) && v <= 2n ** 53n ? Number(v) : undefined
-}
-
-/**
- * REAL → INTEGER, as measured in full (conformance `conversions/real-to-integer.ts`, `real-to-integer-ladder.ts`, the 192
- * cells the transpiler's `coerce` reproduces): rounded half away from zero, then converted at the DESTINATION's register —
- * 64-bit for a 64-bit destination, 32-bit for everything else — which the caller wraps into the declared type. A NaN is the
- * register's indefinite (i64::MIN, or 0); past the register: 64-bit ≥ 2^64 or < -2^63 i64::MIN; 32-bit ≥ 2^63 is 0 and
- * below -2^31 is -2^31 (`REAL_TO_DINT(3.0E9)` -1294967296, `cfold_real_to_int_out`).
- */
-function realToInteger(n: number, bits: number): bigint | undefined {
-  const wide = bits >= 64
-  const I64_MIN = -(2n ** 63n)
-  const I32_MIN = -(2n ** 31n)
-  if (Number.isNaN(n)) return wide ? I64_MIN : 0n
-  const rounded = Math.sign(n) * Math.round(Math.abs(n))
-  if (!Number.isFinite(rounded)) return wide ? I64_MIN : rounded > 0 ? 0n : I32_MIN
-  const r = BigInt(rounded)
-  if (wide) return r >= 2n ** 64n || r < I64_MIN ? I64_MIN : BigInt.asIntN(64, r)
-  if (r >= 2n ** 63n) return 0n
-  if (r < I32_MIN) return I32_MIN
-  return BigInt.asIntN(32, r)
-}
-
-/** A pure built-in over folded arguments (`ce_fold_builtin_bound_*`, `ce_fold_shl*`/`shr`/`rol`/`ror`, `cfold_*`). */
-function builtin(name: string, args: readonly Folded[]): Result | undefined {
-  const values = args.map((a) => a.value)
-  if (values.some((v) => v === undefined)) return undefined
-  const numbers = values.every((v) => typeof v === "bigint" || typeof v === "number")
-  const pick = (i: number): Result => withType(args[i]!)
-  switch (name) {
-    case "ABS": {
-      const v = values[0]
-      if (args.length !== 1 || (typeof v !== "bigint" && typeof v !== "number")) return undefined
-      const abs = typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(v)
-      return { ...withType(args[0]!), value: typeof abs === "bigint" && args[0]!.elem !== undefined ? wrapToWidth(abs, args[0]!.elem) : abs }
-    }
-    case "MIN":
-    case "MAX": {
-      if (args.length < 2 || !numbers) return undefined
-      // the SECOND on a tie, as the transpiler's `builtinValue` (`MAX(a, b)` is `IF a > b THEN a ELSE b`)
-      let at = 0
-      for (let i = 1; i < args.length; i++) at = (name === "MAX" ? (values[at] as number) > (values[i] as number) : (values[at] as number) < (values[i] as number)) ? at : i
-      return pick(at)
-    }
-    case "LIMIT": {
-      if (args.length !== 3 || !numbers) return undefined
-      const [mn, v, mx] = values as (bigint | number)[]
-      const low = mn! > v! ? 0 : 1
-      return pick((low === 0 ? mn! : v!) < mx! ? low : 2)
-    }
-    case "SEL": {
-      const g = values[0]
-      return args.length === 3 && typeof g === "boolean" ? pick(g ? 2 : 1) : undefined
-    }
-    case "MUX": {
-      const k = values[0]
-      if (args.length < 2 || typeof k !== "bigint") return undefined
-      // an out-of-range K, negative included, picks the LAST input (conformance `mux_out_of_range`)
-      return pick(k >= 0n && k < BigInt(args.length - 1) ? Number(k) + 1 : args.length - 1)
-    }
-    case "SHL":
-    case "SHR":
-    case "ROL":
-    case "ROR":
-      return shift(name, args)
-    case "TRUNC": {
-      // toward zero, a DINT (`cfold_trunc` 7); beyond DINT's range unmeasured
-      const v = values[0]
-      if (args.length !== 1 || typeof v !== "number" || !Number.isFinite(v) || Math.abs(v) >= 2 ** 31) return undefined
-      return { value: BigInt(Math.trunc(v)), elem: elementaryType("DINT")! }
-    }
-    case "EXPT": {
-      // REAL only when both arguments are REAL, LREAL otherwise (`builtins` `exptResultType`)
-      if (args.length !== 2 || !numbers) return undefined
-      const width: RealWidth = args[0]!.width === 32 && args[1]!.width === 32 ? 32 : 64
-      const p = Math.pow(Number(values[0]), Number(values[1]))
-      return { value: width === 32 ? Math.fround(p) : p, width }
-    }
-    case "SQRT": {
-      // the argument's own REAL type, else LREAL (`builtins` `mathResultType`)
-      if (args.length !== 1 || !numbers) return undefined
-      const width: RealWidth = args[0]!.width ?? 64
-      const r = Math.sqrt(Number(values[0]))
-      return { value: width === 32 ? Math.fround(r) : r, width }
-    }
-  }
-  return undefined
-}
-
-/** A folded value with the type it carries. */
-function withType(f: Folded): Result {
-  const r: Result = { value: f.value }
-  if (f.width !== undefined) r.width = f.width
-  if (f.elem !== undefined) r.elem = f.elem
-  return r
-}
-
-/**
- * A SHIFT OR ROTATION HAPPENS AT ITS OPERAND'S WIDTH: `SHL(BYTE#255, 1)` is 254, `ROL(BYTE#129, 1)` 3, `ROR(BYTE#129, 1)`
- * 192, `SHR(WORD#80, 4)` 5, and an untyped literal shifts at its narrowest type (`SHL(1, 3)` 8) — `ce_fold_sh*`, `ce_fold_ro*`,
- * both vendors 2026-10-03. The result is of the operand's type. The bits are the operand's whole non-negative value — a
- * constant HELD past its type (`B : BYTE := KB + 1`, 256) shifts and rotates as held, cut to its declared width after:
- * ROL(B, 1) is (512 OR 2) cut to 8 bits, 2, ROR(B, 1) 128, SHR(B, 1) 128 (`tr_a29_rol_bound_widened_byte_constant`, both
- * vendors, `tr_a29_widened_constant_reads`; 6Af gate review) — and a negative one its pattern in that width.
- */
-function shift(name: string, args: readonly Folded[]): Result | undefined {
-  const [operand, count] = args
-  if (args.length !== 2 || typeof operand!.value !== "bigint" || typeof count!.value !== "bigint" || count!.value < 0n) return undefined
-  const e = integerTypeOf(operand!)
-  if (e === undefined) return undefined
-  const bits = BigInt(e.bits)
-  const pattern = operand!.value >= 0n ? operand!.value : BigInt.asUintN(e.bits, operand!.value)
-  const n = count!.value
-  const r =
-    name === "SHL" ? pattern << n
-    : name === "SHR" ? pattern >> n
-    : name === "ROL" ? (pattern << n % bits) | (pattern >> ((bits - (n % bits)) % bits))
-    : (pattern >> n % bits) | (pattern << ((bits - (n % bits)) % bits))
-  return { value: wrapToWidth(r, e), elem: e }
-}
-
-// ─── operators ───────────────────────────────────────────────────────────────────────────────────────────────────────
-
-function foldUnary(op: string, v: ConstValue): ConstValue {
-  if (v === undefined) return undefined
-  if (op === "-") {
-    if (typeof v === "bigint") return -v
-    if (typeof v === "number") return -v
-  }
-  if (op === "+") return typeof v === "boolean" ? undefined : v
-  return undefined
-}
-
-function foldBinary(op: string, l: ConstValue, r: ConstValue): ConstValue {
-  if (l === undefined || r === undefined) return undefined
-  if (typeof l === "boolean" && typeof r === "boolean") return foldBool(op, l, r)
-  if (typeof l === "boolean" || typeof r === "boolean") return undefined
-  const rule = ARITHMETIC.get(op)
-  if (rule === undefined) return foldCompare(op, l, r)
-  // two integers fold exactly as bigint (`/` truncates); a real on either side folds both as a number
-  return typeof l === "bigint" && typeof r === "bigint" ? rule.int(l, r) : rule.real?.(Number(l), Number(r))
-}
-
-/** THE ONE NUMERIC FOLD (lean 10.2): each arithmetic operator once, its integer and its real rule side by side. An operator
- *  with no `real` rule does not fold on a real. The width a binary folds in is the wider operand's (`fold`'s `binary`). */
-const ARITHMETIC: ReadonlyMap<string, { int: (l: bigint, r: bigint) => bigint | undefined; real?: (l: number, r: number) => number | undefined }> = new Map([
-  ["+", { int: (l, r) => l + r, real: (l, r) => l + r }],
-  ["-", { int: (l, r) => l - r, real: (l, r) => l - r }],
-  ["*", { int: (l, r) => l * r, real: (l, r) => l * r }],
-  ["/", { int: (l, r) => (r === 0n ? undefined : l / r), real: (l, r) => (r === 0 ? undefined : l / r) }],
-  // no real MOD: on a REAL it is refused, "MOD is not defined for REAL" (`tr_a20_real_mod_in_initializer`, 6.A.20)
-  ["MOD", { int: (l, r) => (r === 0n ? undefined : l % r) }],
-  // the bit operators on two non-negative integers (`cfold_paren_shl_or`: `SHL(…) OR 16#1` is 196609); a negative
-  // operand's pattern is its type's, which an untyped fold does not carry
-  ["AND", { int: (l, r) => (l >= 0n && r >= 0n ? l & r : undefined) }],
-  ["OR", { int: (l, r) => (l >= 0n && r >= 0n ? l | r : undefined) }],
-  ["XOR", { int: (l, r) => (l >= 0n && r >= 0n ? l ^ r : undefined) }],
-])
-
-function foldBool(op: string, l: boolean, r: boolean): ConstValue {
-  switch (op) {
-    case "AND":
-    case "AND_THEN":
-      return l && r
-    case "OR":
-    case "OR_ELSE":
-      return l || r
-    case "XOR":
-      return l !== r
-    case "=":
-      return l === r
-    case "<>":
-      return l !== r
-    default:
-      return undefined
-  }
-}
-
-function foldCompare(op: string, l: bigint | number, r: bigint | number): ConstValue {
-  switch (op) {
-    case "<":
-      return l < r
-    case ">":
-      return l > r
-    case "<=":
-      return l <= r
-    case ">=":
-      return l >= r
-    case "=":
-      return l === r
-    case "<>":
-      return l !== r
-    default:
-      return undefined
-  }
 }
 
 /**

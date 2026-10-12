@@ -3,7 +3,7 @@
  * (openspec frontend-conformance design.md §2): a consumer that compares names or tests for THIS/SUPER itself is a
  * second copy.
  */
-import type { Expr } from "./ast/nodes.js"
+import type { Expr } from "./ast/nodes/index.js"
 
 /**
  * Two ST names for the same thing: names are case-insensitive. A backtick-quoted name is compared as written (the quotes

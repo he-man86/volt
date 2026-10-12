@@ -8,7 +8,7 @@
 import type { ParseResult } from "../../frontend/syntax/index.js"
 import type { Scope } from "../../frontend/symbols/index.js"
 import { resolveConfig, type AnalysisInitOptions, type ResolvedConfig } from "../config.js"
-import { messagesFor } from "../messages.js"
+import { messagesFor } from "../messages/index.js"
 import type { DiagnosticItem } from "../shared/diagnostic-item.js"
 import type { Check, CheckContext } from "./context.js"
 import { applyPolicy } from "./policy.js"

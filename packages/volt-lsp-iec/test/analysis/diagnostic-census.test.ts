@@ -26,19 +26,10 @@ import { CHECK_REGISTRY } from "../../src/analysis/index.js"
 import { checkBaseline } from "../baseline/baseline.js"
 import { readFileSync } from "node:fs"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
-import {
-  builderOwners,
-  corpusCode,
-  corpusSeverity,
-  matchMultiset,
-  NETWORK_ROW,
-  recordingMessages,
-  registryRows,
-  runCensus,
-  shapeOf,
-  unownedClass,
-  VENDORS,
-} from "./census.js"
+import { corpusCode, corpusSeverity, runCensus, unownedClass } from "./census.js"
+import { matchMultiset } from "./census-fixtures.js"
+import { builderOwners, recordingMessages, registryRows, shapeOf } from "./census-owners.js"
+import { NETWORK_ROW, VENDORS } from "./census-owners.js"
 
 const DIR = join(import.meta.dir, "baselines")
 /** The whole census walks ~4,600 fixtures twice and the six corpora once (the corpus pass is shared with `corpus.test.ts`). */

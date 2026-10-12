@@ -1,0 +1,380 @@
+/**
+ * the fixtures of `units.ts` — part A: U1 PROGRAM; U2 PROGRAM with a return type; U3 FUNCTION with a return type; U4 FUNCTION without a return type; FUNCTION IMPLEMENTS / EXTENDS; U5 FUNCTION_BLOCK, EXTENDS, IMPLEMENTS and lists; U7 FB EXTENDS/IMPLEMENTS a qualified name; U8 FB ABSTRACT / FINAL; U9 FB access modifier; U11 METHOD; U13 METHOD modifiers, one by one, stacked, reordered, repeated; U16 PROPERTY modifiers, accessor modifiers, accessors without END_GET/END_SET; U17 ACTION; U18 INTERFACE member modifiers, one by one (the interface's modifier set is decided by these); U20 INTERFACE EXTENDS a list; INTERFACE IMPLEMENTS; U21 interface accessor VAR sections; U22 STRUCT EXTENDS: where it stands, twice, a list; the `;` after END_STRUCT; U26 alias; U27 TYPE EXTENDS on a non-struct; a TYPE with no body; U28 NAMESPACE … END_NAMESPACE (task 2.4.6).
+ *
+ * One slice of `units.ts`, which assembles the parts in order (openspec lsp-same-standard 4.4: a fixture file is
+ * held to 400 lines; the map is keyed by fixture name, so a split is map-neutral, and the walk order is kept).
+ */
+import type { LanguageTest } from "../../types.js"
+import {
+  ACCESSOR_DECLARATION_NOT_WRITABLE,
+  IMPL_GET,
+  ITF_GET,
+  REC,
+  accessorName,
+  accessorNameRec,
+  accessorSignature,
+  asSent,
+  bareType,
+  fb,
+  fbUnit,
+  fun,
+  getter,
+  itf,
+  itfMethod,
+  itfProperty,
+  loaderNamed,
+  method,
+  namespaced,
+  overrideBase,
+  overridingAsSent,
+  program,
+  property,
+  pushRefuses,
+  pushRewrites,
+  setter,
+  struct,
+  twincatPushRefuses,
+  undeclaredFb,
+  withRec,
+  withVar,
+} from "./units-shared.js"
+
+export const UNIT_RULE_TESTS_A: readonly LanguageTest[] = [
+// ─── U1 PROGRAM ─────────────────────────────────────────────────────────────────────────────────────────────────────
+  asSent(program("unit_program_trailing_semicolon", "U1 — a PROGRAM header ended by `;`: `PROGRAM P;`", "<name>;")),
+  // ─── U2 PROGRAM with a return type ──────────────────────────────────────────────────────────────────────────────────
+  program("unit_program_return_type", "U2 — a PROGRAM with a return type: `PROGRAM P : INT`", "<name> : INT"),
+  // ─── U3 FUNCTION with a return type ─────────────────────────────────────────────────────────────────────────────────
+  fun("unit_function_trailing_semicolon", "U3 — a FUNCTION header ended by `;` after its return type: `FUNCTION F : INT;`",
+    "FUNCTION <f> : INT;\nVAR_INPUT\n\tx : INT;\nEND_VAR\n<f> := x + INT#1;\nEND_FUNCTION\n",
+    "seen_unit_function_trailing_semicolon : INT;", "seen_unit_function_trailing_semicolon := <f>(2);"),
+  // ─── U4 FUNCTION without a return type; FUNCTION IMPLEMENTS / EXTENDS ───────────────────────────────────────────────
+  fun("unit_function_no_return_type", "U4 — a FUNCTION with no return type, called as a statement",
+    "FUNCTION <f>\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nio := io + INT#4;\nEND_FUNCTION\n",
+    "seen_unit_function_no_return_type : INT;", "<f>(io := seen_unit_function_no_return_type);"),
+  fun("unit_function_no_return_type_in_expression", "U4 — a FUNCTION with no return type, its call used as a value",
+    "FUNCTION <f>\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nio := io + INT#4;\nEND_FUNCTION\n",
+    "seen_unit_function_no_return_type_in_expression : INT;\n\tcell_unit_function_no_return_type_in_expression : INT;",
+    "seen_unit_function_no_return_type_in_expression := <f>(io := cell_unit_function_no_return_type_in_expression);"),
+  // the IMPLEMENTS clause AFTER the return type — `hdr_function_implements` asks it before (C0145 there)
+  fun("unit_function_implements", "U4 — a FUNCTION whose IMPLEMENTS clause follows its return type: `FUNCTION F : INT IMPLEMENTS I`",
+    "INTERFACE ITF_LANG_unit_function_implements\nEND_INTERFACE\n\nFUNCTION <f> : INT IMPLEMENTS ITF_LANG_unit_function_implements\nVAR_INPUT\n\tx : INT;\nEND_VAR\n<f> := x;\nEND_FUNCTION\n",
+    "seen_unit_function_implements : INT;", "seen_unit_function_implements := <f>(2);"),
+  // its base is `oop_base`'s FB (a fixture of its own: an item pushed AS SENT carries no second unit)
+  asSent(fun("unit_function_extends_after_return", "U4 — a FUNCTION whose EXTENDS clause follows its return type: `FUNCTION F : INT EXTENDS B`",
+    "FUNCTION <f> : INT EXTENDS FB_LANG_oop_base\nVAR_INPUT\n\tx : INT;\nEND_VAR\n<f> := x;\nEND_FUNCTION\n",
+    "seen_unit_function_extends_after_return : INT;", "seen_unit_function_extends_after_return := <f>(2);")),
+  // ─── U5 FUNCTION_BLOCK, EXTENDS, IMPLEMENTS and lists ───────────────────────────────────────────────────────────────
+  // the base is `oop_base`'s FB and the interface `interface_empty`'s (fixtures of their own, as above)
+  asSent(fb("unit_fb_implements_before_extends", "U5 — IMPLEMENTS written before EXTENDS: `FUNCTION_BLOCK X IMPLEMENTS I EXTENDS B`",
+    "<name> IMPLEMENTS ITF_LANG_empty EXTENDS FB_LANG_oop_base", "iValue := 9;\nout := iValue;")),
+  fb("unit_fb_implements_trailing_comma", "U5 — an IMPLEMENTS list ending in a comma: `IMPLEMENTS I,`",
+    "<name> IMPLEMENTS ITF_LANG_unit_fb_implements_trailing_comma,", "out := Get();", IMPL_GET,
+    itf("unit_fb_implements_trailing_comma", ITF_GET)),
+  fb("unit_fb_implements_twice", "U5 — one interface named twice in an IMPLEMENTS list: `IMPLEMENTS I, I`",
+    "<name> IMPLEMENTS ITF_LANG_unit_fb_implements_twice, ITF_LANG_unit_fb_implements_twice", "out := Get();", IMPL_GET,
+    itf("unit_fb_implements_twice", ITF_GET)),
+  // ─── U7 FB EXTENDS/IMPLEMENTS a qualified name ──────────────────────────────────────────────────────────────────────
+  asSent(fb("unit_fb_extends_qualified", "U7 — an FB extending a library FB by its qualified name: `EXTENDS Standard.TON`",
+    "<name> EXTENDS Standard.TON", "PT := T#5MS;\nout := TIME_TO_INT(PT);")),
+  asSent(fb("unit_fb_extends_qualified_unknown", "U7 — an FB extending a qualified name no library holds: `EXTENDS NoSuchLib.FB_X`",
+    "<name> EXTENDS NoSuchLib.FB_X", "out := 1;")),
+  asSent(fb("unit_fb_implements_qualified", "U7 — an FB implementing a qualified interface: `IMPLEMENTS __SYSTEM.IQueryInterface`",
+    "<name> IMPLEMENTS __SYSTEM.IQueryInterface", "out := 1;")),
+  // ─── U8 FB ABSTRACT / FINAL ─────────────────────────────────────────────────────────────────────────────────────────
+  {
+    ...fb("unit_fb_abstract_final", "U8 — an FB both ABSTRACT and FINAL: `FUNCTION_BLOCK ABSTRACT FINAL X`",
+      "ABSTRACT FINAL <name>", "out := 1;"),
+    // an ABSTRACT FB cannot be instanced, so PLC_PRG reaches it through a pointer
+    plcPrgVar: "p_unit_fb_abstract_final : POINTER TO FB_LANG_unit_fb_abstract_final;",
+    plcPrgBody: "",
+  },
+  undeclaredFb(fb("unit_fb_modifier_twice", "U8/U9 — one FB modifier written twice: `FUNCTION_BLOCK PUBLIC PUBLIC X`",
+    "PUBLIC PUBLIC <name>", "out := 1;")),
+  // …and FINAL twice, which is no second access modifier (the first answers: PUBLIC PUBLIC and PUBLIC INTERNAL both
+  // leave the FB undeclared, where METHOD FINAL FINAL builds)
+  fb("unit_fb_final_twice", "U8 — FINAL written twice on an FB: `FUNCTION_BLOCK FINAL FINAL X`", "FINAL FINAL <name>",
+    "out := 1;"),
+  // …and an access modifier after FINAL (a METHOD refuses `FINAL PRIVATE`)
+  undeclaredFb(fb("unit_fb_final_public_order", "U8/U9 — FINAL before the access modifier: `FUNCTION_BLOCK FINAL PUBLIC X`",
+    "FINAL PUBLIC <name>", "out := 1;")),
+  // ─── U9 FB access modifier ──────────────────────────────────────────────────────────────────────────────────────────
+  fb("unit_fb_public", "U9 — `FUNCTION_BLOCK PUBLIC X`", "PUBLIC <name>", "out := 1;"),
+  fb("unit_fb_internal", "U9 — `FUNCTION_BLOCK INTERNAL X`", "INTERNAL <name>", "out := 1;"),
+  fb("unit_fb_private", "U9 — `FUNCTION_BLOCK PRIVATE X`", "PRIVATE <name>", "out := 1;"),
+  fb("unit_fb_protected", "U9 — `FUNCTION_BLOCK PROTECTED X`", "PROTECTED <name>", "out := 1;"),
+  // …and a PRIVATE FB nobody calls: is "Cannot access private method ???.X" the call's, or the header's?
+  {
+    ...fb("unit_fb_private_not_called", "U9 — `FUNCTION_BLOCK PRIVATE X`, reached through a pointer and never called",
+      "PRIVATE <name>", "out := 1;"),
+    plcPrgVar: "p_unit_fb_private_not_called : POINTER TO FB_LANG_unit_fb_private_not_called;",
+    plcPrgBody: "",
+  },
+  undeclaredFb(fb("unit_fb_public_internal", "U9 — two access modifiers on one FB: `FUNCTION_BLOCK PUBLIC INTERNAL X`",
+    "PUBLIC INTERNAL <name>", "out := 1;")),
+  fb("unit_fb_internal_final", "U8/U9 — an access modifier and FINAL: `FUNCTION_BLOCK INTERNAL FINAL X`",
+    "INTERNAL FINAL <name>", "out := 1;"),
+  // …and an FB EXTENDING one whose header is refused: is the refused FB a base, when it is no type?
+  fb("unit_fb_extends_refused", "U8/U9 — an FB extending one whose header is refused (`FUNCTION_BLOCK FINAL PUBLIC X`)",
+    "<name> EXTENDS FB_LANG_unit_fb_extends_refused_base", "out := 1;", "",
+    "FUNCTION_BLOCK FINAL PUBLIC FB_LANG_unit_fb_extends_refused_base\nVAR\n\tn : INT := 2;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n"),
+  // ─── U11 METHOD ─────────────────────────────────────────────────────────────────────────────────────────────────────
+  fb("unit_method_trailing_semicolon", "U11 — a METHOD header ended by `;` after its return type: `METHOD M : INT;`",
+    "<name>", "out := M();", "METHOD M : INT;\nM := 7;\nEND_METHOD\n"),
+  // ─── U13 METHOD modifiers, one by one, stacked, reordered, repeated ─────────────────────────────────────────────────
+  method("unit_method_public", "U13 — `METHOD PUBLIC M`", "PUBLIC"),
+  method("unit_method_private", "U13 — `METHOD PRIVATE M`", "PRIVATE"),
+  method("unit_method_protected", "U13 — `METHOD PROTECTED M`", "PROTECTED"),
+  method("unit_method_internal", "U13 — `METHOD INTERNAL M`", "INTERNAL"),
+  method("unit_method_final", "U13 — `METHOD FINAL M`", "FINAL"),
+  // OVERRIDE: the push refused each OVERRIDE header until openspec bridge-refusal-review D10 ("'OVERRIDE' is not an access
+  // modifier"), so CODESYS answered through `record:exec`, which loads the objects itself: OVERRIDE is no modifier there,
+  // it is the method's NAME — "The name used in the signature is not identical to the object name" (2026-10-01). The push
+  // now reads the member as the last word before the colon (M) and writes the header as sent, so both builds answer it.
+  overrideBase("unit_method_override"),
+  overridingAsSent("unit_method_override", "U13 — `METHOD OVERRIDE M`, overriding the base's M", "OVERRIDE"),
+  overrideBase("unit_method_override_public_order"),
+  overridingAsSent("unit_method_override_public_order", "U13 — OVERRIDE before the access modifier: `METHOD OVERRIDE PUBLIC M`",
+    "OVERRIDE PUBLIC"),
+  method("unit_method_final_private_order", "U13 — FINAL before the access modifier: `METHOD FINAL PRIVATE M`", "FINAL PRIVATE"),
+  method("unit_method_two_access", "U13 — two access modifiers on one METHOD: `METHOD PUBLIC PRIVATE M`", "PUBLIC PRIVATE"),
+  method("unit_method_modifier_twice", "U13 — one METHOD modifier written twice: `METHOD FINAL FINAL M`", "FINAL FINAL"),
+  // …and ABSTRACT with FINAL, which an FB refuses ("A method or functionblock cannot be ABSTRACT and FINAL")
+  {
+    ...fb("unit_method_abstract_final", "U12/U13 — a METHOD both ABSTRACT and FINAL, in an ABSTRACT FB", "ABSTRACT <name>",
+      "out := 1;", "METHOD ABSTRACT FINAL M : INT\nEND_METHOD\n"),
+    plcPrgVar: "p_unit_method_abstract_final : POINTER TO FB_LANG_unit_method_abstract_final;",
+    plcPrgBody: "",
+  },
+  // ─── U16 PROPERTY modifiers, accessor modifiers, accessors without END_GET/END_SET ──────────────────────────────────
+  property("unit_property_public", "U16 — `PROPERTY PUBLIC P`", "PUBLIC"),
+  property("unit_property_private", "U16 — `PROPERTY PRIVATE P`", "PRIVATE"),
+  property("unit_property_protected", "U16 — `PROPERTY PROTECTED P`", "PROTECTED"),
+  property("unit_property_internal", "U16 — `PROPERTY INTERNAL P`", "INTERNAL"),
+  property("unit_property_final", "U16 — `PROPERTY FINAL P`", "FINAL"),
+  fb("unit_property_abstract", "U16 — `PROPERTY ABSTRACT P` in an ABSTRACT base, implemented by the FB extending it",
+    "<name> EXTENDS FB_LANG_unit_property_abstract_base", "out := P;", "PROPERTY P : INT\nGET\nP := 6;\nEND_GET\nEND_PROPERTY\n",
+    "FUNCTION_BLOCK ABSTRACT FB_LANG_unit_property_abstract_base\nEND_FUNCTION_BLOCK\n\nPROPERTY ABSTRACT P : INT\nGET\nEND_GET\nEND_PROPERTY\n\n"),
+  // AS SENT, its base a fixture of its own (as `overridingAsSent`): the parser reads OVERRIDE as the property's name and
+  // cannot mark its getter, and the push reads the member as P (the last word before the colon, D10).
+  {
+    ...fbUnit("unit_property_override_base", "the base FB of unit_property_override, declaring the PROPERTY P it overrides",
+      "FUNCTION_BLOCK FB_LANG_unit_property_override_base\nVAR\n\tb : INT := 2;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n" +
+        "PROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n"),
+  },
+  loaderNamed({
+    ...fbUnit("unit_property_override", "U16 — `PROPERTY OVERRIDE P`, overriding the base's P",
+      "FUNCTION_BLOCK FB_LANG_unit_property_override EXTENDS FB_LANG_unit_property_override_base\nVAR\n\tout : INT;\nEND_VAR\n" +
+        "IMPLEMENTATION ST\nout := P;\nEND_FUNCTION_BLOCK\n\nPROPERTY OVERRIDE P : INT\nGET\nIMPLEMENTATION ST\nP := 6;\nEND_GET\nEND_PROPERTY\n"),
+    asSent: "the parser reads OVERRIDE as the property's name, so it cannot mark the getter; the text states its own IMPLEMENTATION lines, as a workspace file does",
+  },
+    "a property object named OVERRIDE holding `PROPERTY OVERRIDE P : INT` BUILDS there and leaves the base's P in place (out = 1)"),
+  property("unit_property_modifiers", "U16 — stacked PROPERTY modifiers: `PROPERTY PUBLIC FINAL P`", "PUBLIC FINAL"),
+  property("unit_property_modifiers_reordered", "U16 — stacked PROPERTY modifiers, FINAL first: `PROPERTY FINAL PUBLIC P`",
+    "FINAL PUBLIC"),
+  property("unit_property_final_twice", "U16 — one PROPERTY modifier written twice: `PROPERTY FINAL FINAL P`", "FINAL FINAL"),
+  // …and ABSTRACT with FINAL, which a METHOD and an FB refuse ("A method or functionblock cannot be ABSTRACT and FINAL")
+  {
+    ...fb("unit_property_abstract_final", "U16 — a PROPERTY both ABSTRACT and FINAL, in an ABSTRACT FB", "ABSTRACT <name>",
+      "out := 1;", "PROPERTY ABSTRACT FINAL P : INT\nGET\nEND_GET\nEND_PROPERTY\n"),
+    plcPrgVar: "p_unit_property_abstract_final : POINTER TO FB_LANG_unit_property_abstract_final;",
+    plcPrgBody: "",
+  },
+  // THE PUSH REWRITES THESE THREE BEFORE EITHER IDE SEES THEM (volt-cli `StReader.ReadProperty`, 2026-10-01): it drops
+  // an accessor's modifier, and it closes a getter that lacks END_GET as a BARE accessor, dropping its body. So the build
+  // recordings (both vendors: it builds) measured the push's rewrite, and a run recording would be the LSP parser's own
+  // split (`record:exec` loads it) — the code under test answering itself. Rated unaskable; U16 keeps them as a GAP.
+  pushRewrites(property("unit_property_accessor_modifier", "U16 — a modifier on the accessor: `GET PRIVATE`", "",
+    "GET PRIVATE\nP := stored;\nEND_GET\n"), "the push drops the accessor's modifier (`GET PRIVATE` reaches the IDE as `GET`)"),
+  pushRewrites(property("unit_property_no_end_get", "U16 — a getter not closed by END_GET, followed by a setter", "",
+    "GET\nP := stored;\nSET\nstored := P;\nEND_SET\n"), "the push closes the getter at `SET` as an EMPTY accessor, dropping `P := stored;`"),
+  pushRewrites(property("unit_property_no_end_get_alone", "U16 — the only accessor, a getter not closed by END_GET", "",
+    "GET\nP := stored;\n"), "the push closes the getter at END_PROPERTY as an EMPTY accessor, dropping `P := stored;`"),
+  // GET AND SET ARE NAMES INSIDE AN ACCESSOR'S BODY AND ITS VAR BLOCKS (openspec lsp-accessor-keyword-at-line-start): a
+  // body runs from its IMPLEMENTATION line to its own END keyword, as every element's does. The field FB (PLCAssist,
+  // 2026-10-10) declared `SET : POINTER TO <struct>` and wrote `SET^.stri_Name := P;` — CODESYS builds it, the LSP closed
+  // the accessor at the operand. One operand shape per fixture, at a line start and mid-line; then the controls.
+  accessorNameRec,
+  accessorName("unit_accessor_name_setter_deref", "U16 — `SET^ := P;` in a setter, SET a declared POINTER TO INT",
+    "\tstored : INT;\n\tSET : POINTER TO INT;\n", "SET := ADR(stored);\nP := 7;\nout := P;",
+    getter("P := stored;") + setter("SET^ := P;")),
+  accessorName("unit_accessor_name_setter_deref_member", "U16 — `SET^.x := P;` in a setter, SET a declared POINTER TO a struct",
+    `\trec : ${REC};\n\tSET : POINTER TO ${REC};\n`, "SET := ADR(rec);\nP := 7;\nout := rec.x;",
+    getter("P := rec.x;") + setter("SET^.x := P;")),
+  accessorName("unit_accessor_name_setter_assign", "U16 — `SET := P;` in a setter, SET a declared INT",
+    "\tSET : INT;\n", "P := 7;\nout := P;", getter("P := SET;") + setter("SET := P;")),
+  accessorName("unit_accessor_name_setter_member", "U16 — `SET.x := P;` in a setter, SET a declared struct",
+    `\tSET : ${REC};\n`, "P := 7;\nout := P;", getter("P := SET.x;") + setter("SET.x := P;")),
+  accessorName("unit_accessor_name_setter_index", "U16 — `SET[1] := P;` in a setter, SET a declared ARRAY",
+    "\tSET : ARRAY[1..2] OF INT;\n", "P := 7;\nout := P;", getter("P := SET[1];") + setter("SET[1] := P;")),
+  accessorName("unit_accessor_name_getter_adr", "U16 — `P := ADR(SET^.x);` mid-line in a getter, SET a POINTER TO a struct",
+    `\trec : ${REC};\n\tSET : POINTER TO ${REC};\n`, "SET := ADR(rec);\nrec.x := 7;\nout := P^;",
+    getter("P := ADR(SET^.x);"), "POINTER TO INT"),
+  accessorName("unit_accessor_name_getter_get", "U16 — `GET := 7;` and `P := GET;` in a getter, GET a declared INT",
+    "\tGET : INT;\n", "out := P;", getter("GET := 7;\nP := GET;")),
+  accessorName("unit_accessor_name_setter_get", "U16 — `GET := P;` in a setter, GET a declared INT",
+    "\tGET : INT;\n", "P := 7;\nout := P;", getter("P := GET;") + setter("GET := P;")),
+  accessorName("unit_accessor_name_var_block", "U16 — `SET : INT;` declared in a getter's own VAR block",
+    "", "out := P;", "GET\nVAR\n\tSET : INT;\nEND_VAR\nIMPLEMENTATION ST\nSET := 7;\nP := SET;\nEND_GET\n"),
+  accessorName("unit_accessor_name_control_closed", "U16 — control: a getter and a setter, each closed by its END",
+    "\tstored : INT;\n", "P := 7;\nout := P;", getter("P := stored;") + setter("stored := P;")),
+  accessorName("unit_accessor_name_control_bare_get", "U16 — control: a bare GET, closed by the SET under it",
+    "\tstored : INT;\n", "P := 7;\nout := stored;", "GET\n" + setter("stored := P;")),
+  // ─── U17 ACTION ─────────────────────────────────────────────────────────────────────────────────────────────────────
+  // …and so does an action's declaration under its line (review 4b): neither write stores one, so the VAR section was
+  // dropped and both builds answered the body alone ("Identifier 't' not defined"). Refused by name now.
+  {
+    ...pushRefuses(fb("unit_action_var_section", "U17 — an ACTION declaring a VAR section of its own",
+      "<name>", "Act();", "ACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n"),
+      "'FB_LANG_unit_action_var_section', line 10: 'VAR' would be part of action 'Act's declaration, and an action has no declaration the IDE stores — its line is 'ACTION Act', so this would be dropped. Move it into the action's body or the owner's declaration."),
+    execSkip:
+      "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the VAR section to — the push refuses it, and `record:exec` loads the parser's units, which hold no such action",
+    asSent: "the parser reads no declaration on an ACTION, so it would mark the body above the VAR; the text states its own IMPLEMENTATION lines, as a workspace file does",
+    source: "FUNCTION_BLOCK FB_LANG_unit_action_var_section\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n",
+  },
+  // The push REFUSES an action line holding anything besides its keyword and name (openspec bridge-refusal-review D10): an
+  // action's line is composed, not stored, so the modifier was dropped without a word (both vendors built the FB).
+  {
+    ...pushRefuses(fb("unit_action_modifier", "U17 — an access modifier on an ACTION: `ACTION PRIVATE Act`", "<name>", "Act();"),
+      "'FB_LANG_unit_action_modifier', line 9: Cannot parse ACTION signature: an action has no declaration the IDE stores — its line is 'ACTION Act', so anything else on it would be dropped — ACTION PRIVATE Act"),
+    asSent: "the parser does not read a modifier on an ACTION; the text states its own IMPLEMENTATION lines, as a workspace file does",
+    execSkip:
+      "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the modifier to — the push refuses the header, and `record:exec` loads the parser's units, which hold no such action",
+    source: "FUNCTION_BLOCK FB_LANG_unit_action_modifier\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION PRIVATE Act\nIMPLEMENTATION ST\nout := 4;\nEND_ACTION\n",
+  },
+  // ─── U18 INTERFACE member modifiers, one by one (the interface's modifier set is decided by these) ────────────────
+  itfMethod("unit_interface_method_public", "U18 — an interface method `METHOD PUBLIC Get`", "PUBLIC"),
+  itfMethod("unit_interface_method_private", "U18 — an interface method `METHOD PRIVATE Get`", "PRIVATE"),
+  itfMethod("unit_interface_method_protected", "U18 — an interface method `METHOD PROTECTED Get`", "PROTECTED"),
+  itfMethod("unit_interface_method_internal", "U18 — an interface method `METHOD INTERNAL Get`", "INTERNAL"),
+  itfMethod("unit_interface_method_final", "U18 — an interface method `METHOD FINAL Get`", "FINAL"),
+  itfMethod("unit_interface_method_abstract", "U18 — an interface method `METHOD ABSTRACT Get`", "ABSTRACT"),
+  loaderNamed(itfMethod("unit_interface_method_override", "U18 — an interface method `METHOD OVERRIDE Get`", "OVERRIDE"),
+    "an interface method object named OVERRIDE holding `METHOD OVERRIDE Get : INT` reads no parse error there, only \"There is no implementation for method 'OVERRIDE'\""),
+  itfProperty("unit_interface_property_public", "U18 — an interface property `PROPERTY PUBLIC Val`", "PUBLIC"),
+  itfProperty("unit_interface_property_private", "U18 — an interface property `PROPERTY PRIVATE Val`", "PRIVATE"),
+  itfProperty("unit_interface_property_protected", "U18 — an interface property `PROPERTY PROTECTED Val`", "PROTECTED"),
+  itfProperty("unit_interface_property_internal", "U18 — an interface property `PROPERTY INTERNAL Val`", "INTERNAL"),
+  itfProperty("unit_interface_property_final", "U18 — an interface property `PROPERTY FINAL Val`", "FINAL"),
+  itfProperty("unit_interface_property_abstract", "U18 — an interface property `PROPERTY ABSTRACT Val`", "ABSTRACT"),
+  // …ABSTRACT with FINAL, and an access modifier after FINAL, on each interface member kind
+  itfMethod("unit_interface_method_abstract_final", "U18 — an interface method `METHOD ABSTRACT FINAL Get`", "ABSTRACT FINAL"),
+  itfProperty("unit_interface_property_abstract_final", "U18 — an interface property `PROPERTY ABSTRACT FINAL Val`",
+    "ABSTRACT FINAL"),
+  itfMethod("unit_interface_method_final_public_order", "U18 — an interface method `METHOD FINAL PUBLIC Get`", "FINAL PUBLIC"),
+  itfProperty("unit_interface_property_final_public_order", "U18 — an interface property `PROPERTY FINAL PUBLIC Val`",
+    "FINAL PUBLIC"),
+  {
+    ...itfProperty("unit_interface_property_override", "U18 — an interface property `PROPERTY OVERRIDE Val`", "OVERRIDE"),
+    execSkip:
+      "NOTHING TO COMPARE: the push names the property by the last word before its colon (Val, openspec bridge-refusal-review D10), and `record:exec` builds an interface's property objects from the parser's units — which cannot read `PROPERTY OVERRIDE Val` (OVERRIDE is a name, as `unit_method_override` measured), so it would load a different interface than the one written",
+  },
+  // ─── U20 INTERFACE EXTENDS a list; INTERFACE IMPLEMENTS ─────────────────────────────────────────────────────────────
+  fb("unit_interface_extends_list", "U20 — an interface extending two: `INTERFACE I EXTENDS A, B`",
+    "<name> IMPLEMENTS ITF_LANG_unit_interface_extends_list", "out := GetA() + GetB();",
+    "METHOD GetA : INT\nGetA := 2;\nEND_METHOD\n\nMETHOD GetB : INT\nGetB := 3;\nEND_METHOD\n",
+    itf("unit_interface_extends_list", "METHOD GetA : INT\nEND_METHOD\n", "", "_a") +
+      itf("unit_interface_extends_list", "METHOD GetB : INT\nEND_METHOD\n", "", "_b") +
+      itf("unit_interface_extends_list", "", " EXTENDS ITF_LANG_unit_interface_extends_list_a, ITF_LANG_unit_interface_extends_list_b")),
+  fb("unit_interface_implements", "U20 — an interface with an IMPLEMENTS clause: `INTERFACE I IMPLEMENTS A`",
+    "<name> IMPLEMENTS ITF_LANG_unit_interface_implements", "out := GetA();", "METHOD GetA : INT\nGetA := 2;\nEND_METHOD\n",
+    itf("unit_interface_implements", "METHOD GetA : INT\nEND_METHOD\n", "", "_a") +
+      itf("unit_interface_implements", "", " IMPLEMENTS ITF_LANG_unit_interface_implements_a")),
+  fb("unit_interface_extends_qualified", "U18/U20 — an interface extending a qualified name: `EXTENDS __SYSTEM.IQueryInterface`",
+    "<name> IMPLEMENTS ITF_LANG_unit_interface_extends_qualified", "out := Get();", IMPL_GET,
+    itf("unit_interface_extends_qualified", ITF_GET, " EXTENDS __SYSTEM.IQueryInterface")),
+  // ─── U21 interface accessor VAR sections ────────────────────────────────────────────────────────────────────────────
+  // TwinCAT's push refuses to WRITE an interface accessor's declaration (DIALECT D21: the write crashes TcXaeShell; a pull
+  // reads it — 263 in pro2193); CODESYS's writes it and its build answers (openspec bridge-refusal-review 3.6, DIALECT
+  // D41), so the CODESYS build is recorded; `record:exec` loads the objects itself and answers for CODESYS
+  twincatPushRefuses(itfProperty("unit_interface_property_accessor_var", "U21 — an interface property's getter declaring a VAR section", "",
+    "GET\nVAR\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE),
+  twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_input", "U21 — an interface property's getter declaring a VAR_INPUT section", "",
+    "GET\nVAR_INPUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE),
+  accessorSignature(twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_output", "U21 — an interface property's getter declaring a VAR_OUTPUT section", "",
+    "GET\nVAR_OUTPUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE)),
+  accessorSignature(twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_in_out", "U21 — an interface property's getter declaring a VAR_IN_OUT section", "",
+    "GET\nVAR_IN_OUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE)),
+  // …and an interface METHOD's local sections ("Only inputs, outputs, and inouts allowed in interface methods" is
+  // measured on VAR; these are the other three a method may declare)
+  ...(["VAR_TEMP", "VAR_STAT", "VAR_INST"] as const).map((section) => {
+    const name = `unit_interface_method_${section.toLowerCase()}`
+    return fb(name, `U21 — an interface method declaring a ${section} section`, `<name> IMPLEMENTS ITF_LANG_${name}`,
+      "out := Get();", IMPL_GET, itf(name, `METHOD Get : INT\n${section}\n\tt : INT;\nEND_VAR\nEND_METHOD\n`))
+  }),
+  // ─── U22 STRUCT EXTENDS: where it stands, twice, a list; the `;` after END_STRUCT ───────────────────────────────────
+  withRec(fb("unit_struct_extends_after_struct", "U22 — EXTENDS after the STRUCT keyword: `TYPE X : STRUCT EXTENDS B`",
+    "<name>", "out := rec.a + rec.b;", "",
+    struct("unit_struct_extends_after_struct", "\ta : INT := 2;", "", "_base") +
+      struct("unit_struct_extends_after_struct", "\tb : INT := 3;", "", "", " EXTENDS DUT_LANG_unit_struct_extends_after_struct_base"))),
+  withRec(fb("unit_struct_extends_twice", "U22 — EXTENDS on the TYPE and on the STRUCT: `TYPE X EXTENDS A : STRUCT EXTENDS B`",
+    "<name>", "out := rec.c;", "",
+    struct("unit_struct_extends_twice", "\ta : INT := 2;", "", "_a") +
+      struct("unit_struct_extends_twice", "\tb : INT := 3;", "", "_b") +
+      struct("unit_struct_extends_twice", "\tc : INT := 4;", " EXTENDS DUT_LANG_unit_struct_extends_twice_a", "",
+        " EXTENDS DUT_LANG_unit_struct_extends_twice_b"))),
+  // AS SENT, one TYPE: its header is refused, so the parser has no subtype to push it under; the bases are
+  // `type_dut_struct_extends`'s two structs, and PLC_PRG reads a field of it
+  {
+    ...bareType("unit_struct_extends_list", "U22 — a STRUCT extending two: `TYPE X EXTENDS A, B : STRUCT`", "dut",
+      "TYPE DUT_LANG_unit_struct_extends_list EXTENDS DUT_LANG_struct_base, DUT_LANG_struct_extends :\nSTRUCT\n\tc : INT := 4;\nEND_STRUCT\nEND_TYPE\n"),
+    plcPrgVar: "v_unit_struct_extends_list : DUT_LANG_unit_struct_extends_list;\n\tseen_unit_struct_extends_list : INT;",
+    plcPrgBody: "seen_unit_struct_extends_list := v_unit_struct_extends_list.c;",
+  },
+  withRec(fb("unit_struct_end_semicolon", "U22 — a `;` after END_STRUCT: `END_STRUCT;`", "<name>", "out := rec.a;", "",
+    struct("unit_struct_end_semicolon", "\ta : INT := 2;").replace("END_STRUCT\n", "END_STRUCT;\n"))),
+  // ─── U26 alias ──────────────────────────────────────────────────────────────────────────────────────────────────────
+  withVar(fb("unit_alias_no_semicolon", "U26 — an alias with no `;` before END_TYPE: `TYPE A : INT END_TYPE`",
+    "<name>", "v := 4;\nout := v;", "", "TYPE DUT_LANG_unit_alias_no_semicolon : INT\nEND_TYPE\n\n"),
+    "\tv : DUT_LANG_unit_alias_no_semicolon;"),
+  // ─── U27 TYPE EXTENDS on a non-struct; a TYPE with no body ──────────────────────────────────────────────────────────
+  withVar(fb("unit_type_extends_on_enum", "U27 — EXTENDS on an enum: `TYPE E EXTENDS B : (A, C);`", "<name>", "out := 1;", "",
+    struct("unit_type_extends_on_enum", "\ta : INT;", "", "_base") +
+      "TYPE DUT_LANG_unit_type_extends_on_enum EXTENDS DUT_LANG_unit_type_extends_on_enum_base :\n(\n\tVA,\n\tVB\n);\nEND_TYPE\n\n"),
+    "\te : DUT_LANG_unit_type_extends_on_enum;"),
+  withVar(fb("unit_type_extends_on_alias", "U27 — EXTENDS on an alias: `TYPE A EXTENDS B : INT;`", "<name>", "out := 1;", "",
+    struct("unit_type_extends_on_alias", "\ta : INT;", "", "_base") +
+      "TYPE DUT_LANG_unit_type_extends_on_alias EXTENDS DUT_LANG_unit_type_extends_on_alias_base : INT;\nEND_TYPE\n\n"),
+    "\te : DUT_LANG_unit_type_extends_on_alias;"),
+  withVar(fb("unit_type_extends_on_union", "U27 — EXTENDS on a UNION: `TYPE U EXTENDS B : UNION … END_UNION`", "<name>",
+    "out := 1;", "",
+    struct("unit_type_extends_on_union", "\ta : INT;", "", "_base") +
+      "TYPE DUT_LANG_unit_type_extends_on_union EXTENDS DUT_LANG_unit_type_extends_on_union_base :\nUNION\n\tx : INT;\n\ty : DINT;\nEND_UNION\nEND_TYPE\n\n"),
+    "\te : DUT_LANG_unit_type_extends_on_union;"),
+  // …and an enum extending an ENUM: both vendors answered EXTENDS on an enum with "No definition found for base class"
+  // (a struct base), not with the alias's "Keyword EXTENDS not applicable" — is an enum base the one it looks for?
+  withVar(fb("unit_enum_extends_enum", "U25/U27 — an enum extending an enum: `TYPE E2 EXTENDS E1 : (VC, VD);`", "<name>",
+    "e := VA;\nout := 1;", "",
+    "TYPE DUT_LANG_unit_enum_extends_enum_base :\n(\n\tVA,\n\tVB\n);\nEND_TYPE\n\n" +
+      "TYPE DUT_LANG_unit_enum_extends_enum EXTENDS DUT_LANG_unit_enum_extends_enum_base :\n(\n\tVC,\n\tVD\n);\nEND_TYPE\n\n"),
+    "\te : DUT_LANG_unit_enum_extends_enum;"),
+  // …and the `;` after a UNION's END_UNION (a STRUCT's `END_STRUCT;` is refused on both vendors)
+  withVar(fb("unit_union_end_semicolon", "U24 — a `;` after END_UNION: `END_UNION;`", "<name>", "u.x := 2;\nout := u.x;", "",
+    "TYPE DUT_LANG_unit_union_end_semicolon :\nUNION\n\tx : INT;\n\ty : DINT;\nEND_UNION;\nEND_TYPE\n\n"),
+    "\tu : DUT_LANG_unit_union_end_semicolon;"),
+  bareType("unit_type_no_body", "U27 — a TYPE with nothing after its colon: `TYPE X : END_TYPE`", "dut",
+    "TYPE DUT_LANG_unit_type_no_body :\nEND_TYPE\n"),
+  bareType("unit_type_missing_colon", "U22/U27 — a TYPE with no colon before its body: `TYPE X STRUCT … END_STRUCT`", "dut",
+    "TYPE DUT_LANG_unit_type_missing_colon\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n"),
+  // ─── U28 NAMESPACE … END_NAMESPACE (task 2.4.6) ─────────────────────────────────────────────────────────────────────
+  // A project holds no namespace OBJECT (the wire has no such kind; a namespace is a LIBRARY's, named in its manifest),
+  // so the only text a vendor can be asked about is an object's text that wraps its unit in one — pushed AS SENT as the
+  // FB it holds, a namespace around the FB, around a namespace, and around an FB and its METHOD. Volt's push refuses
+  // each block on both vendors (the engine's `StReader`, shared, before either IDE sees the text): an FB item's text
+  // holds its unit and that unit's members, and END_NAMESPACE is neither (2026-10-01).
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_block", "U28 — an FB written inside `NAMESPACE N … END_NAMESPACE`",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_block\n${fbText}END_NAMESPACE\n`)),
+    "'FB_LANG_unit_namespace_block', line 9: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_nested", "U28 — a NAMESPACE inside a NAMESPACE, holding an FB",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_nested\nNAMESPACE NS_LANG_unit_namespace_nested_inner\n${fbText}END_NAMESPACE\nEND_NAMESPACE\n`)),
+    "'FB_LANG_unit_namespace_nested', line 10: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_method_after_fb", "U28 — an FB and its METHOD after it, inside one NAMESPACE",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_method_after_fb\n${fbText}\nMETHOD M : INT\nIMPLEMENTATION ST\nM := 7;\nEND_METHOD\nEND_NAMESPACE\n`,
+    "out := M();")),
+    "'FB_LANG_unit_namespace_method_after_fb', line 14: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  // …so the one namespace text the push hands an IDE is the keyword line alone, with no END_NAMESPACE to refuse: does
+  // the vendor's own parser read NAMESPACE at all? (Declared in PLC_PRG and not called, as an FB whose header leaves it
+  // undeclared is asked.)
+  undeclaredFb(namespaced("unit_namespace_opening_only", "U28 — `NAMESPACE N` above an FB, with no END_NAMESPACE",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_opening_only\n${fbText}`)),
+]

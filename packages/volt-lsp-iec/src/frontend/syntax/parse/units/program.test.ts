@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../parser.js"
-import type { Function as FunctionAST, Program } from "../../ast/nodes.js"
+import type { Function as FunctionAST, Program } from "../../ast/nodes/index.js"
 
 const parse = (src: string) => {
   const r = parseSource(src, { networkText: true }, "codesys")

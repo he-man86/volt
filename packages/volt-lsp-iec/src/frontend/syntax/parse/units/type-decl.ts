@@ -36,11 +36,11 @@ import type {
   TypeDecl,
   UnionBody,
   VarDecl,
-} from "../../ast/nodes.js"
-import type { Token } from "../../lex/tokens.js"
-import { DECL_LIST_ENDERS } from "../../lex/vocabulary.js"
+} from "../../ast/nodes/index.js"
+import { DECL_LIST_ENDERS } from "../../lex/word-sets.js"
 import type { Cursor } from "../cursor.js"
-import { parseEnumBase, parseEnumValues, parseTypeExpression } from "../type-expr.js"
+import { parseEnumBase, parseTypeExpression } from "../type-expr.js"
+import { parseEnumValues } from "../enum-values.js"
 import { atSectionInStruct, FIELD_LIST, parseDeclInto, refuseSectionInStruct } from "../declarations.js"
 import { joinSpans } from "../../span.js"
 import { atObjectEnd, vendorTokenText } from "../errors.js"

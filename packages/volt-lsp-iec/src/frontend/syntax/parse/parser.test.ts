@@ -4,7 +4,7 @@ import { parseSource } from "./parser.js"
 import { bodyReader } from "../format/implementation-line.js"
 import { unitBodies } from "../format/bodies.js"
 import { bodyStatements } from "./body-parse.js"
-import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "../ast/nodes.js"
+import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "../ast/nodes/index.js"
 
 /** First VAR decl of the first unit — the common path into type-expr assertions. */
 function firstDecl(src: string): VarDecl {

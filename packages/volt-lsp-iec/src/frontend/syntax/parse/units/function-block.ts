@@ -9,10 +9,10 @@
  * list, each name possibly qualified (`Standard.TON`); IMPLEMENTS before EXTENDS is no header (`unit_fb_implements_
  * before_extends`: "Unexpected token 'EXTENDS' found", the body parser's).
  */
-import type { FunctionBlock, Identifier } from "../../ast/nodes.js"
+import type { FunctionBlock, Identifier } from "../../ast/nodes/index.js"
 import type { Cursor } from "../cursor.js"
 import { collectBodyUntil } from "../body.js"
-import { FB_MODIFIERS } from "../../lex/vocabulary.js"
+import { FB_MODIFIERS } from "../../lex/word-sets.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readHeaderName, readModifiers, readNameList, refusedAccessModifier } from "../names.js"
 import { collectVarSections } from "../declarations.js"
