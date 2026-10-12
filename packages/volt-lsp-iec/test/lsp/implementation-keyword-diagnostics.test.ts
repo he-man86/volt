@@ -7,7 +7,7 @@
  */
 import { expect, test } from "bun:test"
 import type { Diagnostic } from "vscode-languageserver-protocol"
-import { CAPS, harness } from "../../test/server/harness.js"
+import { CAPS, harness } from "./harness.js"
 
 const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 

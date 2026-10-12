@@ -133,8 +133,8 @@ test/  what crosses modules, one folder per concern (map: test/README.md)
   frontend/  the front-end measured: parse census, printer fixed point, resolution, type and fold dumps
     baselines/  its pinned findings and ceilings
   libraries/  the library repo's ST bodies, run
+  lsp/  the server as a client sees it: the black-box protocol suites, and the LSP test client (harness.ts) every server test drives
   package/  the package's own shape: the build compiles, the layering, this tree
-  server/  the LSP test client the server's wire tests drive (harness.ts)
   support/  test support colocated tests read: the URI a test names a source by
 libraries/  the library repo: referenced libraries' elements in ST, per version, for the transpiler
 scripts/  dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)

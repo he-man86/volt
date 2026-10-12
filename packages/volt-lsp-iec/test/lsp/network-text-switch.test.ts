@@ -9,18 +9,18 @@
  * hand). Off, such a body is read by NEITHER parser and draws nothing — no network finding, and no refusal: whether the
  * push accepts it is the bridge's answer, from the bridge's own switch, which this process cannot see. ST is untouched.
  * The switch is read once from the environment, so "off" is proved in a child process started without the variable,
- * as an editor launched normally starts this server; the suite itself runs with it on (`bunfig.toml`).
+ * as an editor launched normally starts this server; the suite itself runs with it on (`bunfig.toml`;
+ * `src/server/config.test.ts` holds that).
  */
 import { expect, test } from "bun:test"
 import path from "node:path"
-import { NETWORK_TEXT_ENABLED } from "./config.js"
 
 const PACKAGE = path.resolve(import.meta.dir, "..", "..")
 
 /** Pull diagnostics for `src` from a server running in a child process whose environment is `graphical`. */
 async function diagnostics(src: string, graphical: "1" | undefined): Promise<{ code: string; message: string }[]> {
   const script = `
-    import { CAPS, harness } from "./test/server/harness.ts"
+    import { CAPS, harness } from "./test/lsp/harness.ts"
     const h = harness()
     await h.init(CAPS.pull)
     await h.open("file:///F.pou", ${JSON.stringify(src)})
@@ -45,11 +45,6 @@ const fb = (impl: string): string =>
 
 // ST under an LD line is a NETWORK_ finding — proof the network parser read the body.
 const LADDER_THAT_IS_NOT = fb("IMPLEMENTATION LD\nout := a;")
-
-test("the suite runs with the switch on", () => {
-  expect(process.env.VOLT_GRAPHICAL).toBe("1")
-  expect(NETWORK_TEXT_ENABLED).toBe(true)
-})
 
 test("with VOLT_GRAPHICAL=1, an LD body is read as network text", async () => {
   const ds = await diagnostics(LADDER_THAT_IS_NOT, "1")

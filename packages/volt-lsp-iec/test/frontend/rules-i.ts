@@ -37,7 +37,7 @@ export const RULES_I: readonly Rule[] = [
       },
       // …and a body without the line is the push's refusal, which the server reports (2.4.7)
       {
-        file: "src/server/implementation-keyword-diagnostics.test.ts",
+        file: "test/lsp/implementation-keyword-diagnostics.test.ts",
         title: "a body with no IMPLEMENTATION line is a diagnostic naming the item and `volt pull`, and read by neither reader",
       },
     ],
@@ -86,7 +86,7 @@ export const RULES_I: readonly Rule[] = [
         title: "a bare CFC, SFC or IL line is no boundary: the body states no language, and the hint names the line to write",
       },
       {
-        file: "src/server/implementation-keyword-diagnostics.test.ts",
+        file: "test/lsp/implementation-keyword-diagnostics.test.ts",
         title:
           "a body whose line only looks like the boundary states no language, and the finding names the line and what it lacks",
       },
@@ -173,7 +173,7 @@ export const RULES_I: readonly Rule[] = [
         title: "a (* @volt-… *) comment in a file that states its bodies is a comment: nothing is reported",
       },
       {
-        file: "src/server/server-diagnostics.test.ts",
+        file: "src/server/handlers/diagnostics.test.ts",
         title: "server: without a manifest, a file an older Volt pulled is told to `volt pull` naming its comment — its ladder is not ST errors",
       },
     ],
@@ -193,7 +193,7 @@ export const RULES_I: readonly Rule[] = [
         title: "the stated language wins over what the text looks like: network text under ST is read as ST",
       },
       {
-        file: "src/server/implementation-keyword-diagnostics.test.ts",
+        file: "test/lsp/implementation-keyword-diagnostics.test.ts",
         title: "IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic",
       },
       {

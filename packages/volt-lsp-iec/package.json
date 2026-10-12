@@ -41,7 +41,7 @@
     "rate:fixtures": "bun run scripts/rate-fixtures.ts",
     "snapshot:frontend": "bun run scripts/frontend-snapshot.ts",
     "snapshot:transpile": "bun run scripts/transpile-snapshot.ts",
-    "bench": "LSP_BENCH=1 bun test src/server/bench.test.ts"
+    "bench": "LSP_BENCH=1 bun test test/lsp/bench.test.ts"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

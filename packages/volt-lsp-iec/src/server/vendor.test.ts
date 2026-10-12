@@ -20,7 +20,7 @@ import {
   InitializeRequest,
   WorkspaceSymbolRequest,
 } from "vscode-languageserver-protocol/node"
-import { connectToServer } from "../../test/server/harness.js"
+import { connectToServer } from "../../test/lsp/harness.js"
 import type { Vendor } from "../analysis/index.js"
 
 const SRC = `PROGRAM P\nVAR\n\ts : STRING;\nEND_VAR\nIMPLEMENTATION ST\ns := __POUNAME();\nEND_PROGRAM`

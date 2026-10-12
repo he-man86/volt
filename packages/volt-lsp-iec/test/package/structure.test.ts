@@ -8,6 +8,10 @@
  * is a test fails, named. The server's import rule (S1) is `layering.test.ts`'s, where imports are scanned; this gate
  * borrows that scanner (`importGraph`), so the package has one.
  *
+ * A colocated test is named after the source file beside it (openspec lsp-server-tests-layout): every `src/server/` and
+ * `handlers/` source file has its own `<name>.test.ts`, and no test there is named after anything else — a finding, a
+ * topic, a mechanism. The suites that drive the whole server over its protocol live under `test/lsp/`.
+ *
  * Data trees are one entry each: the fixtures and recordings under `test/conformance/` are grouped by concern and mapped
  * by `fixtures/map.generated.ts`, so their sub-folders are not listed; a dot-folder (`.snapshot/`) is a local cache.
  */
@@ -190,6 +194,96 @@ test("the test-support gate fires: a src/ file only tests import, and one nothin
       "src/analysis/orphan.ts: nothing imports it",
       "src/analysis/uri.ts: only tests import it (1) — test support lives under test/",
       "src/server/harness.ts: only tests import it (1) — test support lives under test/",
+    ])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+/** Every `.test.ts` file under `dir` (package-relative, `/`-separated), dot-folders and `node_modules` skipped. */
+function testFilesUnder(pkg: string, dir: string): string[] {
+  const out: string[] = []
+  const visit = (rel: string): void => {
+    for (const name of readdirSync(join(pkg, rel)).sort()) {
+      if (name.startsWith(".") || name === "node_modules") continue
+      const child = `${rel}/${name}`
+      if (statSync(join(pkg, child)).isDirectory()) visit(child)
+      else if (name.endsWith(".test.ts")) out.push(child)
+    }
+  }
+  if (existsSync(join(pkg, dir))) visit(dir)
+  return out
+}
+
+/**
+ * A colocated test is named after the source file beside it (openspec lsp-server-tests-layout): `<name>.test.ts` beside
+ * `<name>.ts`. Every test under `dir` that is not, and is no listed topic suite, as `<file>: named after no source file
+ * beside it`; and every listed topic suite that is gone, as `<file>: listed as a topic suite, but gone`.
+ */
+export function misnamedTests(pkg: string, dir: string, topicSuites: ReadonlyMap<string, string>): string[] {
+  const found = testFilesUnder(pkg, dir)
+  const misnamed = found
+    .filter((f) => !topicSuites.has(f) && !existsSync(join(pkg, f.replace(/\.test\.ts$/, ".ts"))))
+    .map((f) => `${f}: named after no source file beside it`)
+  const gone = [...topicSuites.keys()]
+    .filter((f) => f.startsWith(`${dir}/`) && !found.includes(f))
+    .map((f) => `${f}: listed as a topic suite, but gone`)
+  return [...misnamed, ...gone]
+}
+
+/** Every source file under `dir` with no `<name>.test.ts` beside it, the barrel `index.ts` aside (it re-exports, and asks nothing). */
+export function untestedSources(pkg: string, dir: string): string[] {
+  const out: string[] = []
+  const visit = (rel: string): void => {
+    for (const name of readdirSync(join(pkg, rel)).sort()) {
+      const child = `${rel}/${name}`
+      if (statSync(join(pkg, child)).isDirectory()) visit(child)
+      else if (
+        name.endsWith(".ts") &&
+        !name.endsWith(".test.ts") &&
+        name !== "index.ts" &&
+        !existsSync(join(pkg, child.replace(/\.ts$/, ".test.ts")))
+      )
+        out.push(`${child}: has no ${name.replace(/\.ts$/, ".test.ts")} beside it`)
+    }
+  }
+  visit(dir)
+  return out
+}
+
+test("every src/server/ and handlers/ source file has its own test, and every test there is named after a source file beside it", () => {
+  expect(untestedSources(PACKAGE, "src/server")).toEqual([])
+  expect(misnamedTests(PACKAGE, "src/server", new Map())).toEqual([])
+})
+
+test("the test-layout gate fires: a source with no test, a test named after a finding, and a listed suite that is gone, are named", () => {
+  const root = mkdtempSync(join(tmpdir(), "volt-layout-"))
+  const files = [
+    "src/server/server.ts",
+    "src/server/server.test.ts",
+    "src/server/index.ts",
+    "src/server/handlers/navigation.ts",
+    "src/server/rename.test.ts",
+    "src/services/fuzz.test.ts",
+  ]
+  try {
+    for (const path of files) {
+      mkdirSync(dirname(join(root, path)), { recursive: true })
+      writeFileSync(join(root, path), "")
+    }
+    expect(untestedSources(root, "src/server")).toEqual([
+      "src/server/handlers/navigation.ts: has no navigation.test.ts beside it",
+    ])
+    expect(misnamedTests(root, "src/server", new Map())).toEqual([
+      "src/server/rename.test.ts: named after no source file beside it",
+    ])
+    const suites = new Map([
+      ["src/services/fuzz.test.ts", "a topic"],
+      ["src/services/gone.test.ts", "a topic"],
+    ])
+    expect(misnamedTests(root, "src", suites)).toEqual([
+      "src/server/rename.test.ts: named after no source file beside it",
+      "src/services/gone.test.ts: listed as a topic suite, but gone",
     ])
   } finally {
     rmSync(root, { recursive: true, force: true })

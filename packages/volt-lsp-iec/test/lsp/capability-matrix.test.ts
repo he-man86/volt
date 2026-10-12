@@ -5,7 +5,7 @@
  * happens to accept pushes must still be served pull-only.
  */
 import { test, expect } from "bun:test"
-import { CAPS, harness } from "../../test/server/harness.js"
+import { CAPS, harness } from "./harness.js"
 
 const URI = "file:///F.pou"
 // A genuine type error (C0032) so every event has something to deliver.

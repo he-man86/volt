@@ -1,6 +1,7 @@
 /**
- * THE SERVER TESTS' SOURCES AND STEPS — the documents the `server*.test.ts` suites open and the client steps they share
- * (open a document, initialize in a directory, a temporary workspace), over the harness (`harness.ts`).
+ * THE SERVER TESTS' SOURCES AND STEPS — the documents the server's colocated tests (under `src/server/`) open and the
+ * client steps they share (open a document, initialize in a directory, a temporary workspace, wait for a document's next
+ * push), over the harness (`harness.ts`).
  */
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -10,6 +11,7 @@ import {
   DidOpenTextDocumentNotification,
   InitializedNotification,
   InitializeRequest,
+  PublishDiagnosticsNotification,
 } from "vscode-languageserver-protocol/node"
 import { connectToServer } from "./harness.js"
 
@@ -62,3 +64,18 @@ export function tempWorkspace(files: Record<string, string>): string {
 export const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nIMPLEMENTATION ST\nmode := E_Mode.Idle;\nEND_PROGRAM`
 
 export const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
+
+/** The next PublishDiagnostics for `uri`. Register BEFORE the action that triggers the publish. */
+export function onceDiag(client: ReturnType<typeof connect>, uri: string): Promise<{ message: string }[]> {
+  return new Promise((res) => {
+    const d = client.onNotification(PublishDiagnosticsNotification.type, (p) => {
+      if (p.uri === uri) {
+        d.dispose()
+        res(p.diagnostics as { message: string }[])
+      }
+    })
+  })
+}
+
+export const notDefined = (diags: { message: string }[], name: string) =>
+  diags.some((x) => x.message === `Identifier '${name}' not defined`)
