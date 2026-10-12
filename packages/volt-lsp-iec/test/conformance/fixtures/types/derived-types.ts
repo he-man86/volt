@@ -312,8 +312,12 @@ function rendered(name: string, feature: string, decls: readonly string[]): Lang
 }
 
 const DT10: LanguageTest[] = [
-  rendered("dt_render_array_dims", "DT10 — an ARRAY of two dimensions, an ARRAY OF STRING(5) and an ARRAY OF ARRAY, each into an INT",
-    ["ARRAY[1..2, 0..1] OF BYTE", "ARRAY[0..1] OF STRING(5)", "ARRAY[0..1] OF ARRAY[0..2] OF INT"]),
+  {
+    ...rendered("dt_render_array_dims", "DT10 — an ARRAY of two dimensions, an ARRAY OF STRING(5) and an ARRAY OF ARRAY, each into an INT",
+      ["ARRAY[1..2, 0..1] OF BYTE", "ARRAY[0..1] OF STRING(5)", "ARRAY[0..1] OF ARRAY[0..2] OF INT"]),
+    // openspec lsp-quick-fixes design.md §3: TO_<T> converts an elementary value; no recording shows it building on an ARRAY
+    fixAbsent: { code: "C0032", title: "Wrap in TO_", why: "an ARRAY source: no recording shows TO_<T> of an array building" },
+  },
   rendered("dt_render_string_capacity", "DT10 — a STRING(5), a sizeless STRING, a WSTRING(7) and a sizeless WSTRING, each into an INT",
     ["STRING(5)", "STRING", "WSTRING(7)", "WSTRING"]),
   rendered("dt_render_date_time_names", "DT10 — a DATE, a TIME_OF_DAY, a DATE_AND_TIME, a TIME and an LTIME, each into an INT",

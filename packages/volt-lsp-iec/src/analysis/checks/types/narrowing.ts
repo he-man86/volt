@@ -9,8 +9,11 @@ import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index
 import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, unparenthesised, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { pushForDeclaration, type DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { checkableType, conversionArgError, conversionWarning, narrowingPairError } from "../../shared/rules.js"
+import { pushForDeclaration, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { checkableType, conversionArgError, conversionWarning, conversionWrap, narrowingPairError } from "../../shared/rules.js"
+
+/** The conversion warnings a store offers to wrap (design.md §4 F1). */
+const WRAPPED: ReadonlySet<string> = new Set(["narrowing-conversion", "sign-change-conversion"])
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
@@ -61,8 +64,18 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
         const ops = [s.op, ...(s.chainOps ?? [])]
         places.forEach((place, i) => {
           if (ops[i] !== undefined) return
-          const diag = narrowingPairError(place, places[i + 1] ?? s.value, scope, ctx.project, ctx.messages)
-          if (diag !== undefined) out.push(diag)
+          const value = places[i + 1] ?? s.value
+          const diag = narrowingPairError(place, value, scope, ctx.project, ctx.messages)
+          // the store's fix: wrap the value in the conversion the compiler makes anyway (design.md §4 F1), for the loss and
+          // the change of sign (C0197, C0195) — an enum conversion's is unmeasured. The rule is shared with network text,
+          // whose findings get no fix, so the ST statement attaches it here. Only the INNERMOST link stores a value: an
+          // outer link's value is the next target (`a := b := c`), and `a := TO_X(b) := c` does not parse.
+          if (diag !== undefined)
+            out.push(
+              WRAPPED.has(diag.code) && i === places.length - 1
+                ? withFixes(diag, [conversionWrap(place, value, scope, ctx.project, ctx.source, true)])
+                : diag,
+            )
         })
       }
       for (const e of stmtExprs(s))

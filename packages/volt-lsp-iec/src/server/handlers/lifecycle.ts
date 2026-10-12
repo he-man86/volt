@@ -21,6 +21,7 @@ import {
   ResponseError,
   ShutdownRequest,
   WatchKind,
+  type ClientCapabilities,
   type InitializeError,
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
@@ -67,6 +68,7 @@ export function registerLifecycleHandlers(
     s.clientConfigPull = ws?.configuration === true
     s.clientProgress = params.capabilities.window?.workDoneProgress === true
     s.clientSupportsPull = params.capabilities.textDocument?.diagnostic !== undefined
+    warnWithoutDataSupport(s, params.capabilities)
     if (typeof params.processId === "number") watchParent(s, params.processId)
     s.started = true
     return { capabilities, serverInfo: { name: "volt-lsp-iec", version } }
@@ -113,6 +115,19 @@ export function registerLifecycleHandlers(
         .then((res) => s.applyConfig(Array.isArray(res) ? res[0] : undefined))
         .catch(() => {})
   })
+}
+
+/**
+ * EVERY QUICK FIX TRAVELS IN `Diagnostic.data` and is rendered, never re-derived (openspec lsp-quick-fixes design.md §2):
+ * a client that does not hand `data` back gets no quick fix at all. That is the design, not a fault to cover — but it is
+ * said, once, so the missing fixes have a reason in the client's log.
+ */
+function warnWithoutDataSupport(s: ServerState, capabilities: ClientCapabilities): void {
+  if (capabilities.textDocument?.publishDiagnostics?.dataSupport === true) return
+  s.log(
+    MessageType.Warning,
+    "volt-lsp-iec: the client does not declare textDocument.publishDiagnostics.dataSupport — quick fixes travel in Diagnostic.data, so none will be offered",
+  )
 }
 
 /** End the server when the client's process dies: `kill(pid, 0)` probes it (ESRCH: gone; EPERM: alive, not ours). */

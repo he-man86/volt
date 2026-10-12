@@ -7,7 +7,7 @@
 import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../../frontend/syntax/index.js"
 import { targetOf, type Scope } from "../../frontend/symbols/index.js"
 import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, REAL_LITERAL_TYPE, renderType, type Type, UNKNOWN, unparenthesised, untypedNumberValue } from "../../frontend/types/index.js"
-import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
+import { SOURCE, type DiagnosticItem, type Fix } from "./diagnostic-item.js"
 import { compilerStringLiteralText, type Messages } from "../messages/index.js"
 
 // ─── checkable types ─────────────────────────────────────────────────────────
@@ -47,6 +47,36 @@ export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Mess
       messages.signChange(signOf(rhs), renderType(rhs, { form: "compiler" }), signOf(lhs), renderType(lhs, { form: "compiler" })),
     )
   return undefined
+}
+
+/**
+ * The quick fix of an implicit conversion: wrap the stored value in the explicit `TO_<target>(…)` (openspec lsp-quick-fixes
+ * design.md §4 F1), its own text kept as written (`source` is the reporting document's: comments and line breaks inside
+ * the value survive). Offered only between two ELEMENTARY types: the generic `TO_<T>` into every elementary target is
+ * recorded building, both vendors (`qf_to_*` and the fixtures that write their own — `code-actions.test.ts` holds each
+ * type to one), and the explicit-conversion recordings (`xp_*`, `conversions/*.ts`) show the elementary pairs converting;
+ * an ARRAY, a STRUCT, an FB instance, a pointer, a reference or an enum stored into an elementary target has no recording
+ * of `TO_<T>` building, so it gets no fix (§3), nor does an unknown source. A fix whose value holds another error is
+ * withdrawn after the checks run (`diagnostic-item.ts` `withdrawBlockedFixes`).
+ *
+ * `preferred` (what auto-apply picks) only on a WARNING whose value is not an untyped literal — the shape the qf_ AFTERs
+ * record (`qf_c0197_*`, `qf_c0195_wrap`): there the wrap is the conversion the compiler already makes, so it cannot mean
+ * anything else. A literal the target cannot hold (`si := 128`) may be the wrong literal, and an ERROR's value may be the
+ * wrong variable, not the wrong type: both are offered unmarked.
+ */
+export function conversionWrap(target: Expr, value: Expr, scope: Scope, project: Scope, source: string, warning: boolean): Fix | undefined {
+  const into = inferExprType(target, scope, project)
+  if (into.kind !== "elementary") return undefined
+  // an untyped number converts as its literal type (`literalCheckType`, `literalErrorType`), an elementary one
+  const literal = untypedNumberValue(unparenthesised(value)) !== undefined
+  if (!literal && inferExprType(value, scope, project).kind !== "elementary") return undefined
+  const text = source.slice(value.span.start, value.span.end)
+  const preferred = warning && !literal
+  return {
+    title: `Wrap in TO_${into.name}(…)`,
+    edits: [{ span: value.span, replaces: text, newText: `TO_${into.name}(${text})` }],
+    ...(preferred ? { preferred: true as const } : {}),
+  }
 }
 
 const conversionWarn = (target: Expr, code: string, message: string): DiagnosticItem => ({

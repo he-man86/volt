@@ -16,7 +16,7 @@ import {
   type DiagnosticItem,
 } from "../analysis/index.js"
 import type { LibraryManifest } from "../frontend/library/index.js"
-import { rangeFromSpan, type Document } from "../services/index.js"
+import { rangeFromSpan, type Document, type FixData } from "../services/index.js"
 import type { WorkspaceStore } from "../workspace/workspace-store.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
@@ -46,6 +46,9 @@ export function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
     code: mapped?.code ?? item.code,
     ...(mapped ? { codeDescription: { href: mapped.url } } : {}),
     message: item.message,
+    // the finding's fixes ride in `data`, which a client hands back unchanged with a code-action request (LSP 3.16), so
+    // `services/assist/code-actions` renders them without re-deriving anything (openspec lsp-quick-fixes design.md §2)
+    ...(item.fixes !== undefined ? { data: { fixes: item.fixes } satisfies FixData } : {}),
   }
 }
 

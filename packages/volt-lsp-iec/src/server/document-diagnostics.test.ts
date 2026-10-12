@@ -75,3 +75,27 @@ test("a manifest's warning is named by the manifest's file URI, at its top", () 
     codeDescription: undefined,
   })
 })
+
+// A FIX IS DATA ON THE FINDING (openspec lsp-quick-fixes design.md §2): it rides to the client in `Diagnostic.data`,
+// which the client hands back unchanged with a code-action request — so the renderer re-derives nothing. A finding with
+// no fix carries no `data` at all.
+test("a finding's fixes travel in Diagnostic.data; a finding without one has no data", () => {
+  const uri = "C:/w/FB.pou"
+  const src = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tnarrow : REAL;\nEND_VAR\nIMPLEMENTATION ST\nnarrow := wide;\nEND_FUNCTION_BLOCK\n"
+  const [d, ...rest] = diagnoseIn({ [uri]: src }, uri)
+  expect(rest).toEqual([])
+  expect(d!.code).toBe("C0197")
+  const at = src.indexOf("wide;")
+  expect(d!.data).toEqual({
+    fixes: [
+      {
+        title: "Wrap in TO_REAL(…)",
+        preferred: true,
+        edits: [{ span: { start: at, end: at + 4, startLine: 7, startCol: 10, endLine: 7, endCol: 14 }, replaces: "wide", newText: "TO_REAL(wide)" }],
+      },
+    ],
+  })
+  const [plain] = diagnoseIn({ [uri]: src.replace("narrow := wide;", "narrow := undeclared;") }, uri)
+  expect(plain!.code).toBe("C0046")
+  expect("data" in plain!).toBe(false)
+})

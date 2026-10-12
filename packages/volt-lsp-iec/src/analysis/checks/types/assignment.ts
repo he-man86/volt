@@ -4,13 +4,13 @@
  * shared with the network-text sink check; conservative — a side that isn't elementary or enum skips, so a
  * struct/FB/composite/library type never false-positives.
  */
-import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { walkStatements, type Assignment, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
 import { elementaryRef, inferExprType, literalErrorType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
 import { nameResolves } from "../../shared/resolution.js"
-import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../shared/rules.js"
+import { assignmentPairError, checkable, checkableType, conversionWrap, storeConversionError } from "../../shared/rules.js"
 
 /** What `S=` and `R=` set and read. */
 const BOOL = elementaryRef("BOOL")
@@ -18,6 +18,31 @@ const BOOL = elementaryRef("BOOL")
 /** The target kinds that take an aggregate initializer and refuse a scalar literal — a STRUCT, a function block and an
  *  ARRAY (`litc_array_*`, both vendors 2026-10-06). */
 const COMPOSITE: ReadonlySet<string> = new Set(["struct", "function_block", "array"])
+
+/** A plain `:=` store, link by link — see the chain note inside. */
+function checkPlainStore(ctx: CheckContext, s: Assignment, scope: Scope, out: DiagnosticItem[]): void {
+  // A CHAIN IS A STORE PER LINK: `a := b := c` stores `c` into `b` and `b` into `a`, and each link is refused for its
+  // own pair — `viaWide : SINT := wide : DINT := narrowFrom : INT` is "Cannot convert type 'DINT' to type 'SINT'", and
+  // `a : INT := b : TIME := c : INT` is refused twice (`qf_c0032_chain_outer`, `_chain_both`, both vendors 2026-10-12).
+  // This compared the OUTER target with the FINAL value, which named the wrong pair and missed a refused inner link.
+  // A `S=`/`R=` link inside the chain is not a store this rule judges (`assign_chained_mixed`).
+  const places = [s.target, ...(s.chained ?? [])]
+  const ops = s.chainOps ?? []
+  places.forEach((place, i) => {
+    if (i > 0 && ops[i - 1] !== undefined) return
+    const value = places[i + 1] ?? s.value
+    const pair = assignmentPairError(place, value, scope, ctx.project, ctx.messages)
+    // the store's fix: wrap the value in `TO_<target>(…)` (design.md §4 F1) — not preferred, an error's value may be the
+    // wrong variable; the rule is shared with network text, whose findings get no fix, so the ST statement attaches it.
+    // Only the INNERMOST link stores a value: an outer link's value is the next target, which `TO_<T>(b) := c` cannot be.
+    if (pair !== undefined)
+      out.push(i === places.length - 1 ? withFixes(pair, [conversionWrap(place, value, scope, ctx.project, ctx.source, false)]) : pair)
+    else if (i === places.length - 1) {
+      const diag = compositeLiteral(ctx, place, value, scope)
+      if (diag !== undefined) out.push(diag)
+    }
+  })
+}
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -34,8 +59,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
         return
       }
       if (s.op !== undefined) return
-      const diag = assignmentPairError(s.target, s.value, scope, ctx.project, ctx.messages) ?? compositeLiteral(ctx, s.target, s.value, scope)
-      if (diag !== undefined) out.push(diag)
+      checkPlainStore(ctx, s, scope, out)
     })
   }
   // A declaration's initial value converts like an assignment — the same rule, recorded for every literal shape

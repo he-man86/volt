@@ -224,7 +224,43 @@
 
 ## 2. Build
 
-- [ ] 2.1 The fix model; the existing conversion wrap moved onto it.
+- [x] 2.1 The fix model; the existing conversion wrap moved onto it.
+      **Done 2026-10-12** — design.md §2 "As built": fixes are data on the finding (`DiagnosticItem.fixes`, `emit(…, fixes?)`,
+      `withFixes`), carried in `Diagnostic.data` and RENDERED by `code-actions.ts` (no project parameter, nothing
+      re-derived, a fix offered only while its `replaces` text still sits at its range); the wrap is one producer,
+      `conversionWrap` (`rules.ts`), attached by the ST checks for C0032, C0197 and C0195; `wrapConversionFix` deleted.
+      Off `RED`: `qf_c0032_wrap`, `qf_c0197_wrap_assign`, `_return`, `qf_c0195_wrap`.
+      **Gate of step 2.1 (2026-10-12)** — the review's five findings, none skipped. 16 fixtures recorded in ONE run per
+      vendor (instance `lsp-quick-fixes`, TwinCAT `-Fixture 13`; `record:exec` 13, 0 failed):
+      - *Unrecorded generic `TO_<T>` targets* (medium) — MEASURED rather than withheld: `qf_to_*`, one per elementary type
+        no fixture wrote `TO_<T>(` for (BOOL, LINT, ULINT, LWORD, LTIME, DATE, TOD, DT, LDATE, LTOD, LDT, BIT), all build
+        clean on both vendors (the 64-bit dates CODESYS only: TwinCAT has no such type). `TO_BIT` builds — so no target
+        is withheld; `code-actions.test.ts` now holds every elementary type of each dialect to a clean-building `TO_<T>(`
+        in a recorded fixture (it names those 12 without the `qf_to_*` recordings), and a BIT target's
+        `Wrap in TO_BIT(…)` is asserted.
+      - *A wrap over a value with its own error* (medium) — FIXED: `withdrawBlockedFixes` (`diagnostic-item.ts`, after
+        the policy in `pipeline/diagnostics.ts`) drops a fix whose edit rewrites text holding another error; `out := -b`
+        gets no wrap (test red first). Withdrawn on the fixtures: CODESYS 60 of 661 (C0032 55, C0195 4, C0197 1; inside:
+        binary-op-type-mismatch 26, unary-operand-type 17, test-and-set-operand 9, call-argument-type 4,
+        incompatible-comparison 4), TwinCAT 54 of 633.
+      - *Chained C0032 compared the outer target with the final value* (medium) — FIXED: each link is its own store
+        (`assignment.ts` `checkPlainStore`). Recorded, both vendors: `qf_c0032_chain_outer` "Cannot convert type 'DINT'
+        to type 'SINT'" (the LSP said INT), `qf_c0032_chain_both` refused for BOTH links (the LSP said nothing),
+        `qf_c0032_before_chain` → `qf_c0032_wrap_chain` (`a := b := TO_INT(c)`, builds clean) — the inner link's wrap,
+        now offered and proven; the outer link carries `fixAbsent`. Tests red first.
+      - *Stale coverage numbers* (low) — FIXED: design.md §2's coverage bullet re-measured (`fix-census.ts`) and the loss
+        stated per source kind.
+      - *No word on a client without `dataSupport`* (low) — FIXED: `initialize` logs one warning
+        (`handlers/lifecycle.ts` `warnWithoutDataSupport`; `lifecycle.test.ts`, with and without the capability).
+      Numbers: fix coverage (fixtures, findings offering a fix) C0032 537 / 516, C0197 32 / 31, C0195 32 / 32 —
+      **601 CS / 579 TC** of 5962 / 7415 findings; corpus 8 of 243, unchanged. Against the 0.1 baseline (721 / 697, the
+      re-deriving wrap) a net loss of 120 / 118, each an unproven wrap (design.md §2 lists them by source kind).
+      Fixture map: confirmed 3156 → 3169 (+13 build-clean `qf_to_*` and `qf_c0032_wrap_chain`), refused 2103 → 2106 (+3
+      chain BEFOREs; the TwinCAT-refused 64-bit dates are CODESYS-confirmed), not-lowered 385, lsp-gap 90, edge agree
+      3383 → 3399. Source map renamed targets 540 → 541 (`qf_c0032_wrap_chain`, the chain-temp class, read).
+      Baselines moved by count only, for the 16 fixtures (`VOLT_WRITE_BASELINE=1`): census TP CS 5839 → 5843, TC 7016 → 7032;
+      no new class. Gate: typecheck and lint clean; full LSP suite `VOLT_REQUIRE_FULL=1` (no `VOLT_FIXTURES`) 10 115 pass,
+      0 fail, 34 skip, 428 todo, 10 577 tests across 356 files, 764 s; fixture map regenerated (`rate:fixtures`).
 - [ ] 2.2 The fixes, in census order, each green against its recorded AFTER.
 - [ ] 2.3 Source actions and "fix all in file" where 0.2 chose them.
 - [ ] 2.4 The cheap navigation-breadth gaps; the rest filed with their measurement.

@@ -11,6 +11,9 @@ import {
   DidOpenTextDocumentNotification,
   InitializedNotification,
   InitializeRequest,
+  LogMessageNotification,
+  MessageType,
+  ShutdownRequest,
   RegistrationRequest,
   type RegistrationParams,
 } from "vscode-languageserver-protocol/node"
@@ -66,5 +69,30 @@ describe("the watcher globs (lsp-same-standard finding R3)", () => {
     ).watchers.map((w) => w.globPattern)
     expect(globs.sort()).toEqual(SCANNED_EXTENSIONS.map((e) => `**/*${e}`).sort())
     expect(globs).toContain("**/*.projectsettings")
+  })
+})
+
+/**
+ * Every quick fix travels in `Diagnostic.data` (openspec lsp-quick-fixes design.md §2) and nothing re-derives it, so a
+ * client that does not hand `data` back gets none — by design, and SAID once in its log (gate of step 2.1).
+ */
+describe("a client without diagnostic data support is told it gets no quick fixes", () => {
+  async function warnings(capabilities: object): Promise<string[]> {
+    const logged: string[] = []
+    const client = connectToServer("codesys", (c) =>
+      c.onNotification(LogMessageNotification.type, (p) => {
+        if (p.type === MessageType.Warning) logged.push(p.message)
+      }),
+    )
+    await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities })
+    await client.sendRequest(ShutdownRequest.type) // answered after every notification `initialize` sent
+    client.dispose()
+    return logged.filter((m) => m.includes("dataSupport"))
+  }
+  test("no dataSupport: one warning naming it", async () => {
+    expect(await warnings({})).toHaveLength(1)
+  })
+  test("dataSupport: no warning", async () => {
+    expect(await warnings({ textDocument: { publishDiagnostics: { dataSupport: true } } })).toEqual([])
   })
 })

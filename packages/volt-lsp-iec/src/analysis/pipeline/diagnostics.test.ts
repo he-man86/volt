@@ -380,3 +380,16 @@ test("a parse lexed as one vendor is refused by name when analysed as the other"
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
   ).toThrow(/dialect mismatch: the source was parsed as 'twincat'/)
 })
+
+// THE POLICY KEEPS A FINDING'S FIXES (openspec lsp-quick-fixes design.md §2): a configured severity replaces the finding
+// with a copy, and that copy must still carry what the check offered to fix it.
+test("a finding whose severity the policy forces keeps its fixes", () => {
+  const src = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tnarrow : REAL;\nEND_VAR\nnarrow := wide;\nEND_FUNCTION_BLOCK\n"
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
+  const config = resolveConfig({ vendor: "codesys", diagnostics: { "narrowing-conversion": "error" } })
+  const [d, ...rest] = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config })
+  expect(rest).toEqual([])
+  expect(d!.severity).toBe("error")
+  expect(d!.fixes?.map((f) => f.title)).toEqual(["Wrap in TO_REAL(…)"])
+})

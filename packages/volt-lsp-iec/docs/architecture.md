@@ -280,7 +280,13 @@ The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, pos
 implementation), `hierarchy` (call + type), `assist` (hover · completion · signature-help), `inlay-hints`
 (inferred types + parameter names), `code-lens` ("N references" · "▶ Run test"), `semantic-tokens`, `structure`
 (document/workspace-symbol · folding · selection), `formatting` (`format` — the document, range and on-type requests — over `print`, the printer · editorconfig), and
-`code-actions`.
+`code-actions`, which RENDERS quick fixes and derives none: the check that reports a finding produces its fixes as data
+(`DiagnosticItem.fixes`, `analysis/shared/diagnostic-item.ts`), `toLspDiagnostic` carries them in `Diagnostic.data`, and a
+diagnostic that comes back without that data gets no action, nor does a fix whose edit range no longer holds the text
+it was made for (`FixEdit.replaces`: a diagnostic published before the client's latest edit; openspec lsp-quick-fixes
+design.md §2). A fix whose edit rewrites text holding another error is withdrawn after the policy
+(`withdrawBlockedFixes`): that error survives the edit, so the result cannot build clean. A client that does not declare
+`publishDiagnostics.dataSupport` is told once, at `initialize`, that it will get no quick fix.
 
 ### Built-in hover, and network text in every layer
 There is no catalog layer. What the compiler provides is the front-end's (`types/builtins.ts` `builtinName`, the

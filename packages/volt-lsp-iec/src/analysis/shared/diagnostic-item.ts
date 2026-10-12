@@ -10,6 +10,33 @@ export interface DiagnosticItem {
   source: string
   code: string
   message: string
+  /** What the reporting check offers to fix it, from the facts it already resolved — absent when they do not suffice
+   *  (openspec lsp-quick-fixes design.md §2). The code-action service only renders these; it re-derives nothing. */
+  fixes?: readonly Fix[]
+}
+
+/**
+ * One quick fix: edits applied together as one WorkspaceEdit. A fix ships only with a recorded AFTER the compiler builds
+ * clean (design.md §3, `services/assist/code-actions.test.ts`).
+ */
+export interface Fix {
+  /** "Wrap in TO_INT(…)", "Declare 'x' : INT", "Change to 'counter'" */
+  title: string
+  edits: readonly FixEdit[]
+  /** Only where no OTHER edit builds clean with a different meaning — never on a choice (design.md §3). */
+  preferred?: true
+  /** Safe to apply with every other `fixAll` fix of the file (design.md §5). */
+  fixAll?: true
+}
+
+/** One text edit of a fix; `uri` absent = the reporting document. */
+export interface FixEdit {
+  uri?: string
+  span: Span
+  /** The text `span` held when the fix was made. A client may hand back a diagnostic published before its latest edit;
+   *  the renderer offers the fix only while the document still holds this text there (`services/assist/code-actions`). */
+  replaces: string
+  newText: string
 }
 
 /** Source tag on every DiagnosticItem this LSP emits. */
@@ -22,9 +49,43 @@ export function emit(
   code: string,
   message: string,
   severity: DiagnosticItem["severity"] = "error",
+  fixes?: readonly Fix[],
 ): void {
-  out.push({ severity, span, source: SOURCE, code, message })
+  out.push(withFixes({ severity, span, source: SOURCE, code, message }, fixes))
 }
+
+/** `item` offering `fixes` — the item itself when there are none, so a finding without a fix carries no `fixes` key. */
+export function withFixes(item: DiagnosticItem, fixes: readonly (Fix | undefined)[] | undefined): DiagnosticItem {
+  const offered = (fixes ?? []).filter((f): f is Fix => f !== undefined)
+  return offered.length === 0 ? item : { ...item, fixes: offered }
+}
+
+/**
+ * The findings with every fix withdrawn that cannot reach a clean build: one whose edit (in the reporting document) holds
+ * ANOTHER error inside the text it rewrites. That error survives the edit — `out := -b` is refused for the store and for
+ * the operand (`unary_minus_on_bool`), and `out := TO_BOOL(-b)` still carries the operand's — so the fix answers its own
+ * finding and leaves the statement broken (design.md §3). Run once over a document's findings, after the policy.
+ */
+export function withdrawBlockedFixes(items: readonly DiagnosticItem[]): DiagnosticItem[] {
+  const errors = items.filter((d) => d.severity === "error")
+  return items.map((item) => {
+    if (item.fixes === undefined) return item
+    const blocked = (fix: Fix): boolean =>
+      fix.edits.some(
+        (e) =>
+          e.uri === undefined &&
+          errors.some((d) => d !== item && d.span.start >= e.span.start && d.span.end <= e.span.end && !sameFinding(d, item)),
+      )
+    const kept = item.fixes.filter((f) => !blocked(f))
+    if (kept.length === item.fixes.length) return item
+    const { fixes: _withdrawn, ...bare } = item
+    return kept.length === 0 ? bare : { ...bare, fixes: kept }
+  })
+}
+
+/** The same finding reported twice (an FB's initializer — `pushForDeclaration`): not another error. */
+const sameFinding = (a: DiagnosticItem, b: DiagnosticItem): boolean =>
+  a.code === b.code && a.message === b.message && a.span.start === b.span.start && a.span.end === b.span.end
 
 /**
  * Push a diagnostic about a DECLARATION'S INITIALIZER, as often as the IDE reports it.

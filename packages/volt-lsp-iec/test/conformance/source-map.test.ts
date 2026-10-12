@@ -100,7 +100,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // class at 27 -> 30): `string_literal_through_reference_too_long`'s `rf := 'XYZ…'` is `self.buf = …`.
 // 539 -> 540 (2026-10-12, lsp-quick-fixes 1.1), read: no new class — the image class above: `qf_c0032_ref`'s FB takes the
 // address of its own field (`p := ADR(x)`), so `out := rf` stores through `Mem` (`__mem.st(__a, …)`), naming no field.
-const RENAMED_TARGETS = 540
+// 540 -> 541 (2026-10-12, lsp-quick-fixes 2.1 gate), read: no new class — a chain through a chain temp (the class of
+// `stmt_chain_three_targets`): `qf_c0032_wrap_chain`'s `a := b := TO_INT(c)`. The other new build-clean fixtures (`qf_to_*`)
+// each store `out := TO_X(v)`, which names `out`, or `rec.b := …`, which this test does not read as a target.
+const RENAMED_TARGETS = 541
 
 interface Program {
   name: string

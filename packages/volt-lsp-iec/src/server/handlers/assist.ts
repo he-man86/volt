@@ -54,6 +54,6 @@ export function registerAssistHandlers(s: ServerState): void {
   })
   s.onRequest(CodeLensRequest.type, (p) => s.whole(p.textDocument.uri, (d) => codeLenses(s.workspace(), s.project(), d)))
   s.onRequest(CodeActionRequest.type, (p) =>
-    s.whole(p.textDocument.uri, (d) => codeActions(d, s.project(), p.context.diagnostics)),
+    s.whole(p.textDocument.uri, (d) => codeActions(d, p.context.diagnostics)),
   )
 }

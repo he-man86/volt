@@ -84,7 +84,7 @@ Exception: `C0454` is at `_cds_error_c0008-2040066.html`. Treat the URL in `_toc
 
 **Still open / optional:**
 - A bridge-response augmenter that detects `Cnnnn` in an IDE compile error and decorates it with the local catalog entry (title + URL) before surfacing to the user/AI.
-- Extending code-actions beyond the current few `FIXABLE` codes.
+- Quick fixes beyond the conversion wrap — in flight as openspec `lsp-quick-fixes` (fixes are data on the finding, `DiagnosticItem.fixes`).
 
 **Deliberately not done:**
 - Pre-emitting CODESYS-style codes as our own diagnostic `code`. We keep our own `source`/`code` namespace and carry `Cnnnn` only as metadata.

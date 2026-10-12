@@ -9,7 +9,7 @@ import type { ParseResult } from "../../frontend/syntax/index.js"
 import type { Scope } from "../../frontend/symbols/index.js"
 import { resolveConfig, type AnalysisInitOptions, type ResolvedConfig } from "../config.js"
 import { messagesFor } from "../messages/index.js"
-import type { DiagnosticItem } from "../shared/diagnostic-item.js"
+import { withdrawBlockedFixes, type DiagnosticItem } from "../shared/diagnostic-item.js"
 import type { Check, CheckContext } from "./context.js"
 import { applyPolicy } from "./policy.js"
 import { REGISTRY, type CheckGroup } from "./registry.js"
@@ -110,7 +110,7 @@ export function runRegistry(
       onCheck?.(check, out.slice(from))
     }
   }
-  return applyPolicy(out, ctx.config, ctx.source)
+  return withdrawBlockedFixes(applyPolicy(out, ctx.config, ctx.source))
 }
 
 /** Per-check wall time (ms) under `PROFILE_CHECKS=1`, printed slowest first when the process exits. The corpus and

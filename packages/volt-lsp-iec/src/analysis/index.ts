@@ -18,7 +18,7 @@ export { MISSING_LANGUAGE } from "./checks/syntax/missing-language.js"
 export { materializationFindings } from "./checks/workspace/materialization.js"
 export type { Check, CheckContext } from "./pipeline/context.js"
 export type { CheckGroup } from "./pipeline/registry.js"
-export { initializerWarnedTwice, SOURCE, type DiagnosticItem } from "./shared/diagnostic-item.js"
+export { initializerWarnedTwice, SOURCE, type DiagnosticItem, type Fix, type FixEdit } from "./shared/diagnostic-item.js"
 // configuration
 export {
   resolveConfig,

@@ -18,8 +18,8 @@
  */
 import { DiagnosticSeverity } from "vscode-languageserver-protocol/node"
 import { CODESYS_CODE_MAP, computeDiagnostics, computeNetworkTextDiagnostics, messagesFor, resolveConfig, type DiagnosticItem, type Vendor } from "../src/analysis/index.js"
-import { codeActions, rangeFromSpan } from "../src/services/index.js"
-import { documentDiagnostics } from "../src/server/document-diagnostics.js"
+import { codeActions } from "../src/services/index.js"
+import { documentDiagnostics, toLspDiagnostic } from "../src/server/document-diagnostics.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 import { WorkspaceStore } from "../src/workspace/workspace-store.js"
 import { scanWorkspace } from "../src/workspace/workspace-refs.js"
@@ -85,7 +85,7 @@ for (const p of corpusProjects()) {
       r.corpus++
       r.corpusProjects.add(p.name)
       if (pool.take(d.message)) r.corpusConfirmed++
-      if (codeActions(doc, store.project(), [d]).length > 0) r.corpusFixable++
+      if (codeActions(doc, [d]).length > 0) r.corpusFixable++
       if (r.example === "") r.example = d.message.replace(/\s+/g, " ").slice(0, 90)
     }
   }
@@ -105,8 +105,7 @@ for (const vendor of ["codesys", "twincat"] as const satisfies readonly Vendor[]
       const out: [DiagnosticItem, number][] = []
       for (const doc of replayDocuments(files))
         for (const it of computeDiagnostics({ uri: doc.uri, parseResult: doc.parseResult, source: doc.source, project, config })) {
-          const code = CODESYS_CODE_MAP[it.code]?.[0] ?? it.code
-          out.push([it, codeActions(doc, project, [{ range: rangeFromSpan(it.span), message: it.message, code }]).length])
+          out.push([it, codeActions(doc, [toLspDiagnostic(it)]).length])
         }
       for (const doc of networkDocuments(files))
         for (const it of computeNetworkTextDiagnostics({ uri: doc.uri, parseResult: doc.parseResult }, project, messagesFor(vendor))) out.push([it, 0])

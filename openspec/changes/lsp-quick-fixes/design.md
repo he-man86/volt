@@ -38,7 +38,8 @@ interface Fix {
   preferred?: true              // only where no OTHER edit builds clean with a different meaning (§3), never on a choice
   fixAll?: true                 // safe to apply with every other fixAll fix of the file (§5)
 }
-interface FixEdit { uri?: string; span: Span; newText: string }  // uri absent = the reporting document
+interface FixEdit { uri?: string; span: Span; replaces: string; newText: string }  // uri absent = the reporting document;
+                                                                    // replaces = the text span held when the fix was made
 ```
 
 - **Produced by the check.** `emit(out, span, code, message, severity, fixes?)` gets an optional last parameter. A
@@ -57,6 +58,51 @@ interface FixEdit { uri?: string; span: Span; newText: string }  // uri absent =
   action, because there is no fallback recomputation. The current `wrapConversionFix` is deleted, and the conversion
   checks emit the same fix as data (task 2.1).
 - **Network text** findings get no fixes in this change (proposal, Order and scope).
+- **As built (step 2.1, 2026-10-12).** As above, with what the code made concrete:
+  - `emit(…, fixes?)` and `withFixes(item, fixes)` (`analysis/shared/diagnostic-item.ts`) attach fixes; an undefined
+    entry is dropped and a finding with none carries no `fixes` key, so the wire carries no `data` for it.
+  - The wrap is ONE producer, `conversionWrap(target, value, scope, project, source, warning)` (`analysis/shared/rules.ts`),
+    but it is attached by the ST checks (`types/assignment.ts` for C0032, `types/narrowing.ts` for C0197 and C0195), not
+    inside the shared rule: `assignmentPairError` / `narrowingPairError` also serve the network-text sink check, whose
+    findings get no fix. It copies the value's SOURCE text (comments and line breaks inside it survive), and it is offered
+    only between two ELEMENTARY types. An ARRAY, STRUCT, FB instance, interface, THIS^, pointer, reference or enum source
+    gets no wrap (`dt_render_array_dims`, `ty_version_into_string` carry `fixAbsent`). `preferred` only on a WARNING whose
+    value is not an untyped literal — the shape the qf_ AFTERs record; `si := 128` is wrapped unmarked (it may be the wrong
+    literal).
+  - *The generic `TO_<T>` it names is recorded building for every elementary target* (gate of 2.1). `xp_*` records
+    `X_TO_Y`, not the generic form, and the fixtures wrote `TO_<T>` only for 14 targets; the other 12 (BOOL, LINT, ULINT,
+    LWORD, LTIME, DATE, TOD, DT, LDATE, LTOD, LDT, BIT) got one fixture each, `qf_to_*`, recorded on both vendors: all build
+    clean (the three 64-bit dates on CODESYS; TwinCAT has no such type). `TO_BIT` builds too — the review's clearest case
+    turned out recorded-good, so no target is withheld. `code-actions.test.ts` holds every elementary type (the dialect's)
+    to a clean-building `TO_<T>(` in some recorded fixture, so a type added later without one fails there.
+  - A CHAINED assignment (`a := b := c`) is a store PER LINK (gate of 2.1, `qf_c0032_chain_outer`, `_chain_both`,
+    `_before_chain` → `qf_c0032_wrap_chain`, both vendors): `viaWide : SINT := wide : DINT := narrowFrom : INT` is refused
+    DINT → SINT (the LSP compared the outer target with the FINAL value and said INT → SINT), and
+    `a : INT := b : TIME := c : INT` is refused for BOTH links (the LSP said nothing). Each link is now its own C0032, as
+    C0197 / C0195 already were; only the INNERMOST link is wrapped (`b := TO_X(c)`, recorded AFTER): an outer link's
+    value is the next target, and neither `a := TO_X(b) := c` (does not parse) nor wrapping `c` is its fix.
+  - *A fix whose edit rewrites text holding ANOTHER error is withdrawn* (gate of 2.1, `withdrawBlockedFixes` in
+    `diagnostic-item.ts`, run once after the policy in `pipeline/diagnostics.ts`): that error survives the edit, so the
+    AFTER cannot build clean (§3) — `out := -b` is refused for the store and for the operand (`unary_minus_on_bool`), and
+    `out := TO_BOOL(-b)` keeps the operand's. Measured before/after on the fixtures: CODESYS 661 → 601 wraps (60
+    withdrawn: C0032 55, C0195 4, C0197 1; the error inside was binary-op-type-mismatch 26, unary-operand-type 17,
+    test-and-set-operand 9, call-argument-type 4, incompatible-comparison 4), TwinCAT 633 → 579 (54).
+  - The renderer offers a fix only while the document still holds each edit's `replaces` text at its range: a client may
+    hand back a diagnostic published before its latest edit (`services/assist/code-actions` `current`).
+  - A client that does not declare `textDocument.publishDiagnostics.dataSupport` gets no quick fix (nothing is
+    re-derived — the design, not a gap to cover); the server says so once, as a warning in the client's log at
+    `initialize` (`handlers/lifecycle.ts`).
+  - **Coverage** (`scripts/fix-census.ts`, after the gate; fixtures now 5962 CS / 7415 TC findings): C0032 537 / 516,
+    C0197 32 / 31, C0195 32 / 32 — **601 CS / 579 TC**, corpus unchanged at 8 of 243 (8 of the 16 C0197). Against the
+    0.1 baseline, HEAD's re-deriving wrap (721 / 697), that is a net LOSS of 120 / 118, every one a wrap that was never
+    proven. Per source of the loss, CODESYS, against HEAD's renderer (review of 2.1): enum source 43, pointer 30
+    (`checks/types/pointer-conversion`'s `w := ptr` → `TO_WORD(ptr)` included), FB / THIS^ / SUPER^ 10, a static base
+    5, interface 5, reference 4, array 3, struct 1 — no recording shows `TO_<T>` building from any of them (§3); `S=`/`R=`
+    1 (`stmt_s_eq_non_bool_target`: HEAD offered `TO_INT` on a finding whose message is INT → BOOL — wrong, so its loss
+    is a fix); and the 60 withdrawn above. Gained: C0195 at a store, the same store with the same fix (`qf_c0195_wrap`
+    and its siblings); a chain's inner link (`assign_chained_plain`, `qf_c0032_before_chain`, `qf_c0032_chain_both`). An
+    enum conversion's warning is not wrapped (unmeasured).
+  - `codeActions(doc, diagnostics)` lost its project parameter: rendering needs nothing from the project.
 
 ## 3. The proof rule
 

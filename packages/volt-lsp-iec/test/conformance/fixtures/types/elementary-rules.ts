@@ -171,7 +171,11 @@ const VERSION_TYPE: LanguageTest[] = [
   fb("ty_version_component_type", "a VERSION component into a SINT and into a STRING — the messages name its type",
     "\tv : VERSION;\n\tsi : SINT;\n\tstr : STRING;", "si := v.uiMajor;\nstr := v.uiPatch;"),
   fb("ty_version_unknown_component", "an unknown component of VERSION", "\tv : VERSION;\n\tout : UINT;", "out := v.uiBuild;"),
-  fb("ty_version_into_string", "a VERSION into a STRING — the message names the type", "\tv : VERSION;\n\tstr : STRING;", "str := v;"),
+  {
+    ...fb("ty_version_into_string", "a VERSION into a STRING — the message names the type", "\tv : VERSION;\n\tstr : STRING;", "str := v;"),
+    // openspec lsp-quick-fixes design.md §3: TO_<T> converts an elementary value; no recording shows it building on a STRUCT
+    fixAbsent: { code: "C0032", title: "Wrap in TO_", why: "a STRUCT source: no recording shows TO_<T> of a struct building" },
+  },
 ]
 
 export const ELEMENTARY_RULE_TESTS: readonly LanguageTest[] = [

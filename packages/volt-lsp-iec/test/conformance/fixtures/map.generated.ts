@@ -14,8 +14,8 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     3156
- *     refused       2103
+ *     confirmed     3169
+ *     refused       2106
  *     not-lowered    385
  *     lsp-gap         90
  *     diverges         5
@@ -23,9 +23,9 @@
  *
  *   tier                     lowered    clean
  *     decl                    842      842
- *     arith                  1636     1636
+ *     arith                  1651     1651
  *     control                 171      160
- *     aggregate               157      157
+ *     aggregate               158      158
  *     call                    373      373
  *     indirect                431      431
  *
@@ -52,7 +52,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         3383
+ *     agree         3399
  *     disagree         0
  *     not-run        227
  *       not-run: reaches the platform's libm (pow, ln, sin…)     77
@@ -70,9 +70,9 @@
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_repeat_1000001
  *       agree,   5/6 unanswered (the interpreter's loop guard): tr_27_loop_cap_while_5000000
  *
- *   pedantic — 2220 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::cast_possible_truncation          953
- *     clippy::cast_sign_loss                    712
+ *   pedantic — 2229 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::cast_possible_truncation          958
+ *     clippy::cast_sign_loss                    716
  *     clippy::cast_possible_wrap                310
  *     clippy::pub_underscore_fields             105
  *     clippy::struct_excessive_bools             44
@@ -94,7 +94,7 @@
  *     tr_a10_string_to_dint_underscore_sign_edges   10.8
  *     tr_a10_string_to_int_literal_forms            10.8
  *
- *   shape — 1966 distinct emission shapes over 3610 lowered fixtures, 2226 distinct constructs.
+ *   shape — 1975 distinct emission shapes over 3626 lowered fixtures, 2234 distinct constructs.
  *   20 constructs carry a review note (`NOTES`): 37 fixtures are improvable, 23 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  *   Notes per owning task (openspec transpile-restructure; a merged note counts once under each owner of its items;
@@ -1466,7 +1466,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   dt_reference_auto_deref_type: { evidence: "refused" },
   dt_reference_auto_deref_values: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.2, shape: "39157f4347" },
   dt_reference_into_narrower: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.3, shape: "d03cabce41" },
-  dt_render_array_dims: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.5, shape: "a798dcf0f3" },
+  dt_render_array_dims: { evidence: "refused", tier: "decl", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.5, shape: "a798dcf0f3", fix: "offers no 'Wrap in TO_…' on C0032" },
   dt_render_date_time_names: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 5, edge: "agree", size: 2.3, shape: "8b79636370" },
   dt_render_pointer_names: { evidence: "refused" },
   dt_render_string_capacity: { evidence: "refused" },
@@ -3843,10 +3843,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   qf_c0004_change: { evidence: "confirmed", tier: "aggregate", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "661ac90b48", fix: "AFTER of qf_c0004_before: C0004 'Change to 'value''" },
   qf_c0013_before: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 0, edge: "agree", size: 2.4, shape: "594e2ef224", fix: "BEFORE of qf_c0013_insert" },
   qf_c0013_insert: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 0, edge: "agree", size: 2.3, shape: "594e2ef224", fix: "AFTER of qf_c0013_before: C0013 'Insert the empty statement ';'' (preferred)" },
+  qf_c0032_before_chain: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "980f04edca", fix: "BEFORE of qf_c0032_wrap_chain" },
   qf_c0032_before_ref: { evidence: "refused", fix: "BEFORE of qf_c0032_ref" },
   qf_c0032_before_wrap: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "2e3da26994", fix: "BEFORE of qf_c0032_wrap" },
+  qf_c0032_chain_both: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "076c7814d2" },
+  qf_c0032_chain_outer: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.9, shape: "3600191160", fix: "offers no 'Wrap in…' on C0032" },
   qf_c0032_ref: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "b7eb7118d0", fix: "AFTER of qf_c0032_before_ref: C0032 'Bind with 'rf REF= p^''" },
   qf_c0032_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "2e3da26994", fix: "AFTER of qf_c0032_before_wrap: C0032 'Wrap in TO_INT(…)'" },
+  qf_c0032_wrap_chain: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "4dbae0ac7e", fix: "AFTER of qf_c0032_before_chain: C0032 'Wrap in TO_INT(…)'" },
   qf_c0037_before: { evidence: "refused", fix: "BEFORE of qf_c0037_change" },
   qf_c0037_change: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "f41f00d6e3", fix: "AFTER of qf_c0037_before: C0037 'Change to 'value''" },
   qf_c0038_before: { evidence: "refused", fix: "BEFORE of qf_c0038_change" },
@@ -3995,6 +3999,18 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   qf_sn_rename: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.9, shape: "fc896ff999", fix: "AFTER of qf_sn_before: signature-name-mismatch 'Rename to 'FB_LANG_qf_sn_before'' (preferred)" },
   qf_structfield_before: { evidence: "refused", fix: "BEFORE of qf_structfield_change" },
   qf_structfield_change: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "d13e3591a7", fix: "AFTER of qf_structfield_before: unknown-struct-field 'Change to 'value''" },
+  qf_to_bit: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "d8cea4b143" },
+  qf_to_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "b58f7619d3" },
+  qf_to_date: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "a9ff0dc465" },
+  qf_to_dt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "a9ff0dc465" },
+  qf_to_ldate: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "407c793d76" },
+  qf_to_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "407c793d76" },
+  qf_to_lint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "1084f324b6" },
+  qf_to_ltime: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "1574e1afcb" },
+  qf_to_ltod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "407c793d76" },
+  qf_to_lword: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "51e205302d" },
+  qf_to_tod: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 0, edge: "agree", size: 2.8, shape: "a9ff0dc465" },
+  qf_to_ulint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 2.8, shape: "51e205302d" },
   r2i_lreal_to_byte_above_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "cb8a943835" },
   r2i_lreal_to_byte_below_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "d12f41733b" },
   r2i_lreal_to_byte_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "8b309c1c05" },
@@ -5179,7 +5195,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   ty_pointer_to_bit: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "d4376d2f8c" },
   ty_reference_to_bit: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 0, edge: "agree", size: 2.8, shape: "37155b66cf" },
   ty_version_component_type: { evidence: "refused" },
-  ty_version_into_string: { evidence: "refused" },
+  ty_version_into_string: { evidence: "refused", fix: "offers no 'Wrap in TO_…' on C0032" },
   ty_version_type: { evidence: "not-lowered" },
   ty_version_unknown_component: { evidence: "refused" },
   ty_xint_to_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "33ec700cd5" },
