@@ -51,7 +51,9 @@ are lossless", "both vendors answer identically").
 - **Docs regenerated and the prose rewritten** (`packages/volt-cli/docs`: items, driver, wire; ARCHITECTURE.md; DIALECT).
 
 Not in this change: NWL members inside a graphical body (owned by `ld-fbd-coverage` 1b; same rule, table format, probe
-and oracle harness). Runs after `ld-fbd-coverage` (both touch the drivers and the vendor-facts table).
+and oracle harness). Runs BEFORE `ld-fbd-coverage` (owner 2026-10-12): it rebuilds the item contract and the push/driver
+write paths that LD/FBD's per-network push (its 1b.4) builds on; it sets up the vendor-facts rows and the oracle harness,
+which LD/FBD then reuses.
 
 ## Impact
 

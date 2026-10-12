@@ -146,7 +146,7 @@
       S4 stays refused by name ("niche: accepted loss (1 occurrence in the corpora)") as designed; S1 follows its probe.
 
 ## 1b. Close every gap, future-proof (owner 2026-10-12, before the build)
-n**Order (owner 2026-10-12):** this change runs AFTER `bridge-one-to-one`, which rebuilds the item contract and the push/driver
+**Order (owner 2026-10-12):** this change runs AFTER `bridge-one-to-one`, which rebuilds the item contract and the push/driver
 write paths; build 1b.4 and the shapes on that new contract, and reuse its vendor-facts rows and oracle harness.
 
 Owner: "we have control over the resulting code so we must make it as easy for ourself" — "this is the moment to close all
