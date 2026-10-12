@@ -375,5 +375,15 @@
       Gate: `bun typecheck` clean; `bun run lint` exit 0 (warnings only). Full LSP suite with `VOLT_REQUIRE_FULL=1`,
       `VOLT_FIXTURES` unset: 9582 pass, 35 skip, 421 todo, 0 fail (10038 tests across 343 files, 722 s). No fixture,
       transpiler or recording change, so the fixture map was not regenerated. Docs only.
-- [ ] 5.3 `bun typecheck`, lint (layering, size, citations, dead exports) green, full suite cold green, fixture map
+- [x] 5.3 `bun typecheck`, lint (layering, size, citations, dead exports) green, full suite cold green, fixture map
       unchanged except hover. Archive.
+      At 25bd40bb04: `bun typecheck` clean, root `bun run typecheck` clean; package `bun run lint` green (layering; size
+      4 files + 3 functions listed, all network text; dead exports 4 allowlisted; citations 0 planned); root lint exit 0
+      (warnings only). Full LSP suite COLD (`VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset): 9582 pass,
+      35 skip, 421 todo, 0 fail, 10038 tests across 343 files (1066 s). `rate:fixtures` run: map unchanged (edge agree
+      3261, disagree 0). Final review, SPEC and LAYERING lenses over the whole change: the three spec scenarios hold
+      (size gate in lint, the test-support gate in `test/package/structure.test.ts`, the built-in hover coverage in
+      `services/assist/builtin-hover.test.ts`); `server/` holds the adapter alone, `reference/` is gone, no test support
+      in `src/`, the layering gate green. One finding, docs: `docs/twincat-reference/12-global-init-slots.md` named the
+      dissolved `reference/init-slots.ts` and an `init-slot-collision` diagnostic that does not exist; rewritten to what
+      the LSP does (knows the two attributes, checks no slot numbers, as the compiler reports none). No code change.
