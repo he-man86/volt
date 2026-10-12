@@ -100,8 +100,10 @@ test/
                              holds both ceilings files to their history)
   lsp/                       the server as a client sees it: the black-box suites that drive the whole server over its
                              protocol (capability-matrix, diagnostic-identity, navigation-golden, network-text-switch,
-                             implementation-keyword-diagnostics, the opt-in latency bench); harness.ts — the LSP client
-                             they and src/server's colocated tests drive, sources.ts — the documents and steps they share
+                             implementation-keyword-diagnostics, the scheduling suites diagnostics-pull, disk-sync and
+                             server-robustness, the opt-in latency bench); harness.ts — the LSP client they and
+                             src/server's colocated tests drive, sources.ts — the documents and steps they share,
+                             probes.ts — the delegating parse, compute and read mocks the scheduling suites count work with
   package/                   the package's own shape: build.test.ts (the published build compiles), layering.test.ts
                              (every import obeys scripts/check-layering.ts), structure.test.ts (no loose src/ file but
                              the barrel, no src/ file only tests import, every src/ and test/ folder in docs/architecture.md "The tree", every script

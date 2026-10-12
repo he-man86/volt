@@ -165,15 +165,31 @@ Rejected: plain red tests (every gate between 1 and 2.x fails, and a real regres
 **Harness** (`test/lsp/harness.ts`, extended, no product change): an optional temp-dir `root` (`rootUri`, so the crawl
 and the watchers run), `watched(changes)`, `workspacePull(previousResultIds)` returning kinds/resultIds/versions,
 captured `window/logMessage`, a progress-create handler that answers, refuses, or never answers, and the order of
-`$/progress` kinds. The bench's client (`scripts/bench-server.ts`) is the model; the shared steps move to `sources.ts`.
+`$/progress` kinds, the dynamic registrations, an exit recorder,
+and `initializeIn`/`initialized`/`notify` for the pre-crawl and pre-`initialize` cases. The bench's client
+(`scripts/bench-server.ts`) is the model; its capability set moved to `harness.ts` as `CAPS.vscode` (with
+`CAPS.pushWatch` beside it), and the bench imports it from there. `connectToServer`'s exit seam defaults to
+`noExitExpected`, which fails the run on any exit a test did not ask about (never a silent drop).
 
-**Observing work** (what decides "never computed" / "re-parses one"): a delegating `mock.module` of
-`src/frontend/syntax/index.js` counts `parseDocument` per URI and throws for one sentinel URI (`quarantine.st`) — the
-design's 1.3 throw. The same mock answers both questions, so there is one mock, delegating for every other URI (bun's
-`mock.module` is process-wide; a pass-through cannot disturb another file). EBUSY: a delegating mock of the read in
-`workspace-refs.ts` that throws `EBUSY` for one sentinel path. Rejected: a counter or a throw seam in `WorkspaceStore`
-(product code that exists for tests). Rejected: wall-clock thresholds for "≈ one pass" (the bench measures time; the
-tests count computes and `unchanged` answers).
+**Observing work** (what decides "never computed" / "re-parses one"): three delegating `mock.module`s in
+`test/lsp/probes.ts`, each passing every other call through.
+- The parse probe, on `src/frontend/syntax/index.js`: counts `parseDocument` per URI, and throws for a source that
+  carries the content marker `THROWS_IN_PARSE` — the design's 1.3 throw. A content marker, not a sentinel URI, so a
+  quarantine test can change the content and see the same file analysed again.
+- The compute probe, on the analysis barrel `src/analysis/index.js` (not `analysis/pipeline/diagnostics.js`, the
+  module that defines `computeDiagnostics`: a test outside `analysis/` importing it is a deep import, layering rule A2,
+  and gate 1 found it red in `test/package/layering.test.ts`): counts computes per URI as the server calls the pass
+  through the barrel. 2.4 moves the composition into `analysis/`; the probe then moves to the barrel export that
+  composes a document — the plain pin "a document pull computes only that document" fails loud (0) if it is left behind. A parse cannot see a recompute (it binds from
+  cached parses), and `unchanged` answers cannot either (a recompute of the same items hashes to the same resultId), so
+  "an idle pull computes nothing" and "a document pull computes one document" are counted here.
+- The read probe, on `node:fs` (process-wide, not only the read in `workspace-refs.ts`): `busyRead(path)` makes
+  `readFileSync` of that one path throw `EBUSY`; the crawl's read and any 2.2 upsert's read both go through it.
+- Counts are filtered to a workspace by folder boundary (`root + "/"`), never a bare prefix.
+- bun's `mock.module` is process-wide and stays for every later file of a `bun test` run; a pass-through cannot change
+  another file's answer (gate 1 compares the full suite's pass count).
+Rejected: a counter or a throw seam in `WorkspaceStore` (product code that exists for tests). Rejected: wall-clock
+thresholds for "≈ one pass" (the bench measures time; the tests count computes and `unchanged` answers).
 
 **Cancellation (1.3):** pull A, pull B, `$/cancelRequest` B written in one burst; B must answer -32800 and the parse
 counter / a compute count shows B was never computed.
@@ -185,6 +201,9 @@ It lands first in 2.3, in the same commit as the `exit` seam, before the seam's 
 exit recorder under one `@ts-expect-error` (runServer has no 5th parameter yet); typecheck itself fails when 2.3 adds
 it, which removes the marker.
 
-**Migration:** 1.1–1.3 commit the three suites + harness, all `.failing`, typecheck clean, targeted run shows every
-one red for its named reason (a `.failing` that already passes is a wrong premise — fix the test before commit). Each
-2.x step removes the marks it turns green.
+**Migration:** 1.1–1.3 commit the three suites, the harness and the probes. A behaviour no code implements yet is a
+`.failing` test, red for its named reason (run with the marks stripped; a `.failing` that already passes is a wrong
+premise — fix the test before commit). A behaviour the wholesale re-crawl or today's handlers already get right, and
+that 2.x could lose (an event kind `reindex` heals, a push-mode re-push, the pre-crawl `Full []`, a dropped
+pre-`initialize` notification, the bounded progress create), is a PLAIN pin, green today. tasks.md 1.1–1.3 list which
+is which. Each 2.x step removes the marks it turns green.

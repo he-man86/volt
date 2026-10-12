@@ -72,16 +72,70 @@
 
 ## 1. Red tests first (test/lsp black-box + colocated)
 
-- [ ] 1.1 10 idle workspace pulls answer `Unchanged` after the first (cost ≈ one pass); a change answers `Full` for that
+- [x] 1.1 10 idle workspace pulls answer `Unchanged` after the first (cost ≈ one pass); a change answers `Full` for that
       document only.
-- [ ] 1.2 Saving one file re-parses one file (no wholesale re-scan); a reference-file change re-scans references.
+      `test/lsp/diagnostics-pull.test.ts`, 5 `test.failing`, each red for its named reason (run with the marks stripped):
+      no resultId on a workspace report (so no `unchanged` can follow); after an edit the untouched PB answers `full`, not
+      `unchanged`; a document report has no resultId; an open buffer's report says `version: null`, not 7; a push carries
+      no version (`undefined`, not 3). "Cost ≈ one pass" is counted as answers (10 × N reports, all `unchanged`), never
+      as time; the bench measures the time.
+- [x] 1.2 Saving one file re-parses one file (no wholesale re-scan); a reference-file change re-scans references.
       Also (gate 0b): a folder delete drops only entries under `folder + sep` (not a sibling `…Control`); a directory
       event re-scans references (a deleted folder's `.device` unbinds, a created one's `.library` binds); a read failing
       with EBUSY keeps the entry; a `.task` edit applies the new task roots; push mode re-publishes the other open URIs.
-- [ ] 1.3 A queued cancelled pull is never computed; progress `begin` precedes `end`; a throwing parse leaves the server
+      `test/lsp/disk-sync.test.ts`, 7 `test.failing` + 4 plain pins. Red today: a watched `Changed` for FB_A.pou
+      re-parses all 6 sources (target exactly `{FB_A.pou: 1}`); a folder delete re-parses 7 (target 0); a `.task` edit
+      re-parses 8 (target 0); no `**/*` Create|Delete watcher is registered (only the 8 extension globs); an EBUSY read
+      drops FB_A (`Unknown type: 'FB_A'` in Main); push mode — renaming FB_A in an open buffer leaves the open Main's last
+      push clean (only the changed URI is re-pushed), and a watched batch that moves nothing re-pushes Main (2 pushes, not 1).
+      The pins pass today because the wholesale re-crawl gets them right, and keep 2.2 from losing them: the folder delete
+      drops `POUs/Motor` and keeps `POUs/MotorControl`; a deleted `Devices/` unbinds `Dev1` ("Identifier 'Dev1' not
+      defined"); a created `Library Manager/` folder's manifest binds (its `library-stale` shows — the observable a
+      manifest gives without a library body); a `.task` that adds P2 un-quiets P2's C0032.
+- [x] 1.3 A queued cancelled pull is never computed; progress `begin` precedes `end`; a throwing parse leaves the server
       serving and logs to `window/logMessage`; lifecycle: -32002 before initialize, refusal after shutdown, exit code.
       Also (gate 0b): the throwing document reports one `not-analysed` error; a client that never answers the progress
       create still gets diagnostics (bounded create); the exit code via the `runServer` exit seam, in-process.
+      `test/lsp/server-robustness.test.ts`, 8 `test.failing` + 1 plain pin. Red today: the cancelled pull is answered
+      with a result (jsonrpc's default `cancelUndispatched` returns undefined), not -32800; progress arrives
+      `["end","begin"]`; a REFUSED create still gets `end` on its token (`["end"]`, target none); the throwing parse makes
+      the next pull of ANOTHER file fail ("Request textDocument/diagnostic failed … throws"); a hover before `initialize`
+      answers -32603 (a TypeError on the unset store), not -32002; a hover after `shutdown` is answered, not -32600; a
+      closed connection and a dead `processId` never reach the exit seam (2 s / 5 s bounded waits). Pin: a create nobody
+      answers still lets Main's C0032 through and sends no `begin` (passes today — the crawl does not wait; it guards
+      2.3's awaited, bounded create). Refused by name, as design.md says: the `exit`-notification test (today
+      `process.exit(0)` would end `bun test`); it lands with the seam in 2.3.
+      **Harness and probes (the tools 2.x and 3.1 use):** `test/lsp/harness.ts` — `initIn(root, caps, processId)`,
+      `watched`, `workspacePull(previousResultIds)`, `pullReport(uri, previousResultId)`, `publishedVersion`, `logs`,
+      `progress` (kinds in arrival order; create answered / refused / never), `registrations`, `exits`, `endInput`,
+      a cancellable `request`, `CAPS.vscode` (the bench now imports it) and `CAPS.pushWatch`; the exit recorder is
+      passed to `runServer` under ONE `@ts-expect-error`, which fails typecheck when 2.3 adds the parameter.
+      `test/lsp/probes.ts` — the delegating parse mock (counts `parseDocument` per URI; a source containing
+      `THROWS_IN_PARSE` throws — a content marker, not a sentinel URI as design.md first said, so the quarantine test
+      can change the content and see the file analysed again) and the delegating `node:fs` mock (`busyRead(path)`:
+      `readFileSync` of that path throws EBUSY; the read `scanWorkspace` and any 2.2 upsert do both go through it).
+      Both pass every other call through; `bun test ./test/lsp ./src` with them loaded: 2566 pass, 0 fail.
+      **Numbers:** 25 tests in 3 files (20 `.failing`, 5 pins), 7.6 s targeted (the two bounded exit waits are 7 s of
+      it). Typecheck and lint clean.
+      **Gate 1 (review fixes to the red tests, 2026-10-12)** — all nine findings applied, none skipped; no product code,
+      fixture or recording changed. 15 tests added (40 in the three suites, 9.7 s targeted). New `.failing`, each red for
+      its named reason with the mark stripped: 10 idle pulls compute no document (today each is computed 10 times); the
+      refused-create test also requires the crawl (Main's C0032; red on `["end"]`); a crawl-time parse throw and a
+      watched-upsert parse throw are quarantined (today the crawl aborts, Main has no C0032); a closed connection after
+      `shutdown` exits 0 (no exit within 2 s). New plain pins (green today): a document pull computes only that document;
+      a pre-crawl pull answers `Full []` with no resultId; a notification before `initialize` is dropped; disk-sync — a
+      Created source, a created folder's sources, a single Deleted source, a `Changed` read failing ENOENT counted as a
+      delete, a deleted file's report cleared, a `.projectsettings` change re-resolving the config (C0139), and in push
+      mode the re-push after a watched batch and the manifest re-push. Probes: the compute probe (counts
+      `computeDiagnostics` per URI) on the analysis barrel `analysis/index.js` — the first cut mocked
+      `analysis/pipeline/diagnostics.ts` and the full suite caught it as a deep import (layering rule A2,
+      `test/package/layering.test.ts`); the probe obeys the rule, the rule was not listed as a violation. Counts filter
+      by folder boundary, not a bare prefix. Harness: the exit default is `noExitExpected` (an exit nobody expected
+      throws, never dropped), plus `initializeIn`, `initialized`, `notify`; `CAPS` lives in `harness.ts`.
+      Gate: typecheck clean; lint exit 0 (warnings only); `openspec validate` clean; full suite `VOLT_REQUIRE_FULL=1 bun
+      test` (VOLT_FIXTURES unset) 9634 pass, 35 skip, 421 todo, 0 fail — 10090 tests across 350 files, 713 s. 9634 =
+      gate 0b's 9594 + the 40 scheduling tests: the process-wide pass-through mocks change no other count (finding 8).
+      No fixture or transpiler change, so no map regeneration.
 
 ## 2. Build
 

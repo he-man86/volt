@@ -65,7 +65,10 @@ after the source file beside it but the topic suites it lists with their reason)
 
 Plus `lsp/` — THE SERVER AS A CLIENT SEES IT (openspec lsp-server-tests-layout): the suites that drive the whole server
 over its protocol and are no unit test of one file — `capability-matrix`, `diagnostic-identity`, `navigation-golden`,
-`network-text-switch`, `implementation-keyword-diagnostics`, and the opt-in latency `bench` (`bun run bench`). A test of one
+`network-text-switch`, `implementation-keyword-diagnostics`, the scheduling suites (openspec lsp-server-scheduling:
+`diagnostics-pull` — an idle pull answers `unchanged`; `disk-sync` — a file event costs one file; `server-robustness` —
+cancellation, progress, a throwing parse, the lifecycle; they count work with `probes.ts`, delegating mocks of the parse,
+the findings compute and the file read), and the opt-in latency `bench` (`bun run bench`). A test of one
 `src/server/` file sits beside it, named after it (`structure.test.ts` holds that).
 
 Plus the test SUPPORT that colocated tests under `src/` read (openspec lsp-same-standard 2.1: test support lives only under

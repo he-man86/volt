@@ -45,30 +45,19 @@ import {
   WorkDoneProgress,
   WorkDoneProgressCreateRequest,
   WorkspaceDiagnosticRequest,
-  type ClientCapabilities,
   type PreviousResultId,
   type WorkspaceDiagnosticReport,
 } from "vscode-languageserver-protocol/node"
 import { runServer } from "../src/server/index.js"
+import { CAPS } from "../test/lsp/harness.js"
 import { WorkspaceStore } from "../src/workspace/workspace-store.js"
 import { SOURCE_EXTENSION_SET } from "../src/workspace/source-extensions.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const IDLE_PULLS = 10
 
-/** What VS Code (vscode-languageclient 10) advertises for the parts this server reads. */
-const VSCODE_CAPS: ClientCapabilities = {
-  textDocument: { diagnostic: { dynamicRegistration: true, relatedDocumentSupport: false }, hover: {} },
-  workspace: {
-    diagnostics: { refreshSupport: true },
-    didChangeWatchedFiles: { dynamicRegistration: true },
-    semanticTokens: { refreshSupport: true },
-    inlayHint: { refreshSupport: true },
-    codeLens: { refreshSupport: true },
-    configuration: true,
-  },
-  window: { workDoneProgress: true },
-}
+/** What VS Code (vscode-languageclient 10) advertises for the parts this server reads — the scheduling suites' client too. */
+const VSCODE_CAPS = CAPS.vscode
 
 let seeded = 0 // disk entries parsed by seedDisk since the last reset
 const realSeed = WorkspaceStore.prototype.seedDisk
