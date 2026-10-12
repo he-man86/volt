@@ -9,7 +9,7 @@
 #
 # There is NO stable build here and no branches. A RELEASE promotes one of these dev builds to prod — see
 # .github/workflows/promote.yml (`bun run release [version]`): it gates that exact build's installer and flips its
-# GitHub release prerelease -> latest. Same 4-part version, no rebuild, no downgrade.
+# GitHub release prerelease -> latest. Same version, no rebuild, no downgrade.
 #
 # The ONE version is computed from git (scripts/version.ts) and INJECTED — stamped into every package.json +
 # passed as VOLT_VERSION — so no version is hand-maintained across files (the bug this avoids is an artifact
@@ -57,18 +57,17 @@ jobs:
         shell: bash
         run: bun scripts/version.ts | tee -a "$GITHUB_OUTPUT"
 
-      # Inject the version into each package.json (vsce rejects a 4-part version, so both get a 3-part one; the
-      # installer + connector get the full `version` via VOLT_VERSION). The electron app gets `base`; the EXTENSION
-      # gets `vsix` (<maj>.<min>.<count>) so it moves every build — a constant `base` would leave a newer sideloaded
-      # build failing to out-version the installed one, so silent-update refreshes and the drift check both no-op.
+      # Inject the ONE version (<maj>.<min>.<count>) into each package.json, so every artifact carries the build — the
+      # extension most of all: a constant version never out-versions an installed build. The installer, the
+      # connector and the desktop exe's FileVersion get it via VOLT_VERSION.
       - name: Stamp the version into every package.json
         shell: bash
         run: |
-          base='${{ steps.v.outputs.base }}'
-          vsix='${{ steps.v.outputs.vsix }}'
-          node -e "const fs=require('fs'),p='packages/volt-desktop/package.json',j=JSON.parse(fs.readFileSync(p));j.version='$base';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
-          node -e "const fs=require('fs'),p='packages/volt-vscode/package.json',j=JSON.parse(fs.readFileSync(p));j.version='$vsix';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
-          echo "stamped base $base (desktop) + vsix $vsix (extension)"
+          v='${{ steps.v.outputs.version }}'
+          for p in packages/volt-desktop/package.json packages/volt-vscode/package.json; do
+            node -e "const fs=require('fs'),p='$p',j=JSON.parse(fs.readFileSync(p));j.version='$v';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+          done
+          echo "stamped $v (desktop + extension)"
 
       - name: Build the Volt installer
         env:
@@ -81,7 +80,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VOLT_VERSION: ${{ steps.v.outputs.version }}
-        run: bun scripts/build-installer.ts --upload-only --prerelease
+        run: bun scripts/build-installer.ts --upload-only
 
       - name: Verify the installer was published
         shell: bash
@@ -94,4 +93,11 @@ jobs:
             echo "::error::release $version is missing Volt-win-Setup.exe — the installer did not publish"
             exit 1
           }
-          echo "✓ Volt-win-Setup.exe published on $version"
+          # The connector runs a downloaded installer only when its SHA-256 equals the asset's `digest` (Updater.cs).
+          # GitHub computes it server-side on upload, so nothing is published for it — this proves it is there.
+          digest=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$version" --jq '.assets[] | select(.name == "Volt-win-Setup.exe") | .digest')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::Volt-win-Setup.exe on $version carries no sha256 digest ('$digest') — every connector would refuse it as an update"
+            exit 1
+          }
+          echo "✓ Volt-win-Setup.exe published on $version ($digest)"

@@ -14,8 +14,9 @@
  *    1  install --older                     (today's layout — only its version is asserted)
  *    2  update to the new build             (+ the migration: no app-*, no current, old PATH entry / env / Run gone)
  *    3  update again, same build            (files in use: the connector it launched holds its own exe)
- *    4  update with `volt.exe` alive, /VOLTWAIT=15  → setup exits non-zero, the CLI is NOT killed, no binary
- *                                             replaced, the connector relaunched
+ *    4  update with `volt.exe` alive, /VOLTWAIT=15  → setup exits non-zero, the CLI is NOT killed, NOTHING
+ *                                             stopped (the TwinCAT worker is the other end of the CLI's pipe), no
+ *                                             binary replaced, the tray untouched
  *    5  the same, the CLI stopped 5 s into the wait → setup completes
  *    6  uninstall with `volt.exe` alive, /VOLTWAIT=15 → aborted, nothing removed, the CLI alive
  *    7  uninstall → clean                    8  fresh install            9  uninstall → clean
@@ -132,7 +133,7 @@ const processesNamed = (name: string): { pid: number; path: string }[] =>
       const [pid, path] = l.split("|")
       return { pid: Number(pid), path: path || "?" }
     })
-/** The pids running FROM this exact file — "relaunched" means a pid that was not there before. */
+/** The pids running FROM this exact file. */
 const pidsFrom = (exe: string): number[] =>
   processesNamed(exe.split(/[\\/]/).pop()!).filter((p) => p.path.toLowerCase() === exe.toLowerCase()).map((p) => p.pid)
 const describe = (ps_: { pid: number; path: string }[]): string => ps_.map((p) => `pid ${p.pid} ${p.path}`).join(", ")
@@ -432,8 +433,16 @@ function assertOlderInstalled(step: string, run: SetupRun): void {
   else ok(`${step}: ${olderVersion} installed (today's layout — the upgrade source)`)
 }
 
+/** The `volt:` markers every install writes, in order (installer/Volt.iss [Code]; build-installer.ts refuses a build
+ *  that lost one): what the run is, the processes it stopped by path, the PATH entry read back. The upgrade from the
+ *  app-<version> layout (step 2) also logs what it migrated, between the two. */
+const installMarkers = (migrated: boolean): string[] =>
+  ["volt: install ", "volt: stopped ", ...(migrated ? ["volt: migrate removed "] : []), "volt: PATH carries "]
+/** The uninstaller's: what the run is (before its CLI wait), the processes it stopped, the PATH entry removed. */
+const uninstallMarkers = ["volt: uninstall ", "volt: stopped ", "volt: PATH no longer carries "]
+
 /** THE assertion: the whole install agrees with itself and with the design's layout, exactly. */
-async function assertInstalled(step: string, run: SetupRun, broadcast: boolean): Promise<void> {
+async function assertInstalled(step: string, run: SetupRun, broadcast: boolean, migrated = false): Promise<void> {
   if (run.status !== 0) fail(step, `installer exited ${run.status}`)
   assertNoRollback(step, run)
 
@@ -525,7 +534,7 @@ async function assertInstalled(step: string, run: SetupRun, broadcast: boolean):
     }
   }
 
-  assertLog(step, "install-", run.mark, ["volt: install "])
+  assertLog(step, "install-", run.mark, installMarkers(migrated))
 }
 
 /** After an uninstall NOTHING Volt wrote may remain, and nothing it did not write may have changed. */
@@ -551,7 +560,7 @@ async function assertClean(step: string, mark: LogMark, broadcast: boolean): Pro
   else fail(step, `no WM_SETTINGCHANGE("Environment") during uninstall — running shells keep a dead PATH entry`)
   const running = voltProcesses.filter(imageRunning)
   if (running.length > 0) fail(step, `Volt process(es) still running after uninstall: ${running.join(", ")}`)
-  assertLog(step, "uninstall-", mark, ["volt: uninstall"])
+  assertLog(step, "uninstall-", mark, uninstallMarkers)
 }
 
 // ── the CLI that must never be killed ────────────────────────────────────────
@@ -605,6 +614,7 @@ const snapshotIds = (step: string): Map<string, string> => {
  *  on every run, so an abort for any other reason would pass. */
 const waitingMarker = "volt: waiting for volt.exe"
 const gaveUpMarker = "volt: gave up waiting for volt.exe"
+const stoppedMarker = "volt: stopped "
 
 // ── the flow ─────────────────────────────────────────────────────────────────
 
@@ -628,7 +638,7 @@ const steps: [string, () => Promise<void>][] = [
   }],
   ["2 update (upgrade + migration)", async () => {
     const { run, broadcast } = await install(setup, "2 update")
-    await assertInstalled("2 update", run, broadcast)
+    await assertInstalled("2 update", run, broadcast, true)
   }],
   ["3 update again", async () => {
     const { run, broadcast } = await install(setup, "3 update again")
@@ -639,10 +649,11 @@ const steps: [string, () => Promise<void>][] = [
     const cli = await startCli(step)
     if (cli === null) return
     const before = snapshotIds(step)
-    // "Relaunched" is measured as a NEW pid: step 3's tray still running would otherwise pass for one, and a setup
-    // that gave up before stopping anything would read as one that stopped and relaunched.
+    // "Untouched" is measured as the SAME pids: setup waits for the CLI before it stops anything — stopping first
+    // killed connector\VoltBridgeTwincat.exe, the other end of the pipe a `volt push` to TwinCAT writes through,
+    // and a setup that stopped and relaunched the tray would still pass a "tray running" check.
     const trayBefore = pidsFrom(connectorExe)
-    if (trayBefore.length === 0) fail(step, `no connector running from ${connectorExe} before the update — "relaunched" cannot be measured`)
+    if (trayBefore.length === 0) fail(step, `no connector running from ${connectorExe} before the update — "untouched" cannot be measured`)
     const run = await runSetup(setup, step, ["/VOLTWAIT=15"], 300)
     if (run.status === 0) fail(step, "setup exited 0 although volt.exe was running — it must give up (non-zero) after /VOLTWAIT")
     else ok(`${step}: setup gave up, exit ${run.status}`)
@@ -652,13 +663,16 @@ const steps: [string, () => Promise<void>][] = [
     const replaced = [...before].filter(([f, id]) => after.get(f) !== id).map(([f]) => f.replace(installDir, "{app}"))
     if (replaced.length > 0) fail(step, `setup replaced binaries although it gave up: ${replaced.join(", ")}`)
     else if (before.size > 0) ok(`${step}: no binary replaced (${before.size} NTFS file ids unchanged)`)
-    const relaunched = (): number[] => pidsFrom(connectorExe).filter((pid) => !trayBefore.includes(pid))
-    if (!(await waitFor(() => relaunched().length > 0, 15)))
-      fail(step, `no NEW connector process from ${connectorExe} after the abandoned update (before: [${trayBefore.join(", ")}], after: [${pidsFrom(connectorExe).join(", ")}]) — it was never stopped, or never relaunched`)
-    else ok(`${step}: connector relaunched (pid ${relaunched().join(", ")}, was ${trayBefore.join(", ")})`)
+    const trayAfter = pidsFrom(connectorExe)
+    const lost = trayBefore.filter((pid) => !trayAfter.includes(pid))
+    if (lost.length > 0) fail(step, `the abandoned update stopped the tray (before: [${trayBefore.join(", ")}], after: [${trayAfter.join(", ")}]) — it stopped Volt's processes while volt.exe ran`)
+    else ok(`${step}: tray untouched (pid ${trayBefore.join(", ")})`)
     const log = logSince("install-", run.mark)
-    if (!(log?.text ?? "").includes(gaveUpMarker)) fail(step, `what this step wrote to the mirrored install log (${log?.files.join(", ") ?? "nothing"}) has no "${gaveUpMarker}" — nothing says setup gave up because of volt.exe`)
+    const text = log?.text ?? ""
+    if (!text.includes(gaveUpMarker)) fail(step, `what this step wrote to the mirrored install log (${log?.files.join(", ") ?? "nothing"}) has no "${gaveUpMarker}" — nothing says setup gave up because of volt.exe`)
     else ok(`${step}: the log says setup gave up waiting for volt.exe`)
+    if (text.includes(stoppedMarker)) fail(step, `the mirrored install log has "${stoppedMarker}" although setup gave up waiting for volt.exe — it stopped Volt's processes (the TwinCAT worker among them) while the CLI ran`)
+    else ok(`${step}: nothing was stopped`)
     stopCli(cli)
   }],
   ["5 update with the CLI alive (waits, then completes)", async () => {
@@ -680,20 +694,34 @@ const steps: [string, () => Promise<void>][] = [
     if (!text.includes(waitingMarker)) fail(step, `the mirrored install log has no "${waitingMarker}" — setup did not wait for the CLI`)
     else if (text.includes(gaveUpMarker)) fail(step, `the mirrored install log says "${gaveUpMarker}" although setup completed`)
     else ok(`${step}: the log says setup waited for volt.exe`)
+    // Waiting is not enough: the stop must come AFTER it, or the TwinCAT worker died under the running CLI.
+    if (text.indexOf(stoppedMarker) < text.indexOf(waitingMarker)) fail(step, `"${stoppedMarker}" is not after "${waitingMarker}" in the mirrored install log — setup stopped Volt's processes while volt.exe ran`)
+    else ok(`${step}: Volt's processes were stopped only after the wait`)
   }],
   ["6 uninstall with the CLI alive (aborts)", async () => {
     const step = "6 uninstall, CLI alive"
     const cli = await startCli(step)
     if (cli === null) return
+    // "Untouched" as in step 4: the SAME tray pids, and nothing stopped. A "tray running" check alone passes an
+    // uninstaller that stops the tray and the TwinCAT worker under the running CLI and then relaunches the tray.
+    const trayBefore = pidsFrom(connectorExe)
+    if (trayBefore.length === 0) fail(step, `no connector running from ${connectorExe} before the uninstall — "untouched" cannot be measured`)
     const { mark, status } = await runUninstall(step, ["/VOLTWAIT=15"])
     if (status === 0) fail(step, "the uninstaller exited 0 although volt.exe was running — it must abort (non-zero) after /VOLTWAIT")
     else ok(`${step}: uninstaller aborted, exit ${status}`)
     const log = logSince("uninstall-", mark)
-    if (!(log?.text ?? "").includes(gaveUpMarker)) fail(step, `what this step wrote to the mirrored uninstall log (${log?.files.join(", ") ?? "nothing"}) has no "${gaveUpMarker}" — nothing says the uninstall aborted because of volt.exe`)
+    const text = log?.text ?? ""
+    if (!text.includes(gaveUpMarker)) fail(step, `what this step wrote to the mirrored uninstall log (${log?.files.join(", ") ?? "nothing"}) has no "${gaveUpMarker}" — nothing says the uninstall aborted because of volt.exe`)
+    if (text.includes(stoppedMarker)) fail(step, `the mirrored uninstall log has "${stoppedMarker}" although the uninstall gave up waiting for volt.exe — it stopped Volt's processes (the TwinCAT worker among them) while the CLI ran`)
+    else ok(`${step}: nothing was stopped`)
+    const trayAfter = pidsFrom(connectorExe)
+    const lost = trayBefore.filter((pid) => !trayAfter.includes(pid))
+    if (lost.length > 0) fail(step, `the aborted uninstall stopped the tray (before: [${trayBefore.join(", ")}], after: [${trayAfter.join(", ")}]) — it stopped Volt's processes while volt.exe ran`)
+    else ok(`${step}: tray untouched (pid ${trayBefore.join(", ")})`)
     if (!pidAlive(cli.pid!)) fail(step, "the uninstaller KILLED the running volt.exe")
     else ok(`${step}: volt.exe survived`)
-    // Everything an uninstall takes away, including what the connector's `--uninstall` removes (the Documents
-    // scripts) — an uninstaller that ran that, or stopped the tray, BEFORE its volt.exe wait would otherwise pass.
+    // Everything an uninstall takes away, the Documents scripts ([UninstallDelete]) included — an uninstaller that
+    // removed anything, or stopped the tray, BEFORE its volt.exe wait would otherwise pass.
     const kept = [uninstaller, ...stamped, lspExe, shortcut, ...codesysScripts.map((s) => join(installDir, "codesys", s)), ...codesysScripts.map((s) => join(documentsVolt, s))]
     const removed = kept.filter((f) => !existsSync(f))
     if (removed.length > 0) fail(step, `the aborted uninstall removed: ${removed.join(", ")}`)

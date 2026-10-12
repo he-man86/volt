@@ -15,20 +15,13 @@ internal static class DesktopApp
 {
     /// <summary>The desktop exe, from the directory <c>volt.exe</c> runs in.
     ///
-    /// <para><c>volt.exe</c> lives in <c>{app}\current\bin</c> — PATH is set to exactly that — and <c>bin\</c>
-    /// and <c>desktop\</c> are siblings in the staged payload. So the app is one level up and across. The
-    /// connector states the same fact from its own position (<c>VoltEnv.GuiExe</c>) and the desktop states it in
-    /// the other direction; the offsets differ because the connector sits at the install root and
-    /// <c>volt.exe</c> one deeper. Three statements of one layout is one too many, but a shared helper for two
-    /// callers with different offsets is a parameterized path rule — centralize at the third.</para>
-    ///
-    /// <para><b><see cref="Path.GetFullPath"/>, never a link resolve.</b> This is lexical: it normalizes
-    /// <c>..</c> without following the <c>current</c> junction. Resolving the reparse point would yield
-    /// <c>app-&lt;version&gt;</c>, and an update repoints that junction underneath a running process — so a
-    /// version-resolved path can launch a build the Pruner is about to delete. Normalizing also makes the
-    /// launched process's <c>MainModule.FileName</c> match what the auto-update compares the GUI against.</para></summary>
+    /// <para><c>volt.exe</c> lives in <c>{app}\bin</c> — PATH is set to exactly that — and <c>bin\</c> and
+    /// <c>desktop\</c> are siblings in the flat install (installer/Volt.iss). So the app is one level up and
+    /// across. The connector states the same fact from <c>{app}\connector\</c> (<c>VoltEnv.GuiExe</c>) and the
+    /// desktop states it in the other direction. <see cref="Path.GetFullPath"/> normalizes the <c>..</c>, so the
+    /// launched process's <c>MainModule.FileName</c> matches what the auto-update compares the GUI against.</para></summary>
     public static string GuiExePath(string cliDir) =>
-        Path.GetFullPath(Path.Combine(cliDir, "..", "desktop", "Volt.exe"));
+        Path.GetFullPath(Path.Combine(cliDir, "..", "desktop", "VoltDesktop.exe"));
 
     /// <summary>How to start it: on this workspace, from its own directory, with the parent's token.
     ///

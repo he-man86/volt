@@ -1,12 +1,16 @@
-; Volt one-installer — a full wizard (Welcome -> components -> install -> finish). ONE exe sets up both use
-; cases: the desktop app + the CLI/LSP on PATH + (optionally) the VS Code-family extension.
-; Per-user install (no admin/UAC): Volt's env vars + login item + Start Menu shortcut are all HKCU, so
-; PrivilegesRequired=lowest. Auto-update is the connector's job (Updater.cs) — it downloads a newer Setup.exe and
-; re-runs it /VERYSILENT, so Inno upgrades in place; CloseApplications lets that replace the running connector.
+; Volt's installer (openspec installer-rebuild). ONE per-user Inno Setup installer for every Volt app: the desktop
+; app, the `volt` CLI + the LSP on PATH, the tray connector (+ the TwinCAT worker) and the CODESYS bridge. Written
+; from the product as it is, declaratively: what Volt puts on the machine is in [Files] / [Icons] / [Registry] /
+; [UninstallDelete], so the uninstaller removes exactly that. [Code] holds only what Inno cannot declare: stopping
+; Volt's own processes, waiting for a running CLI (never killing it), the exact PATH entry, the one-release upgrade
+; from the app-<version> + `current` layout, and the log mirror.
 ;
-; Defines are passed by scripts/build-installer.ts:
-;   AppVersion  the release version (X.Y.Z)   StageDir   the assembled payload (connector at root + bin/ etc.)
-;   OutputDir   where Volt-win-Setup.exe lands  SetupIcon  the app .ico
+; Auto-update is the connector's (Updater.cs): it downloads a newer Volt-win-Setup.exe, verifies its SHA-256 against
+; the release asset's digest, and runs it /VERYSILENT — this same file, upgrading in place.
+;
+; Defines passed by scripts/build-installer.ts:
+;   AppVersion  the release version       StageDir   dist/stage — the install tree itself (bin\ connector\ codesys\ desktop\)
+;   OutputDir   where Volt-win-Setup.exe lands        SetupIcon  the app .ico
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -18,7 +22,9 @@ AppId={{6F3A9C2E-1D4B-4E7A-9B2C-56A0D3E1F002}
 AppName=Volt
 AppVersion={#AppVersion}
 AppPublisher=Volt
+; Fixed: the CODESYS start script published to Documents\Volt finds the bridge at this path (`_INSTALL_SUBDIR`).
 DefaultDirName={localappdata}\Programs\Volt
+DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#OutputDir}
@@ -28,203 +34,351 @@ SolidCompression=yes
 WizardStyle=modern
 SetupIconFile={#SetupIcon}
 UninstallDisplayName=Volt
-UninstallDisplayIcon={app}\current\desktop\Volt.exe
-; Always log. Without this a failed install (e.g. exit 5 = Setup couldn't close a running Volt process) leaves
-; NOTHING to diagnose — just an exit code. DeinitializeSetup mirrors the log into Volt's shared log store below.
+UninstallDisplayIcon={app}\desktop\VoltDesktop.exe
+; Always log: a failed install otherwise leaves nothing but an exit code. DeinitializeSetup mirrors it into
+; %LOCALAPPDATA%\Volt\logs, where the tray's Log window reads.
 SetupLogging=yes
-; In-place updates do NOT use Restart Manager. RM can't reliably free the files of a running Volt install: the
-; connector is a self-contained .NET app ({app}\clrjit.dll stays loaded while it runs) and the TwinCAT worker is a
-; headless process — RM's graceful close can't touch either (a plain "yes" then aborts, exit 5), and its async
-; force-close races the file copy, so an update intermittently fails with a sharing violation on clrjit.dll. Instead
-; we stop our own processes deterministically in PrepareToInstall (below) before the copy — race-free, and identical
-; on every machine. (AppMutex would only re-introduce the problem: it blocks BEFORE PrepareToInstall runs.)
+; NOT the Restart Manager. It closes applications by the files they hold — a running `volt.exe` among them, which may
+; be mid-`volt push` to a live PLC — and its asynchronous force-close raced the file copy (a sharing violation on the
+; connector's runtime, then a silent rollback). [Code] stops Volt's own processes by PATH instead, and waits for a CLI.
 CloseApplications=no
-
-[Tasks]
-; The extension only — one per VS Code-family editor, each offered only if its launcher is on PATH, each
-; independently checkable: the wizard checkboxes interactively, /TASKS="vscode,cursor" for a scripted install.
-; Volt installs NO agent and writes into no other vendor's configuration. Every AI agent reaches Volt through
-; the `volt` CLI this installer puts on PATH; the hosts that also want the language server register it
-; themselves (see the integration docs on the website). There was an opencode config layer here once — it was
-; the one place Volt installed itself INTO someone else's product, and it is gone.
-Name: "vscode";   Description: "Install the Volt extension into VS Code";  GroupDescription: "Optional components:"; Check: EditorOnPath('code')
-Name: "windsurf"; Description: "Install the Volt extension into Windsurf"; GroupDescription: "Optional components:"; Check: EditorOnPath('windsurf')
-Name: "cursor";   Description: "Install the Volt extension into Cursor";   GroupDescription: "Optional components:"; Check: EditorOnPath('cursor')
-
-; NO [InstallDelete]. Its entries all named the retired opencode-config payload, and they did nothing even when
-; that payload shipped: [InstallDelete] executes BEFORE the file copy and long before ssPostInstall repoints the
-; junction, so `current` still resolved to the OUTGOING version, which the connector prunes anyway. Deleted
-; rather than kept "just in case" - unauditable entries are how this file became untrustworthy.
+; PATH is the one thing Volt publishes for agents: broadcast WM_SETTINGCHANGE("Environment") on install AND uninstall,
+; so Explorer — and every shell or editor started from it — sees the change without a new logon.
+ChangesEnvironment=yes
+; The uninstall log describes THIS install only. Appending (Inno's default) would carry the app-<version> layout's
+; entries forward — among them an [UninstallRun] of `{app}\current\VoltConnector.exe --uninstall`, an exe the
+; upgrade deletes. Files a later build drops are still removed: [UninstallDelete] takes the four folders whole.
+UninstallLogMode=overwrite
 
 [Files]
-; NO restartreplace here, and it is worth knowing why before reaching for it. A file held open ABORTS AND ROLLS
-; BACK the whole install: Inno retries the delete, then defaults the suppressed Abort/Retry/Ignore box to Abort
-; and reverts everything — silently, exit 5. Observed in the wild: the connector updated while bin/volt.exe
-; (which sorts AFTER the locked bin/volt-lsp-iec.exe, so the run never reached it) stayed several releases
-; behind, the [Run] step never fired so the tray never restarted, and a shipped CLI feature looked broken for
-; days. `restartreplace` looks like the cure and is NOT: it needs ADMINISTRATIVE rights to schedule a reboot-time
-; replace, and Volt installs per-user. It was tried; setup still rolled back. The cure is closing our own
-; processes first — see PrepareToInstall in [Code].
-Source: "{#StageDir}\*"; DestDir: "{app}\app-{#AppVersion}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; dist/stage IS the install tree: four folders, copied 1:1.
+Source: "{#StageDir}\bin\*";       DestDir: "{app}\bin";       Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#StageDir}\connector\*"; DestDir: "{app}\connector"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#StageDir}\codesys\*";   DestDir: "{app}\codesys";   Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#StageDir}\desktop\*";   DestDir: "{app}\desktop";   Flags: recursesubdirs createallsubdirs ignoreversion
+
+[Icons]
+; The Start Menu entry. It was written by the connector at runtime (the Velopack era), so a dev build could repoint it.
+Name: "{userprograms}\Volt"; Filename: "{app}\desktop\VoltDesktop.exe"; WorkingDir: "{app}\desktop"
+
+[Registry]
+; The login item, so the tray survives a reboot. Declared, so the uninstaller removes exactly this value — and an
+; upgrade overwrites the one the connector used to write (it named app-<version>\VoltConnector.exe).
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "VoltConnector"; ValueData: """{app}\connector\VoltConnector.exe"" --silent"; Flags: uninsdeletevalue
+; PATH is NOT here: `uninsdeletevalue` on HKCU\Environment\Path deletes the user's WHOLE PATH. [Code] adds and
+; removes the one exact entry instead.
 
 [Run]
-; The CONNECTOR IS NOT LAUNCHED HERE - it is started from CurStepChanged(ssPostInstall), and that is load-bearing.
-; Inno executes [Run] as part of the install step, BEFORE ssPostInstall creates {app}\current. A connector started
-; from here finds no junction beside it and resolves everything against its own version directory. Three separate
-; bugs came from this ordering, so the launch moved rather than the path being nudged again.
-;
-; These entries name the VERSION directory for the same reason: `current` does not exist yet. That is not a
-; violation of the version-free invariant - that invariant governs values RECORDED OUTSIDE {app} (PATH, the
-; shortcut, the login item), and a [Run] filename is transient and internal to this install.
-;
-; The only optional component is the VS Code-family extension.
-; The extension refresh MUST also run on the silent auto-update — otherwise the vsix (cheap, offline)
-; freezes at the last interactive install while the auto-updated LSP moves on, and the editor drifts stale. WantExt
-; encodes both cases: interactive → honor the checkbox; silent → refresh only editors that ALREADY have it.
-; DO NOT uninstall before installing. That was tried, to stop superseded version folders accumulating (an editor
-; left open across several auto-updates keeps one folder per build until it restarts), and it UNINSTALLED THE
-; EXTENSION FOR REAL: Inno evaluates each [Run] entry's Check at execution time, in order, so the uninstall step
-; flipped WantExt's silent-mode predicate (ExtInstalled) to False and the install right after it was SKIPPED.
-; Every silent auto-update removed the extension and never put it back.
-; Even with that ordering fixed, uninstall-then-install is non-atomic: an install that fails (locked files, editor
-; running) leaves the user with no extension at all. The accumulating folders are UNREGISTERED — the editor loads
-; exactly one version and garbage-collects the rest on a full restart — so they cost disk and confuse a human
-; reading the directory, nothing more. A cosmetic problem is not worth a mode where Volt uninstalls itself.
-Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";     Check: WantExt('code','vscode');       StatusMsg: "Installing the Volt extension into VS Code…";  Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c windsurf --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force"; Check: WantExt('windsurf','windsurf'); StatusMsg: "Installing the Volt extension into Windsurf…"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c cursor --install-extension ""{app}\app-{#AppVersion}\volt-vscode.vsix"" --force";   Check: WantExt('cursor','cursor');     StatusMsg: "Installing the Volt extension into Cursor…";   Flags: runhidden
-
-; NO [UninstallDelete]. Its one entry named a flat {app} subdirectory the versioned layout never creates -
-; everything now lives inside each app-<version>\, and usPostUninstall removes every one of those wholesale with
-; rmdir /s /q. It was covering a layout that no longer exists.
+; Start the tray. Not `postinstall`: it must run on the silent auto-update too.
+Filename: "{app}\connector\VoltConnector.exe"; Parameters: "--silent"; Flags: nowait
 
 [UninstallRun]
-; The connector's own uninstall hook. It does NOT revert env any more - PATH and VOLT_BRIDGE_DLL are
-; reverted directly in CurUninstallStepChanged, because delegating that to a binary this same
-; uninstall is deleting broke twice on ordering. What remains here is only what the connector knows and the
-; installer does not: the login item, the Start Menu shortcut, and the copies of the CODESYS activation scripts
-; published into Documents\Volt. Ordering against usUninstall is asserted from the log, not assumed.
-Filename: "{app}\current\VoltConnector.exe"; Parameters: "--uninstall"; Flags: waituntilterminated runhidden; RunOnceId: "VoltEnvRevert"
-; Take the sideloaded extension with us. It is useless without the `volt` CLI this uninstall removes from PATH —
-; left behind it keeps loading, fails every command, and looks like a broken Volt rather than an absent one. Run
-; unconditionally: an editor that never had it (or isn't on PATH) makes this a harmless no-op, and we must not
-; depend on {app} files that Inno may already have deleted.
+; ONE RELEASE ONLY (openspec installer-rebuild 3.3 deletes these): the installer no longer sideloads the extension —
+; it ships from the Marketplace — but installs older than this one did, and an extension left behind without the CLI
+; it drives fails every command. A no-op in an editor that never had it, or is not on PATH.
 Filename: "{cmd}"; Parameters: "/c code --uninstall-extension volt-ai.volt-vscode";     Flags: runhidden; RunOnceId: "VoltExtVsCode"
 Filename: "{cmd}"; Parameters: "/c windsurf --uninstall-extension volt-ai.volt-vscode"; Flags: runhidden; RunOnceId: "VoltExtWindsurf"
 Filename: "{cmd}"; Parameters: "/c cursor --uninstall-extension volt-ai.volt-vscode";   Flags: runhidden; RunOnceId: "VoltExtCursor"
 
+[UninstallDelete]
+; The four folders whole — including any file an earlier build installed and this one no longer ships.
+Type: filesandordirs; Name: "{app}\bin"
+Type: filesandordirs; Name: "{app}\connector"
+Type: filesandordirs; Name: "{app}\codesys"
+Type: filesandordirs; Name: "{app}\desktop"
+Type: dirifempty;     Name: "{app}"
+; The visible copies of the CODESYS scripts the connector publishes at startup (VoltEnv.PublishCodesysScripts).
+Type: files;          Name: "{userdocs}\Volt\start_volt_codesys.py"
+Type: files;          Name: "{userdocs}\Volt\stop_volt_codesys.py"
+Type: dirifempty;     Name: "{userdocs}\Volt"
+
 [Code]
-var
-  LauncherCache: TStringList; // "<launcher>=1" / "<launcher>=0" — see EditorOnPath
-
-function EditorOnPath(Launcher: String): Boolean;
-var Code: Integer;
+{ Every Volt line in a log starts `volt: ` — the install gate (scripts/test-install.ts) reads them, and
+  build-installer.ts refuses a build whose [Code] lost one. Setup's lines go to Inno's own log (mirrored by
+  DeinitializeSetup); the uninstaller writes no log of its own unless passed /LOG, so its lines are also appended
+  to the shared store, one file per day, every line `volt:`-prefixed. }
+procedure VLog(Msg: String);
+var Dir: String;
 begin
-  // Offer an editor's extension task only if its launcher is on PATH. All three (code/windsurf/cursor) are
-  // VS Code forks and take the same `--install-extension <vsix> --force`, so PATH presence is the whole check.
-  //
-  // Memoized: Inno re-evaluates a [Tasks] Check every time it rebuilds the task list, and each miss costs a
-  // hidden cmd.exe. Three launchers × every evaluation adds up. PATH won't change mid-install, so one probe per
-  // launcher is enough. (Reused by WantExt below, which runs on the silent auto-update too.)
-  if LauncherCache = nil then LauncherCache := TStringList.Create;
-  if LauncherCache.IndexOf(Launcher + '=1') >= 0 then begin Result := True; exit; end;
-  if LauncherCache.IndexOf(Launcher + '=0') >= 0 then begin Result := False; exit; end;
-
-  Result := Exec(ExpandConstant('{cmd}'), '/c where ' + Launcher, '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
-  if Result then LauncherCache.Add(Launcher + '=1') else LauncherCache.Add(Launcher + '=0');
-  Log('volt: editor ' + Launcher + ' on PATH=' + IntToStr(Integer(Result)));
-end;
-
-function ExtInstalled(Launcher: String): Boolean;
-var Code, I: Integer; Tmp: String; Lines: TArrayOfString;
-begin
-  // True when this editor already has the Volt extension. Capture `<launcher> --list-extensions` via a temp file
-  // (Inno can't read a child's stdout directly) and look for our id. Used only on the silent auto-update, so we
-  // refresh editors the user already opted into WITHOUT silently adding it to an editor they never chose.
-  Result := False;
-  Tmp := ExpandConstant('{tmp}\volt-ext-' + Launcher + '.txt');
-  if not Exec(ExpandConstant('{cmd}'), '/c ' + Launcher + ' --list-extensions > "' + Tmp + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, Code) then exit;
-  if not LoadStringsFromFile(Tmp, Lines) then exit;
-  for I := 0 to GetArrayLength(Lines) - 1 do
-    if Pos('volt-ai.volt-vscode', Lowercase(Lines[I])) > 0 then begin Result := True; exit; end;
-end;
-
-function WantExt(Launcher, TaskName: String): Boolean;
-begin
-  // Whether to (re)install the extension into this editor. Interactive: honor the wizard checkbox. Silent (the
-  // connector's /VERYSILENT self-update): refresh only editors that ALREADY have it — keeping the vsix in lockstep
-  // with the auto-updated LSP instead of letting it freeze at the last interactive install.
-  Result := False;
-  if not EditorOnPath(Launcher) then exit;
-  if WizardSilent() then Result := ExtInstalled(Launcher)
-  else Result := WizardIsTaskSelected(TaskName);
-  Log('volt: extension for ' + Launcher + ' -> install=' + IntToStr(Integer(Result)));
-end;
-
-/// Point {app}\current at a version directory. `rmdir` unlinks the reparse point WITHOUT touching the target —
-/// a recursive delete here would delete the previous version's files through the junction. Verified: repointing
-/// succeeds even while a process holds a file open under the old target, and that process keeps its handle.
-function SetCurrentJunction(TargetDir: String): Boolean;
-var Code: Integer; Cur: String;
-begin
-  Cur := ExpandConstant('{app}\current');
-  Log('volt: activating ' + TargetDir + ' via junction ' + Cur);
-  if not DirExists(TargetDir) then
-    Log('volt: WARNING target directory does not exist - the payload did not land where expected');
-  if DirExists(Cur) then
+  Log('volt: ' + Msg);
+  if IsUninstaller() then
   begin
-    Exec(ExpandConstant('{cmd}'), '/c rmdir "' + Cur + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
-    Log('volt: unlinked existing junction, rmdir exit=' + IntToStr(Code));
+    Dir := ExpandConstant('{localappdata}\Volt\logs');
+    if ForceDirectories(Dir) then
+      SaveStringToFile(Dir + '\uninstall-' + GetDateTimeString('yyyy-mm-dd', '-', '-') + '.log',
+        GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' [uninstall] volt: ' + Msg + #13#10, True);
+  end;
+end;
+
+function SilentRun: Boolean;
+begin
+  if IsUninstaller() then Result := UninstallSilent() else Result := WizardSilent();
+end;
+
+function AppDir: String;
+begin
+  Result := ExpandConstant('{app}');
+end;
+
+{ Runs from a FOLDER under <app> — never <app> itself: the uninstaller (<app>\unins000.exe) waits there for its own
+  second phase, and stopping it with the rest ended the uninstall with exit code 0 and nobody waiting for it. }
+function UnderApp(Path: String): Boolean;
+begin
+  Result := (Pos(Lowercase(AddBackslash(AppDir)), Lowercase(Path)) = 1)
+    and (CompareText(RemoveBackslash(ExtractFileDir(Path)), RemoveBackslash(AppDir)) <> 0);
+end;
+
+{ The CLI: a volt.exe in a bin\ folder — <app>\bin\volt.exe, and the app-<version>\bin / current\bin of the layout
+  this release upgrades from. The old desktop exe (app-<version>\desktop\Volt.exe) shares the image name and is NOT
+  one: telling them apart is why processes are matched by PATH here, never by image name. }
+function IsCli(Path: String): Boolean;
+begin
+  Result := (CompareText(ExtractFileName(Path), 'volt.exe') = 0)
+    and (CompareText(ExtractFileName(RemoveBackslash(ExtractFileDir(Path))), 'bin') = 0);
+end;
+
+{ A path as a WQL LIKE pattern inside a '...' literal: LIKE's own wildcards and set brackets made literal, then the
+  string escapes (backslash, quote). }
+function WqlLikeLiteral(S: String): String;
+begin
+  Result := S;
+  StringChangeEx(Result, '[', '[[]', True);
+  StringChangeEx(Result, '%', '[%]', True);
+  StringChangeEx(Result, '_', '[_]', True);
+  StringChangeEx(Result, '\', '\\', True);
+  StringChangeEx(Result, '''', '\''', True);
+end;
+
+{ The processes running from under <app>, with their executable paths, from WMI (Win32_Process.ExecutablePath) —
+  ONE mechanism for both finding and stopping, and path-scoped: a dev tray or a volt.exe running from a checkout is
+  never touched. Filtered by WMI itself: fetching every process's properties through IDispatch measured ~20 s per
+  scan in the uninstaller. Callers still check UnderApp (the filter is an optimisation, not the rule). }
+function Processes: Variant;
+var Locator, Service: Variant;
+begin
+  Locator := CreateOleObject('WbemScripting.SWbemLocator');
+  Service := Locator.ConnectServer('.', 'root\CIMV2');
+  Result := Service.ExecQuery('SELECT ProcessId, ExecutablePath FROM Win32_Process WHERE ExecutablePath LIKE ''' +
+    WqlLikeLiteral(AddBackslash(AppDir)) + '%''');
+end;
+
+{ Wall-clock milliseconds, for the CLI wait: the WMI scans between two sleeps take time of their own. }
+function GetTickCount: DWord; external 'GetTickCount@kernel32.dll stdcall';
+
+{ The path a process runs from. WMI's Win32_Process.ExecutablePath is null for a process this run cannot open for
+  PROCESS_QUERY_INFORMATION + PROCESS_VM_READ - an ELEVATED process of the same user among them (measured: a
+  `volt.exe` run from an admin terminal reads null there, and empty through .NET's MainModule).
+  QueryFullProcessImageName needs only PROCESS_QUERY_LIMITED_INFORMATION, which reads those. '' when even that is
+  refused. }
+function OpenProcess(Access: DWord; Inherit: BOOL; Pid: DWord): THandle; external 'OpenProcess@kernel32.dll stdcall';
+function QueryFullProcessImageName(Process: THandle; Flags: DWord; Name: String; var Size: DWord): BOOL; external 'QueryFullProcessImageNameW@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): BOOL; external 'CloseHandle@kernel32.dll stdcall';
+
+function ImagePath(Pid: Integer; Wmi: Variant): String;
+var H: THandle; Size: DWord; Buf: String;
+begin
+  Result := '';
+  if not VarIsNull(Wmi) then Result := Wmi;
+  if Result <> '' then Exit;
+  H := OpenProcess($1000, False, Pid); { PROCESS_QUERY_LIMITED_INFORMATION }
+  if H = 0 then Exit;
+  try
+    Size := 1024;
+    Buf := StringOfChar(#0, Size);
+    if QueryFullProcessImageName(H, 0, Buf, Size) then Result := Copy(Buf, 1, Size);
+  finally
+    CloseHandle(H);
+  end;
+end;
+
+{ The first CLI that may be running from under <app>: its pid and path. Every process NAMED volt.exe is examined -
+  not only those Processes finds by ExecutablePath, which never sees an elevated one - and one whose path cannot be
+  read at all counts as the CLI (fail closed): waiting on a stranger costs an update; stopping the TwinCAT worker
+  under a running `volt push` costs a PLC project. }
+function FindCli(var Pid: Integer; var Path: String): Boolean;
+var Locator, Service, Procs, P: Variant; I: Integer; Exe: String;
+begin
+  Result := False;
+  Locator := CreateOleObject('WbemScripting.SWbemLocator');
+  Service := Locator.ConnectServer('.', 'root\CIMV2');
+  Procs := Service.ExecQuery('SELECT ProcessId, ExecutablePath FROM Win32_Process WHERE Name = ''volt.exe''');
+  for I := 0 to Procs.Count - 1 do
+  begin
+    P := Procs.ItemIndex(I);
+    Exe := ImagePath(P.ProcessId, P.ExecutablePath);
+    if (Exe = '') or (UnderApp(Exe) and IsCli(Exe)) then
+    begin
+      Pid := P.ProcessId;
+      if Exe = '' then Path := '(path unreadable - waited on, never stopped)' else Path := Exe;
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+{ Stop every process running from under <app> that is not the CLI: the connector, the TwinCAT worker, the desktop
+  app, the LSP (its host restarts it on demand) — by path, so today's desktop (app-<version>\desktop\Volt.exe, the
+  CLI's image name) is stopped and a CLI never is. NOT CODESYS: its bridge runs in-proc in the user's IDE, loaded
+  from a per-session temp copy, so it holds no file here. Rounds until none is left: the connector can spawn a
+  worker between two passes. False — and a FAILED line naming them — when some still run after 30 s.
+  The CLI wait came first, but a `volt push` can start between that wait and a round here (an agent loop, the editor
+  or the desktop app calling the CLI) and connect to the TwinCAT worker this is about to stop: every round looks for
+  a CLI again BEFORE it stops anything, and on finding one stops nothing more and sets CliStarted — the caller goes
+  back to waiting. }
+function StopOwn(var CliStarted: Boolean): Boolean;
+var Procs, P: Variant; I, Found, CliPid: Integer; Started: DWord; Exe, Key, CliPath: String; Seen: TStringList;
+begin
+  CliStarted := False;
+  Seen := TStringList.Create;
+  try
+    { A wall-clock 30 s: counted rounds (60 x 500 ms) measured 44-51 s, each round's WMI queries taking time of
+      their own. }
+    Started := GetTickCount;
+    while GetTickCount - Started < 30000 do
+    begin
+      if FindCli(CliPid, CliPath) then
+      begin
+        VLog('volt.exe started (pid ' + IntToStr(CliPid) + ', ' + CliPath + ') while Volt''s processes were being stopped - back to waiting for it');
+        if Seen.Count > 0 then
+        begin
+          Seen.Delimiter := ',';
+          VLog('stopped ' + IntToStr(Seen.Count) + ' Volt process(es) under ' + AppDir + ' before it started: ' + Seen.DelimitedText);
+        end;
+        CliStarted := True;
+        Result := False;
+        Exit;
+      end;
+      Found := 0;
+      Procs := Processes;
+      for I := 0 to Procs.Count - 1 do
+      begin
+        P := Procs.ItemIndex(I);
+        if VarIsNull(P.ExecutablePath) then Continue;
+        Exe := P.ExecutablePath;
+        if UnderApp(Exe) and not IsCli(Exe) then
+        begin
+          Found := Found + 1;
+          Key := ExtractFileName(Exe) + ' (pid ' + IntToStr(P.ProcessId) + ')';
+          if Seen.IndexOf(Key) < 0 then Seen.Add(Key);
+          P.Terminate(0);
+        end;
+      end;
+      if Found = 0 then
+      begin
+        Seen.Delimiter := ',';
+        VLog('stopped ' + IntToStr(Seen.Count) + ' Volt process(es) under ' + AppDir + ': ' + Seen.DelimitedText);
+        Result := True;
+        Exit;
+      end;
+      Sleep(500);
+    end;
+    Seen.Delimiter := ',';
+    VLog('FAILED to stop Volt''s processes under ' + AppDir + ' within 30 s: ' + Seen.DelimitedText);
+    Result := False;
+  finally
+    Seen.Free;
+  end;
+end;
+
+{ A running CLI is NEVER killed — it may be mid-`volt push` to a live PLC. Interactive: a Retry/Cancel box naming
+  it. Silent (the connector's auto-update, a scripted uninstall): poll every 2 s up to /VOLTWAIT=<s> (default an
+  hour), then give up. True when no CLI runs (any more); False when the run gave up or the user cancelled. }
+function WaitForCli(Action: String): Boolean;
+var Pid, Limit: Integer; Started: DWord; Path, Raw: String;
+begin
+  Result := True;
+  if not FindCli(Pid, Path) then Exit;
+  Raw := ExpandConstant('{param:VOLTWAIT|3600}');
+  Limit := StrToIntDef(Raw, -1);
+  if Limit < 0 then RaiseException('/VOLTWAIT=' + Raw + ' is not a number of seconds');
+  VLog('waiting for volt.exe (pid ' + IntToStr(Pid) + ', ' + Path + ') before the ' + Action + ' - it is never stopped');
+  if SilentRun then
+  begin
+    Started := GetTickCount;
+    while FindCli(Pid, Path) do
+    begin
+      if GetTickCount - Started >= Limit * 1000 then
+      begin
+        VLog('gave up waiting for volt.exe (pid ' + IntToStr(Pid) + ') after ' + IntToStr(Limit) + ' s - no ' + Action + ' was done');
+        Result := False;
+        Exit;
+      end;
+      Sleep(2000);
+    end;
   end
   else
-    Log('volt: no existing junction (first install)');
-  Result := Exec(ExpandConstant('{cmd}'), '/c mklink /J "' + Cur + '" "' + TargetDir + '"',
-                 '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) and DirExists(Cur);
-  if Result then
-  begin
-    Log('volt: junction active -> ' + TargetDir);
-    // Probe the SAME subdirectory both ways. This separates the two failure modes that look identical from
-    // the outside: 'the payload is not there' (both false) versus 'the junction does not resolve' (direct
-    // true, through-junction false). Without it, a missing file at this point is unattributable - which is
-    // where an entire debugging session went.
-    Log('volt: probe direct  \bin exists=' + IntToStr(Integer(DirExists(TargetDir + '\bin'))));
-    Log('volt: probe junction \bin exists=' + IntToStr(Integer(DirExists(Cur + '\bin'))));
-  end
-  else Log('volt: FAILED to create junction, mklink exit=' + IntToStr(Code));
+    while FindCli(Pid, Path) do
+      if MsgBox('Volt''s command-line tool is running (volt.exe, pid ' + IntToStr(Pid) + '):' + #13#10 + Path + #13#10#13#10 +
+                'It may be writing to a PLC, so it is not stopped. Let it finish, then click Retry.' + #13#10 +
+                'Cancel leaves Volt as it is.', mbError, MB_RETRYCANCEL) = IDCANCEL then
+      begin
+        VLog('gave up waiting for volt.exe (pid ' + IntToStr(Pid) + '): the ' + Action + ' was cancelled');
+        Result := False;
+        Exit;
+      end;
+  VLog('volt.exe exited - the ' + Action + ' continues');
 end;
 
-/// Remove the payload an older, FLAT install left directly in {app}. Without this both {app}\bin and
-/// {app}\current\bin exist and whichever PATH lists first wins — a stale binary shadowing the new one, which is
-/// the failure this whole change exists to end. Named entries only: Inno does not roll back deletions, and the
-/// junction is never deleted recursively.
-procedure RemoveFlatPayload;
-var Code: Integer; A: String;
+{ The CLI wait, then the stop — again from the wait when a CLI starts during the stop (StopOwn). 0 = Volt's processes
+  are stopped and no CLI runs; 1 = the run gave up waiting for a CLI (or the user cancelled); 2 = StopOwn failed. }
+function WaitThenStop(Action: String): Integer;
+var CliStarted: Boolean;
 begin
-  A := ExpandConstant('{app}');
-  if DirExists(A + '\bin') or FileExists(A + '\VoltConnector.exe') then
-    Log('volt: migrating a FLAT install - removing the old payload directly under ' + A)
-  else
-    Log('volt: no flat payload to migrate');
-  Exec(ExpandConstant('{cmd}'),
-    '/c rmdir /s /q "' + A + '\bin" 2>nul & rmdir /s /q "' + A + '\desktop" 2>nul' +
-    ' & rmdir /s /q "' + A + '\opencode-config" 2>nul & rmdir /s /q "' + A + '\docs" 2>nul' + // opencode-config: retired, still removed from pre-existing flat installs
-    ' & del /q "' + A + '\Volt*.exe" "' + A + '\version.txt" "' + A + '\volt-vscode.vsix" 2>nul',
-    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  repeat
+    if not WaitForCli(Action) then begin Result := 1; Exit; end;
+    if StopOwn(CliStarted) then begin Result := 0; Exit; end;
+  until not CliStarted;
+  Result := 2;
 end;
 
-/// Publish PATH + VOLT_BRIDGE_DLL from the INSTALLER, not from the connector.
-///
-/// These were written by VoltConnector on startup, which makes them depend on a process's lifetime — and that
-/// dependency caused four ordering bugs in a row: [Run] firing before the junction existed, uninstall cleanup
-/// destroying the exe before [UninstallRun] could use it, the connector resolving a junction that was not there
-/// yet, and finally setup exiting before the connector had written anything. The uninstall side was fixed by
-/// doing the revert here instead, and has been solid since; this is the symmetric half.
-///
-/// Both values resolve through {app}\current — never a version directory. That is the invariant the whole layout
-/// rests on: a versioned value would force every update to rewrite HKCU and would dangle whenever the pruner
-/// removed the directory it named. The connector still calls its own Install() on startup; it is idempotent and
-/// now computes the same version-free paths, so the two agree instead of racing.
-/// True when Dir is already one of PATH's ';'-separated entries (case-insensitive - Windows paths are).
+{ A tray (VoltConnector.exe) running from under <app>, any layout. }
+function ConnectorRunning: Boolean;
+var Procs, P: Variant; I: Integer; Exe: String;
+begin
+  Result := False;
+  Procs := Processes;
+  for I := 0 to Procs.Count - 1 do
+  begin
+    P := Procs.ItemIndex(I);
+    if VarIsNull(P.ExecutablePath) then Continue;
+    Exe := P.ExecutablePath;
+    if UnderApp(Exe) and (CompareText(ExtractFileName(Exe), 'VoltConnector.exe') = 0) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+{ Start the installed tray again when none runs — at the end of every setup that reached PrepareToInstall
+  (DeinitializeSetup), and after an uninstall that did not happen. A run that gave up waiting for a CLI stopped
+  nothing, but the auto-update's tray exited before it launched this setup; a run that stopped Volt's processes and
+  then aborted (a locked file in [Files], a rollback) would otherwise leave no tray and no TwinCAT worker until the
+  next login. After a completed install [Run] has started the tray, and this finds it running. The
+  current\ fallback is the layout this release upgrades from (a give-up during that upgrade leaves it installed);
+  it goes with the migration. }
+procedure RelaunchConnector;
+var Exe: String; Code: Integer;
+begin
+  if ConnectorRunning then
+  begin
+    VLog('the connector is running - nothing to relaunch');
+    Exit;
+  end;
+  Exe := AppDir + '\connector\VoltConnector.exe';
+  if not FileExists(Exe) then Exe := AppDir + '\current\VoltConnector.exe';
+  if not FileExists(Exe) then
+  begin
+    VLog('no installed connector under ' + AppDir + ' to relaunch');
+    Exit;
+  end;
+  if Exec(Exe, '--silent', '', SW_HIDE, ewNoWait, Code) then VLog('relaunched the connector: ' + Exe)
+  else VLog('FAILED to relaunch the connector ' + Exe + ': ' + SysErrorMessage(Code));
+end;
+
+{ PATH is a ';'-separated list: entries compared trimmed and case-insensitively, so the add and the remove agree by
+  construction. Never a substring test — '\current\binx' contains '\current\bin', and a PATH entry that looks right but
+  is not is exactly what shipped once ('\Volt\currentin'). }
 function PathHasEntry(PathVal, Dir: String): Boolean;
 var Rest, Part: String;
 begin
@@ -234,259 +388,168 @@ begin
   begin
     Part := Trim(Copy(Rest, 1, Pos(';', Rest) - 1));
     Rest := Copy(Rest, Pos(';', Rest) + 1, Length(Rest));
-    if CompareText(Part, Dir) = 0 then begin Result := True; exit; end;
+    if CompareText(Part, Dir) = 0 then begin Result := True; Exit; end;
   end;
 end;
 
-procedure PublishEnv(TargetDir: String);
-var PathVal, CurBin, DllPath: String;
-begin
-  // Retire OPENCODE_CONFIG_DIR from installs that predate the opencode removal. Volt no longer ships a config
-  // directory for opencode, so a value left behind here points at a path this install deletes - opencode would
-  // then fail to load a config dir that does not exist. Deleting it on INSTALL (not only on uninstall) is what
-  // makes the in-place upgrade clean; the value was always ours to remove.
-  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then
-  begin
-    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
-    Log('volt: removed the retired OPENCODE_CONFIG_DIR env var');
-  end;
-  // Verify against the REAL directory, never through {app}\current. A reparse point is not reliably
-  // resolvable by the process that just created it - measured: DirExists(current\bin) was FALSE 1ms after
-  // mklink returned, while the same directory probed directly was TRUE, and the junction was perfect
-  // seconds later. Checking through it made every verification here a coin flip and stopped the connector
-  // from launching at all. The VALUE written to the registry stays the 'current' form - that is the
-  // invariant; only the existence CHECK uses the path we just wrote the files to.
-  DllPath := ExpandConstant('{app}\current\codesys-scriptcommands\Volt.Ide.Codesys.dll');
-  if FileExists(TargetDir + '\codesys-scriptcommands\Volt.Ide.Codesys.dll') then
-  begin
-    RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL', DllPath);
-    Log('volt: VOLT_BRIDGE_DLL=' + DllPath);
-  end
-  else
-    Log('volt: CODESYS bridge DLL not present, VOLT_BRIDGE_DLL not set: ' + DllPath);
-  CurBin := ExpandConstant('{app}\current\bin');
-  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then PathVal := '';
-  // Entry-wise, NOT a substring test. Pos() would accept a PATH entry of '\current\binx' as already
-  // containing '\current\bin', silently skipping the append - and a PATH entry that looks right but is not is
-  // exactly the failure that shipped ('\Volt\currentin'). The uninstall side splits on ';' to strip entries, so
-  // the add side splits too: add and remove agree by construction, not by two similar-looking string tests.
-  if not PathHasEntry(PathVal, CurBin) then
-  begin
-    if (PathVal <> '') and (Copy(PathVal, Length(PathVal), 1) <> ';') then PathVal := PathVal + ';';
-    if RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal + CurBin) then
-      Log('volt: appended to user PATH: ' + CurBin)
-    else
-      Log('volt: FAILED to append to user PATH: ' + CurBin);
-  end
-  else
-    Log('volt: PATH already contains ' + CurBin + ' - left unchanged');
-  if not DirExists(TargetDir + '\bin') then Log('volt: WARNING bin missing in ' + TargetDir);
-  // UNCONDITIONAL, and that is the point: this is the marker the lifecycle gate asserts. The two branches above
-  // are both correct outcomes (fresh install appends, upgrade finds it already there), so neither of their log
-  // lines can serve as "the env step ran" - asserting one of them would fail every re-install.
-  Log('volt: env published -> ' + CurBin);
-end;
-
-/// Activate the version we just wrote — the LAST thing before [Run], so a failed copy never leaves `current`
-/// pointing at an incomplete directory. If the junction cannot be created (a filesystem without reparse points),
-/// fail loudly rather than silently leaving an install nothing can find.
-procedure CurStepChanged(CurStep: TSetupStep);
-var PostCode: Integer; ConnExe, Mode: String;
-begin
-  if CurStep = ssInstall then
-  begin
-    // One line at the top of every install that says WHAT this run is. A support log is far easier to read
-    // when its first Volt line states the version, the target, whether it was silent (an auto-update) or
-    // interactive (a human), and whether an install was already present (an upgrade vs a fresh install).
-    if WizardSilent() then Mode := 'silent' else Mode := 'interactive';
-    Log('volt: install {#AppVersion} -> ' + ExpandConstant('{app}') + ', mode=' + Mode
-        + ', existing=' + IntToStr(Integer(DirExists(ExpandConstant('{app}\current')))));
-  end;
-  if CurStep = ssPostInstall then
-  begin
-    if not SetCurrentJunction(ExpandConstant('{app}\app-{#AppVersion}')) then
-      MsgBox('Volt could not create the {app}\current link. The files are installed under app-{#AppVersion} but nothing will resolve them.',
-             mbCriticalError, MB_OK)
-    else
-    begin
-      RemoveFlatPayload;
-      PublishEnv(ExpandConstant('{app}\app-{#AppVersion}'));
-      // NOW start the connector — the junction exists, so VoltEnv resolves through {app}\current and every value
-      // it publishes outside {app} is version-free, which is what makes an update a no-op for the environment.
-      // The version directory, not the junction: see PublishEnv. A [Run]-style filename is transient and
-      // internal to this install, so it is free to name the version; only RECORDED values must be stable.
-      ConnExe := ExpandConstant('{app}\app-{#AppVersion}\VoltConnector.exe');
-      if not FileExists(ConnExe) then
-        Log('volt: connector MISSING, cannot start: ' + ConnExe)
-      else if Exec(ConnExe, '--silent', '', SW_HIDE, ewNoWait, PostCode) then
-        Log('volt: started the connector: ' + ConnExe)
-      else
-        Log('volt: FAILED to start the connector, error=' + IntToStr(PostCode) + ' (' + SysErrorMessage(PostCode) + ')');
-    end;
-  end;
-end;
-
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var ResultCode: Integer;
-begin
-  Result := ''; // never block the install on this — a leftover lock is the failure we're preventing, not causing
-  // THE in-place-update fix (see CloseApplications=no above): deterministically stop every running Volt process so
-  // its files unlock before the copy. Runs on the "Preparing to Install" step, right before [Files] — no RM, no race.
-  //   - /T on the connector also reaps its child bridge workers.
-  //   - NOT codesys.exe: the CODESYS bridge runs IN-PROC inside the user's IDE — killing it would close their IDE.
-  //   - Volt.exe (Electron desktop + the CLI) without /T.
-  //   - volt-lsp-iec.exe: the ONE that actually broke updates. Whatever host started it (the editor extension, an
-  //     agent's language client) keeps it alive for the whole session, so it was almost always holding
-  //     bin/volt-lsp-iec.exe. Missing it here meant Inno hit its retry loop, defaulted the suppressed
-  //     Abort/Retry/Ignore box to ABORT, and ROLLED BACK the entire install — silently, exit 5. Everything sorting
-  //     after it (notably bin/volt.exe) then stayed releases behind while the connector moved on. The host
-  //     restarts it on demand, so closing it costs nothing.
-  //     `restartreplace` on [Files] is NOT an alternative: it needs admin rights to schedule a reboot-time replace,
-  //     and Volt installs per-user.
-  Log('volt: stopping running Volt processes before the file copy (VoltConnector, VoltBridgeTwincat, Volt, volt, volt-lsp-iec)');
-  Exec(ExpandConstant('{cmd}'),
-    '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
-    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Log('volt: taskkill returned ' + IntToStr(ResultCode) + ' (128 = none were running, which is normal on a fresh install)');
-  Sleep(1200); // let the OS release the file handles before [Files] runs
-end;
-
-/// The uninstall half of the same problem. A self-contained .NET app holds its OWN runtime open — clrjit.dll,
-/// coreclr.dll, hostfxr.dll and friends — so uninstalling while the tray is running left ~40 undeletable files
-/// behind, which keeps {app} alive and poisons the next install. [UninstallRun] cannot fix it: that entry IS the
-/// connector, and it is still running when Inno starts deleting.
-///
-/// usUninstall fires BEFORE any file is removed, which is the only useful moment. Same list as
-/// PrepareToInstall, same reasoning — Volt's own processes only, never the user's IDE.
-/// Uninstall logging. Inno's SetupLogging=yes covers SETUP only - the uninstaller writes a log just when it is
-/// passed /LOG, which a real user's uninstall never is. So an uninstall that half-worked (a leftover junction, a
-/// PATH entry that survived) left no trace at all, and support had nothing to look at. Append our own line to the
-/// shared store instead, where the tray Log window and the install logs already live. Log() too, so a /LOG run
-/// keeps everything in one file. Best-effort: never let logging break an uninstall.
-procedure ULog(Msg: String);
-var Dir: String;
-begin
-  Log('volt: ' + Msg);
-  Dir := ExpandConstant('{localappdata}\Volt\logs');
-  if ForceDirectories(Dir) then
-    SaveStringToFile(Dir + '\uninstall-' + GetDateTimeString('yyyy-mm-dd', '-', '-') + '.log',
-      GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' [uninstall] ' + Msg + #13#10, True);
-end;
-
-/// True while any {app}\app-<version> directory still exists. The uninstall's cleanup must wait for these to be
-/// GONE, not just the junction: now that the connector successfully launches from app-<version>\VoltConnector.exe
-/// (it resolves through the junction, but the exe physically lives in the version dir), that process holds the
-/// version dir open, and its self-contained .NET runtime handles take a moment to release after taskkill. The
-/// junction unlinks instantly; the version dir does not. Waiting only on the junction left app-* behind.
-function AppDirsRemain: Boolean;
-var FR: TFindRec;
+{ Remove exactly Dir from the user PATH and give back the value AddPathEntry found, byte for byte: the value is split
+  into its exact parts (n separators, n+1 parts, empty ones included — a trailing ';' is an empty last part), the
+  parts that are Dir dropped, the rest joined again. A value that held nothing but Dir did not exist before the add,
+  so it is deleted, not left empty. RegWriteStringValue keeps an existing value's type (REG_EXPAND_SZ stays expand,
+  REG_SZ stays literal). True when Dir was there. }
+function RemovePathEntry(Dir: String): Boolean;
+var PathVal, Rest, Part, Kept: String; Left: Integer;
 begin
   Result := False;
-  if FindFirst(ExpandConstant('{app}\app-*'), FR) then
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then Exit;
+  Kept := '';
+  Left := 0;
+  Rest := PathVal + ';';
+  while Pos(';', Rest) > 0 do
+  begin
+    Part := Copy(Rest, 1, Pos(';', Rest) - 1);
+    Rest := Copy(Rest, Pos(';', Rest) + 1, Length(Rest));
+    if CompareText(Trim(Part), Dir) = 0 then Result := True
+    else
+    begin
+      if Left > 0 then Kept := Kept + ';';
+      Kept := Kept + Part;
+      Left := Left + 1;
+    end;
+  end;
+  if not Result then Exit;
+  if Left = 0 then
+  begin
+    if not RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'Path') then VLog('FAILED to remove ' + Dir + ' from the user PATH');
+  end
+  else if not RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', Kept) then
+    VLog('FAILED to remove ' + Dir + ' from the user PATH');
+end;
+
+{ Append Dir so that RemovePathEntry gives the value back unchanged: no value → one holding only Dir (REG_EXPAND_SZ,
+  Windows' own type for it); 'X' → 'X;Dir'; a value that is empty or ends in ';' keeps its last (empty) part after
+  Dir: '' → 'Dir;', 'X;' → 'X;Dir;'. An existing value keeps its type. }
+procedure AddPathEntry(Dir: String);
+var PathVal: String;
+begin
+  if not RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then
+    RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', Dir)
+  else if not PathHasEntry(PathVal, Dir) then
+  begin
+    if (PathVal = '') or (Copy(PathVal, Length(PathVal), 1) = ';') then PathVal := PathVal + Dir + ';'
+    else PathVal := PathVal + ';' + Dir;
+    RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal);
+  end;
+  { Measured, not assumed: read back. }
+  if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) and PathHasEntry(PathVal, Dir) then
+    VLog('PATH carries ' + Dir)
+  else
+    VLog('FAILED to put ' + Dir + ' on the user PATH');
+end;
+
+{ ONE RELEASE ONLY (deleted by the next one, openspec installer-rebuild 3.3): the upgrade from the app-<version> +
+  `current` junction layout. Its processes were already stopped by path and its CLI waited for (PrepareToInstall).
+  The junction goes FIRST and by RemoveDir — that unlinks the reparse point; a recursive delete would delete its
+  target THROUGH it — then each app-* directory. The old Run value and Volt.lnk are overwritten by the Registry and
+  Icons sections; only the old PATH entry and the two env vars the old installer wrote need removing here. }
+procedure MigrateVersionedLayout;
+var FR: TFindRec; Name: String;
+begin
+  if DirExists(AppDir + '\current') then
+  begin
+    if RemoveDir(AppDir + '\current') then VLog('migrate removed the current junction')
+    else VLog('FAILED to remove the current junction ' + AppDir + '\current');
+  end;
+  if FindFirst(AppDir + '\app-*', FR) then
   try
     repeat
-      if (FR.Attributes and $10) <> 0 then begin Result := True; exit; end; // $10 = FILE_ATTRIBUTE_DIRECTORY
+      Name := FR.Name;
+      if (FR.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+      begin
+        if DelTree(AppDir + '\' + Name, True, True, True) then VLog('migrate removed ' + Name)
+        else VLog('FAILED to remove ' + AppDir + '\' + Name);
+      end;
     until not FindNext(FR);
   finally
     FindClose(FR);
   end;
+  if RemovePathEntry(AppDir + '\current\bin') then VLog('migrate removed ' + AppDir + '\current\bin from the user PATH');
+  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL') then
+  begin
+    if RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL') then VLog('migrate removed VOLT_BRIDGE_DLL')
+    else VLog('FAILED to remove VOLT_BRIDGE_DLL');
+  end;
+  if RegValueExists(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then
+  begin
+    if RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR') then VLog('migrate removed OPENCODE_CONFIG_DIR')
+    else VLog('FAILED to remove OPENCODE_CONFIG_DIR');
+  end;
+end;
+
+{ Set when setup reaches PrepareToInstall: from there on it may have stopped the tray (or the auto-update's tray has
+  exited), so DeinitializeSetup brings one back whatever happened next. }
+var Prepared: Boolean;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var Mode: String;
+begin
+  Result := '';
+  Prepared := True;
+  if WizardSilent() then Mode := 'silent' else Mode := 'interactive';
+  VLog('install {#AppVersion} -> ' + AppDir + ', mode=' + Mode + ', existing=' + IntToStr(Integer(FileExists(AppDir + '\unins000.exe'))));
+  { The CLI wait comes FIRST, before anything is stopped: StopOwn stops the TwinCAT worker
+    (connector\VoltBridgeTwincat.exe), the other end of the pipe a running `volt push` writes a live PLC project
+    through — stopping it first would cut that push mid-write while volt.exe itself was spared. A give-up leaves
+    Volt exactly as it was. The tray is relaunched by DeinitializeSetup on every outcome. }
+  case WaitThenStop('update') of
+    1: Result := 'Volt''s command-line tool (volt.exe) is running, so Volt was not updated. The update is offered again later.';
+    2: Result := 'Volt could not stop its own processes under ' + AppDir + ' - nothing was changed. See the setup log.';
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then MigrateVersionedLayout;
+  if CurStep = ssPostInstall then AddPathEntry(AppDir + '\bin');
+end;
+
+function InitializeUninstall(): Boolean;
+var Mode: String;
+begin
+  if UninstallSilent() then Mode := 'silent' else Mode := 'interactive';
+  VLog('uninstall {#AppVersion} from ' + AppDir + ', mode=' + Mode);
+  { The wait before anything is stopped or removed (an uninstall that gives up leaves Volt exactly as it was, tray
+    included); the stop before Inno deletes a file — a running self-contained .NET process holds its own runtime
+    open, and an uninstall that could not stop one would remove part of <app> and report success. Both here, where
+    the uninstall can still refuse; a stopped tray is relaunched if the user then declines (DeinitializeUninstall). }
+  Result := WaitThenStop('uninstall') = 0;
+  { A give-up after a CLI started DURING the stop, or a failed stop, may have stopped the tray. }
+  if not Result then RelaunchConnector;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var ResultCode, I: Integer; PathVal, NewPath, Part: String;
 begin
-  if CurUninstallStep = usUninstall then
-  begin
-    Exec(ExpandConstant('{cmd}'),
-      '/c taskkill /F /T /IM VoltConnector.exe /IM VoltBridgeTwincat.exe >nul 2>&1 & taskkill /F /IM Volt.exe /IM volt.exe /IM volt-lsp-iec.exe >nul 2>&1',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    ULog('stopped running Volt processes, taskkill exit=' + IntToStr(ResultCode));
-    Sleep(1200); // let the OS release the handles before Inno starts deleting
-  end;
-  // AFTER Inno's own removal — not in usUninstall. [UninstallRun] runs `current\VoltConnector.exe --uninstall`
-  // to revert PATH, and deleting the version directories any earlier destroys the exe
-  // before it can do that: the env was left pointing at a Volt that no longer existed. Unlink `current` with
-  // rmdir (a recursive delete would delete the version directory THROUGH the junction), then take the versions.
-  // Revert the environment HERE, in the uninstaller itself, rather than delegating to
-  // `VoltConnector.exe --uninstall` via [UninstallRun]. Delegating means the revert depends on the lifetime of a
-  // binary this same uninstall is deleting — which broke twice already (once when cleanup ran before
-  // [UninstallRun] and destroyed the exe first). Doing it directly cannot be defeated by ordering: no process to
-  // launch, nothing to race. The [UninstallRun] entry stays for the parts only the connector knows about.
   if CurUninstallStep = usPostUninstall then
   begin
-    ULog('reverting environment');
-    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'VOLT_BRIDGE_DLL');
-    // Retired, but still deleted here: an install predating the opencode removal may have left it set.
-    RegDeleteValue(HKEY_CURRENT_USER, 'Environment', 'OPENCODE_CONFIG_DIR');
-    // 'VoltConnector' — the value name LoginItem.cs actually writes (ValueName). This read 'Volt' and therefore
-    // deleted nothing: the fallback for a failed connector uninstall hook was dead. The hook itself
-    // (LoginItem.Unregister) always used the right name, which is why the login item still went away in practice.
-    RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'VoltConnector');
-    // PATH is a list — strip only Volt's own entries, never rewrite the whole value.
-    if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', PathVal) then
-    begin
-      NewPath := '';
-      while Pos(';', PathVal) > 0 do
-      begin
-        Part := Copy(PathVal, 1, Pos(';', PathVal) - 1);
-        PathVal := Copy(PathVal, Pos(';', PathVal) + 1, Length(PathVal));
-        if (Part <> '') and (Pos('\programs\volt', Lowercase(Part)) = 0) then
-        begin
-          if NewPath <> '' then NewPath := NewPath + ';';
-          NewPath := NewPath + Part;
-        end;
-      end;
-      if (PathVal <> '') and (Pos('\programs\volt', Lowercase(PathVal)) = 0) then
-      begin
-        if NewPath <> '' then NewPath := NewPath + ';';
-        NewPath := NewPath + PathVal;
-      end;
-      RegWriteExpandStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', NewPath);
-      ULog('PATH rewritten without Volt entries');
-    end;
+    if RemovePathEntry(AppDir + '\bin') then VLog('PATH no longer carries ' + AppDir + '\bin')
+    else VLog('PATH no longer carries ' + AppDir + '\bin (it did not)');
   end;
+end;
 
-  if CurUninstallStep = usPostUninstall then
-  begin
-    // Retry: the junction cannot be unlinked while a process has it as its working directory, and the processes
-    // killed above are not always fully reaped by the time we get here. A single attempt left `current` behind on
-    // one run of the lifecycle gate while later runs were clean - a race, so treat it as one rather than sleeping
-    // longer and hoping. Each attempt is logged, so a leftover now says WHY instead of just appearing.
-    for I := 1 to 10 do
-    begin
-      Exec(ExpandConstant('{cmd}'),
-        '/c rmdir "' + ExpandConstant('{app}\current') + '" 2>nul & for /d %I in ("' + ExpandConstant('{app}') + '\app-*") do @rmdir /s /q "%I"',
-        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      // Wait for BOTH the junction AND every version dir. The junction unlinks at once; a version dir the connector
-      // was running from stays locked until its handles release, so this is the condition that actually matters.
-      if (not DirExists(ExpandConstant('{app}\current'))) and (not AppDirsRemain) then Break;
-      ULog('attempt ' + IntToStr(I) + ': junction=' + IntToStr(Integer(DirExists(ExpandConstant('{app}\current'))))
-           + ' app-dirs=' + IntToStr(Integer(AppDirsRemain)) + ', retrying');
-      Sleep(500);
-    end;
-    if DirExists(ExpandConstant('{app}\current')) or AppDirsRemain then
-      ULog('FAILED to fully remove the install root - something still holds it (junction='
-           + IntToStr(Integer(DirExists(ExpandConstant('{app}\current')))) + ' app-dirs=' + IntToStr(Integer(AppDirsRemain)) + ')')
-    else
-      ULog('removed the junction and every version directory');
-  end;
+{ An uninstall that stopped the tray and then removed nothing (the user declined the confirmation) gives it back. }
+procedure DeinitializeUninstall();
+begin
+  if FileExists(AppDir + '\connector\VoltConnector.exe') then RelaunchConnector;
 end;
 
 procedure DeinitializeSetup();
 var Dir: String;
 begin
-  // Mirror Setup's own log into Volt's shared log store (%LOCALAPPDATA%\Volt\logs — the same folder the
-  // connector + bridges write, which the tray's Log window reads). Install failures are otherwise invisible:
-  // Inno leaves its log in %TEMP% under a name nobody thinks to look for, and an auto-update install runs with
-  // no human watching at all. DeinitializeSetup always runs, including on an aborted install — which is exactly
-  // the case worth keeping. Best-effort: never let logging break an install.
-  //
-  // Timestamped to the SECOND, not the day: a failed auto-update is usually followed within minutes by a retry
-  // or a manual reinstall, and a per-day name would let that success overwrite the failure — destroying the one
-  // log worth having. Cheap (~300 KB each) and the store is the tray Log window's, so they're visible, not lost.
+  if Prepared then RelaunchConnector;
+  { Mirror Setup's own log into the shared store (%LOCALAPPDATA%\Volt\logs). Inno leaves it in %TEMP% under a name
+    nobody looks for, and an auto-update runs with no human watching. Always runs, an aborted install included —
+    the case worth keeping. Timestamped to the second: a failed update followed by a retry must not overwrite it. }
   Dir := ExpandConstant('{localappdata}\Volt\logs');
   if ForceDirectories(Dir) then
-    // Both separators must be a real Char — GetDateTimeString takes Char, not String, and '' breaks it at
-    // runtime (silently: the copy just never happens). They're unused here anyway: the format has no '/' or ':'.
     CopyFile(ExpandConstant('{log}'), Dir + '\install-' + GetDateTimeString('yyyy-mm-dd_hhnnss', '-', '-') + '.log', True);
 end;

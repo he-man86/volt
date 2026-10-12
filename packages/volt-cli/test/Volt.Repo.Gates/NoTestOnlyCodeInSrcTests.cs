@@ -55,7 +55,12 @@ public class NoTestOnlyCodeInSrcTests
                                "pipes instead of a live machine — its production caller passes the real list " +
                                "from the same file",
 
-        ["Decide"] = "the XAE-probe VERDICT rule (exit code + stdout -> pids, or null for a failed enumeration), " +
+        ["CheckOnce"] = "the update CHECK against a feed, split out for the same reason as ChooseBridgePipe: it takes " +
+                        "the feed URL as a parameter so UpdaterVerificationTests can serve a localhost release whose " +
+                        "digest does not match (openspec installer-rebuild). Its production callers, Start and " +
+                        "CheckNow, pass GitHubFeed from the same file",
+
+        ["Decide"] ="the XAE-probe VERDICT rule (exit code + stdout -> pids, or null for a failed enumeration), " +
                      "split out for the same reason as ChooseBridgePipe: the branch that decides whether healthy " +
                      "workers get reaped otherwise only runs behind a spawned process. Its production caller is " +
                      "ListPids, in the same file",

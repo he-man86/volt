@@ -86,9 +86,11 @@ edges).
   copies the `start_volt_codesys.py` path to the clipboard and shows the steps (Tools → Scripting → Execute Script
   File); once the user runs it, the in-proc host serves the pipe and the project appears in the list.
   On startup the connector publishes `start_volt_codesys.py` to a **visible `Documents\Volt\`** folder (so it's reachable
-  in the file dialog without un-hiding AppData); the install-dir copy under `codesys-scriptcommands\` stays as a
-  backup, and both find the bridge DLLs in the install dir via `%LOCALAPPDATA%`. The activation dialog shows both
-  paths.
+  in the file dialog without un-hiding AppData); the install-dir copy in `{app}\codesys\` stays as a backup. The
+  Documents copy finds the bridge DLL at the fixed install path (`%LOCALAPPDATA%\Programs\Volt\codesys\`), the
+  install-dir copy beside itself. The activation dialog shows both paths. That publish is the ONLY thing the
+  connector writes outside its own logs: the Start Menu shortcut, the login item and PATH are the installer's
+  (`installer/Volt.iss`), and there is no `--uninstall` verb (the uninstaller removes the two Documents files).
 - **Project selection is a wire op.** Picking a project sends `select` to its bridge (TwinCAT re-resolves on the
   live DTE; CODESYS confirms its primary) — no worker respawn, no target env. On connect, the notification
   **names the platform** ("Connected to MyMachine (CODESYS)").
@@ -102,7 +104,7 @@ edges).
 |---|---|
 | `VOLT_TWINCAT_BRIDGE` | path to `VoltBridgeTwincat.exe` (else: next to the connector, then the dev build output) |
 | `VOLT_CODESYS_SCRIPT` | path to `start_volt_codesys.py` (overrides the published `Documents\Volt\` + install-dir copies the "Activate" action points at) |
-| `VOLT_BRIDGE_DLL` | path to `Volt.Ide.Codesys.dll` (overrides `start_volt_codesys.py`'s own resolution for a custom install dir) |
+| `VOLT_BRIDGE_DLL` | DEV ONLY (`ide.ps1` sets it): path to `Volt.Ide.Codesys.dll`, overriding `start_volt_codesys.py`'s own resolution. No installer writes it |
 
 Data wire: named pipes — `volt.bridge.twincat`, `volt.bridge.codesys`. Control plane: HTTP `127.0.0.1:8550`.
 
@@ -122,8 +124,9 @@ dotnet build src/Volt.Connector -c Release
 ./src/Volt.Connector/bin/Release/net8.0-windows/VoltConnector.exe
 ```
 
-`build-cli.ps1` places `VoltConnector.exe`, the worker binaries, and `codesys-scriptcommands/` together so path
-resolution is zero-config. The UI-free model + its tests live in `Volt.Connector.Core` /
+`build-cli.ps1` publishes `VoltConnector.exe` and the TwinCAT worker into ONE folder on one runtime (`dist\Connector`
+→ `{app}\connector\`) and the CODESYS bridge + scripts beside it (`dist\Codesys` → `{app}\codesys\`), so path
+resolution is zero-config: the worker next to the connector, the desktop and the scripts one level up and across. The UI-free model + its tests live in `Volt.Connector.Core` /
 `test/Volt.Connector.Tests`.
 
 ## Testing the connection model

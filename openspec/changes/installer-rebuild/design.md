@@ -42,7 +42,7 @@ start/stop scripts; `start_volt_codesys.py` finds the DLL beside itself, else `�
 `[Registry]`, `[UninstallDelete]`, `[Run]` connector `--silent`. `[Code]` only: (1) `taskkill /IM` VoltConnector,
 VoltBridgeTwincat, VoltDesktop, volt-lsp-iec — unique names now (an editor restarts its LSP; waiting on it would never
 end); (2) a running `volt.exe` is NEVER killed: interactive → Retry/Cancel page naming it; silent → poll every 2 s up to
-60 min, then abort, relaunch the still-installed connector, and the next update check retries; (3) log mirror. The UNINSTALLER follows the same rule: it stops Volt's own processes by name and waits for a
+60 min, then abort (nothing stopped yet), start the still-installed connector if none runs, and the next update check retries; (3) log mirror. The UNINSTALLER follows the same rule: it stops Volt's own processes by name and waits for a
 running `volt.exe` (interactive Retry/Cancel; silent uninstall aborts after the same timeout) — today it kills it.
 `[Setup]` keeps the stable `AppId`, `CloseApplications=no`, `SetupLogging=yes`; `UninstallDisplayIcon` names
 `desktop\VoltDesktop.exe`.
@@ -83,7 +83,7 @@ delivery); launching a probe through Explorer (needs an interactive shell; a CI 
 **Flow:** 1 install `--older` (today's layout) → 2 update to new (+ migration: no `app-*`/`current`, old PATH entry,
 env vars, old Run value gone) → 3 update again (same build, files in use) → 4 CLI alive: start `bin\volt.exe console
 --port <free>` (a real verb, no hook), run setup with `/VOLTWAIT=15`; it must exit non-zero, `volt.exe` still alive,
-binaries unchanged, connector relaunched → 5 same, then stop the console 5 s into the wait: setup completes, assert
+binaries unchanged, nothing stopped (the tray's pids unchanged) → 5 same, then stop the console 5 s into the wait: setup completes, assert
 installed → 6 uninstall with the console alive + `/VOLTWAIT=15`: aborts, nothing removed → 7 uninstall → clean →
 8 fresh install of new → 9 uninstall → clean. `/VOLTWAIT=<s>` is an Inno `{param:}` (default 3600) so the abort
 branch is gated in seconds; rejected: an env var (refused — PATH only) and leaving the abort untested.
@@ -150,3 +150,68 @@ Run value is overwritten by `[Registry]`, `Volt.lnk` by `[Icons]`.
 
 **Refused by name:** a reused/partial payload, a byte-differing shared runtime, PATH via `[Registry]`, killing by
 image name, a connector install-time write or `--uninstall` verb, an undigested download.
+
+**As built (2.1–2.5, 2026-10-12) — where reality refined the above, and why.** Each was measured with a probe that
+compiles THIS `Volt.iss` under another AppId/dir/names (PING.EXE copies as the exes, a fake app-0.0.1 + `current`
+layout) and installs, updates and uninstalls it: 0 failures, PATH byte-identical afterwards.
+- **Wait FIRST, then stop — both directions.** (Built stop-then-wait in setup first; step-2 review: StopOwn stops
+  `connector\VoltBridgeTwincat.exe`, the other end of the pipe a running `volt push` writes a live TwinCAT project
+  through, so the push was cut mid-write while `volt.exe` was spared and waited on — measured on the probe: old order
+  logged `stopped … VoltBridgeTwincat.exe` before `waiting for volt.exe`, worker dead after exit 7; new order: worker
+  and tray alive, nothing stopped.) Setup (PrepareToInstall): wait → on give-up exit 7, nothing stopped; else stop →
+  on failure refuse by name. The uninstaller (InitializeUninstall): wait → abort = exit 1; then stop → a failure
+  ABORTS too (it used to stop at `usUninstall` and ignore the result, removing part of `{app}` and reporting
+  success); a stopped tray comes back if the user then declines (DeinitializeUninstall). `RelaunchConnector` starts
+  the tray only when none runs from `{app}` (the auto-update's tray has exited before its setup runs); the gate's
+  step 4 asserts the SAME tray pids, no `volt: stopped` line, and step 5 the stop AFTER the wait. The auto-update's
+  tray (TrayContext.ApplyUpdate) also waits for a running `{app}\bin\volt.exe` before it disposes the worker fleet.
+- **The CLI is found by NAME, its path read the way an elevated one allows, and an unreadable one is waited on**
+  (gate-2 review 2). WMI's `ExecutablePath` is null — and .NET's `MainModule` empty — for an ELEVATED process of the
+  same user (a `volt.exe` from an admin terminal), so both waits missed it and the stop cut its push. `FindCli` queries
+  `WHERE Name = 'volt.exe'` and resolves a null path with `QueryFullProcessImageName` (PROCESS_QUERY_LIMITED_INFORMATION
+  reads those); a `volt.exe` whose path even that refuses counts as the CLI (fail closed: a stranger costs an
+  update, a cut push costs a PLC project). The tray's wait is the same rule (`Volt.Connector.Core/CliProcess.cs`).
+  Rejected: skipping an unreadable process (what both did), elevating setup (a per-user install).
+- **A CLI that starts during the stop sends it back to the wait.** Every StopOwn round looks for a CLI first and on
+  finding one stops nothing more (`volt: volt.exe started … back to waiting for it`); the tray takes its last look
+  with the timer stopped, right before it disposes the fleet. StopOwn's 30 s is wall clock (60 counted rounds measured
+  44–51 s). Rejected: one look before the stop (the check-then-act window the review measured).
+- **Every setup that reached PrepareToInstall ends by relaunching the tray when none runs** (DeinitializeSetup), not
+  only the two refusal paths: a stop followed by an abort (a locked file in `[Files]`, a rollback) left no tray and no
+  TwinCAT worker until the next login. After a completed install `[Run]` has started it and the relaunch is a no-op
+  (`volt: the connector is running - nothing to relaunch`).
+- **PATH round trip is exact** (step-2 review, probe red on 4 of 7 shapes): the remove splits the value into its
+  exact parts (a trailing `;` is an empty last part) and keeps the rest; the add writes `X;Dir`, or `X;Dir;` when the
+  value is empty or ends in `;`; a value that held only `Dir` (none before the add) is deleted; an existing value's
+  type is kept (RegWriteStringValue — REG_SZ stays literal). Probed on plain, trailing `;`, REG_SZ with `%…%`, `;;`
+  inside, trailing `;;`, empty and absent: all byte- and type-identical after install → uninstall.
+- **The WMI query is filtered by WMI** (`WHERE ExecutablePath LIKE '<app>\%'`, LIKE wildcards escaped): reading
+  every process's properties through IDispatch measured ~20 s per scan in the uninstaller. The wait limit is wall
+  clock (`GetTickCount`), not a sum of sleeps — the scans take time of their own (a 6 s limit waited 72 s).
+- **Not `{app}` itself**: only processes in a FOLDER under `{app}` are stopped. The uninstaller's first phase
+  (`{app}\unins000.exe`) waits there for its second; stopping it ended the uninstall with exit 0 (measured).
+- **`UninstallLogMode=overwrite`** + `[UninstallDelete]` of the four folders whole: appending (the default) carries
+  the app-era entries forward, among them an `[UninstallRun]` of `{app}\current\VoltConnector.exe --uninstall`, an
+  exe the upgrade deletes; files a later build drops still go. `DisableDirPage=yes`: the Documents copy of the start
+  script finds the DLL at the FIXED path.
+- **Migration**: the stop + CLI wait is the one in PrepareToInstall (path-scoped, so it covers `app-*`/`current`
+  too); `ssInstall` only removes (junction, `app-*`, PATH entry, the two env vars), each logged `volt: migrate removed …`.
+- **Markers, per action** (build-installer.ts refuses a build without them; the gate's assertLog lists them in
+  order): install `volt: install <v>` → `volt: stopped <n> …` → (`volt: migrate removed …`) → `volt: PATH carries`;
+  uninstall `volt: uninstall <v>` → `volt: stopped <n> …` → `volt: PATH no longer carries`; plus
+  `volt: waiting for volt.exe` / `volt: gave up waiting for volt.exe` / `volt: relaunched the connector`.
+- **The one-runtime overlay is NOT all byte-identical** (the 0 measurement compared the stage AFTER the old
+  `Copy-Item -Force` overlay). Of 189 shared files the refusal named 3: `Volt.Contracts.dll` (a build between the two
+  publishes; fixed by publishing them back to back and `DebugType=none` on every line, the Codesys build included)
+  and the connector's `Microsoft.VisualBasic.dll` / `System.Drawing.dll` — the WinForms app's
+  Microsoft.WindowsDesktop.App facades, which supersede NETCore's and which the worker never references. Those are
+  the one exception, read from the connector's deps.json (that pack's file list), the connector's copy kept; any other
+  difference is still refused by name.
+- **build-cli.ps1** states the lean flags on each publish line, not through a variable: `BridgePackagingTests`
+  replays each line verbatim (it expands only `@VERARGS`).
+- **release.yml** adds one check — the published asset carries a `sha256:` digest (`gh api …/releases/tags/<v>`),
+  since an asset without one is an update every connector refuses. `version.ts --vsix` became `--version`.
+- **2.4's live proof**: `ide.ps1 up -Vendor codesys -BridgeDir <dist\stage\codesys>` serves the bridge AS INSTALLED
+  — that folder's own start script (`VOLT_START_SCRIPT`, run with its own `__file__`), `VOLT_BRIDGE_DLL` removed —
+  and the Documents-copy case is `StartScriptLoadTests` (IronPython, `%LOCALAPPDATA%` redirected), red on the old
+  `_INSTALL_SUBDIR`.

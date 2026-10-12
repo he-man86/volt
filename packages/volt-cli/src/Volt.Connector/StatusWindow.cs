@@ -30,7 +30,6 @@ namespace Volt.Connector
         private readonly ListView _components = new() { View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill, HeaderStyle = ColumnHeaderStyle.Nonclickable };
         private readonly System.Windows.Forms.Timer _poll = new() { Interval = 2000 };
 
-        private static string InstallDir => AppContext.BaseDirectory; // the connector sits at the install root
         private static string Expected => BuildId(Updater.CurrentVersion); // the build every component should match
 
         public StatusWindow(Action applyUpdate, Action showLogs)
@@ -178,12 +177,23 @@ namespace Volt.Connector
             {
                 var list = new List<(string name, string version, bool? inSync)>();
 
-                var cli = Exe(Path.Combine(InstallDir, "bin", "volt.exe"), "--version");
-                list.Add(("volt (CLI)", cli, Sync(cli)));
+                // A shipped binary that is not where the layout puts it is a finding, not a blank row: the connector
+                // moved to {app}\connector\ and this probe kept looking beside it ({app}\connector\bin\), showing
+                // two empty versions with no verdict on the one surface that exists to show drift.
+                if (File.Exists(VoltEnv.CliExe))
+                {
+                    var cli = Exe(VoltEnv.CliExe, "--version");
+                    list.Add(("volt (CLI)", cli, Sync(cli)));
+                }
+                else list.Add(("volt (CLI)", $"not found at {VoltEnv.CliExe}", false));
 
-                var lspRaw = Exe(Path.Combine(InstallDir, "bin", "volt-lsp-iec.exe"), "--version");
-                var lsp = lspRaw.StartsWith("volt-lsp-iec ") ? lspRaw.Substring("volt-lsp-iec ".Length).Trim() : lspRaw;
-                list.Add(("volt-lsp-iec (LSP)", lsp, Sync(lsp)));
+                if (File.Exists(VoltEnv.LspExe))
+                {
+                    var lspRaw = Exe(VoltEnv.LspExe, "--version");
+                    var lsp = lspRaw.StartsWith("volt-lsp-iec ") ? lspRaw.Substring("volt-lsp-iec ".Length).Trim() : lspRaw;
+                    list.Add(("volt-lsp-iec (LSP)", lsp, Sync(lsp)));
+                }
+                else list.Add(("volt-lsp-iec (LSP)", $"not found at {VoltEnv.LspExe}", false));
 
                 foreach (var (editor, label) in new[] { ("code", "VS Code"), ("windsurf", "Windsurf"), ("cursor", "Cursor") })
                 {

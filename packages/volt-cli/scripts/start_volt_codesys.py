@@ -11,11 +11,11 @@ the pipe served (no pump needed here — the IDE has one).
 Stop it again with stop_volt_codesys.py.
 
 DLL resolution (first that exists wins):
-  1. $VOLT_BRIDGE_DLL                              explicit override
-  2. <this folder>/Volt.Ide.Codesys.dll       shipped beside this script (backup copy in the install dir)
-  3. %LOCALAPPDATA%\Programs\Volt\...              the install dir — where the DLLs live when this script was
-                                                   published to a visible folder (Documents\Volt) that has no DLL
-(For the dev loop, ide.ps1 sets VOLT_BRIDGE_DLL - case 1 - before running this.)
+  1. $VOLT_BRIDGE_DLL                              DEV-ONLY override (ide.ps1 sets it to the working tree's
+                                                   build); no installer writes it
+  2. <this folder>/Volt.Ide.Codesys.dll            shipped beside this script ({app}\codesys\)
+  3. %LOCALAPPDATA%\Programs\Volt\codesys\         the fixed install path — where the DLL lives when this script
+                                                   runs from the visible Documents\Volt copy, which has none
 """
 from __future__ import print_function
 import os
@@ -28,9 +28,11 @@ _DLL_NAME = "Volt.Ide.Codesys.dll"
 # volt-relay.json).
 _SIDECAR_EXT = ".json"
 
-# The default per-user install dir subfolder that holds the bridge DLLs (installer/Volt.iss lays it here). Lets
-# the visible Documents\Volt copy of this script find the DLLs that stay in the (hidden) install dir.
-_INSTALL_SUBDIR = ("Programs", "Volt", "codesys-scriptcommands")
+# The per-user install dir's bridge folder under %LOCALAPPDATA% ({app}\codesys, installer/Volt.iss). Lets the
+# visible Documents\Volt copy of this script find the DLL that stays in the (hidden) install dir. It read
+# `Programs\Volt\codesys-scriptcommands` - the July flat layout's folder, gone with the versioned one - so the
+# Documents copy found nothing and the installer papered over it with a global VOLT_BRIDGE_DLL; both are gone.
+_INSTALL_SUBDIR = ("Programs", "Volt", "codesys")
 
 
 
@@ -137,7 +139,7 @@ def _stage(src):
     """Copy the bridge DLL (and the relay sidecars) to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
     file-locks the copy — never the install-dir original. That is what lets Volt UPDATE IN PLACE while CODESYS is
     open: loading straight from the install dir was why in-place updates hit 'DeleteFile failed; Access denied' on
-    codesys-scriptcommands\\*.dll. Best-effort: on ANY failure, load the original instead."""
+    the install dir's *.dll. Best-effort: on ANY failure, load the original instead."""
     try:
         src_dir = os.path.dirname(src)
         root = _temp_root()

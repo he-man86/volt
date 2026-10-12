@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +20,12 @@ namespace Volt.Connector
     /// tray stops the workers + GUI, then LaunchInstallerAndExit runs it /VERYSILENT (Inno upgrades in place) and
     /// exits so files unlock; the installer relaunches us. The tray surface is CurrentVersion / PendingVersion /
     /// IsApplying.
+    ///
+    /// <para><b>Only a verified download is ever handed to the launcher.</b> GitHub computes a SHA-256 for every
+    /// release asset server-side and publishes it as the asset's <c>digest</c> (<c>sha256:&lt;hex&gt;</c>) in the same
+    /// releases API this already reads; the download is hashed in memory and written to %TEMP% only when it equals
+    /// that digest. A release without one, or bytes that do not match it, are refused by name (openspec
+    /// installer-rebuild, "Verified update") — a silent /VERYSILENT run of unverified bytes is what this replaced.</para>
     /// No-op on an unstamped build (FileVersion 1.0.0.0 → "(dev)"). Updates Volt's own payload only.
     /// </summary>
     internal static class Updater
@@ -60,7 +68,7 @@ namespace Volt.Connector
                 File.WriteAllText(ChannelFile, Norm(channel));
             }
             catch (Exception e) { VoltLog.Warn($"updater: channel write failed: {e.Message}"); }
-            _pending = null; _setupUrl = null; // a channel switch re-evaluates from scratch
+            _pending = null; _setupUrl = null; _setupDigest = null; // a channel switch re-evaluates from scratch
             CheckNow();
         }
 
@@ -77,19 +85,14 @@ namespace Volt.Connector
         // volatile: written on the background check Task, read on the tray's UI thread.
         private static volatile string? _pending; // a newer version available to apply, or null
         private static volatile string? _setupUrl; // that release's Volt-win-Setup.exe download URL
+        private static volatile string? _setupDigest; // that asset's published digest ("sha256:<hex>"), or null if none
         private static int _applying; // 0/1 guard (Interlocked) so a double-click doesn't download/launch twice
 
         /// <summary>The installed version, shown in the tray ("(dev)" when not installed via the Setup).
         ///
-        /// <para>READ ON DEMAND, not assigned by <see cref="Start"/>. It used to default to "(dev)" and be
-        /// overwritten inside `Start()`, which made <see cref="IsDev"/> answer TRUE for every caller that ran
-        /// first — and one did: `Program.Main` gates `VoltEnv.Install` on `!IsDev` seven lines before it calls
-        /// `Start()`. So no build, installed or not, registered the login item or the Start Menu shortcut: the
-        /// tray stopped starting at login and the desktop app became unlaunchable except from its own exe.
-        /// `scripts/test-install.ts` asserts that shortcut exists, so the release gate failed with it.</para>
-        ///
-        /// <para>A property that is only correct after some other method has run is an ordering bug waiting to
-        /// happen; reading the stamp on first use removes the ordering from the question entirely.</para></summary>
+        /// <para>READ ON DEMAND, not assigned by <see cref="Start"/>: a property that is only correct after some
+        /// other method has run is an ordering bug waiting to happen (one shipped — a caller read
+        /// <see cref="IsDev"/> before `Start()` and got TRUE on every build).</para></summary>
         public static string CurrentVersion => _stamped.Value;
 
         private static readonly Lazy<string> _stamped = new(() =>
@@ -164,9 +167,13 @@ namespace Volt.Connector
 
             // Resolve the installer asset's real download URL from the release — don't reconstruct a path, which a
             // renamed asset or a v-prefixed tag would 404 on.
-            var url = AssetUrl(r);
-            if (url == null) { VoltLog.Warn($"updater: release {latest} has no {Asset} asset — skipping"); return; }
+            if (FindAsset(r) is not { } asset) { VoltLog.Warn($"updater: release {latest} has no {Asset} asset — skipping"); return; }
+            var url = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
+            if (url == null) { VoltLog.Warn($"updater: release {latest}'s {Asset} has no download URL — skipping"); return; }
 
+            // The digest travels with the URL; it is CHECKED at download (DownloadPendingAsync), where a missing one is
+            // refused by name — the update is still surfaced, so the refusal is visible rather than a silent no-update.
+            _setupDigest = asset.TryGetProperty("digest", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString() : null;
             _setupUrl = url;
             _pending = latest;
             VoltLog.Info($"updater[{Channel}]: {latest} available (current {installed})");
@@ -196,14 +203,23 @@ namespace Volt.Connector
             return best;
         }
 
-        private static string? AssetUrl(JsonElement release)
+        private static JsonElement? FindAsset(JsonElement release)
         {
             if (release.TryGetProperty("assets", out var assets))
                 foreach (var a in assets.EnumerateArray())
-                    if (a.TryGetProperty("name", out var n) && n.GetString() == Asset &&
-                        a.TryGetProperty("browser_download_url", out var u))
-                        return u.GetString();
+                    if (a.TryGetProperty("name", out var n) && n.GetString() == Asset)
+                        return a.Clone();
             return null;
+        }
+
+        /// <summary>The expected SHA-256 (lowercase hex) from a GitHub asset digest, or null when there is none or it
+        /// is not a SHA-256 — both refused by the caller, by name.</summary>
+        private static string? ExpectedSha256(string? digest)
+        {
+            const string prefix = "sha256:";
+            if (digest == null || !digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+            var hex = digest.Substring(prefix.Length).Trim().ToLowerInvariant();
+            return hex.Length == 64 && hex.All(Uri.IsHexDigit) ? hex : null;
         }
 
         /// <summary>User chose to update: download the pending release's Setup.exe to %TEMP% and return its path
@@ -214,12 +230,31 @@ namespace Volt.Connector
         public static async Task<string?> DownloadPendingAsync()
         {
             var url = _setupUrl;
+            var version = _pending;
+            var digest = _setupDigest;
             if (url == null) return null;
             if (Interlocked.Exchange(ref _applying, 1) == 1) return null; // a download/apply is already in flight
             try
             {
-                var tmp = Path.Combine(Path.GetTempPath(), $"Volt-{_pending}-Setup.exe");
-                File.WriteAllBytes(tmp, await Download.GetByteArrayAsync(url));
+                var expected = ExpectedSha256(digest);
+                if (expected == null)
+                {
+                    VoltLog.Warn($"updater: refused {version} — its {Asset} carries no SHA-256 digest ({digest ?? "none"}); an unverified installer is never run");
+                    Interlocked.Exchange(ref _applying, 0);
+                    return null;
+                }
+                // Hashed IN MEMORY, written only on a match: refused bytes never reach %TEMP%, so nothing can launch them.
+                var bytes = await Download.GetByteArrayAsync(url);
+                var actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+                if (actual != expected)
+                {
+                    VoltLog.Warn($"updater: refused {version} — the downloaded {Asset} has SHA-256 {actual}, the release digest says {expected}");
+                    Interlocked.Exchange(ref _applying, 0);
+                    return null;
+                }
+                var tmp = Path.Combine(Path.GetTempPath(), $"Volt-{version}-Setup.exe");
+                File.WriteAllBytes(tmp, bytes);
+                VoltLog.Info($"updater: {version} downloaded, SHA-256 matches the release digest");
                 return tmp;
             }
             catch (Exception e)

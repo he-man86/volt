@@ -197,9 +197,16 @@ _native_probe()
 # not a clean one: the DeprecationWarning it raises lands in CODESYS's message store, which `build` reads, so
 # every e2e test that compiles reported two phantom build ERRORS. `compile`+`exec` is what both 2.x and 3.x have.
 # (Several comments in the shipped scripts still say "IronPython 2.7"; that is true of SP18, not of SP21.)
-_start = os.path.join(_HERE, "start_volt_codesys.py")
+#
+# VOLT_START_SCRIPT (set by `ide.ps1 up -BridgeDir <dir>`) names the start script of a folder laid out as INSTALLED
+# ({app}\codesys: the DLL beside the script); without it, the one beside this file. It runs with its OWN `__file__`
+# (a copy of these globals, which carry CODESYS's `projects`/`system`/`online`), because the script resolves the
+# bridge DLL beside itself - under this file's `__file__` it would look in the wrong folder.
+_start = os.environ.get("VOLT_START_SCRIPT") or os.path.join(_HERE, "start_volt_codesys.py")
 _log("running the production script: %s" % _start)
 with open(_start) as _f:
     _src = _f.read()
-exec(compile(_src, _start, "exec"))
+_globals = dict(globals())
+_globals["__file__"] = _start
+exec(compile(_src, _start, "exec"), _globals)
 _log("production script returned - the IDE's own loop now serves the pipe")

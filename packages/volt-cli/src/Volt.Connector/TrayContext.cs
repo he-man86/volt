@@ -455,27 +455,49 @@ namespace Volt.Connector
                 _updateItem.Text = $"Restart to update to {Updater.PendingVersion}";
                 return;
             }
+            // Wait for a running CLI BEFORE anything is stopped: _fleet.Dispose() stops the TwinCAT worker, the other
+            // end of the pipe a `volt push` writes a live PLC project through — stopping it first cut that push
+            // mid-write while volt.exe itself survived. The installer waits for the CLI as well (Volt.iss
+            // PrepareToInstall), but by then this tray had already stopped the worker.
+            // The last look is taken with the timer stopped and right before the worker goes: a `volt push` started
+            // during the wait (an agent loop, the extension or desktop calling the CLI) is waited for in turn.
+            while (true)
+            {
+                if (RunningCli() is int pid)
+                {
+                    VoltLog.Info($"update to {Updater.PendingVersion} waits for volt.exe (pid {pid}, {VoltEnv.CliExe}) to finish before stopping anything");
+                    _updateItem.Text = "Update waits for volt.exe to finish…";
+                    while (RunningCli() != null) await Task.Delay(2000);
+                    VoltLog.Info("volt.exe exited — the update continues");
+                }
+                _timer.Stop(); // so it can't respawn a worker we're about to kill
+                if (RunningCli() == null) break;
+                _timer.Start();
+            }
             _updateItem.Text = "Installing update…";
-            // Stop the timer FIRST so it can't respawn a worker we're about to kill, then drop everything under {app}:
-            // the bridge-worker child tree (supervisor) and the Electron GUI. Now the installer replaces free files.
-            _timer.Stop();
+            // Drop everything under {app}: the bridge-worker child tree (supervisor) and the Electron GUI. Now the
+            // installer replaces free files.
             _fleet.Dispose();
             CloseDesktopGui();
             Updater.LaunchInstallerAndExit(installer); // Process.Start(Setup) + Environment.Exit(0)
         }
 
-        /// <summary>Close the desktop GUI (the Electron shell, <c>Volt.exe</c>) if it's running, so the in-place
+        /// <summary>The pid of a CLI running from this install's <c>bin\volt.exe</c> — an elevated one included — or of a
+        /// <c>volt.exe</c> whose path cannot be read (fail closed); else null. <see cref="CliProcess"/> has the rule.</summary>
+        private static int? RunningCli() => CliProcess.Find(VoltEnv.CliExe);
+
+        /// <summary>Close the desktop GUI (the Electron shell, <c>VoltDesktop.exe</c>) if it's running, so the in-place
         /// upgrade can replace it — graceful close first, force-kill if it won't go. NOT the connector itself
         /// (VoltConnector) or the workers; the installer relaunches the connector when done.</summary>
         private static void CloseDesktopGui()
         {
-            // Identify the GUI by its full PATH, never by friendly name. GetProcessesByName matches
-            // ordinal-ignore-case, so "Volt" ALSO matches the installed CLI at <app>\bin\volt.exe — and a
-            // console process has no MainWindowHandle, so CloseMainWindow() returns false and the very next
-            // expression Kill()s it. That killed an in-flight `volt push` MID-WRITE to the live PLC and to the
-            // git repo, from an auto-update the user never connected to that push.
+            // Identify the GUI by its full PATH as well as its name. The desktop exe was `Volt.exe` until the
+            // installer rebuild — the CLI's image name (`volt.exe`, matched ordinal-ignore-case) — and a console
+            // process has no MainWindowHandle, so CloseMainWindow() returned false and the next expression Kill()ed
+            // an in-flight `volt push` MID-WRITE. The rename to VoltDesktop.exe made the name unique; the path check
+            // stays so a dev desktop or another install is never touched.
             var gui = VoltEnv.GuiExe;
-            foreach (var p in System.Diagnostics.Process.GetProcessesByName("Volt"))
+            foreach (var p in System.Diagnostics.Process.GetProcessesByName("VoltDesktop"))
             {
                 try
                 {

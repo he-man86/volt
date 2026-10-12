@@ -11,14 +11,14 @@ namespace Volt.Connector
     /// </summary>
     public static class CodesysActivation
     {
-        /// <summary>The install-dir (hidden, AppData) copy of <c>start_volt_codesys.py</c> — the backup, shipped beside the
-        /// connector; also covers the dev tree.</summary>
+        /// <summary>The install-dir (hidden, AppData) copy of <c>start_volt_codesys.py</c> — the backup, shipped in
+        /// <c>{app}\codesys\</c> beside the bridge DLL; also covers the dev tree.</summary>
         private static string? BackupScriptPath()
         {
             var baseDir = AppContext.BaseDirectory;
             foreach (var c in new[]
             {
-                Path.Combine(baseDir, "codesys-scriptcommands", "start_volt_codesys.py"),
+                Path.Combine(VoltEnv.CodesysDir, "start_volt_codesys.py"),
                 Path.Combine(baseDir, "..", "..", "..", "..", "..", "..", "volt-cli", "scripts", "start_volt_codesys.py"),
             })
             {

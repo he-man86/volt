@@ -1,151 +1,68 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using Volt.Contracts;
 
 namespace Volt.Connector
 {
     /// <summary>
-    /// The per-user integration the connector owns: the login item, the Start Menu shortcut, and the visible copy
-    /// of the CODESYS activation scripts. Install() runs on every connector startup (idempotent); Uninstall() runs
-    /// from the Inno uninstaller via `VoltConnector.exe --uninstall` (see Program.cs). Best-effort: never throws.
+    /// Where the connector finds its siblings in the installed layout, and the one thing it publishes at runtime:
+    /// the visible copy of the CODESYS activation scripts.
     ///
-    /// ENV VARS ARE NOT SET HERE. PATH and VOLT_BRIDGE_DLL are published by the INSTALLER
-    /// (PublishEnv in Volt.iss) and reverted by the uninstaller. They had two owners, and that is precisely what
-    /// broke: the connector computes its paths from where its own exe sits, so when the installer launched it
-    /// before {app}\current existed it published VERSION-SCOPED values — violating the one invariant the versioned
-    /// layout rests on. Only the installer knows the final layout at the moment it is complete, so only the
-    /// installer writes these. One fact, one owner.
+    /// <para>The layout is flat (openspec installer-rebuild): <c>{app}\connector\</c> (this exe), <c>{app}\desktop\</c>,
+    /// <c>{app}\codesys\</c>, <c>{app}\bin\</c>. <b>The connector writes nothing at install time</b> — the Start Menu
+    /// shortcut, the login item (Run <c>VoltConnector</c>) and the PATH entry are declared by <c>installer/Volt.iss</c>
+    /// and removed by its uninstaller, and no environment variable is Volt's but PATH. They used to be written here at
+    /// every startup (the Velopack-era self-configuration), which made them depend on the order a process started in
+    /// and let a dev build repoint the user's login item at itself. There is no <c>--uninstall</c> verb either: the
+    /// two Documents files it removed are the uninstaller's <c>[UninstallDelete]</c>.</para>
     /// </summary>
     internal static class VoltEnv
     {
-        // Layout inside the install dir: the connector sits at the ROOT, with bin\ (CLI + LSP) and desktop\ as
-        // sibling subdirs — see installer/Volt.iss. Resolve relative to the connector exe so it survives wherever
-        // the user installed us.
-        // Every path published OUTSIDE {app} — PATH, the Start Menu shortcut, the login
-        // item — MUST resolve through {app}\current, never through this version directory. That is the invariant
-        // the versioned-install layout rests on: a published value naming a version would force every update to
-        // rewrite HKCU (trading a file-lock race for a registry one) and would dangle between the install and the
-        // new connector's first run. Falls back to the exe's own directory when no `current` sits beside it — a
-        // flat install (the pre-migration layout) or a dev run out of the build output; both must keep working.
-        private static string ConnectorDir
-        {
-            get
-            {
-                var self = AppContext.BaseDirectory;
-                var parent = Directory.GetParent(self.TrimEnd(Path.DirectorySeparatorChar))?.FullName;
-                if (parent != null)
-                {
-                    var current = Path.Combine(parent, "current");
-                    if (Directory.Exists(current)) return current;
-                }
-                return self;
-            }
-        }
-        /// <summary>The desktop GUI's full path. Internal because the auto-update must identify the GUI process by
-        /// PATH — its friendly name alone also matches the CLI (see TrayContext.CloseDesktopGui).</summary>
-        internal static string GuiExe => Path.GetFullPath(Path.Combine(ConnectorDir, "desktop", "Volt.exe"));
-        private static string GuiShortcut =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Volt.lnk");
+        /// <summary>The install root: the parent of the connector's own directory.</summary>
+        private static string AppDir => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
 
-        // The CODESYS activation script ships inside the (hidden) install dir; publish a copy to a VISIBLE
-        // Documents\Volt folder so the user can reach it in CODESYS's "Execute Script File" dialog without
-        // un-hiding AppData. The install-dir copy stays as a backup; both find the DLLs via %LOCALAPPDATA%.
-        private static string CodesysDir => Path.GetFullPath(Path.Combine(ConnectorDir, "codesys-scriptcommands"));
+        /// <summary>The desktop GUI's full path. The auto-update identifies the GUI process by this path (see
+        /// TrayContext.CloseDesktopGui).</summary>
+        internal static string GuiExe => Path.Combine(AppDir, "desktop", "VoltDesktop.exe");
+
+        /// <summary>The CLI and the LSP the installer puts on PATH (<c>{app}\bin\</c>) — the status window reads their
+        /// versions, the auto-update waits for a running CLI.</summary>
+        internal static string CliExe => Path.Combine(AppDir, "bin", "volt.exe");
+        internal static string LspExe => Path.Combine(AppDir, "bin", "volt-lsp-iec.exe");
+
+        /// <summary>The shipped CODESYS activation scripts + bridge DLL.</summary>
+        internal static string CodesysDir => Path.Combine(AppDir, "codesys");
         private static readonly string[] ScriptNames = { "start_volt_codesys.py", "stop_volt_codesys.py" };
-        private static string ShippedScript => Path.Combine(CodesysDir, "start_volt_codesys.py");
+
+        // The CODESYS activation script ships inside the (hidden) install dir; a copy goes to a VISIBLE Documents\Volt
+        // folder so the user can reach it in CODESYS's "Execute Script File" dialog without un-hiding AppData. That
+        // copy finds the DLL through the fixed install path (`_INSTALL_SUBDIR` in the script).
         internal static string VisibleScriptDir =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Volt");
         internal static string VisibleScript => Path.Combine(VisibleScriptDir, "start_volt_codesys.py");
 
-        /// <summary>Install/update hook: register start-at-login + a Start Menu "Volt" shortcut to the desktop GUI
-        /// (the connector itself auto-starts via the login item, so it needs no shortcut of its own — which is why
-        /// the .iss lays down no [Icons]).</summary>
-        /// <param name="claimTheMachine">False for a DEV build: skip the two hooks that point a MACHINE-WIDE
-        /// entry at the running exe. A `dotnet run` out of `bin/` would otherwise repoint the user's login item
-        /// and Start Menu shortcut at a build about to be deleted, and the installed product would stop starting
-        /// at login. The CODESYS scripts are not in that category — they are content published into a visible
-        /// Documents folder, and a dev tray that skipped them would silently activate whatever script an older
-        /// installed build left behind (`CodesysActivation` prefers that path when it exists).</param>
-        public static void Install(bool claimTheMachine = true)
+        /// <summary>Copy the shipped start/stop scripts into Documents\Volt (overwrite, so an update refreshes them).
+        /// Runs at every startup, from a dev tray too: a dev tray that skipped it would leave the user activating
+        /// whatever script an older build published (<c>CodesysActivation</c> prefers that path when it exists).</summary>
+        public static void PublishCodesysScripts()
         {
-            // No outer catch: each hook already swallows its own failure (and logs it), so a guard here could only
-            // ever hide a throw with no line to read.
-            if (claimTheMachine)
+            if (!Directory.Exists(CodesysDir))
             {
-                LoginItem.EnsureRegistered();
-                CreateGuiShortcut();
+                VoltLog.Info($"no CODESYS scripts at {CodesysDir} — nothing published to {VisibleScriptDir}");
+                return;
             }
-            PublishCodesysScript();
-        }
-
-        // Copy the shipped start/stop scripts into the visible Documents\Volt folder (idempotent — overwrite so a
-        // version bump refreshes them). Best-effort: the install-dir copies still work if this fails.
-        private static void PublishCodesysScript()
-        {
             try
             {
-                if (!Directory.Exists(CodesysDir)) return;
                 Directory.CreateDirectory(VisibleScriptDir);
                 foreach (var name in ScriptNames)
                 {
                     var src = Path.Combine(CodesysDir, name);
                     if (File.Exists(src)) File.Copy(src, Path.Combine(VisibleScriptDir, name), overwrite: true);
+                    else VoltLog.Warn($"the shipped CODESYS script {src} is missing — not published");
                 }
             }
-            // Best-effort — CODESYS activation falls back to the install-dir scripts — but never silent.
-            catch (Exception e) { VoltLog.Warn($"could not publish the CODESYS scripts to Documents\\Volt: {e.Message}"); }
+            // Best-effort — CODESYS activation still works from the install-dir scripts — but never silent.
+            catch (Exception e) { VoltLog.Warn($"could not publish the CODESYS scripts to {VisibleScriptDir}: {e.Message}"); }
         }
-
-        private static void CreateGuiShortcut()
-        {
-            // A LAYOUT THAT CANNOT HOST THE GUI PUBLISHES NO SHORTCUT TO IT. `GuiExe` is a path inside this
-            // connector's own directory; when that layout has no `desktop\Volt.exe` the shortcut was still
-            // written, and the Start Menu gained a "Volt" entry that opens nothing.
-            if (!File.Exists(GuiExe))
-            {
-                VoltLog.Info($"no desktop app at {GuiExe} — not publishing a Start Menu shortcut to it");
-                return;
-            }
-            try
-            {
-                var t = Type.GetTypeFromProgID("WScript.Shell");
-                if (t == null) return;
-                dynamic shell = Activator.CreateInstance(t)!;
-                dynamic lnk = shell.CreateShortcut(GuiShortcut);
-                lnk.TargetPath = GuiExe;
-                lnk.WorkingDirectory = Path.GetDirectoryName(GuiExe);
-                lnk.Description = "Volt";
-                lnk.Save();
-            }
-            // Best-effort — the app still runs from its own exe without a shortcut — but never silent.
-            catch (Exception e) { VoltLog.Warn($"could not create the Start Menu shortcut: {e.Message}"); }
-        }
-
-        /// <summary>Uninstall hook: stop the running processes so the uninstaller can delete their files, then
-        /// drop the login item, the shortcut and the published CODESYS scripts.</summary>
-        public static void Uninstall()
-        {
-            try
-            {
-                // Stop the running tray connector (a SEPARATE long-lived process from this uninstall-hook
-                // invocation) + the bridge workers it spawned — otherwise they hold the install dir file-locked
-                // and Inno can't remove it. Exclude our own PID: killing ourselves aborts the hook.
-                var self = Process.GetCurrentProcess().Id;
-                foreach (var name in new[] { "VoltConnector", "Volt.Cli.Beckhoff" })
-                    foreach (var p in Process.GetProcessesByName(name))
-                        if (p.Id != self)
-                            try { p.Kill(); p.WaitForExit(3000); } catch { }
-
-                LoginItem.Unregister();
-                try { File.Delete(GuiShortcut); } catch { }
-                // Remove the published scripts + their folder (only if we left it empty).
-                foreach (var name in ScriptNames)
-                    try { File.Delete(Path.Combine(VisibleScriptDir, name)); } catch { }
-                try { if (Directory.Exists(VisibleScriptDir) && Directory.GetFileSystemEntries(VisibleScriptDir).Length == 0) Directory.Delete(VisibleScriptDir); } catch { }
-            }
-            catch { /* best-effort */ }
-        }
-
     }
 }

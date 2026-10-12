@@ -1,10 +1,13 @@
 #Requires -Version 5.1
-# Build the unified Volt CLI toolchain + the user-facing Connector (pipe transport):
-#   - volt.exe:            the PLC CLI (Volt.Cli) — git-native sync over the named pipe.
-#   - VoltBridgeTwincat:   standalone worker that attaches to TwinCAT over COM, serves pipe `volt.bridge.twincat`.
-#   - Volt.Ide.Codesys: net48 in-proc DLL the CODESYS script command loads, serves pipe `volt.bridge.codesys` -
-#                          ONE assembly, its dependencies merged in at build (the csproj's VoltBundle target).
-#   - Connector:           the one system-tray app that supervises every worker (probes `health` over the pipe).
+# Build the unified Volt CLI toolchain into the three INSTALLED folders (openspec installer-rebuild, design 2):
+#   dist\Cli\volt.exe     the PLC CLI (Volt.Cli) - ONE self-contained single-file exe, the only thing besides the LSP
+#                         that lands on PATH ({app}\bin)
+#   dist\Connector\       the tray connector (VoltConnector.exe) + the TwinCAT pipe worker (VoltBridgeTwincat.exe) on
+#                         ONE shared self-contained runtime ({app}\connector)
+#   dist\Codesys\         Volt.Ide.Codesys.dll (net48 in-proc, ONE merged assembly - the csproj's VoltBundle target)
+#                         + start/stop_volt_codesys.py ({app}\codesys)
+# Every publish: SatelliteResourceLanguages=en (the 52 WinForms/runtime satellite DLLs in 13 locales nobody reads)
+# and DebugType=none (no PDBs ship).
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path $PSScriptRoot -Parent           # the volt-cli package dir
 $DIST = "$ROOT\dist"
@@ -30,20 +33,16 @@ Write-Output " Volt CLI toolchain build (pipe)"
 Write-Output "========================================"
 
 # Stamp the RELEASE version into every binary, so each one is self-describing and "what is installed" is MEASURED
-# off the binary itself. This is the ONLY version record now -- there is no version.txt (it was written by the
-# installer, so a half-applied update where a locked file made Inno roll back after some components were replaced
-# confidently reported the version it MEANT to be; a binary cannot lie about its own version). The bun-compiled
-# LSP gets the equivalent via a compile-time --define in build-payload.ts. Empty outside CI: a dev build stays 1.0.0.
+# off the binary itself (there is no version.txt: a binary cannot lie about its own version). The bun-compiled LSP
+# gets the equivalent via a compile-time --define in build-payload.ts. Empty outside CI/the payload build: a dev
+# build stays 1.0.0.0, said out loud - a local build carrying a real release number would compare as current
+# against the updater.
 $VER = $env:VOLT_VERSION
 $VERARGS = if ($VER) { @("/p:Version=$VER", "/p:FileVersion=$VER") } else { @() }
-# An unstamped build is said out loud because nothing else marks it until someone runs a binary: a consumer that
-# packaged dist\ from a local build shipped bridges that all reported 1.0.0.0, and learned it from the field. It is
-# NOT stamped with a computed number instead -- a local (possibly dirty) build carrying a real release number would
-# be a binary lying about its version, and would compare as current against the updater.
 if ($VER) { Write-Output "  stamping version $VER into every binary" }
 else { Write-Output "  VOLT_VERSION is unset: this is an unstamped DEVELOPMENT build (1.0.0.0, reported as `"(dev)`"), not a release. For a release set VOLT_VERSION, or use the published GitHub release." }
 
-# --- Tests (fail fast — never package a red build) -----------------
+# --- Tests (fail fast - never package a red build) -----------------
 Write-Output "`n[Test] Volt.Cli.Tests"
 & $DOTNET test "$ROOT\test\Volt.Cli.Tests\Volt.Cli.Tests.csproj" -c Release --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  TESTS FAILED"; exit 1 }
@@ -53,23 +52,69 @@ Remove-Item -Recurse -Force $DIST -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$DIST\Cli", "$DIST\Twincat", "$DIST\Codesys", "$DIST\Connector" | Out-Null
 
 # --- volt.exe (the PLC CLI) ----------------------------------------
-# Self-contained: runs on an air-gapped PLC machine with no .NET install (same constraint that keeps volt-config
-# dependency-free). ponytail: self-contained per exe duplicates the net10 runtime; dedupe into a shared runtime dir
-# only if installer size measurably matters.
-Write-Output "`n[1/4] Volt.Cli (volt.exe)"
-& $DOTNET publish "$ROOT\src\Volt.Cli\Volt.Cli.csproj" @VERARGS -c Release -o "$DIST\Cli" --nologo -v q -r win-x64 --self-contained true
+# Self-contained (runs on an air-gapped PLC machine with no .NET install) and SINGLE-FILE: PATH gets one exe, not the
+# 198-file runtime it used to drag along. Uncompressed - every agent-driven CLI call would pay the decompression, and
+# the installer is LZMA anyway (design 0: 71.0 MiB vs 36.1 compressed). Trimming/NativeAOT are out: Volt.Engine etc.
+# multi-target net48 (NETSDK1124) and use reflection JSON.
+Write-Output "`n[1/4] Volt.Cli (volt.exe, single-file)"
+& $DOTNET publish "$ROOT\src\Volt.Cli\Volt.Cli.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none /p:PublishSingleFile=true -c Release -o "$DIST\Cli" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
+$cliFiles = @(Get-ChildItem "$DIST\Cli" -Recurse -File | ForEach-Object { $_.FullName.Substring("$DIST\Cli\".Length) })
+if ($cliFiles.Count -ne 1 -or $cliFiles[0] -ne "volt.exe") {
+    Write-Output "  REFUSED: the single-file publish left [$($cliFiles -join ', ')] in dist\Cli, not exactly volt.exe - {app}\bin is on PATH and holds volt.exe + volt-lsp-iec.exe only"
+    exit 1
+}
 Write-Output "  OK -> dist\Cli\volt.exe"
 
-# --- TwinCAT pipe worker (standalone exe) --------------------------
-Write-Output "`n[2/4] Volt.Ide.Twincat (VoltBridgeTwincat.exe)"
-& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
+
+# --- Connector (the one tray app) + the TwinCAT worker, ONE runtime -----------
+# Published back to back, before anything else rebuilds the libraries they share: MSBuild's up-to-date check does not
+# see a changed global property (DebugType), so a build in between left the two with differently-built copies of the
+# same Volt library (measured 2026-10-12: Volt.Contracts.dll, 512 bytes apart).
+Write-Output "`n[2/4] Volt.Connector (VoltConnector.exe)"
+& $DOTNET publish "$ROOT\src\Volt.Connector\Volt.Connector.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
-Write-Output "  OK -> dist\Twincat\VoltBridgeTwincat.exe"
+Write-Output "`n[3/4] Volt.Ide.Twincat (VoltBridgeTwincat.exe), laid over the connector's runtime"
+& $DOTNET publish "$ROOT\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" @VERARGS /p:SatelliteResourceLanguages=en /p:DebugType=none -c Release -o "$DIST\Twincat" --nologo -v q -r win-x64 --self-contained true
+if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
+# Both are self-contained net10.0-windows apps on the same runtime and the same Volt assemblies, so one copy serves
+# both. Every file both carry must be byte-identical, with ONE named exception: the connector is a WinForms app, so its
+# runtime is Microsoft.NETCore.App PLUS Microsoft.WindowsDesktop.App, and where the desktop pack ships its own build of
+# a framework facade (measured: Microsoft.VisualBasic.dll, System.Drawing.dll - same assembly version, forwarding a
+# superset of types, to Microsoft.VisualBasic.Forms / System.Drawing.Common) the connector's copy is the one the
+# connector needs, and the worker references neither. That set is READ from the connector's deps.json, never listed
+# here. Any other difference would make one of them run on the other's bytes - refused by name.
+$deps = Get-Content "$DIST\Connector\VoltConnector.deps.json" -Raw | ConvertFrom-Json
+$target = ($deps.targets.PSObject.Properties | Where-Object { $_.Name -like "*/win-x64" }).Value
+$desktopPack = $target.PSObject.Properties | Where-Object { $_.Name -like "runtimepack.Microsoft.WindowsDesktop.App.Runtime.*" }
+if (-not $desktopPack) { Write-Output "  REFUSED: VoltConnector.deps.json names no Microsoft.WindowsDesktop.App runtime pack - cannot tell the connector's WinForms facades"; exit 1 }
+$desktopFiles = @($desktopPack.Value.runtime.PSObject.Properties.Name) + @($desktopPack.Value.native.PSObject.Properties.Name)
+$differ = @()
+$superseded = @()
+$shared = 0
+foreach ($f in Get-ChildItem "$DIST\Twincat" -Recurse -File) {
+    $rel = $f.FullName.Substring("$DIST\Twincat\".Length)
+    $dst = Join-Path "$DIST\Connector" $rel
+    if (Test-Path $dst) {
+        $shared++
+        if ((Get-FileHash $f.FullName).Hash -ne (Get-FileHash $dst).Hash) {
+            if ($desktopFiles -contains $rel) { $superseded += $rel } else { $differ += $rel }
+        }
+        continue
+    }
+    New-Item -ItemType Directory -Force (Split-Path $dst -Parent) | Out-Null
+    Copy-Item $f.FullName $dst
+}
+if ($differ.Count -gt 0) {
+    Write-Output "  REFUSED: the connector and the TwinCAT worker carry DIFFERENT bytes for $($differ.Count) shared file(s): $($differ -join ', ') - they cannot share one runtime folder"
+    exit 1
+}
+Remove-Item -Recurse -Force "$DIST\Twincat"
+Write-Output "  OK -> dist\Connector\ (VoltConnector.exe + VoltBridgeTwincat.exe; $shared shared files, identical but the connector's WindowsDesktop facade(s): $($superseded -join ', '))"
 
 # --- CODESYS pipe host (in-proc net48 DLL + script commands) -------
-Write-Output "`n[3/4] Volt.Ide.Codesys (in-proc DLL)"
-& $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS -c Release -o "$DIST\CodesysBuild" --nologo -v q
+Write-Output "`n[4/4] Volt.Ide.Codesys (in-proc DLL)"
+& $DOTNET build "$ROOT\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" @VERARGS /p:DebugType=none -c Release -o "$DIST\CodesysBuild" --nologo -v q
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 # What ships is the merged bundle\ folder (one assembly), never the build output beside it: that holds every Volt and
 # System.Text.Json DLL the merge took in, which CODESYS must not be offered (openspec codesys-bridge-single-assembly).
@@ -77,20 +122,11 @@ Copy-Item "$DIST\CodesysBuild\bundle\*" -Destination "$DIST\Codesys\" -Force
 Remove-Item -Recurse -Force "$DIST\CodesysBuild"
 # Ship only the user-facing activation scripts; run_pipe_production.py is the dev/test launcher around them.
 Copy-Item "$ROOT\scripts\start_volt_codesys.py","$ROOT\scripts\stop_volt_codesys.py" -Destination "$DIST\Codesys\" -Force
-Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll, one assembly + pipe scripts)"
-
-# --- Connector (the one tray app) — bundle the workers next to it --
-Write-Output "`n[4/4] Volt.Connector"
-& $DOTNET publish "$ROOT\src\Volt.Connector\Volt.Connector.csproj" @VERARGS -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
-if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
-Copy-Item "$DIST\Twincat\*" -Destination "$DIST\Connector\" -Recurse -Force
-New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
-# start_volt_codesys.py loads "<this folder>/Volt.Ide.Codesys.dll"; dist\Codesys already holds the DLL + scripts.
-Copy-Item "$DIST\Codesys\*" -Destination "$DIST\Connector\codesys-scriptcommands\" -Recurse -Force
-Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ pipe workers + CODESYS DLL)"
+Write-Output "  OK -> dist\Codesys\ (Volt.Ide.Codesys.dll, one assembly + the two scripts)"
 
 Write-Output "`n========================================"
 Write-Output " Build complete"
-Write-Output "   dist\Cli\volt.exe                       (the PLC CLI)"
-Write-Output "   dist\Connector\VoltConnector.exe        (the one app the user runs)"
+Write-Output "   dist\Cli\volt.exe            -> {app}\bin"
+Write-Output "   dist\Connector\              -> {app}\connector"
+Write-Output "   dist\Codesys\                -> {app}\codesys"
 Write-Output "========================================"

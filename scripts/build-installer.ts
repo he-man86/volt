@@ -1,19 +1,20 @@
 #!/usr/bin/env bun
 /**
- * Volt one-installer builder (Windows). Produces a single Inno Setup wizard for ALL Volt apps — desktop GUI +
- * `volt` CLI + LSP + tray connector, plus the opt-in VS Code-family extension — whose always-running C#
- * connector drives auto-update (Updater.cs re-runs a newer Setup.exe). See installer/Volt.iss.
+ * Volt one-installer builder (Windows). Produces a single Inno Setup installer for ALL Volt apps — desktop GUI +
+ * `volt` CLI + LSP + tray connector — whose always-running C# connector drives auto-update (Updater.cs runs a newer,
+ * digest-verified Setup.exe). See installer/Volt.iss. The VS Code-family extension is NOT in it: it ships from the
+ * Marketplace (openspec vscode-extension-marketplace).
  *
  *   bun scripts/build-installer.ts                 # full build → dist/release/Volt-win-Setup.exe
  *   bun scripts/build-installer.ts --skip-dist     # reuse the current dist/volt payload (dev iteration)
  *   bun scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
- * Pipeline: build-payload.ts (CLI+LSP+connector+.vsix) → electron-builder --dir (the branded Electron app) →
- * assemble the payload (connector at root; bin/ desktop/ + .vsix as siblings)
- * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
+ * Pipeline: build-payload.ts (dist/volt: bin/ connector/ codesys/) → electron-builder --dir (the branded Electron
+ * app, VoltDesktop.exe) → dist/stage = dist/volt + desktop/, which IS the install tree ({app}) → ISCC compiles
+ * installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -42,7 +43,7 @@ const uploadOnly = process.argv.includes("--upload-only")
 // This publish is ALWAYS a PRERELEASE (the dev channel) — the connector's stable updater ignores prereleases, only
 // `VOLT_UPDATE_CHANNEL=dev` picks them up. There is no path to publish stable here: a RELEASE promotes an existing
 // dev build via promote.yml (which gates it, then flips prerelease -> latest), so stable is ALWAYS a gated flip,
-// never a fresh direct publish. (release.yml still passes `--prerelease`; it's now a documented no-op.)
+// never a fresh direct publish.
 
 function run(cmd: string, args: string[], cwd = repo, shell = true): void {
   if (spawnSync(cmd, args, { cwd, stdio: "inherit", shell: shell && process.platform === "win32" }).status !== 0) {
@@ -104,16 +105,20 @@ const iscc = [
     console.error(`✗ installer/Volt.iss contains ${bad.length} control character(s) (${codes}) — almost certainly a mangled backslash escape from a scripted edit. Fix before building.`)
     process.exit(1)
   }
-  // The load-bearing log markers are a CONTRACT: the lifecycle gate asserts them and installer/README.md documents
-  // them for support. If someone removes a Log() line while refactoring, the gate would fail on a machine — catch
-  // it here at build time instead. This list must match assertLog()'s in test-install.ts.
+  // The load-bearing log markers are a CONTRACT: the install gate asserts them (assertLog + the wait steps in
+  // test-install.ts) and installer/README.md documents them for support. If someone removes a Log() line while
+  // refactoring, the gate would fail on a machine — catch it here at build time instead. Every marker the gate
+  // asserts is in this list, each as the [Code] writes it: `VLog('<marker>` (VLog prefixes `volt: ` and, in the
+  // uninstaller, also appends the line to the shared uninstall log).
   const requiredMarkers = [
-    "volt: install ",
-    "junction active ->",
-    "env published ->",
-    "started the connector:",
-    "reverting environment",
-    "removed the junction and every version directory",
+    "VLog('install ",
+    "VLog('stopped ",
+    "VLog('PATH carries ",
+    "VLog('migrate removed ",
+    "VLog('waiting for volt.exe",
+    "VLog('gave up waiting for volt.exe",
+    "VLog('uninstall ",
+    "VLog('PATH no longer carries ",
   ]
   const absent = requiredMarkers.filter((m) => !iss.includes(m))
   if (absent.length > 0) {
@@ -131,23 +136,24 @@ const iscc = [
 // because CI sets the variable. One line, and the local build now matches the release build.
 process.env.VOLT_VERSION = version
 if (!skipDist) run("bun", ["scripts/build-payload.ts"])
-// NO `docs` HERE ANY MORE, and the way it survived is the lesson. `build-payload.ts` stopped producing
-// `dist/volt/docs` when the skill installer that read it was deleted, and this loop still REQUIRED the folder —
-// so `bun run build:installer` exits 1 on a CLEAN checkout while a developer's machine stays green on the folder
-// an earlier build left behind. Nothing local could fail, and `release.yml` runs this on every push to dev.
-// Found by review rather than by a build, which is the argument for reviewing a deletion's blast radius.
-for (const dir of ["bin", "connector"]) {
+for (const dir of ["bin", "connector", "codesys"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
     process.exit(1)
   }
 }
 
-// 2. The branded Electron app (win-unpacked/) — --dir only, no installer.
+// 2. The branded Electron app (win-unpacked/) — --dir only, no installer. The exe is VoltDesktop.exe
+// (electron-builder.yml `executableName`): `Volt.exe` was the CLI's image name too, so a stop by name could not tell
+// the desktop from a running `volt push`. `productName` stays "Volt", so userData and the window title do not move.
+// FileVersion = the release version (`buildVersion`, which electron-builder writes as the exe's FileVersion) — not the
+// package.json base every local build carried (0.1.0) while every C# binary beside it read 0.1.<count>.
 console.log("• electron app (--dir)")
 run("bun", ["run", "build"], desktopDir) // src/main.ts → main.mjs (fast)
 const unpacked = resolve(desktopDir, "dist/win-unpacked")
-const voltExe = resolve(unpacked, "Volt.exe")
+const desktopExe = resolve(unpacked, "VoltDesktop.exe")
+const exeVersion = (file: string): string =>
+  (spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Item -LiteralPath '${file.replaceAll("'", "''")}').VersionInfo.FileVersion`], { encoding: "utf8" }).stdout ?? "").trim()
 // Rebuild the Electron app only when an input actually changed — reuse otherwise, since electron-builder's
 // winCodeSign extraction is flaky without Windows Developer Mode ("Cannot create symbolic link").
 // --rebuild-app forces it.
@@ -156,7 +162,8 @@ const voltExe = resolve(unpacked, "Volt.exe")
 // main.mjs: package.json carries the version AND productName (which sets Electron's userData path), so keying
 // on main.mjs alone silently shipped a stale package.json — a 0.1.0 app inside a 0.2.0 installer. If you add a
 // file to electron-builder.yml `files:`, add it here. assets/ is excluded: icons only, and a stale icon is
-// cosmetic — use --rebuild-app after changing one.
+// cosmetic — use --rebuild-app after changing one. The stamped FileVersion is part of the key too: a reused
+// win-unpacked from an earlier build carries that build's version.
 const packedApp = resolve(unpacked, "resources", "app")
 const BYTE_INPUTS = ["main.mjs", "preload.cjs", "shell.html"]
 // package.json needs a PROJECTION, not a byte compare: electron-builder rewrites it when packing, stripping
@@ -178,41 +185,38 @@ const differs = (f: string): boolean => {
     : !readFileSync(packed).equals(readFileSync(src))
 }
 const inputsChanged = [...BYTE_INPUTS, "package.json"].some(differs)
-if (process.argv.includes("--rebuild-app") || !existsSync(voltExe) || inputsChanged) {
-  run("bunx", ["electron-builder", "--dir"], desktopDir) // auto-finds electron-builder.yml
+if (process.argv.includes("--rebuild-app") || !existsSync(desktopExe) || inputsChanged || exeVersion(desktopExe) !== version) {
+  rmSync(unpacked, { recursive: true, force: true }) // a renamed exe would otherwise leave the old Volt.exe beside it
+  run("bunx", ["electron-builder", "--dir", `-c.buildVersion=${version}`], desktopDir) // auto-finds electron-builder.yml
 } else {
-  console.log("  ✓ reusing win-unpacked (packed inputs unchanged)")
+  console.log("  ✓ reusing win-unpacked (packed inputs and version unchanged)")
 }
-if (!existsSync(voltExe)) {
-  console.error("✗ no Volt.exe in dist/win-unpacked (electron-builder failed — see the winCodeSign note above)")
+if (!existsSync(desktopExe)) {
+  console.error("✗ no VoltDesktop.exe in dist/win-unpacked (electron-builder failed — see the winCodeSign note above)")
+  process.exit(1)
+}
+if (exeVersion(desktopExe) !== version) {
+  console.error(`✗ VoltDesktop.exe carries FileVersion ${exeVersion(desktopExe) || "none"}, not ${version} — buildVersion did not stamp it`)
   process.exit(1)
 }
 
-// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ desktop/ as siblings.
+// 3. The installer payload (Inno's StageDir) IS the install tree: dist/volt (bin/ connector/ codesys/) + desktop/.
+// [Files] copies it 1:1, so the stage, the gate and installer/README.md name the same paths.
 console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
-cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
-cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
+for (const dir of ["bin", "connector", "codesys"]) cpSync(resolve(payload, dir), resolve(stage, dir), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
-// No version.txt is shipped: every binary carries its version stamped in (FileVersion for the .NET exes, a
-// compile-time define for the bun-built LSP), so a sidecar file could only drift from the binary — which is the
-// bug it caused. The .vsix is what the per-editor extension wizard tasks sideload via `<editor>
-// --install-extension`. Hard-fail on a missing .vsix: the tasks would silently install nothing, and nothing
-// downstream catches it — test:install runs /VERYSILENT, which skips those tasks entirely (Check: NotSilent).
-const vsix = resolve(payload, "volt-vscode.vsix")
-if (!existsSync(vsix)) {
-  console.error("✗ volt-vscode.vsix missing from dist/volt — the installer's extension tasks would install nothing")
-  process.exit(1)
-}
-cpSync(vsix, resolve(stage, "volt-vscode.vsix"))
-if (!existsSync(resolve(stage, "VoltConnector.exe"))) {
-  console.error("✗ VoltConnector.exe not at payload root — the connector bundle is missing it")
+// No version.txt is shipped: every binary carries its version stamped in (FileVersion for the .NET exes and the
+// desktop, a compile-time define for the bun-built LSP), so a sidecar file could only drift from the binary.
+const unexpected = readdirSync(stage).filter((n) => !["bin", "connector", "codesys", "desktop"].includes(n))
+if (unexpected.length > 0) {
+  console.error(`✗ the stage holds ${unexpected.join(", ")} beside bin/ connector/ codesys/ desktop/ — {app} is exactly those four`)
   process.exit(1)
 }
 
-// 4. Compile the one installer (Inno Setup). The connector self-configures its login item + shortcut and hosts
-// auto-update at runtime, so the .iss just lays down the payload + the VS Code-family extension tasks.
+// 4. Compile the one installer (Inno Setup). Volt.iss DECLARES the shortcut, the login item and the PATH entry;
+// the connector writes nothing at install time.
 console.log(`• ISCC → Volt ${version}`)
 rmSync(release, { recursive: true, force: true })
 mkdirSync(release, { recursive: true })

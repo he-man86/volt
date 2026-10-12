@@ -22,16 +22,16 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 
 DEV BUILD — every push to `dev` (`release.yml`):
 ```
-build-payload.ts        →  dist/volt/     binaries + .vsix + connector
+build-payload.ts        →  dist/volt/     bin/ connector/ codesys/ (no .vsix — the installer no longer sideloads the extension)
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
-build-installer.ts --upload-only --prerelease   publishes a PRERELEASE 0.0.1.<count> (the dev channel)
+build-installer.ts --upload-only                publishes a PRERELEASE 0.1.<count> (the dev channel — always; no flag)
 ```
 
 RELEASE — promote one of those builds to prod (`release.ts` → `promote.yml`):
 ```
-release.ts             triggers promote.yml for a chosen 0.0.1.<count> (via `gh`; nothing installs locally)
+release.ts             triggers promote.yml for a chosen 0.1.<count> (via `gh`; nothing installs locally)
       ↓ (in CI, on a clean Windows runner)
 verify                 the build is a published prerelease AND its commit's ci.yml is green
       ↓
@@ -127,7 +127,7 @@ Marketplace), and that mechanism has three documented sharp edges that silently 
 1. **A VSIX-installed extension never auto-updates** — nothing but our installer will ever move it.
 2. **`--install-extension` is a no-op unless the version strictly increases.** The local `bun run package` used to
    stamp the base `0.0.1`, lower than every installed dev build, so a local build appeared to install and changed
-   nothing. `package` now passes the git-derived version (`version.ts --vsix`) to vsce.
+   nothing. `package` now passes the git-derived version (`version.ts --version`) to vsce.
 3. **A running editor keeps executing the old extension until it is fully QUIT and reopened** — a window reload is
    not enough. Microsoft closed this as-designed ([vscode#68234](https://github.com/microsoft/vscode/issues/68234)).
    No test can assert around it; the gate prints the reminder.

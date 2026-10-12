@@ -43,6 +43,11 @@
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
                     probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
+.PARAMETER BridgeDir codesys only: serve the bridge AS INSTALLED — a folder laid out like the installer's {app}\codesys
+                    (Volt.Ide.Codesys.dll + start/stop_volt_codesys.py; e.g. dist\stage\codesys after build:installer).
+                    The IDE runs THAT folder's start script with VOLT_BRIDGE_DLL removed from its environment, so the
+                    script finds the DLL the way an installed one does (beside itself), not through the dev override.
+                    Implies -NoBuild for CODESYS: what is served is the folder's own DLL.
 .PARAMETER CodesysVersion codesys only: which installed CODESYS to launch, by its folder version
                     (`C:\Program Files\CODESYS <version>`). Default 3.5.21.40 (SP21 Patch 4), the one every recording
                     and suite is measured on. Explicit on purpose: never the newest installed — a second install
@@ -66,6 +71,7 @@ param(
     [switch]$InPlace,
     [switch]$Production,
     [string]$RunScript = "",
+    [string]$BridgeDir = "",
     [string]$CodesysVersion = "3.5.21.40",
     [switch]$NoBuild,
     [switch]$Wait,
@@ -600,10 +606,18 @@ function Up-Codesys {
 
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
     if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }   # the CALLER's path, before the copy
+    if ($BridgeDir) {
+        # Served as INSTALLED: the folder's own DLL, found by its own start script — nothing built, no override.
+        foreach ($f in "Volt.Ide.Codesys.dll", "start_volt_codesys.py", "stop_volt_codesys.py") {
+            if (-not (Test-Path (Join-Path $BridgeDir $f))) { throw "-BridgeDir $BridgeDir is not an installed codesys folder: no $f" }
+        }
+    }
     $project = Copy-FixtureOut $project "codesys"
     Save-Projects @($project)
-    Build-Bridge "codesys"
-    if (-not (Test-Path $dll))     { throw "Bridge DLL missing (build Volt.Ide.Codesys): $dll" }
+    if (-not $BridgeDir) {
+        Build-Bridge "codesys"
+        if (-not (Test-Path $dll))     { throw "Bridge DLL missing (build Volt.Ide.Codesys): $dll" }
+    }
 
     $profileDir = Join-Path $install "CODESYS\Profiles"
     $pf = Get-ChildItem -Path $profileDir -Filter "*.profile.xml" -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -614,7 +628,15 @@ function Up-Codesys {
     # `start_volt_codesys.py` resolves the DLL as: $VOLT_BRIDGE_DLL -> beside the script -> the INSTALL dir. The
     # env is read in-process, so it must be set BEFORE launch — you cannot set it from inside a running IDE.
     # Without it you are testing the INSTALLED bridge while believing you are testing your working tree.
-    $env:VOLT_BRIDGE_DLL      = (Resolve-Path $dll).Path
+    # With -BridgeDir the override is REMOVED instead (an inherited one would win over the folder), and the harness
+    # runscript is pointed at that folder's start script (VOLT_START_SCRIPT), which then resolves the DLL beside itself.
+    if ($BridgeDir) {
+        Remove-Item Env:\VOLT_BRIDGE_DLL -ErrorAction SilentlyContinue
+        $env:VOLT_START_SCRIPT = (Resolve-Path (Join-Path $BridgeDir "start_volt_codesys.py")).Path
+    } else {
+        $env:VOLT_BRIDGE_DLL = (Resolve-Path $dll).Path
+        Remove-Item Env:\VOLT_START_SCRIPT -ErrorAction SilentlyContinue
+    }
     $env:VOLT_FIXTURE_PROJECT = (Resolve-Path $project).Path
 
     # No --noUI: the production host does not pump a message loop, so without the IDE's own loop nothing serves
@@ -623,7 +645,8 @@ function Up-Codesys {
     $argline = '--profile="{0}" --runscript="{1}"' -f $profileName, (Resolve-Path $scriptPy).Path
     Write-Host "CODESYS: $exe"
     Write-Host "Profile: $profileName"
-    Write-Host "DLL:     $($env:VOLT_BRIDGE_DLL)"
+    if ($BridgeDir) { Write-Host "Bridge:  as installed, $($env:VOLT_START_SCRIPT) (no VOLT_BRIDGE_DLL)" }
+    else { Write-Host "DLL:     $($env:VOLT_BRIDGE_DLL)" }
     Write-Host "Project: $($env:VOLT_FIXTURE_PROJECT)"
     $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Normal
     Save-Pids $pidFile @($proc.Id)

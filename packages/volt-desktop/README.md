@@ -2,7 +2,7 @@
 
 > The Volt desktop app — connection, sync and diagnostics for one PLC workspace. The desktop sibling of `volt-vscode`.
 
-A standalone Electron app. It opens from its own executable (Start Menu → **Volt**, or `desktop\Volt.exe`) or from
+A standalone Electron app. It opens from its own executable (Start Menu → **Volt**, or `desktop\VoltDesktop.exe` — not `Volt.exe`, the CLI's image name; `productName` stays `Volt`) or from
 the Start Menu shortcut (which targets this app's exe, not the tray), and it depends on nothing but the connector. There is no embedded browser, no bundled editor
 and no agent runtime: Volt's chrome **is** the window.
 

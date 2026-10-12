@@ -51,7 +51,7 @@ public class NetworkTextSwitchTests
     [InlineData("packages/volt-cli/package.json", "VOLT_GRAPHICAL=1 VOLT_VENDOR=codesys bun test test/e2e")]
     [InlineData("packages/volt-cli/package.json", "VOLT_GRAPHICAL=1 VOLT_VENDOR=twincat bun test test/e2e")]
     [InlineData("packages/volt-lsp-iec/bunfig.toml", "preload")]
-    [InlineData("packages/volt-lsp-iec/test/network-text-on.ts", "process.env.VOLT_GRAPHICAL = \"1\"")]
+    [InlineData("packages/volt-lsp-iec/test/support/network-text-on.ts", "process.env.VOLT_GRAPHICAL = \"1\"")]
     // record:language runs the LSP's own parser over the fixtures in ITS process, so the variable matters there;
     // record:exec launches CODESYS itself, which inherits it.
     [InlineData("packages/volt-lsp-iec/package.json", "VOLT_GRAPHICAL=1 bun run scripts/record-language.ts")]

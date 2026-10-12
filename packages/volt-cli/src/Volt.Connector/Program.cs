@@ -14,16 +14,8 @@ namespace Volt.Connector
         private static void Main(string[] args)
         {
             // FIRST statement, deliberately: VoltLog is a no-op until Init, so anything logged above this line
-            // (the uninstall hook, Pruner, VoltEnv) would be silently dropped rather than merely unnoticed.
+            // would be silently dropped rather than merely unnoticed.
             VoltLog.Init("connector");
-
-            // Uninstall hook: the Inno uninstaller runs `VoltConnector.exe --uninstall` BEFORE deleting files, so
-            // we drop the login item + shortcut and stop the running tray/workers here, then exit.
-            if (Array.IndexOf(args, "--uninstall") >= 0)
-            {
-                VoltEnv.Uninstall();
-                return;
-            }
 
             // --silent: launched by the installer, the login item, or a test harness rather than a user double-click.
             var silent = Array.IndexOf(args, "--silent") >= 0;
@@ -42,22 +34,10 @@ namespace Volt.Connector
                 return;
             }
 
-            // Prune superseded version directories now, while nothing holds them (the installer can't — at install
-            // time the old version's processes are still running). Best-effort; a locked one waits for a later start.
-            Pruner.PruneOldVersions();
-
-            // Self-configure on startup (idempotent, best-effort): create the Start Menu shortcut and register the
-            // login item so the tray survives reboots. Runs right after the installer launches us, and every login.
-            // (Env — PATH — is written by the installer, not here; see VoltEnv.)
-            //
-            // NOT FROM A DEV BUILD. This ran unconditionally, and `Install()` writes
-            // `HKCU\…\Run\VoltConnector` = the RUNNING exe's path plus a Start Menu shortcut — so every `dotnet
-            // run` of the connector out of `bin/`, and every second instance the live tier starts, repointed the
-            // user's login item and their Start Menu entry at a build that will be deleted or rebuilt. After that
-            // the installed product no longer starts at login and the Start Menu launches nothing. A dev build is
-            // exactly the one that must not claim the machine.
-            VoltEnv.Install(claimTheMachine: !Updater.IsDev);
-            if (Updater.IsDev) VoltLog.Info("dev build — leaving the login item and Start Menu shortcut alone");
+            // The one thing the connector publishes: the visible Documents\Volt copy of the CODESYS scripts. Nothing
+            // else — the shortcut, the login item and PATH are the installer's (installer/Volt.iss), so a dev build
+            // running out of bin\ can no longer claim the machine.
+            VoltEnv.PublishCodesysScripts();
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

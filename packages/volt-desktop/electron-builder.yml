@@ -1,10 +1,17 @@
-# `--dir` mode only. electron-builder here builds + brands the Electron app (Volt.exe + runtime); it does NOT
+# `--dir` mode only. electron-builder here builds + brands the Electron app (VoltDesktop.exe + runtime); it does NOT
 # produce an installer and does NOT wire electron-updater. The one installer (Inno Setup, installer/Volt.iss) and
 # auto-update are owned by the always-running C# connector. build-installer.ts runs this, then folds win-unpacked/ into
 # the installer payload as the desktop/ subdir. (YAML, not .ts — electron-builder's .ts loader needs Windows
 # symlink privileges we don't require here; the config is static anyway.)
 appId: dev.volt.desktop
 productName: Volt
+# The exe is VoltDesktop.exe, NOT Volt.exe: the CLI is volt.exe, and Windows image names are case-insensitive, so one
+# name covered both and an update that stopped "Volt" could kill a running `volt push`. productName stays Volt, so
+# userData (%APPDATA%\Volt) and the window title do not move (openspec installer-rebuild).
+executableName: VoltDesktop
+# Chromium's UI locales: Volt's UI is English, and the other 54 .pak files were 47.7 MiB of the install.
+electronLanguages:
+  - en-US
 asar: false # main.mjs resolves shell.html / preload.cjs / assets by path — keep them on disk
 directories:
   output: dist

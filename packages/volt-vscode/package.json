@@ -775,7 +775,7 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "package": "bun run build && vsce package --no-dependencies --no-update-package-json $(bun ../../scripts/version.ts --vsix)",
+    "package": "bun run build && vsce package --no-dependencies --no-update-package-json $(bun ../../scripts/version.ts --version)",
     "publish:vscode": "bun run build && vsce publish --no-dependencies",
     "publish:openvsx": "bun run package && ovsx publish volt-vscode-$npm_package_version.vsix"
   },

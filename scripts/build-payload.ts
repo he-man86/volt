@@ -1,19 +1,21 @@
 #!/usr/bin/env bun
 /**
- * Volt release builder — compiles every shippable binary into dist/volt/ so the installer just bundles one
- * folder. The volt-desktop shell + the Inno Setup installer are built separately
- * (scripts/build-installer.ts → installer/Volt.iss), which bundles this folder.
+ * Volt release builder — compiles every shippable binary into dist/volt/, laid out EXACTLY as the install tree
+ * ({app}, openspec installer-rebuild design 2), so the installer copies it 1:1. The volt-desktop shell + the Inno
+ * Setup installer are built separately (scripts/build-installer.ts → installer/Volt.iss), which bundles this folder.
  *
- *   bun scripts/build-payload.ts           # LSP + vsix + the C# toolchain (needs dotnet)
+ *   bun scripts/build-payload.ts           # LSP + the C# toolchain (needs dotnet, Windows)
  *   bun scripts/build-payload.ts --no-cli  # skip the C# toolchain (non-Windows / no .NET SDK) — LSP only
  *
  * Output:
- *   dist/volt/bin/           volt[.exe] (the PLC CLI) + volt-lsp-iec[.exe] (the Structured Text LSP) + runtime
- *   dist/volt/connector/     VoltConnector.exe + the pipe workers + the CODESYS in-proc DLL (needs dotnet)
- *   volt-vscode.vsix
+ *   dist/volt/bin/        volt.exe (the PLC CLI, single-file) + volt-lsp-iec.exe — exactly these two, the PATH dir
+ *   dist/volt/connector/  VoltConnector.exe + VoltBridgeTwincat.exe on one runtime
+ *   dist/volt/codesys/    Volt.Ide.Codesys.dll + start/stop_volt_codesys.py
+ *
+ * No .vsix: the extension ships from the Marketplace (openspec vscode-extension-marketplace), not the installer.
  */
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -130,27 +132,6 @@ if (process.env.VOLT_VERSION) {
 // other vendor's configuration, and the reference reaches an agent the way everything else does — the LSP on
 // PATH. `packages/volt-lsp-iec/docs/` stays: it is the repo's own reference and several scripts read it.
 
-// Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
-console.log("• volt-vscode extension (.vsix)")
-const vsixDir = resolve(repo, "packages/volt-vscode")
-if (run("bun", ["run", "package"], vsixDir)) {
-  // vsce names the package from the version `bun run package` passes it — the git-derived one from version.ts,
-  // NOT volt-vscode's stored package.json version (which stays at the base 0.0.1 locally, since `package` passes
-  // --no-update-package-json). Ask the same script for the same answer. Do NOT glob+sort: this dir is never
-  // cleaned (old .vsix files accumulate, gitignored) and a sort is LEXICAL — at 0.10.0, "volt-vscode-0.10.0.vsix"
-  // sorts BEFORE "volt-vscode-0.2.0.vsix", which would silently ship a stale extension.
-  const vsixVersion = spawnSync("bun", [resolve(repo, "scripts/version.ts"), "--vsix"], { cwd: repo, encoding: "utf8", shell: process.platform === "win32" }).stdout?.trim()
-  const vsix = `volt-vscode-${vsixVersion}.vsix`
-  if (existsSync(resolve(vsixDir, vsix))) {
-    cpSync(resolve(vsixDir, vsix), resolve(out, "volt-vscode.vsix"))
-    console.log(`  ✓ extension → dist/volt/volt-vscode.vsix (${vsix})`)
-  } else {
-    console.warn(`  ⚠ ${vsix} not found after package`)
-  }
-} else {
-  console.warn("  ⚠ extension package failed — installer ships without the bundled extension")
-}
-
 // NOTE: no agent-config layer ships here. Volt used to bundle an `opencode-config/` directory and publish it via
 // OPENCODE_CONFIG_DIR — one product's config format, installed into that product's environment. That coupling is
 // gone. Every host now registers Volt through its own native mechanism (the `volt-vscode` extension for the VS
@@ -158,36 +139,49 @@ if (run("bun", ["run", "package"], vsixDir)) {
 
 if (!skipCli) {
   console.log("• volt CLI + pipe workers + connector (C#)")
-  // build-cli.ps1 runs the Volt.Cli tests, publishes volt.exe + the two pipe IDE hosts, and assembles the
-  // connector bundle (VoltConnector.exe + workers) into packages/volt-cli/dist. Best-effort: a machine without
-  // the .NET SDK ships the LSP only (pass --no-cli to silence). volt.exe lives in the connector-style Cli
-  // bundle, so it's copied into bin/ here.
-  const built =
-    process.platform === "win32" &&
-    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-cli/scripts/build-cli.ps1"])
-  const cliDist = resolve(repo, "packages/volt-cli/dist")
-  const priorConnector = resolve(cliDist, "Connector")
-  const priorCli = resolve(cliDist, "Cli")
-  if (built || existsSync(resolve(priorConnector, "VoltConnector.exe"))) {
-    if (!built)
-      console.warn("⚠ CLI/connector build skipped/failed — reused the prior bundle (channel-neutral; CI rebuilds fresh)")
-    cpSync(priorConnector, resolve(out, "connector"), { recursive: true })
-    // The self-contained volt.exe bundle → dist/volt/bin so the installer's PATH resolves `volt`.
-    cpSync(priorCli, bin, { recursive: true })
-    console.log("  ✓ volt.exe → dist/volt/bin, connector → dist/volt/connector")
-  } else {
-    console.warn("⚠ CLI/connector build skipped or failed (dotnet missing? non-Windows?) — LSP only")
-  }
-}
-
-// Self-check: the shipped binaries are the non-negotiable release artifacts. `volt` needs the .NET build (skipped
-// on non-Windows / --no-cli); the LSP always ships.
-const required = skipCli ? ["volt-lsp-iec"] : ["volt", "volt-lsp-iec"]
-for (const name of required) {
-  if (!existsSync(resolve(bin, name + ext))) {
-    console.error(`✗ missing expected artifact: ${name}${ext}`)
+  // build-cli.ps1 runs the Volt.Cli tests and publishes the three installed folders into packages/volt-cli/dist
+  // (Cli/volt.exe, Connector/, Codesys/). A failed build FAILS this one: there used to be a branch that "reused the
+  // prior bundle" when the build failed — so a red C# build shipped whatever an earlier one left behind, stamped
+  // with an older version, and nothing downstream said so. A machine without the .NET SDK passes --no-cli.
+  if (process.platform !== "win32") {
+    console.error("✗ the C# toolchain builds on Windows only — pass --no-cli for an LSP-only payload")
     process.exit(1)
   }
+  if (!run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-cli/scripts/build-cli.ps1"])) {
+    console.error("✗ build-cli.ps1 failed — no payload is assembled from an earlier build's leftovers")
+    process.exit(1)
+  }
+  const cliDist = resolve(repo, "packages/volt-cli/dist")
+  cpSync(resolve(cliDist, "Cli", "volt.exe"), resolve(bin, "volt.exe"))
+  cpSync(resolve(cliDist, "Connector"), resolve(out, "connector"), { recursive: true })
+  cpSync(resolve(cliDist, "Codesys"), resolve(out, "codesys"), { recursive: true })
+  console.log("  ✓ volt.exe → dist/volt/bin, connector → dist/volt/connector, codesys → dist/volt/codesys")
+}
+
+// Self-check: the payload is the install tree, so it is checked as one — by name, every required file. bin\ is
+// the PATH dir and holds exactly the CLI and the LSP (the gate asserts the same of {app}\bin).
+const required = skipCli
+  ? ["bin/volt-lsp-iec" + ext]
+  : [
+      "bin/volt.exe",
+      "bin/volt-lsp-iec.exe",
+      "connector/VoltConnector.exe",
+      "connector/VoltBridgeTwincat.exe",
+      "connector/Volt.Engine.Host.dll",
+      "codesys/Volt.Ide.Codesys.dll",
+      "codesys/start_volt_codesys.py",
+      "codesys/stop_volt_codesys.py",
+    ]
+const absent = required.filter((f) => !existsSync(resolve(out, f)))
+if (absent.length > 0) {
+  console.error(`✗ missing expected artifact(s) in dist/volt: ${absent.join(", ")}`)
+  process.exit(1)
+}
+const binFiles = readdirSync(bin).sort()
+const binWanted = (skipCli ? ["volt-lsp-iec" + ext] : ["volt-lsp-iec.exe", "volt.exe"]).sort()
+if (binFiles.join("|") !== binWanted.join("|")) {
+  console.error(`✗ dist/volt/bin holds [${binFiles.join(", ")}], not exactly [${binWanted.join(", ")}] — it is the PATH dir`)
+  process.exit(1)
 }
 
 console.log(`\n✓ release binaries in ${out}`)

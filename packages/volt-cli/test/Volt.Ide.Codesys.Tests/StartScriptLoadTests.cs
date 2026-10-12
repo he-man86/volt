@@ -88,7 +88,7 @@ namespace Volt.Ide.Codesys.Tests
                 var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
                     new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
                 // CODESYS's order: its ScriptLib (here the standard library the script imports), then the script's folder.
-                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, foreignJson);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), download }, temp, runs, foreignJson, null);
                 var said = string.Join("\n", run.Printed);
                 var report = "\nloaded:\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} {c.Version} at {c.Location}"))
                              + "\nasked for:\n" + string.Join("\n", run.Asked)
@@ -115,6 +115,55 @@ namespace Volt.Ide.Codesys.Tests
                 // The members whose signatures carry System.Text.Json types bind the bridge's OWN copy.
                 Assert.True(run.Bound.Length > 0 && run.Bound.All(l => l.EndsWith(" binds Volt.Ide.Codesys", StringComparison.Ordinal)),
                     "a wire member binds something other than the bridge itself" + report);
+            }
+            finally
+            {
+                AppDomain.Unload(domain);
+                try { Directory.Delete(root, true); } catch { /* a loaded copy can stay locked until the process exits */ }
+            }
+        }
+
+        /// <summary>THE DOCUMENTS COPY FINDS THE INSTALLED BRIDGE, WITH NO <c>VOLT_BRIDGE_DLL</c> (openspec installer-rebuild,
+        /// task 2.4). The connector publishes the start script alone into <c>Documents\Volt</c> — the folder the user
+        /// reaches from CODESYS's <i>Execute Script File</i> — so no DLL is beside it: the script must resolve the bridge at
+        /// the fixed install path, <c>%LOCALAPPDATA%\Programs\Volt\codesys\</c>. It read <c>…\codesys-scriptcommands</c>
+        /// (a layout gone since July) and only worked because the installer exported a global <c>VOLT_BRIDGE_DLL</c>; no
+        /// installer writes one any more. Staging is made to fail so the load comes from the resolved folder itself, which
+        /// makes that folder observable.</summary>
+        [Fact]
+        public void Run_from_the_Documents_copy_the_script_loads_the_installed_bridge_without_VOLT_BRIDGE_DLL()
+        {
+            Assert.True(Directory.Exists(Bundle), $"no shipped bundle at {Bundle}: the Volt.Ide.Codesys build did not produce one");
+            var root = Path.Combine(Path.GetTempPath(), "volt-documents-copy-" + Guid.NewGuid().ToString("N"));
+            var localAppData = Path.Combine(root, "local");
+            var installed = Path.Combine(localAppData, "Programs", "Volt", "codesys");   // {app}\codesys
+            var documents = Path.Combine(root, "Documents", "Volt");                      // what the connector publishes
+            var temp = Path.Combine(root, "temp");
+            var hostBase = Path.Combine(root, "host");
+            foreach (var d in new[] { installed, documents, temp, hostBase }) Directory.CreateDirectory(d);
+            foreach (var f in Directory.GetFiles(Bundle)) File.Copy(f, Path.Combine(installed, Path.GetFileName(f)));
+            var shipped = Path.Combine(Root(), "scripts", "start_volt_codesys.py");
+            File.Copy(shipped, Path.Combine(installed, "start_volt_codesys.py"));
+            var script = Path.Combine(documents, "start_volt_codesys.py");
+            File.Copy(shipped, script);
+            // A FILE where this session's staging folder goes: the copy cannot be made, so the bridge loads in place.
+            var staging = Path.Combine(temp, "Volt", "codesys-bridge");
+            Directory.CreateDirectory(staging);
+            File.WriteAllText(Path.Combine(staging, System.Diagnostics.Process.GetCurrentProcess().Id.ToString()), "");
+
+            var domain = AppDomain.CreateDomain("volt-ide-" + Guid.NewGuid().ToString("N"), null,
+                new AppDomainSetup { ApplicationBase = hostBase });
+            try
+            {
+                var host = (ScriptHost)domain.CreateInstanceFromAndUnwrap(
+                    new Uri(typeof(ScriptHost).Assembly.CodeBase).LocalPath, typeof(ScriptHost).FullName!);
+                var run = host.Run(script, new[] { Path.Combine(Bin, "Lib"), documents }, temp, 1, null, localAppData);
+                var report = "\nprinted:\n" + string.Join("\n", run.Printed)
+                             + "\nloaded:\n" + string.Join("\n", run.Loaded.Select(c => $"{c.Name} at {c.Location}"));
+                var bridge = run.Loaded.SingleOrDefault(c => c.Name == "Volt.Ide.Codesys");
+                Assert.True(bridge != null, "the Documents copy of the start script loaded no bridge" + report);
+                Assert.True(string.Equals(Path.GetDirectoryName(bridge!.Location), installed, StringComparison.OrdinalIgnoreCase),
+                    $"the bridge loaded from {bridge.Location}, not from the install path {installed}" + report);
             }
             finally
             {
@@ -152,7 +201,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             private readonly List<string> _asked = new();
 
-            public Result Run(string script, string[] sysPath, string temp, int runs, string? foreignJson)
+            public Result Run(string script, string[] sysPath, string temp, int runs, string? foreignJson, string? localAppData)
             {
                 // Registered BEFORE any IronPython engine, so it sees every request first; it answers none.
                 AppDomain.CurrentDomain.AssemblyResolve += (_, e) =>
@@ -173,7 +222,8 @@ namespace Volt.Ide.Codesys.Tests
                     var scope = engine.CreateScope();
                     scope.SetVariable("__file__", script);
                     // Staging goes under a temp folder of this test's own, not the machine's %TEMP%\Volt (the script prunes there).
-                    engine.Execute("import os\nos.environ['TEMP'] = r'" + temp + "'\nos.environ.pop('VOLT_BRIDGE_DLL', None)\n", scope);
+                    engine.Execute("import os\nos.environ['TEMP'] = r'" + temp + "'\nos.environ.pop('VOLT_BRIDGE_DLL', None)\n"
+                                   + (localAppData != null ? "os.environ['LOCALAPPDATA'] = r'" + localAppData + "'\n" : ""), scope);
                     // The shipped script, verbatim. No `projects` in scope: it stops at PipeHost.Start (see the class comment).
                     engine.CreateScriptSourceFromFile(script).Execute(scope);
                 }

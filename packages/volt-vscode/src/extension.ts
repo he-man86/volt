@@ -1,6 +1,5 @@
 import * as vscode from "vscode"
-import { existsSync } from "node:fs"
-import { join } from "node:path"
+import { resolveVoltCli } from "./cli-path.js"
 import { startLsp, stopLsp, registerLspCommands, markLspFailed } from "./lsp.js"
 import { registerCommands } from "./commands.js"
 import { hasVoltConfig, workspaceFolders } from "./workspace.js"
@@ -8,16 +7,6 @@ import { VoltViews } from "./panel.js"
 import { VoltDecorations } from "./decorations.js"
 import { VoltContentProvider, SCHEME } from "./content.js"
 import { VoltStatus, aggregate, connectorStatus, setBundledCli, connectWorkspace, leaveWorkspace, closeSession, startConnectorFeed, onConnectorView, voltLog } from "@volt/control"
-
-// Resolve volt.exe by ABSOLUTE path. Relying on `volt` from PATH fails as `spawn volt ENOENT` whenever VS Code was
-// launched BEFORE the installer put it on PATH — the running process captured the old PATH, and a broadcast can't
-// retro-fit it. The installer lays volt.exe down at a known place (…\Programs\Volt\current\bin); fall back to PATH
-// (dev / non-default install) so cliScript still works.
-function resolveVoltCli(): string | undefined {
-  const exe = process.platform === "win32" ? "volt.exe" : "volt"
-  if (!process.env.LOCALAPPDATA) return undefined
-  return [join(process.env.LOCALAPPDATA, "Programs", "Volt", "current", "bin", exe)].find(existsSync)
-}
 
 const statuses = new Map<string, VoltStatus>()
 let views: VoltViews | undefined
