@@ -337,7 +337,32 @@
       finding once. The document's findings are computed only when one of the two needs them (`handlers/assist.ts` hands
       `documentDiagnostics`); the server declares `codeActionKinds: [quickfix, source.fixAll.volt]`. C0032's wrap (not
       preferred) gets none. Organize-VAR stays filed (§5). Tests: `code-actions.test.ts` "step 2.3" (3).
-- [ ] 2.4 The cheap navigation-breadth gaps; the rest filed with their measurement.
+- [x] 2.4 The cheap navigation-breadth gaps; the rest filed with their measurement.
+      **Done 2026-10-13** (design.md §6): B1/B2/B4 `hierarchy.ts` `calledSymbol` — a call of an FB instance (variable,
+      global, array element), of `SUPER^`/`THIS^`, is a call of that FB's body; a PROGRAM is callable; B3 a PROPERTY
+      prepares a call hierarchy (its accessors' calls are its outgoing); B5 `workspace-symbol.ts` lists methods,
+      properties, actions, interface members and enum values with `containerName` = owner, and a library's top-level
+      symbol with its library (library MEMBERS not listed — they would multiply a 10–12k answer); B6
+      `navigation/override-chain.ts` — a rename renames every member of the override/implementation chain (bases,
+      interfaces of the FB and of any base, their bases, and every derived/implementing FB), and one whose chain reaches a
+      library member is refused BY NAME at prepare and at rename (`renameChainRefusal`). `findReferences`/`allReferences`
+      take a SET of targets (one pass for a whole chain) and resolve only names a target has — the first B6 build ran one
+      pass per chain member and took nav-breadth past 10 min on pro2193; now 23 s (0.1: 57 s).
+      **Re-measured** (`nav-breadth.ts`): workspace symbols pro2193 method 0 → 1274/1274, property 0 → 272/272, action
+      0 → 7/7, interface_method 0 → 182/182, interface_property 0 → 96/96, enum_value 0 → 4558/4558 (lenze-mid, awa,
+      bakon, twincat14 likewise all members); bodies that prepare nothing pro2193 98 programs + 330 accessors → 0 (every
+      project 0); outgoing answered beyond the direct-callable count (instance, program, SUPER^ calls) pro2193 4471 →
+      5358, bakon-nano 273 → 458, lenze-mid 92 → 132, awa 56 → 153, twincat14 0 → 26; incoming top-25 unchanged and exact
+      (2035/2035 …); rename of the base edits the override pro2193 **0 → 40 of 40**, lenze-mid 1/1; the 6 pro2193 members
+      on a library chain are refused. Tests (5): B1–B4 in `navigation/hierarchy.test.ts`, B5 `structure/workspace-symbol.test.ts`,
+      B6 `navigation/override-chain.test.ts` — first written as one `breadth.test.ts`, which the package structure gate
+      refuses (a colocated test is named after a source beside it); split at the 2.2+2.4 gate.
+      **Filed, not this change:** TwinCAT libraries under `References/` — the folder name is the IDE's, localizable and
+      renameable (`TcObjectModel` finds it by item type), so a path rule would be a guess, not a few lines: a change of
+      its own (vendor-aware library rule in `frontend/library`); its 216 findings stay the `CORPUS_DIVERGENCES` mark and
+      `VENDOR_GAPS.qf_c0077_before` stays. Ranking the workspace answer: unmeasured latency, filed as before.
+      **Step end runs (once each, 2026-10-13):** `test/frontend` 25 pass (87 s); `test/conformance` 6966 pass, 0 fail
+      (454 s); `rate:fixtures` — `map.generated.ts` unchanged; src 2766 pass; typecheck and `bun run lint` clean.
 
 ## 3. Close
 

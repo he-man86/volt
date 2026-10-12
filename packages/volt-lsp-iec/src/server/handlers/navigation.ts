@@ -37,6 +37,7 @@ import {
   prepareTypeHierarchy,
   referencesAnywhere,
   renameAnywhere,
+  renameChainRefusal,
   renameRefusal,
   typeDefinition,
   typeSubtypes,
@@ -81,11 +82,14 @@ export function registerNavigationHandlers(s: ServerState): void {
       return ranges !== undefined && ranges.length > 0 ? { ranges } : null
     }),
   )
-  s.onRequest(PrepareRenameRequest.type, (p) =>
-    s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(), o)),
-  )
+  // a member whose override chain reaches a library's is refused BY NAME, at prepare and at rename (design.md §6 B6)
+  s.onRequest(PrepareRenameRequest.type, (p) => {
+    const chain = s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(), o) ?? null)
+    if (chain !== null) return new ResponseError(LSPErrorCodes.RequestFailed, chain)
+    return s.at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, s.project(), o))
+  })
   s.onRequest(RenameRequest.type, (p) => {
-    const refused = renameRefusal(p.newName, s.project())
+    const refused = renameRefusal(p.newName, s.project()) ?? s.at(p.textDocument.uri, p.position, (d, o) => renameChainRefusal(d, s.project(), o) ?? null) ?? undefined
     if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
     return s.at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(s.workspace(), s.project(), d, o, p.newName) ?? null)
   })

@@ -23,9 +23,25 @@ export interface Ref {
   range: Range
 }
 
-/** Every occurrence (declaration + body uses) across `docs` that binds to `target`. */
-export function findReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
-  const out: Ref[] = [{ uri: target.uri, range: rangeFromSpan(target.span) }] // the declaration itself
+/** The symbols a reference search asks for, and the names they are written by (a name no target has is not resolved). */
+interface Targets {
+  has(sym: Symbol | undefined): boolean
+  named(name: string): boolean
+  all: readonly Symbol[]
+}
+
+/** One symbol, or several — an override chain, whose members a rename edits together (`override-chain`, B6). */
+export function targetsOf(target: Symbol | readonly Symbol[]): Targets {
+  const all = Array.isArray(target) ? (target as readonly Symbol[]) : [target as Symbol]
+  const set = new Set(all)
+  const names = new Set(all.map((s) => s.name.toLowerCase()))
+  return { has: (s) => s !== undefined && set.has(s), named: (n) => names.has(n.toLowerCase()), all }
+}
+
+/** Every occurrence (declaration + body uses) across `docs` that binds to `target` (or to any of several). */
+export function findReferences(docs: Iterable<Document>, project: Scope, target: Symbol | readonly Symbol[]): Ref[] {
+  const t = targetsOf(target)
+  const out: Ref[] = t.all.map((s) => ({ uri: s.uri, range: rangeFromSpan(s.span) })) // the declarations themselves
   for (const doc of docs) {
     for (const { scope, statements } of sourceBodies(doc.parseResult.units, project)) {
       const memberNames = new Set<IdentExpr>()
@@ -34,15 +50,15 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
       })
       walkAllExprs(statements, (e) => {
         if (e.kind === "member") {
-          if (resolveMemberChain(e, scope, project) === target) {
+          if (t.named(e.member.name) && t.has(resolveMemberChain(e, scope, project))) {
             out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
           }
         } else if (e.kind === "global_expr") {
           // `.g` — the global past every local (rule E33): renaming `g` without it leaves "no global definition for 'g'"
-          if (resolveMemberChain(e, scope, project) === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.name.span) })
-        } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
+          if (t.named(e.name.name) && t.has(resolveMemberChain(e, scope, project))) out.push({ uri: doc.uri, range: rangeFromSpan(e.name.span) })
+        } else if (e.kind === "ident_expr" && !memberNames.has(e) && t.named(e.name)) {
           const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
-          if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
+          if (t.has(s)) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
         }
       })
     }
@@ -52,7 +68,7 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
       const uscope = scopeForUnit(project, unit) ?? project
       for (const ref of unitTypeNameRefs(unit)) {
         if (ref.qualified) continue // `NS.T` keys on the last segment; skip to avoid cross-namespace collisions
-        if (lookup(uscope, ref.name)?.symbol === target) out.push({ uri: doc.uri, range: rangeFromSpan(ref.span) })
+        if (t.named(ref.name) && t.has(lookup(uscope, ref.name)?.symbol)) out.push({ uri: doc.uri, range: rangeFromSpan(ref.span) })
       }
     }
   }

@@ -33,7 +33,7 @@ import {
 import { bareEnumMember, dialectOf, isLibrarySymbol, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../../frontend/symbols/index.js"
 import { analyzeNetworkText, networkNetworkAt, resolveMemberChain, type NetworkTextAnalysis } from "../../frontend/types/index.js"
 import { builtinHover, completionAtScope, symbolHover } from "../assist/index.js"
-import { findReferences, toLocations, type Ref } from "../navigation/index.js"
+import { findReferences, libraryMembersOf, overrideChain, targetsOf, toLocations, type Ref } from "../navigation/index.js"
 import { locationOf, rangeFromSpan, resolveAt } from "../shared/index.js"
 import { exprAtOffset, memberAtOffset, tokenAtOffset, type Document } from "../shared/index.js"
 
@@ -140,9 +140,11 @@ export function resolveAnywhere(doc: Document, project: Scope, offset: number): 
   return inNetworkText(doc, offset) ? networkResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
 }
 
-/** Every occurrence of `target` across ST bodies (via `findReferences`) AND network-text operand networks. */
-export function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
+/** Every occurrence of `target` (or of any of several) across ST bodies (via `findReferences`) AND network-text operand
+ *  networks. */
+export function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol | readonly Symbol[]): Ref[] {
   const all = [...docs] // iterated twice (ST pass, then network text pass)
+  const t = targetsOf(target)
   const out = findReferences(all, project, target)
   for (const doc of all) {
     for (const body of graphicalBodies(doc.parseResult.units)) {
@@ -155,11 +157,11 @@ export function allReferences(docs: Iterable<Document>, project: Scope, target: 
         })
         walkAllExprs(stmts, (e) => {
           if (e.kind === "member") {
-            if (resolveMemberChain(e, scope, project) === target)
+            if (t.named(e.member.name) && t.has(resolveMemberChain(e, scope, project)))
               out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
-          } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
+          } else if (e.kind === "ident_expr" && !memberNames.has(e) && t.named(e.name)) {
             const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
-            if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
+            if (t.has(s)) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
           }
         })
       }
@@ -214,6 +216,19 @@ export function renameRefusal(newName: string, project: Scope): string | undefin
   return one && !isRefusedDeclaredName(newName, dialect) ? undefined : `'${newName}' is no name a declaration accepts`
 }
 
+/**
+ * Why the member at the cursor cannot be renamed although it is the project's: its OVERRIDE CHAIN reaches a library's
+ * member (`override-chain`, design.md §6 B6) — the project's override would no longer match a name no project edit can
+ * change. Undefined when it can be renamed, or is no such member.
+ */
+export function renameChainRefusal(doc: Document, project: Scope, offset: number): string | undefined {
+  const sym = renameTarget(doc, project, offset)
+  if (sym === undefined) return undefined
+  const library = libraryMembersOf(project, sym)
+  if (library.length === 0) return undefined
+  return `'${sym.name}' overrides or implements the library member ${library.map((m) => `'${m.owner.name}.${m.name}'`).join(", ")}, which no project edit can rename`
+}
+
 /** prepareRename (ST + network text) — the editable range for a renameable cursor. */
 export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
   if (renameTarget(doc, project, offset) === undefined) return undefined
@@ -236,12 +251,17 @@ export function renameAnywhere(
   newName: string,
 ): WorkspaceEdit | undefined {
   const sym = renameTarget(doc, project, offset)
-  if (sym === undefined) return undefined
+  if (sym === undefined || renameChainRefusal(doc, project, offset) !== undefined) return undefined
   const all = [...docs]
   const bare = NETWORK_TEXT_WORDS.has(newName.toUpperCase()) ? bareTokenRanges(all, project) : new Set<string>()
   const changes: Record<string, TextEdit[]> = {}
-  for (const r of allReferences(all, project, sym))
-    (changes[r.uri] ??= []).push({ range: r.range, newText: bare.has(rangeKey(r.uri, r.range)) ? `\`${newName}\`` : newName })
+  // a METHOD or PROPERTY renames with every member it overrides or implements, or that overrides or implements it (B6)
+  const seen = new Set<string>()
+  for (const r of allReferences(all, project, overrideChain(project, sym))) {
+    if (seen.has(rangeKey(r.uri, r.range))) continue
+    seen.add(rangeKey(r.uri, r.range))
+    ;(changes[r.uri] ??= []).push({ range: r.range, newText: bare.has(rangeKey(r.uri, r.range)) ? `\`${newName}\`` : newName })
+  }
   return { changes }
 }
 

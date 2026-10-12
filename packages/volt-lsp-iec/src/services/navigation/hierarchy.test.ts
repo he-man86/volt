@@ -104,3 +104,74 @@ END_FUNCTION_BLOCK`
   const bPing = prepareCallHierarchy(doc, project, src.indexOf("Ping", src.indexOf("FUNCTION_BLOCK B")) + 1)
   expect(callIncoming([doc], project, bPing!.sym)).toHaveLength(0)
 })
+
+// ─── navigation breadth (openspec lsp-quick-fixes design.md §6, tasks.md 2.4): the gaps `scripts/nav-breadth.ts`
+// measured — calls through an FB INSTANCE (B1), a PROGRAM called (B2), a PROPERTY's accessors as its outgoing calls
+// (B3), `SUPER^()` (B4) ───
+
+function setupFiles(files: Record<string, string>) {
+  const docs: Document[] = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(docs.map((d) => ({ uri: d.uri, parseResult: d.parseResult, source: d.source })), [], "codesys")
+  return { docs, project }
+}
+const offsetOf = (src: string, needle: string) => src.indexOf(needle) + 1
+
+const BREADTH_CALLS = `FUNCTION_BLOCK FB_Worker
+VAR
+\tn : INT;
+END_VAR
+IMPLEMENTATION ST
+n := n + 1;
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Derived EXTENDS FB_Worker
+IMPLEMENTATION ST
+SUPER^();
+END_FUNCTION_BLOCK
+PROGRAM PRG_Tick
+IMPLEMENTATION ST
+;
+END_PROGRAM
+PROGRAM PRG_Main
+VAR
+\tone : FB_Worker;
+\tmany : ARRAY[1..2] OF FB_Worker;
+END_VAR
+IMPLEMENTATION ST
+one();
+many[1]();
+PRG_Tick();
+END_PROGRAM
+`
+
+test("B1/B2/B4: a call of an FB instance, of an array element instance, of SUPER^ is a call of the FB's body; a PROGRAM is callable", () => {
+  const { docs, project } = setupFiles({ "file:///calls.pou": BREADTH_CALLS })
+  const doc = docs[0]!
+  const worker = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "FB_Worker\nVAR"))!
+  expect(callIncoming(docs, project, worker.sym).map((c) => [c.item.name, c.ranges.length]).sort()).toEqual([["FB_Derived", 1], ["PRG_Main", 2]])
+  const tick = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "PRG_Tick\nIMPLEMENTATION"))
+  expect(tick?.item.name).toBe("PRG_Tick")
+  expect(callIncoming(docs, project, tick!.sym).map((c) => c.item.name)).toEqual(["PRG_Main"])
+  const main = prepareCallHierarchy(doc, project, offsetOf(BREADTH_CALLS, "PRG_Main"))!
+  expect(callOutgoing(doc, project, main.sym).map((c) => c.item.name).sort()).toEqual(["FB_Worker", "PRG_Tick"])
+})
+
+const PROPERTY = `FUNCTION F_Seven : INT
+IMPLEMENTATION ST
+F_Seven := 7;
+END_FUNCTION
+FUNCTION_BLOCK FB_P
+END_FUNCTION_BLOCK
+PROPERTY Level : INT
+GET
+IMPLEMENTATION ST
+Level := F_Seven();
+END_GET
+END_PROPERTY
+`
+
+test("B3: a call hierarchy prepares on a PROPERTY, its accessors' calls are its outgoing calls", () => {
+  const { docs, project } = setupFiles({ "file:///p.pou": PROPERTY })
+  const prep = prepareCallHierarchy(docs[0]!, project, offsetOf(PROPERTY, "Level : INT"))
+  expect(prep?.item.name).toBe("Level")
+  expect(callOutgoing(docs[0]!, project, prep!.sym).map((c) => c.item.name)).toEqual(["F_Seven"])
+})

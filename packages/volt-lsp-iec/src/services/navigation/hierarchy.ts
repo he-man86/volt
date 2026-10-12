@@ -4,9 +4,9 @@
  * the exact method symbol, so a same-named method on a DIFFERENT FB is NOT reported as a caller.
  */
 import type { Range, SymbolKind as LspKind } from "vscode-languageserver-protocol"
-import { type TopLevel, walkAllExprs } from "../../frontend/syntax/index.js"
-import { basesOf, childScopesByName, findScopeByName, lookup, lookupLocal, type Scope, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
-import { resolveMemberChain } from "../../frontend/types/index.js"
+import { type Expr, type TopLevel, walkAllExprs } from "../../frontend/syntax/index.js"
+import { basesOf, childScopesByName, findScopeByName, lookup, lookupLocal, lookupUnit, type Scope, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../../frontend/types/index.js"
 import { lspSymbolKind, rangeFromSpan, resolveAt } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 
@@ -96,7 +96,7 @@ export function callIncoming(docs: Iterable<Document>, project: Scope, target: S
       const callerSym = unitSymbol(unit, project)
       if (callerSym === undefined) continue
       walkAllExprs(statements, (e) => {
-        if (e.kind !== "call" || resolveMemberChain(e.callee, scope, project) !== target) return
+        if (e.kind !== "call" || calledSymbol(e.callee, scope, project) !== target) return
         const rec = byCaller.get(callerSym) ?? { item: itemOf(callerSym), ranges: [] }
         rec.ranges.push(rangeFromSpan(e.callee.span))
         byCaller.set(callerSym, rec)
@@ -113,7 +113,7 @@ export function callOutgoing(doc: Document, project: Scope, source: Symbol): Cal
     if (!("name" in unit) || unit.name.span !== source.span) continue // only the source POU's body
     walkAllExprs(statements, (e) => {
       if (e.kind !== "call") return
-      const callee = resolveMemberChain(e.callee, scope, project)
+      const callee = calledSymbol(e.callee, scope, project)
       if (callee === undefined || !isCallable(callee)) return
       const rec = byCallee.get(callee) ?? { item: itemOf(callee), ranges: [] }
       rec.ranges.push(rangeFromSpan(e.callee.span))
@@ -139,8 +139,30 @@ function isTypeLike(sym: Symbol): boolean {
   return sym.kind === "function_block" || sym.kind === "interface" || sym.kind === "program"
 }
 
+/**
+ * What a call RUNS (design.md §6): the callable its callee names — a FUNCTION, a METHOD, an ACTION, a PROGRAM (B2) — or,
+ * where the callee is a function block INSTANCE (a variable, a global, an array element: `inst()`, `GVL.inst()`,
+ * `SetError[1]()`, B1) or `SUPER^` / `THIS^` (B4), the body of that instance's function block.
+ */
+function calledSymbol(callee: Expr, scope: Scope, project: Scope): Symbol | undefined {
+  const named = resolveMemberChain(callee, scope, project)
+  if (named !== undefined && isCallable(named)) return named
+  // only a VARIABLE (an instance) or an element / a dereference (`many[1]`, `SUPER^`) can hold an instance; an operator
+  // or a standard function with no symbol (`MAX`, `ADR`) is no call of a body, and is not typed for nothing
+  const holder = named === undefined ? callee.kind === "index" || callee.kind === "deref" : INSTANCE_KINDS.has(named.kind)
+  if (!holder) return named
+  const t = inferExprType(callee, scope, project)
+  if (t.kind !== "function_block") return named
+  const unit = lookupUnit(scope, t.name)?.symbol
+  return unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") ? unit : named
+}
+
+/** The symbol kinds that hold an FB instance a call runs (`calledSymbol`). */
+const INSTANCE_KINDS: ReadonlySet<string> = new Set(["var", "gvl_var", "method_param"])
+
+/** What a call hierarchy prepares on: a callable — and a PROPERTY, whose accessors' bodies make its outgoing calls (B3). */
 function isCallable(sym: Symbol): boolean {
-  return sym.kind === "function_block" || sym.kind === "function" || sym.kind === "method" || sym.kind === "action"
+  return sym.kind === "function_block" || sym.kind === "function" || sym.kind === "method" || sym.kind === "action" || sym.kind === "program" || sym.kind === "property"
 }
 
 function unitSymbol(unit: TopLevel, project: Scope): Symbol | undefined {
