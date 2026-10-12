@@ -87,4 +87,5 @@ left, `probe-lowering-refusals.ts`, is a re-run measure the corpus suite names �
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
+| `bench-server.ts` | the running server's SCHEDULING over a corpus project as a VS Code-like client: crawl, one workspace diagnostics pass, 10 idle workspace pulls, one save (disk entries re-parsed, ms the loop is blocked, the re-pull), a hover behind a pull (openspec `lsp-server-scheduling` 0.1 / 3.1) |
 | `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (run by openspec `transpile-restructure` 4.1; named by `test/corpus/corpus-lowering.test.ts`) |
