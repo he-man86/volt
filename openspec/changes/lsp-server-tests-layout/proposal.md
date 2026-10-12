@@ -29,3 +29,20 @@ Output-neutral: no test is deleted or weakened — the same assertions, moved; t
 
 `packages/volt-lsp-iec` only (`src/server/**`, `test/lsp/`, `test/package/structure.test.ts`, `test/README.md`). No product
 code changes.
+
+## Widened (2026-10-12, owner: "this is the last messy part?")
+
+Measured over all of `src/`: 26 of the other 270 tests are named after no source file beside them.
+- **Same problem, in scope:** `services/` (not network) 9 — `services.test.ts` and `accessor-scope.test.ts` loose at the
+  `services/` root; `assist/assist.test`, `gvl-members`, `interface-members`, `structure/structure.test`,
+  `semantic-tokens-primitives`, `implementation-keyword-structure`, `navigation/references-type-positions` named after
+  topics; `workspace/` 2 — `dead-code-cache.test` and `incremental-index.test` test `workspace-store.ts` (moved there by
+  lsp-same-standard) under their old names; `test/` root — a loose `network-text-on.ts`, and `test/server/` (the harness)
+  beside the new `test/lsp/` (one root for the server as a client sees it).
+- **Deliberate topic suites, kept and allowlisted in the gate with their reason:** `transpile/pipeline/*.test.ts` (7, the
+  end-to-end pipeline per subject), `syntax/parse/fuzz.test.ts`, `lower/entry/totality.test.ts`,
+  `lower/diagnostics/classification.test.ts`.
+- **Out of scope (network text, until the LD/FBD change):** the 4 network-text tests.
+
+So the rule holds for the whole package: a colocated test is named after a source file beside it, unless it is a listed
+topic suite.
