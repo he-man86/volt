@@ -35,7 +35,7 @@ const manifest = (
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
 
 // The two ETRIGs are not the same function block: only one has `fromCbm`.
 const FILES = [
@@ -59,7 +59,7 @@ const membersSeenFrom = (project: ReturnType<typeof build.buildSymbolTable>, ask
 
 describe("a type name with two candidates", () => {
   test("resolves through the asking file's own library dependencies", () => {
-    const project = build.buildSymbolTable(FILES, MANIFESTS)
+    const project = build.buildSymbolTable(FILES, MANIFESTS, "codesys")
     expect(membersSeenFrom(project, `${LIB("CAA File")}/Reader.pou`)).toEqual(["fromcbm"])
     expect(membersSeenFrom(project, `${LIB("VisuUtils")}/Widget.pou`)).toEqual(["fromcbml"])
   })
@@ -68,27 +68,27 @@ describe("a type name with two candidates", () => {
     const project = build.buildSymbolTable(FILES, [
       ...MANIFESTS.slice(0, 2),
       manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"]),
-    ])
+    ], "codesys")
     expect(membersSeenFrom(project, `${LIB("CBML")}/Widget.pou`)).toEqual(["fromcbml"])
   })
 
   test("project source prefers a project type over any library's", () => {
     const own = file("file:///w/POUs/ETRIG.pou", "FUNCTION_BLOCK ETRIG\nVAR\n  fromProject : BOOL;\nEND_VAR\n")
-    const project = build.buildSymbolTable([...FILES, own], MANIFESTS)
+    const project = build.buildSymbolTable([...FILES, own], MANIFESTS, "codesys")
     expect(membersSeenFrom(project, "file:///w/POUs/App.pou")).toEqual(["fromproject"])
   })
 
   test("the answer does not depend on the order the files were bound", () => {
-    const forward = build.buildSymbolTable(FILES, MANIFESTS)
-    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
+    const forward = build.buildSymbolTable(FILES, MANIFESTS, "codesys")
+    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS, "codesys")
     for (const asker of [`${LIB("CAA File")}/Reader.pou`, `${LIB("VisuUtils")}/Widget.pou`])
       expect(membersSeenFrom(reverse, asker)).toEqual(membersSeenFrom(forward, asker))
     expect(membersSeenFrom(reverse, `${LIB("VisuUtils")}/Widget.pou`)).toEqual(["fromcbml"])
   })
 
   test("with no asker it is still stable — the same answer every time, just uninformed", () => {
-    const forward = build.buildSymbolTable(FILES, MANIFESTS)
-    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
+    const forward = build.buildSymbolTable(FILES, MANIFESTS, "codesys")
+    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS, "codesys")
     const anon = (p: ReturnType<typeof build.buildSymbolTable>) => {
       const t = resolveNamedType("ETRIG", p, undefined)
       return [...((t.kind === "function_block" ? t.scope : undefined)?.symbols.keys() ?? [])]
@@ -119,7 +119,7 @@ describe("a qualified type name", () => {
   const declared = (decl: string) => {
     const source = `FUNCTION_BLOCK FB_App\nVAR\n\tv : ${decl};\nEND_VAR\nEND_FUNCTION_BLOCK\n`
     const app = file("file:///w/POUs/FB_App.pou", source)
-    const project = build.buildSymbolTable([...ERRORS, app], LIBS)
+    const project = build.buildSymbolTable([...ERRORS, app], LIBS, "codesys")
     const unit = app.parseResult.units[0] as { varSections: { decls: { type: Parameters<typeof resolveTypeExpr>[0] }[] }[] }
     const t = resolveTypeExpr(unit.varSections[0]!.decls[0]!.type, project, 0, project, app.uri)
     return t.kind === "enum" ? [...(t.scope?.symbols.keys() ?? [])].sort() : t.kind
@@ -151,7 +151,7 @@ describe("a qualified type name", () => {
   test("a library namespace does not reach an APPLICATION type of the name", () => {
     const appEnum = file("file:///w/DUTs/AppEnum.dut", "TYPE AppEnum :\n(\n\tA_ONE := 1\n);\nEND_TYPE\n")
     const app = file("file:///w/POUs/FB_App.pou", "FUNCTION_BLOCK FB_App\nVAR\n\tv : Util.AppEnum;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
-    const project = build.buildSymbolTable([...ERRORS, appEnum, app], LIBS)
+    const project = build.buildSymbolTable([...ERRORS, appEnum, app], LIBS, "codesys")
     const unit = app.parseResult.units[0] as { varSections: { decls: { type: Parameters<typeof resolveTypeExpr>[0] }[] }[] }
     expect(resolveTypeExpr(unit.varSections[0]!.decls[0]!.type, project, 0, project, app.uri).kind).toBe("unknown")
   })
@@ -166,7 +166,7 @@ test("enumDefault answers the enum the qualified name resolved to, not the first
     file(`${LIB("B")}/E.dut`, "TYPE E :\n(\n\tP := 0,\n\tQ := 1\n);\nEND_TYPE\n"),
   ]
   const app = file("file:///w/POUs/FB_App.pou", "FUNCTION_BLOCK FB_App\nVAR\n\ta : A.E;\n\tb : B.E;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
-  const project = build.buildSymbolTable([...files, app], [manifest("A", "A", "A"), manifest("B", "B", "B")])
+  const project = build.buildSymbolTable([...files, app], [manifest("A", "A", "A"), manifest("B", "B", "B")], "codesys")
   const unit = app.parseResult.units[0] as { varSections: { decls: { type: Parameters<typeof resolveTypeExpr>[0] }[] }[] }
   const literal = (e: { kind: string; value?: unknown }) => (e.kind === "literal" || e.kind === "int_literal" ? BigInt(String((e as { raw?: string }).raw ?? e.value)) : undefined)
   const start = (i: number) => enumDefault(project, resolveTypeExpr(unit.varSections[0]!.decls[i]!.type, project, 0, project, app.uri), literal as never)
@@ -183,7 +183,7 @@ describe("a subrange in the Type", () => {
     const { renderType } = await import("./render.js")
     const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n\tN : INT := 10;\nEND_VAR\nVAR\n\tv : INT(0..N);\n\tw : UINT(1..10);\n\tx : STRING;\nEND_VAR\nx := v;\nx := w * 2;\nx := v + 1;\nEND_FUNCTION_BLOCK\n"
     const f = file("file:///p/F.pou", src)
-    const project = build.buildSymbolTable([f])
+    const project = build.buildSymbolTable([f], [], "codesys")
     const [body] = [...bodies(f.parseResult.units, project)]
     const types = body!.statements.map((s) => (s.kind === "assign" ? renderType(inferExprType(s.value, body!.scope, project), { form: "compiler" }) : ""))
     expect(types).toEqual(["INT (0..10)", "UINT", "INT"])
@@ -208,7 +208,7 @@ test("SIZEOF of a STRUCT or a UNION is a UINT; of an enum, an alias or an array 
         "x := SIZEOF(sv);\nx := SIZEOF(uv);\nx := SIZEOF(ev);\nx := SIZEOF(iv);\nx := SIZEOF(av);\nx := SIZEOF(bv);\nEND_FUNCTION_BLOCK\n",
     ),
   ]
-  const project = build.buildSymbolTable(files)
+  const project = build.buildSymbolTable(files, [], "codesys")
   const [body] = [...bodies(files.at(-1)!.parseResult.units, project)]
   const types = body!.statements.map((s) => (s.kind === "assign" ? renderType(inferExprType(s.value, body!.scope, project)) : ""))
   expect(types).toEqual(["UINT", "UINT", "USINT", "USINT", "USINT", "USINT"])
@@ -217,7 +217,7 @@ test("SIZEOF of a STRUCT or a UNION is a UINT; of an enum, an alias or an array 
 // ─── from types.test.ts (transpile-restructure 1.1.11) ───
 
 function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
 }
 
 test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {
@@ -245,7 +245,7 @@ test("an enum value is of the enum its own library declares, whatever order the 
     file(`${LIB("CBML")}/E_X.dut`, "TYPE E_X :\n(\n\tA,\n\tFROMCBML\n);\nEND_TYPE\n"),
   ]
   for (const files of [ENUMS, [...ENUMS].reverse()]) {
-    const project = build.buildSymbolTable(files, MANIFESTS)
+    const project = build.buildSymbolTable(files, MANIFESTS, "codesys")
     for (const [member, folder] of [["FROMCBM", "CAA Behaviour Model"], ["FROMCBML", "CBML"]] as const) {
       const owner = childScopesByName(project, "E_X").find((s) => s.defUri === `${LIB(folder)}/E_X.dut`)!
       const sym = lookupLocal(owner, member)[0]!

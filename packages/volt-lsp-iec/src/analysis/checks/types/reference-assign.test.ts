@@ -11,8 +11,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const codes = (body: string, code: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT; i : INT;\nEND_VAR\nVAR CONSTANT K : INT := 7;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === code)
     .map((d) => d.message)
@@ -50,8 +50,8 @@ test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
 
 test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nbound : REFERENCE TO INT;\nEND_VAR\nbound REF= 7;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch" || d.code.startsWith("reference-assign"))
     .map((d) => d.message)
@@ -62,8 +62,8 @@ test("a DECLARATION bound with REF= on a type that is no reference is refused, a
   // `decl_ref_init_on_value`, both vendors 2026-10-01; a REFERENCE TO bound so is fine (`refdecl_program_local`)
   const decl = (d: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n\tw : INT := 3;\n\t${d}\nEND_VAR\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.severity === "error")
       .map((x) => x.message)
@@ -89,8 +89,8 @@ test("TwinCAT words a literal REF= the other way round: reference to literal (cc
 /** Every error for `body` in an FB with `vars`. */
 const errorsOf = (vars: string, body: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
     .map((d) => d.message)
@@ -131,8 +131,8 @@ test("REF= judges a plain VARIABLE only: a call's result and a parenthesized var
 // subrange variable — the subrange in the rendered type made the two read as different types.
 test("a REFERENCE TO the base binds a subrange variable", () => {
   const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT(0..10);\n\tw : UINT(1..10);\n\trv : REFERENCE TO INT;\n\trw : REFERENCE TO UINT;\nEND_VAR\nrv REF= v;\nrw REF= w;\nEND_PROGRAM"
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
   const errors = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
   expect(errors.map((d) => d.message)).toEqual([])
 })
@@ -142,8 +142,8 @@ test("a REFERENCE TO the base binds a subrange variable", () => {
 // element is a subrange, keep the rendering compare they had before (none recorded; the fix claims nothing wider).
 test("the subrange is stripped from the bound variable's top-level type only", () => {
   const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT;\n\tw : INT(0..20);\n\tz : INT(0..10);\n\tau : ARRAY[0..2] OF INT(0..10);\n\trs : REFERENCE TO INT(0..10);\n\tra : REFERENCE TO ARRAY[0..2] OF INT;\nEND_VAR\nrs REF= v;\nrs REF= w;\nra REF= au;\nrs REF= z;\nEND_PROGRAM"
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
   const errors = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
   const lines = errors.map((d) => d.span.startLine)
   expect(lines).toEqual([10, 11, 12])

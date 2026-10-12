@@ -2,6 +2,7 @@ import { test, expect } from "bun:test"
 import { type ParseResult, parseDocument, parseSource, sourceStatements } from "../../frontend/syntax/index.js"
 import { formatDocument, formatOnType, formatRange } from "../index.js"
 import type { Document } from "../shared/index.js"
+import { TextDocument } from "vscode-languageserver-textdocument"
 
 /**
  * Normalize a parse result to a span-free / token-free shape, embedding each body's PARSED statement
@@ -39,9 +40,9 @@ function astEqual(a: ParseResult, b: ParseResult): void {
 }
 
 function roundtrips(src: string): void {
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const formatted = formatDocument(doc)
-  astEqual(doc.parseResult, parseSource(formatted, { networkText: true }))
+  astEqual(doc.parseResult, parseSource(formatted, { networkText: true }, "codesys"))
 }
 
 test("roundtrip: an instance's FB_Init arguments survive formatting", () => {
@@ -56,7 +57,7 @@ END_VAR
 END_PROGRAM
 `
   roundtrips(src)
-  expect(formatDocument({ uri: "file:///P.pou", source: src, parseResult: parseSource(src, { networkText: true }) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
+  expect(formatDocument({ uri: "file:///P.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
 })
 
 test("roundtrip: a mixed set/reset chain keeps each link's operator", () => {
@@ -160,8 +161,8 @@ VAR
 END_VAR
 a := a + 1;
 END_FUNCTION_BLOCK`
-  const once = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) })
-  const twice = formatDocument({ uri: "u", source: once, parseResult: parseSource(once, { networkText: true }) })
+  const once = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
+  const twice = formatDocument({ uri: "u", source: once, parseResult: parseSource(once, { networkText: true }, "codesys") })
   expect(twice).toBe(once)
 })
 
@@ -171,17 +172,17 @@ VAR
 	a : INT;
 END_VAR
 END_FUNCTION_BLOCK`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const spaced = formatDocument(doc, { insertSpaces: true, tabSize: 4 })
   expect(spaced).toContain("    a : INT;") // 4 spaces, no tab
   expect(spaced).not.toContain("\t")
   // still round-trips (indentation style doesn't change the AST)
-  expect(parseSource(spaced, { networkText: true }).errors).toEqual([])
+  expect(parseSource(spaced, { networkText: true }, "codesys").errors).toEqual([])
 })
 
 test("range formatting: only units intersecting the range are edited", () => {
   const src = `FUNCTION_BLOCK A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   // range covering only the first unit (lines 0-1)
   const edits = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } })
   expect(edits).toHaveLength(1)
@@ -190,7 +191,7 @@ test("range formatting: only units intersecting the range are edited", () => {
 
 test("on-type formatting: a newline inside a block indents to its depth", () => {
   const src = `PROGRAM P\nFOR i := 0 TO 10 DO\n\nEND_FOR\nEND_PROGRAM`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const edits = formatOnType(doc, { line: 2, character: 0 }, "\n") // the empty line inside FOR
   expect(edits).toHaveLength(1)
   expect(edits[0]?.newText).toBe("\t") // one level deep
@@ -200,7 +201,7 @@ test("on-type formatting: a newline inside a block indents to its depth", () => 
 
 test("on-type formatting: a block in a conditional branch the LSP cannot decide indents to its depth too", () => {
   const src = `PROGRAM P\n{IF defined (IsSimulationMode)}\nFOR i := 0 TO 10 DO\n\nEND_FOR\n{END_IF}\nEND_PROGRAM`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   expect(formatOnType(doc, { line: 3, character: 0 }, "\n").map((e) => e.newText)).toEqual(["\t"])
 })
 
@@ -215,13 +216,13 @@ test("on-type formatting: a block in a conditional branch the LSP cannot decide 
  */
 test("formatting keeps a declaration's REF=, which is a bind and not an assignment", () => {
   const src = `PROGRAM P\nVAR\n\tv : UDINT := 7;\n\tr : REFERENCE TO UDINT REF= v;\nEND_VAR\nr := 1;\nEND_PROGRAM\n`
-  const out = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) })
+  const out = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
   expect(out).toContain("REFERENCE TO UDINT REF= v")
   expect(out).not.toContain("REFERENCE TO UDINT := v")
   // and the ordinary initializer is untouched
   expect(out).toContain("v : UDINT := 7")
   // the round-trip the corpus gate makes over every file
-  expect(normalize(parseSource(out, { networkText: true }).units)).toEqual(normalize(parseSource(src, { networkText: true }).units))
+  expect(normalize(parseSource(out, { networkText: true }, "codesys").units)).toEqual(normalize(parseSource(src, { networkText: true }, "codesys").units))
 })
 
 /**
@@ -258,10 +259,10 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
     },
   }
   for (const [name, { src, kept }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
-    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }, "codesys"))
     // Range formatting prints the same units.
     const ranged = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: src.split("\n").length - 1, character: 0 } })
     for (const k of kept)
@@ -296,12 +297,12 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
     },
   }
   for (const [name, { src, kept, gone }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
     expect({ name, errors: doc.parseResult.errors }).toEqual({ name, errors: [] })
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
     for (const g of gone) expect({ name, out, gone: !out.includes(g) }).toEqual({ name, out, gone: true })
-    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }, "codesys"))
   }
 })
 
@@ -317,7 +318,7 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
     "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
   }
   for (const [name, src] of Object.entries(cases)) {
-    const out = formatDocument({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) })
+    const out = formatDocument({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
     expect({ name, out, blankLine: /(IMPLEMENTATION [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
       name,
       out,
@@ -335,10 +336,10 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
 test("formatting keeps a comment or pragma between the declaration and the IMPLEMENTATION line", () => {
   for (const between of ["{warning 'keep'}", "// keep me", "(* keep me *)"]) {
     const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
-    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
     const out = formatDocument(doc)
     expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
-    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }, "codesys"))
   }
 })
 
@@ -373,12 +374,12 @@ test("formatting keeps a `__VECTOR` as a vector, with its size or without", () =
 // declaration to the vendor — so the formatter writes the form back as it was, operator-less.
 test("formatting keeps an FB array's bracket list without `:=`", () => {
   const src = "PROGRAM P\nVAR\n\tfbs : ARRAY[0..1] OF FB_X [(x := 1), (x := 2)];\n\tn : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n"
-  const doc: Document = { uri: "file:///x/P.pou", source: src, parseResult: parseDocument("file:///x/P.pou", src, { networkText: true }) }
+  const doc: Document = { uri: "file:///x/P.pou", source: src, parseResult: parseDocument("file:///x/P.pou", src, { networkText: true }, "codesys") }
   expect(doc.parseResult.errors).toEqual([])
   const out = formatDocument(doc)
   expect(out).not.toContain(":= [")
   expect(out).toContain("fbs : ARRAY[0..1] OF FB_X [")
-  expect(parseSource(out, { networkText: true }).units[0]).toMatchObject({ varSections: [{ decls: [{ initOp: "FB_Init" }, {}] }] })
+  expect(parseSource(out, { networkText: true }, "codesys").units[0]).toMatchObject({ varSections: [{ decls: [{ initOp: "FB_Init" }, {}] }] })
 })
 
 // conformance 2.4 (`fixtures/grammar/units.ts`): the printer wrote a header from flags in a fixed order and dropped what
@@ -424,7 +425,7 @@ STRUCT
 END_STRUCT
 END_TYPE`
   roundtrips(src)
-  const doc: Document = { uri: "file:///S.dut", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///S.dut", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   expect(formatDocument(doc)).toContain("TYPE S EXTENDS Base :\nSTRUCT\n")
   roundtrips(`TYPE A EXTENDS S : INT := 5;
 END_TYPE`)
@@ -466,6 +467,124 @@ END_VAR
 n := 1;
 END_FUNCTION_BLOCK`
   roundtrips(src)
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   expect(formatDocument(doc)).not.toContain("END_NAMESPACE")
+})
+
+/**
+ * RANGE FORMATTING EDITS EXACTLY THE TEXT IT REPRINTS (lsp-same-standard 3.1, finding R2). A unit's span ends with its
+ * body, BEFORE its `END_…` keyword, while the printer writes that keyword — so the edit over `unit.span` left the
+ * source's own `END_FUNCTION_BLOCK` behind the reprinted one: Format Selection, and on-type formatting (which ran it on
+ * every `;`), appended an `END_…` per use. The rule: applying a range edit to the formatter's own output changes nothing.
+ */
+test("range formatting: applying the edits to formatted text changes nothing, for every unit kind", () => {
+  const units = [
+    "{attribute 'qualified_only'}\nFUNCTION_BLOCK FB_A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK",
+    "FUNCTION F_B : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_B := x;\nEND_FUNCTION",
+    "PROGRAM P_C\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_PROGRAM",
+    "INTERFACE I_D\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE",
+    "TYPE E_E :\n(\n\tA,\n\tB\n);\nEND_TYPE",
+    "TYPE S_F :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE",
+    "VAR_GLOBAL\n\tg : INT;\nEND_VAR",
+  ]
+  for (const unit of units) {
+    const formatted = formatDocument({ uri: "u", source: unit, parseResult: parseSource(unit, { networkText: true }, "codesys") })
+    const doc: Document = { uri: "u", source: formatted, parseResult: parseSource(formatted, { networkText: true }, "codesys") }
+    const lines = formatted.split("\n").length
+    for (const range of [
+      { start: { line: 0, character: 0 }, end: { line: lines, character: 0 } }, // the whole file
+      { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } }, // one line inside the unit
+    ]) {
+      const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, formatted), formatRange(doc, range))
+      expect(applied).toBe(formatted)
+    }
+  }
+})
+
+test("range formatting: a file of several units keeps every other unit and each END_ keyword once", () => {
+  const src = "FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni:=1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 5, character: 0 }, end: { line: 5, character: 5 } }))
+  expect(applied).toBe("FUNCTION_BLOCK A\nVAR\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")
+})
+
+/**
+ * FORMATTING DELETES NO COMMENT (lsp-same-standard 3.2 review). A unit is reprinted from its AST, which holds no
+ * comments: every comment in a declaration (`i : INT; // counter`, a STRUCT member's, a GVL's) and every comment between
+ * two units (`(* doc for B *)`) was deleted by Format Document and Format Selection — the corpus gate compares the AST,
+ * which carries none, so it could not see it. A unit whose declaration holds commentary the printer would not write
+ * back is kept as written (the rule a commented body already follows); what stands between units is kept as written.
+ */
+test("formatting keeps every comment in a declaration and between units, for the document and a range", () => {
+  const cases: [string, string, string[]][] = [
+    ["an FB's VAR comments", "FUNCTION_BLOCK A\nVAR\n\ti : INT; // counter\n\t(* the limit *)\n\tj : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := 1;\nEND_FUNCTION_BLOCK\n", ["// counter", "(* the limit *)"]],
+    ["a STRUCT member's comment", "TYPE S :\nSTRUCT\n\tx : INT; // x pos\nEND_STRUCT\nEND_TYPE\n", ["// x pos"]],
+    ["a GVL's comment", "VAR_GLOBAL\n\tg : INT; // note\nEND_VAR\n", ["// note"]],
+    ["a header comment", "(* file header *)\nFUNCTION_BLOCK A\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", ["(* file header *)"]],
+    [
+      "a comment between units",
+      "FUNCTION_BLOCK A\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n(* doc for B *)\nFUNCTION_BLOCK B\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n// trailing\n",
+      ["(* doc for B *)", "// trailing"],
+    ],
+  ]
+  for (const [name, src, comments] of cases) {
+    const doc: Document = { uri: "u.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+    const whole = formatDocument(doc)
+    const lines = src.split("\n").length
+    const ranged = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: lines, character: 0 } }))
+    for (const c of comments) {
+      expect({ name, c, whole, kept: whole.includes(c) }).toEqual({ name, c, whole, kept: true })
+      expect({ name, c, ranged, kept: ranged.includes(c) }).toEqual({ name, c, ranged, kept: true })
+    }
+    astEqual(doc.parseResult, parseSource(whole, { networkText: true }, "codesys"))
+    expect({ name, idempotent: formatDocument({ uri: "u.pou", source: whole, parseResult: parseSource(whole, { networkText: true }, "codesys") }) }).toEqual({ name, idempotent: whole })
+  }
+})
+
+// A CRLF file's line comment is lexed with its `\r`, which the printer does not write: compared as lexed, a comment the
+// reprint DOES keep (`METHOD M : BOOL // …` before its IMPLEMENTATION line) read as dropped, the unit was kept as
+// written on the first pass and reprinted on the second — the formatter was not idempotent on three corpus files.
+test("formatting a CRLF file decides each unit as its LF form does", () => {
+  const src = "METHOD PUBLIC ABSTRACT Reset : BOOL\t// Returns true when homing done\nIMPLEMENTATION NONE\nEND_METHOD\n"
+  const fmt = (s: string) => formatDocument({ uri: "u.pou", source: s, parseResult: parseSource(s, { networkText: true }, "codesys") })
+  expect(fmt(src.replace(/\n/g, "\r\n"))).toBe(fmt(src))
+})
+
+/**
+ * RANGE FORMATTING WRITES THE FILE'S OWN LINE ENDING. The reprinted unit is LF inside a range bounded by CRLF text, so a
+ * Format Selection on a CRLF file left it with mixed endings — the kind of file whose blank lines the push writes into the
+ * IDE body (`verbatimText`). A CRLF file stays CRLF.
+ */
+test("range formatting a CRLF file leaves no mixed line endings", () => {
+  const src = "FUNCTION_BLOCK A\r\nVAR\r\n\ti : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\ni:=1;\r\nEND_FUNCTION_BLOCK\r\nFUNCTION_BLOCK B\r\nIMPLEMENTATION ST\r\n;\r\nEND_FUNCTION_BLOCK\r\n"
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const applied = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 5, character: 0 }, end: { line: 5, character: 2 } }))
+  expect(applied).toBe(src.replace("i:=1;", "i := 1;"))
+})
+
+// An attribute the unit carries from INSIDE it (an interface property's `{attribute}`) is no start of the unit's text:
+// taken as one, the edit began inside the unit and the source's own `INTERFACE I` header stayed beside the reprinted one.
+test("formatting an interface whose member carries an attribute keeps one header, for the document and a range", () => {
+  const src = "INTERFACE I\n{attribute 'monitoring':='call'}\nPROPERTY P : INT\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n"
+  const doc: Document = { uri: "u.itf", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const ranged = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 8, character: 0 } }))
+  for (const out of [formatDocument(doc), ranged]) expect({ out, headers: out.match(/INTERFACE I\b/g)?.length }).toEqual({ out, headers: 1 })
+})
+
+test("formatting keeps an interface member's attribute on the member, for the document and a range", () => {
+  // The parser attaches a member's `{attribute}` to the INTERFACE; the reprint wrote it above `INTERFACE`, where it
+  // applies to the interface (5 pro2193 `.itf` files). Neither the commentary check nor the AST gate sees the move.
+  const src = "INTERFACE I\n{attribute 'monitoring':='call'}\nPROPERTY P : INT\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n"
+  const doc: Document = { uri: "u.itf", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const ranged = TextDocument.applyEdits(TextDocument.create("u", "st", 1, src), formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 8, character: 0 } }))
+  for (const out of [formatDocument(doc), ranged]) {
+    expect({ out, attributeAfterHeader: out.indexOf("{attribute") > out.indexOf("INTERFACE I") }).toEqual({ out, attributeAfterHeader: true })
+  }
+})
+
+test("formatting keeps a declaration comment whose text also stands in a string literal", () => {
+  // `dropsCommentary` searched the printed text with indexOf, so the string literal stood in for the dropped comment
+  const src = "PROGRAM P\nVAR\n\ti : INT; // TODO\nEND_VAR\nIMPLEMENTATION ST\ns := '// TODO';\nEND_PROGRAM\n"
+  const doc: Document = { uri: "P.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  expect(formatDocument(doc)).toContain("i : INT; // TODO")
 })

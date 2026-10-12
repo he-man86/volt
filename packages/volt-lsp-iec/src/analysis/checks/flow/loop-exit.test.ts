@@ -10,8 +10,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const diag = (decls: string, body: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 const codes = (decls: string, body: string): string[] => diag(decls, body).map((d) => d.code)
@@ -53,8 +53,8 @@ test("a bound beyond the counter that needs a wider type, or a typed constant, k
   expect(codes(decls, "FOR i := 0 TO 70000 DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
   const constants = (body: string): string[] => {
     const src = `PROGRAM PLC_PRG\nVAR CONSTANT\n cMax : DINT := 40000;\n cB : INT := 300;\nEND_VAR\nVAR\n i : INT;\n bt : BYTE;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
   }
   // …and a typed constant wider than the counter does not convert into it (`for_limit_wider_than_counter_dint_constant`:

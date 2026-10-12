@@ -129,7 +129,7 @@ test("…and as a bare conversion's argument it is converted to ANY, while the c
 
 /** The "no component" errors of one object's source, alone in its project. */
 function componentErrors(src: string): string[] {
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "X.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "typed-literal")

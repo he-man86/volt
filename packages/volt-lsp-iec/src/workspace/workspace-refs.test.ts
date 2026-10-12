@@ -197,3 +197,17 @@ test("a workspace with no .projectsettings leaves the editor's settings alone", 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// lsp-same-standard 3.1, finding R15: `volt init` makes the workspace root a git repository, and the scan walked `.git`
+// too — every object, on every watched-file event — though nothing in it is an item of the workspace.
+test("the scan never reads under `.git`", () => {
+  const ws = mkdtempSync(join(tmpdir(), "volt-gitdir-"))
+  try {
+    mkdirSync(join(ws, ".git", "volt"), { recursive: true })
+    writeFileSync(join(ws, ".git", "volt", "Stray.pou"), "PROGRAM Stray\nEND_PROGRAM")
+    writeFileSync(join(ws, "P.pou"), "PROGRAM P\nEND_PROGRAM")
+    expect(scanWorkspace(ws).sources.map((s) => s.path)).toEqual([join(ws, "P.pou")])
+  } finally {
+    rmSync(ws, { recursive: true, force: true })
+  }
+})

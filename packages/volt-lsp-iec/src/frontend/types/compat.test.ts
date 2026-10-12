@@ -5,7 +5,7 @@ import { build, type Scope } from "../symbols/index.js"
 import { classifyConversion, elementaryType, isAssignable, resolveNamedType, type Type, UNKNOWN } from "./index.js"
 
 function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
 }
 
 const E_PLAIN = "TYPE E :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"

@@ -52,8 +52,7 @@ export const CEILINGS: Readonly<Record<string, number>> = {
   "src/frontend/types/const/fold.ts": 704,
   "src/frontend/types/infer/expr.ts": 426,
   "src/server/server.test.ts": 910,
-  "src/server/server.ts": 623,
-  "src/services/formatting/print.ts": 451,
+  "src/server/server.ts": 617,
   "src/services/network/network.test.ts": 1213, // LD/FBD change
   "test/analysis/census.ts": 723,
   "test/baseline/baseline.ts": 1041,
@@ -121,7 +120,7 @@ export const FUNCTION_CEILINGS: Readonly<Record<string, number>> = {
   "src/frontend/syntax/pragmas/conditional.ts#parseCondition": 129,
   "src/frontend/syntax/pragmas/conditional.ts#evaluateCondition": 107,
   "src/frontend/types/infer/expr.ts#inferExprType": 109,
-  "src/server/server.ts#runServer": 486,
+  "src/server/server.ts#runServer": 452,
   "src/transpile/lower/storage/layout.ts#buildLayout": 86,
   "test/frontend/bound-census.ts#boundCensus": 393,
   "test/frontend/bound-census.ts#known": 276,

@@ -26,12 +26,12 @@ END_FUNCTION
 `
 
 function obs(src: string, state: DiagnosticState = "warning") {
-  const parseResult = parseSource(src, { networkText: true })
-  const old = parseSource(OLD, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const old = parseSource(OLD, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "F.pou", parseResult, source: src },
     { uri: "Old.pou", parseResult: old, source: OLD },
-  ])
+  ], [], "codesys")
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "obsolete-usage": state } })
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config }).filter((d) => d.code === "obsolete-usage")
 }

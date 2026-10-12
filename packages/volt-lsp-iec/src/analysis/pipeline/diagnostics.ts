@@ -19,7 +19,7 @@ export interface DiagnosticsArgs {
   source: string
   project: Scope
   /** Resolved config, or raw init options (resolved here). */
-  config?: ResolvedConfig | AnalysisInitOptions
+  config: ResolvedConfig | AnalysisInitOptions
   /** The document's URI, so a type name resolves the way it does for the file that wrote it. */
   uri: string
   /** Run only the checks of these groups (unset: every check). */
@@ -27,8 +27,8 @@ export interface DiagnosticsArgs {
 }
 
 export function computeDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
-  const config = isResolved(args.config) ? args.config : resolveConfig(args.config)
-  // ONE VENDOR PER ANALYSIS, and it has to reach the SYMBOL TABLE too. `buildSymbolTable`'s dialect defaults to
+  const config = resolveConfig(args.config) // idempotent on a resolved config
+  // ONE VENDOR PER ANALYSIS, and it has to reach the SYMBOL TABLE too. `buildSymbolTable`'s dialect defaulted to
   // codesys, which is the kind of quiet default this repo does not keep: the SERVER never passed it, so
   // `project.dialect` was codesys on a TwinCAT workspace and every branch reading it — `resolveNamedType`'s
   // CODESYS-only elementary types, `resolution.ts`'s cascade gate — was dead in production while the conformance
@@ -124,8 +124,4 @@ if (CHECK_TIMING !== undefined) {
         .map(([check, ms]) => ({ check, ms: Math.round(ms) })),
     ),
   )
-}
-
-function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
-  return c !== undefined && "warnings" in c && typeof (c as ResolvedConfig).vendor === "string"
 }

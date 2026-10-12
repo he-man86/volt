@@ -13,7 +13,7 @@ const NO_COMPILE_DEFINES: ConditionWorld = { project: { defines: new Set() } }
 /** The statements a METHOD body compiles under its conditional pragmas, as their source text — or the refusal. */
 function kept(body: string, world: ConditionWorld = NO_COMPILE_DEFINES): string[] | string {
   const source = `FUNCTION_BLOCK FB\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\n${body}\nEND_METHOD\n`
-  const unit = parseSource(source, { networkText: true }).units[1]
+  const unit = parseSource(source, { networkText: true }, "codesys").units[1]
   if (unit?.kind !== "method") throw new Error("no method")
   const parsed = bodyStatements(unit.body, world)
   if (parsed.refused !== undefined) return parsed.refused
@@ -23,7 +23,7 @@ function kept(body: string, world: ConditionWorld = NO_COMPILE_DEFINES): string[
 /** A METHOD whose body is `body`, and its source. */
 function methodOf(body: string) {
   const source = `FUNCTION_BLOCK FB\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\n${body}\nEND_METHOD\n`
-  const unit = parseSource(source, { networkText: true }).units[1]
+  const unit = parseSource(source, { networkText: true }, "codesys").units[1]
   if (unit?.kind !== "method") throw new Error("no method")
   return { source, body: unit.body }
 }
@@ -98,7 +98,7 @@ describe("conditional pragmas", () => {
   test("a message pragma is said only where a statement may start, and only in a branch taken (prag_warning_*)", () => {
     const messages = (body: string): string[] => {
       const source = `FUNCTION_BLOCK FB\nVAR n : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK\n`
-      const unit = parseSource(source, { networkText: true }).units[0]
+      const unit = parseSource(source, { networkText: true }, "codesys").units[0]
       if (unit?.kind !== "function_block") throw new Error("no FB")
       return bodyStatements(unit.body!).messages.map((m) => `${m.severity}:${m.text}`)
     }
@@ -224,7 +224,7 @@ describe("a question the world cannot answer is refused, never defaulted (fronte
     )
     const undecided = (body: string) => {
       const source = `FUNCTION_BLOCK FB\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\n${body}\nEND_METHOD\n`
-      const unit = parseSource(source, { networkText: true }).units[1]
+      const unit = parseSource(source, { networkText: true }, "codesys").units[1]
       if (unit?.kind !== "method") throw new Error("no method")
       const parsed = bodyStatements(unit.body, NO_COMPILE_DEFINES)
       return { parsed, text: parsed.statements.map((s) => source.slice(s.span.start, s.span.end).trim()) }

@@ -1,5 +1,6 @@
 import { statSync } from "node:fs"
 import { join } from "node:path"
+import { voltStateDir } from "../bridge/health.js"
 
 // The kind-named writable-source extensions (POU/DUT/GVL/interface, textual or editable graphical).
 // Every POU is `pou` and every DUT `dut` whatever their text says, and the file name IS the wire name. Bare (no leading dot), matching
@@ -22,11 +23,12 @@ export function isPouFile(path: string): boolean {
 	return SOURCE_EXTENSIONS.has(path.slice(dot + 1))
 }
 
-/** Last sync activity = mtime of the git-native IDE baseline (.git/volt/ide-refs.json), bumped on every
- *  pull/push. 0 when the workspace has never synced. */
+/** Last sync activity = mtime of the git-native IDE baseline (`<git dir>/volt/ide-refs.json`, `voltStateDir`), bumped on
+ *  every pull/push. 0 when the workspace has never synced. */
 export function readStateMtime(workspaceRoot: string): number {
 	try {
-		return statSync(join(workspaceRoot, ".git", "volt", "ide-refs.json")).mtimeMs
+		const dir = voltStateDir(workspaceRoot)
+		return dir === undefined ? 0 : statSync(join(dir, "ide-refs.json")).mtimeMs
 	} catch {
 		return 0
 	}

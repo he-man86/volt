@@ -30,7 +30,7 @@ test("indexable bases stay quiet (0-FP): arrays, pointers, strings", () => {
 test("C0126: a pointer indexed with a count other than 1 is flagged; one index is fine", () => {
   const run = (body: string) => {
     const src = `PROGRAM PLC_PRG\nVAR\n  pt : POINTER TO INT; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "pointer-index-arity")
@@ -43,7 +43,7 @@ test("C0126: a pointer indexed with a count other than 1 is flagged; one index i
 test("C0048: a multi-dim array indexed with the wrong number of indices is flagged", () => {
   const run = (decl: string, body: string) => {
     const src = `FUNCTION_BLOCK F\nVAR ${decl} i : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "array-index-count")

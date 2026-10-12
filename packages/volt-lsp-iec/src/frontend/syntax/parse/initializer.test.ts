@@ -8,7 +8,7 @@ import { parseSource, type AggregateInit, type AggregateElement } from "../index
 
 function agg(init: string): AggregateInit {
   const src = `PROGRAM P\nVAR\n  x : T := ${init};\nEND_VAR\nEND_PROGRAM`
-  const unit = parseSource(src, { networkText: true }).units[0]
+  const unit = parseSource(src, { networkText: true }, "codesys").units[0]
   if (unit === undefined || !("varSections" in unit)) throw new Error("expected a POU with a var section")
   const decl = unit.varSections[0].decls[0].init
   if (decl?.kind !== "aggregate_init") throw new Error(`expected an aggregate init, got ${decl?.kind}`)
@@ -96,7 +96,7 @@ test("a struct field's name(…) is its call, not a repeat", () => {
 // transpile-restructure 6.B.5) — it was refused "';' expected instead of '__XINT_TO_DINT'". An unknown `__` name still is.
 test("an initializer leading with a platform conversion parses as a call; an unknown __ name is still refused", () => {
   const errors = (init: string) =>
-    parseSource(`FUNCTION_BLOCK FB\nVAR\n  d : LINT := ${init};\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }).errors.map((e) => e.message)
+    parseSource(`FUNCTION_BLOCK FB\nVAR\n  d : LINT := ${init};\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }, "codesys").errors.map((e) => e.message)
   expect(errors("__XINT_TO_DINT(7)")).toEqual([])
   expect(errors("__UXINT_TO_UDINT(7)")).toEqual([])
   expect(errors("__XWORD_TO_DWORD(7)")).toEqual([])

@@ -16,8 +16,8 @@ const missing = (src0: string, instanced = true): string[] => {
   const fbs = [...src0.matchAll(/^FUNCTION_BLOCK (?:ABSTRACT )?(\w+)/gm)].map((m) => m[1])
   const vars = instanced ? fbs.map((n, i) => `\tinst${i} : ${n};`).join("\n") : ""
   const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "missing-interface-implementation")
     .map((d) => d.message)

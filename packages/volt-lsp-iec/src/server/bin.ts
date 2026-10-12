@@ -19,13 +19,19 @@ function main(argv: readonly string[]): number | undefined {
     return 0
   }
   if (argv.includes("--stdio")) {
-    const vendor: Vendor = argv.includes("--twincat") ? "twincat" : "codesys"
+    // The client's flag, when it states one; none ⇒ the server reads the workspace binding at `initialize` (`vendor.ts`).
+    const flags = (["codesys", "twincat"] as const).filter((v) => argv.includes(`--${v}`))
+    if (flags.length > 1) {
+      console.error("volt-lsp-iec: --codesys and --twincat are exclusive")
+      return 1
+    }
+    const flag: Vendor | undefined = flags[0]
     // Version precedence: an explicit `--server-version <v>` from the client (the VS Code extension passes its
     // own version — the meaningful identity when the server runs under the editor's node), else the version baked
     // into this binary at compile time, else "(dev)".
     const vi = argv.indexOf("--server-version")
     const version = vi >= 0 && vi + 1 < argv.length ? argv[vi + 1] : shippedVersion()
-    runServer(process.stdin, process.stdout, vendor, version)
+    runServer(process.stdin, process.stdout, flag, version)
     return undefined // server owns the event loop; do not exit
   }
   console.error("usage: volt-lsp-iec --stdio [--codesys|--twincat]")

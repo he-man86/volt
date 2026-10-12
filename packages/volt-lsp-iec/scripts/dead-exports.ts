@@ -190,7 +190,7 @@ export const DEAD_EXPORT_ALLOWLIST: readonly string[] = [
   "staticOf src/frontend/types/infer/member.ts",
   "VoltDiagnostic src/server/diagnostics.ts",
   "normalizeKey src/workspace/workspace-store.ts",
-  "FormatOptions src/services/formatting/print.ts",
+  "FormatOptions src/services/formatting/format.ts",
   "CallRef src/services/navigation/hierarchy.ts",
   "TypeNameRef src/services/navigation/type-refs.ts",
   "resolveAnywhere src/services/network/network-services.ts", // LD/FBD change

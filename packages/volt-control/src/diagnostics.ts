@@ -73,11 +73,11 @@ function resolveServer(workspaceRoot: string): string | undefined {
 
 /**
  * Spawn volt-lsp-iec, pull workspace diagnostics, and aggregate per-file error/warning counts.
- * Throws only if the server module can't be found or the request times out (the caller shows that).
+ * Throws if the server module can't be found, the server refuses the workspace (unbound — it names `volt init --vendor`),
+ * or the request times out (the caller shows that).
  */
 export async function collectDiagnostics(
   workspaceRoot: string,
-  vendor: "codesys" | "twincat" = "codesys",
   opts: { timeoutMs?: number } = {},
 ): Promise<DiagnosticsResult> {
   const server = resolveServer(workspaceRoot)
@@ -85,7 +85,8 @@ export async function collectDiagnostics(
 
   // A `.js` server runs via the host runtime (ELECTRON_RUN_AS_NODE); a compiled `.exe` (the desktop install
   // ships volt-lsp-iec.exe) spawns directly. Same .js/.exe split as the CLI spawn.
-  const lspArgs = ["--stdio", vendor === "twincat" ? "--twincat" : "--codesys"]
+  // No vendor flag: the server reads the workspace's binding itself and refuses an unbound one (volt-lsp-iec `server/vendor.ts`).
+  const lspArgs = ["--stdio"]
   const asNode = server.toLowerCase().endsWith(".js")
   const child = spawn(asNode ? process.execPath : server, asNode ? [server, ...lspArgs] : lspArgs, {
     // Capture stderr, don't discard it: a server that can't launch or crashes on startup must SURFACE its reason,
@@ -130,7 +131,6 @@ export async function collectDiagnostics(
         processId: process.pid,
         rootUri: pathToFileURL(workspaceRoot).toString(),
         capabilities: { workspace: { diagnostics: { refreshSupport: false } } },
-        initializationOptions: { vendor },
       })
       conn.sendNotification(InitializedNotification.type, {}) // triggers the server's workspace crawl (sync)
       const report = await conn.sendRequest(WorkspaceDiagnosticRequest.type, { previousResultIds: [] })

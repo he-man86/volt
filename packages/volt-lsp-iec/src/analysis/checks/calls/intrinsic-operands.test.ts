@@ -11,8 +11,8 @@ const run =
   (code: string) =>
   (body: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n i:INT; pt:POINTER TO INT; b:BIT; sv:STRING; rv:REAL;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)
@@ -39,8 +39,8 @@ test("C0355: ADR of a BIT variable is flagged (warning); ADR of a non-BIT is not
 test("C0072 BitAdr: refused on an unlocated BOOL; a BOOL located at a bit address is BITADR's operand (ar_bitadr_type)", () => {
   const op = (vars: string, body: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n${vars}\n addr : DWORD;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "operator-not-possible")
       .map((d) => d.message)
@@ -68,8 +68,8 @@ test("C0072: a math operator on a non-numeric type is flagged; on a numeric type
 test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid ones are not", () => {
   const qp = (body: string) => {
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; pt:POINTER TO FB; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-pointer-operand")
       .map((d) => d.message)
@@ -83,8 +83,8 @@ test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid 
 test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; valid ones are not", () => {
   const qi = (body: string) => {
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; itf2:ITF; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-interface-operand")
       .map((d) => d.message)
@@ -98,8 +98,8 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
 test("__QueryInterface / __QueryPointer with ONE operand: the operand count alone, no operand-kind message (lex_keyword_called_sys_queryinterface, _querypointer)", () => {
   // CODESYS 2026-10-02: `__queryinterface(n);` is "'__QUERYINTERFACE' needs exactly '2' operands" and nothing else
   const src = `FUNCTION_BLOCK F\nVAR\n n:INT;\nEND_VAR\n__queryinterface(n);\n__querypointer(n);\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "operator-operand-count" || d.code === "query-interface-operand" || d.code === "query-pointer-operand")
     .map((d) => d.message)

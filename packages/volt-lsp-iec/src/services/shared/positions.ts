@@ -1,7 +1,7 @@
 /**
- * Position math (Layer E · shared). Converts between our `Span` (1-based line / 0-based col + byte
- * offsets) and LSP `Range`/`Position` (0-based). ponytail: `Position.character` is treated as a byte
- * offset — correct for ASCII ST code (practically all PLC source); revisit only for multibyte identifiers.
+ * Position math (Layer E · shared). Converts between our `Span` (1-based line / 0-based col + string offsets) and LSP
+ * `Range`/`Position` (0-based). A column and an offset count UTF-16 code units — a JS string index, as the lexer counts —
+ * which is LSP's default position encoding, the one this server (negotiating none) speaks.
  */
 import type { Position, Range } from "vscode-languageserver-protocol"
 import {
@@ -35,6 +35,20 @@ export function offsetFromPosition(src: string, pos: Position): number {
     }
   }
   return line === pos.line && col === pos.character ? src.length : -1
+}
+
+/** LSP position → offset in `src`, clamped as LSP says: a character past its line's end is the line's end, a line past
+ *  the last is the end of the text. For a RANGE's ends, where a client may name the whole document. */
+export function clampedOffset(src: string, pos: Position): number {
+  let lineStart = 0
+  for (let line = 0; line < pos.line; line++) {
+    const nl = src.indexOf("\n", lineStart)
+    if (nl < 0) return src.length
+    lineStart = nl + 1
+  }
+  const nl = src.indexOf("\n", lineStart)
+  const lineEnd = nl < 0 ? src.length : nl
+  return Math.min(lineStart + pos.character, lineEnd)
 }
 
 /**

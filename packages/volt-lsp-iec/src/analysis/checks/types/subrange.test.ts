@@ -26,7 +26,7 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
 
 test("an assignment INSIDE the subrange is silent", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 50;\nEND_METHOD`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })

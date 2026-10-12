@@ -41,7 +41,7 @@ test("lowering binds every positional argument as resolveCallee does", () => {
   for (const t of ALL_TESTS) {
     const { source, gvls } = assembleFixture(t, ALL_TESTS)
     if (lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou === undefined) continue
-    const parseResult = parseSource(source, TRANSPILE_PARSE)
+    const parseResult = parseSource(source, TRANSPILE_PARSE, "codesys")
     const read = readFiles(gvls)
     if ("unparsed" in read) {
       unread.push(t.name) // lowering read them; this comparison must too

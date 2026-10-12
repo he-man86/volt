@@ -36,7 +36,7 @@ test("all six relational operators are covered", () => {
 test("C0068/C0069: comparing arrays is flagged (same type → one, different → two)", () => {
   const src = (d: string) => `PROGRAM PLC_PRG\nVAR\n  b : BOOL; a1 : ARRAY[1..2] OF INT; a2 : ARRAY[1..2] OF INT; a3 : ARRAY[1..3] OF INT;\nEND_VAR\n${d}\nEND_PROGRAM`
   const run = (d: string) => {
-    const pr = parseSource(src(d), { networkText: true })
+    const pr = parseSource(src(d), { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(d) }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(d), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.code.startsWith("compare-array"))
@@ -54,7 +54,7 @@ test("C0354: comparing two different enumeration types is flagged; same-enum and
   const enums = `TYPE ENUM1 : (A, B); END_TYPE\nTYPE ENUM2 : (X, Y); END_TYPE\n`
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; e1 : ENUM1; ea : ENUM1; e2 : ENUM2; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
@@ -71,7 +71,7 @@ test("C0354 upper-cases both names, skips two enum VALUES, and treats a re-cased
   const enums = `TYPE E_Cmp_A : (A0, A1); END_TYPE\nTYPE E_Cmp_B : (B0, B1); END_TYPE\n`
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; ea : E_Cmp_A; eb : E_Cmp_B; ec : e_cmp_a;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
@@ -134,7 +134,7 @@ test("a pointer against an integer on the 64-bit target: 32 bits refused, a sign
 test("C0068: two arrays are one type by their FOLDED bounds, each named as the compiler echoes its bounds (cmpop_array_bound_*)", () => {
   const run = (decls: string, body: string) => {
     const src = `PROGRAM P\nVAR CONSTANT\n  N : INT := 2;\nEND_VAR\nVAR\n  b : BOOL;\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((x) => x.code.startsWith("compare-array"))

@@ -10,10 +10,10 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const run = (prg: string, gvl?: string) => {
   const inputs = [
-    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
-    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) }] : []),
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
+    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") }] : []),
   ]
-  const project = build.buildSymbolTable(inputs)
+  const project = build.buildSymbolTable(inputs, [], "codesys")
   return computeDiagnostics({ uri: inputs[0].uri, parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code.startsWith("external-"))
 }

@@ -55,11 +55,26 @@ public static class Config
         return cfg;
     }
 
+    /// <summary>Writes the binding as a temp file renamed over it: the frontends read it while <c>init</c> or a rebind
+    /// writes it and refuse one that is not JSON, so a truncate-then-write showed them a half-written binding.
+    /// Windows refuses to replace a file another process holds open (even shared for delete) — a reader holds it for the
+    /// length of one read, so the rename is retried for up to 2 s, then fails loud with the temp file removed.</summary>
     public static void SaveConfig(string root, WorkspaceConfig cfg)
     {
         var p = Paths(root);
         Directory.CreateDirectory(p.StateDir);
-        File.WriteAllText(p.ConfigPath, JsonSerializer.Serialize(cfg, Json) + "\n");
+        var temp = p.ConfigPath + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(cfg, Json) + "\n");
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (true)
+        {
+            try { File.Move(temp, p.ConfigPath, overwrite: true); return; }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+            {
+                if (DateTime.UtcNow >= deadline) { File.Delete(temp); throw; }
+                Thread.Sleep(1);
+            }
+        }
     }
 
     /// <summary>Structured platform/projectName mismatch between the binding and the bridge's loaded project.</summary>

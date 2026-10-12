@@ -50,12 +50,12 @@ export interface ParseOptions {
  * Convenience wrapper — parse source text directly. `dialect` is the lexer's vocabulary; see `lex`. `object` is what
  * the file holds when it is a workspace file (`sourceObjectOf`); text that is no workspace file passes none.
  */
-export function parseSource(src: string, options: ParseOptions, dialect: Dialect = "codesys", object?: SourceObject): ParseResult {
+export function parseSource(src: string, options: ParseOptions, dialect: Dialect, object?: SourceObject): ParseResult {
   return parse(lex(src, dialect), dialect, options, object)
 }
 
 /** A WORKSPACE FILE, read as the object its extension names (`source-object.ts`). */
-export function parseDocument(uri: string, src: string, options: ParseOptions, dialect: Dialect = "codesys"): ParseResult {
+export function parseDocument(uri: string, src: string, options: ParseOptions, dialect: Dialect): ParseResult {
   return parseSource(src, options, dialect, sourceObjectOf(uri))
 }
 

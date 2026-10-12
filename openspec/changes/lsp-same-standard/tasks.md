@@ -153,9 +153,158 @@
 
 ## 3. Review (services, server, workspace)
 
-- [ ] 3.1 Review `services/` per area (assist, formatting, navigation, structure, shared) and `server/` + `workspace/`
+- [x] 3.1 Review `services/` per area (assist, formatting, navigation, structure, shared) and `server/` + `workspace/`
       against the LSP behaviour tests and recorded fixtures: findings with severity and root cause.
-- [ ] 3.2 Every finding fixed test-first, or filed with a reason; no LSP-only diagnostic introduced (parity rule).
+      Read through design §7's lens first (a vendor difference is data from one fact, decided once), then §3's per-area
+      checks. 16 findings (W = wrong answer, M = missing answer, S = structure):
+      - R1 (W, server): the vendor was a silent default, decided five times — `bin.ts` read "no `--twincat`" as codesys,
+        `runServer(vendor = "codesys")`, `resolveConfig` (`auto`/unset → codesys), `parseDocument`/`buildSymbolTable`
+        (dialect = codesys). The Claude Code plugin launches `--stdio` with no flag, so every TwinCAT workspace there was
+        analysed as CODESYS (`__POUNAME` hovered, CODESYS wording).
+      - R16 (S, outside the package): a second and third vendor decision — volt-vscode `resolveVendor` (unbound →
+        codesys) and volt-control `collectDiagnostics(root, vendor = "codesys")`, which also sent a dead
+        `initializationOptions.vendor` the server never read; the desktop read the binding to pass it.
+      - R13 (S, analysis): `computeDiagnostics`' `isResolved` tested a `warnings` field `ResolvedConfig` does not have —
+        always false, every config re-resolved; the optional `config` was what let `resolveConfig()` default the vendor.
+      - R2 (W, data-corrupting, formatting + server): range formatting edited `unit.span`, which ends BEFORE a POU's
+        `END_…` keyword and starts AFTER its attributes, while the printer writes both — Format Selection left a second
+        `END_FUNCTION_BLOCK` (and a second `{attribute}`). On-type formatting ran that range formatting on every `;` and
+        newline, while `formatOnType` (the auto-indent written and tested for the request) had no product caller.
+      - R7 (W, protocol): a range end past its line or the text read as a cursor position (-1): a whole-document range
+        (semantic tokens, inlay hints, range formatting) answered nothing. LSP clamps. The positions header said "byte
+        offset"; columns are UTF-16 code units on both sides (LSP's default) — correct code, wrong comment, now pinned.
+      - R3 (M, server/workspace): the watcher globs were a hand list beside the scan's own and had lost `.projectsettings`
+        — a pull changing only the project's compiler-warning settings was never re-read.
+      - R4 (W, frontend fact read by hover + semantic tokens): `builtinName` applied the CODESYS-only types to
+        conversions only, so a bare `LDATE` was a type on TwinCAT (hover "64-bit date", painted as a type), and semantic
+        tokens asked a dialect-blind `isKnownPrimitive`.
+      - R8 (S, frontend, the census's side finding): `builtinName("__UXINT")` was "system-operator" (the `__` test ran
+        before the type test).
+      - R5 (W, navigation): renaming a library element edited its read-only materialization under `Library Manager/` and
+        every use. Root: the shipped rename (`network-services` `*Anywhere`) had no rule for it, and the tests ran the
+        ST-only `rename`/`prepareRename`/`references`/`documentHighlights` in `navigation.ts` — copies with no product
+        caller, so the tested path was not the shipped one.
+      - R6 (W, navigation): any `newName` was written over every occurrence (`IF`, `1x`, `a__b`, `INT`).
+      - R12 (W, protocol): a multi-line token (block comment) went out as ONE token of its whole length on its first
+        line; LSP allows that only to a client stating `multilineTokenSupport` (VS Code does not). Also a `?? 1`
+        ("variable") fallback for a token type outside the legend.
+      - R15 (S/perf, workspace): the scan walked `.git` (every object, on every watched-file event); nothing in it is an
+        item of the workspace (the CLI keeps only `config.json`/`ide-refs.json` there).
+      - R14 (S): `documentDiagnostics`' doc comment sat on the `VoltDiagnostic` type.
+      - R9 (W, analysis, design §3 "known going in"): `builtinName` accepts ANY `__` name, so `x := __NOSUCHTHING;` gets
+        no "not defined". Corpora counted 2026-10-12: every `__` word in the six corpora is a listed one (`__XWORD` 1579,
+        `__SYSTEM` 412, `__POUNAME` 308, `__VARINFO` 248, `__UXINT` 193, `__XINT` 70, `__ISVALIDREF` 50, `__TRY`/`__CATCH`/
+        `__ENDTRY` 36, `__QUERYINTERFACE` 35) — 0 unknown. The statement position has no recorded fixture.
+      - R10 (S, server): one `CODESYS_CODE_MAP` (CODESYS codes and doc URLs) for both vendors; neither recording holds a
+        code (design §7), so nothing decides TwinCAT's column.
+      - R11 (M, assist): signature help answers nothing for a built-in call (`LIMIT(`, `SEL(`, `MAX(`): no parameter
+        catalog exists for the built-ins (the hover catalog has text, not parameters).
+      Checked, no finding: completion (attribute names per dialect; keywords common to both), inlay hints and signature
+      help for user callees (`resolveCallee`), code actions (`TO_<T>` of an elementary the dialect has), code lens,
+      folding, selection, workspace symbol, push vs pull exactly once and refresh after re-index (`server.test.ts`),
+      capability↔handler parity (`server.test.ts` covers every advertised provider), open buffer over disk, incremental
+      index equivalence. `implementation` matches `IMPLEMENTS` by name and does not follow EXTENDS — a missing answer
+      not measured against the IDE, left for the services split (4.3).
+- [x] 3.2 Every finding fixed test-first, or filed with a reason; no LSP-only diagnostic introduced (parity rule).
+      - R1 FIXED: the server decides the vendor once, at `initialize` (`server/vendor.ts`): the flag, else the first
+        bound folder's binding (`workspace/binding.ts`, the C# `WorkspaceConfig` shape pinned), else a refusal by name
+        (`InitializeError`, "no vendor: … `volt init --vendor <codesys|twincat>`, or … --codesys|--twincat"). `bin.ts`
+        passes the flag or none (both flags: usage error); `runServer(input, output, flag, version)` no default;
+        `resolveConfig` takes `vendor: Vendor` (no `VendorSetting`/`auto`); `parseDocument` and `buildSymbolTable` take
+        the dialect required (251 call sites state it, all tests that had relied on codesys; `types/system.ts` states
+        it with its reason). Red first: `server/vendor.test.ts` (TwinCAT binding, no flag → `__POUNAME` hovers nothing;
+        no binding → refused; multi-root → first bound folder; the flag wins), `workspace/binding.test.ts`.
+      - R16 FIXED: volt-vscode `auto` passes no flag (`vendor.ts` + test deleted, setting text says the server refuses an
+        unbound window); volt-control `collectDiagnostics(root, opts)` passes none (e2e binds its workspaces, run green);
+        the desktop no longer reads the vendor to pass it. The Claude plugin unchanged; `agents.mdx` says to open a bound
+        folder.
+      - R13 FIXED: `isResolved` deleted, `config` required, resolved once.
+      - R2 FIXED: `formatRange` replaces exactly what the printer writes (`reprintedRange`: attributes through `END_…`);
+        on-type calls `formatOnType`, trigger `\n` only. Red first: `format.test.ts` "applying the edits to formatted text
+        changes nothing, for every unit kind" + "…several units…", `server/on-type-formatting.test.ts`. The request half
+        of `print.ts` moved to `formatting/format.ts` (print.ts 465 → 355, its ceiling removed — the gate forbade growth).
+      - R7 FIXED: `clampedOffset` for range ends (range formatting, semantic-token and inlay-hint ranges);
+        `server/ranges.test.ts` red without it; `positions.test.ts` pins UTF-16 columns.
+      - R3 FIXED: `SCANNED_EXTENSIONS` (workspace-refs) is the one list; the server watches exactly it
+        (`server/watched-files.test.ts`).
+      - R4 + R8 FIXED at the fact: `builtinName` — a type only where the dialect has it, platform integers are types;
+        `isKnownPrimitive(name, dialect)` reads it. Red first: `semantic-tokens-primitives.test.ts` "a type name the
+        dialect lacks…"; pinned in `builtins.test.ts`. Conformance replay + corpus green: no LSP-only finding.
+      - R5 FIXED: `renameTarget` (network-services) refuses a library symbol for prepare and rename; the ST-only copies
+        in `navigation.ts` deleted, their tests run the shipped `*Anywhere` path. Red first: `navigation.test.ts`.
+      - R6 FIXED: `renameRefusal(newName, project)` — one identifier the dialect's declarations accept — answered as a
+        `RequestFailed` naming the name (`navigation.test.ts`, `server/rename.test.ts`).
+      - R12 FIXED: one token per line; the legend typed (`TokenType`), no fallback index.
+      - R15 FIXED: `walkFiles` skips `.git` (`workspace-refs.test.ts`). R14 FIXED.
+      - R9 FILED: niche: accepted loss (0 occurrences in the corpora). Not recorded: a statement-position fixture on both
+        vendors is a recorder run for a name no corpus writes.
+      - R10 FILED: niche: accepted loss (0 codes in the recordings).
+      - R11 FILED, not niche: a feature (a measured per-dialect parameter catalog for the built-ins), not a defect
+        against a recording — for a follow-up change.
+      No recorder run: no finding changed a compiler-observable answer except R4 on TwinCAT (bare `LDATE`), and the
+      conformance replay stayed green on it. Ceilings: `server.ts` 623 → 618, `runServer` 486 → 453, `print.ts` removed;
+      dead-export allowlist 25 (re-keyed `FormatOptions` → `format.ts`).
+- [x] 3.3 Step-3 review findings (7), fixed test-first or filed:
+      - Formatting deleted comments (high): a unit is reprinted from its AST, which holds none — every comment in a
+        declaration (`i : INT; // counter`, a STRUCT member's, a GVL's) and, in Format Document, every comment between
+        units or before the first. The corpus gate compares `astKey`, which carries no comments. FIXED: `format.ts`
+        `reprint` keeps a unit AS WRITTEN when the reprint lacks a comment or pragma of its text (checked in order against
+        the printed text, as the printer writes it — a CRLF line comment ends in `\r`, which made the formatter
+        non-idempotent on 3 corpus files until compared trimmed); `formatDocument` keeps the text between units as written.
+        Also found on the way: an attribute an interface carries from INSIDE it (a property's) was taken as the unit's
+        start, so the range edit began inside the unit and the source's `INTERFACE I` header stayed beside the reprint
+        (range formatting since R2; Format Document after this fix, caught on 30 pro2193 `.itf` files). Red first:
+        `format.test.ts` "…every comment in a declaration and between units…", "…CRLF file decides each unit as its LF
+        form does", "…interface whose member carries an attribute keeps one header…". Side note, not fixed here: the
+        parser attaches that member attribute to the INTERFACE, so a reprinted interface moves it before
+        `INTERFACE` — a meaning change the AST gate cannot see (filed for the services split, 4.3).
+      - R4's TwinCAT bare `LDATE` (medium): 3.2 said the conformance replay "stayed green on it" — green only because no
+        fixture covers the position. FILED: niche: accepted loss (0 occurrences in the corpora — the only 4 uses of
+        `LDATE|LTOD|LDT|LTIME_OF_DAY|LDATE_AND_TIME` are a return type in AlarmManager's `CONVERTTIMESTAMPTOLDATEANDTIME`
+        in the four CODESYS corpora; twincat-project14 has none). The new answer agrees with the recorded one in the
+        declaration position (`Unknown type`); the expression position stays unrecorded.
+      - Flag vs binding (medium): the flag won silently (a user-scope `volt.iec.vendor` analysed a TwinCAT-bound
+        workspace as CODESYS). FIXED: `server/vendor.ts` `servedWorkspace` refuses a flag that contradicts the binding,
+        naming both; `vendor.test.ts` "the flag is never second-guessed" replaced (its premise contradicted design §7:
+        one fact, a conflict fails loud) by "agrees → served", "no binding → the flag", "contradicts → refused".
+      - Worktree / submodule binding (low): FIXED in both readers — `.git` as a FILE is followed to the git dir its
+        `gitdir:` line names (the CLI's `git rev-parse --absolute-git-dir`); volt-control `readBridgeVendor` now refuses a
+        malformed binding by name as `binding.ts` does (it read it as unbound). Red first: `binding.test.ts`,
+        volt-control `bridge/health.test.ts`.
+      - Vendor and crawl from two folders (low): FIXED — `servedWorkspace` returns the vendor AND the root, the bound
+        folder for both; `vendor.test.ts` "the folder the vendor is read from is the folder crawled".
+      - Corpus read as CODESYS (low): FIXED — `corpusVendor(dir)` (the one `expected-build.<vendor>.json`, else throws)
+        parses, format-round-trips and diagnoses each corpus project in its vendor; lowering re-reads it in
+        `EXEC_ORACLE_DIALECT` (`loweringProject`). `parseSource`'s `dialect = "codesys"` default removed: 438 call sites
+        state it (mechanical, behaviour-neutral); the transpiler's two say `EXEC_ORACLE_DIALECT`.
+      - CRLF range formatting (low): FIXED — range edits are written in the file's line ending (`inLineEndingOf`); red
+        first: "range formatting a CRLF file leaves no mixed line endings".
+- [x] 3.4 Step-3 gate review findings (4), fixed test-first:
+      - Interface member attribute moved above `INTERFACE` (high — 3.3's "side note" was not niche: 5 pro2193 `.itf`
+        files). FIXED: `format.ts` `reprint` keeps a unit as written when it carries an attribute from inside it (the
+        test `reprintedSpans` already made). Red first: `format.test.ts` "…keeps an interface member's attribute on the
+        member…". Corpus sweep after the fix (formatDocument over all six corpora, 29170 files, attribute vs unit-header
+        line order): 0 moved, 0 non-idempotent.
+      - Five readers of the binding, two following worktrees (medium). FIXED: volt-control `health.ts` exports the one
+        resolver (`bindingFile`, over `voltStateDir`); `hasVoltConfig` (volt-vscode), `VoltStatus.refresh`
+        (volt-control), `volt.openConfig` (volt-vscode, refuses by name outside a git repo) and a sixth the gate found
+        — `readStateMtime` (`ide-refs.json`, volt-control `state/files.ts`) — read through it. Red first:
+        `bridge/health.test.ts` "the binding file is named once…" (the resolver, and no `".git", "volt"` path left in
+        volt-control/-vscode/-desktop src outside it).
+      - Half-written binding read as malformed (low). FIXED at the writer: C# `Config.SaveConfig` writes a temp file and
+        renames it over the binding (Windows refuses to replace a file a reader holds open, so the rename retries for up
+        to 2 s, then fails loud with the temp removed). Red first: `DomainTests.SaveConfig_never_shows_a_reader_a_partial_file`
+        (a Node-like reader over 2 s of rewrites saw empty files before).
+      - Comment matched inside a string literal (low). FIXED: `dropsCommentary` matches the source's comment and pragma
+        tokens, in order, against the printed text's own comment and pragma tokens (lexed in the document's dialect).
+        Red first: "…keeps a declaration comment whose text also stands in a string literal".
+      Also found by the gate: `bun run check` (scripts/check-wiring.ts) still looked for the watcher list in `server.ts`;
+      since R3 it is `SCANNED_EXTENSIONS` in workspace-refs.ts — the check reads it there (18 passed).
+      Gate: `bun typecheck` clean (root `bun run typecheck` too); package `bun run lint` green (layering, size 55 files +
+      31 functions listed, dead exports 25 allowlisted, citations); root lint exit 0; `rate:fixtures` run — map unchanged
+      (edge agree 3261, disagree 0); full LSP suite `VOLT_REQUIRE_FULL=1`, VOLT_FIXTURES unset: 9578 pass, 35 skip,
+      421 todo, 0 fail, 10034 tests across 333 files (750 s) — +35 tests over step 2. volt-control 137 pass, volt-vscode
+      35 pass, volt-desktop 31 pass; `dotnet test test/Volt.Cli.Tests/` 265 pass.
 
 ## 4. Splits (output-neutral)
 

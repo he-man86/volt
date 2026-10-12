@@ -22,11 +22,11 @@ const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 
-const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }).units.flatMap(unitBodies)
+const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }, "codesys").units.flatMap(unitBodies)
 
 /** Every syntax error of a file: its declarations' and each ST body's, as the `parse-errors` check drains them. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src, { networkText: true })
+  const parsed = parseSource(src, { networkText: true }, "codesys")
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }

@@ -34,7 +34,7 @@ function extFor(kind: string): string {
 // GVL's text the way the IDE reads it (`syntax/format/source-object.ts`).
 const PARSED = ALL_TESTS.map((t) => {
   const uri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
-  return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }) }
+  return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }, "codesys") }
 })
 // A list a fixture holds beside its POU is an item of its own, under the name the push gives it (`splitLists`): bound
 // once with the declarations, and analysed with its fixture.
@@ -61,7 +61,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
   // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.pou`, as a workspace has it.
   // It used to be `<fixture>__plcprg.pou`, which made every synthesized PLC_PRG look like a POU whose signature
   // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
-  return { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source, parseResult: parseSource(source, { networkText: true }) }
+  return { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }
 })
 
 /**

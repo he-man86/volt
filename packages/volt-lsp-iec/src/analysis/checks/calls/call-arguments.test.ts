@@ -17,7 +17,7 @@ function codes(...sources: string[]): string[] {
   // to the object name"), which `signature-name` now reports — so a harness that invents file names accuses its
   // own fixtures.
   const files = sources.map((source, i) => {
-    const parseResult = parseSource(source, { networkText: true })
+    const parseResult = parseSource(source, { networkText: true }, "codesys")
     const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
     const ext = "pou"
     return { uri: `${first?.name?.text ?? `u${i}`}.${ext}`, source, parseResult }
@@ -45,7 +45,7 @@ test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given
     source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION",
   }
   const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
-  const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
+  const files = [len, { uri: "P.pou", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const messages = computeDiagnostics({ uri: files[1]!.uri, parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-argument-type")
@@ -67,7 +67,7 @@ test("4.2 too many positional arguments is flagged", () => {
 
 test("4.2b too-many wording is vendor-mirrored per callee kind: C0040 (function) vs C0044 (FB)", () => {
   const msgs = (...s: string[]) => {
-    const files = s.map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
+    const files = s.map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
@@ -135,7 +135,7 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
   const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (b: string) => `PROGRAM P\nVAR inst : FB; i : INT; bo : BOOL; END_VAR\n${b}\nEND_PROGRAM`
   const msgs = (...s: string[]) => {
-    const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
+    const files = s.map((source, k) => ({ uri: `u${k}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeDiagnostics({ uri: uriFor(f.parseResult), parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -253,7 +253,7 @@ test("an enum VALUE argument converts as INT, like an assignment — into a SINT
   const fn = (target: string) => `FUNCTION F_Take : BOOL\nVAR_INPUT x : ${target}; END_VAR\nF_Take := TRUE;\nEND_FUNCTION`
   const call = `PROGRAM P\nVAR ok : BOOL; END_VAR\nok := F_Take(E_Mode.Busy);\nEND_PROGRAM`
   const messages = (target: string): string[] => {
-    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }) }))
+    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }))
     const project = build.buildSymbolTable(files, [], "codesys")
     return computeDiagnostics({ uri: files[2]!.uri, parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
@@ -345,7 +345,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
   // Why missed: an untyped integer literal infers no type, so the by-reference identity test skipped every literal
   // and four fixtures missed this error (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`).
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "in-out-type-mismatch")
@@ -355,7 +355,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
 
 test("a literal whose narrowest type MATCHES the parameter stays silent", () => {
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : SINT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -368,7 +368,7 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
   // to retain anything (conformance `callshape_function_input_no_default`).
   const call = (args: string) => {
     const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(${args});\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true })
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "function-argument-count")
@@ -398,7 +398,7 @@ test("the range wording is CODESYS's; TwinCAT says exactly", () => {
 })
 test("an FB's inputs are NOT required — they are retained between calls", () => {
   const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -528,7 +528,7 @@ test("an input named as a METHOD with no result type is an input", () => {
 test("an unknown named argument the callee declares nothing of is also 'Identifier not defined'", () => {
   const messagesOf = (...sources: string[]): string[] => {
     const files = sources.map((source) => {
-      const parseResult = parseSource(source, { networkText: true })
+      const parseResult = parseSource(source, { networkText: true }, "codesys")
       const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
       return { uri: `${first.name.text}.pou`, source, parseResult }
     })
@@ -559,7 +559,7 @@ test("an FB whose base chain runs into a cycle has no authoritative parameter li
 /** `code: message` of every diagnostic over the sources, each file named after its first unit. */
 function codedMessages(...sources: string[]): string[] {
   const files = sources.map((source) => {
-    const parseResult = parseSource(source, { networkText: true })
+    const parseResult = parseSource(source, { networkText: true }, "codesys")
     const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
     return { uri: `${first.name.text}.pou`, source, parseResult }
   })
@@ -689,8 +689,8 @@ test("a literal into any other generic input is unmeasured and stays silent — 
 test("a PROGRAM called positionally is refused, one error per argument (dt_program_called_positionally, DT9)", () => {
   const prg = `PROGRAM Prg_t\nVAR_INPUT\n\tk : INT;\nEND_VAR\nEND_PROGRAM`
   const src = `${prg}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nPrg_t(5);\nPrg_t(k := 5);\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "input-assignment-missing")
     .map((d) => d.message)
@@ -826,7 +826,7 @@ test("a FUNCTION's output bound => a narrower target is judged as the FB's twin 
     const fn = `FUNCTION F_O : BOOL\nVAR_OUTPUT\n\to : ${out};\nEND_VAR\nF_O := TRUE;\nEND_FUNCTION`
     const prog = `PROGRAM P\nVAR\n\tt : INT;\n\tok : BOOL;\nEND_VAR\nok := F_O(o => t);\nEND_PROGRAM`
     const files = [fn, prog].map((source) => {
-      const parseResult = parseSource(source, { networkText: true })
+      const parseResult = parseSource(source, { networkText: true }, "codesys")
       const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
       return { uri: `${first?.name?.text}.pou`, source, parseResult }
     })

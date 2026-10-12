@@ -28,7 +28,7 @@ export const IMPLEMENTATION_ST = implementationLine("ST")
 /** Offsets in `source` where an `IMPLEMENTATION ST` line belongs (`lineUnder`), ascending. */
 function boundaries(source: string): number[] {
   const at: number[] = []
-  for (const unit of parseSource(source, { networkText: true }).units) push(unit, at)
+  for (const unit of parseSource(source, { networkText: true }, "codesys").units) push(unit, at)
   return at.sort((a, b) => a - b)
 }
 

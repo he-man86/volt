@@ -10,8 +10,8 @@ import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
 
 const diag = (src: string) => {
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
@@ -85,8 +85,8 @@ test("a METHOD named as the FB's variable is not a duplicate declaration", () =>
 
 test("a name declared twice in one global list is a duplicate, in the list's object", () => {
   const src = `VAR_GLOBAL\n g : INT;\n g : BOOL;\nEND_VAR`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "GVL_Main.gvl", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "GVL_Main.gvl", parseResult, source: src }], [], "codesys")
   const ds = computeDiagnostics({ uri: "GVL_Main.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => `${d.code}: ${d.message}`)).toEqual(["duplicate-declaration: A local variable named 'g' is already defined in 'GVL_Main'"])
 })
@@ -107,8 +107,8 @@ test("a METHOD named as an ACTION or a PROPERTY of its FB is still a duplicate d
 // declaration whose AT operand is refused is dropped by the vendor (binder `ingestGlobalVarList`)
 test("a global list's VAR_ACCESS name or refused-AT declaration does not duplicate its variable", () => {
   const gvl = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "GVL_A.gvl", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "GVL_A.gvl", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: "GVL_A.gvl", parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "duplicate-declaration")
   }

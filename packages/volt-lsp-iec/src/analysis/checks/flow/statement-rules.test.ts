@@ -11,8 +11,8 @@ const run =
   (code: string) =>
   (body: string): string[] => {
     const src = `PROGRAM P\nVAR i:INT; ii:INT;\nEND_VAR\nVAR CONSTANT j:INT:=0;\nEND_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)
@@ -33,8 +33,8 @@ test("C0132: EXIT outside a loop is flagged; EXIT nested inside a loop is not", 
 test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", () => {
   const src = (b: string) => `FUNCTION_BLOCK F\nVAR pa:POINTER TO BYTE; pb:POINTER TO BYTE;\nEND_VAR\n${b}\nEND_FUNCTION_BLOCK`
   const nw = (b: string) => {
-    const pr = parseSource(src(b), { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(b) }])
+    const pr = parseSource(src(b), { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src(b) }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src(b), project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "multiple-assignment-new")
       .map((d) => d.message)
@@ -46,21 +46,21 @@ test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", (
 test("CONTINUE outside a loop is reported too, and the compiler names the statement", () => {
   // silent before: only EXIT was checked (conformance `cc2_exit_outside_loop`, which records both).
   const src = `FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nn := 1;\nEXIT;\nCONTINUE;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "exit-outside-loop")
     .map((d) => d.message)
   expect(msgs).toEqual(["No enclosing loop of which to exit", "No enclosing loop of which to continue"])
   // inside a loop, both are fine
   const ok = `FUNCTION_BLOCK F\nVAR\ni : INT;\nEND_VAR\nFOR i := 1 TO 3 DO\nCONTINUE;\nEXIT;\nEND_FOR\nEND_FUNCTION_BLOCK`
-  const okParse = parseSource(ok, { networkText: true })
+  const okParse = parseSource(ok, { networkText: true }, "codesys")
   expect(
     computeDiagnostics({
       uri: uriFor(okParse),
       parseResult: okParse,
       source: ok,
-      project: build.buildSymbolTable([{ uri: "F.pou", parseResult: okParse, source: ok }]),
+      project: build.buildSymbolTable([{ uri: "F.pou", parseResult: okParse, source: ok }], [], "codesys"),
       config: resolveConfig({ vendor: "codesys" }),
     }).filter((d) => d.code === "exit-outside-loop"),
   ).toEqual([])
@@ -70,8 +70,8 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
 // "'.gcTarget' is no valid assignment target" (`expr_global_namespace_constant_target`, both vendors 2026-10-02).
 test("C0018: a CONSTANT global written as `.g` is flagged as written (expr_global_namespace_constant_target, E33)", () => {
   const src = `VAR_GLOBAL CONSTANT\ngc : INT := 7;\nEND_VAR\nVAR_GLOBAL\ngv : INT;\nEND_VAR\nFUNCTION_BLOCK F\nVAR gc : INT;\nEND_VAR\n.gc := 5;\n.gv := 5;\ngc := 5;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "not-assignment-target")
     .map((d) => d.message)
@@ -96,8 +96,8 @@ END_FOR`)).toEqual(["'(INT#0 - ii)' is no valid assignment target"])
 test("a FOR counts in an integer: a REAL or a BOOL control variable does not convert to ANY_INT, a DWORD does (stmt_for_real_control, stmt_for_bool_control, stmt_for_dword_control, ST11)", () => {
   const forType = (decl: string, loop: string): string[] => {
     const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\n${loop}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "for-control-type" || d.code === "loop-exit-constant")
       .map((d) => d.message)
@@ -115,8 +115,8 @@ test("a FOR counts in an integer: a REAL or a BOOL control variable does not con
 test("a FOR limit or step that does not convert into the counter is refused (for_limit_wider_than_counter_*, for_step_*, tr_35_*)", () => {
   const bound = (decl: string, loop: string): string[] => {
     const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\nVAR CONSTANT kc : DINT := 3;\nEND_VAR\n${loop}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "error")
       .map((d) => d.message)
@@ -153,8 +153,8 @@ test("C0018: a direct address is a target, no literal refused (lit_address_in_bo
 // body without a word from either vendor — CONSTANT there forbids nothing the body does
 test("a VAR_INPUT CONSTANT assigned in the body is no constant target", () => {
   const src = `FUNCTION_BLOCK F\nVAR_INPUT CONSTANT\n\tlimit_ : INT := 4;\nEND_VAR\nlimit_ := 5;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "not-assignment-target")

@@ -6,7 +6,7 @@
 import { lex, spanContains } from "../../frontend/syntax/index.js"
 import { test, expect } from "bun:test"
 import type { Span } from "../../frontend/syntax/index.js"
-import { offsetFromPosition, rangeFromSpan, tokenAtOffset } from "./positions.js"
+import { clampedOffset, offsetFromPosition, rangeFromSpan, tokenAtOffset } from "./positions.js"
 
 const SRC = "abc\ndef\nghi" // offsets: a0 b1 c2 \n3 d4 e5 f6 \n7 g8 h9 i10  (length 11)
 
@@ -57,4 +57,22 @@ test("returns undefined in trivia (whitespace) and past the end", () => {
 test("end offset is exclusive — a cursor at a token's end belongs to the next token", () => {
   // offset 1 is the end of 'x' (exclusive) AND the start of the following space (trivia) → no token.
   expect(tokenAtOffset(TOKENS, 1)).toBeUndefined()
+})
+
+// ─── the position encoding (lsp-same-standard 3.1, finding R7) ───────────────────
+// The server negotiates no `positionEncoding`, so LSP's default holds: a character is a UTF-16 CODE UNIT — which is what a
+// JS string index counts, and what the lexer's columns count. The header said "byte offset"; a byte column would put
+// every token after an `Ä` or an emoji (a German comment, a string) one or more characters off.
+test("a column is a UTF-16 code unit on both sides: the lexer's columns and the position math agree past non-ASCII", () => {
+  const src = "s := 'Ä😀'; b := 1;" // Ä is one unit, 😀 two
+  const b = lex(src, "codesys").find((t) => t.text === "b")!
+  expect(b.span.startCol).toBe(12) // UTF-16 units; UTF-8 bytes would make it 15
+  expect(offsetFromPosition(src, { line: 0, character: b.span.startCol })).toBe(src.indexOf("b"))
+  expect(rangeFromSpan(b.span).start).toEqual({ line: 0, character: 12 })
+})
+
+test("clampedOffset clamps a range end as LSP says: past a line's end to its end, past the last line to the text's end", () => {
+  expect(clampedOffset(SRC, { line: 0, character: 99 })).toBe(3) // end of "abc"
+  expect(clampedOffset(SRC, { line: 9, character: 0 })).toBe(SRC.length)
+  expect(clampedOffset(SRC, { line: 1, character: 1 })).toBe(5) // inside: as offsetFromPosition
 })

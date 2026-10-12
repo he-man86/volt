@@ -91,7 +91,7 @@ VAR
  x : INT; dw : DWORD := ADR(x); lw : LWORD := ADR(x);
 END_VAR
 END_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } })
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -107,7 +107,7 @@ test("pointer → pointer stays quiet", () => {
 /** Every error and warning for `body` on a 64-bit target. */
 const all64 = (body: string): string[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; q:POINTER TO INT; w:WORD; dw:DWORD; ud:UDINT; lw:LWORD; ul:ULINT; i:INT; di:DINT; li:LINT; b:BYTE; rf : REFERENCE TO INT; o : BOOL; x : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys", { target: { pointerBits: 64 } as Target })
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => (d.severity === "error" || d.severity === "warning") && d.code !== "signature-name-mismatch")

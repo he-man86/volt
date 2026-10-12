@@ -9,8 +9,8 @@ import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
 
 const errs = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code.startsWith("bit-") || d.code === "pointer-to-bit" || d.code === "reference-to-bit")
     .map((d) => d.message)

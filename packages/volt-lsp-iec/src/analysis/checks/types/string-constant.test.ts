@@ -85,7 +85,7 @@ test("a WSTRING is checked too — UTF-16 code units, the same printed prefix", 
 
 test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
@@ -109,7 +109,7 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
   // `xo4_string_constant_too_long`'s recorded warnings were missing.
   const body = (decls: string, stmts: string): string[] => {
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "string-constant-too-long")
@@ -149,7 +149,7 @@ test("a bracketed or mismatched STRING length is named STRING(n) in the message"
 // the destination type is named as WRITTEN, `STRING(n)`, never by its fold.
 test("a capacity named by a local constant is the written name in the warning, an assignment's too", () => {
   const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  n : INT := 3;\nEND_VAR\nVAR\n  txt : STRING(n);\nEND_VAR\ntxt := 'abcdef';\nEND_FUNCTION_BLOCK"
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
@@ -165,8 +165,8 @@ test("a capacity named by a local constant is the written name in the warning, a
 test("a literal too long for a VAR_IN_OUT or a REFERENCE is unwarned; through a POINTER it warns", () => {
   const body = (head: string, decls: string, stmts: string): string[] => {
     const src = `${head}\n${decls}\n${stmts}\nEND_${head.split(" ")[0]}`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)

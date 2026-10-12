@@ -199,17 +199,18 @@ for (const { name, get, superset } of copies) {
 	});
 }
 
-// Reference extensions the LSP watches (server.ts registers a watcher for a HAND-PICKED subset of the read-only
-// reference kinds — the ones it resolves cross-file refs for). They aren't in SOURCE_EXTENSIONS, so the source
+// Reference extensions the LSP scans and watches (`SCANNED_EXTENSIONS` in workspace-refs.ts, the one list the scan reads
+// and server.ts registers its watchers from, adds a HAND-PICKED subset of the read-only reference kinds — the ones it
+// resolves cross-file refs for). They aren't in SOURCE_EXTENSIONS, so the source
 // loop above never covered them: assert each is a REAL reference ext in the C# canonical (ItemKind.ReferenceKind-
 // Extensions), so a canonical rename can't silently orphan the watcher.
 const refBlock = /ReferenceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!refBlock) throw new Error("check-wiring: could not find ItemKind.ReferenceKindExtensions");
 const REF_CANON = normExts([...refBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
-const serverSrc = readRepo("packages/volt-lsp-iec/src/server/server.ts");
-const watchM = /\[\s*\.\.\.SOURCE_EXTENSIONS\s*,\s*([^\]]*)\]/.exec(serverSrc);
-check(`lsp server.ts watched reference exts ⊆ canonical [${REF_CANON.join(", ")}]`, () => {
-	if (!watchM) return "could not find the [...SOURCE_EXTENSIONS, …] watcher list in server.ts";
+const scanSrc = readRepo("packages/volt-lsp-iec/src/workspace/workspace-refs.ts");
+const watchM = /SCANNED_EXTENSIONS[^=]*=\s*\[\s*\.\.\.SOURCE_EXTENSIONS\s*,\s*([^\]]*)\]/.exec(scanSrc);
+check(`lsp SCANNED_EXTENSIONS (scanned + watched) reference exts ⊆ canonical [${REF_CANON.join(", ")}]`, () => {
+	if (!watchM) return "could not find SCANNED_EXTENSIONS = [...SOURCE_EXTENSIONS, …] in workspace-refs.ts";
 	const watched = normExts(quotedStrings(watchM[1]));
 	const stray = watched.filter((e) => !REF_CANON.includes(e));
 	return stray.length === 0 || `watches non-canonical reference ext(s): ${stray.join(", ")} — add to ItemKind.ReferenceKindExtensions or fix the spelling`;

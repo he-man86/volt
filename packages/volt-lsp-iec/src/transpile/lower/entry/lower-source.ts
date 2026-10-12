@@ -16,6 +16,7 @@ import { lowerDiagnostic, type LoweredPou } from "../diagnostics/diagnostic.js"
 import { parseSource, type TopLevel } from "../../../frontend/syntax/index.js"
 import { build, isLibrarySymbol, scopeForUnit } from "../../../frontend/symbols/index.js"
 import { ZERO_SPAN } from "../core/build.js"
+import { EXEC_ORACLE_DIALECT } from "../conditions.js"
 import { lowerUnit } from "./lower-unit.js"
 
 /** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
@@ -24,7 +25,7 @@ import { lowerUnit } from "./lower-unit.js"
  *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. `fold`
  *  false keeps the IR as the rules built it, before the constant fold (`lowerUnit`). */
 export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase, fold = true): LoweredPou {
-  const parseResult = parseSource(source, TRANSPILE_PARSE)
+  const parseResult = parseSource(source, TRANSPILE_PARSE, EXEC_ORACLE_DIALECT)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }

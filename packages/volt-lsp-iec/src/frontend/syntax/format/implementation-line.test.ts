@@ -59,12 +59,12 @@ const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 
-const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }).units.flatMap(unitBodies)
+const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }, "codesys").units.flatMap(unitBodies)
 
 /** Every syntax error of a file: its declarations' (the top-level parse) and each ST body's (parsed on demand), as the
  *  `parse-errors` check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src, { networkText: true })
+  const parsed = parseSource(src, { networkText: true }, "codesys")
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
@@ -73,7 +73,7 @@ function syntaxErrors(src: string): string[] {
 
 test("an ST file with IMPLEMENTATION ST on every body parses clean", () => {
   expect(syntaxErrors(MOTOR)).toEqual([])
-  expect(parseSource(MOTOR, { networkText: true }).units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
+  expect(parseSource(MOTOR, { networkText: true }, "codesys").units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
 })
 
 /** Found by the re-pulled pro2193 corpus (`LedFB.pou`): `METHOD PROTECTED Override` with no return type and no VAR, so
@@ -87,7 +87,7 @@ test("a method named after a modifier keyword keeps its name when its keyword li
     "METHOD PROTECTED Override\nIMPLEMENTATION ST\nTHIS^.xOverride := TRUE;\nEND_METHOD\n\n" +
     "METHOD PUBLIC Final\nIMPLEMENTATION ST\n;\nEND_METHOD\n"
   expect(syntaxErrors(src)).toEqual([])
-  const methods = parseSource(src, { networkText: true }).units.filter((u) => u.kind === "method")
+  const methods = parseSource(src, { networkText: true }, "codesys").units.filter((u) => u.kind === "method")
   expect(methods.map((m) => [m.kind === "method" && m.modifiers, m.name.text])).toEqual([
     [["PROTECTED"], "Override"],
     [["PUBLIC"], "Final"],
@@ -106,20 +106,20 @@ test("a function block named after a modifier keyword keeps its name when its ke
   ] as const) {
     const src = `${header}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
     expect(syntaxErrors(src)).toEqual([])
-    const units = parseSource(src, { networkText: true }).units
+    const units = parseSource(src, { networkText: true }, "codesys").units
     expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.modifiers] : [u.kind]))).toEqual([
       [name, [...access]],
     ])
   }
   // With a VAR section the same name was already a name; it stays one, and real modifiers stay modifiers.
-  const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", { networkText: true })
+  const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", { networkText: true }, "codesys")
   const fbx = withVar.units[0]!
   if (fbx.kind !== "function_block") throw new Error("not a function block")
   expect([fbx.name.text, fbx.modifiers]).toEqual(["FB_X", ["FINAL", "ABSTRACT"]])
 })
 
 test("the keyword line belongs to no declaration and to no statement", () => {
-  const { units } = parseSource(MOTOR, { networkText: true })
+  const { units } = parseSource(MOTOR, { networkText: true }, "codesys")
   const method = units.find((u) => u.kind === "method")!
   // The method's inputs are its declaration; the keyword did not end up as a variable or a statement.
   if (method.kind !== "method") throw new Error("not a method")
@@ -159,7 +159,7 @@ out := a;
 END_FUNCTION_BLOCK
 `
   expect(syntaxErrors(src)).toEqual([])
-  const unit = parseSource(src, { networkText: true }).units[0]!
+  const unit = parseSource(src, { networkText: true }, "codesys").units[0]!
   if (unit.kind !== "function_block") throw new Error("not a function block")
   expect(unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toEqual(["a", "out"])
   expect(bodiesOf(src).map(graphicalMarkerLanguage)).toEqual([undefined])
@@ -179,7 +179,7 @@ test("a keyword line inside a comment opened mid-line or nested is no boundary",
   ]) {
     const src = `${decl}\nIMPLEMENTATION ST\nout := a;\nEND_FUNCTION_BLOCK\n`
     expect({ decl, errors: syntaxErrors(src) }).toEqual({ decl, errors: [] })
-    const unit = parseSource(src, { networkText: true }).units[0]!
+    const unit = parseSource(src, { networkText: true }, "codesys").units[0]!
     if (unit.kind !== "function_block") throw new Error("not a function block")
     const names = unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))
     expect({ decl, names }).toEqual({ decl, names: ["a", "out"] })
@@ -318,7 +318,7 @@ test("code, a comment or a pragma under an UNSUPPORTED line is refused naming th
   for (const line of ["IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION LD UNSUPPORTED"])
     for (const under of ["out := a;", "// a note", "(* a note *)", "{attribute 'x'}", NETWORK]) {
       const src = fb(`${line}\n${under}`)
-      const errors = parseSource(src, { networkText: true }).errors.map((e) => e.message)
+      const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
       expect({ line, under, named: errors.some((m) => m.includes(`under '${line}'`)) }).toEqual({ line, under, named: true })
       expect({ line, under, reader: bodiesOf(src).map((b) => [isStBody(b), isGraphicalBody(b)]) }).toEqual({
         line,
@@ -357,7 +357,7 @@ test("an identifier spelled Implementation on a line of its own is code, not a s
     const src = fb(`IMPLEMENTATION ST\n${code}`)
     const body = bodiesOf(src)[0]!
     expect({ code, line: body.implementation?.text }).toEqual({ code, line: "IMPLEMENTATION ST" })
-    const lineFindings = parseSource(src, { networkText: true }).errors.map((e) => e.message).filter((m) => m.includes("line inside a body"))
+    const lineFindings = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message).filter((m) => m.includes("line inside a body"))
     expect({ code, lineFindings }).toEqual({ code, lineFindings: [] })
   }
 })
@@ -421,7 +421,7 @@ test("IMPLEMENTATION NONE UNSUPPORTED is a hidden body of a language spelled NON
 test("code, a comment or a pragma under IMPLEMENTATION NONE is refused naming the line, and read by neither reader", () => {
   for (const under of ["out := a;", "// a note", "{attribute 'x'}"]) {
     const src = fb(`IMPLEMENTATION NONE\n${under}`)
-    const errors = parseSource(src, { networkText: true }).errors.map((e) => e.message)
+    const errors = parseSource(src, { networkText: true }, "codesys").errors.map((e) => e.message)
     expect({ under, named: errors.some((m) => m.includes("under 'IMPLEMENTATION NONE'") && m.includes("an abstract member holds no code")) }).toEqual({
       under,
       named: true,

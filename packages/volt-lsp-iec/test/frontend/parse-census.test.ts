@@ -164,7 +164,7 @@ describe("0.1 the parse census", () => {
     // the chain, parsed its taken branch in silence and lost the error the user is shown (frontend-conformance 2.7 review)
     const source = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{IF defined (pou: F)}\nout := ;\n{END_IF}\nEND_FUNCTION_BLOCK"
     const parsed = parse({ id: "F", uri: "file:///F.pou", source }, "codesys")
-    const bound = { parsed, project: build.buildSymbolTable([parsed], undefined, "codesys") }
+    const bound = { parsed, project: build.buildSymbolTable([parsed], [], "codesys") }
     expect(parseErrors(bound, "codesys").map((e) => `${e.pass} ${e.at}`)).toEqual(["body 6:7"])
   })
 

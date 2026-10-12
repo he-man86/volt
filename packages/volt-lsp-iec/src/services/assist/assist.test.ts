@@ -12,12 +12,12 @@ import { type Document, rangeFromSpan } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
 }
-const projectOf = (doc: Document) => build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: doc.source }])
+const projectOf = (doc: Document) => build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: doc.source }], [], "codesys")
 
 // `Compute` (not `Add` — ADD is a reserved IEC operator keyword).
 const SRC = `FUNCTION_BLOCK Lib
@@ -61,8 +61,8 @@ FUNCTION_BLOCK FB
 END_FUNCTION_BLOCK
 METHOD M
 END_METHOD`
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }], [], "codesys")
   const kw = (needle: string, prefix: string) =>
     (hover(doc, project, src.indexOf(needle) + prefix.length)?.contents as { value: string } | undefined)?.value ?? ""
   expect(kw("PROGRAM P", "PROGRAM ")).toContain("PROGRAM P")
@@ -83,7 +83,7 @@ test("hover: a built-in the project's dialect does not have answers nothing (one
   // type. The analysis reports each "not defined" on TwinCAT, so hover may not describe it as a built-in there.
   const names = ["__POUNAME", "__COMPARE_AND_SWAP", "BOOL_TO_LDATE", "LDATE_TO_DINT"]
   const src = `PROGRAM P\nVAR\n\tx : DINT;\nEND_VAR\n${names.map((n) => `x := ${n};`).join("\n")}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc: Document = { uri: "file:///P.pou", source: src, parseResult }
   const at = (n: string) => src.indexOf(`:= ${n}`) + 3
   const on = (dialect: "codesys" | "twincat") => build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect)
@@ -100,14 +100,14 @@ test("hover: whitespace / unknown token yields nothing", () => {
 
 test("pragma hover: an {attribute '<name>'} name describes the attribute", () => {
   const src = `{attribute 'qualified_only'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const h = pragmaHover(doc, projectOf(doc), src.indexOf("qualified_only") + 2)
   expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
 })
 
 test("pragma hover: a directive word describes the directive; an unknown one yields nothing", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n{IF defined(FOO)}\nx := 1;\n{END_IF}\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
   const onIf = pragmaHover(doc, projectOf(doc), src.indexOf("{IF") + 1)
   expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
   expect(pragmaHover(doc, projectOf(doc), src.indexOf("x : INT"))).toBeUndefined() // not a pragma
@@ -115,8 +115,8 @@ test("pragma hover: a directive word describes the directive; an unknown one yie
 
 test("completion: inside {attribute '…'} offers the known attribute names, not scope symbols", () => {
   const src = `{attribute 'qual'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }], [], "codesys")
   const items = completion(doc, project, src.indexOf("qual") + 4)
   const labels = items.map((i) => i.label)
   expect(labels).toContain("qualified_only")

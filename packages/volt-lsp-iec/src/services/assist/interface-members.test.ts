@@ -30,9 +30,9 @@ n := drv.Pos;
 END_PROGRAM`
 
 const setup = () => {
-  const parseResult = parseSource(SRC, { networkText: true })
+  const parseResult = parseSource(SRC, { networkText: true }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
-  return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
+  return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }], [], "codesys") }
 }
 
 test("completion after an interface instance's `.` offers its members", () => {

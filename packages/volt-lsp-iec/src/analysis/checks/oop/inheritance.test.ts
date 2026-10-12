@@ -62,10 +62,10 @@ test("a qualified library base the symbol table linked is found (`EXTENDS Standa
   const lib = "file:///w/Library Manager/Standard"
   const manifest = { uri: `${lib}/Standard.library`, folder: "standard", dir: `${lib}/`, namespace: "Standard", library: "Standard", dependencies: [], materialization: 2 }
   const run = (src: string) => {
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable(
-      [{ uri: "file:///w/F.pou", parseResult: pr, source: src }, { uri: `${lib}/TON.pou`, parseResult: parseSource(ton, { networkText: true }), source: ton }],
-      [manifest],
+      [{ uri: "file:///w/F.pou", parseResult: pr, source: src }, { uri: `${lib}/TON.pou`, parseResult: parseSource(ton, { networkText: true }, "codesys"), source: ton }],
+      [manifest], "codesys",
     )
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "base-class-not-found" || d.code === "unknown-type")

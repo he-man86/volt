@@ -8,7 +8,7 @@ import { parseSource } from "../../frontend/syntax/index.js"
 import { formatDocument } from "../index.js"
 
 const format = (source: string, uri = "file:///F.pou"): { text: string; errors: number } => {
-  const parseResult = parseSource(source, { networkText: true })
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
   return { text: formatDocument({ uri, source, parseResult }), errors: parseResult.errors.length }
 }
 

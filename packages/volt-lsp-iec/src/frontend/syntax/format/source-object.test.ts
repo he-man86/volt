@@ -6,7 +6,7 @@ import { expect, test } from "bun:test"
 import { objectNameOf, parseDocument, parseSource, sourceObjectOf } from "../index.js"
 
 const read = (uri: string, source: string) => {
-  const r = parseDocument(uri, source, { networkText: true })
+  const r = parseDocument(uri, source, { networkText: true }, "codesys")
   return { units: r.units.map((u) => u.kind), errors: r.errors.map((e) => e.message) }
 }
 
@@ -45,11 +45,11 @@ test("a POU still is — and so is text read with no object", () => {
   // `rcc_retired_comment_in_body` builds clean): a comment, in a POU too. A POU's END_NAMESPACE still is one (U28).
   const retired = "(* @volt-impl *)\nFUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n"
   expect(read("FB_A.pou", retired).errors).toEqual([])
-  expect(parseSource(retired, { networkText: true }).errors).toEqual([])
+  expect(parseSource(retired, { networkText: true }, "codesys").errors).toEqual([])
   const closer = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\n"
   expect(read("FB_A.pou", closer).errors).toHaveLength(1)
   // …and a DUT's text read as no object keeps today's reading: a fixture packs several units into one text
-  expect(parseSource("this is not structured text\nTYPE DUT_A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n", { networkText: true }).units.map((u) => u.kind)).toEqual(["type_decl"])
+  expect(parseSource("this is not structured text\nTYPE DUT_A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n", { networkText: true }, "codesys").units.map((u) => u.kind)).toEqual(["type_decl"])
 })
 
 // The server reads a document's object from its URI, and the client's selector is language-only: an SCM diff's HEAD

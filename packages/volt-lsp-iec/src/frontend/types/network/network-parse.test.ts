@@ -25,7 +25,7 @@ import { parseNetworkText } from "./network-parse.js"
 /** A POU whose graphical body is `networks`, under the line stating LD. */
 function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {
   const src = `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n${marker}\n${networks}\nEND_FUNCTION_BLOCK\n`
-  const b = unitBodies(parseSource(src, { networkText: true }).units[0]!).find(isGraphicalBody)
+  const b = unitBodies(parseSource(src, { networkText: true }, "codesys").units[0]!).find(isGraphicalBody)
   if (b === undefined) throw new Error("no graphical body")
   return b
 }

@@ -9,7 +9,6 @@
  */
 
 export type Vendor = "codesys" | "twincat"
-export type VendorSetting = Vendor | "auto"
 
 /** The three states a configurable diagnostic can take — CODESYS's off / warning / error. */
 export type DiagnosticState = "off" | "warning" | "error"
@@ -56,7 +55,8 @@ export type ConfigurableCode = (typeof CONFIGURABLE_CHECKS)[number]["code"]
 export const CONFIGURABLE_CODES: ReadonlySet<string> = new Set(CONFIGURABLE_CHECKS.map((w) => w.code))
 
 export interface AnalysisInitOptions {
-  vendor?: VendorSetting
+  /** REQUIRED, never defaulted: the server decides it once (`server/vendor.ts`), a test states its own. */
+  vendor: Vendor
   /** Per-code state (keyed by {@link ConfigurableCode}). Any omitted code defaults to "warning", matching CODESYS. */
   diagnostics?: Partial<Record<ConfigurableCode, DiagnosticState>>
   /** Diagnose dead (unreachable) code. Default OFF — matches the compiler, which never checks code it
@@ -79,11 +79,10 @@ function defaultDiagnostics(): Record<ConfigurableCode, DiagnosticState> {
   return d
 }
 
-/** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */
-export function resolveConfig(opts: AnalysisInitOptions = {}): ResolvedConfig {
-  const vendor: Vendor = opts.vendor === "twincat" ? "twincat" : "codesys"
+/** Resolve init options to a concrete config: every configurable code's state, the vendor as stated. */
+export function resolveConfig(opts: AnalysisInitOptions): ResolvedConfig {
   return {
-    vendor,
+    vendor: opts.vendor,
     diagnostics: { ...defaultDiagnostics(), ...opts.diagnostics },
     diagnoseDeadCode: opts.diagnoseDeadCode ?? false,
   }

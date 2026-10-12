@@ -44,7 +44,6 @@ import {
   isGraphicalBody,
   isStBody,
   parseDocument,
-  parseSource,
   sourceStatements,
   type BodySpan,
   type TopLevel,
@@ -59,7 +58,7 @@ import { allowedCode } from "./support/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText } from "../../src/frontend/types/index.js"
 import { projectDocuments } from "./support/diagnostics.js"
-import { loweringProject, walkSources } from "./support/project.js"
+import { corpusVendor, loweringProject, walkSources } from "./support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { assembleFixture } from "../conformance/support/fixture-units.js"
 import { PROJECT_BASE } from "../conformance/support/project-libraries.js"
@@ -248,9 +247,10 @@ function pass(): Pass {
 
   for (const projectName of projectDirs()) {
     const dir = join(CORPUS, projectName)
+    const vendor = corpusVendor(dir)
     const parsed = walkSources(dir).map((file) => {
       const source = readFileSync(file, "utf8")
-      return { file, source, parseResult: parseDocument(file, source, { networkText: true }) }
+      return { file, source, parseResult: parseDocument(file, source, { networkText: true }, vendor) }
     })
     p.files += parsed.length
 
@@ -286,7 +286,7 @@ function pass(): Pass {
       // ── the formatter re-emits valid ST that re-parses to an EQUIVALENT AST ──
       // Proves the formatter never changes meaning (span/token-free, body statements embedded, key-order-insensitive).
       const formatted = formatDocument({ uri: file, source, parseResult })
-      const reparsed = parseSource(formatted, { networkText: true })
+      const reparsed = parseDocument(file, formatted, { networkText: true }, vendor)
       if (reparsed.errors.length > 0) p.formatFailures.push(`${file}: formatted output has parse errors`)
       else if (astKey(parseResult.units) !== astKey(reparsed.units)) p.formatFailures.push(`${file}: AST changed after formatting`)
     }
@@ -519,7 +519,7 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
     const dupes: string[] = []
     for (const project of projectDirs()) {
       const dir = join(CORPUS, project)
-      for (const { uri, diagnostics } of projectDocuments(dir, "codesys")) {
+      for (const { uri, diagnostics } of projectDocuments(dir, corpusVendor(dir))) {
         const seen = new Set<string>()
         for (const diag of diagnostics) {
           if (!allowedCode(diag.code)) offenders.push(`${project}${uri.slice(dir.length)} [${String(diag.code)}]`)

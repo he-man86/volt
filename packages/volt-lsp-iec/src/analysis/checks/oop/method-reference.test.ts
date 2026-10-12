@@ -19,8 +19,8 @@ PROGRAM PLC_PRG
 VAR f : FB; y : INT; END_VAR
 ${body}
 END_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "method-referenced-without-parens")
     .map((d) => d.message)

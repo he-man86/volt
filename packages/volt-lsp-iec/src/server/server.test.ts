@@ -54,7 +54,7 @@ import { MATERIALIZATION } from "../frontend/library/index.js"
 
 /** A client connection wired to an in-process server over two pipes — `harness.ts` owns the setup, and the typed
  *  `harness()` built on it is what the wire-behaviour tests beside this file use. */
-const connect = connectToServer
+const connect = () => connectToServer("codesys")
 
 const SRC = `FUNCTION_BLOCK F
 VAR

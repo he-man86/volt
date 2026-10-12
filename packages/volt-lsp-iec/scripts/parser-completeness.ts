@@ -33,7 +33,7 @@ let files = 0, declErr = 0, bodies = 0, ok = 0, stmtRecorded = 0, stmtSilent = 0
 for (const f of walk(CORPUS)) {
   files++
   let pr
-  try { pr = parseSource(readFileSync(f, "utf8"), { networkText: NETWORK_TEXT_ENABLED }) } catch { continue }
+  try { pr = parseSource(readFileSync(f, "utf8"), { networkText: NETWORK_TEXT_ENABLED }, "codesys") } catch { continue }
   declErr += pr.errors.length
   for (const unit of pr.units)
     for (const body of unitBodies(unit)) {

@@ -25,7 +25,6 @@ export {
   type DiagnosticState,
   type ResolvedConfig,
   type Vendor,
-  type VendorSetting,
 } from "./config.js"
 // wording
 export { messagesFor, type Messages } from "./messages.js"

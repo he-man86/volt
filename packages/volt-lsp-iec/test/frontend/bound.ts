@@ -102,7 +102,7 @@ export function boundLibrary(): Bound[] {
     dialect: "codesys",
     parseResult: f.parseResult!,
   }))
-  const project = build.buildSymbolTable(parsed, PROJECT_MANIFESTS)
+  const project = build.buildSymbolTable(parsed, PROJECT_MANIFESTS, "codesys")
   const bySource = new Map(parsed.map((p) => [p.source, p]))
   return libraryRepoFiles().map((r) => {
     const at = bySource.get(r.source)

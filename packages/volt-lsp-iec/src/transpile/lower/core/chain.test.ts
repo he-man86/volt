@@ -30,7 +30,7 @@ FUNCTION_BLOCK FB_Lost EXTENDS FB_Nowhere
 END_FUNCTION_BLOCK
 `
 
-const parseResult = parseSource(SOURCE, TRANSPILE_PARSE)
+const parseResult = parseSource(SOURCE, TRANSPILE_PARSE, "codesys")
 const { project } = prepareProject([{ uri: "transpile://chain", parseResult, source: SOURCE }], [])
 const lw = new Lowering(project, project)
 const unit = (name: string) => lookup(project, name)?.symbol.ast as TopLevel

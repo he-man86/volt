@@ -28,7 +28,7 @@ const refusals = (src: string, object?: SourceObject) =>
   parseSource(src, { networkText: true }, "codesys", object).errors.filter((e) => e.message.startsWith("'END_NAMESPACE'"))
 
 test("a NAMESPACE parses holding its inner units", () => {
-  const pr = parseSource(NS, { networkText: true })
+  const pr = parseSource(NS, { networkText: true }, "codesys")
   expect(pr.units).toHaveLength(1)
   const ns = pr.units[0]
   expect(ns.kind).toBe("namespace")
@@ -61,7 +61,7 @@ test("a GVL, a DUT and text that is no workspace file are not refused for END_NA
 })
 
 test("a stray inside a NAMESPACE does not offer END_NAMESPACE as its closer: that line is refused", () => {
-  const messages = parseSource("NAMESPACE N\nFOO\n", { networkText: true }).errors.map((e) => e.message)
+  const messages = parseSource("NAMESPACE N\nFOO\n", { networkText: true }, "codesys").errors.map((e) => e.message)
   expect(messages).toEqual([expect.stringContaining("inside NAMESPACE")])
   expect(messages[0]).not.toContain("END_NAMESPACE")
 })
@@ -69,7 +69,7 @@ test("a stray inside a NAMESPACE does not offer END_NAMESPACE as its closer: tha
 test("a NAMESPACE with no END_NAMESPACE is no error: the vendor reads the object as declaring nothing, silently", () => {
   const pr = parseSource("NAMESPACE NS\nFUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nout := 1;\nEND_FUNCTION_BLOCK\n", {
     networkText: true,
-  })
+  }, "codesys")
   expect(pr.errors).toEqual([])
   expect(pr.units.map((u) => u.kind)).toEqual(["namespace"])
 })

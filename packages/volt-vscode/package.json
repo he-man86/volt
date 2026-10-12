@@ -282,7 +282,7 @@
             "auto"
           ],
           "default": "auto",
-          "description": "Which vendor's ST dialect this project targets. `auto` takes it from the workspace binding written by `volt init --vendor`, falling back to codesys when the workspace is not bound. Decides which names resolve, which rules run and how each message is worded — a change needs an editor reload."
+          "description": "Which vendor's ST dialect this project targets. `auto` lets the language server take it from the workspace binding written by `volt init --vendor`; with no bound folder the server refuses to start rather than guess, and an explicit vendor that contradicts the binding is refused too. Decides which names resolve, which rules run and how each message is worded — a change needs an editor reload."
         },
         "volt.iec.diagnostics.deadCode": {
           "type": "boolean",

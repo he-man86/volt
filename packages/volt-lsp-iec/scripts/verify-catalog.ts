@@ -107,7 +107,7 @@ function leadStart(source: string, start: number): number {
 
 /** Split a repro into { plcBody?, items[], instTypes[] (VAR-instantiable), calls[] (function calls) }. */
 function splitRepro(source: string): { plcBody?: string; items: { wire: string; src: string }[]; instTypes: string[]; calls: string[] } {
-  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }).units.filter((u) => TOP.has(u.kind))
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys").units.filter((u) => TOP.has(u.kind))
   const items: { wire: string; src: string }[] = []
   const instTypes: string[] = []
   const calls: string[] = []

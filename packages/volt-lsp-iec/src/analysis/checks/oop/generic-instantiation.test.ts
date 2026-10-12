@@ -12,8 +12,8 @@ const FB = `FUNCTION_BLOCK FB_G\nVAR_GENERIC CONSTANT\n\tN : UDINT := 4;\nEND_VA
 
 const errors = (decl: string): string[] => {
   const src = `${FB}\nPROGRAM P\nVAR\n\t${decl}\nEND_VAR\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)

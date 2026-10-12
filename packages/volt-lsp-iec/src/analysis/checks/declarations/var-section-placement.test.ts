@@ -38,7 +38,7 @@ test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
 
 test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", () => {
   const run = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true })
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
     const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "retain-not-allowed")
@@ -52,7 +52,7 @@ test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", 
 
 test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () => {
   const src = `PROGRAM P\nVAR_CONFIG i : INT; END_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "misplaced-var-config")

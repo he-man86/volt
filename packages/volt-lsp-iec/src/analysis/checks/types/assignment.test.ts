@@ -11,8 +11,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -25,8 +25,8 @@ test("an LTIME literal into a TIME does not convert — it was silent", () => {
 /** Every `assignment-type-mismatch` message for `x := E_Mode.Busy` with `x : <target>`, beside an enum `E_Mode`. */
 const enumInto = (target: string, base = ""): string[] => {
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -51,8 +51,8 @@ test("an enum with a written base converts as that base: a DINT-based enum into 
 /** Every `assignment-type-mismatch` message for a declaration-only FB. */
 const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -127,8 +127,8 @@ test("a reference declaration type-checks its target, and a valid bind stays sil
   // defined" — both checks said it, and CODESYS says it once (`refdecl_target_undeclared`, the census's open FP, 3.2.3)
   expect(mismatches(decl("REF= nope"), ";")).toEqual([])
   const src = `PROGRAM PLC_PRG\nVAR\n${decl("REF= nope")}\nEND_VAR\n;\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
@@ -153,8 +153,8 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
   const fb = (decls: string, header = "FUNCTION_BLOCK FB_Derived EXTENDS FB_Missing") =>
     `${header}\nVAR\n${decls}\nEND_VAR\n;\nEND_FUNCTION_BLOCK`
   const codes = (src: string): string[] => {
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)
@@ -173,8 +173,8 @@ test("`S=` and `R=` set a BOOL from a BOOL: an INT target or operand does not co
 /** Every error and warning for `body` in a PROGRAM with `vars`, beside `enums` (whole TYPE units). */
 const storeDiagnostics = (enums: string, vars: string, body: string): string[] => {
   const src = `${enums}\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
@@ -247,8 +247,8 @@ test("a variable stored into a subrange names the target in its assignment form"
 
 /** Every `assignment-type-mismatch` message of `units` (whole units, an FB `F` among them). */
 const mismatchesIn = (units: string): string[] => {
-  const parseResult = parseSource(units, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
+  const parseResult = parseSource(units, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -307,8 +307,8 @@ END_METHOD
 METHOD Other : INT
 txt := a.Value;
 END_METHOD`
-  const parseResult = parseSource(units, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
+  const parseResult = parseSource(units, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }], [], "codesys")
   const messages = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.message.startsWith("Cannot convert"))
     .map((d) => d.message)
@@ -318,8 +318,8 @@ END_METHOD`
 /** Every `assignment-type-mismatch` message for `body`, beside a struct `S_Lit`. */
 const composite = (vars: string, body = ""): string[] => {
   const src = `TYPE S_Lit :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -340,8 +340,8 @@ test("an untyped 0 or 1 into a struct or an array is named BIT, any other intege
 test("…and so into a FUNCTION BLOCK instance: 1 is BIT, 2 SINT, in an initial value and a statement (litc_fb_*, both vendors)", () => {
   const fbInto = (vars: string, body = ""): string[] => {
     const src = `FUNCTION_BLOCK FB_Lit\nVAR\n\ta : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)

@@ -17,7 +17,7 @@ import { describeConnect, describeDisconnect, type OutcomeView } from "../view/o
 import { Emitter, type Disposable } from "./emitter.js";
 import { onConnectorView } from "../bridge/session.js";
 import { isMutationInFlight } from "../bridge/gate.js";
-import { readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
+import { bindingFile, readBridgeVendor, healthOf, type HealthState, type Vendor } from "../bridge/health.js";
 import { boundStatus } from "../bridge/connector.js";
 import type { PullOutcome, PushOutcome, MergeOutcome } from "../bridge/actions.js";
 import type { StatusJson } from "../view/types.js";
@@ -196,8 +196,8 @@ export class VoltStatus {
 		this.isRefreshing = true;
 
 		try {
-			const configPath = join(this.workspaceRoot, ".git", "volt", "config.json");
-			if (!existsSync(configPath)) {
+			const configPath = bindingFile(this.workspaceRoot);
+			if (configPath === undefined || !existsSync(configPath)) {
 				this.cached = undefined;
 				this.statusError = undefined;
 				return;

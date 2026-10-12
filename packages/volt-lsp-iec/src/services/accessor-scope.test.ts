@@ -17,9 +17,9 @@ import { build, lookup } from "../frontend/symbols/index.js"
 import type { Document } from "./shared/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
 }
 

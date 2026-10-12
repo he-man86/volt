@@ -39,9 +39,9 @@ test("an elementary type's hover carries its range, DERIVED from types/elementar
 
 test("hover falls back to the built-in entry for a built-in type", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc: Document = { uri: "u", source: src, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   // cursor on the `INT` type name (a built-in, not a user symbol)
   const h = hover(doc, project, src.indexOf(": INT") + 2)
   expect((h?.contents as { value: string }).value).toContain("elementary type")

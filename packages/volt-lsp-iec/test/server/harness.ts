@@ -29,6 +29,7 @@ import {
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
 import { runServer } from "../../src/server/index.js"
+import type { Vendor } from "../../src/analysis/index.js"
 
 /** Capability presets keyed to the delivery channel a client selects. */
 export const CAPS = {
@@ -73,14 +74,15 @@ export interface Harness {
  * this; `server.test.ts` drives the raw connection. Both start here.
  */
 export function connectToServer(
-  vendor: "codesys" | "twincat" = "codesys",
+  /** The vendor flag the client states (`--codesys|--twincat`); undefined ⇒ the server reads the workspace binding. */
+  flag: Vendor | undefined,
   /** Register handlers HERE, not after the call: a handler added once the connection is listening can miss a
    *  notification the server already sent — which for `publishDiagnostics` is the very thing under test. */
   register?: (client: ProtocolConnection) => void,
 ): ProtocolConnection {
   const c2s = new PassThrough()
   const s2c = new PassThrough()
-  runServer(c2s, s2c, vendor) // server reads c2s, writes s2c
+  runServer(c2s, s2c, flag, "(test)") // server reads c2s, writes s2c
   const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
   client.onRequest(RegistrationRequest.type, () => {}) // ack the file-watcher dynamic registration
   register?.(client)
@@ -88,7 +90,7 @@ export function connectToServer(
   return client
 }
 
-export function harness(vendor: "codesys" | "twincat" = "codesys"): Harness {
+export function harness(vendor: Vendor = "codesys"): Harness {
   const lastPush = new Map<string, Diagnostic[]>()
   const pushes = new Map<string, number>()
   let refreshes = 0

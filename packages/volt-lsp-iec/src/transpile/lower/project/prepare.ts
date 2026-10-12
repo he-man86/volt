@@ -92,7 +92,7 @@ export function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[];
   const manifests = files.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
   const parsed = files
     .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
-    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source, TRANSPILE_PARSE), source: l.source }))
+    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source, TRANSPILE_PARSE, EXEC_ORACLE_DIALECT), source: l.source }))
   const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
   return unparsed === undefined ? { files: parsed, manifests } : { unparsed }
 }

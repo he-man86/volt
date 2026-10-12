@@ -56,11 +56,16 @@ const deviceNameOf = (file: string): string | undefined => readFileSync(file, "u
 
 /** No workspace reference files known. */
 export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [] }
-import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
+import { SOURCE_EXTENSION_SET, SOURCE_EXTENSIONS } from "./source-extensions.js"
+
+/** Every extension `scanWorkspace` reads — the sources and the reference files beside them. The server watches exactly
+ *  these: a file the scan reads and no watcher reports is a change the running server never sees. */
+export const SCANNED_EXTENSIONS: readonly string[] = [...SOURCE_EXTENSIONS, ".library", ".device", ".projectsettings", ".task"]
 
 const withTarget = (target: Target | undefined): { target?: Target } => (target === undefined ? {} : { target })
 
-/** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
+/** All files under `root`, recursively — never under `.git`, the repository `volt init` makes of the workspace, which holds
+ *  no item of it. Unreadable directories are skipped, not thrown. */
 function walkFiles(root: string): string[] {
   const out: string[] = []
   let entries: string[]
@@ -70,6 +75,7 @@ function walkFiles(root: string): string[] {
     return out
   }
   for (const name of entries) {
+    if (name === ".git") continue
     const p = join(root, name)
     let dir = false
     try {

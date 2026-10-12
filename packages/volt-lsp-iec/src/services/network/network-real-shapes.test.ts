@@ -16,10 +16,10 @@ import type { Document } from "../shared/index.js"
  */
 
 function doc(src: string): Document {
-  return { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
+  return { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
 }
 function project(d: Document): Scope {
-  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
+  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }], [], "codesys")
 }
 function diags(src: string): DiagnosticItem[] {
   const d = doc(src)

@@ -26,8 +26,8 @@ PROGRAM PLC_PRG
 VAR f : FB; y : INT; END_VAR
 ${body}
 END_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "property-lacks-getter")
     .map((d) => d.message)
@@ -46,8 +46,8 @@ test("writing a set-only property is not flagged; reading a get-only property is
 
 test("the owning FB's own body names its property BARE — but the accessor's own value is not a read", () => {
   const run = (src: string) => {
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "property-lacks-getter")
       .map((d) => d.message)
@@ -62,8 +62,8 @@ test("the owning FB's own body names its property BARE — but the accessor's ow
 test("writing a get-only property is no valid assignment target", () => {
   const all = (body: string): string[] => {
     const src = `FUNCTION_BLOCK FB\nVAR v:INT; END_VAR\nEND_FUNCTION_BLOCK\nPROPERTY GetOnly : INT\nGET\nGetOnly := 1;\nEND_GET\nEND_PROPERTY\nPROPERTY Both : INT\nGET\nBoth := v;\nEND_GET\nSET\nv := Both;\nEND_SET\nEND_PROPERTY\nPROGRAM PLC_PRG\nVAR f : FB; y : INT; END_VAR\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const pr = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
   }
   expect(all("f.GetOnly := 3;")).toEqual(["'f.GetOnly' is no valid assignment target"])

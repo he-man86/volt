@@ -9,7 +9,7 @@ import type { Scope } from "./model.js"
 import { externalGlobal, findChildScope, findScopeByName, lookup, lookupMember, lookupUnit, resolveGvlMember, scopeForUnit } from "./index.js"
 import { bindFile, buildSymbolTable, relink, unbindFile } from "./incremental.js"
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
 
 /** The pre-index implementation, kept here as the oracle. */
 function walk(scope: Scope, name: string): Scope | undefined {
@@ -27,14 +27,14 @@ const RUN = "FUNCTION_BLOCK Run\nEND_FUNCTION_BLOCK"
 const ITF = "INTERFACE I_Thing\nMETHOD Go : BOOL\nEND_METHOD\nEND_INTERFACE"
 
 test("the index answers exactly what a depth-first walk answers, including a nested name that shadows a later top-level one", () => {
-  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B), file("run.pou", RUN), file("i.itf", ITF)])
+  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B), file("run.pou", RUN), file("i.itf", ITF)], [], "codesys")
   for (const name of ["FB_A", "fb_b", "RUN", "Run", "I_Thing", "Go", "nothing"]) expect(findScopeByName(project, name)).toBe(walk(project, name))
   // `Run` is FB_A's method before it is the top-level FB in pre-order — the index must not prefer the top level
   expect(findScopeByName(project, "Run")?.parent?.name).toBe("FB_A")
 })
 
 test("a bound file is found, and an unbound one is gone — the index never outlives the tree it was built from", () => {
-  const project = buildSymbolTable([file("a.pou", FB_A)])
+  const project = buildSymbolTable([file("a.pou", FB_A)], [], "codesys")
   expect(findScopeByName(project, "FB_B")).toBeUndefined()
 
   bindFile(project, file("b.pou", FB_B))
@@ -48,7 +48,7 @@ test("a bound file is found, and an unbound one is gone — the index never outl
 })
 
 test("a scope that is not a project root is still searched within its own subtree", () => {
-  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B)])
+  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B)], [], "codesys")
   const fbB = findScopeByName(project, "FB_B")!
   expect(findScopeByName(fbB, "Run")?.parent).toBe(fbB)
   expect(findScopeByName(fbB, "FB_A")).toBeUndefined()
@@ -60,7 +60,7 @@ test("a scope that is not a project root is still searched within its own subtre
 test("a unit that owns no scope has none — a GVL or an alias is never answered with a same-named scope", () => {
   const gvl = file("Run.gvl", "VAR_GLOBAL\ng : INT;\nEND_VAR")
   const alias = file("Run.dut", "TYPE Run : INT; END_TYPE")
-  const project = buildSymbolTable([file("a.pou", FB_A), gvl, alias])
+  const project = buildSymbolTable([file("a.pou", FB_A), gvl, alias], [], "codesys")
   expect(findScopeByName(project, "Run")?.kind).toBe("method")
   const units = [...gvl.parseResult.units, ...alias.parseResult.units]
   expect(units.map((u) => u.kind)).toEqual(["global_var_list", "type_decl"])
@@ -73,7 +73,7 @@ test("externalGlobal: a VAR_EXTERNAL binds the bare-reachable global of its name
   const project = buildSymbolTable([
     file("GVL_A.gvl", "VAR_GLOBAL\n g_plain : INT;\nEND_VAR"),
     file("GVL_Q.gvl", "{attribute 'qualified_only'}\nVAR_GLOBAL\n g_q : INT;\nEND_VAR"),
-  ])
+  ], [], "codesys")
   expect(externalGlobal(project, "G_PLAIN")?.uri).toBe("GVL_A.gvl")
   expect(externalGlobal(project, "g_q")).toBeUndefined()
   expect(externalGlobal(project, "nothing")).toBeUndefined()
@@ -87,7 +87,7 @@ test("lookup: a global variable before a POU of the same name, in either file or
   const fn = "FUNCTION F_Same : INT\nF_Same := 9;\nEND_FUNCTION"
   const gvl = "VAR_GLOBAL\n F_Same : INT := 3;\nEND_VAR"
   for (const [a, b] of [["a.pou", "b.gvl"], ["b.pou", "a.gvl"]] as const) {
-    const project = buildSymbolTable([file(a, fn), file(b, gvl)])
+    const project = buildSymbolTable([file(a, fn), file(b, gvl)], [], "codesys")
     expect(lookup(project, "f_same")?.symbol.kind).toBe("gvl_var")
   }
 })
@@ -99,8 +99,8 @@ test("resolveGvlMember: a library's list named through the library's namespace (
   const lib = "App/Library Manager/StringUtils/GVL_UTF8.gvl"
   const project = buildSymbolTable([file(lib, "VAR_GLOBAL\n HALFSHIFT : INT := 10;\nEND_VAR")], [
     { uri: "App/Library Manager/StringUtils/StringUtils.library", folder: "StringUtils", dir: "App/Library Manager/StringUtils/", namespace: "Stu", library: "StringUtils", dependencies: [], materialization: 4 },
-  ])
-  const expr = parseSource("PROGRAM P\nx := Stu.GVL_UTF8.HALFSHIFT;\nEND_PROGRAM", { networkText: true })
+  ], "codesys")
+  const expr = parseSource("PROGRAM P\nx := Stu.GVL_UTF8.HALFSHIFT;\nEND_PROGRAM", { networkText: true }, "codesys")
   const statement = bodyStatements((expr.units[0] as { body: Parameters<typeof bodyStatements>[0] }).body).statements[0] as { value: Parameters<typeof resolveGvlMember>[0] }
   expect(resolveGvlMember(statement.value, project, project)?.uri).toBe(lib)
 })
@@ -115,7 +115,7 @@ test("lookup: a VAR_EXTERNAL binds where its global exists, and is passed over w
     file("P.pou", prg),
     file("GVL_A.gvl", "VAR_GLOBAL\n g_there : INT;\nEND_VAR"),
     file("GVL_Q.gvl", "{attribute 'qualified_only'}\nVAR_GLOBAL\n g_q : INT;\nEND_VAR"),
-  ])
+  ], [], "codesys")
   const p = findScopeByName(project, "P")!
   expect(lookup(p, "g_there")?.foundIn).toBe(p)
   expect(lookup(p, "g_q")).toBeUndefined()
@@ -134,7 +134,7 @@ test("lookupUnit: a type position finds the POU or type, past a same-named globa
     expect(lookupUnit(project, "e")?.symbol.kind).toBe("type")
     expect(lookup(project, "pou")?.symbol.kind).toBe("gvl_var")
   }
-  const p = buildSymbolTable([file("p.pou", "PROGRAM P\nVAR pou : INT; END_VAR\nEND_PROGRAM"), file("f.pou", fn)])
+  const p = buildSymbolTable([file("p.pou", "PROGRAM P\nVAR pou : INT; END_VAR\nEND_PROGRAM"), file("f.pou", fn)], [], "codesys")
   expect(lookupUnit(findScopeByName(p, "P")!, "POU")?.symbol.kind).toBe("function")
 })
 
@@ -171,7 +171,7 @@ const TWO_ERRORS = () =>
       file(`${LM}/Tools/USER.pou`, "FUNCTION USER : INT\nUSER := F_Lib();\nEND_FUNCTION"),
       file("App/PLC_PRG.pou", "PROGRAM PLC_PRG\nEND_PROGRAM"),
     ],
-    [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util"), manifest("Tools", "Tools", ["Util"])],
+    [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util"), manifest("Tools", "Tools", ["Util"])], "codesys",
   )
 
 test("LB6: a bare name two libraries export is the asker's OWN library's, then its dependency's — never the first by URI", () => {
@@ -193,7 +193,7 @@ test("LB6: the answer does not depend on the order the files were bound", () => 
     [files[1]!]: "TYPE ERROR :\n(\n\tNO_ERROR := 0\n);\nEND_TYPE",
     [files[2]!]: "FUNCTION DATETIMEFROMWEEK : ULINT\nEND_FUNCTION",
   }
-  const b = buildSymbolTable(files.map((f) => file(f, sources[f]!)), [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util")])
+  const b = buildSymbolTable(files.map((f) => file(f, sources[f]!)), [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util")], "codesys")
   expect(lookup(findScopeByName(b, "DATETIMEFROMWEEK")!, "ERROR")?.symbol.uri).toBe(`${LM}/Util/ERROR.dut`)
   expect(lookup(findScopeByName(a, "DATETIMEFROMWEEK")!, "ERROR")?.symbol.uri).toBe(`${LM}/Util/ERROR.dut`)
 })
@@ -206,7 +206,7 @@ test("LB3: a name looked up in a library's NAMESPACE is that library's own eleme
       file(`${LM}/CAA Types/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR\n);\nEND_TYPE"),
       file(`${LM}/Device Diagnosis/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR := 0,\n\tTIME_OUT := 1301\n);\nEND_TYPE"),
     ],
-    [manifest("CAA Types", "CAA"), manifest("Device Diagnosis", "DED", ["CAA Types"])],
+    [manifest("CAA Types", "CAA"), manifest("Device Diagnosis", "DED", ["CAA Types"])], "codesys",
   )
   const ded = findChildScope(project, "DED")!
   expect(ded.kind).toBe("namespace")
@@ -228,7 +228,7 @@ test("LB3: a library asker's own library before the PROJECT's element of the nam
       file("App/GVL.gvl", "VAR_GLOBAL\n\tgShared : INT;\nEND_VAR"),
       file("App/PLC_PRG.pou", "PROGRAM PLC_PRG\nEND_PROGRAM"),
     ],
-    [manifest("Util", "Util")],
+    [manifest("Util", "Util")], "codesys",
   )
   const user = findScopeByName(project, "F_User", `${LM}/Util/F_User.pou`)!
   expect(lookup(user, "F_Help")?.symbol.uri).toBe(`${LM}/Util/F_Help.pou`)
@@ -245,7 +245,7 @@ test("LB3: findScopeByName, given the asker, answers the asker's own library's s
   const itf = "INTERFACE I_Thing\nMETHOD Go : BOOL\nEND_METHOD\nEND_INTERFACE"
   const project = buildSymbolTable(
     [file(`${LM}/A/I_Thing.itf`, itf), file(`${LM}/B/I_Thing.itf`, itf), file(`${LM}/B/FB_X.pou`, "FUNCTION_BLOCK FB_X IMPLEMENTS I_Thing\nEND_FUNCTION_BLOCK")],
-    [manifest("A", "A"), manifest("B", "B")],
+    [manifest("A", "A"), manifest("B", "B")], "codesys",
   )
   expect(findScopeByName(project, "I_Thing", `${LM}/B/FB_X.pou`)?.defUri).toBe(`${LM}/B/I_Thing.itf`)
   expect(findScopeByName(project, "I_Thing", `${LM}/A/Other.pou`)?.defUri).toBe(`${LM}/A/I_Thing.itf`)
@@ -266,13 +266,13 @@ test("a namespace two libraries declare is both libraries' — `CB` is CAA Callb
   const extern = manifest("CAA Callback Extern", "CB")
   const ext2 = manifest("CAA Callback Ext2", "CB")
   for (const order of [[placeholder, extern, ext2], [ext2, extern, placeholder], [extern, placeholder, ext2]]) {
-    const cb = findChildScope(buildSymbolTable(files, order), "CB")!
+    const cb = findChildScope(buildSymbolTable(files, order, "codesys"), "CB")!
     expect(cb.kind).toBe("namespace")
     expect(lookupMember(cb, "EVENT")?.uri).toBe(`${LM}/CAA Callback Extern/EVENT.dut`)
     expect(lookupMember(cb, "CALLBACK")?.uri).toBe(`${LM}/CAA Callback Ext2/CALLBACK.dut`)
     // ONE namespace scope and ONE namespace symbol, standing for the same manifest in every order: the first by URI
     const first = [placeholder, extern, ext2].map((m) => m.uri).sort()[0]
-    const project = buildSymbolTable(files, order)
+    const project = buildSymbolTable(files, order, "codesys")
     expect(project.children.filter((c) => c.kind === "namespace").map((c) => c.libraryUri)).toEqual([first])
     expect((project.symbols.get("cb") ?? []).map((s) => s.uri)).toEqual([first])
   }
@@ -289,7 +289,7 @@ test("a VAR_TEMP is reached by its own body and an ACTION, not by a METHOD or a 
     file("g.gvl", "VAR_GLOBAL\n scratch : BOOL;\nEND_VAR"),
     file("base.pou", "FUNCTION_BLOCK FB_T\nVAR_TEMP scratch : INT; END_VAR\nscratch := 1;\nEND_FUNCTION_BLOCK\nMETHOD M\nEND_METHOD\nACTION Act\nEND_ACTION"),
     file("derived.pou", "FUNCTION_BLOCK FB_D EXTENDS FB_T\nEND_FUNCTION_BLOCK"),
-  ])
+  ], [], "codesys")
   const fb = findChildScope(project, "FB_T")!
   const kinds = (start: Scope) => lookup(start, "scratch")?.symbol.varSection
   expect(kinds(fb)).toBe("VAR_TEMP")

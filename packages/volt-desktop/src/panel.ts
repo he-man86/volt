@@ -128,8 +128,7 @@ let diagPending = false
 export async function runDiagnostics(shell: Shell): Promise<void> {
   const st = shell.status
   if (!st) return
-  const vendor = readBridgeVendor(st.workspaceRoot)
-  if (vendor === undefined) return // unbound workspace — nothing to diagnose
+  if (readBridgeVendor(st.workspaceRoot) === undefined) return // unbound workspace — nothing to diagnose (the server would refuse it)
   // Latest-wins: if a run is already in flight, mark that the currently-bound workspace still needs one and
   // let the finishing run re-fire — a fast project switch must not drop the NEW workspace's diagnostics.
   if (diagRunning) {
@@ -140,7 +139,7 @@ export async function runDiagnostics(shell: Shell): Promise<void> {
   const root = st.workspaceRoot
   shell.win?.webContents.send("volt:diagnostics", { loading: true })
   try {
-    const result = await collectDiagnostics(root, vendor)
+    const result = await collectDiagnostics(root)
     if (shell.status?.workspaceRoot === root) // `summary` is computed HERE and shipped: the renderer is sandboxed and cannot import @volt/control, so
       // the one place the sentence exists has to reach it over the wire.
       shell.win?.webContents.send("volt:diagnostics", { loading: false, ...result, summary: describeDiagnostics(result) })

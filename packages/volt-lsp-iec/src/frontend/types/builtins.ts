@@ -53,14 +53,17 @@ export const COMPILER_IMPLICITS: ReadonlySet<string> = new Set(["THIS", "SUPER",
 export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type"
 
 /**
- * `name` as one of the compiler's own names in `dialect`, or undefined. A `__` name is a system operator — and none of the
+ * `name` as one of the compiler's own names in `dialect`, or undefined. A type name is a type only where the dialect has
+ * the type (`LDATE` is no TwinCAT type: "Unknown type"), and a platform integer is a type though it is spelled `__`
+ * (`__XINT`). Any other `__` name is a system operator — and none of the
  * CODESYS-only names (`XSIZEOF` too) is one on TwinCAT, which has never heard of them ("Identifier '__POSITION' not defined",
  * `syntax/lex/vocabulary.ts`). A conversion is only as real as the types it names: `DATE_TO_LDATE` is no TwinCAT
  * operator, LDATE being no TwinCAT type (`TO_LDATE` neither — the parsed conversion is asked, not the spelling).
  */
 export function builtinName(name: string, dialect: Dialect | undefined): BuiltinName | undefined {
   const upper = name.toUpperCase()
-  if (dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper)) return undefined
+  if (dialect === "twincat" && (CODESYS_ONLY_KEYWORDS.has(upper) || CODESYS_ONLY_TYPES.has(upper))) return undefined
+  if (isElementaryTypeName(upper)) return "type"
   if (upper.startsWith("__")) return "system-operator"
   const conversion = conversionSides(name)
   if (conversion !== undefined)
@@ -68,8 +71,7 @@ export function builtinName(name: string, dialect: Dialect | undefined): Builtin
       ? "conversion"
       : undefined
   if (COMPILER_IMPLICITS.has(upper)) return "implicit"
-  if (BUILTIN_OPERATOR_NAMES.has(upper)) return "operator"
-  return isElementaryTypeName(upper) ? "type" : undefined
+  return BUILTIN_OPERATOR_NAMES.has(upper) ? "operator" : undefined
 }
 
 /**

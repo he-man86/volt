@@ -9,8 +9,8 @@ import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
 
 const rec = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "data-recursion")
     .map((d) => d.message)
@@ -44,12 +44,12 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   const cfg = resolveConfig({ vendor: "codesys" })
   const before = "FUNCTION_BLOCK FB1\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK"
   const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: parseSource(before, { networkText: true }), source: before }])
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: parseSource(before, { networkText: true }, "codesys"), source: before }], [], "codesys")
   const check = (src: string) =>
-    computeDiagnostics({ uri: "F", parseResult: parseSource(src, { networkText: true }), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
+    computeDiagnostics({ uri: "F", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
   expect(check(before)).toBe(0)
   build.unbindFile(project, "F")
-  build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }), source: after })
+  build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }, "codesys"), source: after })
   expect(check(after)).toBe(1)
 })
 
@@ -60,8 +60,8 @@ test("a cycle across two files follows an edit to EITHER one — a rebound file'
   const a = "FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nEND_FUNCTION_BLOCK"
   const bCycle = "FUNCTION_BLOCK FB_B\nVAR a : FB_A; END_VAR\nEND_FUNCTION_BLOCK"
   const bFlat = "FUNCTION_BLOCK FB_B\nVAR a : POINTER TO FB_A; END_VAR\nEND_FUNCTION_BLOCK"
-  const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }) })
-  const project = build.buildSymbolTable([file("A", a), file("B", bFlat)])
+  const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }, "codesys") })
+  const project = build.buildSymbolTable([file("A", a), file("B", bFlat)], [], "codesys")
   const fileA = file("A", a)
   const onA = () =>
     computeDiagnostics({ uri: uriFor(fileA.parseResult), parseResult: fileA.parseResult, source: a, project, config: cfg })
@@ -83,11 +83,11 @@ test("two same-named types are ONE node, with both declarations' members as its 
   const cfg = resolveConfig({ vendor: "codesys" })
   const first = "TYPE sv :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE"
   const second = "TYPE SV :\nSTRUCT\nloop : sv;\nEND_STRUCT\nEND_TYPE"
-  const pr = parseSource(first, { networkText: true })
+  const pr = parseSource(first, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([
     { uri: "1", parseResult: pr, source: first },
-    { uri: "2", parseResult: parseSource(second, { networkText: true }), source: second },
-  ])
+    { uri: "2", parseResult: parseSource(second, { networkText: true }, "codesys"), source: second },
+  ], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: first, project, config: cfg })
       .filter((d) => d.code === "data-recursion")

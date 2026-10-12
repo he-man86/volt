@@ -66,8 +66,8 @@ VAR str:STRING(N); w:WSTRING(N); END_VAR`)).toEqual([])
 // `.g` and answered "unknown"; a CONSTANT global through the dot stays quiet.
 test("C0227: a VAR CONSTANT initialised from `.g` — a variable global flagged, a constant one not (expr_global_namespace_variable_in_constant, E33)", () => {
   const src = `VAR_GLOBAL\ngInit : INT;\nEND_VAR\nVAR_GLOBAL CONSTANT\ngConst : INT := 3;\nEND_VAR\nFUNCTION_BLOCK F\nVAR CONSTANT\nk : INT := .gInit;\nkc : INT := .gConst;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "const-init-non-const")
     .map((d) => d.message)
@@ -76,8 +76,8 @@ test("C0227: a VAR CONSTANT initialised from `.g` — a variable global flagged,
 
 test("C0526 is not said for a FUNCTION BLOCK's input: an FB input defaulted with a variable builds silently (dflt_fb_input_from_variable)", () => {
   const src = `FUNCTION_BLOCK FB\nVAR_INPUT p:INT:=g;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION F : INT\nVAR_INPUT q:INT:=g;\nEND_VAR\nF := q;\nEND_FUNCTION\nVAR_GLOBAL\n g : INT;\nEND_VAR`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   expect(
     computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "default-not-constant")

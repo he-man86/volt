@@ -5,10 +5,11 @@
  * the one home for that. A body that is not ST, or doesn't parse cleanly, is preserved VERBATIM from its
  * tokens — trivially round-trip-safe — under its `IMPLEMENTATION` line (and a member's `%FOLDER`), printed from the AST.
  *
- * Contract (closes A.3): `parse(format(src)) ≡ parse(src)` — formatting never changes the AST. Comments
- * inside statement bodies are not yet re-attached, so a body with inline comments is preserved verbatim.
+ * The requests (document, range, on-type) are `format.ts`. Contract (closes A.3): `parse(format(src)) ≡ parse(src)` —
+ * formatting never changes the AST. Comments
+ * are not yet re-attached, so a body with inline comments is preserved verbatim, and so is a unit whose declaration
+ * holds one (`format.ts` `reprint`).
  */
-import type { Position, Range, TextEdit } from "vscode-languageserver-protocol"
 import {
   type Attribute,
   type BodySpan,
@@ -25,109 +26,13 @@ import {
   type Statement,
   statedLine,
   type StatementList,
-  stmtChildLists,
   type TopLevel,
   type TypeExpr,
-  unitBodies,
   type VarDecl,
   type VarSection,
 } from "../../frontend/syntax/index.js"
-import { offsetFromPosition, rangeFromSpan } from "../shared/index.js"
-import type { Document } from "../shared/index.js"
 
-const TAB = "\t"
-
-/** LSP-shaped formatting options (`editorconfig`): tabs by default, spaces on request. */
-export interface FormatOptions {
-  insertSpaces?: boolean
-  tabSize?: number
-}
-
-/** Format the whole document. */
-export function formatDocument(doc: Document, options?: FormatOptions): string {
-  const units = doc.parseResult.units
-  return applyIndentStyle(units.map((u, i) => printOrKeep(doc, u, units[i + 1])).join("\n\n") + "\n", options)
-}
-
-/** Range formatting: re-emit each top-level unit that intersects the range (edits are per-unit). */
-export function formatRange(doc: Document, range: Range, options?: FormatOptions): TextEdit[] {
-  const start = offsetFromPosition(doc.source, range.start)
-  const end = offsetFromPosition(doc.source, range.end)
-  const edits: TextEdit[] = []
-  for (const unit of doc.parseResult.units) {
-    if (unit.span.end < start || unit.span.start > end) continue
-    if (refusedIn(doc, unit)) continue // kept as written: no edit (`printOrKeep`)
-    edits.push({ range: rangeFromSpan(unit.span), newText: applyIndentStyle(printUnit(unit), options) })
-  }
-  return edits
-}
-
-/**
- * On-type formatting: after a newline, indent the fresh line to the block depth at the cursor.
- * ponytail: depth is a token-scan count of open blocks (IF/CASE/FOR/WHILE/REPEAT/__TRY vs their
- * closers) within the enclosing body — enough for auto-indent, not a full reflow.
- */
-export function formatOnType(doc: Document, position: Position, ch: string, options?: FormatOptions): TextEdit[] {
-  if (ch !== "\n") return []
-  const offset = offsetFromPosition(doc.source, position)
-  if (offset < 0) return []
-  const depth = blockDepthAt(doc, offset)
-  if (depth <= 0) return []
-  const unit = options?.insertSpaces ? " ".repeat((options.tabSize ?? 2) * depth) : TAB.repeat(depth)
-  return [{ range: { start: position, end: position }, newText: unit }]
-}
-
-/** Convert leading tabs to spaces per options (the printer always emits tabs internally). */
-function applyIndentStyle(text: string, options?: FormatOptions): string {
-  if (options?.insertSpaces !== true) return text
-  const pad = " ".repeat(options.tabSize ?? 2)
-  return text
-    .split("\n")
-    .map((line) => {
-      const m = /^\t+/.exec(line)
-      return m ? pad.repeat(m[0].length) + line.slice(m[0].length) : line
-    })
-    .join("\n")
-}
-
-/** Open-block depth of the ST body enclosing `offset`, by scanning the body's statements. */
-function blockDepthAt(doc: Document, offset: number): number {
-  for (const unit of doc.parseResult.units) {
-    if (offset < unit.span.start || offset > unit.span.end) continue
-    for (const body of unitBodies(unit)) {
-      if (offset < body.span.start || offset > body.span.end) continue
-      const parsed = sourceStatements(body) // as written: the cursor may sit in any conditional branch
-      if (!parsed.ok) return 1 // inside a body but unparseable — one level of indent
-      return statementDepthAt(parsed.statements, offset)
-    }
-  }
-  return 0
-}
-
-function statementDepthAt(list: StatementList, offset: number): number {
-  for (const s of list) {
-    if (offset < s.span.start || offset > s.span.end) continue
-    const inner = stmtChildLists(s).map((sub) => statementDepthAt(sub, offset))
-    return 1 + Math.max(0, ...inner)
-  }
-  return 0
-}
-
-/**
- * A unit the declaration parse refused anything inside is kept AS WRITTEN: a refused declaration leaves no node, so a
- * unit reprinted from its AST deletes the user's line (`v : __VECTOR[4] OF REAL;` on TwinCAT, `v : final;` on either
- * vendor). The rule an unparseable body already follows (`printCode`), one level up. A unit's span ends with its body,
- * before its `END_…` keyword, so what is kept runs to where the next unit starts (or the end of the file).
- */
-function printOrKeep(doc: Document, unit: TopLevel, next: TopLevel | undefined): string {
-  if (!refusedIn(doc, unit)) return printUnit(unit)
-  return verbatimText(doc.source.slice(unit.span.start, next?.span.start ?? doc.source.length)).trimEnd()
-}
-
-/** Whether the declaration parse reported an error inside `unit`. */
-function refusedIn(doc: Document, unit: TopLevel): boolean {
-  return doc.parseResult.errors.some((e) => e.span.start >= unit.span.start && e.span.start < unit.span.end)
-}
+export const TAB = "\t"
 
 /** The attributes a node carries, each on its own line as written, ahead of what it decorates — reprinted from the AST
  *  without them, formatting deleted every `{attribute}` of a file (frontend-conformance 2.7.2 put them in the AST). */
@@ -135,7 +40,7 @@ function attributeLines(node: { attributes?: readonly Attribute[] }, indent = ""
   return (node.attributes ?? []).map((a) => `${indent}${a.text}\n`).join("")
 }
 
-function printUnit(unit: TopLevel): string {
+export function printUnit(unit: TopLevel): string {
   return attributeLines(unit) + printUnitItself(unit)
 }
 
@@ -278,7 +183,7 @@ function verbatim(body: BodySpan): string {
  *  `IMPLEMENTATION` line (or a member's `%FOLDER`); left as `\r\n` in a CRLF file, it survived the strip of leading
  *  newlines and stood under the `\n` the head prints — a blank line the push writes into the IDE body, in a file of
  *  mixed line endings. */
-function verbatimText(text: string): string {
+export function verbatimText(text: string): string {
   return text.replace(/\r\n/g, "\n")
 }
 

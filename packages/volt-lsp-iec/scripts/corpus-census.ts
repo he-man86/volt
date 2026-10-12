@@ -88,7 +88,7 @@ for (const project of readdirSync(CORPUS).filter((n) => statSync(join(CORPUS, n)
   for (const file of walk(join(CORPUS, project))) {
     const source = readFileSync(file, "utf8")
     try {
-      const result = parseSource(source, { networkText: NETWORK_TEXT_ENABLED })
+      const result = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys")
       if (result.errors.length === 0) featuresOf(source, result, corpus)
     } catch {
       continue
@@ -99,7 +99,7 @@ const fixtures = new Map<string, number>()
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
   try {
-    featuresOf(t.source, parseSource(t.source, { networkText: NETWORK_TEXT_ENABLED }), fixtures)
+    featuresOf(t.source, parseSource(t.source, { networkText: NETWORK_TEXT_ENABLED }, "codesys"), fixtures)
   } catch {
     continue
   }

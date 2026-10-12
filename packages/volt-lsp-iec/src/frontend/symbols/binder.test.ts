@@ -13,7 +13,7 @@ import { buildSymbolTable } from "./incremental.js"
 
 function build(...files: { uri: string; src: string }[]): Scope {
   return buildSymbolTable(
-    files.map((f) => ({ uri: f.uri, parseResult: parseSource(f.src, { networkText: true }), source: f.src }) satisfies SymbolTableInput),
+    files.map((f) => ({ uri: f.uri, parseResult: parseSource(f.src, { networkText: true }, "codesys"), source: f.src }) satisfies SymbolTableInput), [], "codesys",
   )
 }
 
@@ -156,7 +156,7 @@ TYPE E : (A, B); END_TYPE
 END_NAMESPACE`
 
 test("the binder makes a namespace scope + a project-level namespace symbol; qualified nav resolves", () => {
-  const project = buildSymbolTable([{ uri: "NS.pou", parseResult: parseSource(NS, { networkText: true }), source: NS }])
+  const project = buildSymbolTable([{ uri: "NS.pou", parseResult: parseSource(NS, { networkText: true }, "codesys"), source: NS }], [], "codesys")
   expect(lookupLocal(project, "NS").map((s) => s.kind)).toEqual(["namespace"])
   const ns = findScopeByName(project, "NS")
   expect(ns?.kind).toBe("namespace")
@@ -166,7 +166,7 @@ test("the binder makes a namespace scope + a project-level namespace symbol; qua
 
 test("nested namespaces bind their full scope chain", () => {
   const src = `NAMESPACE Outer\nNAMESPACE Inner\nFUNCTION_BLOCK Deep\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\nEND_NAMESPACE`
-  const project = buildSymbolTable([{ uri: "X.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
+  const project = buildSymbolTable([{ uri: "X.pou", parseResult: parseSource(src, { networkText: true }, "codesys"), source: src }], [], "codesys")
   const outer = findScopeByName(project, "Outer")
   const inner = outer && findChildScope(outer, "Inner")
   expect(inner?.kind).toBe("namespace")

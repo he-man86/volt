@@ -11,10 +11,10 @@ test("completion after `GVL.` offers the GVL's globals (incl. qualified_only)", 
   const gvl = `{attribute 'qualified_only'}\nVAR_GLOBAL\n speed : INT;\n mode : BOOL;\nEND_VAR`
   const prg = `PROGRAM PLC_PRG\nVAR\n x : INT;\nEND_VAR\nx := GVL.speed;\nEND_PROGRAM`
   const inputs = [
-    { uri: "file:///GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
-    { uri: "file:///P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "file:///GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }, "codesys") },
+    { uri: "file:///P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, "codesys") },
   ]
-  const project = build.buildSymbolTable(inputs)
+  const project = build.buildSymbolTable(inputs, [], "codesys")
   const labels = (completion(inputs[1], project, prg.indexOf("GVL.") + 4) ?? []).map((c) => c.label)
   expect(labels.sort()).toEqual(["mode", "speed"])
 })

@@ -7,10 +7,12 @@
  * built on `prepareProject` cannot leave that out, and it hands each library's manifest to the library repo so a
  * library the repo has written runs its ST, exactly as `lowerSource` does for a fixture.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
 import { parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
+import type { Vendor } from "../../../src/analysis/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
+import { EXEC_ORACLE_DIALECT } from "../../../src/transpile/lower/conditions.js"
 import { SOURCE_EXTENSION_SET } from "../../../src/workspace/source-extensions.js"
 import { readSourceText, scanLibraryManifests } from "../../../src/workspace/workspace-refs.js"
 import { withImplementations } from "../../../libraries/index.js"
@@ -48,18 +50,31 @@ export function walkSources(dir: string, extensions: ReadonlySet<string> = SOURC
   return keyed.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, p]) => p)
 }
 
-/** Every source file under `dir`, read and parsed, in `walkSources` order. */
+/**
+ * The vendor a corpus project was captured from — the one its build recording names (`expected-build.<vendor>.json`,
+ * `record-corpus-build.ts`). Neither or both ⇒ throws: a corpus project read in a dialect nobody stated is the silent
+ * default the vendor decision removed (twincat-project14 was parsed, formatted and analysed as CODESYS).
+ */
+export function corpusVendor(dir: string): Vendor {
+  const stated = (["codesys", "twincat"] as const).filter((v) => existsSync(join(dir, `expected-build.${v}.json`)))
+  if (stated.length !== 1) throw new Error(`${dir}: ${stated.length === 0 ? "no" : "more than one"} expected-build.<codesys|twincat>.json — the corpus project's vendor is unstated`)
+  return stated[0]!
+}
+
+/** Every source file under `dir`, read and parsed in the exec oracle's dialect (lowering's reading of every project,
+ *  `prepareProject`), in `walkSources` order. */
 export function parseProject(dir: string): ParsedFile[] {
   return walkSources(dir).map((uri) => {
     const source = readSourceText(uri)
-    return { uri, source, parseResult: parseDocument(uri, source, { networkText: true }) }
+    return { uri, source, parseResult: parseDocument(uri, source, { networkText: true }, EXEC_ORACLE_DIALECT) }
   })
 }
 
 /**
  * The project lowering reads: its files that PARSE — a parse gap is the parser's to report, not lowering's — with each
  * library the repo has written for the version the project resolved swapped for its ST, bound by `prepareProject`.
- * `parsed` is the project's own parse, reused for every file the repo leaves as it is.
+ * `parsed` is the project's own parse, reused for every file the repo leaves as it is — re-read in the exec oracle's
+ * dialect when it was parsed in its own vendor's (lowering reads every project as `prepareProject` binds it).
  *
  * A REPO BODY THAT DOES NOT PARSE THROWS, as `libraryBase` does for the conformance replay. Filtered with the project's
  * own files, it vanished: its declaration was already swapped out, so the element was simply gone, every call to it
@@ -67,13 +82,16 @@ export function parseProject(dir: string): ParsedFile[] {
  */
 export function loweringProject(dir: string, parsed: readonly ParsedFile[] = parseProject(dir)): LoweringProject & { files: ParsedFile[] } {
   const manifests = walkSources(dir, new Set([".library"])).map((uri) => ({ uri, source: readFileSync(uri, "utf8") }))
-  const byUri = new Map(parsed.map((f) => [f.uri, f]))
-  const files = withImplementations([...parsed, ...manifests])
+  const inOracleDialect = parsed.map((f) =>
+    f.parseResult.dialect === EXEC_ORACLE_DIALECT ? f : { ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, EXEC_ORACLE_DIALECT) },
+  )
+  const byUri = new Map(inOracleDialect.map((f) => [f.uri, f]))
+  const files = withImplementations([...inOracleDialect, ...manifests])
     .filter((f) => !f.uri.toLowerCase().endsWith(".library"))
     .map((f) => {
       const own = byUri.get(f.uri)
       if (own !== undefined && own.source === f.source) return own
-      const body = { ...f, parseResult: parseSource(f.source, { networkText: true }) }
+      const body = { ...f, parseResult: parseSource(f.source, { networkText: true }, EXEC_ORACLE_DIALECT) }
       if (body.parseResult.errors.length > 0) throw new Error(`the library repo's ${f.uri} did not parse: ${body.parseResult.errors[0]!.message}`)
       return body
     })

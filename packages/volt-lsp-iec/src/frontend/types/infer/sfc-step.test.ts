@@ -15,7 +15,7 @@ function ask(sfc: string, reads: string[]): { type: string; step: boolean }[] {
   const files = [
     { uri: "P.pou", source: sfc },
     { uri: "Q.pou", source: q },
-  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: false }) }))
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: false }, "codesys") }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const unit = files[1]!.parseResult.units[0] as Program
   const scope = findChildScope(project, "Q") as Scope

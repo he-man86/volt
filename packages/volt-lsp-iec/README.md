@@ -24,7 +24,10 @@ bridge/CLI own the on-disk layout, the LSP consumes it.
 
 ## How it works
 
-The server is one vendor-neutral IEC engine with a runtime `vendor` setting (`--codesys` | `--twincat`); a
+The server is one vendor-neutral IEC engine whose vendor is decided once, at `initialize`: the first bound workspace
+folder's binding (`<git dir>/volt/config.json`) — that folder is also the one crawled — else the client's flag (`--codesys`
+| `--twincat`), else it refuses by name; a flag that contradicts the binding is refused naming both
+(`src/server/vendor.ts`); a
 structurally different vendor (e.g. Siemens) would be a **sibling LSP**, not a new dialect inside this one.
 Load-bearing invariants a maintainer must not break:
 
@@ -86,8 +89,8 @@ disk by `test/package/structure.test.ts`), with the full ownership map.
 | `src/analysis/` | `pipeline/` (the one diagnostics pipeline, the check registry as data, the policy) · per-vendor messages · `shared/` rules · the `checks/` · `reachability/` (dead code). |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help (with the built-in hover text, per dialect) · semantic-tokens · formatting · code-actions. |
 | `src/index.ts` | the package barrel — the one file at the top of `src/`. |
-| `src/workspace/` | `WorkspaceStore` (eager index + watched-file freshness) · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
-| `src/server/` | LSP 3.17 over stdio · push+pull diagnostics · `bin.ts`, the CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
+| `src/workspace/` | `WorkspaceStore` (eager index + watched-file freshness) · the binding's vendor (`binding.ts`) · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
+| `src/server/` | LSP 3.17 over stdio · push+pull diagnostics · `bin.ts`, the CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it · `vendor.ts`, the one vendor decision (the binding, else the flag, else a refusal; the two disagreeing, a refusal). |
 | `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution: `lower/` (every decision, refusals by name) → `ir/` (the contract) → `interp/` (the oracle, running `semantics/`, the value model) and `emit/rust/` (the printer, whose `runtime/` mirrors `semantics/`); its four models — loops, strings, pointers, initialization — in `docs/architecture.md`. |
 | `libraries/` | the library repo: each referenced library's elements written in ST, per version, for the transpiler (never the LSP). |
 | `test/conformance/` · `test/corpus/` | oracle replay (LSP diagnostics, transpiler execution) · real-project ratchet. |

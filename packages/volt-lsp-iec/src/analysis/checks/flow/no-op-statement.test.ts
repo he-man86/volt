@@ -9,8 +9,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const noop = (body: string): string[] => {
   const src = `PROGRAM P\nVAR i:INT; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement")
     .map((d) => d.message)
@@ -36,8 +36,8 @@ test("a statement RESUMED after a refused token is a no-op even when its name is
 
 const bare = (body: string): string[] => {
   const src = `PROGRAM P\nVAR a:INT; out:INT; rn : REFERENCE TO INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "no-valid-statement")
     .map((d) => `[${d.severity}] ${d.message}`)
@@ -56,8 +56,8 @@ test("in a body that did not parse, a statement without its `;` is a no-op, and 
 test("a FUNCTION's name alone as a statement is an error beside the no-op warning (stmt_bare_function_name, ST5)", () => {
   // both vendors 2026-10-02: "FUNCTION 'F' referenced without parentheses '()'" and "The code 'F;' has no effect"
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nEND_FUNCTION\n\nPROGRAM P\nVAR\n\ta : INT;\nEND_VAR\nFn;\nEND_PROGRAM\n`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
     .map((d) => `[${d.severity}] ${d.message}`)
@@ -67,8 +67,8 @@ test("a FUNCTION's name alone as a statement is an error beside the no-op warnin
 test("a FUNCTION's name alone INSIDE that FUNCTION is its return variable: the no-op warning alone (stmt_function_own_name_bare, ST5)", () => {
   // CODESYS 2026-10-02: only "The code 'F;' has no effect" — no "referenced without parentheses"
   const src = `FUNCTION Fn : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFn := x;\nFn;\nEND_FUNCTION\n`
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "no-op-statement" || d.code === "function-without-parens")
     .map((d) => `[${d.severity}] ${d.message}`)

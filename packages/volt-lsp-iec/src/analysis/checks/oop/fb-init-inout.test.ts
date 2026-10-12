@@ -11,8 +11,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 const FB = `\nFUNCTION_BLOCK MyFB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nVAR_INPUT\n inp : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const diag = (decls: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM${FB}`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 const codes = (decls: string): string[] => diag(decls).map((d) => d.code)
@@ -39,10 +39,10 @@ test("a struct (non-FB) init is left alone — no FP", () => {
   // Not `s : S`: CODESYS rejects the name `s` (the set keyword — conformance cc_reserved_name_s_string), so the
   // "no FP" premise did not hold for the names this test used, only for the struct init it is about.
   const src = `TYPE ST_Io : STRUCT io : INT; END_STRUCT END_TYPE`
-  const p1 = parseSource(src, { networkText: true })
+  const p1 = parseSource(src, { networkText: true }, "codesys")
   const main = `PROGRAM PLC_PRG\nVAR\n stIo : ST_Io := (io := 3);\nEND_VAR\nEND_PROGRAM`
-  const p2 = parseSource(main, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "s.dut", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }])
+  const p2 = parseSource(main, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "s.dut", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }], [], "codesys")
   const ds = computeDiagnostics({ uri: uriFor(p2), parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.code)).toEqual([])
 })

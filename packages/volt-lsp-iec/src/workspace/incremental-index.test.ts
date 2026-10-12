@@ -34,7 +34,7 @@ function scopeKey(s: Scope): string {
 /** Assert the store's incrementally-maintained project ≡ a full rebuild of the same merged docs. */
 function assertEquivalent(store: WorkspaceStore, label: string) {
   const incremental = scopeKey(store.project())
-  const fresh = scopeKey(build.buildSymbolTable(store.workspace()))
+  const fresh = scopeKey(build.buildSymbolTable(store.workspace(), [], "codesys"))
   expect(incremental, label).toBe(fresh)
 }
 

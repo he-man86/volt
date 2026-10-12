@@ -85,12 +85,12 @@ src/  the product code, one folder per layer; imports point down the stack (scri
   services/  E — the LSP features over the layers below
     assist/  hover (the built-in hover text among it), completion, signature help, inlay hints, code lens, code actions
     formatting/  the formatter
-    navigation/  definition, references, highlight, rename, implementation, hierarchy
-    network/  the services over a network-text body, and the references and rename that span both languages
+    navigation/  definition, type definition, the reference set, implementation, hierarchy
+    network/  the services over a network-text body, and the references, highlight and rename that span both languages
     shared/  the one cursor-to-symbol resolution, positions, locations, symbol kinds
     structure/  document and workspace symbols, folding, selection, semantic tokens
-  workspace/  the WorkspaceStore (documents and the incremental index), the workspace scan, the writable-source extension set
-  server/  G — LSP 3.17 over stdio, push+pull diagnostics, the process environment (config.ts), and the CLI entry bin.ts
+  workspace/  the WorkspaceStore (documents and the incremental index), the workspace scan, the writable-source extension set, the binding's vendor
+  server/  G — LSP 3.17 over stdio, push+pull diagnostics, the process environment (config.ts), the vendor (vendor.ts), and the CLI entry bin.ts
   transpile/  the Rust backend — it consumes the front-end only
     emit/  the printers of the IR
       rust/  IR to Rust text and its source map
@@ -272,7 +272,7 @@ The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, pos
 `symbol-kinds`): navigation (definition · type-definition · references · rename · highlight ·
 implementation), `hierarchy` (call + type), `assist` (hover · completion · signature-help), `inlay-hints`
 (inferred types + parameter names), `code-lens` ("N references" · "▶ Run test"), `semantic-tokens`, `structure`
-(document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
+(document/workspace-symbol · folding · selection), `formatting` (`format` — the document, range and on-type requests — over `print`, the printer · editorconfig), and
 `code-actions`.
 
 ### Built-in hover, and network text in every layer
@@ -287,8 +287,10 @@ language the layers read, **reusing the shared core** — one type engine, one o
 (`analyzeNetworkText`); `analysis/checks/network/` holds its findings; `services/network/` its services.
 
 ### G — `server/`
-LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,
-capabilities, and lifecycle. Thin handlers over the layers below; the state lives in the workspace layer and the
+LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary: dispatch, framing, capabilities, and lifecycle. The
+vendor is decided once, at `initialize` (`vendor.ts`), with the folder crawled: the first bound workspace folder's binding
+(`workspace/binding.ts`), else `--codesys|--twincat`, else a refusal by name — never a guessed dialect; a flag that
+contradicts the binding is refused naming both. Thin handlers over the layers below; the state lives in the workspace layer and the
 non-trivial compute in two server modules:
 - `workspace/workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
   URI (open buffer wins), a `(uri, version)` parse cache, the memoized project symbol table, and the

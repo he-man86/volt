@@ -8,7 +8,7 @@ import { parseSource, type TopLevel, type VarSection } from "../../../frontend/s
 import { TRANSPILE_PARSE } from "../project/prepare.js"
 import { inOutSections, positionalBinding, positionalParameters, prefixed } from "./parameters.js"
 
-const unit = (src: string) => parseSource(src, TRANSPILE_PARSE).units[0] as Extract<TopLevel, { varSections: readonly VarSection[] }>
+const unit = (src: string) => parseSource(src, TRANSPILE_PARSE, "codesys").units[0] as Extract<TopLevel, { varSections: readonly VarSection[] }>
 const F = unit("FUNCTION F : INT\nVAR_INPUT a : INT; END_VAR\nVAR_OUTPUT q : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR_INPUT b : INT; END_VAR\nVAR t : INT; END_VAR\nF := a;\nEND_FUNCTION\n")
 
 test("the positional order: every VAR_INPUT and VAR_IN_OUT name as written — a VAR_OUTPUT and a VAR not among them", () => {

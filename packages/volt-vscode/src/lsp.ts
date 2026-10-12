@@ -2,8 +2,6 @@ import * as vscode from "vscode"
 import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind, DidChangeConfigurationNotification } from "vscode-languageclient/node"
-import { workspaceFolders } from "./workspace.js"
-import { resolveVendor, type ConfiguredVendor } from "./vendor.js"
 
 // Every writable PLC source item is one kind-named file (.pou/.itf/.gvl/.dut — every POU as .pou, every DUT as .dut)
 // carrying Structured Text.
@@ -12,8 +10,8 @@ import { resolveVendor, type ConfiguredVendor } from "./vendor.js"
 const LANGUAGE_IDS = ["structured-text"]
 
 // The LSP's real LIVE config surface (see volt-lsp-iec/src/analysis/config.ts): dead-code + the opt-in style
-// lints. Vendor is NOT here — the server takes it only from its launch CLI flag (a vendor change needs a
-// restart), so sending it would be dead wiring. Compiler-parity checks always run; nothing here maps to the
+// lints. Vendor is NOT here — the server decides it once, at launch: an explicit `volt.iec.vendor` is its CLI flag, `auto`
+// passes none and the server reads the workspace binding itself (a vendor change needs a reload). Compiler-parity checks always run; nothing here maps to the
 // 80 diagnostic codes.
 // The codes in CODESYS's "Compiler warnings" dialog that Volt implements (matches CONFIGURABLE_CHECKS in
 // volt-lsp-iec/src/analysis/config.ts). Each is a `volt.iec.diagnostics.<code>` 3-state control (off/warning/
@@ -136,19 +134,19 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	// extension — so extension version == server version, and the resolved module PATH names the exact folder.
 	const extVersion = (context.extension.packageJSON as { version?: string }).version ?? "unknown"
 
-	// The server is stdio-only and needs `--stdio` plus a vendor flag. Run it via the editor's own runtime with
+	// The server is stdio-only. Run it via the editor's own runtime with
 	// ELECTRON_RUN_AS_NODE=1 — the same proven pattern volt-control's cli.ts uses to run bundled JS
 	// under VS Code / Cursor / Windsurf / Electron with no external node (execing a raw .js is wrong).
 	//
-	// `auto` is resolved from the workspace BINDING, not from the filesystem scan the setting used to
-	// promise and never performed — see `vendor.ts`, which is where it can be tested.
-	const vendor = resolveVendor(cfg.get<ConfiguredVendor>("vendor", "auto"), workspaceFolders().map((f) => f.uri.fsPath))
+	// The VENDOR is the server's to decide (volt-lsp-iec `server/vendor.ts`): an explicit setting is its flag; `auto` passes
+	// none, and the server reads the first bound folder's `.git/volt/config.json` — or refuses by name when none is bound.
+	const vendor = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
 	const serverOptions: ServerOptions = {
 		command: process.execPath,
 		// `--server-version` gives the server its true identity: running under the editor's node it executes the
 		// LSP's raw .js (not the stamped exe), so without this its serverInfo would report "(dev)". This is the
 		// extension version, which moves every build (see scripts/version.ts).
-		args: [serverModule, "--stdio", vendor === "twincat" ? "--twincat" : "--codesys", "--server-version", extVersion],
+		args: [serverModule, "--stdio", ...(vendor === "auto" ? [] : [`--${vendor}`]), "--server-version", extVersion],
 		transport: TransportKind.stdio,
 		options: { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
 	}

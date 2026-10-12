@@ -11,7 +11,7 @@ const FILES = (aBody: string): { uri: string; source: string }[] => [
   { uri: "file:///B.pou", source: `FUNCTION_BLOCK B\nEND_FUNCTION_BLOCK` },
 ]
 const freshDead = (files: { uri: string; source: string }[]) => {
-  const inputs = files.map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) }))
+  const inputs = files.map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
   return { dead: [...deadPous(inputs, undefined)].sort(), members: deadMemberSpans(inputs, deadPous(inputs, undefined)).size }
 }
 const storeDead = (store: WorkspaceStore) => ({ dead: [...store.deadSet()].sort(), members: store.deadMembers().size })

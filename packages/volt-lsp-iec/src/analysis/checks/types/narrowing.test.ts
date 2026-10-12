@@ -14,8 +14,8 @@ test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns tw
   // check it a second time (conformance `co_any_to_conversions` — one warning — against `ir_initializer_warning_*`).
   const run = (section: string) => {
     const src = `FUNCTION_BLOCK F\n${section}\ncLimit : DINT := 16#80000000;\nEND_VAR\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
       .map((d) => d.message)
@@ -129,8 +129,8 @@ test("a NEGATIVE literal beside a 32- or 64-bit unsigned operand is unmeasured o
 test("LIMIT, SEL and MUX warn on each value argument that converts into the meet", () => {
   const run = (body: string): string[] => {
     const src = `FUNCTION_BLOCK F\nVAR\n i : INT; ui : UINT; li : LINT; rv : REAL; g : BOOL; k : INT; out : STRING;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
       .map((d) => d.message)
@@ -252,7 +252,7 @@ describe("implicit conversions", () => {
     // The warning typed the value by inference alone, which gives an enum VALUE no type (conformance `cc_enum_into_uint`,
     // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
     const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
-    const pr = parseSource(src, { networkText: true })
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const p = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     const messages = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
@@ -268,12 +268,12 @@ describe("implicit conversions", () => {
     // project enum's variable does warn (conformance `cc_enum_var_into_word`). Why is unrecorded, so no rule is guessed.
     const lib = `TYPE E_Lib :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE`
     const src = `FUNCTION_BLOCK F\nVAR\n\te : E_Lib;\n\tw : WORD;\nEND_VAR\nw := e;\nEND_FUNCTION_BLOCK`
-    const libResult = parseSource(lib, { networkText: true })
-    const pr = parseSource(src, { networkText: true })
+    const libResult = parseSource(lib, { networkText: true }, "codesys")
+    const pr = parseSource(src, { networkText: true }, "codesys")
     const p = build.buildSymbolTable([
       { uri: "Application/Library Manager/Lib/E_Lib.dut", parseResult: libResult, source: lib },
       { uri: "F.pou", parseResult: pr, source: src },
-    ])
+    ], [], "codesys")
     const d = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
     expect(d.filter((x) => x.code === "sign-change-conversion")).toEqual([])
   })
@@ -361,8 +361,8 @@ describe("implicit conversions", () => {
 describe("a negation's change of sign", () => {
   function warnings(decls: string, body: string) {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.severity === "warning" || d.severity === "error")
       .map((d) => d.message)

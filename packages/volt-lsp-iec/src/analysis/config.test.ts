@@ -11,18 +11,18 @@ import { uriFor } from "../../test/support/test-uri.js"
  * error), defaulting to warning; errors that aren't in the dialog are untoggleable. The central filter drops
  * an "off" code and FORCES the chosen severity on the rest.
  */
-const diag = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => {
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
-  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig(opts) })
+const diag = (src: string, opts?: Omit<Parameters<typeof resolveConfig>[0], "vendor">) => {
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", ...opts }) })
 }
 
 // C0139 no-op-statement: `i;` (a bare expression) has no effect — a configurable code Volt emits as warning.
 const noOp = `FUNCTION_BLOCK F\nVAR i : INT; END_VAR\ni;\nEND_FUNCTION_BLOCK`
-const noOpD = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => diag(src, opts).filter((d) => d.code === "no-op-statement")
+const noOpD = (src: string, opts?: Omit<Parameters<typeof resolveConfig>[0], "vendor">) => diag(src, opts).filter((d) => d.code === "no-op-statement")
 
 test("every configurable code defaults to warning (CODESYS's default)", () => {
-  const d = resolveConfig().diagnostics
+  const d = resolveConfig({ vendor: "codesys" }).diagnostics
   for (const { code } of CONFIGURABLE_CHECKS) expect(d[code]).toBe("warning")
 })
 
@@ -139,7 +139,7 @@ test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own
   const pulled = "Disabled warnings:     C0371\nReplace constants:     off\nMax compiler warnings: 100\n"
   const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
   const parseResult = parseSource(src, { networkText: true }, "twincat")
-  const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], undefined, "twincat")
+  const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], [], "twincat")
   const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
     computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
   expect(run({}), "the trigger must fire without the project's settings").toEqual(["inout-own-access"])
@@ -151,7 +151,7 @@ test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own
 // DIALOG), so a project can switch it off or raise it. Before 3.11 Volt had no check for it; once it shipped, a
 // `.projectsettings` naming C0125 was skipped as "not implemented" and the warning fired regardless.
 const dupEnum = `TYPE E : (A := 0, B := 0); END_TYPE`
-const dupEnumD = (opts?: Parameters<typeof resolveConfig>[0]) => diag(dupEnum, opts).filter((d) => d.code === "enum-duplicate-value")
+const dupEnumD = (opts?: Omit<Parameters<typeof resolveConfig>[0], "vendor">) => diag(dupEnum, opts).filter((d) => d.code === "enum-duplicate-value")
 
 test("a project that disables C0125 turns the duplicate-enum-value warning off", () => {
   expect(projectDiagnosticsFrom("Disabled warnings:     C0125")).toEqual({ "enum-duplicate-value": "off" })

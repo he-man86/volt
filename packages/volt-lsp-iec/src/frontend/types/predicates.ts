@@ -3,7 +3,8 @@
  * temporal, isolated from implicit conversion, a known primitive. The one place each old scattered set is computed.
  */
 import { ANY_FAMILIES, elementaryType } from "./elementary.js"
-import { isElementaryTypeName } from "./platform.js"
+import { builtinName } from "./builtins.js"
+import type { Dialect } from "../syntax/index.js"
 import { elemOf, type Type } from "./type.js"
 
 /** Numeric widening rank (was `NUMERIC_RANK` in check-assignment-types), or undefined for non-numeric. */
@@ -52,11 +53,11 @@ export function isTemporal(name: string): boolean {
   return isDuration(name) || isDatetime(name)
 }
 
-/** A name the resolver treats as a known primitive (was `type-resolver.ELEMENTARY_TYPES`): an elementary
- *  type, an `ANY_*` generic, or the bare `POINTER` keyword. */
-export function isKnownPrimitive(name: string): boolean {
+/** A name the compiler provides as a TYPE in `dialect` (an elementary type it has — `builtinName`), an `ANY_*` generic, or the
+ *  bare `POINTER` keyword. */
+export function isKnownPrimitive(name: string, dialect: Dialect): boolean {
   const u = name.toUpperCase()
-  return isElementaryTypeName(u) || ANY_FAMILIES.has(u) || u === "POINTER"
+  return builtinName(u, dialect) === "type" || ANY_FAMILIES.has(u) || u === "POINTER"
 }
 
 // ─── predicates over a resolved `Type` (openspec transpile-restructure design.md §6 need 5) ───────────────────────────

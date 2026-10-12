@@ -61,13 +61,16 @@ import {
   WorkspaceDiagnosticRequest,
   WorkspaceSymbolRequest,
   CodeLensRefreshRequest,
+  LSPErrorCodes,
+  ResponseError,
+  type InitializeError,
   CodeLensRequest,
   type DocumentDiagnosticReport,
   type InitializeResult,
   type WorkspaceDiagnosticReport,
   type WorkspaceDocumentDiagnosticReport,
 } from "vscode-languageserver-protocol/node"
-import { fileURLToPath, pathToFileURL } from "node:url"
+import { pathToFileURL } from "node:url"
 import {
   resolveConfig,
   type AnalysisInitOptions,
@@ -75,12 +78,12 @@ import {
   type DiagnosticState,
   type Vendor,
 } from "../analysis/index.js"
-import { scanWorkspace } from "../workspace/workspace-refs.js"
-import { SOURCE_EXTENSIONS } from "../workspace/source-extensions.js"
+import { SCANNED_EXTENSIONS, scanWorkspace } from "../workspace/workspace-refs.js"
 import type { Scope, Symbol } from "../frontend/symbols/index.js"
 import { sameDocument, WorkspaceStore } from "../workspace/workspace-store.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"
+import { servedWorkspace } from "./vendor.js"
 import {
   callIncoming,
   callOutgoing,
@@ -90,6 +93,7 @@ import {
   definition,
   foldingRanges,
   formatDocument,
+  formatOnType,
   formatRange,
   hover,
   implementation,
@@ -97,6 +101,7 @@ import {
   pragmaHover,
   prepareCallHierarchy,
   prepareTypeHierarchy,
+  clampedOffset,
   offsetFromPosition,
   selectionRange,
   diffSemanticTokens,
@@ -115,6 +120,7 @@ import {
   prepareRenameAnywhere,
   referencesAnywhere,
   renameAnywhere,
+  renameRefusal,
   networkCompletion,
   networkDefinition,
   networkHover,
@@ -123,25 +129,48 @@ import {
 } from "../services/index.js"
 import type { Document } from "../services/index.js"
 
-/** Resolve the workspace root to a filesystem path from a `file://` `rootUri` (preferred) or `rootPath`. */
-function workspaceRoot(rootUri: string | null | undefined, rootPath: string | null | undefined): string | undefined {
-  if (rootUri != null && rootUri.length > 0) {
-    try {
-      return fileURLToPath(rootUri)
-    } catch {
-      // not a file:// URI — fall through to rootPath
-    }
-  }
-  return rootPath != null && rootPath.length > 0 ? rootPath : undefined
+/** What this server answers: every provider here has its handler in `runServer`. */
+const CAPABILITIES: InitializeResult["capabilities"] = {
+  textDocumentSync: { openClose: true, change: TextDocumentSyncKind.Incremental, save: { includeText: false } },
+  hoverProvider: true,
+  definitionProvider: true,
+  typeDefinitionProvider: true,
+  implementationProvider: true,
+  referencesProvider: true,
+  documentHighlightProvider: true,
+  documentSymbolProvider: true,
+  renameProvider: { prepareProvider: true },
+  callHierarchyProvider: true,
+  typeHierarchyProvider: true,
+  workspaceSymbolProvider: true,
+  completionProvider: { triggerCharacters: ["."] },
+  signatureHelpProvider: { triggerCharacters: ["(", ","] },
+  foldingRangeProvider: true,
+  selectionRangeProvider: true,
+  inlayHintProvider: true,
+  codeLensProvider: {},
+  codeActionProvider: true,
+  documentFormattingProvider: true,
+  documentRangeFormattingProvider: true,
+  documentOnTypeFormattingProvider: { firstTriggerCharacter: "\n" }, // `formatOnType` answers a newline only
+  linkedEditingRangeProvider: true,
+  semanticTokensProvider: { legend: { tokenTypes: [...SEMANTIC_TOKEN_TYPES], tokenModifiers: [] }, full: { delta: true }, range: true },
+  // Pull diagnostics: they span the project (a sibling type changes a file's errors); workspace-wide pulls answered too.
+  diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true },
 }
 
-export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys", version = "(dev)"): void {
+/** What the editor configures: everything but the vendor, which `initialize` decides. */
+type EditorOptions = Omit<AnalysisInitOptions, "vendor">
+
+/** `flag`: the vendor the client stated (`--codesys|--twincat`), or undefined — `initialize` then reads the binding (`vendor.ts`). */
+export function runServer(input: Readable, output: Writable, flag: Vendor | undefined, version: string): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  const store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED })
-  // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
+  // Decided once, at `initialize` (no request precedes it; a refused one serves nothing); the crawl runs at `initialized`.
+  let vendor: Vendor
+  let store!: WorkspaceStore
   let root: string | undefined
   /** What the EDITOR asked for, kept so a re-crawl can re-apply the project's settings on top of it. */
-  let editorOptions: AnalysisInitOptions = {}
+  let editorOptions: EditorOptions = {}
   /** What the PROJECT configures (`.projectsettings`), refreshed by every crawl. */
   let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
 
@@ -234,10 +263,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   /** Live-apply a config change (`diagnoseDeadCode` + the opt-in `lints`) and re-publish open diagnostics.
    *  Returns false when the settings blob carries no recognized key (so the caller can fall back to a
-   *  `workspace/configuration` pull). Vendor is fixed at launch, so it is not re-read here. */
+   *  `workspace/configuration` pull). The vendor was decided at `initialize`, so it is not re-read here. */
   function applyConfig(settings: unknown): boolean {
     if (settings === null || typeof settings !== "object") return false
-    const s = settings as AnalysisInitOptions
+    const s = settings as EditorOptions
     if (s.diagnoseDeadCode === undefined && s.diagnostics === undefined) return false
     editorOptions = { diagnoseDeadCode: s.diagnoseDeadCode === true, diagnostics: s.diagnostics }
     applyResolvedConfig()
@@ -267,13 +296,18 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   }
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
-  conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
-    const opts = params.initializationOptions as AnalysisInitOptions | undefined
+  conn.onRequest(InitializeRequest.type, (params): InitializeResult | ResponseError<InitializeError> => {
+    try {
+      ;({ vendor, root } = servedWorkspace(flag, params))
+    } catch (e) {
+      return new ResponseError(LSPErrorCodes.RequestFailed, (e as Error).message, { retry: false })
+    }
+    store = new WorkspaceStore(resolveConfig({ vendor }), { networkText: NETWORK_TEXT_ENABLED })
+    const opts = params.initializationOptions as EditorOptions | undefined
     if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.diagnostics !== undefined)) {
       editorOptions = { diagnoseDeadCode: opts.diagnoseDeadCode, diagnostics: opts.diagnostics }
       applyResolvedConfig()
     }
-    root = workspaceRoot(params.rootUri, params.rootPath)
     // No workspace root ⇒ no crawl to wait for (single-file / bare client): the open buffer IS the project, so let
     // diagnostics flow at once. WITH a root, stay gated until the `initialized` crawl seeds the disk layer.
     indexed = root === undefined
@@ -287,39 +321,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     clientProgress = params.capabilities.window?.workDoneProgress === true
     clientSupportsPull = params.capabilities.textDocument?.diagnostic !== undefined
     return {
-      capabilities: {
-        textDocumentSync: { openClose: true, change: TextDocumentSyncKind.Incremental, save: { includeText: false } },
-        hoverProvider: true,
-        definitionProvider: true,
-        typeDefinitionProvider: true,
-        implementationProvider: true,
-        referencesProvider: true,
-        documentHighlightProvider: true,
-        documentSymbolProvider: true,
-        renameProvider: { prepareProvider: true },
-        callHierarchyProvider: true,
-        typeHierarchyProvider: true,
-        workspaceSymbolProvider: true,
-        completionProvider: { triggerCharacters: ["."] },
-        signatureHelpProvider: { triggerCharacters: ["(", ","] },
-        foldingRangeProvider: true,
-        selectionRangeProvider: true,
-        inlayHintProvider: true,
-        codeLensProvider: {},
-        codeActionProvider: true,
-        documentFormattingProvider: true,
-        documentRangeFormattingProvider: true,
-        documentOnTypeFormattingProvider: { firstTriggerCharacter: ";", moreTriggerCharacter: ["\n"] },
-        linkedEditingRangeProvider: true,
-        semanticTokensProvider: {
-          legend: { tokenTypes: [...SEMANTIC_TOKEN_TYPES], tokenModifiers: [] },
-          full: { delta: true },
-          range: true,
-        },
-        // Pull diagnostics: our diagnostics span the project (a sibling type changes a file's errors), and we
-        // answer workspace-wide pulls too.
-        diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true },
-      },
+      capabilities: CAPABILITIES,
       serverInfo: { name: "volt-lsp-iec", version },
     }
   })
@@ -330,14 +332,13 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   conn.onNotification(InitializedNotification.type, () => {
     crawlWithProgress()
     if (root !== undefined && clientWatchDynReg) {
-      const exts = [...SOURCE_EXTENSIONS, ".library", ".device", ".task"]
       conn
         .sendRequest(RegistrationRequest.type, {
           registrations: [
             {
               id: "volt-watch",
               method: DidChangeWatchedFilesNotification.method,
-              registerOptions: { watchers: exts.map((ext) => ({ globPattern: `**/*${ext}` })) },
+              registerOptions: { watchers: SCANNED_EXTENSIONS.map((ext) => ({ globPattern: `**/*${ext}` })) },
             },
           ],
         })
@@ -472,9 +473,11 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   conn.onRequest(PrepareRenameRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, project(), o)),
   )
-  conn.onRequest(RenameRequest.type, (p) =>
-    at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(workspace(), project(), d, o, p.newName) ?? null),
-  )
+  conn.onRequest(RenameRequest.type, (p) => {
+    const refused = renameRefusal(p.newName, project())
+    if (refused !== undefined) return new ResponseError(LSPErrorCodes.RequestFailed, refused)
+    return at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(workspace(), project(), d, o, p.newName) ?? null)
+  })
   conn.onRequest(SelectionRangeRequest.type, (p) => {
     const d = doc(p.textDocument.uri)
     if (d === undefined) return null
@@ -555,8 +558,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     return semanticTokensRange(
       d,
       project(),
-      offsetFromPosition(d.source, p.range.start),
-      offsetFromPosition(d.source, p.range.end),
+      clampedOffset(d.source, p.range.start),
+      clampedOffset(d.source, p.range.end),
     )
   })
   conn.onRequest(SemanticTokensDeltaRequest.type, (p) =>
@@ -578,8 +581,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     return inlayHints(
       d,
       project(),
-      offsetFromPosition(d.source, p.range.start),
-      offsetFromPosition(d.source, p.range.end),
+      clampedOffset(d.source, p.range.start),
+      clampedOffset(d.source, p.range.end),
     )
   })
   conn.onRequest(CodeActionRequest.type, (p) =>
@@ -600,17 +603,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   conn.onRequest(DocumentRangeFormattingRequest.type, (p) =>
     whole(p.textDocument.uri, (d) => formatRange(d, p.range, p.options)),
   )
-  // Format-on-type: reformat the line the trigger character landed on (reuses range formatting).
-  conn.onRequest(DocumentOnTypeFormattingRequest.type, (p) =>
-    whole(p.textDocument.uri, (d) => {
-      const lineLen = (d.source.split("\n")[p.position.line] ?? "").length
-      const range = {
-        start: { line: p.position.line, character: 0 },
-        end: { line: p.position.line, character: lineLen },
-      }
-      return formatRange(d, range, p.options)
-    }),
-  )
+  // Format-on-type: indent the new line to its block's depth — never a reprint of the unit around it.
+  conn.onRequest(DocumentOnTypeFormattingRequest.type, (p) => whole(p.textDocument.uri, (d) => formatOnType(d, p.position, p.ch, p.options)))
   // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
   conn.onRequest(LinkedEditingRangeRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) => {

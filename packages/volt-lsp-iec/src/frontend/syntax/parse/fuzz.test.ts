@@ -23,7 +23,7 @@ function mutations(src: string): string[] {
 test("parseSource never throws on mutated input", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
-      expect(() => parseSource(m, { networkText: true })).not.toThrow()
+      expect(() => parseSource(m, { networkText: true }, "codesys")).not.toThrow()
     }
   }
 })

@@ -237,8 +237,8 @@ whole("the AST fold and the IR fold give every constant expression the lowered f
     // and every constant sub-expression under it is gone — no longer compared, so a disagreement there went unseen
     const pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE, false).pou
     if (pou === undefined) continue
-    const own = { uri: `file:///fold-agreement/${t.name}.pou`, source, parseResult: parseSource(source, { networkText: true }) }
-    const lists = gvls.map((g) => ({ uri: g.uri, source: g.source, parseResult: parseSource(g.source, { networkText: true }) }))
+    const own = { uri: `file:///fold-agreement/${t.name}.pou`, source, parseResult: parseSource(source, { networkText: true }, "codesys") }
+    const lists = gvls.map((g) => ({ uri: g.uri, source: g.source, parseResult: parseSource(g.source, { networkText: true }, "codesys") }))
     const ast = astExpressions(own.parseResult.units)
     const ownNames = new Set(own.parseResult.units.flatMap((u) => ("name" in u && u.name !== undefined ? [u.name.text.toUpperCase()] : [])))
     const ir = irBySpan(ownBodies(pou, ownNames))

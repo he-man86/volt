@@ -117,8 +117,8 @@ test("the base compared is the nearest in the LINKED chain that declares the met
 
 test("an FB nothing instances is not checked — the vendor compiles it not (pro2193's uninstanced overrides build)", () => {
   const src = base("METHOD Fetch : INT\nEND_METHOD") + "METHOD Fetch : DINT\nEND_METHOD"
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const found = computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(found.filter((d) => d.code === "override-mismatch-base")).toEqual([])
 })
@@ -126,8 +126,8 @@ test("an FB reached only through a POINTER TO it is checked (`inh_override_point
   const src0 = base(withInput("INT")) + withInput("DINT")
   const run = (tail: string) => {
     const src = `${src0}\n\n${tail}`
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "override-mismatch-base")
       .map((d) => d.message)

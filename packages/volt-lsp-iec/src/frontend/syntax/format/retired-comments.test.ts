@@ -13,7 +13,7 @@ const fb = (impl: string): string =>
 /** Every syntax error of a file: its declarations' (the top-level parse) and each ST body's, as the `parse-errors`
  *  check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src, { networkText: true })
+  const parsed = parseSource(src, { networkText: true }, "codesys")
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }

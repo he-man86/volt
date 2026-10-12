@@ -9,10 +9,10 @@
  * binary is an input to this suite, not something a test makes.
  */
 import { test, expect, beforeAll, afterAll } from "bun:test"
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { existsSync, rmSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { collectDiagnostics, setLspServer } from "../../src/index.js"
+import { boundWorkspace } from "../../src/test-support.js"
 
 const LSP_DIR = resolve(import.meta.dir, "..", "..", "..", "volt-lsp-iec")
 const SERVER = join(LSP_DIR, "dist", "src", "server", "bin.js")
@@ -35,7 +35,7 @@ beforeAll(() => {
     return
   }
   setLspServer(SERVER)
-  dir = mkdtempSync(join(tmpdir(), "volt-diag-e2e-"))
+  dir = boundWorkspace({ vendor: "codesys", prefix: "volt-diag-e2e" }) // the server reads the vendor from the binding
   ready = true
 })
 afterAll(() => {
@@ -46,17 +46,17 @@ test("collectDiagnostics spawns the server and reports a type error in an UNOPEN
   if (!ready) return // see the beforeAll warning
   // `i := b` assigns a BOOL to an INT — a type error the eager crawl must find without the file being opened.
   writeFileSync(join(dir, "F.pou"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK")
-  const r = await collectDiagnostics(dir, "codesys", { timeoutMs: 20_000 })
+  const r = await collectDiagnostics(dir, { timeoutMs: 20_000 })
   expect(r.errors).toBeGreaterThanOrEqual(1)
   expect(r.files.some((f) => f.path.endsWith("F.pou"))).toBe(true)
 })
 
 test("collectDiagnostics reports no errors for a clean workspace", async () => {
   if (!ready) return
-  const clean = mkdtempSync(join(tmpdir(), "volt-diag-e2e-clean-"))
+  const clean = boundWorkspace({ vendor: "codesys", prefix: "volt-diag-e2e-clean" })
   writeFileSync(join(clean, "G.pou"), "FUNCTION_BLOCK G\nVAR\n x : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK")
   try {
-    const r = await collectDiagnostics(clean, "codesys", { timeoutMs: 20_000 })
+    const r = await collectDiagnostics(clean, { timeoutMs: 20_000 })
     expect(r.errors).toBe(0)
   } finally {
     rmSync(clean, { recursive: true, force: true })

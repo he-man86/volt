@@ -10,8 +10,8 @@ import { messagesFor } from "../../index.js"
 import { computeNetworkTextDiagnostics } from "./network-analysis.js"
 
 const messages = (source: string): string[] => {
-  const parseResult = parseSource(source, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source }])
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source }], [], "codesys")
   return computeNetworkTextDiagnostics({ uri: "F.pou", parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 

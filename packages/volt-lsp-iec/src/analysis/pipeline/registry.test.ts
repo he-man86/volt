@@ -166,7 +166,7 @@ describe("the vendor table", () => {
   })
 
   test("a vendor's run is the registry minus the other vendor's entries", () => {
-    const project = build.buildSymbolTable([], undefined, "twincat")
+    const project = build.buildSymbolTable([], [], "twincat")
     const ran: string[] = []
     const ctx: CheckContext = {
       parseResult: { units: [], errors: [], failedDeclarations: [], tokens: [], dialect: "twincat" },
@@ -192,8 +192,8 @@ END_FUNCTION_BLOCK
 `
   const SYNTAX = SEMANTIC.replace("nVal := nope;", "nVal := ;")
   const run = (groups?: Parameters<typeof computeDiagnostics>[0]["groups"], src = SEMANTIC) => {
-    const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "FB_G.pou", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true }, "codesys")
+    const project = build.buildSymbolTable([{ uri: "FB_G.pou", parseResult, source: src }], [], "codesys")
     return computeDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }), uri: "FB_G.pou", groups })
   }
 

@@ -45,7 +45,7 @@ test("an empty CASE arm is no error — a warning, `empty-block`'s (C0426; stmt_
 
 test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
   const msgs = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "case-label-non-const")
@@ -63,7 +63,7 @@ test("CASE-label wording is per-vendor (verified live): CODESYS 'CASE', TwinCAT 
 // with its own message. Each was silent.
 const sint = (arms: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  sv : SINT;\n  res : INT;\nEND_VAR\nCASE sv OF\n${arms}\nELSE res := 2;\nEND_CASE\nEND_PROGRAM`
-  const pr = parseSource(src, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
@@ -88,8 +88,8 @@ test("a typed integer label is a label; an enum `Type#Value` label is no constan
   const src =
     `PROGRAM PLC_PRG\nVAR\n  m : E_Mode;\n  i : INT;\nEND_VAR\nCASE m OF\nE_Mode#Running: i := 1;\nEND_CASE\nEND_PROGRAM`
   const enumSrc = "TYPE E_Mode :\n(\n\tIdle,\n\tRunning\n);\nEND_TYPE\n"
-  const pr = parseSource(src, { networkText: true })
-  const er = parseSource(enumSrc, { networkText: true })
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const er = parseSource(enumSrc, { networkText: true }, "codesys")
   const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }, { uri: "file:///E_Mode.dut", parseResult: er, source: enumSrc }], [], "codesys")
   const errs = [...pr.errors.map((e) => e.message), ...computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error").map((d) => d.message)]
@@ -112,8 +112,8 @@ test("TwinCAT ends the inverted-range message with a full stop, as it does for a
 test("C0218: a label two enums declare is no constant", () => {
   const src = "TYPE E_A : (en_x := 3);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE\n" +
     "PROGRAM PLC_PRG\nVAR\n  e : E_B;\nEND_VAR\nCASE e OF\n  en_x: e := E_B.en_z;\n  en_z: ;\nEND_CASE\nEND_PROGRAM"
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
   const said = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
   expect(said.filter((m) => m.startsWith("CASE label"))).toEqual(["CASE label requires literal or symbolic integer constant"])
 })

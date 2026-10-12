@@ -26,8 +26,11 @@ import {
   statementTargets,
   walkValues,
   type NetworkTextStatement,
+  isRefusedDeclaredName,
+  isTrivia,
+  lex,
 } from "../../frontend/syntax/index.js"
-import { bareEnumMember, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../../frontend/symbols/index.js"
+import { bareEnumMember, dialectOf, isLibrarySymbol, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../../frontend/symbols/index.js"
 import { analyzeNetworkText, networkNetworkAt, resolveMemberChain, type NetworkTextAnalysis } from "../../frontend/types/index.js"
 import { builtinHover, completionAtScope, symbolHover } from "../assist/index.js"
 import { findReferences, toLocations, type Ref } from "../navigation/index.js"
@@ -192,9 +195,28 @@ export function documentHighlightsAnywhere(doc: Document, project: Scope, offset
   return allReferences([doc], project, sym).map((r) => r.range)
 }
 
+/** The symbol a rename at the cursor renames: one the project declares. A library element is a read-only materialization
+ *  under `Library Manager/` whose name is the library's — renamed, the project would name an element no library has. */
+function renameTarget(doc: Document, project: Scope, offset: number): Symbol | undefined {
+  const sym = resolveAnywhere(doc, project, offset)
+  return sym === undefined || isLibrarySymbol(sym) ? undefined : sym
+}
+
+/**
+ * Why `newName` cannot be a rename's new name in the project's dialect, or undefined when it can: it must lex as ONE
+ * identifier (no keyword, no literal, nothing around it) the dialect's declarations accept (`isRefusedDeclaredName`: no
+ * type or IL word, no `__`). Written over every occurrence, anything else leaves a project the compiler refuses.
+ */
+export function renameRefusal(newName: string, project: Scope): string | undefined {
+  const dialect = dialectOf(project)
+  const tokens = lex(newName, dialect).filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
+  const one = tokens.length === 1 && tokens[0]!.kind === "identifier" && tokens[0]!.text === newName
+  return one && !isRefusedDeclaredName(newName, dialect) ? undefined : `'${newName}' is no name a declaration accepts`
+}
+
 /** prepareRename (ST + network text) — the editable range for a renameable cursor. */
 export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
-  if (resolveAnywhere(doc, project, offset) === undefined) return undefined
+  if (renameTarget(doc, project, offset) === undefined) return undefined
   const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   return tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword") ? rangeFromSpan(tok.span) : undefined
 }
@@ -213,7 +235,7 @@ export function renameAnywhere(
   offset: number,
   newName: string,
 ): WorkspaceEdit | undefined {
-  const sym = resolveAnywhere(doc, project, offset)
+  const sym = renameTarget(doc, project, offset)
   if (sym === undefined) return undefined
   const all = [...docs]
   const bare = NETWORK_TEXT_WORDS.has(newName.toUpperCase()) ? bareTokenRanges(all, project) : new Set<string>()

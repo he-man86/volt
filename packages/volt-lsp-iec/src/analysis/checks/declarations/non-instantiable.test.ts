@@ -8,8 +8,8 @@ import { computeDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../../../test/support/test-uri.js"
 
 const ni = (src: string): string[] => {
-  const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "not-instantiable")
     .map((d) => d.message)
@@ -28,9 +28,9 @@ test("a variable of a FUNCTION type is flagged; FB / elementary types are fine",
 test("a FUNCTION type is flagged past a same-named global, in either file order", () => {
   const prg = "PROGRAM P\nVAR inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION"
   for (const [a, b] of [["A.pou", "GVL.gvl"], ["Z.pou", "GVL.gvl"]] as const) {
-    const pr = parseSource(prg, { networkText: true })
+    const pr = parseSource(prg, { networkText: true }, "codesys")
     const gvl = "VAR_GLOBAL\n  pou : INT;\nEND_VAR"
-    const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }), source: gvl }])
+    const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }, "codesys"), source: gvl }], [], "codesys")
     const got = computeDiagnostics({ uri: uriFor(pr), parseResult: pr, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "not-instantiable")
       .map((d) => d.message)

@@ -34,7 +34,7 @@ const manifest = (folder: string, library: string, namespace: string, dependenci
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }, "codesys") })
 
 // Two libraries, each exporting an ETRIG — and they are not the same type.
 const CBM_ETRIG = file(
@@ -74,15 +74,15 @@ const baseFolder = (project: ReturnType<typeof buildSymbolTable>, name: string):
 
 describe("EXTENDS with two candidates", () => {
   test("resolves through the asker's OWN dependencies — the same name, two different bases", () => {
-    const project = buildSymbolTable(ALL, MANIFESTS)
+    const project = buildSymbolTable(ALL, MANIFESTS, "codesys")
     expect(baseFolder(project, "FileUser")).toBe("CAA Behaviour Model")
     expect(baseFolder(project, "VisuUser")).toBe("CBML")
   })
 
   test("the answer does not depend on the order the files were bound", () => {
     // The bug in one line: reverse the walk and the last-write-wins map hands back the other library.
-    const forward = buildSymbolTable(ALL, MANIFESTS)
-    const reverse = buildSymbolTable([...ALL].reverse(), MANIFESTS)
+    const forward = buildSymbolTable(ALL, MANIFESTS, "codesys")
+    const reverse = buildSymbolTable([...ALL].reverse(), MANIFESTS, "codesys")
     for (const name of ["FileUser", "VisuUser"])
       expect(baseFolder(reverse, name)).toBe(baseFolder(forward, name)!)
     expect(baseFolder(reverse, "VisuUser")).toBe("CBML")
@@ -95,7 +95,7 @@ describe("EXTENDS with two candidates", () => {
     const user = file(`${LIB("CBML")}/CbmlUser.pou`, "FUNCTION_BLOCK CbmlUser EXTENDS ETRIGA\nVAR\nEND_VAR\n")
     const project = buildSymbolTable(
       [own, dep, user],
-      [...MANIFESTS.slice(0, 2), manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"])],
+      [...MANIFESTS.slice(0, 2), manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"])], "codesys",
     )
     expect(baseFolder(project, "CbmlUser")).toBe("CBML")
   })
@@ -103,7 +103,7 @@ describe("EXTENDS with two candidates", () => {
   test("PROJECT source beats a library of the same name", () => {
     const projectOwn = file("file:///w/POUs/ETRIG.pou", "FUNCTION_BLOCK ETRIG\nVAR\nEND_VAR\n")
     const user = file("file:///w/POUs/App.pou", "FUNCTION_BLOCK App EXTENDS ETRIG\nVAR\nEND_VAR\n")
-    const project = buildSymbolTable([CBM_ETRIG, CBML_ETRIG, projectOwn, user], MANIFESTS)
+    const project = buildSymbolTable([CBM_ETRIG, CBML_ETRIG, projectOwn, user], MANIFESTS, "codesys")
     const scope = project.children.find((c) => c.name === "App")
     expect(scope?.baseScope?.defUri).toBe("file:///w/POUs/ETRIG.pou")
   })
@@ -111,8 +111,8 @@ describe("EXTENDS with two candidates", () => {
   test("with no manifests at all it is still deterministic, just uninformed", () => {
     // Nothing says which library a bare name belongs to, so both candidates share the last rank and the URI
     // breaks the tie. The point is only that reversing the input cannot change the answer.
-    const forward = buildSymbolTable([...ALL], [])
-    const reverse = buildSymbolTable([...ALL].reverse(), [])
+    const forward = buildSymbolTable([...ALL], [], "codesys")
+    const reverse = buildSymbolTable([...ALL].reverse(), [], "codesys")
     expect(baseFolder(reverse, "FileUser")).toBe(baseFolder(forward, "FileUser")!)
     expect(baseFolder(reverse, "VisuUser")).toBe(baseFolder(forward, "VisuUser")!)
   })
@@ -124,7 +124,7 @@ test("a qualified EXTENDS names a unit of a library namespace", () => {
   const ton = file(`${LIB("Standard")}/TON.pou`, "FUNCTION_BLOCK TON\nVAR_INPUT\n  PT : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
   const derived = file("file:///w/FB_D.pou", "FUNCTION_BLOCK FB_D EXTENDS Standard.TON\nEND_FUNCTION_BLOCK\n")
   const unknown = file("file:///w/FB_U.pou", "FUNCTION_BLOCK FB_U EXTENDS NoSuchLib.TON\nEND_FUNCTION_BLOCK\n")
-  const project = buildSymbolTable([ton, derived, unknown], [manifest("Standard", "Standard", "Standard")])
+  const project = buildSymbolTable([ton, derived, unknown], [manifest("Standard", "Standard", "Standard")], "codesys")
   const child = (name: string) => project.children.find((c) => c.name === name)!
   expect(child("FB_D").baseScope?.defUri).toBe(ton.uri)
   expect(child("FB_U").baseScope).toBeUndefined()
@@ -135,14 +135,14 @@ test("a qualified EXTENDS names a unit of a library namespace", () => {
 test("an FB whose header is refused is no candidate base", () => {
   const refused = file("file:///w/FB_A.pou", "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n  n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
   const derived = file("file:///w/FB_D.pou", "FUNCTION_BLOCK FB_D EXTENDS FB_A\nEND_FUNCTION_BLOCK\n")
-  const project = buildSymbolTable([refused, derived], [])
+  const project = buildSymbolTable([refused, derived], [], "codesys")
   expect(project.children.find((c) => c.name === "FB_D")!.baseScope).toBeUndefined()
 })
 
 // ── rule H9: cycles, of every kind that extends, and the self-cycle `linkExtends` never links ─────────────────────
 describe("extendsCycle", () => {
   const top = (src: string, name: string) => {
-    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }])
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }], [], "codesys")
     return project.children.find((c) => c.name === name)!
   }
   test("FBs, interfaces and STRUCTs each close one, from any member of it", () => {
@@ -172,7 +172,7 @@ describe("extendsCycle", () => {
  */
 describe("extendsChain", () => {
   const top = (src: string, name: string) => {
-    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }])
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }], [], "codesys")
     return project.children.find((c) => c.name === name)!
   }
   test("base first, the scope itself last", () => {

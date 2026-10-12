@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, describeBuildDiagnostic, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
-	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor, ideIdentity,
+	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor, bindingFile, ideIdentity,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
@@ -392,7 +392,9 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 
 		reg("volt.openConfig", () => {
 			const w = ws(); if (!w) return
-			void vscode.commands.executeCommand("vscode.open", vscode.Uri.file(join(w, ".git", "volt", "config.json")))
+			const file = bindingFile(w)
+			if (file === undefined) { void vscode.window.showErrorMessage(`${w} is not a git repository: run "volt init --vendor <codesys|twincat>" there`); return }
+			void vscode.commands.executeCommand("vscode.open", vscode.Uri.file(file))
 		}),
 		reg("volt.openSettings", () => { void vscode.commands.executeCommand("workbench.action.openSettings", "volt") }),
 		// `volt.openReference` WAS HERE, and it told the user to "run `volt init` to scaffold it" — advice that

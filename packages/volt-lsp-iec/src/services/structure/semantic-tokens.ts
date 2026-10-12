@@ -19,7 +19,7 @@ import {
   NETWORK_TEXT_KEYWORDS,
   walkValues,
 } from "../../frontend/syntax/index.js"
-import { bareEnumMember, lookup, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
+import { bareEnumMember, dialectOf, lookup, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
 import { analyzeNetworkText, isKnownPrimitive } from "../../frontend/types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
@@ -50,7 +50,8 @@ export const SEMANTIC_TOKEN_TYPES = [
   "wire",
 ] as const
 
-const TYPE_INDEX = new Map<string, number>(SEMANTIC_TOKEN_TYPES.map((t, i) => [t, i]))
+type TokenType = (typeof SEMANTIC_TOKEN_TYPES)[number]
+const TYPE_INDEX = new Map<TokenType, number>(SEMANTIC_TOKEN_TYPES.map((t, i) => [t, i]))
 
 /** One classified token in absolute coordinates — the shared substrate for full / range / delta. */
 interface TokenRecord {
@@ -70,14 +71,16 @@ function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   for (const tok of doc.parseResult.tokens) {
     const type = wires.has(tok.span.start) ? "wire" : stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project, graphical)
     if (type === undefined) continue
-    // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.
-    out.push({
-      line: tok.span.startLine - 1,
-      char: tok.span.startCol,
-      length: tok.span.end - tok.span.start,
-      typeIdx: TYPE_INDEX.get(type) ?? 1,
-      start: tok.span.start,
-    })
+    // One record per LINE of the token: LSP allows a multi-line token only to a client stating `multilineTokenSupport`,
+    // which this server does not ask (a block comment was coloured on its first line alone).
+    let start = tok.span.start
+    let char = tok.span.startCol
+    for (const [i, part] of doc.source.slice(tok.span.start, tok.span.end).split("\n").entries()) {
+      const length = part.endsWith("\r") ? part.length - 1 : part.length
+      if (length > 0) out.push({ line: tok.span.startLine - 1 + i, char, length, typeIdx: TYPE_INDEX.get(type)!, start })
+      start += part.length + 1
+      char = 0
+    }
   }
   return out
 }
@@ -129,7 +132,7 @@ export function diffSemanticTokens(prev: readonly number[], next: readonly numbe
   return [{ start: p, deleteCount: prev.length - p - s, data: next.slice(p, next.length - s) }]
 }
 
-function classify(tok: Token, doc: Document, project: Scope, graphical: readonly Span[]): string | undefined {
+function classify(tok: Token, doc: Document, project: Scope, graphical: readonly Span[]): TokenType | undefined {
   const byKind = KIND_TYPE[tok.kind]
   if (byKind !== undefined) return byKind
   if (tok.kind === "keyword") return "keyword"
@@ -144,7 +147,7 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
   // FB called `Execute` still colours its calls as that FB while a bare `EXECUTE` block reads as syntax.
   if (NETWORK_TEXT_KEYWORDS.has(tok.text.toUpperCase()) && graphical.some((s) => tok.span.start >= s.start && tok.span.end <= s.end))
     return "keyword"
-  if (isKnownPrimitive(tok.text)) return "type" // INT/BOOL/… are type names, not variables
+  if (isKnownPrimitive(tok.text, dialectOf(project))) return "type" // INT/BOOL/… are type names where the dialect has them
   return "variable"
 }
 
@@ -186,7 +189,7 @@ function graphicalBodySpans(doc: Document): Span[] {
   return [...graphicalBodies(doc.parseResult.units)].map((b) => b.body.span)
 }
 
-const KIND_TYPE: Partial<Record<TokenKind, string>> = {
+const KIND_TYPE: Partial<Record<TokenKind, TokenType>> = {
   int_lit: "number",
   real_lit: "number",
   time_lit: "number",
@@ -202,7 +205,7 @@ const KIND_TYPE: Partial<Record<TokenKind, string>> = {
   pragma: "macro",
 }
 
-const SYMBOL_TYPE: Record<SymbolKind, string> = {
+const SYMBOL_TYPE: Record<SymbolKind, TokenType> = {
   function_block: "class",
   program: "class",
   function: "function",

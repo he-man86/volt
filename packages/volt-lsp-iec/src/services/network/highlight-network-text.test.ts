@@ -19,9 +19,9 @@ END_NETWORK
 END_FUNCTION_BLOCK`
 
 test("highlighting a network-text operand includes its declaration AND its in-network use", () => {
-  const parseResult = parseSource(LD, { networkText: true })
+  const parseResult = parseSource(LD, { networkText: true }, "codesys")
   const doc = { uri: "file:///F.pou", source: LD, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }], [], "codesys")
   // Cursor on `a` inside the network `out := (a AND b)`.
   const ranges = documentHighlightsAnywhere(doc, project, LD.indexOf("(a AND") + 1)
   expect(ranges).toBeDefined()

@@ -1,13 +1,21 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
-import { definition, typeDefinition, references, documentHighlights, prepareRename, rename, implementation } from "./index.js"
+import { definition, typeDefinition, implementation } from "./index.js"
+// The paths the server ships (ST and network text alike): one rename, one reference set (lsp-same-standard 3.1, R5).
+import {
+  documentHighlightsAnywhere as documentHighlights,
+  prepareRenameAnywhere as prepareRename,
+  referencesAnywhere as references,
+  renameAnywhere as rename,
+  renameRefusal,
+} from "../network/index.js"
 import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   return { doc, project }
 }
 
@@ -159,4 +167,46 @@ test("references and rename reach every use of a body whose untaken or undecided
   expect(sorted((references([doc], project, doc, at(BROKEN_BRANCH, "count", 1)) ?? []).map((r) => r.range.start.line))).toEqual([2, 4, 8, 8, 14])
   const edits = Object.values(rename([doc], project, doc, at(BROKEN_BRANCH, "count", 1), "total")!.changes!)[0]!
   expect(sorted(edits.map((e) => e.range.start.line))).toEqual([2, 4, 8, 8, 14])
+})
+
+// ─── rename edits only what Volt pushes (lsp-same-standard 3.1, finding R5) ───
+// A library element is a READ-ONLY materialization under `Library Manager/` — the push never writes it, and its name
+// is the library's. Renaming one edited that file and every use, so the project named an element no library has.
+
+const LIB_URI = "file:///w/Library%20Manager/Util/FB_Lib.pou"
+const LIB = `FUNCTION_BLOCK FB_Lib\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+const USER = `PROGRAM P\nVAR\n\tinst : FB_Lib;\nEND_VAR\nIMPLEMENTATION ST\ninst(x := 1);\nEND_PROGRAM`
+
+function withLibrary() {
+  const files = [
+    { uri: LIB_URI, source: LIB },
+    { uri: "file:///w/P.pou", source: USER },
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(files, [], "codesys")
+  const doc: Document = files[1]!
+  return { docs: files as Document[], doc, project }
+}
+
+test("a library element is not renameable: prepare refuses it and rename edits nothing", () => {
+  const { docs, doc, project } = withLibrary()
+  const onType = at(USER, "FB_Lib") // the type name in `inst : FB_Lib`
+  const onInput = at(USER, "x := 1") // the library FB's input
+  for (const offset of [onType, onInput]) {
+    expect(prepareRename(doc, project, offset)).toBeUndefined()
+    expect(rename(docs, project, doc, offset, "Other")).toBeUndefined()
+  }
+  // the project's own instance still renames
+  expect(prepareRename(doc, project, at(USER, "inst", 2))).toBeDefined()
+})
+
+// ─── a rename's new name must be one the dialect accepts (lsp-same-standard 3.1, finding R6) ───
+// Any text was written over every occurrence: `IF`, `1x` or `a__b` left a project the compiler refuses at each use.
+
+test("a new name the dialect refuses is refused by name; one it accepts is not", () => {
+  const { project } = setup(FB)
+  for (const bad of ["IF", "1x", "a b", "a__b", "INT", "", "x;"]) expect(renameRefusal(bad, project)).toMatch(/is no name/)
+  expect(renameRefusal("total", project)).toBeUndefined()
+  // the dialect decides, from its one fact: LDATE is a CODESYS type word and a plain name on TwinCAT
+  expect(renameRefusal("LDATE", project)).toMatch(/is no name/)
+  expect(renameRefusal("LDATE", build.buildSymbolTable([], [], "twincat"))).toBeUndefined()
 })

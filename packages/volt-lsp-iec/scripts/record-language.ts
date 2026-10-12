@@ -69,7 +69,7 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
   if (f.asSent !== undefined) return [{ wire: `${kind === "gvl" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`, src: source }]
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
-  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }).units.filter((u) => TOP.has(u.kind))
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, "codesys").units.filter((u) => TOP.has(u.kind))
   const lists = tops.filter((u) => u.kind === "global_var_list")
   // …starting at the PRAGMAS written above it, not at the keyword. A unit's span begins at `FUNCTION_BLOCK`, so
   // slicing from there dropped `{attribute 'pingroup' := …}` on the way to the IDE, and the fixture then recorded

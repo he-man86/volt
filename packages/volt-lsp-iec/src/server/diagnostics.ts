@@ -63,12 +63,12 @@ function toLspDiagnostic(item: DiagnosticItem): VoltDiagnostic {
   }
 }
 
-/** The full LSP diagnostic set for one document — semantic + network text + parse errors, with dead-code suppression. */
 /** LSP 3.18 widened `Diagnostic.message` to `string | MarkupContent`. Volt only ever emits a string, and
  * saying so here is what keeps every consumer (conformance suites, the push/pull transports) from having to
  * narrow it back at each use. */
 export type VoltDiagnostic = Diagnostic & { message: string }
 
+/** The full LSP diagnostic set for one document — semantic + network text + parse errors, with dead-code suppression. */
 export function documentDiagnostics(store: WorkspaceStore, d: Document): VoltDiagnostic[] {
   // ROOT gate for the whole library-FP class: a referenced library is a precompiled blob the consuming
   // project never recompiles, so CODESYS runs no check on its materialized source — any error we emit on it is

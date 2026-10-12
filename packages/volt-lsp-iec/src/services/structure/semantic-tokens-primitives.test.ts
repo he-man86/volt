@@ -9,9 +9,9 @@ import { semanticTokensData, SEMANTIC_TOKEN_TYPES } from "./semantic-tokens.js"
 
 test("an elementary type name colors as `type`, not `variable`", () => {
   const src = `FUNCTION_BLOCK FB\nVAR\n\tn : INT;\n\tb : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
   const doc = { uri: "file:///F.pou", source: src, parseResult }
-  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys")
   const data = semanticTokensData(doc, project) as number[]
   const types: string[] = []
   for (let i = 0; i < data.length; i += 5) types.push(SEMANTIC_TOKEN_TYPES[data[i + 3]]!)
@@ -40,8 +40,8 @@ END_FUNCTION_BLOCK
 
 /** token text → semantic type, for the tokens named in `of`. */
 function typesOf(src: string, of: readonly string[]): Record<string, string> {
-  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }])
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")
   const out: Record<string, string> = {}
@@ -86,8 +86,8 @@ test("semantic tokens: a wire has its own class, resolved through its network's 
   // the classifier painted it a plain variable of nothing. Every occurrence gets the class: the declaration, the
   // definition and each reference.
   const src = GRAPHICAL
-  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
-  const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }])
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }, "codesys") }
+  const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }], [], "codesys")
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")
   const wires: string[] = []
@@ -134,4 +134,54 @@ NETWORK := 1;
 END_PROGRAM
 `
   expect(typesOf(src, ["NETWORK"]).NETWORK).toBe("variable")
+})
+
+// ─── one fact per dialect (lsp-same-standard 3.1, finding R4) ─────────────────
+// The type colouring asked a dialect-blind predicate, so on TwinCAT `LDATE` — no TwinCAT type, "not defined" there —
+// painted as a type name. What a name is comes from the project's dialect, the one fact every service reads.
+
+/** The semantic-token type each occurrence of `word` gets, in `dialect`. */
+function colourOf(src: string, word: string, dialect: "codesys" | "twincat"): string[] {
+  const parseResult = parseSource(src, { networkText: true }, dialect)
+  const doc = { uri: "file:///F.pou", source: src, parseResult }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], dialect)
+  const data = semanticTokensData(doc, project)
+  const out: string[] = []
+  let line = 0
+  let char = 0
+  for (let i = 0; i < data.length; i += 5) {
+    line += data[i]!
+    char = data[i] === 0 ? char + data[i + 1]! : data[i + 1]!
+    const text = src.split("\n")[line]!.slice(char, char + data[i + 2]!)
+    if (text === word) out.push(SEMANTIC_TOKEN_TYPES[data[i + 3]!]!)
+  }
+  return out
+}
+
+test("a type name the dialect lacks is not painted as a type", () => {
+  const src = `FUNCTION_BLOCK FB\nVAR\n\td : LDATE;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  expect(colourOf(src, "LDATE", "twincat")).toEqual(["variable"])
+  expect(colourOf(src, "LDATE", "codesys")).not.toContain("variable")
+})
+
+// ─── a token never spans lines (lsp-same-standard 3.1, finding R12) ─────────────
+// LSP allows a multi-line token only to a client stating `multilineTokenSupport`; VS Code states none. A block comment
+// went out as ONE token of its whole length on its first line, so only that line was coloured as a comment.
+test("a multi-line block comment is one comment token per line, each its own line's length", () => {
+  const src = `PROGRAM P\n(* one\n   two *)\nEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const doc = { uri: "file:///P.pou", source: src, parseResult }
+  const data = semanticTokensData(doc, build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }], [], "codesys"))
+  const comments: number[][] = []
+  let line = 0
+  let char = 0
+  for (let i = 0; i < data.length; i += 5) {
+    line += data[i]!
+    char = data[i] === 0 ? char + data[i + 1]! : data[i + 1]!
+    if (SEMANTIC_TOKEN_TYPES[data[i + 3]!] === "comment") comments.push([line, char, data[i + 2]!])
+  }
+  expect(comments).toEqual([
+    [1, 0, "(* one".length],
+    [2, 0, "   two *)".length],
+  ])
 })

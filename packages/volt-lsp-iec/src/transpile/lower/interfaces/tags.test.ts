@@ -96,7 +96,7 @@ test("an FB implements an interface its base implements, however deep the EXTEND
     i === 0 ? "FUNCTION_BLOCK FB_0 IMPLEMENTS I_Deep\nEND_FUNCTION_BLOCK\n" : `FUNCTION_BLOCK FB_${i} EXTENDS FB_${i - 1}\nEND_FUNCTION_BLOCK\n`,
   )
   const source = "INTERFACE I_Deep\nEND_INTERFACE\n" + fbs.join("")
-  const parseResult = parseSource(source, TRANSPILE_PARSE)
+  const parseResult = parseSource(source, TRANSPILE_PARSE, "codesys")
   const { project } = prepareProject([{ uri: "transpile://deep", parseResult, source }], [])
   const lw = new Lowering(project, project)
   expect(implementsInterface(lw, `FB_${depth - 1}`, "I_Deep")).toBe(true)

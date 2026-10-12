@@ -10,8 +10,8 @@ import { uriFor } from "../../../../test/support/test-uri.js"
 
 const codes = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], "codesys")
   return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
 }
 

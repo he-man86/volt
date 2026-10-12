@@ -8,7 +8,7 @@ import { parseSource } from "../parser.js"
 import type { TypeDecl } from "../../ast/nodes.js"
 
 const parse = (src: string) => {
-  const r = parseSource(src, { networkText: true })
+  const r = parseSource(src, { networkText: true }, "codesys")
   return { errors: r.errors.map((e) => e.message), units: r.units }
 }
 const type = (src: string) => {

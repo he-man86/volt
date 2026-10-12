@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readFileSync, statSync } from "node:fs"
+import { join, resolve } from "node:path"
 
 /**
  * The bridge-health TYPES + the bound-vendor read. Live connection status now comes from the connector
@@ -44,15 +44,66 @@ export const VENDORS: readonly Vendor[] = ["codesys", "twincat"]
 // vendor. `vendor` survives only as routing/identity below the wire (which pipe `volt.bridge.<vendor>`, which LSP
 // `--codesys/--twincat`, which detected project matches a saved binding), never as anything a renderer shows.
 
-/** The vendor a workspace is bound to, from `.git/volt/config.json` (`bridge.vendor`); undefined ⇒ unbound (not an
- *  initialized Volt workspace). */
-export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {
+/**
+ * The workspace's binding file: `<git dir>/volt/config.json`, where `volt init` writes it (`git rev-parse
+ * --absolute-git-dir`, the C# `Config.Paths`). The git dir is `.git`, or — in a linked worktree or a submodule, where
+ * `.git` is a FILE — the dir its `gitdir:` line names. undefined ⇒ no `.git` (not a repo, so unbound). The LSP reads
+ * the same fact the same way (`volt-lsp-iec/src/workspace/binding.ts`), and every frontend reader resolves it HERE
+ * (`hasVoltConfig`, `VoltStatus.refresh`, `volt.openConfig`, `readStateMtime`, the reads below): readers of one fact must agree.
+ */
+export function bindingFile(workspaceRoot: string): string | undefined {
+  const dir = voltStateDir(workspaceRoot)
+  return dir === undefined ? undefined : join(dir, "config.json")
+}
+
+/** The CLI's state dir, `<git dir>/volt` (the binding, the IDE baseline `ide-refs.json`), resolved as `bindingFile` says;
+ *  undefined ⇒ no `.git`. */
+export function voltStateDir(workspaceRoot: string): string | undefined {
+  const dotGit = join(workspaceRoot, ".git")
+  let isDir: boolean
   try {
-    const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
-    const vendor = (JSON.parse(raw) as { bridge?: { vendor?: unknown } }).bridge?.vendor
-    if (vendor === "codesys" || vendor === "twincat") return vendor
-  } catch {}
-  return undefined
+    isDir = statSync(dotGit).isDirectory()
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT" || (e as NodeJS.ErrnoException).code === "ENOTDIR") return undefined
+    throw e
+  }
+  if (isDir) return join(dotGit, "volt")
+  const named = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, "utf8"))?.[1]
+  if (named === undefined) throw new Error(`${dotGit} is a file that names no git dir (no \`gitdir:\` line)`)
+  return join(resolve(workspaceRoot, named), "volt")
+}
+
+interface Binding {
+  bridge?: { vendor?: unknown }
+  project?: { projectName?: unknown }
+}
+
+/** The binding's JSON, or undefined when there is none (unbound). A binding file that is not JSON is refused by name. */
+function readBinding(workspaceRoot: string): Binding | undefined {
+  const file = bindingFile(workspaceRoot)
+  if (file === undefined) return undefined
+  let raw: string
+  try {
+    raw = readFileSync(file, "utf-8")
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT" || (e as NodeJS.ErrnoException).code === "ENOTDIR") return undefined
+    throw e
+  }
+  try {
+    return (JSON.parse(raw) as Binding | null) ?? {}
+  } catch {
+    throw new Error(`${file} is not JSON — re-run \`volt init --vendor <codesys|twincat>\``)
+  }
+}
+
+/** The vendor a workspace is bound to (`bridge.vendor`); undefined ⇒ unbound (no binding file: not an initialized Volt
+ *  workspace). A binding that states no vendor is refused by name, never read as unbound — the LSP refuses it too. */
+export function readBridgeVendor(workspaceRoot: string): Vendor | undefined {
+  const binding = readBinding(workspaceRoot)
+  if (binding === undefined) return undefined
+  const vendor = binding.bridge?.vendor
+  if (vendor === "codesys" || vendor === "twincat") return vendor
+  throw new Error(`${bindingFile(workspaceRoot)} states no vendor (bridge.vendor is ${JSON.stringify(vendor)}) — re-run \`volt init --vendor <codesys|twincat>\``)
 }
 
 /** The identity a workspace is bound to — vendor + the name the binding matches the IDE's project on. */
@@ -66,10 +117,7 @@ export interface BoundProject {
 export function readBoundProject(workspaceRoot: string): BoundProject | undefined {
   const vendor = readBridgeVendor(workspaceRoot)
   if (vendor === undefined) return undefined
-  try {
-    const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
-    const projectName = (JSON.parse(raw) as { project?: { projectName?: unknown } }).project?.projectName
-    if (typeof projectName === "string" && projectName.length > 0) return { vendor, projectName }
-  } catch {}
+  const projectName = readBinding(workspaceRoot)?.project?.projectName
+  if (typeof projectName === "string" && projectName.length > 0) return { vendor, projectName }
   return undefined
 }

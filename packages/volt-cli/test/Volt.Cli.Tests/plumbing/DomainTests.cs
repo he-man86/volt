@@ -80,6 +80,52 @@ public class DomainTests
     }
 
     [Fact]
+    public void SaveConfig_never_shows_a_reader_a_partial_file()
+    {
+        // The frontends (volt-control `readBridgeVendor`, the LSP's `binding.ts`) read the binding while `volt init` or a
+        // rebind writes it, and refuse a binding that is not JSON by name. A truncate-then-write (`File.WriteAllText`)
+        // showed them an empty or half-written file; the write is a temp file renamed over the binding. The reader opens
+        // the way Node does (share read/write/delete), so the rename is never blocked by it.
+        var root = TestUtil.NewRepo();
+        try
+        {
+            WorkspaceConfig Cfg(int i) => new()
+            {
+                Bridge = new() { Vendor = "codesys" },
+                Project = new() { Platform = "codesys", ProjectName = "Demo" + new string('x', i % 4096) },
+                LinkedAt = "2026-10-12T00:00:00Z",
+            };
+            Config.SaveConfig(root, Cfg(0));
+            var path = Config.Paths(root).ConfigPath;
+            var stop = false;
+            var partial = new List<string>();
+            var reader = new Thread(() =>
+            {
+                while (!Volatile.Read(ref stop))
+                {
+                    string text;
+                    try
+                    {
+                        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                        text = new StreamReader(fs).ReadToEnd();
+                    }
+                    catch (IOException) { continue; } // between the rename's unlink and link: no file, not a partial one
+                    try { System.Text.Json.JsonDocument.Parse(text).Dispose(); }
+                    catch (System.Text.Json.JsonException) { lock (partial) partial.Add(text); }
+                }
+            });
+            reader.Start();
+            var until = DateTime.UtcNow.AddSeconds(2);
+            for (var i = 1; DateTime.UtcNow < until; i++) Config.SaveConfig(root, Cfg(i * 997));
+            Volatile.Write(ref stop, true);
+            Assert.True(reader.Join(TimeSpan.FromSeconds(10)), "reader thread did not stop");
+            Assert.Empty(partial);
+            Assert.Equal(new[] { path }, Directory.GetFiles(Config.Paths(root).StateDir)); // no temp file left
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    [Fact]
     public void ConfigExists_is_folder_local_not_ancestor_walk()
     {
         // Regression: an empty subfolder under an initialized repo used to report "already initialized"

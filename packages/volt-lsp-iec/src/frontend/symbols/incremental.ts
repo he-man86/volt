@@ -22,8 +22,9 @@ import { libraryOf } from "../library/index.js"
  *  instances, from its `.device` descriptors (`ingestDevices`, rule Y24). */
 export function buildSymbolTable(
   files: readonly SymbolTableInput[],
-  manifests: readonly LibraryManifest[] = [],
-  dialect: Dialect = "codesys",
+  manifests: readonly LibraryManifest[],
+  /** REQUIRED, never defaulted: the project's dialect decides which names resolve (the server decides it once). */
+  dialect: Dialect,
   environment?: CompileEnvironment,
   devices: readonly DeviceInstance[] = [],
 ): Scope {
