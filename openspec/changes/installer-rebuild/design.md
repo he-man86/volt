@@ -67,7 +67,9 @@ connector-side PDBs −0.25, `.vsix` −0.4; each MiB counted once), measured fo
 installed" = the Add/Remove `DisplayVersion` Inno writes (the `app-<v>` dir name is gone); every stamped binary
 (`connector\VoltConnector.exe`, `connector\VoltBridgeTwincat.exe`, `connector\Volt.Engine.Host.dll`, `bin\volt.exe`,
 `desktop\VoltDesktop.exe`, `codesys\Volt.Ide.Codesys.dll`) and `volt-lsp-iec --version` must equal it. Kept: rollback /
-"in use … Abort" log detection, ordered log markers, leftover checks, the tray-running check.
+"in use … Abort" log detection, the `volt:` markers (in order — today one per run, `volt: install ` / `volt:
+uninstall`, plus the wait lines; 2.2 sets the per-action list and the gate's `assertLog` lists it), read as the bytes
+THIS step appended to the mirrored log (the uninstall log is one file per day), leftover checks, the tray-running check.
 
 **Hard after every install:** `Volt.lnk` exists and targets `desktop\VoltDesktop.exe` (WScript.Shell); Run value
 `VoltConnector` == `"<app>\connector\VoltConnector.exe" --silent` exactly; user PATH has `<app>\bin` exactly once and no

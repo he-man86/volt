@@ -93,7 +93,9 @@ history. `DeinitializeSetup` runs even on an **aborted** install, which is the c
 
 Every meaningful installer action logs a line prefixed `volt:`. When a customer sends a log, these are what to
 grep for. Their absence or an out-of-order sequence is a bug; a `WARNING`/`FAILED`/`MISSING` line names it. The
-list is enforced in two places — `test-install.ts` (`assertLog`) asserts the sequence on every run, and
+list is enforced in two places — `test-install.ts` (`assertLog`) asserts the markers it lists, in order, in what each
+step appended to the log (today only the opening `volt: install ` / `volt: uninstall`; installer-rebuild 2.2 resets the
+list below for the new installer and the gate lists it), and
 `build-installer.ts` refuses to build a `Volt.iss` missing any of them — so it cannot silently rot.
 
 An install, in order:
@@ -129,7 +131,7 @@ Exit codes worth knowing (Inno's, unchanged by us):
 | 2 | user cancelled before install started |
 | 5 | **aborted during install** — in practice: Setup couldn't close a running Volt process. Under `/VERYSILENT` there's no prompt, so it just dies. Close Volt and retry. |
 
-`bun run test:install` stops the connector + bridge workers before installing for exactly this reason.
+`bun run test:install` refuses to start while a Volt process or any `volt.exe` runs, for exactly this reason.
 
 ## Known gaps
 

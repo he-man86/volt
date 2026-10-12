@@ -37,8 +37,8 @@ verify                 the build is a published prerelease AND its commit's ci.y
       ↓
 gh release download    that build's OWN Volt-win-Setup.exe
       ↓
-test-install.ts        install/uninstall/update ×N — gates the EXACT build being released,
-      ↓                so what ships to stable is what was tested
+test-install.ts        install/update/uninstall ×N, upgrading from the current stable — gates the
+      ↓                EXACT build being released, so what ships to stable is what was tested
 gh release edit --prerelease=false --latest     flips it to the stable channel
 ```
 
@@ -151,20 +151,37 @@ actually shipped need an install **over an existing one**, with files held open:
   wrote; it asserted nothing about the binaries beside it, so a half-applied install reported the version it
   *meant* to be. That file is gone — every binary now carries its version stamped in.
 
-The flow: `install → uninstall → install → update → update → uninstall → install → uninstall`, asserting after
-every step. Two assertions carry the weight:
+The flow (openspec installer-rebuild, design 1): **1** install `--older` → **2** update to the new build (the
+upgrade, and the one-release migration off the `app-<v>` + `current` layout) → **3** update again (files in use) →
+**4** update with a `volt.exe` alive and `/VOLTWAIT=15`: setup gives up non-zero, the CLI is **not killed**, no
+binary is replaced, the connector is relaunched → **5** the same, the CLI stopped 5 s into the wait: setup completes
+→ **6** uninstall with the CLI alive: aborted, nothing removed → **7** uninstall → **8** fresh install → **9**
+uninstall → **10** `UpdaterVerificationTests` (a tampered or digest-less download is refused by name). Every check
+is **hard** — there is no "warn" any more. What carries the weight:
 
-- **Measured versions, not paperwork.** `build-cli.ps1` stamps `VOLT_VERSION` into every exe's `FileVersion` (the
-  bun-compiled LSP gets it via a compile-time `--define`), so each binary is asked what it *is* and compared
-  against the version directory Inno created. Comparing binaries only to each
-  other is not enough — an update that replaced none of them would be self-consistent and still stale. The
-  extension is checked the same way, via the editor's own `--list-extensions --show-versions`; folder listings are
-  not evidence (they survived both an uninstall that deregistered it and an install that skipped it).
+- **Measured versions, not paperwork.** Add/Remove `DisplayVersion` must equal the setup's own ProductVersion, and
+  every stamped binary (`build-cli.ps1` stamps `VOLT_VERSION`; the bun-compiled LSP gets it via `--define` and is
+  asked with `--version`) must report it. Comparing binaries only to each other is not enough — an update that
+  replaced none of them would be self-consistent and still stale.
+- **The published surface, exactly:** the Start Menu shortcut's target (`desktop\VoltDesktop.exe`), the Run value's
+  data, the PATH entry (`{app}\bin` once, nothing else under `{app}`, every other entry untouched — uninstall must
+  give back exactly the PATH the run started with), the `WM_SETTINGCHANGE("Environment")` broadcast observed by a
+  hidden window while setup runs, the Documents\Volt scripts (byte-identical to this install's copies, polled
+  after the tray is seen running FROM `{app}` — by executable path, never image name), and the bridge DLL resolved through the installed
+  script's `_INSTALL_SUBDIR` with no `VOLT_BRIDGE_DLL`.
 - **Rollback detection** — the setup log is read for `Rolling back changes` / in-use aborts, because Inno can exit
   0 on those paths.
 
-`--older <setup.exe>` installs the newer build over an older one, which is the case that broke; without it the
-same build is reinstalled over itself (still exercises the file-in-use path). Windows only, really installs
-several times — throwaway machine or CI runner.
+`--older <setup.exe | stable>` is **required** (`stable` downloads the latest non-prerelease with `gh`); a run
+without an upgrade, or with an "older" that is not older, is refused by name. The gate also refuses to start where
+Volt is already installed, a Volt process or any `volt.exe` runs (a dev tray, another session's CLI — every setup
+would wait on it), any published fact (shortcut, Run value, Documents scripts, retired env vars) is already there —
+a leftover would pass an assertion the installer never earned — or no dotnet has a .NET 10 SDK (step 10). Every
+log check reads only the bytes THAT step appended to the mirrored log (the uninstaller appends a whole day to one
+`uninstall-<date>.log`), and every uninstall log line must carry `volt:`. Steps 4–6 read the exact `volt: waiting
+for volt.exe` / `volt: gave up waiting for volt.exe` lines, never a bare `volt.exe`; step 4's "connector relaunched"
+is a NEW pid from `{app}`, and step 6 requires every installed file, the Documents scripts and the tray to survive
+the abort. A hung setup is killed with its whole process tree. Windows only, really installs several times — throwaway machine or CI runner. It starts
+a connector, which spawns a worker for every open TwinCAT XAE, so do not run it beside someone else's live IDE.
 
 **To reproduce the original bug, run it with an editor open.** That is the state every real user is in.

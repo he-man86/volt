@@ -25,8 +25,10 @@ namespace Volt.Connector
         private const string Owner = "he-man86";
         private const string Repo = "volt";
         private const string Asset = "Volt-win-Setup.exe";
-        private const string LatestApi = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases/latest";
-        private const string ReleasesApi = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases?per_page=30";
+        /// <summary>The release feed the tray polls — GitHub's REST API for this repo. A PARAMETER of
+        /// <see cref="CheckOnce"/> (never an env var or a hidden verb) so Volt.Connector.Tests can serve a localhost
+        /// release, e.g. one whose asset digest does not match its bytes.</summary>
+        internal const string GitHubFeed = "https://api.github.com/repos/" + Owner + "/" + Repo;
 
         // Update channel: "stable" (default, latest final release) or "dev" (newest PRERELEASE — the X.Y.Z.<count>
         // builds). Source of truth is the persisted choice, togglable from the Status window; VOLT_UPDATE_CHANNEL
@@ -65,7 +67,7 @@ namespace Volt.Connector
         /// <summary>Fire an off-cycle update check (after a channel toggle or a manual "Check now").</summary>
         public static void CheckNow() => _ = Task.Run(async () =>
         {
-            try { await CheckOnce(); } catch (Exception e) { VoltLog.Warn($"updater: check failed: {e.Message}"); }
+            try { await CheckOnce(GitHubFeed, CurrentVersion); } catch (Exception e) { VoltLog.Warn($"updater: check failed: {e.Message}"); }
         });
         private static readonly TimeSpan Every = TimeSpan.FromHours(6);
         private static readonly HttpClient Api = CreateClient(TimeSpan.FromSeconds(30));
@@ -138,24 +140,26 @@ namespace Volt.Connector
             {
                 while (true)
                 {
-                    try { await CheckOnce(); }
+                    try { await CheckOnce(GitHubFeed, CurrentVersion); }
                     catch (Exception e) { VoltLog.Warn($"updater: check failed: {e.Message}"); }
                     await Task.Delay(Every);
                 }
             });
         }
 
-        private static async Task CheckOnce()
+        /// <summary>One check against <paramref name="feed"/> (a GitHub-shaped <c>/releases</c> API root) for a release
+        /// newer than <paramref name="installed"/>; on one, it becomes <see cref="PendingVersion"/>.</summary>
+        internal static async Task CheckOnce(string feed, string installed)
         {
             // The release to consider depends on the channel: the latest FINAL release (stable) or the newest
             // PRERELEASE (dev). Both are compared to the installed version with System.Version (X.Y.Z[.count]).
-            var release = Channel == "dev" ? await NewestPrereleaseAsync() : await LatestStableAsync();
+            var release = Channel == "dev" ? await NewestPrereleaseAsync(feed) : await LatestStableAsync(feed);
             if (release is not { } r) return;
 
             var tag = r.GetProperty("tag_name").GetString();
             if (tag == null) return;
             var latest = tag.TrimStart('v'); // tags are bare X.Y.Z[.count], but tolerate a stray v prefix
-            if (!(Version.TryParse(latest, out var lv) && Version.TryParse(CurrentVersion, out var cv) && lv > cv))
+            if (!(Version.TryParse(latest, out var lv) && Version.TryParse(installed, out var cv) && lv > cv))
                 return; // up to date
 
             // Resolve the installer asset's real download URL from the release — don't reconstruct a path, which a
@@ -165,20 +169,20 @@ namespace Volt.Connector
 
             _setupUrl = url;
             _pending = latest;
-            VoltLog.Info($"updater[{Channel}]: {latest} available (current {CurrentVersion})");
+            VoltLog.Info($"updater[{Channel}]: {latest} available (current {installed})");
         }
 
         /// <summary>The latest FINAL release (excludes prereleases — GitHub's /releases/latest does this).</summary>
-        private static async Task<JsonElement?> LatestStableAsync()
+        private static async Task<JsonElement?> LatestStableAsync(string feed)
         {
-            using var doc = JsonDocument.Parse(await Api.GetStringAsync(LatestApi));
+            using var doc = JsonDocument.Parse(await Api.GetStringAsync(feed + "/releases/latest"));
             return doc.RootElement.Clone(); // Clone: detach from the doc we're about to dispose
         }
 
         /// <summary>The highest-versioned PRERELEASE across recent releases — the dev channel's feed.</summary>
-        private static async Task<JsonElement?> NewestPrereleaseAsync()
+        private static async Task<JsonElement?> NewestPrereleaseAsync(string feed)
         {
-            using var doc = JsonDocument.Parse(await Api.GetStringAsync(ReleasesApi));
+            using var doc = JsonDocument.Parse(await Api.GetStringAsync(feed + "/releases?per_page=30"));
             JsonElement? best = null;
             Version? bestVer = null;
             foreach (var rel in doc.RootElement.EnumerateArray())

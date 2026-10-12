@@ -12,5 +12,8 @@
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
     <!-- The pid probe spawns a subprocess, so `TwincatFleet`'s composition needs one seam to be driveable. -->
     <InternalsVisibleTo Include="Volt.Connector.Tests" />
+    <!-- The tray shell drives the Updater (internal), which lives here so the test project — which cannot reference
+         the net10.0-windows WinForms shell — can serve it a release feed (openspec installer-rebuild 1.1). -->
+    <InternalsVisibleTo Include="VoltConnector" />
   </ItemGroup>
 </Project>
