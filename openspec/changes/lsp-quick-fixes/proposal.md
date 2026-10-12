@@ -31,3 +31,9 @@ would add complexity for no visible gain (revisit only if a real project measure
 
 `packages/volt-lsp-iec` (`analysis/` checks gain fixes, `services/assist/code-actions.ts`, conformance fixtures + recordings
 for every fix). No bridge or wire change.
+
+## Order and scope (owner 2026-10-12)
+
+Runs FIRST of the queued changes (before `bridge-one-to-one` and `ld-fbd-coverage`): it is LSP-only and works on Structured
+Text diagnostics, which neither of those changes touches. **Network-text diagnostics are out of scope here** — their text
+changes with `ld-fbd-coverage`; their fixes are filed as a follow-up for after it.
