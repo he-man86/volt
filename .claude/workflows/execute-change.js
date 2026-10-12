@@ -59,7 +59,7 @@ TRIAGE (owner): a finding that is cheap to fix is fixed. A NICHE finding — abo
 explicit paths only (never git add -A); commit messages end with "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>". No push.`
 
 const STEP = { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' },
-  kind: { type: 'string', enum: ['measure', 'baseline', 'structure', 'model', 'conformance', 'fix', 'lean', 'downstream', 'close'] },
+  kind: { type: 'string', enum: ['measure', 'baseline', 'structure', 'model', 'conformance', 'fix', 'lean', 'downstream', 'close', 'owner'] },
   openTasks: { type: 'array', items: { type: 'string' } },
   designFirst: { type: 'boolean', description: 'the step needs a design.md section that is not written and committed yet' } },
   required: ['id', 'title', 'kind', 'openTasks'] }
@@ -77,7 +77,8 @@ STATUS ONLY — change nothing.
    5 tasks (ids like 1a, 1b, …), so no agent carries a whole big section and every step gets its own commit. For each step: its unticked task ids, its kind — measure (mechanical measurement),
    baseline, structure (moves/splits, output-neutral), model (a representation change), conformance (an area reviewed against CODESYS,
    rule by rule, with recorded fixtures), fix (root causes), lean (same output, less code), downstream (re-run consumers), close (ONLY the final cold-suite + archive task; a 'Verify' section of live
-   checks, e2e runs or suite numbers is NOT close — give it kind conformance if it runs a live IDE, else measure) — and
+   checks, e2e runs or suite numbers is NOT close — give it kind conformance if it runs a live IDE, else measure), owner (a task that
+   STOPS for the owner's review or decision, e.g. "STOP for the owner" — an agent can never close it) — and
    whether it needs a design.md section that is not written yet.`,
   { label: 'status', phase: 'Status', schema: { type: 'object', properties: {
     blockedBy: { type: 'array', items: { type: 'string' }, description: 'required changes not archived yet' },
@@ -97,6 +98,11 @@ const stopAt = args.stopAfter ? steps.findIndex(s => s.id === args.stopAfter) : 
 if (args.stopAfter && stopAt < 0) throw new Error(`stopAfter '${args.stopAfter}' names no step (${steps.map(s => s.id).join(', ')})`)
 if (stopAt >= 0) steps = steps.slice(0, stopAt + 1)
 if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
+// An OWNER step ("STOP for the owner's review") is never run: the run does every step before it and ends WAITING — not red,
+// not repaired (ld-fbd-coverage 1.2, 2026-10-12: a gate+repair spent agents on an approval no agent can give).
+const ownerAt = steps.findIndex(s => s.kind === 'owner')
+const waitingFor = ownerAt >= 0 ? steps[ownerAt] : null
+if (waitingFor) steps = steps.slice(0, ownerAt)
 // Group consecutive structure/fix/lean/measure steps (never model, conformance or design-first steps).
 const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure', 'conformance'])
 // Group sizes by risk: mechanical moves 5; fixes and lean items 3 (an agent gets sloppier after ~4-5 substantial items).
@@ -226,6 +232,7 @@ and say what blocks it.`, { label: `repair:${s.id}`, phase: 'Gate', schema: GATE
 }
 
 if (stopped) return { change: args.change, stoppedAt: stopped, blockedBy: [`${args.change} step ${stopped} is red`], done }
+if (waitingFor) { log(`WAITING FOR THE OWNER at ${waitingFor.id}: ${waitingFor.title}`); return { change: args.change, waitingForOwner: waitingFor.id, done } }
 // Close whenever the run got through without a red stop — a change whose last section is not a 'close' step was left
 // unarchived with every task ticked (three PLCAssist changes + lsp-sfc-step-names, 2026-10-03/04). The close agent checks
 // for open tasks itself and stops if one remains.
