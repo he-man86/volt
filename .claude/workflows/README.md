@@ -26,8 +26,8 @@ every commit, a close that archives). **How big each step is** is set in ONE pla
 what it IS: a **decision** step — a model step, or one that needs a design note first — runs thorough (round cap
 `roundTasksThorough`, a second review on HIGH findings); an **execution** step — structure, fix, lean, measure,
 conformance, downstream — runs light (bigger rounds, no second review), because its oracle (the full suite, recorded
-fixtures, the gates) catches what a second reviewer would. Measured motive: thorough everywhere spent about 35–45 % more
-on steps whose oracle already decided the outcome.
+fixtures, the gates) catches what a second reviewer would. Estimated (not measured) saving: about 35–45 % less than
+thorough everywhere, from the share of execution steps in a change — measure it on the next runs.
 
 Force one intensity for a whole change with `{ thorough: true }` (a change that reshapes a core model end to end) or
 `{ light: true }`. `sections` still runs a subset (a launch with `sections` never closes).
