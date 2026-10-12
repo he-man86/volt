@@ -36,3 +36,16 @@ get it — so this change publishes first, then removes.
 `installer/Volt.iss`, `scripts/build-payload.ts`, `scripts/build-installer.ts`, `scripts/test-install.ts`,
 `.github/workflows/release.yml` + `promote.yml`, `packages/volt-vscode/package.json` (marketplace metadata: icon,
 repository, license, categories as the registries require), docs. The installer gets smaller and touches no editor.
+
+## Close-out (2026-10-12) — closed unfinished, by the owner
+
+Owner: "you can forget about extension for now. i will do this whenever i am ready. close it". Nothing of this change
+was built: no publisher accounts or secrets exist, nothing publishes the extension. The installer half was done anyway by
+`installer-rebuild` (archived 2026-10-12), which removed the extension sideload from the installer and the `.vsix` from
+the payload; releases now carry only `Volt-win-Setup.exe`.
+
+**Consequence until the owner publishes:** from the first release of the rebuilt installer, the extension is available
+nowhere — no installer task, no release asset, no registry. Copies an older installer sideloaded keep working but do not
+update. The spec delta (extension ships only through the registries) was NOT built, so it is archived without being
+filed as a requirement (`--skip-specs`). When the owner is ready: re-open from this proposal (publisher accounts,
+`VSCE_PAT`/`OVSX_PAT`, publish in `release.yml`/`promote.yml`, then the measure in tasks 1.4).
