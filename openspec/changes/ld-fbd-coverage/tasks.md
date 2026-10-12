@@ -132,19 +132,31 @@
 
 ## 1. Design (owner review before code)
 
-- [ ] 1.1 design.md: a network-text spelling per census shape, consistent with the NWL model and identical on both vendors;
+- [x] 1.1 design.md: a network-text spelling per census shape, consistent with the NWL model and identical on both vendors;
       the grammar delta for `docs/network-text.html`; what stays refused by name and why; the order to build the shapes
       (by corpus count); the split of the network-text code by concern (parser, lexer, checks, tests); which deferred
-      `probe-nwl-*` / N23 / N25 facts become rows.
-- [ ] 1.2 STOP for the owner's review of 1.1 (a file-format extension). Record the decision here.
+      `probe-nwl-*` / N23 / N25 facts become rows. Done: design.md (7eae9777ff).
+- [x] 1.2 STOP for the owner's review of 1.1 (a file-format extension). Record the decision here.
+      **Owner decision 2026-10-12: design APPROVED** ("yes do both, start the build"), with two amendments:
+      (a) **S3a open case → a probe row, not a refusal:** what CODESYS (and TwinCAT) store as the wire type when a leaf of
+          one type feeds a pin of another (INT leaf → DINT pin) and when the leaf's type is an alias is recorded first, as a
+          `vendor-facts` row (`nwl-leaf-wire-type`), before S3a is built; S3a's rule follows the recording.
+      (b) **Order: split first, then shapes** — the network-text code is split by concern (output-neutral) BEFORE any
+          shape is added, so every shape lands once, in its place. Section 2 is renumbered accordingly.
+      S4 stays refused by name ("niche: accepted loss (1 occurrence in the corpora)") as designed; S1 follows its probe.
 
 ## 2. Build (after 1.2)
 
-- [ ] 2.1 Per shape, test-first: a recorded fixture on both vendors (pull → push → pull fixed point + build), writer,
-      reader, gate, LSP parser and checks.
-- [ ] 2.2 The network-text code split by concern; the shrink-only entries and dead-export allowlist emptied.
-- [ ] 2.3 The probe-table rows from 1.1; DIALECT N-rows updated.
-
+- [ ] 2.1 The network-text code split by concern, OUTPUT-NEUTRAL (design "Code split"): `parser.ts` into statement,
+      value/group, call/pin and the pair-kind decision; the lexer's `next` per token class; `network-analysis.ts` per check
+      family; `network.test.ts` per service. The shrink-only entries and the dead-export allowlist emptied. The full LSP
+      suite, the fixture map and the network e2e identical before/after.
+- [ ] 2.2 The probe-table rows, recorded on both vendors BEFORE the shapes they decide: `nwl-bitop-stored-slot` (decides
+      S1's outcome), `nwl-leaf-wire-type` (decides S3a, owner amendment a), `nwl-nested-assign`, `nwl-rail-fed-wire`,
+      `nwl-input-pin-flag`, `nwl-super-call`; DIALECT N-rows updated.
+- [ ] 2.3 Per shape, in the design's order (S1 per its probe, S2, S3, S6, S5), test-first: a recorded fixture on both
+      vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
+      split structure of 2.1.
 ## 3. Verify and close
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED except the shapes 1.2 kept refused by name; e2e on both
