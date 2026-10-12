@@ -192,6 +192,10 @@ the vendor's whole SCHEMA, not only the shapes the six corpora happen to use, so
 - [ ] 2.3 Per shape AND per member the 1b.2 table spells, in the design's order (S1 per its probe, S2, S3, S6, S5, then the 1b.2 members), test-first: a recorded fixture on both
       vendors (pull → push → pull fixed point + build), writer, reader, gate, LSP parser and checks — each landing in the
       split structure of 2.1.
+      **And delete the inference a spelled member replaces** (owner 2026-10-12, "also simplifies the code"): writer and
+      reader map member ↔ text one to one; guesses such as the wire type from its uses (`EveryUseIsBoolean`), "slot 0 is
+      the main output" and "a stored slot is inert" go wherever the member is now spelled. The count of such rules before
+      and after is recorded under this task.
 ## 3. Verify and close
 
 - [ ] 3.1 Re-pull the six corpora: no LD/FBD body UNSUPPORTED (S4 shown per 1b.4; an unbuildable network refused only when edited); e2e on both
