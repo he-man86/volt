@@ -219,6 +219,56 @@
 
 - [ ] 3.1 `build:installer` + the new `test:install` green on this machine (install, update ×N, upgrade from today's
       build, CLI-alive update, tampered download, uninstall leaves nothing); desktop opens; tray starts at login.
-- [ ] 3.2 Docs: `installer/README.md` "every location" table from the new installer, `scripts/README.md`, CLAUDE.md.
+
+      **Partial 2026-10-12 — the live gate was NOT run (blocked by the machine, not by the build).** `bun run
+      build:installer` green: **0.1.17575** (HEAD 354cb1e13a), Volt.Cli.Tests 265/265 inside it, ISCC compiled,
+      `dist\release\Volt-win-Setup.exe` 196,952,617 B = **187.8 MiB**; `measure-payload.ts`: 587.1 MiB / 257 files
+      (desktop 321.6 / 24, bin 154.1 / 2, connector + worker 109.7 / 228, codesys 1.7 / 3; satellites, PDBs, `.vsix`
+      0) — identical to 2.1's. `bun run test:install --older dist\older-0.1.17562\Volt-win-Setup.exe` **refused at
+      its precondition**, nothing installed: `Start Menu\Programs\Volt.lnk already exists — the machine is not
+      clean`. That shortcut is a leftover of a 2026-09-16 dev tray (target
+      `…\Volt.Connector\bin\Release\net8.0-windows\desktop\Volt.exe`, which no longer exists) — exactly the
+      runtime-written shortcut this change removes; moving it aside was refused by this session's permission
+      classifier, so it is the owner's to delete. Also on the machine: a TcXaeShell (pid 52036) + CODESYS (27112)
+      opened 2026-10-10 by another session's gate (PLCAssist, parents gone, idle since 2026-10-11 20:11); the gate
+      starts an installed connector, which spawns a TwinCAT worker for every open XAE — scripts/README.md says not to
+      run it beside someone else's live IDE, so run it when those are closed. Step 10 standalone:
+      Volt.Connector.Tests **119/119** (UpdaterVerificationTests included). `bun run check` 18/18. Stale Velopack
+      artifacts from 2.5 deleted (`dist\Volt-Setup-0.1.0-x64.exe`, `%LOCALAPPDATA%\velopack\`). To finish: delete the
+      stale `Volt.lnk`, close the foreign IDEs, `bun run test:install --older dist\older-0.1.17562\Volt-win-Setup.exe`,
+      then open the desktop from the Start Menu and sign out/in for the login item.
+- [x] 3.2 Docs: `installer/README.md` "every location" table from the new installer, `scripts/README.md`, CLAUDE.md.
+
+      **Done 2026-10-12.** `installer/README.md` rewritten from `Volt.iss`: the table is the four `{app}` folders
+      (`bin\` = exactly `volt.exe` + `volt-lsp-iec.exe`), `unins000.*`, the Documents\Volt scripts (connector-written,
+      `[UninstallDelete]`), `Volt.lnk` (`[Icons]`), Run `VoltConnector` (`[Registry]` `uninsdeletevalue`), the exact
+      PATH entry (`[Code]`, broadcast), Add/Remove, log store, userData, the verified `%TEMP%` download; sections for
+      process handling (wait → stop by path → relaunch), the one-release migration, the marker list (= the gate's
+      `installMarkers`/`uninstallMarkers` + the wait lines), exit codes 1/7 as built, the gate, the invariants; the
+      junction/versioned-layout sections, `VOLT_BRIDGE_DLL`, `LoginItem`, the extension tasks and the "failed update
+      leaves the tray dead" gap (fixed by DeinitializeSetup) gone. `scripts/README.md`: dev build is on demand (not
+      every push), the gate's contract no longer names `{app}\current`, step 4 = tray untouched (not "relaunched"),
+      steps 4/6 same tray pids, the sideload section no longer says the installer moves the extension. CLAUDE.md:
+      the shortcut is the installer's (`desktop\VoltDesktop.exe`), PATH entry exact + pointer to installer/README.md.
+
+      **Gate 3a review (2026-10-12), all three fixed:** (a) the "every location" table missed what the installed
+      product writes after install: `%LOCALAPPDATA%\Volt\update-channel.txt` (`Updater.SetChannel`), `wanted.json`
+      (`ConnectionManager`), the per-CODESYS-session `%TEMP%\Volt\codesys-bridge\<pid>\` DLL copy (`_stage`) — all
+      three rows added, "removed: no" — plus the TwinCAT worker's `%TEMP%` scratch files (`volt_move_*.zip`,
+      `VoltScratch_*.xml`, deleted after use except a move whose undo failed), found by the same grep. (b) the gate's
+      "PATH byte-identical" compared only non-empty `;`-split entries: `test-install.ts` now also reads the value
+      itself (`userPathValue`: exists / registry kind / exact unexpanded string, via .NET `GetValue(…,
+      DoNotExpandEnvironmentNames)`) at the start and asserts it equal after the final uninstall. Red first, by a
+      probe on a scratch HKCU key (deleted): old entry compare EQUAL, new value compare differs, for `A;%X%\b;` vs
+      `A;%X%\b`, ExpandString vs String `A;B`, absent vs empty; identical values equal under both. The README's
+      "(deleted if Volt created it)" was wrong — `RemovePathEntry` cannot tell a pre-existing `{app}\bin` from its
+      own and removes it (a PATH of exactly that entry is deleted); the row now says so and that the gate refuses such
+      a machine. Not changed in code: only an earlier Volt writes `{app}\bin` (niche; owning it would need a recorded
+      flag). (c) the extension row sat under "never touched" while `[UninstallRun]` runs `--uninstall-extension` in
+      code/windsurf/cursor: moved into the main table as "removed: yes, this release only — whoever installed it".
+      scripts/README.md's gate contract states the value check. Numbers: `bun run typecheck` (5 packages) / scripts
+      tsc / lint (exit 0) / `check` 18/18 green; Volt.Connector.Tests 119/119, Volt.Repo.Gates 160/160. The live
+      `test:install` is still 3.1's (the stale `Volt.lnk` and the foreign TcXaeShell 52036 + CODESYS 27112 are still
+      on the machine). No LSP, fixture or transpiler change (no LSP suite, no map).
 - [ ] 3.3 Archive. Committed, NOT pushed or released (owner away); the follow-up release deletes the one-release
       upgrade step and the `--uninstall-extension` lines.

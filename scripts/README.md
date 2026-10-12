@@ -20,7 +20,7 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 
 ## Build → release, end to end
 
-DEV BUILD — every push to `dev` (`release.yml`):
+DEV BUILD — on demand (Actions → `release` → Run workflow, `release.yml`):
 ```
 build-payload.ts        →  dist/volt/     bin/ connector/ codesys/ (no .vsix — the installer no longer sideloads the extension)
       ↓ (called by)
@@ -55,11 +55,11 @@ gate read `"Volt"` and could therefore never fail. Two gates asserting the same 
 wrong one hides. All four are folded in; `installer/Volt.iss` had the same wrong name in its uninstall fallback
 and is fixed too.
 
-The installer's on-disk contract (install dir, the `{app}\current` junction, the uninstall key, the reg reader)
-used to live in a separate `install-layout.ts` precisely so the two gates could not drift — they had each carried
-a private copy, and when the payload moved under the junction only one was updated, so the other spent months
-checking flat paths that no longer existed. With one gate that module had no one to share with; it is inlined at
-the top of `test-install.ts`, beside its only reader.
+The installer's on-disk contract (install dir, the four folders, the stamped binaries, the uninstall key, the reg
+reader) used to live in a separate `install-layout.ts` precisely so the two gates could not drift — they had each
+carried a private copy, and when the payload moved under a junction only one was updated, so the other spent months
+checking paths that no longer existed. With one gate that module had no one to share with; it is inlined at the top
+of `test-install.ts`, beside its only reader, and names the same paths as `dist/stage` and `installer/README.md`.
 
 `release.ts` is only a TRIGGER — it points a build at `promote.yml` (or you Run the workflow from the Actions tab).
 The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup, and never installs on your box.
@@ -121,10 +121,11 @@ writes on disk.
 
 ## `test-extension.ts` — the extension-install gate (`bun run test:ext`)
 
-Sideloading a `.vsix` is the ONLY way the Volt extension reaches an editor (release.yml never publishes to the
-Marketplace), and that mechanism has three documented sharp edges that silently leave you running old code:
+The installer no longer carries the extension (openspec installer-rebuild); until it ships from the Marketplace
+(openspec `vscode-extension-marketplace`), sideloading a `.vsix` is the only way it reaches an editor, and that
+mechanism has three documented sharp edges that silently leave you running old code:
 
-1. **A VSIX-installed extension never auto-updates** — nothing but our installer will ever move it.
+1. **A VSIX-installed extension never auto-updates** — nothing moves it but another sideload.
 2. **`--install-extension` is a no-op unless the version strictly increases.** The local `bun run package` used to
    stamp the base `0.0.1`, lower than every installed dev build, so a local build appeared to install and changed
    nothing. `package` now passes the git-derived version (`version.ts --version`) to vsce.
@@ -154,7 +155,8 @@ actually shipped need an install **over an existing one**, with files held open:
 The flow (openspec installer-rebuild, design 1): **1** install `--older` → **2** update to the new build (the
 upgrade, and the one-release migration off the `app-<v>` + `current` layout) → **3** update again (files in use) →
 **4** update with a `volt.exe` alive and `/VOLTWAIT=15`: setup gives up non-zero, the CLI is **not killed**, no
-binary is replaced, the connector is relaunched → **5** the same, the CLI stopped 5 s into the wait: setup completes
+binary is replaced, nothing is stopped (the tray's pids unchanged — the TwinCAT worker is the far end of the CLI's
+pipe) → **5** the same, the CLI stopped 5 s into the wait: setup completes
 → **6** uninstall with the CLI alive: aborted, nothing removed → **7** uninstall → **8** fresh install → **9**
 uninstall → **10** `UpdaterVerificationTests` (a tampered or digest-less download is refused by name). Every check
 is **hard** — there is no "warn" any more. What carries the weight:
@@ -165,7 +167,8 @@ is **hard** — there is no "warn" any more. What carries the weight:
   replaced none of them would be self-consistent and still stale.
 - **The published surface, exactly:** the Start Menu shortcut's target (`desktop\VoltDesktop.exe`), the Run value's
   data, the PATH entry (`{app}\bin` once, nothing else under `{app}`, every other entry untouched — uninstall must
-  give back exactly the PATH the run started with), the `WM_SETTINGCHANGE("Environment")` broadcast observed by a
+  give back the PATH value the run started with byte for byte: its existence, its registry type and its exact
+  unexpanded string, a trailing `;` included — not just the same `;`-split entries), the `WM_SETTINGCHANGE("Environment")` broadcast observed by a
   hidden window while setup runs, the Documents\Volt scripts (byte-identical to this install's copies, polled
   after the tray is seen running FROM `{app}` — by executable path, never image name), and the bridge DLL resolved through the installed
   script's `_INSTALL_SUBDIR` with no `VOLT_BRIDGE_DLL`.
@@ -179,9 +182,9 @@ would wait on it), any published fact (shortcut, Run value, Documents scripts, r
 a leftover would pass an assertion the installer never earned — or no dotnet has a .NET 10 SDK (step 10). Every
 log check reads only the bytes THAT step appended to the mirrored log (the uninstaller appends a whole day to one
 `uninstall-<date>.log`), and every uninstall log line must carry `volt:`. Steps 4–6 read the exact `volt: waiting
-for volt.exe` / `volt: gave up waiting for volt.exe` lines, never a bare `volt.exe`; step 4's "connector relaunched"
-is a NEW pid from `{app}`, and step 6 requires every installed file, the Documents scripts and the tray to survive
-the abort. A hung setup is killed with its whole process tree. Windows only, really installs several times — throwaway machine or CI runner. It starts
+for volt.exe` / `volt: gave up waiting for volt.exe` lines, never a bare `volt.exe`; steps 4 and 6 require the SAME
+tray pids and no `volt: stopped ` line, step 5 the stop AFTER the wait, and step 6 every installed file, the
+Documents scripts and the tray to survive the abort. A hung setup is killed with its whole process tree. Windows only, really installs several times — throwaway machine or CI runner. It starts
 a connector, which spawns a worker for every open TwinCAT XAE, so do not run it beside someone else's live IDE.
 
 **To reproduce the original bug, run it with an editor open.** That is the state every real user is in.

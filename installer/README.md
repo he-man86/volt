@@ -1,147 +1,156 @@
 # The Volt installer
 
-One Inno Setup wizard (`Volt.iss` → `Volt-win-Setup.exe`) for every Volt app. Built by
+One Inno Setup wizard (`Volt.iss` → `Volt-win-Setup.exe`) for every Volt app: the desktop app, the `volt` CLI + the
+LSP on PATH, the tray connector (+ the TwinCAT worker) and the CODESYS bridge. Built by
 `bun scripts/build-installer.ts`; published to GitHub Releases by `release.yml`, which is also the update feed the
-connector polls. **Per-user, no admin/UAC** — every location below is under the user's profile or HKCU.
+connector polls. **Per-user, no admin/UAC** — every location below is under the user's profile or HKCU. Designed in
+openspec `installer-rebuild` (2026-10-12); the installer before it (an `app-<version>` + `current` junction layout,
+a connector that wrote the shortcut / Run key / env at runtime) is gone except for a one-release upgrade step.
 
 ## Every location Volt touches
 
 Nothing is written outside this table. Keep it that way: a new location needs a line here and, if it outlives the
-app, an `UninstallDelete` entry.
+app, a declared section (`[Files]`, `[Icons]`, `[Registry]` `uninsdeletevalue`) or an `[UninstallDelete]` entry.
 
-The install is laid out in **version directories behind a `current` junction** — see "Versioned layout" below.
-Everything recorded OUTSIDE `{app}` resolves through `{app}\current`, never through a version directory; that is
-the one invariant the whole layout rests on.
+**`dist/stage` IS `{app}`**: the four folders below are copied 1:1, so the build, the gate (`test-install.ts`) and
+this table name the same paths.
 
 | Location | What | Written by | Removed on uninstall? |
 |---|---|---|---|
-| `%LOCALAPPDATA%\Programs\Volt\app-<version>\` | one whole payload per version: connector at root, `bin\` (CLI+LSP), `desktop\`, `docs\`, `codesys-scriptcommands\`, `volt-vscode.vsix` (no version.txt — every binary carries its version stamped in) | Inno (`[Files]` → `app-{#AppVersion}`) | **yes** — Inno owns it; uninstall removes every `app-*` |
-| `%LOCALAPPDATA%\Programs\Volt\current` | junction → the active version directory; the only path anything outside `{app}` references | `[Code]` `SetCurrentJunction` (`rmdir`+`mklink /J`) | yes — `rmdir` unlinks it, then version dirs go |
-| `%LOCALAPPDATA%\Volt\logs\` | `connector-*.log`, `<vendor>-*.log`, `install-*.log`, `uninstall-*.log` — the shared log store the tray's Log window reads | connector (`Log.cs`), bridges (Core's `VoltLog`), Setup (`DeinitializeSetup` + `ULog`) | **no** — deliberate, see below |
-| `%APPDATA%\Microsoft\...\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → the desktop GUI | connector (`VoltEnv.CreateGuiShortcut`) | yes (`VoltEnv.Uninstall`) |
-| `HKCU\Environment` → `Path`, `VOLT_BRIDGE_DLL` | puts `current\bin` on PATH (the ONLY thing Volt publishes for agents); names the CODESYS bridge DLL. `PublishEnv` also deletes a stale `OPENCODE_CONFIG_DIR` left by an install predating the opencode removal | **the installer** (`[Code]` `PublishEnv`) | yes (`[Code]` `CurUninstallStepChanged`) |
-| `HKCU\...\CurrentVersion\Run` → `VoltConnector` | login item so the tray survives reboot | connector (`LoginItem.cs`) | yes (`CurUninstallStepChanged`) |
-| `HKCU\...\Uninstall\{AppId}_is1` | Add/Remove Programs entry | Inno | yes |
-| `%APPDATA%\Volt\` | Electron `userData` (caches, blob storage) | Electron, from `productName` in `volt-desktop/package.json` | no |
-| `%TEMP%\Volt-<version>-Setup.exe` | auto-update download | connector (`Updater.cs`) | no — `%TEMP%`, Windows reaps it |
-| `%TEMP%\Setup Log*.txt` | Inno's own log | Setup (`SetupLogging=yes`) | no — `%TEMP%`, mirrored into the log store |
+| `%LOCALAPPDATA%\Programs\Volt\bin\` | `volt.exe` (single-file, self-contained) + `volt-lsp-iec.exe` — exactly these two; the only folder on PATH | Inno `[Files]` | **yes** — `[UninstallDelete]` (the folder whole) |
+| `%LOCALAPPDATA%\Programs\Volt\desktop\` | the Electron app, `VoltDesktop.exe` (`en-US` locale only) | Inno `[Files]` | yes — `[UninstallDelete]` |
+| `%LOCALAPPDATA%\Programs\Volt\connector\` | `VoltConnector.exe` (tray) + `VoltBridgeTwincat.exe` (TwinCAT worker), ONE .NET runtime | Inno `[Files]` | yes — `[UninstallDelete]` |
+| `%LOCALAPPDATA%\Programs\Volt\codesys\` | `Volt.Ide.Codesys.dll` + `start_volt_codesys.py` / `stop_volt_codesys.py` | Inno `[Files]` | yes — `[UninstallDelete]` |
+| `%LOCALAPPDATA%\Programs\Volt\unins000.*` | Inno's uninstaller + its log (`UninstallLogMode=overwrite`) | Inno | yes |
+| `Documents\Volt\start_volt_codesys.py`, `stop_volt_codesys.py` | the VISIBLE copy of the CODESYS scripts (users run them from CODESYS' Scripting menu); the copy finds the DLL at the fixed `Programs\Volt\codesys` (`_INSTALL_SUBDIR`) | connector at startup (`VoltEnv.PublishCodesysScripts`, from `..\codesys`) | yes — `[UninstallDelete]` (the two files, then the folder if empty) |
+| `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Volt.lnk` | Start Menu shortcut → `{app}\desktop\VoltDesktop.exe` | Inno `[Icons]` | yes |
+| `HKCU\...\CurrentVersion\Run` → `VoltConnector` | `"{app}\connector\VoltConnector.exe" --silent` — the tray survives a reboot | Inno `[Registry]` | yes — `uninsdeletevalue` |
+| `HKCU\Environment` → `Path` | the ONE entry `{app}\bin`, appended; nothing else in PATH is touched (the value's type and trailing `;` kept) | `[Code]` `AddPathEntry` (`ChangesEnvironment=yes` broadcasts it) | yes — `[Code]` `RemovePathEntry` drops every `{app}\bin` entry and rejoins the rest unchanged (type, empty parts, trailing `;`); a value left with no entry is deleted. It cannot tell an entry Volt added from one that was there before (`AddPathEntry` leaves a PATH that already names `{app}\bin` alone), so a pre-existing `{app}\bin` goes too, and a PATH that held exactly that one entry is deleted — the gate refuses such a machine, so that case is not run |
+| `HKCU\...\Uninstall\{AppId}_is1` | Add/Remove Programs entry; its `DisplayVersion` is what the gate calls "the installed version" | Inno | yes |
+| `%LOCALAPPDATA%\Volt\logs\` | `connector-*.log`, `<vendor>-*.log`, `install-<date>_<time>.log`, `uninstall-<date>.log` — the shared log store the tray's Log window reads | connector, bridges (`VoltLog`), setup (`DeinitializeSetup`), uninstaller (`VLog`) | **no** — deliberate: an uninstall's own trace outlives it |
+| `%APPDATA%\Volt\` | Electron `userData` | Electron, from `productName` `Volt` | no |
+| `%LOCALAPPDATA%\Volt\update-channel.txt` | the update channel (`stable` / `dev`), written when it is switched in the tray's Status window | connector (`Updater.SetChannel`) | **no** |
+| `%LOCALAPPDATA%\Volt\wanted.json` | the connector's desired bridge set, kept across restarts | connector (`ConnectionManager`) | **no** |
+| `%TEMP%\Volt\codesys-bridge\<CODESYS pid>\` | a per-IDE-session copy of `Volt.Ide.Codesys.dll` (+ its `.json` relay sidecars), loaded instead of the installed one so CODESYS never locks a file under `{app}` (why the installer need not stop CODESYS) | `start_volt_codesys.py` (`_stage`) | **no** — `%TEMP%`; the next start prunes the copies of closed sessions |
+| `%TEMP%\volt_move_*.zip`, `%TEMP%\VoltScratch_*.xml` | TwinCAT bridge scratch files (a move, a graphical body) | TwinCAT worker | deleted after use — except a move whose undo failed: its zip is then the only copy of the item |
+| The editors' extensions (VS Code, Windsurf, Cursor) → `volt-ai.volt-vscode` | not installed by this installer (it is to ship from the Marketplace / Open VSX, openspec `vscode-extension-marketplace`, open); installers before this one sideloaded it | an older installer, or the user | **yes, this release only** — `[UninstallRun]` runs `code` / `windsurf` / `cursor --uninstall-extension volt-ai.volt-vscode` for each on PATH, whoever installed it (a user's own VSIX or Marketplace copy included); the next release deletes those lines |
+| `%TEMP%\Volt-<version>-Setup.exe` | auto-update download — written only AFTER its SHA-256 matched the release asset's `digest` | connector (`Updater.cs`) | no — `%TEMP%`; the connector deletes old ones |
+| `%TEMP%\Setup Log*.txt` | Inno's own log | setup (`SetupLogging=yes`) | no — `%TEMP%`, mirrored into the log store |
 
-**Env vars have ONE owner: the installer.** They used to be written by `VoltConnector` on startup *and* implied by
-the layout, and that dual ownership caused four ordering bugs in a row (the connector computes its paths from where
-its own exe sits, so when it started before `{app}\current` existed it published version-scoped values). `PublishEnv`
-in `Volt.iss` is now the sole writer; `VoltEnv.cs` keeps only the login item, the shortcut, and the visible copy of
-the CODESYS scripts.
+**No environment variable but PATH.** `VOLT_BRIDGE_DLL` is a dev-only override (`ide.ps1`); no installer writes it:
+`start_volt_codesys.py` finds the DLL beside itself or at the fixed install path. The connector writes nothing at
+install time — no shortcut, no Run key, no env (it once did all three, which let a dev build repoint the Start Menu).
 
 Not Volt's, but Volt-adjacent — **never** touched by the installer:
 
 | Location | Why it's not ours |
 |---|---|
-| `%ProgramData%\CODESYS\Script Commands\` | CODESYS's own dir. The bridge DLL is *offered* there (`codesys-scriptcommands\` in the install dir); the user copies it. We don't write into a vendor's install. |
-| Any AI agent's config (`~/.claude/`, `~/.cursor/`, `%APPDATA%\Claude\`) | Theirs. Volt installs into no agent and edits no agent's configuration — the installer publishes `PATH`, and every host integration is either a registry-published artifact or a snippet the user pastes. Volt once shipped an `opencode-config\` directory here via `OPENCODE_CONFIG_DIR`; it is gone. |
+| `%ProgramData%\CODESYS\Script Commands\` | CODESYS's own dir. The bridge is offered in `{app}\codesys\` and through the Documents copy of the start script; we don't write into a vendor's install. |
+| Any AI agent's config (`~/.claude/`, `~/.cursor/`, `%APPDATA%\Claude\`) | Theirs. Volt installs into no agent and edits no agent's configuration — the installer publishes `PATH`. |
 
 `.volt/` (really `.git/volt`) is a per-project workspace binding inside the user's repo, not an install location.
 
-## Is this optimal?
+## Processes: stopped by path, the CLI waited on
 
-Yes, now. Four folders total: the install (`Programs\Volt`), the log store (`Volt\logs`), Electron's `userData`
-(`%APPDATA%\Volt`), and `%TEMP%` scratch that Windows reaps. Plus three HKCU keys and one shortcut. That's the
-floor for an app that must survive reboot and configure another tool.
+`CloseApplications=no` (the Restart Manager closes whatever holds a file — a running `volt.exe` among them). `[Code]`
+finds processes through ONE mechanism, WMI `Win32_Process`, path-scoped to folders under `{app}` — a dev tray or a
+`volt.exe` from a checkout is never touched:
 
-Two invariants keep it that way — don't remove either without knowing what breaks:
+1. **Wait for the CLI first.** A `volt.exe` in a `bin\` folder under `{app}` (or one whose path cannot be read at
+   all — an elevated CLI; fail closed) may be mid-`volt push` to a live PLC: it is **never killed**. Interactive:
+   a Retry/Cancel box naming it. Silent: poll up to `/VOLTWAIT=<s>` (default 3600), then give up — setup exits
+   non-zero with nothing stopped, the uninstaller aborts with nothing removed.
+2. **Then stop Volt's own processes** (tray, TwinCAT worker, desktop, LSP) by path, in rounds of at most 30 s wall
+   clock; a CLI that starts during the stop sends it back to step 1. The wait comes first because the TwinCAT worker
+   is the far end of the CLI's pipe.
+3. **Relaunch the tray** at the end of every setup that reached `PrepareToInstall` (`DeinitializeSetup`), so a
+   give-up, an abort or a rollback never leaves the machine without a tray and its TwinCAT worker. After a completed
+   install `[Run]` already started it.
 
-**`"productName": "Volt"` in `packages/volt-desktop/package.json` is load-bearing.** Electron derives `userData`
-from `app.getName()`, which reads `productName` before `name`; without it the name is `@volt/desktop` and Electron
-writes to a literal `%APPDATA%\@volt` folder. It is **not** a duplicate of the `productName` in
-`electron-builder.yml` (which only brands the packaged `.exe`).
+The auto-update's tray (`TrayContext.ApplyUpdate`) also waits for a running `{app}\bin\volt.exe` before it disposes
+its worker fleet and launches the verified setup `/VERYSILENT`.
 
-**No agent-config payload ships.** An `opencode-config\` directory used to, and its handling is the cautionary
-tale: it could not contain a `package.json`, because opencode installs a config dir's declared dependencies at
-*runtime* — on PLC machines that may have no registry — so `build-payload.ts` carried a `CFG_NEVER_SHIP` filter
-to guarantee the payload could never include one. That is the shape of maintaining a foothold inside someone
-else's product. The directory, the filter and the `[InstallDelete]`/`[UninstallDelete]` entries that chased it
-are all deleted.
+## Upgrade from the app-<version> layout (one release)
 
-## Versioned layout
-
-Each install writes a full payload into `{app}\app-<version>\` and repoints the `{app}\current` junction at it —
-the last thing setup does before `[Run]`. An update writes a *new* directory and repoints; it never overwrites a
-file a running process holds open, so the file-lock/rollback failure class is gone rather than mitigated. A failed
-update leaves the previous version intact and `current` still pointing at it. Superseded version directories are
-pruned by the connector at its next start (nothing holds them then), retaining at most two.
-
-One non-obvious hazard, found the hard way and now guarded: **a reparse point is not reliably resolvable by the
-process that just created it.** `DirExists({app}\current\bin)` returned FALSE one millisecond after `mklink`
-returned, while the same directory probed directly was TRUE and the junction was provably correct seconds later. So
-inside setup, `PublishEnv` and the connector launch VERIFY against the real `app-<version>` directory; only the
-values they RECORD use the stable `current` form. The two `probe direct` / `probe junction` log lines exist to keep
-that attributable.
-
-## Upgrades and uninstall are clean by construction
-
-`[Files]` only adds, but because every install lands in its own `app-<version>`, "stale files from an older
-version" cannot shadow a new one — the junction points at exactly one version and PATH resolves through it.
-Uninstall removes the junction with `rmdir` (never a recursive delete, which would delete *through* it), then every
-`app-*` directory, so `{app}` ends up gone. Anything created inside a version dir post-install goes with it.
+`[Code]` `MigrateVersionedLayout` at `ssInstall`: `RemoveDir` the `current` junction FIRST (a recursive delete
+through a junction deletes its target), `DelTree` each `app-*`, remove `{app}\current\bin` from PATH exactly, delete
+`VOLT_BRIDGE_DLL` and `OPENCODE_CONFIG_DIR`. The old Run value and `Volt.lnk` are overwritten by `[Registry]` /
+`[Icons]`. The release after this one deletes the step (and `RelaunchConnector`'s `current\` fallback).
 
 ## Install diagnostics
 
-`SetupLogging=yes` + `DeinitializeSetup` mirror Setup's log to `%LOCALAPPDATA%\Volt\logs\install-<date>.log` —
-the same store the connector and bridges write, so the tray's Log window shows install history beside runtime
-history. `DeinitializeSetup` runs even on an **aborted** install, which is the case actually worth having.
+`SetupLogging=yes` + `DeinitializeSetup` mirror setup's log to `%LOCALAPPDATA%\Volt\logs\install-<date>_<time>.log`
+(per run, so a retry never overwrites a failure). The uninstaller appends its own lines to
+`uninstall-<date>.log` (one file per day). `DeinitializeSetup` runs on an **aborted** install too — the case worth
+having.
 
 ### The log markers — the support contract
 
-Every meaningful installer action logs a line prefixed `volt:`. When a customer sends a log, these are what to
-grep for. Their absence or an out-of-order sequence is a bug; a `WARNING`/`FAILED`/`MISSING` line names it. The
-list is enforced in two places — `test-install.ts` (`assertLog`) asserts the markers it lists, in order, in what each
-step appended to the log (today only the opening `volt: install ` / `volt: uninstall`; installer-rebuild 2.2 resets the
-list below for the new installer and the gate lists it), and
-`build-installer.ts` refuses to build a `Volt.iss` missing any of them — so it cannot silently rot.
+Every installer action logs a line prefixed `volt:`; every line of the uninstall log carries it. Enforced twice:
+`build-installer.ts` refuses a `Volt.iss` missing any marker, and `test-install.ts` (`installMarkers` /
+`uninstallMarkers`) asserts them, in order, in what each step appended to the log. A `FAILED` line names the broken
+step.
 
 An install, in order:
 
 ```
-volt: install <version> -> <dir>, mode=silent|interactive, existing=0|1   ← what this run is
-volt: junction active -> <dir>\app-<version>                              ← current repointed
-volt: probe direct  \bin exists=1   /  probe junction \bin exists=0|1     ← the reparse-visibility race, logged
-volt: VOLT_BRIDGE_DLL=…            (or "not present" on a build without it)
-volt: appended to user PATH: …\current\bin   (or "already contains … - left unchanged")
-volt: env published -> …\current\bin                                      ← UNCONDITIONAL; the marker the gates assert
-volt: started the connector: …\app-<version>\VoltConnector.exe           ← the tray is up
+volt: install <version> -> <dir>, mode=silent|interactive, existing=0|1
+volt: stopped <n> Volt process(es) under <dir>: <exe (pid)>,…
+volt: migrate removed …                         ← only on the upgrade from app-<version> (one release)
+volt: PATH carries <dir>\bin                     ← read back, not assumed
+volt: the connector is running - nothing to relaunch   (or `relaunched the connector: …`)
 ```
 
 An uninstall:
 
 ```
-volt: stopped running Volt processes, taskkill exit=…
-volt: reverting environment
-volt: PATH rewritten without Volt entries
-volt: removed the junction and every version directory                   ← {app} is now empty
+volt: uninstall <version> from <dir>, mode=silent|interactive
+volt: stopped <n> Volt process(es) under <dir>: …
+volt: PATH no longer carries <dir>\bin
 ```
 
-A `WARNING … does not exist on disk` after a path was recorded, `FAILED to …`, or `connector MISSING` each point
-at a specific broken step — that is the whole reason they are worded to be greppable. **Rule that keeps this from
-rotting: an installer action without a log line is not finished.**
+The CLI wait, either direction:
 
-Exit codes worth knowing (Inno's, unchanged by us):
+```
+volt: waiting for volt.exe (pid <n>, <path>) before the update|uninstall - it is never stopped
+volt: volt.exe exited - the update|uninstall continues
+volt: gave up waiting for volt.exe (pid <n>) after <s> s - no update|uninstall was done
+volt: volt.exe started (pid <n>, …) while Volt's processes were being stopped - back to waiting for it
+```
+
+**Rule that keeps this from rotting: an installer action without a log line is not finished.**
+
+Exit codes worth knowing:
 
 | Code | Meaning |
 |---|---|
 | 0 | success |
+| 1 | uninstaller: aborted (a CLI it gave up waiting for, or a stop that failed) — nothing removed |
 | 2 | user cancelled before install started |
-| 5 | **aborted during install** — in practice: Setup couldn't close a running Volt process. Under `/VERYSILENT` there's no prompt, so it just dies. Close Volt and retry. |
+| 7 | setup: `PrepareToInstall` refused — a CLI it gave up waiting for, or a stop that failed. Nothing changed; the tray is relaunched. The auto-update offers it again later. |
 
-`bun run test:install` refuses to start while a Volt process or any `volt.exe` runs, for exactly this reason.
+## The gate
+
+`bun run test:install --older <setup.exe|stable>` (Windows; really installs): install the older build → update to
+the new one (+ the migration) → update again → update with a live `volt.exe` (`/VOLTWAIT=15`: exit non-zero, CLI and
+tray untouched, no binary replaced) → the same with the CLI ending mid-wait → uninstall with a live CLI (aborted) →
+uninstall (clean; the PATH value byte-identical to the run's start — existence, registry type, exact string) → fresh install → uninstall → the updater's digest tests. It refuses to start
+on a machine that is not clean (Volt installed, a Volt process or any `volt.exe` running, a leftover shortcut, Run
+value, Documents script or retired env var). `promote.yml` runs it with `--older stable`.
+
+## Invariants
+
+**`"productName": "Volt"` in `packages/volt-desktop/package.json` is load-bearing.** Electron derives `userData`
+from it; the exe is `VoltDesktop.exe` (`executableName`), so it never shares an image name with the CLI's `volt.exe`
+— that collision once let an update `taskkill` a running `volt push`.
+
+**`DisableDirPage=yes`.** The Documents copy of the start script finds the bridge at the FIXED
+`Programs\Volt\codesys`; a user-chosen dir would break it.
+
+**PATH never goes through `[Registry]`.** `uninsdeletevalue` on `HKCU\Environment\Path` deletes the user's whole
+PATH.
 
 ## Known gaps
 
-**A failed auto-update leaves the tray dead until next login.** `Updater.cs` launches Setup and immediately
-`Environment.Exit(0)`s — it *must*, to release its own file locks — so it cannot observe the exit code. On
-success `ssPostInstall` relaunches the connector (logged as `started the connector`); on failure nothing does, and
-the login item only recovers at the next sign-in. The install log is the trace: its last `volt:` line tells you
-how far setup got. Fixing this properly needs a relaunch watchdog that outlives both processes; not worth it until
-it actually bites.
-
-**The extension tasks are never smoke-tested.** They're `Check: NotSilent`, and `test:install` runs
-`/VERYSILENT` — so CI proves the `.vsix` ships, never that it installs. Only a human clicking the wizard covers
-that.
+**Unsigned.** Code signing needs a certificate (the owner's); SmartScreen warns on first run. Delta updates: not
+done — every update downloads the whole installer.

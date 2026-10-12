@@ -107,6 +107,13 @@ const ps = (command: string): string => {
 const q = (s: string): string => `'${s.replaceAll("'", "''")}'`
 
 const userPathEntries = (): string[] => (reg("HKCU\\Environment", "Path") ?? "").split(";").filter((e) => e.trim() !== "")
+/** The user PATH value itself — whether it exists, its registry type and its exact string, unexpanded. `reg query`
+ *  trims and `userPathEntries` drops empty parts, so neither sees a lost trailing ';', an emptied-not-deleted value
+ *  or a REG_EXPAND_SZ turned REG_SZ; "byte-identical after uninstall" is measured on this. */
+const userPathValue = (): string =>
+  ps(
+    `$k = Get-Item -LiteralPath 'HKCU:\\Environment'; if ($k.GetValueNames() -contains 'Path') { $k.GetValueKind('Path').ToString() + ' ' + (ConvertTo-Json -Compress $k.GetValue('Path', '', 'DoNotExpandEnvironmentNames')) } else { 'absent' }`,
+  )
 const underApp = (p: string): boolean => p.trim().toLowerCase().startsWith(installDir.toLowerCase())
 /** A FileVersion, or null when the file has none. */
 const fileVersion = (file: string): string | null => ps(`(Get-Item -LiteralPath ${q(file)}).VersionInfo.FileVersion`) || null
@@ -227,6 +234,8 @@ if (already !== null) refuse(`Volt ${already} is already installed — the gate 
 if (existsSync(installDir) && readdirSync(installDir).length > 0) refuse(`${installDir} is not empty — remove the leftover first`)
 /** The user PATH WITHOUT Volt: uninstall must give back exactly this — "no other PATH entry is touched". */
 const pathBaseline = userPathEntries()
+/** The same as the value itself (existence / type / exact string): what the uninstall must give back. */
+const pathValueBaseline = userPathValue()
 if (pathBaseline.some(underApp)) refuse(`the user PATH already names ${installDir} — the machine is not clean`)
 // Every other published fact must be ABSENT at the start too, or a leftover would pass an assertion the installer
 // never earned. A running Volt process (a dev tray publishes its own Documents scripts) would do the same.
@@ -555,7 +564,11 @@ async function assertClean(step: string, mark: LogMark, broadcast: boolean): Pro
   const entries = userPathEntries()
   if (entries.some(underApp)) fail(step, `user PATH still names {app}: ${entries.filter(underApp).join("; ")}`)
   if (entries.join(";") !== pathBaseline.join(";")) fail(step, "the user PATH is not exactly what it was before the run — uninstall touched another entry")
-  else ok(`${step}: user PATH exactly as before the run`)
+  else ok(`${step}: user PATH entries exactly as before the run`)
+  const pathValue = userPathValue()
+  if (pathValue !== pathValueBaseline)
+    fail(step, `the user PATH value is not byte-identical to the run's start (existence, type, string): was ${pathValueBaseline}, now ${pathValue}`)
+  else ok(`${step}: user PATH value byte-identical to the run's start (${pathValue.split(" ")[0]})`)
   if (broadcast) ok(`${step}: WM_SETTINGCHANGE("Environment") observed during uninstall`)
   else fail(step, `no WM_SETTINGCHANGE("Environment") during uninstall — running shells keep a dead PATH entry`)
   const running = voltProcesses.filter(imageRunning)
