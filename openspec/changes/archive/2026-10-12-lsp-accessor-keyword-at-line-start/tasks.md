@@ -47,4 +47,7 @@
 
 ## 3. Close
 
-- [ ] 3.1 Tell PLCAssist: both halves fixed, the build that carries them; `SET`/`GET` names need no rename.
+- [x] 3.1 Tell PLCAssist: both halves fixed, the build that carries them; `SET`/`GET` names need no rename.
+      Done 2026-10-12: a note for PLC Assist in its repo, `docs/VOLT_UPDATE_2026-10-12.md` (owner: "make a note for
+      plcassist that he can read") — both halves fixed in 0.1.17512, the rename can be undone, plus the other changes since
+      its pinned Volt commit.
