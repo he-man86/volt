@@ -22,7 +22,8 @@
  *     abstract). A flat presence-check can't model that, so don't guess.
  * Only the PRESENCE check is ported; per-signature mismatch is `method-signature`'s.
  */
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 import {
   ancestry,
   findScopeByName,
@@ -33,7 +34,7 @@ import {
   scopeUri,
   type Scope,
 } from "../../../frontend/symbols/index.js"
-import type { FunctionBlock, InterfaceProperty } from "../../../frontend/syntax/index.js"
+import { renderTypeExpr, type FunctionBlock, type InterfaceMethod, type InterfaceProperty, type TopLevel, type VarSection } from "../../../frontend/syntax/index.js"
 import { compiledFbs } from "../../shared/compiled.js"
 import type { CheckContext } from "../../pipeline/context.js"
 
@@ -67,17 +68,69 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
             // '__GETLEVEL' defined in interface …" (`rk_interface_property_not_implemented`, 2026-10-11)
             const prop = m.kind === "interface_property" ? (m.ast as InterfaceProperty) : undefined
             const members = prop === undefined ? [m.name] : [...(prop.hasGetter ? [`__GET${m.name}`] : []), ...(prop.hasSetter ? [`__SET${m.name}`] : [])]
+            const fix = stubFix(ctx, unit, m.ast as InterfaceMethod | InterfaceProperty)
             for (const member of members)
-              out.push({
-                severity: "error",
-                span: ifaceName.span,
-                source: SOURCE,
-                code: "missing-interface-implementation",
-                message: ctx.messages.missingInterfaceImpl(member, declaring.name),
-              })
+              out.push(
+                withFixes(
+                  { severity: "error", span: ifaceName.span, source: SOURCE, code: "missing-interface-implementation", message: ctx.messages.missingInterfaceImpl(member, declaring.name) },
+                  [fix],
+                ),
+              )
           }
     }
   }
+}
+
+/**
+ * C0087's fix (design.md §4 F8): "Add METHOD '<name>'" / "Add PROPERTY '<name>'" — a stub with the interface member's
+ * signature (its result type and every parameter section; a property's type and the accessors it declares), written after
+ * the function block and the members that follow it in its file (`qf_c0087_stub_method`, `_method_sections`,
+ * `_stub_property`, `_property_set`). It is the one edit that answers the finding (`preferred`); a body is the user's to
+ * write. A parameter with a default value, or a property accessor with sections of its own, is not stubbed (unrecorded).
+ */
+function stubFix(ctx: CheckContext, fb: FunctionBlock, member: InterfaceMethod | InterfaceProperty): Fix | undefined {
+  const br = lineBreakOf(ctx.source)
+  let lines: string[]
+  if (member.kind === "interface_method") {
+    const sections = member.varSections.map((s) => sectionText(s, br))
+    if (sections.some((s) => s === undefined)) return undefined
+    lines = [`METHOD ${member.name.text}${member.returnType === undefined ? "" : ` : ${renderTypeExpr(member.returnType)}`}`, ...(sections as string[]), "END_METHOD"]
+  } else {
+    if (member.getterVarSections.length > 0 || member.setterVarSections.length > 0) return undefined
+    lines = [
+      `PROPERTY ${member.name.text} : ${renderTypeExpr(member.dataType)}`,
+      ...(member.hasGetter ? ["GET", "END_GET"] : []),
+      ...(member.hasSetter ? ["SET", "END_SET"] : []),
+      "END_PROPERTY",
+    ]
+  }
+  const kind = member.kind === "interface_method" ? "METHOD" : "PROPERTY"
+  return fixOf(`Add ${kind} '${member.name.text}'`, [insertText(ctx.source, endOfGroup(ctx.source, ctx.parseResult.units, fb), `${br}${br}${lines.join(br)}`)], true)
+}
+
+/** A parameter section as a stub writes it — `VAR_INPUT`, a tab-indented line per declaration, `END_VAR` — or undefined
+ *  for one a stub does not copy (a declaration with an initial value). */
+function sectionText(s: VarSection, br: string): string | undefined {
+  if (s.decls.some((d) => d.init !== undefined)) return undefined
+  const decls = s.decls.map((d) => `\t${d.names.map((n) => n.text).join(", ")} : ${renderTypeExpr(d.type)};`)
+  return [s.sectionKind, ...decls, "END_VAR"].join(br)
+}
+
+/** Where a function block's group ends in its file: its own closer, or the last METHOD, PROPERTY or ACTION's after it. */
+function endOfGroup(source: string, units: readonly TopLevel[], fb: FunctionBlock): number {
+  let end = closerEnd(source, fb.span.end)
+  for (let i = units.indexOf(fb) + 1; i < units.length; i++) {
+    const u = units[i]!
+    if (u.kind !== "method" && u.kind !== "property" && u.kind !== "action") break
+    end = closerEnd(source, u.span.end)
+  }
+  return end
+}
+
+/** The end of the `END_*` keyword that closes a unit whose span ends at `end` (a unit's span may stop before it). */
+function closerEnd(source: string, end: number): number {
+  const m = /^\s*END_[A-Z_]+/i.exec(source.slice(end))
+  return m === null ? end : end + m[0].length
 }
 
 /** Names the FB's chain provides (own + EXTENDS-inherited methods and properties). */

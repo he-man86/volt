@@ -261,8 +261,82 @@
       Baselines moved by count only, for the 16 fixtures (`VOLT_WRITE_BASELINE=1`): census TP CS 5839 → 5843, TC 7016 → 7032;
       no new class. Gate: typecheck and lint clean; full LSP suite `VOLT_REQUIRE_FULL=1` (no `VOLT_FIXTURES`) 10 115 pass,
       0 fail, 34 skip, 428 todo, 10 577 tests across 356 files, 764 s; fixture map regenerated (`rate:fixtures`).
-- [ ] 2.2 The fixes, in census order, each green against its recorded AFTER.
-- [ ] 2.3 Source actions and "fix all in file" where 0.2 chose them.
+- [x] 2.2 The fixes, in census order, each green against its recorded AFTER.
+      **Done 2026-10-13** — every pair off `RED` (`code-actions.test.ts`: the set is empty; 75 AFTERs green, every
+      `fixAbsent` green, both vendors where the LSP reports the code). Each fix is produced by the check that reports the
+      finding (design.md §2), from three shared helpers: `analysis/shared/fixes.ts` (text edits: `replaceText`,
+      `insertText`, `removeConstruct` — a construct alone on its line takes the line —, `removeWord`, `swapBoundsFix`,
+      `bitToBoolFix`, `addParensFix`, `quoteAttributeFix`, `removeInitializerFix`), `analysis/shared/near-miss.ts` (F3's ONE
+      engine: optimal-string-alignment distance ≤ 2, case-insensitive, nearest first then candidate order — the nearest
+      scope first —, at most 3, each candidate checked to resolve where written) and `conversionWrapInto` (`rules.ts`, F1 at
+      an initial value and an argument). Per F-row, the producer: F1 `narrowing.ts` (init), `_argument-types.ts` (argument,
+      call-argument-type), `pointer-conversion.ts` (`REF=` — the C0032 of `rf := p` is that check's, not `assignment.ts`'s),
+      `conversion.ts`; F2 `no-op-statement.ts`; F3 `unresolved-identifier.ts` (C0046 change + declare, C0004),
+      `unknown-type.ts`, `struct-init.ts`, `inheritance.ts` (C0090, C0086), `call-arguments.ts` (C0037/C0038),
+      `jump-labels.ts`, `external-global.ts` (renames the uses too), `pragmas.ts` (C0351); F4 the PARSER records what is
+      missing and where (`ParseError.missing`: `statement-list.ts` `resyncAfterMissingSemicolon` / `leaveOpen`, `control.ts`
+      THEN and END_REPEAT, the open `{IF}`), `parse-errors.ts` renders it; F5 `string-constant.ts`; F6 `ambiguous-global.ts`;
+      F7 `constant-initializer.ts`; F8 `method-signature.ts`, `interface-implementation.ts`, `lifecycle.ts`, `pragmas.ts`,
+      `header-rules.ts`; F9 `empty-block.ts`, `method-reference.ts`, `no-op-statement.ts`, `parse-errors.ts`/`pragmas.ts`
+      (C0051), `external-initializer.ts`, `abstract-output-default.ts`, `intrinsic-operands.ts`, `bit-usage.ts`,
+      `declared-type.ts`, `case-labels.ts`, `jump-labels.ts`, `var-section-placement.ts`, `header-rules.ts`,
+      `attribute-placement.ts`, `signature-name.ts`; F10 `duplicate-declaration.ts`, `inherited-variable.ts`.
+      **One rule changed, measured:** `withdrawBlockedFixes` withdrew a fix whose edit held ANY other error; it now withdraws
+      only an edit that KEEPS the text it rewrites (a wrap) — an edit that replaces or removes the text removes the error
+      with it (C0237's rename edits each use, every one "not defined"). (Its second half — any error on exactly the
+      finding's span exempt — was wrong and is reverted by the gate below: only the SAME finding is exempt.) The wrap's
+      "value holds another error" test stays green.
+      **What a fix refuses to guess** (each a src test, `code-actions.test.ts` "step 2.2"): no THEN where one stands further
+      on (`IF a b THEN`), no END_REPEAT on a REPEAT short of its UNTIL, no C0142 remove of a declaration naming other
+      variables too, no C0119 input where FB_Init holds one of its own; C0087's stub skips a parameter with a default;
+      C0094/C0089 only where the parameters' names and sections agree (type and result copied); C0228 only on integer
+      types. One test premise changed on independent grounds: `document-diagnostics.test.ts` used C0046 as "a finding with
+      no fix" — C0046 now has fixes by design (F3); it uses C0049, a no-fix code (tasks.md 0.1).
+      **Numbers** (`fix-census.ts`, 3 min): findings offering a fix — corpus **8 → 15 of 243** (C0197 11 of 16: the
+      initial-value and argument sites; C0139 4 of 4), fixtures **CS 601 → 1117 of 5962, TC 579 → 1006 of 7415**. Every
+      F-row's code offers on its fixtures (C0032 539/518, C0198 88/43, C0002 67/61 of the 102/96 one-token shapes — the rest
+      are `';'` before a non-END keyword and the IF/__TRY's three-way END, which name no ONE token, C0046 46/60, …).
+      Tests: `code-actions.test.ts` 201 → 206 (+5 edges), `near-miss.test.ts` (3), `fixes.test.ts` (6); src 2766 pass.
+      **Gate of steps 2.2+2.4 (2026-10-13)** — the review's nine findings, none skipped, each a test in
+      `code-actions.test.ts` "gate of steps 2.2+2.4" (9 tests, all red with the fix reverted, green with it):
+      - *F4: the OUTER block of one left open got a preferred "Insert 'END_FOR'"* (high) — FIXED: `closeBlock` names the
+        closer only for the INNERMOST block left open (`statement-list.ts`); `FOR … WHILE … END_FOR` offers END_WHILE alone
+        and its AFTER is clean in the LSP; a FOR around an IF without END_IF offers nothing (the IF's end is three-way).
+      - *`sameSpan` exempted another code on the finding's span* (medium) — FIXED: back to `sameFinding` (same code and
+        message). C0046's follow-on needed no exemption at all: a rename replaces the text, so it is never blocked. The
+        one producer it did shelter was C0136's qualify, a replace that KEEPS the name — it is now the INSERTION of
+        `<GVL>.` before the name (same AFTER bytes; `qf_c0136_qualify_a`/`_b` green). `F_R(v := lr + b)` and
+        `outv : REAL := lr + b` get no wrap.
+      - *F3 near misses not filtered by the use* (medium) — FIXED: `unresolved-identifier.ts` `usesOf` / `bareFits` /
+        `memberFits`: a read takes a variable, property or enum value (no FUNCTION, PROGRAM, ACTION, METHOD); a call a
+        callable or an FB instance; a write no constant; a member base a variable, property or PROGRAM; a member call a
+        METHOD/ACTION; a member written from outside an FB a VAR_INPUT or property (from `THIS^` any); no VAR_IN_OUT
+        member from outside (C0178). The four repros offer nothing; `v := f.otp` still offers `outp`, `f.Exeute()` `Execute`.
+      - *"Rename to '<object>'" on a FUNCTION* (medium) — FIXED: offered on a FUNCTION_BLOCK only, the kind recorded
+        (`qf_sn_rename`); a FUNCTION's own-name result store would be orphaned, the other kinds are unrecorded.
+      - *`call-argument-type`'s wrap preferred and fix-all* (medium) — FIXED: offered unmarked, as C0032's (an error's
+        value may be the wrong variable); `qf_callarg_wrap`'s `preferred: true` was the policy, not a recorded fact, and
+        is removed on that independent ground (the recording is unchanged). `source.fixAll.volt` no longer wraps it.
+      - *"Declare 'x' : BIT"* (medium) — FIXED: `typeName` never gives BIT (C0203 outside an FB/struct; nowhere recorded).
+      - *C0142/C0097 `alike` blind to the section* (low) — FIXED: `preferred` also needs the same section kind and
+        qualifiers (`fixes.ts` `sectionOf`/`sameSection`; the base's section read from the base FB's own unit).
+      - *F4 "Insert 'THEN'" before an empty branch* (low) — FIXED: no THEN where END_IF/ELSIF/ELSE or the end follows.
+      - *`removeWord`/`findLastWord` matched a comment; "Add ABSTRACT" on a FINAL FB* (low, niche) — FIXED (cheap):
+        word searches skip comments and strings (`fixes.ts` `codeOnly`); no "Add ABSTRACT" beside FINAL.
+      **Numbers** (`fix-census.ts`): findings offering a fix — corpus 15 of 243 (unchanged), fixtures **CS 1117 → 1103,
+      TC 1006 → 990** (C0046 46/60 → 40/52, C0002 67/61 → 66/60: the withdrawn options were the ones whose AFTER the LSP
+      itself refuses). Fixture map: one line (`qf_callarg_wrap`'s fix no longer "(preferred)"), no evidence moved.
+      Gate: typecheck and lint clean; full LSP suite `VOLT_REQUIRE_FULL=1` (no `VOLT_FIXTURES`) 10 146 pass, 0 fail,
+      34 skip, 428 todo, 10 608 tests across 360 files, 761 s (the first run failed only the package structure gate on
+      `breadth.test.ts`, split under 2.4); fixture map regenerated (`rate:fixtures`).
+- [x] 2.3 Source actions and "fix all in file" where 0.2 chose them.
+      **Done 2026-10-13** (design.md §5): F1's PREFERRED fixes (the warning wraps, the argument wrap, `TO_<T>` for a
+      source-mismatched conversion) carry `fixAll`; `codeActions(doc, diagnostics, all, only)` adds "Fix all '<code>' in
+      the file" beside such a quick fix when the file holds more than one, and answers `source.fixAll.volt` when asked by
+      kind — each finding's first fix-all fix, in document order, none overlapping one already taken, a twice-reported
+      finding once. The document's findings are computed only when one of the two needs them (`handlers/assist.ts` hands
+      `documentDiagnostics`); the server declares `codeActionKinds: [quickfix, source.fixAll.volt]`. C0032's wrap (not
+      preferred) gets none. Organize-VAR stays filed (§5). Tests: `code-actions.test.ts` "step 2.3" (3).
 - [ ] 2.4 The cheap navigation-breadth gaps; the rest filed with their measurement.
 
 ## 3. Close

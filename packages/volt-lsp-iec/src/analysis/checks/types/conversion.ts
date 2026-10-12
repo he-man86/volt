@@ -9,9 +9,10 @@
  */
 import { walkAllExprs } from "../../../frontend/syntax/index.js"
 import { bodies, targetOf } from "../../../frontend/symbols/index.js"
-import { elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
+import { conversionSides, elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -27,13 +28,23 @@ export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): 
       if (argT.kind !== "elementary") return
       const sourceT = elementaryTypeRef(sourceElem)
       if (isAssignable(sourceT, argT)) return // arg widens into the source → acceptable
-      out.push({
-        severity: "error",
-        span: e.callee.span,
-        source: SOURCE,
-        code: "conversion-source-mismatch",
-        message: ctx.messages.cannotConvert(renderType(argT), renderType(sourceT)),
-      })
+      // its fix: the conversion named for no source type, `TO_<DST>(…)` — what the call converts INTO stays
+      // (`qf_convsrc_generic`); only a plain elementary destination, whose generic form is recorded building
+      const written = ctx.source.slice(e.callee.span.start, e.callee.span.end)
+      const to = conversionSides(e.callee.name)?.to
+      const generic = to !== undefined && /^[A-Za-z]+$/.test(to) ? `TO_${written.slice(written.length - to.length)}` : undefined
+      out.push(
+        withFixes(
+          {
+            severity: "error",
+            span: e.callee.span,
+            source: SOURCE,
+            code: "conversion-source-mismatch",
+            message: ctx.messages.cannotConvert(renderType(argT), renderType(sourceT)),
+          },
+          [generic === undefined ? undefined : { ...fixOf(`Change to ${generic}(…)`, [replaceText(ctx.source, e.callee.span.start, e.callee.span.end, generic)], true), fixAll: true }],
+        ),
+      )
     })
   }
 }

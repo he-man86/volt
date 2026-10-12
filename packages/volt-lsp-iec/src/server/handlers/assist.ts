@@ -24,6 +24,7 @@ import {
   readOnlyBodyHover,
   signatureHelp,
 } from "../../services/index.js"
+import { documentDiagnostics } from "../document-diagnostics.js"
 import type { ServerState } from "../state.js"
 
 export function registerAssistHandlers(s: ServerState): void {
@@ -53,7 +54,8 @@ export function registerAssistHandlers(s: ServerState): void {
     )
   })
   s.onRequest(CodeLensRequest.type, (p) => s.whole(p.textDocument.uri, (d) => codeLenses(s.workspace(), s.project(), d)))
+  // the document's own findings, asked only by a fix-all (`codeActions` `all`): they are computed as a pull would
   s.onRequest(CodeActionRequest.type, (p) =>
-    s.whole(p.textDocument.uri, (d) => codeActions(d, p.context.diagnostics)),
+    s.whole(p.textDocument.uri, (d) => codeActions(d, p.context.diagnostics, () => documentDiagnostics(s.store, d), p.context.only)),
   )
 }

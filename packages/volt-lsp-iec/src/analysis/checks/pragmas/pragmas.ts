@@ -13,10 +13,12 @@
  * The CONDITIONAL structure (an orphan `{ELSE}`/`{ELSIF}`/`{END_IF}`, an `{IF}` never closed) is the statement parser's
  * (`parse/statements` `applyPragmas`), reported with the body's other syntax errors by `parse-errors`.
  */
-import { allUnits, bodyStatements, directiveOf, isKnownAttribute, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
+import { allUnits, attributeNames, bodyStatements, directiveOf, isKnownAttribute, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, insertText, quoteAttributeFix, removeConstruct } from "../../shared/fixes.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 
 /** A pragma token, read (`parsePragma`). */
 type Pragma = { span: DiagnosticItem["span"]; text: string } & ReturnType<typeof parsePragma>
@@ -71,7 +73,16 @@ function abstractKeywordMissing(ctx: CheckContext, out: DiagnosticItem[]): void 
     if (unit.kind !== "method" && unit.kind !== "function_block" && unit.kind !== "property" && unit.kind !== "function" && unit.kind !== "program") continue
     if (!(unit.attributes ?? []).some(isAbstract)) continue
     if ((unit.kind === "method" || unit.kind === "function_block" || unit.kind === "property") && unit.modifiers.includes("ABSTRACT")) continue
-    out.push({ severity: "warning", span: unit.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() })
+    // its fix: the keyword before the name (`qf_abstract_keyword`) — what the attribute already says (`preferred`); a
+    // FUNCTION or a PROGRAM takes no ABSTRACT, so it gets none, and neither does a FINAL one (ABSTRACT beside FINAL is
+    // `abstract-and-final`: which of the two is meant is not the fix's to choose)
+    const canBeAbstract = (unit.kind === "method" || unit.kind === "function_block" || unit.kind === "property") && !unit.modifiers.includes("FINAL")
+    out.push(
+      withFixes(
+        { severity: "warning", span: unit.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() },
+        [canBeAbstract ? fixOf("Add ABSTRACT", [insertText(ctx.source, unit.name.span.start, "ABSTRACT ")], true) : undefined],
+      ),
+    )
   }
 }
 
@@ -122,7 +133,11 @@ function unquotedHasattribute(ctx: CheckContext, pragmas: readonly Pragma[], out
     if (m === null) continue
     const attr = m[1]!.split(",").pop()!.trim()
     if (attr.length === 0 || attr.startsWith("'")) continue // quoted (or empty) — valid
-    out.push({ severity: "error", span: p.span, source: SOURCE, code: "attribute-value-string", message: ctx.messages.attributeValueString(attr) })
+    out.push(
+      withFixes({ severity: "error", span: p.span, source: SOURCE, code: "attribute-value-string", message: ctx.messages.attributeValueString(attr) }, [
+        quoteAttributeFix(ctx.source, p.span, attr),
+      ]),
+    )
   }
 }
 
@@ -155,14 +170,24 @@ function attributeNamesAndValues(ctx: CheckContext, pragmas: readonly Pragma[], 
     }
     // C0351 — an unknown attribute NAME (only as complete as the catalog).
     if (p.attributeName === undefined || isKnownAttribute(p.attributeName, ctx.config.vendor)) continue
-    out.push({
-      severity: "warning",
-      span: p.span,
-      source: SOURCE,
-      code: "unknown-attribute",
-      message: ctx.messages.unknownAttribute(p.attributeName),
-    })
+    out.push(
+      withFixes(
+        { severity: "warning", span: p.span, source: SOURCE, code: "unknown-attribute", message: ctx.messages.unknownAttribute(p.attributeName) },
+        unknownAttributeFixes(ctx, p, p.attributeName),
+      ),
+    )
   }
+}
+
+/**
+ * C0351's fixes (design.md §4 F3), both choices: "Change to '<attribute>'" for each near-miss attribute the dialect knows,
+ * the name between its quotes (`qf_c0351_change`), and "Remove the attribute" — the pragma, and its line when it stands
+ * alone on one (`qf_c0351_remove`): an unknown attribute is ignored by the compiler, so removing it changes nothing it does.
+ */
+function unknownAttributeFixes(ctx: CheckContext, p: Pragma, name: string): Fix[] {
+  const quoted = ctx.source.slice(p.span.start, p.span.end).indexOf(`'${name}'`)
+  const change = quoted < 0 ? [] : changeToFixes(ctx.source, p.span.start + quoted + 1, p.span.start + quoted + 1 + name.length, attributeNames(ctx.config.vendor))
+  return [...change, fixOf("Remove the attribute", [removeConstruct(ctx.source, p.span.start, p.span.end)])]
 }
 
 /** The message for a KNOWN attribute's value outside its published closed set, if `p` is one. */

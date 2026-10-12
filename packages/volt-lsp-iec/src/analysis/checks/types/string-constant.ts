@@ -11,11 +11,12 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a sized destination with a const-foldable length
  * and a string-literal source fires, on a strict over-length; a sizeless `STRING` is skipped.
  */
-import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
+import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer, type TypeExpr } from "../../../frontend/syntax/index.js"
 import { constEval, inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
-import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { pushForDeclaration, SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -36,7 +37,8 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
       continue
     }
     const diag = tooLong(decl.init, wide, Number(size), rendered, ctx)
-    if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
+    if (diag !== undefined && decl.init !== undefined && decl.init.kind !== "aggregate_init")
+      pushForDeclaration(out, unit, section, withFixes(diag, lengthFixes(ctx, decl.init, sized, Number(size))))
   }
   // An assignment's target is the same destination: `eight : STRING(8); eight := 'seventeen';` warns exactly as the
   // declaration form does (conformance `xo4_string_constant_too_long`, ten capacities across STRING and WSTRING).
@@ -56,11 +58,41 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
         const dest = inferExprType(place, scope, ctx.project)
         if (dest.kind !== "elementary" || dest.length === undefined) return
         if (dest.name !== "STRING" && dest.name !== "WSTRING") return
-        const diag = tooLong(places[i + 1] ?? s.value, dest.name === "WSTRING", dest.length, renderType(dest, { form: "compiler" }), ctx)
-        if (diag !== undefined) out.push(diag)
+        const value = places[i + 1] ?? s.value
+        const diag = tooLong(value, dest.name === "WSTRING", dest.length, renderType(dest, { form: "compiler" }), ctx)
+        // the destination's declaration, when it is a plain variable this document declares (the widen edits it there)
+        const sym = place.kind === "ident_expr" ? lookup(scope, place.name)?.symbol : undefined
+        const declared = sym !== undefined && sym.uri === ctx.uri && sym.typeExpr?.kind === "string_type" ? sym.typeExpr : undefined
+        if (diag !== undefined) out.push(withFixes(diag, lengthFixes(ctx, value, declared, dest.length)))
       })
     })
   }
+}
+
+/**
+ * C0198's fixes (design.md §4 F5), two meanings — keep the text or keep the size — so neither is `preferred`:
+ * - "Change the type to STRING(<n>)": the destination's declared length, written as a number, becomes the literal's
+ *   (`qf_c0198_widen_assign`, `_widen_init`) — only where `sized` is the declaration and its length a number, not a constant;
+ * - "Shorten to '<prefix>'": the literal cut to the size (`qf_c0198_shorten_assign`, `_shorten_init`) — only a literal
+ *   without `$` escapes, whose characters are what it is written with.
+ */
+function lengthFixes(ctx: CheckContext, value: Expr, sized: TypeExpr | undefined, size: number): Fix[] {
+  if (value.kind !== "literal" || typeof value.value !== "string") return []
+  const fixes: Fix[] = []
+  const wide = sized?.kind === "string_type" && sized.wide
+  const decoded = decodeStringLiteral(value.value, wide)
+  const length = sized?.kind === "string_type" ? sized.length : undefined
+  if (decoded !== undefined && length !== undefined && length.kind === "literal" && typeof length.value === "bigint") {
+    const keyword = wide ? "WSTRING" : "STRING"
+    fixes.push(fixOf(`Change the type to ${keyword}(${decoded.length})`, [replaceText(ctx.source, length.span.start, length.span.end, String(decoded.length))]))
+  }
+  const written = ctx.source.slice(value.span.start, value.span.end)
+  const quote = written[0]
+  if ((quote === "'" || quote === '"') && written.length >= 2 && written.endsWith(quote) && !written.includes("$")) {
+    const shortened = `${quote}${written.slice(1, 1 + size)}${quote}`
+    fixes.push(fixOf(`Shorten to ${shortened}`, [replaceText(ctx.source, value.span.start, value.span.end, shortened)]))
+  }
+  return fixes
 }
 
 /** Every scalar value an array initializer holds, flattened — nested `[…]` for a multi-dimensional array, and

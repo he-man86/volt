@@ -20,6 +20,7 @@ import { type CallExpr, type Expr, type Span } from "../../../frontend/syntax/in
 import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 import { literalHole } from "../../shared/hole.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. Not SQRT: it takes an LREAL, and its
@@ -179,7 +180,11 @@ function addressOperand(ctx: CheckContext, { call, name, arg, scope }: Intrinsic
   }
   // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,
   // `atomic_indexof_variable`). It is not an operand rule — the operator is simply gone.
-  if (name === "INDEXOF") emit(out, call.callee.span, "indexof-removed", ctx.messages.indexofRemoved())
+  // its fix: ADR, which the message names as the replacement (`qf_indexof_adr`, `preferred`)
+  if (name === "INDEXOF")
+    emit(out, call.callee.span, "indexof-removed", ctx.messages.indexofRemoved(), "error", [
+      fixOf("Change to ADR", [replaceText(ctx.source, call.callee.span.start, call.callee.span.end, "ADR")], true),
+    ])
   // BITADR IS REFUSED ON EVERY TYPE MEASURED — a BIT, a WORD and a BOOL, three different families, and nothing
   // recorded it succeeding. Same wording as C0072, with the vendor's own camel spelling of the name.
   if (name === "BITADR") {

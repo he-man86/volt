@@ -24,10 +24,11 @@ import type { Expr, TypeExpr, Span, VarDecl, VarSectionKind } from "../../../fro
 import { constEval, isElementaryTypeName } from "../../../frontend/types/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { swapBoundsFix } from "../../shared/fixes.js"
 
 export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const push = (span: Span, code: string, message: string) => out.push({ severity: "error", span, source: SOURCE, code, message })
+  const push = (span: Span, code: string, message: string, fix?: Fix) => out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, [fix]))
   // a STRUCT field holds a declared type too, and takes no ARRAY[*]: no call lends it (forEachDecl walks
   // var sections only, so the fields are walked here)
   // …and a REFERENCE as an array's, a pointer's or a reference's base type there too (`refbit_struct_array_component`, the
@@ -45,9 +46,10 @@ export function checkDeclaredType(ctx: CheckContext, out: DiagnosticItem[]): voi
     walk(decl.type, (t, base) => {
       if (base && t.kind === "reference_type") push(t.span, "reference-base-type", ctx.messages.referenceAsBaseType())
       if (t.kind === "named_type" && t.subrange !== undefined && reversed(t.subrange.lo, t.subrange.hi, scope, 0n))
-        push(t.subrange.span, "border-order", ctx.messages.borderOrder())
+        push(t.subrange.span, "border-order", ctx.messages.borderOrder(), swapBoundsFix(ctx.source, t.subrange.lo.span, t.subrange.hi.span))
       if (t.kind !== "array_type") return
-      for (const d of t.dims) if (reversed(d.lower, d.upper, scope, 1n)) push(d.span, "border-order", ctx.messages.borderOrder())
+      for (const d of t.dims)
+        if (reversed(d.lower, d.upper, scope, 1n)) push(d.span, "border-order", ctx.messages.borderOrder(), d.lower !== undefined && d.upper !== undefined ? swapBoundsFix(ctx.source, d.lower.span, d.upper.span) : undefined)
       if (t.vector !== undefined && !vectorElement(t.element)) push(t.span, "vector-base-type", ctx.messages.vectorBaseType())
     })
   }

@@ -12,6 +12,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   TextDocumentSyncKind,
+  CodeActionKind,
   LSPErrorCodes,
   ResponseError,
   type Message,
@@ -20,7 +21,7 @@ import {
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
 import type { Vendor } from "../analysis/index.js"
-import { SEMANTIC_TOKEN_TYPES } from "../services/index.js"
+import { FIX_ALL_KIND, SEMANTIC_TOKEN_TYPES } from "../services/index.js"
 import { registerAssistHandlers } from "./handlers/assist.js"
 import { registerDiagnosticHandlers } from "./handlers/diagnostics.js"
 import { registerDocumentHandlers } from "./handlers/documents.js"
@@ -50,7 +51,8 @@ const CAPABILITIES: InitializeResult["capabilities"] = {
   selectionRangeProvider: true,
   inlayHintProvider: true,
   codeLensProvider: {},
-  codeActionProvider: true,
+  // the quick fixes, and the source action applying every fix-all fix of a file (`source.fixAll.volt`, design.md §5)
+  codeActionProvider: { codeActionKinds: [CodeActionKind.QuickFix, FIX_ALL_KIND] },
   documentFormattingProvider: true,
   documentRangeFormattingProvider: true,
   documentOnTypeFormattingProvider: { firstTriggerCharacter: "\n" }, // `formatOnType` answers a newline only

@@ -18,7 +18,8 @@ import { bodies, type Scope } from "../../../frontend/symbols/index.js"
 import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, renderType, resolveBareName, type Type } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { swapBoundsFix } from "../../shared/fixes.js"
 import { enumTypedLiteral } from "../../shared/hole.js"
 
 export function checkCaseLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -40,8 +41,8 @@ interface Range {
 }
 
 function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: DiagnosticItem[]): void {
-  const push = (code: string, span: Span, message: string) =>
-    out.push({ severity: "error", span, source: SOURCE, code, message })
+  const push = (code: string, span: Span, message: string, fixes?: readonly Fix[]) =>
+    out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, fixes))
 
   const points: Point[] = []
   const ranges: Range[] = []
@@ -84,7 +85,7 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
       if (label.upper !== undefined) {
         const hi = constEval(label.upper, scope)
         if (typeof lo === "bigint" && typeof hi === "bigint") {
-          if (inType(lo) > inType(hi)) push("case-range-inverted", label.span, ctx.messages.caseRangeInverted())
+          if (inType(lo) > inType(hi)) push("case-range-inverted", label.span, ctx.messages.caseRangeInverted(), [swapBoundsFix(ctx.source, label.value.span, label.upper.span)])
           ranges.push({ lo, hi, span: label.span })
         } else {
           nonConst(label.value)

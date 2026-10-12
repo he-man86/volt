@@ -28,7 +28,8 @@
 import type { CheckContext } from "../../pipeline/context.js"
 import { compilerTypeText, type Interface, type TopLevel, type TypeDecl } from "../../../frontend/syntax/index.js"
 import { lookupLocal } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { findLastWord, fixOf, removeWord, replaceText } from "../../shared/fixes.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -44,8 +45,25 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
       unit.modifiers.includes("ABSTRACT") &&
       unit.modifiers.includes("FINAL")
     )
-      out.push({ severity: "error", span: unit.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() })
+      out.push(
+        withFixes(
+          { severity: "error", span: unit.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() },
+          keepOneFixes(ctx, unit.span.start, unit.name.span.start),
+        ),
+      )
   }
+}
+
+/**
+ * The fixes of ABSTRACT FINAL (design.md §4 F8): "Remove ABSTRACT" and "Remove FINAL" — a choice, the two mean different
+ * things (`qf_abstract_final_keep_final`, `_keep_abstract`), so neither is `preferred`. The keywords are the header's,
+ * between `from` (the unit's start) and the name.
+ */
+function keepOneFixes(ctx: CheckContext, from: number, name: number): Fix[] {
+  return (["ABSTRACT", "FINAL"] as const).flatMap((word) => {
+    const edit = removeWord(ctx.source, from, name, word)
+    return edit === undefined ? [] : [fixOf(`Remove ${word}`, [edit])]
+  })
 }
 
 /** A PROPERTY declaring neither GET nor SET. A standalone PROPERTY carries its accessors as bodies; an INTERFACE's
@@ -75,21 +93,24 @@ function headerShape(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): 
       message: ctx.messages.multipleInheritance(),
     })
   } else if ((unit.kind === "program" || unit.kind === "function_block") && unit.returnType !== undefined) {
-    out.push({
-      severity: "error",
-      span: unit.returnType.span,
-      source: SOURCE,
-      code: "return-type-not-allowed",
-      message: ctx.messages.returnTypeNotAllowed(),
-    })
+    // its fix: the `: <type>` after the name removed (`qf_c0182_remove`) — a PROGRAM or an FB returns nothing (`preferred`)
+    const removeReturn = fixOf("Remove the return type", [replaceText(ctx.source, unit.name.span.end, unit.returnType.span.end, "")], true)
+    out.push(
+      withFixes(
+        { severity: "error", span: unit.returnType.span, source: SOURCE, code: "return-type-not-allowed", message: ctx.messages.returnTypeNotAllowed() },
+        [/^\s*:\s*$/.test(ctx.source.slice(unit.name.span.end, unit.returnType.span.start)) ? removeReturn : undefined],
+      ),
+    )
   } else if (unit.kind === "interface" && unit.implementsMisused !== undefined) {
-    out.push({
-      severity: "error",
-      span: unit.implementsMisused[0]?.span ?? unit.name.span,
-      source: SOURCE,
-      code: "interface-implements",
-      message: ctx.messages.interfaceImplementsMisused(),
-    })
+    // its fix: the keyword interface inheritance takes (`qf_c0421_extends`), the one meaning of the header (`preferred`)
+    const first = unit.implementsMisused[0]
+    const keyword = first === undefined ? undefined : findLastWord(ctx.source, unit.name.span.end, first.span.start, "IMPLEMENTS")
+    out.push(
+      withFixes(
+        { severity: "error", span: first?.span ?? unit.name.span, source: SOURCE, code: "interface-implements", message: ctx.messages.interfaceImplementsMisused() },
+        [keyword === undefined ? undefined : fixOf("Change to EXTENDS", [replaceText(ctx.source, keyword.start, keyword.end, "EXTENDS")], true)],
+      ),
+    )
   }
 }
 
@@ -164,17 +185,25 @@ function typeExtends(ctx: CheckContext, unit: TypeDecl, out: DiagnosticItem[]): 
 
 /** PRIVATE / PROTECTED belong to an FB's methods (and properties) alone. */
 function accessModifiers(ctx: CheckContext, unit: TopLevel, out: DiagnosticItem[]): void {
-  const accessError = (mods: readonly string[], span: DiagnosticItem["span"]) => {
-    if (mods.includes("PRIVATE") || mods.includes("PROTECTED"))
-      out.push({ severity: "error", span, source: SOURCE, code: "access-only-on-methods", message: ctx.messages.accessOnlyOnMethods() })
+  // its fix: the modifier removed (`qf_access_remove`) — the default access is the only one there (`preferred`)
+  const accessError = (mods: readonly string[], span: DiagnosticItem["span"], from: number) => {
+    const word = mods.find((m) => m === "PRIVATE" || m === "PROTECTED")
+    if (word === undefined) return
+    const edit = removeWord(ctx.source, from, span.start, word)
+    out.push(
+      withFixes(
+        { severity: "error", span, source: SOURCE, code: "access-only-on-methods", message: ctx.messages.accessOnlyOnMethods() },
+        [edit === undefined ? undefined : fixOf(`Remove ${word}`, [edit], true)],
+      ),
+    )
   }
   // (an FB whose header the vendor refused is no FB at all, and gets no message about its header — `headerRefused`)
-  if (unit.kind === "function_block" && unit.headerRefused === undefined) accessError(unit.modifiers, unit.name.span)
+  if (unit.kind === "function_block" && unit.headerRefused === undefined) accessError(unit.modifiers, unit.name.span, unit.span.start)
   if (unit.kind === "interface") {
-    for (const m of unit.methods) accessError(m.modifiers, m.name.span)
+    for (const m of unit.methods) accessError(m.modifiers, m.name.span, m.span.start)
     // an interface PROPERTY's is CODESYS's alone: `unit_interface_property_private` builds on TwinCAT, and the modifier
     // reached it — a TwinCAT read-back after the push keeps `PROPERTY PRIVATE Val` (2026-10-01)
-    if (ctx.config.vendor === "codesys") for (const p of unit.properties) accessError(p.modifiers, p.name.span)
+    if (ctx.config.vendor === "codesys") for (const p of unit.properties) accessError(p.modifiers, p.name.span, p.span.start)
   }
 }
 
@@ -210,7 +239,12 @@ function interfaceMembers(ctx: CheckContext, unit: Interface, out: DiagnosticIte
   // ABSTRACT with FINAL on an interface METHOD, as on a function block's (`unit_interface_method_abstract_final`)
   for (const m of unit.methods)
     if (m.modifiers.includes("ABSTRACT") && m.modifiers.includes("FINAL"))
-      out.push({ severity: "error", span: m.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() })
+      out.push(
+        withFixes(
+          { severity: "error", span: m.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() },
+          keepOneFixes(ctx, m.span.start, m.name.span.start),
+        ),
+      )
 }
 
 /** The sections an interface METHOD may declare: its parameters. */

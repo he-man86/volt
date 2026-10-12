@@ -13,7 +13,8 @@
 import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import type { Identifier, TopLevel, TypeDecl } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 import { nameResolves } from "../../shared/resolution.js"
 
 /** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface"; a STRUCT does too
@@ -98,8 +99,8 @@ function checkInterfaceBases(ctx: CheckContext, out: DiagnosticItem[]): void {
  * type" (C0077, `unknown-type`) — each sentence under ITS rule's code, so a code filter, the docs link and the config
  * switch name the rule that sentence is. Both went out as `base-class-not-found`, C0090 on the wire for C0077's words.
  */
-function baseNotFound(ctx: CheckContext, base: { text: string; span: DiagnosticItem["span"] }): DiagnosticItem[] {
-  const at = (code: string, message: string): DiagnosticItem => ({ severity: "error", span: base.span, source: SOURCE, code, message })
+function baseNotFound(ctx: CheckContext, base: { text: string; span: DiagnosticItem["span"] }, fixes: readonly Fix[] = []): DiagnosticItem[] {
+  const at = (code: string, message: string): DiagnosticItem => withFixes({ severity: "error", span: base.span, source: SOURCE, code, message }, fixes)
   const notFound = at("base-class-not-found", ctx.messages.baseClassNotFound(base.text))
   return ctx.config.vendor === "twincat" ? [notFound] : [notFound, at("unknown-type", ctx.messages.unknownType(base.text))]
 }
@@ -128,7 +129,7 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
         // unresolved INTERFACE gets only the first (conformance `cc2_base_and_interface_not_found`).
         // TWINCAT REPORTS ONLY THE FIRST — same fixture, its recording 2026-09-20: it says the base class is
         // not found and stops, where CODESYS goes on to say the FB therefore has no type.
-        out.push(...baseNotFound(ctx, unit.extends))
+        out.push(...baseNotFound(ctx, unit.extends, unitNearMisses(ctx, unit.extends, scope, "function_block")))
       }
     }
     for (const iface of unit.implements ?? []) {
@@ -138,13 +139,29 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       const sym = lookupUnit(scope, iface.text)?.symbol
       const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && (NOT_AN_INTERFACE.has(sym.kind) || isMeasuredStruct(sym))
       if (notAnInterface || !nameResolves(iface.text, scope))
-        out.push({
-          severity: "error",
-          span: iface.span,
-          source: SOURCE,
-          code: "interface-not-found",
-          message: ctx.messages.interfaceNotFound(iface.text),
-        })
+        out.push(
+          withFixes(
+            { severity: "error", span: iface.span, source: SOURCE, code: "interface-not-found", message: ctx.messages.interfaceNotFound(iface.text) },
+            unitNearMisses(ctx, iface, scope, "interface"),
+          ),
+        )
     }
   }
+}
+
+/**
+ * "Change to '<name>'" for a base or an interface nothing declares (design.md §4 F3): its near misses among the project's
+ * units of that kind, each one that resolves to such a unit where it is written (`qf_c0090_change`, `qf_c0086_change`). A
+ * qualified name is a library's, which a typo fix does not reach.
+ */
+function unitNearMisses(ctx: CheckContext, written: Identifier, scope: Scope, kind: "function_block" | "interface"): Fix[] {
+  if (written.text.includes(".")) return []
+  const names = function* (): Generator<string> {
+    for (const list of ctx.project.symbols.values()) for (const sym of list) if (sym.kind === kind) yield sym.name
+  }
+  // never the unit itself: `FB_A EXTENDS FB_A` is a cycle, not a fix
+  const own = scope.name.toLowerCase()
+  return changeToFixes(ctx.source, written.span.start, written.span.end, names(), {
+    accept: (name) => name.toLowerCase() !== own && lookupUnit(scope, name)?.symbol.kind === kind,
+  })
 }

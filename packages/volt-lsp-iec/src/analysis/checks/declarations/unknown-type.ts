@@ -17,17 +17,21 @@
  * then `unresolved-identifier` makes exactly this bet for identifiers, and the corpus gate (every error ⊆ the project's
  * own recorded build) holds this one to it for types.
  */
-import { forEachDecl } from "../../../frontend/symbols/index.js"
+import { forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
+import type { TypeExpr } from "../../../frontend/syntax/index.js"
+import { CODESYS_ONLY_TYPES, ELEMENTARY_TYPES } from "../../../frontend/types/index.js"
 import { dialectMissingType, unknownTypeName } from "../../shared/resolution.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 
 export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     const name = unknownTypeName(ctx.project, decl.type)
     if (name === undefined) continue
+    const fixes = typeNearMisses(ctx, decl.type)
     for (const at of decl.names)
-      out.push({ severity: "error", span: at.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
+      out.push(withFixes({ severity: "error", span: at.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) }, fixes))
   }
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function" || unit.returnType === undefined) continue
@@ -35,4 +39,24 @@ export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void
     if (name !== undefined)
       out.push({ severity: "error", span: unit.returnType.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
   }
+}
+
+/**
+ * "Change to '<type>'" for a bare type name nothing declares (design.md §4 F3, `qf_c0077_change`): its near misses among
+ * the dialect's elementary types and the project's own types — a DUT, a function block, an interface — each one that
+ * resolves where it is written. A type the DIALECT lacks (`LDATE` on TwinCAT) is no typo and gets none.
+ */
+function typeNearMisses(ctx: CheckContext, t: TypeExpr): Fix[] {
+  if (t.kind !== "named_type" || (t.qualifiers?.length ?? 0) > 0 || dialectMissingType(ctx.project, t) !== undefined) return []
+  return changeToFixes(ctx.source, t.name.span.start, t.name.span.end, typeNames(ctx.project), {
+    accept: (name) => unknownTypeName(ctx.project, { ...t, name: { ...t.name, text: name } }) === undefined,
+  })
+}
+
+const TYPE_KINDS: ReadonlySet<string> = new Set(["type", "function_block", "interface"])
+
+/** The type names a declaration may be a typo for: the dialect's elementary types, then the project's own. */
+function* typeNames(project: Scope): Generator<string> {
+  for (const name of ELEMENTARY_TYPES.keys()) if (project.dialect === "codesys" || !CODESYS_ONLY_TYPES.has(name)) yield name
+  for (const list of project.symbols.values()) for (const sym of list) if (TYPE_KINDS.has(sym.kind)) yield sym.name
 }

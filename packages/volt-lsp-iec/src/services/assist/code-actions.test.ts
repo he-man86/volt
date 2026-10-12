@@ -37,30 +37,11 @@ const fixture = (name: string): LanguageTest => {
 const wireCode = (code: string): string => CODESYS_CODE_MAP[code]?.[0] ?? code
 
 /**
- * The AFTERs whose fix does not exist yet — each an expected failure until the step that builds it removes it here
- * (tasks.md 2.2). Off it since 2.1, the fix model: the wrap at an assignment, which the conversion checks now produce
- * as data — C0032's `qf_c0032_wrap`, C0197's `qf_c0197_wrap_assign` and `_return` (a function's result is assigned),
- * and C0195's `qf_c0195_wrap`, the same store warned for its sign.
+ * The AFTERs whose fix does not exist yet — each an expected failure until the step that builds it removes it here.
+ * Empty since tasks.md 2.2: every recorded pair's fix exists (2.1 moved the wrap onto the fix model; 2.2 built F1–F10).
+ * A pair added for a fix not built yet goes here, red first.
  */
-const RED: ReadonlySet<string> = new Set([
-  "qf_c0197_wrap_init", "qf_c0197_wrap_argument", "qf_c0032_ref", "qf_callarg_wrap",
-  "qf_convsrc_generic",
-  "qf_c0139_remove", "qf_c0139_remove_instance", "qf_c0139_call_instance",
-  "qf_c0046_change", "qf_c0046_declare_target", "qf_c0046_declare_value", "qf_c0046_declare_argument", "qf_c0046_declare_condition",
-  "qf_c0077_change", "qf_c0004_change", "qf_structfield_change", "qf_c0090_change", "qf_c0086_change", "qf_c0037_change",
-  "qf_c0038_change", "qf_c0117_change", "qf_c0237_change", "qf_c0351_change", "qf_c0351_remove",
-  "qf_c0002_semicolon_end", "qf_c0002_semicolon_block", "qf_c0002_end_block", "qf_c0002_end_file", "qf_c0002_then", "qf_pragma_end_if",
-  "qf_c0198_widen_assign", "qf_c0198_shorten_assign", "qf_c0198_widen_init", "qf_c0198_shorten_init",
-  "qf_c0136_qualify_a", "qf_c0136_qualify_b", "qf_c0228_initialize", "qf_c0228_initialize_alias", "qf_c0228_initialize_subrange",
-  "qf_c0094_match_base", "qf_c0089_match_interface", "qf_c0087_stub_method", "qf_c0087_stub_property", "qf_c0087_stub_method_sections", "qf_c0087_stub_property_set",
-  "qf_c0119_init", "qf_c0119_exit", "qf_c0119_init_both", "qf_c0119_init_retains",
-  "qf_abstract_keyword", "qf_abstract_final_keep_final", "qf_abstract_final_keep_abstract",
-  "qf_c0013_insert", "qf_c0130_call", "qf_fnparens_call", "qf_c0051_quote", "qf_c0238_remove", "qf_c0533_remove", "qf_indexof_adr",
-  "qf_c0206_bool", "qf_c0204_bool", "qf_border_swap", "qf_caserange_swap", "qf_c0118_remove",
-  "qf_c0175_remove", "qf_access_remove", "qf_c0182_remove", "qf_c0550_remove", "qf_c0421_extends", "qf_c0203_bool", "qf_sn_rename",
-  "qf_c0142_remove_second_same", "qf_c0142_remove_first_same", "qf_c0142_remove_second_differ", "qf_c0142_remove_first_differ",
-  "qf_c0097_remove_same", "qf_c0097_remove_differ",
-])
+const RED: ReadonlySet<string> = new Set<string>([])
 
 /** The LSP's findings of `code` on fixture `name`'s own document for `vendor`, and what `ask` makes of them there. */
 function withFindings<T>(name: string, vendor: Vendor, code: string, ask: (found: DiagnosticItem[], doc: Document) => T): T {
@@ -323,4 +304,194 @@ test("code-actions: a chain's C0032 names each link's own pair", () => {
   expect(found("\tviaWide : SINT;\n\twide : DINT;\n\tnarrowFrom : INT;", "viaWide := wide := narrowFrom;")).toEqual(["Cannot convert type 'DINT' to type 'SINT'"])
   expect(found("\ta : INT;\n\tb : TIME;\n\tc : INT;", "a := b := c;").sort()).toEqual(["Cannot convert type 'INT' to type 'TIME'", "Cannot convert type 'TIME' to type 'INT'"])
   expect(found("\ta : INT;\n\tb : INT;\n\tc : TIME;", "a := b := c;")).toEqual(["Cannot convert type 'TIME' to type 'INT'"])
+})
+
+// ─── step 2.2: the edges of F2–F10 that no recorded pair shows (each offers NOTHING — no guess) ─────────────────────
+
+/** Every action on every finding of `code` in a CODESYS FB whose whole source is `source`. */
+function offeredIn(source: string, code: string): { doc: Document; actions: CodeAction[] } {
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
+  const doc: Document = { uri: uriFor(parseResult), source, parseResult }
+  const found = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => wireCode(d.code) === code)
+  expect(found.length).toBeGreaterThan(0)
+  return { doc, actions: found.flatMap((f) => codeActions(doc, [toLspDiagnostic(f)])) }
+}
+
+// `IF a b THEN` is "'THEN' expected instead of 'b'" — a stray token BEFORE a later THEN, which another THEN does not cure
+test("code-actions: no 'Insert THEN' where a THEN stands further on", () => {
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\to : INT;\nEND_VAR\nIMPLEMENTATION ST\nIF a b THEN\n\to := 1;\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
+  expect(actions.map((x) => x.title).filter((t) => t.includes("THEN"))).toEqual([])
+})
+
+// a REPEAT that never reached its UNTIL lacks more than its closer: END_REPEAT alone is no repair
+test("code-actions: no 'Insert END_REPEAT' on a REPEAT left before its UNTIL", () => {
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\to : INT;\nEND_VAR\nIMPLEMENTATION ST\nREPEAT\n\to := o + 1;\nEND_FUNCTION_BLOCK\n", "C0002")
+  expect(actions.map((x) => x.title)).not.toContain("Insert 'END_REPEAT'")
+})
+
+// a near-miss name: a LOCAL beats a name of the same distance further out, and the name itself is never offered
+test("code-actions: C0046's near misses — the local first, the declare beside them", () => {
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tcounter : INT;\nEND_VAR\nIMPLEMENTATION ST\ncountr := counter + 1;\nEND_FUNCTION_BLOCK\n", "C0046")
+  expect(actions.map((x) => x.title)).toEqual(["Change to 'counter'", "Declare 'countr' : INT"])
+})
+
+// C0142 between declarations of SEVERAL names (`a, level : INT`): removing the declaration would take the other name too
+test("code-actions: no C0142 remove where a declaration declares other names besides", () => {
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\tlevel : INT;\n\tother, level : INT;\nEND_VAR\nIMPLEMENTATION ST\nlevel := other;\nEND_FUNCTION_BLOCK\n", "C0142")
+  expect(actions.map((x) => x.title)).toEqual([])
+})
+
+// C0119 where FB_Init's inputs are not a prefix of the required pair (`x : INT` first): the fix would have to move an input
+test("code-actions: no C0119 input added where FB_Init holds an input of its own", () => {
+  const src = "FUNCTION_BLOCK FB\nVAR\n\tc : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := 1;\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nc := 0;\nEND_METHOD\n"
+  expect(offeredIn(src, "C0119").actions.map((x) => x.title)).toEqual([])
+})
+
+// ─── step 2.3: fix all in the file — F1's preferred wraps only (design.md §5) ─────────────────────────────────────
+
+/** The document's findings as the server hands them to `codeActions`, and the actions for the first one / for `only`. */
+function fixAllIn(source: string, only?: string[]) {
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
+  const doc: Document = { uri: uriFor(parseResult), source, parseResult }
+  const all = computeDiagnostics({ uri: doc.uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).map(toLspDiagnostic)
+  return { doc, all, actions: (at: readonly typeof all[number][]) => codeActions(doc, at, () => all, only) }
+}
+const TWO_NARROWINGS = "FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\n\tn2 : REAL;\nEND_VAR\nIMPLEMENTATION ST\nn1 := wide;\nn2 := wide * 2.0;\nEND_FUNCTION_BLOCK\n"
+
+test("code-actions: beside a preferred wrap, 'Fix all' wraps every one of its kind in the file", () => {
+  const { doc, all, actions } = fixAllIn(TWO_NARROWINGS)
+  const first = all.filter((d) => d.code === "C0197")[0]!
+  const offered = actions([first])
+  expect(offered.map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)", "Fix all 'C0197' in the file"])
+  expect(offered[1]!.diagnostics).toHaveLength(2)
+  expect(applyEdits(doc.source, editsOn(offered[1]!, doc.uri))).toContain("n1 := TO_REAL(wide);\nn2 := TO_REAL(wide * 2.0);")
+})
+
+test("code-actions: source.fixAll.volt applies every fix-all fix of the file, asked by kind only", () => {
+  const { doc, actions } = fixAllIn(TWO_NARROWINGS, ["source.fixAll"])
+  const [action, ...rest] = actions([])
+  expect(rest).toEqual([])
+  expect(action!.kind).toBe("source.fixAll.volt")
+  expect(applyEdits(doc.source, editsOn(action!, doc.uri))).toContain("n1 := TO_REAL(wide);\nn2 := TO_REAL(wide * 2.0);")
+  // …and a request for quick fixes alone does not compute it
+  expect(fixAllIn(TWO_NARROWINGS, ["quickfix"]).actions([]).map((a) => a.kind)).toEqual([])
+})
+
+test("code-actions: no fix-all for one finding, nor for a fix that is not safe beside the others (C0032's wrap)", () => {
+  const one = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\twide : LREAL;\n\tn1 : REAL;\nEND_VAR\nIMPLEMENTATION ST\nn1 := wide;\nEND_FUNCTION_BLOCK\n")
+  expect(one.actions(one.all.filter((d) => d.code === "C0197")).map((a) => a.title)).toEqual(["Wrap in TO_REAL(…)"])
+  const errors = fixAllIn("FUNCTION_BLOCK FB\nVAR\n\tf : BOOL;\n\ta : INT;\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\na := f;\nb := f;\nEND_FUNCTION_BLOCK\n")
+  expect(errors.actions(errors.all.filter((d) => d.code === "C0032").slice(0, 1)).map((a) => a.title)).toEqual(["Wrap in TO_INT(…)"])
+})
+
+// ─── gate of steps 2.2+2.4: what the review found offered where its AFTER does not build (§3) ─────────────────────────
+
+/** The source's errors after the action titled `title` among `actions` is applied — what its AFTER still reports. */
+function errorsAfter(doc: Document, actions: readonly CodeAction[], title: string): string[] {
+  const action = actions.find((a) => a.title === title)
+  if (action === undefined) throw new Error(`no action '${title}' among ${actions.map((a) => a.title).join(", ")}`)
+  const source = applyEdits(doc.source, editsOn(action, doc.uri))
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const project = build.buildSymbolTable([{ uri: "FB.pou", parseResult, source }], [], "codesys")
+  return computeDiagnostics({ uri: uriFor(parseResult), parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error")
+    .map((d) => `${d.code}: ${d.message}`)
+}
+const titles = (o: { actions: readonly CodeAction[] }): string[] => o.actions.map((a) => a.title)
+
+// F4: the OUTER block of one left open is not missing its own closer — inserting a second one adds errors
+test("code-actions: an inner block left open names ITS closer; the outer block, which only leaves with it, names none", () => {
+  const src = (inner: string) =>
+    `FUNCTION_BLOCK FB\nVAR\n\tx : INT;\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nFOR x := 1 TO 2 DO\n${inner}END_FOR\nEND_FUNCTION_BLOCK\n`
+  const whileOpen = offeredIn(src("\tWHILE a DO\n\t\ta := FALSE;\n"), "C0002")
+  expect(titles(whileOpen)).toEqual(["Insert 'END_WHILE'"])
+  expect(errorsAfter(whileOpen.doc, whileOpen.actions, "Insert 'END_WHILE'")).toEqual([])
+  expect(titles(offeredIn(src("\tIF a THEN\n\t\ta := FALSE;\n"), "C0002"))).toEqual([])
+})
+
+// F4: `IF a END_IF` with a THEN is an empty branch — an error of its own
+test("code-actions: no 'Insert THEN' before an empty branch", () => {
+  const { actions } = offeredIn("FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nIF a\nEND_IF\nEND_FUNCTION_BLOCK\n", "C0002")
+  expect(actions.map((x) => x.title)).not.toContain("Insert 'THEN'")
+})
+
+// F1: a value holding an error of its own on the SAME span (the operand's) keeps it inside the wrap
+test("code-actions: a wrap whose value holds another error on the same span is withdrawn — argument and initial value", () => {
+  const F_R = "FUNCTION F_R : REAL\nVAR_INPUT\n\tv : REAL;\nEND_VAR\nIMPLEMENTATION ST\nF_R := v;\nEND_FUNCTION\n"
+  const arg = offeredOn("\tlr : LREAL;\n\tb : BOOL;\n\toutv : REAL;", "outv := F_R(v := lr + b);", "C0197", F_R)
+  expect(titles(arg)).toEqual([])
+  const init = offeredOn("\tlr : LREAL;\n\tb : BOOL;\n\toutv : REAL := lr + b;", "outv := outv;", "C0197")
+  expect(titles(init)).toEqual([])
+})
+
+// F3: a near miss must be able to stand where the name is written — its kind fits the use
+test("code-actions: C0046/C0004 near misses fit the use — no FUNCTION or PROGRAM read, no variable called, no METHOD read, no output written", () => {
+  const units =
+    "FUNCTION Counter : INT\nVAR_INPUT\nEND_VAR\nIMPLEMENTATION ST\nCounter := 1;\nEND_FUNCTION\n" +
+    "PROGRAM PRG_Main\nVAR\n\tz : INT;\nEND_VAR\nIMPLEMENTATION ST\nz := 1;\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_Inner\nVAR_OUTPUT\n\toutp : INT;\nEND_VAR\nIMPLEMENTATION ST\noutp := 1;\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Execute : INT\nIMPLEMENTATION ST\nExecute := 1;\nEND_METHOD\n"
+  const vars = "\ttotal : INT;\n\tcounter : INT;\n\tf : FB_Inner;\n\tv : INT;"
+  const changes = (body: string, code: string) => titles(offeredOn(vars, body, code, units)).filter((t) => t.startsWith("Change"))
+  expect(changes("total := Countr;", "C0046")).not.toContain("Change to 'Counter'")
+  expect(changes("total := PRG_Mainn;", "C0046")).toEqual([])
+  expect(changes("countr();", "C0046")).not.toContain("Change to 'counter'")
+  expect(changes("v := f.Exeute;", "C0004")).toEqual([])
+  expect(changes("f.otp := 1;", "C0004")).toEqual([])
+  // …and where the kind fits, it is offered: a read of an output, a call of a method
+  expect(changes("v := f.otp;", "C0004")).toEqual(["Change to 'outp'"])
+  expect(changes("f.Exeute();", "C0004")).toEqual(["Change to 'Execute'"])
+})
+
+// F9: the rename is recorded on an FB; a FUNCTION stores its result under its own name, which a header rename orphans
+test("code-actions: no 'Rename to' on a FUNCTION whose object is named otherwise", () => {
+  const source = "FUNCTION F : INT\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF := x;\nEND_FUNCTION\n"
+  const parseResult = parseSource(source, { networkText: true }, "codesys")
+  const uri = "file:///proj/FB.pou"
+  const project = build.buildSymbolTable([{ uri, parseResult, source }], [], "codesys")
+  const found = computeDiagnostics({ uri, parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "signature-name-mismatch")
+  expect(found.length).toBe(1)
+  expect(found[0]!.fixes).toBeUndefined()
+})
+
+// F1: an ERROR's argument may be the wrong variable — its wrap is offered, never preferred, never fix-all (as C0032's)
+test("code-actions: the wrap of a call-argument-type is neither preferred nor fix-all", () => {
+  const F_Half = "FUNCTION F_Half : INT\nVAR_INPUT\n\tv : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Half := v;\nEND_FUNCTION\n"
+  const { actions } = offeredOn("\tname : STRING;\n\toutv : INT;", "outv := F_Half(v := name);", "call-argument-type", F_Half)
+  expect(actions.map((a) => [a.title, a.isPreferred === true])).toEqual([["Wrap in TO_INT(…)", false]])
+  const all = fixAllIn(`FUNCTION_BLOCK FB\nVAR\n\tname : STRING;\n\toutv : INT;\nEND_VAR\nIMPLEMENTATION ST\noutv := F_Half(v := name);\noutv := F_Half(v := name);\nEND_FUNCTION_BLOCK\n${F_Half}`, ["source.fixAll"])
+  expect(all.actions([])).toEqual([])
+})
+
+// F3: a BIT local is refused outside an FB and a struct (C0203) — no "Declare … : BIT"
+test("code-actions: no 'Declare' of a BIT", () => {
+  const src = "TYPE ST_Bits :\nSTRUCT\n\tb0 : BIT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n\tbits : ST_Bits;\nEND_VAR\nIMPLEMENTATION ST\nbits.b0 := flg;\nEND_PROGRAM\n"
+  expect(titles(offeredIn(src, "C0046")).filter((t) => t.startsWith("Declare"))).toEqual([])
+})
+
+// F10: a removal that changes an input into a local, or a constant into a variable, is a choice — not preferred
+test("code-actions: C0142/C0097's remove is preferred only between sections of one kind and qualifiers", () => {
+  const preferred = (o: { actions: readonly CodeAction[] }) => o.actions.filter((a) => a.isPreferred === true).map((a) => a.title)
+  const fb = (sections: string, body: string, after = "") => `FUNCTION_BLOCK FB\n${sections}IMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n${after}`
+  expect(preferred(offeredIn(fb("VAR_INPUT\n\tx : INT;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n", "x := 1;"), "C0142"))).toEqual([])
+  expect(preferred(offeredIn(fb("VAR CONSTANT\n\tx : INT := 1;\nEND_VAR\nVAR\n\tx : INT := 1;\nEND_VAR\n", ";"), "C0142"))).toEqual([])
+  expect(preferred(offeredIn(fb("VAR\n\tx : INT;\nEND_VAR\nVAR\n\tx : INT;\nEND_VAR\n", "x := 1;"), "C0142"))).toEqual(["Remove the second declaration of 'x'"])
+  const base = "FUNCTION_BLOCK FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n"
+  const derived = `FUNCTION_BLOCK FB EXTENDS FB_Base\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n${base}`
+  const c0097 = offeredIn(derived, "C0097")
+  expect(titles(c0097).length).toBe(1)
+  expect(preferred(c0097)).toEqual([])
+})
+
+// F8/F9: a keyword named in a COMMENT is not the keyword; ABSTRACT beside FINAL is abstract-and-final
+test("code-actions: 'Remove RETAIN' removes the keyword, not the word in a comment; no 'Add ABSTRACT' on a FINAL FB", () => {
+  const retain = offeredIn("FUNCTION F : INT\nVAR RETAIN (* keep RETAIN here *)\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF := x;\nEND_FUNCTION\n", "C0175")
+  const remove = retain.actions.find((a) => a.title.includes("RETAIN"))
+  expect(remove).toBeDefined()
+  expect(applyEdits(retain.doc.source, editsOn(remove!, retain.doc.uri))).toContain("VAR (* keep RETAIN here *)")
+  const abstract = offeredIn("{attribute 'abstract'}\nFUNCTION_BLOCK FINAL FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n", "abstract-keyword-missing")
+  expect(titles(abstract)).toEqual([])
 })

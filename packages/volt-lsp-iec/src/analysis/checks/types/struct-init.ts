@@ -16,8 +16,10 @@
 import { compilerTypeText, type AggregateElement, type Initializer, type Span } from "../../../frontend/syntax/index.js"
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { findWord } from "../../shared/fixes.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 import { structEcho } from "../../shared/expr-echo.js"
 
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -104,13 +106,21 @@ function unknownFields(ctx: CheckContext, fields: Scope | undefined, init: Initi
   for (const { name, span, value } of fieldsOf(init)) {
     const field = lookupMember(fields, name)
     if (field === undefined) {
+      // its fix: each near-miss field of the type (`qf_structfield_change`) — the name is where the element starts
+      const at = findWord(ctx.source, span.start, span.end, name)
+      const fixes = at === undefined ? [] : changeToFixes(ctx.source, at.start, at.end, fieldNames(fields), { accept: (n) => lookupMember(fields, n) !== undefined })
       for (const message of [ctx.messages.undefinedIdentifier(name), ctx.messages.notAssignmentTarget(name)])
-        out.push({ severity: "error", span, source: SOURCE, code: "unknown-struct-field", message })
+        out.push(withFixes({ severity: "error", span, source: SOURCE, code: "unknown-struct-field", message }, fixes))
       continue
     }
     if (value === undefined || field.typeExpr === undefined) continue
     structValues(ctx, resolveTypeExpr(field.typeExpr, ctx.project, 0, ctx.project, field.uri), value, out)
   }
+}
+
+/** Every field name of a struct and what it extends (the near-miss candidates). */
+function* fieldNames(fields: Scope): Generator<string> {
+  for (const sym of visibleNames(fields, false)) yield sym.name
 }
 
 /** The fields an initializer assigns at its top level: each name, its element's span, and its value when it has one. */

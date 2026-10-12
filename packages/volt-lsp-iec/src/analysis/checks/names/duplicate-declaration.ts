@@ -9,10 +9,11 @@
  * opt-in style lints, off by default: the compilers parse-cascade on them, so a single clean message
  * would never match the IDE's error spray.)
  */
-import { allUnits } from "../../../frontend/syntax/index.js"
+import { allUnits, type VarDecl } from "../../../frontend/syntax/index.js"
 import { scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, removeConstruct, sameSection, sectionOf } from "../../shared/fixes.js"
 
 export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of allUnits(ctx.parseResult.units)) {
@@ -69,13 +70,18 @@ function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: Diagnostic
       // Two methods sharing a name is an unmarked overload (C0582) — a distinct error from a duplicate var, and
       // one Volt can't push at all (the bridge's CreateChild rejects the second child). Use its own wording.
       const isMethod = sym.kind === "method" && prior.kind === "method"
-      out.push({
-        severity: "error",
-        span: sym.span,
-        source: SOURCE,
-        code: isMethod ? "duplicate-method" : "duplicate-declaration",
-        message: isMethod ? ctx.messages.duplicateMethod(sym.name) : ctx.messages.duplicateDeclaration(sym.name, scope.name),
-      })
+      out.push(
+        withFixes(
+          {
+            severity: "error",
+            span: sym.span,
+            source: SOURCE,
+            code: isMethod ? "duplicate-method" : "duplicate-declaration",
+            message: isMethod ? ctx.messages.duplicateMethod(sym.name) : ctx.messages.duplicateDeclaration(sym.name, scope.name),
+          },
+          isMethod ? [] : removeOneFixes(ctx, prior, sym),
+        ),
+      )
     }
   }
   // A unit's scope is walked for that unit — a METHOD's, an ACTION's and a PROPERTY's are units of their own, so the FB's
@@ -84,6 +90,36 @@ function walkScopeForDuplicates(scope: Scope, ctx: CheckContext, out: Diagnostic
   if (scope.kind === "accessor")
     for (const child of scope.children) if (child.kind === "accessor") walkScopeForDuplicates(child, ctx, out)
 }
+
+/**
+ * C0142's fixes (design.md §4 F10): "Remove the second declaration of '<n>'" and "Remove the first …" — each its whole
+ * declaration (and its line), so the other survives (`qf_c0142_remove_second_same`, `_first_same`, `_second_differ`,
+ * `_first_differ`). Which survives decides the variable's type, initial value and section, so `preferred` — on keeping
+ * the first — only where the two are declared ALIKE in sections of one kind and qualifiers (§3: one meaning). Only two variables of this document, each declared alone (a
+ * `a, b : INT` declaration would take its other names with it).
+ */
+function removeOneFixes(ctx: CheckContext, first: Symbol, second: Symbol): Fix[] {
+  const [a, b] = [ownDecl(ctx, first), ownDecl(ctx, second)]
+  if (a === undefined || b === undefined) return []
+  // …and in the same kind of section: an input and a local of one name, or a constant and a variable, are not the same
+  // variable whichever is removed
+  const sections = allUnits(ctx.parseResult.units).flatMap((u) => ("varSections" in u ? u.varSections : []))
+  const [sa, sb] = [sectionOf(sections, a), sectionOf(sections, b)]
+  const alike = declaredAs(ctx, a) === declaredAs(ctx, b) && sa !== undefined && sb !== undefined && sameSection(sa, sb)
+  return [
+    fixOf(`Remove the second declaration of '${second.name}'`, [removeConstruct(ctx.source, b.span.start, b.span.end)], alike),
+    fixOf(`Remove the first declaration of '${first.name}'`, [removeConstruct(ctx.source, a.span.start, a.span.end)]),
+  ]
+}
+
+/** A variable's declaration in this document, when it declares that one name alone. */
+function ownDecl(ctx: CheckContext, sym: Symbol): VarDecl | undefined {
+  const d = sym.ast as VarDecl
+  return (sym.kind === "var" || sym.kind === "method_param") && sym.uri === ctx.uri && d.kind === "var_decl" && d.names.length === 1 ? d : undefined
+}
+
+/** What a declaration declares after its name — its type and initial value as written, blanks aside. */
+const declaredAs = (ctx: CheckContext, d: VarDecl): string => ctx.source.slice(d.type.span.start, d.span.end).replace(/\s+/g, "").toUpperCase()
 
 /** A METHOD and a variable of the FB (`var`) — the one pair of one name both vendors build (`dupn_method_named_as_variable`). */
 function methodBesideVariable(a: Symbol, b: Symbol): boolean {

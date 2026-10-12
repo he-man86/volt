@@ -13,11 +13,12 @@
  * Zero-FP: only a KNOWN pointer source into a KNOWN elementary target fires; pointer→pointer (the legal case) and any
  * undecidable side are skipped.
  */
-import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { walkStatements, type Assignment, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, targetOf } from "../../../frontend/symbols/index.js"
-import { elementaryRef, inferExprType, pointerIntoElementary, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { elementaryRef, inferExprType, isSameType, pointerIntoElementary, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -25,7 +26,8 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
       if (s.kind !== "assign" || s.op !== undefined) return
       const rhs = inferExprType(s.value, scope, ctx.project)
       if (rhs.kind !== "pointer") return
-      store(ctx, out, inferExprType(s.target, scope, ctx.project), rhs, s.target)
+      const lhs = inferExprType(s.target, scope, ctx.project)
+      store(ctx, out, lhs, rhs, s.target, referenceBind(ctx, s, lhs, rhs))
     })
   }
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
@@ -37,7 +39,7 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
 }
 
 /** One store of the pointer `rhs` into `lhs`, reported on `at`. */
-function store(ctx: CheckContext, out: DiagnosticItem[], lhs: Type, rhs: Type, at: Expr): void {
+function store(ctx: CheckContext, out: DiagnosticItem[], lhs: Type, rhs: Type, at: Expr, fix?: Fix): void {
   // a REFERENCE target is written through, so the pointer converts into what it refers to — and the message names
   // the reference: `rf := p` is "Cannot convert type 'POINTER TO INT' to type 'REFERENCE TO INT'"
   // (`cv_pointer_assigned_to_reference`, CODESYS 2026-10-03) — and a declaration binding a REFERENCE to a pointer is
@@ -46,13 +48,12 @@ function store(ctx: CheckContext, out: DiagnosticItem[], lhs: Type, rhs: Type, a
   if (written.kind !== "elementary") return
   const rule = pointerIntoElementary(written, targetOf(ctx.project), ctx.project.dialect)
   if (rule === "incompatible")
-    out.push({
-      severity: "error",
-      span: at.span,
-      source: SOURCE,
-      code: "assignment-type-mismatch",
-      message: ctx.messages.cannotConvert(renderType(rhs), renderType(lhs)),
-    })
+    out.push(
+      withFixes(
+        { severity: "error", span: at.span, source: SOURCE, code: "assignment-type-mismatch", message: ctx.messages.cannotConvert(renderType(rhs), renderType(lhs)) },
+        [fix],
+      ),
+    )
   else if (rule === "sign-change")
     out.push({
       severity: "warning",
@@ -61,4 +62,23 @@ function store(ctx: CheckContext, out: DiagnosticItem[], lhs: Type, rhs: Type, a
       code: "sign-change-conversion",
       message: ctx.messages.signChange("unsigned", renderType(rhs), "signed", renderType(elementaryRef(written.name), { form: "compiler" })),
     })
+}
+
+/**
+ * `rf := p` where `rf` is a REFERENCE TO T and `p` a POINTER TO T: "Bind with 'rf REF= p^'" — the reference bound to what
+ * the pointer points to (design.md §4 F1, `qf_c0032_ref`, recorded building on both vendors). Only on an unchained `:=`
+ * whose value is a name or a member (a `^` after it dereferences exactly that value). Not preferred: `rf := p^` — the
+ * pointee copied into what `rf` already refers to — builds too and means something else.
+ */
+function referenceBind(ctx: CheckContext, s: Assignment, lhs: Type, rhs: Type): Fix | undefined {
+  if ((s.chained?.length ?? 0) > 0 || (s.value.kind !== "ident_expr" && s.value.kind !== "member")) return undefined
+  if (lhs.kind !== "reference" || rhs.kind !== "pointer" || !isSameType(lhs.target, rhs.target)) return undefined
+  const between = ctx.source.slice(s.target.span.end, s.value.span.start)
+  const op = between.indexOf(":=")
+  if (op < 0) return undefined
+  const target = ctx.source.slice(s.target.span.start, s.target.span.end)
+  const value = ctx.source.slice(s.value.span.start, s.value.span.end)
+  return fixOf(`Bind with '${target} REF= ${value}^'`, [
+    replaceText(ctx.source, s.target.span.end + op, s.value.span.end, `REF=${between.slice(op + 2)}${value}^`),
+  ])
 }

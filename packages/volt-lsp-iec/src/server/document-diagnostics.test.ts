@@ -91,11 +91,13 @@ test("a finding's fixes travel in Diagnostic.data; a finding without one has no 
       {
         title: "Wrap in TO_REAL(…)",
         preferred: true,
+        fixAll: true, // a preferred wrap is safe beside every other one (design.md §5)
         edits: [{ span: { start: at, end: at + 4, startLine: 7, startCol: 10, endLine: 7, endCol: 14 }, replaces: "wide", newText: "TO_REAL(wide)" }],
       },
     ],
   })
-  const [plain] = diagnoseIn({ [uri]: src.replace("narrow := wide;", "narrow := undeclared;") }, uri)
-  expect(plain!.code).toBe("C0046")
+  // an index out of its array's bounds has no fix (a no-fix code, tasks.md 0.1: which index was meant is judgement)
+  const [plain] = diagnoseIn({ [uri]: src.replace("	wide : LREAL;", "	arr : ARRAY[1..2] OF REAL;").replace("narrow := wide;", "arr[5] := narrow;") }, uri)
+  expect(plain!.code).toBe("C0049")
   expect("data" in plain!).toBe(false)
 })

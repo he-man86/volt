@@ -65,17 +65,27 @@ export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Mess
  * wrong variable, not the wrong type: both are offered unmarked.
  */
 export function conversionWrap(target: Expr, value: Expr, scope: Scope, project: Scope, source: string, warning: boolean): Fix | undefined {
-  const into = inferExprType(target, scope, project)
+  return conversionWrapInto(inferExprType(target, scope, project), value, scope, project, source, warning)
+}
+
+/**
+ * `conversionWrap` into a target TYPE rather than a target expression — the sites whose target is a declaration or a
+ * parameter, not a place: an initial value (`narrow : REAL := wide`) and a call argument (`F(value := wide)`), both
+ * recorded building (`qf_c0197_wrap_init`, `_argument`, `qf_callarg_wrap`). `preferWhenTyped`: `preferred` unless the
+ * value is an untyped literal (which may be the wrong literal, not a missing conversion).
+ */
+export function conversionWrapInto(into: Type, value: Expr, scope: Scope, project: Scope, source: string, preferWhenTyped: boolean): Fix | undefined {
   if (into.kind !== "elementary") return undefined
   // an untyped number converts as its literal type (`literalCheckType`, `literalErrorType`), an elementary one
   const literal = untypedNumberValue(unparenthesised(value)) !== undefined
   if (!literal && inferExprType(value, scope, project).kind !== "elementary") return undefined
   const text = source.slice(value.span.start, value.span.end)
-  const preferred = warning && !literal
+  const preferred = preferWhenTyped && !literal
   return {
     title: `Wrap in TO_${into.name}(…)`,
     edits: [{ span: value.span, replaces: text, newText: `TO_${into.name}(${text})` }],
-    ...(preferred ? { preferred: true as const } : {}),
+    // a preferred wrap is the conversion the compiler makes anyway, so it is safe beside every other one: fix-all takes it (§5)
+    ...(preferred ? { preferred: true as const, fixAll: true as const } : {}),
   }
 }
 

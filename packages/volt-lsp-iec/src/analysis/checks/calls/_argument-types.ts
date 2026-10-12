@@ -18,8 +18,8 @@ import {
 } from "../../../frontend/index.js"
 import { GENERIC_PARAMETER_TYPES, genericParameterAccepts } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { type DiagnosticItem, SOURCE } from "../../shared/diagnostic-item.js"
-import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../shared/rules.js"
+import { type DiagnosticItem, SOURCE, withFixes } from "../../shared/diagnostic-item.js"
+import { checkable, checkableType, conversionWarning, conversionWrapInto, isStrictEnum } from "../../shared/rules.js"
 
 /**
  * The argument's type for the by-reference identity test. An untyped integer literal has no inferred type — its width
@@ -127,15 +127,24 @@ export function argTypeError(
     // warns, with its recording of the same fixtures to compare against (2026-09-20). A NARROWING at an
     // argument is not covered by that measurement and keeps firing for both.
     const warning = conversionWarning(target, arg, value, ctx.messages)
+    // its fix: wrap the argument in the conversion the compiler makes anyway (`qf_c0197_wrap_argument`)
     if (warning !== undefined && !(ctx.config.vendor === "twincat" && warning.code === "sign-change-conversion"))
-      out.push(warning)
+      out.push(withFixes(warning, [conversionWrapInto(target, value, scope, ctx.project, ctx.source, true)]))
     return
   }
-  out.push({
-    severity: "error",
-    span: value.span,
-    source: SOURCE,
-    code: "call-argument-type",
-    message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
-  })
+  // its fix: wrap the argument in `TO_<parameter type>(…)` (`qf_callarg_wrap`, design.md §4 F1) — offered, not preferred
+  // and not fix-all: an ERROR's argument may be the wrong variable rather than a missing conversion, exactly as C0032's
+  // value at an assignment (design.md §2 As built: `preferred` only on a warning's wrap)
+  out.push(
+    withFixes(
+      {
+        severity: "error",
+        span: value.span,
+        source: SOURCE,
+        code: "call-argument-type",
+        message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
+      },
+      [conversionWrapInto(target, value, scope, ctx.project, ctx.source, false)],
+    ),
+  )
 }

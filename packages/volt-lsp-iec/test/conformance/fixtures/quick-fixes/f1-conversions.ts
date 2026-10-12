@@ -84,7 +84,7 @@ export const QF_CONVERSION_TESTS: readonly LanguageTest[] = [
   // ─── call-argument-type ───────────────────────────────────────────────────────────────────────────────────────────
   fb("qf_callarg_before", "BEFORE — a BOOL passed to an INT input", (n) => callArgument(n, "flag")),
   after(fb("qf_callarg_wrap", "AFTER — the argument wrapped in TO_INT", (n) => callArgument(n, "TO_INT(flag)")),
-    { before: "qf_callarg_before", code: "call-argument-type", title: "Wrap in TO_INT(…)", preferred: true }),
+    { before: "qf_callarg_before", code: "call-argument-type", title: "Wrap in TO_INT(…)" }),
 
   // ─── conversion-source-mismatch ───────────────────────────────────────────────────────────────────────────────────
   fb("qf_convsrc_before", "BEFORE — TOD_TO_UDINT given an INT", (n) => conversion(n, "TOD_TO_UDINT(i)")),

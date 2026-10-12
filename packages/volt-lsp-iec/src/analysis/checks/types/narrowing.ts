@@ -10,7 +10,7 @@ import { checkedMeetType, comparisonConverts, durationScaleConversion, type Elem
 import type { Messages } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { pushForDeclaration, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
-import { checkableType, conversionArgError, conversionWarning, conversionWrap, narrowingPairError } from "../../shared/rules.js"
+import { checkableType, conversionArgError, conversionWarning, conversionWrap, conversionWrapInto, narrowingPairError } from "../../shared/rules.js"
 
 /** The conversion warnings a store offers to wrap (design.md §4 F1). */
 const WRAPPED: ReadonlySet<string> = new Set(["narrowing-conversion", "sign-change-conversion"])
@@ -26,7 +26,9 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
     // `literalCheckType`, so any initializer with a shape — a call, a member read, an expression — was silent.
     const src = literalCheckType(decl.init, lhs) ?? checkableType(decl.init, scope, ctx.project)
     const diag = src === undefined ? undefined : conversionWarning(lhs, src, decl.init, ctx.messages)
-    if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
+    // the initial value's fix is the store's: wrap it in the conversion the compiler makes anyway (`qf_c0197_wrap_init`)
+    if (diag !== undefined)
+      pushForDeclaration(out, unit, section, WRAPPED.has(diag.code) ? withFixes(diag, [conversionWrapInto(lhs, decl.init, scope, ctx.project, ctx.source, true)]) : diag)
     // …and the conversions INSIDE the initializer, which are the body arm's question asked in the other place.
     // `i : DINT := REAL_TO_DINT(EXPT(2, 10))` converts nothing at the STORE — it is a DINT going into a DINT —
     // and everything at the ARGUMENT: `EXPT` answers LREAL and `REAL_TO_DINT` wants a REAL (`cfold_expt`,

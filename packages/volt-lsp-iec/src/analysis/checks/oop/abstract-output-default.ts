@@ -9,7 +9,8 @@
  */
 import type { VarSection } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { removeInitializerFix } from "../../shared/fixes.js"
 
 export function checkAbstractOutputDefault(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -26,13 +27,12 @@ function flagOutputDefaults(sections: readonly VarSection[], ctx: CheckContext, 
     if (s.sectionKind !== "VAR_OUTPUT") continue
     for (const d of s.decls) {
       if (d.init === undefined) continue // no default → nothing to warn about
-      out.push({
-        severity: "warning",
-        span: d.names[0]!.span,
-        source: SOURCE,
-        code: "abstract-output-default",
-        message: ctx.messages.defaultOutputUnused(),
-      })
+      // its fix: the default removed — it never takes effect (`qf_c0533_remove`)
+      out.push(
+        withFixes({ severity: "warning", span: d.names[0]!.span, source: SOURCE, code: "abstract-output-default", message: ctx.messages.defaultOutputUnused() }, [
+          removeInitializerFix(ctx.source, d, "Remove the default value"),
+        ]),
+      )
     }
   }
 }

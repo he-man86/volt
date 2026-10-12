@@ -11,7 +11,8 @@
  */
 import type { TopLevel, VarSection } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { fixOf, removeWord } from "../../shared/fixes.js"
 
 const POU_KINDS = new Set(["program", "function", "function_block", "method", "action"])
 
@@ -30,13 +31,17 @@ export function checkVarSectionPlacement(ctx: CheckContext, out: DiagnosticItem[
         continue
       }
       if ((section.retain === true || section.persistent === true) && (unit.kind === "function" || unit.kind === "method")) {
-        out.push({
-          severity: "error",
-          span: section.span,
-          source: SOURCE,
-          code: "retain-not-allowed",
-          message: ctx.messages.retainNotAllowedHere(), // C0175
-        })
+        // its fix: the qualifier removed from the section's header (`qf_c0175_remove`) — a FUNCTION's or METHOD's
+        // variables live one call, so nothing is retained either way (`preferred`)
+        const word = section.retain === true ? "RETAIN" : "PERSISTENT"
+        const header = section.decls[0]?.span.start ?? section.span.end
+        const edit = section.retain === true && section.persistent === true ? undefined : removeWord(ctx.source, section.span.start, header, word)
+        out.push(
+          withFixes(
+            { severity: "error", span: section.span, source: SOURCE, code: "retain-not-allowed", message: ctx.messages.retainNotAllowedHere() }, // C0175
+            [edit === undefined ? undefined : fixOf(`Remove ${word}`, [edit], true)],
+          ),
+        )
         continue
       }
       const bad = misplacedSection(unit, section)

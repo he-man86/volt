@@ -265,6 +265,14 @@ export interface ParseError {
    *  an attribute value instead of 'X'" (`cc6_attribute_value_unquoted`, both vendors); a fact so the analysis keeps the
    *  rule its own code (`attribute-value-string`). */
   attributeValueString?: string
+  /**
+   * WHAT IS MISSING, AND WHERE IT GOES — the one token the message names as expected, at the end of the last text the
+   * parser read before it (`at`, an offset), written tight (`;`), after a space (`THEN`) or on a line of its own (a
+   * block's `END_*`, `{END_IF}`). The syntax error's quick fix (openspec lsp-quick-fixes design.md §4 F4); set only on the
+   * shapes recorded building with it inserted (`qf_c0002_*`, `qf_pragma_end_if`): a `;` before the end of the POU or a
+   * block's `END_*`, a FOR/WHILE/REPEAT/CASE's `END_*` where its list ended, an IF's `THEN`, a conditional pragma's `{END_IF}`.
+   */
+  missing?: { text: string; at: number; layout: "tight" | "space" | "line" }
 }
 export interface ParseResult {
   units: TopLevel[]

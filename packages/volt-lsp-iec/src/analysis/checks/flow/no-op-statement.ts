@@ -18,26 +18,32 @@
  * that FUNCTION, where the name is its return variable (`stmt_function_own_name_bare`). Only the statement is measured.
  */
 import { isStBody, KEYWORDS, bodyStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
-import { bodies, bodyConditionWorld, lookup } from "../../../frontend/symbols/index.js"
-import { inferExprType } from "../../../frontend/types/index.js"
-import type { Expr, Statement } from "../../../frontend/syntax/index.js"
+import { bodies, bodyConditionWorld, lookup, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
+import type { Expr, Function, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { addParensFix, fixOf, insertText, removeConstruct } from "../../shared/fixes.js"
 import { compilerExprText } from "../../shared/expr-echo.js"
 
 export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const warn = (s: Extract<Statement, { kind: "expr_stmt" }>): void => {
-    out.push({
-      severity: "warning",
-      span: s.expr.span,
-      source: SOURCE,
-      // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression — and the
-      // LINE BREAK that ends it, which is in the recorded message (conformance `cc5_no_op_statement`).
-      code: "no-op-statement",
-      message: ctx.messages.codeHasNoEffect(
-        s.unterminated ? `${ctx.source.slice(s.span.start, s.span.end)};${lineBreakOf(ctx.source)}` : withLineEnd(ctx.source, s.span.start, s.span.end),
+  const warn = (s: Extract<Statement, { kind: "expr_stmt" }>, fixes?: readonly (Fix | undefined)[]): void => {
+    out.push(
+      withFixes(
+        {
+          severity: "warning",
+          span: s.expr.span,
+          source: SOURCE,
+          // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression — and the
+          // LINE BREAK that ends it, which is in the recorded message (conformance `cc5_no_op_statement`).
+          code: "no-op-statement",
+          message: ctx.messages.codeHasNoEffect(
+            s.unterminated ? `${ctx.source.slice(s.span.start, s.span.end)};${lineBreakOf(ctx.source)}` : withLineEnd(ctx.source, s.span.start, s.span.end),
+          ),
+        },
+        fixes,
       ),
-    })
+    )
   }
   const invalid = (s: Extract<Statement, { kind: "expr_stmt" }>): void => {
     const br = s.unterminated ? lineBreakOf(ctx.source) : withLineEnd(ctx.source, s.span.end, s.span.end)
@@ -56,22 +62,18 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
     walkStatements(statements, (s) => {
       if (s.kind !== "expr_stmt" || (containsCall(s.expr) && !callsInSubscriptOnly(s.expr))) return
       if (s.expr.kind === "binary") return invalid(s)
-      if (
-        s.expr.kind === "ident_expr" &&
-        s.expr.name.toLowerCase() !== ownName &&
-        lookup(scope, s.expr.name)?.symbol.kind === "function"
-      ) {
-        out.push({
-          severity: "error",
-          span: s.expr.span,
-          source: SOURCE,
-          code: "function-without-parens",
-          message: ctx.messages.functionWithoutParens(s.expr.name),
-        })
+      const fn = s.expr.kind === "ident_expr" && s.expr.name.toLowerCase() !== ownName ? lookup(scope, s.expr.name)?.symbol : undefined
+      if (s.expr.kind === "ident_expr" && fn?.kind === "function") {
+        out.push(
+          withFixes(
+            { severity: "error", span: s.expr.span, source: SOURCE, code: "function-without-parens", message: ctx.messages.functionWithoutParens(s.expr.name) },
+            [addParensFix(ctx.source, s.expr.span.end, fn.ast as Function)],
+          ),
+        )
         return warn(s)
       }
       if (inferExprType(s.expr, scope, ctx.project).kind === "unknown") return // unresolved → not a no-op (see header)
-      warn(s)
+      warn(s, noOpFixes(ctx, s, scope))
     })
   }
   // A statement the parser RESUMED at after a refused token (`ExprStatement.resumed`: `NS;` in `t := T#5NS;`) is warned
@@ -93,6 +95,39 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
         else warn(s)
       })
     }
+}
+
+/**
+ * The fixes of a no-op statement (design.md §4 F2), both choices — a stray name may be a typo for something else — so
+ * neither is `preferred`:
+ * - "Remove the statement" — only on a COMPLETE statement (the parse-recovery leftovers are warned by the second walk
+ *   above and get no fix: the repair is the root syntax error's, §3) whose expression CALLS nothing and READS no property
+ *   (`t.P;` runs the getter, so removing it changes what the program does — `flw_noop_property_read`;
+ *   `list[F()];` calls — `qf_c0139_absent_call`). Recorded: `qf_c0139_remove`, `_remove_instance`.
+ * - "Call '<instance>()'" — when the expression names a function block INSTANCE whose type has no VAR_IN_OUT (a call
+ *   without the argument one needs is refused: `qf_c0139_before_instance_inout`). Recorded: `qf_c0139_call_instance`.
+ */
+function noOpFixes(ctx: CheckContext, s: Extract<Statement, { kind: "expr_stmt" }>, scope: Scope): (Fix | undefined)[] {
+  if (s.resumed === true || s.unterminated === true) return []
+  const quiet = !containsCall(s.expr) && !readsProperty(s.expr, scope, ctx.project)
+  const remove = quiet ? fixOf("Remove the statement", [removeConstruct(ctx.source, s.span.start, s.span.end)]) : undefined
+  const t = inferExprType(s.expr, scope, ctx.project)
+  const instance = (s.expr.kind === "ident_expr" || s.expr.kind === "member") && t.kind === "function_block" && t.byName !== true
+  const callable = instance && t.scope !== undefined && ![...visibleNames(t.scope, false)].some((sym) => sym.varSection === "VAR_IN_OUT")
+  const written = ctx.source.slice(s.expr.span.start, s.expr.span.end)
+  const call = callable ? fixOf(`Call '${written}()'`, [insertText(ctx.source, s.expr.span.end, "()")]) : undefined
+  return [remove, call]
+}
+
+/** Does `e` read a PROPERTY anywhere — a name or a member that denotes one (its getter runs)? */
+function readsProperty(e: Expr, scope: Scope, project: Scope): boolean {
+  let found = false
+  walkExpr(e, (x) => {
+    if (x.kind !== "ident_expr" && x.kind !== "member") return
+    const kind = resolveMemberChain(x, scope, project)?.kind
+    if (kind === "property" || kind === "interface_property") found = true
+  })
+  return found
 }
 
 /**

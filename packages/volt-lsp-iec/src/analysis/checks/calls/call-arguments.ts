@@ -26,7 +26,7 @@ import {
   type TypeExpr,
   type VarSection,
 } from "../../../frontend/syntax/index.js"
-import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import { bodies, isLibrarySymbol, lookupMember, scopeForUnit, visibleNames, type Scope } from "../../../frontend/symbols/index.js"
 import {
   type CalleeInfo,
   constancyOf,
@@ -34,7 +34,8 @@ import {
   takesNoPositionalArguments,
 } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 import { bindableMember } from "../../shared/resolution.js"
 import { argTypeError, outputTypeError } from "./_argument-types.js"
 import { checkInOutBindings, checkMissingInOuts, countsInOuts } from "./_in-out-arguments.js"
@@ -205,23 +206,36 @@ function checkNamedArguments(
   return { overCount, namedUnknown }
 }
 
+/** The VAR_OUTPUT names of an FB callee (with what it inherits); none for a callee without a member scope. */
+function* outputNames(callee: CalleeInfo): Generator<string> {
+  if (callee.scope === undefined) return
+  for (const sym of visibleNames(callee.scope, false)) if (sym.varSection === "VAR_OUTPUT") yield sym.name
+}
+
 /** A named argument the callee has no input (or, `=>`, no output) of. */
 function unknownNamedArgument(arg: CallArg, name: string, callee: CalleeInfo, ctx: CheckContext, out: DiagnosticItem[]): void {
   // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
-  out.push({
-    severity: "error",
-    span: arg.param!.span,
-    source: SOURCE,
-    code: arg.output ? "unknown-named-output" : "unknown-named-argument",
-    // UPPER-CASED, as every recorded message from a CALL site is: `'loc' is no input of
-    // 'FB_LANG_NAMED_ARG_HOLDER'` (`cc_named_arg_non_input`, `cc_vg_unknown_pin`, and the FUNCTION case in
-    // `network_unnamed_target_of_valued_call`). A member WRITE from outside keeps the declared case —
-    // `'iSecret' is no input of 'FB_LANG_hide_var'` — which is `external-write`'s `noInput`, not this. Same
-    // sentence, two sites, and the vendors case them differently; the network check already knew.
-    message: arg.output
-      ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
-      : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
-  })
+  out.push(
+    withFixes(
+      {
+        severity: "error",
+        span: arg.param!.span,
+        source: SOURCE,
+        code: arg.output ? "unknown-named-output" : "unknown-named-argument",
+        // UPPER-CASED, as every recorded message from a CALL site is: `'loc' is no input of
+        // 'FB_LANG_NAMED_ARG_HOLDER'` (`cc_named_arg_non_input`, `cc_vg_unknown_pin`, and the FUNCTION case in
+        // `network_unnamed_target_of_valued_call`). A member WRITE from outside keeps the declared case —
+        // `'iSecret' is no input of 'FB_LANG_hide_var'` — which is `external-write`'s `noInput`, not this. Same
+        // sentence, two sites, and the vendors case them differently; the network check already knew.
+        message: arg.output
+          ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
+          : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
+      },
+      // its fix: each near-miss input (`qf_c0037_change`) or output (`qf_c0038_change`) of the callee — the outputs read
+      // from an FB's member scope; a FUNCTION's or METHOD's outputs are not listed in what the callee resolves to
+      changeToFixes(ctx.source, arg.param!.span.start, arg.param!.span.end, arg.output ? outputNames(callee) : callee.positional.map((p) => p.name.text)),
+    ),
+  )
   // …and a name the callee declares NOTHING of is then looked up as an ordinary identifier, and not found either:
   // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" besides (`inh_interface_method_unknown_param`, both
   // vendors 2026-10-02), as a network box's unknown pin is (`cc_vg_unknown_pin`); a member that is no input is not

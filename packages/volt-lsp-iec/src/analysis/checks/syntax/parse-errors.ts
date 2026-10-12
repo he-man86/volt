@@ -19,7 +19,8 @@
 import { exprText, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, insertText, lineBreakOf, quoteAttributeFix } from "../../shared/fixes.js"
 import type { Vendor } from "../../config.js"
 
 /**
@@ -101,10 +102,27 @@ function parseErrorCode(e: ParseError): string {
   return "syntax-error"
 }
 
+/**
+ * "Insert '<token>'" — the token the error names as missing, where the parser recovered (`ParseError.missing`, design.md
+ * §4 F4): it can mean nothing else, so it is `preferred`. Recorded building: `qf_c0002_semicolon_end`, `_semicolon_block`,
+ * `_end_block`, `_end_file`, `_then`, `qf_pragma_end_if`.
+ */
+function insertMissing(source: string, e: ParseError): Fix | undefined {
+  if (e.missing === undefined) return undefined
+  const { text, at, layout } = e.missing
+  const written = layout === "tight" ? text : layout === "space" ? ` ${text}` : `${lineBreakOf(source)}${text}`
+  return fixOf(`Insert '${text}'`, [insertText(source, at, written)], true)
+}
+
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
   const emit = (e: ParseError): void => {
     if (!vendorReportsParseError(e, ctx.config.vendor)) return
-    out.push({ severity: "error", span: e.span, source: SOURCE, code: parseErrorCode(e), message: parseErrorMessage(e, ctx.messages) })
+    out.push(
+      withFixes({ severity: "error", span: e.span, source: SOURCE, code: parseErrorCode(e), message: parseErrorMessage(e, ctx.messages) }, [
+        insertMissing(ctx.source, e),
+        e.attributeValueString === undefined ? undefined : quoteAttributeFix(ctx.source, e.span, e.attributeValueString),
+      ]),
+    )
   }
   // Declaration structure — recorded on the top-level parse cursor (unit headers, VAR sections, type decls).
   for (const e of ctx.parseResult.errors) emit(e)

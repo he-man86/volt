@@ -19,10 +19,11 @@
  * And (CODESYS only, a WARNING) a bare name read in a POU's own body that is both its variable and its METHOD — the
  * variable is what it means (`dupn_method_named_as_variable`; TwinCAT builds it silently). Nowhere else: unmeasured.
  */
-import { forEachExpr, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
+import { forEachExpr, gvlName, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import { resolveBareName } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, insertText } from "../../shared/fixes.js"
 
 /** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
  *  file, so compute it once per project and reuse; without this a 10k-symbol project rescans per file. Memoized per
@@ -77,23 +78,35 @@ export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): 
       out.push({ severity: "warning", span: e.span, source: SOURCE, code: "ambiguous-global", message: ctx.messages.ambiguousGlobalName(e.name) })
       return
     }
+    let fixes: Fix[] = []
     if (ambiguous.has(key)) {
       const sym = lookup(scope, e.name)?.symbol
       if (sym !== undefined && sym.kind !== "gvl_var") return // a local var/param shadows → unambiguous
+      fixes = qualifyFixes(ctx, e.span, key)
     } else {
       // a member two own enums share, or a global beside an own enum's member (EN5) — the search order decides each
       if (!members.has(key) && lookup(scope, e.name)?.symbol.kind !== "gvl_var") return
       const named = resolveBareName(scope, e.name)
       if (named.kind !== "ambiguous" || !named.said) return
     }
-    out.push({
-      severity: "error",
-      span: e.span,
-      source: SOURCE,
-      code: "ambiguous-global",
-      message: ctx.messages.ambiguousGlobalName(e.name),
-    })
+    out.push(withFixes({ severity: "error", span: e.span, source: SOURCE, code: "ambiguous-global", message: ctx.messages.ambiguousGlobalName(e.name) }, fixes))
   })
+}
+
+/**
+ * C0136's fixes (design.md §4 F6): "Qualify as '<GVL>.<name>'" for each project list that declares the name bare, in the
+ * order the lists were bound (`qf_c0136_qualify_a`, `_b`). Which list was meant is the user's to say — none is `preferred`.
+ * The edit INSERTS the list before the name: it changes what the name means rather than keeping a value around it, so the
+ * name's own follow-on errors go with it (`withdrawBlockedFixes` withdraws only an edit that keeps the text it rewrites).
+ */
+function qualifyFixes(ctx: CheckContext, span: DiagnosticItem["span"], key: string): Fix[] {
+  const written = ctx.source.slice(span.start, span.end)
+  const lists = (ctx.project.symbols.get(key) ?? [])
+    .filter((sym) => sym.kind === "gvl_var" && sym.qualifiedOnly !== true && !isLibrarySymbol(sym))
+    .map((sym) => gvlName(sym.uri))
+  return [...new Set(lists)].flatMap((list) =>
+    list === undefined ? [] : [fixOf(`Qualify as '${list}.${written}'`, [insertText(ctx.source, span.start, `${list}.`)])],
+  )
 }
 
 /** Whether the bare `name`, written in the POU's OWN body or declarations, resolves to a variable whose scope also holds a

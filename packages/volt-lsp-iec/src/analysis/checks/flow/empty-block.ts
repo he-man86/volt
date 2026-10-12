@@ -19,7 +19,8 @@ import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies } from "../../../frontend/symbols/index.js"
 import type { Span, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { findWord, fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 
 const HAS_COMMENT = /\/\/|\(\*|\/\*/
 
@@ -27,26 +28,53 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
   // `anchor` is where the squiggle goes; `outer` is the enclosing statement span used for the comment guard —
   // a block/branch/arm span ends at its header and does NOT cover the (empty) body region where a comment sits,
   // so the guard must scan the whole enclosing statement (conservative: a comment anywhere in it suppresses).
-  const flag = (body: unknown[], anchor: Span, outer: Span, severity: "error" | "warning" = "error") => {
+  const flag = (body: unknown[], anchor: Span, outer: Span, severity: "error" | "warning" = "error", header?: number) => {
     if (body.length > 0) return
     if (HAS_COMMENT.test(ctx.source.slice(outer.start, outer.end))) return // comment-only body — legal in CODESYS
-    out.push({ severity, span: anchor, source: SOURCE, code: "empty-block", message: ctx.messages.emptyStatementBlock() })
+    out.push(
+      withFixes({ severity, span: anchor, source: SOURCE, code: "empty-block", message: ctx.messages.emptyStatementBlock() }, [
+        header === undefined ? undefined : emptyStatementFix(ctx.source, header),
+      ]),
+    )
   }
+  // where a block's header ends — the keyword its (empty) list follows: THEN after a branch's condition, DO after a FOR's
+  // or a WHILE's header, the REPEAT keyword itself
+  const after = (from: number, to: number, word: string): number | undefined => findWord(ctx.source, from, to, word)?.end
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind === "if") {
-        for (const b of s.branches) flag(b.body, b.span, s.span)
+        for (const b of s.branches) flag(b.body, b.span, s.span, "error", after(b.cond.span.end, s.span.end, "THEN"))
         // an empty ELSE is said AT the ELSE, on its own line: anchored at the IF, TwinCAT's one-message-per-line policy
         // folded it into the empty THEN's (`cc3_empty_and_noop`, TwinCAT; analysis-conformance 3.9)
         // (the keyword is looked up only for an EMPTY ELSE: a token scan per IF was O(IFs × tokens) per file — gate 3.7+3.9)
-        if (s.elseBody !== undefined && s.elseBody.length === 0) flag(s.elseBody, elseKeyword(ctx, s) ?? s.span, s.span)
+        if (s.elseBody !== undefined && s.elseBody.length === 0) {
+          const keyword = elseKeyword(ctx, s)
+          flag(s.elseBody, keyword ?? s.span, s.span, "error", keyword?.end)
+        }
       } else if (s.kind === "case") {
         for (const arm of s.arms) flag(arm.body, arm.span, s.span, "warning")
-      } else if (s.kind === "for" || s.kind === "while" || s.kind === "repeat") {
-        flag(s.body, s.span, s.span)
+      } else if (s.kind === "for") {
+        flag(s.body, s.span, s.span, "error", after((s.by ?? s.to).span.end, s.span.end, "DO"))
+      } else if (s.kind === "while") {
+        flag(s.body, s.span, s.span, "error", after(s.cond.span.end, s.span.end, "DO"))
+      } else if (s.kind === "repeat") {
+        flag(s.body, s.span, s.span, "error", after(s.span.start, s.span.end, "REPEAT"))
       }
     })
   }
+}
+
+/**
+ * "Insert the empty statement ';'" (design.md §4 F9, `qf_c0013_insert`): `;` as the block's one statement, on the line
+ * after its header (one tab deeper than the header's line), or after the header where more text shares its line. It is
+ * what the block says when it means to do nothing (`preferred`).
+ */
+function emptyStatementFix(source: string, header: number): Fix {
+  const rest = /^[ \t]*(\r?\n)/.exec(source.slice(header))
+  if (rest === null) return fixOf("Insert the empty statement ';'", [insertText(source, header, " ;")], true)
+  const lineStart = source.lastIndexOf("\n", header - 1) + 1
+  const indent = /^[ \t]*/.exec(source.slice(lineStart))![0]
+  return fixOf("Insert the empty statement ';'", [insertText(source, header + rest[0].length, `${indent}\t;${lineBreakOf(source)}`)], true)
 }
 
 /** The span of an IF's ELSE keyword: the last ELSE token after its last branch, before its end. */

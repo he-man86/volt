@@ -16,8 +16,81 @@ export interface FixData {
   fixes: readonly Fix[]
 }
 
-export function codeActions(doc: Document, diagnostics: readonly Diagnostic[]): CodeAction[] {
-  return diagnostics.flatMap((diag) => fixesOf(diag).filter((fix) => current(doc, fix)).map((fix) => render(doc, diag, fix)))
+/** The source action that applies every `fixAll` fix of a document (design.md §5). */
+export const FIX_ALL_KIND = `${CodeActionKind.SourceFixAll}.volt`
+
+/**
+ * The actions for the diagnostics a client passes back (`diagnostics`, those in its range), as `only` asks for them:
+ * - each quick fix they carry;
+ * - beside a quick fix that is safe to apply with its kind's others (`fixAll`, F1's preferred wraps — design.md §5), "Fix
+ *   all of this kind in the file", when the file holds more than one finding of that code with such a fix;
+ * - `source.fixAll.volt`, every `fixAll` fix of the file at once, asked for by kind (editors run it on save).
+ * The file's other findings are `all()` — every diagnostic of the document, asked only when one of the two needs it.
+ */
+export function codeActions(
+  doc: Document,
+  diagnostics: readonly Diagnostic[],
+  all: () => readonly Diagnostic[] = () => diagnostics,
+  only?: readonly string[],
+): CodeAction[] {
+  const wants = (kind: string): boolean => only === undefined || only.some((o) => kind === o || kind.startsWith(`${o}.`))
+  const out: CodeAction[] = []
+  let file: readonly Diagnostic[] | undefined
+  const whole = (): readonly Diagnostic[] => (file ??= all())
+  if (wants(CodeActionKind.QuickFix)) {
+    const kinds = new Set<string>()
+    for (const diag of diagnostics)
+      for (const fix of fixesOf(diag).filter((f) => current(doc, f))) {
+        out.push(render(doc, diag, fix))
+        const code = String(diag.code ?? "")
+        if (fix.fixAll !== true || kinds.has(code)) continue
+        kinds.add(code)
+        const ofKind = whole().filter((d) => String(d.code ?? "") === code)
+        const batch = fixAllOf(doc, ofKind)
+        if (batch.fixed.length > 1) out.push(fixAllAction(doc, `Fix all '${code}' in the file`, CodeActionKind.QuickFix, batch))
+      }
+  }
+  if (only !== undefined && wants(FIX_ALL_KIND)) {
+    const batch = fixAllOf(doc, whole())
+    if (batch.fixed.length > 0) out.push(fixAllAction(doc, "Fix all in the file", FIX_ALL_KIND, batch))
+  }
+  return out
+}
+
+/**
+ * Every `fixAll` fix among `diagnostics` that still applies, each finding's first one, in the document's order, leaving
+ * out any fix whose edits overlap one already taken — two edits on one text cannot both apply (design.md §5). A finding
+ * reported twice (an FB's initializer) carries the same fix twice: it is taken once.
+ */
+function fixAllOf(doc: Document, diagnostics: readonly Diagnostic[]): { fixed: Diagnostic[]; edits: Fix["edits"][number][] } {
+  const taken: { start: number; end: number }[] = []
+  const seen = new Set<string>()
+  const fixed: Diagnostic[] = []
+  const edits: Fix["edits"][number][] = []
+  const candidates = diagnostics
+    .map((d) => ({ d, fix: fixesOf(d).find((f) => f.fixAll === true && current(doc, f)) }))
+    .filter((c): c is { d: Diagnostic; fix: Fix } => c.fix !== undefined)
+    .sort((a, b) => a.fix.edits[0]!.span.start - b.fix.edits[0]!.span.start)
+  for (const { d, fix } of candidates) {
+    const key = JSON.stringify(fix.edits.map((e) => [e.span.start, e.span.end, e.newText]))
+    if (seen.has(key)) continue
+    const overlaps = fix.edits.some((e) => taken.some((t) => e.span.start < t.end && t.start < e.span.end))
+    if (overlaps) continue
+    seen.add(key)
+    for (const e of fix.edits) taken.push({ start: e.span.start, end: e.span.end })
+    fixed.push(d)
+    edits.push(...fix.edits)
+  }
+  return { fixed, edits }
+}
+
+function fixAllAction(doc: Document, title: string, kind: string, all: { fixed: Diagnostic[]; edits: Fix["edits"][number][] }): CodeAction {
+  return {
+    title,
+    kind,
+    diagnostics: all.fixed,
+    edit: { changes: { [doc.uri]: all.edits.map((e) => ({ range: rangeFromSpan(e.span), newText: e.newText })) } },
+  }
 }
 
 /**

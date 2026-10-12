@@ -64,7 +64,10 @@ export function withFixes(item: DiagnosticItem, fixes: readonly (Fix | undefined
  * The findings with every fix withdrawn that cannot reach a clean build: one whose edit (in the reporting document) holds
  * ANOTHER error inside the text it rewrites. That error survives the edit — `out := -b` is refused for the store and for
  * the operand (`unary_minus_on_bool`), and `out := TO_BOOL(-b)` still carries the operand's — so the fix answers its own
- * finding and leaves the statement broken (design.md §3). Run once over a document's findings, after the policy.
+ * finding and leaves the statement broken (design.md §3). Only an edit that KEEPS the text it rewrites (`newText` holds
+ * `replaces`, as a wrap does) can carry an error through: one that replaces or removes the text removes the error with it
+ * — the uses C0237's rename edits are each "not defined", and the rename is what defines them (`qf_c0237_change`).
+ * Run once over a document's findings, after the policy.
  */
 export function withdrawBlockedFixes(items: readonly DiagnosticItem[]): DiagnosticItem[] {
   const errors = items.filter((d) => d.severity === "error")
@@ -74,6 +77,8 @@ export function withdrawBlockedFixes(items: readonly DiagnosticItem[]): Diagnost
       fix.edits.some(
         (e) =>
           e.uri === undefined &&
+          e.replaces !== "" &&
+          e.newText.includes(e.replaces) &&
           errors.some((d) => d !== item && d.span.start >= e.span.start && d.span.end <= e.span.end && !sameFinding(d, item)),
       )
     const kept = item.fixes.filter((f) => !blocked(f))
@@ -83,7 +88,12 @@ export function withdrawBlockedFixes(items: readonly DiagnosticItem[]): Diagnost
   })
 }
 
-/** The same finding reported twice (an FB's initializer — `pushForDeclaration`): not another error. */
+/**
+ * The same finding reported twice (an FB's initializer — `pushForDeclaration`): not another error. Only that: an error of
+ * another code on the same span is another error — `F_R(v := lr + b)` is refused for the operand AND for the argument on
+ * the one value span, and `TO_REAL(lr + b)` keeps the operand's. (A rename's follow-on — C0046's "no valid assignment
+ * target" on the same name — needs no exemption: a rename replaces the text, so it is never blocked.)
+ */
 const sameFinding = (a: DiagnosticItem, b: DiagnosticItem): boolean =>
   a.code === b.code && a.message === b.message && a.span.start === b.span.start && a.span.end === b.span.end
 

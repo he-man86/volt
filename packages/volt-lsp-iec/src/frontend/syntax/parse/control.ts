@@ -15,7 +15,7 @@ import {
 import type { Keyword } from "../lex/vocabulary.js"
 import { joinSpans } from "../span.js"
 import type { Cursor } from "./cursor.js"
-import { vendorTokenText } from "./errors.js"
+import { expectedInsteadOf, vendorTokenText } from "./errors.js"
 import { parseAssignable, parseExpression } from "./expression.js"
 import {
   LEFT_OPEN,
@@ -59,7 +59,20 @@ function parseIfBranch(cur: Cursor, one: StatementParser): IfBranch | undefined 
   // A THEN standing further on, before the next `;`, is where the vendor resumes, in silence: `IF a b THEN` and
   // `IF a & b THEN` are "'THEN' expected instead of 'b'" / "… '&'" and nothing else (`expr_if_condition_stray_name`,
   // `expr_ampersand_in_if`, both vendors).
-  if (cur.expectKeyword("THEN") === undefined) skipToBeforeSemicolon(cur, "THEN")
+  // …and the THEN it names is the repair, after the condition (`qf_c0002_then`) — only where nothing stands between the
+  // two: a stray token before a later THEN (`IF a b THEN`) is not cured by another THEN
+  if (cur.eatKeyword("THEN") === undefined) {
+    const next = cur.peek()
+    const resumes = keywordAhead(cur, "THEN") !== undefined
+    // …and only before a statement: `IF a END_IF` with a THEN is an empty branch, refused (`empty-block`)
+    const branchEmpty = next.kind === "eof" || atKeyword(cur, "ELSIF", "ELSE", "END_IF")
+    cur.pushParseError({
+      message: expectedInsteadOf("'THEN'", next),
+      span: next.span,
+      ...(resumes || branchEmpty ? {} : { missing: { text: "THEN", at: cur.previous().span.end, layout: "space" as const } }),
+    })
+    skipToBeforeSemicolon(cur, "THEN")
+  }
   const body = parseStatementList(cur, one, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"))
   return { kind: "if_branch", cond, body, span: joinSpans(cond.span, lastSpan(body, cond.span)) }
 }
@@ -256,7 +269,17 @@ export function parseRepeat(cur: Cursor, one: StatementParser): Statement | unde
   cur.consume() // UNTIL
   const until = parseAssignable(cur)
   if (until === undefined) return undefined
-  const end = cur.expectKeyword("END_REPEAT") // missing closer: record, keep the parsed body
+  // missing closer: record, keep the parsed body — and where the text ends there, the closer is the repair, on a line of
+  // its own after the condition (`qf_c0002_end_block`)
+  const end = cur.eatKeyword("END_REPEAT")
+  if (end === undefined) {
+    const next = cur.peek()
+    cur.pushParseError({
+      message: expectedInsteadOf("'END_REPEAT'", next),
+      span: next.span,
+      ...(next.kind === "eof" ? { missing: { text: "END_REPEAT", at: cur.previous().span.end, layout: "line" as const } } : {}),
+    })
+  }
   cur.eatPunct(";")
   return { kind: "repeat", body, until, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }

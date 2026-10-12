@@ -9,11 +9,13 @@
 import { walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { bodiesThroughErrors } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, removeConstruct } from "../../shared/fixes.js"
+import { changeToFixes } from "../../shared/near-miss.js"
 
 export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const push = (code: string, span: Span, message: string) =>
-    out.push({ severity: "error", span, source: SOURCE, code, message })
+  const push = (code: string, span: Span, message: string, fixes?: readonly Fix[]) =>
+    out.push(withFixes({ severity: "error", span, source: SOURCE, code, message }, fixes))
 
   // a body that did not parse cleanly too: the vendor checks its labels (`bodiesThroughErrors`)
   for (const { statements } of bodiesThroughErrors(ctx.parseResult.units, ctx.project)) {
@@ -44,8 +46,14 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
     for (const target of jmps) {
       if (target.kind === "ident_expr") {
         referenced.add(target.name.toUpperCase())
+        // its fix: each near-miss label of the body (`qf_c0117_change`)
         if (!labels.has(target.name.toUpperCase()))
-          push("jump-label-undefined", target.span, ctx.messages.jumpLabelUndefined(target.name))
+          push(
+            "jump-label-undefined",
+            target.span,
+            ctx.messages.jumpLabelUndefined(target.name),
+            changeToFixes(ctx.source, target.span.start, target.span.end, [...labels.values()].map((occ) => occ[0]!.name)),
+          )
       } else {
         push("jump-invalid-destination", target.span, ctx.messages.jumpInvalidDestination(ctx.source.slice(target.span.start, target.span.end)))
       }
@@ -53,6 +61,17 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
 
     // C0118 — a declared label no JMP targets.
     for (const [key, occ] of labels)
-      if (!referenced.has(key)) push("jump-label-unreferenced", occ[0].span, ctx.messages.jumpLabelUnreferenced(occ[0].name))
+      if (!referenced.has(key)) push("jump-label-unreferenced", occ[0].span, ctx.messages.jumpLabelUnreferenced(occ[0].name), removeLabel(ctx.source, occ[0]))
   }
+}
+
+/**
+ * "Remove the label '<name>'" (design.md §4 F9, `qf_c0118_remove`): the label, its `:` and the blanks after it — the
+ * statement it stands before stays. Nothing jumps to it, so removing it changes nothing the program does (`preferred`).
+ */
+function removeLabel(source: string, label: { name: string; span: Span }): Fix[] {
+  let colon = label.span.end
+  while (source[colon] === " " || source[colon] === "	") colon++
+  if (source[colon] !== ":") return []
+  return [fixOf(`Remove the label '${label.name}'`, [removeConstruct(source, label.span.start, colon + 1)], true)]
 }

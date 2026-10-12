@@ -47,7 +47,8 @@ import { renderTypeExpr, type Identifier, type InterfaceMethod, type Span, type 
 import { isSameType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import { compiledFbs } from "../../shared/compiled.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 
 export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
@@ -79,13 +80,15 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
           // FB's IMPLEMENTS name instead (CODESYS records it without a position, line 0; gate 3.7+3.9)
           const inherited = mine.owner !== fbScope
           const span = inherited ? ifaceName.span : (mine.ast as Method).name.span
-          out.push(diag(span, "override-mismatch-interface", ctx.messages.overrideMismatchInterface(method, iface)))
+          // the fix edits the method's declaration — not one a base declares in its own unit
+          const fixes = inherited ? [] : [matchFix(ctx, mine, theirs, cmp, `${declaring.name}.${im.name}`)]
+          out.push(withFixes(diag(span, "override-mismatch-interface", ctx.messages.overrideMismatchInterface(method, iface)), fixes))
           // CODESYS says which part differs, in a second sentence TwinCAT does not have (`inh_interface_method_*`): at the
           // differing parameter, or — a parameter COUNT — at the method's declaration
           if (ctx.config.vendor === "codesys" && cmp.kind === "count")
             out.push(diag(inherited ? span : (mine.ast as Method).span, "override-mismatch-interface", ctx.messages.interfaceParamCountMismatch(method, iface)))
           else if (ctx.config.vendor === "codesys" && cmp.variable !== undefined)
-            out.push(diag(inherited ? span : cmp.variable.span, "override-mismatch-interface", ctx.messages.interfaceVariableMismatch(cmp.variable.text, method, iface)))
+            out.push(withFixes(diag(inherited ? span : cmp.variable.span, "override-mismatch-interface", ctx.messages.interfaceVariableMismatch(cmp.variable.text, method, iface)), fixes))
         }
     }
 
@@ -97,7 +100,11 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
       const span = (mine.ast as Method).name.span
       const cmp = compare(mine.ast as Method, theirs.ast as Method, mine.owner, base, ctx)
       if (cmp === undefined) continue
-      out.push(diag(span, "override-mismatch-base", ctx.messages.overrideMismatchBase(mine.name.toUpperCase(), base.name.toUpperCase())))
+      out.push(
+        withFixes(diag(span, "override-mismatch-base", ctx.messages.overrideMismatchBase(mine.name.toUpperCase(), base.name.toUpperCase())), [
+          matchFix(ctx, mine, theirs.ast as Method, cmp, `${base.name}.${theirs.name}`),
+        ]),
+      )
       // each parameter at a position whose PASSED type differs is then converted from the override's to the base's
       // (`inh_override_signature_mismatch`: 'DINT' to 'INT'; `_section_mismatch`: 'REFERENCE TO INT' to 'INT';
       // `_inout_as_input`: 'INT' to 'REFERENCE TO INT')
@@ -194,6 +201,29 @@ function compare(mine: Method | InterfaceMethod, theirs: Method | InterfaceMetho
   // …and another result type is the variable named as the method (`oopb_itf_return_type_mismatch`: "The variable 'M'")
   if (r !== undefined && s !== undefined && !sameType(r, s, myScope, theirScope, ctx)) return { kind: "result", variable: mine.name, conversions }
   return undefined
+}
+
+/**
+ * "Match the declaration of '<owner>.<member>'" (design.md §4 F8): the override's declaration made the base's or the
+ * interface's — its result type, and each parameter whose TYPE alone differs, written as the other declares them
+ * (`qf_c0094_match_base`, `qf_c0089_match_interface`). Not `preferred`: changing the base or the interface is as valid,
+ * and that edit — another object, and every other override — is not offered (§1). A difference of a parameter's name,
+ * section or count is no type to copy, and gets none.
+ */
+function matchFix(ctx: CheckContext, override: Symbol, theirs: Method | InterfaceMethod, cmp: Mismatch, declared: string): Fix | undefined {
+  if (override.uri !== ctx.uri) return undefined // declared in another document: no edit of this one reaches it
+  const mine = override.ast as Method
+  if (cmp.kind === "count") return undefined
+  const [a, b] = [params(mine.varSections), params(theirs.varSections)]
+  const edits = []
+  for (let i = 0; i < a.length; i++) {
+    const [x, y] = [a[i]!, b[i]!]
+    if (x.section !== y.section || x.name.text.toLowerCase() !== y.name.text.toLowerCase()) return undefined
+    if (written(x.type) !== written(y.type)) edits.push(replaceText(ctx.source, x.type.span.start, x.type.span.end, renderTypeExpr(y.type)))
+  }
+  const [r, s] = [mine.returnType, theirs.returnType]
+  if (r !== undefined && s !== undefined && written(r) !== written(s)) edits.push(replaceText(ctx.source, r.span.start, r.span.end, renderTypeExpr(s)))
+  return edits.length === 0 ? undefined : fixOf(`Match the declaration of '${declared}'`, edits)
 }
 
 /** The type a parameter is passed as — a VAR_IN_OUT by reference — or undefined when its type resolves to nothing. */

@@ -3982,7 +3982,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   qf_c0550_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 1.7, shape: "0f3bd5572c", fix: "BEFORE of qf_c0550_remove" },
   qf_c0550_remove: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 1.8, shape: "0f3bd5572c", fix: "AFTER of qf_c0550_before: C0550 'Remove the attribute' (preferred)" },
   qf_callarg_before: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 0, edge: "agree", size: 2.2, shape: "3290bc9ae9", fix: "BEFORE of qf_callarg_wrap" },
-  qf_callarg_wrap: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "3290bc9ae9", fix: "AFTER of qf_callarg_before: call-argument-type 'Wrap in TO_INT(…)' (preferred)" },
+  qf_callarg_wrap: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 0, edge: "agree", size: 2.2, shape: "3290bc9ae9", fix: "AFTER of qf_callarg_before: call-argument-type 'Wrap in TO_INT(…)'" },
   qf_caserange_before: { evidence: "refused", fix: "BEFORE of qf_caserange_swap" },
   qf_caserange_swap: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 1, edge: "agree", size: 2.9, shape: "e25068a8e3", fix: "AFTER of qf_caserange_before: case-range-inverted 'Swap the bounds' (preferred)" },
   qf_convsrc_before: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 1, edge: "agree", size: 2.8, shape: "5414ad6fca", fix: "BEFORE of qf_convsrc_generic" },

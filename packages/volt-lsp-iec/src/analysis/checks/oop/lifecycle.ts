@@ -7,10 +7,11 @@
  *
  * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
-import { varInputParams, type TypeExpr } from "../../../frontend/syntax/index.js"
+import { varInputParams, type Method, type TypeExpr } from "../../../frontend/syntax/index.js"
 import type { LifecycleMethod } from "../../messages/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem, type Fix, type FixEdit } from "../../shared/diagnostic-item.js"
+import { fixOf, insertText, lineBreakOf } from "../../shared/fixes.js"
 
 const REQUIRED: Record<LifecycleMethod, readonly string[]> = {
   FB_Init: ["bInitRetains", "bInCopyCode"],
@@ -62,13 +63,54 @@ export function checkLifecycleSignatures(ctx: CheckContext, out: DiagnosticItem[
       required.some((name, i) => (inputs[i]?.name.text ?? "").toLowerCase() !== name.toLowerCase() || !isBool(inputs[i]?.type)) ||
       (method === "FB_Exit" && inputs.length > required.length)
     if (violated) {
-      out.push({
-        severity: "error",
-        span: unit.name.span,
-        source: SOURCE,
-        code: "fb-lifecycle-signature",
-        message: ctx.messages.lifecycle(method),
-      })
+      out.push(
+        withFixes(
+          { severity: "error", span: unit.name.span, source: SOURCE, code: "fb-lifecycle-signature", message: ctx.messages.lifecycle(method) },
+          [addInputsFix(ctx, unit, required)],
+        ),
+      )
     }
   }
+}
+
+/**
+ * C0119's fix (design.md §4 F8): "Add the input(s) '<name> : BOOL'" — each required input the method's one VAR_INPUT
+ * section lacks, in its slot: before the next required one it has, else at the section's end (`qf_c0119_init`, `_exit`,
+ * `_init_both`, `_init_retains`). Only where every input it has IS a required one, a BOOL, in order — any other input is
+ * one the fix would have to move or retype, which is not the one meaning a `preferred` fix needs.
+ */
+function addInputsFix(ctx: CheckContext, unit: Method, required: readonly string[]): Fix | undefined {
+  const sections = unit.varSections.filter((s) => s.sectionKind === "VAR_INPUT")
+  if (sections.length !== 1) return undefined
+  const section = sections[0]!
+  const decls = section.decls.flatMap((d) => d.names.map((n) => ({ name: n, type: d.type, decl: d })))
+  const isBool = (t: TypeExpr) => t.kind === "named_type" && t.name.text.toUpperCase() === "BOOL"
+  let r = 0
+  for (const d of decls) {
+    while (r < required.length && required[r]!.toLowerCase() !== d.name.text.toLowerCase()) r++
+    if (r === required.length || !isBool(d.type) || d.decl.names.length !== 1 || d.decl.init !== undefined) return undefined
+    r++
+  }
+  const br = lineBreakOf(ctx.source)
+  const lineStart = (offset: number): number | undefined => {
+    let i = offset
+    while (i > 0 && (ctx.source[i - 1] === " " || ctx.source[i - 1] === "\t")) i--
+    return i === 0 || ctx.source[i - 1] === "\n" ? i : undefined
+  }
+  const endVar = section.span.end - "END_VAR".length
+  if (ctx.source.slice(endVar, section.span.end).toUpperCase() !== "END_VAR") return undefined
+  const at = new Map<number, string[]>()
+  const missing: string[] = []
+  for (const name of required) {
+    if (decls.some((d) => d.name.text.toLowerCase() === name.toLowerCase())) continue
+    const next = required.slice(required.indexOf(name) + 1).map((n) => decls.find((d) => d.name.text.toLowerCase() === n.toLowerCase())).find((d) => d !== undefined)
+    const offset = lineStart(next === undefined ? endVar : next.decl.span.start)
+    if (offset === undefined) return undefined
+    at.set(offset, [...(at.get(offset) ?? []), `\t${name} : BOOL;${br}`])
+    missing.push(name)
+  }
+  if (missing.length === 0) return undefined
+  const edits: FixEdit[] = [...at].map(([offset, lines]) => insertText(ctx.source, offset, lines.join("")))
+  const title = missing.length === 1 ? `Add the input '${missing[0]} : BOOL'` : `Add the inputs '${missing.map((n) => `${n} : BOOL`).join("; ")}'`
+  return fixOf(title, edits, true)
 }

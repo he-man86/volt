@@ -122,6 +122,9 @@ export interface MemberRef {
   member: string
   typeName: string
   span: Span
+  /** The member scope the name was looked up in (with what it inherits) — the near-miss candidates; absent for a global
+   *  list and a step, whose members a fix does not name. */
+  members?: Scope
 }
 
 /**
@@ -182,7 +185,7 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
   if (lookupMember(t.scope, m.member.name) !== undefined) return undefined
   // an INTERFACE's member set is `<ITF>__Union` in the vendor's words: "'Nope' is no component of
   // 'ITF_LANG_…__Union'" (rule M1, `mem_unknown_method_of_interface`, both vendors 2026-10-02)
-  return { member: m.member.name, typeName: t.kind === "interface" ? `${t.name}__Union` : t.name, span: m.member.span }
+  return { member: m.member.name, typeName: t.kind === "interface" ? `${t.name}__Union` : t.name, span: m.member.span, members: t.scope }
 }
 
 /**

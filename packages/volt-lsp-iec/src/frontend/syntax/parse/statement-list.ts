@@ -85,22 +85,31 @@ export function leftOpen(cur: Cursor): boolean {
 }
 
 /** Leave the block: the vendors' line for what it still expected (`STILL_EXPECTED`), and every block around it leaves. */
-export function leaveOpen(cur: Cursor, expected: string): void {
-  cur.pushError(`Unexpected End-of-file found: ${expected} expected`, cur.peek().span)
+export function leaveOpen(cur: Cursor, expected: string, closer?: Keyword): void {
+  // a block whose one missing part is its `closer` names its repair: that closer, on a line of its own after the last
+  // text (`qf_c0002_end_file`); an IF or a __TRY lists three, and a REPEAT short of its UNTIL lacks more than a closer
+  cur.pushParseError({
+    message: `Unexpected End-of-file found: ${expected} expected`,
+    span: cur.peek().span,
+    ...(closer !== undefined ? { missing: { text: closer, at: cur.previous().span.end, layout: "line" as const } } : {}),
+  })
   LEFT_OPEN.add(cur)
 }
 
 /** The block's closer, and the `;` after it; a block whose list ended elsewhere is left open (`leaveOpen`), and a token
  *  no list ends at is the closer's "'END_X' expected instead of 'T'". */
 export function closeBlock(cur: Cursor, closer: Keyword, expected: string): Token | undefined {
-  if (!LEFT_OPEN.has(cur)) {
+  // a block that leaves only because one inside it was left open is not missing its own closer — it stands further on
+  // (`FOR … WHILE … END_FOR`: END_WHILE is the repair, a second END_FOR is not), so it names no repair
+  const innermost = !LEFT_OPEN.has(cur)
+  if (innermost) {
     const end = cur.eatKeyword(closer)
     if (end !== undefined) {
       cur.eatPunct(";")
       return end
     }
   }
-  if (leftOpen(cur)) leaveOpen(cur, expected)
+  if (leftOpen(cur)) leaveOpen(cur, expected, innermost && expected === `'${closer}'` ? closer : undefined)
   else cur.expectKeyword(closer)
   return undefined
 }
@@ -166,7 +175,14 @@ function parseStatementsUntil(cur: Cursor, one: StatementParser, stop: (cur: Cur
     }
     parseListStatement(cur, out, one)
   }
-  if (chains.length > 0) cur.pushParseError({ message: UNTERMINATED_CONDITIONAL, span: cur.peek().span, unterminatedConditional: true })
+  // its repair: `{END_IF}` on a line of its own after the last text, the `{IF}` itself included (`qf_pragma_end_if`)
+  if (chains.length > 0)
+    cur.pushParseError({
+      message: UNTERMINATED_CONDITIONAL,
+      span: cur.peek().span,
+      unterminatedConditional: true,
+      missing: { text: "{END_IF}", at: cur.previous(0, true).span.end, layout: "line" },
+    })
   return out
 }
 
@@ -229,12 +245,15 @@ export function endStatement(cur: Cursor): Token | undefined {
  */
 export function resyncAfterMissingSemicolon(cur: Cursor): void {
   const t = cur.peek()
+  // before the end of the POU or a block's END_*, the `;` it names is the whole repair (`qf_c0002_semicolon_end`, `_block`)
+  const semicolon = { text: ";", at: cur.previous().span.end, layout: "tight" } as const
   if (t.kind === "eof") {
-    cur.pushError(expectedInsteadOf("';'", t), t.span)
+    cur.pushParseError({ message: expectedInsteadOf("';'", t), span: t.span, missing: semicolon })
     return
   }
   if (atStatementSync(t)) {
-    cur.pushError(expectedInsteadOf("';'", t), t.span)
+    const closer = t.kind === "keyword" && (t.keyword ?? "").startsWith("END_")
+    cur.pushParseError({ message: expectedInsteadOf("';'", t), span: t.span, ...(closer ? { missing: semicolon } : {}) })
     return
   }
   // where the statement list ends — the next CASE arm's label (`LIST_STOP`): the one line, and the arm is read

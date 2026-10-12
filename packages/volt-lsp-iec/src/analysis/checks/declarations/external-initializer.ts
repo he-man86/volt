@@ -8,19 +8,18 @@
  */
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { removeInitializerFix } from "../../shared/fixes.js"
 
 export function checkExternalInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.sectionKind !== "VAR_EXTERNAL") continue
     if (decl.init === undefined) continue
+    // its fix: the initial value removed — an external takes its global's (`qf_c0238_remove`)
+    const fix = removeInitializerFix(ctx.source, decl, "Remove the initial value")
     for (const name of decl.names)
-      out.push({
-        severity: "error",
-        span: name.span,
-        source: SOURCE,
-        code: "external-initializer",
-        message: ctx.messages.noInitForExternal(name.text),
-      })
+      out.push(
+        withFixes({ severity: "error", span: name.span, source: SOURCE, code: "external-initializer", message: ctx.messages.noInitForExternal(name.text) }, [fix]),
+      )
   }
 }

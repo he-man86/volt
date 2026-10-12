@@ -23,7 +23,8 @@
  */
 import { objectNameOf, type Identifier, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
-import { SOURCE, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { SOURCE, withFixes, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { fixOf, replaceText } from "../../shared/fixes.js"
 
 /**
  * The kinds CODESYS holds to the rule, each measured with the object REFERENCED so the compiler actually looks:
@@ -48,11 +49,14 @@ export function checkSignatureName(ctx: CheckContext, out: DiagnosticItem[]): vo
   // the DOCUMENT is the object: its uri names it (an alias has no scope to ask, `sn_alias_mismatch_used`)
   const object = objectNameOf(ctx.uri)
   if (object === undefined || object.toLowerCase() === named.name.text.toLowerCase()) return
-  out.push({
-    severity: "error",
-    span: named.name.span,
-    source: SOURCE,
-    code: "signature-name-mismatch",
-    message: ctx.messages.signatureNameMismatch(),
-  })
+  // its fix: the declaration renamed to the object it is the text of (`qf_sn_rename`) — the object's name is the one the
+  // project knows it by (`preferred`). On a FUNCTION_BLOCK only, the kind recorded building: a FUNCTION's body stores its
+  // result under its OWN name (`F := x`), which the header rename leaves "not defined", and no other kind is recorded
+  const fix =
+    unit.kind === "function_block"
+      ? fixOf(`Rename to '${object}'`, [replaceText(ctx.source, named.name.span.start, named.name.span.end, object)], true)
+      : undefined
+  out.push(
+    withFixes({ severity: "error", span: named.name.span, source: SOURCE, code: "signature-name-mismatch", message: ctx.messages.signatureNameMismatch() }, [fix]),
+  )
 }

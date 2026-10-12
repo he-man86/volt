@@ -29,6 +29,7 @@ import type { TypeExpr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../pipeline/context.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { emit, type DiagnosticItem } from "../../shared/diagnostic-item.js"
+import { bitToBoolFix } from "../../shared/fixes.js"
 
 const BIT_OK_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR"])
 const BIT_C0203_POUS = new Set(["program", "function", "method", "global_var_list"])
@@ -44,16 +45,17 @@ export function checkBitUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
     } else if (t.kind === "reference_type" && isBit(t.target)) {
       emit(out, span, "reference-to-bit", ctx.messages.referenceToBit())
     } else if (t.kind === "array_type" && isBit(t.element)) {
-      emit(out, span, "bit-array-base", ctx.messages.bitArrayBase()) // C0206
+      emit(out, span, "bit-array-base", ctx.messages.bitArrayBase(), "error", [bitToBoolFix(ctx.source, t.element.span)]) // C0206
     } else if (isBit(t)) {
+      const toBool = [bitToBoolFix(ctx.source, t.span)]
       if (unit.kind === "function_block") {
         if (!BIT_OK_SECTIONS.has(section.sectionKind)) {
-          emit(out, span, "bit-wrong-block", ctx.messages.bitInWrongBlock()) // C0204
+          emit(out, span, "bit-wrong-block", ctx.messages.bitInWrongBlock(), "error", toBool) // C0204
           if (section.sectionKind === "VAR_TEMP" && ctx.config.vendor === "codesys")
-            emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
+            emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer(), "error", toBool) // C0203
         }
       } else if (BIT_C0203_POUS.has(unit.kind)) {
-        emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer()) // C0203
+        emit(out, span, "bit-wrong-container", ctx.messages.bitInWrongContainer(), "error", toBool) // C0203
       }
       if (section.sectionKind === "VAR_IN_OUT" && ctx.config.vendor === "codesys") emit(out, span, "reference-to-bit", ctx.messages.referenceToBit())
     }
