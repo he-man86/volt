@@ -146,3 +146,45 @@ feeds the same upsert, delete and directory path.
 **Migration** — red tests (1.x) first. Then the publisher (2.1), disk sync (2.2), cancellation, progress, logger,
 quarantine and lifecycle (2.3), the move (2.4: no message-text changes, conformance byte-identical) and the watcher
 (2.5). Then the bench again (3.1).
+
+## Red tests (step 1)
+
+**Target:** every 1.1–1.3 behaviour (gate 0b additions included) is a committed test that fails today for the reason it
+names, and flips by itself when 2.x builds it — while the suite and typecheck stay green between steps.
+
+**How a red test sits in the suite: `test.failing`** (bun 1.4.2, measured: a `.failing` test that passes FAILS with
+"remove `.failing`"). That is the known-divergence rule: the step that builds the behaviour must drop the mark.
+Rejected: plain red tests (every gate between 1 and 2.x fails, and a real regression hides among them). Rejected:
+`test.todo` (silent when it starts passing; no mark is ever removed).
+
+**Where:** through the protocol, in `test/lsp/` — named by question: `diagnostics-pull.test.ts` (1.1),
+`disk-sync.test.ts` (1.2), `server-robustness.test.ts` (1.3). Not colocated: the files they will test
+(`diagnostics-publisher.ts`, `upsertDisk`) do not exist, and a test against a missing symbol breaks typecheck. A
+`.failing` test that does not compile is not red, it is broken. The colocated tests come with the code in 2.x.
+
+**Harness** (`test/lsp/harness.ts`, extended, no product change): an optional temp-dir `root` (`rootUri`, so the crawl
+and the watchers run), `watched(changes)`, `workspacePull(previousResultIds)` returning kinds/resultIds/versions,
+captured `window/logMessage`, a progress-create handler that answers, refuses, or never answers, and the order of
+`$/progress` kinds. The bench's client (`scripts/bench-server.ts`) is the model; the shared steps move to `sources.ts`.
+
+**Observing work** (what decides "never computed" / "re-parses one"): a delegating `mock.module` of
+`src/frontend/syntax/index.js` counts `parseDocument` per URI and throws for one sentinel URI (`quarantine.st`) — the
+design's 1.3 throw. The same mock answers both questions, so there is one mock, delegating for every other URI (bun's
+`mock.module` is process-wide; a pass-through cannot disturb another file). EBUSY: a delegating mock of the read in
+`workspace-refs.ts` that throws `EBUSY` for one sentinel path. Rejected: a counter or a throw seam in `WorkspaceStore`
+(product code that exists for tests). Rejected: wall-clock thresholds for "≈ one pass" (the bench measures time; the
+tests count computes and `unchanged` answers).
+
+**Cancellation (1.3):** pull A, pull B, `$/cancelRequest` B written in one burst; B must answer -32800 and the parse
+counter / a compute count shows B was never computed.
+
+**Refused by name:** the `exit`-notification test (exit code via the seam) is NOT written in step 1 — today
+`lifecycle.ts:84` calls `process.exit(0)`, so a red version ends `bun test` mid-run and later files silently do not run.
+It lands first in 2.3, in the same commit as the `exit` seam, before the seam's code. The `onClose` and watchdog
+(dead `processId`) tests are written now: today nothing exits on either, so they fail safely. `harness.ts` passes the
+exit recorder under one `@ts-expect-error` (runServer has no 5th parameter yet); typecheck itself fails when 2.3 adds
+it, which removes the marker.
+
+**Migration:** 1.1–1.3 commit the three suites + harness, all `.failing`, typecheck clean, targeted run shows every
+one red for its named reason (a `.failing` that already passes is a wrong premise — fix the test before commit). Each
+2.x step removes the marks it turns green.
