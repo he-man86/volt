@@ -60,3 +60,40 @@ entry exactly, the connector-written Run value + `Volt.lnk`; uninstall keeps `--
 besides PATH, writing into another vendor's config, a sideloaded extension, an unverified download. Projected unpacked
 ≈ 587.1 MiB (−63.8 MiB: locales −47.7, CLI −6.9 — 77.8 → 71.0, its 4 PDBs included —, satellites −8.5, the 8
 connector-side PDBs −0.25, `.vsix` −0.4; each MiB counted once), measured for real in 2.1.
+
+## 1. Gate first (red) — `test:install` against the target
+
+**Target:** one script, `scripts/test-install.ts`, every check HARD (`warn` deleted). Oracle for "what version is
+installed" = the Add/Remove `DisplayVersion` Inno writes (the `app-<v>` dir name is gone); every stamped binary
+(`connector\VoltConnector.exe`, `connector\VoltBridgeTwincat.exe`, `connector\Volt.Engine.Host.dll`, `bin\volt.exe`,
+`desktop\VoltDesktop.exe`, `codesys\Volt.Ide.Codesys.dll`) and `volt-lsp-iec --version` must equal it. Kept: rollback /
+"in use … Abort" log detection, ordered log markers, leftover checks, the tray-running check.
+
+**Hard after every install:** `Volt.lnk` exists and targets `desktop\VoltDesktop.exe` (WScript.Shell); Run value
+`VoltConnector` == `"<app>\connector\VoltConnector.exe" --silent` exactly; user PATH has `<app>\bin` exactly once and no
+other `<app>`-prefixed entry; Documents\Volt holds both CODESYS scripts; `VOLT_BRIDGE_DLL`/`OPENCODE_CONFIG_DIR` absent;
+no `current`, no `app-*`, no `.vsix`; the bridge DLL resolves without the env var — the gate reads `_INSTALL_SUBDIR` from
+the installed Documents script and requires `Volt.Ide.Codesys.dll` there (live proof stays 2.4's CODESYS e2e).
+Broadcast: before each setup the gate starts a hidden top-level window (PowerShell `Add-Type`) and requires a
+`WM_SETTINGCHANGE` with `"Environment"` before setup exits. Rejected: grepping the Inno log (proves intent, not
+delivery); launching a probe through Explorer (needs an interactive shell; a CI session has none to rely on).
+
+**Flow:** 1 install `--older` (today's layout) → 2 update to new (+ migration: no `app-*`/`current`, old PATH entry,
+env vars, old Run value gone) → 3 update again (same build, files in use) → 4 CLI alive: start `bin\volt.exe console
+--port <free>` (a real verb, no hook), run setup with `/VOLTWAIT=15`; it must exit non-zero, `volt.exe` still alive,
+binaries unchanged, connector relaunched → 5 same, then stop the console 5 s into the wait: setup completes, assert
+installed → 6 uninstall with the console alive + `/VOLTWAIT=15`: aborts, nothing removed → 7 uninstall → clean →
+8 fresh install of new → 9 uninstall → clean. `/VOLTWAIT=<s>` is an Inno `{param:}` (default 3600) so the abort
+branch is gated in seconds; rejected: an env var (refused — PATH only) and leaving the abort untested.
+**Tampered download:** `Updater` takes its feed URL as a parameter (internal); `Volt.Connector.Tests` serves a
+localhost release whose asset `digest` mismatches (and one with none) and asserts refusal by name and no launch;
+`test:install` runs that filter as its step 10 so the gate reports it. Rejected: a hidden connector verb (a test hook
+in the shipped exe); a `VOLT_UPDATE_FEED` env + clicking the tray (UI automation).
+
+**`--older` is required** — a setup path, or `stable` = `gh release download <latest non-prerelease> -p
+Volt-win-Setup.exe`; absent → refused by name ("no upgrade source"). `promote.yml` passes `--older stable`.
+
+**Refused by name:** a soft check; a run without an upgrade; killing `volt.exe` in any step; a test-only verb in a
+shipped binary. **Red today:** no `desktop\VoltDesktop.exe`, `app-*`/`current` present, `VOLT_BRIDGE_DLL` set, the CLI
+killed in step 4. **Migration:** the extension checks go (the extension leaves the installer); `restoreExtensionBaseline`
+reinstalls from the Marketplace id while uninstall still runs `--uninstall-extension`, and is deleted with those lines.
