@@ -93,6 +93,76 @@ public class TcBuildOutputTests
         }
     }
 
+    /// <summary>
+    /// THE BUILD'S CHROME IS LOCALIZED, THE COMPILER'S MESSAGES ARE NOT (environment-dependency-audit 2.4, measured
+    /// 2026-10-13 on TcXaeShell 15.0 / TwinCAT 3.1.4024.74 started with <c>/LCID 1031</c>, <c>DTE.LocaleID</c> 1031):
+    /// the Build pane below is that run's, verbatim but for the path. The compiler's diagnostics stay English
+    /// (<c>error: Identifier 'y' not defined</c>), and so do its progress lines (<c>Size of generated code</c>,
+    /// <c>Build complete -- …</c>); Visual Studio's lines and the PLC control's compile summary are German —
+    /// <c>Kompilierung abgeschlossen -- 2 Fehler, 0 Warnungen</c> where an English shell writes
+    /// <c>Compile complete -- 2 errors, 0 warnings</c>, the very line the apostrophe rule once swallowed.
+    /// </summary>
+    private const string GermanFailedBuildPane =
+        "------ Erstellen gestartet: Projekt: Untitled2, Konfiguration: Debug TwinCAT CE7 (ARMV7) ------\r\n" +
+        "------ Build started: Application: TwinCAT_Project14.Untitled2 -------\r\n" +
+        "typify code ...\r\n" +
+        "C:\\p\\Untitled2\\POUs\\VltE2E_b_col.TcPOU(5) : error: Identifier 'y' not defined\r\n" +
+        "C:\\p\\Untitled2\\POUs\\VltE2E_b_col.TcPOU(5) : error: 'y' is no valid assignment target\r\n" +
+        "Kompilierung abgeschlossen -- 2 Fehler, 0 Warnungen\r\n" +
+        "Build complete -- 2 errors, 0 warnings : no download possible!\r\n" +
+        "------ Erstellen gestartet: Projekt: TwinCAT Project14, Konfiguration: Debug TwinCAT CE7 (ARMV7) ------\r\n" +
+        "Fehler: Der Vorgang konnte nicht abgeschlossen werden. Niet nader omschreven fout \r\n" +
+        "========== Build: 0 erfolgreich oder aktuell, 2 fehlerhaft, 0 übersprungen ==========\r\n";
+
+    [Fact]
+    public void AGermanBuildPaneParsesToTheCompilersDiagnosticsAlone()
+    {
+        var parsed = Collect(GermanFailedBuildPane);
+        Assert.Equal(new[] { "Identifier 'y' not defined", "'y' is no valid assignment target" }, parsed.Select(d => d.Message));
+        Assert.All(parsed, d => Assert.Equal(("VltE2E_b_col", 5), (d.Name!, d.Line)));
+    }
+
+    /// <summary>A compile summary or a separator after a message with an odd quote count is chrome by its SHAPE
+    /// (<c>… -- N word, M word</c>; a line of dashes or equals signs), in whatever language the shell writes it — not
+    /// by an English word list, which let the German summary join the message.</summary>
+    [Theory]
+    [InlineData("Kompilierung abgeschlossen -- 1 Fehler, 0 Warnungen")]
+    [InlineData("1>Kompilierung abgeschlossen -- 1 Fehler, 0 Warnungen")]
+    [InlineData("Compilation terminée -- 1 erreurs, 0 avertissements")]
+    [InlineData("------ Erstellen gestartet: Projekt: TwinCAT Project14, Konfiguration: Debug TwinCAT RT (x64) ------")]
+    [InlineData("========== Build: 0 erfolgreich oder aktuell, 1 fehlerhaft, 0 übersprungen ==========")]
+    public void ALocalizedSummaryOrSeparatorIsNotSwallowedByAnApostrophe(string chrome)
+    {
+        var one = Assert.Single(Collect(
+            "C:\\p\\MAIN.TcPOU(2) : error: Outputs can't be of type 'REFERENCE TO'\r\n" + chrome + "\r\n"));
+        Assert.Equal("Outputs can't be of type 'REFERENCE TO'", one.Message);
+    }
+
+    /// <summary>The shape rule must not eat SOURCE the compiler quotes back: a continuation line that holds `--` or
+    /// starts with dashes is still joined while the quote is open.</summary>
+    [Fact]
+    public void AQuotedSourceLineHoldingDashesIsStillAContinuation()
+    {
+        var one = Assert.Single(Collect(
+            "C:\\p\\MAIN.TcPOU(9) : warning: The code 'a := b;\r\n--x, 2 y' has no effect\r\n"));
+        Assert.Equal("The code 'a := b;\r\n--x, 2 y' has no effect", one.Message);
+    }
+
+    /// <summary>A banner line the compiler quotes back — a block comment's row of dashes or equals signs — is SOURCE,
+    /// not chrome (gate 2c+3 review: "starts with six dashes" cut this message after <c>'(*</c>). Visual Studio's
+    /// separators carry text between two runs (<c>------ Build started: … ------</c>,
+    /// <c>========== Build: … ==========</c>); a bare run of them does not.</summary>
+    [Theory]
+    [InlineData("------------")]
+    [InlineData("==========================")]
+    [InlineData("------ Section ------ x")]
+    public void AQuotedBannerLineIsStillAContinuation(string banner)
+    {
+        var one = Assert.Single(Collect(
+            "C:\\p\\MAIN.TcPOU(9) : warning: The code '(*\r\n" + banner + "\r\n*) x' has no effect\r\n"));
+        Assert.Equal("The code '(*\r\n" + banner + "\r\n*) x' has no effect", one.Message);
+    }
+
     [Fact]
     public void AnUnclosedQuoteAtTheEndOfThePaneDoesNotHang()
     {

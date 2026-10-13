@@ -147,3 +147,26 @@ never answered, so it has no name.
 
 **Not measured live:** an elevated CODESYS serving through this ACL to an unelevated `volt`, and an elevated XAE beside an
 unelevated connector — each needs one run "as administrator" (a UAC consent no unattended step gives). On 3.2's checklist.
+
+## 2.3–2.7 — the environment, measured (step 2c/2d)
+
+**2.3 (TcXaeShell64) — not measured: no 4026 can be installed unattended here.** TwinCAT 3.1.4026 comes only from
+Beckhoff's portal (a myBeckhoff login; `winget search TwinCAT/Beckhoff` finds nothing) and installs elevated (a UAC
+consent no unattended step gives; 2.2 measured that refusal). What stands without it: the reader for a 64-bit XAE is
+the x64 worker in-process with the XAE's own `Common7\IDE\Automation\msenvp.dll.manifest`, refused by name
+(`IDE_UNSUPPORTED`) when the shell carries none (DIALECT C2t; `TcHierarchySelectionTests`). Tooling ready for it:
+`ide.ps1 -XaeBitness 64` picks a shell by its exe's PE machine, and the release matrix makes a `twincat-64` cell of
+any registered x64 shell.
+
+**2.4 (localized build output) — chrome by shape, not by an English list (DIALECT D42).** Measured on a German XAE
+(`ide.ps1 -XaeLanguage 1031` → `/LCID 1031`): the compiler's diagnostics and progress lines stay English, Visual Studio's
+lines and the compile summary are German. The one break was the continuation rule's English chrome list (an apostrophe
+joined `Kompilierung abgeschlossen -- 1 Fehler, 0 Warnungen` to the message); chrome is now also a separator or a
+`… -- N word, M word` summary in any language. *Rejected:* a German (and every other language's) word list — the shapes
+hold for languages nobody measured; reading the pane by GUID — the pane was never the problem. TcXaeShell 15 ships no
+Russian UI and the PLC's 4024 satellites none either: a Russian customer's pane is English (stated, not lost).
+
+**2.5 (non-ASCII paths to XAE) — nothing to fix in the product (DIALECT D43).** The full TwinCAT suite with TEMP —
+so the fixture copy and both temp hand-offs — under a Cyrillic folder: green but for two harness failures. The
+refusal belongs to Windows PowerShell's `Add-Type` (csc cannot write to a non-ANSI folder), which only dev tooling uses:
+`ide.ps1` and `tc-reopen.ts` compile in an ASCII folder. A non-ASCII *profile* is VM row 4.

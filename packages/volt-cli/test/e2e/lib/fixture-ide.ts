@@ -32,7 +32,7 @@
  * than carrying a second copy of it.</p>
  */
 import { win32 } from "node:path"
-import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { tmpdir } from "node:os"
 
@@ -187,6 +187,21 @@ export function resolveOnePipe(facts: Facts, opts: { instance: string; explicit?
 			`(${pipes.map((p) => describePipe(facts, p)).join(", ")}) and a script drives ONE: name it with VOLT_PIPE ` +
 			`(verified the same way), or serve one project (\`-Fixture 13\`)`,
 	)
+}
+
+/**
+ * The environment for a Windows PowerShell child that calls `Add-Type`: its csc (.NET Framework) cannot write into a
+ * folder the ANSI code page cannot spell — measured 2026-10-13 with TEMP under `volt-Тест-Юникод` on a code-page-1252
+ * machine: "cannot write to the output file … the directory name is invalid" (environment-dependency-audit 2.5). So the
+ * child compiles in an ASCII TEMP; everything else keeps the caller's. Same rule as `ide.ps1`'s Get-CompileTemp.
+ */
+export function compileTempEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+	const temp = env.TEMP ?? env.TMP ?? tmpdir()
+	if (/^[\x20-\x7e]*$/.test(temp)) return env
+	const alt = win32.join(env.ProgramData ?? "C:\\ProgramData", "volt-ide-compile")
+	if (!/^[\x20-\x7e]*$/.test(alt)) throw new FixtureRefusal(`no ASCII folder for Add-Type to compile in (TEMP ${temp}, ${alt})`)
+	mkdirSync(alt, { recursive: true })
+	return { ...env, TEMP: alt, TMP: alt }
 }
 
 // ── reading the machine ─────────────────────────────────────────────────────────────────────────────────────────

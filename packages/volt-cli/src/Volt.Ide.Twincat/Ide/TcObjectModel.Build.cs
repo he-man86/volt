@@ -398,7 +398,10 @@ internal sealed partial class TcObjectModel
             if (at == lineStart) break; // not at a line break — nothing more to join
             int end = text.IndexOf('\n', at);
             if (end < 0) end = text.Length;
-            message += text.Substring(lineStart, at - lineStart) + text.Substring(at, end - at).TrimEnd('\r');
+            // stop BEFORE the line's own `\r`, so the next join takes the whole `\r\n` again: the message keeps the
+            // pane's line breaks verbatim on every continuation, not only the first (a third line once joined on `\n`)
+            if (end > at && text[end - 1] == '\r') end--;
+            message += text.Substring(lineStart, at - lineStart) + text.Substring(at, end - at);
             at = end;
         }
         return message;
@@ -418,11 +421,26 @@ internal sealed partial class TcObjectModel
         // its own diagnostic - the same shape the top-level regex matches
         if (Regex.IsMatch(line, @"^.+?(?:\(\d+(?:,\d+)?\))?\s*:\s*(error|warning|message)\s*:\s*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
             return true;
-        // the build's own running commentary, which no compiler message continues into
+        // the build's own running commentary, which no compiler message continues into. The SHAPES first: they hold in
+        // every language the shell writes them in (environment-dependency-audit 2.4 — a German XAE writes
+        // `Kompilierung abgeschlossen -- 2 Fehler, 0 Warnungen` and `------ Erstellen gestartet: …`, which the
+        // English list below never matched, so an apostrophe joined them to the message).
+        if (LocalizedChrome.IsMatch(line)) return true;
         foreach (var chrome in BuildChrome)
             if (line.IndexOf(chrome, StringComparison.OrdinalIgnoreCase) >= 0) return true;
         return false;
     }
+
+    /// <summary>The build's chrome by SHAPE, whatever language the shell writes it in (after the optional MSBuild
+    /// `N&gt;` prefix): a separator — text BETWEEN two runs of six dashes or ten equals signs (Visual Studio's
+    /// `------ Build started … ------` / `========== Build: … ==========`; a bare run is a banner the compiler may quote
+    /// from a block comment, so it stays source), or a count summary `… -- N word, M word` (`Compile complete -- 1 errors, 0 warnings`,
+    /// `Kompilierung abgeschlossen -- 2 Fehler, 0 Warnungen`). Measured on a German XAE (TcXaeShell 15.0, `/LCID
+    /// 1031`, 2026-10-13): those are the lines a localized shell translates; the compiler's diagnostics and its own
+    /// progress lines (<see cref="BuildChrome"/>) stayed English (DIALECT D42).</summary>
+    private static readonly Regex LocalizedChrome = new(
+        @"^(?:\d+>)?(?:-{6}\s+\S.*\s-{6,}\s*$|={10}\s+\S.*\s={10,}\s*$|.*\s--\s+\d+\s+[^\s,]+,\s*\d+\s+\S+)",
+        RegexOptions.CultureInvariant);
 
     /// <summary>Lines TwinCAT's build writes about itself. Substrings, because each carries a pane prefix and
     /// a trailing count that differ per build.</summary>

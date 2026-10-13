@@ -7,7 +7,10 @@
  * `resolveOnePipe` narrows it to exactly one pipe — the "first of several" was the other half of the same bug.
  */
 import { describe, expect, it } from "bun:test"
-import { FixtureRefusal, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
+import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { compileTempEnv, FixtureRefusal, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
 
 const TEMP = "C:\\Users\\eng\\AppData\\Local\\Temp"
 const T0 = "638900000000000000" // .NET ticks — beyond 2^53, so they stay strings
@@ -138,5 +141,34 @@ describe("script pipe resolver (one pipe, never the first of several)", () => {
 		expect(vendorOf(undefined)).toBe("codesys")
 		expect(vendorOf("twincat")).toBe("twincat")
 		expect(() => vendorOf("beckhoff")).toThrow(FixtureRefusal)
+	})
+})
+
+/** Windows PowerShell's Add-Type (csc) cannot write into a folder the ANSI code page cannot spell (measured with a
+ *  Cyrillic TEMP, environment-dependency-audit 2.5): a child that compiles gets an ASCII TEMP, nothing else changes. */
+describe("compile temp", () => {
+	// Real Windows path shapes (gate 2c+3 review: single backslashes in a plain literal made these "C:UsersengAppData…").
+	// The replacement folder is created under a scratch ProgramData, never the machine's %ProgramData%.
+	it("an ASCII TEMP is kept", () => {
+		const env = { TEMP: "C:\\Users\\eng\\AppData\\Local\\Temp", ProgramData: "C:\\ProgramData" }
+		expect(env.TEMP.split("\\")).toEqual(["C:", "Users", "eng", "AppData", "Local", "Temp"])
+		expect(compileTempEnv(env)).toBe(env)
+	})
+	it("a non-ASCII TEMP is replaced by an ASCII folder for the child", () => {
+		const scratch = mkdtempSync(join(tmpdir(), "volt-compile-temp-"))
+		try {
+			const temp = "C:\\Users\\Тест\\AppData\\Local\\Temp"
+			const env = { TEMP: temp, TMP: temp, ProgramData: scratch }
+			const out = compileTempEnv(env)
+			expect(out.TEMP).toBe(`${scratch}\\volt-ide-compile`)
+			expect(out.TMP).toBe(out.TEMP)
+			expect(existsSync(out.TEMP!)).toBe(true)
+		} finally {
+			rmSync(scratch, { recursive: true, force: true })
+		}
+	})
+	it("no ASCII folder at all is refused by name", () => {
+		const temp = "C:\\Users\\Тест\\AppData\\Local\\Temp"
+		expect(() => compileTempEnv({ TEMP: temp, ProgramData: "C:\\Данные" })).toThrow(FixtureRefusal)
 	})
 })

@@ -8,6 +8,7 @@
  * whose solution is not under this instance's fixture copy (`fixture-ide.ts`).</p>
  */
 import { spawnSync } from "node:child_process"
+import { compileTempEnv } from "./fixture-ide"
 
 export function reopenTwinCatSolution(pipe: string, instance: string): void {
 	const pid = Number(pipe.split(".").pop())
@@ -40,6 +41,6 @@ while (((Get-Date) - $t0).TotalSeconds -lt 120) { try { if ($dte.Solution.Projec
 if ($dte.Solution.Projects.Count -lt 1) { throw "the solution did not reopen within 120 s" }
 Start-Sleep 10
 `
-	const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], { encoding: "utf8", timeout: 240_000 })
+	const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], { encoding: "utf8", timeout: 240_000, env: compileTempEnv() })
 	if (r.status !== 0) throw new Error(`reopening the TwinCAT solution failed: ${r.stderr || r.stdout}`)
 }

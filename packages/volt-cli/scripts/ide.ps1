@@ -52,6 +52,13 @@
                     (`C:\Program Files\CODESYS <version>`). Default 3.5.21.40 (SP21 Patch 4), the one every recording
                     and suite is measured on. Explicit on purpose: never the newest installed — a second install
                     (3.5.22.40, the customer's SP22) must not silently move the recordings.
+.PARAMETER XaeLanguage twincat only: the XAE shell's UI language, as a Windows LCID passed as `/LCID <n>` (e.g. 1031
+                    German). The language TwinCAT's build writes its Output pane in follows it (environment-dependency-audit
+                    2.4); a language whose shell resources are not installed is refused by name, not left to the shell
+                    (which silently stays in English). Default: the shell's own setting.
+.PARAMETER XaeBitness twincat only: 32 | 64 — which registered XAE shell to open, by its exe's PE machine (TcXaeShell 15
+                    is x86; TwinCAT 3.1.4026 can install the x64 TcXaeShell64). Without it the 32-bit shell is preferred
+                    (the committed fixtures are 4024 projects); with it a bitness no registered shell has is refused.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
@@ -73,6 +80,8 @@ param(
     [string]$RunScript = "",
     [string]$BridgeDir = "",
     [string]$CodesysVersion = "3.5.21.40",
+    [int]$XaeLanguage = 0,
+    [ValidateSet("", "32", "64")] [string]$XaeBitness = "",
     [switch]$NoBuild,
     [switch]$Wait,
     [switch]$DryRun
@@ -93,6 +102,21 @@ $projFile = Join-Path $work "$Vendor-ide$sfx.projects"
 # The SDK that can target what the solution targets. "Has an SDK" is not enough — this machine carries several
 # dotnet installs and the .NET 8 one fails net10.0 with NETSDK1045 (see build-cli.ps1, same trap).
 $DOTNET = "C:\Program Files\dotnet\dotnet.exe"
+
+# WHERE Add-Type MAY COMPILE. Windows PowerShell's Add-Type runs the .NET Framework csc, which cannot write into a
+# folder the ANSI code page cannot spell (measured 2026-10-13, environment-dependency-audit 2.5: TEMP under
+# `volt-Тест-Юникод` on a code-page-1252 machine -> "cannot write to the output file ... the directory name is
+# invalid"). So a run with such a TEMP - the one that measures what XAE does with a non-ASCII temp path - compiles in
+# a folder the code page CAN spell, and everything else (the copy root, the IDE, the worker) keeps the caller's TEMP.
+function Get-CompileTemp {
+    $t = [System.IO.Path]::GetTempPath()
+    $ansi = [System.Text.Encoding]::Default   # Windows PowerShell 5.1: the system's ANSI code page (GetACP)
+    if ($ansi.GetString($ansi.GetBytes($t)) -eq $t) { return $t.TrimEnd([char]92) }
+    $alt = Join-Path $env:ProgramData "volt-ide-compile"
+    if ($ansi.GetString($ansi.GetBytes($alt)) -ne $alt) { throw "no folder to compile in: neither TEMP ($t) nor $alt is in the ANSI code page" }
+    New-Item -ItemType Directory -Force $alt | Out-Null
+    $alt
+}
 
 # ── shared plumbing ────────────────────────────────────────────────────────────────────────────────────────
 
@@ -302,6 +326,7 @@ function Get-OurProcesses([string]$vendor) {
 # fixture copy nobody reads), then Quit — the exit path that removes the XAE's own AutoRecover entry.
 $XAE_CLOSE = @'
 $ErrorActionPreference = "Stop"
+$env:TEMP = $env:TMP = "__COMPILE_TEMP__"   # see Get-CompileTemp
 Add-Type -TypeDefinition @"
 using System; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes;
 public static class VoltRotClose {
@@ -362,7 +387,7 @@ function Close-Ours([int]$procId, [int]$timeoutSec = 90) {
     $name = $p.ProcessName
     $child = $null
     if ($XAE_SHELLS -contains $name) {
-        $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($XAE_CLOSE.Replace("__PID__", "$procId")))
+        $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($XAE_CLOSE.Replace("__PID__", "$procId").Replace("__COMPILE_TEMP__", (Get-CompileTemp))))
         $child = Start-Process powershell -ArgumentList "-NoProfile", "-NonInteractive", "-EncodedCommand", $enc -WindowStyle Hidden -PassThru
     } elseif ($name -eq "CODESYS") {
         Close-CodesysClean $p $timeoutSec
@@ -526,7 +551,11 @@ $script:dialogsSeen = @{}
 # One look at this instance's XAE windows (the pids `up` launched, plus any XAE holding this instance's copy — a
 # Restart-Manager relaunch adopted as ours). Cheap enough to run every second of the attach wait.
 function Watch-XaeDialogs([int[]]$xaePids) {
-    if (-not ("VoltXaeDialogs" -as [type])) { Add-Type -TypeDefinition $XAE_DIALOGS_SRC }
+    if (-not ("VoltXaeDialogs" -as [type])) {
+        $saved = $env:TEMP, $env:TMP
+        $env:TEMP = $env:TMP = Get-CompileTemp
+        try { Add-Type -TypeDefinition $XAE_DIALOGS_SRC } finally { $env:TEMP, $env:TMP = $saved }
+    }
     $pids =@(@($xaePids) + @(Get-CopyHolders "twincat") | Select-Object -Unique)
     foreach ($xae in $pids) {
         foreach ($dlg in [VoltXaeDialogs]::Dialogs($xae)) {
@@ -685,11 +714,25 @@ function Resolve-XaeShells {
     @($found | Sort-Object { [IO.Path]::GetFileNameWithoutExtension($_) -ne "TcXaeShell" }, { $_ })
 }
 
+# An exe's bitness from its PE header (IMAGE_FILE_HEADER.Machine): 0x014C x86 -> 32, 0x8664 x64 -> 64; anything else
+# is refused by name rather than read as either.
+function Get-PeBits([string]$exe) {
+    $b = [IO.File]::ReadAllBytes($exe)
+    $pe = [BitConverter]::ToInt32($b, 0x3C)
+    switch ([BitConverter]::ToUInt16($b, $pe + 4)) { 0x014C { 32 } 0x8664 { 64 } default { throw "$exe is neither x86 nor x64 (PE machine 0x$('{0:X4}' -f $_))" } }
+}
+
 function Up-Twincat {
     $shells = @(Resolve-XaeShells)
     if ($shells.Count -eq 0) { throw "no TwinCAT XAE shell is registered (no TcXaeShell*.DTE.* ProgID with an existing LocalServer32)" }
+    if ($XaeBitness) {
+        $picked = @($shells | Where-Object { (Get-PeBits $_) -eq [int]$XaeBitness })
+        if ($picked.Count -eq 0) { throw "no $XaeBitness-bit XAE shell is registered (registered: $(($shells | ForEach-Object { "$_ ($(Get-PeBits $_)-bit)" }) -join ', '))" }
+        $shells = $picked
+    }
     $ide    = $shells[0]
     if ($shells.Count -gt 1) { Write-Host "XAE shells installed: $($shells -join ', ') - using $ide" }
+    Write-Host "XAE shell: $ide ($(Get-PeBits $ide)-bit)"
     $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\VoltBridgeTwincat.exe"
     Build-Bridge "twincat"
     if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat): $worker" }
@@ -730,10 +773,20 @@ function Up-Twincat {
         }
     }
 
+    # A UI language the shell has no resources for is ignored by it, silently - the run would then measure English
+    # while claiming another language. The shell's per-language resources are `Common7\IDE\<lcid>\`.
+    $lcidArg = ""
+    if ($XaeLanguage) {
+        $res = Join-Path (Split-Path $ide -Parent) "$XaeLanguage"
+        if (-not (Test-Path $res)) { throw "-XaeLanguage ${XaeLanguage}: $ide has no resources for it (no $res)" }
+        $lcidArg = "/LCID $XaeLanguage "
+        Write-Host "XAE UI language: LCID $XaeLanguage"
+    }
+
     $launched = @()
     foreach ($k in $open.Keys) {
         $sln = $open[$k]
-        $p = Start-Process -FilePath $ide -ArgumentList ('"{0}"' -f (Resolve-Path $sln).Path) -PassThru
+        $p = Start-Process -FilePath $ide -ArgumentList ('{0}"{1}"' -f $lcidArg, (Resolve-Path $sln).Path) -PassThru
         $launched += $p.Id
         Write-Host "opened $([System.IO.Path]::GetFileNameWithoutExtension($sln)) (TcXaeShell pid $($p.Id))"
     }

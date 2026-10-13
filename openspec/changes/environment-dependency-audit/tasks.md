@@ -262,8 +262,31 @@
       rerun; no LSP file changed). Fixture map untouched (no fixture or transpiler change).
 - [ ] 2.3 TwinCAT 64-bit shell: measure 4026's hierarchy read (install 4026 side by side if needed — owner allows) and make it
       work without Visual Studio; DIALECT row.
-- [ ] 2.4 Localized TwinCAT build output: record German and Russian XAE output; language-neutral parse or state what is lost.
-- [ ] 2.5 Non-ASCII `%TEMP%`/project paths handed to XAE: measure; fix or refuse by name.
+      **Step 2c, 2026-10-13 — NOT DONE, blocked on an install the agent cannot make:** TwinCAT 3.1.4026 is downloadable only
+      from Beckhoff's portal (myBeckhoff login; `winget search TwinCAT`/`Beckhoff` finds nothing) and installs elevated (a UAC
+      consent no unattended step gives, as measured at 2.2). The only XAE here is TcXaeShell 15 (x86, 4024.74). Ready for it:
+      `ide.ps1 -XaeBitness 32|64` (shell picked by its exe's PE machine), the release matrix makes a `twincat-64` cell of any
+      registered x64 shell; the code path stays the C2t in-process read with the shell's own manifest, `IDE_UNSUPPORTED` by
+      name without one. Owner: install 4026 side by side (or on a VM), then run `bun run release:matrix --only twincat-64`.
+- [x] 2.4 Localized TwinCAT build output: record German and Russian XAE output; language-neutral parse or state what is lost.
+      **Built 2026-10-13 (step 2c, DIALECT D42, design "2.3–2.7"):** measured on a German XAE (`ide.ps1 -XaeLanguage 1031`,
+      new: passes `/LCID`, refuses a language the shell has no `Common7\IDE\<lcid>` for): `DTE.LocaleID` 1031; the compiler's
+      diagnostics and progress lines stay ENGLISH, Visual Studio's chrome and the compile summary are German
+      (`Kompilierung abgeschlossen -- 2 Fehler, 0 Warnungen`). Found: the continuation rule knew only English chrome, so an
+      apostrophe message swallowed the German summary/separators. Fix: chrome by SHAPE (`TcObjectModel.LocalizedChrome`: six
+      dashes, ten equals signs, `… -- N word, M word`), red first — `TcBuildOutputTests` +7 (the German pane verbatim; five
+      localized summaries/separators, 5 red before; a quoted `--` source line still joined). **Russian:** TcXaeShell 15 ships no
+      1049 UI and the 4024 PLC satellites have no `ru` — a Russian customer's pane is English; stated, nothing lost.
+      Live: full TwinCAT e2e on the German XAE (Project14, worker with the fix) **296 pass / 70 skip / 0 fail**. Ide.Twincat 499/0.
+- [x] 2.5 Non-ASCII `%TEMP%`/project paths handed to XAE: measure; fix or refuse by name.
+      **Measured 2026-10-13 (step 2c, DIALECT D43) — nothing to fix in the product:** TEMP/TMP under `volt-Тест-Юникод`
+      (not in code page 1252) for ide.ps1, XAE, worker and suite, so the fixture copy AND both hand-offs (`TcItemArchive`'s
+      export/import zip, the PLCopen import file) were non-ASCII: full TwinCAT e2e **294 pass / 70 skip / 2 fail**, both
+      harness-side — `tc-reopen.ts`'s `Add-Type` (csc cannot write to a non-ANSI folder) and the empty-push latency 699 ms with a
+      CODESYS suite running beside it. Fixed the harness: `ide.ps1` `Get-CompileTemp` and `fixture-ide.ts` `compileTempEnv` compile
+      in an ASCII folder (unit tests +2); no product C# compiles at run time. Once (first German+Cyrillic run) XAE crashed with
+      C2i's signature during the first `volt init`; not reproduced (German/ASCII full 296/0, English/Cyrillic full, German/Cyrillic
+      retry 15/15). A non-ASCII PROFILE is VM row 4.
 - [ ] 2.5b **One fixture project per CODESYS version (owner 2026-10-13: "you need to have 1 project for each CS version").**
       Export `test/fixtures/CodesysTestProject.project` from SP21 as PLCopen XML through CODESYS scripting (keeps the
       IDE-made CFC/SFC/LD/FBD bodies a Volt push cannot recreate), create an empty project in EACH installed version (SP18
