@@ -57,18 +57,24 @@
 - [x] 1.2 Choose the fix, and record in the proposal why it was chosen and why the others were not: x86 worker / x86
       hierarchy helper (+ `CreateActCtx` on XAE's manifest if 0.3 says so), or the IDispatch `UIHierarchy` route
       (measure first: collapsed nodes, cost on 143+ nodes, caption suffix).
-      **Done:** x86 net48 helper + `CreateActCtx` always (proposal, "Decision").
+      **Done:** x86 .NET Framework helper (net472) + XAE's own manifest activated on every read, picked by the XAE
+      process's bitness (proposal, "Decision").
 - [x] 1.3 Build it. Then a DIALECT C2i row stating what the hierarchy read requires (bitness, proxy, where it comes
       from), with the measurement from 0.2.
       **Done:** `src/Volt.Ide.Twincat.Explorer` (`VoltTwincatExplorer.exe`), `Ide/TcHierarchy.cs`; packaged beside the
       worker (`build-cli.ps1` refuses a publish without it, `build-payload.ts` requires it, `test-install.ts` checks it
-      stamped). DIALECT **C2t** (next to C2i), with this machine's measurements; 0.2's are still missing.
+      stamped; `bun run build:installer` green, `VoltTwincatExplorer.exe` x86 in `connector\`). A helper per read failed
+      the e2e latency gate (empty push 972 ms > 500), so the worker keeps one (`--serve`). Environment audit, same
+      branch, red first: refused manifest activation → registered proxy, else IDE_UNSUPPORTED; net472; the 64-bit
+      TcXaeShell64 found (ROT moniker, window diagnosis, `ide.ps1`); culture-invariant regexes/log dates; baseline-x64
+      LSP; x64 Inno. DIALECT **C2t** (next to C2i), with this machine's measurements; 0.2's are still missing.
 - [ ] 1.4 Verify on BOTH machines: the TwinCAT-only machine/VM (refs, fetch, push, build green; C2i guard still
       flags a bare-captioned POU), and the volt dev machine (no regression). Full C# suites green.
       **Dev machine done** (64-bit registration still present, so the helper path is what ran — XAE is 32-bit):
-      E2E_TASK. C# suites: Volt.Ide.Twincat.Tests 463, Volt.Engine.Tests 2456 (+1 skipped), Volt.Cli.Tests 266,
-      Volt.Connector.Tests 119, Volt.Contracts.Tests 34, Volt.Repo.Gates 160 — all green. **Open:** the TwinCAT-only
-      run (0.2).
+      TwinCAT e2e (`VOLT_E2E_INSTANCE=tc-x86`, Project14, through the helper) 296 pass / 70 skip / 0 fail; C# suites
+      (after the rebase onto dev `ecd5feaf16`) Twincat 490, Engine 2525 (+1 skipped), Cli 267, Codesys 367, Connector 120, Relay 62, Contracts 35, Repo.Gates 162 — all green; `bun run check` 18/18. **Open:** the TwinCAT-only run (0.2), a 64-bit XAE
+      (TcXaeShell64, TwinCAT 4026) live, and `bun run test:install` — it refuses to start while any
+      `VoltBridgeTwincat.exe` runs, and another session's worker (on its own fixture XAE) was running throughout.
 
 ## 2. Close
 

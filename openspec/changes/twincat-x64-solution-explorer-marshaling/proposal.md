@@ -179,7 +179,7 @@ minimum while that is being built, not an end state; "install Visual Studio 2022
 
 ## Decision (volt, 2026-10-13): read the hierarchy from a process of XAE's own bitness
 
-**Built: `VoltTwincatExplorer.exe`, a net48 x86 helper beside the worker** (`src/Volt.Ide.Twincat.Explorer`). It
+**Built: `VoltTwincatExplorer.exe`, a .NET Framework (net472) x86 helper beside the worker** (`src/Volt.Ide.Twincat.Explorer`). It
 compiles the worker's own reader source (`TcSolutionExplorer.cs`, `RotInstances.cs`, `ComMessageFilter.cs` — no Volt
 assembly), binds the DTE from the ROT by the XAE pid exactly as the worker does, **activates XAE's own
 `Common7\IDE\Automation\msenvp.dll.manifest` around the read** (`CreateActCtx` with the assembly directory), and writes
@@ -192,8 +192,9 @@ Why this, and not the others:
 - **x86 helper over an x86 worker.** The worker shares ONE self-contained win-x64 runtime with the connector
   (`build-cli.ps1` refuses differing bytes between the two); an x86 worker needs its own x86 runtime (a second
   self-contained .NET runtime in the installer, not measured, and a second copy of every Volt assembly) and moves the whole worker (archives, network text, relay) to a
-  2 GB address space for one read. The helper is one 21 KB exe on .NET Framework 4.8, which ships with Windows, so
-  nothing is bundled. The repo already builds net48 (CODESYS).
+  2 GB address space for one read. The helper is one 22 KB exe on .NET Framework 4.7.2, which every supported Windows
+  10/11 carries (not 4.8: Windows 10 LTSC 2019 lacks it, and a 4.8 build's config makes the runtime shim raise a
+  modal install dialog a hidden child would hang on — environment audit), so nothing is bundled.
 - **Not the IDispatch `UIHierarchy` route:** unmeasured on collapsed nodes, cost and caption suffix, and
   `DTE.Commands`-style enumeration hung before (2026-09-03). It would be a new reader of C2i's facts; the helper is the
   measured reader, moved to the right bitness.
@@ -201,7 +202,10 @@ Why this, and not the others:
   x86 proxy registration-free and the helper uses that copy, so 0.3 (whether a fresh 4024 writes the global 32-bit
   registration) no longer decides anything. The manifest is REQUIRED: an IDE that ships none at
   `Common7\IDE\Automation\msenvp.dll.manifest` is `IDE_UNSUPPORTED`, named — the read never falls back to whatever
-  COM has registered, because the only 64-bit copy anyone registers is Visual Studio's.
+  COM has registered, because the only 64-bit copy anyone registers is Visual Studio's. The one exception (environment
+  audit): a manifest that is there but that Windows will not ACTIVATE (`CreateActCtx`/`ActivateActCtx` fail) is read
+  with the registered proxy rather than failing as a plain COMException (which read as `ITEM_UNVERIFIED`); if that is
+  absent too, both reasons are named and it is `IDE_UNSUPPORTED` (`TcProxyActivationTests`).
 - **The reader is picked by the XAE PROCESS's bitness (`IsWow64Process` on the attached pid), not assumed x86**
   (owner, 2026-10-13: TwinCAT 3.1.4026 can run a 64-bit TcXaeShell64, and an x86 reader there would be the mirror of
   this bug). `TcHierarchy.ReaderFor`: 32-bit XAE from the x64 worker → the x86 helper; 64-bit XAE from the x64
@@ -211,7 +215,10 @@ Why this, and not the others:
   other session's work run on). What stands for it: Visual Studio 2022's 64-bit shell, which a 64-bit XAE shell is
   built on, carries `Common7\IDE\Automation\msenvp.dll.manifest` with `processorArchitecture="amd64"`, listing the
   three interfaces (39 / 21 / 7 methods), beside an x64 `msenvp.dll` 17.0.34221.15 — the same layout the x86 read
-  uses.
+  uses. The 64-bit shell is also FOUND now: the ROT match accepts `TcXaeShell64.DTE` (it was the literal
+  `TcXaeShell.DTE`, so the connector would never have spawned a worker for a 64-bit XAE), the connector's window
+  diagnosis looks for both process names, and `ide.ps1` resolves the installed shell(s) from the `TcXaeShell*.DTE.*`
+  ProgIDs instead of one hard-coded x86 path.
 - **Cost, measured on the Project14 fixture with two XAE windows in the ROT, and why the helper is long-lived:** a
   process per read (first build) cost 405–492 ms a read (`--check` alone, i.e. process start: 40–53 ms), `refs`
   445–470 ms warm against 199–200 ms for the old in-process x64 read — and the TwinCAT e2e latency gate failed on it
