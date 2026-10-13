@@ -144,7 +144,22 @@ public sealed partial class CodesysDriver
                     // A placeholder library's name can carry a Windows-illegal char (the '*' wildcard version,
                     // e.g. "SysTypes2 Interfaces, * (System)") — encode it so the .library file still materializes.
                 {
-                    var refs = _om.GetLibraryRefs(child, out var unspelled);
+                    // THE MANAGER IS ONE ITEM, NOT THE OP (environment-dependency-audit 2.0): a member its read cannot
+                    // take — absent on a platform no census measured without it, or present and failing — names the
+                    // manager unreadable and the walk goes on. Uncaught, it failed every op that walks (212 of 218 SP18
+                    // e2e failures). Its kind is known (a container), so only its OWN folder is unwalked: no `.library`
+                    // file there is read as removed, and absence beside the manager still means deleted. A binder
+                    // failure is the bridge disagreeing with the IDE's surface and fails the op, as for every object.
+                    List<LibRefNode> refs;
+                    List<string> unspelled;
+                    try { refs = _om.GetLibraryRefs(child, out unspelled); }
+                    catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+                    {
+                        BridgeLog.Warn($"could not read the library manager '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
+                        unreadable.Add(new UnreadableObject(name, folderPath, ex.Message, Array.Empty<string>()));
+                        unwalked.Add(managerFolder);
+                        continue;
+                    }
                     foreach (var lib in refs)
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                     // What the manager holds that no manifest spells is named in the pull report (openspec

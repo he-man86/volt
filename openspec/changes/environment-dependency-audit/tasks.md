@@ -145,7 +145,7 @@
       34 skip / 428 todo / 0 fail (362 files, 1157 s). Fixture map untouched (no fixture or transpiler change).
 
 ## 2. Fix
-- [ ] 2.0 **Regression found by the 2026-10-13 e2e matrix (CODESYS SP18 3.5.18.30):** 212 of 218 failures are one message —
+- [x] 2.0 **Regression found by the 2026-10-13 e2e matrix (CODESYS SP18 3.5.18.30):** 212 of 218 failures are one message —
       `UNSUPPORTED: the library manager: the CODESYS member 'LibManObject.ParameterTable' could not be read` — so a member
       ABSENT from an older SP's object model fails nearly every op (lifecycle, whole project, refs), where two days earlier
       SP18 passed 164 tests and failed only LD/FBD writes. Rule: a member the version's object model does not have is not an
@@ -153,6 +153,47 @@
       exists but cannot be read holds back THAT item with its reason (`unreadable`), never the op. Red test first (a FakeIde
       library manager without the member); then SP18 e2e: only the expected LD/FBD write refusals remain. Same check for
       every member bridge-one-to-one started reading (census which exist in SP18 / SP21 / SP22 / 32-bit 3.5.21.60).
+      **Built 2026-10-13 (design.md "Built (2.0)"):** census on 3.5.18.30 / 3.5.21.40 / 32-bit 3.5.21.60 / 3.5.22.40 —
+      every object of 4 fixtures (63 owner-type instances on SP18, where `Pro2193` does not open; 513 on each other) + a
+      fresh instance of each owner type (26 / 27 / 27 / 27) + 54 declared members and 8 methods per type. Found: archive
+      lists constant per type within a platform; declared members identical on all four; the three later platforms identical;
+      SP18 lacks exactly 3 members the bridge reads — `LibManObject.ParameterTable`, `TaskConfigObject.StackSize`,
+      `TaskConfigObject.UseConfigurableStackSize` (the Task Configuration was ALSO named unreadable on SP18, holding back
+      every task). → `MemberAvailability` (3 rows, 4 measured platforms) + DIALECT **V7**, held equal by
+      `MemberAvailabilityTests`; `CodesysObjectModel.Archives` reads through it (absent-by-version → no fact; any other
+      absence → item unreadable naming member/type/platform/why); `CodesysDriver.Walk` catches the manager per item
+      (named unreadable, only its own folder unwalked). Found while doing it: an unreadable manager's libraries read as
+      REMOVED flipped `librariesRefreshed` and would have dropped every signature file — `FetchService` no longer refreshes
+      while a known `.library` is unseen (red first: `LibrariesRefreshedTests`). Red first: `CodesysMemberAvailabilityTests`
+      (5 of 6 red with the field message before the fix; + 2 Task Configuration cases). WireVocabulary census
+      Properties.cs 11 → 13 (UNSUPPORTED, item refused by name). Tests: Ide.Codesys 385/0, Engine 2531/1 skip, Cli 277/0,
+      Repo.Gates 238/0. **SP18 e2e** (`codesysSP18.project`, 3.5.18.30): 169 pass / 72 skip / 108 fail (was 212 of 218
+      failing on the ParameterTable message; 0 now). Of the 108: 106 in `graphical/*` (LD/FBD writes: "this CODESYS version
+      cannot take an LD/FBD body", plus the tests that need them and 2 committed fixture POUs `VltFixtureCfc` /
+      `VltFixtureMembers` the SP18 fixture does not hold); 2 outside: `refusals/behaviour` D27 (the same missing
+      `VltFixtureCfc`) and `whole project` (Project Settings refused by name: "this CODESYS version cannot give Volt its
+      Project Settings" — the compiler-warning API, a V2-style capability, not an archive member; not 2.0's).
+      (`CodesysTestProject.project` opens READ-ONLY on SP18 — every push then hangs — so SP18 e2e serves the SP18 fixture.)
+      **Gate 2a (2026-10-13) — review findings, both confirmed and fixed, red first:**
+      1. *`unseenLibrary` ignored the library's folder* — any unwalked folder anywhere held the signature refresh, so a
+         library removed from a manager the walk DID read stayed known with stale signatures (and an added one got none)
+         for as long as that other folder stayed unreadable. Fix: "unseen" is now "not live and not removed by THE removal
+         rule" (`Removal.Removed`, computed once and reused for `removed`): per folder, kind-aware unreadable. Red:
+         `LibrariesRefreshedTests.A_library_removed_from_a_walked_manager_refreshes_although_another_folder_is_unwalked`.
+      2. *SP18 does hold library parameter values* — per reference, as the item's archived `Params`
+         (`AbstractLibManItem.ParametersToSerialize`, storage 3.4.0.0); from storage 3.5.19.0 the manager's `ParameterTable`
+         holds them and `AfterDeserialize` moves each reference's `Params` there (`MoveParameterListFromItem`). Read from both
+         `LibManObject.plugin.dll` (MetadataLoadContext + decompile). The census had read the references' declared members,
+         not their archive. Fix: where the manager has no `ParameterTable` by version, `ParameterValues` counts each top-level
+         reference's archived `Params`, in the same pull-report line ("sets N library parameter value(s) (…)"); a reference
+         whose archive names no `Params` refuses the manager by name. Not `GetParameterValues()`: on SP18 it writes every
+         default into the reference as it answers. DIALECT V7 + `MemberAvailability` doc corrected. Red:
+         `CodesysMemberAvailabilityTests.On_a_platform_without_the_table_*` (2). Checked the other two rows the same way: the
+         whole SP18 `TaskConfigObject.plugin.dll` has no stack setting under any name, so those are true version facts.
+         Live on SP18 (`codesysSP18.project`): every reference archives `Params` (none set); no manager refusal.
+      Numbers: Engine 2532/0/1 skip (+1), Cli 277/0, Ide.Codesys 387/0 (+2), Repo.Gates 238/0, Contracts 37/0,
+      Connector 122/0, Ide.Twincat 492/0; typecheck green. SP18 e2e (3.5.18.30, `codesysSP18.project`): 169 pass /
+      72 skip / 108 fail — unchanged from 2.0 (106 `graphical/*` + D27 + whole-project, the expected refusals).
 
 - [ ] 2.1 Bundle MinGit (owner decision) in the FULL installer payload `bin\git\` only — NOT in the bridge-only packages
       PLCAssist distributes (owner: "git should only be bundled for the complete CLI"); a gate asserts the bridge packages

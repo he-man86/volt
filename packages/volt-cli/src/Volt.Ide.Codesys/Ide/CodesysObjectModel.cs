@@ -33,10 +33,14 @@ namespace Volt.Ide.Codesys
 
         private readonly object? _projects;
         private readonly object? _objMgr;   // _3S.CoDeSys.Core.Objects.IObjectManager (SystemInstances.ObjectMgr)
+        // The platform version (DIALECT V1) — the key of the measured member availability (MemberAvailability, DIALECT V7).
+        // Null when it could not be read: no census measured "unknown", so every absent member is then unreadable.
+        private readonly string? _platform;
 
-        public CodesysObjectModel(object? projects)
+        public CodesysObjectModel(object? projects, string? platform)
         {
             _projects = projects;
+            _platform = platform;
             _objMgr = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "ObjectMgr");
         }
 

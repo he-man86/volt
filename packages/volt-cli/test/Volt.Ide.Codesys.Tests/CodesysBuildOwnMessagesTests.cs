@@ -75,7 +75,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.ScriptDriverSystem.APEnvironment.MessageStorage = store;
             try
             {
-                var success = new CodesysObjectModel(null).Build(new ApplicationNode());
+                var success = new CodesysObjectModel(null, platform: null).Build(new ApplicationNode());
                 Assert.Equal(1, cmd.Builds);
                 return (success, new CodesysDriver(null).GetBuildDiagnostics().ToList());
             }

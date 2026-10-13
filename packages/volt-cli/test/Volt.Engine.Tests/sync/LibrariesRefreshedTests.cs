@@ -110,4 +110,41 @@ public class LibrariesRefreshedTests
         Assert.False(incremental.LibrariesRefreshed);
         Assert.DoesNotContain(incremental.Changed, c => c.Name.EndsWith(".library"));
     }
+
+    /// <summary>A LIBRARY THE WALK DID NOT SEE IS NOT A REMOVED ONE (openspec <c>environment-dependency-audit</c> 2.0). The
+    /// CODESYS walk names a library manager it cannot read unreadable and walks on; its folder is then unwalked and every
+    /// known <c>.library</c> under it is absent from the live set. Read as "removed", that flipped the flag TRUE with no
+    /// signature in the payload — and the client dropped every signature file it held.</summary>
+    [Fact]
+    public void A_walk_that_could_not_read_the_library_folder_does_not_refresh_and_removes_no_library()
+    {
+        var ide = Project();
+        var known = new Dictionary<string, string>(Fetch(ide, new FetchRequest { Init = true }).Items);
+        ide.UnwalkableFolders = new[] { "Library Manager" };
+
+        var resp = Fetch(ide, new FetchRequest { KnownItems = known });
+
+        Assert.False(resp.LibrariesRefreshed);
+        Assert.Empty(resp.Removed);
+    }
+
+    /// <summary>…BUT AN UNWALKED FOLDER ELSEWHERE SAYS NOTHING ABOUT THE LIBRARY MANAGER (gate 2a review). A library
+    /// absent from a manager the walk DID read is removed — the same per-folder rule <c>Removal</c> applies — and the
+    /// signature set refreshes as it did before 2.0, whatever folder elsewhere in the project could not be read.
+    /// Holding the refresh there kept a removed library's signatures (and an added one's missing) on every pull while
+    /// that other folder stayed unreadable.</summary>
+    [Fact]
+    public void A_library_removed_from_a_walked_manager_refreshes_although_another_folder_is_unwalked()
+    {
+        var ide = Project();
+        ide.AddItem(FakeIde.Item.TextualPou("M", "PROGRAM M\nVAR\nEND_VAR", "", "Machine"));
+        var init = Fetch(ide, new FetchRequest { Init = true });
+        ide.UnwalkableFolders = new[] { "Machine" };
+        ide.RemoveItem("Standard");
+
+        var resp = Fetch(ide, new FetchRequest { KnownItems = new(init.Items), KnownFolders = new(init.Folders) });
+
+        Assert.Contains("Standard.library", resp.Removed);
+        Assert.True(resp.LibrariesRefreshed);
+    }
 }

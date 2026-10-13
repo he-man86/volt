@@ -94,7 +94,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 var ex = Assert.Throws<BridgeException>(() =>
-                    new CodesysObjectModel(projects: null).WriteSourceText(node, Decl, "x := 1;"));
+                    new CodesysObjectModel(projects: null, platform: null).WriteSourceText(node, Decl, "x := 1;"));
 
                 Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
                 Assert.Contains("'FB_A'", ex.Message);
@@ -115,7 +115,7 @@ namespace Volt.Ide.Codesys.Tests
             var manager = Install(node);
             try
             {
-                new CodesysObjectModel(projects: null).WriteSourceText(node, Decl, null);
+                new CodesysObjectModel(projects: null, platform: null).WriteSourceText(node, Decl, null);
 
                 Assert.Equal(Decl, obj.Interface.TextDocument.Text);
                 Assert.Equal(1, manager.Commits);

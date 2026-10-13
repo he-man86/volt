@@ -215,7 +215,16 @@ public static class FetchService
         // lines down as `librariesUnchanged` + `librariesRefreshed` - character-for-character equal, with
         // nothing between them touching its inputs. If the two ever diverged, the held stubs and the signature
         // render would disagree, which is the data-loss path spelled out just below.
-        var librariesRefreshed = onlyItems == null && !(!isInit && LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems));
+        // A known library this read did not SEE is not a removed one: refreshing over it would answer "complete set"
+        // with its signatures missing, and the client drops them all (environment-dependency-audit 2.0 — a CODESYS
+        // library manager named unreadable leaves its folder unwalked). Seen-or-gone is decided by THE removal rule,
+        // per folder: absent from a manager the walk DID read is removed, whatever other folder it could not read.
+        var goneFromWalk = Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, walk.UnwalkedFolders);
+        var unseenLibrary = knownItems.Keys.Any(k =>
+            k.EndsWith(LibraryFetch.LibraryExt, StringComparison.OrdinalIgnoreCase) && !liveLibVersions.ContainsKey(k)
+            && !goneFromWalk.Contains(k));
+        var librariesRefreshed = onlyItems == null
+            && (isInit || (!LibraryFetch.LibrariesUnchanged(liveLibVersions, knownItems) && !unseenLibrary));
         if (librariesRefreshed && skippedLibraryStubs.Count > 0)
         {
             // A library whose own version did not move still has to be described, or the client deletes it. That
@@ -289,7 +298,7 @@ public static class FetchService
         // name: under a folder the walk could not enumerate, unseen; absent from a folder it read, gone.
         var removed = isInit || onlyItems != null
             ? new List<string>()
-            : Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, walk.UnwalkedFolders);
+            : goneFromWalk;
 
         // Loud, because the alternative is a pull that quietly syncs less of the project than it claims: the
         // drivers already logged the skip (CODESYS at Warn, TwinCAT at Debug — off by default) and neither reached

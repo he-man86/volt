@@ -157,7 +157,7 @@ namespace Volt.Ide.Codesys.Tests
         {
             var node = new TaskNode(facet);
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = new TaskObjects(node);
-            try { return new CodesysObjectModel(null).TaskDescriptor(node); }
+            try { return new CodesysObjectModel(null, platform: null).TaskDescriptor(node); }
             finally { _3S.CoDeSys.Core.SystemInstances.ObjectMgr = null; }
         }
 
@@ -277,7 +277,7 @@ namespace Volt.Ide.Codesys.Tests
         [Fact]
         public void A_node_with_no_identity_is_refused_by_name()
         {
-            var model = new CodesysObjectModel(null);
+            var model = new CodesysObjectModel(null, platform: null);
             Assert.Contains("guid", Assert.ThrowsAny<Exception>(() => model.GuidOf(new object())).Message);
             Assert.Contains("handle", Assert.ThrowsAny<Exception>(() => model.HandleOf(new object())).Message);
         }

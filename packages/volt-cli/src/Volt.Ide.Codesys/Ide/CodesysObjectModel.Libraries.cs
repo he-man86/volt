@@ -54,10 +54,11 @@ namespace Volt.Ide.Codesys
                     "than this build expects. Refusing rather than reporting a project with no libraries; a " +
                     "renamed method is a version mismatch, not an empty library list.");
 
-            if (getAll.Invoke(iobj, new object[] { false }) is not IEnumerable items)
+            if (getAll.Invoke(iobj, new object[] { false }) is not IEnumerable all)
                 throw new InvalidOperationException(
                     "CODESYS: GetAllLibraries did not return an enumerable. Refusing rather than reporting a " +
                     "project with no libraries.");
+            var items = all.Cast<object?>().ToList();
 
             // FLAT: each library once (top-level references + their transitive dependencies, deduped by
             // namespace|name). Transitive deps carry namespaces the source references DIRECTLY (e.g. `MEM` from CAA
@@ -103,8 +104,8 @@ namespace Volt.Ide.Codesys
             if (stray.Count > 0)
                 unspelled.Add($"it redirects {stray.Count} placeholder(s) no reference here names ({string.Join(", ", stray)}) — a " +
                               "REDIRECT line stands in the manifest of the placeholder it redirects, and none materializes here");
-            if (ParameterValues(iobj) is { Count: > 0 } parameters)
-                unspelled.Add($"its ParameterTable sets {parameters.Sum(p => p.Values)} library parameter value(s) " +
+            if (ParameterValues(iobj, items) is { Count: > 0 } parameters)
+                unspelled.Add($"sets {parameters.Sum(p => p.Values)} library parameter value(s) " +
                               $"({string.Join(", ", parameters.Select(p => p.Library))}) — CODESYS holds each as an IExpression " +
                               "whose text form Volt has not measured, so no PARAMETER line spells them yet");
             return byName.Values.ToList();
@@ -133,12 +134,28 @@ namespace Volt.Ide.Codesys
             return map;
         }
 
-        /// <summary>The library parameter values the project sets — the manager's archived <c>ParameterTable</c> (census: 3
-        /// managers, 24 values), each entry's library name and how many values it sets.</summary>
-        private static List<(string Library, int Values)> ParameterValues(object libMan)
+        /// <summary>The library parameter values the project sets, each library's name and how many values it sets — where
+        /// the platform keeps them (DIALECT V7, measured from both platforms' <c>LibManObject.plugin.dll</c>): from 3.5.19 the
+        /// manager's archived <c>ParameterTable</c> (census: 3 managers, 24 values); before it each top-level reference's own
+        /// archived <c>Params</c> (<c>AbstractLibManItem.ParametersToSerialize</c>, null when none is set) — the very entries
+        /// a later CODESYS moves into the table on load (<c>LibManObject.MoveParameterListFromItem</c>). The manager's
+        /// absence on 3.5.18.30 is a version fact about WHERE the values live, never that there are none (gate 2a review:
+        /// read that way it dropped them silently). Any other absence refuses the manager by name (<see cref="Archives"/>).
+        /// Never <c>GetParameterValues()</c>: it fills every unset parameter's default into the reference as it answers.</summary>
+        private List<(string Library, int Values)> ParameterValues(object libMan, IEnumerable<object?> items)
         {
             const string what = "the library manager";
             var list = new List<(string, int)>();
+            if (!Archives(libMan, "ParameterTable", what))
+            {
+                foreach (var item in items)
+                {
+                    if (item is null) continue;
+                    var values = Count(ArchivedObject(item, "Params", what));
+                    if (values > 0) list.Add((LibMember(item, "Name") as string ?? throw LibUnreadable(item, "Name"), values));
+                }
+                return list;
+            }
             if (ArchivedObject(libMan, "ParameterTable", what) is not IEnumerable tables)
                 throw Unreadable(what, "LibManObject.ParameterTable");
             foreach (var t in tables)

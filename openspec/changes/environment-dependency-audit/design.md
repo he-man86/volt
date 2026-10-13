@@ -40,3 +40,29 @@ member, type and version; V2 capabilities (start refusal) unchanged; a present m
 walk, no report line) and one on an uncensused version (→ manager unreadable, other items pulled); today both fail the
 walk. Then census → table + V7 → route `ArchivedObject`/`Declared`/`LibMember`/`TaskMember` through it → catch in
 `Walk`. Done when SP18 e2e fails only the expected LD/FBD write refusals.
+
+**Built (2.0, 2026-10-13) — where reality changed the plan, and why.**
+- *Three rows, not one.* The census (DIALECT V7: SP18 3.5.18.30, SP21 3.5.21.40, 32-bit SP21 3.5.21.60, SP22 3.5.22.40;
+  every instance in four fixtures plus a fresh instance of each owner type) found 3.5.18.30 without
+  `LibManObject.ParameterTable` AND without `TaskConfigObject.StackSize` / `UseConfigurableStackSize` — the Task
+  Configuration's `ContainerRefusal` read them too, so on SP18 it was named unreadable and every task under it held back.
+  The declared members/methods read by `Has`/`Declared`/`LibMember`/`TaskMember` are identical on all four, so those
+  sites were NOT routed through the table (a missing one still refuses its item by name — no version fact to record);
+  the table is read only by `Archives` (archive members). Within one platform every instance of a type archives the
+  same list (with and without values), so the rejected per-object inference would never have disagreed — the table
+  stays the key for the rename reason.
+- *Which `.library` files are kept.* `Removal.IsUnreadable` holds items by bare name + kind, and the manager's libraries
+  are not known by name when it is unreadable — so the manager is named with a known (container) kind and its OWN folder
+  is unwalked (absence beside it still means deleted). That protects the `.library` manifests, not the signature files:
+  a fetch whose live library set missed them read them as REMOVED, set `librariesRefreshed`, and the client would have
+  dropped every signature file. `FetchService` now refuses to refresh while a known `.library` is unseen (under an
+  unwalked folder, or walked and unreadable) — red test `LibrariesRefreshedTests.A_walk_that_could_not_read_the_library_folder…`.
+- *The platform reaches the read.* `CodesysObjectModel` takes the platform version (the driver's, DIALECT V1); the
+  archive readers became instance methods. A null platform (not read) is no measured one: every absence refuses.
+- *Gate 2a: the library-refresh hold is per folder, and SP18 parameter values live on the references.* The hold above
+  first fired on ANY unwalked folder; it now asks THE removal rule (`Removal.Removed`), so a library absent from a
+  manager the walk read is removed and refreshes as before 2.0. And `ParameterTable`'s absence on 3.5.18.30 turned out
+  to be a rename of WHERE, not WHETHER: each reference archives its own `Params` there (moved into the table by later
+  versions on load), so on SP18 those are read and named. The rule this adds to the table: a row says the MEMBER is
+  absent; the reading site must state where its fact lives instead, or show (from the vendor's own assembly) that it has
+  none — as the stack settings, which SP18 does not have under any name.

@@ -35,14 +35,19 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// <summary>Over a given host-exe read — the offline tests hand an OEM-shaped one; production reads the current
     /// process (in-proc, so the IDE's own exe).</summary>
     internal CodesysDriver(object? projects, Func<CodesysPlatform.HostExe> readHostExe)
-    {
-        _om = new CodesysObjectModel(projects);
-        _dispatcher = CodesysDispatcher.TryCreate();
+        : this(projects, readHostExe, CodesysPlatform.ReadVersion()) { }
 
+    /// <summary>…and over a given platform version (DIALECT V1) — the offline tests name the platform whose measured
+    /// member availability (<see cref="MemberAvailability"/>, DIALECT V7) they exercise; production reads it off the
+    /// framework.</summary>
+    internal CodesysDriver(object? projects, Func<CodesysPlatform.HostExe> readHostExe, string? platformVersion)
+    {
         // Read ONCE: neither the platform nor its capabilities change under a running IDE. Each capability is the
         // very thing the bridge binds — not a probe of something adjacent — so "missing" here is exactly what would
         // otherwise surface as "no IDE engine" and a PLC_DISCONNECTED on every op.
-        _platformVersion = CodesysPlatform.ReadVersion();
+        _platformVersion = platformVersion;
+        _om = new CodesysObjectModel(projects, _platformVersion);
+        _dispatcher = CodesysDispatcher.TryCreate();
         var missing = new List<CodesysPlatform.Capability>();
         if (_platformVersion == null) missing.Add(CodesysPlatform.Core);
         if (_dispatcher == null) missing.Add(CodesysPlatform.Dispatcher);

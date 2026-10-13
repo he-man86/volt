@@ -115,9 +115,11 @@ public class TaskCallCommentTests
     private static (List<string> Names, List<string> Comments) ReadCalls(IList calls)
     {
         var m = typeof(CodesysObjectModel).GetMethod(
-            "ReadCalls", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            "ReadCalls", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         Assert.NotNull(m);
-        try { return ((List<string>, List<string>))m!.Invoke(null, new object[] { new ArchivedTask(calls), "CODESYS task" })!; }
+        // An instance read: the archive is read against the model's platform (environment-dependency-audit 2.0).
+        var model = new CodesysObjectModel(null, platform: null);
+        try { return ((List<string>, List<string>))m!.Invoke(model, new object[] { new ArchivedTask(calls), "CODESYS task" })!; }
         catch (System.Reflection.TargetInvocationException tie) { throw tie.InnerException!; }
     }
 

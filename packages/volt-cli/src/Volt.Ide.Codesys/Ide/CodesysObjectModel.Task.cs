@@ -82,7 +82,7 @@ namespace Volt.Ide.Codesys
         /// <summary>The calls in order, each with its comment — the task object's <c>PouList</c> (<c>Name</c>,
         /// <c>Comment</c>: the entry's whole persisted contract). A comment the descriptor cannot hold on its <c>Calls:</c>
         /// line — a comma, a line break, a <c>//</c> — refuses the task by name rather than spelling it wrongly.</summary>
-        private static (List<string> Names, List<string> Comments) ReadCalls(object task, string what)
+        private (List<string> Names, List<string> Comments) ReadCalls(object task, string what)
         {
             var names = new List<string>();
             var comments = new List<string>();

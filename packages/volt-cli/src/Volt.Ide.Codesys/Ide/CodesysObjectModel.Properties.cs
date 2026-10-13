@@ -188,9 +188,11 @@ namespace Volt.Ide.Codesys
             {
                 if (Count(ArchivedObject(obj, "alSysEventList", what)) is var events && events > 0)
                     reasons.Add($"{events} system event(s) (alSysEventList)");
-                if (Archived(obj, "StackSize", what) is var stack && stack != "0")
+                // Both absent from 3.5.18.30's archive (DIALECT V7): no stack setting exists there to name.
+                if (Archives(obj, "StackSize", what) && Archived(obj, "StackSize", what) is var stack && stack != "0")
                     reasons.Add($"StackSize {stack} (measured 0 on 5 of 5)");
-                if (Archived(obj, "UseConfigurableStackSize", what) is var configurable && configurable != "false")
+                if (Archives(obj, "UseConfigurableStackSize", what)
+                    && Archived(obj, "UseConfigurableStackSize", what) is var configurable && configurable != "false")
                     reasons.Add($"UseConfigurableStackSize {configurable} (measured false on 5 of 5)");
             }
             if (reasons.Count == 0) return null;
@@ -208,7 +210,7 @@ namespace Volt.Ide.Codesys
         /// refuses the item by name — it used to be read by nothing, so an object holding another value pulled as a plain
         /// one and a create from that text silently made the measured default. Read through the vendor's own archive (the
         /// members the census read), on the classes that archive them.</summary>
-        private static void RequireMeasuredConstants(object iobj, string type, string what)
+        private void RequireMeasuredConstants(object iobj, string type, string what)
         {
             switch (type)
             {
@@ -247,7 +249,7 @@ namespace Volt.Ide.Codesys
                 throw OffConstant(what, "Implementation.ParameterInitializationMethodGenerator", Render(v), "null on 3 of 3");
         }
 
-        private static void RequireConstant(object o, string member, string measured, string where, string what)
+        private void RequireConstant(object o, string member, string measured, string where, string what)
         {
             var held = Archived(o, member, what);
             if (held != measured) throw OffConstant(what, member, held, $"'{measured}' on {where}");
@@ -261,7 +263,7 @@ namespace Volt.Ide.Codesys
 
         /// <summary>A GVL's <c>NetVarProperties</c> — the SENDER's network-variable settings, one per member — or none when
         /// the list sends nothing (the member null, 59 of 60 GVLs).</summary>
-        private static IReadOnlyList<NetVarSetting> SenderSettings(object gvl, string what)
+        private IReadOnlyList<NetVarSetting> SenderSettings(object gvl, string what)
         {
             if (!NwlInterop.Has(gvl, "NetVarProperties") || NwlInterop.Get(gvl, "NetVarProperties") is not { } nv)
                 return Array.Empty<NetVarSetting>();
@@ -269,7 +271,7 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>An NVL's receiver members, then the sender settings it imported (<c>ImportNetVarProperties.*</c>).</summary>
-        private static IReadOnlyList<NetVarSetting> ReceiverSettings(object nvl, string what)
+        private IReadOnlyList<NetVarSetting> ReceiverSettings(object nvl, string what)
         {
             var list = ReceiverMembers.Select(m => Setting(m, Archived(nvl, m, what), what)).ToList();
             if (ArchivedObject(nvl, "ImportNetVarProperties", what) is { } imported)
@@ -293,7 +295,7 @@ namespace Volt.Ide.Codesys
         /// <summary>A text-list enumeration's rows are a MEASURED CACHE of its declaration (<c>textlist-enum-rows-derived</c>,
         /// <c>textlist-enum-edit</c>): rebuilt on every write. What only the vendor's own text-list editor makes — a removed
         /// entry, a language, a translated text — is content Volt has no text form for, refused by name.</summary>
-        private static void RequireTextListRowsOnly(object textListEnum, string what)
+        private void RequireTextListRowsOnly(object textListEnum, string what)
         {
             if (Count(ArchivedObject(textListEnum, "RemovedTextListEntries", what)) > 0)
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -316,15 +318,31 @@ namespace Volt.Ide.Codesys
         /// <summary>An archived member (<c>IArchivable.GetSerializableValue</c>) — the vendor's own member list
         /// (<c>SerializableValueNames</c>), the one the census read — as the text renders it; a member the archive does not
         /// name is refused by name.</summary>
-        private static string Archived(object o, string member, string what) => Render(ArchivedObject(o, member, what));
+        private string Archived(object o, string member, string what) => Render(ArchivedObject(o, member, what));
 
-        private static object? ArchivedObject(object o, string member, string what)
+        private object? ArchivedObject(object o, string member, string what) =>
+            Archives(o, member, what)
+                ? NwlInterop.Call(o, "GetSerializableValue", member)
+                // The census measured this platform without it, and the caller asked anyway: a site that reads a member
+                // with a MemberAvailability row asks Archives first and decides what its absence means there.
+                : throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"{what}: CODESYS {_platform} has no member '{o.GetType().Name}.{member}' (DIALECT V7), and Volt reads it " +
+                    "here with no measured meaning for its absence, so the item is not pulled.");
+
+        /// <summary>Does the archive name <paramref name="member"/>? True when it does; FALSE when it does not and the
+        /// census measured this platform without it (<see cref="MemberAvailability"/>, DIALECT V7) — the fact the member
+        /// would carry does not exist here. Any other absence is no version fact and refuses the item by name: member,
+        /// type, platform, and why (environment-dependency-audit 2.0).</summary>
+        private bool Archives(object o, string member, string what)
         {
             var names = NwlInterop.Declared(o, "SerializableValueNames") as IEnumerable
                 ?? throw Unreadable(what, $"{o.GetType().Name}.SerializableValueNames");
-            if (!names.Cast<object?>().Any(n => n as string == member))
-                throw Unreadable(what, $"{o.GetType().Name}.{member}");
-            return NwlInterop.Call(o, "GetSerializableValue", member);
+            if (names.Cast<object?>().Any(n => n as string == member)) return true;
+            if (MemberAvailability.AbsentOn(_platform, o.GetType().Name, member)) return false;
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what}: the CODESYS member '{o.GetType().Name}.{member}' is absent from the object's archive on CODESYS " +
+                $"{_platform ?? "(platform version unreadable)"} — {MemberAvailability.WhyNotAbsent(_platform)} — so the " +
+                "item is not pulled rather than read without it.");
         }
 
         /// <summary>A vendor value as the text spells it: a bool lower case, a dictionary as <c>key=value</c> pairs sorted by
