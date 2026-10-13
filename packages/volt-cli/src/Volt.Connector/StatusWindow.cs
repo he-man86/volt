@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -190,7 +191,7 @@ namespace Volt.Connector
                 if (File.Exists(VoltEnv.LspExe))
                 {
                     var lspRaw = Exe(VoltEnv.LspExe, "--version");
-                    var lsp = lspRaw.StartsWith("volt-lsp-iec ") ? lspRaw.Substring("volt-lsp-iec ".Length).Trim() : lspRaw;
+                    var lsp = lspRaw.StartsWith("volt-lsp-iec ", StringComparison.Ordinal) ? lspRaw.Substring("volt-lsp-iec ".Length).Trim() : lspRaw;
                     list.Add(("volt-lsp-iec (LSP)", lsp, Sync(lsp)));
                 }
                 else list.Add(("volt-lsp-iec (LSP)", $"not found at {VoltEnv.LspExe}", false));
@@ -250,7 +251,7 @@ namespace Volt.Connector
         private static string BuildId(string v)
         {
             var parts = (v ?? "").Trim().Split('.');
-            if (parts.Length >= 3 && int.TryParse(parts[^1], out var last) && last >= 1000) return last.ToString();
+            if (parts.Length >= 3 && int.TryParse(parts[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var last) && last >= 1000) return last.ToString(CultureInfo.InvariantCulture);
             return Base(v ?? "");   // v is nullable at the call site; Base takes non-null
         }
 

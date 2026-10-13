@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Xml.Linq;
 using System.Collections.Generic;
@@ -520,7 +521,7 @@ public sealed partial class BeckhoffDriver
     /// only one an engineer can read after a pull, stderr is what the headless dev loop and the connector's worker
     /// redirect capture.</summary>
     private static void WarnUnmappedTcCode(int code, string name) =>
-        BridgeLog.WarnOnce(code.ToString(),
+        BridgeLog.WarnOnce(code.ToString(CultureInfo.InvariantCulture),
             $"unmapped TwinCAT TREEITEMTYPE {code} (emitted, then dropped by Core as unmapped-kind): " +
             $"example item='{name}' — add it to ItemKind if it should be tracked");
 }

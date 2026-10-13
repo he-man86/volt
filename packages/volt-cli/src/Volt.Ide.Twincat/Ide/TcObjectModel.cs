@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -245,7 +246,7 @@ internal sealed partial class TcObjectModel
         if (listed != count)
             throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"'{rel}' holds {count} children in the PLC tree, and the Solution Explorer lists " +
-                $"{(listed is { } n ? n.ToString() : "no such folder")}. Volt reads a folder only when the hierarchy " +
+                $"{(listed is { } n ? n.ToString(CultureInfo.InvariantCulture) : "no such folder")}. Volt reads a folder only when the hierarchy " +
                 "vouches for every child — a POU it does not list could be one that crashes TcXaeShell (DIALECT C2i). " +
                 "This folder is not read.");
     }
@@ -653,7 +654,7 @@ internal sealed partial class TcObjectModel
     /// which is why the same archive is valid inside whichever item it is written to.</para></summary>
     public string ResolveGraphicalBody(Volt.Engine.Format.Network.NetworkBody model, string viewMode)
     {
-        var name = "VoltScratch_" + Guid.NewGuid().ToString("N").Substring(0, 12);
+        var name = "VoltScratch_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture).Substring(0, 12);
         var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), name + ".xml");
 
         try

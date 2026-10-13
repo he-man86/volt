@@ -1,0 +1,10 @@
+# The shipped C# (everything under src/): a call that takes the machine's culture by default is a BUILD ERROR
+# (openspec environment-dependency-audit 2.8; gate: Volt.Repo.Gates CultureInvariantOperationsTests). Volt formats,
+# parses and compares identifiers and numbers that must read the same on a Turkish, Russian or German Windows.
+# src/Directory.Build.props sets AnalysisLevel so the netstandard2.0/net48 projects are analysed too.
+[*.cs]
+dotnet_diagnostic.CA1304.severity = error
+dotnet_diagnostic.CA1305.severity = error
+dotnet_diagnostic.CA1309.severity = error
+dotnet_diagnostic.CA1310.severity = error
+dotnet_diagnostic.CA1311.severity = error

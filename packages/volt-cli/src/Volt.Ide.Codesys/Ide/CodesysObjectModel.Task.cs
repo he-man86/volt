@@ -250,7 +250,7 @@ namespace Volt.Ide.Codesys
             if (writeable is not System.Collections.IList list)
                 throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: the writeable call list is a {writeable.GetType().FullName}, which is not an IList " +
-                    $"— it offers: {string.Join(", ", writeable.GetType().GetMethods(BF).Select(m => m.Name).Distinct().OrderBy(n => n))}");
+                    $"— it offers: {string.Join(", ", writeable.GetType().GetMethods(BF).Select(m => m.Name).Distinct().OrderBy(n => n, StringComparer.Ordinal))}");
 
             list.Clear();
             for (var i = 0; i < calls.Count; i++)

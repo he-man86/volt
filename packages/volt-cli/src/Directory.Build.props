@@ -1,0 +1,15 @@
+<Project>
+
+  <!-- The solution-wide defaults one level up (Nullable, LangVersion, ImplicitUsings): MSBuild imports only the NEAREST
+       Directory.Build.props, so this file must import that one or every shipped project silently loses them. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <PropertyGroup>
+    <!-- The globalization analyzers (CA1304/CA1305/CA1309/CA1310/CA1311) are ERRORS in every shipped project — the
+         severities are in src/.editorconfig (openspec environment-dependency-audit 2.8). AnalysisLevel is stated because
+         without it the SDK runs no .NET analyzer on a netstandard2.0/net48/net472 project (measured 2026-10-13): the
+         in-proc CODESYS bridge, the shared engine and the wire would be the projects the rule never reads. -->
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+</Project>

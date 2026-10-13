@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -28,7 +29,7 @@ internal static class RotInstances
     {
         try
         {
-            long hwnd = Convert.ToInt64(((dynamic)dte).MainWindow.HWnd); // EnvDTE exposes HWND as an int/long
+            long hwnd = Convert.ToInt64(((dynamic)dte).MainWindow.HWnd, CultureInfo.InvariantCulture); // EnvDTE exposes HWND as an int/long
             if (hwnd == 0) return 0;
             GetWindowThreadProcessId(new IntPtr(hwnd), out var pid);
             return pid;

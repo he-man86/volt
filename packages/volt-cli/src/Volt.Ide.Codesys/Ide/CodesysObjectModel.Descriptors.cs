@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -38,7 +39,7 @@ namespace Volt.Ide.Codesys
                     throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                         $"CODESYS: the device '{GetName(node)}' answers no '{name}' on its {(o is null ? "(missing) object" : o.GetType().Name)} " +
                         "— Volt reads the named vendor member rather than another or none, so the descriptor is not read.");
-                return Descriptor.Flatten(System.Convert.ToString(GetMember(o, name)));
+                return Descriptor.Flatten(System.Convert.ToString(GetMember(o, name), CultureInfo.InvariantCulture));
             }
             static bool Declares(Type t, string name) =>
                 t.GetProperty(name, BF) is not null || Array.Exists(t.GetInterfaces(), i => i.GetProperty(name) is not null);
@@ -128,9 +129,9 @@ namespace Volt.Ide.Codesys
             ReplaceConstants: GetMember(options, "ReplaceConstants") as bool?,
             UnicodeIdentifiers: GetMember(options, "UnicodeIdentifiers") as bool?,
             Utf8Encoding: GetMember(options, "UTF8Encoding") as bool?,
-            MaxCompilerWarnings: System.Convert.ToString(GetMember(options, "MaxCompilerWarnings")),
+            MaxCompilerWarnings: System.Convert.ToString(GetMember(options, "MaxCompilerWarnings"), CultureInfo.InvariantCulture),
             BreakpointLogging: GetMember(options, "EnableBreakpointLogging") as bool?,
-            ProjectDefines: System.Convert.ToString(GetMember(options, "ProjectDefines")));
+            ProjectDefines: System.Convert.ToString(GetMember(options, "ProjectDefines"), CultureInfo.InvariantCulture));
 
         /// <summary>One warning-id set as the vendor's integers. The ids come back as BARE INTEGERS (371, not C0371)
         /// and the collection is <c>null</c> — not empty — when nothing is configured, which is the vendor's
@@ -142,7 +143,7 @@ namespace Volt.Ide.Codesys
             foreach (var id in ids)
             {
                 if (id == null) continue;
-                if (int.TryParse(System.Convert.ToString(id), out var n)) codes.Add(n);
+                if (int.TryParse(System.Convert.ToString(id, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)) codes.Add(n);
             }
             return codes;
         }
@@ -179,10 +180,10 @@ namespace Volt.Ide.Codesys
                 foreach (var v in vars)
                 {
                     if (v == null) continue;
-                    var name = System.Convert.ToString(GetMember(v, "variablename"))?.Trim() ?? "";
+                    var name = System.Convert.ToString(GetMember(v, "variablename"), CultureInfo.InvariantCulture)?.Trim() ?? "";
                     if (name.Length == 0) continue;
-                    var type = System.Convert.ToString(GetMember(v, "type"))?.Trim() ?? "";
-                    var col = System.Convert.ToString(GetMember(v, "name"))?.Trim() ?? "";
+                    var type = System.Convert.ToString(GetMember(v, "type"), CultureInfo.InvariantCulture)?.Trim() ?? "";
+                    var col = System.Convert.ToString(GetMember(v, "name"), CultureInfo.InvariantCulture)?.Trim() ?? "";
                     sb.Append(name);
                     if (type.Length > 0) sb.Append(" : ").Append(type);
                     if (col.Length > 0) sb.Append("  (").Append(col).Append(')');
@@ -199,7 +200,7 @@ namespace Volt.Ide.Codesys
         {
             var f = Facet(node, facetName);
             var d = new Descriptor();     // auto width: the widest DECLARED label + 2, blank fields included
-            foreach (var fld in fields) d.Add(fld.Label, System.Convert.ToString(GetMember(f, fld.Prop)));
+            foreach (var fld in fields) d.Add(fld.Label, System.Convert.ToString(GetMember(f, fld.Prop), CultureInfo.InvariantCulture));
             return d.ToString();
         }
 

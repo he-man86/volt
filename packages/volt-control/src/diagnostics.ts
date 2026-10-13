@@ -157,6 +157,12 @@ export async function collectDiagnostics(
     warnings += c.warnings
     files.push({ path: fileURLToPath(uri), errors: c.errors, warnings: c.warnings })
   }
-  files.sort((a, b) => b.errors - a.errors || b.warnings - a.warnings || a.path.localeCompare(b.path))
+  files.sort(byFileRank)
   return { errors, warnings, files }
+}
+
+/** The Diagnostics view's file order: most errors, then most warnings, then the path ORDINALLY — the same order on
+ *  every machine (a `localeCompare` sorts by the default locale's collation; openspec environment-dependency-audit 2.8). */
+export function byFileRank(a: FileDiag, b: FileDiag): number {
+  return b.errors - a.errors || b.warnings - a.warnings || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
 }

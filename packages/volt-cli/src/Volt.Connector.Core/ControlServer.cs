@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,7 +74,7 @@ namespace Volt.Connector
         /// reconfigure it. Read here (not in two places) so the single-instance mutex and the listener can't
         /// disagree about which instance this is.</summary>
         public static int ConfiguredPort =>
-            int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), out var p) && p > 0 ? p : ControlPort;
+            int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : ControlPort;
 
         private readonly HttpListener _listener = new();
         // Async so GET /status can refresh-if-stale before answering: a client that polls must not read the tray

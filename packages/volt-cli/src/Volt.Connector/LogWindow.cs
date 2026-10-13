@@ -141,7 +141,7 @@ namespace Volt.Connector
         private void SyncSourceDropdown(List<Row> rows)
         {
             var want = new List<object> { "all sources" };
-            want.AddRange(rows.Select(r => r.Src).Where(s => s.Length > 0 && s != "?").Distinct().OrderBy(s => s));
+            want.AddRange(rows.Select(r => r.Src).Where(s => s.Length > 0 && s != "?").Distinct().OrderBy(s => s, StringComparer.Ordinal));
             if (_source.Items.Cast<object>().SequenceEqual(want)) return;
             var current = _source.SelectedItem as string ?? "all sources";
             _source.Items.Clear();

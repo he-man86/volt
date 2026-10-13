@@ -57,7 +57,7 @@ public static class StWriter
         // would move every mixed-case member of every POU in every existing workspace, producing a diff in
         // the engineer's repo that says nothing changed and means nothing changed.
         var children = item.Members
-            .OrderBy(c => KindOrder(c.Kind))
+            .OrderBy(c => KindOrder(c.Kind), Comparer<int>.Default)
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 

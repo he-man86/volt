@@ -239,7 +239,7 @@ internal static class TreeNav
         // too early — the shallow half of the litter stays.
         foreach (var folder in emptiedFolders.Where(f => !string.IsNullOrEmpty(f))
                                              .Distinct(StringComparer.OrdinalIgnoreCase)
-                                             .OrderByDescending(f => FolderPath.Segments(f).Count()))
+                                             .OrderByDescending(f => FolderPath.Segments(f).Count(), Comparer<int>.Default))
         {
             var path = folder;
             while (!string.IsNullOrEmpty(path))

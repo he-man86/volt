@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -106,7 +107,7 @@ internal static class TcItemArchive
     /// import it into <paramref name="to"/>. The one shape both relocations share.</summary>
     private static void RoundTrip(dynamic from, dynamic to, string name, Action<string>? rewrite, Strays? strays = null)
     {
-        var zip = Path.Combine(Path.GetTempPath(), "volt_move_" + Guid.NewGuid().ToString("N") + ".zip");
+        var zip = Path.Combine(Path.GetTempPath(), "volt_move_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture) + ".zip");
         // Set when the archive becomes the ONLY surviving copy of the item — the source has been deleted and the
         // undo failed too. In that state the file is not a temp artefact, it is the engineer's work.
         var archiveIsLastCopy = false;

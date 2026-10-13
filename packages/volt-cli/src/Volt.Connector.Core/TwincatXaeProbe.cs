@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -71,7 +72,7 @@ namespace Volt.Connector
         {
             var pids = new List<int>();
             foreach (var line in stdout.Split('\n'))
-                if (int.TryParse(line.Trim(), out var pid) && pid > 0 && !pids.Contains(pid)) pids.Add(pid);
+                if (int.TryParse(line.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) && pid > 0 && !pids.Contains(pid)) pids.Add(pid);
             return pids;
         }
     }

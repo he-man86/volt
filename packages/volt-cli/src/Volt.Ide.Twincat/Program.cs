@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
@@ -132,7 +133,7 @@ foreach (var a in args)
     {
         var pid = 0;
         for (int i = 0; i < args.Length - 1; i++)
-            if (args[i] == WorkerCli.ProbeInProc) int.TryParse(args[i + 1], out pid);
+            if (args[i] == WorkerCli.ProbeInProc) int.TryParse(args[i + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out pid);
         if (pid == 0)
         {
             var found = new List<int>();
@@ -281,7 +282,7 @@ foreach (var a in args)
 // stops the process. CODESYS needs no equivalent: its bridge lives inside the IDE and goes when the IDE goes.
 int xaePid = 0;
 for (int i = 0; i + 1 < args.Length; i++)
-    if (args[i] == WorkerCli.XaePid && int.TryParse(args[i + 1], out var p)) xaePid = p;
+    if (args[i] == WorkerCli.XaePid && int.TryParse(args[i + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var p)) xaePid = p;
 if (xaePid == 0)
 {
     VoltLog.Info("no --xae-pid given; looking for a TwinCAT XAE window");

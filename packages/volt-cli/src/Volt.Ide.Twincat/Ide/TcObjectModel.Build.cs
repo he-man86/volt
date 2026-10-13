@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -267,8 +268,8 @@ internal sealed partial class TcObjectModel
         foreach (Match m in regex.Matches(text))
         {
             int lineNum = 0, colNum = 0;
-            if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
-            if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
+            if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out lineNum);
+            if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out colNum);
             var captured = m.Groups[1].Value;
             // The BARE name -- BuildService promotes it to the wire's full `name.kind`. Group 1 is the file the
             // compiler named, and it was captured and DROPPED: the diagnostic kept a line number with nothing to

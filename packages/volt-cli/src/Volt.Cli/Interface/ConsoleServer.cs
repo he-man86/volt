@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -53,7 +54,7 @@ public sealed class ConsoleServer : IDisposable
     /// <summary>The control-plane port this console forwards to — the same override the connector itself
     /// honours, read in one place so the page and the proxy cannot disagree about where it is.</summary>
     private static int ControlPort() =>
-        int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), out var p) && p > 0 ? p : 8550;
+        int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : 8550;
 
     /// <summary>The CLI verbs that can change a project. Kept here rather than inferred from the verb name so
     /// that adding a verb does not silently add a writable one.</summary>

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Globalization;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -47,7 +48,7 @@ public static class Hasher
     private static string ToHex(byte[] bytes)
     {
         var sb = new StringBuilder(bytes.Length * 2);
-        foreach (var b in bytes) sb.Append(b.ToString("x2"));
+        foreach (var b in bytes) sb.Append(b.ToString("x2", CultureInfo.InvariantCulture));
         return sb.ToString();
     }
 }

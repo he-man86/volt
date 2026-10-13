@@ -131,7 +131,7 @@ internal static class NetworkSpelling
     /// declaration at all), so the spec accepts <c>g1 : BOOL; g2 : BOOL;</c> as the canonical <c>g1, g2 : BOOL;</c>.
     /// The one spelling of that comparison, for the reader's token stream and the gate's post-push comparison alike.</summary>
     internal static string WireBlockKey(IEnumerable<(int VarId, string Name, string Type)> wires) =>
-        string.Join(", ", wires.OrderBy(w => w.VarId).Select(w => w.Name + " : " + w.Type));
+        string.Join(", ", wires.OrderBy(w => w.VarId, Comparer<int>.Default).Select(w => w.Name + " : " + w.Type));
 
     /// <summary>Whether <paramref name="t"/> is exactly one token of the text, so it may stand bare.</summary>
     public static bool IsToken(string t) =>

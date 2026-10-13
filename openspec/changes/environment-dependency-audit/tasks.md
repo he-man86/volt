@@ -328,12 +328,31 @@
       `Volt.iss` FindCli/StopOwn/ConnectorRunning on it; gate `InstallerNeedsNoWmiTests` (red on HEAD's WbemScripting). Measured: a
       probe setup including `Processes.iss` listed 464 processes and read an ELEVATED one's path; `Volt.iss` compiles (ISCC 6).
       **Not run:** `test:install` (installs on this machine) — promote.yml runs it on every release; WMI-disabled = VM row 8.
-- [ ] 2.8 Culture-invariant replacements at every site the 1.2 gate names (C# 39 = 29 + 10 default-comparer sorts since
+- [x] 2.8 Culture-invariant replacements at every site the 1.2 gate names (C# 39 = 29 + 10 default-comparer sorts since
       gate 1, TS 1; shipped Python 0 — IronPython's `str.lower()` is invariant, measured at gate 1), emptying the
       `CSharpCensus`/`TypeScriptCensus`, and the
       globalization analyzers (CA1304/CA1305/CA1309/CA1310/CA1311, `AnalysisLevel` set so netstandard2.0/net48 are
       analysed) as errors in the shipped projects, fixing the 29 typed sites they report; remove the `ExpectRed` marks.
       (Added by step 1: 1.1/1.2 are tests first and no fix task named these sites.)
+      **Built 2026-10-14:** all 39 census sites + the 29 analyzer sites replaced: the Parse family with
+      `NumberStyles.Integer, CultureInfo.InvariantCulture` (the style the old call used; ports, pids, git's numbers, TC build
+      line/column), `Convert.To*`/`ToString(fmt)`/`int.ToString()`/`long.ToString()` with `CultureInfo.InvariantCulture` (the
+      8 Descriptors, `RotInstances`, `TcSolutionExplorer`, the 12 `TcPlcOpenWriter` ids, `TcHierarchy`, `BeckhoffDriver.Tree`,
+      `NetworkTextGate`, `Hasher`, `StatusWindow`), `StartsWith(…, Ordinal)`, every sort with its comparer (string keys
+      `StringComparer.Ordinal`, int keys `Comparer<int>.Default`); TS: `volt-control` `byFileRank` (exported, ordinal path) —
+      red first (`diagnostics.test.ts` "files rank … ordinally": `B` before `a`, 1 fail before, green after, also under tr-TR).
+      Analyzers: `packages/volt-cli/src/.editorconfig` (CA1304/CA1305/CA1309/CA1310/CA1311 = error) + `src/Directory.Build.props`
+      (imports the parent, `AnalysisLevel=latest`) — measured that it reaches the old targets: an `int.ToString()` +
+      `"x".ToUpper()` planted in Volt.Ide.Codesys (net48), Volt.Ide.Twincat.Explorer (net472) and Volt.Wire (netstandard2.0)
+      fails each build with CA1304/CA1305/CA1311 (removed). Gate: both censuses gone (empty → the ratchet was the
+      no-offence test twice; removed with `AssertCensus`), the three `ExpectRed` marks removed, the analyzer test also
+      requires `AnalysisLevel` in `src/Directory.Build.props`. Shipped Python: 0 sites (unchanged).
+      **Numbers:** `dotnet build Volt.sln -c Debug` 0 errors; Repo.Gates 243/0 (and 243/0 under `VOLT_TEST_CULTURE=tr-TR`),
+      Contracts 37/0, Engine 2532/0/1 skip, Cli 295/0, Connector 148/0, Ide.Twincat 502/0, Ide.Codesys (net48) 403/0,
+      Relay 64/0; volt-control 140/0 (tr-TR 140/0), typecheck green; volt-cli `test/unit` 144/0; lint 0 errors; LSP full
+      suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`) 10154 pass / 34 skip / 428 todo / 0 fail (362 files, 973 s) — a
+      first run beside the headless CODESYS fixture runs timed out `interp — no iteration cap > FOR / REPEAT / WHILE` once
+      at 5.3 s (1.3 s alone, green twice alone and in the unloaded full rerun; no LSP file changed).
 
 ## 3. Release gate and VM checklist
 

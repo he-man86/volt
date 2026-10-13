@@ -40,7 +40,7 @@ internal static class ExplorerProgram
             }
             catch (Exception ex) { Console.Error.Write(ex.Message); return CodeOf(ex); }
         }
-        if (Array.IndexOf(args, "--serve") < 0 || !int.TryParse(Arg(args, "--xae-pid"), out var pid))
+        if (Array.IndexOf(args, "--serve") < 0 || !int.TryParse(Arg(args, "--xae-pid"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid))
         { Console.Error.Write(Usage); return Failed; }
 
         ComMessageFilter.Register();

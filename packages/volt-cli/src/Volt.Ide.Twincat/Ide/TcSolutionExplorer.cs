@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -246,7 +247,7 @@ internal static class TcSolutionExplorer
 
     private static string? Unread(List<string> unread) => unread.Count == 0 ? null : string.Join("; ", unread);
 
-    private static uint ItemId(object v) => v is int i ? unchecked((uint)i) : Convert.ToUInt32(v);
+    private static uint ItemId(object v) => v is int i ? unchecked((uint)i) : Convert.ToUInt32(v, CultureInfo.InvariantCulture);
 
     private static void Check(int hr, string what)
     {

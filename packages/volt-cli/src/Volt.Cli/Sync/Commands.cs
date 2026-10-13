@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Sync;
@@ -77,7 +78,7 @@ public static class Commands
         {
             Bridge = new() { Vendor = platform },
             Project = new() { Platform = platform, ProjectName = projectName },
-            LinkedAt = DateTime.UtcNow.ToString("o"),
+            LinkedAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
             TextFormat = Config.CurrentTextFormat,   // init pulls every file in the current format
         });
 

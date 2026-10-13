@@ -268,7 +268,7 @@ public static class PushService
                               .ToDictionary(g => g.Key, g => g.First().i, StringComparer.OrdinalIgnoreCase);
             return RejectAll(conflicts.Concat(preflight)
                 .Select((c, k) => (c, k))
-                .OrderBy(x => position.TryGetValue(x.c.Name, out var at) ? at : int.MaxValue).ThenBy(x => x.k)
+                .OrderBy(x => position.TryGetValue(x.c.Name, out var at) ? at : int.MaxValue, Comparer<int>.Default).ThenBy(x => x.k, Comparer<int>.Default)
                 .Select(x => x.c).ToList());
         }
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
@@ -629,8 +629,8 @@ public static class PushService
     /// <see cref="DeclarationsIn"/>). This is a preference that removes a vendor refusal, not a guarantee.</para></summary>
     private static IEnumerable<PushOp> InFolderDepthOrder(IReadOnlyList<PushOp> ops) =>
         ops.Select((op, i) => (op, i))
-           .OrderByDescending(x => x.op is SetItemOp { ToFolder: { } f } ? Depth(f) : 0)
-           .ThenBy(x => x.i)
+           .OrderByDescending(x => x.op is SetItemOp { ToFolder: { } f } ? Depth(f) : 0, Comparer<int>.Default)
+           .ThenBy(x => x.i, Comparer<int>.Default)
            .Select(x => x.op);
 
     /// <summary>How many folders deep a placement is. Empty or null is the top level, depth 0.</summary>

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Globalization;
+using System.Diagnostics;
 using System.Text;
 
 namespace Volt.Cli.Sync;
@@ -426,7 +427,7 @@ public static class Git
             {
                 if (i + 2 >= f.Length) break;
                 rows.Add(new DiffRow(DiffKinds.Rename, OldPath: f[i + 1], NewPath: f[i + 2],
-                    Identical: int.TryParse(status.Substring(1), out var pct) && pct >= 100));
+                    Identical: int.TryParse(status.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pct) && pct >= 100));
                 i += 2;
                 continue;
             }
@@ -509,7 +510,7 @@ public static class Git
             var header = Encoding.UTF8.GetString(buf, pos, nl - pos);
             pos = nl + 1;
             if (header.EndsWith(" missing", StringComparison.Ordinal)) continue;
-            var size = int.Parse(header.Substring(header.LastIndexOf(' ') + 1));
+            var size = int.Parse(header.Substring(header.LastIndexOf(' ') + 1), NumberStyles.Integer, CultureInfo.InvariantCulture);
             var content = new byte[size];
             Array.Copy(buf, pos, content, 0, size);
             pos += size + 1; // content + its trailing '\n'

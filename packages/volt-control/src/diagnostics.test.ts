@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-protocol/node"
-import { countDiagnostics, describeDiagnostics } from "./diagnostics.js"
+import { byFileRank, countDiagnostics, describeDiagnostics } from "./diagnostics.js"
 
 const diag = (severity: number, source?: string): Diagnostic => ({
   range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
@@ -28,4 +28,12 @@ test("the summary pluralizes each count independently", () => {
   expect(describeDiagnostics({ errors: 0, warnings: 0 })).toBe("0 errors, 0 warnings")
   expect(describeDiagnostics({ errors: 1, warnings: 1 })).toBe("1 error, 1 warning")
   expect(describeDiagnostics({ errors: 2, warnings: 1 })).toBe("2 errors, 1 warning")
+})
+
+// openspec environment-dependency-audit 2.8: the order is the same on every machine — ordinal on the path, never the
+// default locale's collation (which puts "a" before "B", and under tr-TR orders "I"/"ı" its own way).
+test("files rank by errors, then warnings, then the path ordinally", () => {
+  const f = (path: string, errors = 1, warnings = 0) => ({ path, errors, warnings })
+  const ranked = [f("/p/b.st"), f("/p/B.st"), f("/p/a.st"), f("/p/I.st"), f("/p/z.st", 2), f("/p/y.st", 1, 1)].sort(byFileRank)
+  expect(ranked.map((x) => x.path)).toEqual(["/p/z.st", "/p/y.st", "/p/B.st", "/p/I.st", "/p/a.st", "/p/b.st"])
 })

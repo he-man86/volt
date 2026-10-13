@@ -363,7 +363,7 @@ namespace Volt.Connector
                 // disambiguate two same-NAMED projects — identity is vendor+name, so those collapse into one row
                 // upstream in ConnectionManager; see the name-identity limit in ARCHITECTURE.md.)
                 var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-                foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.ProjectName, StringComparer.OrdinalIgnoreCase))
+                foreach (var p in _conn.Projects.OrderBy(x => x.Vendor, StringComparer.Ordinal).ThenBy(x => x.ProjectName, StringComparer.OrdinalIgnoreCase))
                 {
                     var serving = _conn.IsServingProject(p.Id);
                     var paused = _conn.ForceOffIds.Contains(p.Id);

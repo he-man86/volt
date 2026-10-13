@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Globalization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
@@ -161,7 +162,7 @@ internal static class TcPlcOpenWriter
         /// may carry flags. Reproduced verbatim so an import looks like an export.</summary>
         public void EmitAttributeMarker() =>
             _root.Add(new XElement(Namespaces.Tc6 + "vendorElement",
-                new XAttribute("localId", Id().ToString()),
+                new XAttribute("localId", Id().ToString(CultureInfo.InvariantCulture)),
                 Position(),
                 new XElement(Namespaces.Tc6 + "alternativeText",
                     new XElement(Namespaces.Xhtml + "xhtml",
@@ -209,7 +210,7 @@ internal static class TcPlcOpenWriter
         {
             var id = Id();
             _root.Add(new XElement(Namespaces.Tc6 + "inVariable",
-                new XAttribute("localId", id.ToString()),
+                new XAttribute("localId", id.ToString(CultureInfo.InvariantCulture)),
                 Position(),
                 new XElement(Namespaces.Tc6 + "connectionPointOut"),
                 new XElement(Namespaces.Tc6 + "expression", "")));
@@ -220,7 +221,7 @@ internal static class TcPlcOpenWriter
         {
             var id = Id();
             _root.Add(new XElement(Namespaces.Tc6 + "inVariable",
-                new XAttribute("localId", id.ToString()),
+                new XAttribute("localId", id.ToString(CultureInfo.InvariantCulture)),
                 Position(),
                 new XElement(Namespaces.Tc6 + "connectionPointOut"),
                 new XElement(Namespaces.Tc6 + "expression", leaf.Operand.Text)));
@@ -283,7 +284,7 @@ internal static class TcPlcOpenWriter
 
             var id = Id();
             var block = new XElement(Namespaces.Tc6 + "block",
-                new XAttribute("localId", id.ToString()),
+                new XAttribute("localId", id.ToString(CultureInfo.InvariantCulture)),
                 // The model's type IS the block's: network text v2's reader takes an FB call's type from the declarations
                 // (`NetworkScope`), so a pushed model arrives as a pull reads it — `Type: "TON", Instance: "t1"`. (v1
                 // built `Type: "t1"` and this writer resolved it; that resolver went with the v1 text, task 3.9.)
@@ -298,7 +299,7 @@ internal static class TcPlcOpenWriter
                     new XAttribute("formalParameter", "EN"),
                     new XElement(Namespaces.Tc6 + "connectionPointIn",
                         new XElement(Namespaces.Tc6 + "connection",
-                            new XAttribute("refLocalId", enId.ToString())))));
+                            new XAttribute("refLocalId", enId.ToString(CultureInfo.InvariantCulture))))));
 
             for (int i = 0; i < wired.Count; i++)
             {
@@ -310,7 +311,7 @@ internal static class TcPlcOpenWriter
                     new XAttribute("formalParameter", input.Formal ?? PositionalPinName(i)),
                     new XElement(Namespaces.Tc6 + "connectionPointIn",
                         new XElement(Namespaces.Tc6 + "connection",
-                            new XAttribute("refLocalId", producer.ToString())))));
+                            new XAttribute("refLocalId", producer.ToString(CultureInfo.InvariantCulture))))));
             }
 
             // ONE output pin, named `Out1` - the name the vendor's own exporter gives an operator's single
@@ -354,11 +355,11 @@ internal static class TcPlcOpenWriter
             foreach (var target in assign.Targets)
             {
                 _root.Add(new XElement(Namespaces.Tc6 + "outVariable",
-                    new XAttribute("localId", Id().ToString()),
+                    new XAttribute("localId", Id().ToString(CultureInfo.InvariantCulture)),
                     Position(),
                     new XElement(Namespaces.Tc6 + "connectionPointIn",
                         new XElement(Namespaces.Tc6 + "connection",
-                            new XAttribute("refLocalId", producer.ToString()))),
+                            new XAttribute("refLocalId", producer.ToString(CultureInfo.InvariantCulture)))),
                     new XElement(Namespaces.Tc6 + "expression", target.Text)));
             }
             return null;
@@ -379,7 +380,7 @@ internal static class TcPlcOpenWriter
         private long? EmitReturn(Assign ret)
         {
             var el = new XElement(Namespaces.Tc6 + "return",
-                new XAttribute("localId", Id().ToString()),
+                new XAttribute("localId", Id().ToString(CultureInfo.InvariantCulture)),
                 Position());
 
             // A CONDITIONAL return is wired to its condition. The empty TERMINATOR is the model's one
@@ -406,7 +407,7 @@ internal static class TcPlcOpenWriter
                 : Emit(ret.Value) ?? throw Invariant("a RETURN conditioned on a statement, which produces no value");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
-                    new XAttribute("refLocalId", source.ToString()))));
+                    new XAttribute("refLocalId", source.ToString(CultureInfo.InvariantCulture)))));
 
             _root.Add(el);
             return null;      // a return produces no value for anything to consume
@@ -427,7 +428,7 @@ internal static class TcPlcOpenWriter
                 throw Refuse($"has a jump with {jump.Targets.Count} destinations");
 
             var el = new XElement(Namespaces.Tc6 + "jump",
-                new XAttribute("localId", Id().ToString()),
+                new XAttribute("localId", Id().ToString(CultureInfo.InvariantCulture)),
                 new XAttribute("label", jump.Targets[0].Text),
                 Position());
 
@@ -439,7 +440,7 @@ internal static class TcPlcOpenWriter
                 : Emit(jump.Value) ?? throw Invariant("a jump conditioned on a statement, which produces no value");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
-                    new XAttribute("refLocalId", source.ToString()))));
+                    new XAttribute("refLocalId", source.ToString(CultureInfo.InvariantCulture)))));
 
             _root.Add(el);
             return null;      // a jump produces no value for anything to consume

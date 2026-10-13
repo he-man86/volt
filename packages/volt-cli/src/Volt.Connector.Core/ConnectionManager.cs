@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -153,7 +154,7 @@ namespace Volt.Connector
         /// client's first sync reconciles.</summary>
         public async Task<(string SessionId, double LeaseSeconds)> OpenSessionAsync()
         {
-            var id = Guid.NewGuid().ToString("N");
+            var id = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
             await _gate.WaitAsync().ConfigureAwait(false);
             try { UpsertSession(id, Array.Empty<Interest>()); }
             finally { _gate.Release(); }

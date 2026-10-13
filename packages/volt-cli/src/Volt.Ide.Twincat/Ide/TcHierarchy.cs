@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -108,7 +109,7 @@ internal static class TcHierarchy
             if (_served is not { HasExited: false })
             {
                 _served?.Dispose();
-                _served = Start(ideDir, redirectError: false, "--serve", "--xae-pid", xaePid.ToString());
+                _served = Start(ideDir, redirectError: false, "--serve", "--xae-pid", xaePid.ToString(CultureInfo.InvariantCulture));
             }
             var p = _served;
             p.StandardInput.WriteLine(plcProject);
@@ -122,7 +123,7 @@ internal static class TcHierarchy
             if (reply.Result is not { } answer)
             {
                 Stop(p);
-                throw new InvalidOperationException($"{HelperExe} ended without an answer (exit {(p.HasExited ? p.ExitCode.ToString() : "?")})");
+                throw new InvalidOperationException($"{HelperExe} ended without an answer (exit {(p.HasExited ? p.ExitCode.ToString(CultureInfo.InvariantCulture) : "?")})");
             }
             var space = answer.IndexOf(' ');
             var (code, rest) = space < 0 ? (answer, "") : (answer.Substring(0, space), answer.Substring(space + 1));

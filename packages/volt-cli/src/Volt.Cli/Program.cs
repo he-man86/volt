@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Globalization;
+using System.Diagnostics;
 using System.Text.Json;
 using Volt.Cli.Sync;
 using Volt.Wire;
@@ -354,7 +355,7 @@ internal static class Program
         var requested = a.Value("--port");
         int port;
         if (requested is null || requested.Length == 0) port = DefaultConsolePort;
-        else if (!int.TryParse(requested, out port) || port < 1 || port > 65535)
+        else if (!int.TryParse(requested, NumberStyles.Integer, CultureInfo.InvariantCulture, out port) || port < 1 || port > 65535)
         {
             Console.Error.WriteLine($"--port '{requested}' is not a port number (1-65535)");
             return 1;
