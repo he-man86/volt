@@ -263,7 +263,7 @@ internal sealed partial class TcObjectModel
         var parsed = new List<(BridgeDiagnostic, string)>();
         var regex = new Regex(
             @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
-            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Multiline);
         foreach (Match m in regex.Matches(text))
         {
             int lineNum = 0, colNum = 0;
@@ -416,7 +416,7 @@ internal sealed partial class TcObjectModel
         var line = text.Substring(start, end - start).TrimEnd('\r');
         if (line.Length == 0) return false;
         // its own diagnostic - the same shape the top-level regex matches
-        if (Regex.IsMatch(line, @"^.+?(?:\(\d+(?:,\d+)?\))?\s*:\s*(error|warning|message)\s*:\s*", RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(line, @"^.+?(?:\(\d+(?:,\d+)?\))?\s*:\s*(error|warning|message)\s*:\s*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
             return true;
         // the build's own running commentary, which no compiler message continues into
         foreach (var chrome in BuildChrome)

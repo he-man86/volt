@@ -91,8 +91,11 @@ public static class VoltLog
         }
     }
 
-    private static string PathFor(string source) => Path.Combine(_dir, $"{source}-{DateTime.Now:yyyy-MM-dd}.log");
-    private static string Timestamp() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+    // Invariant: under a culture with another calendar (th-TH: Buddhist, ar-SA: Hijri) these named a different year,
+    // and a log the tray reads by today's Gregorian name went missing.
+    private static string PathFor(string source) =>
+        Path.Combine(_dir, $"{source}-{DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}.log");
+    private static string Timestamp() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
 
     private static void Prune()
     {

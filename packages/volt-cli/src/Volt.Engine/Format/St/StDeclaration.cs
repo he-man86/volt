@@ -92,9 +92,9 @@ public static class StDeclaration
     // `EXTENDS Base`, allowing a namespaced base (`NS.FB_Base`) because CODESYS writes one.
     private static readonly Regex ExtendsClause = new(
         @"\bEXTENDS\s+(?<base>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-    private static readonly Regex EndVar = new(@"\bEND_VAR\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex EndVar = new(@"\bEND_VAR\b", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     /// <summary>The TYPE a graphical box calls, for the call targets a POU's own declaration cannot answer
     /// alone.

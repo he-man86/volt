@@ -173,7 +173,7 @@ foreach (var a in args)
                 ("xae base   ", "TwinCAT XAE|System Manager"),
             })
             {
-                var hit = mods.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.ModuleName, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                var hit = mods.Where(m => System.Text.RegularExpressions.Regex.IsMatch(m.ModuleName, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant))
                               .Select(m => m.ModuleName).Distinct().Take(6).ToList();
                 Console.WriteLine($"{label}: {(hit.Count == 0 ? "(not loaded)" : string.Join(", ", hit))}");
             }

@@ -33,6 +33,31 @@ public class VoltLogTests
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
 
+    /// <summary>The file name and the timestamp are GREGORIAN whatever the machine's culture (environment audit,
+    /// 2026-10-13): under th-TH the culture's calendar is Buddhist, so `yyyy` named the year 543 years on, and the
+    /// tray, the support bundle and test-install.ts — which look for today's Gregorian name — found no log.</summary>
+    [Fact]
+    public void The_log_file_is_named_by_the_gregorian_date_under_a_buddhist_calendar_culture()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "volt-log-test-" + Guid.NewGuid().ToString("N"));
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+            VoltLog.Init("culture", dir);
+            VoltLog.Warn("a line");
+
+            var file = Path.GetFileName(Assert.Single(Directory.GetFiles(dir, "culture-*.log")));
+            Assert.Equal($"culture-{DateTime.Now.Year:D4}-", file.Substring(0, "culture-".Length + 5));
+            Assert.Contains($"[{DateTime.Now.Year:D4}-", File.ReadAllText(Path.Combine(dir, file)));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = before;
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
+
     [Fact]
     public void A_workers_raw_output_is_tagged_with_the_worker_source()
     {
