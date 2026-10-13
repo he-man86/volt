@@ -598,8 +598,15 @@ function Save-Projects([string[]]$paths) {
 # ── codesys: in-proc host ──────────────────────────────────────────────────────────────────────────────────
 
 function Up-Codesys {
-    $install = "C:\Program Files\CODESYS $CodesysVersion"
+    # A CODESYS version installs 64-bit under "Program Files" or 32-bit under "Program Files (x86)" (2026-10-13: the
+    # dev machine gained 32-bit 3.5.21.60). The version names one edition; one installed in BOTH is refused by name
+    # rather than guessed (a bitness switch is environment-dependency-audit 2.6).
+    $candidates = @("C:\Program Files\CODESYS $CodesysVersion", "C:\Program Files (x86)\CODESYS $CodesysVersion") |
+        Where-Object { Test-Path (Join-Path $_ "CODESYS\Common\CODESYS.exe") }
+    if ($candidates.Count -gt 1) { throw "CODESYS $CodesysVersion is installed both 64-bit and 32-bit ($($candidates -join ', ')) - name one install" }
+    $install = if ($candidates.Count -eq 1) { @($candidates)[0] } else { "C:\Program Files\CODESYS $CodesysVersion" }
     $exe     = Join-Path $install "CODESYS\Common\CODESYS.exe"
+    Write-Host ("CODESYS edition: " + $(if ($install -like "*(x86)*") { "32-bit" } else { "64-bit" }))
     # The SHIPPED bridge: the merged one-assembly bundle (Volt.Ide.Codesys.csproj, target VoltBundle), never the
     # build output beside it, whose loose Volt/System.Text.Json DLLs no user ever receives.
     $dll     = Join-Path $ROOT "src\Volt.Ide.Codesys\bin\Release\net48\bundle\Volt.Ide.Codesys.dll"
