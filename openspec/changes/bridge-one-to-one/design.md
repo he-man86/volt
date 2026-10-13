@@ -1,9 +1,55 @@
 # Design — bridge-one-to-one
 
-> **State.** This file was started by step 0 (the census, tasks 0.1 / 0.2) and holds MEASUREMENTS only: §0.1 the
-> schema census per item kind per vendor, §0.2 the read/write inventory. The disposition table (every member →
-> spelled / measured editor cache / refused by name), the contract and the `%`-line forms are tasks 1.1-1.3 and are
-> not decided here. Nothing below is a decision; where a row says "candidate" it names what 1.1 must decide.
+> **State.** §1 (step 1, tasks 1.1-1.3) holds the DECISIONS. §0.1 / §0.2 (step 0) hold MEASUREMENTS only; a
+> "candidate" there is decided in §1.
+
+## 1. Design (decided 2026-10-13)
+
+**Target.** Every vendor member is spelled, a measured cache, or refused by name (§0.1 census counts in brackets).
+
+**The carrier — chosen: a closed, typed `ObjectProperties` record on `ItemContent` and `Member`, spelled as `%`-lines,
+the directive form `%FOLDER` already is.** Each property is a named field; the vendor-neutral name is the text form; a
+driver that reads a vendor member no field names refuses the item by name (the completeness oracle's failure).
+Rejected: `{attribute …}` pragmas in the declaration (CODESYS compiles them — the property would become code);
+a sidecar file per item (two files per wire key); an open key/value bag mirroring the vendor archive (vendor
+representation above the seam, and the vendors' values differ for the same class — `SFCProperty` 3.4.2.0 vs 4.4.0.0).
+
+**Grammar.** One property per line, `%KEY` (flag) or `%KEY value`; a string value is an ST string literal (`$`-escapes,
+one line). Placement is `%FOLDER`'s rule for every object: directly under the object's `IMPLEMENTATION` line, else
+closing its declaration; `%CLASS` first, then `%FOLDER`, then the table's order. A flag's absence spells the one
+value measured on every occurrence (false); the READ still requires the vendor member present — missing refuses.
+The LSP's `frontend/syntax/format` peels them as it peels `%FOLDER`.
+
+| member (vendor) | disposition — text form |
+|---|---|
+| class: check function [15], NVL [1], persistent [4], text-list enum [3] | `%CLASS CHECK <SpecialFunc>`, `%CLASS NVL`, `%CLASS PERSISTENT`, `%CLASS TEXTLIST_ENUM`; create makes the class (`create-each-class`) or refuses by name |
+| `AbstractPOUMethodObject` [10] | derived from `ABSTRACT` in the declaration if `abstract-member-equivalence` proves it, else `%CLASS ABSTRACT`; `AbstractMemberFold` deleted either way |
+| `BuildProperty` (7 members) on items + members [56] | `%EXCLUDE_FROM_BUILD` [11], `%LINK_ALWAYS` [3], `%EXTERNAL`, `%ENABLE_SYSTEM_CALL`, `%ONLINE_CHANGE_RESERVE <n>` [15], `%COMPILER_DEFINES '…'`, `%UNDEFINES '…'` |
+| `DocumentationProperty` [0], `NetVarProperties` [2], `FileLink` [1] | `%COMMENT '…'`, `%NETVAR <key>: <value>` (one per member), `%FILE_LINK <LinkType> '<path>'` |
+| text-list enum rows [109] | cache if `textlist-enum-rows-derived` shows CODESYS rebuilds them from the declaration; else spelled. Language texts [0]: refused by name |
+| accessor `IsGet` | the `GET`/`SET` keyword, now READ from `IsGet` (name rule deleted) |
+| task: external event [0], call comment [0], disabled-watchdog values [3], TwinCAT TaskDef members | labels `External event:`, `Calls:` entry `Name // comment`, `Watchdog: off <time> <unit> <sens>`; `Core` / `TaskGroup` / `AllowEmpty` / `Implicit` / `WithinSPSTimeSlicing` / `SynchTask` (constant 13/13) labelled only off their measured value |
+| library `LinkAllContent` [5], `QualifiedOnly` [1], `ParameterTable` [3], redirections [193]; TwinCAT `SYSTEM` | manifest lines `LINKALLCONTENT`, `QUALIFIEDONLY`, `PARAMETER`, `REDIRECT`; TwinCAT reads `SYSTEM` (`tc-library-system`) |
+| device `Disable` [2] | `.device` descriptor `Disabled:` |
+| interface property accessor declarations (TwinCAT) | read like CODESYS (`tc-itf-accessor-decl`) |
+| stub manifest | ONE form on both vendors: `ItemKind.EmptyManifest` (`kind\n`); TwinCAT's `Name=` dropped (the name is the file) |
+| TwinCAT DUT create (606 seed) | the pulled subtype, or refused by name (`tc-dut-create-reload`) |
+| member order, trailing newlines, folder order | written in vendor order (the re-sort deleted) unless `member-order` / `folder-order` prove order a cache; newline per `trailing-newline-cache` |
+| caches, to be proved in 1.3: `LineInfoPersistence`, `Timestamp`, `UniqueIdGenerator`, TwinCAT `LineIds`, `.TcTTO` GUIDs, object GUID | measured cache (a row each), never written |
+
+**Refused by name** (pull warns naming item + property; a push never writes it; a create that would need it refuses):
+`POUImageProperty` [2, 449 KB binary], `SFCProperty` / `CFCProperty` (they belong to the UNSUPPORTED body),
+`ObjectAccessProperty` [0, rights], a folder's `BuildProperty` [4 excluded folders — folders are not items; listed for
+the owner], Task-Configuration system events [1, not an item], `EmbeddedFileObject` [2], standalone SFC transitions
+[0; deviates from task 1.2's member blocks — "niche: accepted loss (0 occurrences in the corpora)"; the embedded ones
+travel inside the unsupported SFC body]. Every fallback of proposal 8 is deleted: a missing fact refuses by name.
+
+**Re-type / rename** keeps the object: rename through the vendor's rename (GUID kept); a re-type only where the
+vendor allows it in place (`abstract-member-equivalence`), else refused by name — never delete + create.
+
+**Migration.** A format extension: a re-pull writes the new lines. An OLD text lacks them and would push "not
+excluded" over an excluded object, so the binding records the text-format version and a push from an older one
+refuses by name ("re-pull: the text predates object properties"). New forms go to the owner in the close report.
 
 ## 0.1 Schema census (measured 2026-10-13)
 
