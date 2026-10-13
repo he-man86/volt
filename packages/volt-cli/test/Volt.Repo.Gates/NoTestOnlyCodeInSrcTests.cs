@@ -55,6 +55,10 @@ public class NoTestOnlyCodeInSrcTests
                                "pipes instead of a live machine — its production caller passes the real list " +
                                "from the same file",
 
+        ["IsDteMoniker"] = "which ROT entries are an XAE's DTE, split out so the 64-bit TcXaeShell64's moniker is " +
+                           "pinned offline (no 64-bit XAE runs here); its production caller is the ROT walk in the " +
+                           "same file (RotInstances.EnumRunningDtesOnce)",
+
         ["ReaderFor"] = "the hierarchy-reader RULE (reader bitness = XAE bitness, DIALECT C2t), split out so every " +
                         "cell — a 64-bit TcXaeShell64 included, which no machine here runs — is driven offline; its " +
                         "production callers (TcHierarchy.Read / Missing) pass the live bitnesses from the same file",

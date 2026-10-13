@@ -254,14 +254,16 @@ function Wait-ForPipe([string]$vendor, [int[]]$before) {
 # Where TcXaeShell keeps AutoRecover state (measured): one `<xae pid>.dat` + `<xae pid>.suodat` per XAE that had
 # unsaved changes at an autosave tick, removed on a clean exit. Keyed by PID, not path — the solution path is INSIDE
 # the file — so it is cleared by content: only entries naming this instance's copy, and never a live XAE's.
-$XAE_RECOVERY = Join-Path $env:APPDATA "Beckhoff\TcXaeShell\15.0_IsoShell\AutoRecoverDat"
+$XAE_RECOVERY = Join-Path $env:APPDATA "Beckhoff\TcXaeShell\15.0_IsoShell\AutoRecoverDat"   # TcXaeShell 15's; TcXaeShell64's is unmeasured
+# The XAE shells' process names: TcXaeShell 15 (32-bit) and TwinCAT 3.1.4026's 64-bit TcXaeShell64.
+$XAE_SHELLS = @("TcXaeShell", "TcXaeShell64")
 
 # The XAEs holding this instance's copy, by COMMAND LINE — how a Restart-Manager relaunch is found, since no record
 # names it. Exact per instance (Get-CopyRoot ends in a separator), so another instance's window is never matched.
 function Get-CopyHolders([string]$vendor) {
     if ($vendor -ne "twincat") { return @() }   # CODESYS's command line carries no project path (it travels in env)
     $root = Get-CopyRoot $vendor
-    @(Get-CimInstance Win32_Process -Filter "Name='TcXaeShell.exe'" -ErrorAction SilentlyContinue |
+    @(Get-CimInstance Win32_Process -Filter "Name='TcXaeShell.exe' OR Name='TcXaeShell64.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
         ForEach-Object { [int]$_.ProcessId })
 }
@@ -359,14 +361,14 @@ function Close-Ours([int]$procId, [int]$timeoutSec = 90) {
     if ($null -eq $p) { return }
     $name = $p.ProcessName
     $child = $null
-    if ($name -eq "TcXaeShell") {
+    if ($XAE_SHELLS -contains $name) {
         $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($XAE_CLOSE.Replace("__PID__", "$procId")))
         $child = Start-Process powershell -ArgumentList "-NoProfile", "-NonInteractive", "-EncodedCommand", $enc -WindowStyle Hidden -PassThru
     } elseif ($name -eq "CODESYS") {
         Close-CodesysClean $p $timeoutSec
     }
     # A worker has nothing to recover and nothing to save: it is not "closed cleanly", it is just stopped (below).
-    if ($name -eq "TcXaeShell" -or $name -eq "CODESYS") {
+    if (($XAE_SHELLS -contains $name) -or $name -eq "CODESYS") {
         if ($p.WaitForExit($timeoutSec * 1000)) {
             Write-Host "closed $name $procId cleanly"
             if ($child -and -not $child.HasExited) { Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue }
@@ -402,7 +404,7 @@ function Clear-InstanceLeftovers([string]$vendor) {
     if ($vendor -eq "twincat" -and (Test-Path $XAE_RECOVERY)) {
         foreach ($dat in @(Get-ChildItem $XAE_RECOVERY -Filter "*.dat" -File -ErrorAction SilentlyContinue)) {
             $owner = $dat.BaseName
-            if ($owner -match '^\d+$' -and (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq "TcXaeShell" })) { continue }
+            if ($owner -match '^\d+$' -and (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue | Where-Object { $XAE_SHELLS -contains $_.ProcessName })) { continue }
             $bytes = [IO.File]::ReadAllBytes($dat.FullName)
             $text = [Text.Encoding]::Unicode.GetString($bytes) + [Text.Encoding]::UTF8.GetString($bytes)
             # WITH the separator: the default instance's `volt-ide-twincat` is a prefix of every other instance's copy.
@@ -655,10 +657,33 @@ function Up-Codesys {
 
 # ── twincat: out-of-process worker ─────────────────────────────────────────────────────────────────────────
 
+# The installed XAE shells, found the way COM finds them: each `TcXaeShell*.DTE.<ver>` ProgID's CLSID ->
+# LocalServer32, in both registry views. It was one hard-coded path to the 32-bit TcXaeShell 15; TwinCAT 3.1.4026 can
+# install the 64-bit TcXaeShell64 instead, somewhere else. The 32-bit shell sorts first: the committed fixtures are
+# TwinCAT 4024 projects.
+function Resolve-XaeShells {
+    $found = @()
+    foreach ($view in [Microsoft.Win32.RegistryView]::Registry32, [Microsoft.Win32.RegistryView]::Registry64) {
+        $hkcr = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::ClassesRoot, $view)
+        foreach ($progId in @($hkcr.GetSubKeyNames() | Where-Object { $_ -match '^TcXaeShell(64)?\.DTE\.\d+\.\d+$' })) {
+            $clsid = $hkcr.OpenSubKey("$progId\CLSID")
+            if (-not $clsid) { continue }
+            $server = $hkcr.OpenSubKey("CLSID\$($clsid.GetValue(''))\LocalServer32")
+            if (-not $server) { continue }
+            $exe = ([string]$server.GetValue('')).Trim()
+            if ($exe -match '^"([^"]+)"') { $exe = $Matches[1] } elseif ($exe -match '^(\S+\.exe)') { $exe = $Matches[1] }
+            if ((Test-Path $exe) -and ($found -notcontains $exe)) { $found += $exe }
+        }
+    }
+    @($found | Sort-Object { [IO.Path]::GetFileNameWithoutExtension($_) -ne "TcXaeShell" }, { $_ })
+}
+
 function Up-Twincat {
-    $ide    = "C:\Program Files (x86)\Beckhoff\TcXaeShell\Common7\IDE\TcXaeShell.exe"
+    $shells = @(Resolve-XaeShells)
+    if ($shells.Count -eq 0) { throw "no TwinCAT XAE shell is registered (no TcXaeShell*.DTE.* ProgID with an existing LocalServer32)" }
+    $ide    = $shells[0]
+    if ($shells.Count -gt 1) { Write-Host "XAE shells installed: $($shells -join ', ') - using $ide" }
     $worker = Join-Path $ROOT "src\Volt.Ide.Twincat\bin\Release\net10.0-windows\VoltBridgeTwincat.exe"
-    if (-not (Test-Path $ide)) { throw "TcXaeShell.exe not found: $ide" }
     Build-Bridge "twincat"
     if (-not (Test-Path $worker)) { throw "Worker missing (build Volt.Ide.Twincat): $worker" }
 
@@ -690,7 +715,7 @@ function Up-Twincat {
     }
     Save-Projects @($open.Values)
 
-    $already = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle })
+    $already = @(Get-Process $XAE_SHELLS -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle })
     foreach ($k in $open.Keys) {
         $name = [System.IO.Path]::GetFileNameWithoutExtension($open[$k])
         if ($already -match [regex]::Escape($name)) {

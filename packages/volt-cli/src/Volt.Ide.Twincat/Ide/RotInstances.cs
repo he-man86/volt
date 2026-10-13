@@ -84,9 +84,10 @@ internal static class RotInstances
 
     private static void Release(object comObj) { try { Marshal.ReleaseComObject(comObj); } catch { /* already gone */ } }
 
-    private static bool IsDteMoniker(string name) =>
+    internal static bool IsDteMoniker(string name) =>
         name.IndexOf("VisualStudio.DTE", StringComparison.OrdinalIgnoreCase) >= 0 ||
-        name.IndexOf("TcXaeShell.DTE", StringComparison.OrdinalIgnoreCase) >= 0;
+        name.IndexOf("TcXaeShell.DTE", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        name.IndexOf("TcXaeShell64.DTE", StringComparison.OrdinalIgnoreCase) >= 0;   // TwinCAT 4026's 64-bit shell
 
     // Enumerate the ROT once. RETRY on an EMPTY result: GetRunningObjectTable/EnumRunning is racy and can transiently
     // return nothing while a TcXaeShell is genuinely running (mid-registration, or the ROT momentarily locked), which

@@ -6,12 +6,14 @@
     only Visual Studio registers a 64-bit one. So the x64 worker asks this x86 process, which reads with XAE's own
     proxy and answers the hierarchy as JSON on stdout (TcHierarchy, the worker's side).
 
-    net48 because .NET Framework 4.8 is part of Windows: no runtime ships with it, and it is one exe with no
+    net472 because .NET Framework 4.7.2+ is part of every supported Windows 10/11 (4.8 is NOT on Windows 10 LTSC 2019,
+    and a 4.8 build's config makes the runtime shim raise a modal install dialog there - a hidden child waiting on
+    it would hang the read; Volt.Repo.Gates/TwincatHierarchyReaderRuntimeTests): no runtime ships with it, and it is one exe with no
     dependency beyond the framework. It compiles the worker's reader source itself, never a Volt assembly.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <PlatformTarget>x86</PlatformTarget>
     <!-- Restored for x86 whatever RID the worker's publish restores with (build-cli.ps1: -r win-x64). -->
     <RuntimeIdentifiers>win-x86</RuntimeIdentifiers>

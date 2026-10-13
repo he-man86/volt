@@ -61,15 +61,15 @@ internal static class TcSolutionExplorer
     /// <see cref="ProxyManifestMissingException"/> when the IDE ships no manifest.</summary>
     public static (int Hr, string What) ProxyCheck(string ideDir)
     {
-        using (Activate(ideDir))
+        using (Activate(ideDir, out var refused))
             foreach (var t in new[] { typeof(IVsSolution), typeof(IEnumHierarchies), typeof(IVsHierarchy) })
             {
                 var iid = t.GUID;
                 var hr = CoGetPSClsid(ref iid, out var clsid);
-                if (hr != 0) return (hr, $"CoGetPSClsid({t.Name})");
+                if (hr != 0) return (hr, $"{refused}CoGetPSClsid({t.Name})");
                 var unknown = new Guid("00000000-0000-0000-C000-000000000046");
                 hr = CoGetClassObject(ref clsid, ClsctxInprocServer, IntPtr.Zero, ref unknown, out var factory);
-                if (hr != 0) return (hr, $"CoGetClassObject({clsid:B}) for {t.Name}");
+                if (hr != 0) return (hr, $"{refused}CoGetClassObject({clsid:B}) for {t.Name}");
                 Marshal.Release(factory);
             }
         return (0, "");
@@ -80,9 +80,14 @@ internal static class TcSolutionExplorer
     [DllImport("ole32.dll")] private static extern int CoGetClassObject(ref Guid rclsid, uint dwClsContext, IntPtr pServerInfo,
                                                                         ref Guid riid, out IntPtr ppv);
 
-    /// <summary>Activates XAE's proxy manifest on this thread until disposed.</summary>
-    private static IDisposable Activate(string ideDir)
+    /// <summary>Activates XAE's proxy manifest on this thread until disposed. A manifest that is there but that Windows
+    /// will not activate is not a failed read: the read goes on with the proxy COM has registered (null is returned,
+    /// <paramref name="refused"/> says why, as a prefix for any message about the proxy that follows) — and if that is
+    /// absent too, the reader's caller names both (IDE_UNSUPPORTED). Without it the activation failure was a plain
+    /// COMException, read as ITEM_UNVERIFIED: "a folder could not be read".</summary>
+    private static IDisposable? Activate(string ideDir, out string refused)
     {
+        refused = "";
         var manifest = ManifestPath(ideDir);
         if (!File.Exists(manifest)) throw new ProxyManifestMissingException(manifest);
         var ctx = new ActCtxW
@@ -92,12 +97,15 @@ internal static class TcSolutionExplorer
         };
         var handle = CreateActCtxW(ref ctx);
         if (handle == new IntPtr(-1))
-            throw new COMException($"CreateActCtx({manifest}) failed (Win32 {Marshal.GetLastWin32Error()})");
+        {
+            refused = $"Windows did not activate {manifest} (CreateActCtx, Win32 {Marshal.GetLastWin32Error()}), so the registered proxy was tried: ";
+            return null;
+        }
         if (!ActivateActCtx(handle, out var cookie))
         {
-            var error = Marshal.GetLastWin32Error();
+            refused = $"Windows did not activate {manifest} (ActivateActCtx, Win32 {Marshal.GetLastWin32Error()}), so the registered proxy was tried: ";
             ReleaseActCtx(handle);
-            throw new COMException($"ActivateActCtx({manifest}) failed (Win32 {error})");
+            return null;
         }
         return new Activation(handle, cookie);
     }
@@ -147,7 +155,10 @@ internal static class TcSolutionExplorer
     /// manifest there is active for the whole read, so every interface the read unmarshals finds it.</summary>
     public static ExplorerNode? ReadPlcProject(object dte, string plcProjectName, string ideDir)
     {
-        using (Activate(ideDir)) return Read(dte, plcProjectName);
+        using (Activate(ideDir, out var refused))
+            try { return Read(dte, plcProjectName); }
+            catch (COMException ex) when (refused.Length > 0 && IsProxyMissing(ex.HResult))
+            { throw new COMException(refused + ex.Message, ex.HResult); }
     }
 
     private static ExplorerNode? Read(object dte, string plcProjectName)
