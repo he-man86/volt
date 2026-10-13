@@ -77,10 +77,12 @@
   The file's outer END line <b>mirrors its own header</b>: <code>PROGRAM</code> closes with <code>END_PROGRAM</code>,
   <code>FUNCTION_BLOCK</code> with <code>END_FUNCTION_BLOCK</code>, <code>FUNCTION</code> with <code>END_FUNCTION</code>
   — the keyword read with comments, strings and pragmas skipped. A declaration that opens with none of the three (an
-  empty or prose text, a <code>NAMESPACE</code>) closes with <code>END_FUNCTION_BLOCK</code>, the one fallback, and
-  the pull logs it by item name; it fires for no POU a vendor compiles. A push creates every POU as a function block
-  and writes its declaration before its members, so the IDE judges each member against the text that was sent
-  (DIALECT C2k). A member's kind is its class too, and a member whose text opens with another keyword than its
+  empty or prose text, a <code>NAMESPACE</code>) has no END line its text can mirror, and Volt invents none: the pull
+  lists the item <code>unreadable</code> by name (16,990 of 16,990 corpus POUs open with one of the three, so this meets
+  only a text mid-edit in the IDE). It closed with <code>END_FUNCTION_BLOCK</code> until openspec
+  <code>bridge-one-to-one</code> — a line the IDE does not hold. A push creates a POU as a function block — or as the
+  class its <a href="#properties"><code>%CLASS</code> line</a> names — and writes its declaration before its members, so
+  the IDE judges each member against the text that was sent (DIALECT C2k). A member's kind is its class too, and a member whose text opens with another keyword than its
   class's is refused on pull by name (C2l). (openspec <code>push-without-header-check</code> 5.Q — until then the wire
   named a POU <code>X.prg</code> / <code>X.fb</code> / <code>X.fun</code> from its text. Those names are no extension
   any more: a workspace that still holds such files sees them as foreign files and <code>X.pou</code> as added on its
@@ -90,9 +92,13 @@
 <h3 id="dut">The DUT: four codes, one kind, one wire name</h3>
 <p>
   A DUT is <b>one item kind</b> inside the engine (<code>dut</code>). TwinCAT stores four tree codes for it
-  (605 enum / 606 struct / 607 union, and 623 alias); CODESYS classifies every <code>IDUTObject</code> — and a
-  text-list enumeration, <code>ITextListEnumerationObject</code> — onto one and creates with one call. All of them
-  map to <code>dut</code>.
+  (605 enum / 606 struct / 607 union, and 623 alias) and creates every DUT on the 606 seed, which a reload re-derives
+  from the text (measured: <code>tc-dut-create-reload</code>, DIALECT C2e); CODESYS classifies every
+  <code>IDUTObject</code> onto it and creates with one call. A CODESYS <b>text-list enumeration</b>
+  (<code>ITextListEnumerationObject</code>) is a <code>dut</code> too, but another class: it pulls with
+  <code>%CLASS TEXTLIST_ENUM</code> and a create makes that class through the vendor's own factory — its text-list
+  rows are rebuilt from the declaration on every write (a measured cache, <code>textlist-enum-edit</code>, DIALECT
+  C2r). It used to be folded onto a plain DUT, and a push re-created it as one.
 </p>
 <p>
   On the wire and on disk every DUT is <b><code>X.dut</code></b>, whatever its shape — struct, enumeration, union
@@ -111,6 +117,59 @@
   means deleted to a pull.
 </div>
 
+<h2 id="properties">Object properties: the <code>%</code>-lines</h2>
+<p>
+  <b>Volt's text is the vendor's object, one to one</b> (openspec <code>bridge-one-to-one</code>): every member of an
+  object that is not its text is <b>spelled</b>, a <b>measured editor cache</b>, or <b>refused by name</b> — nothing
+  folded, guessed or defaulted. The members a declaration and a body cannot hold — the object's class where the text
+  cannot tell it, its build properties, its comment, its network-variable settings, its file link — travel as
+  <code>%</code>-lines, the directive form <code>%FOLDER</code> already was. Each is a field of one closed, typed record,
+  <code>ObjectProperties</code>, required on <code>ItemContent</code> and on every <code>Member</code>, so a driver that
+  has not read an object's properties cannot build its content. The examples below are the writer's own output.
+</p>
+<div data-render="object-properties"></div>
+<ul>
+  <li><b>What is a property line:</b> only <code>%</code> followed by one of the keys above, the key ending at a space or
+    the line's end. Every other line that opens with <code>%</code> is code — a direct-address assignment
+    <code>%QB1 := x;</code> can stand exactly where properties are read.</li>
+  <li><b>Order:</b> <code>%CLASS</code> first, then a member's <code>%FOLDER</code>, then the table's order; each key
+    once, except <code>%UNDEFINE</code> and <code>%NETVAR</code>, which repeat in the vendor's order. The writer emits
+    exactly that, and the reader refuses another order, a repeated key, a value on a flag and a valued key with none —
+    naming the key and the line. The LSP's format layer (<code>frontend/syntax/format/object-properties.ts</code>)
+    reads the same list and reports the same.</li>
+  <li><b>Placement:</b> directly under the object's <code>IMPLEMENTATION</code> line, or — for an object with no body
+    (a DUT, a GVL, an interface, a property, an <code>IMPLEMENTATION NONE</code> member) — closing its declaration.</li>
+  <li><b>Absence</b> is the value measured on every object without that vendor property (false, 0, empty). The read
+    still requires the vendor member wherever the vendor archives it: a missing one refuses the item by name.</li>
+  <li><b>A vendor member no key names</b> refuses the item on pull — listed <code>unreadable</code> with the member's
+    name — rather than pulling it without the member. A POU image (<code>POUImageProperty</code>) is the one named
+    exception: a binary with no text form, warned in the pull report and never written.</li>
+  <li id="properties-vendors"><b>Vendors:</b> CODESYS READS every key. It WRITES the build keys and
+    <code>%COMMENT</code>; a change to <code>%NETVAR</code>, <code>%PARAMETER_LIST</code> or <code>%FILE_LINK</code> —
+    the line added, removed or edited, on an existing object or a new one — is refused by name before anything of the
+    push lands (no measured write: 1, 0 and 1 occurrence in the corpora, niche: accepted loss). Change it in the IDE and
+    pull; the line round-trips unchanged. <code>%CLASS</code> is never changed in place (below). TwinCAT has no measured
+    member for any key: a push carrying one is refused by name, and a pull of an item with a <code>.plcproj</code> build
+    entry other than <code>SubType</code> (or an <code>&lt;ObjectProperties&gt;</code> other than an SFC body's) is
+    refused by name, until a measurement says what it is.</li>
+  <li><b>Migration:</b> a re-pull adds the lines to the files that carry such properties. A text written before them
+    would push "not excluded" over an excluded object, so the binding records the text-format version and a push from
+    an older workspace is refused: <i>re-pull: the text predates object properties</i>.</li>
+</ul>
+<p>
+  <b>Classes are made at the create, never changed in place</b> (C2l: a CODESYS object's class does not change).
+  CODESYS makes a check function (<code>%CLASS CHECK &lt;check&gt;</code>) and a text-list enumeration through the
+  vendor's own paths, and a <code>METHOD ABSTRACT</code> with no code as its abstract-method class; a receiving NVL
+  (only the vendor's wizard makes one), a persistent list, a sending GVL (<code>%NETVAR</code>) and a parameter list
+  (<code>%PARAMETER_LIST</code>) are refused as a <i>create</i>, by name. An existing one is updated — its declaration
+  and its build keys and comment written — while a change to its <code>%NETVAR</code> or <code>%PARAMETER_LIST</code>
+  line is refused, as above.
+  TwinCAT's automation interface makes no special class, so every <code>%CLASS</code> create there is refused by name
+  (C2s). A member renamed in a push keeps its object — the vendor's rename, GUID and class kept — when exactly one
+  member of that kind was dropped and one added; a member whose kind changes under the same name is refused, the
+  remedy (two pushes) stated.
+</p>
+
 <h3 id="writable">Source, addressable, writable — three different questions</h3>
 <table>
   <tr><th>flag</th><th>asks</th></tr>
@@ -126,9 +185,11 @@
 
 <h3 id="one-sided">Write support that differs per vendor</h3>
 <p>
-  Almost everything is symmetric — the wire is the parity boundary, and both vendors answer identically. The
-  exceptions are listed here, because "can I edit this file?" is the question this page exists to answer and
-  the generated table below cannot carry it.
+  The wire is the parity boundary: <b>the same object gives the same text on both vendors</b> — gated offline by
+  both drivers' doubles (<code>test/shared/WireParityCases.cs</code>: stub manifests, library references, interface
+  accessors) and live by <code>test/e2e/vendor-parity.test.ts</code>. What one vendor cannot hold it <b>refuses by
+  name</b>; it never writes it as something else. Those refusals are listed here, because "can I edit this file?" is
+  the question this page exists to answer and the generated table below cannot carry it.
 </p>
 <table>
   <tr><th>kind</th><th>CODESYS</th><th>TwinCAT</th><th>why</th></tr>
@@ -136,12 +197,46 @@
     <td class="name"><code>task</code></td>
     <td class="yes">writable</td>
     <td class="yes">writable</td>
-    <td>Both, by routes that share nothing below the format. CODESYS has a live setter per field. TwinCAT
-      assembles the same six fields from <i>two</i> tree items — the PLC task's linked SYSTEM task carries
-      priority and cycle time, the ordered calls are the PLC item's own children — and <b>reads every write
-      back</b>, because that vendor accepts a schedule it has no intention of applying. Three fields have no
-      TwinCAT counterpart (a non-cyclic type, an event, a watchdog) and are <b>refused</b> rather than
+    <td>Both, by routes that share nothing below the format. CODESYS has a live setter per field, and its
+      <code>.task</code> spells every member it holds: <code>External event:</code> (once folded into
+      <code>Event:</code>, so a push moved it), a call's comment (<code>Calls: A // comment</code>), a disabled
+      watchdog's values (<code>Watchdog: off &lt;time&gt; &lt;unit&gt; (sensitivity &lt;n&gt;)</code>, <code>''</code>
+      for an empty member — the vendor keeps them behind the flag, C36) and one label per other member off its measured
+      value (<code>Core: 1</code>). TwinCAT assembles its fields from <i>two</i> tree items — the PLC task's linked
+      SYSTEM task carries priority, cycle time and the other <code>TaskDef</code> members, the ordered calls are the
+      PLC item's own children — and <b>reads every write back</b>, because that vendor accepts a schedule it has no
+      intention of applying. What has no TwinCAT counterpart (a non-cyclic type, an event, an external event, a
+      watchdog — its <code>.task</code> reads a bare <code>Watchdog: off</code>) is <b>refused</b> rather than
       dropped.</td>
+  </tr>
+  <tr>
+    <td class="name"><a href="#properties"><code>%</code>-lines</a></td>
+    <td class="yes">read and written</td>
+    <td>refused</td>
+    <td>No TwinCAT build property or object property has been measured; a push carrying any key is refused by name,
+      and a pull of an item that carries one is refused by name.</td>
+  </tr>
+  <tr>
+    <td class="name"><code>%CLASS</code> create</td>
+    <td class="yes">check function, text-list enum</td>
+    <td>refused</td>
+    <td>A class is made at the create. CODESYS refuses a receiving NVL, a persistent list, a sending GVL and a
+      parameter list as a create (an update is written); TwinCAT makes no special class (C2s).</td>
+  </tr>
+  <tr>
+    <td class="name"><code>.library</code> <code>SYSTEM</code></td>
+    <td class="yes">spelled where true</td>
+    <td>never</td>
+    <td>CODESYS's <code>SystemLibrary</code> member; TwinCAT states none (C37). Spelled only where true, so a
+      non-system reference pulls byte-identically on both vendors. A library manifest is read-only on both.</td>
+  </tr>
+  <tr>
+    <td class="name">member / sibling order</td>
+    <td>stored, not spelled</td>
+    <td>by name</td>
+    <td>CODESYS keeps creation order, TwinCAT derives it from the names (C34). Spelling CODESYS's would give one
+      declaration two texts, so the text keeps one canonical order (kind, then name) and a create appends — a known
+      divergence until the owner decides.</td>
   </tr>
 </table>
 <p>
@@ -211,14 +306,14 @@
 </p>
 <table>
   <tr><th>interfaces</th><th>becomes</th></tr>
-  <tr><td class="name">IPOUObject</td><td>pou — by the class alone; the declaration text is not read (<a href="#pou">one POU kind</a>)</td></tr>
-  <tr><td class="name">IDUTObject · ITextListEnumerationObject</td><td>dut — the second is a text-list-backed enum, which CODESYS models as its own object kind</td></tr>
-  <tr><td class="name">IGVLObject · INVLObject</td><td>gvl</td></tr>
+  <tr><td class="name">IPOUObject</td><td>pou — by the class alone; the declaration text is not read (<a href="#pou">one POU kind</a>). A check function (<code>POUObjectCheckFunction</code>) pulls with <code>%CLASS CHECK &lt;check&gt;</code></td></tr>
+  <tr><td class="name">IDUTObject · ITextListEnumerationObject</td><td>dut — the second is a text-list-backed enum, which CODESYS models as its own object kind: <code>%CLASS TEXTLIST_ENUM</code></td></tr>
+  <tr><td class="name">IGVLObject · INVLObject</td><td>gvl — a receiving NVL with <code>%CLASS NVL</code>, a persistent list with <code>%CLASS PERSISTENT</code>, a sending GVL with its <code>%NETVAR</code> lines, a parameter list with <code>%PARAMETER_LIST</code></td></tr>
   <tr><td class="name">IInterfaceObject</td><td>interface</td></tr>
   <tr><td class="name">IInterfaceMethodObject · IPOUMethodObject</td><td>interface_method · method</td></tr>
   <tr><td class="name">IPropertyObject · IInterfacePropertyObject</td><td>property · interface_property</td></tr>
-  <tr><td class="name">IPropertyAccessorObject · IInterfacePropertyAccessorObject</td><td>property_get / property_set — refined by the accessor's name</td></tr>
-  <tr><td class="name">IActionObject · ITransitionObject</td><td>action · transition</td></tr>
+  <tr><td class="name">IPropertyAccessorObject · IInterfacePropertyAccessorObject</td><td>property_get / property_set — the vendor's own <code>IsGetAccessor</code> (it was decided by the accessor's NAME); an accessor that answers none is refused by name</td></tr>
+  <tr><td class="name">IActionObject · ITransitionObject</td><td>action · transition — an embedded transition travels inside its unsupported SFC body; a standalone <code>TransitionObject</code> is refused by name (0 in the corpora)</td></tr>
   <tr><td class="name">ILibManObject · IVisualManagerObject · IVisualObject · IRecipeManObject</td><td>library_manager (+ synthetic library refs) · visualization_manager · visualization · recipe_manager</td></tr>
   <tr><td class="name">IImagePoolObject · IGlobalTextListObject · ITextListObject · ITaskObject</td><td>image_pool · text_list · text_list · task</td></tr>
   <tr><td class="name">IProjectInfoObject · ITraceObject · IRecipeDefinitionObject · ISymbolConfigObject · IWorkspaceObject</td><td>project_info · trace · recipe · symbol_config · project_settings — the read-only descriptors</td></tr>
@@ -230,9 +325,12 @@
   The order is fixed and it matters: several nodes carry more than one of these, and the first match wins.
 </p>
 <p>
-  Both drivers emit identical wire kinds, so an item hashes identically regardless of which IDE it came from.
-  That is the whole point of a shared code table: parity is a property of the data, not of two implementations
-  agreeing by hand.
+  Both drivers emit identical wire kinds and — gated, not assumed — identical text for the same object, so an item
+  hashes identically regardless of which IDE it came from. That is the whole point of a shared code table: parity is
+  a property of the data, not of two implementations agreeing by hand. A kind with no descriptor reader (a
+  visualization, a text list) is the one stub on both, the kind and a newline (<code>ItemKind.EmptyManifest</code>);
+  TwinCAT wrote <code>Name=&lt;name&gt;</code> there until openspec <code>bridge-one-to-one</code>, so the same
+  visualization hashed differently per vendor.
 </p>
 
 </main>

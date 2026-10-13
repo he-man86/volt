@@ -246,8 +246,85 @@
 
 ## 4. Close
 
-- [ ] 4.1 Docs regenerated (`VOLT_WRITE_DOCS=1`) and the prose of `items.html`, `driver.html`, `wire.html` rewritten;
+- [x] 4.1 Docs regenerated (`VOLT_WRITE_DOCS=1`) and the prose of `items.html`, `driver.html`, `wire.html` rewritten;
       ARCHITECTURE.md (142-148, 220, 225, 396) and DIALECT current.
+
+      **Done 2026-10-13 (step 4a).** Regenerated: the doc data had not drifted (the gate was green before), so the
+      `%`-lines became GENERATED facts — `DocDataTests.BuildObjectProperties` writes `objectProperties` into
+      `docs/assets/data.js` (each key with the line `PropertyLines.Write` emits for a fully populated record, never a
+      hand-typed spelling, and a one-sentence meaning naming the vendor member), rendered by `doc.js`
+      `object-properties`; test first: `Every_object_property_key_is_on_the_items_page_in_the_writers_spelling` (red:
+      no generator, no page anchor; green after; `DocDataTests` 20 → 21). Prose: `items.html` — new "Object
+      properties: the `%`-lines" section (the generated table, what a property line is, order, placement, absence, a
+      member no key names, per-vendor, migration `format: 2`, classes at the create and the 1:1 rename), the POU END
+      line (the `END_FUNCTION_BLOCK` fallback replaced by the by-name refusal), the DUT / text-list enum class, the
+      parity sentence (gated by `WireParityCases` + `vendor-parity.test.ts`, refusals by name), the one-sided table
+      (task members, `%`-lines, `%CLASS` creates, library `SYSTEM`, member/sibling order), the CODESYS classification
+      rows (check / NVL / persistent / sender / parameter list, `IsGetAccessor`, standalone transitions refused) and the
+      stub manifest; `wire.html` — the lede, a note on the text carrying `%`-lines (class at create, class change and
+      member re-type refused, 1:1 rename), `UNSUPPORTED` and `INVALID_ST` rows; `driver.html` — six seam types
+      (`ObjectProperties` row, `Properties` on `ItemContent` / `Member`), the class at the create
+      (`CreateChild(…, ObjectClass?)`, `ValidateProperties`), the vendor table (TwinCAT's create door is `CreateChild`,
+      not `PlcOpenImport` — stale before this change; object-properties row; library signatures: the surface exists,
+      C2c). ARCHITECTURE.md: the name invariant (142-148: FULL on the wire, bare below the seam — it said the
+      opposite), exclude-from-build (now spelled; excluded folders named), a new "one to one" invariant
+      (`ObjectProperties`, `PropertyLines`, class at create, rename, `format: 2`), trailing newlines no longer an
+      exception (C35), the accessor bullet (`IsGetAccessor`, interface accessor declarations per vendor, D21/D41),
+      "Round-trips are lossless" (225) replaced by what round-trips and what is refused (completeness oracle, known
+      divergences, wire-parity gate), lesson 12 (wire names carry no folder) and lesson 13 (396: `RefinePou` is gone;
+      the walk guards each child, so a classifier refuses by name), and the `Item/` / `Format/St/` layer rows.
+      DIALECT: every "today" in the step-1 rows made current — C2b (a created DUT's reload measured, C2e), C2r (the
+      fold is history; which classes are created and which refused as a create, `AbstractMemberFold` null/empty only),
+      C2s (`SpecialFunc` now read), D21 (built: the `.TcIO` read, the empty `ITF1.TcIO`, unsaved accessor refused),
+      C34 (the 611 vInfo quirk kept, 10b), C35 (the trim is deleted), C36, C37 (`SYSTEM false` deleted, spelled where
+      true). LSP docs: `architecture.md` (the format layer's `%`-lines), `behavior.md` (the formatter preserves every
+      `%`-line).
+
+      DOWNSTREAM (every consumer suite re-run once): C# `Volt.Engine.Tests` 2522 pass, 0 fail (1 skip; +1 the new doc
+      test), `Volt.Ide.Codesys.Tests` 367, `Volt.Ide.Twincat.Tests` 478, `Volt.Cli.Tests` 267, `Volt.Connector.Tests`
+      119, `Volt.Contracts.Tests` 34, `Volt.Repo.Gates` 160; volt-cli `test/unit` 112, volt-control 122, volt-vscode 38,
+      volt-desktop 30; `bun run check` 18/18, typecheck (5 packages) and lint green; `openspec validate` valid. LSP:
+      `test/frontend` 25 pass; `rate:fixtures` exit 0 with no change to `map.generated.ts`; `test/conformance` 6965
+      pass, 1 FAIL — `fold-agreement.test.ts` timed out (5.57s in the suite, 5.08s alone; 34 disagree, 34 known: the
+      verdict itself unchanged). Not a change of this step (docs only, no LSP source touched) and not a recording
+      change: a regression of the suite's budget — the test lowers every fixture on bun's 5s default. Profiled
+      first (scratch copy, deleted): linear (half the fixtures 2.9s of 5.0s; lowering 2.8s, assembling 0.9s, parse
+      0.7s, bind 0.4s), the same profile `call-parameters.test.ts` had at gate 3, so it got the same fix — a budget
+      proportional to the work (`Math.max(30_000, ALL_TESTS.length * 3)`, ~3x the measured cost); re-run green. No
+      recording-decided improvement appeared (no consumer output changed).
+
+      **Gate review of step 4a (2026-10-13)** — four findings fixed (each red first), one skipped with its reason:
+      1. `items.html` said CODESYS "reads and writes every key"; the write refuses a `%NETVAR` / `%PARAMETER_LIST` /
+         `%FILE_LINK` change by name (`RefuseUnwritablePropertyChange`). The Vendors bullet now says CODESYS reads every
+         key and writes the build keys and `%COMMENT`, those three refused by name; the classes paragraph no longer says
+         "an update of an existing one is written" of them. Test first:
+         `The_items_page_names_every_property_change_the_codesys_push_refuses` (reads the refused keys from the driver
+         source, requires each on `<li id="properties-vendors">` and no "writes every key"; red: no such item).
+      2. SKIPPED — the finding is wrong. `FileLink.Linkage` IS the vendor member on SP21: reflected
+         `_3S.CoDeSys.GVLObject.FileLink` (GVLObject.plugin.dll 3.5.21.40) has the properties `FileName`, `Linkage :
+         LinkType`, `TimeStamp`; `LinkType` is the ENUM's name (`ImportBeforeCompile`, `ExportBeforeCompile`) and the
+         archive's serializable value name, which is what the census (design.md §1.1 / §0) read. `NwlInterop.Declared`
+         reads the CLR property, so `Linkage` is right and `LinkType` would throw Missing. The live corpus re-pull (4.2)
+         still proves the spelling.
+      3. The doc example was one record combining `%CLASS CHECK` with `%PARAMETER_LIST` / `%NETVAR` / `%FILE_LINK` —
+         no object a pull reads. `BuildObjectProperties` now writes each key from realistic example objects (a check
+         function, a method in a folder, a parameter list, a sending GVL, a receiving NVL, a GVL linked to a file), each
+         row naming its object; the test holds every example to `ReadClass`'s class rule (red on the old record). The
+         `%NETVAR` meaning names the sender's `NetVarProperties` on a GVL or `%CLASS PERSISTENT` list and, under
+         `%CLASS NVL`, the receiver's members then `ImportNetVarProperties.<member>`.
+      4. The doc test now requires at least one line per key (red: dropping the file-link example left `%FILE_LINK`
+         with none).
+      5. The fold-agreement budget is no hidden regression: timed in one scratch worktree, 02ed3f0e19 (the commit that
+         last changed the test), c99a646580 (pre-step-3) and this step's base all took 10.6-11.7 s, and 02ed3f0e19
+         already timed out at 5 s there — the cost did not move. The proportional budget stays; the measurement is in
+         the test's comment.
+
+      GATE 4a: typecheck green (5 packages), lint green, `bun run check` 18/18, `openspec validate` valid; C#
+      `Volt.Engine.Tests` 2523 pass, 0 fail (1 skip; +1 the page-refusal test), `Volt.Ide.Codesys.Tests` 367,
+      `Volt.Ide.Twincat.Tests` 478, `Volt.Cli.Tests` 267, `Volt.Connector.Tests` 119, `Volt.Contracts.Tests` 34,
+      `Volt.Repo.Gates` 160; volt-cli `test/unit` 112; no fixture or transpiler change (fixture map untouched); full LSP
+      suite with `VOLT_REQUIRE_FULL=1` and `VOLT_FIXTURES` unset **10149 pass, 0 fail** (34 skip, 428 todo, 360 files,
+      1071 s).
 - [ ] 4.2 Re-pull the six corpora on both vendors and diff: exactly the new spellings appear; e2e on both vendors (SP21 +
       TwinCAT together, so the parity suite runs); engine/driver/CLI suites and the full LSP suite cold green.
 - [ ] 4.3 The close report lists every new text form for the owner; archive.

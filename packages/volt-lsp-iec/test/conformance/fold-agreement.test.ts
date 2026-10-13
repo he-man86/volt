@@ -292,4 +292,13 @@ whole("the AST fold and the IR fold give every constant expression the lowered f
   expect(Object.keys(KNOWN).filter((id) => agreeing.has(id)).map((id) => `${id} now agrees — remove its mark (${KNOWN[id]})`)).toEqual([])
   expect(Object.keys(KNOWN).filter((id) => !disagree.has(id) && !agreeing.has(id)).map((id) => `${id} is no longer compared — remove its mark (${KNOWN[id]})`)).toEqual([])
   expect(compared).toBeGreaterThan(0)
-})
+  // A BUDGET PROPORTIONAL TO THE WORK, as `call-parameters.test.ts`, `map.test.ts` and `source-map.test.ts` have: this ran
+  // on bun's 5s default — a default, not a decision — and lowers every fixture. Measured 2026-10-13 over 5850 fixtures:
+  // ~5.0s alone (lowering 2.8s, assembling 0.9s, parse 0.7s, bind 0.4s, unbind 0.2s, the comparison 0.1s), so it failed
+  // as a timeout (5.08s alone, 5.57s under the conformance suite's load), reading as a hang rather than as "there are
+  // more fixtures now". Checked for the quadratic first: linear — half the fixtures took 2.9s of the 5.0s. 3ms a
+  // fixture is ~3x the measured cost, so a real hang still fails. Not a hidden regression (gate review of step 4a,
+  // finding 5): timed side by side in one scratch worktree, the commit that last changed this test (02ed3f0e19), the
+  // pre-step-3 commit (c99a646580) and this step's base all took 10.6-11.7s there, and 02ed3f0e19 already timed out at
+  // 5s — the cost did not move; the 5s default was never a margin.
+}, Math.max(30_000, ALL_TESTS.length * 3))

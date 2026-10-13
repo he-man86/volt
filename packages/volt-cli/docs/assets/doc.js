@@ -242,6 +242,20 @@ function renderExtensions(el) {
       .join("")}</table>`
 }
 
+function renderObjectProperties(el) {
+  el.innerHTML = `<table>
+    <tr><th>key</th><th>the writer spells it</th><th>means</th></tr>
+    ${window.VOLT.objectProperties
+      .map(
+        (p) => `<tr><td class="name">%${p.key}</td>
+          <td>${p.examples
+            .map((e) => `<i>${esc(e.on)}</i><br><span class="mono">${e.lines.map((l) => esc(l)).join("<br>")}</span>`)
+            .join("<br>")}</td>
+          <td>${esc(p.means)}</td></tr>`,
+      )
+      .join("")}</table>`
+}
+
 function renderDriver(el) {
   el.innerHTML = window.VOLT.driver
     .map(
@@ -373,6 +387,7 @@ const RENDERERS = {
   schemas: renderSchemas,
   kinds: renderKinds,
   extensions: renderExtensions,
+  "object-properties": renderObjectProperties,
   driver: renderDriver,
   errors: (el) => renderList(el, window.VOLT.errors),
   statuses: (el) => renderList(el, window.VOLT.statuses),

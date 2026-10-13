@@ -486,6 +486,91 @@ public class DocDataTests
                 ["writable"] = x.IsWritable,
             }).ToArray());
 
+    // ── the %-lines (object properties) ─────────────────────────────────────────────────────────────
+
+    /// <summary>What each <c>%</c>-line key means, in one sentence — the one hand-written part of the table, guarded by
+    /// <see cref="Every_object_property_key_is_on_the_items_page_in_the_writers_spelling"/> (a key with no row fails).
+    /// The vendor member each one reads is named, so the page answers "what in the IDE is this?".</summary>
+    private static readonly Dictionary<string, string> PropertyMeanings = new(StringComparer.Ordinal)
+    {
+        ["CLASS"] = "The vendor class the text cannot tell: CHECK <check> (a CODESYS implicit-check function, "
+            + "POUObjectCheckFunction), PERSISTENT (a persistent variable list), TEXTLIST_ENUM (a text-list-backed "
+            + "enumeration), NVL (a receiving network variable list). Made at the create, never changed in place.",
+        ["FOLDER"] = "A MEMBER's folder inside its POU (an item's folder is its path in the workspace).",
+        ["EXCLUDE_FROM_BUILD"] = "The object is excluded from the build — BuildProperty.ExcludeFromBuild.",
+        ["LINK_ALWAYS"] = "The object is linked even when nothing calls it — BuildProperty.LinkAlways.",
+        ["EXTERNAL"] = "The object is implemented externally — BuildProperty.External.",
+        ["ENABLE_SYSTEM_CALL"] = "BuildProperty.EnableSystemCall.",
+        ["ONLINE_CHANGE_RESERVE"] = "The memory reserved for online change — BuildProperty.MemoryReserveForOnlineChange.",
+        ["COMPILER_DEFINES"] = "The object's compiler defines, as an ST string — BuildProperty.CompilerDefines.",
+        ["UNDEFINE"] = "One undefine per line, in the vendor's order — BuildProperty.Undefines.",
+        ["COMMENT"] = "The object comment, as an ST string — DocumentationProperty.Documentation.",
+        ["PARAMETER_LIST"] = "A GVL that is a parameter list — GVLObject.ParameterList.",
+        ["NETVAR"] = "One network-variable member per line, its value as the vendor renders it: on a GVL (or a %CLASS "
+            + "PERSISTENT list) the sender's NetVarProperties; under %CLASS NVL the receiver's own members, then the sender "
+            + "settings it imported, each as ImportNetVarProperties.<member>.",
+        ["FILE_LINK"] = "A GVL linked to an external file: the link type, then the path as an ST string — FileLink.",
+    };
+
+    /// <summary>One object a <c>%</c>-line can be read from: what it is (<paramref name="On"/>), its properties and — for a
+    /// member — its folder. The examples are objects a vendor read can produce (<see cref="ReadableCombination"/>), never
+    /// one record carrying every key: a check function holds no network variables, and an example that says otherwise
+    /// teaches a combination no pull ever writes (gate review of step 4a, finding 3).</summary>
+    private sealed record PropertyExample(string On, ObjectProperties Props, string? Folder = null);
+
+    private static readonly PropertyExample[] PropertyExamples =
+    {
+        new("a check function", ObjectProperties.None with
+        {
+            Class = new ObjectClass(ObjectClass.Check, "CheckBounds"), ExcludeFromBuild = true, LinkAlways = true,
+            External = true, EnableSystemCall = true, OnlineChangeReserve = 200, CompilerDefines = "SIMULATION",
+            Undefines = new[] { "DEBUG", "TRACE" }, Comment = "Bounds check for every array access",
+        }),
+        new("a method in a folder", ObjectProperties.None, Folder: "Helpers"),
+        new("a parameter list", ObjectProperties.None with { ParameterList = true }),
+        new("a sending GVL", ObjectProperties.None with
+        {
+            NetVar = new[] { new NetVarSetting("ListIdentifier", "1"), new NetVarSetting("Interval", "T#50ms") },
+        }),
+        new("a receiving NVL", ObjectProperties.None with
+        {
+            Class = new ObjectClass(ObjectClass.Nvl, null),
+            NetVar = new[] { new NetVarSetting("SenderGVLName", "GVL_Send"), new NetVarSetting("ImportNetVarProperties.ListIdentifier", "1") },
+        }),
+        new("a GVL linked to a file", ObjectProperties.None with { FileLink = new FileLink("ExportBeforeCompile", @"C:\io\gvl.txt") }),
+    };
+
+    /// <summary>Whether a vendor read can produce <paramref name="p"/> — the class rule of the CODESYS driver's
+    /// <c>ReadClass</c>: network-variable settings and a file link belong to a variable list (no class, <c>PERSISTENT</c>,
+    /// <c>NVL</c>), the parameter-list flag to a plain GVL only; a check function, a text-list enumeration and an abstract
+    /// method hold none of them.</summary>
+    private static bool ReadableCombination(ObjectProperties p)
+    {
+        var word = p.Class?.Word;
+        var variableList = word is null or ObjectClass.Persistent or ObjectClass.Nvl;
+        if (!variableList && (p.NetVar.Count > 0 || p.FileLink is not null || p.ParameterList)) return false;
+        if (p.ParameterList && word is not null) return false;
+        return true;
+    }
+
+    /// <summary>Every <c>%</c>-line key, in canonical order, with the line(s) the WRITER emits for each example object
+    /// that carries it — so the page's example is the writer's spelling, never a hand-typed second one.</summary>
+    private static JsonArray BuildObjectProperties() =>
+        new(Volt.Engine.Format.St.PropertyLines.Keys.Select(key => (JsonNode?)new JsonObject
+        {
+            ["key"] = key,
+            ["examples"] = new JsonArray(PropertyExamples
+                .Select(e => (e.On, Lines: Volt.Engine.Format.St.PropertyLines.Write(e.Props, e.Folder)
+                                                .Where(l => Volt.Engine.Format.St.PropertyLines.KeyOf(l) == key).ToList()))
+                .Where(e => e.Lines.Count > 0)
+                .Select(e => (JsonNode?)new JsonObject
+                {
+                    ["on"] = e.On,
+                    ["lines"] = new JsonArray(e.Lines.Select(l => (JsonNode?)l).ToArray()),
+                }).ToArray()),
+            ["means"] = PropertyMeanings.TryGetValue(key, out var m) ? m : null,
+        }).ToArray());
+
     // ── the driver interface ────────────────────────────────────────────────────────────────────────
 
     /// <summary>The members of one driver facet, in DECLARATION order (metadata-token order, which is stable
@@ -601,6 +686,7 @@ public class DocDataTests
         ["severities"] = new JsonArray(Consts(typeof(Severity)).Select(c => (JsonNode?)c).ToArray()),
         ["kinds"] = BuildKinds(),
         ["extensions"] = BuildExtensions(),
+        ["objectProperties"] = BuildObjectProperties(),
         ["driver"] = new JsonArray(Facets.Select(f => (JsonNode?)new JsonObject
         {
             ["name"] = f.Name,
@@ -943,5 +1029,58 @@ public class DocDataTests
     {
         Assert.Equal(typeof(IIdeDriver).GetInterfaces().OrderBy(t => t.Name).Select(t => t.Name).ToList(),
                      Facets.Select(f => f.Name).OrderBy(n => n).ToList());
+    }
+
+    /// <summary>EVERY <c>%</c>-LINE KEY IS ON THE ITEMS PAGE, spelled by the writer itself (openspec
+    /// <c>bridge-one-to-one</c> 4.1). The keys are a closed list (<see cref="Volt.Engine.Format.St.PropertyLines.Keys"/>)
+    /// that the C# reader/writer and the LSP's format layer share; a key the page does not carry is a text form an
+    /// engineer meets in a pulled file and cannot look up — and an example line typed by hand is a second spelling.</summary>
+    [Fact]
+    public void Every_object_property_key_is_on_the_items_page_in_the_writers_spelling()
+    {
+        var rows = BuildObjectProperties();
+        Assert.Equal(Volt.Engine.Format.St.PropertyLines.Keys.ToList(),
+                     rows.Select(r => (string)r!["key"]!).ToList());
+        foreach (var r in rows)
+        {
+            Assert.False(string.IsNullOrWhiteSpace((string?)r!["means"]), $"%{r["key"]} has no description");
+            // Every key shows at least one line (gate review of step 4a, finding 4): a key the writer stopped emitting
+            // would otherwise render an empty example cell with the test green.
+            Assert.True(r["examples"]!.AsArray().Count > 0, $"%{r["key"]} has no example line");
+            foreach (var e in r["examples"]!.AsArray())
+            {
+                Assert.NotEmpty(e!["lines"]!.AsArray());
+                foreach (var line in e["lines"]!.AsArray())
+                    Assert.Equal((string)r["key"]!, Volt.Engine.Format.St.PropertyLines.KeyOf((string)line!));
+            }
+        }
+        // Every example is an object a vendor read can produce (gate review of step 4a, finding 3).
+        foreach (var e in PropertyExamples)
+            Assert.True(ReadableCombination(e.Props), $"the example '{e.On}' is no object a pull can read: {e.Props}");
+        var page = File.ReadAllText(Path.Combine(DocsDir(), "items.html"));
+        Assert.Contains("data-render=\"object-properties\"", page);
+    }
+
+    /// <summary>THE ITEMS PAGE SAYS WHICH <c>%</c>-LINE CHANGES A CODESYS PUSH REFUSES (gate review of step 4a, finding 1).
+    /// The CODESYS write refuses, before anything lands, a change to every key it has no measured write for
+    /// (<c>RefuseUnwritablePropertyChange</c> → <c>RefuseUnmeasuredChange(what, "%KEY", …)</c>); the page once said CODESYS
+    /// "reads and writes every key", telling an engineer an edit would be pushed when the push refuses it. The keys are
+    /// read from the driver's source (the driver is net48 and not referenced here), so a key added to or dropped from the
+    /// refusal moves the test.</summary>
+    [Fact]
+    public void The_items_page_names_every_property_change_the_codesys_push_refuses()
+    {
+        var docs = DocsDir();
+        var driver = File.ReadAllText(Path.Combine(docs, "..", "src", "Volt.Ide.Codesys", "Ide", "CodesysObjectModel.Properties.cs"));
+        var refused = System.Text.RegularExpressions.Regex.Matches(driver, @"RefuseUnmeasuredChange\(what, ""%([A-Z_]+)""")
+            .Select(m => m.Groups[1].Value).ToList();
+        Assert.NotEmpty(refused);
+        var page = File.ReadAllText(Path.Combine(docs, "items.html"));
+        var li = System.Text.RegularExpressions.Regex.Match(page, @"<li id=""properties-vendors"">(.*?)</li>",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.True(li.Success, "items.html has no <li id=\"properties-vendors\"> (what each vendor reads and writes)");
+        Assert.DoesNotMatch(@"(?i)writes every key", li.Groups[1].Value);
+        foreach (var key in refused)
+            Assert.Contains($"<code>%{key}</code>", li.Groups[1].Value);
     }
 }

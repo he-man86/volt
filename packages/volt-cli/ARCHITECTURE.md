@@ -117,8 +117,8 @@ away from the only code that uses it.
 | Folder | Does | Key types |
 |---|---|---|
 | **`Ide/`** | **The contract a vendor bridge implements — and only this.** `IIdeDriver` = `IIdeSession` (attach/health/build) + `IProjectTree` (walk + CRUD + `Move`) + `ICodeStore` (the document, plus the textual aspects declaration-only kinds need). `DriverBase` owns the shared degraded-state machine, the single-flight health probe **and the whole health response** — `BuildHealthResponse` used to be abstract, which put a WIRE-VISIBLE shape behind the vendor seam and let the two drivers diverge unseen (they had). `TreeNav` and `ItemLookup` navigate a driver's tree; they live here, not with `Item/`, because they take an `IIdeDriver`. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `DriverBase`, `TreeNav`, `ItemLookup` |
-| **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the vendor-neutral item-type table (`docs/items.html`); `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. | `ItemKind`, `FolderPath`, `ItemRef`, `ProjectItem`, `WalkResult` |
-| **`Format/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **The owner rule: an INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner — they disagreed once, and every interface with a member materialized as UNREADABLE. | `StWriter`, `StReader`, `Descriptor`, `CodeHelper` |
+| **`Item/`** | **What an item IS and where it sits.** `ItemKind` is the vendor-neutral item-type table (`docs/items.html`); `FolderPath` is tree-path arithmetic; `ItemRef` is the opaque per-vendor handle that keeps native objects out of the domain; `WalkResult` distinguishes a complete walk from one that skipped a subtree. `ItemContent` is the one content record a read builds and a push applies; `ObjectProperties`, required on it and on every `Member`, carries every vendor member the text spells beside the code (the `%`-lines: class, build properties, comment, network-variable settings, file link). | `ItemKind`, `FolderPath`, `ItemRef`, `ProjectItem`, `WalkResult`, `ItemContent`, `ObjectProperties` |
+| **`Format/St/`** | **The canonical workspace ST format, both halves together.** `StWriter` renders an `ItemContent`; `StReader` parses it back. `Descriptor` renders the canonical text for NON-source items. `PropertyLines` is the one spelling of an object's `%`-lines, both directions (the closed key list, canonical order, placement refusals). An INVERSE PAIR over one record — `write(read(write(x))) == write(x)` is a law that could not even be TYPED while the halves spoke different records. The only written spec of a format with TWO implementations in two languages (`volt-lsp-iec` re-parses it). **The owner rule: an INTERFACE's members are `interface_method`/`interface_property` on both sides**, because both sides decide a member's kind from its owner — they disagreed once, and every interface with a member materialized as UNREADABLE. | `StWriter`, `StReader`, `PropertyLines`, `Descriptor`, `CodeHelper` |
 | **`Format/Network/`** | **FBD and LD — one pipeline, because they are one implementation.** `NetworkModel` is the vendor-neutral graph, shaped on the vendors' OWN `INetwork`/`IBoxTree` (see `Ide/DIALECT.md` N1: the two ship an identical model). `NetworkTextReader`/`NetworkTextWriter` convert that graph ⇄ network text v2 — one statement per NWL item, a name only where the vendor names a wire (`docs/network-text.html`); both read and write against a `NetworkScope` built from the declarations the body sees (`Ide/ProjectDeclarations`, the one reserved-name set and the FB instance types); `NetworkTextGate` is the token fixed-point gate; `NetworkSpelling` holds the rules writer and reader must agree on; `FbdOperators` is the operator table. v1 text is refused with a "re-pull" message, never translated. **Nothing here knows XML** — a vendor's own representation is the driver's business, which is why deleting the PLCopen transport did not touch this folder. Called `Network`, not `Diagram`: CFC and SFC are the bodies Volt CANNOT express as text. | `NetworkModel`, `NetworkText*`, `NetworkTextGate`, `NetworkScope`, `NetworkSpelling`, `FbdOperators` |
 | **`Format/Body/`** | **What a body IS, decided from the body itself.** `BodyFormatGuard` is the ONE gate a push passes: it refuses to overwrite a body Volt cannot author, deciding from the IDE's LIVE body and never from the incoming text. `BodyMarker` is the informational stand-in an unsupported language (CFC/SFC/IL) materializes as — never written back. There is no "graphical vs textual" boolean above this layer; that flag was the source of three silent data-loss bugs. | `BodyFormatGuard`, `BodyMarker`, `Languages` |
 | **`Library/`** | Referenced-library manifests + signatures — `LibraryManifest` (the canonical `.library` body and hash basis, shared so the two vendors cannot drift on those bytes), `LibSignatureRenderer`, `LibraryLayout`, `LibraryFetch`, `LibSignature`. | `LibraryManifest`, `LibSignatureRenderer`, `LibSignature` |
@@ -139,21 +139,46 @@ code, not of the folder names — the names only have to make it legible.
 
 ### Protocol invariant: the item **name** is the identity
 
-The whole wire is keyed by bare item name — `refs` `items`/`kinds`/`folders`, `fetch` `knownItems`, every push
-op, `structureVersion` (hash of sorted *names*), and the one-item-per-file workspace layout. Load-bearing across
-`volt-cli` and `volt-vscode`. Two items with the **same name** collapse in the version map
-(last-write-wins) — a non-issue for source items (IEC guarantees unique names) and only reachable for opaque
-non-source items the AI never edits (e.g. one `Library Manager` per application). Keying by `folder+name` would
-fix it but is a breaking redesign not worth it for opaque-metadata collisions. **Do not add a "duplicate name"
-guard that throws** — real projects legitimately repeat these names, and throwing breaks `refs`.
+The whole wire is keyed by item NAME — `refs` `items`/`kinds`/`folders`, `fetch` `knownItems`, every push op,
+`structureVersion` (hash of sorted *names*), and the one-item-per-file workspace layout. Load-bearing across
+`volt-cli` and `volt-vscode`. Two spellings of that name exist and the boundary between them is exact: **below the
+vendor seam the name is BARE** (the IDE's own lookup key, no extension), and **on the wire it is FULL** —
+`name.kind`, e.g. `CM_Carrier.pou`. Every version/folder map Volt publishes or gates against is keyed by the full
+name, derived in ONE place (`Versioning.VersionedItem.Identity`); an item that could not be materialized has no full
+name and keeps its bare one there.
+
+This section used to say the wire was keyed by BARE name and that same-name items collapsing last-write-wins was "a
+non-issue for source items (IEC guarantees unique names)". IEC guarantees unique names *within a kind*, not across
+kinds: a control module and the visualization that draws it are `CM_Carrier.pou` and `CM_Carrier.visualization`, and
+a real customer project ships two such pairs. Collapsed onto one slot, the FB's version was invisible to the aggregate
+hash and the push's `ifVersion` gate answered with the VISUALIZATION's hash — the FB could be pulled and never pushed
+back. **Do not add a "duplicate name" guard that throws** — real projects legitimately repeat names across kinds, and
+throwing breaks `refs`; the fix was keying the wire's maps by the identity the wire already publishes.
 
 ### Wire / materialization invariants (each cites its Core symbol)
 
 - **Dead code is RETURNED; reachability is the LSP's job.** All source is returned over `refs`/`fetch`
-  **including** dead/uncalled POUs — reachability is analyzed downstream, not a wire field. (Exclude-from-build
-  filtering was scoped — an object the IDE won't compile has no compiler ground truth — but is NOT implemented:
-  excluded objects are currently returned like any other source. If added, wire it into the tree walk, not a
-  `/debug` probe.)
+  **including** dead/uncalled POUs — reachability is analyzed downstream, not a wire field. **An object excluded
+  from the build is returned too, and SAYS so**: its text carries `%EXCLUDE_FROM_BUILD` (openspec
+  `bridge-one-to-one`; below), so a migration does not turn it into a built one and the LSP can tell an object
+  with no compiler ground truth. An excluded FOLDER is no item: it is named in the pull report with a known kind,
+  and each object in it is named unreadable with its kind — not published (nothing would read it as excluded), not
+  read as deleted, and an op on one is refused by name. A folder linked always, or holding defines, is named and
+  walked.
+- **Volt's text is the vendor's object, one to one** (openspec `bridge-one-to-one`). Every member of a vendor
+  object is SPELLED, a MEASURED editor cache (never read into the text or written), or REFUSED BY NAME — nothing
+  folded, guessed or defaulted. What a declaration and a body cannot hold travels as `%`-lines (`%CLASS`,
+  `%EXCLUDE_FROM_BUILD`, `%LINK_ALWAYS`, `%EXTERNAL`, `%COMMENT '…'`, `%NETVAR k: v`, … — `docs/items.html#properties`),
+  the fields of one closed record, `Item/ObjectProperties`, REQUIRED on `ItemContent` and `Member` (no default, so a
+  driver that has not read an object's properties cannot build its content). `Format/St/PropertyLines` is the one
+  spelling (the LSP mirrors it in `frontend/syntax/format/object-properties.ts`); a vendor member no field names
+  refuses the ITEM by name on pull. **The class is made at the create, never changed in place**
+  (`IProjectTree.CreateChild(…, ObjectClass?)`, DIALECT C2l/C2r/C2s): a create the vendor cannot make as that class
+  is refused by name, never made plain and reported ACCEPTED, and an update whose `%CLASS` differs is refused. A
+  member renamed in a push keeps its object (the vendor's rename — GUID and class kept) when exactly one member of
+  that kind was dropped and one added (`PushService.RenamePairs`); a same-name kind change is refused. A text written
+  before the `%`-lines is refused on push ("re-pull: the text predates object properties", the binding's format
+  version), because it would push "not excluded" over an excluded object.
 - **CONTENT travels as `ItemContent` over the vendor's own object model; STRUCTURE travels on the tree API.**
   This bullet used to say "content travels as ONE PLCopen document", and that has been false since the PLCopen
   transport was deleted: `ICodeStore.ReadContent`/`WriteContent` reach declarations and textual bodies through
@@ -171,10 +196,12 @@ guard that throws** — real projects legitimately repeat these names, and throw
   against the extension and never a reason to refuse. A DUT or a GVL is not read at all; a POU or an interface is
   read for its `IMPLEMENTATION` line and its CHILD elements, whose signature line is the only place a member's name
   exists (a child whose header cannot be read is refused naming the item and the line). A mistake in the text is
-  the IDE build's to report. It is the rule to refuse any future "normalize the header" on sight. **Three exceptions, and they are the whole
+  the IDE build's to report. It is the rule to refuse any future "normalize the header" on sight. **Two exceptions, and they are the whole
   list:** an ACTION's header is SYNTHESIZED (`ACTION <name>`, because IEC gives an action a name and a body and
-  nothing else, so there is no declaration to read), a property's accessors are framed with `GET`/`END_GET`, and
-  trailing NEWLINES are dropped at every block edge because `StWriter` cannot represent them.
+  nothing else, so there is no declaration to read), and a property's accessors are framed with `GET`/`END_GET`.
+  Trailing NEWLINES are no longer an exception: both vendors store them (DIALECT C35, `trailing-newline-cache`), so
+  the text between boundaries is the vendor text VERBATIM plus exactly one separator newline, which is all the reader
+  strips (openspec `bridge-one-to-one`; they were dropped at every block edge, a fold of stored content).
 - **What a pull writes, a push must send back unchanged:** `StWriter.Write(StReader.Read(x)) == x`, for every
   file, byte for byte. A workspace file IS the writer's output and a push feeds it straight back to the reader,
   so this identity is the whole guarantee that pull-then-push is a no-op — and every byte the pair disagrees on
@@ -212,9 +239,13 @@ guard that throws** — real projects legitimately repeat these names, and throw
 - **Property accessor shape round-trips byte-identically** — GET-only / SET-only / GET+SET preserved on both
   bridges. **Presence is the object**: an ABSENT accessor (`null`) is kept distinct from a present-but-bodiless
   one, which is what lets a push drop a getter. `PushService.ReconcileAccessor` creates and deletes them; the
-  drivers only write into one that exists, and an INTERFACE property's accessors are never written at all —
-  TwinCAT COM can hard-crash the IDE on that (DIALECT D4d's neighbourhood, and the reason
-  `IProjectTree.InterfacePropertyAccessors` is a per-vendor call).
+  drivers only write into one that exists. Whether an accessor is the GET or the SET is the vendor's own member
+  (CODESYS `IsGetAccessor`), never the accessor's name; one that answers none is refused by name. An INTERFACE
+  property's accessor holds a declaration and no body: CODESYS writes the declaration (D41); TwinCAT COM can
+  hard-crash the IDE on that write (D21), so TwinCAT writes none — its IDE stores the constant `PUBLIC` / `VAR` /
+  `END_VAR`, read from the saved `.TcIO` and spelled as the EMPTY declaration CODESYS holds, so the same interface
+  pulls the same text on both (`test/shared/WireParityCases.cs`); any other stored text refuses the interface by
+  name, and a pushed non-empty declaration is refused on TwinCAT.
 - **Referenced-library signatures materialize under the Library Manager** — one canonical `.library` manifest per
   library (`Library/LibraryManifest`); `verbose` fetch (`FetchRequest.Verbose`) adds each element's declaration-only
   signature as a read-only item, excluded from `structureVersion`. Volt implements no signature extraction on TwinCAT, so the set is empty there. That is a gap in VOLT and
@@ -222,8 +253,16 @@ guard that throws** — real projects legitimately repeat these names, and throw
   returns ~181k chars of structured signatures on the fixture, out-of-process (DIALECT C2c). This line used to
   read "TwinCAT (out-of-process) can't extract", which was the same shape of invented incapacity as "TwinCAT has
   no move" (D4f) — both wrong, both for months.
-- **Round-trips are lossless** — push→fetch returns byte-identical `sourceText`/`folder`/`name`; an **emptied body
-  is cleared, not silently retained**. A vendor divergence is a parity defect.
+- **What round-trips, and what is refused instead** — push→fetch returns byte-identical `sourceText`/`folder`/`name`
+  for every member the text spells, and an **emptied body is cleared, not silently retained**. That is the
+  completeness oracle's claim (`scripts/completeness.ts`, openspec `bridge-one-to-one` 2.1: vendor object → text →
+  push into a blank copy → re-read reproduces every non-cache member, an undecided member fails by name) — not
+  "lossless": what the text does not spell is either a measured cache, refused by name (listed `unreadable` on pull,
+  `UNSUPPORTED` on push), or a named known divergence (`scripts/completeness.known.ts`; CODESYS's stored member and
+  sibling order, DIALECT C34, is the owner's open decision). The same object gives the same text on both vendors —
+  gated offline by `test/shared/WireParityCases.cs` on both drivers' doubles and live by `test/e2e/vendor-parity.test.ts`:
+  a stub manifest is `ItemKind.EmptyManifest` on both, a library's `SYSTEM` line is spelled only where CODESYS holds
+  it true (TwinCAT states no such member, C37). A vendor divergence is a parity defect.
 - **Skipped/errored items are logged, never silently dropped** (`Volt.Contracts/VoltLog`) with `name` + reason.
 - **The wire is a local named pipe, never a network socket** — there is no listening port and no browser-reachable
   surface, so a web page can't drive `push` (the HTTP-era cross-origin guard is moot).
@@ -388,16 +427,21 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     typed `<interface>`, so the write was accepted and changed nothing. The document layer that hosted all five
     is deleted, and the rule outlived it: **address the object, never search under it.** `ICodeStore` now takes an
     `ItemRef` per item and `WriteMembers` resolves each member by NAME from one map.
-12. **A name is not a path.** Wire item names are bare (`Foo.pou`); workspace entries are src-relative paths
+12. **A name is not a path.** Wire item names carry no folder (`Foo.pou`); workspace entries are src-relative paths
     (`Folder/Foo.pou`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
     the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors
     found this independently from opposite sides of the call. If a set crosses that boundary, convert at the
     boundary and name the variable for what it holds.
-13. **A classifier must be TOTAL; a parser may be partial.** `RefinePou` returns a code for every input because
-    it runs inside the CODESYS tree walk, whose `try/catch` wraps only `GetChildren` — a throw there aborts
-    `WalkItems` and with it every fetch/refs/init/push for the project. A member-signature parser
-    (`StReader.ParseSignature`) throws by design. When the two must share logic, share the TOTAL half
-    (`CodeHelper.HeaderLine`) and let the strict caller add the throw.
+13. **One object never fails the walk — so a classifier may refuse, and must not guess.** `RefinePou` once had to
+    return a code for every input, because the CODESYS tree walk's `try/catch` wrapped only `GetChildren` and a
+    throw aborted `WalkItems` and with it every fetch/refs/init/push for the project — and "a code for every input"
+    meant a guess (`FUNCTION_BLOCK` for a text it could not read). Both are gone: a POU is one kind by its class, and
+    the walk now guards each child's classification (`CodesysDriver.Tree`, matching the TwinCAT walk), naming an
+    object whose kind cannot be read unreadable with its folder and counting that folder as not fully read. So a
+    classifier refuses by name instead (`CodesysTypeMap.AccessorCode`: an accessor's GET/SET is the vendor's
+    `IsGetAccessor`, never its name). What the guard must NOT catch is a binder failure (a missing member, an
+    ambiguous overload): it would hit every object and answer a successful walk with all of them unreadable, so it
+    fails the operation by name. A member-signature parser (`StReader.ParseSignature`) throws by design.
 14. **A reflective miss is a version mismatch, not a no-op.** `CodesysObjectModel.InvokeMethod` returned null when
     no overload matched, and every mutating call routes through it — so a renamed object-model method turns
     `SetObject(meta, true, null)` into a silent no-op: push reports success and the edit is gone. Its siblings

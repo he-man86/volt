@@ -210,7 +210,9 @@ branch in: the tree of the services that edit and navigate text (rename, referen
 values). `pragmas/` — the `{IF}` condition grammar and its evaluation (`conditional.ts`), and `{attribute …}`, attached
 once by the parser to the unit, member or declaration it decorates (`attributes.ts`; `FRONTEND_ATTRIBUTES` the ones the
 front-end answers by). `format/` — the Volt workspace file format, which is not
-CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, `%FOLDER`, the retired `(* @volt-… *)`
+CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, the `%`-lines (`object-properties.ts`: an
+object's properties — `%CLASS`, `%FOLDER`, `%EXCLUDE_FROM_BUILD`, … — the closed key list the bridge's
+`PropertyLines` spells, read and reported but never analysed as code; any other `%…` line is code), the retired `(* @volt-… *)`
 comments (read only as the hint of a body that states no language — a comment everywhere else, bridge-refusal-review
 2.1), which reader reads a body — its stated language alone, never what the text looks like — and what a file's
 extension says its object is (a DUT's or a GVL's
@@ -687,7 +689,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Source spans, tokens | `frontend/syntax/` (`Span`, `Token`) — the shared foundation everything imports down to |
 | Keywords, the dialect's vocabulary | `frontend/syntax/lex/vocabulary` |
 | AST node types | `frontend/syntax/ast/nodes` |
-| The Volt workspace file format (`IMPLEMENTATION` line, `%FOLDER`, which reader reads a body) | `frontend/syntax/format/` |
+| The Volt workspace file format (`IMPLEMENTATION` line, the `%`-lines incl. `%FOLDER`, which reader reads a body) | `frontend/syntax/format/` |
 | The library format (path layout, manifest, materialization) | `frontend/library/` |
 | Symbols, scopes | `frontend/symbols/` |
 | Scope-tree navigation | `frontend/symbols/scope-nav` |

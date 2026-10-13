@@ -1556,6 +1556,179 @@ window.VOLT = {
       "writable": false
     }
   ],
+  "objectProperties": [
+    {
+      "key": "CLASS",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%CLASS CHECK CheckBounds"
+          ]
+        },
+        {
+          "on": "a receiving NVL",
+          "lines": [
+            "%CLASS NVL"
+          ]
+        }
+      ],
+      "means": "The vendor class the text cannot tell: CHECK \u003Ccheck\u003E (a CODESYS implicit-check function, POUObjectCheckFunction), PERSISTENT (a persistent variable list), TEXTLIST_ENUM (a text-list-backed enumeration), NVL (a receiving network variable list). Made at the create, never changed in place."
+    },
+    {
+      "key": "FOLDER",
+      "examples": [
+        {
+          "on": "a method in a folder",
+          "lines": [
+            "%FOLDER Helpers"
+          ]
+        }
+      ],
+      "means": "A MEMBER\u0027s folder inside its POU (an item\u0027s folder is its path in the workspace)."
+    },
+    {
+      "key": "EXCLUDE_FROM_BUILD",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%EXCLUDE_FROM_BUILD"
+          ]
+        }
+      ],
+      "means": "The object is excluded from the build \u2014 BuildProperty.ExcludeFromBuild."
+    },
+    {
+      "key": "LINK_ALWAYS",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%LINK_ALWAYS"
+          ]
+        }
+      ],
+      "means": "The object is linked even when nothing calls it \u2014 BuildProperty.LinkAlways."
+    },
+    {
+      "key": "EXTERNAL",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%EXTERNAL"
+          ]
+        }
+      ],
+      "means": "The object is implemented externally \u2014 BuildProperty.External."
+    },
+    {
+      "key": "ENABLE_SYSTEM_CALL",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%ENABLE_SYSTEM_CALL"
+          ]
+        }
+      ],
+      "means": "BuildProperty.EnableSystemCall."
+    },
+    {
+      "key": "ONLINE_CHANGE_RESERVE",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%ONLINE_CHANGE_RESERVE 200"
+          ]
+        }
+      ],
+      "means": "The memory reserved for online change \u2014 BuildProperty.MemoryReserveForOnlineChange."
+    },
+    {
+      "key": "COMPILER_DEFINES",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%COMPILER_DEFINES \u0027SIMULATION\u0027"
+          ]
+        }
+      ],
+      "means": "The object\u0027s compiler defines, as an ST string \u2014 BuildProperty.CompilerDefines."
+    },
+    {
+      "key": "UNDEFINE",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%UNDEFINE \u0027DEBUG\u0027",
+            "%UNDEFINE \u0027TRACE\u0027"
+          ]
+        }
+      ],
+      "means": "One undefine per line, in the vendor\u0027s order \u2014 BuildProperty.Undefines."
+    },
+    {
+      "key": "COMMENT",
+      "examples": [
+        {
+          "on": "a check function",
+          "lines": [
+            "%COMMENT \u0027Bounds check for every array access\u0027"
+          ]
+        }
+      ],
+      "means": "The object comment, as an ST string \u2014 DocumentationProperty.Documentation."
+    },
+    {
+      "key": "PARAMETER_LIST",
+      "examples": [
+        {
+          "on": "a parameter list",
+          "lines": [
+            "%PARAMETER_LIST"
+          ]
+        }
+      ],
+      "means": "A GVL that is a parameter list \u2014 GVLObject.ParameterList."
+    },
+    {
+      "key": "NETVAR",
+      "examples": [
+        {
+          "on": "a sending GVL",
+          "lines": [
+            "%NETVAR ListIdentifier: 1",
+            "%NETVAR Interval: T#50ms"
+          ]
+        },
+        {
+          "on": "a receiving NVL",
+          "lines": [
+            "%NETVAR SenderGVLName: GVL_Send",
+            "%NETVAR ImportNetVarProperties.ListIdentifier: 1"
+          ]
+        }
+      ],
+      "means": "One network-variable member per line, its value as the vendor renders it: on a GVL (or a %CLASS PERSISTENT list) the sender\u0027s NetVarProperties; under %CLASS NVL the receiver\u0027s own members, then the sender settings it imported, each as ImportNetVarProperties.\u003Cmember\u003E."
+    },
+    {
+      "key": "FILE_LINK",
+      "examples": [
+        {
+          "on": "a GVL linked to a file",
+          "lines": [
+            "%FILE_LINK ExportBeforeCompile \u0027C:\\io\\gvl.txt\u0027"
+          ]
+        }
+      ],
+      "means": "A GVL linked to an external file: the link type, then the path as an ST string \u2014 FileLink."
+    }
+  ],
   "driver": [
     {
       "name": "IIdeSession",

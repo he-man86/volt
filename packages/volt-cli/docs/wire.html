@@ -15,8 +15,9 @@
 
 <h1>The wire</h1>
 <p class="lede">
-  Seven ops over a Windows named pipe. This is the parity boundary — both vendors answer identically — and it
-  is the thing to build a client against.
+  Seven ops over a Windows named pipe. This is the parity boundary — the same object answers with the same text
+  on both vendors, and what one vendor cannot hold it refuses by name (<a href="items.html#one-sided">items</a>) — and
+  it is the thing to build a client against.
 </p>
 <p>Ops: <span data-render="op-names"></span></p>
 
@@ -108,6 +109,17 @@
   (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
   is a re-type in one push, and is refused the same way.
 </div>
+<div class="note">
+  <b>The text carries the object's properties.</b> A <code>sourceText</code> spells, besides its declaration and body,
+  every object property the vendor holds as <a href="items.html#properties"><code>%</code>-lines</a>
+  (<code>%CLASS</code>, <code>%EXCLUDE_FROM_BUILD</code>, …) — so a <code>set</code> whose lines differ from the IDE's is
+  a change even when its code is not, and a create makes the class its <code>%CLASS</code> line names or is refused
+  <code>UNSUPPORTED</code> by name, never created as the plain class and reported ACCEPTED; an update whose
+  <code>%CLASS</code> differs from the IDE's is refused the same way (a class never changes in place — delete and create
+  it, two pushes). The same holds inside a
+  POU: a member renamed in one push keeps its IDE object when exactly one member of its kind was dropped and one
+  added; a member whose kind changes under the same name is refused.
+</div>
 <p>
   <b>Folders are not entities.</b> There is no folder op, because Volt models structure the way git does: a
   folder is the path an item lives in, created on demand from an item's <code>toFolder</code>, and a push
@@ -153,9 +165,9 @@
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
   <tr><td class="name">BAD_REQUEST</td><td>The request breaks the wire&rsquo;s own rules, whichever phase meets it. A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, a <code>fetch</code> with neither <code>knownItems</code> nor <code>onlyItems</code> nor <code>init: true</code> (it was <code>NO_SIDECAR</code>), a malformed <code>.task</code> descriptor, a push of a read-only descriptor, a move of an item that is no source item, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, or a name with no kind extension (<a href="#pou">a POU is <code>X.pou</code></a>, <a href="#dut">a DUT <code>X.dut</code></a>).</td><td>Fix the caller. The message names the op and the body type.</td></tr>
   <tr><td class="name">IDE_LOST_ITEM</td><td>A post-condition of a push: the IDE no longer holds what Volt just wrote or read during the apply &mdash; a member it created and cannot find again, a node not where the move put it, a task it acknowledged and does not list. Never &ldquo;the request names nothing&rdquo; &mdash; that is the gate&rsquo;s <a href="#gate-codes"><code>ITEM_MISSING</code></a>, answered before anything is written. (It was <code>NOT_FOUND</code>.)</td><td><code>volt pull</code> to see what landed, then push again; if it repeats, collect the <a href="logs.html">log</a>.</td></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent &mdash; never Volt&rsquo;s own rule about a request (<code>BAD_REQUEST</code>) and never a Volt bug (<code>INTERNAL_ERROR</code>). A shape this vendor cannot write, a create, import or task call-list rebuild the IDE refused, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, or an item whose kind has no canonical text form. (<code>INVALID_CODE_HEADER</code> is gone: a push never reads a top-level item's header, so nothing raises it.)</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>The IDE, or a documented Volt limit on a vendor shape, will not take what was sent &mdash; never Volt&rsquo;s own rule about a request (<code>BAD_REQUEST</code>) and never a Volt bug (<code>INTERNAL_ERROR</code>). A shape this vendor cannot write, a create, import or task call-list rebuild the IDE refused, a member kind with no mapping, a descriptor field the vendor has no counterpart for, a <code>%</code>-line this vendor has no measured member for, a class it cannot create (a <code>%CLASS</code> create), or a member re-typed under the same name. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, an item whose kind has no canonical text form, or an object holding a vendor member no text spells (the item is listed <code>unreadable</code> naming the member, never pulled without it). (<code>INVALID_CODE_HEADER</code> is gone: a push never reads a top-level item's header, so nothing raises it.)</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, or a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read, or a <code>%</code>-line out of place, out of order, repeated, or with a value it does not take &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
   <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized (or a member of it has no declaration), so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it. An item the IDE does not return at all (a member it holds no declaration for) cannot be updated in place, forced or not &mdash; the refusal says so: fix it in the IDE, or replace it &mdash; push its <code>deleteItem</code>, then push it again as a create.</td></tr>
   <tr><td class="name">INTERNAL_ERROR</td><td>Volt&rsquo;s own broken invariant, and nothing else: a state Volt&rsquo;s code guarantees cannot happen, or an exception nobody coded (the fallback of <code>PipeServer</code> and of the push&rsquo;s conflicts). An IDE state is never this &mdash; an unreadable folder is <code>ITEM_UNVERIFIED</code>, an IDE refusal <code>UNSUPPORTED</code>, a broken post-condition <code>IDE_LOST_ITEM</code>, a member the IDE holds no declaration for <code>UNREADABLE</code>, a save the IDE refused <code>IDE_SAVE_FAILED</code>.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
 </table>

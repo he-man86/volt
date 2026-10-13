@@ -73,14 +73,15 @@ string? BodyLanguage(ItemRef item);</pre>
 </p>
 
 <h2 id="vocabulary">The vocabulary</h2>
-<p>Five types cross the seam. They are Volt's own, and a driver converts its vendor's forms into them.</p>
+<p>Six types cross the seam. They are Volt's own, and a driver converts its vendor's forms into them.</p>
 <table>
   <tr><th>type</th><th>is</th></tr>
   <tr><td class="name">ItemRef</td><td>An opaque handle to one node in the IDE's tree — a <code>readonly struct</code> wrapping the vendor's native object. The engine never unwraps it.</td></tr>
   <tr><td class="name">ProjectItem</td><td>What a walk found: <code>(Name, Item, KindCode, Folder)</code>. <code>Name</code> is the stable identity, <code>Folder</code> its path from the tree root.</td></tr>
   <tr><td class="name">WalkResult</td><td><code>Items</code> plus <code>UnwalkedFolders</code> — and <code>Complete</code>. See below; this is the most easily-missed part of the contract.</td></tr>
-  <tr><td class="name">ItemContent</td><td><code>(Kind, Declaration, Body, Members)</code>. One record for both directions — a read builds it, the ST writer renders it, the ST reader parses it back, a push applies it.</td></tr>
-  <tr><td class="name">Member</td><td>A method, action or property, with its own declaration and body, and a property's <code>Getter</code>/<code>Setter</code>.</td></tr>
+  <tr><td class="name">ItemContent</td><td><code>(Kind, Declaration, Body, Members, Properties)</code>. One record for both directions — a read builds it, the ST writer renders it, the ST reader parses it back, a push applies it.</td></tr>
+  <tr><td class="name">Member</td><td>A method, action or property, with its own declaration, body and <code>Properties</code>, and a property's <code>Getter</code>/<code>Setter</code>.</td></tr>
+  <tr><td class="name">ObjectProperties</td><td>Every member of the vendor object that is neither its text nor a measured editor cache — its class where the text cannot tell it, its build properties, its comment, its network-variable settings, its file link (<a href="items.html#properties">the <code>%</code>-lines</a>). Closed and typed: a vendor member no field names refuses the item by name. <b>Required</b> on <code>ItemContent</code> and <code>Member</code>, with no default, so a driver that has not read an object's properties cannot build its content; <code>ObjectProperties.None</code> is for a kind with no vendor carrier at all (a task, a library reference, a device), never for an object the driver did not read.</td></tr>
 </table>
 
 <h3 id="walkresult">Why <code>WalkResult</code> carries completeness</h3>
@@ -107,6 +108,13 @@ string? BodyLanguage(ItemRef item);</pre>
   <tr><td class="name">Member.Getter / Setter</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>An <code>Accessor</code> with an empty body: it exists and has no code (the interface case).</td></tr>
   <tr><td class="name">SetItemOp.ToFolder</td><td>Keep the current folder.</td><td>A destination: the tree root.</td></tr>
 </table>
+<p>
+  And one place where a default would cost data: <b>the class at the create</b>. <code>IProjectTree.CreateChild</code>
+  takes the <code>ObjectClass</code> as a required argument (null is the kind's plain class) — a CODESYS object's class
+  never changes in place (DIALECT C2l), so a driver that cannot make the named class refuses the create by name
+  (<code>ChildRefusedException</code>) rather than making the plain one. <code>ValidateProperties</code> is the
+  pre-flight half: a property set this driver has no measured write for is refused before the first op lands.
+</p>
 
 <h2 id="threading">Threading, and why it is on the interface</h2>
 <p>
@@ -158,9 +166,10 @@ string? BodyLanguage(ItemRef item);</pre>
   <tr><th></th><th>CODESYS</th><th>TwinCAT</th></tr>
   <tr><td>process</td><td><b>In-process</b> — loaded into the IDE (net48), its own message loop answers the pipe.</td><td><b>Out-of-process</b> — a worker attached to one XAE window by pid, over COM.</td></tr>
   <tr><td>content</td><td>Mutates the live language-model objects.</td><td>Rewrites the item's own archive, and only the networks that changed.</td></tr>
-  <tr><td>create door</td><td>The scripting API, per kind.</td><td><code>PlcOpenImport</code> — the one create door, which is where most <code>UNSUPPORTED</code> refusals come from.</td></tr>
+  <tr><td>create door</td><td>The scripting API, per kind; a class the text names (a check function, a text-list enum, an abstract method) through the vendor's own factory or class (DIALECT C2r).</td><td><code>CreateChild</code> with the tree code; a new graphical body is resolved through <code>PlcOpenImport</code> into a scratch POU, then stored. No special class (C2s).</td></tr>
+  <tr><td>object properties</td><td>Read off the object's meta properties (<code>BuildProperty</code>, <code>DocumentationProperty</code>, <code>FileLink</code>) and its class; every key written.</td><td>Read from the saved files (<code>.plcproj</code> build entries, <code>&lt;ObjectProperties&gt;</code>); nothing measured to spell, so any key is refused by name.</td></tr>
   <tr><td>move</td><td><code>ScriptObject.Move</code>.</td><td><code>ExportChild</code>/<code>ImportChild</code>: the archive is a zip whose entry name carries the source path, so flattening that name is a move.</td></tr>
-  <tr><td>library signatures</td><td>Reflects the resolved compile context.</td><td>None yet — no equivalent surface has been found.</td></tr>
+  <tr><td>library signatures</td><td>Reflects the resolved compile context.</td><td>None yet — the surface exists (<code>ProduceAllLibrarySignatures</code>, DIALECT C2c); Volt does not read it.</td></tr>
   <tr><td>writable descriptors</td><td><code>.task</code>, every field a live setter.</td><td><code>.task</code>, assembled from two tree items and <b>read back after every write</b>, because this vendor accepts a schedule it does not apply.</td></tr>
 </table>
 <p>
