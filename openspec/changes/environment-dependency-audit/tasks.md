@@ -15,7 +15,9 @@
 
 ## 2. Fix
 
-- [ ] 2.1 Bundle MinGit (owner decision): payload `bin\git\`, the CLI always runs it with safe.directory/longpaths per call;
+- [ ] 2.1 Bundle MinGit (owner decision) in the FULL installer payload `bin\git\` only — NOT in the bridge-only packages
+      PLCAssist distributes (owner: "git should only be bundled for the complete CLI"); a gate asserts the bridge packages
+      carry no git. The CLI always runs it with safe.directory/longpaths per call;
       license + source pointer; installer and `test:install` assert it.
 - [ ] 2.2 Elevation: detect and name an elevated IDE (TwinCAT ROT miss + process present; CODESYS pipe access denied);
       a measured PipeSecurity for the CODESYS pipe admitting the same user unelevated.

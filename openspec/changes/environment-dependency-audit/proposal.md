@@ -30,7 +30,8 @@ formats, `TcXaeShell64` detection):
 
 ## What Changes
 
-- **Git bundled:** MinGit in the payload (`bin\git\`), the CLI always runs that copy (no PATH lookup), with
+- **Git bundled, CLI only:** MinGit in the FULL installer payload (`bin\git\`), never in the bridge-only packages (CODESYS
+  DLL, TwinCAT worker) PLCAssist ships; the CLI always runs that copy (no PATH lookup), with
   `safe.directory` and `core.longpaths` set per call; license and source pointer shipped (GPLv2); the installer and
   `test:install` assert it.
 - **Elevation named:** an elevated IDE detected (a TcXaeShell process the ROT cannot see; pipe access denied) and reported
