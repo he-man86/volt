@@ -14,32 +14,46 @@
       `TcXaeShell\Common7\IDE\Automation\msenvp.dll.manifest` exists (x86, 193 proxy-stub entries, the three IIDs
       among them; its `msenvp.dll` 15.0.35826.109). The MSI component-root (`00:`/`20:`) reading and the 64-bit
       `CoGetPSClsid` fallback were not re-run; the owner records above are PLCAssist's. Facts in DIALECT C2t.
-- [ ] 0.2 Prove or kill the hypothesis on a machine WITHOUT an x64 Visual Studio. Pick one, cheapest first: the
+- [x] 0.2 Prove or kill the hypothesis on a machine WITHOUT an x64 Visual Studio. Pick one, cheapest first: the
       customer's two `reg query` lines (via PLCAssist), the x64/x86 `QueryService(SVsSolution)` probe, or a clean VM
       with TwinCAT 3.1.4024 only. Record per bitness: `CoGetPSClsid`, `CoGetClassObject`, `QueryService` HRESULTs;
       whether `vs_minshellinteropmsi` (x86) is installed; whether XAE's private `Automation\msenvp.dll.manifest`
       exists.
-      **Open.** The owner approved turning this machine into the customer's state (delete the 64-bit
-      `CLSID\{E6D78900…}` key, permanently; export taken first:
-      `C:\Users\marce\Github\volt-machine-backups\msenvp-64bit\msenvp-clsid-64.reg`). The elevated delete was
-      REFUSED by the agent session's permission controls, so the registry is unchanged, the shipped worker was never
-      run without the 64-bit registration, and no before/after exists. What remains: run the delete elevated
-      (`reg delete "HKLM\SOFTWARE\Classes\CLSID\{E6D78900-BB40-4039-9C54-593A242B65DA}" /reg:64 /f`), then `refs`
-      on a fixture XAE with the pre-fix worker (expect `ITEM_UNVERIFIED … 0x80040154`) and with this change's worker
-      (expect green), and the TwinCAT e2e suite. Or the customer's two `reg query` lines.
+      **Done 2026-10-13, on this machine turned into the customer's state** (not a VM): the owner removed the 64-bit
+      registration from an elevated prompt (`reg delete "HKLM\SOFTWARE\Classes\CLSID\{E6D78900-BB40-4039-9C54-593A242B65DA}" /reg:64 /f`;
+      export kept at `C:\Users\marce\Github\volt-machine-backups\msenvp-64bit\msenvp-clsid-64.reg`), verified gone
+      in `/reg:64`; the `/reg:32` view (x86 `msenvp.dll` 15.0.27825.0) and XAE's private
+      `Automation\msenvp.dll.manifest` unchanged. By owner decision the machine stays this way. Same fixture
+      (Project14 copy, TcXaeShell 15.0 / 3.1.4024.74), same registry, two workers:
+      **pre-fix worker** (dev `ecd5feaf16`, win-x64 in-process read; temporary worktree, `ide.ps1 up -Instance tc-old`):
+      `health` `status: degraded`, `bridgeVersion (dev) ecd5feaf16…`; `refs` answered, in 86 ms,
+      `ITEM_UNVERIFIED: the Solution Explorer hierarchy is unreadable; Volt does not walk the TwinCAT tree without it
+      (DIALECT C2i): QueryService(SVsSolution) failed (0x80040154)` — **the field error, byte for byte.**
+      **This change's worker** (`6e2560ec13`, `ide.ps1 up -Instance tc-new`): `refs` green (18 items, 2818 ms cold —
+      it starts the helper), read through `VoltTwincatExplorer.exe --serve --xae-pid <xae>` (x86/WOW64, child of
+      the worker); full TwinCAT e2e (`VOLT_E2E_INSTANCE=tc-new bun run test:e2e:twincat`) **296 pass / 70 skip /
+      0 fail** (366 tests, 60 files, 1302 s), latency `refs` 173 ms for 18 items, fetch 1 166 ms, fetch all 189 ms,
+      empty push 410 ms. (A first run lost its XAE to an APPCRASH in `VCRUNTIME140_CLR0400.dll` `c0000005` during a
+      `build` in `endpoints/fetch` — `build failed: RPC 0x800706BE`, the IDE's own compile, after the hierarchy reads
+      had already answered; the rerun on a fresh instance was clean, 0 Application-1000 events.) Visual Studio
+      Community 2022 17.7.6 still starts without the 64-bit registration (start window up and responding, no
+      Application error events). Per-bitness `CoGetPSClsid`/`CoGetClassObject` HRESULTs not re-probed: the two
+      workers' answers are the discriminating measurement.
 - [ ] 0.3 Also record whether a fresh TwinCAT 4024 install writes the GLOBAL 32-bit msenvp registration, or only
       XAE's private manifest. That decides between an x86 client alone and an x86 client + `CreateActCtx`.
       **Open, and no longer decisive:** the fix activates XAE's own manifest on every read (proposal, Decision), so
       it does not depend on the global 32-bit registration. Proving that discriminatingly (an x86 reader with that
       registration absent) needs the same elevated change, or a fresh TwinCAT-only machine.
-- [ ] 0.4 Verdict in this file, with the evidence: CONFIRMED (missing 64-bit proxy), REFUTED (name the actual cause of
+- [x] 0.4 Verdict in this file, with the evidence: CONFIRMED (missing 64-bit proxy), REFUTED (name the actual cause of
       0x80040154), or OUTSIDE VOLT (the customer's install is broken in a way a stock TwinCAT machine is not).
       **Stop condition:** refuted or outside volt → record it, tell PLCAssist, and stop here. Section 1 only runs on
       CONFIRMED.
-      **Provisionally CONFIRMED by mechanism** (0.1: the only 64-bit proxy here is Visual Studio's; no TwinCAT
-      component registers one; PLCAssist reproduced 0x80040154 for a 32-bit-only proxy in a 64-bit process), not by a
-      run on a machine without it (0.2 open). Section 1 went ahead on the owner's requirement (a plain TwinCAT install
-      must work) — the fix does not need the verdict to be right, only the named error does.
+      **CONFIRMED (2026-10-13, discriminating).** Removing ONLY the 64-bit `CLSID\{E6D78900…}` registration (Visual
+      Studio's) turns the pre-fix worker's `refs` into the customer's exact error — `ITEM_UNVERIFIED …
+      QueryService(SVsSolution) failed (0x80040154)` — on a fixture that read green with it present; the same
+      registry with this change's worker (x86 helper, XAE's own manifest) reads the hierarchy and passes the full
+      TwinCAT e2e, 296 / 70 / 0 (0.2). Cause: the shipped x64 worker depended on a 64-bit proxy only Visual Studio
+      2019/2022 installs. (0.1's mechanism reading stands; the earlier "provisionally" is retired.)
 
 ## 1. Fix (only after 0.4 says CONFIRMED)
 
@@ -72,7 +86,7 @@
       flags a bare-captioned POU), and the volt dev machine (no regression). Full C# suites green.
       **Dev machine done** (64-bit registration still present, so the helper path is what ran — XAE is 32-bit):
       TwinCAT e2e (`VOLT_E2E_INSTANCE=tc-x86`, Project14, through the helper) 296 pass / 70 skip / 0 fail; C# suites
-      (after the rebase onto dev `ecd5feaf16`) Twincat 490, Engine 2525 (+1 skipped), Cli 267, Codesys 367, Connector 120, Relay 62, Contracts 35, Repo.Gates 162 — all green; `bun run check` 18/18. **Open:** the TwinCAT-only run (0.2), a 64-bit XAE
+      (after the rebase onto dev `ecd5feaf16`) Twincat 490, Engine 2525 (+1 skipped), Cli 267, Codesys 367, Connector 120, Relay 62, Contracts 35, Repo.Gates 162 — all green; `bun run check` 18/18. **TwinCAT-only state done** (0.2: 64-bit registration removed, e2e 296 / 70 / 0 through the helper). **Open:** a 64-bit XAE
       (TcXaeShell64, TwinCAT 4026) live, and `bun run test:install` — it refuses to start while any
       `VoltBridgeTwincat.exe` runs, and another session's worker (on its own fixture XAE) was running throughout.
 
