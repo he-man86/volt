@@ -9,6 +9,11 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The red-first mark (openspec bridge-one-to-one 2): a gate that must fail until its task lands. A test helper, not
+         a package: the no-ProjectReference rule below stands. -->
+    <Compile Include="..\shared\ExpectRed.cs" Link="ExpectRed.cs" />
+  </ItemGroup>
   <!--
     NO ProjectReference, deliberately. These gates read the repo as TEXT - they walk src/, test/ and docs/ and
     assert properties of the tree. Referencing a package would be the first step toward one of them quietly

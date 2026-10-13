@@ -1,0 +1,4 @@
+[test]
+# The VOLT_TEST_CULTURE locale switch (openspec environment-dependency-audit 1.1) — the LSP's preload, shared: volt-control
+# holds the one locale-sensitive call of the product TS (diagnostics.ts, localeCompare), so its suite is the TS locale run.
+preload = ["../volt-lsp-iec/test/support/culture.ts"]

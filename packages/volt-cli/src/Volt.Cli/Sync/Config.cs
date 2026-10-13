@@ -68,9 +68,11 @@ public static class Config
     {
         // Folder-local: root must be its OWN repo root, else an ancestor repo's .git/volt would count (the
         // "already initialized" footgun in an empty subfolder). Paths() then resolves to <root>/.git.
+        // Past that check the folder IS a repo, so a failing `rev-parse` is git failing (not installed, a refused repo, a
+        // broken .git) — it propagates, named. It was swallowed here as "no binding", which told an engineer with a
+        // bound project to run `volt init` (openspec environment-dependency-audit 1.3).
         if (!Git.IsRepoRoot(root)) return false;
-        try { return File.Exists(Paths(root).ConfigPath); }
-        catch { return false; } // not a git repo yet → not an initialized Volt workspace
+        return File.Exists(Paths(root).ConfigPath);
     }
 
     public static WorkspaceConfig LoadConfig(string root)

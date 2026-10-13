@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- Every TEST project carries the culture switch and its sentinel (openspec environment-dependency-audit 1.1):
+       VOLT_TEST_CULTURE=tr-TR runs the whole assembly under tr-TR, and the sentinel fails a locale run whose threads did
+       not switch. Keyed on IsTestProject, which Microsoft.NET.Test.Sdk sets — so not the ControlHarness exe, which has no
+       xunit. A .targets file, not the .props: the package's IsTestProject is set after the .props is evaluated. -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)shared\TestCulture.cs" Link="Shared\TestCulture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)shared\TestCultureTests.cs" Link="Shared\TestCultureTests.cs" />
+  </ItemGroup>
+
+</Project>

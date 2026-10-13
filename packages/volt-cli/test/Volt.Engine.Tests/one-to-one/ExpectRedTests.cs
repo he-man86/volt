@@ -53,6 +53,20 @@ public class ExpectRedTests
                 () => throw new TaskDescriptorException("line 5: 'Core2' is not a task field.")));
     }
 
+    /// <summary>Review fix (environment-dependency-audit gate 1): an assertion is the red only for the reason the mark
+    /// names, when it names one — a CLI test red because git is missing must not stay red once git is there and the
+    /// verb fails for another reason.</summary>
+    [Fact]
+    public void An_assertion_is_the_red_only_for_the_reason_the_mark_names()
+    {
+        ExpectRed.Until("2.1", "no git", "start process 'git'",
+            () => Assert.True(false, "volt pull exit 1: An error occurred trying to start process 'git' …"));
+        Assert.Throws<Xunit.Sdk.TrueException>(() =>
+            ExpectRed.Until("2.1", "no git", "start process 'git'",
+                () => Assert.True(false, "volt pull exit 2: the pipe 'volt.bridge.x' is not there")));
+        Assert.Throws<StaleRedMarkException>(() => ExpectRed.Until("2.1", "fixed", "anything", () => { }));
+    }
+
     [Fact]
     public void A_body_that_passes_fails_the_mark()
     {

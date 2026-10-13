@@ -17,7 +17,7 @@
 # was false by the time it was read. A comment that overstates what a rename costs is how a job nobody needs
 # survives, because nobody dares touch it.
 #
-# `volt-cli` (the C# toolchain) is the one job on windows-latest — the net48/net10-windows IDE hosts + WinForms
+# `volt-cli` (the C# toolchain) and the C# half of `cultures` run on windows-latest — the net48/net10-windows IDE hosts + WinForms
 # connector don't build on Linux.
 name: ci
 
@@ -160,6 +160,58 @@ jobs:
         run: dotnet test packages/volt-cli/test/Volt.Contracts.Tests/Volt.Contracts.Tests.csproj -c Release --nologo
       - name: Test — repo gates (stale namespaces, test-only code in src, fixture-project integrity)
         run: dotnet test packages/volt-cli/test/Volt.Repo.Gates/Volt.Repo.Gates.csproj -c Release --nologo
+
+  # LOCALE RUNS (openspec environment-dependency-audit 1.1): the C# suites (net10 AND net48 — the CODESYS bridge runs
+  # in-proc under the IDE's culture) re-run under the three cultures customers have shown Volt bugs in or run it on —
+  # tr-TR (dotless ı: `VAR_INPUT` stopped matching), ru-RU (a TwinCAT customer), de-DE (decimal comma). A runner's
+  # Windows locale cannot be set per job, so the switch is in-process: VOLT_TEST_CULTURE, read when each C# test assembly
+  # loads (test/shared/TestCulture.cs) and by the TS preload (volt-lsp-iec/test/support/culture.ts); each suite has a
+  # sentinel test that fails a run whose culture did not switch. The TS cell runs volt-control — the package holding the
+  # product TS's one locale-sensitive call (diagnostics.ts) — and the LSP's sentinel only: the LSP's src calls no
+  # locale-sensitive API (JS toUpperCase and /i ignore the locale), so a full LSP run per culture could only go red on
+  # the sentinel; a NEW locale call anywhere in product TS is the repo gate's (CultureInvariantOperationsTests), not this.
+  cultures:
+    strategy:
+      fail-fast: false
+      matrix:
+        culture: [tr-TR, ru-RU, de-DE]
+        suite: [cli, ts]
+    runs-on: ${{ matrix.suite == 'cli' && 'windows-latest' || 'ubuntu-latest' }}
+    env:
+      VOLT_TEST_CULTURE: ${{ matrix.culture }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.suite == 'cli'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - if: matrix.suite == 'cli'
+        name: Build the whole toolchain
+        run: dotnet build packages/volt-cli/Volt.sln -c Release --nologo
+      - if: matrix.suite == 'cli'
+        name: Every C# suite under ${{ matrix.culture }}
+        shell: pwsh
+        run: |
+          $failed = @()
+          foreach ($p in 'Volt.Cli.Tests','Volt.Engine.Tests','Volt.Connector.Tests','Volt.Ide.Twincat.Tests','Volt.Ide.Codesys.Tests','Volt.Contracts.Tests','Volt.Repo.Gates') {
+            dotnet test "packages/volt-cli/test/$p/$p.csproj" -c Release --no-build --nologo
+            if ($LASTEXITCODE -ne 0) { $failed += $p }
+          }
+          if ($failed) { Write-Error "red under $env:VOLT_TEST_CULTURE: $($failed -join ', ')"; exit 1 }
+      - if: matrix.suite == 'ts'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - if: matrix.suite == 'ts'
+        run: bun install --frozen-lockfile
+      - if: matrix.suite == 'ts'
+        name: volt-control under ${{ matrix.culture }}
+        working-directory: packages/volt-control
+        run: bun test src
+      - if: matrix.suite == 'ts'
+        name: The LSP's locale sentinel under ${{ matrix.culture }}
+        working-directory: packages/volt-lsp-iec
+        run: bun test test/support/culture.test.ts
 
   # volt-control ↔ real connector: drive the TS control-plane CLIENT against the ACTUAL C# ControlServer (a scripted
   # harness), proving the cross-language wire agrees for a single IDE and for MULTIPLE instances across vendors — the

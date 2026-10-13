@@ -112,7 +112,8 @@ test/
                              in scripts/README.md)
   support/                   test-uri.ts — the URI a colocated test names a source by; call-diagnostics.ts — the
                              call-argument tests' harness; network-text-on.ts — the preload bunfig.toml names (test
-                             support, no suite)
+                             support, no suite); culture.ts — the VOLT_TEST_CULTURE locale switch, the second
+                             preload, with culture.test.ts, which fails a locale run that did not switch
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

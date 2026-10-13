@@ -68,6 +68,13 @@ The gating + the flip run in CI, so releasing needs no local .NET or Inno Setup,
 everything the installer will contain. You want `build:installer`. Run it directly (`bun
 scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
 
+**`binary-targets.ts` is a step of `build-payload.ts`** (its self-check, after the by-name file list): it reads the PE
+header of every `.exe`/`.dll` in the payload and refuses one built for a CPU its place does not allow — the in-proc
+CODESYS DLLs AnyCPU (every DLL under `codesys/` — 32- and 64-bit CODESYS load them), `VoltTwincatExplorer.exe` x86 (XAE's own x86 proxy), everything
+else x64/AnyCPU (openspec environment-dependency-audit 1.2). Run it directly (`bun scripts/binary-targets.ts [dir]`)
+on a `dist/volt` or an installed `{app}` (where Inno's uninstaller `unins000.exe` is x86, and allowed). What a PE header cannot say (the LSP's `-baseline` bun target, the installer's
+`ArchitecturesAllowed`) is held as text by `Volt.Repo.Gates/ShippedBinaryTargetTests`.
+
 Useful flags on `build-installer.ts`: `--skip-dist` (reuse the current `dist/volt`), `--rebuild-app` (force
 electron-builder), `--upload` / `--upload-only`.
 

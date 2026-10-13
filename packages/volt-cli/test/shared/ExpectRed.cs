@@ -39,10 +39,21 @@ public static class ExpectRed
         Run(task, finding, body, ex => ex is TRed && ex.Message.IndexOf(because, StringComparison.Ordinal) >= 0);
     }
 
-    private static void Run(string task, string finding, Action body, Func<Exception, bool>? red)
+    /// <summary>As <see cref="Until(string, string, Action)"/>, and the assertion's message must hold <paramref name="because"/>
+    /// (the product's own words for what the finding names: <c>dubious ownership</c>). An assertion failing for another
+    /// reason is not the red: it propagates — so a mark whose finding is fixed cannot stay red over a NEW failure.</summary>
+    public static void Until(string task, string finding, string because, Action body)
+    {
+        if (string.IsNullOrEmpty(because))
+            throw new ArgumentException("a mark naming its reason names it", nameof(because));
+        Run(task, finding, body, null, ex => ex.Message.IndexOf(because, StringComparison.Ordinal) >= 0);
+    }
+
+    private static void Run(string task, string finding, Action body, Func<Exception, bool>? red,
+        Func<Exception, bool>? assertionIsTheRed = null)
     {
         try { body(); }
-        catch (Exception ex) when (ex is Xunit.Sdk.XunitException || (red is not null && red(ex)))
+        catch (Exception ex) when ((ex is Xunit.Sdk.XunitException && (assertionIsTheRed is null || assertionIsTheRed(ex))) || (red is not null && red(ex)))
         {
             LastRed = ex;
             if (Environment.GetEnvironmentVariable("VOLT_EXPECT_RED_TRACE") is { Length: > 0 } trace)

@@ -324,7 +324,10 @@ public sealed class ConsoleServer : IDisposable
             return;
         }
 
-        var exe = Process.GetCurrentProcess().MainModule?.FileName ?? "volt";
+        // THIS volt, by its path. A bare "volt" fallback ran whatever `volt` the machine's PATH found first — another
+        // install, or none (openspec environment-dependency-audit, gate 1 review).
+        var exe = Environment.ProcessPath
+            ?? throw new InvalidOperationException("`volt console` cannot name its own executable to run the verb");
         var psi = new ProcessStartInfo(exe)
         {
             RedirectStandardOutput = true,

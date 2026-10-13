@@ -17,6 +17,7 @@
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
+import { check as checkTargets } from "./binary-targets.js"
 
 const repo = resolve(import.meta.dirname, "..")
 const out = resolve(repo, "dist/volt")
@@ -188,5 +189,14 @@ if (binFiles.join("|") !== binWanted.join("|")) {
   console.error(`✗ dist/volt/bin holds [${binFiles.join(", ")}], not exactly [${binWanted.join(", ")}] — it is the PATH dir`)
   process.exit(1)
 }
+
+// …and every binary in it is built for the CPU its place allows (binary-targets.ts: the in-proc CODESYS DLL AnyCPU, the
+// hierarchy reader x86, everything else x64/AnyCPU). The PE header is what Windows loads by, so it is read, not the csproj.
+const targets = checkTargets(out)
+if (targets.wrong.length > 0) {
+  console.error(`✗ ${targets.wrong.length} binaries in dist/volt are built for a CPU their place does not allow:\n  ${targets.wrong.join("\n  ")}`)
+  process.exit(1)
+}
+console.log(`  ✓ ${targets.read} binaries, each built for the CPU its place allows`)
 
 console.log(`\n✓ release binaries in ${out}`)
